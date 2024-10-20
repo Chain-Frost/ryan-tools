@@ -1,7 +1,6 @@
 [submodule "PyHMA"]
 	path = PyHMA
 	url = https://github.com/icobro/PyHMA.git
-
-[submodule "ryan-tools-unsorted"]
+[submodule "unsorted"]
 	path = unsorted
-	url = https://github.com/Chain-Frost/ryan-tools-unsorted
+	url = https://github.com/Chain-Frost/ryan-tools-unsorted.git
