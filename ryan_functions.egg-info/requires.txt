@@ -1,0 +1,13 @@
+numpy
+pandas
+pyshp
+geopandas
+fiona
+pyarrow
+matplotlib
+colorama
+XlsxWriter
+psutil
+black
+mypy
+colorlog

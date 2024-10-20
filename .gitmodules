@@ -1,0 +1,3 @@
+[submodule "PyHMA"]
+	path = PyHMA
+	url = https://github.com/icobro/PyHMA.git
