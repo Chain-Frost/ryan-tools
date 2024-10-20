@@ -1,3 +1,5 @@
 # ryan-tools
 
-still plenty more tidy up to do
+Still plenty more tidy up to do
+
+Cleaning up and improving scripts as they are used again
