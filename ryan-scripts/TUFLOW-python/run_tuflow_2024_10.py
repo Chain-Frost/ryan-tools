@@ -9,9 +9,9 @@ import psutil
 from dataclasses import dataclass, field
 from pathlib import Path
 import colorama
-from typing import Optional, List
 
-#2024-10-01 version 
+# 2024-10-04
+
 
 def get_parameters() -> "Parameters":
     """
@@ -41,7 +41,7 @@ def get_parameters() -> "Parameters":
     }
 
     # Process run variables to split strings into lists
-    run_variables = {k: split_strings(v) for k, v in run_variables_raw.items()}
+    run_variables = {k: split_input_strings(v) for k, v in run_variables_raw.items()}
 
     # Create Parameters instance
     params = Parameters(
@@ -57,26 +57,19 @@ def get_parameters() -> "Parameters":
     return params
 
 
-def split_strings(input_value: str | List[str]) -> List[str]:
+def split_input_strings(input_value: str | list[str]) -> list[str]:
     """
     Splits input strings into a list of strings based on whitespace.
 
     Args:
-        input_value (str | List[str]): The input string or list of strings to split.
+        input_value (str | list[str]): The input string or list of strings to split.
 
     Returns:
-        List[str]: A list of split strings.
+        list[str]: A list of split strings.
     """
     if isinstance(input_value, str):
-        input_list: List[str] = [input_value]
-    else:
-        input_list = input_value
-
-    split_list: List[str] = []
-    for item in input_list:
-        split_list.extend(item.strip().split())
-
-    return split_list
+        input_value = [input_value]
+    return [part for item in input_value for part in item.strip().split()]
 
 
 @dataclass
@@ -89,10 +82,10 @@ class CoreParameters:
     tuflowexe: Path
     batch_commands: str = "-x"
     computational_priority: str = "NORMAL"  # Use Windows START command priority options
-    next_run_file: Optional[str] = None
-    priority_order: Optional[str] = None
+    next_run_file: str | None = None
+    priority_order: str | None = None
     run_simulations: bool = True
-    gpu_devices: List[str] = field(default_factory=lambda: ["-pu0"])
+    gpu_devices: list[str] = field(default_factory=lambda: ["-pu0"])
     wait_time_after_run: float = 2.0
 
 
@@ -103,7 +96,7 @@ class Parameters:
     """
 
     core_params: CoreParameters
-    run_variables: dict[str, List[str]]
+    run_variables: dict[str, list[str]]
 
 
 @dataclass
@@ -112,13 +105,13 @@ class Simulation:
     Represents a single simulation with its associated parameters and state.
     """
 
-    args_for_python: List[str]
+    args_for_python: list[str]
     command_for_batch: str
     assigned_gpu: str
     index: int
-    start_time: Optional[datetime.datetime] = field(default=None)
-    process: Optional[subprocess.Popen] = field(default=None)
-    end_time: Optional[datetime.datetime] = field(default=None)
+    start_time: datetime.datetime | None = field(default=None)
+    process: subprocess.Popen | None = field(default=None)
+    end_time: datetime.datetime | None = field(default=None)
 
 
 def check_and_set_defaults(params: Parameters) -> None:
@@ -137,9 +130,7 @@ def check_and_set_defaults(params: Parameters) -> None:
     for key in required_params:
         value = getattr(params.core_params, key)
         if not value:
-            raise ValueError(
-                f"Required parameter '{key}' is missing and must be set by the user."
-            )
+            raise ValueError(f"Required parameter '{key}' is missing and must be set by the user.")
 
 
 def validate_file_paths(core: CoreParameters) -> None:
@@ -157,17 +148,21 @@ def validate_file_paths(core: CoreParameters) -> None:
     # Note: The TCF file may not exist yet if it's generated during simulation
 
 
-def run_at_end(script_path: Optional[str] = None) -> None:
+def run_at_end(script_path: str | None = None) -> None:
     """
     Executes a script at the end of the simulations if provided.
 
     Args:
-        script_path (Optional[str]): The path to the script to execute.
+        script_path (str | None): The path to the script to execute.
     """
     if script_path:
         try:
+            creationflags = subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
             process = subprocess.Popen(
-                ["python", script_path], creationflags=subprocess.CREATE_NEW_CONSOLE
+                ["python", script_path],
+                creationflags=creationflags,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
             stdout, stderr = process.communicate()
 
@@ -175,17 +170,17 @@ def run_at_end(script_path: Optional[str] = None) -> None:
                 print("Script executed successfully.")
             else:
                 print(
-                    f"An error occurred:\nSTDOUT: {stdout.decode()}\nSTDERR: {stderr.decode()}"
+                    f"An error occurred while executing the script:\nSTDOUT: {stdout.decode()}\nSTDERR: {stderr.decode()}"
                 )
+        except FileNotFoundError:
+            print(f"Script not found: {script_path}")
         except Exception as e:
-            print(f"An error occurred: {e}")
+            print(f"An unexpected error occurred while running the script: {e}")
     else:
         print("No additional script to run at the end of simulations.")
 
 
-def filter_parameters(
-    parameters: dict[str, List[str]], tcf: Path
-) -> dict[str, List[str]]:
+def filter_parameters(parameters: dict[str, list[str]], tcf: Path) -> dict[str, list[str]]:
     """
     Filters out empty parameters and checks for mismatches with TCF placeholders.
 
@@ -196,9 +191,7 @@ def filter_parameters(
     Returns:
         dict[str, List[str]]: Filtered run variables.
     """
-    non_empty_parameters: dict[str, List[str]] = {
-        k: v for k, v in parameters.items() if v and v[0].strip()
-    }
+    non_empty_parameters: dict[str, list[str]] = {k: v for k, v in parameters.items() if v and v[0].strip()}
     parameter_names: set[str] = set(non_empty_parameters.keys())
 
     # Extract placeholders from TCF filename (two-character placeholders only)
@@ -209,14 +202,10 @@ def filter_parameters(
     extra_parameters: set[str] = parameter_names - tcf_parameters
 
     if missing_parameters:
-        print(
-            f"Warning: TCF filename is missing these flags: {', '.join(missing_parameters)}"
-        )
+        print(f"Warning: TCF filename is missing these flags: {', '.join(missing_parameters)}")
 
     if extra_parameters:
-        print(
-            f"Warning: TCF filename has extra flags not defined in run variables: {', '.join(extra_parameters)}"
-        )
+        print(f"Warning: TCF filename has extra flags not defined in run variables: {', '.join(extra_parameters)}")
 
     return non_empty_parameters
 
@@ -261,13 +250,13 @@ def get_psutil_priority(priority: str):
 
 def generate_arg_for_python(
     tuflowexe: Path,
-    batch: List[str],
+    batch: list[str],
     tcf: Path,
-    keys: List[str],
+    keys: list[str],
     combination: tuple[str, ...],
     max_lengths: dict[str, int],
     assigned_gpu: str,
-) -> List[str]:
+) -> list[str]:
     """
     Generates command arguments for a single simulation (for running within Python).
 
@@ -283,15 +272,12 @@ def generate_arg_for_python(
     Returns:
         List[str]: A list of command arguments.
     """
-    args: List[str] = [str(tuflowexe)]
+    args: list[str] = [str(tuflowexe)]
     args.extend(batch)
     args.append(assigned_gpu)
     args += [
         item
-        for sublist in (
-            [f"-{key}", f"{value.ljust(max_lengths[key])}"]
-            for key, value in zip(keys, combination)
-        )
+        for sublist in ([f"-{key}", f"{value.ljust(max_lengths[key])}"] for key, value in zip(keys, combination))
         for item in sublist
     ]
     args.append(str(tcf))
@@ -301,9 +287,9 @@ def generate_arg_for_python(
 def generate_arg_for_batch(
     computational_priority: str,
     tuflowexe: Path,
-    batch: List[str],
+    batch: list[str],
     tcf: Path,
-    keys: List[str],
+    keys: list[str],
     combination: tuple[str, ...],
     max_lengths: dict[str, int],
     # assigned_gpu: str  # Removed assigned_gpu from batch commands
@@ -347,13 +333,13 @@ def generate_arg_for_batch(
 def generate_all_args(
     computational_priority: str,
     tuflowexe: Path,
-    batch: List[str],
+    batch: list[str],
     tcf: Path,
-    keys: List[str],
-    combinations: List[tuple[str, ...]],
+    keys: list[str],
+    combinations: list[tuple[str, ...]],
     max_lengths: dict[str, int],
-    gpu_devices: List[str],
-) -> List[Simulation]:
+    gpu_devices: list[str],
+) -> list[Simulation]:
     """
     Generates command arguments for all simulations (for Python and batch file), assigning GPUs.
 
@@ -370,13 +356,11 @@ def generate_all_args(
     Returns:
         List[Simulation]: A list of Simulation objects with all necessary info.
     """
-    simulations: List[Simulation] = []
+    simulations: list[Simulation] = []
     total_simulations = len(combinations)
     for i, combination in enumerate(combinations):
         assigned_gpu = gpu_devices[i % len(gpu_devices)]
-        args_for_python = generate_arg_for_python(
-            tuflowexe, batch, tcf, keys, combination, max_lengths, assigned_gpu
-        )
+        args_for_python = generate_arg_for_python(tuflowexe, batch, tcf, keys, combination, max_lengths, assigned_gpu)
         command_for_batch = generate_arg_for_batch(
             computational_priority,
             tuflowexe,
@@ -398,193 +382,182 @@ def generate_all_args(
     return simulations
 
 
-def export_args(args_list: List[str], base_filename: str) -> None:
+def export_commands(commands_list: list[str], base_filename: str) -> None:
     """
     Exports the generated command strings to a batch file.
 
     Args:
-        args_list (List[str]): List of command strings.
+        commands_list (list[str]): List of command strings.
         base_filename (str): Base name for the output file.
     """
     script_name = Path(__file__).stem
     unique_filename = f"{script_name}_{base_filename}"
+    file_path = Path(unique_filename)
 
-    with open(unique_filename, "w") as file:
-        for command_str in args_list:
-            file.write(command_str + "\n")
+    try:
+        with file_path.open("w") as file:
+            file.write("\n".join(commands_list))
+        print(f"Commands exported successfully to {unique_filename}")
+    except IOError as e:
+        print(f"Failed to write to {unique_filename}: {e}")
 
 
 def main() -> None:
-    """
-    Main function to orchestrate the simulation setup and execution.
-    """
-    # Initialize colorama for colored text output
-    colorama.init()
-
-    # Print start time
-    script_start_time = datetime.datetime.now()
-    print(f"Script start time: {script_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-
-    script_dir = Path(__file__).resolve().parent
-    os.chdir(script_dir)
-    print(f"Script directory: {script_dir}")
-
-    # Print script file name
-    script_name = Path(__file__).name
-    print(f"Script file name: {script_name}\n")
-
-    params = get_parameters()
-    core = params.core_params
-
-    # Validate file paths
     try:
-        validate_file_paths(core)
-    except FileNotFoundError as e:
-        print(e)
-        return
+        """
+        Main function to orchestrate the simulation setup and execution.
+        """
+        # Initialize colorama for colored text output
+        colorama.init()
 
-    computational_priority = core.computational_priority
-    tuflowexe = core.tuflowexe
-    batch = split_strings(core.batch_commands)
-    tcf = core.tcf
-    next_run_file = core.next_run_file
-    wait_time_after_run = core.wait_time_after_run  # Now from core
-    gpu_devices = core.gpu_devices  # Now from core
+        # Print start time
+        script_start_time = datetime.datetime.now()
+        print(f"Script start time: {script_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # Filter and sort run variables according to the TCF file
-    filtered_run_variables = filter_parameters(params.run_variables, tcf)
+        script_dir = Path(__file__).resolve().parent
+        os.chdir(script_dir)
+        print(f"Script directory: {script_dir}")
 
-    if core.priority_order:
-        priority_order = split_strings(core.priority_order)
-        sorted_keys = sorted(
-            filtered_run_variables.keys(),
-            key=lambda x: (
-                priority_order.index(x) if x in priority_order else len(priority_order)
-            ),
+        # Print script file name
+        script_name = Path(__file__).name
+        print(f"Script file name: {script_name}\n")
+
+        params = get_parameters()
+        core = params.core_params
+
+        # Validate file paths
+        try:
+            validate_file_paths(core)
+        except FileNotFoundError as e:
+            print(e)
+            return
+
+        computational_priority = core.computational_priority
+        tuflowexe = core.tuflowexe
+        batch = split_input_strings(core.batch_commands)
+        tcf = core.tcf
+        next_run_file = core.next_run_file
+        wait_time_after_run = core.wait_time_after_run  # Now from core
+        gpu_devices = core.gpu_devices  # Now from core
+
+        # Filter and sort run variables according to the TCF file
+        filtered_run_variables = filter_parameters(params.run_variables, tcf)
+
+        if core.priority_order:
+            priority_order = split_input_strings(core.priority_order)
+            sorted_keys = sorted(
+                filtered_run_variables.keys(),
+                key=lambda x: (priority_order.index(x) if x in priority_order else len(priority_order)),
+            )
+        else:
+            sorted_keys = sorted(filtered_run_variables.keys())
+
+        combinations = list(itertools.product(*(filtered_run_variables[key] for key in sorted_keys)))
+
+        # Determine maximum lengths for padding
+        max_lengths = {key: max(len(value) for value in values) for key, values in filtered_run_variables.items()}
+        print(max_lengths)
+        # Generate all the command arguments and command strings
+        simulations = generate_all_args(
+            computational_priority,
+            tuflowexe,
+            batch,
+            tcf,
+            sorted_keys,
+            combinations,
+            max_lengths,
+            gpu_devices,
         )
-    else:
-        sorted_keys = sorted(filtered_run_variables.keys())
 
-    combinations = list(
-        itertools.product(*(filtered_run_variables[key] for key in sorted_keys))
-    )
+        # Print parameter values
+        print("Parameter values:")
+        print(params)
+        print()
 
-    # Determine maximum lengths for padding
-    max_lengths = {
-        key: max(len(value) for value in values)
-        for key, values in filtered_run_variables.items()
-    }
-    print(max_lengths)
-    # Generate all the command arguments and command strings
-    simulations = generate_all_args(
-        computational_priority,
-        tuflowexe,
-        batch,
-        tcf,
-        sorted_keys,
-        combinations,
-        max_lengths,
-        gpu_devices,
-    )
-
-    # Print parameter values
-    print("Parameter values:")
-    print(params)
-    print()
-
-    # Display all generated commands (for batch file)
-    print("All Generated Commands (for batch file):")
-    total_simulations = len(simulations)
-    padding_width = len(str(total_simulations))  # Determine the number of digits needed
-
-    for simulation in simulations:
-        print(f" {simulation.index:0{padding_width}d}: {simulation.command_for_batch}")
-    print()
-
-    # Export these command strings to a batch file
-    export_args(
-        args_list=[sim.command_for_batch for sim in simulations],
-        base_filename="commands.txt",
-    )
-
-    if core.run_simulations:
-        print(f"Run simulations: {core.run_simulations}")
+        # Display all generated commands (for batch file)
+        print("All Generated Commands (for batch file):")
         total_simulations = len(simulations)
-        running_processes: List[Simulation] = []
-        simulation_queue = simulations.copy()
-        completed_simulations = 0
+        padding_width = len(str(total_simulations))  # Determine the number of digits needed
 
-        while simulation_queue or running_processes:
-            # Start simulations up to the number of GPUs
-            while len(running_processes) < len(gpu_devices) and simulation_queue:
-                simulation = simulation_queue.pop(0)
-                simulation.start_time = datetime.datetime.now()
-                print(f"Running simulation {simulation.index} of {total_simulations}")
-                print(" ".join(simulation.args_for_python))
-                print(
-                    f"Start time: {simulation.start_time.strftime('%Y-%m-%d %H:%M:%S')}"
-                )
-                print(f"Assigned GPU: {simulation.assigned_gpu}")
-                print("Simulation started.")
+        for simulation in simulations:
+            print(f" {simulation.index:0{padding_width}d}: {simulation.command_for_batch}")
+        print()
 
-                # Start the process
-                process = subprocess.Popen(
-                    simulation.args_for_python,
-                    creationflags=subprocess.CREATE_NEW_CONSOLE,
-                )
-                # Set process priority
-                psutil_priority = get_psutil_priority(computational_priority)
-                process_psutil = psutil.Process(process.pid)
-                process_psutil.nice(psutil_priority)
-
-                simulation.process = process
-                running_processes.append(simulation)
-
-            # Check for completed processes
-            for simulation in running_processes.copy():
-                if (
-                    simulation.process is not None
-                    and simulation.process.poll() is not None
-                ):
-                    simulation.process.wait()
-                    simulation.end_time = datetime.datetime.now()
-                    if simulation.start_time and simulation.end_time:
-                        duration = format_duration(
-                            (
-                                simulation.end_time - simulation.start_time
-                            ).total_seconds()
-                        )
-                    else:
-                        duration = "Unknown"
-                    returncode = simulation.process.returncode
-                    if returncode == 0:
-                        # Print success message in green
-                        print(
-                            f"{colorama.Fore.GREEN}Simulation {simulation.index} completed successfully.{colorama.Style.RESET_ALL}"
-                        )
-                    else:
-                        # Print error message in red
-                        print(
-                            f"{colorama.Fore.RED}Simulation {simulation.index} failed with return code {returncode}.{colorama.Style.RESET_ALL}"
-                        )
-                    print(
-                        f"End time: {simulation.end_time.strftime('%Y-%m-%d %H:%M:%S')}"
-                    )
-                    print(f"Duration: {duration}\n")
-                    running_processes.remove(simulation)
-                    completed_simulations += 1
-
-            time.sleep(1)
-
-        run_at_end(script_path=next_run_file)
-    else:
-        print(
-            f"TUFLOW runs exported to batch file only - run_simulations: {core.run_simulations}\n"
+        # Export these command strings to a batch file
+        export_commands(
+            commands_list=[sim.command_for_batch for sim in simulations],
+            base_filename="commands.txt",
         )
 
-    # Wait for user input before exiting (Windows only; not tested on Linux)
-    if sys.platform == "win32":
-        os.system("pause")
+        if core.run_simulations:
+            print(f"Run simulations: {core.run_simulations}")
+            total_simulations = len(simulations)
+            running_processes: list[Simulation] = []
+            simulation_queue = simulations.copy()
+            completed_simulations = 0
+
+            while simulation_queue or running_processes:
+                # Start simulations up to the number of GPUs
+                while len(running_processes) < len(gpu_devices) and simulation_queue:
+                    simulation = simulation_queue.pop(0)
+                    simulation.start_time = datetime.datetime.now()
+                    print(f"Running simulation {simulation.index} of {total_simulations}")
+                    print(" ".join(simulation.args_for_python))
+                    print(f"Start time: {simulation.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                    print(f"Assigned GPU: {simulation.assigned_gpu}")
+                    print("Simulation started.")
+
+                    # Start the process
+                    process = subprocess.Popen(
+                        simulation.args_for_python,
+                        creationflags=subprocess.CREATE_NEW_CONSOLE,
+                    )
+                    # Set process priority
+                    psutil_priority = get_psutil_priority(computational_priority)
+                    process_psutil = psutil.Process(process.pid)
+                    process_psutil.nice(psutil_priority)
+
+                    simulation.process = process
+                    running_processes.append(simulation)
+
+                # Check for completed processes
+                for simulation in running_processes.copy():
+                    if simulation.process is not None and simulation.process.poll() is not None:
+                        simulation.process.wait()
+                        simulation.end_time = datetime.datetime.now()
+                        if simulation.start_time and simulation.end_time:
+                            duration = format_duration((simulation.end_time - simulation.start_time).total_seconds())
+                        else:
+                            duration = "Unknown"
+                        returncode = simulation.process.returncode
+                        if returncode == 0:
+                            # Print success message in green
+                            print(
+                                f"{colorama.Fore.GREEN}Simulation {simulation.index} completed successfully.{colorama.Style.RESET_ALL}"
+                            )
+                        else:
+                            # Print error message in red
+                            print(
+                                f"{colorama.Fore.RED}Simulation {simulation.index} failed with return code {returncode}.{colorama.Style.RESET_ALL}"
+                            )
+                        print(f"End time: {simulation.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                        print(f"Duration: {duration}\n")
+                        running_processes.remove(simulation)
+                        completed_simulations += 1
+
+                time.sleep(1)
+
+            run_at_end(script_path=next_run_file)
+        else:
+            print(f"TUFLOW runs exported to batch file only - run_simulations: {core.run_simulations}\n")
+
+        # Wait for user input before exiting (Windows only; not tested on Linux)
+        if sys.platform == "win32":
+            os.system("pause")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        if sys.platform == "win32":
+            os.system("pause")
 
 
 if __name__ == "__main__":
