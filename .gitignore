@@ -1,0 +1,6 @@
+.mypy_cache/
+pyrightconfig.json
+ryan_functions.egg-info/dependency_links.txt
+ryan_functions.egg-info/PKG-INFO
+ryan_functions.egg-info/SOURCES.txt
+ryan_functions.egg-info/top_level.txt
