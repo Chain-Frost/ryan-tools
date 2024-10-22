@@ -1,6 +1,48 @@
-import re
+import re  # Unlicensed regex
+import logging
+from typing import Any, Callable, Optional
 
-# Unlicensed regex
+# Configure the logger for the module
+logger = logging.getLogger(__name__)
+
+
+def safe_apply(func: Callable[[Any], Any], value: Any) -> Optional[Any]:
+    """
+    Safely applies a function to a given value, ignoring any exceptions that occur.
+
+    This function attempts to execute `func(value)`. If `func` raises an exception,
+    the exception is caught, an error is logged, and `None` is returned instead.
+
+    Args:
+        func (Callable[[Any], Any]): A function that takes a single argument and returns a value.
+        value (Any): The value to be processed by `func`.
+
+    Returns:
+        Optional[Any]: The result of `func(value)` if successful; otherwise, `None`.
+
+    Example:
+        >>> def divide_by_two(x):
+        ...     return x / 2
+        >>> safe_apply(divide_by_two, 10)
+        5.0
+        >>> safe_apply(divide_by_two, 'a')  # This will raise an exception inside divide_by_two
+        None
+    """
+    try:
+        # Attempt to apply the function to the value
+        result = func(value)
+        logger.debug(
+            f"Function {func.__name__} applied successfully on value: {value}. Result: {result}"
+        )
+        return result
+    except Exception as e:
+        # Catch all exceptions to prevent the application from crashing
+        logger.error(
+            f"Error applying function '{func.__name__}' on value '{value}': {e}",
+            exc_info=True,
+        )
+        return None
+
 
 def check_string_TP(string: str) -> str:
     """
@@ -19,8 +61,10 @@ def check_string_TP(string: str) -> str:
     """
     # Regex pattern to find 'TP' followed by exactly two digits, with context checks
     pattern = r"(?:[_+]|^)TP(\d{2})(?:[_+]|$)"
-    match: re.Match[str] | None = re.search(pattern=pattern, string=string, flags=re.IGNORECASE)
-    
+    match: re.Match[str] | None = re.search(
+        pattern=pattern, string=string, flags=re.IGNORECASE
+    )
+
     if match:
         return match.group(1)  # Return the two digits following 'TP'
     else:
@@ -45,7 +89,9 @@ def check_string_duration(string: str) -> str:
         ValueError: If no duration pattern is found in the string.
     """
     pattern = r"(?:[_+]|^)(\d{3,5}[mM])(?:[_+]|$)"
-    match: re.Match[str] | None = re.search(pattern=pattern, string=string, flags=re.IGNORECASE)
+    match: re.Match[str] | None = re.search(
+        pattern=pattern, string=string, flags=re.IGNORECASE
+    )
     if match:
         return match.group(0).replace("_", "").replace("m", "")
     else:
@@ -70,7 +116,9 @@ def check_string_aep(string: str) -> str:
         ValueError: If no AEP pattern is found in the string.
     """
     pattern = r"(?:[_+]|^)(\d{2}\.\d{1,2}p)(?:[_+]|$)"
-    match: re.Match[str] | None = re.search(pattern=pattern, string=string, flags=re.IGNORECASE)
+    match: re.Match[str] | None = re.search(
+        pattern=pattern, string=string, flags=re.IGNORECASE
+    )
     if match:
         return match.group(0).replace("_", "").replace("p", "")
     else:

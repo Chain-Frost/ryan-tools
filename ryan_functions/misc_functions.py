@@ -3,15 +3,10 @@ from datetime import datetime
 import pandas as pd
 import logging
 import sys
-from logging.handlers import RotatingFileHandler
 from typing import Optional
-import colorlog
-
-import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional
 
 # Attempt to import colorlog; handle gracefully if not installed
 try:
@@ -55,7 +50,7 @@ def setup_logging(
 
     if enable_color and COLORLOG_AVAILABLE:
         # Define color formatter
-        color_formatter = colorlog.ColoredFormatter(
+        color_formatter = colorlog.ColoredFormatter(  # type: ignore
             fmt=(
                 "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - "
                 "%(filename)s:%(lineno)d - %(funcName)s() - %(message)s%(reset)s"
