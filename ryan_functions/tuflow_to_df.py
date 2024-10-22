@@ -2,6 +2,7 @@ import pandas as pd
 import csv
 from typing import Any
 import os
+from ryan_functions.file_utils import is_non_zero_file
 
 
 def processCmx(maxData) -> pd.DataFrame:
@@ -11,7 +12,9 @@ def processCmx(maxData) -> pd.DataFrame:
         cleanedData.append([row[0], row[4], None, row[3]])
     # print(cleanedData)
     # we want to generate ['Chan ID', 'Time', 'Q', 'V', 'US_h', 'DS_h'. .1 is U
-    dfData: pd.DataFrame = pd.DataFrame(data=cleanedData, columns=["Chan ID", "Time", "Q", "V"])
+    dfData: pd.DataFrame = pd.DataFrame(
+        data=cleanedData, columns=["Chan ID", "Time", "Q", "V"]
+    )
     return dfData
 
 
@@ -27,7 +30,9 @@ def processNmx(maxData) -> pd.DataFrame:
             # just put pass here if you want to ignore this error and comment out the above line.
             # pass
     # print(cleanedData)
-    dfData: pd.DataFrame = pd.DataFrame(data=cleanedData, columns=["Chan ID", "Time", "US_h", "DS_h"])
+    dfData: pd.DataFrame = pd.DataFrame(
+        data=cleanedData, columns=["Chan ID", "Time", "US_h", "DS_h"]
+    )
     return dfData
 
 
@@ -118,6 +123,7 @@ def processCSV(file) -> pd.DataFrame:
     return dfData
 
 
+# redundant function
 def process1dcca(dbf_file) -> pd.DataFrame:
     import shapefile  # type:ignore
 
@@ -142,3 +148,106 @@ def process1dcca(dbf_file) -> pd.DataFrame:
         ccaData["file"] = fileName
         # print(ccaData)
     return ccaData
+
+
+def process1dcca(file_path):
+    file_extension = os.path.splitext(file_path)[-1].lower()
+
+    if file_extension == ".gpkg":
+        return process1dcca_geopackage(file_path)
+    elif file_extension == ".dbf":
+        return process1dcca_dbf(file_path)
+    else:
+        print(f"Unsupported file type: {file_extension}")
+        return None
+
+
+def process1dcca_geopackage(geopackage_path):
+    print(geopackage_path)
+
+    # Check file size
+    file_size = os.path.getsize(geopackage_path)
+    if file_size == 0:
+        print("GeoPackage is empty.")
+        return None
+
+    gdf = gpd.read_file(geopackage_path)
+    # list the layer names
+    layers = fiona.listlayers(geopackage_path)
+
+    # List all layers in the GeoPackage
+    # layers = gpd.io.file.fiona.listlayers(geopackage_path)
+
+    # Check if the GeoPackage is empty
+    if not layers:
+        print("GeoPackage is empty.")
+        return None
+
+    # Filter for the layer of interest, which ends with '1d_ccA_L'
+    layer_of_interest = [layer for layer in layers if layer.endswith("1d_ccA_L")]
+
+    if not layer_of_interest:
+        print("No layer ending with '1d_ccA_L' found.")
+        return None
+
+    # Assuming there's only one such layer, or taking the first if there are multiple
+    layer_name = layer_of_interest[0]
+
+    # Read the specific layer into a GeoDataFrame
+    gdf = gpd.read_file(geopackage_path, layer=layer_name)
+
+    # Convert GeoDataFrame to DataFrame if necessary, dropping geometry column
+    ccaData = pd.DataFrame(gdf.drop(columns="geometry"))
+
+    ccaData.rename(columns={"Channel": "Chan ID"}, inplace=True)
+
+    fileName = os.path.basename(geopackage_path)
+    # Adjusted to exclude the '_Results1D.gpkg' part for internalName
+    internalName = fileName.rsplit("_", 1)[
+        0
+    ]  # Splits at the last underscore and takes the first part
+    ccaData["internalName"] = internalName
+
+    for elem in enumerate(internalName.split("_"), start=1):
+        ccaData[f"R{elem[0]}"] = elem[1]
+
+    ccaData["path"] = geopackage_path
+    ccaData["file"] = fileName
+
+    return ccaData
+
+
+def process1dcca_dbf(dbf_file):
+    import shapefile
+
+    print(dbf_file)
+    if checkEmptyFile(dbf_file):
+        return None  # exit if file is empty
+
+    with open(dbf_file, "rb") as mydbf:
+        sf = shapefile.Reader(dbf=mydbf)
+        ccArecords = sf.records()
+        # skip the first field which is always DeletionFlag
+        fieldnames = [f[0] for f in sf.fields[1:]]
+        # print(fieldnames)
+        ccaData = pd.DataFrame(list(ccArecords), columns=fieldnames)
+        ccaData.rename(columns={"Channel": "Chan ID"}, inplace=True)
+
+        fileName = os.path.basename(dbf_file)
+        internalName = fileName[:-13]
+        ccaData["internalName"] = internalName
+        for elem in enumerate(internalName.split("_"), start=1):
+            ccaData[f"R{elem[0]}"] = elem[1]
+        ccaData["path"] = dbf_file
+        ccaData["file"] = fileName
+        # print(ccaData)
+    return ccaData
+
+
+def checkEmptyFile(file) -> bool:
+    # Check if file is empty by checking its size
+    if is_non_zero_file(file):
+        return False
+    else:
+        print(f"Skipping empty file: {file}")
+        return True
