@@ -1,0 +1,10 @@
+In QGIS 3.8 you can do more complicated file naming in the bulk processor using calculate by expression. Rather than hitting the ... you can do the Autofill... drop down and select calculate by expression and in the expression choose the field with your original file and add the text you want before or after the field.
+For example this expression adds degradation_ in front of my input file name (landuse_NY) in the input field:
+
+'C:/temp/200302/' || @INPUT ||'.gpkg'
+Resulting in degradation_landuse_NY.tif
+
+And this expression uses a regular expression to take the text after the last underscore in the file name and tack it on to degradation.
+
+'C:/Users/BP/Desktop/' || 'Degradation' || regexp_substr( @input ,'(?:.(?!_))+$')||'.tif'
+Resulting in Degradation_NY.tif

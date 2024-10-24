@@ -3,9 +3,16 @@ from datetime import datetime
 import pandas as pd
 import logging
 import multiprocessing
-from traitlets import Bool
-from ryan_functions.misc_functions import setup_logging, calculate_pool_size, save_to_excel
-from ryan_functions.data_processing import check_string_TP, check_string_duration, check_string_aep
+from ryan_functions.misc_functions import (
+    setup_logging,
+    calculate_pool_size,
+    save_to_excel,
+)
+from ryan_functions.data_processing import (
+    check_string_TP,
+    check_string_duration,
+    check_string_aep,
+)
 from ryan_functions.file_utils import find_files_parallel
 from typing import Any, Hashable
 from pathlib import Path
@@ -22,7 +29,9 @@ def search_for_completion(
 ) -> tuple[dict[str, str | datetime], int]:
     """Search log line for simulation completion markers."""
     if "Final Cumulative ME:" in line:
-        data_dict["Final Cumulative ME pct"] = line.split(r"%", 1)[0].split(":", 1)[1].strip()
+        data_dict["Final Cumulative ME pct"] = (
+            line.split(r"%", 1)[0].split(":", 1)[1].strip()
+        )
     if "Simulation FINISHED" in line:
         data_dict["EndStatus"] = line.strip()
         sim_complete = 1
@@ -40,7 +49,12 @@ def search_for_completion(
 
 
 def search_from_top(
-    line: str, data_dict: dict[str, str | datetime], success: int, spec_events: bool, spec_scen: bool, spec_var: bool
+    line: str,
+    data_dict: dict[str, str | datetime],
+    success: int,
+    spec_events: bool,
+    spec_scen: bool,
+    spec_var: bool,
 ) -> tuple[dict[str, str | datetime], int, bool, bool, bool]:
     """Search log line for key simulation details."""
     if "Build: " in line:
@@ -51,7 +65,9 @@ def search_from_top(
         data_dict["ComputerName"] = line.split(":", 1)[1].strip()
         success += 1
     elif "! GPU Solver from 2016-03 Release or earlier invoked." in line:
-        data_dict["Version_note"] = "! GPU Solver from 2016-03 Release or earlier invoked."
+        data_dict["Version_note"] = (
+            "! GPU Solver from 2016-03 Release or earlier invoked."
+        )
     elif "Simulation Started" in line:
         dt = line.split(":", 1)[1][1:].strip()[:-1]
         data_dict["StartDate"] = datetime.strptime(dt, "%Y-%b-%d %H:%M")
@@ -136,7 +152,9 @@ def process_log_file(logfile: str) -> pd.DataFrame:
     logging.info(f"Processing {runcode} : {logfile}")
 
     for line in reversed(lines):
-        data_dict, sim_complete = search_for_completion(line=line, data_dict=data_dict, sim_complete=sim_complete)
+        data_dict, sim_complete = search_for_completion(
+            line=line, data_dict=data_dict, sim_complete=sim_complete
+        )
         if sim_complete == 2:
             data_dict["Runcode"] = runcode
             break
@@ -199,7 +217,10 @@ def safe_apply(func, value):
 
 
 def find_initialisation_info(
-    line: str, _2023initialisation: bool, _2023final: bool, data_dict: dict[str, str | datetime]
+    line: str,
+    _2023initialisation: bool,
+    _2023final: bool,
+    data_dict: dict[str, str | datetime],
 ) -> tuple[bool, bool, dict[str, str | datetime]]:
     """Extract initialisation and final times from the log file."""
     if "Initialisation Times" in line:
@@ -239,11 +260,15 @@ def remove_e_s_from_runcode(runcode: str, data_dict: dict[str, str | datetime]) 
 
     # Gather all -e and -s values from dataDict to identify which to remove
     patterns_to_remove: list[str | datetime] = [
-        value for key, value in data_dict.items() if key.startswith("-e") or key.startswith("-s")
+        value
+        for key, value in data_dict.items()
+        if key.startswith("-e") or key.startswith("-s")
     ]
 
     # Filter out parts that match the values to remove
-    filtered_parts: list[str] = [part for part in parts if part not in patterns_to_remove]
+    filtered_parts: list[str] = [
+        part for part in parts if part not in patterns_to_remove
+    ]
 
     # Reconstruct the Runcode without the removed parts
     _tcf: str = "_".join(filtered_parts)
@@ -251,7 +276,9 @@ def remove_e_s_from_runcode(runcode: str, data_dict: dict[str, str | datetime]) 
     return _tcf
 
 
-def merge_and_sort_data(frames: list[pd.DataFrame], sort_column: str = "StartDate") -> pd.DataFrame:
+def merge_and_sort_data(
+    frames: list[pd.DataFrame], sort_column: str = "StartDate"
+) -> pd.DataFrame:
     """Merge data frames and sort by a specified column."""
     merged_df: pd.DataFrame = pd.concat(frames)
     merged_df.sort_values(by=sort_column, ascending=False, inplace=True)
@@ -268,7 +295,12 @@ def reorder_columns(
     columns: list[str] = (
         [first_column]
         + [second_column]
-        + [col for p in prefix_order for col in sorted(data_frame.columns) if col.startswith(p)]
+        + [
+            col
+            for p in prefix_order
+            for col in sorted(data_frame.columns)
+            if col.startswith(p)
+        ]
     )
     remaining_cols: list[Hashable] = [col for col in data_frame if col not in columns]
     return data_frame[columns + remaining_cols]
@@ -279,7 +311,9 @@ def main() -> None:
     root_dir: str = os.getcwd()
     logging.info(msg="Starting log file processing...")
 
-    files: list[str] = find_files_parallel(root_dir=root_dir, pattern=".tlf", exclude=(".hpc.tlf", ".gpu.tlf"))
+    files: list[str] = find_files_parallel(
+        root_dir=root_dir, pattern=".tlf", exclude=(".hpc.tlf", ".gpu.tlf")
+    )
     num_files: int = calculate_pool_size(num_files=len(files))
     logging.info(f"Processing {len(files)} files over {num_files} threads")
 
@@ -292,7 +326,11 @@ def main() -> None:
     if results:
         merged_data: pd.DataFrame = merge_and_sort_data(results)
         reordered_data: pd.DataFrame = reorder_columns(merged_data)
-        save_to_excel(data_frame=reordered_data, file_name_prefix="ModellingLog", sheet_name="Log Summary")
+        save_to_excel(
+            data_frame=reordered_data,
+            file_name_prefix="ModellingLog",
+            sheet_name="Log Summary",
+        )
         logging.info("Log file processing completed successfully.")
     else:
         logging.warning("No completed logs found - no output generated.")
