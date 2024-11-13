@@ -11,3 +11,6 @@ psutil
 black
 mypy
 colorlog
+laspy
+tqdm
+rasterio

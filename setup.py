@@ -2,7 +2,7 @@ from setuptools import setup, find_packages  # type:ignore
 
 setup(
     name="ryan_functions",
-    version="0.25",
+    version="0.26",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=[
         "numpy",
@@ -18,6 +18,9 @@ setup(
         "black",
         "mypy",
         "colorlog",
+        "laspy",
+        'tqdm',
+        'rasterio',
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],
     author="Chain Frost",
