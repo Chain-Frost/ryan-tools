@@ -109,3 +109,17 @@ def is_non_zero_file(fpath: str) -> bool:
             f"An unexpected error occurred while accessing file '{fpath}': {e}"
         )
         return False
+
+
+def ensure_output_directory(output_dir):
+    """
+    Ensures that the output directory exists; creates it if it does not.
+
+    Parameters:
+    - output_dir: str, path to the output directory.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        logging.info(f"Created output directory: {output_dir}")
+    else:
+        logging.info(f"Output directory already exists: {output_dir}")
