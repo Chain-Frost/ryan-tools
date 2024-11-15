@@ -21,9 +21,9 @@ def setup_logging(
     print(
         "Script needs to have the setup_logging() function call updated to logging_helpers.setup_logging"
     )
-    import logging_helpers
+    import ryan_functions.logging_helpers
 
-    logging_helpers.setup_logging(
+    ryan_functions.logging_helpers.setup_logging(
         log_level, log_file, max_bytes, backup_count, use_rotating_file, enable_color
     )
 
