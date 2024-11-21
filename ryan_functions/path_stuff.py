@@ -1,8 +1,7 @@
-import os
 from pathlib import Path
 
 # Define the mapping of network paths to drive letters
-network_drive_mapping = {r"\\bgersgtnas05.bge-resources.com\waterways": "Q:"}
+network_drive_mapping: dict[str, str] = {r"\\bgersgtnas05.bge-resources.com\waterways": "Q:"}
 
 
 def is_relative_to_current_directory(user_path):
@@ -11,7 +10,7 @@ def is_relative_to_current_directory(user_path):
     user_path = Path(user_path)
     print(user_path)
     # Get the current working directory
-    current_directory = Path.cwd()
+    current_directory: Path = Path.cwd()
     print(current_directory)
 
     try:
@@ -29,15 +28,15 @@ def convert_network_path_to_drive_letter(user_path):
     return user_path
 
 
-def convert_to_relative_path(user_path):
+def convert_to_relative_path(user_path) -> Path:
     # Convert user path to a Path object
     user_path = Path(user_path)
 
     # Convert network path to drive letter if applicable
-    user_path = convert_network_path_to_drive_letter(user_path)
+    user_path: Path = convert_network_path_to_drive_letter(user_path)
 
     # Get the current working directory
-    current_directory = Path.cwd()
+    current_directory: Path = Path.cwd()
 
     if is_relative_to_current_directory(user_path):
         # Return the relative path from the current directory

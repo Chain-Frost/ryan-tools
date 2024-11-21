@@ -21,6 +21,7 @@ setup(
         "laspy",
         "tqdm",
         "rasterio",
+        "seaborn",
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],
     author="Chain Frost",
