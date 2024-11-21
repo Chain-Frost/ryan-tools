@@ -22,6 +22,7 @@ setup(
         "tqdm",
         "rasterio",
         "seaborn",
+        "requests",
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],
     author="Chain Frost",
