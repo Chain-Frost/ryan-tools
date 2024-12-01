@@ -1,0 +1,18 @@
+digraph {
+	rankdir=LR
+	setup_logging [label=setup_logging]
+	calculate_pool_size [label=calculate_pool_size]
+	processPomm [label=processPomm]
+	processPomm -> signed_absmax
+	processPomm -> safe_apply
+	processPomm -> safe_apply
+	processPomm -> safe_apply
+	aggregate_data [label=aggregate_data]
+	main [label=main]
+	main -> setup_logging
+	main -> calculate_pool_size
+	main -> aggregate_data
+	main -> processPomm
+	signed_absmax [label=signed_absmax]
+	safe_apply [label=safe_apply]
+}
