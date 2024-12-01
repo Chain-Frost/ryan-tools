@@ -2,7 +2,7 @@ import pandas as pd
 import csv
 from typing import Any
 import os
-from ryan_functions.file_utils import is_non_zero_file
+from ryan_library.functions.file_utils import is_non_zero_file
 
 
 def processCmx(maxData) -> pd.DataFrame:
@@ -163,6 +163,9 @@ def process1dcca(file_path):
 
 
 def process1dcca_geopackage(geopackage_path):
+    import geopandas as gpd
+    import fiona
+
     print(geopackage_path)
 
     # Check file size
