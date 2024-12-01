@@ -2,7 +2,6 @@ import ast
 import argparse
 import logging
 from graphviz import Digraph
-from typing import List, Dict, Set
 
 # ===========================
 # Default Configuration
@@ -22,7 +21,7 @@ DEFAULT_OUTPUT = "function_flow_diagram"
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
 
-def extract_function_calls(node: ast.AST) -> List[str]:
+def extract_function_calls(node: ast.AST) -> list[str]:
     """
     Recursively extract function calls within an AST node.
 
@@ -30,7 +29,7 @@ def extract_function_calls(node: ast.AST) -> List[str]:
         node (ast.AST): The AST node to traverse.
 
     Returns:
-        List[str]: A list of function names that are called within the node.
+        list[str]: A list of function names that are called within the node.
     """
     calls = []
     for child in ast.iter_child_nodes(node):
@@ -48,7 +47,7 @@ def extract_function_calls(node: ast.AST) -> List[str]:
     return calls
 
 
-def extract_assigned_variables(node: ast.AST) -> Set[str]:
+def extract_assigned_variables(node: ast.AST) -> set[str]:
     """
     Recursively extract variable names that are assigned within an AST node.
 
@@ -56,7 +55,7 @@ def extract_assigned_variables(node: ast.AST) -> Set[str]:
         node (ast.AST): The AST node to traverse.
 
     Returns:
-        Set[str]: A set of variable names that are assigned within the node.
+        set[str]: A set of variable names that are assigned within the node.
     """
     assigned_vars = set()
     for child in ast.walk(node):
@@ -77,7 +76,7 @@ def extract_assigned_variables(node: ast.AST) -> Set[str]:
     return assigned_vars
 
 
-def extract_used_variables(node: ast.AST) -> Set[str]:
+def extract_used_variables(node: ast.AST) -> set[str]:
     """
     Recursively extract variable names that are used (read) within an AST node.
 
@@ -85,7 +84,7 @@ def extract_used_variables(node: ast.AST) -> Set[str]:
         node (ast.AST): The AST node to traverse.
 
     Returns:
-        Set[str]: A set of variable names that are used within the node.
+        set[str]: A set of variable names that are used within the node.
     """
     used_vars = set()
     for child in ast.walk(node):
@@ -127,17 +126,23 @@ def extract_function_flow(filepath: str) -> Digraph:
     # Initialize a directed graph
     flowchart = Digraph(name="Function and Variable Flow", format="png")
     flowchart.attr(rankdir="LR")  # Left to Right layout
-    flowchart.attr("node", shape="box", style="filled", color="lightblue2", fontname="Helvetica")
+    flowchart.attr(
+        "node", shape="box", style="filled", color="lightblue2", fontname="Helvetica"
+    )
 
-    functions: Dict[str, List[str]] = {}
-    function_assigned_vars: Dict[str, Set[str]] = {}
-    function_used_vars: Dict[str, Set[str]] = {}
-    global_assigned_vars: Set[str] = set()
-    global_used_vars: Set[str] = set()
+    functions: dict[str, list[str]] = {}
+    function_assigned_vars: dict[str, set[str]] = {}
+    function_used_vars: dict[str, set[str]] = {}
+    global_assigned_vars: set[str] = set()
+    global_used_vars: set[str] = set()
 
     # First, identify global assignments
     for node in tree.body:
-        if isinstance(node, ast.Assign) or isinstance(node, ast.AugAssign) or isinstance(node, ast.AnnAssign):
+        if (
+            isinstance(node, ast.Assign)
+            or isinstance(node, ast.AugAssign)
+            or isinstance(node, ast.AnnAssign)
+        ):
             vars_assigned = extract_assigned_variables(node)
             global_assigned_vars.update(vars_assigned)
             used_vars = extract_used_variables(node)
@@ -169,30 +174,62 @@ def extract_function_flow(filepath: str) -> Digraph:
     if not functions and not global_assigned_vars:
         logging.warning("No functions or variables found in the provided file.")
         # Create a graph with only Start and End
-        flowchart.node("Start", shape="ellipse", style="filled", color="green", fontname="Helvetica-Bold")
-        flowchart.node("End", shape="ellipse", style="filled", color="red", fontname="Helvetica-Bold")
+        flowchart.node(
+            "Start",
+            shape="ellipse",
+            style="filled",
+            color="green",
+            fontname="Helvetica-Bold",
+        )
+        flowchart.node(
+            "End",
+            shape="ellipse",
+            style="filled",
+            color="red",
+            fontname="Helvetica-Bold",
+        )
         flowchart.edge("Start", "End", label="no functions or variables", fontsize="10")
         return flowchart
 
     # Create Start and End nodes
-    flowchart.node("Start", shape="ellipse", style="filled", color="green", fontname="Helvetica-Bold")
-    flowchart.node("End", shape="ellipse", style="filled", color="red", fontname="Helvetica-Bold")
+    flowchart.node(
+        "Start",
+        shape="ellipse",
+        style="filled",
+        color="green",
+        fontname="Helvetica-Bold",
+    )
+    flowchart.node(
+        "End", shape="ellipse", style="filled", color="red", fontname="Helvetica-Bold"
+    )
 
     # Create nodes for each function
     for func in functions:
-        flowchart.node(func, shape="box", style="filled", color="lightblue2", fontname="Helvetica")
+        flowchart.node(
+            func, shape="box", style="filled", color="lightblue2", fontname="Helvetica"
+        )
 
     # Create nodes for each global variable
     for var in global_assigned_vars:
         flowchart.node(
-            var, shape="oval", style="filled", color="yellow", fontname="Helvetica", label=f"{var}\n(GLOBAL)"
+            var,
+            shape="oval",
+            style="filled",
+            color="yellow",
+            fontname="Helvetica",
+            label=f"{var}\n(GLOBAL)",
         )
 
     # Create nodes for variables assigned within functions
     for func, vars_assigned in function_assigned_vars.items():
         for var in vars_assigned:
             flowchart.node(
-                var, shape="oval", style="filled", color="lightgreen", fontname="Helvetica", label=f"{var}\n({func})"
+                var,
+                shape="oval",
+                style="filled",
+                color="lightgreen",
+                fontname="Helvetica",
+                label=f"{var}\n({func})",
             )
 
     # Create edges based on function calls
@@ -203,7 +240,14 @@ def extract_function_flow(filepath: str) -> Digraph:
                 logging.debug(f"Added edge from {func} to {call}")
             else:
                 # Handle external or undefined function calls
-                flowchart.node(call, shape="box", style="filled", color="orange", fontname="Helvetica", label=call)
+                flowchart.node(
+                    call,
+                    shape="box",
+                    style="filled",
+                    color="orange",
+                    fontname="Helvetica",
+                    label=call,
+                )
                 flowchart.edge(func, call, label="calls", fontsize="10")
                 logging.debug(f"Added external edge from {func} to {call}")
 
@@ -243,7 +287,9 @@ def parse_arguments() -> argparse.Namespace:
     Returns:
         argparse.Namespace: The parsed arguments.
     """
-    parser = argparse.ArgumentParser(description="Generate a function and variable flow diagram from a Python script.")
+    parser = argparse.ArgumentParser(
+        description="Generate a function and variable flow diagram from a Python script."
+    )
 
     # Optional argument for filepath with default value
     parser.add_argument(
@@ -264,7 +310,9 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     # Optional verbose flag
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging.")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose logging."
+    )
 
     return parser.parse_args()
 

@@ -82,7 +82,7 @@ def generate_geometries(combined_df):
         combined_df (pd.DataFrame): Combined DataFrame with culvert information.
 
     Returns:
-        Tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]: (polygons_gdf, lines_gdf)
+        tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]: (polygons_gdf, lines_gdf)
     """
     polygons = []
     polygon_attributes = []

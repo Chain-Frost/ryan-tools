@@ -1,8 +1,7 @@
-# ryan_functions/logging_helpers.py
+# ryan_library.functions/logging_helpers.py
 
 import logging
 import logging.handlers
-import multiprocessing
 import sys
 from typing import Optional
 from logging.handlers import RotatingFileHandler

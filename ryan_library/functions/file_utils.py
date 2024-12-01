@@ -1,4 +1,4 @@
-# ryan_functions.file_utils.py
+# ryan_library.functions.file_utils.py
 from concurrent.futures._base import Future
 from glob import iglob
 import os
@@ -15,7 +15,7 @@ def get_all_files(directory: str, file_extension: str = "tif") -> list[str]:
         file_extension (str): The file extension to filter by.
 
     Returns:
-        List[str]: A list of file paths.
+        list[str]: A list of file paths.
     """
     search_pattern: str = f"{directory}/**/*.{file_extension}"
     return [

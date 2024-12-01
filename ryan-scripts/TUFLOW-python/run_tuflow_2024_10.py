@@ -185,11 +185,11 @@ def filter_parameters(parameters: dict[str, list[str]], tcf: Path) -> dict[str, 
     Filters out empty parameters and checks for mismatches with TCF placeholders.
 
     Args:
-        parameters (dict[str, List[str]]): The run variables.
+        parameters (dict[str, list[str]]): The run variables.
         tcf (Path): The TCF file path.
 
     Returns:
-        dict[str, List[str]]: Filtered run variables.
+        dict[str, list[str]]: Filtered run variables.
     """
     non_empty_parameters: dict[str, list[str]] = {k: v for k, v in parameters.items() if v and v[0].strip()}
     parameter_names: set[str] = set(non_empty_parameters.keys())
@@ -262,15 +262,15 @@ def generate_arg_for_python(
 
     Args:
         tuflowexe (Path): Path to the TUFLOW executable.
-        batch (List[str]): Batch commands.
+        batch (list[str]): Batch commands.
         tcf (Path): Path to the TCF file.
-        keys (List[str]): List of parameter keys.
+        keys (list[str]): List of parameter keys.
         combination (tuple[str, ...]): A combination of parameter values.
         max_lengths (dict[str, int]): Maximum lengths of parameter values for padding.
         assigned_gpu (str): The GPU assigned to this simulation.
 
     Returns:
-        List[str]: A list of command arguments.
+        list[str]: A list of command arguments.
     """
     args: list[str] = [str(tuflowexe)]
     args.extend(batch)
@@ -300,9 +300,9 @@ def generate_arg_for_batch(
     Args:
         computational_priority (str): The computational priority (e.g., "NORMAL", "HIGH").
         tuflowexe (Path): Path to the TUFLOW executable.
-        batch (List[str]): Batch commands.
+        batch (list[str]): Batch commands.
         tcf (Path): Path to the TCF file.
-        keys (List[str]): List of parameter keys.
+        keys (list[str]): List of parameter keys.
         combination (tuple[str, ...]): A combination of parameter values.
         max_lengths (dict[str, int]): Maximum lengths of parameter values for padding.
 
@@ -346,15 +346,15 @@ def generate_all_args(
     Args:
         computational_priority (str): The computational priority (e.g., "NORMAL", "HIGH").
         tuflowexe (Path): Path to the TUFLOW executable.
-        batch (List[str]): Batch commands.
+        batch (list[str]): Batch commands.
         tcf (Path): Path to the TCF file.
-        keys (List[str]): List of parameter keys.
-        combinations (List[tuple[str, ...]]): All combinations of parameter values.
+        keys (list[str]): List of parameter keys.
+        combinations (list[tuple[str, ...]]): All combinations of parameter values.
         max_lengths (dict[str, int]): Maximum lengths of parameter values for padding.
-        gpu_devices: List[str]: List of GPU devices to assign.
+        gpu_devices: list[str]: List of GPU devices to assign.
 
     Returns:
-        List[Simulation]: A list of Simulation objects with all necessary info.
+        list[Simulation]: A list of Simulation objects with all necessary info.
     """
     simulations: list[Simulation] = []
     total_simulations = len(combinations)
