@@ -1,3 +1,4 @@
+# ryan_library.functions/process_12D_culverts.py
 import pandas as pd
 import re
 import os
@@ -6,11 +7,10 @@ import logging
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
 )
+
 
 def get_encoding(file_path):
     """
@@ -22,14 +22,15 @@ def get_encoding(file_path):
     Returns:
         str: 'utf-8' or 'utf-16'
     """
-    with open(file_path, 'rb') as f:
+    with open(file_path, "rb") as f:
         first_bytes = f.read(4)
-    if first_bytes.startswith(b'\xff\xfe') or first_bytes.startswith(b'\xfe\xff'):
-        return 'utf-16'
-    elif first_bytes.startswith(b'\xef\xbb\xbf'):
-        return 'utf-8-sig'
+    if first_bytes.startswith(b"\xff\xfe") or first_bytes.startswith(b"\xfe\xff"):
+        return "utf-16"
+    elif first_bytes.startswith(b"\xef\xbb\xbf"):
+        return "utf-8-sig"
     else:
-        return 'utf-8'
+        return "utf-8"
+
 
 def dms_to_decimal(dms_str):
     """
@@ -42,17 +43,22 @@ def dms_to_decimal(dms_str):
         float: Angle in decimal degrees.
     """
     try:
-        dms_str = dms_str.replace('"', '').replace('°', ' ').replace("'", ' ').strip()
+        dms_str = dms_str.replace('"', "").replace("°", " ").replace("'", " ").strip()
         parts = dms_str.split()
         if len(parts) != 3:
-            logging.warning(f"Unexpected DMS format '{dms_str}'. Setting angle_degrees to 0.0.")
+            logging.warning(
+                f"Unexpected DMS format '{dms_str}'. Setting angle_degrees to 0.0."
+            )
             return 0.0
         degrees, minutes, seconds = map(float, parts)
         decimal_degrees = degrees + minutes / 60 + seconds / 3600
         return decimal_degrees
     except Exception as e:
-        logging.error(f"Error converting DMS to decimal for '{dms_str}': {e}. Setting angle_degrees to 0.0.")
+        logging.error(
+            f"Error converting DMS to decimal for '{dms_str}': {e}. Setting angle_degrees to 0.0."
+        )
         return 0.0
+
 
 def get_field(upstream_val, downstream_val, default=None):
     """
@@ -67,12 +73,13 @@ def get_field(upstream_val, downstream_val, default=None):
     Returns:
         str or float: The selected field value.
     """
-    if pd.notna(upstream_val) and upstream_val.strip() != '':
+    if pd.notna(upstream_val) and upstream_val.strip() != "":
         return upstream_val.strip()
-    elif pd.notna(downstream_val) and downstream_val.strip() != '':
+    elif pd.notna(downstream_val) and downstream_val.strip() != "":
         return downstream_val.strip()
     else:
         return default
+
 
 def extract_numeric(value, field_name, culvert_name, dtype=float, default=0.0):
     """
@@ -91,8 +98,11 @@ def extract_numeric(value, field_name, culvert_name, dtype=float, default=0.0):
     try:
         return dtype(value)
     except ValueError:
-        logging.warning(f"Invalid {field_name} value '{value}' for culvert '{culvert_name}'. Setting to {default}.")
+        logging.warning(
+            f"Invalid {field_name} value '{value}' for culvert '{culvert_name}'. Setting to {default}."
+        )
         return default
+
 
 def parse_rpt_file(rpt_file_path):
     """
@@ -113,32 +123,33 @@ def parse_rpt_file(rpt_file_path):
     logging.info(f"Detected encoding for {os.path.relpath(rpt_file_path)}: {encoding}")
 
     try:
-        with open(rpt_file_path, 'r', encoding=encoding, errors='ignore') as file:
+        with open(rpt_file_path, "r", encoding=encoding, errors="ignore") as file:
             for line in file:
                 match = line_pattern.match(line)
                 if match:
                     angle = match.group(1).strip()
                     full_name = match.group(2).strip()
-                    if '->' in full_name:
-                        name = full_name.split('->')[-1].strip()
+                    if "->" in full_name:
+                        name = full_name.split("->")[-1].strip()
                     else:
                         name = full_name
                     # Remove any null characters and extra spaces
-                    name = name.replace('\x00', '').strip()
+                    name = name.replace("\x00", "").strip()
                     # Default angle to '0°0\'0"' if not found (already handled by regex)
                     if not angle:
-                        angle = '0°0\'0"'
+                        angle = "0°0'0\""
                     angle_degrees = dms_to_decimal(angle)
-                    culverts.append({
-                        "Name": name,
-                        "Angle": angle,
-                        "Angle_Degrees": angle_degrees
-                    })
-                    logging.info(f"Parsed Culvert - Name: {name}, Angle: {angle}, Angle_Degrees: {angle_degrees}")
+                    culverts.append(
+                        {"Name": name, "Angle": angle, "Angle_Degrees": angle_degrees}
+                    )
+                    logging.info(
+                        f"Parsed Culvert - Name: {name}, Angle: {angle}, Angle_Degrees: {angle_degrees}"
+                    )
     except Exception as e:
         logging.error(f"Error processing {os.path.relpath(rpt_file_path)}: {e}")
 
     return culverts
+
 
 def parse_txt_file(txt_file_path):
     """
@@ -153,74 +164,112 @@ def parse_txt_file(txt_file_path):
     culverts = []
     encoding = get_encoding(txt_file_path)
     logging.info(f"Detected encoding for {os.path.relpath(txt_file_path)}: {encoding}")
-    
+
     try:
         # Read the file, skip the first and third rows
-        df = pd.read_csv(txt_file_path, sep='\t', skiprows=[0, 2], encoding=encoding, dtype=str)
-        
+        df = pd.read_csv(
+            txt_file_path, sep="\t", skiprows=[0, 2], encoding=encoding, dtype=str
+        )
+
         # Normalize column names: strip spaces and convert to lowercase
         df.columns = df.columns.str.strip().str.lower()
 
         # Define the columns we need, including 'pipe type' and '*direction'
         required_columns = [
-            'string name', 'pit centre x', 'pit centre y', 'invert us',
-            'invert ds', 'pipe type', 'diameter', 'width', 'number of pipes', 'separation',
-            '*direction'
+            "string name",
+            "pit centre x",
+            "pit centre y",
+            "invert us",
+            "invert ds",
+            "pipe type",
+            "diameter",
+            "width",
+            "number of pipes",
+            "separation",
+            "*direction",
         ]
 
         # Check if all required columns are present
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
-            logging.warning(f"Missing columns {missing_columns} in {os.path.relpath(txt_file_path)}. Skipping this file.")
+            logging.warning(
+                f"Missing columns {missing_columns} in {os.path.relpath(txt_file_path)}. Skipping this file."
+            )
             return culverts
 
         # Since each culvert has two lines (upstream and downstream), group them
         df = df.reset_index(drop=True)
         num_rows = len(df)
         if num_rows % 2 != 0:
-            logging.warning(f"Odd number of culvert entries in {os.path.relpath(txt_file_path)}. The last entry will be skipped.")
+            logging.warning(
+                f"Odd number of culvert entries in {os.path.relpath(txt_file_path)}. The last entry will be skipped."
+            )
             df = df.iloc[:-1]
 
         for i in range(0, num_rows, 2):
             upstream = df.iloc[i]
-            downstream = df.iloc[i+1]
+            downstream = df.iloc[i + 1]
 
-            name_upstream = upstream['string name'].strip() if pd.notna(upstream['string name']) else None
-            name_downstream = downstream['string name'].strip() if pd.notna(downstream['string name']) else None
+            name_upstream = (
+                upstream["string name"].strip()
+                if pd.notna(upstream["string name"])
+                else None
+            )
+            name_downstream = (
+                downstream["string name"].strip()
+                if pd.notna(downstream["string name"])
+                else None
+            )
 
             # Validate that both lines belong to the same culvert
             if name_upstream != name_downstream:
-                logging.warning(f"Mismatched culvert names at lines {i+1} and {i+2} in {os.path.relpath(txt_file_path)}. Skipping these entries.")
+                logging.warning(
+                    f"Mismatched culvert names at lines {i+1} and {i+2} in {os.path.relpath(txt_file_path)}. Skipping these entries."
+                )
                 continue
 
             name = name_upstream
 
             # Extract fields separately for upstream and downstream
-            us_x = get_field(upstream['pit centre x'], None, '0.0')
-            us_y = get_field(upstream['pit centre y'], None, '0.0')
-            ds_x = get_field(downstream['pit centre x'], None, '0.0')
-            ds_y = get_field(downstream['pit centre y'], None, '0.0')
+            us_x = get_field(upstream["pit centre x"], None, "0.0")
+            us_y = get_field(upstream["pit centre y"], None, "0.0")
+            ds_x = get_field(downstream["pit centre x"], None, "0.0")
+            ds_y = get_field(downstream["pit centre y"], None, "0.0")
 
-            invert_us = get_field(downstream['invert us'], upstream['invert us'], '0.0')  # From downstream
-            invert_ds = get_field(upstream['invert ds'], downstream['invert ds'], '0.0')  # From upstream
-            diameter = get_field(upstream['diameter'], downstream['diameter'], '0.0')
-            width = get_field(upstream['width'], downstream['width'], '0.0')
-            number_of_pipes = get_field(upstream['number of pipes'], downstream['number of pipes'], '0')
-            separation = get_field(upstream['separation'], downstream['separation'], '0.0')
-            direction = get_field(upstream['*direction'], downstream['*direction'], 'Unknown')
-            pipe_type = get_field(upstream['pipe type'], downstream['pipe type'], 'Unknown')
+            invert_us = get_field(
+                downstream["invert us"], upstream["invert us"], "0.0"
+            )  # From downstream
+            invert_ds = get_field(
+                upstream["invert ds"], downstream["invert ds"], "0.0"
+            )  # From upstream
+            diameter = get_field(upstream["diameter"], downstream["diameter"], "0.0")
+            width = get_field(upstream["width"], downstream["width"], "0.0")
+            number_of_pipes = get_field(
+                upstream["number of pipes"], downstream["number of pipes"], "0"
+            )
+            separation = get_field(
+                upstream["separation"], downstream["separation"], "0.0"
+            )
+            direction = get_field(
+                upstream["*direction"], downstream["*direction"], "Unknown"
+            )
+            pipe_type = get_field(
+                upstream["pipe type"], downstream["pipe type"], "Unknown"
+            )
 
             # Convert numerical fields
-            us_x = extract_numeric(us_x, 'Pit Centre X (US)', name, float, 0.0)
-            us_y = extract_numeric(us_y, 'Pit Centre Y (US)', name, float, 0.0)
-            ds_x = extract_numeric(ds_x, 'Pit Centre X (DS)', name, float, 0.0)
-            ds_y = extract_numeric(ds_y, 'Pit Centre Y (DS)', name, float, 0.0)
-            invert_us = extract_numeric(invert_us, 'Invert US', name, float, 0.0)
-            invert_ds = extract_numeric(invert_ds, 'Invert DS', name, float, 0.0)
-            diameter = extract_numeric(diameter, 'Diameter', name, float, 0.0)
-            width = extract_numeric(width, 'Width', name, float, 0.0)
-            number_of_pipes = extract_numeric(number_of_pipes, 'Number of Pipes', name, int, 0)
-            separation = extract_numeric(separation, 'Separation', name, float, 0.0)
+            us_x = extract_numeric(us_x, "Pit Centre X (US)", name, float, 0.0)
+            us_y = extract_numeric(us_y, "Pit Centre Y (US)", name, float, 0.0)
+            ds_x = extract_numeric(ds_x, "Pit Centre X (DS)", name, float, 0.0)
+            ds_y = extract_numeric(ds_y, "Pit Centre Y (DS)", name, float, 0.0)
+            invert_us = extract_numeric(invert_us, "Invert US", name, float, 0.0)
+            invert_ds = extract_numeric(invert_ds, "Invert DS", name, float, 0.0)
+            diameter = extract_numeric(diameter, "Diameter", name, float, 0.0)
+            width = extract_numeric(width, "Width", name, float, 0.0)
+            number_of_pipes = extract_numeric(
+                number_of_pipes, "Number of Pipes", name, int, 0
+            )
+            separation = extract_numeric(separation, "Separation", name, float, 0.0)
 
             # Create culvert dictionary
             culvert = {
@@ -236,16 +285,19 @@ def parse_txt_file(txt_file_path):
                 "Number of Pipes": number_of_pipes,
                 "Separation": separation,
                 "Pipe Type": pipe_type,
-                "Direction": direction
+                "Direction": direction,
             }
 
             culverts.append(culvert)
-            logging.info(f"Parsed TXT Culvert - Name: {name}, US_X: {us_x}, US_Y: {us_y}, DS_X: {ds_x}, DS_Y: {ds_y}, Invert DS: {invert_ds}, Pipe Type: {pipe_type}, Direction: {direction}")
+            logging.info(
+                f"Parsed TXT Culvert - Name: {name}, US_X: {us_x}, US_Y: {us_y}, DS_X: {ds_x}, DS_Y: {ds_y}, Invert DS: {invert_ds}, Pipe Type: {pipe_type}, Direction: {direction}"
+            )
 
     except Exception as e:
         logging.error(f"Error processing {os.path.relpath(txt_file_path)}: {e}")
 
     return culverts
+
 
 def combine_data(rpt_data, txt_data):
     """
@@ -262,26 +314,33 @@ def combine_data(rpt_data, txt_data):
     txt_df = pd.DataFrame(txt_data)
 
     # Drop duplicate entries in rpt_df to ensure 'Name' is unique
-    rpt_df = rpt_df.drop_duplicates(subset=['Name'])
+    rpt_df = rpt_df.drop_duplicates(subset=["Name"])
     logging.info(f"Unique RPT Culverts: {len(rpt_df)}")
 
     # Similarly, ensure txt_df has unique 'Name's
-    txt_df = txt_df.drop_duplicates(subset=['Name'])
+    txt_df = txt_df.drop_duplicates(subset=["Name"])
     logging.info(f"Unique TXT Culverts: {len(txt_df)}")
 
     # Merge on 'Name' using outer join to include all culverts
-    combined_df = pd.merge(rpt_df, txt_df, on='Name', how='outer', suffixes=('_rpt', '_txt'))
+    combined_df = pd.merge(
+        rpt_df, txt_df, on="Name", how="outer", suffixes=("_rpt", "_txt")
+    )
 
     # If 'Angle' is missing or NaN, set it to '0°0\'0"'
-    combined_df['Angle'] = combined_df['Angle'].fillna('0°0\'0"')
+    combined_df["Angle"] = combined_df["Angle"].fillna("0°0'0\"")
 
     # Calculate 'Angle_Degrees' if missing
-    combined_df['Angle_Degrees'] = combined_df.apply(
-        lambda row: row['Angle_Degrees'] if pd.notna(row['Angle_Degrees']) else dms_to_decimal(row['Angle']),
-        axis=1
+    combined_df["Angle_Degrees"] = combined_df.apply(
+        lambda row: (
+            row["Angle_Degrees"]
+            if pd.notna(row["Angle_Degrees"])
+            else dms_to_decimal(row["Angle"])
+        ),
+        axis=1,
     )
 
     return combined_df
+
 
 def process_culvert_files(rpt_files, txt_files):
     """
@@ -320,6 +379,7 @@ def process_culvert_files(rpt_files, txt_files):
 
     return combined_df
 
+
 def process_multiple_files(directory):
     """
     Processes all .rpt and .txt files in the specified directory.
@@ -331,8 +391,16 @@ def process_multiple_files(directory):
         pd.DataFrame: Final combined DataFrame.
     """
     # List all .rpt and .txt files
-    rpt_files = [os.path.join(directory, f) for f in os.listdir(directory) if f.lower().endswith('.rpt')]
-    txt_files = [os.path.join(directory, f) for f in os.listdir(directory) if f.lower().endswith('.txt')]
+    rpt_files = [
+        os.path.join(directory, f)
+        for f in os.listdir(directory)
+        if f.lower().endswith(".rpt")
+    ]
+    txt_files = [
+        os.path.join(directory, f)
+        for f in os.listdir(directory)
+        if f.lower().endswith(".txt")
+    ]
 
     if not rpt_files and not txt_files:
         logging.warning("No .rpt or .txt files found in the specified directory.")
@@ -341,6 +409,7 @@ def process_multiple_files(directory):
     combined_df = process_culvert_files(rpt_files, txt_files)
 
     return combined_df
+
 
 def report_missing_culverts(combined_df):
     """
@@ -353,19 +422,24 @@ def report_missing_culverts(combined_df):
         None
     """
     # Culverts missing .rpt data (Angle is '0°0\'0"')
-    missing_rpt = combined_df[combined_df['Angle'] == '0°0\'0"']
+    missing_rpt = combined_df[combined_df["Angle"] == "0°0'0\""]
     if not missing_rpt.empty:
-        logging.info("\nCulverts missing or defaulted in .rpt data (Angle set to 0°0'0\"):")
-        logging.info(missing_rpt[['Name']].to_string(index=False))
+        logging.info(
+            "\nCulverts missing or defaulted in .rpt data (Angle set to 0°0'0\"):"
+        )
+        logging.info(missing_rpt[["Name"]].to_string(index=False))
 
     # Culverts missing .txt data (US_X or DS_X is 0.0 or NaN)
-    missing_txt = combined_df[(combined_df['US_X'] == 0.0) | 
-                              (combined_df['DS_X'] == 0.0) |
-                              (combined_df['US_X'].isna()) |
-                              (combined_df['DS_X'].isna())]
+    missing_txt = combined_df[
+        (combined_df["US_X"] == 0.0)
+        | (combined_df["DS_X"] == 0.0)
+        | (combined_df["US_X"].isna())
+        | (combined_df["DS_X"].isna())
+    ]
     if not missing_txt.empty:
         logging.info("\nCulverts missing .txt data (US_X or DS_X is 0.0 or NaN):")
-        logging.info(missing_txt[['Name']].to_string(index=False))
+        logging.info(missing_txt[["Name"]].to_string(index=False))
+
 
 def clean_and_convert(combined_df):
     """
@@ -379,31 +453,36 @@ def clean_and_convert(combined_df):
     """
     # Define numerical columns with their desired data types
     numerical_cols = {
-        'US_X': 'float',
-        'US_Y': 'float',
-        'DS_X': 'float',
-        'DS_Y': 'float',
-        'Invert US': 'float',
-        'Invert DS': 'float',
-        'Diameter': 'float',
-        'Width': 'float',
-        'Number of Pipes': 'Int64',  # Allows NaN
-        'Separation': 'float'
+        "US_X": "float",
+        "US_Y": "float",
+        "DS_X": "float",
+        "DS_Y": "float",
+        "Invert US": "float",
+        "Invert DS": "float",
+        "Diameter": "float",
+        "Width": "float",
+        "Number of Pipes": "Int64",  # Allows NaN
+        "Separation": "float",
     }
 
     for col, dtype in numerical_cols.items():
         if col in combined_df.columns:
             try:
-                if dtype == 'float':
-                    combined_df[col] = pd.to_numeric(combined_df[col], errors='coerce').fillna(0.0)
-                elif dtype == 'Int64':
-                    combined_df[col] = pd.to_numeric(combined_df[col], errors='coerce').astype('Int64')
+                if dtype == "float":
+                    combined_df[col] = pd.to_numeric(
+                        combined_df[col], errors="coerce"
+                    ).fillna(0.0)
+                elif dtype == "Int64":
+                    combined_df[col] = pd.to_numeric(
+                        combined_df[col], errors="coerce"
+                    ).astype("Int64")
             except Exception as e:
                 logging.error(f"Error converting column '{col}' to {dtype}: {e}")
         else:
             logging.warning(f"Column '{col}' not found in the combined DataFrame.")
 
     return combined_df
+
 
 def get_combined_df_from_files(directory):
     """
@@ -428,6 +507,7 @@ def get_combined_df_from_files(directory):
     combined_df = clean_and_convert(combined_df)
 
     return combined_df
+
 
 def get_combined_df_from_csv(csv_path):
     """

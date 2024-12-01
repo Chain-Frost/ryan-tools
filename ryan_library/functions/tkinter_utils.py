@@ -1,3 +1,4 @@
+# ryan_library.functions/tkinter_utils.py
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
 import queue
@@ -21,7 +22,9 @@ class TkinterApp:
         self.counters_enabled: dict[str, bool] = {}  # Manage counters' state
         self.title_bases: dict[str, str] = {}  # Base titles for widgets
         self.labels: dict[str, tk.Label] = {}  # References to the labels
-        self.queue: queue.Queue[tuple[str, str]] = queue.Queue()  # Queue for text updates
+        self.queue: queue.Queue[tuple[str, str]] = (
+            queue.Queue()
+        )  # Queue for text updates
         self.update_id: str | None = None  # ID for after method
 
     def create_text_box(

@@ -1,5 +1,9 @@
 import unittest
-from ryan_functions.data_processing import check_string_TP, check_string_duration, check_string_aep
+from ryan_library.functions.data_processing import (
+    check_string_TP,
+    check_string_duration,
+    check_string_aep,
+)
 
 # python -m unittest test_check_functions.py
 
