@@ -6,24 +6,29 @@ import re
 import os
 import sys
 import time
-from typing import Literal, Dict, List,  Tuple, Set, Union
+from typing import Union
 
-#12 March 2024 version
+# 12 March 2024 version
 
-def get_parameters() -> (
-    Dict[str, str | List[str] | Dict[str, List[str]] | Dict[str, int] | bool | float |None]
-):
+
+def get_parameters() -> dict[
+    str,
+    str | list[str] | dict[str, list[str]] | dict[str, int] | bool | float | None,
+]:
     # TCF and TUFLOWEXE settings
     tcf: str = r".\runs\~s1~_17_~s2~_~e1~_~e2~_~s4~.tcf"
     tuflowexe: str = r"C:\TUFLOW\2023-03-AD\TUFLOW_iSP_w64.exe"
     batch_commands: str = " -b -pu0 "
-    computational_priority:str = '/NORMAL' # /LOW /BELOWNORMAL /NORMAL /ABOVENORMAL /HIGH /REALTIME
-    #run_simulations: bool = False    #True False #if you only want the args list 
-    next_run_file:str|None= None  # "run_HBI_36.py" # Fine to leave this as None if you don't want to 
+    computational_priority: str = (
+        "/NORMAL"  # /LOW /BELOWNORMAL /NORMAL /ABOVENORMAL /HIGH /REALTIME
+    )
+    # run_simulations: bool = False    #True False #if you only want the args list
+    next_run_file: str | None = (
+        None  # "run_HBI_36.py" # Fine to leave this as None if you don't want to
+    )
     # priority_order = ['e3 s5']  # Define priority: e.g. ['e3', 's2'] e3 is highest, then s2, etc.
 
-    parameters: Dict[str, List[str]] = {
-     
+    parameters: dict[str, list[str]] = {
         # you don't need ' and spaces between items, they will be split automatically
         "e1": [" PMPMax "],  # 2aep AEP Event magnitude
         "e2": ["72hr 120hr"],  # StormDuration - event duration
@@ -46,12 +51,13 @@ def get_parameters() -> (
         "e9": [],  # not currently used
     }
 
-    
-    if 'priority_order' in locals(): #make sure it exists
-        priority_order = clean_priority_order(priority_order) #allows for list, string, mixed input
-    # the first item is the last to be iterated over. 
+    if "priority_order" in locals():  # make sure it exists
+        priority_order = clean_priority_order(
+            priority_order
+        )  # allows for list, string, mixed input
+    # the first item is the last to be iterated over.
     # so all the others would happen first before changing priority one
-    # will be sorted in alphabetical order for items not listed 
+    # will be sorted in alphabetical order for items not listed
 
     """ Options:
     -b batch mode
@@ -69,8 +75,8 @@ def get_parameters() -> (
     -x execute simulation (default) """
 
     parameters = filter_parameters(parameters, tcf)
-    parameters: Dict[str, List[str]] = split_strings_in_dict(parameters)
-    max_lengths: Dict[str, int] = {
+    parameters: dict[str, list[str]] = split_strings_in_dict(parameters)
+    max_lengths: dict[str, int] = {
         k: max(len(v) for v in values) if values else 0
         for k, values in parameters.items()
     }
@@ -79,16 +85,29 @@ def get_parameters() -> (
     if not batch_commands.strip():
         batch_commands = "-x"
     # Split the batch string into a list of strings based on spaces
-    batch: List[str] = batch_commands.split()
+    batch: list[str] = batch_commands.split()
     # Insert the new value at the beginning of the list
-    if computational_priority != '/NORMAL':
+    if computational_priority != "/NORMAL":
         batch.insert(0, computational_priority)
-
 
     # wait_time_after_run = 2.0  # Default wait time of 2 seconds
 
     local_vars = locals()
-    config = {key: local_vars[key] for key in ["tuflowexe", "tcf", "batch", "parameters", "max_lengths", "next_run_file", "wait_time_after_run", "run_simulations", "priority_order"] if key in local_vars}
+    config = {
+        key: local_vars[key]
+        for key in [
+            "tuflowexe",
+            "tcf",
+            "batch",
+            "parameters",
+            "max_lengths",
+            "next_run_file",
+            "wait_time_after_run",
+            "run_simulations",
+            "priority_order",
+        ]
+        if key in local_vars
+    }
     # Set defaults for optional variables if they are not set
     config.setdefault("next_run_file", None)
     config.setdefault("wait_time_after_run", 2.0)
@@ -97,10 +116,11 @@ def get_parameters() -> (
     required_vars = ["tuflowexe", "tcf", "batch"]
     missing_vars = [var for var in required_vars if var not in config]
     if missing_vars:
-        raise ValueError(f"Missing required configuration(s): {', '.join(missing_vars)}")
+        raise ValueError(
+            f"Missing required configuration(s): {', '.join(missing_vars)}"
+        )
 
-    return      config
-
+    return config
 
 
 def run_at_end(script_path: str | None = None) -> None:
@@ -123,31 +143,36 @@ def run_at_end(script_path: str | None = None) -> None:
     else:
         print("Run next path is None. No further execution.")
 
-def clean_priority_order(priority_order: Union[str, List[str]]) -> List[str]:
+
+def clean_priority_order(priority_order: Union[str, list[str]]) -> list[str]:
     return split_strings(priority_order)
 
-def split_strings(input: Union[str, List[str]]) -> List[str]:
+
+def split_strings(input: Union[str, list[str]]) -> list[str]:
     # Normalize the input to a list
     if isinstance(input, str):
         input_list = [input]
     else:  # input is already a list
         input_list = input
-    
+
     # Split each string by whitespace and flatten the list
     split_list = []
     for item in input_list:
         split_list.extend(item.split())
-    
+
     return split_list
 
-def split_strings_in_dict(params_dict: Dict[str, Union[str, List[str]]]) -> Dict[str, List[str]]:
+
+def split_strings_in_dict(
+    params_dict: dict[str, Union[str, list[str]]]
+) -> dict[str, list[str]]:
     for key, value in params_dict.items():
         # Use split_strings to handle both string and list of strings cases
         params_dict[key] = split_strings(value)
     return params_dict
 
 
-# def split_strings_in_dict(params_dict: Dict[str, Union[str, List[str]]]) -> Dict[str, List[str]]:
+# def split_strings_in_dict(params_dict: dict[str, Union[str, list[str]]]) -> dict[str, list[str]]:
 #     for key, value in params_dict.items():
 #         # Check if the value is a string and not just whitespace, then split
 #         if isinstance(value, str) and value.strip():
@@ -163,14 +188,14 @@ def split_strings_in_dict(params_dict: Dict[str, Union[str, List[str]]]) -> Dict
 
 
 def filter_parameters(
-    parameters: Dict[str, List[str]], tcf: str
-) -> dict[str, List[str]]:
+    parameters: dict[str, list[str]], tcf: str
+) -> dict[str, list[str]]:
     # Exclude parameters with effectively empty values
-    non_empty_parameters: dict[str, List[str]] = {
+    non_empty_parameters: dict[str, list[str]] = {
         k: v for k, v in parameters.items() if v and v[0].strip()
     }
-    parameter_names: Set[str] = set(non_empty_parameters.keys())
-    tcf_parameters: Set[str] = set(re.findall(r"~(\w{2})~", tcf))
+    parameter_names: set[str] = set(non_empty_parameters.keys())
+    tcf_parameters: set[str] = set(re.findall(r"~(\w{2})~", tcf))
 
     missing_parameters: set[str] = tcf_parameters - parameter_names
     extra_parameters: set[str] = parameter_names - tcf_parameters
@@ -202,14 +227,12 @@ def format_duration(duration: float) -> str:
     return formatted_duration
 
 
-
-def run_command(args: List[str], index: int, total: int) -> None:
+def run_command(args: list[str], index: int, total: int) -> None:
     print(f"Running simulation {index} of {total}")
     print(" ".join(args))
 
     start: datetime.datetime = datetime.datetime.now()
     print(f'Start time: {start.strftime("%Y-%m-%d %H:%M:%S")}')
-    
 
     # Adjusted for Windows to open in a new console window
     creation_flags = subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
@@ -222,31 +245,32 @@ def run_command(args: List[str], index: int, total: int) -> None:
     if process.returncode == 0:
         print("\033[92mSimulation completed successfully.\033[0m")  # Green
     else:
-        print(f"\033[91mSimulation failed with return code {process.returncode}.\033[0m")  # Red
+        print(
+            f"\033[91mSimulation failed with return code {process.returncode}.\033[0m"
+        )  # Red
 
     # if process.returncode == 0:
     #     print("Simulation completed successfully.")
     # else:
     #     print(f"Simulation failed with return code {process.returncode}.")
-    
+
     end: datetime.datetime = datetime.datetime.now()
     print(f'End time:   {end.strftime("%Y-%m-%d %H:%M:%S")}')
     print(f"Duration:   {format_duration((end-start).total_seconds())} ")
     print("")
 
 
-
 def generate_arg(
     tuflowexe: str,
-    batch: List[str],
+    batch: list[str],
     tcf: str,
-    keys: List[str],
-    combination: Tuple[str, ...],
-    max_lengths: Dict[str, int],
-) -> List[str]:
+    keys: list[str],
+    combination: tuple[str, ...],
+    max_lengths: dict[str, int],
+) -> list[str]:
     # Generate the argument, padding each value to the maximum length
     # Start with the tuflow executable and extend with the batch
-    args: List[str] = [tuflowexe]
+    args: list[str] = [tuflowexe]
     args.extend(batch)
     args += [
         item
@@ -262,25 +286,25 @@ def generate_arg(
 
 def generate_all_args(
     tuflowexe: str,
-    batch: List[str],
+    batch: list[str],
     tcf: str,
     keys,
     combinations,
-    max_lengths: Dict[str, int],
-) -> list[List[str]]:
+    max_lengths: dict[str, int],
+) -> list[list[str]]:
     return [
         generate_arg(tuflowexe, batch, tcf, keys, combination, max_lengths)
         for combination in combinations
     ]
 
 
-def export_args(args_list: list[List[str]], base_filename: str) ->None:
+def export_args(args_list: list[list[str]], base_filename: str) -> None:
     # Extract the base name of the current script without the .py extension
     script_name = os.path.splitext(os.path.basename(__file__))[0]
-    
+
     # Create a unique filename by appending the script name to the base filename
     unique_filename = f"{script_name}_{base_filename}"
-    
+
     # Proceed with exporting the arguments to the unique filename
     with open(unique_filename, "w") as file:
         for args in args_list:
@@ -292,37 +316,41 @@ def main() -> None:
     os.chdir(script_dir)
     print(script_dir)
     print("")
-    params: Dict[
-        str, str | List[str] | Dict[str, List[str]] | Dict[str, int] | None
+    params: dict[
+        str, str | list[str] | dict[str, list[str]] | dict[str, int] | None
     ] = get_parameters()
 
     tuflowexe: str = params["tuflowexe"]  # type: ignore
-    batch: List[str] = params["batch"]  # type: ignore
+    batch: list[str] = params["batch"]  # type: ignore
     tcf: str = params["tcf"]  # type: ignore
     next_run_file: str = params["next_run_file"]  # type: ignore
-    parameters: Dict[str, List[str]] = params["parameters"]  # type: ignore
-    max_lengths: Dict[str, int] = params["max_lengths"]  # type: ignore
-    wait_time_after_run: float = params["wait_time_after_run"] 
-
-
-
+    parameters: dict[str, list[str]] = params["parameters"]  # type: ignore
+    max_lengths: dict[str, int] = params["max_lengths"]  # type: ignore
+    wait_time_after_run: float = params["wait_time_after_run"]
 
     # Check if "priority_order" exists and is not None
     if params.get("priority_order") is not None:
         # Existing code to get keys and values from parameters
-        keys, values = zip(*parameters.items())    
+        keys, values = zip(*parameters.items())
         # Step 2: Sort keys based on custom order
-        priority_order =  params["priority_order"]
-        sorted_keys = sorted(keys, key=lambda x: priority_order.index(x) if x in priority_order else len(priority_order))
+        priority_order = params["priority_order"]
+        sorted_keys = sorted(
+            keys,
+            key=lambda x: (
+                priority_order.index(x) if x in priority_order else len(priority_order)
+            ),
+        )
         # Step 3: Use sorted_keys for combinations
-        combinations = list(itertools.product(*(parameters[key] for key in sorted_keys)))
+        combinations = list(
+            itertools.product(*(parameters[key] for key in sorted_keys))
+        )
     else:
         # Fallback to original keys order if priority_order doesn't exist
         sorted_keys, values = zip(*sorted(parameters.items()))
         combinations = list(itertools.product(*values))
 
     # Generate all the command line arguments
-    args_list: list[List[str]] = generate_all_args(
+    args_list: list[list[str]] = generate_all_args(
         tuflowexe, batch, tcf, sorted_keys, combinations, max_lengths
     )
 
@@ -346,10 +374,12 @@ def main() -> None:
         for i, args in enumerate(args_list, 1):
             run_command(args, i, len(args_list))
             if i < len(args_list):  # Wait only if it's not the last simulation
-                time.sleep(wait_time_after_run)            
+                time.sleep(wait_time_after_run)
         run_at_end(script_path=next_run_file)
     else:
-        print(f'TUFLOW runs exported to text file only - run_simulations: {params["run_simulations"]}')
+        print(
+            f'TUFLOW runs exported to text file only - run_simulations: {params["run_simulations"]}'
+        )
         print()
     subprocess.call("pause", shell=True)  # wait for exit
 

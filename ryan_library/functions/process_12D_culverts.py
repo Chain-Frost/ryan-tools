@@ -102,7 +102,7 @@ def parse_rpt_file(rpt_file_path):
         rpt_file_path (str): Path to the .rpt file.
 
     Returns:
-        List[dict]: A list of dictionaries with 'Name', 'Angle', and 'Angle_Degrees'.
+        list[dict]: A list of dictionaries with 'Name', 'Angle', and 'Angle_Degrees'.
     """
     culverts = []
     # Regex to match data lines
@@ -148,7 +148,7 @@ def parse_txt_file(txt_file_path):
         txt_file_path (str): Path to the .txt file.
 
     Returns:
-        List[dict]: A list of dictionaries with culvert details.
+        list[dict]: A list of dictionaries with culvert details.
     """
     culverts = []
     encoding = get_encoding(txt_file_path)
@@ -252,8 +252,8 @@ def combine_data(rpt_data, txt_data):
     Combines .rpt and .txt data based on the 'Name' field.
 
     Args:
-        rpt_data (List[dict]): Data from .rpt files.
-        txt_data (List[dict]): Data from .txt files.
+        rpt_data (list[dict]): Data from .rpt files.
+        txt_data (list[dict]): Data from .txt files.
 
     Returns:
         pd.DataFrame: Combined DataFrame with culvert information.
@@ -288,8 +288,8 @@ def process_culvert_files(rpt_files, txt_files):
     Processes all .rpt and .txt files and combines their data.
 
     Args:
-        rpt_files (List[str]): List of paths to .rpt files.
-        txt_files (List[str]): List of paths to .txt files.
+        rpt_files (list[str]): List of paths to .rpt files.
+        txt_files (list[str]): List of paths to .txt files.
 
     Returns:
         pd.DataFrame: Combined DataFrame with all culverts.

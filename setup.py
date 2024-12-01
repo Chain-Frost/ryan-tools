@@ -2,7 +2,7 @@ from setuptools import setup, find_packages  # type:ignore
 
 setup(
     name="ryan_functions",
-    version="0.30",
+    version="0.31",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     install_requires=[
         "numpy",

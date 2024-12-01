@@ -3,7 +3,7 @@ from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import List, Optional, Any, Dict
+from typing import Optional, Any
 import pandas as pd
 import csv
 
@@ -49,11 +49,11 @@ class PODetails:
     folder: str
     csv: Path
     TrimRC: str
-    run_params: Dict[str, str] = field(default_factory=dict)
+    run_params: dict[str, str] = field(default_factory=dict)
 
 
 def read_csv(
-    filepath: Path, separator: str, skip_row: List[int], header_row: int, skip_cols: int
+    filepath: Path, separator: str, skip_row: list[int], header_row: int, skip_cols: int
 ) -> pd.DataFrame:
     """
     Reads a CSV file and extracts the 'Flow' columns along with 'Time'.
@@ -61,7 +61,7 @@ def read_csv(
     Args:
         filepath (Path): Path to the CSV file.
         separator (str): Delimiter used in the CSV file.
-        skip_row (List[int]): Rows to skip at the start of the file.
+        skip_row (list[int]): Rows to skip at the start of the file.
         header_row (int): Row number to use as the column names.
         skip_cols (int): Number of columns to skip from the start.
 
@@ -105,7 +105,7 @@ def read_csv(
 
 def stats(
     freqdb: pd.DataFrame, statcol: str, tpcol: str, durcol: str
-) -> List[Optional[Any]]:
+) -> list[Optional[Any]]:
     """
     Extracts statistical metrics from the frequency database.
 
@@ -116,7 +116,7 @@ def stats(
         durcol (str): Column name for duration.
 
     Returns:
-        List[Optional[Any]]: List containing median, Tcrit, Tpcrit, low, and high values.
+        list[Optional[Any]]: List containing median, Tcrit, Tpcrit, low, and high values.
     """
     try:
         # Group by duration and calculate median
@@ -191,16 +191,16 @@ def process_PO_csv_name(PO_csv_filename: Path) -> Optional[PODetails]:
     )
 
 
-def process_files(file_subset: List[Path], duration_skip: List[str]) -> List[PODetails]:
+def process_files(file_subset: list[Path], duration_skip: list[str]) -> list[PODetails]:
     """
     Worker function to process a subset of PO files.
 
     Args:
-        file_subset (List[Path]): List of PO file paths.
-        duration_skip (List[str]): List of duration strings to skip.
+        file_subset (list[Path]): List of PO file paths.
+        duration_skip (list[str]): List of duration strings to skip.
 
     Returns:
-        List[PODetails]: List of PODetails objects.
+        list[PODetails]: List of PODetails objects.
     """
     PO_details_list = []
     for PO_file in file_subset:
@@ -216,12 +216,12 @@ def process_files(file_subset: List[Path], duration_skip: List[str]) -> List[POD
     return PO_details_list
 
 
-def process_hydrographCSV(params_dict: Dict[str, Any]) -> Optional[pd.DataFrame]:
+def process_hydrographCSV(params_dict: dict[str, Any]) -> Optional[pd.DataFrame]:
     """
     Processes a single hydrograph CSV to calculate durations exceeding thresholds.
 
     Args:
-        params_dict (Dict[str, Any]): Dictionary containing parameters and file information.
+        params_dict (dict[str, Any]): Dictionary containing parameters and file information.
 
     Returns:
         Optional[pd.DataFrame]: DataFrame with duration exceeding information or None.

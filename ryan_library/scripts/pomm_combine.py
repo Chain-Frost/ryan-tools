@@ -96,7 +96,7 @@ def aggregate_pomm_data(pomm_data: list[pd.DataFrame]) -> pd.DataFrame:
     Aggregate a list of DataFrames into a single DataFrame.
 
     Args:
-        pomm_data (List[pd.DataFrame]): List of DataFrames to aggregate.
+        pomm_data (list[pd.DataFrame]): List of DataFrames to aggregate.
 
     Returns:
         pd.DataFrame: Combined DataFrame containing all records.
