@@ -1,42 +1,54 @@
-import sys
 from pathlib import Path
+import os
+import sys
+import logging
 
-# Import the main function from the library
-from ryan_library.scripts.tuflow_results_styling import apply_styles
+# Import the LoggerConfigurator
+from ryan_library.functions.logging_helpers import LoggerConfigurator
+
+# Configure logging before importing the module that uses logging
+logger_config = LoggerConfigurator(
+    log_level=logging.INFO,
+    log_file=None,
+    use_rotating_file=False,
+    enable_color=True,
+)
+logger_config.configure()
+
+# Now import the TUFLOWResultsStyler class
+from ryan_library.scripts.tuflow_results_styling import TUFLOWResultsStyler
+
+# Get the logger
+logger = logging.getLogger(__name__)
 
 # User Overrides: Define your custom QML paths here
-# To override a QML path, uncomment and modify the following dictionary
-# Example:
-# user_qml_overrides = {
-#     "d_Max": "/path/to/custom/depth_for_legend_max2m.qml",
-#     "h_Max": "/path/to/custom/hmax.qml",
-#     # Add other overrides as needed
-# }
-
 user_qml_overrides: dict = {
     # "d_Max": "/path/to/custom/depth_for_legend_max2m.qml",
     # "h_Max": "/path/to/custom/hmax.qml",
-    # "V_Max": "/path/to/custom/velocities_scour_protection_mrwa.qml",
-    # "DEM_Z": "/path/to/custom/hillshade.qml",
-    # "1d_ccA_L": "/path/to/custom/1d_ccA.qml",
-    # "DIFF_P2-P1": "/path/to/custom/Depth_Diff_GOOOD.qml",
-    # "Results1D": "/path/to/custom/1d_ccA.qml",
+    # Add other overrides as needed
 }
 
 
 def main() -> None:
     """
     Entry point for the TUFLOWResultsStyling script.
+    Sets the working directory to the location of this script.
     """
     try:
-        if any(user_qml_overrides.values()):
-            # Remove entries that are not overridden
-            overrides = {k: v for k, v in user_qml_overrides.items() if v}
-            apply_styles(user_qml_overrides=overrides)
-        else:
-            apply_styles()
+        # Set working directory to the location of the script
+        script_location = (
+            Path(__file__).parent if "__file__" in globals() else Path.cwd()
+        )
+        os.chdir(script_location)
+
+        # Initialize and apply styles
+        styler = TUFLOWResultsStyler(user_qml_overrides=user_qml_overrides)
+        styler.apply_styles()
+        os.system("PAUSE")
+
     except Exception as e:
-        print(f"An error occurred: {e}", file=sys.stderr)
+        logger.error(f"An error occurred: {e}")
+        os.system("PAUSE")
         sys.exit(1)
 
 
