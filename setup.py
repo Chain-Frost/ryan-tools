@@ -23,6 +23,7 @@ setup(
         "rasterio",
         "seaborn",
         "requests",
+        "graphviz",
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],
     author="Chain Frost",
