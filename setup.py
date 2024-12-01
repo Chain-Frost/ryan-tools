@@ -2,8 +2,12 @@ from setuptools import setup, find_packages  # type:ignore
 
 setup(
     name="ryan_functions",
-    version="0.31",
+    version="0.322",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    include_package_data=True,  # Include package data as specified in MANIFEST.in
+    package_data={
+        "QGIS-styles.TUFLOW": ["*.qml"],
+    },
     install_requires=[
         "numpy",
         "pandas",
