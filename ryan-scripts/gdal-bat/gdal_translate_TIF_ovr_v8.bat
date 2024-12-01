@@ -16,10 +16,23 @@ REM ========================
 REM Environment Setup
 REM Check if the OSGeo4W environment setup script exists and execute it.
 REM ========================
+set "ENV_SETUP="
+
 IF EXIST "C:\OSGEO4W\bin\o4w_env.bat" (
-    Call "C:\OSGEO4W\bin\o4w_env.bat"
+    set "ENV_SETUP=C:\OSGEO4W\bin\o4w_env.bat"
 ) ELSE (
-    echo Error: OSGeo4W environment setup script not found at C:\OSGEO4W\bin\o4w_env.bat.
+    for /d %%D in ("C:\Program Files\QGIS*") do (
+        if exist "%%D\bin\o4w_env.bat" set "ENV_SETUP=%%D\bin\o4w_env.bat"
+    )
+    for /d %%D in ("C:\Program Files (x86)\QGIS*") do (
+        if exist "%%D\bin\o4w_env.bat" set "ENV_SETUP=%%D\bin\o4w_env.bat"
+    )
+)
+
+IF defined ENV_SETUP (
+    call "%ENV_SETUP%"
+) ELSE (
+    echo Error: OSGeo4W or QGIS environment setup script not found in expected locations.
     goto :eof
 )
 
