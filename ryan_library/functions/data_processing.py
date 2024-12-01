@@ -38,7 +38,7 @@ def safe_apply(func: Callable[[Any], Any], value: Any) -> Optional[Any]:
         return result
     except Exception as e:
         # Catch all exceptions to prevent the application from crashing
-        logger.error(
+        logger.debug(
             f"Error applying function '{func.__name__}' on value '{value}': {e}",
             exc_info=True,
         )

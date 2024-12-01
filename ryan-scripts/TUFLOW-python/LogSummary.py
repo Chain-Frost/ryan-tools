@@ -3,17 +3,18 @@ from datetime import datetime
 import pandas as pd
 import logging
 import multiprocessing
-from ryan_functions.misc_functions import (
+from ryan_library.functions.misc_functions import (
     setup_logging,
     calculate_pool_size,
     save_to_excel,
 )
-from ryan_functions.data_processing import (
+from ryan_library.functions.data_processing import (
     check_string_TP,
     check_string_duration,
     check_string_aep,
+    safe_apply,
 )
-from ryan_functions.file_utils import find_files_parallel
+from ryan_library.functions.file_utils import find_files_parallel
 from typing import Any, Hashable
 from pathlib import Path
 
@@ -206,14 +207,6 @@ def process_log_file(logfile: str) -> pd.DataFrame:
     else:
         logging.warning(msg=f"{runcode} ({success}) did not complete, skipping")
         return pd.DataFrame()  # Returning an empty DataFrame for consistency
-
-
-# Calculate TP, Duration, and AEP using the provided functions with error handling applied to runcode
-def safe_apply(func, value):
-    try:
-        return func(value)
-    except Exception:
-        return ""
 
 
 def find_initialisation_info(

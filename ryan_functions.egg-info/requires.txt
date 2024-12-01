@@ -15,3 +15,5 @@ laspy
 tqdm
 rasterio
 seaborn
+requests
+graphviz
