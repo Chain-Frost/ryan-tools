@@ -40,7 +40,6 @@ class ConditionalFormatter(logging.Formatter):
 class LoggerConfigurator:
     """
     Configures logging with options for detailed and simple formats, color support, and file handling.
-    Also handles multiprocessing logging configurations.
     """
 
     def __init__(
@@ -65,13 +64,16 @@ class LoggerConfigurator:
                 "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - "
                 "%(filename)s:%(lineno)d - %(funcName)s() - %(message)s%(reset)s"
             )
+            self.simple_format = (
+                "%(log_color)s%(asctime)s - %(levelname)s - %(message)s%(reset)s"
+            )
         else:
             self.detailed_format = (
                 "%(asctime)s - %(name)s - %(levelname)s - "
                 "%(filename)s:%(lineno)d - %(funcName)s() - %(message)s"
             )
+            self.simple_format = "%(asctime)s - %(levelname)s - %(message)s"
 
-        self.simple_format = "%(asctime)s - %(levelname)s - %(message)s"
         self.date_format = "%Y-%m-%d %H:%M:%S"
 
     def configure(self) -> None:
@@ -147,39 +149,6 @@ class LoggerConfigurator:
 
         logger.info("Logging is configured successfully.")
 
-    @staticmethod
-    def add_simple_log_methods():
-        """
-        Adds simple logging methods to the logging module.
-        """
-
-        def log_info_simple(message: str) -> None:
-            logger = logging.getLogger()
-            logger.info(message, extra={"simple_format": True})
-
-        def log_error_simple(message: str) -> None:
-            logger = logging.getLogger()
-            logger.error(message, extra={"simple_format": True})
-
-        def log_warning_simple(message: str) -> None:
-            logger = logging.getLogger()
-            logger.warning(message, extra={"simple_format": True})
-
-        def log_debug_simple(message: str) -> None:
-            logger = logging.getLogger()
-            logger.debug(message, extra={"simple_format": True})
-
-        def log_critical_simple(message: str) -> None:
-            logger = logging.getLogger()
-            logger.critical(message, extra={"simple_format": True})
-
-        # Attach the methods to the logging module
-        logging.log_info_simple = log_info_simple
-        logging.log_error_simple = log_error_simple
-        logging.log_warning_simple = log_warning_simple
-        logging.log_debug_simple = log_debug_simple
-        logging.log_critical_simple = log_critical_simple
-
 
 # Backward Compatibility: Retain the setup_logging() function
 def setup_logging(
@@ -211,7 +180,6 @@ def setup_logging(
         enable_color=enable_color,
     )
     logger_config.configure()
-    LoggerConfigurator.add_simple_log_methods()
 
 
 def worker_initializer(log_queue: Queue, log_level=logging.INFO):
@@ -219,7 +187,6 @@ def worker_initializer(log_queue: Queue, log_level=logging.INFO):
     Initializer for worker processes to configure logging and add simple log methods.
     """
     configure_multiprocessing_logging(log_queue, log_level)
-    LoggerConfigurator.add_simple_log_methods()
 
 
 def configure_multiprocessing_logging(log_queue: Queue, log_level=logging.INFO):
@@ -261,7 +228,6 @@ def log_listener_process(log_queue: Queue, log_level=logging.INFO, log_file_name
         enable_color=True,
     )
     logger_config.configure()
-    LoggerConfigurator.add_simple_log_methods()
 
     logger = logging.getLogger()
     logger.info("Log listener process started.")

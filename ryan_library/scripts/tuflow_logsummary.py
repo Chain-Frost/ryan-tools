@@ -2,17 +2,13 @@
 
 import logging
 import multiprocessing
-import os
 from multiprocessing import Pool, Process, Queue
 from pathlib import Path
 from typing import Any
 import re
 from collections import deque
 from datetime import datetime
-
-
 import pandas as pd
-
 from ryan_library.functions.data_processing import (
     check_string_aep,
     check_string_duration,
@@ -240,7 +236,9 @@ def process_log_file(logfile: str) -> pd.DataFrame:
 
     try:
         if is_large_file:
-            logging.info(f"Processing large file: {logfile}")
+            logging.info(
+                f"Processing large file: {logfile}", extra={"simple_format": True}
+            )
             lines = read_last_n_lines(logfile_path, n=10000)
             lines_reversed = reversed(lines)
         else:
@@ -254,7 +252,9 @@ def process_log_file(logfile: str) -> pd.DataFrame:
     runcode: str = logfile_path.stem
     # Convert logfile_path to relative path if possible
     relative_logfile_path = convert_to_relative_path(logfile_path)
-    logging.log_info_simple(f"Processing {runcode} : {relative_logfile_path}")
+    logging.info(
+        f"Processing {runcode} : {relative_logfile_path}", extra={"simple_format": True}
+    )
 
     # Search for completion markers from the end
     for line in lines_reversed:
@@ -407,7 +407,7 @@ def main_processing() -> None:
     # Start the log listener process
     listener = Process(
         target=log_listener_process,
-        args=(log_queue, logging.INFO, "processing.log"),
+        args=(log_queue, logging.INFO),
         daemon=True,
     )
     listener.start()
@@ -418,36 +418,37 @@ def main_processing() -> None:
     # Initialize the LoggerConfigurator
     logger_config = LoggerConfigurator(
         log_level=logging.INFO,
-        log_file="processing.log",
-        use_rotating_file=True,
+        log_file=None,
+        use_rotating_file=False,
         enable_color=True,
     )
     logger_config.configure()
 
-    # Add simple logging methods to the logging module
-    LoggerConfigurator.add_simple_log_methods()
-
-    logger = logging.getLogger()
-    logger.info("Starting log file processing...")
+    # Get the logger
+    logger = logging.getLogger(__name__)
+    logger.info("Starting log file processing...", extra={"simple_format": True})
 
     # Find log files
     root_dir = Path.cwd()
     files: list[str] = find_files_parallel(
         root_dir=str(root_dir), pattern=".tlf", exclude=(".hpc.tlf", ".gpu.tlf")
     )
-    logger.info(f"Found {len(files)} log files.")
+    logger.info(f"Found {len(files)} log files.", extra={"simple_format": True})
 
     if not files:
         logger.warning("No log files found to process.")
     else:
         # Determine pool size
         pool_size = calculate_pool_size(num_files=len(files))
-        logger.info(f"Processing {len(files)} files using {pool_size} processes.")
+        logger.info(
+            f"Processing {len(files)} files using {pool_size} processes.",
+            extra={"simple_format": True},
+        )
 
-        # Initialize a multiprocessing Pool with the combined initializer
+        # Initialize a multiprocessing Pool with the initializer
         with Pool(
             processes=pool_size,
-            initializer=worker_initializer,  # Use the new initializer
+            initializer=worker_initializer,
             initargs=(log_queue, logging.INFO),
         ) as pool:
             try:
@@ -474,14 +475,20 @@ def main_processing() -> None:
                     file_name_prefix="ModellingLog",
                     sheet_name="Log Summary",
                 )
-                logger.info("Log file processing completed successfully.")
+                logger.info(
+                    "Log file processing completed successfully.",
+                    extra={"simple_format": True},
+                )
             except Exception as e:
                 logger.error(f"Error during merging/saving DataFrames: {e}")
         else:
             logger.warning("No completed logs found - no output generated.")
 
         # Report number of successful runs
-        logger.info(f"Number of successful runs: {successful_runs}")
+        logger.info(
+            f"Number of successful runs: {successful_runs}",
+            extra={"simple_format": True},
+        )
 
     # Shutdown log listener
     log_queue.put_nowait(None)
