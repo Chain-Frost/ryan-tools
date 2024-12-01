@@ -81,9 +81,8 @@ def save_to_excel(
     data_frame.to_excel(
         excel_writer=file_name, merge_cells=False, sheet_name=sheet_name, index=False
     )
-
-    new_setup_logging()  # Call the function to ensure logging is set up
-    logging.info(msg=f"Data saved to {file_name}")
+    if logging.getLogger().hasHandlers():
+        logging.info(msg=f"Data saved to {file_name}")
 
 
 def export_dataframes(export_dict: dict[str, dict[str, list]]) -> None:
