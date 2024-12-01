@@ -24,7 +24,8 @@ from ryan_library.functions.misc_functions import calculate_pool_size, save_to_e
 from ryan_library.functions.logging_helpers import (
     configure_multiprocessing_logging,
     log_listener_process,
-    setup_logging,
+    LoggerConfigurator,
+    worker_initializer,
 )
 from ryan_library.functions.path_stuff import convert_to_relative_path
 
@@ -253,7 +254,7 @@ def process_log_file(logfile: str) -> pd.DataFrame:
     runcode: str = logfile_path.stem
     # Convert logfile_path to relative path if possible
     relative_logfile_path = convert_to_relative_path(logfile_path)
-    logging.info(f"Processing {runcode} : {relative_logfile_path}")
+    logging.log_info_simple(f"Processing {runcode} : {relative_logfile_path}")
 
     # Search for completion markers from the end
     for line in lines_reversed:
@@ -414,6 +415,18 @@ def main_processing() -> None:
     # Configure the root logger to send logs to the queue
     configure_multiprocessing_logging(log_queue, logging.INFO)
 
+    # Initialize the LoggerConfigurator
+    logger_config = LoggerConfigurator(
+        log_level=logging.INFO,
+        log_file="processing.log",
+        use_rotating_file=True,
+        enable_color=True,
+    )
+    logger_config.configure()
+
+    # Add simple logging methods to the logging module
+    LoggerConfigurator.add_simple_log_methods()
+
     logger = logging.getLogger()
     logger.info("Starting log file processing...")
 
@@ -431,10 +444,10 @@ def main_processing() -> None:
         pool_size = calculate_pool_size(num_files=len(files))
         logger.info(f"Processing {len(files)} files using {pool_size} processes.")
 
-        # Initialize a multiprocessing Pool with worker initializer
+        # Initialize a multiprocessing Pool with the combined initializer
         with Pool(
             processes=pool_size,
-            initializer=configure_multiprocessing_logging,
+            initializer=worker_initializer,  # Use the new initializer
             initargs=(log_queue, logging.INFO),
         ) as pool:
             try:
@@ -473,6 +486,3 @@ def main_processing() -> None:
     # Shutdown log listener
     log_queue.put_nowait(None)
     listener.join()
-
-    # Return the number of successful runs
-    return successful_runs
