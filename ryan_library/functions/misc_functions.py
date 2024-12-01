@@ -8,6 +8,7 @@ from typing import Optional
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from ryan_library.functions.logging_helpers import setup_logging as new_setup_logging
 
 
 def setup_logging(
@@ -23,7 +24,7 @@ def setup_logging(
     )
     import ryan_library.functions.logging_helpers
 
-    ryan_library.functions.logging_helpers.setup_logging(
+    new_setup_logging(
         log_level, log_file, max_bytes, backup_count, use_rotating_file, enable_color
     )
 
@@ -81,7 +82,7 @@ def save_to_excel(
         excel_writer=file_name, merge_cells=False, sheet_name=sheet_name, index=False
     )
 
-    setup_logging()  # Call the function to ensure logging is set up
+    new_setup_logging()  # Call the function to ensure logging is set up
     logging.info(msg=f"Data saved to {file_name}")
 
 
