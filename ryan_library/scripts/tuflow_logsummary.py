@@ -1,11 +1,15 @@
 # ryan_library/scripts/tuflow_logsummary.py
 
 import logging
+import multiprocessing
+import os
+from multiprocessing import Pool, Process, Queue
+from pathlib import Path
+from typing import Any
 import re
 from collections import deque
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
+
 
 import pandas as pd
 
@@ -16,17 +20,18 @@ from ryan_library.functions.data_processing import (
     safe_apply,
 )
 from ryan_library.functions.file_utils import find_files_parallel
-from ryan_library.functions.misc_functions import save_to_excel
-
-# Constants
-MAX_FILE_SIZE_MB = 10
-MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
-LARGE_FILE_LINE_LIMIT = 10000  # Number of lines to read from large files
+from ryan_library.functions.misc_functions import calculate_pool_size, save_to_excel
+from ryan_library.functions.logging_helpers import (
+    configure_multiprocessing_logging,
+    log_listener_process,
+    setup_logging,
+)
+from ryan_library.functions.path_stuff import convert_to_relative_path
 
 
 def search_for_completion(
-    line: str, data_dict: Dict[str, Any], sim_complete: int
-) -> Tuple[Dict[str, Any], int]:
+    line: str, data_dict: dict[str, Any], sim_complete: int
+) -> tuple[dict[str, Any], int]:
     """Search log line for simulation completion markers using regular expressions."""
     final_me_match = re.search(r"Final Cumulative ME:\s*([\d.]+)%", line)
     if final_me_match:
@@ -57,12 +62,12 @@ def search_for_completion(
 
 def search_from_top(
     line: str,
-    data_dict: Dict[str, Any],
+    data_dict: dict[str, Any],
     success: int,
     spec_events: bool,
     spec_scen: bool,
     spec_var: bool,
-) -> Tuple[Dict[str, Any], int, bool, bool, bool]:
+) -> tuple[dict[str, Any], int, bool, bool, bool]:
     """Search log line for key simulation details using regular expressions."""
     if match := re.match(r"Build:\s*(.*)", line):
         data_dict["TUFLOW_version"] = match.group(1).strip()
@@ -148,7 +153,7 @@ def search_from_top(
     return data_dict, success, spec_events, spec_scen, spec_var
 
 
-def read_last_n_lines(file_path: Path, n: int = LARGE_FILE_LINE_LIMIT) -> List[str]:
+def read_last_n_lines(file_path: Path, n: int = 10000) -> list[str]:
     """
     Read the last n lines from a file efficiently.
 
@@ -157,7 +162,7 @@ def read_last_n_lines(file_path: Path, n: int = LARGE_FILE_LINE_LIMIT) -> List[s
         n (int): Number of lines to read from the end of the file.
 
     Returns:
-        List[str]: List of the last n lines.
+        list[str]: List of the last n lines.
     """
     try:
         with file_path.open("r", encoding="utf-8") as f:
@@ -171,8 +176,8 @@ def find_initialisation_info(
     line: str,
     initialisation: bool,
     final: bool,
-    data_dict: Dict[str, Any],
-) -> Tuple[bool, bool, Dict[str, Any]]:
+    data_dict: dict[str, Any],
+) -> tuple[bool, bool, dict[str, Any]]:
     """Extract initialisation and final times from the log file using regular expressions."""
     try:
         if "Initialisation Times" in line:
@@ -200,7 +205,7 @@ def find_initialisation_info(
     return initialisation, final, data_dict
 
 
-def remove_e_s_from_runcode(runcode: str, data_dict: Dict[str, Any]) -> str:
+def remove_e_s_from_runcode(runcode: str, data_dict: dict[str, Any]) -> str:
     """
     Removes -e and -s variables based on their values in data_dict from runcode,
     treating + as _.
@@ -227,15 +232,15 @@ def process_log_file(logfile: str) -> pd.DataFrame:
     spec_events: bool = False
     spec_scen: bool = False
     spec_var: bool = False
-    data_dict: Dict[str, Any] = {}
+    data_dict: dict[str, Any] = {}
 
     file_size = logfile_path.stat().st_size
-    is_large_file = file_size > MAX_FILE_SIZE_BYTES
+    is_large_file = file_size > 10 * 1024 * 1024  # 10 MB
 
     try:
         if is_large_file:
             logging.info(f"Processing large file: {logfile}")
-            lines = read_last_n_lines(logfile_path, n=LARGE_FILE_LINE_LIMIT)
+            lines = read_last_n_lines(logfile_path, n=10000)
             lines_reversed = reversed(lines)
         else:
             with logfile_path.open("r", encoding="utf-8") as lfile:
@@ -246,7 +251,9 @@ def process_log_file(logfile: str) -> pd.DataFrame:
         return pd.DataFrame()
 
     runcode: str = logfile_path.stem
-    logging.info(f"Processing {runcode} : {logfile}")
+    # Convert logfile_path to relative path if possible
+    relative_logfile_path = convert_to_relative_path(logfile_path)
+    logging.info(f"Processing {runcode} : {relative_logfile_path}")
 
     # Search for completion markers from the end
     for line in lines_reversed:
@@ -266,7 +273,7 @@ def process_log_file(logfile: str) -> pd.DataFrame:
                         )
                         if result is None:
                             logging.error(
-                                f"search_from_top returned None for file: {logfile}"
+                                f"search_from_top returned None for file: {relative_logfile_path}"
                             )
                             return pd.DataFrame()
                         data_dict, success, spec_events, spec_scen, spec_var = result
@@ -282,7 +289,7 @@ def process_log_file(logfile: str) -> pd.DataFrame:
                     )
                     if result is None:
                         logging.error(
-                            f"search_from_top returned None for file: {logfile}"
+                            f"search_from_top returned None for file: {relative_logfile_path}"
                         )
                         return pd.DataFrame()
                     data_dict, success, spec_events, spec_scen, spec_var = result
@@ -292,7 +299,7 @@ def process_log_file(logfile: str) -> pd.DataFrame:
                         )
                         break
         except Exception as e:
-            logging.error(f"Error processing top lines in {logfile}: {e}")
+            logging.error(f"Error processing top lines in {relative_logfile_path}: {e}")
             return pd.DataFrame()
 
         if success == 4:
@@ -313,7 +320,7 @@ def process_log_file(logfile: str) -> pd.DataFrame:
                 data_dict["AEP"] = safe_apply(check_string_aep, adj_runcode)
 
                 df: pd.DataFrame = pd.DataFrame([data_dict])
-                col_dtypes: Dict[str, str] = {
+                col_dtypes: dict[str, str] = {
                     "RunTime": "float64",
                     "CPU_Time": "float64",
                     "ModelTime": "float64",
@@ -343,3 +350,129 @@ def process_log_file(logfile: str) -> pd.DataFrame:
     else:
         logging.warning(f"{runcode} did not complete, skipping")
         return pd.DataFrame()
+
+
+def merge_and_sort_data(
+    frames: list[pd.DataFrame], sort_column: str = "StartDate"
+) -> pd.DataFrame:
+    """Merge data frames and sort by a specified column."""
+    if not frames:
+        return pd.DataFrame()
+
+    merged_df: pd.DataFrame = pd.concat(frames, ignore_index=True)
+    if sort_column in merged_df.columns:
+        merged_df.sort_values(by=sort_column, ascending=False, inplace=True)
+    else:
+        logging.warning(f"Sort column '{sort_column}' not found in DataFrame.")
+    return merged_df
+
+
+def reorder_columns(
+    data_frame: pd.DataFrame,
+    first_column: str = "Runcode",
+    second_column: str = "_tcf",
+    prefix_order: list[str] = ["-e", "-s"],
+) -> pd.DataFrame:
+    """Reorder DataFrame columns based on specified prefixes and initial columns."""
+    ordered_columns = []
+    if first_column in data_frame.columns:
+        ordered_columns.append(first_column)
+    if second_column in data_frame.columns:
+        ordered_columns.append(second_column)
+
+    # Add columns with specified prefixes
+    for prefix in prefix_order:
+        prefixed_cols = sorted(
+            [col for col in data_frame.columns if col.startswith(prefix)]
+        )
+        ordered_columns.extend(prefixed_cols)
+
+    # Add remaining columns
+    remaining_cols = [col for col in data_frame.columns if col not in ordered_columns]
+    ordered_columns.extend(sorted(remaining_cols))
+
+    return data_frame[ordered_columns]
+
+
+def main_processing() -> None:
+    """Main processing function to be called by the wrapper script.
+
+    Returns:
+        int: Number of successful runs.
+    """
+    # Create a logging queue
+    log_queue: Queue = multiprocessing.Queue()
+
+    # Start the log listener process
+    listener = Process(
+        target=log_listener_process,
+        args=(log_queue, logging.INFO, "processing.log"),
+        daemon=True,
+    )
+    listener.start()
+
+    # Configure the root logger to send logs to the queue
+    configure_multiprocessing_logging(log_queue, logging.INFO)
+
+    logger = logging.getLogger()
+    logger.info("Starting log file processing...")
+
+    # Find log files
+    root_dir = Path.cwd()
+    files: list[str] = find_files_parallel(
+        root_dir=str(root_dir), pattern=".tlf", exclude=(".hpc.tlf", ".gpu.tlf")
+    )
+    logger.info(f"Found {len(files)} log files.")
+
+    if not files:
+        logger.warning("No log files found to process.")
+    else:
+        # Determine pool size
+        pool_size = calculate_pool_size(num_files=len(files))
+        logger.info(f"Processing {len(files)} files using {pool_size} processes.")
+
+        # Initialize a multiprocessing Pool with worker initializer
+        with Pool(
+            processes=pool_size,
+            initializer=configure_multiprocessing_logging,
+            initargs=(log_queue, logging.INFO),
+        ) as pool:
+            try:
+                results = pool.map(process_log_file, files)
+            except Exception as e:
+                logger.error(f"Error during multiprocessing Pool.map: {e}")
+                results = []
+
+        # Filtering out empty DataFrames
+        results = [res for res in results if not res.empty]
+        successful_runs = len(results)
+
+        if results:
+            try:
+                # Merge and sort data
+                merged_df = merge_and_sort_data(results)
+
+                # Reorder columns
+                merged_df = reorder_columns(merged_df)
+
+                # Save to Excel
+                save_to_excel(
+                    data_frame=merged_df,
+                    file_name_prefix="ModellingLog",
+                    sheet_name="Log Summary",
+                )
+                logger.info("Log file processing completed successfully.")
+            except Exception as e:
+                logger.error(f"Error during merging/saving DataFrames: {e}")
+        else:
+            logger.warning("No completed logs found - no output generated.")
+
+        # Report number of successful runs
+        logger.info(f"Number of successful runs: {successful_runs}")
+
+    # Shutdown log listener
+    log_queue.put_nowait(None)
+    listener.join()
+
+    # Return the number of successful runs
+    return successful_runs

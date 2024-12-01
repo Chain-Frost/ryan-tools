@@ -1,4 +1,4 @@
-# ryan_library.functions/logging_helpers.py
+# ryan_library/functions/logging_helpers.py
 
 import logging
 import logging.handlers
@@ -6,6 +6,7 @@ import sys
 from typing import Optional
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from multiprocessing import Queue
 
 try:
     import colorlog
@@ -116,76 +117,59 @@ def setup_logging(
     logger.info("Logging is configured successfully.")
 
 
-def configure_multiprocessing_logging(log_queue, log_level=logging.INFO):
+def configure_multiprocessing_logging(log_queue: Queue, log_level=logging.INFO):
     """
     Configure logging for multiprocessing worker processes to ensure logs from child processes
-    are correctly displayed in the main process via a log queue.
+    are correctly sent to the log queue.
+
+    Args:
+        log_queue (Queue): The multiprocessing queue to send log records to.
+        log_level (int): Logging level.
     """
     root_logger = logging.getLogger()
-    root_logger.handlers.clear()
     root_logger.setLevel(log_level)
 
-    # Use a QueueHandler to send all logs to the queue
+    # Remove any existing handlers
+    root_logger.handlers = []
+
+    # Create a QueueHandler and add it to the root logger
     queue_handler = logging.handlers.QueueHandler(log_queue)
     root_logger.addHandler(queue_handler)
 
 
-def log_listener_process(log_queue, log_level=logging.INFO, log_file_name=None):
+def log_listener_process(log_queue: Queue, log_level=logging.INFO, log_file_name=None):
     """
     A listener process that receives logs from child processes via a queue
     and logs them to a file and console. The handlers are configured within this
     process to avoid passing non-pickleable objects between processes.
+
+    Args:
+        log_queue (Queue): The multiprocessing queue to receive log records from.
+        log_level (int): Logging level.
+        log_file_name (str, optional): Name of the log file. If None, file logging is disabled.
     """
-    # Configure the root logger in this child process
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s: %(levelname)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+    # Configure logging for the listener
+    setup_logging(
+        log_level=log_level,
+        log_file=log_file_name,
+        max_bytes=10**6,  # 1 MB
+        backup_count=5,
+        use_rotating_file=True,
+        enable_color=True,
     )
-    root_logger = logging.getLogger()
 
-    # Configure console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(log_level)
-    console_formatter = logging.Formatter(
-        "%(asctime)s: %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    )
-    console_handler.setFormatter(console_formatter)
-    root_logger.addHandler(console_handler)
+    logger = logging.getLogger()
+    logger.info("Log listener process started.")
 
-    # Configure file handler if a log_file_name is specified
-    if log_file_name:
-        try:
-            # Define log directory within user's Documents
-            log_dir = Path.home() / "Documents" / "MyAppLogs"
-            log_dir.mkdir(parents=True, exist_ok=True)
-            log_path = log_dir / log_file_name
-
-            file_handler = logging.FileHandler(log_path, encoding="utf-8")
-            file_handler.setLevel(log_level)
-            file_formatter = logging.Formatter(
-                "%(asctime)s: %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-            )
-            file_handler.setFormatter(file_formatter)
-            root_logger.addHandler(file_handler)
-        except Exception as e:
-            logging.error(f"Failed to set up file logging in listener: {e}")
-
-    logging.info("Log listener process started.")
-
-    # Listen for log records on the queue
     while True:
         try:
             record = log_queue.get()
             if record is None:  # We send None to signal the listener to exit
-                logging.info("Log listener process received shutdown signal.")
+                logger.info("Log listener process received shutdown signal.")
                 break
-            logger = logging.getLogger(record.name)
-            logger.handle(record)
+            logger.handle(record)  # No level or filter logic applied here
         except Exception as e:
-            logging.error(f"Error in log listener: {e}")
+            logger.error(f"Error in log listener: {e}")
             import traceback
 
             traceback.print_exc(file=sys.stderr)
-
-    logging.info("Log listener process is shutting down.")
