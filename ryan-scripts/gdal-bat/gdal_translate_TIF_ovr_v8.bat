@@ -3,46 +3,58 @@ setlocal enabledelayedexpansion
 
 REM ========================
 REM Parameters and Configurations
-REM These parameters can be adjusted as needed.
 REM ========================
-set _items=flt asc rst
-set _commands=-stats -co COMPRESS=DEFLATE -co PREDICTOR=2 -co NUM_THREADS=ALL_CPUS -co SPARSE_OK=TRUE -co BIGTIFF=IF_SAFER
-set _gdaladdoCommands=--config COMPRESS_OVERVIEW DEFLATE --config PREDICTOR_OVERVIEW 2 --config NUM_THREADS ALL_CPUS --config SPARSE_OK TRUE
-set /a _MAXinstances=%NUMBER_OF_PROCESSORS%
+set "_items=flt asc rst"
+set "_commands=-stats -co COMPRESS=DEFLATE -co PREDICTOR=2 -co NUM_THREADS=ALL_CPUS -co SPARSE_OK=TRUE -co BIGTIFF=IF_SAFER"
+set "_gdaladdoCommands=--config COMPRESS_OVERVIEW DEFLATE --config PREDICTOR_OVERVIEW 2 --config NUM_THREADS ALL_CPUS --config SPARSE_OK TRUE"
+set /a "_MAXinstances=%NUMBER_OF_PROCESSORS%"
 set /a count=0
-set /a _notice=0
+set /a "_notice=0"
 
 REM ========================
 REM Environment Setup
-REM Check if the OSGeo4W environment setup script exists and execute it.
 REM ========================
 set "ENV_SETUP="
 
-IF EXIST "C:\OSGEO4W\bin\o4w_env.bat" (
+REM Priority: Check for OSGeo4W environment setup script first
+if exist "C:\OSGEO4W\bin\o4w_env.bat" (
     set "ENV_SETUP=C:\OSGEO4W\bin\o4w_env.bat"
-) ELSE (
-    for /d %%D in ("C:\Program Files\QGIS*") do (
-        if exist "%%D\bin\o4w_env.bat" set "ENV_SETUP=%%D\bin\o4w_env.bat"
-    )
-    for /d %%D in ("C:\Program Files (x86)\QGIS*") do (
-        if exist "%%D\bin\o4w_env.bat" set "ENV_SETUP=%%D\bin\o4w_env.bat"
+) else (
+    REM Search for the latest QGIS directory in "C:\Program Files"
+    for /f "delims=" %%D in ('dir /b /ad /o-n "C:\Program Files\QGIS*" 2^>nul') do (
+        if exist "C:\Program Files\%%D\bin\o4w_env.bat" (
+            set "ENV_SETUP=C:\Program Files\%%D\bin\o4w_env.bat"
+            goto env_found
+        )
     )
 )
 
-IF defined ENV_SETUP (
+:env_found
+if defined ENV_SETUP (
     call "%ENV_SETUP%"
-) ELSE (
-    echo Error: OSGeo4W or QGIS environment setup script not found in expected locations.
+    if errorlevel 1 (
+        echo Error: Failed to execute environment setup script.
+        goto :eof
+    ) else (
+        echo Environment setup script executed successfully.
+    )
+) else (
+    echo Error: OSGeo4W or QGIS environment setup script not found in "C:\Program Files".
     goto :eof
 )
 
 REM ========================
 REM GDAL Tool Verification
-REM Ensure that gdal_translate is available in the system PATH.
 REM ========================
-where gdal_translate
+where gdal_translate >nul 2>&1
 IF ERRORLEVEL 1 (
     echo Error: gdal_translate not found. Ensure GDAL is properly installed.
+    goto :eof
+)
+
+where gdaladdo >nul 2>&1
+IF ERRORLEVEL 1 (
+    echo Error: gdaladdo not found. Ensure GDAL is properly installed.
     goto :eof
 )
 
@@ -53,7 +65,6 @@ echo.
 
 REM ========================
 REM Start Processing Files
-REM Process files in the current directory and its subdirectories.
 REM ========================
 call :treeProcess
 
@@ -67,73 +78,81 @@ goto :eof
 :treeProcess
 REM ========================
 REM File Processing Loop
-REM Process each file that matches the item types (flt, asc, rst).
 REM ========================
-echo Processing in directory: !cd!
+echo Processing in directory: "%CD%"
 
 for %%i in (%_items%) do (
-    
-    REM Loop through all files matching the current item type in the directory.
-    for %%f in (*%%i) do (
-        set "_inputFile=%%f"
-        set "_outputFile=!_inputFile:~0,-3!tif"
-        set "_proceed=YES"
+    for %%f in ("*%%i") do (
+        if exist "%%~f" (
+            set "_inputFile=%%~f"
+            set "_outputFile=%%~dpnf.tif"
+            set "_proceed=YES"
 
-        REM Check if the output TIF file already exists.
-        if exist "!_outputFile!" (
-            REM Find the most recently modified file between the input and output.
-            FOR /F %%j IN ('DIR /B /O:D "!_outputFile!" "%%f"') DO SET NEWEST=%%j
-            
-            REM If the output file is the newest, skip processing.
-            if /i "!NEWEST!"=="!_outputFile!" (
-                set "_proceed=NO"
-                echo SKIP - Output file "!_outputFile!" is up-to-date
-            ) ELSE (
-                echo Overwriting - Input file is newer than "!_outputFile!"
+            REM Check if the output TIF file already exists.
+            if exist "!_outputFile!" (
+                REM Find the most recently modified file between the input and output.
+                for /f "delims=" %%j in ('dir /b /o-d "!_outputFile!" "!_inputFile!"') do set "NEWEST=%%j"
+                
+                REM If the output file is the newest, skip processing.
+                if /i "!NEWEST!"=="!_outputFile!" (
+                    set "_proceed=NO"
+                    echo SKIP - Output file "!_outputFile!" is up-to-date
+                ) else (
+                    echo Overwriting - Input file is newer than "!_outputFile!"
+                )
             )
-        )
 
-        REM If processing is needed, create a temporary script and start the process.
-        if /i "!_proceed!"=="YES" (
-            set "_tempScript=temp_!_inputFile:~0,-3!cmd"
-            echo gdal_translate %_commands% "%%f" "!_outputFile!" ^&^& gdaladdo %_gdaladdoCommands% -ro "!_outputFile!" ^&^& del "!_tempScript!" ^&^& exit >"!_tempScript!"
-            
-            REM Monitor the number of running gdal_translate tasks.
-            call :do_while_loop_start
-            
-            set /a _CountPlus=!count! + 1
-            echo Task !_CountPlus! started: "!_inputFile!" -> "!_outputFile!"
-            
-            REM Start the translation in a new minimized, low-priority window.
-            Start /LOW /MIN "!_CountPlus! %%i %%f" "!_tempScript!"
-            
-            set /a _notice=0
-            echo.
+            REM If processing is needed, create a temporary script and start the process.
+            if /i "!_proceed!"=="YES" (
+                REM Extract the filename without extension for the temp script
+                for %%g in ("%%~nf") do set "fileName=%%~ng"
+                set "_tempScript=%TEMP%\temp_!fileName!.cmd"
+
+                echo gdal_translate %_commands% "%%~f" "!_outputFile!" ^&^& gdaladdo %_gdaladdoCommands% -ro "!_outputFile!" ^&^& del "!_tempScript!" ^&^& exit >"!_tempScript!"
+                
+                REM Monitor the number of running gdal_translate tasks.
+                call :do_while_loop_start
+
+                set /a count+=1
+                echo Task !count! started: "%%~f" -> "!_outputFile!"
+
+                REM Start the translation in a new minimized, low-priority window.
+                start /LOW /MIN "!count! %%i %%f" "!_tempScript!"
+                
+                set /a "_notice=0"
+                echo.
+            )
         )
     )
 )
 
 REM Recursively process subdirectories.
-for /D %%d in (*) do (
-    cd %%d
+for /d %%d in (*) do (
+    pushd "%%d" || (
+        echo Error: Failed to enter directory "%%d"
+        echo.
+        continue
+    )
     call :treeProcess
-    cd ..
+    popd
 )
 goto :eof
 
 :do_while_loop_start
 REM ========================
 REM Monitor Running Tasks
-REM Ensure that the number of concurrent gdal_translate tasks does not exceed the maximum allowed.
 REM ========================
-for /f %%x in ('tasklist /fi "imagename eq gdal_translate.exe" /fo csv ^| find /c /v ""') do set count=%%x
+for /f %%x in ('tasklist /fi "imagename eq gdal_translate.exe" /fo csv ^| find /c /v ""') do set "currentCount=%%x"
 
-if !count! geq %_MAXinstances% (
-    if !_notice! equ 0 (
+if !currentCount! geq %_MAXinstances% (
+    if !"_notice"! equ "0" (
         echo Waiting for a free slot...
+        set /a "_notice=1"
     )
-    set /a _notice=1
     REM Wait for 5 seconds before checking again.
     timeout /t 5 /nobreak >nul
     goto do_while_loop_start
+) else (
+    set /a "_notice=0"
 )
+goto :eof
