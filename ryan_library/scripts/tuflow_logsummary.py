@@ -202,23 +202,48 @@ def find_initialisation_info(
     return initialisation, final, data_dict
 
 
-def remove_e_s_from_runcode(runcode: str, data_dict: dict[str, Any]) -> str:
+def remove_e_s_from_runcode(
+    runcode: str, data_dict: dict[str, Any], delimiters: str = "_+"
+) -> str:
     """
-    Removes -e and -s variables based on their values in data_dict from runcode,
-    treating + as _.
+    Removes elements from RunCode based on -e and -s keys in data_dict.
+    Treats specified delimiters as separators.
+
+    Args:
+        runcode (str): The original RunCode string.
+        data_dict (Dict[str, Any]): Dictionary containing keys that start with '-e' or '-s'.
+        delimiters (str): Characters used to separate elements in RunCode. Default is '_+'.
+
+    Returns:
+        str: The cleaned RunCode string.
     """
-    runcode = runcode.replace("+", "_")
+
+    # Replace delimiters with a single standard delimiter, e.g., '_'
+    for delim in delimiters:
+        runcode = runcode.replace(delim, "_")
+
     parts = runcode.split("_")
 
-    # Collect values to remove
+    # Collect values to remove, ensuring they are strings and in lowercase
     patterns_to_remove = {
         str(value).lower()
         for key, value in data_dict.items()
         if key.startswith("-e") or key.startswith("-s")
     }
 
-    filtered_parts = [part for part in parts if part.lower() not in patterns_to_remove]
-    return "_".join(filtered_parts)
+    logging.debug(f"Patterns to remove: {patterns_to_remove}")
+
+    # Filter out the unwanted parts
+    filtered_parts = [
+        part
+        for part in parts
+        if part.lower() not in patterns_to_remove and part.strip() != ""
+    ]
+
+    cleaned_runcode = "_".join(filtered_parts)
+    logging.debug(f"Original RunCode: {runcode}, Cleaned RunCode: {cleaned_runcode}")
+
+    return cleaned_runcode
 
 
 def process_log_file(logfile: str) -> pd.DataFrame:
