@@ -1,0 +1,16 @@
+Format Version == 2
+Units == METRIC
+Simulation ID == M10_5m_004
+Time Series Output Format == CSV 
+
+GIS Plot Layer Points == .\gis\M10_5m_004_PLOT.gpkg|layername=M10_5m_004_PLOT_P
+GIS Plot Layer Lines == .\gis\M10_5m_004_PLOT.gpkg|layername=M10_5m_004_PLOT_L
+GIS Plot Layer Regions == .\gis\M10_5m_004_PLOT.gpkg|layername=M10_5m_004_PLOT_R
+GIS Plot Objects == .\gis\M10_5m_004_PLOT.csv
+
+NetCDF Time Series == NONE
+
+
+2D Line Flow [1] == .\csv\M10_5m_004_2d_Q.csv
+2D Point Water Level [1] == .\csv\M10_5m_004_2d_H.csv
+2D Point Velocity [1] == .\csv\M10_5m_004_2d_V.csv

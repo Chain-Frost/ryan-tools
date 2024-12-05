@@ -1,0 +1,21 @@
+!EVENT MAGNITUDES
+Define Event == 05p
+    BC Event Source == ~AEP~ | 05p
+End Define
+
+Define Event == 02p
+    BC Event Source == ~AEP~ | 02p
+End Define
+
+Define Event == 01p
+    BC Event Source == ~AEP~ | 01p
+End Define
+
+!EVENT DURATIONS
+Define Event == 1hr
+    BC Event Source == ~DUR~ | 1hr
+End Define
+
+Define Event == 2hr
+    BC Event Source == ~DUR~ | 2hr
+End Define

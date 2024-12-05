@@ -1,0 +1,1688 @@
+
+Build: 2023-03-AF-iSP-w64
+
+Executable: ..\..\..\..\exe\2023-03-AF\TUFLOW_iSP_w64.exe (Copyright BMT WBM Pty Ltd)
+
+Licence maintenance period: July 2024 - June 2025
+
+Computer Name: BGER-HYDROWS
+
+Simulation Started: 2024-Dec-03 21:28
+
+
+Compiler: Intel Fortran 2021.3; Single Precision; 64-bit
+
+Hazard Routines ID in TUFLOW_USER_DEFINED.dll: Default Hazard Routines
+
+No Specified Events.
+
+No Specified Scenarios.
+
+No variables defined using Set Variable ==
+
+Initialising Time of Startup Summary == q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002_start_stats.txt
+
+Trying to open (O) file q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002_start_stats.txt...OK.  File Unit: 903
+
+Initialising TUFLOW Licence Settings...
+Looking for "..\..\..\..\exe\2023-03-AF\TUFLOW_Licence_Settings.lcf"...not found.
+Looking for "C:\ProgramData\TUFLOW\TUFLOW_Licence_Settings.lcf"...not found.
+Looking for "C:\BMT_WBM\TUFLOW_Licence_Settings.lcf"...not found.
+Looking for "C:\BMT_WBM\TUFLOW_Dongle_Settings.dcf"...not found.
+
+No TUFLOW licence Settings files found.  Default settings applied.
+WIBU Retry Time == 60  ! Seconds.  Values less than 1 are set to 1.  Default = 60.
+WIBU Retry Count == 0  ! Number of times to retry for a licence at start of simulation.  Use -1 for indefinitely.  Default = 0.
+WIBU Dongles Only == OFF  ! If set to ON, searches for WIBU dongles only.  Default is OFF.
+
+Simulations Log Folder == C:\ProgramData\TUFLOW\log\Ryan.Brook\  ! Path or URL to global simulations log folder.  Default is C:\ProgramData\TUFLOW\log\Ryan.Brook
+
+Trying to open (A) file q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\_ TUFLOW Simulations.log...OK.  File Unit: 904
+...Closed File Unit: 904
+
+Detected 20 CPUs.
+CPU limiting not activated for standalone dongle.
+
+Setting up dynamic arrays...
+
+Reading .tcf File .. q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\M06_5m_002.tcf
+
+Trying to open (O) file q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002.wor...OK.  File Unit: 904
+
+Trying to open (O) file q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002.qgs...OK.  File Unit: 905
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002_messages.gpkg
+GIS Layer assigned ID of 1
+
+Trying to open (O) file q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002_messages.csv...OK.  File Unit: 906
+
+Trying to open (I) file q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002_messages.csv...OK.  File Unit: 907
+...Closed File Unit: 907
+
+Home Folder: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\
+
+Free-Form Input Assumed...
+
+
+Trying to open (BI) file q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg...OK.  File Unit: 907
+...Closed File Unit: 907
+
+Trying to open (I) file q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\materials_M06_002.csv...OK.  File Unit: 907
+
+  1...Processing: 1,"0.03,0.1,0.1,0.06","20,5",,,,
+
+  2...Processing: 2,0.022,"0,0",,,,
+
+  3...Processing: 3,"0.03,0.02,0.1,0.4","0,0",,,,
+
+  4...Processing: 4,0.03,"0,0",,,,
+
+  5...Processing: 10,"0.03,0.01,0.1,0.08","20,5",,,,
+...Closed File Unit: 907
+
+No Event Sources found.
+
+Start Time (h):.......     0.000
+Finish Time (h):......     3.000
+
+Primary 2D timestep (the largest) set to 1. secs
+Domain: Domain_001    Original Timestep:    1.00  Iterations:   1  Adopted Timestep:    1.00
+
+Start Output (h):.....     0.000
+Output Interval (s):..   300.000
+Maximums Start Track Time:      0.000
+1. Wetting & Drying ON with dry side wall checks
+2. Use Manning n based on material specifications
+3. Wave Radiation Stresses OFF
+4. ----------------------
+5. Water Level Checks ON
+6. Extrapolate Heads at Flow Boundaries OFF
+7. Use Static Head at ESTRY Interface
+8. Oblique Boundary Methods OFF
+   Oblique Boundary Alignment Default == NEAREST TO LINE
+   Supercritical Flow Switching ON; Froude No. Check = 1.; Froude Depth Adjustment ON
+9. HPC Weir Factors (C1 =0.30 and C2 =0.78)
+10. Use Wu Viscosity Coefficient
+10. Velocity Dependent Viscosity Coefficient ON
+12. Output Format SMS Generic Files (without land elements)
+13. Display/log status every 100 timesteps
+Warmup Time (s):.............     0.000
+Time Step During Warmup (s):.     1.000
+Depth/Ripple Ht Factor Limit:    10.000
+Wave Period (s):.............     0.000
+
+Start Time PO & LPO Output (h):.......     0.000
+Output Interval PO & LPO Output (s):..    60.000
+
+No Wind Output Specified
+
+Number of Iterations:.................     2
+
+Material Values:
+
+#1 - Material 1:
+Manning's n vs Depth Curve:
+  #     Depth         n
+  1    0.0300    0.1000
+  2    0.1000    0.0600
+IL = 20.0mm,  CL = 5.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#2 - Material 2:
+Fixed Manning's n = 0.022
+IL = 0.0mm,  CL = 0.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#3 - Material 3:
+Manning's n vs Depth Curve:
+  #     Depth         n
+  1    0.0300    0.0200
+  2    0.1000    0.4000
+IL = 0.0mm,  CL = 0.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#4 - Material 4:
+Fixed Manning's n = 0.030
+IL = 0.0mm,  CL = 0.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#5 - Material 10:
+Manning's n vs Depth Curve:
+  #     Depth         n
+  1    0.0300    0.0100
+  2    0.1000    0.0800
+IL = 20.0mm,  CL = 5.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+
+NoXY: WARNING 2583 - Material ID 3 contains a manning's n value (0.400) greater than Wu n limit (0.100) - n value will be limited in Wu formulation
+Wiki Link: https://wiki.tuflow.com/TUFLOW_Message_2583
+Output Files to be Pre-fixed by: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\M06_5m_002
+Log and message files to be pre-fixed by: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002
+
+!_______________________________________________________________________________
+! TUTORIAL / DEMO MODEL COMMANDS
+Tutorial Model == ON
+Demo Model == OFF
+
+!_______________________________________________________________________________
+! BACKWARD COMPATIBILITY DEFAULTS COMMANDS
+! Defaults == 2023  !  Not set  ! [ PRE 2006-06-AA | PRE 2007-07-AA | PRE 2008-08 | PRE 2010 | PRE 2012 | PRE 2013 | PRE 2016 | PRE 2017 | PRE 2020-01 | Pre 2020-10 | Pre 2020-10-AB | Pre 2023]
+
+!_______________________________________________________________________________
+! GEOGRAPHIC REFERENCE COMMANDS
+GIS Format == GPKG
+GRID Format == TIF
+MI Projection == 
+SHP Projection == 
+GPKG Projection == WGS 84 / UTM zone 60S|32760|EPSG|32760|PROJCS["WGS 84 / UTM zone 60S",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",177],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",10000000],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH],AUTHORITY["EPSG","32760"]]
+GPKG WKT CRS EXTENSION == OFF
+TIF Projection == unnamed
+GIS Projection Check == ERROR
+SHP Projection Check Method == Parsed   ! Options [ {PARSED} | SIMPLE ]
+Snap Tolerance == 0.001
+Units == METRIC  ! output to be in same units as input
+GPKG Conversion Check == ERROR
+GPKG Read Only == OFF
+
+!_______________________________________________________________________________
+! READ FILES
+! The following Read Files (if any) were found:
+
+!_______________________________________________________________________________
+! 2D SOLUTION SCHEME AND HARDWARE COMMANDS
+
+2D Solution Scheme == HPC 2nd  ! Explicit FV, Version == 3
+HPC 1D Synchronisation == MAXIMISE 1D TIMESTEP | 10
+HPC Temporal Scheme == 4
+HPC Control Number Factor == 1.  ! If set zero adaptive timestepping is turned off and fixed timestep is used.
+RAM Optimisation == ON
+
+Mass Balance Output == ON   ! Options [ {ON} | OFF ]
+Mass Balance Output Interval (s) == -1.
+
+HARDWARE == GPU
+GPU Device IDs == 0, 
+
+!_______________________________________________________________________________
+! 2D DOMAIN DEPENDENT COMMANDS
+! Note:  Set / Read MI/GIS FC, PO, LP, GLO, IWL commands not shown - use check files to verify.
+! Found 1 2D Domain(s)
+
+Start 2D Domain == Domain_001
+   Geometry Control File == q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\M02_001.tgc
+   BC Control File == q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\M06_002.tbc
+   Cell Wet/Dry Depth (m) == 0.002
+   Cell Side Wet/Dry Depth (m) == 0.001
+   ! Instability Water Level == <default>  ! ie. will use highest Zpt
+   ! Morphology Control File ==  ! None specified
+   ! AD Control File ==  ! None specified
+End 2D Domain == Domain_001
+
+!_______________________________________________________________________________
+! FILE MANAGEMENT COMMANDS
+Write Check Files == q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002
+Input Drive == 
+Output Drive == 
+Output Folder == q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\
+Check MI Save Date == ERROR  ! [ {ERROR} | WARNING | OFF ]
+Check MI Save Ext == .tab  ! [ {.tab} | <ext> ]
+XF Files  == ON   ! Options [ ON | {OFF} ]
+!XF Files Include in Filename == ! Not set
+XF Files Merge TIN Elevations == Reprocess   ! Options [ {Reprocess} | Use XF ]
+
+!_______________________________________________________________________________
+! BC DATABASE GLOBAL SETTINGS COMMANDS
+BC Database == q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\bc_dbase\bc_dbase_M06_001.csv
+BC Event Name == 
+BC Event Source == <source_text> | <source_name>
+BC Zero Flow == OFF  ! [ {OFF} | START | END | START and END ]
+
+!_______________________________________________________________________________
+! SIMULATION CONTROL COMMANDS
+Start Time (h) == 0.
+End Time (h) == 3.
+! End After Maximums (h) ==  ! Finish simulation x hours after maximums have been reached.
+! Auto Terminate not enabled.
+Timestep Minimum (s) == AUTO
+Timestep Repeats == 10
+
+!_______________________________________________________________________________
+! BED RESISTANCE FORMAT COMMANDS
+Bed Resistance Values == MANNING n   ! Options [ {MANNING n} | MANNING M | CHEZY ]
+Bed Resistance Cell Sides == INTERROGATE   ! Options [ AVERAGE M | AVERAGE n | MAXIMUM n | {INTERROGATE} ]
+Change Zero Material Values to One == OFF   ! Options [ ON | {OFF} ]
+Bed Resistance Depth Interpolation == SPLINE n  ! [ {SPLINE n} | LINEAR n | LINEAR M ]
+HPC Mannings Depth Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+
+!_______________________________________________________________________________
+! GLOBAL FLOW CONSTRICTION (FC) COMMANDS
+Layered FLC Default Approach == METHOD B  ! [ METHOD A | {METHOD B} | METHOD C | METHOD D]
+BG FLC Default Approach == LINEAR              ! [ LINEAR | {LINEAR-CONSTANT} | PARABOLIC | INVERTED-PARABOLIC ]
+Blank BG FLC Approach == NONE  ! [ {NONE} | METHOD A | METHOD B]
+
+!_______________________________________________________________________________
+! OUTPUT CONTROL AND FORMAT COMMANDS
+
+! Number of active user defined Output Zones = 0
+
+MAP OUTPUT SETTINGS for ENTIRE MODEL
+   Map Output Entire Model == ON   ! Options [ {ON} | OFF ]
+   Output Folder == q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\
+   ! Output Name: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\M06_5m_002
+   Maximums and Minimums == ON MAXIMUMS ONLY   ! Options [ ON | {ON MAXIMUMS ONLY} | OFF ]
+   Map Output Formats ==  XMDF TIF   ! Options  [ ASC ] [ CC ] [ DAT ] [ FLT ] [ GRID ] [ NC ] [ GPKG ] [ TIF ] [ HRASC ] [ HRFLT ] [ HRNC ] [ HRTGO ] [ HRWRR ] [ HRGIS ] [ HRGPKG ] [ HRTIF ] [ T3 ] [ TGO ] [ TMO ] [ WRB ] [ WRC ] [ WRR ] [ {XMDF} ] [ SMS [ {} | TRIANGLES | HIGH RES [ {} | CORNERS ONLY ] ] ]
+   XMDF Map Output Data Types ==  h V d dt RFR RFC RFML n
+   XMDF Start Map Output (h) == 0.
+   XMDF End Map Output (h) == 3.
+   XMDF Map Output Interval (s) == 300.
+   Maximums and Minimums Only For Grids == OFF   ! Options [ ON | {OFF} ]
+   TIF Map Output Data Types ==  h V d dt RFR RFC RFML n
+   ! Temporal TIF map output disabled
+END MAP OUTPUT SETTINGS for ENTIRE MODEL
+
+Grid Output Cell Size == Not Specified
+Grid Output Origin == AUTOMATIC
+
+Maximums Approach == METHOD B
+Map Cutoff Depth (m) == 0.05
+Map Cutoff SGS (m) == CELL AVERAGE | 0.05
+SGS Map Extent Trim  == ALL
+Maximum Velocity Cutoff Depth (m) == 0.1
+BSS Cutoff Depth (m) == 0.1
+Time Output Cutoff [Depths | VxD] == OFF
+
+ZP Hazard Cutoff Depths ==  0.01 0.01 0.01
+Map Output Corner Interpolation == METHOD C
+Map Output Vector Dry Zpt == OFF   ! Options [ ON | {OFF} ]
+Map Cutoff Vector == ON   ! Options [ {ON} | OFF ]
+Meshparts == OFF   ! Options [ ON | {OFF} ]
+
+UK Hazard Formula == D*(V+0.5)+DF   ! Options [ D*(V+1.5) | {D*(V+0.5)+DF} ]
+!UK Hazard Debris Factor == N/A
+UK Hazard Land Use == CONSERVATIVE   ! Options [ PASTURE | WOODLAND | URBAN | {CONSERVATIVE} | NOT SET ]
+NetCDF Output Compression  == 1
+NetCDF Output Start Date  == 2000-01-01 00:00
+Blue Kenue Start Date == 2000-01-01
+XMDF Output Compression  == 1
+GPKG Output Compression Method  == LZW   ! Options [ NONE | {LZW} ]
+GPKG Output Compression Predictor == HORIZONTAL DIFFERENCING   ! Options [ NONE | {HORIZONTAL DIFFERENCING} ]
+TIF Output Compression Method  == DEFLATE (Level -1)   ! Options [ NONE | LZW | {DEFLATE} | <level> ]
+TIF Output Compression Predictor == HORIZONTAL DIFFERENCING   ! Options [ NONE | {HORIZONTAL DIFFERENCING} ]
+
+!_______________________________________________________________________________
+! SCREEN DISPLAY COMMANDS
+Screen/Log Display Interval == 100   ! timesteps
+TSF Update Interval == 60   ! seconds
+HPC dt Write Interval == 100   ! timesteps
+Verbose == LOW   ! Options [ ON | OFF | {LOW} ]
+
+!_______________________________________________________________________________
+! TIME-SERIES OUTPUT COMMANDS
+Start Time Series Output (PO and LPO) (h) == 0.
+Time Series Output Interval (s) == 60.
+CSV Time == HOURS   ! Options [ {HOURS} | DAYS ]
+CSV Maximum Number Columns == UNLIMITED
+PO Approach == METHOD B
+Write PO Online == OFF   ! Options [ ON | {OFF} ]
+Maximums and Minimums Time Series == ON   ! Options [ ON | {OFF} ]
+Time Series Null Value == Cell Elevation
+Record Gauge Data == Gauge RLP RLL
+
+!_______________________________________________________________________________
+! RESTART FILE COMMANDS
+!Read Restart File ==  ! no restart file specified
+Write Restart File Version == 2
+!Write Restart File at Time (h) ==  ! not specified
+!Write Restart File Interval (h) ==  ! not specified
+!Write Restart Filename == [ {INCLUDE TIME} | OVERWRITE ]
+
+!_______________________________________________________________________________
+! SIMULATION PAUSE COMMANDS
+! Simulation Pause Start (h) == ! not specified
+! Simulation Pause Interval (h) == ! not specified
+
+!_______________________________________________________________________________
+! WETTING AND DRYING COMMANDS
+Wetting and Drying == ON METHOD B   ! Options [ {ON} | ON NO SIDE CHECKS | OFF ]
+Cell Side Checks == METHOD B
+
+!_______________________________________________________________________________
+! FREE-OVERFALL AND WEIR FLOW COMMANDS
+HPC Weir Factor == 0.3, 0.78
+HPC Weir Approach == METHOD B ENERGY   ! Options [ METHOD A | METHOD B | {METHOD B ENERGY} ]
+HPC Thin Weir Parameters == 0.577, 1.5, 8.55, 0.556   ! Defaults [0.577, 1.5, 8.55, 0.556 ]
+HPC Thick Weir Parameters == 0.577, 1.5, 8.55, 0.556   ! Defaults [0.577, 1.5, 8.55, 0.556 ]
+
+!_______________________________________________________________________________
+! EDDY VISCOSITY COMMANDS
+Viscosity Formulation == WU   ! Options [ CONSTANT | NON-NEWTONIAN | SMAGORINSKY | {WU} | WU SECONDARY ]
+[Wu] Viscosity Coefficients == 7., 0., 0.1  ! 3D, 2D components, Mannings n upper limit 
+Viscosity Approach == METHOD B
+
+!_______________________________________________________________________________
+! WATER LEVEL INSTABILITY DETECTION COMMANDS
+Water Level Checks == ON   ! Options [ {ON} | OFF ]
+
+!_______________________________________________________________________________
+! BOUNDARY TREATMENT COMMANDS
+HX Dry 1D Node Test == OFF   ! Options [ ON | {OFF} ]
+Distribute HX Flows == OFF   ! Options [ ON | {OFF} ] - ON ONLY APPLIES TO ESTRY 1D SCHEME
+Unused HX and SX Connections == ERROR   ! Options [ {ERROR} | WARNING ] - Can be used multiple times. Search TLF for "UNUSED HX AND SX CONNECTION" to find all instances of use.
+Adjust Head at Estry Interface == OFF   ! Options [ ON | ON VARIABLE | {OFF} ]
+Oblique Boundary Method == OFF   ! Options [ {ON} | ON METHOD 2 | OFF ]
+Boundary Treatment == METHOD A
+HQ Boundary Approach == METHOD C
+HQ Weighting Factor == 1.
+Boundary Viscosity Factor == 1.
+Rainfall Boundaries == STEPPED
+Rainfall Boundary Factor == 1.
+Rainfall Gauges == UNLIMITED PER CELL
+Global Rainfall Use Material Losses == ON
+Soil Negative Rainfall Approach == NONE   ! Options [ {NONE} | FACTOR ]
+GW Blend Threshold == 0.9
+Line Cell Selection == METHOD D
+Link 2D2D Approach == METHOD D
+Link 2D2D Distribute Flow == ON
+Link 2D2D Adjust Velocity Head Factor == 0.
+Link 2D2D Weighting Factor == 1.
+Link 2D2D Global Stability Factor == 1.
+Reveal 1D Nodes == OFF
+Inside Region == METHOD B
+SA Minimum Depth == -99999.
+SA Proportion to Depth == ON   ! Options [ {ON} | OFF ]
+SX ZC Check == ON   ! Options [ {ON} | OFF | <value> ]
+SX Head Adjustment == OFF   ! Options [ ON | {OFF} ]
+SX Flow Distribution Cutoff Depth == AUTO
+SX Head Distribution Cutoff Depth == AUTO
+SX Storage Approach == 1D NODE AVERAGE
+SX Storage Factor == 1., 20.
+HX Additional FLC == 0.
+HX Force Weir Equation == OFF   ! Options [ ON | {OFF} | dZ ]
+HX ZC Check == ON   ! Options [ {ON} | OFF ]
+Zpt Range Check == -9998., 99998.
+HPC Boundary Approach == METHOD C   ! Options [ METHOD A | {METHOD B} ]
+HPC HQ Boundary Approach == TOTAL   ! Options [ CELL | {TOTAL} ]
+HPC Infiltration Drying Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+HPC SX Momentum Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+HPC Dry Face Inertia Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+
+!_______________________________________________________________________________
+! MISCELLANEOUS COMMANDS
+Latitude == 0. ! degrees from equator (-ve for down under)
+Check Inside Grid == ERROR
+Write X1D Check File == OFF   ! Options [ ON | {OFF} ]
+VG Z Adjustment == MAX ZC   ! Options [ {ZC} | MAX ZC | ZH ]
+Density of Air == 1.25
+Density of Water == 1025.
+Wind/Wave Shallow Depths == 0.2, 1.
+GIS Project Path Format == Relative
+DEFAULT GIS Extension == NONE
+Spatial Database Output == GROUPED
+Pit Surcharge ccA Cutoff Depth == 0.
+
+!_______________________________________________________________________________
+! WIND STRESS COMMANDS
+
+!_______________________________________________________________________________
+! WAVE RADIATION STRESS COMMANDS
+
+!_______________________________________________________________________________
+! TEMPORARY ARRAY SIZE LIMITS
+Maximum Points == 500000
+Maximum Vertices == 100000
+Maximum 1D Channels == 100000
+Maximum 2D Cells Linked to a 1D Node == 1000
+Index 1D2D Links == ON   ! Options [ ON | {OFF} ]
+
+!_______________________________________________________________________________
+! BLOCKAGE MATRIX COMMANDS
+Blockage Matrix == OFF
+
+!_______________________________________________________________________________
+! SGS COMMANDS
+SGS == ON   ! Options [ ON | {OFF} ]
+SGS Approach == METHOD C   ! Options [ METHOD A | METHOD B | {METHOD C} ]
+SGS Material == OFF   ! Options [ {OFF} | ON ]
+SGS Z Shape Line Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+SGS SX Z Flag Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+SGS Check Files == ON   ! Options [ {ON} | OFF ]
+SGS Zpt MAX/MIN Approach == MINIMUM   ! Options [ IGNORE | {MINIMUM} | MEDIAN | CENTRE ]
+SGS Hydraulic Radius == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+SGS 2nd Order BC Slope == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+SGS Depth Output == CELL AVERAGE   ! Options [ {CELL AVERAGE} | EXACT | MEAN | MEDIAN | MINIMUM | PERCENTILE ]
+SGS Velocity Based Output == CELL AVERAGE DEPTH   ! Options [ {CELL AVERAGE DEPTH} | SGS DEPTH OUTPUT ]
+SGS Infiltration Approach == AUTO   ! Options [ {AUTO} | TOTAL AREA | WETTED AREA ]
+SGS Negative Rainfall Approach == WETTED AREA   ! Options [ TOTAL AREA | {WETTED AREA} ]
+SGS Sheet Flow Approach == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+
+
+Found 0 User Defined Output Zone(s)
+
+
+Found 1 2D domain(s)
+
+
+Projection output: use simulation name.
+Opening GRID Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\grid\DEM.tif
+GRID Layer assigned ID of 1
+
+Attempting to create XMDF file "q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\M06_5m_002.xmdf"
+
+Created XMDF file "q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\M06_5m_002.xmdf"
+
+Found a total of 0 hazard map outputs.
+
+Allocating 1600 Kb of temporary memory (RAM)
+
+Opening BC Control File "q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\M06_002.tbc" for 2D Domain Domain_001
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_bc_M01_001_L
+GIS Layer assigned ID of 2
+
+Closing GIS Layer 2 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_bc_M01_001_L]...
+
+Deallocating temporary memory (RAM)
+
+Allocating 29600 Kb of temporary 1D domain memory (RAM)
+
+Determining 1D array sizes
+
+Maximum 1D Timestep == 0.5  ! 1D maximum timestep not specified - set to half the starting 2D timestep.
+Temporary memory (RAM) requested =          1 Mb
+
+...Finished determining 1D array sizes
+
+
+Found a total of 1 1D nodes.  1 ESTRY nodes and 0 external 1D scheme nodes.
+
+
+Allocating space for output zones based on a resolution factor of 2
+
+tgc>> Origin == 292725, 6177615
+out > Origin...bottom left corner set to       292725.00000,     6177615.00000
+
+tgc>> Orientation == 293580, 6177415
+out > Orientation...see below for calculated angle
+
+tgc>> Cell Size == 5
+out > Cell Size...set to   5.000
+
+tgc>> Grid Size (X,Y) == 850, 1000
+out > Grid Size (X,Y)...see below for calculated size
+
+Domain_001  : Grid Dimensions (N,M): 200,170
+Domain_001  : Geographic Origin:      292725.000     6177615.000
+Domain_001  : Geographic Rotation Angle: -13.165794
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_dom_check
+GIS Layer assigned ID of 2
+
+Closing GIS Layer 2 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_dom_check]...
+
+Counting any Variable Zpt, SGS Zpt,FC and/or Layered FC Shapes...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_L
+GIS Layer assigned ID of 2
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_P
+GIS Layer assigned ID of 3
+Layer 1: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_L
+Layer 3: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_P
+Read 67 elevation points.
+
+No TIN Lines found.
+Processing Read GIS Shape objects...
+
+Closing GIS Layer 2 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_L]...
+
+Closing GIS Layer 3 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_P]...
+...Found 1449 SGS Z Shape Zpts (ZC/ZU/ZV).
+
+...Found total of 0 Variable Z Shape Zpts in 2D Domain Domain_001.
+
+...Found total of 0 FC Shape Cell Sides in 2D Domain Domain_001.
+
+...Found total of 0 Layered FC Shape Cell Sides in 2D Domain Domain_001.
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\2d_po_M01_001_L
+GIS Layer assigned ID of 2
+
+Rewinding RL / PO layer to look for regions, q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\2d_po_M01_001_L
+
+Closing GIS Layer 2 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_po_M01_001_L]...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\2d_po_M01_001_P
+GIS Layer assigned ID of 2
+
+Rewinding RL / PO layer to look for regions, q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\2d_po_M01_001_P
+
+Closing GIS Layer 2 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_po_M01_001_P]...
+
+Allocated space for 84 Time Series Plot Outputs including Reporting Locations
+
+Allocated space for 1 Time Series Plot Output flow lines including Reporting Locations
+   with a maximum of 147 cell sides plus cell centres along longest line
+
+Allocated space for 0 Longitudinal Plot Line Segments
+   with a maximum of 1 cells along a segment
+Domain_001  : Number of PO Time Series Locations:...    84
+Domain_001  : Number of LP Profile Locations:.......     0
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_bc_M01_001_L
+GIS Layer assigned ID of 2
+Number of Input Layers: 1
+Input Layer 1: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_bc_M01_001_L
+Found database line: FC01,01p2hr.csv,time,inflow_FC01,,,,,
+...Array size from xf file: 37
+
+Closing GIS Layer 2 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_bc_M01_001_L]...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\2d_rf_M06_polygons_002_R
+GIS Layer assigned ID of 2
+Reading: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\2d_rf_M06_polygons_002_R
+
+Closing GIS Layer 2 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_rf_M06_polygons_002_R]...
+...Allocating space for   4 new SA time-series boundaries. Total =   4
+Found database line: RF_FC04,rainfall_stations.csv,time,RF_FC04,,,,,
+...Array size from xf file: 19
+Found database line: RF_FC05,rainfall_stations.csv,time,RF_FC05,,,,,
+...Array size from xf file: 19
+Found database line: RF_FC06,rainfall_stations.csv,time,RF_FC06,,,,,
+...Array size from xf file: 19
+Found database line: RF_FC07,rainfall_stations.csv,time,RF_FC07,,,,,
+...Array size from xf file: 19
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt    ngt
+
+Just Read:      0     62      0      0     43      0      0      0      0      0      4      0      0     15      0
+Just Read:      0
+
+Found 0 possible pit SX connections inside 2D Domain Domain_001
+Ignoring 0 pit SX connections outside 2D Domain Domain_001
+
+Found a total of 4 different SA(ST) inputs
+...with a maximum number of cells per ST input of 11850
+
+Domain_001  : Allocating Memory Pointers:
+Domain_001  : Grid data memory ...............          2 Mb
+Domain_001  : Variable Z and Layered FC memory          0 Mb
+Domain_001  : Sub-domain linking memory ......          0 Mb
+Domain_001  : Flow constrictions memory ......          0 Mb
+Domain_001  : Weirs and viscosity factor memory         0 Mb
+Domain_001  : Pressure, wind and waves memory           0 Mb
+Domain_001  : General Memory .................          0 Mb
+Domain_001  : Boundary conditions memory .....          1 Mb
+Domain_001  : Wind & waves boundary memory ...          0 Mb
+Domain_001  : Hydraulic results memory .......          3 Mb
+Domain_001  : Maximums results memory ........          1 Mb
+Domain_001  : Mass balance tracking memory ...          0 Mb
+Domain_001  : Minimums results memory ........          0 Mb
+Domain_001  : 2D grid indexing memory ........          1 Mb
+Domain_001  : SMS High Res format memory .....          0 Mb
+Domain_001  : Plot output (PO) memory ........          0 Mb
+Domain_001  : Longitudinal output (LP) memory           0 Mb
+
+Allocating memory (RAM) for SGS coefficients...
+Memory required          6 Mb.
+...Done
+
+Allocating memory (RAM) for storing elevations at SGS sampling points (SGS Approach == Method C)
+Checking SGS Sample Frequency for memory allocation...
+
+SGS sampling:
+Domain 1, Cell Size 5., Sample Frequency 11, Sample Distance 0.5
+
+SGS Sample Frequency == 11
+
+Estimating memory (RAM) requirement...
+Memory required         37 Mb.
+...Done
+
+Domain_001  : Total SGS memory ...............         44 Mb
+
+Memory requested for 2D domain Domain_001     = 11 Mb
+SGS Memory requested for 2D domain Domain_001 = 44 Mb
+Total Memory requested thus far               = 56 Mb
+
+Licence free mode requested.
+
+No sub-domains found
+External 1D Scheme arrays memory ..............          0 Mb
+Cyclone track array memory ....................          0 Mb
+Tri-diagonal matrix memory ....................          0 Mb
+
+Outside extent of model output: 292725., 6177421.396, 293780.4274, 6178588.715
+
+Setting Grid Output Cell Size to: 2.5
+
+Grid output dimensions: 467 rows by 422 columns
+Grid output memory ............................          3 Mb
+TIN and output mesh memory ....................          4 Mb
+Mass balance tracking memory ..................          0 Mb
+
+No (evacuation) routes found.
+Route array memory ............................          0 Mb
+
+Number of Gauges ... 0
+
+Number of GIS Objects/Receptors ... 0
+Output Gauge array memory .....................          0 Mb
+Miscellaneous array memory ....................          0 Mb
+Maximum boundary table size ... 102
+Temporary arrays memory .......................          0 Mb
+
+Total 2D Domain(s) Real SP Memory requested ...         12 Mb
+Total 2D Domain(s) Real DP Memory requested ...          1 Mb
+Total 2D Domain(s) Integer Memory requested ...          4 Mb
+Total 2D Domain(s) Logical Memory requested ...          1 Mb
+Total 2D Domain(s) Character Memory requested .          0 Mb
+
+
+________________________________________________________________________________
+2D Domain Cell Sizes:         5.00, 
+2D Domain Timesteps:         1.000, 
+
+________________________________________________________________________________
+
+
+Deallocating temporary 1D domain memory (RAM)
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\plot\gis\M06_5m_002_PLOT.gpkg >> M06_5m_002_PLOT
+GIS Layer assigned ID of 2
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\plot\gis\M06_5m_002_PLOT.gpkg >> M06_5m_002_PLOT
+GIS Layer assigned ID of 3
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\plot\gis\M06_5m_002_PLOT.gpkg >> M06_5m_002_PLOT
+GIS Layer assigned ID of 4
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000091 h]
+Clock Time:      0:00:01  [0.000278 h]
+
+Domain_001: Reading Geometry File ... q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\M02_001.tgc
+Processing Topographic Commands
+
+tgc>> Set Code == 0
+out>> Set Code...global value of     0.000 being applied
+
+tgc>> Read GIS Code == 2d_code_M01_001_R
+out>> Read GIS Code...
+Opening Read GIS Code File: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\2d_code_M01_001_R
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\2d_code_M01_001_R
+GIS Layer assigned ID of 5
+Reading Read GIS Code File: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\2d_code_M01_001_R
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_code_M01_001_R]...
+
+tgc>> Set Zpts == 100
+out>> Set Zpts...global value of   100.000 being applied
+
+tgc>> Read GRID Zpts == grid\DEM.tif
+out>> Read GRID Zpts...
+Reading XF file...
+
+tgc>> Read GIS Z Shape == 2d_zsh_M02_rd_crest_001_L | 2d_zsh_M02_rd_crest_001_P
+out>> Read GIS Z Shape...Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_zsh_zpt_check
+GIS Layer assigned ID of 5
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_sh_obj_check
+GIS Layer assigned ID of 6
+
+Checking temporary memory request for Z_SHAPE SGS arrays...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_L
+GIS Layer assigned ID of 7
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_P
+GIS Layer assigned ID of 8
+Layer 1: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_L
+Layer 3: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_P
+Read 67 elevation points.
+
+No TIN Lines found.
+Processing Read GIS Shape objects...
+
+Closing GIS Layer 7 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_L]...
+
+Closing GIS Layer 8 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_P]...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_L
+GIS Layer assigned ID of 7
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_P
+GIS Layer assigned ID of 8
+Layer 1: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_L
+Layer 3: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_P
+Read 67 elevation points.
+
+No TIN Lines found.
+Processing Read GIS Shape objects...
+
+Closing GIS Layer 7 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_L]...
+
+Closing GIS Layer 8 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_zsh_M02_rd_crest_001_P]...
+
+Z_SHAPE modified 1449 SGS Zpts
+
+
+tgc>> Set Mat == 1
+out>> Set Mat...global value of     1.000 being applied
+
+tgc>> Read GIS Mat == 2d_mat_M01_001_R
+out>> Read GIS Mat...
+Opening Read GIS Mat File: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\2d_mat_M01_001_R
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\2d_mat_M01_001_R
+GIS Layer assigned ID of 7
+Reading Read GIS Mat File: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\2d_mat_M01_001_R
+
+Closing GIS Layer 7 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_mat_M01_001_R]...
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_zsh_zpt_check]...
+
+Closing GIS Layer 6 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_sh_obj_check]...
+...Finished Reading Geometry File
+
+Starting checking consistency of SGS elevations (SGS Approach == Method C)...
+
+Processing C Cell Data...
+
+Processing U Face Data...
+
+Processing V Face Data...
+
+Processing H Corner Data...
+
+... Finished checking consistency of SGS elevations (SGS Approach == Method C). CRC =        169924716
+
+Calculating statistics SGS elevations (SGS Approach == Method C)
+
+Processing C Cell Data...
+
+Processing U Face Data...
+
+Processing V Face Data...
+
+Processing H Corner Data...
+... Finished calculating statistics SGS elevations.
+
+Domain_001: Searching .tcf file for data ... 
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\2d_po_M01_001_L
+GIS Layer assigned ID of 5
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_po_check
+GIS Layer assigned ID of 6
+
+Rewinding RL / PO layer to look for regions, q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\2d_po_M01_001_L
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_po_M01_001_L]...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\2d_po_M01_001_P
+GIS Layer assigned ID of 5
+
+Rewinding RL / PO layer to look for regions, q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\2d_po_M01_001_P
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_po_M01_001_P]...
+
+Closing GIS Layer 6 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_po_check]...
+...Finished Searching .tcf File
+Identifying cells within user defined output zones...
+...Finished identifying cells within user defined output zones...
+
+Setting instability water level...
+...Instability water level limit set to   110.000
+
+Partially releasing memory (RAM) for storing elevations at SGS sampling points (SGS Approach == Method C)
+... Done
+
+Pre-processing breakline ZH points for depth interpolation
+
+... Finished processing breakline ZH points for depth interpolation
+
+Assigning any Variable Z Shape 1D Trigger Nodes...
+...Finished
+
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000178 h]
+Clock Time:      0:00:03  [0.000833 h]
+
+Domain_001: Reading Boundary File: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\M06_002.tbc
+
+READING Boundary Conditions:
+
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+Requested:            62      0      0     43      0      0      0      0      0      4      0      0     15      0
+
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_bcc_check
+GIS Layer assigned ID of 5
+
+Creating q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_2d_bc_tables_check.csv
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_bc_M01_001_L
+GIS Layer assigned ID of 6
+Number of Input Layers: 1
+Input Layer 1: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_bc_M01_001_L
+...Reading coordinates of any 1D connections from Layer 1
+Found     0 1D connections
+
+Processing TUFLOW "QT" BC with name "FC01"...
+Found database line: FC01,01p2hr.csv,time,inflow_FC01,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.000
+Column 2 ranges from        0.000 to       92.240
+
+Processing TUFLOW "HQ" BC with name ""...
+
+Closing GIS Layer 6 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_bc_M01_001_L]...
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+     Read:      0     58      0      0     43      0      0      0      0      0      0      0      0     15      0
+Requested:            62      0      0     43      0      0      0      0      0      4      0      0     15      0
+
+Checking all connection objects are used...
+...Finished.
+
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\2d_rf_M06_polygons_002_R
+GIS Layer assigned ID of 6
+
+Closing GIS Layer 6 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\gis\M06_002.gpkg >> 2d_rf_M06_polygons_002_R]...
+...Found     4 new SA/RF time-series boundaries. Total =      4
+Found database line: RF_FC04,rainfall_stations.csv,time,RF_FC04,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.000
+Column 2 ranges from        0.000 to       16.092
+RF Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) before any losses or factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.1700000018     17.8941    0.000004971         0.000124265
+    3    0.3300000131     25.8250    0.000007174         0.000179340
+    4    0.5000000000     58.1176    0.000016144         0.000403595
+    5    0.6700000167     54.3765    0.000015105         0.000377614
+    6    0.8299999833     67.3500    0.000018708         0.000467708
+    7    1.0000000000     76.3765    0.000021216         0.000530392
+    8    1.1699999571     77.0353    0.000021399         0.000534967
+    9    1.3300000429     86.5625    0.000024045         0.000601128
+   10    1.5000000000     94.6588    0.000026294         0.000657353
+   11    1.6699999571     88.5530    0.000024598         0.000614951
+   12    1.8300000429     99.2374    0.000027566         0.000689149
+   13    2.0000000000     72.6824    0.000020190         0.000504739
+   14    2.1700000763     64.0353    0.000017788         0.000444689
+   15    2.3299999237     59.5126    0.000016531         0.000413282
+   16    2.5000000000     42.4823    0.000011801         0.000295016
+   17    2.6700000763     26.6941    0.000007415         0.000185376
+   18    2.8299999237     17.8125    0.000004948         0.000123698
+   19    3.0000000000      0.0000    0.000000000         0.000000000
+Found database line: RF_FC05,rainfall_stations.csv,time,RF_FC05,,,,,
+Looking for data in columns 1, 3 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.000
+Column 2 ranges from        0.000 to       17.078
+RF Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) before any losses or factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.1700000018     24.9412    0.000006928         0.000173203
+    3    0.3300000131     31.2000    0.000008667         0.000216667
+    4    0.5000000000     54.0235    0.000015007         0.000375163
+    5    0.6700000167     70.5882    0.000019608         0.000490196
+    6    0.8299999833     71.7000    0.000019917         0.000497917
+    7    1.0000000000     92.4118    0.000025670         0.000641748
+    8    1.1699999571     79.3647    0.000022046         0.000551144
+    9    1.3300000429    103.1625    0.000028656         0.000716406
+   10    1.5000000000     94.6471    0.000026291         0.000657271
+   11    1.6699999571    100.4588    0.000027905         0.000697631
+   12    1.8300000429     92.4375    0.000025677         0.000641927
+   13    2.0000000000     89.0236    0.000024729         0.000618219
+   14    2.1700000763     66.7882    0.000018552         0.000463807
+   15    2.3299999237     52.8125    0.000014670         0.000366754
+   16    2.5000000000     40.5882    0.000011275         0.000281863
+   17    2.6700000763     33.8706    0.000009408         0.000235212
+   18    2.8299999237     16.5500    0.000004597         0.000114931
+   19    3.0000000000      0.0000    0.000000000         0.000000000
+Found database line: RF_FC06,rainfall_stations.csv,time,RF_FC06,,,,,
+Looking for data in columns 1, 4 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.000
+Column 2 ranges from        0.000 to       16.008
+RF Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) before any losses or factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.1700000018      6.9059    0.000001918         0.000047958
+    3    0.3300000131     32.4375    0.000009010         0.000225260
+    4    0.5000000000     52.5177    0.000014588         0.000364706
+    5    0.6700000167     66.9412    0.000018595         0.000464869
+    6    0.8299999833     75.7250    0.000021035         0.000525868
+    7    1.0000000000     79.2706    0.000022020         0.000550490
+    8    1.1699999571     86.1530    0.000023931         0.000598284
+    9    1.3300000429    100.0499    0.000027792         0.000694791
+   10    1.5000000000     86.2118    0.000023948         0.000598693
+   11    1.6699999571     84.4471    0.000023458         0.000586438
+   12    1.8300000429     91.6124    0.000025448         0.000636198
+   13    2.0000000000     92.5059    0.000025696         0.000642402
+   14    2.1700000763     62.0706    0.000017242         0.000431046
+   15    2.3299999237     70.6376    0.000019622         0.000490539
+   16    2.5000000000     48.0588    0.000013350         0.000333742
+   17    2.6700000763     21.3882    0.000005941         0.000148529
+   18    2.8299999237     27.3125    0.000007587         0.000189670
+   19    3.0000000000      0.0000    0.000000000         0.000000000
+Found database line: RF_FC07,rainfall_stations.csv,time,RF_FC07,,,,,
+Looking for data in columns 1, 5 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.000
+Column 2 ranges from        0.000 to       16.822
+RF Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) before any losses or factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.1700000018     27.7882    0.000007719         0.000192974
+    3    0.3300000131     41.5625    0.000011545         0.000288628
+    4    0.5000000000     47.6235    0.000013229         0.000330719
+    5    0.6700000167     57.3529    0.000015931         0.000398284
+    6    0.8299999833     74.8250    0.000020785         0.000519618
+    7    1.0000000000     72.4353    0.000020121         0.000503023
+    8    1.1699999571     98.9530    0.000027487         0.000687173
+    9    1.3300000429     89.1124    0.000024753         0.000618836
+   10    1.5000000000     97.3294    0.000027036         0.000675899
+   11    1.6699999571     88.2941    0.000024526         0.000613154
+   12    1.8300000429    100.0874    0.000027802         0.000695052
+   13    2.0000000000     74.3412    0.000020650         0.000516258
+   14    2.1700000763     76.3294    0.000021203         0.000530065
+   15    2.3299999237     59.7376    0.000016594         0.000414844
+   16    2.5000000000     47.8470    0.000013291         0.000332271
+   17    2.6700000763     38.2706    0.000010631         0.000265768
+   18    2.8299999237     28.1750    0.000007826         0.000195660
+   19    3.0000000000      0.0000    0.000000000         0.000000000
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+     Read:      0     62      0      0     43      0      0      0      0      0      4      0      0     15      0
+Requested:            62      0      0     43      0      0      0      0      0      4      0      0     15      0
+
+Checking all connection objects are used...
+...Finished.
+
+
+    Final:            62      0      0     43      0      0      0      0      0      4      0      0     15      0
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_bcc_check]...
+
+...Finished Reading Boundary File for Domain Domain_001
+
+Domain_001: Setting Bed Elevations for SGS Depth Output ... q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\model\M02_001.tgc
+...Finished Setting Bed Elevations for SGS Depth Output
+
+Indexing HX and SX cells connectivity to 1D nodes...
+Maximum number HX cells linked to a 1D node = 15
+Maximum number SX cells linked to a 1D node = 0
+Allocating memory for HX and SX 1D/2D link indexing...
+Domain_001: Indexing HX and SX cells...
+Finished indexing HX and SX cells connectivity to 1D nodes.
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000178 h]
+Clock Time:      0:00:03  [0.000833 h]
+
+Domain_001: Initialising 2D Data (Stage 1)...
+
+Completing unit conversions...
+
+Setting up linear and spline interpolation tables...
+   HT Boundaries...    0
+   HQ Boundaries...   43
+   QT Boundaries...    1
+   QTA Boundaries...    0
+   ST Boundaries...    4
+   SH and SD Boundaries...    0
+   VG Boundaries...    0
+   VT Boundaries...    0
+   WT Boundaries...    0
+
+Checking Material and Manning's n values...
+
+Initialising any layered FC coefficients...
+
+Setting default computational array values...
+
+...Finished Initialising Data (Stage 1) for Domain Domain_001
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000178 h]
+Clock Time:      0:00:03  [0.000833 h]
+
+Domain_001: Initialising 2D Data (Stage 2)...
+
+Assigning 2D cell codes...
+
+Pre-processing any SA regions...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_sac_check
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_sac_check]...
+
+Setting invert levels for distributing SX flows...
+
+Setting flow constriction lids...
+
+Initialising any tgc FC obverts...
+
+Checking storage reduction factors...
+
+Setting initial wet/dry flags...
+
+Initialising Manning n values which vary with depth...
+
+Pre-processing bed resistance values...
+
+Checking for any uninitialised Zpt values...
+
+Calculating SGS cutoff depths at cells...
+
+Checking all cells have active faces...
+
+...Finished Initialising Data (Stage 2) for Domain Domain_001
+
+________________________________________________________________________________
+
+Domain_001: Checking 2D Input Data...
+
+Calculating any automatic HQ boundaries in Domain Domain_001
+
+...Finished calculating any automatic HQ boundaries in Domain Domain_001
+...Finished Checking Input Data for Domain Domain_001
+
+________________________________________________________________________________
+
+Domain_001: Initialising any 2D2D link data
+Domain_001: Finished setting up any 2D2D link data
+
+Checking for mismatches in 1D node/channel bed levels...
+
+Indexed 1 1D nodes and 0 channels for HPC simulation.
+HPC Virtual Pipe system has 0 1D nodes and 0 pit channels.
+
+Setting up 1D structure groups...
+
+Setting up primary upstream and downstream channels...
+
+Checking upstream channel inverts for structures...
+
+Checking any 1D/2D and 2D/2D Link Elevations...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_1d_to_2d_check
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_1d_to_2d_check]...
+...Finished.
+
+________________________________________________________________________________
+
+Domain_001: Setting up any 2D structure flow group and reporting location links... 
+...Finished setting up any 2D structure flow group and reporting location links
+
+Found a total of 0 structure groups.
+
+________________________________________________________________________________
+
+1D Initial water levels (IWL) globally set to a default of 0.
+2D Initial water levels (IWL) globally set to a default of 0.
+
+________________________________________________________________________________
+
+Writing any remaining check files...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_grd_check
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_grd_check]...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_zpt_check
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_zpt_check]...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_uvpt_check
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_Check.gpkg >> M06_5m_002_uvpt_check]...
+...Finished writing any remaining check files
+
+Checking Zpt values are within Zpt Range Check values of -9998.000 and 99998.000...
+
+Zpts range from 35.949 to 55.336 m.
+
+...Finished.  All active Zpt values are within Zpt Range Check.
+
+Isolating redundant perimeter sections of 2D domain Domain_001...
+...Reduced computational grid by 8%.  Now extends from [5,7] to [196,169].
+...Reduced output grid by 8%.  Now extends from [5,7] to [196,169].
+
+________________________________________________________________________________
+CPU Time:        0:00:01  [0.000451 h]
+Clock Time:      0:00:05  [0.001389 h]
+
+Processing 1D/2D mesh and writing mesh file(s) where applicable...
+...Processing 2D Domain Domain_001
+
+Allocating 709Kb memory for temporary mesh node arrays...
+
+Processing cell centre nodes for domain...
+Processing mesh elements for domain...
+...found 20486 cells and 41379 nodes
+
+Mesh statistics for Output Zone 
+  Number 1D WLL Elements:            0
+  Number 1D WLL Nodes:               0
+  Number 2D Cells:               20486
+  Number 2D Mesh Elements:       81944
+  Number 2D Mesh Nodes:          41379
+
+...Finished Writing 2DM File
+
+
+Generating and writing check DEMs...
+
+Calculating grid interpolation factors...
+Element:     10000    20000    30000    40000    50000    60000    70000    80000
+Finished calculating grid interpolation factors.
+Opening GRID Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_DEM_Zmin.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_DEM_M.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\check\M06_5m_002_DEM_Z.tif
+GRID Layer assigned ID of 1
+...Finished generating and writing check DEMs.
+
+Calculating grid interpolation factors...
+Element:     10000    20000    30000    40000    50000    60000    70000    80000
+Finished calculating grid interpolation factors.
+
+Committing any changes to open GPKG layers...
+
+Number of WARNINGs:    _messages layer =       1     Total =       1
+Number of CHECKs:      _messages layer =       0     Total =       0
+
+________________________________________________________________________________
+CPU Time:        0:00:03  [0.000859 h]
+Clock Time:      0:00:05  [0.001389 h]
+Closing Time of Startup Summary...
+   Done
+
+......................................... Running TUFLOW HPC Solver
+
+
+Creating and checking 1D HX conditions from 2D SX connections...
+
+Creating and checking 1D QX links from 2D HX connections...
+
+Checking 1D QX boundaries and initialising 2D HX connections...
+
+Allocating 283Kb memory for temporary HPC arrays Stage 1...
+
+Checking boundary data to be sent...
+...Finished checking boundary data to be sent to HPC
+
+Sending HPC .tlf filename...
+
+Identifying HPC solver...
+HPC Solver Build: 3.40.0
+
+Sending HPC time history .hpc.dt.csv filename...
+
+Sending initialisation data to HPC...
+
+Found 2 usable GPU devices.
+GPU memory initialised and graphics card is compatible with HPC solver.
+Parameters initialised.
+...Finished sending initialisation data
+
+Sending elevation data and initial conditions...
+...Finished sending elevation data and initial conditions
+
+Sending any plot output and long plot locations...
+Finished sending any plot output locations
+
+Sending any Evaluation Group Data...
+
+Allocating temporary memory for any Evaluation Group arrays...
+Finished sending any Evaluation Group Data
+
+Transferring material parameters...
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+
+Transferring Material IDs...
+...Finished transferring Material IDs.
+
+Transferring Storage Reduction Factors (SRF)...
+...Finished transferring Storage Reduction Factors (SRF).
+
+No Cell Width Factors (CWF) to transfer...
+
+No Form Loss Coefficients (FLC) to transfer...
+
+No soils information to be transfered.
+
+No Time Output Cutoff Depth(s) to transfer...
+
+No Layered Flow Constriction data to transfer...
+
+No Variable Z Shapes to transfer...
+
+Transferring tracking scalar maximums settings...
+
+... Finished transferring tracking scalar maximums settings...
+
+Transferring tracking vector maximums settings...
+
+... Finished transferring tracking vector maximums settings...
+
+________________________________________________________________________________
+CPU Time:        0:00:05  [0.001428 h]
+Clock Time:      0:00:06  [0.001667 h]
+
+Sending boundary data to HPC...
+
+Allocating 1703Kb memory for temporary HPC arrays Stage 2...
+
+Sending active/inactive cell data to HPC...
+...Finished sending active/inactive cell data to HPC Solver.
+
+No stream order data to send to HPC Solver.
+
+Sending GWL active/inactive cell data to HPC...
+...Finished sending GWL active/inactive cell data to HPC Solver.
+
+No global wind shear stress data to send to HPC Solver.
+...Finished sending boundary data to HPC Solver.
+
+Sending SGS data...
+
+Initialising 1D Virtual Pipe data for HPC Solver...
+
+Sending any 1D Virtual Pipe data to HPC Solver...
+Sent 0 virtual pipe pit depth-discharge curves to HPC Solver.
+...Finished sending 1D Virtual Pipe data to HPC Solver.
+...Finished initialising 1D Virtual Pipe data for HPC Solver.
+
+Sending SX locations...
+
+...No non-VP SX locations to send.
+
+Sending HX locations...
+
+Allocating memory for temporary HX data arrays...
+
+...Finished sending HX locations.
+
+Setting weir angle at breaklines...
+
+Sending Spatial WrF data...
+
+________________________________________________________________________________
+CPU Time:        0:00:05  [0.001428 h]
+Clock Time:      0:00:06  [0.001667 h]
+
+________________________________________________________________________________
+
+Initialising Run Time Summary == q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002_hpc_run_stats.txt
+SIM:    0:00:00    -d  0  0    0D100%  1D  0%  2D  0%    CE  0.0%  0.0%  0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 0:00:00  Clock: 0:00:06  CPU: 0:00:05
+SIM:    0:01:00    -d  0  0    0D 45%  1D  1%  2D 55%    CE  0.1% -0.0% -0.0%    Vi    10  Vo     0  dV    10
+SIM:    0:02:00    -d  0  0    0D 40%  1D  1%  2D 60%    CE  0.9% -0.0% -0.0%    Vi    20  Vo     0  dV    20
+SIM:    0:03:00    -d  0  0    0D 36%  1D  1%  2D 63%    CE  0.9% -0.0% -0.0%    Vi    30  Vo     0  dV    31
+SIM:    0:04:00    -d  0  0    0D 34%  1D  1%  2D 65%    CE  1.1% -0.0% -0.0%    Vi    41  Vo     0  dV    42
+SIM:    0:05:00    -d  0  0    0D 32%  1D  1%  2D 67%    CE  1.2%  0.0%  0.0%    Vi    52  Vo     0  dV    52
+Writing HPC Output at: 0:05:00  Clock: 0:00:06  CPU: 0:00:05
+SIM:    0:06:00    -d  0  0    0D 40%  1D  1%  2D 59%    CE  1.1% -0.0% -0.0%    Vi    74  Vo     0  dV    74
+SIM:    0:07:00    -d  0  0    0D 37%  1D  1%  2D 61%    CE  1.0%  0.0% -0.0%    Vi   102  Vo     0  dV   102
+SIM:    0:08:00    -d  0  0    0D 35%  1D  1%  2D 63%    CE  0.9%  0.0% -0.0%    Vi   128  Vo     0  dV   129
+SIM:    0:09:00    -d  0  0    0D 33%  1D  1%  2D 65%    CE  0.8%  0.0% -0.0%    Vi   156  Vo     0  dV   157
+SIM:    0:10:00    -d  0  0    0D 31%  1D  1%  2D 67%    CE  0.6% -0.0% -0.0%    Vi   185  Vo     0  dV   185
+Writing HPC Output at: 0:10:00  Clock: 0:00:06  CPU: 0:00:05
+SIM:    0:11:00    -d  0  0    0D 37%  1D  1%  2D 62%    CE  0.7%  0.0% -0.0%    Vi   211  Vo     0  dV   213
+SIM:    0:12:00    -d  0  0    0D 35%  1D  1%  2D 64%    CE  0.5%  0.0% -0.0%    Vi   231  Vo     0  dV   231
+SIM:    0:13:00    -d  0  0    0D 33%  1D  1%  2D 65%    CE  0.4% -0.0%  0.0%    Vi   247  Vo     0  dV   247
+SIM:    0:14:00    -d  0  0    0D 31%  1D  1%  2D 67%    CE  0.4%  0.0%  0.0%    Vi   263  Vo     0  dV   263
+SIM:    0:15:00    -d  0  0    0D 30%  1D  1%  2D 69%    CE  0.3%  0.0%  0.0%    Vi   279  Vo     0  dV   279
+Writing HPC Output at: 0:15:00  Clock: 0:00:07  CPU: 0:00:05
+SIM:    0:16:00    -d  0  0    0D 33%  1D  1%  2D 65%    CE  0.3%  0.0% -0.0%    Vi   302  Vo     0  dV   302
+SIM:    0:17:00    -d  0  0    0D 32%  1D  1%  2D 67%    CE  0.3% -0.0% -0.0%    Vi   332  Vo     0  dV   333
+SIM:    0:18:00    -d  0  0    0D 30%  1D  1%  2D 68%    CE  0.3%  0.0% -0.0%    Vi   363  Vo     0  dV   363
+SIM:    0:19:00    -d  0  0    0D 29%  1D  1%  2D 70%    CE  0.2%  0.0%  0.0%    Vi   393  Vo     0  dV   393
+SIM:    0:20:00    -d  0  0    0D 28%  1D  1%  2D 71%    CE  0.2%  0.0% -0.0%    Vi   425  Vo     0  dV   426
+Writing HPC Output at: 0:20:00  Clock: 0:00:07  CPU: 0:00:05
+SIM:    0:21:00    -d  0  0    0D 30%  1D  1%  2D 68%    CE  0.2%  0.0%  0.0%    Vi   481  Vo     0  dV   481
+SIM:    0:22:00    -d  0  0    0D 29%  1D  1%  2D 70%    CE  0.2%  0.0%  0.0%    Vi   540  Vo     0  dV   541
+SIM:    0:23:00    -d  0  0    0D 28%  1D  1%  2D 71%    CE  0.2%  0.0%  0.0%    Vi   600  Vo     0  dV   601
+SIM:    0:24:00    -d  0  0    0D 27%  1D  1%  2D 72%    CE  0.2%  0.0% -0.0%    Vi   659  Vo     0  dV   660
+SIM:    0:25:00    -d  0  0    0D 26%  1D  1%  2D 73%    CE  0.2%  0.0%  0.0%    Vi   719  Vo     0  dV   720
+Writing HPC Output at: 0:25:00  Clock: 0:00:07  CPU: 0:00:05
+SIM:    0:26:00    -d  0  0    0D 28%  1D  1%  2D 70%    CE  0.2%  0.0%  0.0%    Vi   799  Vo     0  dV   801
+SIM:    0:27:00    -d  0  0    0D 28%  1D  1%  2D 71%    CE  0.2%  0.0%  0.0%    Vi   927  Vo     0  dV   928
+SIM:    0:28:00    -d  0  0    0D 27%  1D  1%  2D 72%    CE  0.2%  0.0%  0.0%    Vi  1054  Vo     0  dV  1056
+SIM:    0:29:00    -d  0  0    0D 26%  1D  1%  2D 73%    CE  0.2%  0.0%  0.0%    Vi  1183  Vo     0  dV  1184
+SIM:    0:30:00    -d  0  0    0D 25%  1D  1%  2D 74%    CE  0.2%  0.0%  0.0%    Vi  1310  Vo     0  dV  1312
+Writing HPC Output at: 0:30:00  Clock: 0:00:08  CPU: 0:00:05
+SIM:    0:31:00    -d  0  0    0D 27%  1D  1%  2D 72%    CE  0.2%  0.0%  0.0%    Vi  1643  Vo     0  dV  1647
+SIM:    0:32:00    -d  0  0    0D 26%  1D  1%  2D 73%    CE  0.2% -0.0% -0.0%    Vi  2170  Vo     0  dV  2172
+SIM:    0:33:00    -d  0  0    0D 25%  1D  1%  2D 74%    CE  0.2% -0.0% -0.0%    Vi  2623  Vo     0  dV  2626
+SIM:    0:34:00    -d  0  0    0D 24%  1D  1%  2D 74%    CE  0.2% -0.0% -0.0%    Vi  3095  Vo     1  dV  3101
+SIM:    0:35:00    -d  0  0    0D 24%  1D  1%  2D 75%    CE  0.2% -0.0%  0.0%    Vi  3776  Vo     1  dV  3779
+Writing HPC Output at: 0:35:00  Clock: 0:00:08  CPU: 0:00:06
+SIM:    0:36:00    -d  0  0    0D 25%  1D  1%  2D 74%    CE  0.2% -0.0% -0.0%    Vi  4134  Vo     2  dV  4137
+SIM:    0:37:00    -d  0  0    0D 24%  1D  1%  2D 75%    CE  0.2% -0.0%  0.0%    Vi  4360  Vo     3  dV  4360
+SIM:    0:38:00    -d  0  0    0D 24%  1D  1%  2D 75%    CE  0.1% -0.0% -0.0%    Vi  4585  Vo     4  dV  4584
+SIM:    0:39:00    -d  0  0    0D 23%  1D  1%  2D 76%    CE  0.1% -0.0% -0.0%    Vi  4809  Vo     5  dV  4807
+SIM:    0:40:00    -d  0  0    0D 22%  1D  1%  2D 77%    CE  0.1% -0.0% -0.0%    Vi  5034  Vo     5  dV  5030
+Writing HPC Output at: 0:40:00  Clock: 0:00:09  CPU: 0:00:06
+SIM:    0:41:00    -d  0  0    0D 23%  1D  1%  2D 75%    CE  0.1% -0.0%  0.0%    Vi  5298  Vo     6  dV  5293
+SIM:    0:42:00    -d  0  0    0D 23%  1D  1%  2D 76%    CE  0.1% -0.0%  0.0%    Vi  5439  Vo     8  dV  5431
+SIM:    0:43:00    -d  0  0    0D 22%  1D  1%  2D 77%    CE  0.1% -0.0%  0.0%    Vi  5557  Vo    10  dV  5547
+SIM:    0:44:00    -d  0  0    0D 22%  1D  1%  2D 77%    CE  0.1% -0.0%  0.0%    Vi  5677  Vo    13  dV  5662
+SIM:    0:45:00    -d  0  0    0D 21%  1D  1%  2D 78%    CE  0.1% -0.0%  0.0%    Vi  5791  Vo    18  dV  5776
+Writing HPC Output at: 0:45:00  Clock: 0:00:10  CPU: 0:00:06
+SIM:    0:46:00    -d  0  0    0D 22%  1D  1%  2D 77%    CE  0.1% -0.0%  0.0%    Vi  5876  Vo    24  dV  5850
+SIM:    0:47:00    -d  0  0    0D 22%  1D  1%  2D 77%    CE  0.1% -0.0%  0.0%    Vi  5915  Vo    31  dV  5886
+SIM:    0:48:00    -d  0  0    0D 21%  1D  1%  2D 77%    CE  0.1% -0.0%  0.0%    Vi  5961  Vo    39  dV  5921
+SIM:    0:49:00    -d  0  0    0D 21%  1D  1%  2D 78%    CE  0.1% -0.0%  0.0%    Vi  6003  Vo    49  dV  5955
+SIM:    0:50:00    -d  0  0    0D 21%  1D  1%  2D 78%    CE  0.1% -0.0%  0.0%    Vi  6053  Vo    59  dV  5993
+Writing HPC Output at: 0:50:00  Clock: 0:00:10  CPU: 0:00:07
+SIM:    0:51:00    -d  0  0    0D 21%  1D  1%  2D 78%    CE  0.1% -0.0%  0.0%    Vi  6101  Vo    70  dV  6030
+SIM:    0:52:00    -d  0  0    0D 21%  1D  1%  2D 78%    CE  0.1% -0.0%  0.0%    Vi  6113  Vo    80  dV  6033
+SIM:    0:53:00    -d  0  0    0D 21%  1D  1%  2D 78%    CE  0.1%  0.0%  0.0%    Vi  6125  Vo    90  dV  6035
+SIM:    0:54:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  6141  Vo   100  dV  6038
+SIM:    0:55:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  6147  Vo   108  dV  6043
+Writing HPC Output at: 0:55:00  Clock: 0:00:11  CPU: 0:00:07
+SIM:    0:56:00    -d  0  0    0D 21%  1D  1%  2D 78%    CE  0.0%  0.0%  0.0%    Vi  6157  Vo   114  dV  6042
+SIM:    0:57:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  6151  Vo   120  dV  6032
+SIM:    0:58:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  6146  Vo   139  dV  6007
+SIM:    0:59:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  6140  Vo   325  dV  5815
+SIM:    1:00:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0%  0.0%  0.0%    Vi  6134  Vo   771  dV  5363
+Writing HPC Output at: 1:00:00  Clock: 0:00:12  CPU: 0:00:08
+SIM:    1:01:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  6198  Vo  1476  dV  4721
+SIM:    1:02:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  6167  Vo  2302  dV  3864
+SIM:    1:03:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  6136  Vo  3195  dV  2940
+SIM:    1:04:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0%  0.0%  0.0%    Vi  6104  Vo  3857  dV  2247
+SIM:    1:05:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0%  0.0%  0.0%    Vi  6073  Vo  4340  dV  1732
+Writing HPC Output at: 1:05:00  Clock: 0:00:12  CPU: 0:00:08
+SIM:    1:06:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  6007  Vo  4742  dV  1265
+SIM:    1:07:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  5925  Vo  5087  dV   838
+SIM:    1:08:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0%  0.0%  0.0%    Vi  5843  Vo  5352  dV   490
+SIM:    1:09:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0%  0.0%  0.0%    Vi  5761  Vo  5535  dV   226
+SIM:    1:10:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0%  0.0%  0.0%    Vi  5678  Vo  5660  dV    18
+Writing HPC Output at: 1:10:00  Clock: 0:00:13  CPU: 0:00:08
+SIM:    1:11:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  5646  Vo  5739  dV   -93
+SIM:    1:12:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  5558  Vo  5793  dV  -235
+SIM:    1:13:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0%  0.0%  0.0%    Vi  5455  Vo  5817  dV  -363
+SIM:    1:14:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0%  0.0%  0.0%    Vi  5352  Vo  5820  dV  -468
+SIM:    1:15:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0%  0.0%  0.0%    Vi  5249  Vo  5806  dV  -558
+Writing HPC Output at: 1:15:00  Clock: 0:00:14  CPU: 0:00:09
+SIM:    1:16:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0%  0.0%  0.0%    Vi  5129  Vo  5779  dV  -652
+SIM:    1:17:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  4990  Vo  5743  dV  -755
+SIM:    1:18:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  4851  Vo  5697  dV  -847
+SIM:    1:19:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  4713  Vo  5636  dV  -924
+SIM:    1:20:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  4564  Vo  5570  dV -1007
+Writing HPC Output at: 1:20:00  Clock: 0:00:14  CPU: 0:00:09
+SIM:    1:21:00    -d  0  0    0D 20%  1D  1%  2D 79%    CE  0.0% -0.0%  0.0%    Vi  4394  Vo  5500  dV -1107
+SIM:    1:22:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  4265  Vo  5425  dV -1160
+SIM:    1:23:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  4138  Vo  5341  dV -1205
+SIM:    1:24:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  4009  Vo  5249  dV -1241
+SIM:    1:25:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  3881  Vo  5154  dV -1274
+Writing HPC Output at: 1:25:00  Clock: 0:00:15  CPU: 0:00:09
+SIM:    1:26:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  3754  Vo  5043  dV -1290
+SIM:    1:27:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  3631  Vo  4933  dV -1303
+SIM:    1:28:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  3508  Vo  4818  dV -1312
+SIM:    1:29:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  3384  Vo  4702  dV -1319
+SIM:    1:30:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  3261  Vo  4586  dV -1327
+Writing HPC Output at: 1:30:00  Clock: 0:00:15  CPU: 0:00:10
+SIM:    1:31:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  3114  Vo  4468  dV -1354
+SIM:    1:32:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  3005  Vo  4348  dV -1345
+SIM:    1:33:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2895  Vo  4233  dV -1339
+SIM:    1:34:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2786  Vo  4115  dV -1330
+SIM:    1:35:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2678  Vo  4000  dV -1324
+Writing HPC Output at: 1:35:00  Clock: 0:00:16  CPU: 0:00:10
+SIM:    1:36:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2609  Vo  3882  dV -1273
+SIM:    1:37:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2560  Vo  3767  dV -1207
+SIM:    1:38:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2511  Vo  3654  dV -1143
+SIM:    1:39:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2462  Vo  3545  dV -1083
+SIM:    1:40:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2413  Vo  3438  dV -1026
+Writing HPC Output at: 1:40:00  Clock: 0:00:17  CPU: 0:00:10
+SIM:    1:41:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2411  Vo  3332  dV  -921
+SIM:    1:42:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2357  Vo  3229  dV  -873
+SIM:    1:43:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2290  Vo  3132  dV  -842
+SIM:    1:44:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2223  Vo  3040  dV  -817
+SIM:    1:45:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2156  Vo  2952  dV  -797
+Writing HPC Output at: 1:45:00  Clock: 0:00:17  CPU: 0:00:11
+SIM:    1:46:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2109  Vo  2871  dV  -762
+SIM:    1:47:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2084  Vo  2797  dV  -714
+SIM:    1:48:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2059  Vo  2725  dV  -667
+SIM:    1:49:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  2033  Vo  2660  dV  -627
+SIM:    1:50:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1993  Vo  2597  dV  -604
+Writing HPC Output at: 1:50:00  Clock: 0:00:18  CPU: 0:00:11
+SIM:    1:51:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1911  Vo  2533  dV  -622
+SIM:    1:52:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1893  Vo  2470  dV  -578
+SIM:    1:53:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1874  Vo  2409  dV  -535
+SIM:    1:54:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1856  Vo  2350  dV  -495
+SIM:    1:55:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1837  Vo  2296  dV  -459
+Writing HPC Output at: 1:55:00  Clock: 0:00:18  CPU: 0:00:11
+SIM:    1:56:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1820  Vo  2241  dV  -422
+SIM:    1:57:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1805  Vo  2190  dV  -386
+SIM:    1:58:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1789  Vo  2142  dV  -353
+SIM:    1:59:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1774  Vo  2100  dV  -326
+SIM:    2:00:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1759  Vo  2059  dV  -299
+Writing HPC Output at: 2:00:00  Clock: 0:00:19  CPU: 0:00:12
+SIM:    2:01:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1572  Vo  2021  dV  -449
+SIM:    2:02:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1546  Vo  1986  dV  -441
+SIM:    2:03:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1520  Vo  1954  dV  -434
+SIM:    2:04:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1494  Vo  1923  dV  -429
+SIM:    2:05:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1468  Vo  1892  dV  -425
+Writing HPC Output at: 2:05:00  Clock: 0:00:20  CPU: 0:00:12
+SIM:    2:06:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1438  Vo  1863  dV  -426
+SIM:    2:07:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1406  Vo  1840  dV  -435
+SIM:    2:08:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1374  Vo  1811  dV  -438
+SIM:    2:09:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1342  Vo  1781  dV  -439
+SIM:    2:10:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1310  Vo  1753  dV  -444
+Writing HPC Output at: 2:10:00  Clock: 0:00:20  CPU: 0:00:12
+SIM:    2:11:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1281  Vo  1728  dV  -446
+SIM:    2:12:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1270  Vo  1698  dV  -429
+SIM:    2:13:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1260  Vo  1684  dV  -425
+SIM:    2:14:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1250  Vo  1643  dV  -394
+SIM:    2:15:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1239  Vo  1613  dV  -374
+Writing HPC Output at: 2:15:00  Clock: 0:00:21  CPU: 0:00:13
+SIM:    2:16:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1226  Vo  1589  dV  -362
+SIM:    2:17:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1211  Vo  1559  dV  -349
+SIM:    2:18:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1195  Vo  1528  dV  -333
+SIM:    2:19:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1179  Vo  1500  dV  -321
+SIM:    2:20:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi  1131  Vo  1472  dV  -341
+Writing HPC Output at: 2:20:00  Clock: 0:00:22  CPU: 0:00:13
+SIM:    2:21:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   993  Vo  1445  dV  -452
+SIM:    2:22:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   984  Vo  1418  dV  -434
+SIM:    2:23:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   975  Vo  1392  dV  -417
+SIM:    2:24:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   966  Vo  1366  dV  -400
+SIM:    2:25:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   957  Vo  1340  dV  -384
+Writing HPC Output at: 2:25:00  Clock: 0:00:22  CPU: 0:00:13
+SIM:    2:26:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   946  Vo  1315  dV  -370
+SIM:    2:27:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   931  Vo  1290  dV  -360
+SIM:    2:28:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   916  Vo  1266  dV  -350
+SIM:    2:29:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   901  Vo  1242  dV  -341
+SIM:    2:30:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   886  Vo  1218  dV  -333
+Writing HPC Output at: 2:30:00  Clock: 0:00:23  CPU: 0:00:14
+SIM:    2:31:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   700  Vo  1195  dV  -496
+SIM:    2:32:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   684  Vo  1172  dV  -488
+SIM:    2:33:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   668  Vo  1149  dV  -482
+SIM:    2:34:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   652  Vo  1128  dV  -475
+SIM:    2:35:00    -d  0  0    0D 19%  1D  1%  2D 81%    CE  0.0% -0.0%  0.0%    Vi   636  Vo  1105  dV  -468
+Writing HPC Output at: 2:35:00  Clock: 0:00:23  CPU: 0:00:14
+SIM:    2:36:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   625  Vo  1081  dV  -456
+SIM:    2:37:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   616  Vo  1058  dV  -442
+SIM:    2:38:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   607  Vo  1035  dV  -428
+SIM:    2:39:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   598  Vo  1012  dV  -414
+SIM:    2:40:00    -d  0  0    0D 18%  1D  1%  2D 81%    CE  0.0% -0.0%  0.0%    Vi   589  Vo   990  dV  -401
+Writing HPC Output at: 2:40:00  Clock: 0:00:24  CPU: 0:00:14
+SIM:    2:41:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   571  Vo   965  dV  -394
+SIM:    2:42:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   554  Vo   942  dV  -389
+SIM:    2:43:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   538  Vo   922  dV  -384
+SIM:    2:44:00    -d  0  0    0D 19%  1D  1%  2D 81%    CE  0.0% -0.0%  0.0%    Vi   523  Vo   901  dV  -378
+SIM:    2:45:00    -d  0  0    0D 18%  1D  1%  2D 81%    CE  0.0% -0.0%  0.0%    Vi   508  Vo   880  dV  -372
+Writing HPC Output at: 2:45:00  Clock: 0:00:25  CPU: 0:00:15
+SIM:    2:46:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   492  Vo   859  dV  -367
+SIM:    2:47:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   476  Vo   839  dV  -363
+SIM:    2:48:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   459  Vo   820  dV  -361
+SIM:    2:49:00    -d  0  0    0D 19%  1D  1%  2D 81%    CE  0.0% -0.0%  0.0%    Vi   443  Vo   803  dV  -360
+SIM:    2:50:00    -d  0  0    0D 18%  1D  1%  2D 81%    CE  0.0% -0.0%  0.0%    Vi   390  Vo   786  dV  -396
+Writing HPC Output at: 2:50:00  Clock: 0:00:25  CPU: 0:00:15
+SIM:    2:51:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   234  Vo   767  dV  -533
+SIM:    2:52:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   221  Vo   748  dV  -527
+SIM:    2:53:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   208  Vo   729  dV  -521
+SIM:    2:54:00    -d  0  0    0D 19%  1D  1%  2D 81%    CE  0.0% -0.0%  0.0%    Vi   195  Vo   709  dV  -514
+SIM:    2:55:00    -d  0  0    0D 18%  1D  1%  2D 81%    CE  0.0% -0.0%  0.0%    Vi   183  Vo   691  dV  -508
+Writing HPC Output at: 2:55:00  Clock: 0:00:26  CPU: 0:00:15
+SIM:    2:56:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   171  Vo   672  dV  -501
+SIM:    2:57:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   162  Vo   652  dV  -490
+SIM:    2:58:00    -d  0  0    0D 19%  1D  1%  2D 80%    CE  0.0% -0.0%  0.0%    Vi   153  Vo   633  dV  -480
+SIM:    2:59:00    -d  0  0    0D 19%  1D  1%  2D 81%    CE  0.0% -0.0%  0.0%    Vi   144  Vo   616  dV  -472
+SIM:    3:00:00    -d  0  0    0D 18%  1D  1%  2D 81%    CE  0.0% -0.0%  0.0%    Vi   135  Vo   600  dV  -464
+Writing HPC Output at: 3:00:00  Clock: 0:00:26  CPU: 0:00:16
+
+________________________________________________________________________________
+CPU Time:        0:00:16  [0.004497 h]
+Clock Time:      0:00:26  [0.007222 h]
+
+Finished HPC Solution.
+
+Closing Computational Time Summary.
+
+Receiving tracked maximums from HPC Solver.
+
+Allocating 141Kb memory for temporary HPC array containing any NaN locations...
+
+Total number of High Control Numbers or NaNs (instabilities) causing a timestep correction was 0.
+
+Receiving Maximum Water Levels and Times of Peak Levels from HPC Solver...
+Finished.
+
+Receiving tracked scalar maximums...
+
+... stored cell averaged depth from tracked scalar maximums.
+
+Receiving tracked vector maximums...
+
+Processing HPC PO.  Number of HPC PO times = 181 (182)
+
+Processing maximums from HPC Solver...
+
+Finished processing of HPC results.
+
+Run Finished ..... Steps completed: 37
+   Total Negative Depths: 0
+Simulation took 0.004497 CPU hours
+One hour of model time takes 0.001 CPU hours
+
+________________________________________________________________________________
+
+________________________________________________________________________________
+
+Writing maximums...
+Opening GRID Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\grids\M06_5m_002_h_Max.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\grids\M06_5m_002_d_Max.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\grids\M06_5m_002_V_Max.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\grids\M06_5m_002_dt_Min.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\grids\M06_5m_002_V_Max.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\grids\M06_5m_002_TMax_h.tif
+GRID Layer assigned ID of 1
+
+No minimums to write.
+
+Closing map output files...
+
+Writing any PO output...
+Opening GIS Layer: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\M06_5m_002_Results.gpkg >> M06_5m_002_TS
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\M06_5m_002_Results.gpkg >> M06_5m_002_TS]...
+
+Finished writing PO output...
+
+Closing GIS Layer 2 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\plot\gis\M06_5m_002_PLOT.gpkg >> M06_5m_002_PLOT]...
+
+Closing GIS Layer 3 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\plot\gis\M06_5m_002_PLOT.gpkg >> M06_5m_002_PLOT]...
+
+Closing GIS Layer 4 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\results\plot\gis\M06_5m_002_PLOT.gpkg >> M06_5m_002_PLOT]...
+
+Input File ............ q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\M06_5m_002.tcfSimulation Log File ... q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002.tlf
+
+Closing GIS Layer 1 [q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002_messages.gpkg]...
+
+Closing any unclosed GIS layers...
+
+Deallocating memory for 1D/2D link indexing...
+
+-------------------------------
+--    Simulation FINISHED    --
+-------------------------------
+
+                         PRIOR TO SIMULATION
+  Number of WARNINGs:    _messages layer =       1     Total =       1
+  Number of CHECKs:      _messages layer =       0     Total =       0
+
+                          DURING SIMULATION
+  Number of WARNINGs:    _messages layer =       0     Total =       0
+  Number of CHECKs:      _messages layer =       0     Total =       0
+
+
+_____________________________________________________________________________________________________________
+_____________________________________________________________________________________________________________
+
+SIMULATION SUMMARY
+
+Input File: q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\M06_5m_002.tcf
+Log File:   q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002.tlf
+
+Start Time (h): 0.
+End Time (h):   3.
+
+Initialisation Times
+Clock Time:          0:00:05  [0.001389 h]
+Processor Time:      0:00:03  [0.000859 h]
+Final Times
+NOTE: Processor times may be misleading/inaccurate when using GPU hardware.
+Clock Time:          0:00:27  [0.0075 h]
+Processor Time:      0:00:20  [0.005781 h]
+
+Simulation FINISHED
+
+TUFLOW 1D Negative Depths: 0
+HPC HCN Repeated Timesteps: 0  ! HCN is High Control Numbers, eg. Courant Number exceedance
+HPC NaN Repeated Timesteps: 0  ! NaN - Not a Number means an instability occurred
+HPC NaN WARNING 2550: 0
+
+WARNINGs prior to simulation:     1  [0 not in _messages layer]
+WARNINGs during simulation:       0  [0 not in _messages layer]
+CHECKs prior to simulation:       0  [0 not in _messages layer]
+CHECKs during simulation:         0  [0 not in _messages layer]
+
+Volume at Start (m3):  0
+Volume at End (m3):    115214
+Total Volume In (m3):  433258
+Total Volume Out (m3): 318061
+Volume Error (m3):     17 or 0.0% of Volume In + Out
+Final Cumulative ME:   0.00%
+_____________________________________________________________________________________________________________
+
+Deallocating SGS memory.
+... Finished deallocating SGS memory.
+
+De-allocating memory (RAM) for storing elevations at SGS sampling points (SGS Approach == Method C)
+... Done
+
+Closing all file units...

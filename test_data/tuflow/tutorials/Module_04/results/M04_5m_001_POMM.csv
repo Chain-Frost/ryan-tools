@@ -1,0 +1,6 @@
+"M04_5m_001","Location","Flow","Structure Flow","Water Level","Velocity","U/S Structure Water Level","D/S Structure Water Level"
+"q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_04\Complete_Model\TUFLOW\runs\M04_5m_001.tcf","Time","Loc1_L","Bridge","Loc1_P","Loc1_P","Bridge","Bridge"
+"q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_04\Complete_Model\TUFLOW\results\M04_5m_001_POMM.csv","Maximum (Extracted from Time Series)",         96.2785,         96.5980,         42.3869,          1.4575,         40.9482,         40.7525
+"","Time of Maximum",          1.0667,          1.1167,          1.0667,          0.7000,          1.1167,          1.1167
+"","Minimum (Extracted From Time Series)",          0.0000,          0.0000,          0.0000,          0.0000,     -99999.0000,     -99999.0000
+"","Time of Minimum",          0.0000,          0.0000,          0.0000,          0.0000,          0.0000,          0.0000

@@ -1,0 +1,55 @@
+TUFLOW Control File == "q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_10\Complete_Model\TUFLOW\runs\M10_5m_001.tcf"
+TUFLOW Log File == "q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_10\Complete_Model\TUFLOW\runs\log\M10_5m_001.tlf"
+TUFLOW Build == Build: 2023-03-AF-iSP-w64
+Solution Scheme == HPC
+Hardware == GPU
+GPU Device IDs == 0 
+Computer Name == BGER-HYDROWS
+
+Simulation Status == FINISHED
+Simulation Time (h) == 3.
+Simulation Start Time (h) == 0.
+Simulation End Time (h) == 3.
+
+Percentage Complete (%) == 100
+Completed Computational Steps == 21986
+
+CPU Time (h) == 0.02062
+Clock Time (h) == 0.008889
+Approximate Clock Time Remaining (h) == 0.
+
+HPC HCN Repeated Timesteps == 0  ! HCN is High Control Numbers, eg. Courant Number exceedance
+HPC NaN Repeated Timesteps == 0  ! NaN - Not a Number means an instability occurred
+HPC NaN WARNING 2550 == 0
+WARNINGs Prior to Simulation == 0
+WARNINGs During Simulation == 0
+CHECKs Prior to Simulation == 2
+CHECKs During Simulation == 0
+
+Volume at Start (m3) == 298124
+Volume at End (m3) == 133378
+Total Volume In (m3) == 433645
+Total Volume Out (m3) == 598391
+Volume Error (m3) == 0
+Volume Error (%) == -0.00  ! % of Volume In + Out
+Cumulative Mass Error [ME] (%) == -0.00
+
+Summary Output Interval (s) == 300.
+Number Summary Values == 37
+Volume In Values [Qi]  == 0.0, 159.8, 757.5, 1434.4, 2141.7, 3547.5, 6319.9, 14992.6, 24883.5, 30225.4, 32683.5, 33492.0, 33615.0, 33054.9, 31272.0, 28476.9, 24796.4, 20749.5, 16914.2, 13371.8, 11034.0, 9286.5, 7877.8, 7221.0, 6703.9, 6075.6, 5187.0, 4520.2, 4123.0, 3753.0, 3393.1, 2923.1, 2554.5, 2194.5, 1712.0, 1267.5, 929.6
+Volume Out Values [Qo] == 0.0, 0.8, 3.3, 7.7, 12.4, 18.5, 29.9, 65.3, 131.8, 180.7, 204.6, 231.7, 255.2, 268.3, 256.2, 117970.6, 196372.1, 97651.8, 41624.8, 25151.5, 18342.9, 14344.5, 11703.1, 9882.8, 8497.4, 7468.2, 6733.5, 6157.9, 5588.1, 5021.8, 4516.6, 4099.9, 3744.1, 3416.0, 3115.3, 2808.7, 2512.7
+Change in Volume Values [dV] == 0.0, 159.0, 754.1, 1426.7, 2129.3, 3528.9, 6290.0, 14927.3, 24751.6, 30044.8, 32478.9, 33260.3, 33359.8, 32786.6, 31015.7, -89493.8, -171575.6, -76902.3, -24710.6, -11779.7, -7309.0, -5058.0, -3825.3, -2661.8, -1793.5, -1392.7, -1546.5, -1637.6, -1465.1, -1268.8, -1123.6, -1176.8, -1189.6, -1221.4, -1403.3, -1541.2, -1583.2
+Mass Error Values [ME] (%) == 0.0, 0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0
+
+Number TUFLOW 1D Nodes == 0
+Number TUFLOW 1D Channels == 0
+
+Active 2D Cells == 20479
+Total 2D Cells == 34000
+Inactive 2D Cells == 13521
+Number 2D Domains == 1
+2D Domain Cell Sizes == 5.
+2D Domain Timestep == 0.500 ! Variable
+
+First Start Map Output (h) == 0.
+Shortest Map Output Interval (s) == 300.

@@ -1,0 +1,3 @@
+No,Channel,US Node,DS Node,US Channel,DS Channel,Flags,Length,Form Loss,n or Cd,pSlope,US Invert,DS Invert,LBUS Obvert,RBUS Obvert,LBDS Obvert,RBDS Obvert,pBlockage
+     2,"DF01","DF01.1","DF01.2","------","------","DF",            13.1,   0.000,   0.000,   0.0,    45.000,    45.000,    70.000,    70.000,    70.000,    70.000,     0.000
+     1,"PF01","DF01.1","DF01.2","------","------","PF",            10.4,   0.000,   0.000,   9.6,    56.000,    55.000,    57.000,    57.000,    56.000,    56.000,     0.000
