@@ -1,13 +1,23 @@
 @echo off
+@REM installer_python_-m.bat
 setlocal
 
-REM Define the the working path
+REM Define the path to the Python executable
+set "PYTHON_EXEC=C:\Program Files\Python312\python"
+
+REM Check if the Python executable exists
+if not exist "%PYTHON_EXEC%" (
+    echo "%PYTHON_EXEC%" not found. Falling back to Python in PATH.
+    set "PYTHON_EXEC=python"
+)
+
+REM Define the working path
 set "PACKAGE_DIR=%~dp0dist"
+echo Using Python executable: %PYTHON_EXEC%
 echo %PACKAGE_DIR%
 
-
-REM Find the latest version of the package
-for /f "delims=" %%i in ('dir /b /o-n "%PACKAGE_DIR%\ryan_functions-*.tar.gz"') do (
+REM Find the latest version of the package (wheel format)
+for /f "delims=" %%i in ('dir /b /o-n "%PACKAGE_DIR%\ryan_functions-*.whl"') do (
     set "LATEST_PACKAGE=%%i"
     goto found
 )
@@ -23,7 +33,7 @@ if "%LATEST_PACKAGE%"=="" (
 echo Installing or updating "%LATEST_PACKAGE%"
 
 REM Install or update the package using pip
-"c:\Program Files\Python312\python" -m pip install --upgrade "%PACKAGE_DIR%\%LATEST_PACKAGE%"
+"%PYTHON_EXEC%" -m pip install --upgrade "%PACKAGE_DIR%\%LATEST_PACKAGE%"
 
 REM Check if the installation was successful
 if %ERRORLEVEL% equ 0 (
