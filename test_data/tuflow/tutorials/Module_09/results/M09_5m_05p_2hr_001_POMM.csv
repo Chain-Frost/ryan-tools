@@ -1,0 +1,6 @@
+"M09_5m_05p_2hr_001","Location","Flow","Water Level","Velocity"
+"q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_09\Complete_Model\TUFLOW\runs\M09_5m_~e1~_~e2~_001.tcf","Time","Loc1_L","Loc1_P","Loc1_P"
+"q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_09\Complete_Model\TUFLOW\results\M09_5m_05p_2hr_001_POMM.csv","Maximum (Extracted from Time Series)",         55.5068,         43.0593,          1.3758
+"","Time of Maximum",          0.9000,          1.3000,          0.7667
+"","Minimum (Extracted From Time Series)",         -0.0935,          0.0000,          0.0000
+"","Time of Minimum",          0.7333,          0.0000,          0.0000

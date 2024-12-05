@@ -1,0 +1,400 @@
+Log file = q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_003.hpc.tlf
+HPC version 3.40.0 (Aug  9 2024 11:50:24) - single precision - win64
+Timestep history file = q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_003.hpc.dt.csv
+Interrogating CUDA enabled GPUs ...
+    (If these are the last lines in the .hpc.tlf log file then the
+     NVidia driver libraries could not be found on the system path.
+     Please check that you have the correct NVIDIA driver installed.)
+CUDA driver version = 12070
+Found 2 CUDA enabled device(s)
+Device 0, NVIDIA GeForce RTX 3080, has compute capability = 8.6
+Adding device 0 to list of available CUDA devices
+Device 1, NVIDIA GeForce RTX 3080, has compute capability = 8.6
+Adding device 1 to list of available CUDA devices
+Hardware option = GPU
+Requested device 0 found in available device list
+Peer to peer access allowed
+Initialising model ...
+Setting units to [m s]
+Setting ny == 204
+Padding ny to 208
+Setting nx == 174
+Selecting spatial scheme 3
+HPC Temporal Scheme == 4: fourth order time integration
+Screen/Log Display Interval == 100
+Timestep Repeats == 10
+Solution Scheme == HPC 2nd
+NaN counting on
+Adaptive time stepping on (Control Number Factor > 0)
+Store Maximums and Minimums == ON MAXIMUMS ONLY
+Number ground water layers = 0
+Gridded rainfall requested (Read Grid RF)
+Hydrograph indexing not requested
+Hydrograph weighting not requested
+External stress file not specified
+SRF/CWF/FLC layer requested
+Mass balance output == on
+Material IL/CL requested
+Number Time Output Cutoff Thresholds == 0
+Cumulative rainfall (RFC) requested
+Number plot output times == 187 (Start Time Series Output, Time Series Output Interval)
+Number tracer fields == 0
+Viscosity formulation == Wu
+Allowing for tracking of 1 scalar maximum fields
+Allowing for tracking of 1 vector maximum fields
+Time of maximimum not requested for additional map output fields
+Minimum dt output requested
+Number of ESTRY 1D nodes == 1
+Soil Initial Loss ==  Ignore Material Impervious 
+SGS == on
+Viscosity Approach == Method B
+Boundary Approach == Method B
+Mannings Depth Approach == Method B
+SGS Infiltration Approach == Automatic
+SGS Negative RF Approach == Wetted Area
+HPC Infiltration Drying Approach == METHOD B
+GroundWater advection not requested
+SGS depth approach Average                 (use cell average depth)
+SGS velocity based output approach Average (use cell average depth)
+HPC Dry Face Inertia Approach == Method B
+Settling/decay of tracers not requested
+HPC Weir Approach == Method B ENERGY
+SGS Sheet Flow Approach == Method A
+SGS Gradient Limiter == Method A
+Flow Regime output not requested
+HPC SX Momentum Approach == Method B
+Timestep history file write interval == 100
+Number of TUFLOW Catch cells == 0
+Atmospheric pressure field not specified
+SGS Hydraulic Radius Method A selected
+SGS 2nd Order BC Slope Method A selected
+Cell Wet/Dry Depth == 0.002 m
+Viscosity Coefficients == 7 0
+Cell Size == 5 x 5 m
+Start Time =    0:00:00
+Timestep == 0.1
+Control Number Factor == 1
+Timestep Minimum == 0.025 s
+SA Minimum Depth == 0.002 m
+Start Time Series Output    ==    0:00:00
+Time Series Output Interval == 60
+Boundary Viscosity Factor == 1
+Density of water == 1025 kg/m^3
+Wind/Wave Shallow Depths == 0.2 1
+Control Number Factors == 1 1 0.3
+SGS Minimum Cell Area Ratio == 0.010000
+Maximum Velocity Cutoff Depth == 0.100000
+Timestep Maximum == 2.5 s
+HPC Weir Factor == 0.3, 0.78
+HPC has spatially varying weir factors
+Wu Mannings Limit = 0.100000
+gridRotation = -13.165795 degrees
+HQBoundaryFilter = 1
+Store maximums on
+Device 0 total GPU memory = 10239 Mb, free memory = 9073 Mb
+Required memory = 11 Mb
+Loading module hpcKernels_nSP.ptx for thread 0 ...
+Copying constant data to GPU ...
+    ... done
+Beginning GPU memory allocations for squential device 0 ...
+    allocating nan counter ...
+    allocating z, h, u, v, a, matc, matu, matv, streamOrder, hy, rf, sa, nut, phi2, phi4 ...
+    allocating GPU synchronisation buffers ...
+    allocating hydrographType hydrographSource1 hydrographSource2 ...
+    allocating mnu mnv ...
+    allocating griddedSh ...
+    allocating cr, ...
+    allocating Lm0, Lm
+    allocating eMax, tMax ...
+    allocating scalar maximum fields ...
+    allocating vector maximum fields ...
+    allocating cml, dml ...
+    allocating area width and form loss factor layers ...
+    allocating dtMin ...
+    allocating constant shear stress data ...
+    allocating boundary data vectors ...
+    allocating SGS data fields ...
+    allocating hDot, uDot, vDot, h0, u0, v0, h_, u_, v_ ...
+    allocating wrfu, wrfv ...
+    allocating wrau, wrav ...
+    ... done memory allocations
+ ... done model initialisation
+z range = 35.924679 ... 100.000000
+Input depth data positive (range = 0.001900 ... 0.002000)
+Copying zc zu zv zh h u v data to device 0 ...
+Number plot output points = 84
+Copying plot output data to device 0 ...
+Adding material number   1, fraction impervious = 0.0000, depth dependent mannings n:
+  h =   0.030 m , n =  0.100
+  h =   0.100 m , n =  0.060
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+Adding material number   2, fraction impervious = 0.0000, mannings n =  0.022
+Adding material number   3, fraction impervious = 0.0000, depth dependent mannings n:
+  h =   0.030 m , n =  0.020
+  h =   0.100 m , n =  0.400
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+Adding material number   4, fraction impervious = 0.0000, mannings n =  0.030
+Adding material number   5, fraction impervious = 0.0000, depth dependent mannings n:
+  h =   0.030 m , n =  0.010
+  h =   0.100 m , n =  0.080
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+Setting material layer ...
+Material type   1 referenced by      33921 cells,      33936 uFaces,      33943 vFaces
+Material type   2 referenced by        741 cells,        716 uFaces,        694 vFaces
+Material type   3 referenced by        113 cells,        117 uFaces,        114 vFaces
+Material type   4 referenced by        212 cells,        222 uFaces,        222 vFaces
+Material type   5 referenced by        509 cells,        505 uFaces,        523 vFaces
+Copying material ID layer to device 0 ...
+Setting cell area factors ...
+Copying cell area factors to device 0 ...
+Cell area factors set - minimum value was 1
+Adding scalar maximum field 0, type 0
+Adding vector maximum field 0, type 0
+Adding boundary level graph number     1, bc_type =  2, interpolationType = 2, nPoints =  102
+Setting active layer ...
+Number active cells = 20443
+Boundary level graph   1 referenced by         43 cells
+Number sealed wall cells = 15010
+Setting active layer ...
+Number groundwater active cells = 20486
+Number groundwater sealed wall cells = 15010
+Copying SGS data to device 0 ...
+Adding 15 Hx connections ...
+Copying Hx data data to device 0 ...
+Copying Weir factors to device 0 ...
+Copying breakline weir angle data to device 0 ...
+Copying HPC thin weir parameters == 0.577, 1.5, 8.55, 0.556
+Copying HPC thick weir parameters == 0.577, 1.5, 8.55, 0.556
+Zero hydrograph  referenced by      20428 cells
+Model has 0 evaluation groups
+    allocating dataReductionBlock ...
+Copying active index layer to device 0 memory ... 
+Copying stream order to 0 ...
+Copying 0 hydrographTypes to device 0 ...
+Copying boundaryLevelgraphTypes to device 0 ...
+Copying 5 material types to device 0 ... 
+Copying switches1 (0x9F888E1F) to device 0 memory ... 
+Copying switches2 (0x00000043) to device 0 memory ... 
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+       100     0:00:32  0.024  0.074  0.000         1303    3.133       0.721  99.4%
+       200     0:03:35  0.503  0.837  0.031         2403   41.099       2.500  98.2%
+       300     0:07:22  0.410  0.987  0.079         3390  246.727       1.992  97.9%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+       400     0:10:20  0.428  0.975  0.099         4004  668.100       1.655  97.5%
+       500     0:12:44  0.323  0.939  0.096         4448     1182       1.199  97.5%
+       600     0:14:41  0.292  0.950  0.093         4755     1672       1.068  97.5%
+       700     0:16:27  0.272  0.981  0.094         5030     2179       1.026  97.6%
+       800     0:18:08  0.251  0.994  0.102         5307     2737       0.984  97.7%
+       900     0:19:43  0.224  0.988  0.099         5535     3337       0.935  97.8%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+      1000     0:21:15  0.210  0.997  0.097         5752     4000       0.909  97.8%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      1100     0:22:43  0.190  0.962  0.100         5967     4765       0.847  97.9%
+      1200     0:24:08  0.188  0.991  0.106         6148     5617       0.845  97.9%
+      1300     0:25:31  0.181  0.988  0.111         6320     6567       0.818  98.0%
+      1400     0:26:52  0.184  0.968  0.121         6465     7668       0.781  98.0%
+      1500     0:28:11  0.192  0.992  0.135         6605     8963       0.779  98.0%
+      1600     0:29:28  0.188  0.986  0.141         6717    10430       0.755  98.1%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+      1700     0:30:43  0.199  0.971  0.158         7099    12121       0.727  98.1%
+      1800     0:31:56  0.227  1.001  0.197         8834    14385       0.729  98.1%
+      1900     0:33:06  0.237  0.997  0.219        18121    17449       0.706  98.1%
+      2000     0:34:14  0.243  0.987  0.236        20428    21213       0.680  98.1%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      2100     0:35:21  0.376  0.987  0.247        20428    25457       0.664  98.2%
+      2200     0:36:28  0.371  0.995  0.255        20428    29999       0.659  98.2%
+      2300     0:37:33  0.346  0.993  0.264        20428    34797       0.652  98.2%
+      2400     0:38:38  0.397  0.998  0.276        20428    39857       0.652  98.3%
+      2500     0:39:43  0.396  0.988  0.285        20428    45157       0.643  98.3%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+      2600     0:40:48  0.381  0.998  0.298        20428    50731       0.649  98.3%
+      2700     0:41:52  0.354  0.973  0.296        20428    56480       0.631  98.3%
+      2800     0:42:54  0.336  0.946  0.293        20428    62230       0.613  98.3%
+      2900     0:43:56  0.322  0.904  0.285        20428    67988       0.585  98.4%
+      3000     0:44:56  0.334  0.934  0.300        20428    73775       0.604  98.4%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      3100     0:45:56  0.321  0.892  0.289        20428    79567       0.577  98.4%
+      3200     0:46:55  0.332  0.919  0.299        20428    85368       0.594  98.4%
+      3300     0:47:54  0.328  0.905  0.296        20428    91168       0.585  98.4%
+      3400     0:48:53  0.330  0.911  0.300        20428    96990       0.588  98.4%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+      3500     0:49:51  0.322  0.885  0.293        20428   102817       0.571  98.5%
+      3600     0:50:50  0.328  0.902  0.298        20428   108673       0.583  98.5%
+      3700     0:51:48  0.329  0.903  0.299        20428   114550       0.583  98.5%
+      3800     0:52:46  0.329  0.903  0.299        20428   120427       0.583  98.5%
+      3900     0:53:44  0.329  0.903  0.300        20428   126306       0.583  98.5%
+      4000     0:54:42  0.326  0.894  0.298        20428   132086       0.577  98.5%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      4100     0:55:39  0.327  0.894  0.298        20428   137912       0.577  98.6%
+      4200     0:56:37  0.327  0.894  0.298        20428   143730       0.577  98.6%
+      4300     0:57:35  0.327  0.894  0.297        20428   149535       0.577  98.6%
+      4400     0:58:32  0.327  0.894  0.297        20428   155249       0.577  98.6%
+      4500     0:59:30  0.330  0.903  0.300        20428   160668       0.583  98.6%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+      4600     1:00:29  0.330  0.903  0.299        20428   165563       0.583  98.6%
+      4700     1:01:27  0.329  0.903  0.298        20428   169755       0.583  98.6%
+      4800     1:02:25  0.329  0.903  0.297        20428   173054       0.583  98.6%
+      4900     1:03:24  0.332  0.911  0.299        20428   175591       0.588  98.7%
+      5000     1:04:22  0.331  0.911  0.298        20428   177569       0.588  98.7%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      5100     1:05:21  0.334  0.920  0.299        20428   179092       0.594  98.7%
+      5200     1:06:21  0.337  0.929  0.298        20428   180191       0.600  98.7%
+      5300     1:07:21  0.339  0.938  0.297        20428   180899       0.606  98.7%
+      5400     1:08:22  0.341  0.947  0.296        20428   181297       0.612  98.7%
+      5500     1:09:24  0.347  0.966  0.298        20428   181450       0.625  98.7%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+      5600     1:10:27  0.349  0.976  0.297        20428   181419       0.632  98.7%
+      5700     1:11:30  0.351  0.986  0.295        20428   181269       0.638  98.7%
+      5800     1:12:34  0.353  0.996  0.292        20428   180948       0.645  98.7%
+      5900     1:13:39  0.351  0.995  0.286        20428   180498       0.645  98.7%
+      6000     1:14:43  0.349  0.994  0.280        20428   179938       0.645  98.7%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      6100     1:15:48  0.350  0.994  0.273        20428   179280       0.645  98.7%
+      6200     1:16:52  0.352  0.993  0.265        20428   178506       0.645  98.7%
+      6300     1:17:57  0.355  0.992  0.257        20428   177625       0.645  98.7%
+      6400     1:19:01  0.362  0.996  0.256        20428   176654       0.649  98.8%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+      6500     1:20:06  0.364  0.990  0.252        20428   175594       0.645  98.8%
+      6600     1:21:10  0.372  1.000  0.252        20428   174448       0.652  98.8%
+      6700     1:22:16  0.374  0.999  0.250        20428   173234       0.652  98.8%
+      6800     1:23:21  0.375  0.998  0.247        20428   171972       0.652  98.8%
+      6900     1:24:26  0.377  0.997  0.244        20428   170666       0.652  98.8%
+      7000     1:25:31  0.379  0.995  0.240        20428   169328       0.652  98.8%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      7100     1:26:37  0.381  0.994  0.237        20428   167971       0.652  98.8%
+      7200     1:27:42  0.387  0.993  0.234        20428   166598       0.652  98.8%
+      7300     1:28:47  0.386  0.992  0.231        20428   165214       0.652  98.8%
+      7400     1:29:52  0.385  0.991  0.227        20428   163819       0.652  98.8%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+      7500     1:30:57  0.383  0.990  0.223        20428   162394       0.652  98.8%
+      7600     1:32:03  0.384  1.000  0.221        20428   160974       0.659  98.8%
+      7700     1:33:09  0.381  0.999  0.216        20428   159543       0.659  98.9%
+      7800     1:34:15  0.352  0.998  0.211        20428   158118       0.659  98.9%
+      7900     1:35:20  0.317  0.997  0.208        20428   156705       0.659  98.9%
+      8000     1:36:26  0.312  0.996  0.205        20428   155358       0.659  98.9%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      8100     1:37:32  0.310  0.995  0.202        20428   154088       0.659  98.9%
+      8200     1:38:38  0.309  0.994  0.198        20428   152892       0.659  98.9%
+      8300     1:39:44  0.308  0.994  0.195        20428   151764       0.659  98.9%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+      8400     1:40:49  0.306  0.990  0.191        20428   150742       0.658  98.9%
+      8500     1:41:55  0.305  0.992  0.188        20428   149781       0.659  98.9%
+      8600     1:43:01  0.303  0.992  0.186        20428   148857       0.659  98.9%
+      8700     1:44:07  0.301  0.991  0.185        20428   147964       0.659  98.9%
+      8800     1:45:13  0.299  0.990  0.183        20428   147095       0.659  98.9%
+      8900     1:46:19  0.297  0.989  0.181        20428   146271       0.659  98.9%
+      9000     1:47:25  0.296  0.989  0.178        20428   145504       0.659  98.9%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      9100     1:48:31  0.298  0.999  0.178        20428   144787       0.667  98.9%
+      9200     1:49:38  0.297  0.999  0.177        20428   144113       0.667  98.9%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+      9300     1:50:45  0.299  0.999  0.175        20428   143389       0.667  98.9%
+      9400     1:51:51  0.301  0.998  0.173        20428   142697       0.667  98.9%
+      9500     1:52:58  0.303  0.998  0.171        20428   142057       0.667  99.0%
+      9600     1:54:05  0.305  0.998  0.170        20428   141467       0.667  99.0%
+      9700     1:55:11  0.306  0.997  0.168        20428   140922       0.667  99.0%
+      9800     1:56:18  0.307  0.997  0.167        20428   140423       0.667  99.0%
+      9900     1:57:25  0.309  0.997  0.166        20428   139970       0.667  99.0%
+     10000     1:58:31  0.310  0.997  0.164        20428   139558       0.667  99.0%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     10100     1:59:38  0.311  0.996  0.163        20428   139180       0.667  99.0%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+     10200     2:00:45  0.312  0.996  0.162        20428   138741       0.667  99.0%
+     10300     2:01:51  0.313  0.996  0.161        20428   138268       0.667  99.0%
+     10400     2:02:58  0.314  0.995  0.160        20428   137808       0.667  99.0%
+     10500     2:04:05  0.316  0.995  0.159        20428   137358       0.667  99.0%
+     10600     2:05:11  0.317  0.995  0.157        20428   136916       0.667  99.0%
+     10700     2:06:18  0.317  0.994  0.155        20428   136470       0.667  99.0%
+     10800     2:07:25  0.317  0.994  0.154        20428   136019       0.667  99.0%
+     10900     2:08:31  0.318  0.993  0.152        20428   135566       0.667  99.0%
+     11000     2:09:38  0.318  0.993  0.152        20428   135108       0.667  99.0%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     11100     2:10:45  0.318  0.992  0.150        20428   134615       0.667  99.0%
+     11200     2:11:51  0.318  0.992  0.149        20428   134109       0.667  99.0%
+     11300     2:12:58  0.319  0.992  0.148        20428   133608       0.667  99.0%
+     11400     2:14:05  0.320  0.991  0.146        20428   133140       0.667  99.0%
+     11500     2:15:11  0.321  0.991  0.145        20428   132696       0.667  99.0%
+     11600     2:16:18  0.321  0.991  0.142        20428   132263       0.667  99.0%
+     11700     2:17:25  0.322  0.990  0.141        20428   131851       0.667  99.0%
+     11800     2:18:31  0.323  0.990  0.139        20428   131456       0.667  99.0%
+     11900     2:19:38  0.323  0.990  0.137        20428   131076       0.667  99.0%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+     12000     2:20:45  0.324  0.990  0.135        20428   130588       0.667  99.0%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     12100     2:21:51  0.325  0.989  0.133        20428   130098       0.667  99.0%
+     12200     2:22:58  0.326  0.989  0.131        20428   129630       0.667  99.0%
+     12300     2:24:05  0.328  0.989  0.129        20428   129186       0.667  99.0%
+     12400     2:25:11  0.333  1.000  0.128        20428   128761       0.674  99.0%
+     12500     2:26:19  0.333  1.000  0.127        20428   128351       0.674  99.0%
+     12600     2:27:26  0.419  0.999  0.126        20428   127954       0.674  99.1%
+     12700     2:28:34  0.416  0.999  0.126        20428   127569       0.674  99.1%
+     12800     2:29:41  0.414  0.999  0.126        20428   127195       0.674  99.1%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+     12900     2:30:49  0.411  0.998  0.125        20428   126729       0.674  99.1%
+     13000     2:31:56  0.409  0.998  0.124        20428   126230       0.674  99.1%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     13100     2:33:03  0.407  0.998  0.124        20428   125739       0.674  99.1%
+     13200     2:34:11  0.404  0.997  0.124        20428   125258       0.674  99.1%
+     13300     2:35:18  0.401  0.997  0.125        20428   124786       0.674  99.1%
+     13400     2:36:26  0.398  0.997  0.124        20428   124329       0.674  99.1%
+     13500     2:37:33  0.396  0.996  0.124        20428   123889       0.674  99.1%
+     13600     2:38:40  0.394  0.996  0.123        20428   123466       0.674  99.1%
+     13700     2:39:48  0.392  0.996  0.121        20428   123059       0.674  99.1%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+     13800     2:40:55  0.391  0.998  0.121        20428   122630       0.676  99.1%
+     13900     2:42:03  0.387  0.995  0.119        20428   122184       0.674  99.1%
+     14000     2:43:10  0.385  0.995  0.118        20428   121743       0.674  99.1%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     14100     2:44:18  0.382  0.995  0.116        20428   121308       0.674  99.1%
+     14200     2:45:25  0.379  0.994  0.114        20428   120879       0.674  99.1%
+     14300     2:46:32  0.375  0.994  0.113        20428   120455       0.674  99.1%
+     14400     2:47:40  0.371  0.994  0.110        20428   120034       0.674  99.1%
+     14500     2:48:47  0.367  0.993  0.108        20428   119614       0.674  99.1%
+Setting gridded rainfall ...
+Copying gridded rainfall to device 0 ...
+     14600     2:49:55  0.359  0.982  0.105        20428   119181       0.667  99.1%
+     14700     2:51:02  0.358  0.992  0.102        20406   118588       0.674  99.1%
+     14800     2:52:09  0.353  0.992  0.102        20376   118002       0.674  99.1%
+     14900     2:53:17  0.348  0.991  0.102        20367   117424       0.674  99.1%
+     15000     2:54:24  0.342  0.991  0.102        20360   116854       0.674  99.1%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     15100     2:55:32  0.335  0.990  0.101        20354   116293       0.674  99.1%
+     15200     2:56:39  0.329  0.990  0.099        20338   115742       0.674  99.1%
+     15300     2:57:47  0.309  0.990  0.096        20335   115205       0.674  99.1%
+     15400     2:58:54  0.287  0.989  0.095        20322   114678       0.674  99.1%

@@ -1,0 +1,46 @@
+! TUFLOW CONTROL FILE (.TCF) defines the model simulation parameters and directs input from other data sources
+
+! MODEL INITIALISATION
+Spatial Database == ..\model\gis\M10_001.gpkg		! Specify the location of the GeoPackage Spatial Database
+
+Tutorial Model == ON                                ! Required command to run this tutorial model licence free
+GIS Format == GPKG                                  ! Specify GPKG as the output format for all GIS files
+GPKG Projection == ..\model\gis\Projection.gpkg     ! Sets the GIS projection for the TUFLOW Model
+TIF Projection == ..\model\grid\DEM.tif             ! Sets the GIS projection for the ouput grid files
+! Write Empty GIS Files == ..\model\gis\empty		! Creates template GIS layers, commented out as files were already created
+
+! SOLUTION SCHEME
+Solution Scheme == HPC                              ! Heavily Parallelised Compute, uses adaptive timestepping
+Hardware == GPU                                     ! Comment out if GPU card is not available or replace with "Hardware == CPU"
+SGS == ON                                           ! Sub-Grid Sampling
+SGS Sample Target Distance == 0.5                   ! Sets SGS Sample Target Distance to 0.5m
+
+! MODEL INPUTS
+Geometry Control File == ..\model\M10_001.tgc       ! Reference the TUFLOW Geometry Control File
+BC Control File == ..\model\M10_001.tbc             ! Reference the TUFLOW Boundary Conditions Control File
+BC Database == ..\bc_dbase\bc_dbase.csv             ! Reference the Boundary Conditions Database
+Read Materials File == ..\model\materials.csv       ! Reference the Materials Definition File
+
+! INITIAL WATER LEVEL
+Read GIS IWL == 2d_iwl_M10_001_R                   ! Reads in initial water level
+
+! TIME CONTROL
+Timestep == 1                                       ! Specifies the first 2D computational timestep of 1 second
+Start Time == 0                                     ! Specifies a simulation start time of 0 hours
+End Time == 3                                       ! Specifies a simulation end time of 3 hours
+
+! OUTPUT FOLDERS
+Log Folder == log                                   ! Location of the log output files (e.g. .tlf and _messages files)
+Output Folder == ..\results\                        ! Location of the 2D output files and prefixes them with the .tcf filename
+Write Check Files == ..\check\                      ! Location of the 2D check files and prefixes them with the .tcf filename
+
+! OUTPUT SETTINGS
+Map Output Format == XMDF TIF                       ! Result file types
+Map Output Data Types == h V d dt ZH                ! Outputs water levels, velocities, depths, minimum timestep, bathymetry
+Map Output Interval == 300                          ! Outputs map data every 300 seconds (5 minutes)
+TIF Map Output Interval == 0                        ! Outputs only maximums for grids
+
+! TIME SERIES PLOT OUTPUT
+Read GIS PO == 2d_po_M01_001_L                      ! Reads in plot output line
+Read GIS PO == 2d_po_M01_001_P                      ! Reads in plot output point
+Time Series Output Interval == 60                   ! Outputs time series data every 60 seconds

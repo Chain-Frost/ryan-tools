@@ -1,0 +1,6 @@
+! TUFLOW CONTROL FILE (.TCF) defines the model simulation parameters and directs input from other data sources
+
+Tutorial Model == ON                                ! Required command to run this tutorial model licence free
+GIS Format == GPKG                                  ! Specify GPKG as the output format for all GIS files
+GPKG Projection == ..\model\gis\projection.gpkg     ! Sets the projection for the TUFLOW Model
+Write Empty GIS Files == ..\model\gis\empty         ! Creates template GIS layers

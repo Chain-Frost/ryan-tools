@@ -1,0 +1,383 @@
+Log file = q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002.hpc.tlf
+HPC version 3.40.0 (Aug  9 2024 11:50:24) - single precision - win64
+Timestep history file = q:\TUFLOW\Tutorial_Models_QGIS_GPKG\Module_06\Complete_Model\TUFLOW\runs\log\M06_5m_002.hpc.dt.csv
+Interrogating CUDA enabled GPUs ...
+    (If these are the last lines in the .hpc.tlf log file then the
+     NVidia driver libraries could not be found on the system path.
+     Please check that you have the correct NVIDIA driver installed.)
+CUDA driver version = 12070
+Found 2 CUDA enabled device(s)
+Device 0, NVIDIA GeForce RTX 3080, has compute capability = 8.6
+Adding device 0 to list of available CUDA devices
+Device 1, NVIDIA GeForce RTX 3080, has compute capability = 8.6
+Adding device 1 to list of available CUDA devices
+Hardware option = GPU
+Requested device 0 found in available device list
+Peer to peer access allowed
+Initialising model ...
+Setting units to [m s]
+Setting ny == 204
+Padding ny to 208
+Setting nx == 174
+Selecting spatial scheme 3
+HPC Temporal Scheme == 4: fourth order time integration
+Screen/Log Display Interval == 100
+Timestep Repeats == 10
+Solution Scheme == HPC 2nd
+NaN counting on
+Adaptive time stepping on (Control Number Factor > 0)
+Store Maximums and Minimums == ON MAXIMUMS ONLY
+Number ground water layers = 0
+Gridded rainfall not requested
+Hydrograph indexing requested
+Hydrograph weighting requested
+External stress file not specified
+SRF/CWF/FLC layer requested
+Mass balance output == on
+Material IL/CL requested
+Number Time Output Cutoff Thresholds == 0
+Cumulative rainfall (RFC) requested
+Number plot output times == 187 (Start Time Series Output, Time Series Output Interval)
+Number tracer fields == 0
+Viscosity formulation == Wu
+Allowing for tracking of 1 scalar maximum fields
+Allowing for tracking of 1 vector maximum fields
+Time of maximimum not requested for additional map output fields
+Minimum dt output requested
+Number of ESTRY 1D nodes == 1
+Soil Initial Loss ==  Ignore Material Impervious 
+SGS == on
+Viscosity Approach == Method B
+Boundary Approach == Method B
+Mannings Depth Approach == Method B
+SGS Infiltration Approach == Automatic
+SGS Negative RF Approach == Wetted Area
+HPC Infiltration Drying Approach == METHOD B
+GroundWater advection not requested
+SGS depth approach Average                 (use cell average depth)
+SGS velocity based output approach Average (use cell average depth)
+HPC Dry Face Inertia Approach == Method B
+Settling/decay of tracers not requested
+HPC Weir Approach == Method B ENERGY
+SGS Sheet Flow Approach == Method A
+SGS Gradient Limiter == Method A
+Flow Regime output not requested
+HPC SX Momentum Approach == Method B
+Timestep history file write interval == 100
+Number of TUFLOW Catch cells == 0
+Atmospheric pressure field not specified
+SGS Hydraulic Radius Method A selected
+SGS 2nd Order BC Slope Method A selected
+Cell Wet/Dry Depth == 0.002 m
+Viscosity Coefficients == 7 0
+Cell Size == 5 x 5 m
+Start Time =    0:00:00
+Timestep == 0.1
+Control Number Factor == 1
+Timestep Minimum == 0.025 s
+SA Minimum Depth == 0.002 m
+Start Time Series Output    ==    0:00:00
+Time Series Output Interval == 60
+Boundary Viscosity Factor == 1
+Density of water == 1025 kg/m^3
+Wind/Wave Shallow Depths == 0.2 1
+Control Number Factors == 1 1 0.3
+SGS Minimum Cell Area Ratio == 0.010000
+Maximum Velocity Cutoff Depth == 0.100000
+Timestep Maximum == 2.5 s
+HPC Weir Factor == 0.3, 0.78
+HPC has spatially varying weir factors
+Wu Mannings Limit = 0.100000
+gridRotation = -13.165795 degrees
+HQBoundaryFilter = 1
+Store maximums on
+Device 0 total GPU memory = 10239 Mb, free memory = 9073 Mb
+Required memory = 11 Mb
+Loading module hpcKernels_nSP.ptx for thread 0 ...
+Copying constant data to GPU ...
+    ... done
+Beginning GPU memory allocations for squential device 0 ...
+    allocating nan counter ...
+    allocating z, h, u, v, a, matc, matu, matv, streamOrder, hy, rf, sa, nut, phi2, phi4 ...
+    allocating GPU synchronisation buffers ...
+    allocating hydrographType hydrographSource1 hydrographSource2 ...
+    allocating mnu mnv ...
+    allocating cr, ...
+    allocating Lm0, Lm
+    allocating eMax, tMax ...
+    allocating scalar maximum fields ...
+    allocating vector maximum fields ...
+    allocating cml, dml ...
+    allocating hydrographIndexLayer ...
+    allocating hydrographWeightLayer ...
+    allocating area width and form loss factor layers ...
+    allocating dtMin ...
+    allocating constant shear stress data ...
+    allocating boundary data vectors ...
+    allocating SGS data fields ...
+    allocating hDot, uDot, vDot, h0, u0, v0, h_, u_, v_ ...
+    allocating wrfu, wrfv ...
+    allocating wrau, wrav ...
+    ... done memory allocations
+ ... done model initialisation
+z range = 35.924679 ... 100.000000
+Input depth data positive (range = 0.001900 ... 0.002000)
+Copying zc zu zv zh h u v data to device 0 ...
+Number plot output points = 84
+Copying plot output data to device 0 ...
+Adding material number   1, fraction impervious = 0.0000, depth dependent mannings n:
+  h =   0.030 m , n =  0.100
+  h =   0.100 m , n =  0.060
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+Adding material number   2, fraction impervious = 0.0000, mannings n =  0.022
+Adding material number   3, fraction impervious = 0.0000, depth dependent mannings n:
+  h =   0.030 m , n =  0.020
+  h =   0.100 m , n =  0.400
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+Adding material number   4, fraction impervious = 0.0000, mannings n =  0.030
+Adding material number   5, fraction impervious = 0.0000, depth dependent mannings n:
+  h =   0.030 m , n =  0.010
+  h =   0.100 m , n =  0.080
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+  h =   0.000 m , n =  0.000
+Setting material layer ...
+Material type   1 referenced by      33921 cells,      33936 uFaces,      33943 vFaces
+Material type   2 referenced by        741 cells,        716 uFaces,        694 vFaces
+Material type   3 referenced by        113 cells,        117 uFaces,        114 vFaces
+Material type   4 referenced by        212 cells,        222 uFaces,        222 vFaces
+Material type   5 referenced by        509 cells,        505 uFaces,        523 vFaces
+Copying material ID layer to device 0 ...
+Setting cell area factors ...
+Copying cell area factors to device 0 ...
+Cell area factors set - minimum value was 1
+Adding scalar maximum field 0, type 0
+Adding vector maximum field 0, type 0
+Adding boundary level graph number     1, bc_type =  2, interpolationType = 2, nPoints =  102
+Adding hydrograph number     1, bc_type = 12, interpolationType = 1, nPoints =   19
+                              triggerIndex =   0, triggerDirection = 0, triggerValue = 0
+Adding hydrograph number     2, bc_type = 12, interpolationType = 1, nPoints =   19
+                              triggerIndex =   0, triggerDirection = 0, triggerValue = 0
+Adding hydrograph number     3, bc_type = 12, interpolationType = 1, nPoints =   19
+                              triggerIndex =   0, triggerDirection = 0, triggerValue = 0
+Adding hydrograph number     4, bc_type = 12, interpolationType = 1, nPoints =   19
+                              triggerIndex =   0, triggerDirection = 0, triggerValue = 0
+Setting active layer ...
+Number active cells = 20443
+Boundary level graph   1 referenced by         43 cells
+Number sealed wall cells = 15010
+Adding hydrograph index layer 1 ...
+Hydrograph     1 type 12 referenced by       2276 cells
+Hydrograph     2 type 12 referenced by       1361 cells
+Hydrograph     3 type 12 referenced by      11850 cells
+Hydrograph     4 type 12 referenced by       4949 cells
+Zero hydrograph referenced by      15060 cells
+Adding hydrograph weight layer 1 ...
+Setting active layer ...
+Number groundwater active cells = 20486
+Number groundwater sealed wall cells = 15010
+Copying SGS data to device 0 ...
+Adding 15 Hx connections ...
+Copying Hx data data to device 0 ...
+Copying Weir factors to device 0 ...
+Copying breakline weir angle data to device 0 ...
+Copying HPC thin weir parameters == 0.577, 1.5, 8.55, 0.556
+Copying HPC thick weir parameters == 0.577, 1.5, 8.55, 0.556
+Hydrograph     1 type 12 referenced by       2276 cells
+Hydrograph     2 type 12 referenced by       1353 cells
+Hydrograph     3 type 12 referenced by      11850 cells
+Hydrograph     4 type 12 referenced by       4949 cells
+Model has 0 evaluation groups
+    allocating dataReductionBlock ...
+Copying active index layer to device 0 memory ... 
+Copying stream order to 0 ...
+Copying 4 hydrographTypes to device 0 ...
+Copying boundaryLevelgraphTypes to device 0 ...
+Copying 1 hydrograph index layers to device 0 ...
+Copying 1 hydrograph weight layers to device 0 ...
+Copying 5 material types to device 0 ... 
+Copying switches1 (0x9F888ECF) to device 0 memory ... 
+Copying switches2 (0x00000043) to device 0 memory ... 
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+       100     0:00:32  0.026  0.085  0.000         1267    2.490       0.721  99.4%
+       200     0:03:35  0.503  0.837  0.031         2348   35.974       2.500  98.2%
+       300     0:07:22  0.410  0.987  0.079         3283  236.041       1.992  97.9%
+       400     0:10:21  0.452  1.001  0.104         3893  654.393       1.714  97.5%
+       500     0:12:46  0.324  0.946  0.084         4339     1172       1.205  97.6%
+       600     0:14:42  0.292  0.951  0.093         4653     1661       1.068  97.6%
+       700     0:16:28  0.271  0.981  0.093         4934     2169       1.026  97.7%
+       800     0:18:09  0.251  0.994  0.103         5202     2726       0.984  97.8%
+       900     0:19:44  0.221  0.977  0.098         5455     3327       0.924  97.9%
+      1000     0:21:15  0.209  0.998  0.097         5656     3991       0.909  97.9%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      1100     0:22:44  0.190  0.962  0.100         5871     4756       0.847  98.0%
+      1200     0:24:09  0.188  0.991  0.106         6062     5610       0.845  98.0%
+      1300     0:25:32  0.181  0.988  0.111         6208     6560       0.818  98.0%
+      1400     0:26:53  0.184  0.968  0.121         6375     7664       0.781  98.1%
+      1500     0:28:12  0.192  0.992  0.135         6515     8961       0.779  98.1%
+      1600     0:29:28  0.189  0.986  0.141         6639    10430       0.756  98.1%
+      1700     0:30:43  0.200  0.972  0.159         9505    12141       0.727  98.2%
+      1800     0:31:56  0.195  0.858  0.169         9857    14512       0.625  98.2%
+      1900     0:33:06  0.237  0.997  0.219         9907    17424       0.706  98.2%
+      2000     0:34:15  0.243  0.988  0.237        20396    20902       0.680  98.2%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      2100     0:35:22  0.377  0.988  0.247        20428    25155       0.664  98.2%
+      2200     0:36:28  0.371  0.996  0.255        20428    29705       0.659  98.2%
+      2300     0:37:34  0.346  0.993  0.264        20428    34511       0.652  98.3%
+      2400     0:38:39  0.396  0.998  0.276        20428    39579       0.652  98.3%
+      2500     0:39:44  0.396  0.988  0.285        20428    44887       0.644  98.3%
+      2600     0:40:48  0.378  0.993  0.296        20428    50479       0.645  98.4%
+      2700     0:41:52  0.354  0.974  0.296        20428    56232       0.631  98.4%
+      2800     0:42:55  0.336  0.946  0.293        20428    61990       0.613  98.4%
+      2900     0:43:56  0.322  0.904  0.285        20428    67755       0.585  98.4%
+      3000     0:44:57  0.335  0.934  0.300        20428    73551       0.604  98.4%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      3100     0:45:57  0.321  0.892  0.289        20428    79345       0.577  98.4%
+      3200     0:46:56  0.332  0.919  0.299        20428    85152       0.594  98.4%
+      3300     0:47:55  0.328  0.905  0.296        20428    90954       0.585  98.5%
+      3400     0:48:54  0.330  0.911  0.300        20428    96778       0.588  98.5%
+      3500     0:49:52  0.328  0.902  0.298        20428   102588       0.582  98.5%
+      3600     0:50:50  0.328  0.902  0.298        20428   108437       0.583  98.5%
+      3700     0:51:48  0.329  0.903  0.299        20428   114291       0.583  98.5%
+      3800     0:52:47  0.329  0.903  0.299        20428   120148       0.583  98.6%
+      3900     0:53:45  0.329  0.903  0.300        20428   126007       0.583  98.6%
+      4000     0:54:42  0.326  0.894  0.298        20428   131770       0.577  98.6%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      4100     0:55:40  0.327  0.894  0.298        20428   137581       0.577  98.6%
+      4200     0:56:37  0.327  0.894  0.298        20428   143385       0.577  98.6%
+      4300     0:57:35  0.327  0.894  0.297        20428   149178       0.577  98.6%
+      4400     0:58:33  0.327  0.894  0.297        20428   154884       0.577  98.6%
+      4500     0:59:31  0.330  0.903  0.300        20428   160305       0.583  98.6%
+      4600     1:00:29  0.330  0.903  0.299        20428   165223       0.583  98.7%
+      4700     1:01:27  0.329  0.903  0.298        20428   169450       0.583  98.7%
+      4800     1:02:26  0.329  0.903  0.297        20428   172788       0.583  98.7%
+      4900     1:03:24  0.332  0.911  0.299        20428   175353       0.588  98.7%
+      5000     1:04:23  0.331  0.911  0.298        20428   177351       0.588  98.7%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      5100     1:05:22  0.334  0.920  0.298        20428   178890       0.594  98.7%
+      5200     1:06:22  0.337  0.929  0.298        20428   180000       0.600  98.7%
+      5300     1:07:22  0.339  0.938  0.297        20428   180718       0.606  98.7%
+      5400     1:08:23  0.341  0.947  0.296        20428   181121       0.612  98.7%
+      5500     1:09:24  0.347  0.966  0.298        20428   181278       0.625  98.7%
+      5600     1:10:27  0.349  0.976  0.297        20428   181251       0.632  98.7%
+      5700     1:11:31  0.351  0.986  0.295        20428   181103       0.638  98.7%
+      5800     1:12:35  0.353  0.996  0.292        20428   180788       0.645  98.7%
+      5900     1:13:39  0.351  0.995  0.286        20428   180344       0.645  98.7%
+      6000     1:14:44  0.349  0.994  0.280        20428   179791       0.645  98.7%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      6100     1:15:48  0.350  0.994  0.273        20428   179138       0.645  98.8%
+      6200     1:16:53  0.352  0.993  0.265        20428   178368       0.645  98.8%
+      6300     1:17:57  0.355  0.992  0.257        20428   177489       0.645  98.8%
+      6400     1:19:02  0.360  0.991  0.254        20428   176520       0.645  98.8%
+      6500     1:20:06  0.364  0.990  0.252        20428   175452       0.645  98.8%
+      6600     1:21:11  0.372  1.000  0.252        20428   174273       0.652  98.8%
+      6700     1:22:16  0.374  0.999  0.250        20428   173024       0.652  98.8%
+      6800     1:23:22  0.375  0.998  0.247        20428   171725       0.652  98.8%
+      6900     1:24:27  0.377  0.997  0.244        20428   170384       0.652  98.8%
+      7000     1:25:32  0.379  0.995  0.240        20428   169012       0.652  98.8%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      7100     1:26:37  0.382  0.994  0.237        20428   167624       0.652  98.8%
+      7200     1:27:42  0.387  0.993  0.234        20428   166223       0.652  98.8%
+      7300     1:28:48  0.386  0.992  0.230        20428   164813       0.652  98.9%
+      7400     1:29:53  0.385  0.991  0.227        20428   163395       0.652  98.9%
+      7500     1:30:58  0.382  0.990  0.223        20428   161945       0.652  98.9%
+      7600     1:32:03  0.384  1.000  0.221        20428   160503       0.659  98.9%
+      7700     1:33:09  0.380  0.999  0.216        20428   159052       0.659  98.9%
+      7800     1:34:15  0.351  0.998  0.211        20428   157610       0.659  98.9%
+      7900     1:35:21  0.317  0.997  0.208        20428   156183       0.659  98.9%
+      8000     1:36:27  0.312  0.996  0.204        20428   154823       0.659  98.9%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      8100     1:37:33  0.310  0.995  0.201        20428   153542       0.659  98.9%
+      8200     1:38:39  0.309  0.994  0.198        20428   152337       0.659  98.9%
+      8300     1:39:45  0.308  0.994  0.194        20428   151198       0.659  98.9%
+      8400     1:40:51  0.306  0.993  0.191        20428   150171       0.659  98.9%
+      8500     1:41:57  0.305  0.992  0.188        20428   149219       0.659  98.9%
+      8600     1:43:03  0.303  0.992  0.186        20428   148304       0.659  98.9%
+      8700     1:44:09  0.301  0.991  0.185        20428   147420       0.659  98.9%
+      8800     1:45:15  0.299  0.990  0.183        20428   146560       0.659  98.9%
+      8900     1:46:20  0.297  0.989  0.180        20428   145744       0.659  98.9%
+      9000     1:47:26  0.296  0.989  0.178        20428   144987       0.659  98.9%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+      9100     1:48:33  0.298  0.999  0.178        20428   144277       0.667  98.9%
+      9200     1:49:39  0.297  0.999  0.176        20428   143611       0.667  99.0%
+      9300     1:50:46  0.299  0.999  0.175        20428   142920       0.667  99.0%
+      9400     1:51:53  0.301  0.998  0.173        20428   142273       0.667  99.0%
+      9500     1:52:59  0.303  0.998  0.171        20428   141679       0.667  99.0%
+      9600     1:54:06  0.305  0.998  0.170        20428   141135       0.667  99.0%
+      9700     1:55:13  0.306  0.997  0.168        20428   140634       0.667  99.0%
+      9800     1:56:19  0.307  0.997  0.167        20428   140179       0.667  99.0%
+      9900     1:57:26  0.309  0.997  0.166        20428   139768       0.667  99.0%
+     10000     1:58:33  0.309  0.997  0.165        20428   139393       0.667  99.0%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     10100     1:59:39  0.311  0.996  0.163        20428   139051       0.667  99.0%
+     10200     2:00:46  0.311  0.996  0.162        20428   138610       0.667  99.0%
+     10300     2:01:53  0.312  0.996  0.161        20428   138123       0.667  99.0%
+     10400     2:02:59  0.314  0.995  0.160        20428   137644       0.667  99.0%
+     10500     2:04:06  0.315  0.995  0.159        20428   137171       0.667  99.0%
+     10600     2:05:13  0.317  0.995  0.157        20428   136704       0.667  99.0%
+     10700     2:06:19  0.317  0.994  0.155        20428   136235       0.667  99.0%
+     10800     2:07:26  0.317  0.994  0.153        20428   135755       0.667  99.0%
+     10900     2:08:33  0.318  0.993  0.152        20428   135272       0.667  99.1%
+     11000     2:09:39  0.318  0.993  0.152        20428   134787       0.667  99.1%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     11100     2:10:46  0.318  0.992  0.150        20428   134294       0.667  99.1%
+     11200     2:11:53  0.318  0.992  0.149        20428   133817       0.667  99.1%
+     11300     2:12:59  0.319  0.992  0.148        20428   133348       0.667  99.1%
+     11400     2:14:06  0.320  0.991  0.146        20428   132914       0.667  99.1%
+     11500     2:15:13  0.320  0.991  0.145        20428   132504       0.667  99.1%
+     11600     2:16:19  0.321  0.991  0.143        20428   132107       0.667  99.1%
+     11700     2:17:26  0.322  0.990  0.141        20428   131730       0.667  99.1%
+     11800     2:18:33  0.322  0.990  0.139        20428   131369       0.667  99.1%
+     11900     2:19:39  0.323  0.990  0.137        20428   131023       0.667  99.1%
+     12000     2:20:46  0.323  0.990  0.135        20428   130540       0.667  99.1%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     12100     2:21:53  0.325  0.989  0.133        20428   130056       0.667  99.1%
+     12200     2:22:59  0.326  0.989  0.131        20428   129593       0.667  99.1%
+     12300     2:24:06  0.328  0.989  0.129        20428   129152       0.667  99.1%
+     12400     2:25:13  0.332  1.000  0.128        20428   128729       0.674  99.1%
+     12500     2:26:20  0.333  1.000  0.127        20428   128319       0.674  99.1%
+     12600     2:27:28  0.419  0.999  0.127        20428   127922       0.674  99.1%
+     12700     2:28:35  0.416  0.999  0.126        20428   127537       0.674  99.1%
+     12800     2:29:42  0.414  0.999  0.126        20428   127162       0.674  99.1%
+     12900     2:30:50  0.411  0.998  0.125        20428   126656       0.674  99.1%
+     13000     2:31:57  0.409  0.998  0.124        20428   126109       0.674  99.1%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     13100     2:33:05  0.406  0.998  0.124        20428   125572       0.674  99.1%
+     13200     2:34:12  0.404  0.997  0.124        20428   125042       0.674  99.1%
+     13300     2:35:20  0.401  0.997  0.125        20428   124521       0.674  99.1%
+     13400     2:36:27  0.398  0.997  0.124        20428   124018       0.674  99.1%
+     13500     2:37:34  0.396  0.996  0.124        20428   123531       0.674  99.1%
+     13600     2:38:42  0.394  0.996  0.122        20428   123062       0.674  99.1%
+     13700     2:39:49  0.392  0.996  0.120        20428   122610       0.674  99.1%
+     13800     2:40:57  0.390  0.996  0.120        20428   122170       0.674  99.1%
+     13900     2:42:04  0.387  0.995  0.119        20428   121736       0.674  99.1%
+     14000     2:43:11  0.384  0.995  0.118        20428   121309       0.674  99.1%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     14100     2:44:19  0.382  0.995  0.116        20428   120889       0.674  99.1%
+     14200     2:45:26  0.379  0.994  0.114        20428   120477       0.674  99.1%
+     14300     2:46:34  0.375  0.994  0.113        20428   120069       0.674  99.1%
+     14400     2:47:41  0.371  0.993  0.110        20428   119666       0.674  99.1%
+     14500     2:48:49  0.367  0.993  0.108        20428   119264       0.674  99.1%
+     14600     2:49:56  0.363  0.993  0.105        20427   118839       0.674  99.1%
+     14700     2:51:03  0.358  0.992  0.102        20405   118243       0.674  99.1%
+     14800     2:52:11  0.352  0.992  0.101        20376   117655       0.674  99.1%
+     14900     2:53:18  0.348  0.991  0.102        20368   117075       0.674  99.1%
+     15000     2:54:26  0.342  0.991  0.102        20359   116503       0.674  99.1%
+     iStep        time  maxNu  maxNc  maxNd         nWet      vol          dt    Eff
+     15100     2:55:33  0.335  0.990  0.100        20350   115938       0.674  99.1%
+     15200     2:56:40  0.329  0.990  0.098        20341   115386       0.674  99.1%
+     15300     2:57:48  0.309  0.990  0.096        20334   114847       0.674  99.1%
+     15400     2:58:55  0.286  0.989  0.094        20323   114318       0.674  99.1%
