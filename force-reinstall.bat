@@ -3,7 +3,7 @@
 setlocal
 
 REM Define the path to the Python executable
-set "PYTHON_EXEC=C:\Program Files\Python312\python.exe"
+set "PYTHON_EXEC=C:\Program Files\Python312\python"
 
 REM Check if the Python executable exists
 if not exist "%PYTHON_EXEC%" (
@@ -33,7 +33,7 @@ if "%LATEST_PACKAGE%"=="" (
 echo Installing or updating "%LATEST_PACKAGE%"
 
 REM Install or update the package using pip
-"%PYTHON_EXEC%" -m pip install --upgrade "%PACKAGE_DIR%\%LATEST_PACKAGE%"
+"%PYTHON_EXEC%" -m pip install --upgrade --force-reinstall --no-deps "%PACKAGE_DIR%\%LATEST_PACKAGE%"
 
 REM Check if the installation was successful
 if %ERRORLEVEL% equ 0 (

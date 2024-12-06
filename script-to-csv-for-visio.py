@@ -1,7 +1,6 @@
 import ast
-import csv
 from typing import List, Tuple
-
+from openpyxl import Workbook
 
 def extract_script_structure(file_path: str) -> List[Tuple[str, str, str]]:
     """
@@ -42,25 +41,32 @@ def extract_script_structure(file_path: str) -> List[Tuple[str, str, str]]:
     visitor.visit(tree)
     return structure
 
-
-def save_structure_to_csv(structure: List[Tuple[str, str, str]], output_file: str):
+def save_structure_to_excel(structure: List[Tuple[str, str, str]], output_file: str):
     """
-    Save the script structure to a CSV file.
+    Save the script structure to an Excel file.
     Args:
         structure (List[Tuple[str, str, str]]): Script structure.
-        output_file (str): Path to the output CSV file.
+        output_file (str): Path to the output Excel file.
     """
-    with open(output_file, mode="w", newline="", encoding="utf-8") as file:
-        writer = csv.writer(file)
-        writer.writerow(["Type", "Name", "Parent"])
-        writer.writerows(structure)
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Script Structure"
 
+    # Write headers
+    sheet.append(["Type", "Name", "Parent"])
+
+    # Write structure rows
+    for row in structure:
+        sheet.append(row)
+
+    # Save workbook
+    workbook.save(output_file)
 
 # Example Usage
 python_file = r"Q:\Library\Automation\ryan-tools\ryan-scripts\TUFLOW-python\TUFLOW_SimpleCulvert_v13.py"  # Replace with the path to your Python script
-output_csv = "script_structure.csv"  # Output CSV file for Visio import
+output_excel = "script_structure.xlsx"  # Output Excel file
 
 structure = extract_script_structure(python_file)
-save_structure_to_csv(structure, output_csv)
+save_structure_to_excel(structure, output_excel)
 
-print(f"Script structure exported to {output_csv}.")
+print(f"Script structure exported to {output_excel}.")

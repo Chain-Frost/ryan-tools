@@ -211,7 +211,7 @@ def remove_e_s_from_runcode(
 
     Args:
         runcode (str): The original RunCode string.
-        data_dict (Dict[str, Any]): Dictionary containing keys that start with '-e' or '-s'.
+        data_dict (dict[str, Any]): Dictionary containing keys that start with '-e' or '-s'.
         delimiters (str): Characters used to separate elements in RunCode. Default is '_+'.
 
     Returns:
@@ -455,9 +455,13 @@ def main_processing() -> None:
 
     # Find log files
     root_dir = Path.cwd()
-    files: list[str] = find_files_parallel(
-        root_dir=str(root_dir), pattern=".tlf", exclude=(".hpc.tlf", ".gpu.tlf")
-    )
+    files: list[str] = [
+        str(file)
+        for file in find_files_parallel(
+            root_dirs=[root_dir], patterns=".tlf", excludes=[".hpc.tlf", ".gpu.tlf"]
+        )
+    ]
+
     logger.info(f"Found {len(files)} log files.", extra={"simple_format": True})
 
     if not files:
