@@ -12,3 +12,7 @@ dist/*
 
 # Exclude folders and their contents under dist
 dist/*/
+# Exclude pytest cache directory
+.pytest_cache
+pytest-cache-files-*
+*.pyc

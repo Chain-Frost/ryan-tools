@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-folder_path = r"Q:\Library\Automation\ryan-tools\ryan_library\processors\tuflow"
+folder_path = r"Q:\BGER\PER\RPRT\ryan-tools\ryan_library\processors\tuflow"
 
 
 def merge_text_files(

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class TUFLOWResultsStyler:
-    def __init__(self, user_qml_overrides=None):
+    def __init__(self, user_qml_overrides=None) -> None:
         """
         Initializes the TUFLOWResultsStyler with default styles path and user overrides.
         """
@@ -48,10 +48,11 @@ class TUFLOWResultsStyler:
                 "exts": raster_exts,
                 "qml": self.default_styles_path / "hillshade.qml",
             },
-            "1d_ccA_L": {
-                "exts": vector_exts,
-                "qml": self.default_styles_path / "_1d_ccA.qml",
-            },
+            # "1d_ccA_L": {
+            #     "exts": vector_exts,
+            #     "qml": self.default_styles_path / "_1d_ccA.qml",
+            # },
+            # appears tuflow has a default now
             "DIFF_P2-P1": {
                 "exts": raster_exts,
                 "qml": self.default_styles_path / "Depth Diff GOOOD.qml",
@@ -96,7 +97,7 @@ class TUFLOWResultsStyler:
                 )
                 return ""
 
-    def process_data(self, filename, ext, current_path, qml_path):
+    def process_data(self, filename, ext, current_path, qml_path) -> None:
         """
         Processes raster and vector data by applying the QML style.
         """
@@ -121,10 +122,11 @@ class TUFLOWResultsStyler:
         except Exception as e:
             logger.error(f"Error processing data for {filename}: {e}")
 
-    def process_gpkg(self, filename, layer_name, current_path, qml_path):
+    def process_gpkg(self, filename, layer_name, current_path, qml_path) -> None:
         """
         Processes GeoPackage files by applying styles to specific layers.
         """
+        # not implemented
         try:
             gpkg_path = current_path / filename
             logger.info(
@@ -152,7 +154,7 @@ class TUFLOWResultsStyler:
         except Exception as e:
             logger.error(f"Error processing GeoPackage {filename}: {e}")
 
-    def tree_process(self, current_path):
+    def tree_process(self, current_path) -> None:
         """
         Recursively processes directories to apply QML styles based on file mappings.
         """
@@ -197,7 +199,7 @@ class TUFLOWResultsStyler:
                 except Exception as e:
                     logger.error(f"Error in thread execution: {e}")
 
-    def validate_qml_paths(self):
+    def validate_qml_paths(self) -> None:
         """
         Validates that user-provided QML paths exist.
         """
@@ -209,7 +211,7 @@ class TUFLOWResultsStyler:
                         f"User-provided QML path for '{key}' does not exist: {qml_path}"
                     )
 
-    def apply_styles(self):
+    def apply_styles(self) -> None:
         """
         Main function to apply QML styles to QGIS results.
         """
