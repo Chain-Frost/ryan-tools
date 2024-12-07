@@ -13,7 +13,8 @@ REM call venv\Scripts\activate.bat
 
 REM Run pytest for a specific test file
 @REM pytest -v  tests/classes/test_tuflow_string_classes.py
-pytest -v  tests/functions/test_file_utils.py
+@REM pytest -v  tests/functions/test_file_utils.py
+pytest -v  tests/functions/test_loguru_helpers.py
 
 REM Deactivate the virtual environment if activated
 REM deactivate

@@ -2,6 +2,7 @@
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
+import fnmatch
 
 
 def find_files_parallel(
@@ -20,12 +21,12 @@ def find_files_parallel(
 
     Args:
         root_dirs (list[Path]): The root directories where the search will begin.
-        patterns (Union[str, list[str]]): File extension pattern(s) to include in the search.
-            Can be a single pattern string or a list of patterns. Patterns should include
-            the dot and can have multiple parts (e.g., ".tlf", ".tif.ovr").
-        excludes (Union[str, list[str], None], optional): File extension pattern(s) to exclude
+        patterns (Union[str, list[str]]): Glob pattern(s) to include in the search.
+            Can be a single pattern string or a list of patterns. Patterns can match
+            any part of the filename, e.g., "*.hpc.dt.csv", "M01_*", etc.
+        excludes (Union[str, list[str], None], optional): Glob pattern(s) to exclude
             from the search. Can be a single pattern string, a list of patterns, or None.
-            Patterns should include the dot and can have multiple parts (e.g., ".hpc.tlf").
+            Patterns can match any part of the filename, e.g., "*.hpc.tlf", "temp_*", etc.
             Defaults to None.
         report_level (Optional[int], optional): Determines the frequency of logging
             folder search progress based on directory depth. If set to an integer,
@@ -52,17 +53,11 @@ def find_files_parallel(
     patterns = [p.lower() for p in patterns]
     excludes = [e.lower() for e in excludes]
 
-    # Validate that patterns and excludes start with a dot
-    for pattern in patterns:
-        if not pattern.startswith("."):
-            raise ValueError(
-                f"Invalid pattern '{pattern}'. Patterns should start with a dot."
-            )
-    for exclude in excludes:
-        if not exclude.startswith("."):
-            raise ValueError(
-                f"Invalid exclude pattern '{exclude}'. Excludes should start with a dot."
-            )
+    # Function to check if a pattern contains any wildcard characters
+    def has_wildcard(pattern: str) -> bool:
+        return any(char in pattern for char in ["*", "?", "[", "]"])
+
+    # Note: No longer enforcing patterns/excludes to start with a dot
 
     # Obtain the current working directory to calculate relative paths later
     current_dir = Path.cwd()
@@ -115,13 +110,13 @@ def find_files_parallel(
 
             files_searched += 1  # Increment file counter
 
-            # Concatenate all suffixes to form the full suffix (e.g., ".hpc.tlf")
-            full_suffix = "".join(subpath.suffixes).lower()
+            # Get the filename in lowercase for case-insensitive matching
+            filename = subpath.name.lower()
 
-            # Inclusion Check: Check if the full suffix matches any inclusion pattern
-            if any(full_suffix == pattern for pattern in patterns):
-                # Exclusion Check: Ensure the full suffix does not match any exclusion pattern
-                if not any(full_suffix == exclude for exclude in excludes):
+            # Inclusion Check: Check if the filename matches any inclusion pattern
+            if any(fnmatch.fnmatch(filename, pattern) for pattern in patterns):
+                # Exclusion Check: Ensure the filename does not match any exclusion pattern
+                if not any(fnmatch.fnmatch(filename, exclude) for exclude in excludes):
                     logger.debug(f"Matched file: {subpath}")
                     matched_files.append(subpath)  # Add to matched files list
                     folders_with_matches.add(subpath.parent)  # Track parent folder
@@ -141,16 +136,12 @@ def find_files_parallel(
     logger.info(f"Starting search in {len(root_dirs)} root directories.")
 
     total_files_searched = 0  # Total number of files processed across all directories
-    total_folders_searched = (
-        0  # Total number of folders processed across all directories
-    )
+    total_folders_searched = 0  # Total number of folders processed across all directories
 
     # Utilize a thread pool to perform directory searches in parallel
     with ThreadPoolExecutor() as executor:
         # Submit a search task for each root directory
-        futures = [
-            executor.submit(search_dir, root_dir, root_dir) for root_dir in root_dirs
-        ]
+        futures = [executor.submit(search_dir, root_dir, root_dir) for root_dir in root_dirs]
         results = []  # To store the results from each thread
 
         # Process the results as they complete
@@ -171,53 +162,6 @@ def find_files_parallel(
     logger.info(f"Total folders searched: {total_folders_searched}")
 
     return all_files
-
-
-def is_non_zero_file(fpath: Path) -> bool:
-    """
-    Verify that a given file exists, is indeed a file, and is not empty.
-
-    This function performs a series of checks on the provided file path to ensure
-    that the file is present, accessible, and contains data. It logs specific
-    error messages if any of these conditions are not met.
-
-    Args:
-        fpath (Path): The path to the file to be checked.
-
-    Returns:
-        bool: True if the file exists, is a regular file, and is non-empty.
-              False otherwise.
-    """
-    logger = logging.getLogger(__name__)
-
-    try:
-        # Check if the file exists
-        if not fpath.exists():
-            logger.error(f"File does not exist: {fpath}")
-            return False
-
-        # Check if the path points to a file (not a directory or other type)
-        if not fpath.is_file():
-            logger.error(f"Path is not a file: {fpath}")
-            return False
-
-        # Check if the file size is greater than zero
-        if fpath.stat().st_size == 0:
-            logger.error(f"File is empty: {fpath}")
-            return False
-
-        return True  # All checks passed
-
-    except PermissionError:
-        # Handle cases where the file cannot be accessed due to permission issues
-        logger.error(f"Permission denied when accessing file: {fpath}")
-        return False
-    except Exception as e:
-        # Catch-all for any other unexpected errors
-        logger.error(
-            f"An unexpected error occurred while accessing file '{fpath}': {e}"
-        )
-        return False
 
 
 def ensure_output_directory(output_dir: Path) -> None:

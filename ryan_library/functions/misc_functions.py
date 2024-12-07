@@ -1,10 +1,14 @@
-# ryan_library.functions.misc_functions.py
 from datetime import datetime
 import pandas as pd
 import logging
-from typing import Optional
+from typing import Optional, TypedDict
 from pathlib import Path
 from ryan_library.functions.logging_helpers import setup_logging as new_setup_logging
+
+
+class ExportContent(TypedDict):
+    dataframes: list[pd.DataFrame]
+    sheets: list[str]
 
 
 def setup_logging(
@@ -15,14 +19,10 @@ def setup_logging(
     use_rotating_file: bool = False,
     enable_color: bool = True,
 ) -> None:
-    print(
-        "Script needs to have the setup_logging() function call updated to logging_helpers.setup_logging"
-    )
+    print("Script needs to have the setup_logging() function call updated to logging_helpers.setup_logging")
     import ryan_library.functions.logging_helpers
 
-    new_setup_logging(
-        log_level, log_file, max_bytes, backup_count, use_rotating_file, enable_color
-    )
+    new_setup_logging(log_level, log_file, max_bytes, backup_count, use_rotating_file, enable_color)
 
 
 def calculate_pool_size(num_files: int) -> int:
@@ -81,16 +81,14 @@ class ExcelExporter:
     The class is stateless and can be instantiated as needed.
     """
 
-    def export_dataframes(
-        self, export_dict: dict[str, dict[str, list[pd.DataFrame]]]
-    ) -> None:
+    def export_dataframes(self, export_dict: dict[str, ExportContent]) -> None:
         """
         Export multiple DataFrames to Excel files.
 
         Args:
-            export_dict (dict[str, dict[str, list[pd.DataFrame]]]):
+            export_dict (dict[str, ExportContent]):
                 A dictionary where each key is a base file name and each value
-                has two keys:
+                contains:
                 - "dataframes": list of DataFrames
                 - "sheets": list of corresponding sheet names
 
@@ -117,9 +115,7 @@ class ExcelExporter:
             sheets = content.get("sheets", [])
 
             if len(dataframes) != len(sheets):
-                raise ValueError(
-                    f"For file '{file_name}', the number of dataframes and sheets must match."
-                )
+                raise ValueError(f"For file '{file_name}', the number of dataframes and sheets must match.")
 
             export_name = f"{datetime_string}_{file_name}.xlsx"
             export_path = Path(export_name)
@@ -128,9 +124,7 @@ class ExcelExporter:
 
             with pd.ExcelWriter(export_path) as writer:
                 for df, sheet in zip(dataframes, sheets):
-                    df.to_excel(
-                        writer, sheet_name=sheet, merge_cells=False, index=False
-                    )
+                    df.to_excel(writer, sheet_name=sheet, merge_cells=False, index=False)
 
             logging.info(f"Finished exporting {file_name} to {export_path}")
 
@@ -151,14 +145,12 @@ class ExcelExporter:
         Example:
             ExcelExporter().save_to_excel(df, file_name_prefix="MyData", sheet_name="Sheet1")
         """
-        export_dict = {
-            file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}
-        }
+        export_dict: dict[str, ExportContent] = {file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}}
         self.export_dataframes(export_dict)
 
 
 # Backwards compatibility functions:
-def export_dataframes(export_dict: dict[str, dict[str, list[pd.DataFrame]]]) -> None:
+def export_dataframes(export_dict: dict[str, ExportContent]) -> None:
     """
     Backwards-compatible function that delegates to ExcelExporter.
     """
