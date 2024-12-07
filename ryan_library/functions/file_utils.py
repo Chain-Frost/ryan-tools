@@ -8,21 +8,39 @@ def find_files_parallel(
     root_dirs: list[Path],
     patterns: str | list[str],
     excludes: str | list[str] | None = None,
+    report_level: int | None = 2,
+    print_found_folder: bool = True,
 ) -> list[Path]:
     """
-    Find files in parallel within multiple directories.
+    Search for files matching specific patterns across multiple directories in parallel.
+
+    This function traverses through the provided root directories, searching for files
+    that match the given patterns while excluding any files that match the exclusion patterns.
+    The search is performed in parallel using multiple threads to improve performance.
 
     Args:
-        root_dirs (List[Path]): The root directories to search in.
-        patterns (str | List[str]): A file extension pattern or a list of patterns to look for.
-        excludes (str | List[str] | None): A file extension pattern or a list of patterns to exclude. Can be None.
+        root_dirs (list[Path]): The root directories where the search will begin.
+        patterns (Union[str, list[str]]): File extension pattern(s) to include in the search.
+            Can be a single pattern string or a list of patterns. Patterns should include
+            the dot and can have multiple parts (e.g., ".tlf", ".tif.ovr").
+        excludes (Union[str, list[str], None], optional): File extension pattern(s) to exclude
+            from the search. Can be a single pattern string, a list of patterns, or None.
+            Patterns should include the dot and can have multiple parts (e.g., ".hpc.tlf").
+            Defaults to None.
+        report_level (Optional[int], optional): Determines the frequency of logging
+            folder search progress based on directory depth. If set to an integer,
+            it logs at every 'report_level' depth. If None, depth-based reporting
+            is disabled. Defaults to 2.
+        print_found_folder (bool, optional): If True, logs the folders that contain
+            matched files. Defaults to True.
 
     Returns:
-        List[Path]: A list of file paths matching the patterns and not excluded.
+        list[Path]: A list of file paths that match the specified patterns and do not
+            match any of the exclusion patterns.
     """
     logger = logging.getLogger(__name__)
 
-    # Ensure patterns and excludes are lists
+    # Normalize 'patterns' and 'excludes' to lists for consistent processing
     if isinstance(patterns, str):
         patterns = [patterns]
     if excludes is None:
@@ -30,63 +48,112 @@ def find_files_parallel(
     elif isinstance(excludes, str):
         excludes = [excludes]
 
+    # Convert all patterns to lowercase for case-insensitive matching
     patterns = [p.lower() for p in patterns]
     excludes = [e.lower() for e in excludes]
 
+    # Validate that patterns and excludes start with a dot
+    for pattern in patterns:
+        if not pattern.startswith("."):
+            raise ValueError(
+                f"Invalid pattern '{pattern}'. Patterns should start with a dot."
+            )
+    for exclude in excludes:
+        if not exclude.startswith("."):
+            raise ValueError(
+                f"Invalid exclude pattern '{exclude}'. Excludes should start with a dot."
+            )
+
+    # Obtain the current working directory to calculate relative paths later
+    current_dir = Path.cwd()
+
     def search_dir(path: Path, root_dir: Path) -> tuple[list[Path], int, int]:
         """
-        Search for files matching the patterns in a single directory.
+        Search for files matching the patterns within a single directory.
+
+        This helper function is executed in parallel across multiple directories.
+        It traverses the directory tree, matches files against the inclusion and
+        exclusion patterns, and logs progress based on the report_level.
 
         Args:
             path (Path): The directory path to search.
             root_dir (Path): The root directory to calculate relative depth.
 
         Returns:
-            Tuple containing:
+            tuple[list[Path], int, int]: A tuple containing:
                 - List of matched file paths.
                 - Number of files searched.
                 - Number of folders searched.
         """
-        matched_files: list[Path] = []
-        files_searched = 0
-        folders_searched = 0
+        matched_files: list[Path] = []  # Stores paths of files that match the patterns
+        files_searched = 0  # Counter for the number of files processed
+        folders_searched = 0  # Counter for the number of folders processed
+        folders_with_matches = set()  # Tracks folders containing matched files
 
+        # Recursively traverse all subdirectories and files
         for subpath in path.rglob("*"):
             if subpath.is_dir():
-                # Calculate depth relative to root_dir
+                # Calculate the directory depth relative to the root_dir
                 try:
                     relative_path = subpath.relative_to(root_dir)
                     depth = len(relative_path.parts)
                 except ValueError:
-                    # If subpath is not relative to root_dir, skip depth calculation
+                    # If subpath is not relative to root_dir, default depth to 0
                     depth = 0
 
-                if depth % 2 == 0:
-                    print(f"Searching in folder (level {depth}): {subpath}")
+                # Log the folder being searched based on the report_level
+                if report_level is not None and depth % report_level == 0:
+                    try:
+                        display_path = subpath.relative_to(current_dir)
+                    except ValueError:
+                        # Use absolute path if relative path cannot be determined
+                        display_path = subpath.resolve()
+                    logger.info(f"Searching in folder (level {depth}): {display_path}")
 
-                folders_searched += 1
+                folders_searched += 1  # Increment folder counter
                 continue  # Skip directories for file matching
 
-            files_searched += 1
-            if any(subpath.suffix.lower() == pattern for pattern in patterns):
-                if not any(subpath.suffix.lower() == exclude for exclude in excludes):
+            files_searched += 1  # Increment file counter
+
+            # Concatenate all suffixes to form the full suffix (e.g., ".hpc.tlf")
+            full_suffix = "".join(subpath.suffixes).lower()
+
+            # Inclusion Check: Check if the full suffix matches any inclusion pattern
+            if any(full_suffix == pattern for pattern in patterns):
+                # Exclusion Check: Ensure the full suffix does not match any exclusion pattern
+                if not any(full_suffix == exclude for exclude in excludes):
                     logger.debug(f"Matched file: {subpath}")
-                    matched_files.append(subpath)
+                    matched_files.append(subpath)  # Add to matched files list
+                    folders_with_matches.add(subpath.parent)  # Track parent folder
+
+        # Optionally log folders that contain matched files
+        if print_found_folder:
+            for folder in folders_with_matches:
+                try:
+                    display_path = folder.relative_to(current_dir)
+                except ValueError:
+                    display_path = folder.resolve()
+                logger.info(f"Folder with matched files: {display_path}")
 
         logger.info(f"Found {len(matched_files)} files in {path}")
         return matched_files, files_searched, folders_searched
 
     logger.info(f"Starting search in {len(root_dirs)} root directories.")
 
-    total_files_searched = 0
-    total_folders_searched = 0
+    total_files_searched = 0  # Total number of files processed across all directories
+    total_folders_searched = (
+        0  # Total number of folders processed across all directories
+    )
 
+    # Utilize a thread pool to perform directory searches in parallel
     with ThreadPoolExecutor() as executor:
-        # Pass both path and root_dir to search_dir
+        # Submit a search task for each root directory
         futures = [
             executor.submit(search_dir, root_dir, root_dir) for root_dir in root_dirs
         ]
-        results = []
+        results = []  # To store the results from each thread
+
+        # Process the results as they complete
         for future in as_completed(futures):
             try:
                 matched, files, folders = future.result()
@@ -94,9 +161,10 @@ def find_files_parallel(
                 total_files_searched += files
                 total_folders_searched += folders
             except Exception as e:
+                # Log any errors that occur during the search
                 logger.error(f"Error occurred during file search: {e}")
 
-    # Flatten the list of lists
+    # Combine all matched files from different directories into a single list
     all_files = [file for sublist in results for file in sublist]
     logger.info(f"Total files matched: {len(all_files)}")
     logger.info(f"Total files searched: {total_files_searched}")
@@ -107,35 +175,45 @@ def find_files_parallel(
 
 def is_non_zero_file(fpath: Path) -> bool:
     """
-    Check if a file exists and is not zero size, logging specific errors if conditions are not met.
+    Verify that a given file exists, is indeed a file, and is not empty.
+
+    This function performs a series of checks on the provided file path to ensure
+    that the file is present, accessible, and contains data. It logs specific
+    error messages if any of these conditions are not met.
 
     Args:
-        fpath (Path): Path to the file.
+        fpath (Path): The path to the file to be checked.
 
     Returns:
-        bool: True if the file exists and is not empty, False otherwise.
+        bool: True if the file exists, is a regular file, and is non-empty.
+              False otherwise.
     """
     logger = logging.getLogger(__name__)
 
     try:
+        # Check if the file exists
         if not fpath.exists():
             logger.error(f"File does not exist: {fpath}")
             return False
 
+        # Check if the path points to a file (not a directory or other type)
         if not fpath.is_file():
             logger.error(f"Path is not a file: {fpath}")
             return False
 
+        # Check if the file size is greater than zero
         if fpath.stat().st_size == 0:
             logger.error(f"File is empty: {fpath}")
             return False
 
-        return True
+        return True  # All checks passed
 
     except PermissionError:
+        # Handle cases where the file cannot be accessed due to permission issues
         logger.error(f"Permission denied when accessing file: {fpath}")
         return False
     except Exception as e:
+        # Catch-all for any other unexpected errors
         logger.error(
             f"An unexpected error occurred while accessing file '{fpath}': {e}"
         )
@@ -144,13 +222,20 @@ def is_non_zero_file(fpath: Path) -> bool:
 
 def ensure_output_directory(output_dir: Path) -> None:
     """
-    Ensures that the output directory exists; creates it if it does not.
+    Ensure that the specified output directory exists; create it if it does not.
+
+    This function checks whether the given output directory exists. If it does not,
+    it creates the directory along with any necessary parent directories. It logs
+    the action taken, whether the directory was created or already existed.
 
     Args:
-        output_dir (Path): Path to the output directory.
+        output_dir (Path): The path to the output directory to be ensured.
     """
+    logger = logging.getLogger(__name__)
+
     if not output_dir.exists():
+        # Create the directory and any necessary parent directories
         output_dir.mkdir(parents=True, exist_ok=True)
-        logging.info(f"Created output directory: {output_dir}")
+        logger.info(f"Created output directory: {output_dir}")
     else:
-        logging.info(f"Output directory already exists: {output_dir}")
+        logger.info(f"Output directory already exists: {output_dir}")

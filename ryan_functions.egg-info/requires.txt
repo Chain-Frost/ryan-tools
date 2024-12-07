@@ -18,3 +18,4 @@ seaborn
 requests
 graphviz
 openpyxl
+loguru
