@@ -1,0 +1,342 @@
+import pandas as pd
+import logging
+from pathlib import Path
+from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+from ryan_library.classes.suffixes import SUFFIX_DATA_TYPES
+from abc import ABC, abstractmethod
+
+
+class BaseProcessor(ABC):
+    """
+    Base class for processing different types of TUFLOW CSV and CCA files.
+    """
+
+    def __init__(self, file_path: str):
+        """
+        Initialize the BaseProcessor with the given file path.
+
+        Args:
+            file_path (str): Path to the file to be processed.
+        """
+        self.file_path = Path(file_path)
+        self.file_name = self.file_path.name
+        self.name_parser = TuflowStringParser(self.file_path)
+        self.data_type = self.name_parser.data_type
+        self.datatype_mapping = self.load_datatype_mapping()
+        self.df = pd.DataFrame()
+
+    def load_datatype_mapping(self) -> dict[str, str]:
+        """
+        Load datatype mapping from SUFFIX_DATA_TYPES based on the data_type.
+
+        Returns:
+            dict[str, str]: Column to datatype mapping.
+        """
+        if not self.data_type:
+            logging.error(f"No data type determined for file: {self.file_path}")
+            return {}
+
+        datatype = SUFFIX_DATA_TYPES.get(self.data_type, {})
+        columns = datatype.get("columns", {})
+        logging.debug(f"Loaded datatype mapping for '{self.data_type}': {columns}")
+        return columns
+
+    def add_common_columns(self):
+        """
+        Add all common columns by delegating to specific methods.
+        """
+        self.add_basic_info()
+        self.apply_datatypes()
+        self.extract_run_code_details()
+        self.extract_additional_attributes()
+
+    def add_basic_info(self):
+        """
+        Add basic information columns to the DataFrame.
+        """
+        self.df["internalName"] = self.name_parser.raw_run_code
+        self.df["path"] = str(self.file_path.resolve())
+        self.df["file"] = self.file_name
+
+    def apply_datatypes(self):
+        """
+        Apply datatype mapping to the DataFrame.
+        """
+        if not self.datatype_mapping:
+            logging.warning(
+                f"No datatype mapping available for data type '{self.data_type}'"
+            )
+            return
+
+        try:
+            self.df = self.df.astype(self.datatype_mapping)
+            logging.debug(f"Applied datatype mapping: {self.datatype_mapping}")
+        except Exception as e:
+            logging.error(f"Error applying datatype mapping: {e}")
+
+    def extract_run_code_details(self):
+        """
+        Extract and add R01, R02, etc., based on the run code.
+        """
+        run_code_parts = self.name_parser.run_code_parts
+        for key, value in run_code_parts.items():
+            self.df[key] = value
+
+    def extract_additional_attributes(self):
+        """
+        Extract TP, Duration, and AEP using the parser.
+        """
+        self.df["TP"] = self.name_parser.tp
+        self.df["Duration"] = self.name_parser.duration
+        self.df["AEP"] = self.name_parser.aep
+
+    @abstractmethod
+    def process(self) -> pd.DataFrame:
+        """
+        Process the file and return a DataFrame.
+        Must be implemented by subclasses.
+
+        Returns:
+            pd.DataFrame: Processed data.
+        """
+        pass
+
+-------------
+import pandas as pd
+import geopandas as gpd
+import shapefile
+import logging
+from pathlib import Path
+from .base_processor import BaseProcessor
+
+
+class CcaProcessor(BaseProcessor):
+    """
+    Processor for CCA files ('_1d_ccA_L.dbf' and '_Results1D.gpkg').
+    """
+
+    SUPPORTED_EXTENSIONS = {'.dbf': 'dbf', '.gpkg': 'gpkg'}
+
+    def process(self) -> pd.DataFrame:
+        """
+        Process the CCA file (DBF or GPKG) and return a cleaned DataFrame.
+
+        Returns:
+            pd.DataFrame: Processed CCA data.
+        """
+        logging.info(f"Processing CCA file: {self.file_path}")
+        file_ext = self.file_path.suffix.lower()
+
+        if file_ext not in self.SUPPORTED_EXTENSIONS:
+            logging.error(f"Unsupported CCA file type: {self.file_path}")
+            raise ValueError(f"Unsupported CCA file type: {self.file_path}")
+
+        try:
+            process_method = getattr(self, f"process_{self.SUPPORTED_EXTENSIONS[file_ext]}")
+            cca_data = process_method()
+            self.df = cca_data
+            self.add_common_columns()
+            logging.debug(f"Processed CCA DataFrame head:\n{self.df.head()}")
+            return self.df
+        except Exception as e:
+            logging.error(f"Failed to process CCA file {self.file_path}: {e}")
+            raise
+
+    def process_dbf(self) -> pd.DataFrame:
+        """
+        Process a DBF CCA file.
+
+        Returns:
+            pd.DataFrame: Processed DBF CCA data.
+        """
+        try:
+            with self.file_path.open('rb') as dbf_file:
+                sf = shapefile.Reader(dbf=dbf_file)
+                records = sf.records()
+                fieldnames = [field[0] for field in sf.fields[1:]]  # Skip DeletionFlag
+                cca_data = pd.DataFrame(records, columns=fieldnames)
+                cca_data.rename(columns={'Channel': 'Chan ID'}, inplace=True)
+            logging.debug(f"Processed DBF CCA DataFrame head:\n{cca_data.head()}")
+            return cca_data
+        except Exception as e:
+            logging.error(f"Error processing DBF file {self.file_path}: {e}")
+            raise
+
+    def process_gpkg(self) -> pd.DataFrame:
+        """
+        Process a GeoPackage CCA file.
+
+        Returns:
+            pd.DataFrame: Processed GeoPackage CCA data.
+        """
+        try:
+            layers = gpd.io.file.fiona.listlayers(str(self.file_path))
+            layer_name = next((layer for layer in layers if layer.endswith('1d_ccA_L')), None)
+
+            if layer_name is None:
+                raise ValueError("No layer found with '1d_ccA_L' in the GeoPackage.")
+
+            gdf = gpd.read_file(self.file_path, layer=layer_name)
+            cca_data = gdf.drop(columns='geometry').copy()
+            if 'Channel' in cca_data.columns:
+                cca_data.rename(columns={'Channel': 'Chan ID'}, inplace=True)
+            logging.debug(f"Processed GeoPackage CCA DataFrame head:\n{cca_data.head()}")
+            return cca_data
+        except Exception as e:
+            logging.error(f"Error processing GeoPackage file {self.file_path}: {e}")
+            raise
+
+-------------
+import pandas as pd
+import logging
+from .base_processor import BaseProcessor
+
+
+class ChanProcessor(BaseProcessor):
+    """
+    Processor for '_1d_Chan.csv' files.
+    """
+
+    def process(self) -> pd.DataFrame:
+        """
+        Process the '_1d_Chan.csv' file and return a cleaned DataFrame.
+
+        Returns:
+            pd.DataFrame: Processed Chan data.
+        """
+        logging.info(f"Processing Chan file: {self.file_path}")
+
+        try:
+            # Read CSV data
+            data = pd.read_csv(self.file_path)
+
+            # Drop unnecessary columns
+            columns_to_drop = [
+                'US Node', 'DS Node', 'US Channel', 'DS Channel',
+                'Form Loss', 'RBUS Obvert', 'RBDS Obvert'
+            ]
+            data.drop(columns=columns_to_drop, inplace=True, errors='ignore')
+            logging.debug(f"Columns after dropping: {data.columns.tolist()}")
+
+            # Calculate Height
+            data['Height'] = data['LBUS Obvert'] - data['US Invert']
+
+            # Rename 'Channel' to 'Chan ID'
+            data.rename(columns={'Channel': 'Chan ID'}, inplace=True)
+
+            self.df = data
+            self.add_common_columns()
+            logging.debug(f"Chan DataFrame head:\n{self.df.head()}")
+
+            return self.df
+
+        except Exception as e:
+            logging.error(f"Failed to process Chan file {self.file_path}: {e}")
+            raise
+
+-------------
+import pandas as pd
+import csv
+import logging
+from .base_processor import BaseProcessor
+
+
+class CmxProcessor(BaseProcessor):
+    """
+    Processor for '_1d_Cmx.csv' files.
+    """
+
+    def process(self) -> pd.DataFrame:
+        """
+        Process the '_1d_Cmx.csv' file and return a cleaned DataFrame.
+
+        Returns:
+            pd.DataFrame: Processed CMX data.
+        """
+        logging.info(f"Processing CMX file: {self.file_path}")
+
+        try:
+            with self.file_path.open(mode='r', newline='') as csvfile:
+                reader = csv.reader(csvfile)
+                data = list(reader)
+
+            # Skip the title row, and skip the first column
+            max_data = [row[1:] for row in data[1:] if len(row) > 1]
+
+            cleaned_data = []
+            for row in max_data:
+                try:
+                    cleaned_data.append([row[0], float(row[2]), float(row[1]), None])
+                    cleaned_data.append([row[0], float(row[4]), None, float(row[3])])
+                except (IndexError, ValueError) as e:
+                    logging.warning(f"Skipping malformed row in {self.file_path}: {row} ({e})")
+                    continue
+
+            self.df = pd.DataFrame(cleaned_data, columns=['Chan ID', 'Time', 'Q', 'V'])
+            self.add_common_columns()
+            logging.debug(f"CMX DataFrame head:\n{self.df.head()}")
+
+            return self.df
+
+        except Exception as e:
+            logging.error(f"Failed to process CMX file {self.file_path}: {e}")
+            raise
+
+-------------
+import pandas as pd
+import csv
+import logging
+from .base_processor import BaseProcessor
+
+
+class NmxProcessor(BaseProcessor):
+    """
+    Processor for '_1d_Nmx.csv' files.
+    """
+
+    def process(self) -> pd.DataFrame:
+        """
+        Process the '_1d_Nmx.csv' file and return a cleaned DataFrame.
+
+        Returns:
+            pd.DataFrame: Processed NMX data.
+        """
+        logging.info(f"Processing NMX file: {self.file_path}")
+
+        try:
+            with self.file_path.open(mode='r', newline='') as csvfile:
+                reader = csv.reader(csvfile)
+                data = list(reader)
+
+            # Skip the title row, and skip the first column
+            max_data = [row[1:] for row in data[1:] if len(row) > 1]
+
+            cleaned_data = []
+            for row in max_data:
+                try:
+                    chan_id = row[0][:-2]
+                    node_suffix = row[0][-2:]
+                    if node_suffix == '.1':  # Upstream node
+                        cleaned_data.append([chan_id, float(row[2]), float(row[1]), None])
+                    elif node_suffix == '.2':  # Downstream node
+                        cleaned_data.append([chan_id, float(row[2]), None, float(row[1])])
+                    else:
+                        logging.warning(f"Unhandled node index in file {self.file_path}: {row[0]}")
+                        continue  # Skip or handle as needed
+                except (IndexError, ValueError) as e:
+                    logging.warning(f"Skipping malformed row in {self.file_path}: {row} ({e})")
+                    continue
+
+            self.df = pd.DataFrame(cleaned_data, columns=['Chan ID', 'Time', 'US_h', 'DS_h'])
+            self.add_common_columns()
+            logging.debug(f"NMX DataFrame head:\n{self.df.head()}")
+
+            return self.df
+
+        except Exception as e:
+            logging.error(f"Failed to process NMX file {self.file_path}: {e}")
+            raise
+
+-------------
+
+-------------

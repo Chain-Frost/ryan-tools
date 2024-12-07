@@ -1,0 +1,50 @@
+{
+  "suffixes": {
+    "_1d_Cmx.csv": "Cmx",
+    "_1d_Nmx.csv": "Nmx",
+    "_1d_Chan.csv": "Chan",
+    "_1d_ccA_L.dbf": "Cca",
+    "_Results1D.gpkg": "CCA"
+  },
+  "data_types": {
+    "Cmx": {
+      "columns": {
+        "Chan ID": "string",
+        "Time": "float",
+        "Q": "float",
+        "V": "float"
+      }
+    },
+    "Nmx": {
+      "columns": {
+        "Chan ID": "string",
+        "Time": "float",
+        "US_h": "float",
+        "DS_h": "float"
+      }
+    },
+    "Chan": {
+      "columns": {
+        "Chan ID": "string",
+        "Length": "float",
+        "Form Loss": "float",
+        "n or Cd": "float",
+        "pSlope": "float",
+        "US Invert": "float",
+        "DS Invert": "float",
+        "LBUS Obvert": "float",
+        "RBUS Obvert": "float",
+        "LBDS Obvert": "float",
+        "RBDS Obvert": "float",
+        "Height": "float"
+      }
+    },
+    "CCA": {
+      "columns": {
+        "Chan ID": "string",
+        "Channel": "string",
+        "SomeOtherColumn": "float"
+      }
+    }
+  }
+}
