@@ -13,14 +13,15 @@ def main():
 
     try:
         # Determine the script directory
-        script_directory = Path(__file__).resolve().parent
+        script_directory: Path = Path(__file__).resolve().parent
         script_directory = Path(
-            r"Q:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
+            # r"Q:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
+            r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
         )
         os.chdir(script_directory)
 
         # You can pass a list of paths here if needed; default is the script directory
-        main_processing([str(script_directory)])
+        main_processing([script_directory])
     except Exception as e:
         print(f"Failed to change working directory: {e}")
         os.system("PAUSE")
