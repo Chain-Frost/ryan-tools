@@ -13,9 +13,13 @@ def fix_type_hints(file_path: Path) -> None:
     with open(file_path, "w", encoding="utf-8") as file:
         for line_number, line in enumerate(lines, start=1):
             # Check for bad imports
-            if "from typing import" in line and any(bad_type in line for bad_type in ["List", "Dict", "Tuple", "Set"]):
+            if "from typing import" in line and any(
+                bad_type in line for bad_type in ["List", "Dict", "Tuple", "Set"]
+            ):
                 found_bad_imports = True
-                print(f"Bad import found: {file_path} (Line {line_number}): {line.strip()}")
+                print(
+                    f"Bad import found: {file_path} (Line {line_number}): {line.strip()}"
+                )
 
             original_line = line
             # Replace incorrect type hints using regex
@@ -53,6 +57,11 @@ def process_folders(folder_paths: list[Path]) -> None:
 
 if __name__ == "__main__":
     # List of relative folder paths
-    folder_paths: list[Path] = [Path(r".\ryan_library"), Path(r".\ryan-scripts")]
+    folder_paths: list[Path] = [
+        Path(r".\ryan_library"),
+        Path(r".\ryan-scripts"),
+        Path(r"..\ryan_library"),
+        Path(r"..\ryan-scripts"),
+    ]
 
     process_folders(folder_paths)
