@@ -19,51 +19,56 @@ class BaseProcessor(ABC):
         Args:
             file_path (str): Path to the file to be processed.
         """
-        self.file_path = Path(file_path)
-        self.file_name = self.file_path.name
+        self.file_path: Path = Path(file_path)
+        self.file_name: str = self.file_path.name
+        self.resolved_file_path: Path = self.file_path.resolve()
 
         self.name_parser = TuflowStringParser(file_path=self.file_path)
-        self.data_type = self.name_parser.data_type
+        self.data_type: str | None = self.name_parser.data_type
 
-        self._datatype_mapping = None
-        self._expected_headers = None
+        self._datatype_mapping: dict[str, str] | None = None
+        self._expected_headers: dict[str, str] | None = None
 
         self.df: pd.DataFrame = pd.DataFrame()
-        self.processed = False
+        self.processed: bool = False
+
+    def log_message(self, level: str, message: str) -> None:
+        """
+        Helper method to log messages with file context.
+        """
+        getattr(logger, level)(f"{self.file_name}: {message}")
+
+    def _load_mapping(
+        self, attribute_name: str, validation_type: str
+    ) -> dict[str, str]:
+        """
+        Generic lazy loader for datatype and header mappings.
+        """
+        if getattr(self, attribute_name) is None:
+            setattr(self, attribute_name, self._load_datatype_mapping(validation_type))
+        return getattr(self, attribute_name)
 
     @property
     def datatype_mapping(self) -> dict[str, str]:
-        """
-        Lazily load the datatype mapping from DATA_TYPES_CONFIG based on the data_type.
-        """
-        if self._datatype_mapping is None:
-            self._datatype_mapping = self._load_datatype_mapping("columns")
-        return self._datatype_mapping
+        return self._load_mapping("_datatype_mapping", "columns")
 
     @property
     def expected_headers(self) -> dict[str, str]:
-        """
-        Lazily load the expected headers mapping from DATA_TYPES_CONFIG based on the data_type.
-        """
-        if self._expected_headers is None:
-            self._expected_headers = self._load_datatype_mapping("expected_headers")
-        return self._expected_headers
+        return self._load_mapping("_expected_headers", "expected_headers")
 
     def _load_datatype_mapping(self, validation_type: str) -> dict[str, str]:
         """
         Internal helper to load datatype mappings from DATA_TYPES_CONFIG.
         """
         if not self.data_type:
-            logger.error(f"No data type determined for file: {self.file_path}")
+            self.log_message("error", "No data type determined.")
             return {}
 
         mapping = DATA_TYPES_CONFIG.get(self.data_type, {}).get(validation_type, {})
-        logger.debug(
-            f"Loaded {validation_type} mapping for '{self.data_type}': {mapping}"
-        )
+        self.log_message("debug", f"Loaded {validation_type} mapping: {mapping}")
         return mapping
 
-    def add_common_columns(self):
+    def add_common_columns(self) -> None:
         """
         Add all common columns by delegating to specific methods.
         """
@@ -71,22 +76,20 @@ class BaseProcessor(ABC):
         self.run_code_parts_to_df()
         self.additional_attributes_to_df()
 
-    def apply_datatypes_to_df(self):
+    def apply_datatypes_to_df(self) -> None:
         """
         Apply datatype mapping to the DataFrame.
         """
         if not self.datatype_mapping:
-            logger.warning(
-                f"No datatype mapping available for data type '{self.data_type}'"
-            )
+            self.log_message("warning", f"No datatype mapping for '{self.data_type}'.")
             return
         # Validate that all columns in mapping exist in the DataFrame
         missing_columns = [
             col for col in self.datatype_mapping if col not in self.df.columns
         ]
         if missing_columns:
-            logger.warning(
-                f"Datatype mapping contains columns not in DataFrame: {missing_columns}"
+            self.log_message(
+                "warning", f"Missing columns in DataFrame: {missing_columns}"
             )
         # Apply mapping only to existing columns
         applicable_mapping = {
@@ -96,31 +99,33 @@ class BaseProcessor(ABC):
         }
         try:
             self.df = self.df.astype(applicable_mapping)
-            logger.debug(f"Applied datatype mapping: {applicable_mapping}")
+            self.log_message("debug", f"Applied datatype mapping: {applicable_mapping}")
         except (KeyError, ValueError, TypeError) as e:
-            logger.error(f"Error applying datatype mapping to DataFrame: {e}")
+            self.log_message("error", f"Error applying datatypes: {e}")
             raise
 
-    def add_basic_info_to_df(self):
+    def add_basic_info_to_df(self) -> None:
         """
         Add basic information columns to the DataFrame.
         """
         data = {
             "internalName": self.name_parser.raw_run_code,
-            "rel_path": str(self.file_path.resolve().relative_to(Path.cwd().resolve())),
-            "path": str(self.file_path.resolve()),
+            "rel_path": str(self.resolved_file_path.relative_to(Path.cwd().resolve())),
+            "path": str(self.resolved_file_path),
             "file": self.file_name,
         }
-
-        # Add columns and convert to category in one step
         self.df = self.df.assign(**data).astype({key: "category" for key in data})
 
     def run_code_parts_to_df(self) -> None:
         """
         Extract and add R01, R02, etc., based on the run code.
         """
-        for key, value in self.name_parser.run_code_parts.items():
-            self.df[key] = pd.Categorical(value)
+        self.df = self.df.assign(
+            **{
+                key: pd.Categorical(value)
+                for key, value in self.name_parser.run_code_parts.items()
+            }
+        )
 
     def additional_attributes_to_df(self) -> None:
         """
@@ -128,29 +133,29 @@ class BaseProcessor(ABC):
         """
         attributes = {
             "trim_runcode": self.name_parser.trim_runcode,
-            "TP": self.name_parser.tp.numeric_value if self.name_parser.tp else None,
-            "Duration_mins": (
-                self.name_parser.duration.numeric_value
-                if self.name_parser.duration
-                else None
-            ),
-            "AEP_pct": (
-                self.name_parser.aep.numeric_value if self.name_parser.aep else None
-            ),
-            "TP_text": self.name_parser.tp.text_repr if self.name_parser.tp else None,
-            "Duration_text": (
-                self.name_parser.duration.text_repr
-                if self.name_parser.duration
-                else None
-            ),
-            "AEP_1inX": (
-                self.name_parser.aep.text_repr if self.name_parser.aep else None
-            ),
-            # AEP1inX not implemented yet
+            **{
+                f"{attr}_text": getattr(self.name_parser, attr).text_repr
+                for attr in ["tp", "duration", "aep"]
+                if getattr(self.name_parser, attr)
+            },
+            **{
+                f"{attr}_numeric": getattr(self.name_parser, attr).numeric_value
+                for attr in ["tp", "duration", "aep"]
+                if getattr(self.name_parser, attr)
+            },
         }
-
-        for key, value in attributes.items():
-            self.df[key] = value
+        # Assign attributes to DataFrame and set explicit datatypes
+        self.df = self.df.assign(**attributes).astype(
+            dtype={
+                "trim_runcode": "category",
+                "tp_text": "category",
+                "duration_text": "category",
+                "aep_text": "category",
+                "tp_numeric": "int32",
+                "duration_numeric": "int32",
+                "aep_numeric": "float32",
+            }
+        )
 
     def validate_data(self) -> bool:
         """
@@ -200,7 +205,7 @@ class ProcessorCollection:
         """
         self.processors.append(processor)
 
-    def export_to_csv(self, output_path: Path) -> None:
+    def export_to_csv(self, output_path: Path = Path.cwd()) -> None:
         """
         Export the combined DataFrame of all processors to a single CSV file.
 
@@ -223,11 +228,31 @@ class ProcessorCollection:
         Returns:
             pd.DataFrame: Combined DataFrame.
         """
-        import pandas as pd
-
         if not self.processors:
             return pd.DataFrame()
 
-        # Concatenate all DataFrames
         combined_df = pd.concat([p.df for p in self.processors], ignore_index=True)
         return combined_df
+
+    def get_processors_by_data_type(
+        self, data_types: list[str] | str
+    ) -> "ProcessorCollection":
+        """
+        Retrieve processors matching a specific data_type or list of data_types.
+
+        Args:
+            data_types (list[str] | str): A data_type or list of data_types to match.
+
+        Returns:
+            ProcessorCollection: A new collection of processors with matching data_type(s).
+        """
+        # Ensure it's always a list for uniform processing
+        if isinstance(data_types, str):
+            data_types = [data_types]
+
+        filtered_collection = ProcessorCollection()
+        for processor in self.processors:
+            if processor.data_type in data_types:
+                filtered_collection.add_processor(processor)
+
+        return filtered_collection

@@ -3,7 +3,10 @@ import os
 from multiprocessing import Queue, Process, Pool
 from pathlib import Path
 import pandas as pd
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from ryan_library.processors.tuflow.base_processor import (
+    BaseProcessor,
+    ProcessorCollection,
+)
 from ryan_library.processors.tuflow.cmx_processor import CmxProcessor
 from ryan_library.processors.tuflow.nmx_processor import NmxProcessor
 from ryan_library.processors.tuflow.chan_processor import ChanProcessor
@@ -21,11 +24,11 @@ from typing import Any
 # Processor mapping dictionary with lowercased keys
 PROCESSOR_MAPPING = {
     "_1d_Cmx.csv": CmxProcessor,
-    "_1d_Nmx.csv": NmxProcessor,
-    "_1d_Chan.csv": ChanProcessor,
-    "_1d_ccA_L.dbf": CcaProcessor,
-    "_Results1d.gpkg": CcaProcessor,
-    "_Results.gpkg": CcaProcessor,
+    # "_1d_Nmx.csv": NmxProcessor,
+    # "_1d_Chan.csv": ChanProcessor,
+    # "_1d_ccA_L.dbf": CcaProcessor,
+    # "_Results1d.gpkg": CcaProcessor,
+    # "_Results.gpkg": CcaProcessor,
 }
 
 # Create a suffix-to-processor mapping for faster lookup
@@ -60,7 +63,7 @@ def main_processing(paths_to_process: list[Path]) -> None:
 
         # Step 2: Process files in parallel
         try:
-            results = process_files_in_parallel(
+            results_set = process_files_in_parallel(
                 file_list=csv_file_list, logger_manager=logger_manager
             )
         except Exception as e:
@@ -69,7 +72,8 @@ def main_processing(paths_to_process: list[Path]) -> None:
 
         # Step 3: Concatenate and export results
 
-        export_results(results)
+        results_set.export_to_csv()
+        # export_results(results)
 
         logger.info("Culvert results combination completed successfully.")
 
@@ -106,7 +110,7 @@ def collect_files(paths_to_process: list[Path]) -> list[Path]:
 
 def process_files_in_parallel(
     file_list: list[Path], logger_manager
-) -> list[BaseProcessor | None]:
+) -> ProcessorCollection:
     """
     Process files using multiprocessing.
 
@@ -134,44 +138,14 @@ def process_files_in_parallel(
             results = pool.map(process_file, file_list)
         except Exception:
             logger.exception("Error during multiprocessing Pool.map")
-    return results
 
+    results_set = ProcessorCollection()
+    for result in results:
+        if result is not None:
+            if result.processed == True:
+                results_set.add_processor(result)
 
-def finalize_logging(log_queue: Queue):
-    """
-    Finalize logging by sending termination signal to the listener.
-
-    Args:
-        log_queue (Queue): Logging queue.
-    """
-    log_queue.put_nowait(None)
-
-
-def export_results(results: list[pd.DataFrame]):
-    """
-    Concatenate all DataFrames and export to Excel.
-
-    Args:
-        results (list[pd.DataFrame]): List of processed DataFrames.
-    """
-    if not results:
-        logger.warning("No results to export.")
-        return
-
-    try:
-        df = pd.concat(results, ignore_index=True)
-        df.fillna(value=pd.NA, inplace=True)
-        ExcelExporter().save_to_excel(
-            data_frame=df, file_name_prefix="1d_data_processed_", sheet_name="Culverts"
-        )
-        flat_df = df.groupby(["internalName", "Chan ID"]).max().reset_index()
-        ExcelExporter().save_to_excel(
-            data_frame=df, file_name_prefix="1d_data_forPivot_", sheet_name="Culverts"
-        )
-        logger.info("Exported all results successfully.")
-    except Exception as e:
-        logger.error(f"Failed to export results: {e}")
-        raise
+    return results_set
 
 
 def process_file(file_path: Path) -> BaseProcessor | None:
@@ -203,3 +177,30 @@ def process_file(file_path: Path) -> BaseProcessor | None:
     except Exception as e:
         logger.error(f"Failed to process file {file_path}: {e}")
         return None
+
+
+def export_results(results: list[pd.DataFrame]):
+    """
+    Concatenate all DataFrames and export to Excel.
+
+    Args:
+        results (list[pd.DataFrame]): List of processed DataFrames.
+    """
+    if not results:
+        logger.warning("No results to export.")
+        return
+
+    try:
+        df = pd.concat(results, ignore_index=True)
+        df.fillna(value=pd.NA, inplace=True)
+        ExcelExporter().save_to_excel(
+            data_frame=df, file_name_prefix="1d_data_processed_", sheet_name="Culverts"
+        )
+        flat_df = df.groupby(["internalName", "Chan ID"]).max().reset_index()
+        ExcelExporter().save_to_excel(
+            data_frame=df, file_name_prefix="1d_data_forPivot_", sheet_name="Culverts"
+        )
+        logger.info("Exported all results successfully.")
+    except Exception as e:
+        logger.error(f"Failed to export results: {e}")
+        raise
