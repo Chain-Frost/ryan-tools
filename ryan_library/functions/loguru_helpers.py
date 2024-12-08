@@ -9,6 +9,7 @@ import signal
 from typing import Any, List, Optional, Dict
 from contextlib import contextmanager
 import json
+from pprint import pprint
 
 # Define a sentinel value for shutting down the logging listener
 SENTINEL = "STOP"
@@ -36,7 +37,7 @@ def listener_process(
         colorize=enable_color,
         enqueue=False,
         format=(
-            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
             "<level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - {message}"
         ),
     )
@@ -50,7 +51,7 @@ def listener_process(
             retention=backup_count,
             compression="zip",
             enqueue=False,
-            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+            format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {message}",
         )
 
     # Additional sinks if any
@@ -69,13 +70,21 @@ def listener_process(
             # Deserialize the JSON log record
             try:
                 record_dict = json.loads(record)
-                level = record_dict.get("level", {}).get("name", "INFO")
-                message = record_dict.get("message", "")
+                # Manually extract level and message
+                level = record_dict["record"]["level"]["name"]
+                message = record_dict["record"]["message"].strip()
+
+                # Debug: Print extracted level and message
+                # print(f"Logging level: {level}, message: {message}")
+
+                # Log the message using Loguru
                 logger.log(level, message)
             except json.JSONDecodeError:
                 logger.error("Received a non-JSON log record.")
-            except Exception:
-                logger.exception("Error processing log record.")
+            except KeyError as e:
+                logger.error(f"Missing expected key in log record: {e}")
+            except Exception as e:
+                logger.exception(f"Error processing log record: {e}")
         except Exception:
             logger.exception("Error in log listener.")
 
@@ -126,9 +135,6 @@ def worker_configurer(log_queue: Queue):
 
     # Define a sink that sends log records to the queue with serialization
     logger.add(log_queue.put, level="DEBUG", serialize=True)
-
-    # Optionally, log to stderr for debugging
-    logger.add(sys.stderr, level="WARNING", format="{message}", enqueue=False)
 
 
 class LoggerManager:
