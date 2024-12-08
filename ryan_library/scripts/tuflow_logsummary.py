@@ -30,11 +30,14 @@ from ryan_library.functions.parse_tlf import (
 )
 
 
-def pool_initializer() -> None:
+def pool_initializer(log_queue: Any) -> None:
     """
     Initializer for each worker process to set up logging.
+
+    Args:
+        log_queue (Queue): The shared logging queue.
     """
-    initialize_worker()
+    initialize_worker(log_queue)
 
 
 def process_log_file(logfile: Path) -> pd.DataFrame:
@@ -174,13 +177,14 @@ def main_processing() -> None:
     """
     Main function to process log files using multiprocessing.
     """
-    log_dir = Path.home() / "Documents" / "MyAppLogs"
-    log_file = "tuflow_logsummary.log"
-
+    # log_dir = Path.home() / "Documents" / "MyAppLogs"
+    # log_file = "tuflow_logsummary.log"
+    results = [pd.DataFrame()]
+    successful_runs: int = 0
     with logging_context(
         log_level="INFO",
-        log_file=log_file,  # Specify a log file if desired
-        log_dir=log_dir,  # Specify log directory
+        # log_file=log_file,  # Specify a log file if desired
+        # log_dir=log_dir,  # Specify log directory
         max_bytes=10**6,  # 1 MB
         backup_count=5,
         enable_color=True,
@@ -205,10 +209,11 @@ def main_processing() -> None:
             pool_size = calculate_pool_size(num_files=len(files))
             logger.info(f"Processing {len(files)} files using {pool_size} processes.")
 
-            # Initialize the Pool with the worker initializer
+            # Initialize the Pool with the worker initializer and pass the log_queue via initargs
             with Pool(
                 processes=pool_size,
                 initializer=pool_initializer,
+                initargs=(logger_manager.log_queue,),
             ) as pool:
                 try:
                     results = pool.map(process_log_file, files)
@@ -216,27 +221,26 @@ def main_processing() -> None:
                     logger.exception("Error during multiprocessing Pool.map")
                     results = []
 
+        # After the Pool context, shutdown is handled by the logging_context
         # Filter out empty DataFrames
-        results = [pd.DataFrame()]
         results: list[pd.DataFrame] = [res for res in results if not res.empty]
         successful_runs = len(results)
+    if results:
+        try:
+            merged_df = merge_and_sort_data(results)
+            merged_df = reorder_columns(merged_df)
+            save_to_excel(
+                data_frame=merged_df,
+                file_name_prefix="ModellingLog",
+                sheet_name="Log Summary",
+            )
+            logger.info("Log file processing completed successfully.")
+        except Exception:
+            logger.exception("Error during merging/saving DataFrames")
+    else:
+        logger.warning("No completed logs found - no output generated.")
 
-        if results:
-            try:
-                merged_df = merge_and_sort_data(results)
-                merged_df = reorder_columns(merged_df)
-                save_to_excel(
-                    data_frame=merged_df,
-                    file_name_prefix="ModellingLog",
-                    sheet_name="Log Summary",
-                )
-                logger.info("Log file processing completed successfully.")
-            except Exception:
-                logger.exception("Error during merging/saving DataFrames")
-        else:
-            logger.warning("No completed logs found - no output generated.")
-
-        logger.info(f"Number of successful runs: {successful_runs}")
+    logger.info(f"Number of successful runs: {successful_runs}")
 
 
 if __name__ == "__main__":
