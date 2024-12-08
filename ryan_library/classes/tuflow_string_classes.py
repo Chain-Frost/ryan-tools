@@ -3,15 +3,8 @@ import re
 import json
 from pathlib import Path
 from typing import Optional
-import logging
+from loguru import logger
 from dataclasses import dataclass, field
-
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 
 
 @dataclass
@@ -40,7 +33,7 @@ class RunCodeComponent:
         try:
             return float(raw_value) if "." in raw_value else int(raw_value)
         except ValueError:
-            logging.error(
+            logger.error(
                 f"Invalid numeric value for {self.component_type}: {raw_value}"
             )
             return None
@@ -53,9 +46,9 @@ class RunCodeComponent:
             str: Textual representation of the component.
         """
         mappings = {
-            "TP": f"TP{self.raw_value}",
-            "Duration": f"{self.raw_value}m",
-            "AEP": f"{self.raw_value}p",
+            "tp": f"TP{self.raw_value}",
+            "duration": f"{self.raw_value}m",
+            "aep": f"{self.raw_value}p",
         }
         return mappings.get(self.component_type, self.raw_value)
 
@@ -94,7 +87,7 @@ class TuflowStringParser:
             self.clean_run_code
         )
         self.aep: Optional[RunCodeComponent] = self.parse_aep(self.clean_run_code)
-        self.trim_run_code: str = self.trim_runcode()
+        self.trim_run_code: str = self.trim_the_run_code()
 
     @staticmethod
     def clean_runcode(run_code: str) -> str:
@@ -126,13 +119,13 @@ class TuflowStringParser:
         try:
             with suffixes_path.open("r", encoding="utf-8") as file:
                 suffixes = json.load(file)["suffixes"]
-                logging.debug(f"Loaded suffixes: {suffixes}")
+                logger.debug(f"Loaded suffixes: {suffixes}")
                 return suffixes
         except FileNotFoundError:
-            logging.error(f"Suffixes file not found at {suffixes_path}")
+            logger.error(f"Suffixes file not found at {suffixes_path}")
             return {}
         except json.JSONDecodeError as e:
-            logging.error(f"Error decoding JSON from {suffixes_path}: {e}")
+            logger.error(f"Error decoding JSON from {suffixes_path}: {e}")
             return {}
 
     def determine_data_type(self) -> Optional[str]:
@@ -144,11 +137,11 @@ class TuflowStringParser:
         """
         for suffix, data_type in self.suffixes.items():
             if self.file_name.lower().endswith(suffix.lower()):
-                logging.debug(
+                logger.debug(
                     f"Determined data type '{data_type}' for suffix '{suffix}'"
                 )
                 return data_type
-        logging.warning(f"No matching suffix found for file '{self.file_name}'")
+        logger.warning(f"No matching suffix found for file '{self.file_name}'")
         return None
 
     def extract_raw_run_code(self) -> str:
@@ -161,11 +154,11 @@ class TuflowStringParser:
         for suffix in self.suffixes.keys():
             if self.file_name.lower().endswith(suffix.lower()):
                 run_code = self.file_name[: -len(suffix)]
-                logging.debug(
+                logger.debug(
                     f"Extracted raw run code '{run_code}' from file name '{self.file_name}'"
                 )
                 return run_code
-        logging.debug(
+        logger.debug(
             f"No suffix matched; using entire file name '{self.file_name}' as run code"
         )
         return self.file_name
@@ -185,7 +178,7 @@ class TuflowStringParser:
         r_dict = {
             f"R{index:02}": part for index, part in enumerate(run_code_parts, start=1)
         }
-        logging.debug(f"Extracted run code parts: {r_dict}")
+        logger.debug(f"Extracted run code parts: {r_dict}")
         return r_dict
 
     def parse_tp(self, string: str) -> Optional[RunCodeComponent]:
@@ -201,9 +194,9 @@ class TuflowStringParser:
         match = self.TP_PATTERN.search(string)
         if match:
             tp_value = match.group(1)
-            logging.debug(f"Parsed TP value: {tp_value}")
+            logger.debug(f"Parsed TP value: {tp_value}")
             return RunCodeComponent(raw_value=tp_value, component_type="TP")
-        logging.debug("No TP component found")
+        logger.debug("No TP component found")
         return None
 
     def parse_duration(self, string: str) -> Optional[RunCodeComponent]:
@@ -219,9 +212,9 @@ class TuflowStringParser:
         match = self.DURATION_PATTERN.search(string)
         if match:
             duration_value = match.group(1)
-            logging.debug(f"Parsed Duration value: {duration_value}")
+            logger.debug(f"Parsed Duration value: {duration_value}")
             return RunCodeComponent(raw_value=duration_value, component_type="Duration")
-        logging.debug("No Duration component found")
+        logger.debug("No Duration component found")
         return None
 
     def parse_aep(self, string: str) -> Optional[RunCodeComponent]:
@@ -237,12 +230,12 @@ class TuflowStringParser:
         match = self.AEP_PATTERN.search(string)
         if match:
             aep_value = match.group(1)
-            logging.debug(f"Parsed AEP value: {aep_value}")
+            logger.debug(f"Parsed AEP value: {aep_value}")
             return RunCodeComponent(raw_value=aep_value, component_type="AEP")
-        logging.debug("No AEP component found")
+        logger.debug("No AEP component found")
         return None
 
-    def trim_runcode(self) -> str:
+    def trim_the_run_code(self) -> str:
         """
         Clean the run code by removing AEP, Duration, and TP components.
 
@@ -254,11 +247,11 @@ class TuflowStringParser:
             for component in [self.aep, self.duration, self.tp]
             if component
         }
-        logging.debug(f"Components to remove: {components_to_remove}")
+        logger.debug(f"Components to remove: {components_to_remove}")
         trimmed_runcode = "_".join(
             part
             for part in self.clean_run_code.split("_")
             if part not in components_to_remove
         )
-        logging.debug(f"Trimmed run code: {trimmed_runcode}")
+        logger.debug(f"Trimmed run code: {trimmed_runcode}")
         return trimmed_runcode

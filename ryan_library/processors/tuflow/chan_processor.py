@@ -23,17 +23,22 @@ class ChanProcessor(BaseProcessor):
 
             # Drop unnecessary columns
             columns_to_drop = [
-                'US Node', 'DS Node', 'US Channel', 'DS Channel',
-                'Form Loss', 'RBUS Obvert', 'RBDS Obvert'
+                "US Node",
+                "DS Node",
+                "US Channel",
+                "DS Channel",
+                "Form Loss",
+                "RBUS Obvert",
+                "RBDS Obvert",
             ]
-            data.drop(columns=columns_to_drop, inplace=True, errors='ignore')
+            data.drop(columns=columns_to_drop, inplace=True, errors="ignore")
             logging.debug(f"Columns after dropping: {data.columns.tolist()}")
 
             # Calculate Height
-            data['Height'] = data['LBUS Obvert'] - data['US Invert']
+            data["Height"] = data["LBUS Obvert"] - data["US Invert"]
 
             # Rename 'Channel' to 'Chan ID'
-            data.rename(columns={'Channel': 'Chan ID'}, inplace=True)
+            data.rename(columns={"Channel": "Chan ID"}, inplace=True)
 
             self.df = data
             self.add_common_columns()

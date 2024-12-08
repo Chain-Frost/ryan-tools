@@ -21,7 +21,7 @@ def main():
         os.chdir(script_directory)
 
         # You can pass a list of paths here if needed; default is the script directory
-        main_processing([script_directory])
+        main_processing([script_directory], console_log_level="DEBUG")
     except Exception as e:
         print(f"Failed to change working directory: {e}")
         os.system("PAUSE")

@@ -1,6 +1,6 @@
 # ryan_library\scripts\tuflow_culverts_merge.py
 import os
-from multiprocessing import Pool, current_process
+from multiprocessing import Pool
 from pathlib import Path
 import pandas as pd
 from ryan_library.processors.tuflow.base_processor import (
@@ -8,11 +8,12 @@ from ryan_library.processors.tuflow.base_processor import (
     ProcessorCollection,
 )
 from ryan_library.processors.tuflow.cmx_processor import CmxProcessor
-from ryan_library.processors.tuflow.nmx_processor import NmxProcessor
-from ryan_library.processors.tuflow.chan_processor import ChanProcessor
-from ryan_library.processors.tuflow.cca_processor import CcaProcessor
+
+# from ryan_library.processors.tuflow.nmx_processor import NmxProcessor
+# from ryan_library.processors.tuflow.chan_processor import ChanProcessor
+# from ryan_library.processors.tuflow.cca_processor import CcaProcessor
 from ryan_library.functions.file_utils import find_files_parallel, is_non_zero_file
-from ryan_library.functions.misc_functions import calculate_pool_size, save_to_excel
+from ryan_library.functions.misc_functions import calculate_pool_size
 from ryan_library.functions.misc_functions import ExcelExporter
 from ryan_library.functions.loguru_helpers import (
     setup_logger,
@@ -38,14 +39,16 @@ SUFFIX_PROCESSOR_MAP = {
 }
 
 
-def main_processing(paths_to_process: list[Path]) -> None:
+def main_processing(
+    paths_to_process: list[Path], console_log_level: str = "INFO"
+) -> None:
     """
     Generate merged culvert data by processing various TUFLOW CSV and CCA files.
 
     Args:
         paths_to_process (list[Path]): List of directory paths to search for files.
     """
-    with setup_logger(console_log_level="INFO") as log_queue:
+    with setup_logger(console_log_level=console_log_level) as log_queue:
         logger.info("Starting culvert results files processing...")
         logger.info(os.getcwd())
 
@@ -54,13 +57,13 @@ def main_processing(paths_to_process: list[Path]) -> None:
         if not csv_file_list:
             logger.info("No valid files found to process.")
             return
-
+        csv_file_list = csv_file_list[:1]
         logger.debug(csv_file_list)
         logger.info(f"Total files to process: {len(csv_file_list)}")
 
         # Step 2: Process files in parallel
         try:
-            results_set = process_files_in_parallel(
+            results_set: ProcessorCollection = process_files_in_parallel(
                 file_list=csv_file_list, log_queue=log_queue
             )
         except Exception as e:
@@ -68,8 +71,9 @@ def main_processing(paths_to_process: list[Path]) -> None:
             return
 
         # Step 3: Concatenate and export results
-
-        results_set.export_to_csv()
+        logger.info("Now to export")
+        logger.info(Path.cwd())
+        results_set.export_to_csv(output_path=Path.cwd())
         # export_results(results)
 
         logger.info("Culvert results combination completed successfully.")
@@ -182,7 +186,7 @@ def process_file(file_path: Path) -> BaseProcessor | None:
             logger.warning(f"Validation failed for file: {file_path}")
             return None
     except Exception as e:
-        logger.error(f"Failed to process file {file_path}: {e}")
+        logger.exception(f"Failed to process file {file_path}: {e}")
         return None
 
 
