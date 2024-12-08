@@ -7,6 +7,13 @@ from collections import deque
 from datetime import datetime
 import pandas as pd
 from loguru import logger
+from ryan_library.functions.data_processing import (
+    check_string_aep,
+    check_string_duration,
+    check_string_TP,
+    safe_apply,
+)
+import numpy as np
 
 
 def search_for_completion(
@@ -240,3 +247,155 @@ def reorder_columns(
         prioritized_columns=[first_column, second_column],
         prefix_order=prefix_order,
     )
+
+
+def read_log_file(logfile_path: Path, is_large_file: bool) -> list[str]:
+    """
+    Reads the log file based on its size.
+
+    Args:
+        logfile_path (Path): Path to the log file.
+        is_large_file (bool): Flag indicating if the file is large.
+
+    Returns:
+        list[str]: List of lines from the log file.
+    """
+    try:
+        if is_large_file:
+            logger.info(f"Processing large file: {logfile_path}")
+            lines = read_last_n_lines(logfile_path, n=10000)
+            lines_reversed = list(reversed(lines))
+        else:
+            lines = logfile_path.read_text(encoding="utf-8").splitlines()
+            lines_reversed = list(reversed(lines))
+        return lines_reversed
+    except Exception as e:
+        logger.error(f"Error reading {logfile_path}: {e}")
+        return []
+
+
+def process_top_lines(
+    logfile_path: Path,
+    lines: list[str],
+    data_dict: dict[str, Any],
+    success: int,
+    spec_events: bool,
+    spec_scen: bool,
+    spec_var: bool,
+    is_large_file: bool,
+    runcode: str,
+    relative_logfile_path: Path,
+) -> tuple[dict[str, Any], int, bool, bool, bool]:
+    """
+    Processes the top lines of the log file to extract relevant data.
+
+    Args:
+        logfile_path (Path): Path to the log file.
+        lines (list[str]): Lines to process.
+        data_dict (dict[str, Any]): Dictionary to store extracted data.
+        success (int): Success counter.
+        spec_events (bool): Spec events flag.
+        spec_scen (bool): Spec scenario flag.
+        spec_var (bool): Spec variable flag.
+        is_large_file (bool): Flag indicating if the file is large.
+        runcode (str): Run code identifier.
+        relative_logfile_path (Path): Relative path of the log file.
+
+    Returns:
+        tuple[dict[str, Any], int, bool, bool, bool]: Updated data dictionary and status flags.
+    """
+    try:
+        if is_large_file:
+            with logfile_path.open("r", encoding="utf-8") as lfile:
+                for counter, line in enumerate(lfile, 1):
+                    result = search_from_top(
+                        line, data_dict, success, spec_events, spec_scen, spec_var
+                    )
+                    if result is None:
+                        logger.error(
+                            f"search_from_top returned None for file: {relative_logfile_path}"
+                        )
+                        return data_dict, success, spec_events, spec_scen, spec_var
+                    data_dict, success, spec_events, spec_scen, spec_var = result
+                    if success == 4 and counter > 4000:
+                        logger.debug(
+                            f"Early termination after {counter} lines for {runcode}"
+                        )
+                        break
+        else:
+            for counter, line in enumerate(lines, 1):
+                result = search_from_top(
+                    line, data_dict, success, spec_events, spec_scen, spec_var
+                )
+                if result is None:
+                    logger.error(
+                        f"search_from_top returned None for file: {relative_logfile_path}"
+                    )
+                    return data_dict, success, spec_events, spec_scen, spec_var
+                data_dict, success, spec_events, spec_scen, spec_var = result
+                if success == 4 and counter > 4000:
+                    logger.debug(
+                        f"Early termination after {counter} lines for {runcode}"
+                    )
+                    break
+        return data_dict, success, spec_events, spec_scen, spec_var
+    except Exception as e:
+        logger.error(f"Error processing top lines in {relative_logfile_path}: {e}")
+        return data_dict, success, spec_events, spec_scen, spec_var
+
+
+def finalise_data(
+    runcode: str, data_dict: dict[str, Any], logfile_path, is_large_file: bool
+) -> pd.DataFrame:
+    """
+    Finalizes the data dictionary and creates a DataFrame.
+
+    Args:
+        runcode (str): Run code identifier.
+        data_dict (dict[str, Any]): Dictionary containing extracted data.
+        logfile_path (Path): Path to the log file.
+        is_large_file (bool): Flag indicating if the file is large.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the processed data.
+    """
+    try:
+        last_lines = read_last_n_lines(logfile_path, n=100)
+        initialisation = False
+        final = False
+        for line in last_lines:
+            initialisation, final, data_dict = find_initialisation_info(
+                line, initialisation, final, data_dict
+            )
+
+        adj_runcode: str = runcode.replace("+", "_")
+        for idx, elem in enumerate(adj_runcode.split("_"), start=1):
+            data_dict[f"R{idx}"] = elem
+        data_dict["_tcf"] = remove_e_s_from_runcode(adj_runcode, data_dict)
+        data_dict["TP"] = safe_apply(check_string_TP, adj_runcode)
+        data_dict["Duration"] = safe_apply(check_string_duration, adj_runcode)
+        data_dict["AEP"] = safe_apply(check_string_aep, adj_runcode)
+
+        df: pd.DataFrame = pd.DataFrame([data_dict])
+        col_dtypes: dict[str, type] = {
+            "RunTime": np.float64,
+            "CPU_Time": np.float64,
+            "ModelTime": np.float64,
+            "ModelStart": np.float64,
+            "Final Cumulative ME pct": np.float64,
+        }
+
+        for col, dtype in col_dtypes.items():
+            if col in df.columns:
+                try:
+                    df[col] = pd.to_numeric(df[col], errors="coerce").astype(dtype)
+                except ValueError:
+                    logger.warning(
+                        f"Failed to convert column {col} to {dtype} in {runcode}"
+                    )
+                    df[col] = pd.NA
+
+        return df
+    except Exception as e:
+        logger.error(f"Error finalizing data for {runcode}: {e}")
+        return pd.DataFrame()
