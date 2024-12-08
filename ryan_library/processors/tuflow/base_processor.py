@@ -1,60 +1,42 @@
 # ryan_library\processors\tuflow\base_processor.py
+from dataclasses import dataclass, field
+from pathlib import Path
+from abc import ABC, abstractmethod
 import pandas as pd
 from loguru import logger
-from pathlib import Path
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.classes.suffixes_and_dtypes import DATA_TYPES_CONFIG
-from abc import ABC, abstractmethod
 
 
+@dataclass
 class BaseProcessor(ABC):
     """
     Base class for processing different types of TUFLOW CSV and CCA files.
     """
 
-    def __init__(self, file_path: Path) -> None:
-        """
-        Initialize the BaseProcessor with the given file path.
+    file_path: Path
+    file_name: str = field(init=False)
+    resolved_file_path: Path = field(init=False)
+    name_parser: TuflowStringParser = field(init=False)
+    data_type: str | None = field(init=False)
+    _datatype_mapping: dict[str, str] = field(init=False)
+    _expected_headers: dict[str, str] = field(init=False)
+    df: pd.DataFrame = field(default_factory=pd.DataFrame)
+    processed: bool = field(default=False)
 
-        Args:
-            file_path (str): Path to the file to be processed.
-        """
-        self.file_path: Path = Path(file_path)
-        self.file_name: str = self.file_path.name
-        self.resolved_file_path: Path = self.file_path.resolve()
-
+    def __post_init__(self):
+        self.file_name = self.file_path.name
+        self.resolved_file_path = self.file_path.resolve()
         self.name_parser = TuflowStringParser(file_path=self.file_path)
-        self.data_type: str | None = self.name_parser.data_type
-
-        self._datatype_mapping: dict[str, str] | None = None
-        self._expected_headers: dict[str, str] | None = None
-
-        self.df: pd.DataFrame = pd.DataFrame()
-        self.processed: bool = False
+        self.data_type = self.name_parser.data_type
+        self._datatype_mapping = self._load_datatype_mapping("columns")
+        self._expected_headers = self._load_datatype_mapping("expected_headers")
 
     def log_message(self, level: str, message: str) -> None:
         """
         Helper method to log messages with file context.
         """
         getattr(logger, level)(f"{self.file_name}: {message}")
-
-    def _load_mapping(
-        self, attribute_name: str, validation_type: str
-    ) -> dict[str, str]:
-        """
-        Generic lazy loader for datatype and header mappings.
-        """
-        if getattr(self, attribute_name) is None:
-            setattr(self, attribute_name, self._load_datatype_mapping(validation_type))
-        return getattr(self, attribute_name)
-
-    @property
-    def datatype_mapping(self) -> dict[str, str]:
-        return self._load_mapping("_datatype_mapping", "columns")
-
-    @property
-    def expected_headers(self) -> dict[str, str]:
-        return self._load_mapping("_expected_headers", "expected_headers")
 
     def _load_datatype_mapping(self, validation_type: str) -> dict[str, str]:
         """
@@ -80,21 +62,19 @@ class BaseProcessor(ABC):
         """
         Apply datatype mapping to the DataFrame.
         """
-        if not self.datatype_mapping:
+        if not self._datatype_mapping:
             self.log_message("warning", f"No datatype mapping for '{self.data_type}'.")
             return
-        # Validate that all columns in mapping exist in the DataFrame
         missing_columns = [
-            col for col in self.datatype_mapping if col not in self.df.columns
+            col for col in self._datatype_mapping if col not in self.df.columns
         ]
         if missing_columns:
             self.log_message(
                 "warning", f"Missing columns in DataFrame: {missing_columns}"
             )
-        # Apply mapping only to existing columns
         applicable_mapping = {
             col: dtype
-            for col, dtype in self.datatype_mapping.items()
+            for col, dtype in self._datatype_mapping.items()
             if col in self.df.columns
         }
         try:
