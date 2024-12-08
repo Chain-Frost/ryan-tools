@@ -1,15 +1,11 @@
 # setup.py
-from setuptools import setup, find_packages  # type:ignore
+from setuptools import setup, find_packages
 
 setup(
     name="ryan_functions",
-    version="0.3692",
+    version="0.3702",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
-    package_data={
-        "QGIS-styles.TUFLOW": ["*.qml"],
-        "ryan_library.classes": ["suffixes.json"],
-    },
     install_requires=[
         "numpy",
         "pandas",

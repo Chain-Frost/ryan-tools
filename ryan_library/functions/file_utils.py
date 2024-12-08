@@ -1,7 +1,6 @@
 # ryan_library\functions\file_utils.py
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import logging
 import fnmatch
 from loguru import logger
 
@@ -52,7 +51,9 @@ def find_files_parallel(
     # Convert all patterns to lowercase for case-insensitive matching
     patterns = [p.lower() for p in patterns]
     excludes = [e.lower() for e in excludes]
-
+    logger.info(f"Search patterns:  {patterns}")
+    if excludes is not None:
+        logger.info(f"Exclude patterns: {excludes}")
     # Obtain the current working directory to calculate relative paths later
     current_dir = Path.cwd()
 
@@ -97,7 +98,7 @@ def find_files_parallel(
                     except ValueError:
                         # Use absolute path if relative path cannot be determined
                         display_path = subpath.resolve()
-                    logger.info(f"Searching in folder (level {depth}): {display_path}")
+                    logger.info(f"Searching ({depth}): {display_path}")
 
                 folders_searched += 1  # Increment folder counter
                 continue  # Skip directories for file matching
@@ -111,7 +112,7 @@ def find_files_parallel(
             if any(fnmatch.fnmatch(filename, pattern) for pattern in patterns):
                 # Exclusion Check: Ensure the filename does not match any exclusion pattern
                 if not any(fnmatch.fnmatch(filename, exclude) for exclude in excludes):
-                    logger.debug(f"Matched file: {subpath}")
+                    logger.debug(f"Matched file:  {subpath.relative_to(current_dir)}")
                     matched_files.append(subpath)  # Add to matched files list
                     folders_with_matches.add(subpath.parent)  # Track parent folder
 
