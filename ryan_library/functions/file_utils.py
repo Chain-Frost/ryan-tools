@@ -3,6 +3,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 import fnmatch
+from loguru import logger
 
 
 def find_files_parallel(
@@ -39,7 +40,6 @@ def find_files_parallel(
         list[Path]: A list of file paths that match the specified patterns and do not
             match any of the exclusion patterns.
     """
-    logger = logging.getLogger(__name__)
 
     # Normalize 'patterns' and 'excludes' to lists for consistent processing
     if isinstance(patterns, str):
@@ -52,12 +52,6 @@ def find_files_parallel(
     # Convert all patterns to lowercase for case-insensitive matching
     patterns = [p.lower() for p in patterns]
     excludes = [e.lower() for e in excludes]
-
-    # Function to check if a pattern contains any wildcard characters
-    def has_wildcard(pattern: str) -> bool:
-        return any(char in pattern for char in ["*", "?", "[", "]"])
-
-    # Note: No longer enforcing patterns/excludes to start with a dot
 
     # Obtain the current working directory to calculate relative paths later
     current_dir = Path.cwd()
@@ -136,12 +130,16 @@ def find_files_parallel(
     logger.info(f"Starting search in {len(root_dirs)} root directories.")
 
     total_files_searched = 0  # Total number of files processed across all directories
-    total_folders_searched = 0  # Total number of folders processed across all directories
+    total_folders_searched = (
+        0  # Total number of folders processed across all directories
+    )
 
     # Utilize a thread pool to perform directory searches in parallel
     with ThreadPoolExecutor() as executor:
         # Submit a search task for each root directory
-        futures = [executor.submit(search_dir, root_dir, root_dir) for root_dir in root_dirs]
+        futures = [
+            executor.submit(search_dir, root_dir, root_dir) for root_dir in root_dirs
+        ]
         results = []  # To store the results from each thread
 
         # Process the results as they complete
@@ -164,6 +162,52 @@ def find_files_parallel(
     return all_files
 
 
+def is_non_zero_file(fpath: Path) -> bool:
+    """
+    Verify that a given file exists, is indeed a file, and is not empty.
+
+    This function performs a series of checks on the provided file path to ensure
+    that the file is present, accessible, and contains data. It logs specific
+    error messages if any of these conditions are not met.
+
+    Args:
+        fpath (Path): The path to the file to be checked.
+
+    Returns:
+        bool: True if the file exists, is a regular file, and is non-empty.
+              False otherwise.
+    """
+
+    try:
+        # Check if the file exists
+        if not fpath.exists():
+            logger.error(f"File does not exist: {fpath}")
+            return False
+
+        # Check if the path points to a file (not a directory or other type)
+        if not fpath.is_file():
+            logger.error(f"Path is not a file: {fpath}")
+            return False
+
+        # Check if the file size is greater than zero
+        if fpath.stat().st_size == 0:
+            logger.error(f"File is empty: {fpath}")
+            return False
+
+        return True  # All checks passed
+
+    except PermissionError:
+        # Handle cases where the file cannot be accessed due to permission issues
+        logger.error(f"Permission denied when accessing file: {fpath}")
+        return False
+    except Exception as e:
+        # Catch-all for any other unexpected errors
+        logger.error(
+            f"An unexpected error occurred while accessing file '{fpath}': {e}"
+        )
+        return False
+
+
 def ensure_output_directory(output_dir: Path) -> None:
     """
     Ensure that the specified output directory exists; create it if it does not.
@@ -175,7 +219,6 @@ def ensure_output_directory(output_dir: Path) -> None:
     Args:
         output_dir (Path): The path to the output directory to be ensured.
     """
-    logger = logging.getLogger(__name__)
 
     if not output_dir.exists():
         # Create the directory and any necessary parent directories

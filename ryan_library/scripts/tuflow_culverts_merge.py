@@ -3,21 +3,20 @@ import os
 from multiprocessing import Queue, Process, Pool
 from pathlib import Path
 import pandas as pd
-import logging
-from ryan_library.functions.logging_helpers import (
-    configure_multiprocessing_logging,
-    log_listener_process,
-    LoggerConfigurator,
-    worker_initializer,
-)
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.cmx_processor import CmxProcessor
 from ryan_library.processors.tuflow.nmx_processor import NmxProcessor
 from ryan_library.processors.tuflow.chan_processor import ChanProcessor
 from ryan_library.processors.tuflow.cca_processor import CcaProcessor
 from ryan_library.functions.file_utils import find_files_parallel, is_non_zero_file
-from ryan_library.functions.misc_functions import calculate_pool_size
+from ryan_library.functions.misc_functions import calculate_pool_size, save_to_excel
 from ryan_library.functions.misc_functions import ExcelExporter
+from ryan_library.functions.loguru_helpers import (
+    logging_context,
+    pool_initializer,
+)
+from loguru import logger
+from typing import Any
 
 # Processor mapping dictionary with lowercased keys
 PROCESSOR_MAPPING = {
@@ -33,63 +32,71 @@ PROCESSOR_MAPPING = {
 SUFFIX_PROCESSOR_MAP = {Path(k).suffix.lower(): v for k, v in PROCESSOR_MAPPING.items()}
 
 
-def tf_culv_merge(paths_to_process) -> None:
+def main_processing(paths_to_process: list[Path]) -> None:
     """
-    Generate peak reports by processing various TUFLOW CSV and CCA files.
+    Generate merged culvert data by processing various TUFLOW CSV and CCA files.
 
     Args:
-        paths_to_process (list[str]): List of directory paths to search for files.
+        paths_to_process (list[Path]): List of directory paths to search for files.
     """
-    logger = logging.getLogger(__name__)
-    logger.info("Starting culvert report generation.")
-    logger.info(os.getcwd())
+    with logging_context(
+        log_level="INFO",
+        # log_file=log_file,  # Specify a log file if desired
+        # log_dir=log_dir,  # Specify log directory
+        max_bytes=10**6,  # 1 MB
+        backup_count=5,
+        enable_color=True,
+        additional_sinks=None,  # Add any additional sinks if needed
+    ) as logger_manager:
+        logger.info("Starting culvert results files processing...")
+        logger.info(os.getcwd())
 
-    # Step 1: Collect and validate files
-    csv_file_list = collect_files(paths_to_process)
-    logger.info(f"Total files to process: {len(csv_file_list)}")
+        # Step 1: Collect and validate files
+        csv_file_list = collect_files(paths_to_process)
+        if not csv_file_list:
+            logger.info("No valid files found to process.")
+            return
+        logger.info(f"Total files to process: {len(csv_file_list)}")
 
-    if not csv_file_list:
-        logger.info("No valid files found to process.")
-        return
+        # Step 2: Process files in parallel
+        try:
+            results = process_files_in_parallel(
+                file_list=csv_file_list, logger_manager=logger_manager
+            )
+        except Exception as e:
+            logger.error(f"Error during multiprocessing: {e}")
+            return
 
-    # Step 2: Set up logging
-    log_queue = setup_logging_queue()
+        # Step 3: Concatenate and export results
 
-    # Step 3: Process files in parallel
-    try:
-        results = process_files_in_parallel(csv_file_list, log_queue)
-    except Exception as e:
-        logger.error(f"Error during multiprocessing: {e}")
-        return
+        export_results(results)
 
-    # Step 4: Finalize logging
-    finalize_logging(log_queue)
-
-    # Step 5: Concatenate and export results
-    export_results(results)
-
-    logger.info("Culvert report generation completed successfully.")
+        logger.info("Culvert results combination completed successfully.")
 
 
-def collect_files(paths_to_process: list[str]) -> list[Path]:
+def collect_files(paths_to_process: list[Path]) -> list[Path]:
     """
     Collect and filter files based on PROCESSOR_MAPPING patterns.
 
     Args:
-        paths_to_process (list[str]): Directories to search.
+        paths_to_process (list[Path]): Directories to search.
 
     Returns:
         list[Path]: List of valid file paths.
     """
-    csv_file_list = []
+    csv_file_list: list[Path] = []
     patterns = list(PROCESSOR_MAPPING.keys())  # All patterns at once
 
-    root_dirs = [Path(path) for path in paths_to_process if Path(path).is_dir()]
-    invalid_dirs = set(paths_to_process) - {str(rd) for rd in root_dirs}
+    root_dirs: list[Path] = [
+        Path(path) for path in paths_to_process if Path(path).is_dir()
+    ]
+    invalid_dirs: set[Path] = set(paths_to_process) - {Path(rd) for rd in root_dirs}
     for invalid_dir in invalid_dirs:
-        logging.warning(f"Path {invalid_dir} is not a directory. Skipping.")
+        logger.warning(f"Path {invalid_dir} is not a directory. Skipping.")
 
-    matched_files = find_files_parallel(root_dirs=root_dirs, patterns=patterns)
+    matched_files: list[Path] = find_files_parallel(
+        root_dirs=root_dirs, patterns=patterns
+    )
     csv_file_list.extend(matched_files)
 
     # Filter non-zero files
@@ -97,43 +104,9 @@ def collect_files(paths_to_process: list[str]) -> list[Path]:
     return csv_file_list
 
 
-def setup_logging_queue() -> Queue:
-    """
-    Set up a logging queue and start the listener process.
-
-    Returns:
-        Queue: The logging queue.
-    """
-    log_queue = Queue()
-    listener = Process(
-        target=log_listener_process,
-        args=(log_queue, logging.INFO),
-        daemon=True,
-    )
-    listener.start()
-
-    # Configure the root logger to send logs to the queue
-    configure_multiprocessing_logging(log_queue, logging.INFO)
-
-    # Initialize the LoggerConfigurator
-    logger_config = LoggerConfigurator(
-        log_level=logging.INFO,
-        log_file=None,  # Set to a file path if needed
-        use_rotating_file=False,
-        enable_color=True,
-    )
-    logger_config.configure()
-
-    # Get the logger and send a starting message
-    logger = logging.getLogger(__name__)
-    logger.info("Starting culvert report processing...", extra={"simple_format": True})
-
-    return log_queue
-
-
 def process_files_in_parallel(
-    file_list: list[Path], log_queue: Queue
-) -> list[pd.DataFrame]:
+    file_list: list[Path], logger_manager
+) -> list[BaseProcessor | None]:
     """
     Process files using multiprocessing.
 
@@ -145,24 +118,23 @@ def process_files_in_parallel(
         list[pd.DataFrame]: List of processed DataFrames.
     """
     pool_size = calculate_pool_size(len(file_list))
-    logger = logging.getLogger(__name__)
+
     logger.info(f"Initializing multiprocessing pool with {pool_size} processes.")
 
+    pool_size = calculate_pool_size(num_files=len(file_list))
+    logger.info(f"Processing {len(file_list)} files using {pool_size} processes.")
+    results: list[BaseProcessor | None] = []
+    # Initialize the Pool with the worker initializer and pass the log_queue via initargs
     with Pool(
         processes=pool_size,
-        initializer=worker_initializer,
-        initargs=(log_queue, logging.INFO),
+        initializer=pool_initializer,
+        initargs=(logger_manager.log_queue,),
     ) as pool:
         try:
             results = pool.map(process_file, file_list)
-            pool.close()
-            pool.join()
-            return results
-        except Exception as e:
-            logger.error(f"Error during multiprocessing: {e}")
-            pool.terminate()
-            pool.join()
-            raise
+        except Exception:
+            logger.exception("Error during multiprocessing Pool.map")
+    return results
 
 
 def finalize_logging(log_queue: Queue):
@@ -182,7 +154,6 @@ def export_results(results: list[pd.DataFrame]):
     Args:
         results (list[pd.DataFrame]): List of processed DataFrames.
     """
-    logger = logging.getLogger(__name__)
     if not results:
         logger.warning("No results to export.")
         return
@@ -190,11 +161,11 @@ def export_results(results: list[pd.DataFrame]):
     try:
         df = pd.concat(results, ignore_index=True)
         df.fillna(value=pd.NA, inplace=True)
-        ExcelExporter.save_to_excel(
+        ExcelExporter().save_to_excel(
             data_frame=df, file_name_prefix="1d_data_processed_", sheet_name="Culverts"
         )
         flat_df = df.groupby(["internalName", "Chan ID"]).max().reset_index()
-        ExcelExporter.save_to_excel(
+        ExcelExporter().save_to_excel(
             data_frame=df, file_name_prefix="1d_data_forPivot_", sheet_name="Culverts"
         )
         logger.info("Exported all results successfully.")
@@ -203,45 +174,32 @@ def export_results(results: list[pd.DataFrame]):
         raise
 
 
-def process_file(file_path: Path) -> pd.DataFrame | None:
+def process_file(file_path: Path) -> BaseProcessor | None:
     """
-    Process the file based on its suffix.
+    Process a single file based on its suffix.
 
     Args:
-        file_path (Path): Path to the file to be processed.
+        file_path (Path): Path to the file to process.
 
     Returns:
-        Optional[pd.DataFrame]: Processed DataFrame or None if unsupported.
+        BaseProcessor | None: An instance of the processor class if successful, else None.
     """
     suffix = file_path.suffix.lower()
     processor_class = SUFFIX_PROCESSOR_MAP.get(suffix)
+
     if not processor_class:
-        logging.warning(f"Unsupported file type: {file_path}. Skipping.")
+        logger.warning(f"Unsupported file type: {file_path}. Skipping.")
         return None
 
     try:
         processor = processor_class(file_path)
-        logging.info(f"Processing file: {file_path} with {processor_class.__name__}")
-        return processor.process()
+        logger.info(f"Processing file: {file_path} with {processor_class.__name__}")
+        processor.process()
+        if processor.validate_data():
+            return processor
+        else:
+            logger.warning(f"Validation failed for file: {file_path}")
+            return None
     except Exception as e:
-        logging.error(f"Failed to process file {file_path}: {e}")
+        logger.error(f"Failed to process file {file_path}: {e}")
         return None
-
-
-def export_to_excel(df: pd.DataFrame, suffix: str, directory: str | Path = ".") -> None:
-    """
-    Export the DataFrame to an Excel file with a timestamp and given suffix.
-
-    Args:
-        df (pd.DataFrame): DataFrame to export.
-        suffix (str): Suffix to include in the export file name.
-        directory (str | Path, optional): Directory to save the exported file. Defaults to '.'.
-    """
-    from datetime import datetime
-
-    directory = Path(directory)
-    directory.mkdir(parents=True, exist_ok=True)
-    datetime_str = datetime.now().strftime("%Y%m%d-%H%M")
-    export_name = directory / f"{datetime_str}_1d_data_{suffix}.xlsx"
-    df.to_excel(export_name, index=False)
-    logging.info(f"Exported data to {export_name}")
