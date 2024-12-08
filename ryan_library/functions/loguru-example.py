@@ -6,7 +6,7 @@ import time
 
 
 def worker_task(worker_id) -> None:
-    initialize_worker()
+    initialize_worker(log_queue)
     from loguru import logger
 
     logger.info(f"Worker {worker_id} started.")

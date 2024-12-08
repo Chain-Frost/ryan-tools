@@ -6,9 +6,9 @@ from multiprocessing import Process, Queue
 from pathlib import Path
 import sys
 import signal
-import time
 from typing import Any, List, Optional, Dict
 from contextlib import contextmanager
+import json
 
 # Define a sentinel value for shutting down the logging listener
 SENTINEL = "STOP"
@@ -22,7 +22,7 @@ def listener_process(
     max_bytes: int,
     backup_count: int,
     enable_color: bool,
-    additional_sinks: Optional[list[dict[str, Any]]],
+    additional_sinks: Optional[List[Dict[str, Any]]],
 ) -> None:
     """
     Listener process that consumes log records from the queue and logs them using Loguru.
@@ -66,17 +66,16 @@ def listener_process(
             if record == SENTINEL:
                 logger.info("Log listener received shutdown signal.")
                 break
-            # Replace logger.handle(record) with logger.log(level, message)
-            level = record.get("level", "INFO")
-            message = record.get("message", "")
-
-            # Ensure that level is a valid Loguru level
-            if isinstance(level, str):
+            # Deserialize the JSON log record
+            try:
+                record_dict = json.loads(record)
+                level = record_dict.get("level", {}).get("name", "INFO")
+                message = record_dict.get("message", "")
                 logger.log(level, message)
-            else:
-                # If level is not a string, convert it appropriately
-                logger.log("INFO", message)
-
+            except json.JSONDecodeError:
+                logger.error("Received a non-JSON log record.")
+            except Exception:
+                logger.exception("Error processing log record.")
         except Exception:
             logger.exception("Error in log listener.")
 
@@ -91,7 +90,7 @@ def setup_listener(
     max_bytes: int = 10**6,  # 1 MB
     backup_count: int = 5,
     enable_color: bool = True,
-    additional_sinks: Optional[list[dict[str, Any]]] = None,
+    additional_sinks: Optional[List[Dict[str, Any]]] = None,
 ) -> Process:
     """
     Sets up the Loguru listener process that consumes log records from the queue.
@@ -125,8 +124,8 @@ def worker_configurer(log_queue: Queue):
     """
     logger.remove()  # Remove default handlers
 
-    # Define a sink that sends log records to the queue
-    logger.add(log_queue.put, level="DEBUG", format="{message}", enqueue=False)
+    # Define a sink that sends log records to the queue with serialization
+    logger.add(log_queue.put, level="DEBUG", serialize=True)
 
     # Optionally, log to stderr for debugging
     logger.add(sys.stderr, level="WARNING", format="{message}", enqueue=False)
@@ -154,25 +153,31 @@ class LoggerManager:
         max_bytes: int = 10**6,
         backup_count: int = 5,
         enable_color: bool = True,
-        additional_sinks: Optional[list[dict[str, Any]]] = None,
+        additional_sinks: Optional[List[Dict[str, Any]]] = None,
     ):
         if hasattr(self, "_initialized") and self._initialized:
             return
 
-        self.log_queue = multiprocessing.Queue(-1)
-        self.listener = setup_listener(
-            log_queue=self.log_queue,
-            log_level=log_level,
-            log_file=log_file,
-            log_dir=log_dir,
-            max_bytes=max_bytes,
-            backup_count=backup_count,
-            enable_color=enable_color,
-            additional_sinks=additional_sinks,
-        )
-
-        self._setup_signal_handlers()
-        self._initialized = True
+        # Only the main process should set up the listener
+        if multiprocessing.current_process().name == "MainProcess":
+            self.log_queue = multiprocessing.Queue(-1)
+            self.listener = setup_listener(
+                log_queue=self.log_queue,
+                log_level=log_level,
+                log_file=log_file,
+                log_dir=log_dir,
+                max_bytes=max_bytes,
+                backup_count=backup_count,
+                enable_color=enable_color,
+                additional_sinks=additional_sinks,
+            )
+            self._setup_signal_handlers()
+            self._initialized = True
+        else:
+            # In worker processes, do not start a listener
+            self.log_queue = None
+            self.listener = None
+            self._initialized = True
 
     def _setup_signal_handlers(self):
         """
@@ -193,7 +198,7 @@ class LoggerManager:
         """
         Shuts down the logging listener process.
         """
-        if self.listener and self.listener.is_alive():
+        if self.listener and self.listener.is_alive() and self.log_queue:
             self.log_queue.put(SENTINEL)
             self.listener.join(timeout=5)
             if self.listener.is_alive():
@@ -212,10 +217,12 @@ def logging_context(**logger_kwargs):
         manager.shutdown()
 
 
-def initialize_worker():
+def initialize_worker(log_queue: Queue):
     """
     Initialize the worker process logger.
     Should be called at the start of each worker process.
+
+    Args:
+        log_queue (Queue): The shared logging queue.
     """
-    current_manager = LoggerManager()
-    worker_configurer(current_manager.log_queue)
+    worker_configurer(log_queue)
