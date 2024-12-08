@@ -15,6 +15,16 @@ from pprint import pprint
 SENTINEL = "STOP"
 
 
+def pool_initializer(log_queue: Any) -> None:
+    """
+    Initializer for each worker process to set up logging.
+
+    Args:
+        log_queue (Queue): The shared logging queue.
+    """
+    initialize_worker(log_queue)
+
+
 def listener_process(
     queue: Queue,
     log_level: str,

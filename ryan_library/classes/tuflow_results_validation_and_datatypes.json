@@ -1,0 +1,77 @@
+{
+    "Cmx": {
+        "expected_headers": [
+            "Run_Info",
+            "Chan ID",
+            "Qmax",
+            "Time Qmax",
+            "Vmax",
+            "Time Vmax"
+        ],
+        "columns": {
+            "Chan ID": "string",
+            "Time": "float32",
+            "Q": "float32",
+            "V": "float32"
+        }
+    },
+    "Nmx": {
+        "expected_headers": [
+            "Run_Info",
+            "Chan ID",
+            "US_h",
+            "DS_h",
+            "Time"
+        ],
+        "columns": {
+            "Chan ID": "string",
+            "Time": "float32",
+            "US_h": "float32",
+            "DS_h": "float32"
+        }
+    },
+    "Chan": {
+        "expected_headers": [
+            "Run_Info",
+            "Chan ID",
+            "Length",
+            "Form Loss",
+            "n or Cd",
+            "pSlope",
+            "US Invert",
+            "DS Invert",
+            "LBUS Obvert",
+            "RBUS Obvert",
+            "LBDS Obvert",
+            "RBDS Obvert",
+            "Height"
+        ],
+        "columns": {
+            "Chan ID": "string",
+            "Length": "float32",
+            "Form Loss": "float32",
+            "n or Cd": "float32",
+            "pSlope": "float32",
+            "US Invert": "float32",
+            "DS Invert": "float32",
+            "LBUS Obvert": "float32",
+            "RBUS Obvert": "float32",
+            "LBDS Obvert": "float32",
+            "RBDS Obvert": "float32",
+            "Height": "float32"
+        }
+    },
+    "CCA": {
+        "expected_headers": [
+            "Run_Info",
+            "Chan ID",
+            "Channel",
+            "SomeOtherColumn"
+        ],
+        "columns": {
+            "Chan ID": "string",
+            "Channel": "string",
+            "SomeOtherColumn": "float32"
+        }
+    }
+}

@@ -4,15 +4,13 @@ from multiprocessing import Pool
 from pathlib import Path
 from typing import Any
 import pandas as pd
-import numpy as np
 from loguru import logger
-
 from ryan_library.functions.file_utils import find_files_parallel
 from ryan_library.functions.misc_functions import calculate_pool_size, save_to_excel
 from ryan_library.functions.path_stuff import convert_to_relative_path
 from ryan_library.functions.loguru_helpers import (
     logging_context,
-    initialize_worker,
+    pool_initializer,
 )
 from ryan_library.functions.parse_tlf import (
     search_for_completion,
@@ -22,16 +20,6 @@ from ryan_library.functions.parse_tlf import (
     merge_and_sort_data,
     reorder_columns,
 )
-
-
-def pool_initializer(log_queue: Any) -> None:
-    """
-    Initializer for each worker process to set up logging.
-
-    Args:
-        log_queue (Queue): The shared logging queue.
-    """
-    initialize_worker(log_queue)
 
 
 def process_log_file(logfile: Path) -> pd.DataFrame:

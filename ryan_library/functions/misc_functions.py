@@ -19,10 +19,10 @@ def setup_logging(
     use_rotating_file: bool = False,
     enable_color: bool = True,
 ) -> None:
-    print("Script needs to have the setup_logging() function call updated to logging_helpers.setup_logging")
-    import ryan_library.functions.logging_helpers
-
-    new_setup_logging(log_level, log_file, max_bytes, backup_count, use_rotating_file, enable_color)
+    print("This is using a deprecated logging procedure")
+    new_setup_logging(
+        log_level, log_file, max_bytes, backup_count, use_rotating_file, enable_color
+    )
 
 
 def calculate_pool_size(num_files: int) -> int:
@@ -115,7 +115,9 @@ class ExcelExporter:
             sheets = content.get("sheets", [])
 
             if len(dataframes) != len(sheets):
-                raise ValueError(f"For file '{file_name}', the number of dataframes and sheets must match.")
+                raise ValueError(
+                    f"For file '{file_name}', the number of dataframes and sheets must match."
+                )
 
             export_name = f"{datetime_string}_{file_name}.xlsx"
             export_path = Path(export_name)
@@ -124,7 +126,9 @@ class ExcelExporter:
 
             with pd.ExcelWriter(export_path) as writer:
                 for df, sheet in zip(dataframes, sheets):
-                    df.to_excel(writer, sheet_name=sheet, merge_cells=False, index=False)
+                    df.to_excel(
+                        writer, sheet_name=sheet, merge_cells=False, index=False
+                    )
 
             logging.info(f"Finished exporting {file_name} to {export_path}")
 
@@ -145,7 +149,9 @@ class ExcelExporter:
         Example:
             ExcelExporter().save_to_excel(df, file_name_prefix="MyData", sheet_name="Sheet1")
         """
-        export_dict: dict[str, ExportContent] = {file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}}
+        export_dict: dict[str, ExportContent] = {
+            file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}
+        }
         self.export_dataframes(export_dict)
 
 
