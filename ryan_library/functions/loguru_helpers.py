@@ -1,244 +1,240 @@
 # ryan_library/functions/loguru_helpers.py
 
-from loguru import logger
-import multiprocessing
-from multiprocessing import Process, Queue
-from pathlib import Path
 import sys
-import signal
-from typing import Any, List, Optional, Dict
-from contextlib import contextmanager
-import json
-from pprint import pprint
+import os
+from loguru import logger
+from multiprocessing import Process, Queue
+import atexit
+import pickle
 
-# Define a sentinel value for shutting down the logging listener
-SENTINEL = "STOP"
+# Centralized Configuration
+LOG_FORMAT = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {module}:{function}:{line} - {message}"
+CONSOLE_FORMAT = "<green>{time:HH:mm:ss}</green> | <level>{level}</level> | {module}:{function}:{line} - {message}"
+FILE_FORMAT = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {module}:{function}:{line} - {message}"
+CONSOLE_COLORIZE = True
+ROTATION = "10 MB"
+RETENTION = "10 days"
+COMPRESSION = "zip"
 
 
-def pool_initializer(log_queue: Any) -> None:
+def worker_initializer(queue: Queue) -> None:
     """
-    Initializer for each worker process to set up logging.
+    Initializer function for worker processes in a multiprocessing Pool.
+    Configures the logger to send log records to the centralized logging queue.
 
-    Args:
-        log_queue (Queue): The shared logging queue.
+    Parameters:
+        queue (Queue): The multiprocessing queue to send log records to.
     """
-    initialize_worker(log_queue)
+    worker_configurer(queue)
 
 
 def listener_process(
-    queue: Queue,
-    log_level: str,
-    log_file: Optional[str],
-    log_dir: Path,
-    max_bytes: int,
-    backup_count: int,
-    enable_color: bool,
-    additional_sinks: Optional[list[dict[str, Any]]],
+    queue: Queue, log_file: str | None = None, console_log_level: str = "INFO"
 ) -> None:
     """
-    Listener process that consumes log records from the queue and logs them using Loguru.
+    Listener process that receives log records from worker processes and writes them to the configured sinks.
+
+    Parameters:
+        queue (Queue): The multiprocessing queue to receive log records.
+        log_file (str): Path to the log file. If None, file logging is disabled.
+        console_log_level (str): Minimum log level for console output.
     """
-    logger.remove()  # Remove default handlers
+    logger.remove()  # Remove any default handlers
 
-    # Console handler
-    logger.add(
-        sys.stdout,
-        level=log_level,
-        colorize=enable_color,
-        enqueue=False,
-        format=(
-            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-            "<level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{line}</cyan> - {message}"
-        ),
-    )
-
-    # File handler
     if log_file:
         logger.add(
-            log_dir / log_file,
-            level=log_level,
-            rotation=max_bytes,
-            retention=backup_count,
-            compression="zip",
-            enqueue=False,
-            format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {message}",
+            log_file,
+            level="DEBUG",  # Capture all levels; filtering is done by sinks
+            format=FILE_FORMAT,
+            rotation=ROTATION,
+            retention=RETENTION,
+            compression=COMPRESSION,
+            backtrace=True,
+            diagnose=True,
+            enqueue=False,  # Not using Loguru's internal queue
         )
 
-    # Additional sinks if any
-    if additional_sinks:
-        for sink in additional_sinks:
-            logger.add(**sink)
-
-    logger.info("Log listener started.")
+    # Configure console sink
+    logger.add(
+        sys.stdout,
+        level=console_log_level,
+        format=CONSOLE_FORMAT,
+        colorize=CONSOLE_COLORIZE,
+        backtrace=True,
+        diagnose=True,
+        enqueue=False,
+    )
 
     while True:
         try:
             record = queue.get()
-            if record == SENTINEL:
-                logger.info("Log listener received shutdown signal.")
+            if record is None:
+                # Sentinel received, shutting down
                 break
-            # Deserialize the JSON log record
-            try:
-                record_dict = json.loads(record)
-                # Manually extract level and message
-                level = record_dict["record"]["level"]["name"]
-                message = record_dict["record"]["message"].strip()
+            # Deserialize the log record
+            message = pickle.loads(record)
+            # Extract necessary fields
+            level = message.get("level").name
+            msg = message.get("message")
+            module = message.get("module")
+            function = message.get("function")
+            line = message.get("line")
+            exception = message.get("exception")
 
-                # Debug: Print extracted level and message
-                # print(f"Logging level: {level}, message: {message}")
-
-                # Log the message using Loguru
-                logger.log(level, message)
-            except json.JSONDecodeError:
-                logger.error("Received a non-JSON log record.")
-            except KeyError as e:
-                logger.error(f"Missing expected key in log record: {e}")
-            except Exception as e:
-                logger.exception(f"Error processing log record: {e}")
+            if exception:
+                # If there's an exception, use logger.opt to include it
+                logger.opt(exception=exception).log(
+                    level, f"{module}:{function}:{line} - {msg}"
+                )
+            else:
+                logger.log(level, f"{module}:{function}:{line} - {msg}")
         except Exception:
-            logger.exception("Error in log listener.")
-
-    logger.info("Log listener stopped.")
+            logger.opt(exception=True).error("Error in logging listener")
 
 
-def setup_listener(
-    log_queue: Queue,
-    log_level: str = "INFO",
-    log_file: Optional[str] = None,
-    log_dir: Optional[Path] = None,
-    max_bytes: int = 10**6,  # 1 MB
-    backup_count: int = 5,
-    enable_color: bool = True,
-    additional_sinks: Optional[list[dict[str, Any]]] = None,
-) -> Process:
+def worker_configurer(queue: Queue) -> None:
     """
-    Sets up the Loguru listener process that consumes log records from the queue.
-    """
-    log_dir = log_dir or Path.home() / "Documents" / "MyAppLogs"
-    log_dir.mkdir(parents=True, exist_ok=True)
+    Configures the logger for a worker process to send log records to the listener via the queue.
 
-    # Start the listener process using the top-level listener_process
-    listener = Process(
-        target=listener_process,
-        args=(
-            log_queue,
-            log_level,
-            log_file,
-            log_dir,
-            max_bytes,
-            backup_count,
-            enable_color,
-            additional_sinks,
-        ),
-        name="LogListener",
-        daemon=True,
-    )
-    listener.start()
-    return listener
-
-
-def worker_configurer(log_queue: Queue):
+    Parameters:
+        queue (Queue): The multiprocessing queue to send log records.
     """
-    Configures the worker logger to send log records to the queue.
-    """
+
+    class QueueSink:
+        """
+        Custom sink that serializes log messages and sends them to a multiprocessing queue.
+        """
+
+        def __init__(self, queue) -> None:
+            self.queue = queue
+
+        def write(self, message) -> None:
+            try:
+                # Extract the Loguru record as a dictionary
+                record = message.record.copy()
+                # Retain all necessary information, including exceptions and extras
+                # Removed key removal to ensure complete logging
+                serialized = pickle.dumps(record)
+                self.queue.put(serialized)
+            except Exception:
+                # If something goes wrong, write to stderr
+                sys.stderr.write("Failed to send log message to listener.\n")
+
+        def flush(self):
+            pass  # No need to implement for queue sink
+
     logger.remove()  # Remove default handlers
+    # Add the custom queue sink
+    logger.add(QueueSink(queue), level="DEBUG", format=LOG_FORMAT)
 
-    # Define a sink that sends log records to the queue with serialization
-    logger.add(log_queue.put, level="DEBUG", serialize=True)
 
-
-class LoggerManager:
+class LoguruMultiprocessingLogger:
     """
-    Singleton LoggerManager to manage Loguru logging across processes.
+    Context manager to set up Loguru with multiprocessing support, optional colored console, and dynamic log levels.
     """
-
-    _instance = None
-    _lock = multiprocessing.Lock()
-
-    def __new__(cls, *args, **kwargs):
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super(LoggerManager, cls).__new__(cls)
-        return cls._instance
 
     def __init__(
         self,
-        log_level: str = "INFO",
-        log_file: Optional[str] = "app.log",
-        log_dir: Optional[Path] = None,
-        max_bytes: int = 10**6,
-        backup_count: int = 5,
-        enable_color: bool = True,
-        additional_sinks: Optional[list[dict[str, Any]]] = None,
-    ):
-        if hasattr(self, "_initialized") and self._initialized:
-            return
+        log_file: str | None = None,
+        console_log_level: str = "INFO",
+    ) -> None:
+        """
+        Initialize the logger.
 
-        # Only the main process should set up the listener
-        if multiprocessing.current_process().name == "MainProcess":
-            self.log_queue = multiprocessing.Queue(-1)
-            self.listener = setup_listener(
-                log_queue=self.log_queue,
-                log_level=log_level,
-                log_file=log_file,
-                log_dir=log_dir,
-                max_bytes=max_bytes,
-                backup_count=backup_count,
-                enable_color=enable_color,
-                additional_sinks=additional_sinks,
-            )
-            self._setup_signal_handlers()
-            self._initialized = True
-        else:
-            # In worker processes, do not start a listener
-            self.log_queue = None
-            self.listener = None
-            self._initialized = True
+        Parameters:
+            log_file (str or None): Path to the log file. If None, file logging is disabled.
+            console_log_level (str): Minimum log level for console output.
+        """
+        self.log_file = log_file
+        self.console_log_level = console_log_level
+        self.queue = Queue()
+        self.listener = None
 
-    def _setup_signal_handlers(self):
-        """
-        Sets up signal handlers for graceful shutdown.
-        """
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
+    def __enter__(self):
+        # Start the listener process
+        self.listener = Process(
+            target=listener_process,
+            args=(
+                self.queue,
+                self.log_file,
+                self.console_log_level,
+            ),
+        )
+        self.listener.start()
 
-    def _signal_handler(self, signum, frame):
-        """
-        Handles termination signals.
-        """
-        logger.info(f"Received signal {signum}. Shutting down logger.")
+        # Configure the root logger to send messages to the queue
+        worker_configurer(self.queue)
+
+        # Ensure the listener is shut down properly
+        atexit.register(self.shutdown)
+
+        return self.queue  # Return the queue to be used by the main process if needed
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.shutdown()
-        sys.exit(0)
 
-    def shutdown(self):
-        """
-        Shuts down the logging listener process.
-        """
-        if self.listener and self.listener.is_alive() and self.log_queue:
-            self.log_queue.put(SENTINEL)
+    def shutdown(self) -> None:
+        if self.listener and self.listener.is_alive():
+            self.queue.put(None)  # Sentinel to shut down the listener
             self.listener.join(timeout=5)
             if self.listener.is_alive():
                 self.listener.terminate()
+            self.listener = None
 
 
-@contextmanager
-def logging_context(**logger_kwargs):
+def setup_logger(
+    log_file: str | None = None,
+    console_log_level: str = "INFO",
+) -> LoguruMultiprocessingLogger:
     """
-    Context manager for setting up and tearing down logging.
+    Convenience function to set up logging using a context manager.
+
+    Parameters:
+        log_file (str or None): Path to the log file. If None, file logging is disabled.
+        console_log_level (str): Minimum log level for console output.
+
+    Usage:
+        with setup_logger("my_log.log") as log_queue:
+            # Your multiprocessing code here
     """
-    manager = LoggerManager(**logger_kwargs)
-    try:
-        yield manager
-    finally:
-        manager.shutdown()
+    # If log_file is a relative path, make it relative to the current working directory
+    if log_file and not os.path.isabs(log_file):
+        log_file = os.path.join(os.getcwd(), log_file)
+
+    return LoguruMultiprocessingLogger(
+        log_file=log_file,
+        console_log_level=console_log_level,
+    )
 
 
-def initialize_worker(log_queue: Queue):
+def add_file_sink(
+    log_file: str,
+) -> None:
     """
-    Initialize the worker process logger.
-    Should be called at the start of each worker process.
+    Adds an additional file sink to the logger. Useful for adding more sinks after initialization.
 
-    Args:
-        log_queue (Queue): The shared logging queue.
+    Parameters:
+        log_file (str): Path to the log file.
     """
-    worker_configurer(log_queue)
+    # Ensure the log_file path is absolute
+    if not os.path.isabs(log_file):
+        log_file = os.path.join(os.getcwd(), log_file)
+
+    logger.add(
+        log_file,
+        level="DEBUG",  # Capture all levels; filtering is done by sinks
+        format=FILE_FORMAT,
+        rotation=ROTATION,
+        retention=RETENTION,
+        compression=COMPRESSION,
+        backtrace=True,
+        diagnose=True,
+        enqueue=False,
+    )
+
+
+def log_exception() -> None:
+    """
+    Logs the current exception with a stack trace.
+    """
+    logger.exception("An exception occurred")

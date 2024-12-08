@@ -1,6 +1,6 @@
 # ryan_library\scripts\tuflow_culverts_merge.py
 import os
-from multiprocessing import Queue, Process, Pool
+from multiprocessing import Pool, current_process
 from pathlib import Path
 import pandas as pd
 from ryan_library.processors.tuflow.base_processor import (
@@ -15,13 +15,14 @@ from ryan_library.functions.file_utils import find_files_parallel, is_non_zero_f
 from ryan_library.functions.misc_functions import calculate_pool_size, save_to_excel
 from ryan_library.functions.misc_functions import ExcelExporter
 from ryan_library.functions.loguru_helpers import (
-    logging_context,
-    pool_initializer,
+    setup_logger,
+    log_exception,
+    worker_initializer,
 )
 from loguru import logger
 from typing import Any
 
-# Processor mapping dictionary with lowercased keys
+# Processor mapping dictionary
 PROCESSOR_MAPPING = {
     "_1d_Cmx.csv": CmxProcessor,
     # "_1d_Nmx.csv": NmxProcessor,
@@ -32,7 +33,9 @@ PROCESSOR_MAPPING = {
 }
 
 # Create a suffix-to-processor mapping for faster lookup
-SUFFIX_PROCESSOR_MAP = {Path(k).suffix.lower(): v for k, v in PROCESSOR_MAPPING.items()}
+SUFFIX_PROCESSOR_MAP = {
+    pattern.lower(): processor for pattern, processor in PROCESSOR_MAPPING.items()
+}
 
 
 def main_processing(paths_to_process: list[Path]) -> None:
@@ -42,15 +45,7 @@ def main_processing(paths_to_process: list[Path]) -> None:
     Args:
         paths_to_process (list[Path]): List of directory paths to search for files.
     """
-    with logging_context(
-        log_level="INFO",
-        # log_file=log_file,  # Specify a log file if desired
-        # log_dir=log_dir,  # Specify log directory
-        max_bytes=10**6,  # 1 MB
-        backup_count=5,
-        enable_color=True,
-        additional_sinks=None,  # Add any additional sinks if needed
-    ) as logger_manager:
+    with setup_logger(console_log_level="INFO") as log_queue:
         logger.info("Starting culvert results files processing...")
         logger.info(os.getcwd())
 
@@ -59,12 +54,14 @@ def main_processing(paths_to_process: list[Path]) -> None:
         if not csv_file_list:
             logger.info("No valid files found to process.")
             return
+
+        logger.debug(csv_file_list)
         logger.info(f"Total files to process: {len(csv_file_list)}")
 
         # Step 2: Process files in parallel
         try:
             results_set = process_files_in_parallel(
-                file_list=csv_file_list, logger_manager=logger_manager
+                file_list=csv_file_list, log_queue=log_queue
             )
         except Exception as e:
             logger.error(f"Error during multiprocessing: {e}")
@@ -89,7 +86,9 @@ def collect_files(paths_to_process: list[Path]) -> list[Path]:
         list[Path]: List of valid file paths.
     """
     csv_file_list: list[Path] = []
-    patterns = list(PROCESSOR_MAPPING.keys())  # All patterns at once
+    # Prepend '*' to each pattern
+    patterns = [f"*{pattern}" for pattern in SUFFIX_PROCESSOR_MAP.keys()]
+    # All patterns at once
 
     root_dirs: list[Path] = [
         Path(path) for path in paths_to_process if Path(path).is_dir()
@@ -108,9 +107,7 @@ def collect_files(paths_to_process: list[Path]) -> list[Path]:
     return csv_file_list
 
 
-def process_files_in_parallel(
-    file_list: list[Path], logger_manager
-) -> ProcessorCollection:
+def process_files_in_parallel(file_list: list[Path], log_queue) -> ProcessorCollection:
     """
     Process files using multiprocessing.
 
@@ -131,8 +128,8 @@ def process_files_in_parallel(
     # Initialize the Pool with the worker initializer and pass the log_queue via initargs
     with Pool(
         processes=pool_size,
-        initializer=pool_initializer,
-        initargs=(logger_manager.log_queue,),
+        initializer=worker_initializer,
+        initargs=(log_queue,),
     ) as pool:
         try:
             results = pool.map(process_file, file_list)
@@ -158,8 +155,18 @@ def process_file(file_path: Path) -> BaseProcessor | None:
     Returns:
         BaseProcessor | None: An instance of the processor class if successful, else None.
     """
-    suffix = file_path.suffix.lower()
-    processor_class = SUFFIX_PROCESSOR_MAP.get(suffix)
+
+    file_name = file_path.name.lower()
+
+    # Find a matching processor by checking suffixes
+    processor_class = next(
+        (
+            processor
+            for suffix, processor in SUFFIX_PROCESSOR_MAP.items()
+            if file_name.endswith(suffix)
+        ),
+        None,
+    )
 
     if not processor_class:
         logger.warning(f"Unsupported file type: {file_path}. Skipping.")
