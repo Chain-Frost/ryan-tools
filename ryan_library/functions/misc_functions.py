@@ -1,7 +1,7 @@
 from datetime import datetime
 import pandas as pd
 import logging
-from typing import Optional, TypedDict
+from typing import TypedDict
 from pathlib import Path
 from ryan_library.functions.logging_helpers import setup_logging as new_setup_logging
 
@@ -13,7 +13,7 @@ class ExportContent(TypedDict):
 
 def setup_logging(
     log_level: int = logging.INFO,
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     max_bytes: int = 10**6,  # 1 MB
     backup_count: int = 5,
     use_rotating_file: bool = False,
