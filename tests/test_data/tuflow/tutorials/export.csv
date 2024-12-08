@@ -1,0 +1,7 @@
+Chan ID,Time,Q,V,internalName,rel_path,path,file,R01,R02,R03,trim_runcode
+FC01.1_R,0.9521,47.547,,M03_5m_001,Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,M03_5m_001_1d_Cmx.csv,M03,5m,001,M03_5m_001
+FC01.1_R,0.9521,,8.1527,M03_5m_001,Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,M03_5m_001_1d_Cmx.csv,M03,5m,001,M03_5m_001
+FC01.2_R,1.1669,71.026,,M03_5m_001,Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,M03_5m_001_1d_Cmx.csv,M03,5m,001,M03_5m_001
+FC01.2_R,1.1669,,4.9324,M03_5m_001,Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,M03_5m_001_1d_Cmx.csv,M03,5m,001,M03_5m_001
+FC04.1_C,1.3218,9.46,,M03_5m_001,Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,M03_5m_001_1d_Cmx.csv,M03,5m,001,M03_5m_001
+FC04.1_C,1.3217,,2.7981,M03_5m_001,Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03\results\plot\csv\M03_5m_001_1d_Cmx.csv,M03_5m_001_1d_Cmx.csv,M03,5m,001,M03_5m_001
