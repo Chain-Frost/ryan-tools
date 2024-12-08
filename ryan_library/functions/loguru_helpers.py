@@ -23,7 +23,7 @@ def listener_process(
     max_bytes: int,
     backup_count: int,
     enable_color: bool,
-    additional_sinks: Optional[List[Dict[str, Any]]],
+    additional_sinks: Optional[list[dict[str, Any]]],
 ) -> None:
     """
     Listener process that consumes log records from the queue and logs them using Loguru.
@@ -99,7 +99,7 @@ def setup_listener(
     max_bytes: int = 10**6,  # 1 MB
     backup_count: int = 5,
     enable_color: bool = True,
-    additional_sinks: Optional[List[Dict[str, Any]]] = None,
+    additional_sinks: Optional[list[dict[str, Any]]] = None,
 ) -> Process:
     """
     Sets up the Loguru listener process that consumes log records from the queue.
@@ -159,7 +159,7 @@ class LoggerManager:
         max_bytes: int = 10**6,
         backup_count: int = 5,
         enable_color: bool = True,
-        additional_sinks: Optional[List[Dict[str, Any]]] = None,
+        additional_sinks: Optional[list[dict[str, Any]]] = None,
     ):
         if hasattr(self, "_initialized") and self._initialized:
             return
