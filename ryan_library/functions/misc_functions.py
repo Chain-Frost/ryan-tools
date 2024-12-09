@@ -1,3 +1,4 @@
+# ryan_library\functions\misc_functions.py
 from datetime import datetime
 import pandas as pd
 import logging
@@ -11,6 +12,7 @@ class ExportContent(TypedDict):
     sheets: list[str]
 
 
+# deprecated
 def setup_logging(
     log_level: int = logging.INFO,
     log_file: str | None = None,

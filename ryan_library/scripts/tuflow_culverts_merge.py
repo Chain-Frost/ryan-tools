@@ -57,7 +57,7 @@ def main_processing(
         if not csv_file_list:
             logger.info("No valid files found to process.")
             return
-        csv_file_list = csv_file_list[:1]
+
         logger.debug(csv_file_list)
         logger.info(f"Total files to process: {len(csv_file_list)}")
 
@@ -73,7 +73,7 @@ def main_processing(
         # Step 3: Concatenate and export results
         logger.info("Now to export")
         logger.info(Path.cwd())
-        results_set.export_to_csv(output_path=Path.cwd())
+        results_set.export_to_excel()
         # export_results(results)
 
         logger.info("Culvert results combination completed successfully.")
