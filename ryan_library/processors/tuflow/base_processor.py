@@ -5,8 +5,10 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 import pandas as pd
 from loguru import logger
+from pandas import DataFrame
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.classes.suffixes_and_dtypes import data_types_config
+from ryan_library.functions.misc_functions import ExcelExporter, ExportContent
 
 print(data_types_config)
 print(data_types_config.data_types)
@@ -249,6 +251,7 @@ class ProcessorCollection:
         Initialize an empty ProcessorCollection.
         """
         self.processors: list[BaseProcessor] = []
+        self.excel_exporter = ExcelExporter()  # Initialize ExcelExporter
 
     def add_processor(self, processor: BaseProcessor) -> None:
         """
@@ -258,6 +261,45 @@ class ProcessorCollection:
             processor (BaseProcessor): A processed BaseProcessor instance.
         """
         self.processors.append(processor)
+        logger.debug(f"Added processor: {processor}")
+
+    def export_to_excel(
+        self,
+        file_name_prefix: str = "Export",
+        sheet_name: str = "CombinedData",
+    ) -> None:
+        """
+        Export the combined DataFrame of all processors to a single Excel file.
+
+        Args:
+            output_path (Path): The directory where the Excel file should be saved.
+            file_name_prefix (str): Prefix for the resulting Excel filename.
+            sheet_name (str): Name of the sheet in the Excel file.
+        """
+        if not self.processors:
+            logger.warning("No processors to export.")
+            return
+
+        output_path: Path = Path.cwd()
+        logger.info("Starting export to Excel.")
+
+        # Combine all DataFrames
+        combined_df = self.combine_data()
+        if combined_df.empty:
+            logger.warning("Combined DataFrame is empty. Nothing to export.")
+            return
+
+        # Prepare export content
+        export_content: dict[str, ExportContent] = {
+            file_name_prefix: {"dataframes": [combined_df], "sheets": [sheet_name]}
+        }
+
+        # Perform the export
+        self.excel_exporter.export_dataframes(export_content)
+
+        logger.info(
+            f"Exported combined data to {output_path / f'{file_name_prefix}.xlsx'}"
+        )
 
     def export_to_csv(self, output_path: Path) -> None:
         """
@@ -285,7 +327,13 @@ class ProcessorCollection:
         if not self.processors:
             return pd.DataFrame()
 
-        combined_df = pd.concat([p.df for p in self.processors], ignore_index=True)
+        for p in self.processors:
+            print(p.df.head())
+            print("")
+
+        combined_df: DataFrame = pd.concat(
+            [p.df for p in self.processors], ignore_index=True
+        )
         return combined_df
 
     def get_processors_by_data_type(

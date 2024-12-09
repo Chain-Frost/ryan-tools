@@ -9,8 +9,9 @@ from ryan_library.functions.file_utils import find_files_parallel
 from ryan_library.functions.misc_functions import calculate_pool_size, save_to_excel
 from ryan_library.functions.path_stuff import convert_to_relative_path
 from ryan_library.functions.loguru_helpers import (
-    logging_context,
-    pool_initializer,
+    setup_logger,
+    log_exception,
+    worker_initializer,
 )
 from ryan_library.functions.parse_tlf import (
     search_for_completion,
@@ -94,15 +95,8 @@ def main_processing() -> None:
     # log_file = "tuflow_logsummary.log"
     results = [pd.DataFrame()]
     successful_runs: int = 0
-    with logging_context(
-        log_level="INFO",
-        # log_file=log_file,  # Specify a log file if desired
-        # log_dir=log_dir,  # Specify log directory
-        max_bytes=10**6,  # 1 MB
-        backup_count=5,
-        enable_color=True,
-        additional_sinks=None,  # Add any additional sinks if needed
-    ) as logger_manager:
+    console_log_level: str = "INFO"
+    with setup_logger(console_log_level) as log_queue:
         logger.info("Starting log file processing...")
 
         root_dir = Path.cwd()
@@ -125,8 +119,8 @@ def main_processing() -> None:
             # Initialize the Pool with the worker initializer and pass the log_queue via initargs
             with Pool(
                 processes=pool_size,
-                initializer=pool_initializer,
-                initargs=(logger_manager.log_queue,),
+                initializer=worker_initializer,
+                initargs=(log_queue,),
             ) as pool:
                 try:
                     results = pool.map(process_log_file, files)
@@ -138,22 +132,22 @@ def main_processing() -> None:
         # Filter out empty DataFrames
         results: list[pd.DataFrame] = [res for res in results if not res.empty]
         successful_runs = len(results)
-    if results:
-        try:
-            merged_df = merge_and_sort_data(results)
-            merged_df = reorder_columns(merged_df)
-            save_to_excel(
-                data_frame=merged_df,
-                file_name_prefix="ModellingLog",
-                sheet_name="Log Summary",
-            )
-            logger.info("Log file processing completed successfully.")
-        except Exception:
-            logger.exception("Error during merging/saving DataFrames")
-    else:
-        logger.warning("No completed logs found - no output generated.")
+        if results:
+            try:
+                merged_df = merge_and_sort_data(results)
+                merged_df = reorder_columns(merged_df)
+                save_to_excel(
+                    data_frame=merged_df,
+                    file_name_prefix="ModellingLog",
+                    sheet_name="Log Summary",
+                )
+                logger.info("Log file processing completed successfully.")
+            except Exception:
+                logger.exception("Error during merging/saving DataFrames")
+        else:
+            logger.warning("No completed logs found - no output generated.")
 
-    logger.info(f"Number of successful runs: {successful_runs}")
+        logger.info(f"Number of successful runs: {successful_runs}")
 
 
 if __name__ == "__main__":
