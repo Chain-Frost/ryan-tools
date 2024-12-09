@@ -8,10 +8,9 @@ from ryan_library.processors.tuflow.base_processor import (
     ProcessorCollection,
 )
 from ryan_library.processors.tuflow.cmx_processor import CmxProcessor
-
-# from ryan_library.processors.tuflow.nmx_processor import NmxProcessor
-# from ryan_library.processors.tuflow.chan_processor import ChanProcessor
-# from ryan_library.processors.tuflow.cca_processor import CcaProcessor
+from ryan_library.processors.tuflow.nmx_processor import NmxProcessor
+from ryan_library.processors.tuflow.chan_processor import ChanProcessor
+from ryan_library.processors.tuflow.cca_processor import CcaProcessor
 from ryan_library.functions.file_utils import find_files_parallel, is_non_zero_file
 from ryan_library.functions.misc_functions import calculate_pool_size
 from ryan_library.functions.misc_functions import ExcelExporter
