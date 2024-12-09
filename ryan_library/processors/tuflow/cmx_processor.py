@@ -1,8 +1,9 @@
-# ryan_library\processors\tuflow\cmx_processor.py
+# ryan_library/processors/tuflow/cmx_processor.py
+
 import pandas as pd
-import csv
 from loguru import logger
 from .base_processor import BaseProcessor
+from pathlib import Path
 
 
 class CmxProcessor(BaseProcessor):
@@ -10,64 +11,84 @@ class CmxProcessor(BaseProcessor):
     Processor for '_1d_Cmx.csv' files.
     """
 
+    def __init__(self, file_path: Path):
+        super().__init__(file_path)
+        # No manual configuration needed; handled via BaseProcessor
+
     def process(self) -> pd.DataFrame:
         """
-        Process the '_1d_Cmx.csv' file and populate the class.
+        Process the '_1d_Cmx.csv' file and return a cleaned DataFrame.
 
         Returns:
             pd.DataFrame: Processed CMX data.
         """
-        logger.info(f"Processing CMX file: {self.file_path}")
-        logger.debug(self.__dict__)
+        logger.info(f"Starting processing of CMX file: {self.file_path}")
 
-        with self.file_path.open(mode="r", newline="") as csvfile:
-            reader = csv.reader(csvfile)
-            data = list(reader)
+        # Read the CSV using the shared method
+        df, status = self.read_csv()
 
-        if not data:
-            logger.error(f"No data in file: {self.file_path}")
+        if status != 0:
+            # If there was an error, set self.df to empty and return
+            logger.error(
+                f"Processing aborted for file: {self.file_path} due to previous errors."
+            )
+            self.df = pd.DataFrame()
             return self.df
 
-        # The first row is expected to be a header row with metadata.
-        # Format (example):
-        # "Run_Info","Chan ID","Qmax","Time Qmax","Vmax","Time Vmax"
-        header = data[0]
-        logger.debug(f"Header row: {header}")
+        # Reshape the DataFrame to have separate rows for QMax and VMax
+        try:
+            # Create QMax DataFrame
+            q_df = self.df[["Chan ID", "TimeQMax", "QMax"]].copy()
+            q_df["VMax"] = pd.NA  # Add VMax column with NA
 
-        # Subsequent rows contain channel data.
-        # Each row format (example):
-        # Row[0]: Row count, Row[1]: "Chan ID",
-        # Row[2]: Qmax, Row[3]: Time Qmax, Row[4]: Vmax, Row[5]: Time Vmax
+            # Create VMax DataFrame
+            v_df = self.df[["Chan ID", "TimeVMax", "VMax"]].copy()
+            v_df["QMax"] = pd.NA  # Add QMax column with NA
 
-        # We skip the first column in rows (row[0]), keep from row[1:] onwards
-        max_data = [row[1:] for row in data[1:] if len(row) > 1]
+            # Concatenate QMax and VMax DataFrames
+            cleaned_df = pd.concat([q_df, v_df], ignore_index=True)
+            logger.debug(f"Reshaped DataFrame:\n{cleaned_df.head()}")
+        except KeyError as e:
+            logger.error(
+                f"Missing expected columns during reshaping for file {self.file_path}: {e}"
+            )
+            self.df = pd.DataFrame()
+            return self.df
 
-        cleaned_data = []
-        for row in max_data:
-            try:
-                chan_id = row[0].strip()
-                qmax = float(row[1])
-                time_qmax = float(row[2])
-                vmax = float(row[3])
-                time_vmax = float(row[4])
+        # Handle any malformed data if necessary (e.g., all NaNs)
+        malformed_mask = (
+            cleaned_df[["Chan ID", "TimeQMax", "QMax", "VMax"]].isnull().all(axis=1)
+        )
+        if malformed_mask.any():
+            malformed_entries = cleaned_df.loc[malformed_mask, "Chan ID"].unique()
+            logger.warning(
+                f"Malformed entries detected in file {self.file_path}: {malformed_entries}"
+            )
+            # Optionally, remove malformed entries
+            cleaned_df = cleaned_df[~malformed_mask]
+            logger.debug(
+                f"DataFrame after removing malformed entries:\n{cleaned_df.head()}"
+            )
 
-                # Reshape data into two rows per channel:
-                # One row for Q at Qmax time, another row for V at Vmax time.
-                cleaned_data.append([chan_id, time_qmax, qmax, None])
-                cleaned_data.append([chan_id, time_vmax, None, vmax])
-            except (IndexError, ValueError) as e:
-                logger.warning(
-                    f"Skipping malformed row in {self.file_path}: {row} ({e})"
-                )
-                continue
+        # Assign the cleaned DataFrame to the instance variable
+        self.df = cleaned_df
 
-        self.df = pd.DataFrame(cleaned_data, columns=["Chan ID", "Time", "Q", "V"])
-        print(self.df.head())
-        print("/n")
-        self.apply_datatypes_to_df()
+        logger.debug(f"Cleaned DataFrame head:\n{self.df.head()}")
+
+        # Apply output transformations (renaming and data types)
+        try:
+            self.apply_output_transformations()
+        except Exception as e:
+            logger.error(
+                f"Error applying output transformations for file {self.file_path}: {e}"
+            )
+            self.df = pd.DataFrame()
+            return self.df
+
+        # Mark the processing as complete and add any common columns
         self.processed = True
-        # Add common columns (run code details, categories, etc.)
         self.add_common_columns()
-        print(self.df.head())
+
+        logger.info(f"Completed processing of CMX file: {self.file_path}")
 
         return self.df

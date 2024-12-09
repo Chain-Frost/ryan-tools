@@ -5,10 +5,8 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 import pandas as pd
 from loguru import logger
-from pandas import DataFrame
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.classes.suffixes_and_dtypes import data_types_config
-from ryan_library.functions.misc_functions import ExcelExporter, ExportContent
 
 print(data_types_config)
 print(data_types_config.data_types)
@@ -35,45 +33,28 @@ class BaseProcessor(ABC):
         self.resolved_file_path = self.file_path.resolve()
         self.name_parser = TuflowStringParser(file_path=self.file_path)
         self.data_type = self.name_parser.data_type
-        self._datatype_mapping = self._load_datatype_mapping()
-        self._expected_headers = self._load_expected_headers()
+        self._load_configuration()
 
-    def _load_datatype_mapping(self) -> dict[str, str]:
+    def _load_configuration(self) -> None:
         """
-        Internal helper to load datatype mappings from DATA_TYPES_CONFIG.
+        Load configuration for expected headers and output columns from DataTypesConfig.
         """
         if self.data_type is None:
             raise ValueError("data_type is not set.")
 
-        data_type_def = data_types_config.data_types[self.data_type]
+        data_type_def = data_types_config.data_types.get(self.data_type)
         if data_type_def is None:
             raise KeyError(
                 f"Data type '{self.data_type}' is not defined in the config."
             )
 
-        columns_mapping = data_type_def.columns
-        logger.debug(f"{self.file_name}: Loaded columns mapping: {columns_mapping}")
-        return columns_mapping
+        self.expected_headers = data_type_def.expected_headers
+        self.output_columns = data_type_def.columns
 
-    def _load_expected_headers(self) -> list[str]:
-        """
-        Internal helper to load expected headers from DATA_TYPES_CONFIG.
-
-        Returns:
-            list[str]: A list of expected header names.
-        """
-        if self.data_type is None:
-            raise ValueError("data_type is not set.")
-
-        data_type_def = data_types_config.data_types[self.data_type]
-        if data_type_def is None:
-            raise KeyError(
-                f"Data type '{self.data_type}' is not defined in the config."
-            )
-
-        expected_headers = data_type_def.expected_headers
-        logger.debug(f"{self.file_name}: Loaded headers: {expected_headers}")
-        return expected_headers
+        logger.debug(
+            f"{self.file_name}: Loaded expected_headers: {self.expected_headers}"
+        )
+        logger.debug(f"{self.file_name}: Loaded output_columns: {self.output_columns}")
 
     def add_common_columns(self) -> None:
         """
@@ -226,6 +207,110 @@ class BaseProcessor(ABC):
             return False
         return True
 
+    def check_headers_match(self, test_headers: list[str]) -> bool:
+        logger.debug(f"Header row to test: {test_headers}")
+        if test_headers != list(self.expected_headers.keys()):
+            logger.error(
+                f"Error reading {self.file_name}, headers did not match expected format {list(self.expected_headers.keys())}. Got {test_headers}"
+            )
+            return False
+        logger.debug("Test headers matched expected headers")
+        return True
+
+    def read_max_csv(self, usecols: list[int], dtype: dict) -> tuple[pd.DataFrame, int]:
+        """
+        Reads a CSV file using Pandas with specified columns and data types.
+        Handles empty DataFrame and header mismatch.
+
+        Args:
+            usecols (list[int]): List of column indices to read.
+            dtype (dict): Dictionary specifying data types for columns.
+
+        Returns:
+            tuple[pd.DataFrame, int]: A tuple containing the DataFrame and a status code.
+                                      Status codes:
+                                      0 - Success
+                                      1 - Empty DataFrame
+                                      2 - Header mismatch
+                                      3 - Read error
+        """
+        usecols = list(self.expected_headers.keys())
+        dtype = {col: self.expected_headers[col] for col in usecols}
+
+        try:
+            df: pd.DataFrame = pd.read_csv(
+                filepath_or_buffer=self.file_path,
+                usecols=usecols,
+                header=0,
+                dtype=dtype,
+                skipinitialspace=True,
+            )
+            logger.debug(f"CSV file read successfully with {len(df)} rows.")
+        except Exception as e:
+            logger.error(f"Failed to read CSV file {self.file_path}: {e}")
+            return pd.DataFrame(), 3  # 3 indicates read error
+
+        if df.empty:
+            logger.error(f"No data found in file: {self.file_path}")
+            return df, 1
+
+        # Validate headers using the existing method
+        if not self.check_headers_match(df.columns.tolist()):
+            return df, 2
+
+        return df, 0  # 0 indicates success
+
+    def apply_output_transformations(self) -> None:
+        """
+        Apply output column transformations:
+        - Rename columns
+        - Apply data types
+        """
+        if not self.output_columns:
+            logger.warning(
+                f"{self.file_name}: No output columns mapping for '{self.data_type}'."
+            )
+            return
+
+        # Rename columns based on output_columns configuration
+        rename_mapping = {
+            original: specs["new_name"]
+            for original, specs in self.output_columns.items()
+            if original in self.df.columns
+        }
+
+        if rename_mapping:
+            self.df.rename(columns=rename_mapping, inplace=True)
+            logger.debug(f"{self.file_name}: Renamed columns: {rename_mapping}")
+
+        # Apply data types based on output_columns configuration
+        dtype_mapping = {
+            specs["new_name"]: specs["dtype"]
+            for original, specs in self.output_columns.items()
+            if original in self.df.columns
+        }
+
+        # Check for missing columns
+        missing_columns = [col for col in dtype_mapping if col not in self.df.columns]
+        if missing_columns:
+            logger.warning(
+                f"{self.file_name}: Missing columns in DataFrame for dtype application: {missing_columns}"
+            )
+
+        # Apply data types
+        applicable_mapping = {
+            col: dtype for col, dtype in dtype_mapping.items() if col in self.df.columns
+        }
+
+        try:
+            self.df = self.df.astype(applicable_mapping)
+            logger.debug(
+                f"{self.file_name}: Applied datatype mapping: {applicable_mapping}"
+            )
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f"{self.file_name}: Error applying datatypes: {e}")
+            raise
+
     @abstractmethod
     def process(self) -> pd.DataFrame:
         """
@@ -236,125 +321,3 @@ class BaseProcessor(ABC):
             pd.DataFrame: Processed data.
         """
         pass
-
-
-class ProcessorCollection:
-    """
-    A collection of BaseProcessor instances, allowing combined export.
-
-    This class can be used to hold one or more processed BaseProcessor instances.
-    It provides methods to combine their DataFrames and export the consolidated result.
-    """
-
-    def __init__(self) -> None:
-        """
-        Initialize an empty ProcessorCollection.
-        """
-        self.processors: list[BaseProcessor] = []
-        self.excel_exporter = ExcelExporter()  # Initialize ExcelExporter
-
-    def add_processor(self, processor: BaseProcessor) -> None:
-        """
-        Add a processed BaseProcessor instance to the collection.
-
-        Args:
-            processor (BaseProcessor): A processed BaseProcessor instance.
-        """
-        self.processors.append(processor)
-        logger.debug(f"Added processor: {processor}")
-
-    def export_to_excel(
-        self,
-        file_name_prefix: str = "Export",
-        sheet_name: str = "CombinedData",
-    ) -> None:
-        """
-        Export the combined DataFrame of all processors to a single Excel file.
-
-        Args:
-            output_path (Path): The directory where the Excel file should be saved.
-            file_name_prefix (str): Prefix for the resulting Excel filename.
-            sheet_name (str): Name of the sheet in the Excel file.
-        """
-        if not self.processors:
-            logger.warning("No processors to export.")
-            return
-
-        output_path: Path = Path.cwd()
-        logger.info("Starting export to Excel.")
-
-        # Combine all DataFrames
-        combined_df = self.combine_data()
-        if combined_df.empty:
-            logger.warning("Combined DataFrame is empty. Nothing to export.")
-            return
-
-        # Prepare export content
-        export_content: dict[str, ExportContent] = {
-            file_name_prefix: {"dataframes": [combined_df], "sheets": [sheet_name]}
-        }
-
-        # Perform the export
-        self.excel_exporter.export_dataframes(export_content)
-
-        logger.info(
-            f"Exported combined data to {output_path / f'{file_name_prefix}.xlsx'}"
-        )
-
-    def export_to_csv(self, output_path: Path) -> None:
-        """
-        Export the combined DataFrame of all processors to a single CSV file.
-
-        Args:
-            output_path (Path): The path where the combined CSV should be saved.
-        """
-        if not self.processors:
-            logger.warning("No processors to export.")
-            return
-        print("some processors")
-        # Combine all DataFrames vertically
-        combined_df = self.combine_data()
-        combined_df.to_csv(output_path / "export.csv", index=False)
-        logger.info(f"Exported combined data to {output_path}")
-
-    def combine_data(self) -> pd.DataFrame:
-        """
-        Combine the DataFrames from all processors into a single DataFrame.
-
-        Returns:
-            pd.DataFrame: Combined DataFrame.
-        """
-        if not self.processors:
-            return pd.DataFrame()
-
-        for p in self.processors:
-            print(p.df.head())
-            print("")
-
-        combined_df: DataFrame = pd.concat(
-            [p.df for p in self.processors], ignore_index=True
-        )
-        return combined_df
-
-    def get_processors_by_data_type(
-        self, data_types: list[str] | str
-    ) -> "ProcessorCollection":
-        """
-        Retrieve processors matching a specific data_type or list of data_types.
-
-        Args:
-            data_types (list[str] | str): A data_type or list of data_types to match.
-
-        Returns:
-            ProcessorCollection: A new collection of processors with matching data_type(s).
-        """
-        # Ensure it's always a list for uniform processing
-        if isinstance(data_types, str):
-            data_types = [data_types]
-
-        filtered_collection = ProcessorCollection()
-        for processor in self.processors:
-            if processor.data_type in data_types:
-                filtered_collection.add_processor(processor)
-
-        return filtered_collection

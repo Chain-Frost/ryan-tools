@@ -1,77 +1,73 @@
 {
-    "Cmx": {
-        "expected_headers": [
-            "Run_Info",
-            "Chan ID",
-            "Qmax",
-            "Time Qmax",
-            "Vmax",
-            "Time Vmax"
-        ],
-        "columns": {
-            "Chan ID": "string",
-            "Time": "float32",
-            "Q": "float32",
-            "V": "float32"
-        }
+  "Cmx": {
+    "expected_headers": {
+      "Chan ID": "string",
+      "Qmax": "float",
+      "Time Qmax": "float",
+      "Vmax": "float",
+      "Time Vmax": "float"
     },
-    "Nmx": {
-        "expected_headers": [
-            "Run_Info",
-            "Chan ID",
-            "US_h",
-            "DS_h",
-            "Time"
-        ],
-        "columns": {
-            "Chan ID": "string",
-            "Time": "float32",
-            "US_h": "float32",
-            "DS_h": "float32"
-        }
-    },
-    "Chan": {
-        "expected_headers": [
-            "Run_Info",
-            "Chan ID",
-            "Length",
-            "Form Loss",
-            "n or Cd",
-            "pSlope",
-            "US Invert",
-            "DS Invert",
-            "LBUS Obvert",
-            "RBUS Obvert",
-            "LBDS Obvert",
-            "RBDS Obvert",
-            "Height"
-        ],
-        "columns": {
-            "Chan ID": "string",
-            "Length": "float32",
-            "Form Loss": "float32",
-            "n or Cd": "float32",
-            "pSlope": "float32",
-            "US Invert": "float32",
-            "DS Invert": "float32",
-            "LBUS Obvert": "float32",
-            "RBUS Obvert": "float32",
-            "LBDS Obvert": "float32",
-            "RBDS Obvert": "float32",
-            "Height": "float32"
-        }
-    },
-    "CCA": {
-        "expected_headers": [
-            "Run_Info",
-            "Chan ID",
-            "Channel",
-            "SomeOtherColumn"
-        ],
-        "columns": {
-            "Chan ID": "string",
-            "Channel": "string",
-            "SomeOtherColumn": "float32"
-        }
+    "output_columns": {
+      "Chan ID": "string",
+      "Time": "float",
+      "Q": "float",
+      "V": "float"
     }
+  },
+  "Nmx": {
+    "expected_headers": {
+      "Node ID": "string",
+      "Hmax": "float",
+      "Time Hmax": "float"
+    },
+    "output_columns": {
+      "Chan ID": "string",
+      "Time": "float",
+      "US_h": "float",
+      "DS_h": "float"
+    }
+  },
+  "Chan": {
+    "expected_headers": {
+      "Chan ID": "string",
+      "Length": "float",
+      "Form Loss": "float",
+      "n or Cd": "float",
+      "pSlope": "float",
+      "US Invert": "float",
+      "DS Invert": "float",
+      "LBUS Obvert": "float",
+      "RBUS Obvert": "float",
+      "LBDS Obvert": "float",
+      "RBDS Obvert": "float",
+      "Height": "float"
+    },
+    "output_columns": {
+      "Chan ID": "string",
+      "Length": "float",
+      "Form Loss": "float",
+      "n or Cd": "float",
+      "pSlope": "float",
+      "US Invert": "float",
+      "DS Invert": "float",
+      "LBUS Obvert": "float",
+      "RBUS Obvert": "float",
+      "LBDS Obvert": "float",
+      "RBDS Obvert": "float",
+      "Height": "float"
+    }
+  },
+  "CCA": {
+    "expected_headers": {
+      "Run_Info": "string",
+      "Chan ID": "string",
+      "Channel": "string",
+      "SomeOtherColumn": "float"
+    },
+    "output_columns": {
+      "Chan ID": "string",
+      "Channel": "string",
+      "SomeOtherColumn": "float"
+    }
+  }
 }

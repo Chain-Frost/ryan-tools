@@ -63,43 +63,50 @@ class SuffixesConfig:
 
 
 class DataTypeDefinition:
-    def __init__(self, expected_headers: list[str], columns: dict[str, str]):
+    def __init__(
+        self, expected_headers: dict[str, str], columns: dict[str, dict[str, str]]
+    ):
         self.expected_headers = expected_headers
         self.columns = columns
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DataTypeDefinition":
-        expected_headers = data.get("expected_headers", [])
-        if not isinstance(expected_headers, list):
-            logger.error("Invalid format for expected_headers. Expected a list.")
-            expected_headers = []
+        expected_headers = data.get("expected_headers", {})
+        if not isinstance(expected_headers, dict):
+            logger.error("Invalid format for expected_headers. Expected a dictionary.")
+            expected_headers = {}
+
         columns = data.get("columns", {})
         if not isinstance(columns, dict):
             logger.error("Invalid format for columns. Expected a dictionary.")
             columns = {}
-        # Ensure all column types are strings
-        invalid_columns = [
-            col for col, dtype in columns.items() if not isinstance(dtype, str)
-        ]
-        if invalid_columns:
-            logger.error(
-                f"Invalid types for columns: {invalid_columns}. All column types must be strings."
-            )
-            # Optionally, remove invalid columns
-            columns = {
-                col: dtype for col, dtype in columns.items() if isinstance(dtype, str)
-            }
+
+        # Validate columns structure
+        valid_columns = {}
+        for col, specs in columns.items():
+            if not isinstance(specs, dict):
+                logger.error(
+                    f"Invalid format for columns '{col}'. Expected a dictionary."
+                )
+                continue
+            new_name = specs.get("new_name")
+            dtype = specs.get("dtype")
+            if not isinstance(new_name, str) or not isinstance(dtype, str):
+                logger.error(
+                    f"Invalid new_name or dtype for columns '{col}'. Both should be strings."
+                )
+                continue
+            valid_columns[col] = {"new_name": new_name, "dtype": dtype}
+
         logger.debug(
-            f"DataTypeDefinition loaded: expected_headers={expected_headers}, columns={columns}"
+            f"DataTypeDefinition loaded: expected_headers={expected_headers}, columns={valid_columns}"
         )
-        return cls(expected_headers=expected_headers, columns=columns)
+        return cls(expected_headers=expected_headers, columns=valid_columns)
 
 
 class DataTypesConfig:
-    def __init__(
-        self,
-    ) -> None:
-        self.data_types = {}
+    def __init__(self) -> None:
+        self.data_types: dict[str, DataTypeDefinition] = {}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "DataTypesConfig":

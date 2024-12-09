@@ -3,9 +3,9 @@ import os
 from multiprocessing import Pool
 from pathlib import Path
 import pandas as pd
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.processors.tuflow.base_processor import (
     BaseProcessor,
-    ProcessorCollection,
 )
 from ryan_library.processors.tuflow.cmx_processor import CmxProcessor
 from ryan_library.processors.tuflow.nmx_processor import NmxProcessor
