@@ -106,7 +106,7 @@ for %%i in (%_items%) do (
             if /i "!_proceed!"=="YES" (
                 REM Extract the filename without extension for the temp script
                 for %%g in ("%%~nf") do set "fileName=%%~ng"
-                set "_tempScript=%TEMP%\temp_!fileName!.cmd"
+                set "_tempScript=temp_!fileName!.bat"
 
                 echo gdal_translate %_commands% "%%~f" "!_outputFile!" ^&^& gdaladdo %_gdaladdoCommands% -ro "!_outputFile!" ^&^& del "!_tempScript!" ^&^& exit >"!_tempScript!"
                 

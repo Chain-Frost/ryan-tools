@@ -1,0 +1,31 @@
+not rounding integers
+=LET(
+    value, E4,
+    sigFigs, $S$1,
+    intDigits, INT(LOG10(ABS(value))) + 1,
+    roundedValue, IF(
+        intDigits >= sigFigs,
+        ROUND(value, 0),
+        ROUND(value, sigFigs - intDigits)
+    ),
+    formattedValue, IF(
+        sigFigs - intDigits > 0,
+        TEXT(roundedValue, "#,##0." & REPT("0", sigFigs - intDigits)),
+        TEXT(roundedValue, "#,##0")
+    ),
+    formattedValue
+)
+
+rounding integers
+=LET(
+    value, A1, 
+    sigFigs, $S$1,
+    significantFigures, sigFigs - INT(LOG10(ABS(value))) - 1,
+    roundedValue, ROUND(value, significantFigures),
+    formattedValue, IF(
+        significantFigures > 0,
+        TEXT(roundedValue, "#,##0." & REPT("0", significantFigures)),
+        TEXT(roundedValue, "#,##0")
+    ),
+    formattedValue
+)

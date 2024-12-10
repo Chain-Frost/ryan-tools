@@ -25,7 +25,9 @@ class CmxProcessor(BaseProcessor):
         logger.info(f"Starting processing of CMX file: {self.file_path}")
 
         # Read the CSV using the shared method
-        df, status = self.read_csv()
+        df, status = self.read_max_csv(
+            usecols=[1, 2, 3, 4, 5], dtype=self.expected_headers
+        )
 
         if status != 0:
             # If there was an error, set self.df to empty and return
@@ -34,7 +36,7 @@ class CmxProcessor(BaseProcessor):
             )
             self.df = pd.DataFrame()
             return self.df
-
+        self.df = df
         # Reshape the DataFrame to have separate rows for QMax and VMax
         try:
             # Create QMax DataFrame

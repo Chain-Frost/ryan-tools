@@ -25,7 +25,7 @@ class NmxProcessor(BaseProcessor):
         logger.info(f"Starting processing of NMX file: {self.file_path}")
 
         # Read the CSV using the shared method
-        df, status = self.read_csv()
+        df, status = self.read_max_csv(usecols=[1, 2, 3], dtype=self.expected_headers)
 
         if status != 0:
             # If there was an error, set self.df to empty and return

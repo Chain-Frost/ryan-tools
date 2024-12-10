@@ -76,32 +76,32 @@ class DataTypeDefinition:
             logger.error("Invalid format for expected_headers. Expected a dictionary.")
             expected_headers = {}
 
-        columns = data.get("columns", {})
+        columns = data.get("output_columns", {})
         if not isinstance(columns, dict):
             logger.error("Invalid format for columns. Expected a dictionary.")
             columns = {}
 
         # Validate columns structure
-        valid_columns = {}
-        for col, specs in columns.items():
-            if not isinstance(specs, dict):
-                logger.error(
-                    f"Invalid format for columns '{col}'. Expected a dictionary."
-                )
-                continue
-            new_name = specs.get("new_name")
-            dtype = specs.get("dtype")
-            if not isinstance(new_name, str) or not isinstance(dtype, str):
-                logger.error(
-                    f"Invalid new_name or dtype for columns '{col}'. Both should be strings."
-                )
-                continue
-            valid_columns[col] = {"new_name": new_name, "dtype": dtype}
+        # valid_columns = {}
+        # for col, specs in columns.items():
+        #     if not isinstance(specs, dict):
+        #         logger.error(
+        #             f"Invalid format for columns '{col}'. Expected a dictionary."
+        #         )
+        #         continue
+        #     new_name = specs.get("new_name")
+        #     dtype = specs.get("dtype")
+        #     if not isinstance(new_name, str) or not isinstance(dtype, str):
+        #         logger.error(
+        #             f"Invalid new_name or dtype for columns '{col}'. Both should be strings."
+        #         )
+        #         continue
+        #     valid_columns[col] = {"new_name": new_name, "dtype": dtype}
 
         logger.debug(
-            f"DataTypeDefinition loaded: expected_headers={expected_headers}, columns={valid_columns}"
+            f"DataTypeDefinition loaded: expected_headers={expected_headers}, columns={columns}"
         )
-        return cls(expected_headers=expected_headers, columns=valid_columns)
+        return cls(expected_headers=expected_headers, columns=columns)
 
 
 class DataTypesConfig:
@@ -175,7 +175,7 @@ if "__main__" == __name__:
     print("\n=== DataTypesConfig ===")
     # To display nested DataTypeDefinition objects, we'll convert them to dictionaries
     data_types_display = {
-        key: {"expected_headers": dt.expected_headers, "columns": dt.columns}
+        key: {"expected_headers": dt.expected_headers, "output_columns": dt.columns}
         for key, dt in data_types_config.data_types.items()
     }
     pp.pprint(data_types_display)
