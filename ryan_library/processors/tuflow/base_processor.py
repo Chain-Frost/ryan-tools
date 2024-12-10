@@ -217,6 +217,7 @@ class BaseProcessor(ABC):
         logger.debug("Test headers matched expected headers")
         return True
 
+    # logic here needs to be cleaned up. can we just use the info from the json file to determine the columns to load and have it error out if missing?
     def read_max_csv(self, usecols: list[int], dtype: dict) -> tuple[pd.DataFrame, int]:
         """
         Reads a CSV file using Pandas with specified columns and data types.
