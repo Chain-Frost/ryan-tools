@@ -11,12 +11,14 @@ def find_files_parallel(
     excludes: str | list[str] | None = None,
     report_level: int | None = 2,
     print_found_folder: bool = True,
+    recursive_search: bool = True,
 ) -> list[Path]:
     """
     Search for files matching specific patterns across multiple directories in parallel.
 
     This function traverses through the provided root directories, searching for files
     that match the given patterns while excluding any files that match the exclusion patterns.
+    The search can be performed recursively or non-recursively based on the `recursive_search` flag.
     The search is performed in parallel using multiple threads to improve performance.
 
     Args:
@@ -34,6 +36,9 @@ def find_files_parallel(
             is disabled. Defaults to 2.
         print_found_folder (bool, optional): If True, logs the folders that contain
             matched files. Defaults to True.
+        recursive_search (bool, optional): If True, searches directories recursively.
+            If False, only searches the top-level directories without traversing subdirectories.
+            Defaults to True.
 
     Returns:
         list[Path]: A list of file paths that match the specified patterns and do not
@@ -52,7 +57,7 @@ def find_files_parallel(
     patterns = [p.lower() for p in patterns]
     excludes = [e.lower() for e in excludes]
     logger.info(f"Search patterns:  {patterns}")
-    if excludes is not None:
+    if excludes:
         logger.info(f"Exclude patterns: {excludes}")
     # Obtain the current working directory to calculate relative paths later
     current_dir = Path.cwd()
@@ -62,8 +67,9 @@ def find_files_parallel(
         Search for files matching the patterns within a single directory.
 
         This helper function is executed in parallel across multiple directories.
-        It traverses the directory tree, matches files against the inclusion and
-        exclusion patterns, and logs progress based on the report_level.
+        It traverses the directory tree (recursively or non-recursively based on `recursive_search`),
+        matches files against the inclusion and exclusion patterns, and logs progress
+        based on the report_level.
 
         Args:
             path (Path): The directory path to search.
@@ -80,25 +86,33 @@ def find_files_parallel(
         folders_searched = 0  # Counter for the number of folders processed
         folders_with_matches = set()  # Tracks folders containing matched files
 
-        # Recursively traverse all subdirectories and files
-        for subpath in path.rglob("*"):
-            if subpath.is_dir():
-                # Calculate the directory depth relative to the root_dir
-                try:
-                    relative_path = subpath.relative_to(root_dir)
-                    depth = len(relative_path.parts)
-                except ValueError:
-                    # If subpath is not relative to root_dir, default depth to 0
-                    depth = 0
+        # Choose the appropriate globbing method based on `recursive_search`
+        if recursive_search:
+            iterator = path.rglob("*")
+        else:
+            iterator = path.glob("*")
 
-                # Log the folder being searched based on the report_level
-                if report_level is not None and depth % report_level == 0:
+        # Traverse the directory (recursively or not)
+        for subpath in iterator:
+            if subpath.is_dir():
+                # Only perform depth-related logging if recursive_search is True
+                if recursive_search and report_level is not None:
+                    # Calculate the directory depth relative to the root_dir
                     try:
-                        display_path = subpath.relative_to(current_dir)
+                        relative_path = subpath.relative_to(root_dir)
+                        depth = len(relative_path.parts)
                     except ValueError:
-                        # Use absolute path if relative path cannot be determined
-                        display_path = subpath.resolve()
-                    logger.info(f"Searching ({depth}): {display_path}")
+                        # If subpath is not relative to root_dir, default depth to 0
+                        depth = 0
+
+                    # Log the folder being searched based on the report_level
+                    if depth % report_level == 0:
+                        try:
+                            display_path = subpath.relative_to(current_dir)
+                        except ValueError:
+                            # Use absolute path if relative path cannot be determined
+                            display_path = subpath.resolve()
+                        logger.info(f"Searching ({depth}): {display_path}")
 
                 folders_searched += 1  # Increment folder counter
                 continue  # Skip directories for file matching
