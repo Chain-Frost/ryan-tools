@@ -3,9 +3,7 @@ import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
 import queue
 from typing import Generator
-import logging
-
-logging.basicConfig(level=logging.ERROR)
+from loguru import logger
 
 
 class TkinterApp:
@@ -82,7 +80,7 @@ class TkinterApp:
         except queue.Empty:
             pass
         except Exception as e:
-            logging.error(f"Exception in update_gui: {e}")
+            logger.error(f"Exception in update_gui: {e}")
         self.update_id = self.root.after(self.update_interval, self.update_gui)
 
     def update_widget_title(self, key: str) -> None:
