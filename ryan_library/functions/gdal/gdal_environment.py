@@ -107,6 +107,23 @@ def setup_environment(qgis_path: Path = None):
 
     logger.debug("Environment variables set successfully.")
 
+    # Define GDAL tool paths
+    gdal_calc_path = python_dir / "Scripts" / "gdal_calc.py"
+    gdal_polygonize_path = python_dir / "Scripts" / "gdal_polygonize.py"
+    gdal_translate_path = qgis_path / "bin" / "gdal_translate.exe"
+
+    # Check executables
+    check_executable(str(gdal_translate_path), "gdal_translate")
+    check_executable(str(gdal_calc_path), "gdal_calc.py")
+    check_executable(str(gdal_polygonize_path), "gdal_polygonize.py")
+
+    # Set GDAL tool paths in environment variables for easy access
+    os.environ["GDAL_CALC_PATH"] = str(gdal_calc_path)
+    os.environ["GDAL_POLYGONIZE_PATH"] = str(gdal_polygonize_path)
+    os.environ["GDAL_TRANSLATE_PATH"] = str(gdal_translate_path)
+
+    logger.debug("GDAL tool paths set in environment variables.")
+
 
 def check_executable(path: str, name: str):
     """
