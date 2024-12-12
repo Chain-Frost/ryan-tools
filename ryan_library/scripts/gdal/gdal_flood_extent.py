@@ -41,7 +41,7 @@ def main_processing(
             check_required_components()
 
             # Step 2: Find files to process
-            patterns = "*_d_HR_Max.tif.tif"  # Adjust the pattern as needed
+            patterns = "*_d_HR_Max.tif.tif"
             matched_files: list[Path] = find_files_parallel(
                 root_dirs=paths_to_process, patterns=patterns, recursive_search=False
             )
@@ -52,11 +52,18 @@ def main_processing(
 
             logger.debug(f"Matched files: {matched_files}")
             logger.info(f"Total files to process: {len(matched_files)}")
+            # import sys
 
+            # print(sys.path)
+            # os.system("PAUSE")
+
+            # Remove any paths containing "AppData\\Roaming"
+            # sys.path = [p for p in sys.path if "AppData\\Roaming" not in p]
+            # os.system("PAUSE")
             # Step 3: Process files in parallel
             pool_size = calculate_pool_size(num_files=len(matched_files))
             with Pool(
-                processes=pool_size,
+                processes=1,  # pool_size,
                 initializer=worker_initializer,
                 initargs=(log_queue,),
             ) as pool:
