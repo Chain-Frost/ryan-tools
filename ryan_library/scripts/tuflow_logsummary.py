@@ -96,7 +96,7 @@ def main_processing() -> None:
     results = [pd.DataFrame()]
     successful_runs: int = 0
     console_log_level: str = "INFO"
-    with setup_logger(console_log_level) as log_queue:
+    with setup_logger(console_log_level=console_log_level) as log_queue:
         logger.info("Starting log file processing...")
 
         root_dir = Path.cwd()
