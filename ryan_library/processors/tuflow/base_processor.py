@@ -196,6 +196,17 @@ class BaseProcessor(ABC):
         self.add_basic_info_to_df()
         self.run_code_parts_to_df()
         self.additional_attributes_to_df()
+        columns_to_move = ["file", "rel_path", "path"]
+
+        # move large width column names to the right side
+        # Get the list of columns that are not in `columns_to_move`
+        remaining_columns = [
+            col for col in self.df.columns if col not in columns_to_move
+        ]
+        # Concatenate remaining columns with columns_to_move
+        new_column_order = remaining_columns + columns_to_move
+        # Reorder the DataFrame
+        self.df = self.df[new_column_order]
 
     def apply_datatypes_to_df(self) -> None:
         """
@@ -238,11 +249,11 @@ class BaseProcessor(ABC):
         logger.debug(f"{self.file_name}: Adding basic info columns: {data}")
         # Assign basic info columns as strings
         self.df = self.df.assign(**data).astype({key: "string" for key in data})
-        # Convert basic info columns to categorical
+        # Convert basic info columns to ordered categorical
         basic_info_columns = list(data.keys())
-        self.df[basic_info_columns] = self.df[basic_info_columns].astype("category")
+        self.order_categorical_columns(self.df, basic_info_columns)
         logger.debug(
-            f"{self.file_name}: Basic info columns added and converted to category."
+            f"{self.file_name}: Basic info columns added and converted to ordered categorical."
         )
 
     def run_code_parts_to_df(self) -> None:
@@ -253,10 +264,10 @@ class BaseProcessor(ABC):
         logger.debug(f"{self.file_name}: Run code keys: {run_code_keys}")
         for key, value in self.name_parser.run_code_parts.items():
             self.df[key] = value
-        # Convert run code parts to categorical
-        self.df[run_code_keys] = self.df[run_code_keys].astype("category")
+        # Convert run code parts to ordered categorical
+        self.order_categorical_columns(self.df, run_code_keys)
         logger.debug(
-            f"{self.file_name}: Run code parts added and converted to category."
+            f"{self.file_name}: Run code parts added and converted to ordered categorical."
         )
 
     def additional_attributes_to_df(self) -> None:
@@ -313,15 +324,15 @@ class BaseProcessor(ABC):
                 )
                 raise
 
-        # Convert the added columns to category type
+        # Convert the added columns to ordered categorical
         category_columns = list(attributes.keys())
         existing_category_columns = [
             col for col in category_columns if col in self.df.columns
         ]
-        self.df[existing_category_columns] = self.df[existing_category_columns].astype(
-            "category"
+        self.order_categorical_columns(self.df, existing_category_columns)
+        logger.debug(
+            f"{self.file_name}: Additional attributes converted to ordered categorical."
         )
-        logger.debug(f"{self.file_name}: Additional attributes converted to category.")
 
     def validate_data(self) -> bool:
         """
@@ -378,18 +389,12 @@ class BaseProcessor(ABC):
 
         Returns:
             tuple[pd.DataFrame, int]: DataFrame and status code.
-                Status Codes:
-                    0 - Success
-                    1 - Empty DataFrame
-                    2 - Header mismatch
-                    3 - Read error
         """
 
         usecols = list(self.columns_to_use.keys())
         dtype = {col: self.columns_to_use[col] for col in usecols}
 
         try:
-            logger.debug(f"{self.file_path}, {usecols}, {dtype}, {self.skip_columns}")
             df: DataFrame = pd.read_csv(
                 filepath_or_buffer=self.file_path,
                 usecols=usecols,
@@ -532,3 +537,17 @@ class BaseProcessor(ABC):
             reshaped_dfs.append(temp_df)
 
         return pd.concat(reshaped_dfs, ignore_index=True)
+
+    def order_categorical_columns(self, df: pd.DataFrame, columns: list[str]) -> None:
+        """
+        Convert specified columns to ordered categorical types with categories sorted alphabetically.
+
+        Args:
+            df (pd.DataFrame): The DataFrame containing the columns.
+            columns (list[str]): List of column names to convert.
+        """
+        for col in columns:
+            if df[col].dtype.name == "category" and not df[col].cat.ordered:
+                sorted_categories = sorted(df[col].cat.categories)
+                df[col] = df[col].cat.set_categories(sorted_categories, ordered=True)
+                logger.debug(f"Column '{col}' ordered alphabetically.")
