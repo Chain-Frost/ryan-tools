@@ -75,7 +75,7 @@ def listener_process(
             message = pickle.loads(record)
 
             # Filter out logs from the 'loguru_helpers' module
-            if message.get("module") == "loguru_helpers":
+            if message.get("file") == "loguru_helpers.py":
                 continue
 
             # Extract necessary fields

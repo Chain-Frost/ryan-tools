@@ -298,9 +298,8 @@ class SuffixesConfig:
 
 # Module-level configuration instances
 config_dir: Path = Path(__file__).parent
-config_path: Path = (
-    config_dir / "tuflow_results_validation_and_datatypes.json"
-)  # Ensure this path is correct
+config_path: Path = config_dir / "tuflow_results_validation_and_datatypes.json"
+# Ensure this path is correct
 data_types_config: Config = Config.load(config_path=config_path)
 suffixes_config: SuffixesConfig = SuffixesConfig.load(config=data_types_config)
 

@@ -28,7 +28,7 @@ def main():
 
     main_processing(
         paths_to_process=[script_directory],
-        include_data_types=["Cmx"],
+        include_data_types=["Nmx", "Cmx", "Chan"],  # "Cmx", "Nmx", "Cmx", "Chan"
         console_log_level="DEBUG",
     )
 

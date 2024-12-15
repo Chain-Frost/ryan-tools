@@ -56,20 +56,17 @@ def main_processing(
         logger.info(f"Total files to process: {len(csv_file_list)}")
 
         # Step 2: Process files in parallel
-        try:
-            results_set: ProcessorCollection = process_files_in_parallel(
-                file_list=csv_file_list,
-                log_queue=log_queue,
-            )
-        except Exception as e:
-            logger.error(f"Error during multiprocessing: {e}")
-            return
+
+        results_set: ProcessorCollection = process_files_in_parallel(
+            file_list=csv_file_list,
+            log_queue=log_queue,
+        )
 
         # Step 3: Combine and export results based on scenarios
         logger.info("Now exporting results...")
         export_results(results_set)
 
-        logger.info("Culvert results combination completed successfully.")
+        logger.info("End of culvert results combination processing")
 
 
 def collect_files(
@@ -152,11 +149,8 @@ def process_files_in_parallel(file_list: list[Path], log_queue) -> ProcessorColl
         initializer=worker_initializer,
         initargs=(log_queue,),
     ) as pool:
-        try:
-            results = pool.map(process_file, file_list)
-        except Exception:
-            logger.error("Error during multiprocessing Pool.map")
-            return results_set
+        results = pool.map(process_file, file_list)
+        logger.error("Error during multiprocessing Pool.map")
 
     for result in results:
         if result is not None and result.processed:

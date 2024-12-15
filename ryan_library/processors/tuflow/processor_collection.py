@@ -1,9 +1,9 @@
 # ryan_library/processors/tuflow/processor_collection.py
 
-from pathlib import Path
 from loguru import logger
 import pandas as pd
-from ryan_library.functions.misc_functions import ExcelExporter, ExportContent
+from pandas import DataFrame
+from ryan_library.functions.dataframe_helpers import reorder_long_columns
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 
 
@@ -78,20 +78,32 @@ class ProcessorCollection:
             return pd.DataFrame()
 
         # Concatenate DataFrames
-        combined_df = pd.concat(
+        combined_df: pd.DataFrame = pd.concat(
             [p.df for p in timeseries_processors if not p.df.empty], ignore_index=True
         )
         logger.debug(f"Combined Timeseries DataFrame with {len(combined_df)} rows.")
 
-        # Reset categorical ordering
-        combined_df = self.reset_categorical_ordering(combined_df)
+        # Columns to drop
+        columns_to_drop = ["file", "rel_path", "path", "directory_path"]
 
+        # Check for existing columns and drop them
+        existing_columns_to_drop: list[str] = [
+            col for col in columns_to_drop if col in combined_df.columns
+        ]
+        if existing_columns_to_drop:
+            combined_df.drop(columns=existing_columns_to_drop, inplace=True)
+            logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
+
+        combined_df = self.reset_categorical_ordering(df=combined_df)
+        # Reset categorical ordering
         # Group by 'internalName', 'Chan ID', and 'Time'
         group_keys = ["internalName", "Chan ID", "Time"]
         missing_keys = [key for key in group_keys if key not in combined_df.columns]
         if missing_keys:
             logger.error(f"Missing group keys {missing_keys} in Timeseries data.")
             return pd.DataFrame()
+
+        combined_df = reorder_long_columns(combined_df)
 
         grouped_df = combined_df.groupby(group_keys).agg("max").reset_index()
         logger.debug(
@@ -126,11 +138,18 @@ class ProcessorCollection:
         )
         logger.debug(f"Combined Maximums/ccA DataFrame with {len(combined_df)} rows.")
 
-        # Drop 'Time' column if it exists
-        if "Time" in combined_df.columns:
-            combined_df.drop(columns=["Time"], inplace=True)
-            logger.debug("Dropped 'Time' column from Maximums/ccA DataFrame.")
+        # Columns to drop
+        columns_to_drop = ["file", "rel_path", "path", "Time"]
 
+        # Check for existing columns and drop them
+        existing_columns_to_drop: list[str] = [
+            col for col in columns_to_drop if col in combined_df.columns
+        ]
+        if existing_columns_to_drop:
+            combined_df.drop(columns=existing_columns_to_drop, inplace=True)
+            logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
+
+        combined_df = reorder_long_columns(df=combined_df)
         # Reset categorical ordering
         combined_df = self.reset_categorical_ordering(combined_df)
 
@@ -163,6 +182,8 @@ class ProcessorCollection:
         )
         logger.debug(f"Combined Raw DataFrame with {len(combined_df)} rows.")
 
+        combined_df = reorder_long_columns(df=combined_df)
+
         # Reset categorical ordering
         combined_df = self.reset_categorical_ordering(combined_df)
 
@@ -193,6 +214,8 @@ class ProcessorCollection:
             f"Combined {len(pomm_processors)}  POMM DataFrame with {len(combined_df)} rows."
         )
 
+        combined_df = reorder_long_columns(df=combined_df)
+
         # Reset categorical ordering
         combined_df = self.reset_categorical_ordering(combined_df)
 
@@ -222,6 +245,8 @@ class ProcessorCollection:
         logger.debug(
             f"Combined {len(po_processors)} PO DataFrame with {len(combined_df)} rows."
         )
+
+        combined_df = reorder_long_columns(df=combined_df)
 
         # Reset categorical ordering
         combined_df = self.reset_categorical_ordering(combined_df)

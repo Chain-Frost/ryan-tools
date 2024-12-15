@@ -12,9 +12,6 @@
     },
     "processingParts": {
       "dataformat": "Maximums",
-      "skip_columns": [
-        0
-      ],
       "columns_to_use": {
         "Chan ID": "string",
         "Qmax": "float",
@@ -36,10 +33,7 @@
       "DS_h": "float"
     },
     "processingParts": {
-      "dataformat": "Timeseries",
-      "skip_columns": [
-        0
-      ],
+      "dataformat": "Maximums",
       "columns_to_use": {
         "Node ID": "string",
         "Hmax": "float",
@@ -55,32 +49,25 @@
     "output_columns": {
       "Chan ID": "string",
       "Length": "float",
-      "Form Loss": "float",
       "n or Cd": "float",
       "pSlope": "float",
       "US Invert": "float",
       "DS Invert": "float",
-      "LBUS Obvert": "float",
-      "RBUS Obvert": "float",
-      "LBDS Obvert": "float",
-      "RBDS Obvert": "float",
-      "Height": "float"
+      "US Obvert": "float",
+      "Height": "float",
+      "pBlockage": "float"
     },
     "processingParts": {
       "dataformat": "Maximums",
       "columns_to_use": {
-        "Chan ID": "string",
+        "Channel": "string",
         "Length": "float",
-        "Form Loss": "float",
         "n or Cd": "float",
         "pSlope": "float",
         "US Invert": "float",
         "DS Invert": "float",
         "LBUS Obvert": "float",
-        "RBUS Obvert": "float",
-        "LBDS Obvert": "float",
-        "RBDS Obvert": "float",
-        "Height": "float"
+        "pBlockage": "float"
       }
     }
   },

@@ -15,6 +15,9 @@ from ryan_library.classes.suffixes_and_dtypes import (
     data_types_config,
     suffixes_config,
 )
+from ryan_library.functions.dataframe_helpers import reorder_long_columns
+
+# the processors are imported as required within the class (importlib)
 
 
 @dataclass
@@ -198,22 +201,26 @@ class BaseProcessor(ABC):
         self.add_basic_info_to_df()
         self.run_code_parts_to_df()
         self.additional_attributes_to_df()
-        columns_to_move = ["file", "rel_path", "path"]
+        self.reorder_long_text_columns()
 
+    def reorder_long_text_columns(self) -> None:
         # move large width column names to the right side
-        # Get the list of columns that are not in `columns_to_move`
-        remaining_columns = [
-            col for col in self.df.columns if col not in columns_to_move
-        ]
-        # Concatenate remaining columns with columns_to_move
-        new_column_order = remaining_columns + columns_to_move
-        # Reorder the DataFrame
-        self.df = self.df[new_column_order]
+        self.df = reorder_long_columns(
+            df=self.df,
+        )
 
-    def apply_datatypes_to_df(self) -> None:
+    def apply_output_transformations(self) -> None:
         """
-        Apply datatype mapping to the DataFrame based on output_columns.
+        Apply output column transformations:
+        - Checks if DataFrame is empty or if no output_columns are defined.
+        - Applies data types as specified in output_columns.
         """
+        if self.df.empty:
+            logger.warning(
+                f"{self.file_name}: DataFrame is empty, skipping datatype transformations."
+            )
+            return
+
         if not self.output_columns:
             logger.warning(
                 f"{self.file_name}: No output_columns mapping for '{self.data_type}'."
@@ -242,10 +249,15 @@ class BaseProcessor(ABC):
         """
         Add basic information columns to the DataFrame.
         """
+        resolved_path = self.resolved_file_path
+        cwd_resolved = Path.cwd().resolve()
+        parent_path = resolved_path.parent
         data: dict[str, str] = {
             "internalName": self.name_parser.raw_run_code,
-            "rel_path": str(self.resolved_file_path.relative_to(Path.cwd().resolve())),
-            "path": str(self.resolved_file_path),
+            "rel_path": str(resolved_path.relative_to(cwd_resolved)),
+            "path": str(resolved_path),
+            "directory_path": str(parent_path),
+            "rel_directory": str(parent_path.relative_to(cwd_resolved)),
             "file": self.file_name,
         }
         logger.debug(f"{self.file_name}: Adding basic info columns: {data}")
@@ -382,15 +394,12 @@ class BaseProcessor(ABC):
             logger.warning(f"{self.file_name}: No headers to validate against.")
             return True
 
-    # Removed the dispatcher read_csv method
-
-    # Added dedicated read methods
-    def read_maximums_csv(self) -> tuple[pd.DataFrame, int]:
+    def read_maximums_csv(self) -> int:
         """
         Reads CSV files with 'Maximums' or 'ccA' dataformat.
 
         Returns:
-            tuple[pd.DataFrame, int]: DataFrame and status code.
+             int: status code.
         """
 
         usecols = list(self.columns_to_use.keys())
@@ -411,25 +420,25 @@ class BaseProcessor(ABC):
             logger.exception(
                 f"{self.file_name}: Failed to read CSV file '{self.file_path}': {e}"
             )
-            return pd.DataFrame(), 3  # 3 indicates read error
+            return 3
 
         if df.empty:
             logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
-            return df, 1  # 1 indicates empty DataFrame
+            return 1
 
         # Validate headers
         if not self.check_headers_match(df.columns.tolist()):
-            return df, 2  # 2 indicates header mismatch
+            return 2
 
         self.df = df
-        return df, 0  # 0 indicates success
+        return 0
 
-    def read_timeseries_csv(self) -> tuple[pd.DataFrame, int]:
+    def read_timeseries_csv(self) -> int:
         """
         Reads CSV files with 'Timeseries' dataformat.
 
         Returns:
-            tuple[pd.DataFrame, int]: DataFrame and status code.
+            int: DataFrame and status code.
                 Status Codes:
                     0 - Success
                     1 - Empty DataFrame
@@ -444,7 +453,6 @@ class BaseProcessor(ABC):
                 usecols=usecols,
                 header=0,
                 skipinitialspace=True,
-                skiprows=self.skip_columns,
             )
             logger.debug(
                 f"Timeseries CSV file '{self.file_name}' read successfully with {len(df)} rows."
@@ -453,18 +461,18 @@ class BaseProcessor(ABC):
             logger.error(
                 f"{self.file_name}: Failed to read Timeseries CSV file '{self.file_path}': {e}"
             )
-            return pd.DataFrame(), 3  # 3 indicates read error
+            return 3
 
         if df.empty:
             logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
-            return df, 1  # 1 indicates empty DataFrame
+            return 1
 
         # Validate headers
         if not self.check_headers_match(df.columns.tolist()):
-            return df, 2  # 2 indicates header mismatch
+            return 2
 
         self.df = df
-        return df, 0  # 0 indicates success
+        return 0
 
     def read_ccA_data(self) -> tuple[pd.DataFrame, int]:
         """
@@ -482,29 +490,6 @@ class BaseProcessor(ABC):
         raise NotImplementedError(
             "Processing of ccA data format is not yet implemented."
         )
-
-    def apply_output_transformations(self) -> None:
-        """
-        Apply output column transformations:
-        - Apply data types as specified in output_columns.
-        """
-        if not self.output_columns:
-            logger.warning(
-                f"{self.file_name}: No output_columns mapping for '{self.data_type}'."
-            )
-            return
-
-        # Apply data types based on output_columns configuration
-        try:
-            self.df = self.df.astype(self.output_columns)
-            logger.debug(
-                f"{self.file_name}: Applied output_columns datatype mapping: {self.output_columns}"
-            )
-        except (KeyError, ValueError, TypeError) as e:
-            logger.error(
-                f"{self.file_name}: Error applying output_columns datatypes: {e}"
-            )
-            raise
 
     @abstractmethod
     def process(self) -> pd.DataFrame:
