@@ -38,7 +38,6 @@ class CmxProcessor(BaseProcessor):
             # Proceed with common processing steps from BaseProcessor
             self.add_common_columns()
             self.apply_output_transformations()
-            self.apply_output_transformations()
 
             # Validate data
             if not self.validate_data():

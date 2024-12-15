@@ -1,8 +1,12 @@
 # TUFLOW_Culvert_Merge.py
 
+from ryan_library.functions.loguru_helpers import setup_logger
+
+console_log_level = "INFO"  # "DEBUG" "INFO"
+setup_logger(console_log_level=console_log_level)
+from ryan_library.scripts.tuflow_culverts_merge import main_processing
 from pathlib import Path
 import os
-from ryan_library.scripts.tuflow_culverts_merge import main_processing
 
 
 def main():
@@ -28,8 +32,13 @@ def main():
 
     main_processing(
         paths_to_process=[script_directory],
-        include_data_types=["Nmx", "Cmx", "Chan"],  # "Cmx", "Nmx", "Cmx", "Chan"
-        console_log_level="DEBUG",
+        include_data_types=[
+            "Nmx",
+            "Cmx",
+            "Chan",
+            "ccA",
+        ],
+        console_log_level=console_log_level,
     )
 
 

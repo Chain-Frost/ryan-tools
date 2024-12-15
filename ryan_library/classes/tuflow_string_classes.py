@@ -1,10 +1,9 @@
 # ryan_library\classes\tuflow_string_classes.py
 import re
-import json
 from pathlib import Path
-from typing import Optional
 from loguru import logger
 from dataclasses import dataclass, field
+from ryan_library.classes.suffixes_and_dtypes import suffixes_config
 
 
 @dataclass
@@ -62,9 +61,15 @@ class TuflowStringParser:
     """
 
     # Precompile regex patterns for efficiency
-    TP_PATTERN = re.compile(r"(?:[_+]|^)TP(\d{2})(?:[_+]|$)", re.IGNORECASE)
-    DURATION_PATTERN = re.compile(r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", re.IGNORECASE)
-    AEP_PATTERN = re.compile(r"(?:[_+]|^)(\d{2}\.\d{1,2})p(?:[_+]|$)", re.IGNORECASE)
+    TP_PATTERN: re.Pattern[str] = re.compile(
+        pattern=r"(?:[_+]|^)TP(\d{2})(?:[_+]|$)", flags=re.IGNORECASE
+    )
+    DURATION_PATTERN: re.Pattern[str] = re.compile(
+        pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", flags=re.IGNORECASE
+    )
+    AEP_PATTERN: re.Pattern[str] = re.compile(
+        pattern=r"(?:[_+]|^)(\d{2}\.\d{1,2})p(?:[_+]|$)", flags=re.IGNORECASE
+    )
 
     def __init__(self, file_path: Path | str):
         """
@@ -76,17 +81,17 @@ class TuflowStringParser:
         self.file_path = Path(file_path)
         self.file_name: str = self.file_path.name
         self.suffixes: dict[str, str] = self.load_suffixes()
-        self.data_type: Optional[str] = self.determine_data_type()
+        self.data_type: str | None = self.determine_data_type()
         self.raw_run_code: str = self.extract_raw_run_code()
-        self.clean_run_code: str = self.clean_runcode(self.raw_run_code)
+        self.clean_run_code: str = self.clean_runcode(run_code=self.raw_run_code)
         self.run_code_parts: dict[str, str] = self.extract_run_code_parts(
-            self.clean_run_code
+            clean_run_code=self.clean_run_code
         )
-        self.tp: Optional[RunCodeComponent] = self.parse_tp(self.clean_run_code)
-        self.duration: Optional[RunCodeComponent] = self.parse_duration(
-            self.clean_run_code
+        self.tp: RunCodeComponent | None = self.parse_tp(string=self.clean_run_code)
+        self.duration: RunCodeComponent | None = self.parse_duration(
+            string=self.clean_run_code
         )
-        self.aep: Optional[RunCodeComponent] = self.parse_aep(self.clean_run_code)
+        self.aep: RunCodeComponent | None = self.parse_aep(string=self.clean_run_code)
         self.trim_run_code: str = self.trim_the_run_code()
 
     @staticmethod
@@ -106,29 +111,20 @@ class TuflowStringParser:
     @staticmethod
     def load_suffixes() -> dict[str, str]:
         """
-        Load suffixes from a JSON file.
+        Load suffixes using the SuffixesConfig class.
 
         Returns:
             dict[str, str]: Suffix to type mapping.
-
-        Raises:
-            FileNotFoundError: If the suffixes.json file is not found.
-            json.JSONDecodeError: If the JSON file is invalid.
         """
-        suffixes_path = Path(__file__).parent / "suffixes.json"
         try:
-            with suffixes_path.open("r", encoding="utf-8") as file:
-                suffixes = json.load(file)["suffixes"]
-                logger.debug(f"Loaded suffixes: {suffixes}")
-                return suffixes
-        except FileNotFoundError:
-            logger.error(f"Suffixes file not found at {suffixes_path}")
-            return {}
-        except json.JSONDecodeError as e:
-            logger.error(f"Error decoding JSON from {suffixes_path}: {e}")
+            suffixes = suffixes_config.suffix_to_type
+            logger.debug(f"Loaded suffixes: {suffixes}")
+            return suffixes
+        except AttributeError as e:
+            logger.error(f"Error accessing suffixes from SuffixesConfig: {e}")
             return {}
 
-    def determine_data_type(self) -> Optional[str]:
+    def determine_data_type(self) -> str | None:
         """
         Determine the data type based on the file suffix.
 
@@ -181,7 +177,7 @@ class TuflowStringParser:
         logger.debug(f"Extracted run code parts: {r_dict}")
         return r_dict
 
-    def parse_tp(self, string: str) -> Optional[RunCodeComponent]:
+    def parse_tp(self, string: str) -> RunCodeComponent | None:
         """
         Parse the TP component from the run code.
 
@@ -199,7 +195,7 @@ class TuflowStringParser:
         logger.debug("No TP component found")
         return None
 
-    def parse_duration(self, string: str) -> Optional[RunCodeComponent]:
+    def parse_duration(self, string: str) -> RunCodeComponent | None:
         """
         Parse the Duration component from the run code.
 
@@ -217,7 +213,7 @@ class TuflowStringParser:
         logger.debug("No Duration component found")
         return None
 
-    def parse_aep(self, string: str) -> Optional[RunCodeComponent]:
+    def parse_aep(self, string: str) -> RunCodeComponent | None:
         """
         Parse the AEP component from the run code.
 

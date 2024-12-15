@@ -150,7 +150,6 @@ def process_files_in_parallel(file_list: list[Path], log_queue) -> ProcessorColl
         initargs=(log_queue,),
     ) as pool:
         results = pool.map(process_file, file_list)
-        logger.error("Error during multiprocessing Pool.map")
 
     for result in results:
         if result is not None and result.processed:
@@ -182,7 +181,7 @@ def process_file(file_path: Path) -> BaseProcessor:
             return processor
         else:
             logger.warning(f"Validation failed for file: {file_path}")
-            raise ValueError(f"Validation failed for file: {file_path}")
+            return processor
     except Exception as e:
         logger.exception(f"Failed to process file {file_path}: {e}")
         raise
