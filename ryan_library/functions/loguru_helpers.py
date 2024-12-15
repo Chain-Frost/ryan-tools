@@ -73,6 +73,11 @@ def listener_process(
                 break
             # Deserialize the log record
             message = pickle.loads(record)
+
+            # Filter out logs from the 'loguru_helpers' module
+            if message.get("module") == "loguru_helpers":
+                continue
+
             # Extract necessary fields
             level = message.get("level").name
             msg = message.get("message")

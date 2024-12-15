@@ -18,7 +18,6 @@ from ryan_library.functions.loguru_helpers import (
 from ryan_library.classes.suffixes_and_dtypes import (
     SuffixesConfig,
     suffixes_config,
-    data_types_config,
 )
 
 
@@ -123,7 +122,7 @@ def collect_files(
 
     # Filter for non-zero files
     csv_file_list = [f for f in csv_file_list if is_non_zero_file(f)]
-    logger.debug(f"Collected files: {csv_file_list}")
+    # logger.debug(f"Collected files: {csv_file_list}")
 
     return csv_file_list
 
@@ -203,28 +202,24 @@ def export_results(results: ProcessorCollection) -> None:
         logger.warning("No results to export.")
         return
 
-    try:
-        df_list = [processor.df for processor in results.processors]
-        combined_df = pd.concat(df_list, ignore_index=True)
-        combined_df.fillna(value=pd.NA, inplace=True)
+    df_list = [processor.df for processor in results.processors]
+    combined_df = pd.concat(df_list, ignore_index=True)
+    combined_df.fillna(value=pd.NA, inplace=True)
 
-        # Export to Excel
-        exporter = ExcelExporter()
-        exporter.save_to_excel(
-            data_frame=combined_df,
-            file_name_prefix="1d_data_processed_",
-            sheet_name="Culverts",
-        )
+    # Export to Excel
+    exporter = ExcelExporter()
+    exporter.save_to_excel(
+        data_frame=combined_df,
+        file_name_prefix="1d_data_processed_",
+        sheet_name="Culverts",
+    )
 
-        # Optionally create a pivot or aggregated view
-        pivot_df = combined_df.groupby(["internalName", "Chan ID"]).max().reset_index()
-        exporter.save_to_excel(
-            data_frame=pivot_df,
-            file_name_prefix="1d_data_forPivot_",
-            sheet_name="Culverts",
-        )
+    # Optionally create a pivot or aggregated view
+    pivot_df = combined_df.groupby(["internalName", "Chan ID"]).max().reset_index()
+    exporter.save_to_excel(
+        data_frame=pivot_df,
+        file_name_prefix="1d_data_forPivot_",
+        sheet_name="Culverts",
+    )
 
-        logger.info("Exported all results successfully.")
-    except Exception as e:
-        logger.error(f"Failed to export results: {e}")
-        raise
+    logger.info("Exported all results successfully.")

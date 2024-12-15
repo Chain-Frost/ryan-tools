@@ -139,6 +139,7 @@ class BaseProcessor(ABC):
         Returns:
             str | None: The corresponding data type if found, else None.
         """
+        # I think this is redundant as we use tuflow string parser to do the same thing. remove after we get it working
         for suffix, data_type in suffixes_config.suffix_to_type.items():
             if file_name.endswith(suffix):
                 logger.debug(
@@ -388,19 +389,19 @@ class BaseProcessor(ABC):
         dtype = {col: self.columns_to_use[col] for col in usecols}
 
         try:
+            logger.debug(f"{self.file_path}, {usecols}, {dtype}, {self.skip_columns}")
             df: DataFrame = pd.read_csv(
                 filepath_or_buffer=self.file_path,
                 usecols=usecols,
                 header=0,
                 dtype=dtype,
                 skipinitialspace=True,
-                skiprows=self.skip_columns,
             )
             logger.debug(
                 f"CSV file '{self.file_name}' read successfully with {len(df)} rows."
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 f"{self.file_name}: Failed to read CSV file '{self.file_path}': {e}"
             )
             return pd.DataFrame(), 3  # 3 indicates read error
