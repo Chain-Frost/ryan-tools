@@ -1,4 +1,5 @@
-# ryan_library\functions\misc_functions.py
+# ryan_library/functions/misc_functions.py
+
 from datetime import datetime
 import pandas as pd
 import logging
@@ -73,17 +74,21 @@ class ExcelExporter:
     A simple utility class for exporting pandas DataFrames to Excel files.
 
     Methods:
-        export_dataframes(export_dict):
+        export_dataframes(export_dict, output_directory=None):
             Export multiple DataFrames to one or more Excel files, each potentially
             containing multiple sheets.
 
-        save_to_excel(data_frame, file_name_prefix, sheet_name):
+        save_to_excel(data_frame, file_name_prefix, sheet_name, output_directory=None):
             Export a single DataFrame to a single-sheet Excel file.
 
     The class is stateless and can be instantiated as needed.
     """
 
-    def export_dataframes(self, export_dict: dict[str, ExportContent]) -> None:
+    def export_dataframes(
+        self,
+        export_dict: dict[str, ExportContent],
+        output_directory: Path | None = None,
+    ) -> None:
         """
         Export multiple DataFrames to Excel files.
 
@@ -93,6 +98,9 @@ class ExcelExporter:
                 contains:
                 - "dataframes": list of DataFrames
                 - "sheets": list of corresponding sheet names
+            output_directory (Path, optional):
+                The directory where the Excel files will be saved.
+                Defaults to the current working directory.
 
         Raises:
             ValueError: If the number of DataFrames doesn't match the number of sheets.
@@ -108,7 +116,7 @@ class ExcelExporter:
                     "sheets": ["Data"]
                 }
             }
-            ExcelExporter().export_dataframes(export_dict)
+            ExcelExporter().export_dataframes(export_dict, output_directory=Path("exports"))
         """
         datetime_string = datetime.now().strftime("%Y%m%d-%H%M")
 
@@ -121,8 +129,16 @@ class ExcelExporter:
                     f"For file '{file_name}', the number of dataframes and sheets must match."
                 )
 
-            export_name = f"{datetime_string}_{file_name}.xlsx"
-            export_path = Path(export_name)
+            # Determine the export path
+            export_filename = f"{datetime_string}_{file_name}.xlsx"
+            if output_directory:
+                export_path = output_directory / export_filename
+            else:
+                export_path = Path(export_filename)  # Defaults to CWD
+
+            # Ensure the output directory exists
+            if output_directory:
+                export_path.parent.mkdir(parents=True, exist_ok=True)
 
             logging.info(f"Exporting {export_path}")
 
@@ -139,6 +155,7 @@ class ExcelExporter:
         data_frame: pd.DataFrame,
         file_name_prefix: str = "Export",
         sheet_name: str = "Export",
+        output_directory: Path | None = None,
     ) -> None:
         """
         Export a single DataFrame to an Excel file with a single sheet.
@@ -147,30 +164,65 @@ class ExcelExporter:
             data_frame (pd.DataFrame): The DataFrame to export.
             file_name_prefix (str): Prefix for the resulting Excel filename.
             sheet_name (str): Name of the sheet in the Excel file.
+            output_directory (Path, optional):
+                The directory where the Excel file will be saved.
+                Defaults to the current working directory.
 
         Example:
-            ExcelExporter().save_to_excel(df, file_name_prefix="MyData", sheet_name="Sheet1")
+            ExcelExporter().save_to_excel(
+                df,
+                file_name_prefix="MyData",
+                sheet_name="Sheet1",
+                output_directory=Path("exports")
+            )
         """
         export_dict: dict[str, ExportContent] = {
             file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}
         }
-        self.export_dataframes(export_dict)
+        self.export_dataframes(
+            export_dict=export_dict, output_directory=output_directory
+        )
 
 
 # Backwards compatibility functions:
-def export_dataframes(export_dict: dict[str, ExportContent]) -> None:
+def export_dataframes(
+    export_dict: dict[str, ExportContent], output_directory: Path | None = None
+) -> None:
     """
     Backwards-compatible function that delegates to ExcelExporter.
+
+    Args:
+        export_dict (dict[str, ExportContent]):
+            Dictionary containing export information.
+        output_directory (Path, optional):
+            Directory to save the exported Excel files.
+            Defaults to the current working directory.
     """
-    ExcelExporter().export_dataframes(export_dict)
+    ExcelExporter().export_dataframes(
+        export_dict=export_dict, output_directory=output_directory
+    )
 
 
 def save_to_excel(
     data_frame: pd.DataFrame,
     file_name_prefix: str = "Export",
     sheet_name: str = "Export",
+    output_directory: Path | None = None,
 ) -> None:
     """
     Backwards-compatible function that delegates to ExcelExporter.
+
+    Args:
+        data_frame (pd.DataFrame): The DataFrame to export.
+        file_name_prefix (str): Prefix for the resulting Excel filename.
+        sheet_name (str): Name of the sheet in the Excel file.
+        output_directory (Path, optional):
+            Directory to save the exported Excel file.
+            Defaults to the current working directory.
     """
-    ExcelExporter().save_to_excel(data_frame, file_name_prefix, sheet_name)
+    ExcelExporter().save_to_excel(
+        data_frame=data_frame,
+        file_name_prefix=file_name_prefix,
+        sheet_name=sheet_name,
+        output_directory=output_directory,
+    )

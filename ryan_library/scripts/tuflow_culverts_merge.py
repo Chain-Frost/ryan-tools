@@ -7,8 +7,11 @@ import pandas as pd
 from loguru import logger
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-
-from ryan_library.functions.file_utils import find_files_parallel, is_non_zero_file
+from ryan_library.functions.file_utils import (
+    find_files_parallel,
+    is_non_zero_file,
+    ensure_output_directory,
+)
 from ryan_library.functions.misc_functions import calculate_pool_size, ExcelExporter
 from ryan_library.functions.loguru_helpers import (
     setup_logger,
@@ -62,7 +65,7 @@ def main_processing(
             logger.error(f"Error during multiprocessing: {e}")
             return
 
-        # Step 3: Concatenate and export results
+        # Step 3: Combine and export results based on scenarios
         logger.info("Now exporting results...")
         export_results(results_set)
 
@@ -193,7 +196,9 @@ def process_file(file_path: Path) -> BaseProcessor:
 
 def export_results(results: ProcessorCollection) -> None:
     """
-    Concatenate all DataFrames and export to Excel.
+    Export combined DataFrames for two specific scenarios:
+    1. combine_1d_maximums
+    2. combine_raw
 
     Args:
         results (ProcessorCollection): Collection of processed processors.
@@ -202,24 +207,58 @@ def export_results(results: ProcessorCollection) -> None:
         logger.warning("No results to export.")
         return
 
-    df_list = [processor.df for processor in results.processors]
-    combined_df = pd.concat(df_list, ignore_index=True)
-    combined_df.fillna(value=pd.NA, inplace=True)
-
-    # Export to Excel
     exporter = ExcelExporter()
-    exporter.save_to_excel(
-        data_frame=combined_df,
-        file_name_prefix="1d_data_processed_",
-        sheet_name="Culverts",
-    )
 
-    # Optionally create a pivot or aggregated view
-    pivot_df = combined_df.groupby(["internalName", "Chan ID"]).max().reset_index()
-    exporter.save_to_excel(
-        data_frame=pivot_df,
-        file_name_prefix="1d_data_forPivot_",
-        sheet_name="Culverts",
-    )
+    # Scenario 1: combine_1d_maximums
+    scenario1 = "combine_1d_maximums"
+    file_name_prefix1 = "1d_maximums_data"
+    sheet_name1 = "Maximums"
+    output_path1 = Path.cwd()
+    # Path("exports/maximums")  # Optional: Specify your desired path
 
-    logger.info("Exported all results successfully.")
+    logger.info(f"Exporting data using scenario '{scenario1}'.")
+
+    # Directly call the combine_1d_maximums method
+    combined_df1 = results.combine_1d_maximums()
+
+    if combined_df1.empty:
+        logger.warning(f"No data found for scenario '{scenario1}'. Skipping export.")
+    else:
+        # Ensure the output directory exists
+        ensure_output_directory(output_path1)
+
+        # Perform the export for combine_1d_maximums
+        exporter.save_to_excel(
+            data_frame=combined_df1,
+            file_name_prefix=file_name_prefix1,
+            sheet_name=sheet_name1,
+            output_directory=output_path1,  # Pass the optional path
+        )
+        logger.info(f"Exported data for scenario '{scenario1}' successfully.")
+
+    # Scenario 2: combine_raw
+    scenario2 = "combine_raw"
+    file_name_prefix2 = "raw_combined_data"
+    sheet_name2 = "RawData"
+    output_path2 = Path.cwd()
+    # Path("exports/raw")  # Optional: Specify your desired path
+
+    logger.info(f"Exporting data using scenario '{scenario2}'.")
+
+    # Directly call the combine_raw method
+    combined_df2 = results.combine_raw()
+
+    if combined_df2.empty:
+        logger.warning(f"No data found for scenario '{scenario2}'. Skipping export.")
+    else:
+        # Ensure the output directory exists
+        ensure_output_directory(output_path2)
+
+        # Perform the export for combine_raw
+        exporter.save_to_excel(
+            data_frame=combined_df2,
+            file_name_prefix=file_name_prefix2,
+            sheet_name=sheet_name2,
+            output_directory=output_path2,  # Pass the optional path
+        )
+        logger.info(f"Exported data for scenario '{scenario2}' successfully.")
