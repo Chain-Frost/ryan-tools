@@ -71,24 +71,40 @@
       }
     }
   },
-  "CCA": {
-    "processor": "CcaProcessor",
+  "ccA": {
+    "processor": "ccAProcessor",
     "suffixes": [
       "_1d_ccA_L.dbf",
-      "_Results1D.gpkg"
+      "_Results1D.gpkg",
+      "_Results.gpkg"
     ],
     "output_columns": {
       "Chan ID": "string",
-      "Channel": "string",
-      "SomeOtherColumn": "float"
+      "pFull_Max": "float",
+      "pTime_Full": "float",
+      "Area_Max": "float",
+      "Area_Culv": "float",
+      "Dur_Full": "float",
+      "Dur_10pFull": "float",
+      "Sur_CD": "float",
+      "Dur_Sur": "float",
+      "pTime_Sur": "float",
+      "TFirst_Sur": "float"
     },
     "processingParts": {
       "dataformat": "ccA",
       "columns_to_use": {
-        "Run_Info": "string",
-        "Chan ID": "string",
         "Channel": "string",
-        "SomeOtherColumn": "float"
+        "pFull_Max": "float",
+        "pTime_Full": "float",
+        "Area_Max": "float",
+        "Area_Culv": "float",
+        "Dur_Full": "float",
+        "Dur_10pFull": "float",
+        "Sur_CD": "float",
+        "Dur_Sur": "float",
+        "pTime_Sur": "float",
+        "TFirst_Sur": "float"
       }
     }
   },
