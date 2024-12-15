@@ -1,13 +1,11 @@
 # ryan_library/processors/tuflow/cmx_processor.py
 
-from pathlib import Path
 import pandas as pd
 from loguru import logger
+from pathlib import Path
 from .base_processor import BaseProcessor
-from .processor_registry import ProcessorRegistry
 
 
-@ProcessorRegistry.register_processor("Cmx")
 class CmxProcessor(BaseProcessor):
     """
     Processor for '_1d_Cmx.csv' files.

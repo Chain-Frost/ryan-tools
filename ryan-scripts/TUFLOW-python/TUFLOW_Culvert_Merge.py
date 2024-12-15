@@ -15,13 +15,17 @@ def main():
         # Determine the script directory
         script_directory: Path = Path(__file__).resolve().parent
         script_directory = Path(
-            r"Q:\BGER\PER\RPRT\ryan-tools\tests\test_data\tuflow\tutorials"
-            # r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
+            # r"Q:\BGER\PER\RPRT\ryan-tools\tests\test_data\tuflow\tutorials"
+            r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
         )
         os.chdir(script_directory)
 
         # You can pass a list of paths here if needed; default is the script directory
-        main_processing([script_directory], console_log_level="DEBUG")
+        main_processing(
+            paths_to_process=[script_directory],
+            include_data_types=["Cmx"],
+            console_log_level="DEBUG",
+        )
     except Exception as e:
         print(f"Failed to change working directory: {e}")
         os.system("PAUSE")

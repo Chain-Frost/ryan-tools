@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="ryan_functions",
-    version="0.3744",
+    version="0.3749",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     install_requires=[

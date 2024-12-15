@@ -7,11 +7,6 @@ from pathlib import Path
 from ryan_library.functions.logging_helpers import setup_logging as new_setup_logging
 
 
-class ExportContent(TypedDict):
-    dataframes: list[pd.DataFrame]
-    sheets: list[str]
-
-
 # deprecated
 def setup_logging(
     log_level: int = logging.INFO,
@@ -66,6 +61,11 @@ def split_strings_in_dict(params_dict: dict[str, list[str]]) -> dict[str, list[s
         # Use split_strings to handle both string and list of strings cases
         params_dict[key] = split_strings(input=value)
     return params_dict
+
+
+class ExportContent(TypedDict):
+    dataframes: list[pd.DataFrame]
+    sheets: list[str]
 
 
 class ExcelExporter:
