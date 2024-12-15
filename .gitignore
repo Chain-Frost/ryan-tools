@@ -16,3 +16,6 @@ dist/*/
 .pytest_cache
 pytest-cache-files-*
 *.pyc
+
+# Ignore all .xlsx files in the tests/test_data folder and its subfolders, such as from testing runs
+tests/test_data/tuflow/tutorials/**/*.xlsx

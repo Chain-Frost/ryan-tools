@@ -123,6 +123,18 @@ class ProcessorCollection:
         logger.debug(
             f"Combined DataFrame created with {len(combined_df)} rows and {len(combined_df.columns)} columns."
         )
+
+        # Reset category ordering alphabetically for all categorical columns
+        for col in combined_df.select_dtypes(include="category").columns:
+            # Determine all unique categories, sort them alphabetically, and reset the column
+            unique_categories = sorted(combined_df[col].cat.categories)
+            combined_df[col] = combined_df[col].cat.set_categories(
+                unique_categories, ordered=True
+            )
+            logger.debug(
+                f"Column '{col}' in combined DataFrame ordered alphabetically with categories: {unique_categories}"
+            )
+
         return combined_df
 
     def get_processors_by_data_type(
