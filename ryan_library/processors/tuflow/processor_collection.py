@@ -1,4 +1,5 @@
 # ryan_library/processors/tuflow/processor_collection.py
+
 from pathlib import Path
 from loguru import logger
 import pandas as pd
@@ -8,10 +9,10 @@ from ryan_library.processors.tuflow.base_processor import BaseProcessor
 
 class ProcessorCollection:
     """
-    A collection of BaseProcessor instances, allowing combined export.
+    A collection of BaseProcessor instances, allowing combined operations based on different scenarios.
 
-    This class can be used to hold one or more processed BaseProcessor instances.
-    It provides methods to combine their DataFrames and export the consolidated result.
+    This class holds one or more processed BaseProcessor instances and provides methods to combine their DataFrames
+    according to specific merging strategies.
     """
 
     def __init__(self) -> None:
@@ -19,7 +20,6 @@ class ProcessorCollection:
         Initialize an empty ProcessorCollection.
         """
         self.processors: list[BaseProcessor] = []
-        self.excel_exporter = ExcelExporter()  # Initialize ExcelExporter
 
     def add_processor(self, processor: BaseProcessor) -> None:
         """
@@ -36,104 +36,195 @@ class ProcessorCollection:
                 f"Attempted to add unprocessed processor: {processor.file_name}"
             )
 
-    def export_to_excel(
-        self,
-        file_name_prefix: str = "Export",
-        sheet_name: str = "CombinedData",
-    ) -> None:
+    def reset_categorical_ordering(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Export the combined DataFrame of all processors to a single Excel file.
+        Reset categorical ordering for all categorical columns by sorting categories alphabetically.
 
         Args:
-            file_name_prefix (str): Prefix for the resulting Excel filename.
-            sheet_name (str): Name of the sheet in the Excel file.
+            df (pd.DataFrame): The DataFrame to reset categorical ordering.
+
+        Returns:
+            pd.DataFrame: DataFrame with reset categorical ordering.
         """
-        if not self.processors:
-            logger.warning("No processors to export.")
-            return
+        for col in df.select_dtypes(include="category").columns:
+            sorted_categories = sorted(df[col].cat.categories)
+            df[col] = df[col].cat.set_categories(sorted_categories, ordered=True)
+            logger.debug(
+                f"Column '{col}' ordered alphabetically with categories: {sorted_categories}"
+            )
 
-        logger.info("Starting export to Excel.")
+        # Reset missing values if necessary
+        df.fillna(value=pd.NA, inplace=True)
+        logger.debug("Filled missing values with pd.NA.")
+        return df
 
-        # Combine all DataFrames
-        combined_df = self.combine_data()
-        if combined_df.empty:
-            logger.warning("Combined DataFrame is empty. Nothing to export.")
-            return
-
-        # Prepare export content
-        export_content: dict[str, ExportContent] = {
-            file_name_prefix: {"dataframes": [combined_df], "sheets": [sheet_name]}
-        }
-
-        # Perform the export
-        self.excel_exporter.export_dataframes(export_content)
-
-    def export_to_csv(
-        self, output_path: str | Path, file_name: str = "export.csv"
-    ) -> None:
+    def combine_1d_timeseries(self) -> pd.DataFrame:
         """
-        Export the combined DataFrame of all processors to a single CSV file.
+        Combine DataFrames where dataformat is 'Timeseries'.
+        Group data based on 'internalName', 'Chan ID', and 'Time'.
 
-        Args:
-            output_path (str | Path): The directory where the combined CSV should be saved.
-            file_name (str): Name of the resulting CSV file.
+        Returns:
+            pd.DataFrame: Combined and grouped DataFrame.
         """
-        if not self.processors:
-            logger.warning("No processors to export.")
-            return
+        logger.debug("Combining 1D Timeseries data.")
 
-        output_path = Path(output_path)
-        if not output_path.exists():
-            try:
-                output_path.mkdir(parents=True, exist_ok=True)
-                logger.debug(f"Created output directory at {output_path}")
-            except Exception as e:
-                logger.error(f"Failed to create output directory: {e}")
-                return
+        # Filter processors with dataformat 'Timeseries'
+        timeseries_processors = [
+            p for p in self.processors if p.dataformat.lower() == "timeseries"
+        ]
 
-        logger.info("Starting export to CSV.")
+        if not timeseries_processors:
+            logger.warning("No processors with dataformat 'Timeseries' found.")
+            return pd.DataFrame()
 
-        # Combine all DataFrames vertically
-        combined_df = self.combine_data()
-        if combined_df.empty:
-            logger.warning("Combined DataFrame is empty. Nothing to export.")
-            return
+        # Concatenate DataFrames
+        combined_df = pd.concat(
+            [p.df for p in timeseries_processors if not p.df.empty], ignore_index=True
+        )
+        logger.debug(f"Combined Timeseries DataFrame with {len(combined_df)} rows.")
 
-        csv_file: Path = output_path / file_name
-        try:
-            combined_df.to_csv(csv_file, index=False)
-            logger.info(f"Exported combined data to {csv_file}")
-        except Exception as e:
-            logger.error(f"Failed to export to CSV: {e}")
+        # Reset categorical ordering
+        combined_df = self.reset_categorical_ordering(combined_df)
 
-    def combine_data(self) -> pd.DataFrame:
+        # Group by 'internalName', 'Chan ID', and 'Time'
+        group_keys = ["internalName", "Chan ID", "Time"]
+        missing_keys = [key for key in group_keys if key not in combined_df.columns]
+        if missing_keys:
+            logger.error(f"Missing group keys {missing_keys} in Timeseries data.")
+            return pd.DataFrame()
+
+        grouped_df = combined_df.groupby(group_keys).agg("max").reset_index()
+        logger.debug(
+            f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows."
+        )
+
+        return grouped_df
+
+    def combine_1d_maximums(self) -> pd.DataFrame:
         """
-        Combine the DataFrames from all processors into a single DataFrame.
+        Combine DataFrames where dataformat is 'Maximums' or 'ccA'.
+        Drop the 'Time' column.
+        Group data based on 'internalName' and 'Chan ID'.
+
+        Returns:
+            pd.DataFrame: Combined and grouped DataFrame.
+        """
+        logger.debug("Combining 1D Maximums and ccA data.")
+
+        # Filter processors with dataformat 'Maximums' or 'ccA'
+        maximums_processors = [
+            p for p in self.processors if p.dataformat.lower() in ["maximums", "cca"]
+        ]
+
+        if not maximums_processors:
+            logger.warning("No processors with dataformat 'Maximums' or 'ccA' found.")
+            return pd.DataFrame()
+
+        # Concatenate DataFrames
+        combined_df = pd.concat(
+            [p.df for p in maximums_processors if not p.df.empty], ignore_index=True
+        )
+        logger.debug(f"Combined Maximums/ccA DataFrame with {len(combined_df)} rows.")
+
+        # Drop 'Time' column if it exists
+        if "Time" in combined_df.columns:
+            combined_df.drop(columns=["Time"], inplace=True)
+            logger.debug("Dropped 'Time' column from Maximums/ccA DataFrame.")
+
+        # Reset categorical ordering
+        combined_df = self.reset_categorical_ordering(combined_df)
+
+        # Group by 'internalName' and 'Chan ID'
+        group_keys = ["internalName", "Chan ID"]
+        missing_keys = [key for key in group_keys if key not in combined_df.columns]
+        if missing_keys:
+            logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
+            return pd.DataFrame()
+
+        grouped_df = combined_df.groupby(group_keys).agg("max").reset_index()
+        logger.debug(
+            f"Grouped {len(maximums_processors)} Maximums/ccA DataFrame with {len(grouped_df)} rows."
+        )
+
+        return grouped_df
+
+    def combine_raw(self) -> pd.DataFrame:
+        """
+        Concatenate all DataFrames together without any grouping.
+
+        Returns:
+            pd.DataFrame: Concatenated DataFrame.
+        """
+        logger.debug("Combining raw data without grouping.")
+
+        # Concatenate all DataFrames
+        combined_df = pd.concat(
+            [p.df for p in self.processors if not p.df.empty], ignore_index=True
+        )
+        logger.debug(f"Combined Raw DataFrame with {len(combined_df)} rows.")
+
+        # Reset categorical ordering
+        combined_df = self.reset_categorical_ordering(combined_df)
+
+        return combined_df
+
+    def pomm_combine(self) -> pd.DataFrame:
+        """
+        Combine DataFrames where dataformat is 'POMM'.
+        No grouping required as DataFrames are already in the correct format.
 
         Returns:
             pd.DataFrame: Combined DataFrame.
         """
-        if not self.processors:
+        logger.debug("Combining POMM data.")
+
+        # Filter processors with dataformat 'POMM'
+        pomm_processors = [p for p in self.processors if p.dataformat.lower() == "pomm"]
+
+        if not pomm_processors:
+            logger.warning("No processors with dataformat 'POMM' found.")
             return pd.DataFrame()
 
-        combined_df: pd.DataFrame = pd.concat(
-            [p.df for p in self.processors if not p.df.empty], ignore_index=True
+        # Concatenate DataFrames
+        combined_df = pd.concat(
+            [p.df for p in pomm_processors if not p.df.empty], ignore_index=True
         )
-
         logger.debug(
-            f"Combined DataFrame created with {len(combined_df)} rows and {len(combined_df.columns)} columns."
+            f"Combined {len(pomm_processors)}  POMM DataFrame with {len(combined_df)} rows."
         )
 
-        # Reset category ordering alphabetically for all categorical columns
-        for col in combined_df.select_dtypes(include="category").columns:
-            # Determine all unique categories, sort them alphabetically, and reset the column
-            unique_categories = sorted(combined_df[col].cat.categories)
-            combined_df[col] = combined_df[col].cat.set_categories(
-                unique_categories, ordered=True
-            )
-            logger.debug(
-                f"Column '{col}' in combined DataFrame ordered alphabetically with categories: {unique_categories}"
-            )
+        # Reset categorical ordering
+        combined_df = self.reset_categorical_ordering(combined_df)
+
+        return combined_df
+
+    def po_combine(self) -> pd.DataFrame:
+        """
+        Combine DataFrames where dataformat is 'PO'.
+        No grouping required as DataFrames are already in the correct format.
+
+        Returns:
+            pd.DataFrame: Combined DataFrame.
+        """
+        logger.debug("Combining PO data.")
+
+        # Filter processors with dataformat 'PO'
+        po_processors = [p for p in self.processors if p.dataformat.lower() == "po"]
+
+        if not po_processors:
+            logger.warning("No processors with dataformat 'PO' found.")
+            return pd.DataFrame()
+
+        # Concatenate DataFrames
+        combined_df = pd.concat(
+            [p.df for p in po_processors if not p.df.empty], ignore_index=True
+        )
+        logger.debug(
+            f"Combined {len(po_processors)} PO DataFrame with {len(combined_df)} rows."
+        )
+
+        # Reset categorical ordering
+        combined_df = self.reset_categorical_ordering(combined_df)
 
         return combined_df
 

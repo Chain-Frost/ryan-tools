@@ -87,7 +87,9 @@ class BaseProcessor(ABC):
             raise KeyError(error_msg)
 
         # Dynamically import the processor class
-        processor_cls = cls.get_processor_class(processor_class_name)
+        processor_cls: type[BaseProcessor] = cls.get_processor_class(
+            class_name=processor_class_name
+        )
 
         # Instantiate the processor class
         try:
