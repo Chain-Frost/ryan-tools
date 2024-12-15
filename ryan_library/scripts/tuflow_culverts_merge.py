@@ -1,45 +1,51 @@
-# ryan_library\scripts\tuflow_culverts_merge.py
-print("loading from repo")
+# ryan_library/scripts/tuflow_culverts_merge.py
+
 import os
 from multiprocessing import Pool
 from pathlib import Path
 import pandas as pd
-from ryan_library.processors.tuflow.processor_registry import ProcessorRegistry
-from ryan_library.processors.tuflow.processor_collection import (
-    ProcessorCollection,
-    BaseProcessor,
-)
+from loguru import logger
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
 from ryan_library.functions.file_utils import find_files_parallel, is_non_zero_file
-from ryan_library.functions.misc_functions import calculate_pool_size
-from ryan_library.functions.misc_functions import ExcelExporter
+from ryan_library.functions.misc_functions import calculate_pool_size, ExcelExporter
 from ryan_library.functions.loguru_helpers import (
     setup_logger,
     log_exception,
     worker_initializer,
 )
-from loguru import logger
-from typing import Optional
 from ryan_library.classes.suffixes_and_dtypes import (
+    SuffixesConfig,
+    suffixes_config,
     data_types_config,
 )
 
 
 def main_processing(
-    paths_to_process: list[Path], console_log_level: str = "INFO"
+    paths_to_process: list[Path],
+    include_data_types: list[str],
+    console_log_level: str = "INFO",
 ) -> None:
     """
     Generate merged culvert data by processing various TUFLOW CSV and CCA files.
 
     Args:
         paths_to_process (list[Path]): List of directory paths to search for files.
+        include_data_types (list[str] | None): List of data types to include. If None, include all.
         console_log_level (str): Logging level for the console.
     """
+
     with setup_logger(console_log_level=console_log_level) as log_queue:
         logger.info("Starting culvert results files processing...")
         logger.info(f"Current working directory: {os.getcwd()}")
 
         # Step 1: Collect and validate files
-        csv_file_list = collect_files(paths_to_process)
+        csv_file_list = collect_files(
+            paths_to_process,
+            include_data_types=include_data_types,
+            suffixes_config=suffixes_config,
+        )
         if not csv_file_list:
             logger.info("No valid files found to process.")
             return
@@ -50,7 +56,8 @@ def main_processing(
         # Step 2: Process files in parallel
         try:
             results_set: ProcessorCollection = process_files_in_parallel(
-                file_list=csv_file_list, log_queue=log_queue
+                file_list=csv_file_list,
+                log_queue=log_queue,
             )
         except Exception as e:
             logger.error(f"Error during multiprocessing: {e}")
@@ -63,35 +70,49 @@ def main_processing(
         logger.info("Culvert results combination completed successfully.")
 
 
-def collect_files(paths_to_process: list[Path]) -> list[Path]:
+def collect_files(
+    paths_to_process: list[Path],
+    include_data_types: list[str],
+    suffixes_config: SuffixesConfig,
+) -> list[Path]:
     """
-    Collect and filter files based on registered suffix patterns.
+    Collect and filter files based on specified data types.
 
     Args:
         paths_to_process (list[Path]): Directories to search.
+        include_data_types (list[str] ): List of data types to include.
+        suffixes_config (SuffixesConfig ): Suffixes configuration instance.
 
     Returns:
         list[Path]: List of valid file paths.
     """
+
     csv_file_list: list[Path] = []
-
-    # Retrieve all suffixes from the ProcessorRegistry
-    registered_processors = ProcessorRegistry.list_registered_processors()
     suffixes = []
-    for data_type, processor_cls in registered_processors.items():
-        # Assuming data_types_config has been loaded in suffixes_and_dtypes.py
-        data_type_def = data_types_config.data_types.get(data_type.capitalize())
-        if data_type_def:
-            for suffix in data_type_def.suffixes:
-                suffixes.append(suffix.lower())
 
-    # Prepend '*' to each pattern for wildcard searching
-    patterns = [f"*{suffix}" for suffix in suffixes]
+    # Determine which suffixes to include based on data types
+    # Invert suffixes config
+    data_type_to_suffix = suffixes_config.invert_suffix_to_type()
 
-    root_dirs: list[Path] = [
-        Path(path) for path in paths_to_process if Path(path).is_dir()
-    ]
-    invalid_dirs: set[Path] = set(paths_to_process) - {Path(rd) for rd in root_dirs}
+    if include_data_types and len(include_data_types) > 0:
+        for data_type in include_data_types:
+            dt_suffixes = data_type_to_suffix.get(data_type)
+            if not dt_suffixes:
+                logger.error(
+                    f"No suffixes found for data type '{data_type}'. Skipping."
+                )
+                continue
+            suffixes.extend([s for s in dt_suffixes])  # Preserve capitalization
+
+    if not suffixes:
+        logger.error("No suffixes found for the specified data types.")
+        return csv_file_list
+
+    # Prepend '*' for wildcard searching
+    patterns: list[str] = [f"*{suffix}" for suffix in suffixes]
+
+    root_dirs: list[Path] = [p for p in paths_to_process if p.is_dir()]
+    invalid_dirs: set[Path] = set(paths_to_process) - set(root_dirs)
     for invalid_dir in invalid_dirs:
         logger.warning(f"Path {invalid_dir} is not a directory. Skipping.")
 
@@ -100,8 +121,10 @@ def collect_files(paths_to_process: list[Path]) -> list[Path]:
     )
     csv_file_list.extend(matched_files)
 
-    # Filter non-zero files
+    # Filter for non-zero files
     csv_file_list = [f for f in csv_file_list if is_non_zero_file(f)]
+    logger.debug(f"Collected files: {csv_file_list}")
+
     return csv_file_list
 
 
@@ -119,8 +142,9 @@ def process_files_in_parallel(file_list: list[Path], log_queue) -> ProcessorColl
     pool_size = calculate_pool_size(len(file_list))
     logger.info(f"Initializing multiprocessing pool with {pool_size} processes.")
 
-    results: list[Optional[BaseProcessor]] = []
+    results_set = ProcessorCollection()
     # Initialize the Pool with the worker initializer and pass the log_queue via initargs
+
     with Pool(
         processes=pool_size,
         initializer=worker_initializer,
@@ -129,9 +153,9 @@ def process_files_in_parallel(file_list: list[Path], log_queue) -> ProcessorColl
         try:
             results = pool.map(process_file, file_list)
         except Exception:
-            logger.exception("Error during multiprocessing Pool.map")
+            logger.error("Error during multiprocessing Pool.map")
+            return results_set
 
-    results_set = ProcessorCollection()
     for result in results:
         if result is not None and result.processed:
             results_set.add_processor(result)
@@ -139,46 +163,36 @@ def process_files_in_parallel(file_list: list[Path], log_queue) -> ProcessorColl
     return results_set
 
 
-def process_file(file_path: Path) -> Optional[BaseProcessor]:
+def process_file(file_path: Path) -> BaseProcessor:
     """
-    Process a single file based on its suffix.
+    Process a single file by delegating to BaseProcessor.
 
     Args:
         file_path (Path): Path to the file to process.
 
     Returns:
-        Optional[BaseProcessor]: An instance of the processor class if successful, else None.
+        BaseProcessor: The processed BaseProcessor instance.
+
+    Raises:
+        Exception: If processing fails.
     """
-    file_name = file_path.name.lower()
+    try:
+        # BaseProcessor.from_file determines and instantiates the correct processor
+        processor: BaseProcessor = BaseProcessor.from_file(file_path)
+        processor.process()
 
-    # Iterate through registered processors to find a matching suffix
-    registered_processors = ProcessorRegistry.list_registered_processors()
-    for data_type, processor_cls in registered_processors.items():
-        data_type_def = data_types_config.data_types.get(data_type.capitalize())
-        if not data_type_def:
-            continue
-        for suffix in data_type_def.suffixes:
-            if file_name.endswith(suffix.lower()):
-                try:
-                    processor = processor_cls(file_path)
-                    logger.info(
-                        f"Processing file: {file_path} with {processor_cls.__name__}"
-                    )
-                    processor.process()
-                    if processor.validate_data():
-                        return processor
-                    else:
-                        logger.warning(f"Validation failed for file: {file_path}")
-                        return None
-                except Exception as e:
-                    logger.exception(f"Failed to process file {file_path}: {e}")
-                    return None
-
-    logger.warning(f"No registered processor found for file: {file_path}. Skipping.")
-    return None
+        if processor.validate_data():
+            logger.info(f"Successfully processed file: {file_path}")
+            return processor
+        else:
+            logger.warning(f"Validation failed for file: {file_path}")
+            raise ValueError(f"Validation failed for file: {file_path}")
+    except Exception as e:
+        logger.exception(f"Failed to process file {file_path}: {e}")
+        raise
 
 
-def export_results(results: ProcessorCollection):
+def export_results(results: ProcessorCollection) -> None:
     """
     Concatenate all DataFrames and export to Excel.
 
@@ -202,7 +216,7 @@ def export_results(results: ProcessorCollection):
             sheet_name="Culverts",
         )
 
-        # Optionally, create a pivot or aggregated view
+        # Optionally create a pivot or aggregated view
         pivot_df = combined_df.groupby(["internalName", "Chan ID"]).max().reset_index()
         exporter.save_to_excel(
             data_frame=pivot_df,

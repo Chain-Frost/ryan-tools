@@ -45,6 +45,19 @@ def find_files_parallel(
             match any of the exclusion patterns.
     """
 
+    # Validate inputs
+    if (
+        not root_dirs
+        or not isinstance(root_dirs, list)
+        or all(not isinstance(d, Path) for d in root_dirs)
+    ):
+        logger.error("No root directories provided or invalid root_dirs argument.")
+        raise ValueError("You must provide at least one valid root directory.")
+
+    if not patterns or (isinstance(patterns, list) and not patterns):
+        logger.error("No patterns provided for searching.")
+        raise ValueError("You must provide at least one search pattern.")
+
     # Normalize 'patterns' and 'excludes' to lists for consistent processing
     if isinstance(patterns, str):
         patterns = [patterns]

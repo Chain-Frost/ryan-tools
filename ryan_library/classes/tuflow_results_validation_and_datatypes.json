@@ -1,5 +1,6 @@
 {
   "Cmx": {
+    "processor": "CmxProcessor",
     "suffixes": [
       "_1d_Cmx.csv"
     ],
@@ -24,6 +25,7 @@
     }
   },
   "Nmx": {
+    "processor": "NmxProcessor",
     "suffixes": [
       "_1d_Nmx.csv"
     ],
@@ -46,6 +48,7 @@
     }
   },
   "Chan": {
+    "processor": "ChanProcessor",
     "suffixes": [
       "_1d_Chan.csv"
     ],
@@ -82,6 +85,7 @@
     }
   },
   "CCA": {
+    "processor": "CcaProcessor",
     "suffixes": [
       "_1d_ccA_L.dbf",
       "_Results1D.gpkg"
@@ -102,6 +106,7 @@
     }
   },
   "Q": {
+    "processor": "QProcessor",
     "suffixes": [
       "_1d_Q.csv"
     ],

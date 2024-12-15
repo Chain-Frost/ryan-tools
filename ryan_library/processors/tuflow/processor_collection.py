@@ -1,3 +1,4 @@
+# ryan_library/processors/tuflow/processor_collection.py
 from pathlib import Path
 from loguru import logger
 import pandas as pd
@@ -27,8 +28,13 @@ class ProcessorCollection:
         Args:
             processor (BaseProcessor): A processed BaseProcessor instance.
         """
-        self.processors.append(processor)
-        logger.debug(f"Added processor: {processor}")
+        if processor.processed:
+            self.processors.append(processor)
+            logger.debug(f"Added processor: {processor.file_name}")
+        else:
+            logger.warning(
+                f"Attempted to add unprocessed processor: {processor.file_name}"
+            )
 
     def export_to_excel(
         self,
@@ -39,7 +45,6 @@ class ProcessorCollection:
         Export the combined DataFrame of all processors to a single Excel file.
 
         Args:
-            output_path (Path): The directory where the Excel file should be saved.
             file_name_prefix (str): Prefix for the resulting Excel filename.
             sheet_name (str): Name of the sheet in the Excel file.
         """
@@ -47,7 +52,6 @@ class ProcessorCollection:
             logger.warning("No processors to export.")
             return
 
-        output_path: Path = Path.cwd()
         logger.info("Starting export to Excel.")
 
         # Combine all DataFrames
@@ -64,25 +68,43 @@ class ProcessorCollection:
         # Perform the export
         self.excel_exporter.export_dataframes(export_content)
 
-        logger.info(
-            f"Exported combined data to {output_path / f'{file_name_prefix}.xlsx'}"
-        )
-
-    def export_to_csv(self, output_path: Path) -> None:
+    def export_to_csv(
+        self, output_path: str | Path, file_name: str = "export.csv"
+    ) -> None:
         """
         Export the combined DataFrame of all processors to a single CSV file.
 
         Args:
-            output_path (Path): The path where the combined CSV should be saved.
+            output_path (str | Path): The directory where the combined CSV should be saved.
+            file_name (str): Name of the resulting CSV file.
         """
         if not self.processors:
             logger.warning("No processors to export.")
             return
-        print("some processors")
+
+        output_path = Path(output_path)
+        if not output_path.exists():
+            try:
+                output_path.mkdir(parents=True, exist_ok=True)
+                logger.debug(f"Created output directory at {output_path}")
+            except Exception as e:
+                logger.error(f"Failed to create output directory: {e}")
+                return
+
+        logger.info("Starting export to CSV.")
+
         # Combine all DataFrames vertically
         combined_df = self.combine_data()
-        combined_df.to_csv(output_path / "export.csv", index=False)
-        logger.info(f"Exported combined data to {output_path}")
+        if combined_df.empty:
+            logger.warning("Combined DataFrame is empty. Nothing to export.")
+            return
+
+        csv_file: Path = output_path / file_name
+        try:
+            combined_df.to_csv(csv_file, index=False)
+            logger.info(f"Exported combined data to {csv_file}")
+        except Exception as e:
+            logger.error(f"Failed to export to CSV: {e}")
 
     def combine_data(self) -> pd.DataFrame:
         """
@@ -94,12 +116,12 @@ class ProcessorCollection:
         if not self.processors:
             return pd.DataFrame()
 
-        for p in self.processors:
-            print(p.df.head())
-            print("")
-
         combined_df: pd.DataFrame = pd.concat(
-            [p.df for p in self.processors], ignore_index=True
+            [p.df for p in self.processors if not p.df.empty], ignore_index=True
+        )
+
+        logger.debug(
+            f"Combined DataFrame created with {len(combined_df)} rows and {len(combined_df.columns)} columns."
         )
         return combined_df
 
@@ -124,4 +146,7 @@ class ProcessorCollection:
             if processor.data_type in data_types:
                 filtered_collection.add_processor(processor)
 
+        logger.debug(
+            f"Filtered ProcessorCollection created with {len(filtered_collection.processors)} processors matching data types {data_types}."
+        )
         return filtered_collection

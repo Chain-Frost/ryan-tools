@@ -6,9 +6,12 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from loguru import logger
 from pandas import DataFrame
+from typing import Any
+import importlib
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.classes.suffixes_and_dtypes import (
     DataTypeDefinition,
+    ProcessingParts,
     data_types_config,
     suffixes_config,
 )
@@ -24,7 +27,7 @@ class BaseProcessor(ABC):
     file_name: str = field(init=False)
     resolved_file_path: Path = field(init=False)
     name_parser: TuflowStringParser = field(init=False)
-    data_type: str | None = field(init=False)
+    data_type: str = field(init=False)
     df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
 
@@ -32,22 +35,123 @@ class BaseProcessor(ABC):
     output_columns: dict[str, str] = field(init=False, default_factory=dict)
     dataformat: str = field(init=False, default="")
     skip_columns: list[int] = field(init=False, default_factory=list)
-    columns_to_use: dict[str, str] = field(init=False, default={})
-    expected_in_header: list[str] = field(init=False, default=[])
+    columns_to_use: dict[str, str] = field(init=False, default_factory=dict)
+    expected_in_header: list[str] = field(init=False, default_factory=list)
 
     def __post_init__(self) -> None:
         self.file_name = self.file_path.name
         self.resolved_file_path = self.file_path.resolve()
         self.name_parser = TuflowStringParser(file_path=self.file_path)
+        if self.name_parser.data_type is None:
+            raise ValueError(
+                "data_type was not set in TuflowStringParser for self.file_path.name"
+            )
         self.data_type = self.name_parser.data_type
         logger.debug(f"{self.file_name}: Data type identified as '{self.data_type}'")
         self._load_configuration()
 
+    @classmethod
+    def from_file(cls, file_path: Path) -> "BaseProcessor":
+        """
+        Factory method to create the appropriate processor instance based on the file suffix.
+
+        Args:
+            file_path (Path): Path to the file to process.
+
+        Returns:
+            BaseProcessor: Instance of a subclass of BaseProcessor.
+
+        Raises:
+            ValueError: If data_type cannot be determined.
+            KeyError: If processor class is not defined for the data_type.
+            ImportError: If the processor module cannot be imported.
+            AttributeError: If the processor class does not exist in the module.
+        """
+        file_name = file_path.name  # Preserve original capitalization
+        logger.debug(f"Attempting to process file: {file_path}")
+
+        # Determine data type based on suffix using suffixes_config
+        data_type = cls.get_data_type_for_file(file_name)
+        if not data_type:
+            error_msg = f"No data type found for file: {file_path}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        # Get processor class name based on data type
+        processor_class_name = suffixes_config.get_processor_class_for_data_type(
+            data_type
+        )
+        if not processor_class_name:
+            error_msg = f"No processor class specified for data type '{data_type}'."
+            logger.error(error_msg)
+            raise KeyError(error_msg)
+
+        # Dynamically import the processor class
+        processor_cls = cls.get_processor_class(processor_class_name)
+
+        # Instantiate the processor class
+        try:
+            processor = processor_cls(file_path=file_path)
+            return processor
+        except Exception as e:
+            logger.exception(
+                f"Error instantiating processor '{processor_class_name}' for file {file_path}: {e}"
+            )
+            raise
+
+    @staticmethod
+    def get_processor_class(class_name: str) -> type["BaseProcessor"]:
+        """
+        Dynamically import and return a processor class by name.
+
+        Args:
+            class_name (str): Name of the processor class.
+
+        Returns:
+            Type[BaseProcessor]: The processor class.
+
+        Raises:
+            ImportError: If the module cannot be imported.
+            AttributeError: If the class does not exist in the module.
+        """
+        module_path = f"ryan_library.processors.tuflow.{class_name}"
+        try:
+            module = importlib.import_module(module_path)
+            processor_cls = getattr(module, class_name)
+            return processor_cls
+        except ImportError as ie:
+            logger.error(f"Processor module '{module_path}' not found: {ie}")
+            raise
+        except AttributeError as ae:
+            logger.error(
+                f"Processor class '{class_name}' not found in '{module_path}': {ae}"
+            )
+            raise
+
+    @staticmethod
+    def get_data_type_for_file(file_name: str) -> str | None:
+        """
+        Determine the data type based on the file's suffix.
+
+        Args:
+            file_name (str): Name of the file.
+
+        Returns:
+            str | None: The corresponding data type if found, else None.
+        """
+        for suffix, data_type in suffixes_config.suffix_to_type.items():
+            if file_name.endswith(suffix):
+                logger.debug(
+                    f"File '{file_name}' matches suffix '{suffix}' with data type '{data_type}'"
+                )
+                return data_type
+        return None
+
     def _load_configuration(self) -> None:
         """
-        Load configuration for expected headers and output columns from DataTypesConfig.
+        Load configuration for expected headers and output columns from the config.
         """
-        if self.data_type is None:
+        if not self.data_type:
             raise ValueError("data_type was not set in TuflowStringParser.")
 
         data_type_def: DataTypeDefinition | None = data_types_config.data_types.get(
@@ -63,20 +167,21 @@ class BaseProcessor(ABC):
         logger.debug(f"{self.file_name}: Loaded output_columns: {self.output_columns}")
 
         # Load processingParts
-        self.dataformat = data_type_def.dataformat
-        self.skip_columns = data_type_def.skip_columns or []
+        processing_parts: ProcessingParts = data_type_def.processing_parts
+        self.dataformat = processing_parts.dataformat
+        self.skip_columns = processing_parts.skip_columns
         logger.debug(
             f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, skip_columns: {self.skip_columns}"
         )
 
         # Depending on dataformat, load columns_to_use or expected_in_header
         if self.dataformat in ["Maximums", "ccA"]:
-            self.columns_to_use = data_type_def.columns_to_use
+            self.columns_to_use = processing_parts.columns_to_use
             logger.debug(
                 f"{self.file_name}: Loaded columns_to_use: {self.columns_to_use}"
             )
         elif self.dataformat == "Timeseries":
-            self.expected_in_header = data_type_def.expected_in_header
+            self.expected_in_header = processing_parts.expected_in_header
             logger.debug(
                 f"{self.file_name}: Loaded expected_in_header: {self.expected_in_header}"
             )
@@ -272,6 +377,11 @@ class BaseProcessor(ABC):
 
         Returns:
             tuple[pd.DataFrame, int]: DataFrame and status code.
+                Status Codes:
+                    0 - Success
+                    1 - Empty DataFrame
+                    2 - Header mismatch
+                    3 - Read error
         """
 
         usecols = list(self.columns_to_use.keys())
@@ -297,11 +407,11 @@ class BaseProcessor(ABC):
 
         if df.empty:
             logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
-            return df, 1
+            return df, 1  # 1 indicates empty DataFrame
 
         # Validate headers
         if not self.check_headers_match(df.columns.tolist()):
-            return df, 2
+            return df, 2  # 2 indicates header mismatch
 
         self.df = df
         return df, 0  # 0 indicates success
@@ -312,6 +422,11 @@ class BaseProcessor(ABC):
 
         Returns:
             tuple[pd.DataFrame, int]: DataFrame and status code.
+                Status Codes:
+                    0 - Success
+                    1 - Empty DataFrame
+                    2 - Header mismatch
+                    3 - Read error
         """
         usecols = self.expected_in_header
 
@@ -334,26 +449,31 @@ class BaseProcessor(ABC):
 
         if df.empty:
             logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
-            return df, 1
+            return df, 1  # 1 indicates empty DataFrame
 
         # Validate headers
         if not self.check_headers_match(df.columns.tolist()):
-            return df, 2
+            return df, 2  # 2 indicates header mismatch
 
         self.df = df
         return df, 0  # 0 indicates success
 
     def read_ccA_data(self) -> tuple[pd.DataFrame, int]:
         """
-        Reads CSV files with 'ccA' dataformat.
+        Reads ccA files with 'ccA' data format.
 
         Returns:
             tuple[pd.DataFrame, int]: DataFrame and status code.
+                Status Codes:
+                    0 - Success
+                    1 - Empty DataFrame
+                    2 - Header mismatch
+                    3 - Read error
         """
-        # 'ccA' can share the same reading logic as 'Maximums'
-
-        # needs to be implemented
-        return (pd.DataFrame(), 0)
+        # 'ccA' cannot be processed yet; raise NotImplementedError
+        raise NotImplementedError(
+            "Processing of ccA data format is not yet implemented."
+        )
 
     def apply_output_transformations(self) -> None:
         """
@@ -388,3 +508,26 @@ class BaseProcessor(ABC):
             pd.DataFrame: Processed data.
         """
         pass
+
+    def separate_metrics(
+        self, metric_columns: dict[str, str], new_columns: dict[str, Any]
+    ) -> DataFrame:
+        """
+        Separate metrics into distinct rows based on provided column mappings.
+
+        Args:
+            metric_columns (dict[str, str]): Mapping of original columns to new columns.
+            new_columns (dict[str, Any]): Additional columns to add with default values.
+
+        Returns:
+            DataFrame: Reshaped DataFrame.
+        """
+        reshaped_dfs = []
+        for original, new in metric_columns.items():
+            temp_df = self.df[[original]].copy()
+            temp_df.rename(columns={original: new}, inplace=True)
+            for col, val in new_columns.items():
+                temp_df[col] = val
+            reshaped_dfs.append(temp_df)
+
+        return pd.concat(reshaped_dfs, ignore_index=True)
