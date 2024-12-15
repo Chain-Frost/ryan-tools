@@ -1,10 +1,40 @@
-from typing import Tuple, List, Any, Union
-
+# ryan-scripts\TUFLOW-python\1d_splitter_v5.py
+from typing import Any, Union
 import os
 import geopandas as gpd
 import fiona
 from geopandas import GeoDataFrame
-from pandas import Series
+
+
+def main() -> None:
+    working_dir = r"Q:\BGER\PER\RP20180.317 WYLOO CREEK CROSSING PFS - FMG\TUFLOW_Wyloo\model\gis\culverts\241209"
+    os.chdir(working_dir)
+
+    nwk_path = "1d_nwk_multi_241209_001_L.shp"
+    bc_path = "2d_bc_multi_241209_001_L.shp"
+    output_dir = "splits"
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    gdf_1d_nwk, gdf_2d_bc = load_shapefiles(nwk_path, bc_path)
+    nwk_schema: dict[str, Any] = get_schemas(nwk_path)
+    bc_schema: dict[str, Any] = get_schemas(bc_path)
+    nwk_groups_count, matched_2d_bc_groups, total_2d_bc_groups = save_subsets(
+        output_dir, gdf_1d_nwk, gdf_2d_bc, nwk_schema, bc_schema
+    )
+    generate_trd_files(output_dir, gdf_1d_nwk, gdf_2d_bc)
+
+    # Reporting the counts to the user
+    print(f"\nNumber of 1d_nwk groups found: {nwk_groups_count}")
+    print(f"Number of 2d_bc groups matched with 1d_nwk: {matched_2d_bc_groups}")
+    print(f"Total number of 2d_bc groups found: {total_2d_bc_groups}")
+
+    if (
+        nwk_groups_count != matched_2d_bc_groups
+        or nwk_groups_count != total_2d_bc_groups
+    ):
+        print("Warning: Discrepancy detected in group counts!")
 
 
 def get_schemas(shapefile_path: str) -> dict[str, Any]:
@@ -54,7 +84,7 @@ def load_shapefiles(nwk_path: str, bc_path: str) -> tuple[GeoDataFrame, GeoDataF
 
 def save_subset_files(
     gdf: GeoDataFrame,
-    unique_ids: List[Union[str, int]],
+    unique_ids: list[Union[str, int]],
     prefix: str,
     filter_condition: Any,
     output_dir: str,
@@ -94,7 +124,7 @@ def save_subsets(
     gdf_2d_bc: GeoDataFrame,
     nwk_schema: dict[str, Any],
     bc_schema: dict[str, Any],
-) -> Tuple[int, int, int]:
+) -> tuple[int, int, int]:
     unique_ids = gdf_1d_nwk["ID"].unique()
     trimmed_unique_ids = set(
         uid[:-2] if uid.endswith("_U") or uid.endswith("_D") else uid
@@ -115,37 +145,6 @@ def save_subsets(
     )
 
     return nwk_groups_count, matched_2d_bc_groups, total_2d_bc_groups
-
-
-def main() -> None:
-    working_dir = r"Q:\BGER\PER\RP20180.317 WYLOO CREEK CROSSING PFS - FMG\TUFLOW_Wyloo\model\gis\culverts\241209"
-    os.chdir(working_dir)
-
-    nwk_path = "1d_nwk_multi_241209_001_L.shp"
-    bc_path = "2d_bc_multi_241209_001_L.shp"
-    output_dir = "splits"
-
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    gdf_1d_nwk, gdf_2d_bc = load_shapefiles(nwk_path, bc_path)
-    nwk_schema: dict[str, Any] = get_schemas(nwk_path)
-    bc_schema: dict[str, Any] = get_schemas(bc_path)
-    nwk_groups_count, matched_2d_bc_groups, total_2d_bc_groups = save_subsets(
-        output_dir, gdf_1d_nwk, gdf_2d_bc, nwk_schema, bc_schema
-    )
-    generate_trd_files(output_dir, gdf_1d_nwk, gdf_2d_bc)
-
-    # Reporting the counts to the user
-    print(f"\nNumber of 1d_nwk groups found: {nwk_groups_count}")
-    print(f"Number of 2d_bc groups matched with 1d_nwk: {matched_2d_bc_groups}")
-    print(f"Total number of 2d_bc groups found: {total_2d_bc_groups}")
-
-    if (
-        nwk_groups_count != matched_2d_bc_groups
-        or nwk_groups_count != total_2d_bc_groups
-    ):
-        print("Warning: Discrepancy detected in group counts!")
 
 
 if __name__ == "__main__":
