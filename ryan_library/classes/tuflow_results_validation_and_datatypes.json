@@ -1,47 +1,54 @@
 {
   "Cmx": {
-    "expected_headers": {
-      "Chan ID": "string",
-      "Qmax": "float",
-      "Time Qmax": "float",
-      "Vmax": "float",
-      "Time Vmax": "float"
-    },
+    "suffixes": [
+      "_1d_Cmx.csv"
+    ],
     "output_columns": {
       "Chan ID": "string",
       "Time": "float",
       "Q": "float",
       "V": "float"
+    },
+    "processingParts": {
+      "dataformat": "Maximums",
+      "skip_columns": [
+        0
+      ],
+      "columns_to_use": {
+        "Chan ID": "string",
+        "Qmax": "float",
+        "Time Qmax": "float",
+        "Vmax": "float",
+        "Time Vmax": "float"
+      }
     }
   },
   "Nmx": {
-    "expected_headers": {
-      "Node ID": "string",
-      "Hmax": "float",
-      "Time Hmax": "float"
-    },
+    "suffixes": [
+      "_1d_Nmx.csv"
+    ],
     "output_columns": {
       "Chan ID": "string",
       "Time": "float",
       "US_h": "float",
       "DS_h": "float"
+    },
+    "processingParts": {
+      "dataformat": "Timeseries",
+      "skip_columns": [
+        0
+      ],
+      "columns_to_use": {
+        "Node ID": "string",
+        "Hmax": "float",
+        "Time Hmax": "float"
+      }
     }
   },
   "Chan": {
-    "expected_headers": {
-      "Chan ID": "string",
-      "Length": "float",
-      "Form Loss": "float",
-      "n or Cd": "float",
-      "pSlope": "float",
-      "US Invert": "float",
-      "DS Invert": "float",
-      "LBUS Obvert": "float",
-      "RBUS Obvert": "float",
-      "LBDS Obvert": "float",
-      "RBDS Obvert": "float",
-      "Height": "float"
-    },
+    "suffixes": [
+      "_1d_Chan.csv"
+    ],
     "output_columns": {
       "Chan ID": "string",
       "Length": "float",
@@ -55,19 +62,59 @@
       "LBDS Obvert": "float",
       "RBDS Obvert": "float",
       "Height": "float"
+    },
+    "processingParts": {
+      "dataformat": "Maximums",
+      "columns_to_use": {
+        "Chan ID": "string",
+        "Length": "float",
+        "Form Loss": "float",
+        "n or Cd": "float",
+        "pSlope": "float",
+        "US Invert": "float",
+        "DS Invert": "float",
+        "LBUS Obvert": "float",
+        "RBUS Obvert": "float",
+        "LBDS Obvert": "float",
+        "RBDS Obvert": "float",
+        "Height": "float"
+      }
     }
   },
   "CCA": {
-    "expected_headers": {
-      "Run_Info": "string",
-      "Chan ID": "string",
-      "Channel": "string",
-      "SomeOtherColumn": "float"
-    },
+    "suffixes": [
+      "_1d_ccA_L.dbf",
+      "_Results1D.gpkg"
+    ],
     "output_columns": {
       "Chan ID": "string",
       "Channel": "string",
       "SomeOtherColumn": "float"
+    },
+    "processingParts": {
+      "dataformat": "ccA",
+      "columns_to_use": {
+        "Run_Info": "string",
+        "Chan ID": "string",
+        "Channel": "string",
+        "SomeOtherColumn": "float"
+      }
+    }
+  },
+  "Q": {
+    "suffixes": [
+      "_1d_Q.csv"
+    ],
+    "output_columns": {
+      "Time": "string",
+      "Chan ID": "string",
+      "Q": "float"
+    },
+    "processingParts": {
+      "dataformat": "Timeseries",
+      "expected_in_header": [
+        "Q"
+      ]
     }
   }
 }
