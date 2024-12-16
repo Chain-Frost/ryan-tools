@@ -18,10 +18,10 @@ def main():
     try:
         # Determine the script directory
         script_directory: Path = Path(__file__).resolve().parent
-        script_directory = Path(
-            # r"Q:\BGER\PER\RPRT\ryan-tools\tests\test_data\tuflow\tutorials"
-            r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
-        )
+        # script_directory = Path(
+        # r"Q:\BGER\PER\RPRT\ryan-tools\tests\test_data\tuflow\tutorials"
+        # r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
+        # )
         os.chdir(script_directory)
 
         # You can pass a list of paths here if needed; default is the script directory
