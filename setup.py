@@ -28,6 +28,7 @@ setup(
         "graphviz",
         "openpyxl",
         "loguru",
+        # "beautifulsoup4",
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],
     author="Chain Frost",
