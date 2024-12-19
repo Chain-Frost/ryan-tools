@@ -1,21 +1,40 @@
 # ryan_library/processors/tuflow/base_processor.py
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from abc import ABC, abstractmethod
+from typing import Any
+
+import importlib
 import pandas as pd
 from loguru import logger
-from pandas import DataFrame
-from typing import Any
-import importlib
-from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+
 from ryan_library.classes.suffixes_and_dtypes import (
     DataTypeDefinition,
     ProcessingParts,
     data_types_config,
     suffixes_config,
 )
+from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.dataframe_helpers import reorder_long_columns
+
+
+# Custom Exceptions
+class ProcessorError(Exception):
+    """Base exception for processor errors."""
+
+
+class ConfigurationError(ProcessorError):
+    """Exception raised for configuration-related errors."""
+
+
+class ImportProcessorError(ProcessorError):
+    """Exception raised when importing a processor class fails."""
+
+
+class DataValidationError(ProcessorError):
+    """Exception raised for data validation errors."""
+
 
 # the processors are imported as required within the class (importlib)
 
@@ -32,7 +51,9 @@ class BaseProcessor(ABC):
     name_parser: TuflowStringParser = field(init=False)
     data_type: str = field(init=False)
     df: pd.DataFrame = field(default_factory=pd.DataFrame)
+    raw_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
+    _processor_cache: dict[str, type["BaseProcessor"]] = {}
 
     # Attributes to hold configuration
     output_columns: dict[str, str] = field(init=False, default_factory=dict)
@@ -57,24 +78,14 @@ class BaseProcessor(ABC):
     def from_file(cls, file_path: Path) -> "BaseProcessor":
         """
         Factory method to create the appropriate processor instance based on the file suffix.
-
-        Args:
-            file_path (Path): Path to the file to process.
-
-        Returns:
-            BaseProcessor: Instance of a subclass of BaseProcessor.
-
-        Raises:
-            ValueError: If data_type cannot be determined.
-            KeyError: If processor class is not defined for the data_type.
-            ImportError: If the processor module cannot be imported.
-            AttributeError: If the processor class does not exist in the module.
         """
-        file_name = file_path.name  # Preserve original capitalization
+        file_name = file_path.name
         logger.debug(f"Attempting to process file: {file_path}")
 
-        # Determine data type based on suffix using suffixes_config
-        data_type = cls.get_data_type_for_file(file_name)
+        # Use TuflowStringParser to determine data_type
+        name_parser = TuflowStringParser(file_path=file_path)
+        data_type = name_parser.data_type
+
         if not data_type:
             error_msg = f"No data type found for file: {file_path}"
             logger.error(error_msg)
@@ -90,9 +101,7 @@ class BaseProcessor(ABC):
             raise KeyError(error_msg)
 
         # Dynamically import the processor class
-        processor_cls: type[BaseProcessor] = cls.get_processor_class(
-            class_name=processor_class_name
-        )
+        processor_cls = cls.get_processor_class(class_name=processor_class_name)
 
         # Instantiate the processor class
         try:
@@ -107,22 +116,16 @@ class BaseProcessor(ABC):
     @staticmethod
     def get_processor_class(class_name: str) -> type["BaseProcessor"]:
         """
-        Dynamically import and return a processor class by name.
-
-        Args:
-            class_name (str): Name of the processor class.
-
-        Returns:
-            Type[BaseProcessor]: The processor class.
-
-        Raises:
-            ImportError: If the module cannot be imported.
-            AttributeError: If the class does not exist in the module.
+        Dynamically import and return a processor class by name with caching.
         """
+        if class_name in BaseProcessor._processor_cache:
+            return BaseProcessor._processor_cache[class_name]
+
         module_path = f"ryan_library.processors.tuflow.{class_name}"
         try:
             module = importlib.import_module(module_path)
             processor_cls = getattr(module, class_name)
+            BaseProcessor._processor_cache[class_name] = processor_cls
             return processor_cls
         except ImportError as ie:
             logger.error(f"Processor module '{module_path}' not found: {ie}")
@@ -133,25 +136,25 @@ class BaseProcessor(ABC):
             )
             raise
 
-    @staticmethod
-    def get_data_type_for_file(file_name: str) -> str | None:
-        """
-        Determine the data type based on the file's suffix.
+    # @staticmethod
+    # def get_data_type_for_file(file_name: str) -> str | None:
+    #     """
+    #     Determine the data type based on the file's suffix.
 
-        Args:
-            file_name (str): Name of the file.
+    #     Args:
+    #         file_name (str): Name of the file.
 
-        Returns:
-            str | None: The corresponding data type if found, else None.
-        """
-        # I think this is redundant as we use tuflow string parser to do the same thing. remove after we get it working
-        for suffix, data_type in suffixes_config.suffix_to_type.items():
-            if file_name.endswith(suffix):
-                logger.debug(
-                    f"File '{file_name}' matches suffix '{suffix}' with data type '{data_type}'"
-                )
-                return data_type
-        return None
+    #     Returns:
+    #         str | None: The corresponding data type if found, else None.
+    #     """
+    #     # I think this is redundant as we use tuflow string parser to do the same thing. remove after we get it working
+    #     for suffix, data_type in suffixes_config.suffix_to_type.items():
+    #         if file_name.endswith(suffix):
+    #             logger.debug(
+    #                 f"File '{file_name}' matches suffix '{suffix}' with data type '{data_type}'"
+    #             )
+    #             return data_type
+    #     return None
 
     def _load_configuration(self) -> None:
         """
@@ -406,7 +409,7 @@ class BaseProcessor(ABC):
         dtype = {col: self.columns_to_use[col] for col in usecols}
 
         try:
-            df: DataFrame = pd.read_csv(
+            df: pd.DataFrame = pd.read_csv(
                 filepath_or_buffer=self.file_path,
                 usecols=usecols,
                 header=0,
@@ -433,46 +436,168 @@ class BaseProcessor(ABC):
         self.df = df
         return 0
 
-    def read_timeseries_csv(self) -> int:
+    def read_and_process_timeseries_csv(self, data_type: str) -> int:
         """
-        Reads CSV files with 'Timeseries' dataformat.
-
-        Returns:
-            int: DataFrame and status code.
-                Status Codes:
-                    0 - Success
-                    1 - Empty DataFrame
-                    2 - Header mismatch
-                    3 - Read error
+        Reads and processes timeseries CSV files, including cleaning headers and reshaping data.
         """
-        usecols = self.expected_in_header
-
         try:
-            df = pd.read_csv(
-                filepath_or_buffer=self.file_path,
-                usecols=usecols,
-                header=0,
-                skipinitialspace=True,
-            )
-            logger.debug(
-                f"Timeseries CSV file '{self.file_name}' read successfully with {len(df)} rows."
-            )
-        except Exception as e:
-            logger.error(
-                f"{self.file_name}: Failed to read Timeseries CSV file '{self.file_path}': {e}"
-            )
+            df_full = self._read_csv(self.file_path)
+            if df_full.empty:
+                logger.error(
+                    f"{self.file_name}: No data found in file: {self.file_path}"
+                )
+                return 1
+
+            df = self._clean_headers(df_full, data_type)
+            if df.empty:
+                return 1
+
+            df_melted = self._reshape_timeseries_df(df, data_type)
+            if df_melted.empty:
+                logger.error(f"{self.file_name}: No data found after reshaping.")
+                return 1
+
+            self.df = df_melted
+            self._apply_final_transformations(data_type)
+            return 0
+        except ProcessorError:
             return 3
 
-        if df.empty:
-            logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
-            return 1
+    def _read_csv(self, file_path: Path) -> pd.DataFrame:
+        try:
+            df = pd.read_csv(
+                file_path, header=0, skipinitialspace=True, encoding="utf-8"
+            )
+            logger.debug(
+                f"CSV file '{self.file_name}' read successfully with {len(df)} rows."
+            )
+            return df
+        except Exception as e:
+            logger.exception(
+                f"{self.file_name}: Failed to read CSV file '{file_path}': {e}"
+            )
+            raise ProcessorError(f"Failed to read CSV file '{file_path}': {e}")
+
+    def _clean_headers(self, df: pd.DataFrame, data_type: str) -> pd.DataFrame:
+        try:
+            df = df.drop(df.columns[0], axis=1)
+            logger.debug(f"Dropped the first column from '{self.file_path}'.")
+
+            if "Time (h)" in df.columns:
+                df.rename(columns={"Time (h)": "Time"}, inplace=True)
+                logger.debug("Renamed 'Time (h)' to 'Time'.")
+
+            if "Time" not in df.columns:
+                logger.error(
+                    f"{self.file_name}: 'Time' column is missing after cleaning headers."
+                )
+                raise DataValidationError(
+                    "'Time' column is missing after cleaning headers."
+                )
+
+            cleaned_columns = self._clean_column_names(df.columns, data_type)
+            df.columns = cleaned_columns
+            logger.debug(f"Cleaned headers: {df.columns.tolist()}")
+            return df
+        except Exception as e:
+            logger.exception(f"{self.file_name}: Failed to clean headers: {e}")
+            raise ProcessorError(f"Failed to clean headers: {e}")
+
+    def _clean_column_names(self, columns: pd.Index, data_type: str) -> list[str]:
+        cleaned_columns = []
+        for col in columns:
+            if col.startswith(f"{data_type} "):
+                col_clean = col[len(data_type) + 1 :]
+            else:
+                col_clean = col
+
+            if "[" in col_clean and "]" in col_clean:
+                col_clean = col_clean.split("[")[0].strip()
+
+            cleaned_columns.append(col_clean)
+        return cleaned_columns
+
+    def _reshape_timeseries_df(self, df: pd.DataFrame, data_type: str) -> pd.DataFrame:
+        category_type = "Chan ID" if "1d" in self.suffixes else "Location"
+        logger.debug(
+            f"{'1d' in self.suffixes and 'Chan ID' or 'Location'} suffix detected; using '{category_type}' as category type."
+        )
+
+        try:
+            if data_type == "H":
+                df_melted = self._reshape_h_data(df, category_type)
+            else:
+                # For data types like 'Q', 'F', 'V' with single value per channel
+                df_melted = df.melt(
+                    id_vars=["Time"], var_name=category_type, value_name=data_type
+                )
+                logger.debug(
+                    f"Reshaped DataFrame to long format with {len(df_melted)} rows."
+                )
+        except Exception as e:
+            logger.exception(f"{self.file_name}: Failed to reshape DataFrame: {e}")
+            raise ProcessorError(f"Failed to reshape DataFrame: {e}")
+
+        if df_melted.empty:
+            logger.error(f"{self.file_name}: No data found after reshaping.")
+            raise DataValidationError("No data found after reshaping.")
 
         # Validate headers
-        if not self.check_headers_match(df.columns.tolist()):
-            return 2
+        expected_headers = (
+            ["Time", category_type, "H_US", "H_DS"]
+            if data_type == "H"
+            else ["Time", category_type, data_type]
+        )
+        if not self.check_headers_match(df_melted.columns.tolist(), expected_headers):
+            logger.error(f"{self.file_name}: Header mismatch after reshaping.")
+            raise DataValidationError("Header mismatch after reshaping.")
 
-        self.df = df
-        return 0
+        return df_melted
+
+    def _reshape_h_data(self, df: pd.DataFrame, category_type: str) -> pd.DataFrame:
+        # Special handling for 'H' data type which has 'H_US' and 'H_DS' per channel
+        # Assuming headers are like 'H_US', 'H_DS' for each channel
+        # We need to reshape such that each channel has two entries per time: 'H_US' and 'H_DS'
+        # Alternatively, we can create separate columns for 'H_US' and 'H_DS'
+        # For simplicity, we'll assume each channel has both 'H_US' and 'H_DS' and reshape accordingly
+
+        # First, verify that for each channel, both 'H_US' and 'H_DS' exist
+        channels = set()
+        for col in df.columns:
+            if col.endswith("_US") or col.endswith("_DS"):
+                channels.add(col.rsplit("_", 1)[0])
+
+        records = []
+        for _, row in df.iterrows():
+            time = row["Time"]
+            for chan in channels:
+                h_us = row.get(f"{chan}_US", -9999.0)
+                h_ds = row.get(f"{chan}_DS", -9999.0)
+                records.append(
+                    {
+                        "Time": time,
+                        category_type: chan,
+                        "H_US": h_us,
+                        "H_DS": h_ds,
+                    }
+                )
+
+        df_melted = pd.DataFrame(records)
+        logger.debug(
+            f"Reshaped 'H' DataFrame to long format with {len(df_melted)} rows."
+        )
+        return df_melted
+
+    def _apply_final_transformations(self, data_type: str) -> None:
+        col_types = {
+            "Time": "float64",
+            data_type: "float64",
+        }
+
+        if data_type == "H":
+            col_types.update({"H_US": "float64", "H_DS": "float64"})
+
+        self.apply_dtype_mapping(col_types, context="final_transformations")
 
     def read_ccA_data(self) -> tuple[pd.DataFrame, int]:
         """
@@ -504,7 +629,7 @@ class BaseProcessor(ABC):
 
     def separate_metrics(
         self, metric_columns: dict[str, str], new_columns: dict[str, Any]
-    ) -> DataFrame:
+    ) -> pd.DataFrame:
         """
         Separate metrics into distinct rows based on provided column mappings.
 

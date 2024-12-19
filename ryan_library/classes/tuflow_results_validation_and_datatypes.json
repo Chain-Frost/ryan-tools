@@ -1,9 +1,7 @@
 {
   "Cmx": {
     "processor": "CmxProcessor",
-    "suffixes": [
-      "_1d_Cmx.csv"
-    ],
+    "suffixes": ["_1d_Cmx.csv"],
     "output_columns": {
       "Chan ID": "string",
       "Time": "float",
@@ -23,9 +21,7 @@
   },
   "Nmx": {
     "processor": "NmxProcessor",
-    "suffixes": [
-      "_1d_Nmx.csv"
-    ],
+    "suffixes": ["_1d_Nmx.csv"],
     "output_columns": {
       "Chan ID": "string",
       "Time": "float",
@@ -43,9 +39,7 @@
   },
   "Chan": {
     "processor": "ChanProcessor",
-    "suffixes": [
-      "_1d_Chan.csv"
-    ],
+    "suffixes": ["_1d_Chan.csv"],
     "output_columns": {
       "Chan ID": "string",
       "Length": "float",
@@ -73,11 +67,7 @@
   },
   "ccA": {
     "processor": "ccAProcessor",
-    "suffixes": [
-      "_1d_ccA_L.dbf",
-      "_Results1D.gpkg",
-      "_Results.gpkg"
-    ],
+    "suffixes": ["_1d_ccA_L.dbf", "_Results1D.gpkg", "_Results.gpkg"],
     "output_columns": {
       "Chan ID": "string",
       "pFull_Max": "float",
@@ -110,9 +100,7 @@
   },
   "Q": {
     "processor": "QProcessor",
-    "suffixes": [
-      "_1d_Q.csv"
-    ],
+    "suffixes": ["_1d_Q.csv"],
     "output_columns": {
       "Time": "string",
       "Chan ID": "string",
@@ -120,9 +108,21 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
-      "expected_in_header": [
-        "Q"
-      ]
+      "expected_in_header": "Q"
+    }
+  },
+  "H": {
+    "processor": "HProcessor",
+    "suffixes": ["_1d_H.csv"],
+    "output_columns": {
+      "Time": "string",
+      "Chan ID": "string",
+      "US_H": "float",
+      "DS_H": "float"
+    },
+    "processingParts": {
+      "dataformat": "Timeseries",
+      "expected_in_header": "Q"
     }
   }
 }
