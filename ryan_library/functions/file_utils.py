@@ -3,6 +3,8 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import fnmatch
 from loguru import logger
+import fnmatch
+import warnings  # For emitting deprecation warnings
 
 
 def find_files_parallel(
@@ -12,6 +14,10 @@ def find_files_parallel(
     report_level: int | None = 2,
     print_found_folder: bool = True,
     recursive_search: bool = True,
+    # Old parameters for backward compatibility
+    root_dir: str | Path | None = None,
+    pattern: str | list[str] | None = None,
+    exclude: str | list[str] | None = None,
 ) -> list[Path]:
     """
     Search for files matching specific patterns across multiple directories in parallel.
@@ -22,30 +28,79 @@ def find_files_parallel(
     The search is performed in parallel using multiple threads to improve performance.
 
     Args:
-        root_dirs (list[Path]): The root directories where the search will begin.
-        patterns (Union[str, list[str]]): Glob pattern(s) to include in the search.
-            Can be a single pattern string or a list of patterns. Patterns can match
-            any part of the filename, e.g., "*.hpc.dt.csv", "M01_*", etc.
-        excludes (Union[str, list[str], None], optional): Glob pattern(s) to exclude
-            from the search. Can be a single pattern string, a list of patterns, or None.
-            Patterns can match any part of the filename, e.g., "*.hpc.tlf", "temp_*", etc.
-            Defaults to None.
+        root_dirs (Optional[List[Path]]): The root directories where the search will begin.
+            If not provided, `root_dir` can be used for backward compatibility.
+        patterns (Optional[Union[str, List[str]]]): Glob pattern(s) to include in the search.
+            Can be a single pattern string or a list of patterns.
+        excludes (Optional[Union[str, List[str]]]): Glob pattern(s) to exclude from the search.
+            Can be a single pattern string, a list of patterns, or None.
         report_level (Optional[int], optional): Determines the frequency of logging
-            folder search progress based on directory depth. If set to an integer,
-            it logs at every 'report_level' depth. If None, depth-based reporting
-            is disabled. Defaults to 2.
+            folder search progress based on directory depth. Defaults to 2.
         print_found_folder (bool, optional): If True, logs the folders that contain
             matched files. Defaults to True.
         recursive_search (bool, optional): If True, searches directories recursively.
-            If False, only searches the top-level directories without traversing subdirectories.
             Defaults to True.
+        root_dir (Optional[Union[str, Path]]): **Deprecated.** Use `root_dirs` instead.
+        pattern (Optional[Union[str, List[str]]]): **Deprecated.** Use `patterns` instead.
+        exclude (Optional[Union[str, List[str]]]): **Deprecated.** Use `excludes` instead.
 
     Returns:
-        list[Path]: A list of file paths that match the specified patterns and do not
+        List[Path]: A list of file paths that match the specified patterns and do not
             match any of the exclusion patterns.
     """
 
-    # Validate inputs
+    # Handle deprecated parameters with warnings
+    if root_dir is not None:
+        warnings.warn(
+            "The 'root_dir' parameter is deprecated and will be removed in a future version. "
+            "Use 'root_dirs' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if root_dirs is None:
+            # Convert single root_dir to list of Paths
+            root_dirs = (
+                [Path(root_dir)]
+                if isinstance(root_dir, (str, Path))
+                else [Path(d) for d in root_dir]
+            )
+        else:
+            logger.warning(
+                "Both 'root_dir' and 'root_dirs' parameters were provided. "
+                "'root_dirs' will take precedence."
+            )
+
+    if pattern is not None:
+        warnings.warn(
+            "The 'pattern' parameter is deprecated and will be removed in a future version. "
+            "Use 'patterns' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if patterns is None:
+            patterns = pattern
+        else:
+            logger.warning(
+                "Both 'pattern' and 'patterns' parameters were provided. "
+                "'patterns' will take precedence."
+            )
+
+    if exclude is not None:
+        warnings.warn(
+            "The 'exclude' parameter is deprecated and will be removed in a future version. "
+            "Use 'excludes' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if excludes is None:
+            excludes = exclude
+        else:
+            logger.warning(
+                "Both 'exclude' and 'excludes' parameters were provided. "
+                "'excludes' will take precedence."
+            )
+
+    # Now proceed with the original function logic using the new parameters
     if (
         not root_dirs
         or not isinstance(root_dirs, list)
