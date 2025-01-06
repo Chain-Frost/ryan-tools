@@ -281,7 +281,7 @@ def main() -> None:
     else:
         # Prompt the user to enter the directory path
         directory = input(
-            prompt="Enter the path to the directory containing .msg files: "
+            "Enter the path to the directory containing .msg files: "
         ).strip()
 
     rename_msg_files(directory=directory)
