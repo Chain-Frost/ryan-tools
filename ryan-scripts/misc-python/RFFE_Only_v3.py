@@ -64,7 +64,7 @@ def main():
     all_catchments_results = pd.DataFrame()
 
     # Initialize list to track failed catchments
-    failed_catchments: List[Dict[str, any]] = []
+    failed_catchments: list[dict[str, any]] = []
 
     for idx, row in ctchdata.iterrows():
         catchment_number = idx + 1
@@ -210,7 +210,7 @@ def fetch_rffe(
         return None
 
 
-def clean_rffe(rffe_results: str) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def clean_rffe(rffe_results: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Cleans and parses the RFFE response text into two pandas DataFrames:
     one for 'results' and another for 'allCatchmentResults'.
@@ -323,7 +323,7 @@ def process_catchment(
     area: float,
     name: str,
     out_folder: Path,
-) -> Tuple[pd.DataFrame, pd.DataFrame, Optional[str]]:
+) -> tuple[pd.DataFrame, pd.DataFrame, Optional[str]]:
     """
     Processes a single catchment: fetches data, saves raw response,
     cleans data, and returns two DataFrames (results and allCatchmentResults).
