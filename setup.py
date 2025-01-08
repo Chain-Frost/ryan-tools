@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="ryan_functions",
-    version="0.3771",
+    version="0.3775",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     install_requires=[
@@ -28,6 +28,7 @@ setup(
         "graphviz",
         "openpyxl",
         "loguru",
+        "tabulate",
         # "beautifulsoup4",
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],
