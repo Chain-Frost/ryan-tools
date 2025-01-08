@@ -1,13 +1,11 @@
 # ryan_library.functions.data_processing.py
 import re  # Unlicensed regex
-import logging
-from typing import Any, Callable, Optional
-
-# Configure the logger for the module
-logger = logging.getLogger(__name__)
+from loguru import logger
+from typing import Any
+from _collections_abc import Callable
 
 
-def safe_apply(func: Callable[[Any], Any], value: Any) -> Optional[Any]:
+def safe_apply(func: Callable[[Any], Any], value: Any) -> Any | None:
     """
     Safely applies a function to a given value, ignoring any exceptions that occur.
 

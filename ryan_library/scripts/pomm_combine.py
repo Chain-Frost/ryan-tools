@@ -91,9 +91,9 @@ def process_pomm_file(file_path: str) -> pd.DataFrame:
         transposed_df["TrimmedRunCode"] = transposed_df.apply(
             lambda row: clean_runcode(
                 run_code=row["RunCode"],
-                aep=row["AEP"] + "p",
-                duration=row["Duration"] + "m",
-                tp="TP" + row["TP"],
+                aep=row["AEP"] + "p" if row["AEP"] is not None else None,
+                duration=row["Duration"] + "m" if row["Duration"] is not None else None,
+                tp="TP" + row["TP"] if row["TP"] is not None else None,
             ),
             axis=1,
         )
