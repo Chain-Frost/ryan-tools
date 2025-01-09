@@ -1,23 +1,24 @@
-# ryan_library\functions\file_utils.py
+# ryan_library/functions/file_utils.py
+
+import warnings
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Union, Optional
 import fnmatch
 from loguru import logger
-import fnmatch
-import warnings  # For emitting deprecation warnings
 
 
 def find_files_parallel(
-    root_dirs: list[Path],
-    patterns: str | list[str],
-    excludes: str | list[str] | None = None,
-    report_level: int | None = 2,
+    root_dirs: Optional[list[Path]] = None,
+    patterns: Optional[Union[str, list[str]]] = None,
+    excludes: Optional[Union[str, list[str]]] = None,
+    report_level: Optional[int] = 2,
     print_found_folder: bool = True,
     recursive_search: bool = True,
-    # Old parameters for backward compatibility
-    root_dir: str | Path | None = None,
-    pattern: str | list[str] | None = None,
-    exclude: str | list[str] | None = None,
+    # Deprecated parameters for backward compatibility
+    root_dir: Optional[Union[str, Path, list[Union[str, Path]]]] = None,
+    pattern: Optional[Union[str, list[str]]] = None,
+    exclude: Optional[Union[str, list[str]]] = None,
 ) -> list[Path]:
     """
     Search for files matching specific patterns across multiple directories in parallel.
@@ -28,11 +29,11 @@ def find_files_parallel(
     The search is performed in parallel using multiple threads to improve performance.
 
     Args:
-        root_dirs (Optional[List[Path]]): The root directories where the search will begin.
+        root_dirs (Optional[list[Path]]): The root directories where the search will begin.
             If not provided, `root_dir` can be used for backward compatibility.
-        patterns (Optional[Union[str, List[str]]]): Glob pattern(s) to include in the search.
+        patterns (Optional[Union[str, list[str]]]): Glob pattern(s) to include in the search.
             Can be a single pattern string or a list of patterns.
-        excludes (Optional[Union[str, List[str]]]): Glob pattern(s) to exclude from the search.
+        excludes (Optional[Union[str, list[str]]]): Glob pattern(s) to exclude from the search.
             Can be a single pattern string, a list of patterns, or None.
         report_level (Optional[int], optional): Determines the frequency of logging
             folder search progress based on directory depth. Defaults to 2.
@@ -40,15 +41,15 @@ def find_files_parallel(
             matched files. Defaults to True.
         recursive_search (bool, optional): If True, searches directories recursively.
             Defaults to True.
-        root_dir (Optional[Union[str, Path]]): **Deprecated.** Use `root_dirs` instead.
-        pattern (Optional[Union[str, List[str]]]): **Deprecated.** Use `patterns` instead.
-        exclude (Optional[Union[str, List[str]]]): **Deprecated.** Use `excludes` instead.
+        root_dir (Optional[Union[str, Path, list[Union[str, Path]]]]): **Deprecated.**
+            Use `root_dirs` instead.
+        pattern (Optional[Union[str, list[str]]]): **Deprecated.** Use `patterns` instead.
+        exclude (Optional[Union[str, list[str]]]): **Deprecated.** Use `excludes` instead.
 
     Returns:
-        List[Path]: A list of file paths that match the specified patterns and do not
+        list[Path]: A list of file paths that match the specified patterns and do not
             match any of the exclusion patterns.
     """
-
     # Handle deprecated parameters with warnings
     if root_dir is not None:
         warnings.warn(
@@ -58,15 +59,17 @@ def find_files_parallel(
             stacklevel=2,
         )
         if root_dirs is None:
-            # Convert single root_dir to list of Paths
-            root_dirs = (
-                [Path(root_dir)]
-                if isinstance(root_dir, (str, Path))
-                else [Path(d) for d in root_dir]
-            )
+            if isinstance(root_dir, (str, Path)):
+                root_dirs = [Path(root_dir)]
+            elif isinstance(root_dir, list):
+                root_dirs = [Path(r) for r in root_dir]
+            else:
+                raise TypeError(
+                    "The 'root_dir' must be a string, Path, or list of these."
+                )
         else:
             logger.warning(
-                "Both 'root_dir' and 'root_dirs' parameters were provided. "
+                "Both 'root_dir' and 'root_dirs' were provided. "
                 "'root_dirs' will take precedence."
             )
 
@@ -81,7 +84,7 @@ def find_files_parallel(
             patterns = pattern
         else:
             logger.warning(
-                "Both 'pattern' and 'patterns' parameters were provided. "
+                "Both 'pattern' and 'patterns' were provided. "
                 "'patterns' will take precedence."
             )
 
@@ -96,48 +99,38 @@ def find_files_parallel(
             excludes = exclude
         else:
             logger.warning(
-                "Both 'exclude' and 'excludes' parameters were provided. "
+                "Both 'exclude' and 'excludes' were provided. "
                 "'excludes' will take precedence."
             )
 
-    # Now proceed with the original function logic using the new parameters
-    if (
-        not root_dirs
-        or not isinstance(root_dirs, list)
-        or all(not isinstance(d, Path) for d in root_dirs)
-    ):
-        logger.error("No root directories provided or invalid root_dirs argument.")
-        raise ValueError("You must provide at least one valid root directory.")
-
-    if not patterns or (isinstance(patterns, list) and not patterns):
-        logger.error("No patterns provided for searching.")
-        raise ValueError("You must provide at least one search pattern.")
+    # Validate required parameters
+    if not root_dirs:
+        raise TypeError(
+            "find_files_parallel() missing required argument: 'root_dirs' or 'root_dir'"
+        )
+    if not patterns:
+        raise TypeError(
+            "find_files_parallel() missing required argument: 'patterns' or 'pattern'"
+        )
 
     # Normalize 'patterns' and 'excludes' to lists for consistent processing
-    if isinstance(patterns, str):
-        patterns = [patterns]
-    if excludes is None:
-        excludes = []
-    elif isinstance(excludes, str):
-        excludes = [excludes]
+    patterns = [patterns] if isinstance(patterns, str) else patterns
+    excludes = [excludes] if isinstance(excludes, str) else excludes or []
 
     # Convert all patterns to lowercase for case-insensitive matching
     patterns = [p.lower() for p in patterns]
     excludes = [e.lower() for e in excludes]
-    logger.info(f"Search patterns:  {patterns}")
+
+    logger.info(f"Search patterns: {patterns}")
     if excludes:
         logger.info(f"Exclude patterns: {excludes}")
+
     # Obtain the current working directory to calculate relative paths later
     current_dir = Path.cwd()
 
     def search_dir(path: Path, root_dir: Path) -> tuple[list[Path], int, int]:
         """
         Search for files matching the patterns within a single directory.
-
-        This helper function is executed in parallel across multiple directories.
-        It traverses the directory tree (recursively or non-recursively based on `recursive_search`),
-        matches files against the inclusion and exclusion patterns, and logs progress
-        based on the report_level.
 
         Args:
             path (Path): The directory path to search.
@@ -149,100 +142,84 @@ def find_files_parallel(
                 - Number of files searched.
                 - Number of folders searched.
         """
-        matched_files: list[Path] = []  # Stores paths of files that match the patterns
-        files_searched = 0  # Counter for the number of files processed
-        folders_searched = 0  # Counter for the number of folders processed
-        folders_with_matches = set()  # Tracks folders containing matched files
+        matched_files: list[Path] = []
+        files_searched = 0
+        folders_searched = 0
+        folders_with_matches = set()
 
-        # Choose the appropriate globbing method based on `recursive_search`
-        if recursive_search:
-            iterator = path.rglob("*")
-        else:
-            iterator = path.glob("*")
+        iterator = path.rglob("*") if recursive_search else path.glob("*")
 
-        # Traverse the directory (recursively or not)
         for subpath in iterator:
             if subpath.is_dir():
-                # Only perform depth-related logging if recursive_search is True
-                if recursive_search and report_level is not None:
-                    # Calculate the directory depth relative to the root_dir
+                folders_searched += 1
+
+                if recursive_search and report_level:
                     try:
                         relative_path = subpath.relative_to(root_dir)
                         depth = len(relative_path.parts)
                     except ValueError:
-                        # If subpath is not relative to root_dir, default depth to 0
                         depth = 0
 
-                    # Log the folder being searched based on the report_level
                     if depth % report_level == 0:
-                        try:
-                            display_path = subpath.relative_to(current_dir)
-                        except ValueError:
-                            # Use absolute path if relative path cannot be determined
-                            display_path = subpath.resolve()
-                        logger.info(f"Searching ({depth}): {display_path}")
+                        display_path = (
+                            subpath.relative_to(current_dir)
+                            if subpath.is_relative_to(current_dir)
+                            else subpath.resolve()
+                        )
+                        logger.info(f"Searching (depth {depth}): {display_path}")
+                continue
 
-                folders_searched += 1  # Increment folder counter
-                continue  # Skip directories for file matching
-
-            files_searched += 1  # Increment file counter
-
-            # Get the filename in lowercase for case-insensitive matching
+            files_searched += 1
             filename = subpath.name.lower()
 
             # Inclusion Check: Check if the filename matches any inclusion pattern
             if any(fnmatch.fnmatch(filename, pattern) for pattern in patterns):
                 # Exclusion Check: Ensure the filename does not match any exclusion pattern
                 if not any(fnmatch.fnmatch(filename, exclude) for exclude in excludes):
-                    logger.debug(f"Matched file:  {subpath.relative_to(current_dir)}")
-                    matched_files.append(subpath)  # Add to matched files list
-                    folders_with_matches.add(subpath.parent)  # Track parent folder
+                    logger.debug(f"Matched file: {subpath.relative_to(current_dir)}")
+                    matched_files.append(subpath)
+                    folders_with_matches.add(subpath.parent)
 
-        # Optionally log folders that contain matched files
         if print_found_folder:
             for folder in folders_with_matches:
-                try:
-                    display_path = folder.relative_to(current_dir)
-                except ValueError:
-                    display_path = folder.resolve()
+                display_path = (
+                    folder.relative_to(current_dir)
+                    if folder.is_relative_to(current_dir)
+                    else folder.resolve()
+                )
                 logger.info(f"Folder with matched files: {display_path}")
 
         logger.info(f"Found {len(matched_files)} files in {path}")
         return matched_files, files_searched, folders_searched
 
-    logger.info(f"Starting search in {len(root_dirs)} root directories.")
+    logger.info(f"Starting search in {len(root_dirs)} root directory(ies).")
 
-    total_files_searched = 0  # Total number of files processed across all directories
-    total_folders_searched = (
-        0  # Total number of folders processed across all directories
-    )
+    total_files_searched = 0
+    total_folders_searched = 0
+    all_matched_files: list[Path] = []
 
     # Utilize a thread pool to perform directory searches in parallel
     with ThreadPoolExecutor() as executor:
-        # Submit a search task for each root directory
-        futures = [
-            executor.submit(search_dir, root_dir, root_dir) for root_dir in root_dirs
-        ]
-        results = []  # To store the results from each thread
+        futures = {
+            executor.submit(search_dir, root_dir, root_dir): root_dir
+            for root_dir in root_dirs
+        }
 
-        # Process the results as they complete
         for future in as_completed(futures):
+            root_dir = futures[future]
             try:
                 matched, files, folders = future.result()
-                results.append(matched)
+                all_matched_files.extend(matched)
                 total_files_searched += files
                 total_folders_searched += folders
             except Exception as e:
-                # Log any errors that occur during the search
-                logger.error(f"Error occurred during file search: {e}")
+                logger.error(f"Error searching in {root_dir}: {e}")
 
-    # Combine all matched files from different directories into a single list
-    all_files = [file for sublist in results for file in sublist]
-    logger.info(f"Total files matched: {len(all_files)}")
+    logger.info(f"Total files matched: {len(all_matched_files)}")
     logger.info(f"Total files searched: {total_files_searched}")
     logger.info(f"Total folders searched: {total_folders_searched}")
 
-    return all_files
+    return all_matched_files
 
 
 def is_non_zero_file(fpath: Path) -> bool:
