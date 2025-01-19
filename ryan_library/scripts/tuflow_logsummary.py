@@ -2,7 +2,6 @@
 
 from multiprocessing import Pool
 from pathlib import Path
-from typing import Any
 import pandas as pd
 from loguru import logger
 from ryan_library.functions.file_utils import find_files_parallel
@@ -18,6 +17,8 @@ from ryan_library.functions.parse_tlf import (
     read_log_file,
     process_top_lines,
     finalise_data,
+)
+from ryan_library.functions.dataframe_helpers import (
     merge_and_sort_data,
     reorder_columns,
 )
@@ -33,48 +34,68 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame containing the processed data, or an empty DataFrame on failure.
     """
-    logfile_path = logfile
+    logfile_path: Path = logfile
     sim_complete: int = 0
     success: int = 0
     spec_events: bool = False
     spec_scen: bool = False
     spec_var: bool = False
-    data_dict: dict[str, Any] = {}
+    data_dict: dict[str, str | float] = {}
+    current_section = None
 
-    file_size = logfile_path.stat().st_size
-    is_large_file = file_size > 10 * 1024 * 1024  # 10 MB
+    file_size: int = logfile_path.stat().st_size
+    is_large_file: bool = file_size > 10 * 1024 * 1024  # 10 MB
 
-    lines_reversed = read_log_file(logfile_path, is_large_file)
-    if not lines_reversed:
+    lines: list[str] = read_log_file(
+        logfile_path=logfile_path,
+        is_large_file=is_large_file,
+    )
+    # large file currently does nothing - can be a problem if there are lots of errors logged in the file
+
+    # lines_reversed = list(reversed(lines))
+
+    if not lines:
         return pd.DataFrame()
 
     runcode: str = logfile_path.stem
-    relative_logfile_path = convert_to_relative_path(logfile_path)
+    relative_logfile_path: Path = convert_to_relative_path(user_path=logfile_path)
     logger.info(f"Processing {runcode} : {relative_logfile_path}")
 
-    for line in lines_reversed:
-        data_dict, sim_complete = search_for_completion(line, data_dict, sim_complete)
+    logger.debug(f"search_for_completion: {runcode}")
+    for line in lines[-100:]:
+        data_dict, sim_complete, current_section = search_for_completion(
+            line=line,
+            data_dict=data_dict,
+            sim_complete=sim_complete,
+            current_section=current_section,
+        )
         if sim_complete == 2:
             data_dict["Runcode"] = runcode
             break
+    logger.debug(f"search_for_completion: {data_dict}")
 
     if sim_complete == 2:
         data_dict, success, spec_events, spec_scen, spec_var = process_top_lines(
-            logfile_path,
-            lines_reversed if not is_large_file else [],
-            data_dict,
-            success,
-            spec_events,
-            spec_scen,
-            spec_var,
-            is_large_file,
-            runcode,
-            relative_logfile_path,
+            logfile_path=logfile_path,
+            lines=lines,  # if not is_large_file else [],
+            data_dict=data_dict,
+            success=success,
+            spec_events=spec_events,
+            spec_scen=spec_scen,
+            spec_var=spec_var,
+            is_large_file=is_large_file,
+            runcode=runcode,
+            relative_logfile_path=relative_logfile_path,
         )
+        logger.debug(f"process_top_lines: {data_dict}")
 
         if success == 4:
-            df = finalise_data(runcode, data_dict, logfile_path, is_large_file)
+            df: pd.DataFrame = finalise_data(
+                runcode=runcode,
+                data_dict=data_dict,
+            )
             if not df.empty:
+                logger.debug(df.head())
                 return df
             else:
                 logger.warning(f"Finalization failed for {runcode}, skipping")
@@ -87,19 +108,24 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def main_processing() -> None:
+def main_processing(console_log_level: str | None) -> None:
     """
     Main function to process log files using multiprocessing.
     """
     # log_dir = Path.home() / "Documents" / "MyAppLogs"
     # log_file = "tuflow_logsummary.log"
+
     results = [pd.DataFrame()]
     successful_runs: int = 0
-    console_log_level: str = "INFO"
+    if not console_log_level:
+        console_log_level = "INFO"
     with setup_logger(console_log_level=console_log_level) as log_queue:
         logger.info("Starting log file processing...")
+        logger.info(
+            "Built and tested with 2023-03-AF-iSP-w64. Might miss some items for older versions - use the old log_summary version instead if required"
+        )
 
-        root_dir = Path.cwd()
+        root_dir: Path = Path.cwd()
         files: list[Path] = list(
             find_files_parallel(
                 root_dirs=[root_dir],
@@ -134,13 +160,53 @@ def main_processing() -> None:
         successful_runs = len(results)
         if results:
             try:
-                merged_df = merge_and_sort_data(results)
-                merged_df = reorder_columns(merged_df)
+                merged_df: pd.DataFrame = merge_and_sort_data(
+                    frames=results, sort_column="StartDate"
+                )
+
+                # Define the desired column order
+                prioritized_columns = [
+                    "Runcode",
+                    "trim_tcf",
+                    "StartDate",
+                ]
+
+                prefix_order = ["-e", "-s"]  # Event and Scenario variables
+
+                second_priority_columns = [
+                    "Initialise_RunTime",
+                    "Final_RunTime",
+                    "Model_Start_Time",
+                    "Model_End_Time",
+                    "TGC",
+                    "TBC",
+                    "ECF",
+                    "TEF",
+                    "BC_dbase",
+                    "TCF",
+                    "TUFLOW_version",
+                    "ComputerName",
+                    "username",
+                    "EndStatus",
+                ]
+
+                columns_to_end = ["orig_TCF_path", "orig_log_path", "orig_results_path"]
+
+                # Reorder the columns using the helper function
+                merged_df = reorder_columns(
+                    data_frame=merged_df,
+                    prioritized_columns=prioritized_columns,
+                    prefix_order=prefix_order,
+                    second_priority_columns=second_priority_columns,
+                    columns_to_end=columns_to_end,
+                )
+
                 save_to_excel(
                     data_frame=merged_df,
                     file_name_prefix="ModellingLog",
                     sheet_name="Log Summary",
                 )
+
                 logger.info("Log file processing completed successfully.")
             except Exception:
                 logger.exception("Error during merging/saving DataFrames")
@@ -151,4 +217,4 @@ def main_processing() -> None:
 
 
 if __name__ == "__main__":
-    main_processing()
+    main_processing(console_log_level="DEBUG")
