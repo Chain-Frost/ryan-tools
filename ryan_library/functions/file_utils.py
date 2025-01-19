@@ -28,11 +28,11 @@ def find_files_parallel(
     The search is performed in parallel using multiple threads to improve performance.
 
     Args:
-        root_dirs (Optional[List[Path]]): The root directories where the search will begin.
+        root_dirs (Optional[list[Path]]): The root directories where the search will begin.
             If not provided, `root_dir` can be used for backward compatibility.
-        patterns (Optional[Union[str, List[str]]]): Glob pattern(s) to include in the search.
+        patterns (Optional[Union[str, list[str]]]): Glob pattern(s) to include in the search.
             Can be a single pattern string or a list of patterns.
-        excludes (Optional[Union[str, List[str]]]): Glob pattern(s) to exclude from the search.
+        excludes (Optional[Union[str, list[str]]]): Glob pattern(s) to exclude from the search.
             Can be a single pattern string, a list of patterns, or None.
         report_level (Optional[int], optional): Determines the frequency of logging
             folder search progress based on directory depth. Defaults to 2.
@@ -41,11 +41,11 @@ def find_files_parallel(
         recursive_search (bool, optional): If True, searches directories recursively.
             Defaults to True.
         root_dir (Optional[Union[str, Path]]): **Deprecated.** Use `root_dirs` instead.
-        pattern (Optional[Union[str, List[str]]]): **Deprecated.** Use `patterns` instead.
-        exclude (Optional[Union[str, List[str]]]): **Deprecated.** Use `excludes` instead.
+        pattern (Optional[Union[str, list[str]]]): **Deprecated.** Use `patterns` instead.
+        exclude (Optional[Union[str, list[str]]]): **Deprecated.** Use `excludes` instead.
 
     Returns:
-        List[Path]: A list of file paths that match the specified patterns and do not
+        list[Path]: A list of file paths that match the specified patterns and do not
             match any of the exclusion patterns.
     """
 
