@@ -1,4 +1,4 @@
-# ryan_library\functions\dataframe_helpers.py
+# ryan_library/functions/dataframe_helpers.py
 
 import pandas as pd
 from loguru import logger
@@ -44,11 +44,12 @@ def reorder_columns(
     data_frame: pd.DataFrame,
     prioritized_columns: list[str] | None = None,
     prefix_order: list[str] | None = None,
+    second_priority_columns: list[str] | None = None,
     columns_to_end: list[str] | None = None,
 ) -> pd.DataFrame:
     """
     Reorders columns in a DataFrame based on specified priorities, prefix rules,
-    and columns to move to the end.
+    second priority columns, and columns to move to the end.
 
     Parameters:
         data_frame (pd.DataFrame): The DataFrame to reorder.
@@ -56,48 +57,72 @@ def reorder_columns(
             Columns not in the DataFrame will be ignored.
         prefix_order (Optional[list[str]]): A list of prefixes to group and order after prioritized columns.
             Columns matching prefixes will appear in the same order as the prefixes.
-        columns_to_move (Optional[list[str]]): A list of columns to move to the end in order.
+        second_priority_columns (Optional[list[str]]): A list of columns to place after prefix-based columns.
+            Columns not in the DataFrame will be ignored.
+        columns_to_end (Optional[list[str]]): A list of columns to move to the end in order.
             Columns not in the DataFrame will be ignored.
 
     Returns:
         pd.DataFrame: A new DataFrame with reordered columns.
     """
-    # Ensure prioritized_columns, prefix_order, and columns_to_move are valid
+    # Ensure all parameters are lists
     if prioritized_columns is None:
         prioritized_columns = []
     if prefix_order is None:
         prefix_order = []
+    if second_priority_columns is None:
+        second_priority_columns = []
     if columns_to_end is None:
         columns_to_end = []
 
-    # Start with prioritized columns, only include ones in the DataFrame
-    ordered_columns = [col for col in prioritized_columns if col in data_frame.columns]
+    # Step 1: Start with prioritized columns, only include ones in the DataFrame
+    ordered_columns: list[str] = [
+        col for col in prioritized_columns if col in data_frame.columns
+    ]
 
-    # Add columns matching the specified prefixes, in prefix order
+    # Step 2: Add columns matching the specified prefixes, in prefix order
     for prefix in prefix_order:
-        prefixed_cols = sorted(
+        # Match columns that start with the prefix
+        prefixed_cols: list[str] = sorted(
             [col for col in data_frame.columns if col.startswith(prefix)]
         )
         ordered_columns.extend(prefixed_cols)
 
-    # Exclude columns that are in `columns_to_move` before appending remaining columns
-    remaining_cols = [
+    # Step 3: Add second priority columns, only if they exist
+    ordered_columns.extend(
+        [col for col in second_priority_columns if col in data_frame.columns]
+    )
+
+    # Step 4: Exclude columns that are in `columns_to_end` before appending remaining columns
+    remaining_cols: list[str] = [
         col
         for col in data_frame.columns
         if col not in ordered_columns and col not in columns_to_end
     ]
     ordered_columns.extend(sorted(remaining_cols))
 
-    # Finally, append columns_to_move, only including ones in the DataFrame
+    # Step 5: Finally, append columns_to_end, only including ones in the DataFrame
     ordered_columns.extend([col for col in columns_to_end if col in data_frame.columns])
 
-    # Return DataFrame with reordered columns
+    # Log the final column order for debugging
+    logger.debug(f"Final column order: {ordered_columns}")
+
+    # Return DataFrame with reordered columns accordingly
     return data_frame[ordered_columns]
 
 
 def reorder_long_columns(df: pd.DataFrame) -> pd.DataFrame:
-    # specific implementation for the culvert and associated processing scripts
-    columns_to_move = [
+    """
+    Specific implementation for the culvert and associated processing scripts.
+    Moves large width column names to the right side.
+
+    Parameters:
+        df (pd.DataFrame): The DataFrame to reorder.
+
+    Returns:
+        pd.DataFrame: The reordered DataFrame.
+    """
+    columns_to_move: list[str] = [
         "file",
         "rel_directory",
         "rel_path",
@@ -105,7 +130,7 @@ def reorder_long_columns(df: pd.DataFrame) -> pd.DataFrame:
         "path",
     ]
 
-    # move large width column names to the right side
+    # Move specified columns to the end
     df = reorder_columns(
         data_frame=df,
         columns_to_end=columns_to_move,
