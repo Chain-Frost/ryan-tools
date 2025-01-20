@@ -2,23 +2,20 @@
 
 import warnings
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Union, Optional
+from concurrent.futures import ThreadPoolExecutor
 import fnmatch
 from loguru import logger
+import threading
+from queue import Queue
 
 
 def find_files_parallel(
-    root_dirs: Optional[list[Path]] = None,
-    patterns: Optional[Union[str, list[str]]] = None,
-    excludes: Optional[Union[str, list[str]]] = None,
-    report_level: Optional[int] = 2,
+    root_dirs: list[Path],
+    patterns: str | list[str],
+    excludes: str | list[str] | None = None,
+    report_level: int | None = 2,
     print_found_folder: bool = True,
     recursive_search: bool = True,
-    # Deprecated parameters for backward compatibility
-    root_dir: Optional[Union[str, Path, list[Union[str, Path]]]] = None,
-    pattern: Optional[Union[str, list[str]]] = None,
-    exclude: Optional[Union[str, list[str]]] = None,
 ) -> list[Path]:
     """
     Search for files matching specific patterns across multiple directories in parallel.
@@ -29,88 +26,22 @@ def find_files_parallel(
     The search is performed in parallel using multiple threads to improve performance.
 
     Args:
-        root_dirs (Optional[list[Path]]): The root directories where the search will begin.
-            If not provided, `root_dir` can be used for backward compatibility.
-        patterns (Optional[Union[str, list[str]]]): Glob pattern(s) to include in the search.
+        root_dirs (list[Path]): The root directories where the search will begin.
+        patterns (str | list[str]): Glob pattern(s) to include in the search.
             Can be a single pattern string or a list of patterns.
-        excludes (Optional[Union[str, list[str]]]): Glob pattern(s) to exclude from the search.
+        excludes (str | list[str] | None): Glob pattern(s) to exclude from the search.
             Can be a single pattern string, a list of patterns, or None.
-        report_level (Optional[int], optional): Determines the frequency of logging
+        report_level (int | None, optional): Determines the frequency of logging
             folder search progress based on directory depth. Defaults to 2.
         print_found_folder (bool, optional): If True, logs the folders that contain
             matched files. Defaults to True.
         recursive_search (bool, optional): If True, searches directories recursively.
             Defaults to True.
-        root_dir (Optional[Union[str, Path]]): **Deprecated.** Use `root_dirs` instead.
-        pattern (Optional[Union[str, list[str]]]): **Deprecated.** Use `patterns` instead.
-        exclude (Optional[Union[str, list[str]]]): **Deprecated.** Use `excludes` instead.
 
     Returns:
         list[Path]: A list of file paths that match the specified patterns and do not
             match any of the exclusion patterns.
     """
-    # Handle deprecated parameters with warnings
-    if root_dir is not None:
-        warnings.warn(
-            "The 'root_dir' parameter is deprecated and will be removed in a future version. "
-            "Use 'root_dirs' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if root_dirs is None:
-            if isinstance(root_dir, (str, Path)):
-                root_dirs = [Path(root_dir)]
-            elif isinstance(root_dir, list):
-                root_dirs = [Path(r) for r in root_dir]
-            else:
-                raise TypeError(
-                    "The 'root_dir' must be a string, Path, or list of these."
-                )
-        else:
-            logger.warning(
-                "Both 'root_dir' and 'root_dirs' were provided. "
-                "'root_dirs' will take precedence."
-            )
-
-    if pattern is not None:
-        warnings.warn(
-            "The 'pattern' parameter is deprecated and will be removed in a future version. "
-            "Use 'patterns' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if patterns is None:
-            patterns = pattern
-        else:
-            logger.warning(
-                "Both 'pattern' and 'patterns' were provided. "
-                "'patterns' will take precedence."
-            )
-
-    if exclude is not None:
-        warnings.warn(
-            "The 'exclude' parameter is deprecated and will be removed in a future version. "
-            "Use 'excludes' instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if excludes is None:
-            excludes = exclude
-        else:
-            logger.warning(
-                "Both 'exclude' and 'excludes' were provided. "
-                "'excludes' will take precedence."
-            )
-
-    # Validate required parameters
-    if not root_dirs:
-        raise TypeError(
-            "find_files_parallel() missing required argument: 'root_dirs' or 'root_dir'"
-        )
-    if not patterns:
-        raise TypeError(
-            "find_files_parallel() missing required argument: 'patterns' or 'pattern'"
-        )
 
     # Normalize 'patterns' and 'excludes' to lists for consistent processing
     patterns = [patterns] if isinstance(patterns, str) else patterns
@@ -120,110 +51,192 @@ def find_files_parallel(
     patterns = [p.lower() for p in patterns]
     excludes = [e.lower() for e in excludes]
 
+    logger.info(f"Root directories: {root_dirs}")
     logger.info(f"Search patterns: {patterns}")
     if excludes:
         logger.info(f"Exclude patterns: {excludes}")
 
     # Obtain the current working directory to calculate relative paths later
-    current_dir = Path.cwd()
+    current_dir: Path = Path.cwd()
 
-    def search_dir(path: Path, root_dir: Path) -> tuple[list[Path], int, int]:
-        """
-        Search for files matching the patterns within a single directory.
+    # Thread-safe structures
+    matched_files_lock = threading.Lock()
+    matched_files: list[Path] = []
+    folders_with_matches_lock = threading.Lock()
+    folders_with_matches: set[Path] = set()
 
-        Args:
-            path (Path): The directory path to search.
-            root_dir (Path): The root directory to calculate relative depth.
+    # Visited directories to prevent processing the same directory multiple times
+    visited_lock = threading.Lock()
+    visited_dirs: set[Path] = set()
 
-        Returns:
-            tuple[list[Path], int, int]: A tuple containing:
-                - List of matched file paths.
-                - Number of files searched.
-                - Number of folders searched.
-        """
-        matched_files: list[Path] = []
-        files_searched = 0
-        folders_searched = 0
-        folders_with_matches = set()
+    # Queue for directories to process
+    dir_queue = Queue()
 
-        iterator = path.rglob("*") if recursive_search else path.glob("*")
+    # Initialize the queue with resolved root directories
+    for root_dir in root_dirs:
+        try:
+            resolved_root: Path = root_dir.resolve(strict=True)
+            with visited_lock:
+                if resolved_root not in visited_dirs:
+                    visited_dirs.add(resolved_root)
+                    dir_queue.put(
+                        (resolved_root, resolved_root)
+                    )  # (current_path, root_dir)
+        except FileNotFoundError:
+            logger.error(f"Root directory does not exist: {root_dir}")
+        except Exception as e:
+            logger.error(f"Error resolving root directory {root_dir}: {e}")
 
-        for subpath in iterator:
-            if subpath.is_dir():
-                folders_searched += 1
+    def worker() -> None:
+        while True:
+            try:
+                current_path, root_dir = dir_queue.get(timeout=1)
+                # Timeout to allow graceful exit
+            except:
+                # Queue is empty or timeout reached
+                return
+            try:
+                local_matched = []
+                local_folders_with_matches = set()
+                files_searched = 0
+                folders_searched = 0
 
-                if recursive_search and report_level:
-                    try:
-                        relative_path = subpath.relative_to(root_dir)
-                        depth = len(relative_path.parts)
-                    except ValueError:
-                        depth = 0
+                # Use non-recursive glob to avoid overlapping traversals
+                try:
+                    iterator = current_path.iterdir()
+                except PermissionError:
+                    logger.error(
+                        f"Permission denied accessing directory: {current_path}"
+                    )
+                    dir_queue.task_done()
+                    continue
+                except Exception as e:
+                    logger.error(f"Error accessing directory {current_path}: {e}")
+                    dir_queue.task_done()
+                    continue
 
-                    if depth % report_level == 0:
-                        display_path = (
-                            subpath.relative_to(current_dir)
-                            if subpath.is_relative_to(current_dir)
-                            else subpath.resolve()
-                        )
-                        logger.info(f"Searching (depth {depth}): {display_path}")
-                continue
+                for subpath in iterator:
+                    if subpath.is_dir():
+                        folders_searched += 1
 
-            files_searched += 1
-            filename = subpath.name.lower()
+                        if recursive_search and report_level:
+                            try:
+                                relative_path = subpath.relative_to(root_dir)
+                                depth = len(relative_path.parts)
+                            except ValueError:
+                                depth = 0
 
-            # Inclusion Check: Check if the filename matches any inclusion pattern
-            if any(fnmatch.fnmatch(filename, pattern) for pattern in patterns):
-                # Exclusion Check: Ensure the filename does not match any exclusion pattern
-                if not any(fnmatch.fnmatch(filename, exclude) for exclude in excludes):
-                    logger.debug(f"Matched file: {subpath.relative_to(current_dir)}")
-                    matched_files.append(subpath)
-                    folders_with_matches.add(subpath.parent)
+                            if depth % report_level == 0:
+                                try:
+                                    display_path = subpath.relative_to(current_dir)
+                                except ValueError:
+                                    display_path = subpath.resolve()
+                                logger.info(
+                                    f"Searching (depth {depth}): {display_path}"
+                                )
 
-        if print_found_folder:
-            for folder in folders_with_matches:
-                display_path = (
-                    folder.relative_to(current_dir)
-                    if folder.is_relative_to(current_dir)
-                    else folder.resolve()
-                )
-                logger.info(f"Folder with matched files: {display_path}")
+                        if recursive_search:
+                            try:
+                                resolved_subpath = subpath.resolve(strict=True)
+                            except FileNotFoundError:
+                                logger.warning(
+                                    f"Subdirectory does not exist (might be a broken symlink): {subpath}"
+                                )
+                                continue
+                            except PermissionError:
+                                logger.error(
+                                    f"Permission denied accessing subdirectory: {subpath}"
+                                )
+                                continue
+                            except Exception as e:
+                                logger.error(
+                                    f"Error resolving subdirectory {subpath}: {e}"
+                                )
+                                continue
 
-        logger.info(f"Found {len(matched_files)} files in {path}")
-        return matched_files, files_searched, folders_searched
+                            with visited_lock:
+                                if resolved_subpath in visited_dirs:
+                                    continue
+                                visited_dirs.add(resolved_subpath)
+                            # Enqueue the resolved subdirectory for processing
+                            dir_queue.put((resolved_subpath, root_dir))
+                        continue
+
+                    files_searched += 1
+                    filename = subpath.name.lower()
+
+                    # Inclusion Check
+                    if any(fnmatch.fnmatch(filename, pattern) for pattern in patterns):
+                        # Exclusion Check
+                        if not any(
+                            fnmatch.fnmatch(filename, exclude) for exclude in excludes
+                        ):
+                            try:
+                                matched_file = subpath.resolve(strict=True)
+                                logger.debug(
+                                    f"Matched file: {matched_file.relative_to(current_dir)}"
+                                )
+                                local_matched.append(matched_file)
+                                local_folders_with_matches.add(matched_file.parent)
+                            except FileNotFoundError:
+                                logger.warning(
+                                    f"File does not exist (might have been moved): {subpath}"
+                                )
+                            except PermissionError:
+                                logger.error(
+                                    f"Permission denied accessing file: {subpath}"
+                                )
+                            except Exception as e:
+                                logger.error(f"Error resolving file {subpath}: {e}")
+
+                # Safely update the global matched_files list
+                if local_matched:
+                    with matched_files_lock:
+                        matched_files.extend(local_matched)
+                # Safely update the global folders_with_matches set
+                if local_folders_with_matches and print_found_folder:
+                    with folders_with_matches_lock:
+                        folders_with_matches.update(local_folders_with_matches)
+
+                if len(local_matched) > 0:
+                    logger.info(f"Found {len(local_matched)} files in {current_path}")
+            except Exception as e:
+                logger.error(f"Unexpected error processing {current_path}: {e}")
+            finally:
+                dir_queue.task_done()
 
     logger.info(f"Starting search in {len(root_dirs)} root directory(ies).")
 
-    total_files_searched = 0
-    total_folders_searched = 0
-    all_matched_files: list[Path] = []
+    # Determine the number of worker threads; adjust as needed
+    num_workers: int = min(32, (len(root_dirs) * 4) or 4)
 
-    # Utilize a thread pool to perform directory searches in parallel
-    with ThreadPoolExecutor() as executor:
-        futures = {
-            executor.submit(search_dir, root_dir, root_dir): root_dir
-            for root_dir in root_dirs
-        }
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        # Launch worker threads
+        futures = [executor.submit(worker) for _ in range(num_workers)]
 
-        for future in as_completed(futures):
-            root_dir = futures[future]
+        # Wait for all tasks in the queue to be processed
+        dir_queue.join()
+
+        # Optionally, wait for all worker threads to complete
+        for future in futures:
+            future.result()
+
+    # Log folders with matched files
+    if print_found_folder:
+        for folder in folders_with_matches:
             try:
-                matched, files, folders = future.result()
-                all_matched_files.extend(matched)
-                total_files_searched += files
-                total_folders_searched += folders
-            except Exception as e:
-                logger.error(f"Error searching in {root_dir}: {e}")
+                display_path: Path = folder.relative_to(current_dir)
+            except ValueError:
+                display_path = folder.resolve()
+            logger.info(f"Folder with matched files: {display_path}")
 
-    logger.info(f"Total files matched: {len(all_matched_files)}")
-    logger.info(f"Total files searched: {total_files_searched}")
-    logger.info(f"Total folders searched: {total_folders_searched}")
+    logger.info(f"Total files matched: {len(matched_files)}")
 
-    return all_matched_files
+    return matched_files
 
 
 def is_non_zero_file(fpath: Path) -> bool:
-    """
-    Verify that a given file exists, is indeed a file, and is not empty.
+    """Verify that a given file exists, is indeed a file, and is not empty.
 
     This function performs a series of checks on the provided file path to ensure
     that the file is present, accessible, and contains data. It logs specific
@@ -268,8 +281,7 @@ def is_non_zero_file(fpath: Path) -> bool:
 
 
 def ensure_output_directory(output_dir: Path) -> None:
-    """
-    Ensure that the specified output directory exists; create it if it does not.
+    """Ensure that the specified output directory exists; create it if it does not.
 
     This function checks whether the given output directory exists. If it does not,
     it creates the directory along with any necessary parent directories. It logs
