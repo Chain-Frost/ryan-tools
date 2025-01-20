@@ -9,7 +9,6 @@ from ryan_library.functions.misc_functions import calculate_pool_size, save_to_e
 from ryan_library.functions.path_stuff import convert_to_relative_path
 from ryan_library.functions.loguru_helpers import (
     setup_logger,
-    log_exception,
     worker_initializer,
 )
 from ryan_library.functions.parse_tlf import (
@@ -188,6 +187,9 @@ def main_processing(console_log_level: str | None) -> None:
                     "ComputerName",
                     "username",
                     "EndStatus",
+                    "AEP",
+                    "Duration",
+                    "TP",
                 ]
 
                 columns_to_end = ["orig_TCF_path", "orig_log_path", "orig_results_path"]
@@ -207,13 +209,13 @@ def main_processing(console_log_level: str | None) -> None:
                     sheet_name="Log Summary",
                 )
 
-                logger.info("Log file processing completed successfully.")
+                logger.success("Log file processing completed successfully.")
             except Exception:
                 logger.exception("Error during merging/saving DataFrames")
         else:
             logger.warning("No completed logs found - no output generated.")
 
-        logger.info(f"Number of successful runs: {successful_runs}")
+        logger.success(f"Number of successful runs: {successful_runs}")
 
 
 if __name__ == "__main__":
