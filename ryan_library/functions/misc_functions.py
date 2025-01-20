@@ -1,14 +1,19 @@
 # ryan_library/functions/misc_functions.py
 
 from datetime import datetime
+import multiprocessing
 import pandas as pd
 import logging
 from typing import TypedDict
 from pathlib import Path
+from openpyxl.utils import get_column_letter
+from openpyxl import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
+from openpyxl.utils.exceptions import InvalidFileException
 from ryan_library.functions.logging_helpers import setup_logging as new_setup_logging
 
 
-# deprecated
+# Deprecated setup_logging function
 def setup_logging(
     log_level: int = logging.INFO,
     log_file: str | None = None,
@@ -19,7 +24,12 @@ def setup_logging(
 ) -> None:
     print("This is using a deprecated logging procedure")
     new_setup_logging(
-        log_level, log_file, max_bytes, backup_count, use_rotating_file, enable_color
+        log_level=log_level,
+        log_file=log_file,
+        max_bytes=max_bytes,
+        backup_count=backup_count,
+        use_rotating_file=use_rotating_file,
+        enable_color=enable_color,
     )
 
 
@@ -33,21 +43,27 @@ def calculate_pool_size(num_files: int) -> int:
     Returns:
         int: Number of threads to use.
     """
-    import multiprocessing
-
-    splits = max(num_files // 3, 1)
-    available_cores = min(multiprocessing.cpu_count(), 20)
-    calc_threads = min(available_cores - 1, splits) if available_cores > 1 else 1
+    splits: int = max(num_files // 3, 1)
+    available_cores: int = min(multiprocessing.cpu_count(), 20)
+    calc_threads: int = min(available_cores - 1, splits) if available_cores > 1 else 1
     logging.info(f"Processing threads: {calc_threads}")
     return calc_threads
 
 
-def split_strings(input: str | list[str]) -> list[str]:
-    # Normalize the input to a list
-    if isinstance(input, str):
-        input_list: list[str] = [input]
+def split_strings(input_str: str | list[str]) -> list[str]:
+    """
+    Split input string(s) by whitespace into a flat list of strings.
+
+    Args:
+        input_str (str | list[str]): A string or list of strings to split.
+
+    Returns:
+        list[str]: A flat list of split strings.
+    """
+    if isinstance(input_str, str):
+        input_list: list[str] = [input_str]
     else:  # input is already a list
-        input_list = input
+        input_list = input_str
 
     # Split each string by whitespace and flatten the list
     split_list: list[str] = []
@@ -58,9 +74,18 @@ def split_strings(input: str | list[str]) -> list[str]:
 
 
 def split_strings_in_dict(params_dict: dict[str, list[str]]) -> dict[str, list[str]]:
+    """
+    Apply split_strings to each list of strings in the dictionary.
+
+    Args:
+        params_dict (dict[str, list[str]]): Dictionary with string lists to split.
+
+    Returns:
+        dict[str, list[str]]: Dictionary with split string lists.
+    """
     for key, value in params_dict.items():
         # Use split_strings to handle both string and list of strings cases
-        params_dict[key] = split_strings(input=value)
+        params_dict[key] = split_strings(input_str=value)
     return params_dict
 
 
@@ -71,40 +96,49 @@ class ExportContent(TypedDict):
 
 class ExcelExporter:
     """
-    A simple utility class for exporting pandas DataFrames to Excel files.
+    A utility class for exporting pandas DataFrames to Excel files.
 
     Methods:
-        export_dataframes(export_dict, output_directory=None):
-            Export multiple DataFrames to one or more Excel files, each potentially
-            containing multiple sheets.
-
-        save_to_excel(data_frame, file_name_prefix, sheet_name, output_directory=None):
-            Export a single DataFrame to a single-sheet Excel file.
-
-    The class is stateless and can be instantiated as needed.
+        export_dataframes: Export multiple DataFrames to Excel with optional column widths.
+        save_to_excel: Export a single DataFrame to Excel with optional column widths.
+        calculate_column_widths: Calculate optimal column widths based on data.
+        set_column_widths: Apply specific column widths to a worksheet.
+        auto_adjust_column_widths: Automatically adjust column widths based on data.
     """
 
     def export_dataframes(
         self,
         export_dict: dict[str, ExportContent],
         output_directory: Path | None = None,
+        column_widths: dict[str, dict[str, float]] | None = None,
+        auto_adjust_width: bool = True,
     ) -> None:
         """
-        Export multiple DataFrames to Excel files.
+        Export multiple DataFrames to Excel files with optional column widths.
 
         Args:
             export_dict (dict[str, ExportContent]):
-                A dictionary where each key is a base file name and each value
-                contains:
-                - "dataframes": list of DataFrames
-                - "sheets": list of corresponding sheet names
-            output_directory (Path, optional):
+                A dictionary where each key is a base file name and each value contains:
+                    - "dataframes": list of DataFrames
+                    - "sheets": list of corresponding sheet names
+            output_directory (Path | None, optional):
                 The directory where the Excel files will be saved.
                 Defaults to the current working directory.
+            column_widths (dict[str, dict[str, float]] | None, optional):
+                A dictionary where keys are sheet names and values are dictionaries
+                mapping column names to their desired widths.
+                Example:
+                    {
+                        "Sheet1": {"Name": 20, "Age": 10},
+                        "Sheet2": {"Email": 30}
+                    }
+            auto_adjust_width (bool, optional):
+                If set to True, automatically adjusts the column widths based on the
+                maximum length of the data in each column. Defaults to True.
 
         Raises:
             ValueError: If the number of DataFrames doesn't match the number of sheets.
-
+            InvalidFileException: If there's an issue with writing the Excel file.
         Example:
             export_dict = {
                 "Report": {
@@ -118,37 +152,76 @@ class ExcelExporter:
             }
             ExcelExporter().export_dataframes(export_dict, output_directory=Path("exports"))
         """
-        datetime_string = datetime.now().strftime("%Y%m%d-%H%M")
+        datetime_string: str = datetime.now().strftime("%Y%m%d-%H%M")
 
         for file_name, content in export_dict.items():
-            dataframes = content.get("dataframes", [])
-            sheets = content.get("sheets", [])
+            dataframes: list[pd.DataFrame] = content.get("dataframes", [])
+            sheets: list[str] = content.get("sheets", [])
 
             if len(dataframes) != len(sheets):
                 raise ValueError(
-                    f"For file '{file_name}', the number of dataframes and sheets must match."
+                    f"For file '{file_name}', the number of dataframes ({len(dataframes)}) and sheets ({len(sheets)}) must match."
                 )
 
             # Determine the export path
-            export_filename = f"{datetime_string}_{file_name}.xlsx"
-            if output_directory:
-                export_path = output_directory / export_filename
-            else:
-                export_path = Path(export_filename)  # Defaults to CWD
+            export_filename: str = f"{datetime_string}_{file_name}.xlsx"
+            export_path: Path = (
+                (output_directory / export_filename)
+                if output_directory
+                else Path(export_filename)  # Defaults to CWD
+            )
 
             # Ensure the output directory exists
             if output_directory:
                 export_path.parent.mkdir(parents=True, exist_ok=True)
 
-            logging.info(f"Exporting {export_path}")
+            logging.info(f"Exporting to {export_path}")
 
-            with pd.ExcelWriter(export_path) as writer:
-                for df, sheet in zip(dataframes, sheets):
-                    df.to_excel(
-                        writer, sheet_name=sheet, merge_cells=False, index=False
-                    )
+            try:
+                with pd.ExcelWriter(path=export_path, engine="openpyxl") as writer:
+                    for df, sheet in zip(dataframes, sheets):
+                        # Check for unique column names
+                        if not df.columns.is_unique:
+                            logging.error(
+                                f"DataFrame for sheet '{sheet}' has duplicate column names. Please ensure all column names are unique."
+                            )
+                            raise ValueError(
+                                f"Duplicate column names found in sheet '{sheet}'."
+                            )
 
-            logging.info(f"Finished exporting {file_name} to {export_path}")
+                        df.to_excel(
+                            excel_writer=writer,
+                            sheet_name=sheet,
+                            merge_cells=False,
+                            index=False,
+                        )
+
+                        # Access the worksheet
+                        workbook: Workbook = writer.book
+                        worksheet: Worksheet = writer.sheets[sheet]
+
+                        # Automatically adjust column widths if enabled
+                        if auto_adjust_width:
+                            dynamic_widths: dict[str, float] = (
+                                self.calculate_column_widths(df=df)
+                            )
+                            self.auto_adjust_column_widths(
+                                worksheet=worksheet, dynamic_widths=dynamic_widths
+                            )
+
+                        # Apply specific column widths if provided
+                        if column_widths and sheet in column_widths:
+                            self.set_column_widths(
+                                worksheet=worksheet,
+                                df=df,
+                                sheet_name=sheet,
+                                column_widths=column_widths[sheet],
+                            )
+
+                logging.info(f"Finished exporting '{file_name}' to '{export_path}'")
+            except InvalidFileException as e:
+                logging.error(f"Failed to write to '{export_path}': {e}")
+                raise
 
     def save_to_excel(
         self,
@@ -156,32 +229,133 @@ class ExcelExporter:
         file_name_prefix: str = "Export",
         sheet_name: str = "Export",
         output_directory: Path | None = None,
+        column_widths: dict[str, float] | None = None,
+        auto_adjust_width: bool = True,
     ) -> None:
         """
-        Export a single DataFrame to an Excel file with a single sheet.
+        Export a single DataFrame to an Excel file with a single sheet and optional column widths.
 
         Args:
             data_frame (pd.DataFrame): The DataFrame to export.
             file_name_prefix (str): Prefix for the resulting Excel filename.
             sheet_name (str): Name of the sheet in the Excel file.
-            output_directory (Path, optional):
+            output_directory (Path | None, optional):
                 The directory where the Excel file will be saved.
                 Defaults to the current working directory.
-
-        Example:
-            ExcelExporter().save_to_excel(
-                df,
-                file_name_prefix="MyData",
-                sheet_name="Sheet1",
-                output_directory=Path("exports")
-            )
+            column_widths (dict[str, float] | None, optional):
+                A dictionary mapping column names to their desired widths.
+                Example:
+                    {"Name": 20, "Age": 10}
+            auto_adjust_width (bool, optional):
+                If set to True, automatically adjusts the column widths based on the
+                maximum length of the data in each column. Defaults to True.
         """
         export_dict: dict[str, ExportContent] = {
             file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}
         }
-        self.export_dataframes(
-            export_dict=export_dict, output_directory=output_directory
+
+        # Prepare column_widths in the required format
+        prepared_column_widths: dict[str, dict[str, float]] | None = (
+            {sheet_name: column_widths} if column_widths else None
         )
+
+        self.export_dataframes(
+            export_dict=export_dict,
+            output_directory=output_directory,
+            column_widths=prepared_column_widths,
+            auto_adjust_width=auto_adjust_width,
+        )
+
+    def calculate_column_widths(self, df: pd.DataFrame) -> dict[str, float]:
+        """
+        Calculate optimal column widths based on the maximum length of data in each column.
+
+        Args:
+            df (pd.DataFrame): The DataFrame for which to calculate column widths.
+
+        Returns:
+            dict[str, float]: A dictionary mapping column letters to their calculated widths.
+        """
+        column_widths: dict[str, float] = {
+            get_column_letter(idx + 1): max(
+                # Calculate max length of the column data
+                df[col].astype(str).map(len).max(),
+                # Consider the column name length as well
+                len(str(col)),
+            )
+            + 2  # Adding extra space
+            for idx, col in enumerate(df.columns)
+        }
+        logging.debug(f"Calculated dynamic column widths: {column_widths}")
+        return column_widths
+
+    def set_column_widths(
+        self,
+        worksheet: Worksheet,
+        df: pd.DataFrame,
+        sheet_name: str,
+        column_widths: dict[str, float],
+    ) -> None:
+        """
+        Set specific column widths for a given worksheet based on provided configurations.
+
+        Args:
+            worksheet (Worksheet): The OpenPyXL worksheet object.
+            df (pd.DataFrame): The pandas DataFrame containing the data.
+            sheet_name (str): The name of the current sheet.
+            column_widths (dict[str, float]):
+                A dictionary mapping column names to their desired widths.
+
+        Raises:
+            TypeError: If column indices are not integers.
+        """
+        for col_name, width in column_widths.items():
+            if col_name not in df.columns:
+                logging.warning(
+                    f"Column '{col_name}' not found in sheet '{sheet_name}'. Skipping width setting."
+                )
+                continue
+
+            try:
+
+                col_idx = df.columns.get_loc(col_name)
+                assert isinstance(col_idx, int), (
+                    f"Expected integer column index for '{col_name}' in sheet '{sheet_name}', "
+                    f"but got {type(col_idx).__name__}"
+                )
+                col_letter: str = get_column_letter(col_idx + 1)
+                worksheet.column_dimensions[col_letter].width = width
+                logging.debug(
+                    f"Set width for column '{col_name}' ({col_letter}) in sheet '{sheet_name}' to {width}."
+                )
+            except TypeError as e:
+                logging.exception(
+                    f"TypeError when setting width for column '{col_name}' in sheet '{sheet_name}': {e}"
+                )
+            except AssertionError as e:
+                logging.exception(str(e))
+            except Exception as e:
+                logging.exception(
+                    f"Unexpected error when setting width for column '{col_name}' in sheet '{sheet_name}': {e}"
+                )
+
+    def auto_adjust_column_widths(
+        self, worksheet: Worksheet, dynamic_widths: dict[str, float]
+    ) -> None:
+        """
+        Automatically adjust column widths based on calculated dynamic widths.
+
+        Args:
+            worksheet (Worksheet): The OpenPyXL worksheet object.
+            dynamic_widths (dict[str, float]): Calculated dynamic column widths.
+        """
+        for col_letter, width in dynamic_widths.items():
+            current_width: float | None = worksheet.column_dimensions[col_letter].width
+            if current_width is None or width > current_width:
+                worksheet.column_dimensions[col_letter].width = width
+                logging.debug(
+                    f"Auto-adjusted width for column '{col_letter}' to {width}."
+                )
 
 
 # Backwards compatibility functions:

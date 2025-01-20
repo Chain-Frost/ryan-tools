@@ -41,8 +41,7 @@ def find_files_parallel(
             matched files. Defaults to True.
         recursive_search (bool, optional): If True, searches directories recursively.
             Defaults to True.
-        root_dir (Optional[Union[str, Path, list[Union[str, Path]]]]): **Deprecated.**
-            Use `root_dirs` instead.
+        root_dir (Optional[Union[str, Path]]): **Deprecated.** Use `root_dirs` instead.
         pattern (Optional[Union[str, list[str]]]): **Deprecated.** Use `patterns` instead.
         exclude (Optional[Union[str, list[str]]]): **Deprecated.** Use `excludes` instead.
 
