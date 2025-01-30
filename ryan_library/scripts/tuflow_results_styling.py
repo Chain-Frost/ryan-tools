@@ -1,36 +1,40 @@
 # ryan_library/scripts/tuflow_results_styling.py
 
-import os
-import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import sqlite3
 from pathlib import Path
 import logging
+from typing import TypedDict
 
 # Get the logger for this module
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
+
+
+class BaseMappingEntry(TypedDict):
+    exts: list[str]
+    qml: Path
+
+
+class MappingEntry(BaseMappingEntry, total=False):
+    layer_name: str
 
 
 class TUFLOWResultsStyler:
-    def __init__(self, user_qml_overrides=None) -> None:
-        """
-        Initializes the TUFLOWResultsStyler with default styles path and user overrides.
-        """
-        self.default_styles_path = (
+    def __init__(self, user_qml_overrides: dict[str, str] | None = None) -> None:
+        """Initializes the TUFLOWResultsStyler with default styles path and user overrides."""
+        self.default_styles_path: Path = (
             Path(__file__).parent.parent.parent / "QGIS-Styles" / "TUFLOW"
         )
-        self.user_qml_overrides = user_qml_overrides
-        self.mappings = self.get_file_mappings()
+        self.user_qml_overrides: dict[str, str] = user_qml_overrides or {}
+        self.mappings: dict[str, MappingEntry] = self.get_file_mappings()
 
-    def get_file_mappings(self):
-        """
-        Returns a mapping of file keys to their extensions and QML paths.
-        Allows user to override default QML paths.
-        """
-        raster_exts = ["flt", "tif"]
-        vector_exts = ["shp", "gpkg"]
+    def get_file_mappings(self) -> dict[str, MappingEntry]:
+        """Returns a mapping of file keys to their extensions and QML paths.
+        Allows user to override default QML paths."""
+        raster_exts: list[str] = ["flt", "tif"]
+        vector_exts: list[str] = ["shp", "gpkg"]
 
-        mapping_dict = {
+        mapping_dict: dict[str, MappingEntry] = {
             "d_Max": {
                 "exts": raster_exts,
                 "qml": self.default_styles_path / "depth_for_legend_max2m.qml",
@@ -70,17 +74,14 @@ class TUFLOWResultsStyler:
         mapping_dict["DEM_Z_HR"] = mapping_dict["DEM_Z"]
 
         # Override with user-provided QML paths if available
-        if self.user_qml_overrides:
-            for key, qml_path in self.user_qml_overrides.items():
-                if key in mapping_dict:
-                    mapping_dict[key]["qml"] = Path(qml_path)
+        for key, qml_path in self.user_qml_overrides.items():
+            if key in mapping_dict:
+                mapping_dict[key]["qml"] = Path(qml_path)
 
         return mapping_dict
 
-    def get_qml_content(self, qml_path):
-        """
-        Retrieves the content of a QML file, either from user-provided path or default styles path.
-        """
+    def get_qml_content(self, qml_path: Path) -> str:
+        """Retrieves the content of a QML file, either from user-provided path or default styles path."""
         if qml_path.is_absolute() and qml_path.exists():
             logger.debug(f"Loading QML from user path: {qml_path}")
             with qml_path.open("r", encoding="utf-8") as file:
@@ -97,20 +98,20 @@ class TUFLOWResultsStyler:
                 )
                 return ""
 
-    def process_data(self, filename, ext, current_path, qml_path) -> None:
-        """
-        Processes raster and vector data by applying the QML style.
-        """
+    def process_data(
+        self, filename: str, ext: str, current_path: Path, qml_path: Path
+    ) -> None:
+        """Processes raster and vector data by applying the QML style."""
         try:
-            source_file = current_path / filename
-            new_filename = f"{source_file.stem}.{ext}"
-            destination = current_path / new_filename
+            source_file: Path = current_path / filename
+            new_filename: str = f"{source_file.stem}.{ext}"
+            destination: Path = current_path / new_filename
             logger.info(
                 f"Copying {source_file} to {destination}", extra={"simple_format": True}
             )
 
             # Retrieve QML content
-            qml_content = self.get_qml_content(qml_path)
+            qml_content: str = self.get_qml_content(qml_path)
             if not qml_content:
                 logger.warning(f"No QML content for {filename}. Skipping.")
                 return
@@ -122,25 +123,25 @@ class TUFLOWResultsStyler:
         except Exception as e:
             logger.error(f"Error processing data for {filename}: {e}")
 
-    def process_gpkg(self, filename, layer_name, current_path, qml_path) -> None:
-        """
-        Processes GeoPackage files by applying styles to specific layers.
-        """
+    def process_gpkg(
+        self, filename: str, layer_name: str, current_path: Path, qml_path: Path
+    ) -> None:
+        """Processes GeoPackage files by applying styles to specific layers."""
         # not implemented
         try:
-            gpkg_path = current_path / filename
+            gpkg_path: Path = current_path / filename
             logger.info(
                 f"Processing GeoPackage: {gpkg_path}", extra={"simple_format": True}
             )
 
-            conn = sqlite3.connect(gpkg_path)
-            cursor = conn.cursor()
+            conn: sqlite3.Connection = sqlite3.connect(gpkg_path)
+            cursor: sqlite3.Cursor = conn.cursor()
 
             cursor.execute(
                 "SELECT styleName, styleQML FROM layer_styles WHERE f_table_name = ?;",
                 (layer_name,),
             )
-            styles = cursor.fetchall()
+            styles: list = cursor.fetchall()
 
             for style_name, style_qml in styles:
                 logger.info(
@@ -154,19 +155,17 @@ class TUFLOWResultsStyler:
         except Exception as e:
             logger.error(f"Error processing GeoPackage {filename}: {e}")
 
-    def tree_process(self, current_path) -> None:
-        """
-        Recursively processes directories to apply QML styles based on file mappings.
-        """
+    def tree_process(self, current_path: Path) -> None:
+        """Recursively processes directories to apply QML styles based on file mappings."""
         logger.info(
             f"Processing directory: {current_path}", extra={"simple_format": True}
         )
         with ThreadPoolExecutor() as executor:
-            futures = []
+            futures: list = []
             for item in current_path.iterdir():
                 if item.is_file():
                     for key, value in self.mappings.items():
-                        for ext in value["exts"]:
+                        for ext in value["exts"]:  # Now recognized as list[str]
                             if item.name.lower().endswith(
                                 f"{key.lower()}.{ext.lower()}"
                             ):
@@ -200,9 +199,7 @@ class TUFLOWResultsStyler:
                     logger.error(f"Error in thread execution: {e}")
 
     def validate_qml_paths(self) -> None:
-        """
-        Validates that user-provided QML paths exist.
-        """
+        """Validates that user-provided QML paths exist."""
         for key, qml_path in self.user_qml_overrides.items():
             qml_path = Path(qml_path)
             if qml_path.is_absolute():
@@ -212,9 +209,7 @@ class TUFLOWResultsStyler:
                     )
 
     def apply_styles(self) -> None:
-        """
-        Main function to apply QML styles to QGIS results.
-        """
+        """Main function to apply QML styles to QGIS results."""
         # Validate QML paths only for user overrides
         if self.user_qml_overrides:
             self.validate_qml_paths()
@@ -229,12 +224,12 @@ class TUFLOWResultsStyler:
 
         # Start processing
         try:
-            self.tree_process(current_path)
+            self.tree_process(current_path=current_path)
         except Exception as e:
             logger.critical(f"An unexpected error occurred: {e}")
 
 
-if __name__ == "__main__":
+def main() -> None:
     # Initialize the LoggerConfigurator
     from ryan_library.functions.logging_helpers import LoggerConfigurator
 
@@ -247,9 +242,13 @@ if __name__ == "__main__":
     logger_config.configure()
 
     # Get the logger after configuring logging
-    logger = logging.getLogger(__name__)
+    logger: logging.Logger = logging.getLogger(__name__)
     logger.info("Starting TUFLOW Results Styling...", extra={"simple_format": True})
 
     # Initialize and apply styles
     styler = TUFLOWResultsStyler()
     styler.apply_styles()
+
+
+if __name__ == "__main__":
+    main()

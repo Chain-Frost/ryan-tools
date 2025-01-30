@@ -1,6 +1,6 @@
 # TUFLOW_Culvert_Merge.py
 
-from ryan_library.scripts.tuflow_culverts_merge import main_processing
+from ryan_library.scripts.tuflow_culverts_timeseries import main_processing
 from pathlib import Path
 import os
 
@@ -9,8 +9,7 @@ console_log_level = "INFO"  # "DEBUG" "INFO"
 
 def main() -> None:
     """Wrapper script to merge culvert results
-    By default, it processes files in the directory where the script is located.
-    """
+    By default, it processes files in the directory where the script is located."""
 
     try:
         # Determine the script directory
@@ -30,11 +29,14 @@ def main() -> None:
     main_processing(
         paths_to_process=[script_directory],
         include_data_types=[
-            "Nmx",
-            "Cmx",
-            "Chan",
-            "ccA",
-        ],
+            "Q",
+            # "V",
+            # "CF",
+            # "H",
+            # "L",
+            # "NF",
+            # "SQ",
+        ],  # Chan is already loaded inside the script for extra info
         console_log_level=console_log_level,
     )
 
