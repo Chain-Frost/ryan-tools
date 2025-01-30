@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 from loguru import logger
 from dataclasses import dataclass, field
-from ryan_library.classes.suffixes_and_dtypes import suffixes_config
+from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 
 
 @dataclass
@@ -19,7 +19,7 @@ class RunCodeComponent:
 
     def __post_init__(self) -> None:
         self.component_type = self.component_type.lower()
-        self.numeric_value = self._parse_numeric_value(self.raw_value)
+        self.numeric_value = self._parse_numeric_value(raw_value=self.raw_value)
         self.text_repr = self._generate_text_repr()
 
     def _parse_numeric_value(self, raw_value: str) -> float | int | None:
@@ -117,7 +117,7 @@ class TuflowStringParser:
             dict[str, str]: Suffix to type mapping.
         """
         try:
-            suffixes = suffixes_config.suffix_to_type
+            suffixes: dict[str, str] = SuffixesConfig.get_instance().suffix_to_type
             logger.debug(f"Loaded suffixes: {suffixes}")
             return suffixes
         except AttributeError as e:

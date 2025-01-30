@@ -5,6 +5,7 @@ from loguru import logger
 from .base_processor import BaseProcessor
 
 
+# this processor does not understand pits - only index 1 or 2 for standard culverts
 class NmxProcessor(BaseProcessor):
     """
     Processor for '_1d_Nmx.csv' files.
@@ -66,6 +67,7 @@ class NmxProcessor(BaseProcessor):
             )
 
             # Validate 'node_suffix' values
+            # this processor does not understand pits
             valid_suffixes = {"1", "2"}
             abnormal_suffix_mask = ~self.df["node_suffix"].isin(valid_suffixes)
             if abnormal_suffix_mask.any():

@@ -107,7 +107,7 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def main_processing(console_log_level: str | None) -> None:
+def main_processing(console_log_level: str | None = None) -> None:
     """
     Main function to process log files using multiprocessing.
     """
