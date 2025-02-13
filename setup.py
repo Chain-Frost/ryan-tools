@@ -1,11 +1,12 @@
 # setup.py
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages  # type: ignore
 
 setup(
     name="ryan_functions",
-    version="0.3778",
+    version="0.3779",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
+    # package_data={"ryan_library": ["py.typed"]},
     install_requires=[
         "numpy",
         "pandas",
