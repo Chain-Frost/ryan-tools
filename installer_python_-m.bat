@@ -2,6 +2,9 @@
 @REM installer_python_-m.bat
 setlocal
 
+@REM If you are missing pip, use this
+@REM python -m ensurepip --upgrade
+
 REM Define the path to the Python executable
 set "PYTHON_EXEC=C:\Program Files\Python312\python.exe"
 
