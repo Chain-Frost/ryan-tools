@@ -1,10 +1,8 @@
 # ryan_library/functions/gdal/gdal_environment.py
 
 import os
-import sys
 from pathlib import Path
 from loguru import logger
-import glob
 
 
 def find_qgis_install_path() -> Path:
