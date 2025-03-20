@@ -15,7 +15,9 @@ from ryan_library.functions.gdal.gdal_environment import (
 
 def main() -> None:
     script_dir: Path = Path(__file__).resolve().parent
-    script_dir = Path(r"C:\Temp\RTIO\HD4_ET\rasters")
+    script_dir = Path(
+        r"P:\BGER\PER\RP20181.366 HOPE DOWNS 4 EARLY TONNES - RTIO\7 DOCUMENT CONTROL\2 RECEIVED DATA\1 CLIENT\250220 - HD Pipeline Survey\DTM Surface XYZ"
+    )
     os.chdir(script_dir)
     run_app()
 
@@ -33,7 +35,7 @@ class Task:
 
 def get_processing_parameters() -> tuple[list[str], list[str], list[str], str, str]:
     """Set processing parameters and determine GDAL tool paths using the prebuilt environment setup."""
-    items: list[str] = ["flt", "asc", "rst"]
+    items: list[str] = ["flt", "asc", "rst", "xyz"]
     commands: list[str] = [
         "-stats",
         "-co",
