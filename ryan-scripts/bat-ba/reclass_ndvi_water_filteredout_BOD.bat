@@ -13,8 +13,8 @@ set "GDAL_CALC=C:\Program Files\QGIS 3.40.3\apps\Python312\Scripts\gdal_calc.py"
 REM --------------------------------------------------
 REM Define paths for the input NDVI file and the output file
 REM --------------------------------------------------
-set "NDVI=C:\Users\Brenda.Arciniegas\Downloads\NDVI\NDVI.tif"
-set "OUT=C:\Users\Brenda.Arciniegas\Downloads\NDVI\NDVI_reclass_v6.tif"
+set "NDVI=C:\Users\Brenda.Arciniegas\Downloads\NDVI_Bod\NDVI.tif"
+set "OUT=C:\Users\Brenda.Arciniegas\Downloads\NDVI_Bod\NDVI_reclass.tif"
 
 REM --------------------------------------------------
 REM Check if gdal_calc.py exists at the specified path
@@ -29,16 +29,17 @@ if not exist "%GDAL_CALC%" (
 REM --------------------------------------------------
 REM Reclassify NDVI using the new rules:
 REM   NDVI <  0.0  => -9999 (NoData, Water, Out)
-REM   0.0 - 0.12   => 2  (Cleared areas, Bare n=0.04)
-REM   0.12 - 0.17  => 3  (Low Vegetation, Low n=0.05)
-REM   0.17 - 1   => 4  (Moderate vegetation, n=0.06)
+REM   0.0 - 0.14   => 1  (Minimal vegetation, Bare n=0.04)
+REM   0.14 - 0.3  => 2  (Sparse Vegetation, Low n=0.05)
+REM   0.3 - 0.7   => 3  (Lower Moderate vegetation, n=0.06)
+REM   0.7 - 1   => 4  (Upper Moderate vegetation, n=0.07)
 REM --------------------------------------------------
 "%PYTHON_EXE%" "%GDAL_CALC%" ^
   -A "%NDVI%" ^
   --outfile="%OUT%" ^
-  --calc="(A<0)*(-9999) + (A>=0)*(A<0.12)*2 + (A>=0.12)*(A<0.17)*3 + (A>=0.17)*(A<1)*4" ^
+  --calc="(A<0.25)*(-9999) + (A>=0.25)*(A<1)*1" ^
   --NoDataValue=-9999 ^
-  --type=Int16 ^
+  --type=Float32 ^
   --overwrite
 
 echo Reclassification complete!
