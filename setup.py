@@ -3,7 +3,7 @@ from setuptools import setup, find_packages  # type: ignore
 
 setup(
     name="ryan_functions",
-    version="0.3782",
+    version="0.3783",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},
@@ -30,7 +30,7 @@ setup(
         "openpyxl",
         "loguru",
         "tabulate",
-        # "beautifulsoup4",
+        "beautifulsoup4",
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],
     author="Chain Frost",
