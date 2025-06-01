@@ -1,11 +1,16 @@
 # setup.py
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages  # type: ignore
 
 setup(
     name="ryan_functions",
+<<<<<<< HEAD
     version="0.3781",
+=======
+    version="0.3783",
+>>>>>>> e56e6a4c1ad49df4bc58d91b132261278d33b877
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
+    # package_data={"ryan_library": ["py.typed"]},
     install_requires=[
         "numpy",
         "pandas",
@@ -29,7 +34,7 @@ setup(
         "openpyxl",
         "loguru",
         "tabulate",
-        # "beautifulsoup4",
+        "beautifulsoup4",
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],
     author="Chain Frost",

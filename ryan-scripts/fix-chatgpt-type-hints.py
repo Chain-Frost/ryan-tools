@@ -61,6 +61,8 @@ if __name__ == "__main__":
     folder_paths: list[Path] = [
         # Path(r".\ryan_library"),
         # Path(r".\ryan-scripts"),
+        Path(r".\ryan_library"),
+        Path(r".\ryan-scripts"),
         Path(r"..\ryan_library"),
         Path(r"..\ryan-scripts"),
     ]
