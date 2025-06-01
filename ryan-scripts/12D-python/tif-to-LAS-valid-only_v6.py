@@ -4,9 +4,10 @@ import logging
 from pathlib import Path
 import laspy
 import numpy as np
-from ryan_functions.terrain_processing import parallel_process_multiple_terrain
+from ryan_library.functions.terrain_processing import parallel_process_multiple_terrain
 
-def save_tile_las(tile_df, output_dir, base_filename, i, j):
+
+def save_tile_las(tile_df, output_dir, base_filename, i, j) -> None:
     """
     Saves a tile DataFrame as a LAS file.
     """
@@ -19,22 +20,25 @@ def save_tile_las(tile_df, output_dir, base_filename, i, j):
         header = laspy.LasHeader(point_format=3, version="1.2")
 
         # Set scales and offsets based on tile data
-        header.offsets = np.array([tile_df['X'].min(), tile_df['Y'].min(), tile_df['Z'].min()])
+        header.offsets = np.array(
+            [tile_df["X"].min(), tile_df["Y"].min(), tile_df["Z"].min()]
+        )
         header.scales = np.array([0.01, 0.01, 0.01])  # Adjust scales as needed
 
         # Create LasData object
         las = laspy.LasData(header)
 
         # Assign point data
-        las.x = tile_df['X'].values
-        las.y = tile_df['Y'].values
-        las.z = tile_df['Z'].values
+        las.x = tile_df["X"].values
+        las.y = tile_df["Y"].values
+        las.z = tile_df["Z"].values
 
         # Write to LAS file
         las.write(str(tile_path))
         logger.info(f"Saved tile: {tile_filename}")
     except Exception as e:
         logger.error(f"Failed to save LAS tile {tile_filename}: {e}")
+
 
 def save_full_las(df, output_dir, base_filename):
     """
@@ -49,16 +53,16 @@ def save_full_las(df, output_dir, base_filename):
         header = laspy.LasHeader(point_format=3, version="1.2")
 
         # Set scales and offsets based on full data
-        header.offsets = np.array([df['X'].min(), df['Y'].min(), df['Z'].min()])
+        header.offsets = np.array([df["X"].min(), df["Y"].min(), df["Z"].min()])
         header.scales = np.array([0.01, 0.01, 0.01])  # Adjust scales as needed
 
         # Create LasData object
         las = laspy.LasData(header)
 
         # Assign point data
-        las.x = df['X'].values
-        las.y = df['Y'].values
-        las.z = df['Z'].values
+        las.x = df["X"].values
+        las.y = df["Y"].values
+        las.z = df["Z"].values
 
         # Write to LAS file
         las.write(str(output_path))
@@ -66,9 +70,12 @@ def save_full_las(df, output_dir, base_filename):
     except Exception as e:
         logger.error(f"Failed to save LAS file {las_filename}: {e}")
 
-def main():
+
+def main() -> None:
     # Set up logging
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+    )
     logger = logging.getLogger(__name__)
     logger.info("Starting LAS terrain data processing script.")
 
@@ -110,10 +117,11 @@ def main():
         output_dir=output_dir,
         nodata_values=nodata_values,
         tile_size=tile_size if use_tiling else None,
-        save_function=save_function
+        save_function=save_function,
     )
 
     logger.info("Completed all terrain data processing.")
+
 
 if __name__ == "__main__":
     main()

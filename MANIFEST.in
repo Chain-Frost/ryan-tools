@@ -2,4 +2,5 @@ global-exclude *.egg-info
 prune *.egg-info
 recursive-include QGIS-Styles/TUFLOW *.qml
 include ryan_library/classes/*.json
+include ryan_library/py.typed
 

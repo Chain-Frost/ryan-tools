@@ -24,12 +24,9 @@ from ryan_library.functions.dataframe_helpers import (
 
 
 def process_log_file(logfile: Path) -> pd.DataFrame:
-    """
-    Processes a single log file and returns a DataFrame with the extracted data.
-
+    """Processes a single log file and returns a DataFrame with the extracted data.
     Args:
         logfile (Path): Path object to the log file to process.
-
     Returns:
         pd.DataFrame: DataFrame containing the processed data, or an empty DataFrame on failure.
     """
@@ -108,9 +105,13 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
 
 
 def main_processing(console_log_level: str | None = None) -> None:
+<<<<<<< HEAD
     """
     Main function to process log files using multiprocessing.
     """
+=======
+    """Main function to process log files using multiprocessing."""
+>>>>>>> e56e6a4c1ad49df4bc58d91b132261278d33b877
     # log_dir = Path.home() / "Documents" / "MyAppLogs"
     # log_file = "tuflow_logsummary.log"
 

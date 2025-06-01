@@ -9,10 +9,7 @@ if __name__ == "__main__":
     try:
         script_dir: Path = Path(__file__).resolve().parent
 
-        # script_dir = Path(r"E:\Library\Automation\ryan-tools\tests\test_data")
-        # script_dir = Path(
-        #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_11"
-        # )
+        # script_dir = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_11")
         os.chdir(script_dir)
         print(f"Current Working Directory: {Path.cwd()}")
     except Exception as e:
