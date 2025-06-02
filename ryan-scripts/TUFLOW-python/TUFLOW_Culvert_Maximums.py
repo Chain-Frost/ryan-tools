@@ -1,4 +1,4 @@
-# TUFLOW_Culvert_Merge.py
+# TUFLOW_Culvert_Maximums.py
 
 from ryan_library.scripts.tuflow_culverts_merge import main_processing
 from pathlib import Path
@@ -17,7 +17,8 @@ def main() -> None:
         script_directory: Path = Path(__file__).resolve().parent
         script_directory = Path(
             # r"Q:\BGER\PER\RPRT\ryan-tools\tests\test_data\tuflow\tutorials"
-            r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
+            # r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
+            r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
         )
         os.chdir(script_directory)
 

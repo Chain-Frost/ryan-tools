@@ -105,13 +105,7 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
 
 
 def main_processing(console_log_level: str | None = None) -> None:
-<<<<<<< HEAD
-    """
-    Main function to process log files using multiprocessing.
-    """
-=======
     """Main function to process log files using multiprocessing."""
->>>>>>> e56e6a4c1ad49df4bc58d91b132261278d33b877
     # log_dir = Path.home() / "Documents" / "MyAppLogs"
     # log_file = "tuflow_logsummary.log"
 
@@ -160,9 +154,7 @@ def main_processing(console_log_level: str | None = None) -> None:
         successful_runs = len(results)
         if results:
             try:
-                merged_df: pd.DataFrame = merge_and_sort_data(
-                    frames=results, sort_column="StartDate"
-                )
+                merged_df: pd.DataFrame = merge_and_sort_data(frames=results, sort_column="StartDate")
 
                 # Define the desired column order
                 prioritized_columns = [
