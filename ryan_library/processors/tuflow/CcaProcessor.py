@@ -82,32 +82,38 @@ class ccAProcessor(BaseProcessor):
             return pd.DataFrame()
 
     def process_gpkg(self) -> pd.DataFrame:
-        """
-        Process a GeoPackage CCA file.
+        """Process a GeoPackage CCA file (in read-only mode).
 
         Returns:
-            pd.DataFrame: Processed GeoPackage CCA data.
-        """
-        logger.debug(f"Processing GeoPackage CCA file: {self.file_path}")
+            pd.DataFrame: Processed GeoPackage CCA data."""
+        logger.debug(f"Processing GeoPackage CCA file (read-only): {self.file_path}")
         try:
-            # List layers in the GeoPackage
+            # 1. Identify which layer we need (endswith '1d_ccA_L')
             layers = fiona.listlayers(self.file_path)
-            layer_name: str | None = next(
-                (layer for layer in layers if layer.endswith("1d_ccA_L")), None
-            )
+            layer_name: str | None = next((layer for layer in layers if layer.endswith("1d_ccA_L")), None)
 
             if layer_name is None:
                 raise ValueError("No layer found with '1d_ccA_L' in the GeoPackage.")
 
-            gdf = gpd.read_file(self.file_path, layer=layer_name)
+            # 2. Construct a SQLite URI with mode=ro to prevent WAL/SHM creation
+            uri = f"sqlite:///{self.file_path}?mode=ro"
+
+            # 3. Open that URI in read-only mode, specifying the layer
+            with fiona.Env():  # ensures GDAL/Fiona environment is clean
+                with fiona.open(uri, layer=layer_name) as src:
+                    # Build a GeoDataFrame from the opened layer
+                    gdf = gpd.GeoDataFrame.from_features(src, crs=src.crs)
+
+            # 4. Drop geometry column to work only with attribute data
             cca_data = gdf.drop(columns="geometry").copy()
 
-            # Rename 'Channel' to 'Chan ID' if present
+            # 5. Rename 'Channel' to 'Chan ID' if needed
             if "Channel" in cca_data.columns:
                 cca_data.rename(columns={"Channel": "Chan ID"}, inplace=True)
 
             logger.debug(f"Processed GeoPackage CCA DataFrame head:\n{cca_data.head()}")
             return cca_data
+
         except Exception as e:
             logger.error(f"Error processing GeoPackage file {self.file_path}: {e}")
             return pd.DataFrame()

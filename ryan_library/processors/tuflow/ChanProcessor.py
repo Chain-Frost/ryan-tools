@@ -23,9 +23,7 @@ class ChanProcessor(BaseProcessor):
             status = self.read_maximums_csv()
 
             if status != 0:
-                logger.error(
-                    f"Processing aborted for file: {self.file_path} due to previous errors."
-                )
+                logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
                 self.df = pd.DataFrame()
                 return self.df
 
@@ -34,9 +32,7 @@ class ChanProcessor(BaseProcessor):
                 self.df["Height"] = self.df["LBUS Obvert"] - self.df["US Invert"]
                 logger.debug("Calculated 'Height' column.")
             else:
-                logger.error(
-                    f"Required columns for calculating Height are missing in file {self.file_path}."
-                )
+                logger.error(f"Required columns for calculating Height are missing in file {self.file_path}.")
                 self.df = pd.DataFrame()
                 return self.df
 
@@ -54,15 +50,12 @@ class ChanProcessor(BaseProcessor):
                 self.df.rename(columns={"LBUS Obvert": "US Obvert"}, inplace=True)
                 logger.debug("Renamed 'LBUS Obvert' to 'US Obvert'.")
             else:
-                logger.error(
-                    f"'LBUS Obvert' column is missing in file {self.file_path}."
-                )
+                logger.error(f"'LBUS Obvert' column is missing in file {self.file_path}.")
                 self.df = pd.DataFrame()
                 return self.df
 
             # Proceed with common processing steps from BaseProcessor
             self.add_common_columns()
-            self.apply_output_transformations()
             self.apply_output_transformations()
 
             # Validate data
