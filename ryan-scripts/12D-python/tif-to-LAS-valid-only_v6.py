@@ -86,6 +86,9 @@ def main() -> None:
 
     # Set script_dir to a specific path
     script_dir = Path(__file__).resolve().parent
+    script_dir = Path(
+        r"P:\BGER\PER\RP23229 MT MORGANS WATER PROJECTS FS - GMD\99 UNLOCKED\12D\Input\A5690_Mt_Morgans_Ortho_DTM"
+    )
     logger.info(f"Script directory: {script_dir}")
 
     # Verify that script_dir exists
