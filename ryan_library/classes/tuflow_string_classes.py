@@ -67,8 +67,9 @@ class TuflowStringParser:
     DURATION_PATTERN: re.Pattern[str] = re.compile(
         pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", flags=re.IGNORECASE
     )
+    # https://chatgpt.com/share/683e7d7c-6108-800e-8278-767122a24fc7
     AEP_PATTERN: re.Pattern[str] = re.compile(
-        pattern=r"(?:[_+]|^)(\d{2}\.\d{1,2})p(?:[_+]|$)", flags=re.IGNORECASE
+        pattern=r"(?:^|[_+])(\d+(?:\.\d{1,2})?p)(?=$|[_+])", flags=re.IGNORECASE
     )
 
     def __init__(self, file_path: Path | str):
