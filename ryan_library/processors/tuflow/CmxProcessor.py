@@ -6,17 +6,13 @@ from .base_processor import BaseProcessor
 
 
 class CmxProcessor(BaseProcessor):
-    """
-    Processor for '_1d_Cmx.csv' files.
-    """
+    """Processor for '_1d_Cmx.csv' files."""
 
-    def process(self) -> pd.DataFrame:
-        """
-        Process the '_1d_Cmx.csv' file and return a cleaned DataFrame.
+    def process(self) -> None:
+        """Process the '_1d_Cmx.csv' file and return a cleaned DataFrame.
 
         Returns:
-            pd.DataFrame: Processed CMX data.
-        """
+            pd.DataFrame: Processed CMX data."""
         logger.info(f"Starting processing of CMX file: {self.file_path}")
 
         try:
@@ -27,7 +23,7 @@ class CmxProcessor(BaseProcessor):
                     f"Processing aborted for file: {self.file_path} due to previous errors."
                 )
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             # Perform CMX-specific data reshaping
             self._reshape_cmx_data()
@@ -43,22 +39,20 @@ class CmxProcessor(BaseProcessor):
             if not self.validate_data():
                 logger.error(f"{self.file_name}: Data validation failed.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             self.processed = True
             logger.info(f"Completed processing of CMX file: {self.file_path}")
 
-            return self.df
+            return None
 
         except Exception as e:
             logger.error(f"Failed to process CMX file {self.file_path}: {e}")
             self.df = pd.DataFrame()
-            return self.df
+            return
 
     def _reshape_cmx_data(self) -> None:
-        """
-        Reshape the CMX DataFrame to have separate rows for Qmax and Vmax.
-        """
+        """Reshape the CMX DataFrame to have separate rows for Qmax and Vmax."""
         logger.debug("Starting CMX data reshaping.")
 
         # Define required columns for reshaping
@@ -98,9 +92,7 @@ class CmxProcessor(BaseProcessor):
             self.df = pd.DataFrame()
 
     def _handle_malformed_data(self) -> None:
-        """
-        Detect and handle any malformed data entries in the DataFrame.
-        """
+        """Detect and handle any malformed data entries in the DataFrame."""
         logger.debug("Checking for malformed data entries.")
 
         malformed_mask = self.df[["Chan ID", "Time", "Q", "V"]].isnull().all(axis=1)
