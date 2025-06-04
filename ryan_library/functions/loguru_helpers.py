@@ -238,8 +238,10 @@ def add_file_sink(
     )
 
 
-def log_exception() -> None:
-    """
-    Logs the current exception with a stack trace.
-    """
-    logger.exception("An exception occurred")
+def log_exception(err: str | None) -> None:
+    """Logs the current exception with a stack trace."""
+    if err:
+        msg: str = "An exception occurred" + err
+    else:
+        msg = "An exception occurred"
+    logger.exception(msg)
