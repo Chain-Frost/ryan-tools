@@ -8,11 +8,8 @@ from .base_processor import BaseProcessor
 class CmxProcessor(BaseProcessor):
     """Processor for '_1d_Cmx.csv' files."""
 
-    def process(self) -> pd.DataFrame:
-        """Process the '_1d_Cmx.csv' file and return a cleaned DataFrame.
-
-        Returns:
-            pd.DataFrame: Processed CMX data."""
+    def process(self) -> None:
+        """Process the '_1d_Cmx.csv' file and save to the class df variable."""
         logger.info(f"Starting processing of CMX file: {self.file_path}")
 
         try:
@@ -21,7 +18,7 @@ class CmxProcessor(BaseProcessor):
             if status != 0:
                 logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             # Perform CMX-specific data reshaping
             self._reshape_cmx_data()
@@ -37,17 +34,17 @@ class CmxProcessor(BaseProcessor):
             if not self.validate_data():
                 logger.error(f"{self.file_name}: Data validation failed.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             self.processed = True
             logger.info(f"Completed processing of CMX file: {self.file_path}")
 
-            return self.df
+            return None
 
         except Exception as e:
             logger.error(f"Failed to process CMX file {self.file_path}: {e}")
             self.df = pd.DataFrame()
-            return self.df
+            return
 
     def _reshape_cmx_data(self) -> None:
         """Reshape the CMX DataFrame to have separate rows for Qmax and Vmax."""

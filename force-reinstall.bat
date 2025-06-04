@@ -3,7 +3,7 @@
 setlocal
 
 REM Define the path to the Python executable
-set "PYTHON_EXEC=C:\Program Files\Python312\python.exe"
+set "PYTHON_EXEC=C:\Program Files\Python313\python.exe"
 
 REM Check if the Python executable exists
 if not exist "%PYTHON_EXEC%" (
