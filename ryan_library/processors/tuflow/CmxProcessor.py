@@ -6,26 +6,20 @@ from .base_processor import BaseProcessor
 
 
 class CmxProcessor(BaseProcessor):
-    """
-    Processor for '_1d_Cmx.csv' files.
-    """
+    """Processor for '_1d_Cmx.csv' files."""
 
     def process(self) -> pd.DataFrame:
-        """
-        Process the '_1d_Cmx.csv' file and return a cleaned DataFrame.
+        """Process the '_1d_Cmx.csv' file and return a cleaned DataFrame.
 
         Returns:
-            pd.DataFrame: Processed CMX data.
-        """
+            pd.DataFrame: Processed CMX data."""
         logger.info(f"Starting processing of CMX file: {self.file_path}")
 
         try:
             status = self.read_maximums_csv()
 
             if status != 0:
-                logger.error(
-                    f"Processing aborted for file: {self.file_path} due to previous errors."
-                )
+                logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
                 self.df = pd.DataFrame()
                 return self.df
 
@@ -56,21 +50,15 @@ class CmxProcessor(BaseProcessor):
             return self.df
 
     def _reshape_cmx_data(self) -> None:
-        """
-        Reshape the CMX DataFrame to have separate rows for Qmax and Vmax.
-        """
+        """Reshape the CMX DataFrame to have separate rows for Qmax and Vmax."""
         logger.debug("Starting CMX data reshaping.")
 
         # Define required columns for reshaping
         required_columns = ["Chan ID", "Time Qmax", "Qmax", "Vmax", "Time Vmax"]
-        missing_columns = [
-            col for col in required_columns if col not in self.df.columns
-        ]
+        missing_columns = [col for col in required_columns if col not in self.df.columns]
 
         if missing_columns:
-            logger.error(
-                f"Missing required columns for reshaping in file {self.file_path}: {missing_columns}"
-            )
+            logger.error(f"Missing required columns for reshaping in file {self.file_path}: {missing_columns}")
             self.df = pd.DataFrame()
             return
 
@@ -92,25 +80,17 @@ class CmxProcessor(BaseProcessor):
             self.df = cleaned_df
 
         except KeyError as e:
-            logger.error(
-                f"Missing expected columns during reshaping for file {self.file_path}: {e}"
-            )
+            logger.error(f"Missing expected columns during reshaping for file {self.file_path}: {e}")
             self.df = pd.DataFrame()
 
     def _handle_malformed_data(self) -> None:
-        """
-        Detect and handle any malformed data entries in the DataFrame.
-        """
+        """Detect and handle any malformed data entries in the DataFrame."""
         logger.debug("Checking for malformed data entries.")
 
         malformed_mask = self.df[["Chan ID", "Time", "Q", "V"]].isnull().all(axis=1)
         if malformed_mask.any():
             malformed_entries = self.df.loc[malformed_mask, "Chan ID"].unique()
-            logger.warning(
-                f"Malformed entries detected in file {self.file_path}: {malformed_entries}"
-            )
+            logger.warning(f"Malformed entries detected in file {self.file_path}: {malformed_entries}")
             # Remove malformed entries
             self.df = self.df[~malformed_mask]
-            logger.debug(
-                f"DataFrame after removing malformed entries:\n{self.df.head()}"
-            )
+            logger.debug(f"DataFrame after removing malformed entries:\n{self.df.head()}")

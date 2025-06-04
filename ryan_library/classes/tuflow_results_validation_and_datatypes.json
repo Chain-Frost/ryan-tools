@@ -114,7 +114,7 @@
       "_1d_Q.csv"
     ],
     "output_columns": {
-      "Time": "string",
+      "Time": "float",
       "Chan ID": "string",
       "Q": "float"
     },
@@ -131,7 +131,7 @@
       "_1d_H.csv"
     ],
     "output_columns": {
-      "Time": "string",
+      "Time": "float",
       "Chan ID": "string",
       "US_H": "float",
       "DS_H": "float"
@@ -140,6 +140,23 @@
       "dataformat": "Timeseries",
       "expected_in_header": [
         "H"
+      ]
+    }
+  },
+  "V": {
+    "processor": "VProcessor",
+    "suffixes": [
+      "_1d_V.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Chan ID": "string",
+      "V": "float"
+    },
+    "processingParts": {
+      "dataformat": "Timeseries",
+      "expected_in_header": [
+        "V"
       ]
     }
   }

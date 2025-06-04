@@ -1,4 +1,4 @@
-# TUFLOW_Culvert_Merge.py
+# TUFLOW_Culvert_Timeseries.py
 
 from ryan_library.scripts.tuflow_culverts_timeseries import main_processing
 from pathlib import Path
@@ -8,7 +8,7 @@ console_log_level = "INFO"  # "DEBUG" "INFO"
 
 
 def main() -> None:
-    """Wrapper script to merge culvert results
+    """Wrapper script to merge timeseries culvert results
     By default, it processes files in the directory where the script is located."""
 
     try:
@@ -30,9 +30,9 @@ def main() -> None:
         paths_to_process=[script_directory],
         include_data_types=[
             "Q",
-            # "V",
+            "V",
             # "CF",
-            # "H",
+            "H",
             # "L",
             # "NF",
             # "SQ",
