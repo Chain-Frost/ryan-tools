@@ -1,4 +1,23 @@
 {
+  "POMM": {
+    "processor": "POMMProcessor",
+    "suffixes": [
+      "_POMM.csv"
+    ],
+    "output_columns": {
+      "Location": "string",
+      "Type": "string",
+      "Tmax": "float",
+      "Tmin": "float",
+      "Min": "float",
+      "Max": "float",
+      "AbsMax": "float",
+      "SignedAbsMax": "float"
+    },
+    "processingParts": {
+      "dataformat": "POMM"
+    }
+  },
   "Cmx": {
     "processor": "CmxProcessor",
     "suffixes": [

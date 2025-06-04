@@ -23,14 +23,18 @@ class RunCodeComponent:
         self.text_repr = self._generate_text_repr()
 
     def _parse_numeric_value(self, raw_value: str) -> float | int | None:
-        """
-        Parse the raw value into a numeric type.
-
-        Returns:
-            int or float: Parsed numeric value.
-        """
+        """Parse the raw_value into a numeric type. If there is a decimal point,
+        round to exactly the number of decimals that appeared in raw_value."""
         try:
-            return float(raw_value) if "." in raw_value else int(raw_value)
+            if "." in raw_value:
+                val = float(raw_value)
+                if self.component_type == "aep":
+                    # Count how many digits follow the decimal point in raw_value.
+                    decimals = len(raw_value.split(".")[1])
+                    return round(val, decimals)
+                return val
+            else:
+                return int(raw_value)
         except ValueError:
             logger.error(
                 f"Invalid numeric value for {self.component_type}: {raw_value}"
@@ -38,12 +42,10 @@ class RunCodeComponent:
             return None
 
     def _generate_text_repr(self) -> str:
-        """
-        Generate a textual representation based on the component type.
+        """Generate a textual representation based on the component type.
 
         Returns:
-            str: Textual representation of the component.
-        """
+            str: Textual representation of the component."""
         mappings = {
             "tp": f"TP{self.raw_value}",
             "duration": f"{self.raw_value}m",
@@ -68,7 +70,7 @@ class TuflowStringParser:
         pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", flags=re.IGNORECASE
     )
     AEP_PATTERN: re.Pattern[str] = re.compile(
-        pattern=r"(?:[_+]|^)(\d{2}\.\d{1,2})p(?:[_+]|$)", flags=re.IGNORECASE
+        pattern=r"(?:^|[_+])(\d+(?:\.\d{1,2})?)(?:p)(?=$|[_+])", flags=re.IGNORECASE
     )
 
     def __init__(self, file_path: Path | str):
@@ -110,12 +112,10 @@ class TuflowStringParser:
     # remake this function to use suffixes_and_dtypes.py
     @staticmethod
     def load_suffixes() -> dict[str, str]:
-        """
-        Load suffixes using the SuffixesConfig class.
+        """Load suffixes using the SuffixesConfig class.
 
         Returns:
-            dict[str, str]: Suffix to type mapping.
-        """
+            dict[str, str]: Suffix to type mapping."""
         try:
             suffixes: dict[str, str] = SuffixesConfig.get_instance().suffix_to_type
             logger.debug(f"Loaded suffixes: {suffixes}")
@@ -125,12 +125,10 @@ class TuflowStringParser:
             return {}
 
     def determine_data_type(self) -> str | None:
-        """
-        Determine the data type based on the file suffix.
+        """Determine the data type based on the file suffix.
 
         Returns:
-            Optional[str]: Data type if a matching suffix is found, otherwise None.
-        """
+            Optional[str]: Data type if a matching suffix is found, otherwise None."""
         for suffix, data_type in self.suffixes.items():
             if self.file_name.lower().endswith(suffix.lower()):
                 logger.debug(
@@ -225,8 +223,8 @@ class TuflowStringParser:
         """
         match = self.AEP_PATTERN.search(string)
         if match:
-            aep_value = match.group(1)
-            logger.debug(f"Parsed AEP value: {aep_value}")
+            aep_value: str = match.group(1)
+            logger.debug(f"Parsed AEP value: {aep_value!r}")
             return RunCodeComponent(raw_value=aep_value, component_type="AEP")
         logger.debug("No AEP component found")
         return None
