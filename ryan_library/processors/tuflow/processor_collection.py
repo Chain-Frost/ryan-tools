@@ -250,3 +250,41 @@ class ProcessorCollection:
             f"Filtered ProcessorCollection created with {len(filtered_collection.processors)} processors matching data types {data_types}."
         )
         return filtered_collection
+
+    def check_duplicates(self) -> dict[tuple[str, str], list[BaseProcessor]]:
+        """Identify processors that share the same run-code (internalName) and data_type.
+
+        Returns:
+            A dict mapping (run_code, data_type) → list of processors. Only entries
+            where more than one processor share the same key are returned.
+
+        # coll = ProcessorCollection()
+        # for p in processors:
+        #     coll.add_processor(p)
+
+        # dupes = coll.check_duplicates()
+        # if dupes:
+        #     # maybe raise, or filter them out, or alert the user"""
+        from collections import defaultdict
+
+        groups: dict[tuple[str, str], list[BaseProcessor]] = defaultdict(list)
+
+        for proc in self.processors:
+            # use the raw run code as the internalName
+            run_code = proc.name_parser.raw_run_code
+            key = (run_code, proc.data_type)
+            groups[key].append(proc)
+
+        # filter to only “duplicates”
+        duplicates = {k: v for k, v in groups.items() if len(v) > 1}
+
+        if duplicates:
+            for (run_code, dtype), procs in duplicates.items():
+                files = ", ".join(p.file_name for p in procs)
+                logger.warning(
+                    f"Potential duplicate group: run_code='{run_code}', " f"data_type='{dtype}' found in files: {files}"
+                )
+        else:
+            logger.debug("No duplicate processors found by run_code & data_type.")
+
+        return duplicates
