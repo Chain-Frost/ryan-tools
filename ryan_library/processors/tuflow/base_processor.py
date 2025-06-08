@@ -65,9 +65,7 @@ class BaseProcessor(ABC):
         self.resolved_file_path = self.file_path.resolve()
         self.name_parser = TuflowStringParser(file_path=self.file_path)
         if self.name_parser.data_type is None:
-            raise ValueError(
-                "data_type was not set in TuflowStringParser for self.file_path.name"
-            )
+            raise ValueError("data_type was not set in TuflowStringParser for self.file_path.name")
         self.data_type = self.name_parser.data_type
         logger.debug(f"{self.file_name}: Data type identified as '{self.data_type}'")
         self._load_configuration()
@@ -88,9 +86,7 @@ class BaseProcessor(ABC):
             raise ValueError(error_msg)
 
         # Get processor class name based on data type
-        processor_class_name: (
-            str | None
-        ) = SuffixesConfig.get_instance().get_processor_class_for_data_type(
+        processor_class_name: str | None = SuffixesConfig.get_instance().get_processor_class_for_data_type(
             data_type=data_type
         )
         if not processor_class_name:
@@ -99,18 +95,14 @@ class BaseProcessor(ABC):
             raise KeyError(error_msg)
 
         # Dynamically import the processor class
-        processor_cls: type[BaseProcessor] = cls.get_processor_class(
-            class_name=processor_class_name
-        )
+        processor_cls: type[BaseProcessor] = cls.get_processor_class(class_name=processor_class_name)
 
         # Instantiate the processor class
         try:
             processor = processor_cls(file_path=file_path)
             return processor
         except Exception as e:
-            logger.exception(
-                f"Error instantiating processor '{processor_class_name}' for file {file_path}: {e}"
-            )
+            logger.exception(f"Error instantiating processor '{processor_class_name}' for file {file_path}: {e}")
             raise
 
     @staticmethod
@@ -125,9 +117,7 @@ class BaseProcessor(ABC):
             module = importlib.import_module(module_path)
             processor_cls = getattr(module, class_name)
             BaseProcessor._processor_cache[class_name] = processor_cls
-            logger.debug(
-                f"Imported processor class '{class_name}' from '{module_path}'."
-            )
+            logger.debug(f"Imported processor class '{class_name}' from '{module_path}'.")
             return processor_cls
         except ImportError as ie:
             msg: str = f"Processor module '{module_path}' not found: {ie}"
@@ -143,13 +133,9 @@ class BaseProcessor(ABC):
         if not self.data_type:
             raise ValueError("data_type was not set in TuflowStringParser.")
 
-        data_type_def: DataTypeDefinition | None = Config.get_instance().data_types.get(
-            self.data_type
-        )
+        data_type_def: DataTypeDefinition | None = Config.get_instance().data_types.get(self.data_type)
         if data_type_def is None:
-            raise KeyError(
-                f"Data type '{self.data_type}' is not defined in the config."
-            )
+            raise KeyError(f"Data type '{self.data_type}' is not defined in the config.")
 
         # Load output_columns
         self.output_columns = data_type_def.output_columns
@@ -166,14 +152,10 @@ class BaseProcessor(ABC):
         # Depending on dataformat, load columns_to_use or expected_in_header
         if self.dataformat in ["Maximums", "ccA"]:
             self.columns_to_use = processing_parts.columns_to_use
-            logger.debug(
-                f"{self.file_name}: Loaded columns_to_use: {self.columns_to_use}"
-            )
+            logger.debug(f"{self.file_name}: Loaded columns_to_use: {self.columns_to_use}")
         elif self.dataformat == "Timeseries":
             self.expected_in_header = processing_parts.expected_in_header
-            logger.debug(
-                f"{self.file_name}: Loaded expected_in_header: {self.expected_in_header}"
-            )
+            logger.debug(f"{self.file_name}: Loaded expected_in_header: {self.expected_in_header}")
         else:
             logger.warning(f"{self.file_name}: Unknown dataformat '{self.dataformat}'.")
 
@@ -185,50 +167,16 @@ class BaseProcessor(ABC):
 
         pass
 
+    def reorder_long_text_columns(self) -> None:
+        """Move large width column names to the right side."""
+        self.df = reorder_long_columns(df=self.df)
+
     def add_common_columns(self) -> None:
         """Add all common columns by delegating to specific methods."""
         self.add_basic_info_to_df()
         self.run_code_parts_to_df()
         self.additional_attributes_to_df()
         self.reorder_long_text_columns()
-
-    def reorder_long_text_columns(self) -> None:
-        """Move large width column names to the right side."""
-        self.df = reorder_long_columns(df=self.df)
-
-    def apply_output_transformations(self) -> None:
-        """Apply output column transformations:
-        - Checks if DataFrame is empty or if no output_columns are defined.
-        - Applies data types as specified in output_columns."""
-        if self.df.empty:
-            logger.warning(
-                f"{self.file_name}: DataFrame is empty, skipping datatype transformations."
-            )
-            return
-
-        if not self.output_columns:
-            logger.warning(
-                f"{self.file_name}: No output_columns mapping for '{self.data_type}'."
-            )
-            return
-        missing_columns: list[str] = [
-            col for col in self.output_columns if col not in self.df.columns
-        ]
-        if missing_columns:
-            logger.warning(
-                f"{self.file_name}: Missing columns in DataFrame: {missing_columns}"
-            )
-        # Apply data types based on output_columns configuration
-        try:
-            self.df = self.df.astype(self.output_columns)
-            logger.debug(
-                f"{self.file_name}: Applied output_columns datatype mapping: {self.output_columns}"
-            )
-        except (KeyError, ValueError, TypeError) as e:
-            logger.error(
-                f"{self.file_name}: Error applying output_columns datatypes: {e}"
-            )
-            raise
 
     def add_basic_info_to_df(self) -> None:
         """Add basic information columns to the DataFrame."""
@@ -248,13 +196,9 @@ class BaseProcessor(ABC):
         self.df = self.df.assign(**data).astype({key: "string" for key in data})
         # Convert columns to 'category' dtype before ordering
         basic_info_columns = list(data.keys())
-        self.df[basic_info_columns] = self.df[basic_info_columns].astype(
-            dtype="category"
-        )
+        self.df[basic_info_columns] = self.df[basic_info_columns].astype(dtype="category")
         self.order_categorical_columns(df=self.df, columns=basic_info_columns)
-        logger.debug(
-            f"{self.file_name}: Basic info columns added and converted to ordered categorical."
-        )
+        logger.debug(f"{self.file_name}: Basic info columns added and converted to ordered categorical.")
 
     def run_code_parts_to_df(self) -> None:
         """Extract and add R01, R02, etc., based on the run code."""
@@ -265,9 +209,7 @@ class BaseProcessor(ABC):
         # Convert run code parts to 'category' dtype before ordering
         self.df[run_code_keys] = self.df[run_code_keys].astype(dtype="category")
         self.order_categorical_columns(df=self.df, columns=run_code_keys)
-        logger.debug(
-            f"{self.file_name}: Run code parts added and converted to ordered categorical."
-        )
+        logger.debug(f"{self.file_name}: Run code parts added and converted to ordered categorical.")
 
     def additional_attributes_to_df(self) -> None:
         """Extract and add TP, Duration, and AEP using the parser."""
@@ -303,36 +245,46 @@ class BaseProcessor(ABC):
 
         # Create a dynamic dtype mapping based on present attributes
         dtype_mapping: dict[str, str] = {
-            col: dtype
-            for col, dtype in complete_type_mapping.items()
-            if col in attributes
+            col: dtype for col, dtype in complete_type_mapping.items() if col in attributes
         }
 
         # Apply data types
         if dtype_mapping:
             try:
                 self.df = self.df.astype(dtype=dtype_mapping)
-                logger.debug(
-                    f"{self.file_name}: Applied additional attributes datatype mapping: {dtype_mapping}"
-                )
+                logger.debug(f"{self.file_name}: Applied additional attributes datatype mapping: {dtype_mapping}")
             except (KeyError, ValueError, TypeError) as e:
-                logger.error(
-                    f"{self.file_name}: Error applying additional attributes datatypes: {e}"
-                )
+                logger.error(f"{self.file_name}: Error applying additional attributes datatypes: {e}")
                 raise
 
         # Convert the added columns to 'category' dtype before ordering
         category_columns = list(attributes.keys())
-        existing_category_columns: list[str] = [
-            col for col in category_columns if col in self.df.columns
-        ]
-        self.df[existing_category_columns] = self.df[existing_category_columns].astype(
-            dtype="category"
-        )
+        existing_category_columns: list[str] = [col for col in category_columns if col in self.df.columns]
+        self.df[existing_category_columns] = self.df[existing_category_columns].astype(dtype="category")
         self.order_categorical_columns(df=self.df, columns=existing_category_columns)
-        logger.debug(
-            f"{self.file_name}: Additional attributes converted to ordered categorical."
-        )
+        logger.debug(f"{self.file_name}: Additional attributes converted to ordered categorical.")
+
+    def apply_output_transformations(self) -> None:
+        """Apply output column transformations:
+        - Checks if DataFrame is empty or if no output_columns are defined.
+        - Applies data types as specified in output_columns."""
+        if self.df.empty:
+            logger.warning(f"{self.file_name}: DataFrame is empty, skipping datatype transformations.")
+            return
+
+        if not self.output_columns:
+            logger.warning(f"{self.file_name}: No output_columns mapping for '{self.data_type}'.")
+            return
+        missing_columns: list[str] = [col for col in self.output_columns if col not in self.df.columns]
+        if missing_columns:
+            logger.warning(f"{self.file_name}: Missing columns in DataFrame: {missing_columns}")
+        # Apply data types based on output_columns configuration
+        try:
+            self.df = self.df.astype(self.output_columns)
+            logger.debug(f"{self.file_name}: Applied output_columns datatype mapping: {self.output_columns}")
+        except (KeyError, ValueError, TypeError) as e:
+            logger.error(f"{self.file_name}: Error applying output_columns datatypes: {e}")
+            raise
 
     def validate_data(self) -> bool:
         """Validate the processed data.
@@ -341,28 +293,37 @@ class BaseProcessor(ABC):
         Returns:
             bool: True if data is valid, False otherwise."""
         if self.df.empty:
-            logger.warning(
-                f"{self.file_name}: DataFrame is empty for file: {self.file_path}"
-            )
+            logger.warning(f"{self.file_name}: DataFrame is empty for file: {self.file_path}")
             return False
         return True
 
     def check_headers_match(self, test_headers: list[str]) -> bool:
         """Check if the CSV headers match the expected headers.
-
         Args:
             test_headers (list[str]): The headers from the CSV file.
-
         Returns:
             bool: True if headers match, False otherwise."""
         if self.columns_to_use:
             expected = list(self.columns_to_use.keys())
-            if test_headers != expected:
+            got_set = set(test_headers)
+            expected_set = set(expected)
+            # First—ensure nothing is missing or extra:
+            if got_set != expected_set:
+                missing: set[str] = expected_set - got_set
+                extra: set[str] = got_set - expected_set
                 logger.error(
-                    f"Error reading {self.file_name}, headers did not match expected format {expected}. Got {test_headers}"
+                    f"Error reading {self.file_name}, header mismatch. "
+                    f"Missing columns: {sorted(missing)}; Extra columns: {sorted(extra)}."
                 )
                 return False
-            logger.debug("Test headers matched expected columns_to_use.")
+            # If the sets match but the order is different:
+            if test_headers != expected:
+                logger.warning(
+                    f"{self.file_name}: column order differs. "
+                    f"Expected {expected}, got {test_headers}. Proceeding by reordering."
+                )
+            else:
+                logger.debug("Test headers matched expected columns_to_use in order.")
             return True
         elif self.expected_in_header:
             if test_headers != self.expected_in_header:
@@ -392,13 +353,9 @@ class BaseProcessor(ABC):
                 dtype=dtype,
                 skipinitialspace=True,
             )
-            logger.debug(
-                f"CSV file '{self.file_name}' read successfully with {len(df)} rows."
-            )
+            logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
         except Exception as e:
-            logger.exception(
-                f"{self.file_name}: Failed to read CSV file '{self.file_path}': {e}"
-            )
+            logger.exception(f"{self.file_name}: Failed to read CSV file '{self.file_path}': {e}")
             return 3
 
         if df.empty:
@@ -427,21 +384,15 @@ class BaseProcessor(ABC):
         try:
             df_full: pd.DataFrame = self._read_csv(file_path=self.file_path)
             if df_full.empty:
-                logger.error(
-                    f"{self.file_name}: No data found in file: {self.file_path}"
-                )
+                logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
                 return 1
 
             df: pd.DataFrame = self._clean_headers(df=df_full, data_type=data_type)
             if df.empty:
-                logger.error(
-                    f"{self.file_name}: DataFrame is empty after cleaning headers."
-                )
+                logger.error(f"{self.file_name}: DataFrame is empty after cleaning headers.")
                 return 1
 
-            df_melted: pd.DataFrame = self._reshape_timeseries_df(
-                df=df, data_type=data_type
-            )
+            df_melted: pd.DataFrame = self._reshape_timeseries_df(df=df, data_type=data_type)
             if df_melted.empty:
                 logger.error(f"{self.file_name}: No data found after reshaping.")
                 return 1
@@ -466,14 +417,10 @@ class BaseProcessor(ABC):
                 skipinitialspace=True,
                 encoding="utf-8",
             )
-            logger.debug(
-                f"CSV file '{self.file_name}' read successfully with {len(df)} rows."
-            )
+            logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
             return df
         except Exception as e:
-            logger.exception(
-                f"{self.file_name}: Failed to read CSV file '{file_path}': {e}"
-            )
+            logger.exception(f"{self.file_name}: Failed to read CSV file '{file_path}': {e}")
             raise ProcessorError(f"Failed to read CSV file '{file_path}': {e}")
 
     def _clean_headers(self, df: pd.DataFrame, data_type: str) -> pd.DataFrame:
@@ -486,16 +433,10 @@ class BaseProcessor(ABC):
                 logger.debug("Renamed 'Time (h)' to 'Time'.")
 
             if "Time" not in df.columns:
-                logger.error(
-                    f"{self.file_name}: 'Time' column is missing after cleaning headers."
-                )
-                raise DataValidationError(
-                    "'Time' column is missing after cleaning headers."
-                )
+                logger.error(f"{self.file_name}: 'Time' column is missing after cleaning headers.")
+                raise DataValidationError("'Time' column is missing after cleaning headers.")
 
-            cleaned_columns: list[str] = self._clean_column_names(
-                columns=df.columns, data_type=data_type
-            )
+            cleaned_columns: list[str] = self._clean_column_names(columns=df.columns, data_type=data_type)
             df.columns = cleaned_columns
             logger.debug(f"Cleaned headers: {cleaned_columns}")
             return df
@@ -533,17 +474,11 @@ class BaseProcessor(ABC):
 
         try:
             if data_type == "H":
-                df_melted: pd.DataFrame = self._reshape_h_data(
-                    df=df, category_type=category_type
-                )
+                df_melted: pd.DataFrame = self._reshape_h_data(df=df, category_type=category_type)
             else:
                 # For data types like 'Q', 'F', 'V' with single value per channel
-                df_melted = df.melt(
-                    id_vars=["Time"], var_name=category_type, value_name=data_type
-                )
-                logger.debug(
-                    f"Reshaped DataFrame to long format with {len(df_melted)} rows."
-                )
+                df_melted = df.melt(id_vars=["Time"], var_name=category_type, value_name=data_type)
+                logger.debug(f"Reshaped DataFrame to long format with {len(df_melted)} rows.")
         except Exception as e:
             logger.exception(f"{self.file_name}: Failed to reshape DataFrame: {e}")
             raise ProcessorError(f"Failed to reshape DataFrame: {e}")
@@ -554,9 +489,7 @@ class BaseProcessor(ABC):
 
         # Validate headers
         expected_headers: list[str] = (
-            ["Time", category_type, "H_US", "H_DS"]
-            if data_type == "H"
-            else ["Time", category_type, data_type]
+            ["Time", category_type, "H_US", "H_DS"] if data_type == "H" else ["Time", category_type, data_type]
         )
         if not self.check_headers_match(test_headers=df_melted.columns.tolist()):
             logger.error(f"{self.file_name}: Header mismatch after reshaping.")
@@ -600,9 +533,7 @@ class BaseProcessor(ABC):
                 )
 
         df_melted = pd.DataFrame(data=records)
-        logger.debug(
-            f"Reshaped 'H' DataFrame to long format with {len(df_melted)} rows."
-        )
+        logger.debug(f"Reshaped 'H' DataFrame to long format with {len(df_melted)} rows.")
         return df_melted
 
     def _apply_final_transformations(self, data_type: str) -> None:
@@ -618,9 +549,7 @@ class BaseProcessor(ABC):
         if data_type == "H":
             col_types.update({"H_US": "float64", "H_DS": "float64"})
 
-        self.apply_dtype_mapping(
-            dtype_mapping=col_types, context="final_transformations"
-        )
+        self.apply_dtype_mapping(dtype_mapping=col_types, context="final_transformations")
 
     def read_ccA_data(self) -> tuple[pd.DataFrame, int]:
         """Reads ccA files with 'ccA' data format.
@@ -633,13 +562,9 @@ class BaseProcessor(ABC):
                     2 - Header mismatch
                     3 - Read error"""
         # 'ccA' cannot be processed yet; raise NotImplementedError
-        raise NotImplementedError(
-            "Processing of ccA data format is not yet implemented."
-        )
+        raise NotImplementedError("Processing of ccA data format is not yet implemented.")
 
-    def apply_dtype_mapping(
-        self, dtype_mapping: dict[str, str], context: str = ""
-    ) -> None:
+    def apply_dtype_mapping(self, dtype_mapping: dict[str, str], context: str = "") -> None:
         """Apply dtype mapping to the DataFrame.
 
         Args:
@@ -647,19 +572,13 @@ class BaseProcessor(ABC):
             context (str): Contextual information for logging."""
         try:
             self.df = self.df.astype(dtype=dtype_mapping)
-            logger.debug(
-                f"{self.file_name}: Applied dtype mapping in {context}: {dtype_mapping}"
-            )
+            logger.debug(f"{self.file_name}: Applied dtype mapping in {context}: {dtype_mapping}")
         except (KeyError, ValueError, TypeError) as e:
-            msg: str = (
-                f"{self.file_name}: Error applying dtype mapping in {context}: {e}"
-            )
+            msg: str = f"{self.file_name}: Error applying dtype mapping in {context}: {e}"
             logger.error(msg)
             raise ProcessorError(msg)
 
-    def separate_metrics(
-        self, metric_columns: dict[str, str], new_columns: dict[str, Any]
-    ) -> pd.DataFrame:
+    def separate_metrics(self, metric_columns: dict[str, str], new_columns: dict[str, Any]) -> pd.DataFrame:
         """Separate metrics into distinct rows based on provided column mappings.
 
         Args:
@@ -687,7 +606,5 @@ class BaseProcessor(ABC):
         for col in columns:
             if df[col].dtype.name == "category" and not df[col].cat.ordered:
                 sorted_categories: list = sorted(df[col].cat.categories)
-                df[col] = df[col].cat.set_categories(
-                    new_categories=sorted_categories, ordered=True
-                )
+                df[col] = df[col].cat.set_categories(new_categories=sorted_categories, ordered=True)
                 logger.debug(f"Column '{col}' ordered alphabetically.")

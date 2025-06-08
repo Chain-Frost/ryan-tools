@@ -1,23 +1,21 @@
+# ryan_library/processors/tuflow/ccAProcessor.py
+from pandas import DataFrame
+import shapefile
+import sqlite3
 import pandas as pd
 import geopandas as gpd
-import shapefile
+import fiona
 from loguru import logger
 from .base_processor import BaseProcessor
-import fiona
 
 
 class ccAProcessor(BaseProcessor):
-    """
-    Processor for CCA files ('_1d_ccA_L.dbf' and '_Results1D.gpkg').
-    """
+    """Processor for CCA files ('_1d_ccA_L.dbf' and '_Results1D.gpkg')."""
 
     def process(self) -> pd.DataFrame:
-        """
-        Process the CCA file (DBF or GPKG) and return a cleaned DataFrame.
-
+        """Process the CCA file (DBF or GPKG) and return a cleaned DataFrame.
         Returns:
-            pd.DataFrame: Processed CCA data.
-        """
+            pd.DataFrame: Processed CCA data."""
         logger.debug(f"Starting processing of CCA file: {self.file_path}")
         file_ext = self.file_path.suffix.lower()
 
@@ -59,12 +57,9 @@ class ccAProcessor(BaseProcessor):
             return self.df
 
     def process_dbf(self) -> pd.DataFrame:
-        """
-        Process a DBF CCA file.
-
+        """Process a DBF CCA file.
         Returns:
-            pd.DataFrame: Processed DBF CCA data.
-        """
+            pd.DataFrame: Processed DBF CCA data."""
         logger.debug(f"Processing DBF CCA file: {self.file_path}")
         try:
             with self.file_path.open("rb") as dbf_file:
@@ -82,30 +77,39 @@ class ccAProcessor(BaseProcessor):
             return pd.DataFrame()
 
     def process_gpkg(self) -> pd.DataFrame:
-        """Process a GeoPackage CCA file (in read-only mode).
-
-        Returns:
-            pd.DataFrame: Processed GeoPackage CCA data."""
+        """Process a GeoPackage CCA file purely read-only, without creating WAL/SHM."""
         logger.debug(f"Processing GeoPackage CCA file (read-only): {self.file_path}")
         try:
-            # 1. Identify which layer we need (endswith '1d_ccA_L')
-            layers = fiona.listlayers(self.file_path)
-            layer_name: str | None = next((layer for layer in layers if layer.endswith("1d_ccA_L")), None)
+            # 1. Use sqlite3 in URI-mode to list feature layers from gpkg_contents
+            db_uri: str = f"file:{self.file_path}?mode=ro&uri=true"
+            with sqlite3.connect(database=db_uri) as conn:
+                cur: sqlite3.Cursor = conn.cursor()
+                cur.execute(
+                    """
+                    SELECT table_name
+                      FROM gpkg_contents
+                     WHERE data_type = 'features';
+                """
+                )
+                layers: list = [row[0] for row in cur.fetchall()]
 
-            if layer_name is None:
-                raise ValueError("No layer found with '1d_ccA_L' in the GeoPackage.")
+            # 2. Find our CCA layer by suffix
+            desired = "1d_ccA_L"
+            layer_name = next((lyr for lyr in layers if lyr.endswith(desired)), "layer-not-found")
 
-            # 2. Construct a SQLite URI with mode=ro to prevent WAL/SHM creation
-            uri = f"sqlite:///{self.file_path}?mode=ro"
+            if layer_name == "layer-not-found":
+                logger.debug(f"Layer ending with '{desired}' not found in {self.file_path}. " "No data to process.")
+                return pd.DataFrame()
 
-            # 3. Open that URI in read-only mode, specifying the layer
-            with fiona.Env():  # ensures GDAL/Fiona environment is clean
-                with fiona.open(uri, layer=layer_name) as src:
-                    # Build a GeoDataFrame from the opened layer
-                    gdf = gpd.GeoDataFrame.from_features(src, crs=src.crs)
+            # 3. Read just that layer with Fiona, in read-only mode
+            uri: str = f"file://{self.file_path}?mode=ro&uri=true"
+            # Open that URI in read-only mode, specifying the layer
+            with fiona.Env():  # clean GDAL/Fiona env
+                with fiona.open(fp=uri, layer=layer_name) as src:
+                    gdf: gpd.GeoDataFrame = gpd.GeoDataFrame.from_features(src, crs=src.crs)
 
-            # 4. Drop geometry column to work only with attribute data
-            cca_data = gdf.drop(columns="geometry").copy()
+            # 4. Strip geometry, rename if needed, and return
+            cca_data: DataFrame = gdf.drop(columns="geometry").copy()
 
             # 5. Rename 'Channel' to 'Chan ID' if needed
             if "Channel" in cca_data.columns:

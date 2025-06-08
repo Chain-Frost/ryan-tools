@@ -28,9 +28,7 @@ def worker_initializer(queue: Queue) -> None:
     worker_configurer(queue)
 
 
-def listener_process(
-    queue: Queue, log_file: str | None = None, console_log_level: str = "INFO"
-) -> None:
+def listener_process(queue: Queue, log_file: str | None = None, console_log_level: str = "INFO") -> None:
     """
     Listener process that receives log records from worker processes and writes them to the configured sinks.
 
@@ -88,9 +86,7 @@ def listener_process(
 
             if exception:
                 # If there's an exception, use logger.opt to include it
-                logger.opt(exception=exception).log(
-                    level, f"{module}:{function}:{line} - {msg}"
-                )
+                logger.opt(exception=exception).log(level, f"{module}:{function}:{line} - {msg}")
             else:
                 logger.log(level, f"{module}:{function}:{line} - {msg}")
         except Exception:
@@ -188,20 +184,16 @@ class LoguruMultiprocessingLogger:
 
 
 def setup_logger(
-    log_file: str | None = None,
     console_log_level: str = "INFO",
+    log_file: str | None = None,
 ) -> LoguruMultiprocessingLogger:
-    """
-    Convenience function to set up logging using a context manager.
-
+    """Convenience function to set up logging using a context manager.
     Parameters:
         log_file (str or None): Path to the log file. If None, file logging is disabled.
         console_log_level (str): Minimum log level for console output.
-
     Usage:
         with setup_logger("my_log.log") as log_queue:
-            # Your multiprocessing code here
-    """
+            # Your multiprocessing code here"""
     # If log_file is a relative path, make it relative to the current working directory
     if log_file and not os.path.isabs(log_file):
         log_file = os.path.join(os.getcwd(), log_file)

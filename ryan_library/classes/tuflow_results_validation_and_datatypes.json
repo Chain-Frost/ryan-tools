@@ -74,7 +74,8 @@
       "DS Invert": "float",
       "US Obvert": "float",
       "Height": "float",
-      "pBlockage": "float"
+      "pBlockage": "float",
+      "Flags": "string"
     },
     "processingParts": {
       "dataformat": "Maximums",
@@ -86,7 +87,8 @@
         "US Invert": "float",
         "DS Invert": "float",
         "LBUS Obvert": "float",
-        "pBlockage": "float"
+        "pBlockage": "float",
+        "Flags": "string"
       }
     }
   },
