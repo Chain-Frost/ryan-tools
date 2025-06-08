@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from multiprocessing import Pool
 from dataclasses import dataclass, field
+from queue import Queue
 from typing import Any
 
 import pandas as pd
@@ -85,18 +86,18 @@ def process_files_in_parallel(
 def bulk_read_and_merge_tuflow_csv(
     paths_to_process: list[Path],
     include_data_types: list[str],
-    console_log_level: str = "INFO",
+    log_queue,
 ) -> ProcessorCollection:
-    with setup_logger(console_log_level=console_log_level) as log_q:
-        logger.info("Starting TUFLOW culvert processing")
-        files: list[Path] = collect_files(
-            paths_to_process=paths_to_process,
-            include_data_types=include_data_types,
-            suffixes_config=SuffixesConfig.get_instance(),
-        )
-        if not files:
-            logger.error("No files found")
-            return ProcessorCollection()
+    logger.info("Starting TUFLOW culvert processing")
+    files: list[Path] = collect_files(
+        paths_to_process=paths_to_process,
+        include_data_types=include_data_types,
+        suffixes_config=SuffixesConfig.get_instance(),
+    )
+    if not files:
+        logger.error("No files found")
+        return ProcessorCollection()
 
-        results: ProcessorCollection = process_files_in_parallel(file_list=files, log_queue=log_q)
+    results: ProcessorCollection = process_files_in_parallel(file_list=files, log_queue=log_queue)
+    # tell the queue “no more data” and wait for its feeder thread to finish
     return results
