@@ -6,21 +6,16 @@ from .base_processor import BaseProcessor
 
 
 class ChanProcessor(BaseProcessor):
-    """
-    Processor for '_1d_Chan.csv' files.
-    """
+    """Processor for '_1d_Chan.csv' files."""
 
     def process(self) -> pd.DataFrame:
-        """
-        Process the '_1d_Chan.csv' file and return a cleaned DataFrame.
-
+        """Process the '_1d_Chan.csv' file and return a cleaned DataFrame.
         Returns:
-            pd.DataFrame: Processed Chan data.
-        """
+            pd.DataFrame: Processed Chan data."""
         logger.info(f"Starting processing of Chan file: {self.file_path}")
 
         try:
-            status = self.read_maximums_csv()
+            status: int = self.read_maximums_csv()
 
             if status != 0:
                 logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")

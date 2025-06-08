@@ -8,9 +8,7 @@ from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 
 @dataclass
 class RunCodeComponent:
-    """
-    Represents a component of a run code (e.g., AEP, Duration, TP).
-    """
+    """Represents a component of a run code (e.g., AEP, Duration, TP)."""
 
     raw_value: str
     component_type: str
@@ -36,14 +34,11 @@ class RunCodeComponent:
             else:
                 return int(raw_value)
         except ValueError:
-            logger.error(
-                f"Invalid numeric value for {self.component_type}: {raw_value}"
-            )
+            logger.error(f"Invalid numeric value for {self.component_type}: {raw_value}")
             return None
 
     def _generate_text_repr(self) -> str:
         """Generate a textual representation based on the component type.
-
         Returns:
             str: Textual representation of the component."""
         mappings = {
@@ -58,62 +53,44 @@ class RunCodeComponent:
 
 
 class TuflowStringParser:
-    """
-    A class to parse Tuflow-specific strings and file paths.
-    """
+    """A class to parse Tuflow-specific strings and file paths."""
 
     # Precompile regex patterns for efficiency
-    TP_PATTERN: re.Pattern[str] = re.compile(
-        pattern=r"(?:[_+]|^)TP(\d{2})(?:[_+]|$)", flags=re.IGNORECASE
-    )
-    DURATION_PATTERN: re.Pattern[str] = re.compile(
-        pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", flags=re.IGNORECASE
-    )
+    TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)TP(\d{2})(?:[_+]|$)", flags=re.IGNORECASE)
+    DURATION_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", flags=re.IGNORECASE)
     AEP_PATTERN: re.Pattern[str] = re.compile(
         pattern=r"(?:^|[_+])(\d+(?:\.\d{1,2})?)(?:p)(?=$|[_+])", flags=re.IGNORECASE
     )
 
     def __init__(self, file_path: Path | str):
-        """
-        Initialize the TuflowStringParser with the given file path.
-
+        """Initialize the TuflowStringParser with the given file path.
         Args:
-            file_path (Path | str): Path to the file to be processed.
-        """
+            file_path (Path | str): Path to the file to be processed."""
         self.file_path = Path(file_path)
         self.file_name: str = self.file_path.name
         self.suffixes: dict[str, str] = self.load_suffixes()
         self.data_type: str | None = self.determine_data_type()
         self.raw_run_code: str = self.extract_raw_run_code()
         self.clean_run_code: str = self.clean_runcode(run_code=self.raw_run_code)
-        self.run_code_parts: dict[str, str] = self.extract_run_code_parts(
-            clean_run_code=self.clean_run_code
-        )
+        self.run_code_parts: dict[str, str] = self.extract_run_code_parts(clean_run_code=self.clean_run_code)
         self.tp: RunCodeComponent | None = self.parse_tp(string=self.clean_run_code)
-        self.duration: RunCodeComponent | None = self.parse_duration(
-            string=self.clean_run_code
-        )
+        self.duration: RunCodeComponent | None = self.parse_duration(string=self.clean_run_code)
         self.aep: RunCodeComponent | None = self.parse_aep(string=self.clean_run_code)
         self.trim_run_code: str = self.trim_the_run_code()
 
     @staticmethod
     def clean_runcode(run_code: str) -> str:
-        """
-        Replace '+' with '_' to standardize delimiters.
-
+        """Replace '+' with '_' to standardize delimiters.
         Args:
             run_code (str): The raw run code string.
-
         Returns:
-            str: Cleaned run code string.
-        """
+            str: Cleaned run code string."""
         return run_code.replace("+", "_")
 
     # remake this function to use suffixes_and_dtypes.py
     @staticmethod
     def load_suffixes() -> dict[str, str]:
         """Load suffixes using the SuffixesConfig class.
-
         Returns:
             dict[str, str]: Suffix to type mapping."""
         try:
@@ -131,9 +108,7 @@ class TuflowStringParser:
             Optional[str]: Data type if a matching suffix is found, otherwise None."""
         for suffix, data_type in self.suffixes.items():
             if self.file_name.lower().endswith(suffix.lower()):
-                logger.debug(
-                    f"Determined data type '{data_type}' for suffix '{suffix}'"
-                )
+                logger.debug(f"Determined data type '{data_type}' for suffix '{suffix}'")
                 return data_type
         logger.warning(f"No matching suffix found for file '{self.file_name}'")
         return None
@@ -148,13 +123,9 @@ class TuflowStringParser:
         for suffix in self.suffixes.keys():
             if self.file_name.lower().endswith(suffix.lower()):
                 run_code = self.file_name[: -len(suffix)]
-                logger.debug(
-                    f"Extracted raw run code '{run_code}' from file name '{self.file_name}'"
-                )
+                logger.debug(f"Extracted raw run code '{run_code}' from file name '{self.file_name}'")
                 return run_code
-        logger.debug(
-            f"No suffix matched; using entire file name '{self.file_name}' as run code"
-        )
+        logger.debug(f"No suffix matched; using entire file name '{self.file_name}' as run code")
         return self.file_name
 
     @staticmethod
@@ -169,9 +140,7 @@ class TuflowStringParser:
             dict[str, str]: Dictionary of run code parts with keys like 'R01', 'R02', etc.
         """
         run_code_parts = clean_run_code.split("_")
-        r_dict = {
-            f"R{index:02}": part for index, part in enumerate(run_code_parts, start=1)
-        }
+        r_dict = {f"R{index:02}": part for index, part in enumerate(run_code_parts, start=1)}
         logger.debug(f"Extracted run code parts: {r_dict}")
         return r_dict
 
@@ -236,16 +205,8 @@ class TuflowStringParser:
         Returns:
             str: Cleaned run code.
         """
-        components_to_remove = {
-            str(component)
-            for component in [self.aep, self.duration, self.tp]
-            if component
-        }
+        components_to_remove = {str(component) for component in [self.aep, self.duration, self.tp] if component}
         logger.debug(f"Components to remove: {components_to_remove}")
-        trimmed_runcode = "_".join(
-            part
-            for part in self.clean_run_code.split("_")
-            if part not in components_to_remove
-        )
+        trimmed_runcode = "_".join(part for part in self.clean_run_code.split("_") if part not in components_to_remove)
         logger.debug(f"Trimmed run code: {trimmed_runcode}")
         return trimmed_runcode
