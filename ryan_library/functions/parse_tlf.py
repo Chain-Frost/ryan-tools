@@ -25,13 +25,12 @@ REGEX_PATTERNS: dict[str, re.Pattern] = {
     "final_me": re.compile(r"Final Cumulative ME:\s*(-?[\d.]+)%"),
     "simulation_finished": re.compile(r"Simulation FINISHED"),
     "clock_time": re.compile(r"Clock Time:.*\[(?P<time>[-+]?\d*\.\d+|\d+)\s*h\]"),
-    "processor_time": re.compile(
-        r"Processor Time:.*\[(?P<time>[-+]?\d*\.\d+|\d+)\s*h\]"
-    ),
+    "processor_time": re.compile(r"Processor Time:.*\[(?P<time>[-+]?\d*\.\d+|\d+)\s*h\]"),
     "model_end_time": re.compile(r"End Time \(h\):\s*(\d+\.?\d*)"),
     "model_start_time": re.compile(r"Start Time \(h\):\s*(\d+\.?\d*)"),
     "input_file": re.compile(r"Input File:\s*(.+\.tcf)"),
     "log_path": re.compile(r"Log File:\s*(.+)"),
+    "gpu_device_ids": re.compile(r"GPU Device IDs\s*==\s*(?P<ids>[\d,\s]+)"),
 }
 
 # Define excluded variable patterns globally for efficiency
@@ -135,22 +134,18 @@ def search_for_completion(
             data_dict["Final_Cumulative_ME_pct"] = final_me
             if sim_complete == 1:
                 sim_complete = 2  # This is the last item we grab
+
+    # within init/final sections capture times
     elif current_section:
         # Handle Clock Time
         if match := REGEX_PATTERNS["clock_time"].search(string=line):
             clock_time = float(match.group("time"))
-            key = (
-                "Final_RunTime" if current_section == "final" else "Initialise_RunTime"
-            )
+            key = "Final_RunTime" if current_section == "final" else "Initialise_RunTime"
             data_dict[key] = clock_time
         # Handle Processor Time
         elif match := REGEX_PATTERNS["processor_time"].search(string=line):
             processor_time = float(match.group("time"))
-            key = (
-                "Final_CPU_Time"
-                if current_section == "final"
-                else "Initialise_CPU_Time"
-            )
+            key = "Final_CPU_Time" if current_section == "final" else "Initialise_CPU_Time"
             data_dict[key] = processor_time
 
     return data_dict, sim_complete, current_section
@@ -164,19 +159,16 @@ def search_from_top(
     spec_scen: bool,
     spec_var: bool,
 ) -> tuple[dict[str, Any], int, bool, bool, bool]:
+    """Parses the top of the log file for build info, variables, file references, etc."""
     if match := re.match(pattern=r"Build:\s*(.*)", string=line):
         data_dict["TUFLOW_version"] = match.group(1).strip()
-    elif match := re.match(
-        pattern=r"Simulations Log Folder == .*\\([^\\]+)$", string=line
-    ):
+    elif match := re.match(pattern=r"Simulations Log Folder == .*\\([^\\]+)$", string=line):
         data_dict["username"] = match.group(1).strip()
     elif match := re.match(pattern=r"Computer Name:\s*(.*)", string=line):
         data_dict["ComputerName"] = match.group(1).strip()
         success += 1
     elif "! GPU Solver from 2016-03 Release or earlier invoked." in line:
-        data_dict["Version_note"] = (
-            "! GPU Solver from 2016-03 Release or earlier invoked."
-        )
+        data_dict["Version_note"] = "! GPU Solver from 2016-03 Release or earlier invoked."
     elif match := re.match(r"Simulation Started\s*:\s*(.+)", line):
         dt_str: str = match.group(1).strip().rstrip(".")
         try:
@@ -184,6 +176,9 @@ def search_from_top(
             success += 1
         except ValueError:
             logger.warning(f"Failed to parse StartDate from line: {line}")
+    elif match := REGEX_PATTERNS["gpu_device_ids"].search(string=line):
+        ids_str = match.group("ids").strip()
+        data_dict["GPU_Device_IDs"] = ids_str
     elif spec_events:
         if len(line.strip()) == 0:
             spec_events = False
@@ -214,15 +209,11 @@ def search_from_top(
         success += 1
     elif match := re.search(pattern=r"BC Database == .*\\([^\\]+)", string=line):
         data_dict["BC_dbase"] = match.group(1).strip()
-    elif match := re.search(
-        pattern=r"Geometry Control File == .*\\([^\\]+)", string=line
-    ):
+    elif match := re.search(pattern=r"Geometry Control File == .*\\([^\\]+)", string=line):
         data_dict["TGC"] = match.group(1).strip()
     elif match := re.search(pattern=r"BC Control File == .*\\([^\\]+)", string=line):
         data_dict["TBC"] = match.group(1).strip()
-    elif match := re.search(
-        pattern=r"ESTRY Control File == .*\\([^\\.]+)", string=line
-    ):
+    elif match := re.search(pattern=r"ESTRY Control File == .*\\([^\\.]+)", string=line):
         data_dict["ECF"] = match.group(1).strip()
     elif match := re.search(pattern=r"BC Event File == .*\\([^\\.]+)", string=line):
         data_dict["TEF"] = match.group(1).strip()
@@ -237,16 +228,12 @@ def search_from_top(
         if len(line.strip()) == 0:
             spec_var = False
         else:
-            match: re.Match[str] | None = SET_VARIABLE_PATTERN.match(
-                string=line.strip()
-            )
-            if match:
-                key: str = match.group("var").strip()
-                value: str = match.group("val").strip()
+            m: re.Match[str] | None = SET_VARIABLE_PATTERN.match(string=line.strip())
+            if m:
+                key: str = m.group("var").strip()
+                value: str = m.group("val").strip()
                 # Exclude redundant variables
-                if key in EXCLUDED_VARIABLES or re.match(
-                    pattern=r"^~[ES]\d*~$", string=key
-                ):
+                if key in EXCLUDED_VARIABLES or re.match(pattern=r"^~[ES]\d*~$", string=key):
                     # logger.debug(f"Excluded redundant variable: {key}")
                     pass
                 else:
@@ -259,24 +246,18 @@ def search_from_top(
     return data_dict, success, spec_events, spec_scen, spec_var
 
 
-def remove_e_s_from_runcode(
-    runcode: str, data_dict: dict[str, Any], delimiters: str = "_+"
-) -> str:
+def remove_e_s_from_runcode(runcode: str, data_dict: dict[str, Any], delimiters: str = "_+") -> str:
     for delim in delimiters:
         runcode = runcode.replace(delim, "_")
     parts: list[str] = runcode.split(sep="_")
 
     patterns_to_remove: set[str] = {
-        str(value).lower()
-        for key, value in data_dict.items()
-        if key.startswith("-e") or key.startswith("-s")
+        str(value).lower() for key, value in data_dict.items() if key.startswith("-e") or key.startswith("-s")
     }
     logger.debug(f"Patterns to remove: {patterns_to_remove}")
 
     filtered_parts: list[str] = [
-        part
-        for part in parts
-        if part.lower() not in patterns_to_remove and part.strip() != ""
+        part for part in parts if part.lower() not in patterns_to_remove and part.strip() != ""
     ]
     cleaned_runcode: str = "_".join(filtered_parts)
     logger.debug(f"Original RunCode: {runcode}, Cleaned RunCode: {cleaned_runcode}")
@@ -336,26 +317,20 @@ def process_top_lines(
         if is_large_file:
             with logfile_path.open("r", encoding="utf-8") as lfile:
                 for counter, line in enumerate(lfile, 1):
-                    result: tuple[dict[str, Any], int, bool, bool, bool] = (
-                        search_from_top(
-                            line=line,
-                            data_dict=data_dict,
-                            success=success,
-                            spec_events=spec_events,
-                            spec_scen=spec_scen,
-                            spec_var=spec_var,
-                        )
+                    result: tuple[dict[str, Any], int, bool, bool, bool] = search_from_top(
+                        line=line,
+                        data_dict=data_dict,
+                        success=success,
+                        spec_events=spec_events,
+                        spec_scen=spec_scen,
+                        spec_var=spec_var,
                     )
                     if result is None:
-                        logger.error(
-                            f"search_from_top returned None for file: {relative_logfile_path}"
-                        )
+                        logger.error(f"search_from_top returned None for file: {relative_logfile_path}")
                         return data_dict, success, spec_events, spec_scen, spec_var
                     data_dict, success, spec_events, spec_scen, spec_var = result
                     if success == 4 and counter > 4000:
-                        logger.debug(
-                            f"Early termination after {counter} lines for {runcode}"
-                        )
+                        logger.debug(f"Early termination after {counter} lines for {runcode}")
                         break
         else:
             for counter, line in enumerate(lines, 1):
@@ -368,15 +343,11 @@ def process_top_lines(
                     spec_var=spec_var,
                 )
                 if result is None:
-                    logger.error(
-                        f"search_from_top returned None for file: {relative_logfile_path}"
-                    )
+                    logger.error(f"search_from_top returned None for file: {relative_logfile_path}")
                     return data_dict, success, spec_events, spec_scen, spec_var
                 data_dict, success, spec_events, spec_scen, spec_var = result
                 if success == 4 and counter > 4000:
-                    logger.debug(
-                        f"Early termination after {counter} lines for {runcode}"
-                    )
+                    logger.debug(f"Early termination after {counter} lines for {runcode}")
                     break
         return data_dict, success, spec_events, spec_scen, spec_var
     except Exception as e:
