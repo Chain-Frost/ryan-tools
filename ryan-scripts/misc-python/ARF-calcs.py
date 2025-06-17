@@ -292,7 +292,7 @@ def plot_arf_for_northern_coastal(params_df: pd.DataFrame) -> None:
     region = "Northern Coastal"
     aep_values = [1, 2, 5, 10, 20, 50]
     duration_values = [30, 60, 120, 180, 360, 720, 1440]  # from 30 mins to 1440 mins
-    area_values = range(1, 21)  # area from 1 to 20 km²
+    area_values = range(1, 350)  # area from 1 to 20 km²
 
     # Prepare plot
     plt.figure(figsize=(12, 8))
@@ -331,9 +331,9 @@ def plot_arf_for_northern_coastal_by_duration(params_df: pd.DataFrame) -> None:
     """
     # Define values
     region = "Northern Coastal"
-    aep = 5  # fixed AEP at 5%
+    aep = 2  # fixed AEP at 5%
     duration_values = [30, 60, 120, 180, 360, 720, 1440]  # discrete durations
-    area_values = range(1, 21)  # area from 1 to 20 km²
+    area_values = range(1, 350)  # area from 1 to 20 km²
 
     # Prepare plot
     plt.figure(figsize=(12, 8))
@@ -361,9 +361,9 @@ def plot_arf_for_northern_coastal_by_duration(params_df: pd.DataFrame) -> None:
 
 if __name__ == "__main__":
     # Example parameters
-    example_area = 5  # km-squared
-    example_duration = 360  # minutes (30 hours)
-    example_aep = 10  # percent
+    example_area = 205  # km-squared
+    example_duration = 720  # minutes (30 hours)
+    example_aep = 2  # percent
     example_region = "Northern Coastal"
 
     arf_value = ARF(
@@ -384,3 +384,16 @@ if __name__ == "__main__":
     plot_arf_for_northern_coastal(params)
 
 # based on https://gist.github.com/TonyLadson/fc870cf7ebfe39ea3d1a812bcc53c8fb
+
+region_names: list[str] = [
+    "East Coast North",
+    "Semi-arid Inland QLD",
+    "Tasmania",
+    "SW WA",
+    "Central NSW",
+    "SE Coast",
+    "Southern Semi-arid",
+    "Southern Temperate",
+    "Northern Coastal",
+    "Inland Arid",
+]
