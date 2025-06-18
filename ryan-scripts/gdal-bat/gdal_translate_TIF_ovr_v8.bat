@@ -82,7 +82,7 @@ REM ========================
 echo Processing in directory: "%CD%"
 
 for %%i in (%_items%) do (
-    for %%f in ("*%%i") do (
+    for %%f in ("*.%%i") do (
         if exist "%%~f" (
             set "_inputFile=%%~f"
             set "_outputFile=%%~dpnf.tif"
