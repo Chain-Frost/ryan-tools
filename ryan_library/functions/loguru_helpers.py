@@ -6,6 +6,8 @@ import pickle
 import atexit
 from multiprocessing import Process, Queue
 from loguru import logger
+import multiprocessing
+from pathlib import Path
 
 # Centralized Configuration
 LOG_FORMAT = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {module}:{function}:{line} - {message}"
@@ -197,3 +199,47 @@ def log_exception(err: str | None) -> None:
     """Logs the current exception with a stack trace."""
     msg: str = "An exception occurred" + (err or "")
     logger.exception(msg)
+
+
+class LoggerManager:
+    """Singleton wrapper around ``LoguruMultiprocessingLogger`` for
+    backward compatibility."""
+
+    _instance = None
+    _lock = multiprocessing.Lock()
+
+    def __new__(cls, *args, **kwargs):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(
+        self,
+        log_level: str = "INFO",
+        log_file: str | None = "app.log",
+        log_dir: Path | None = None,
+        max_bytes: int = 10**6,
+        backup_count: int = 5,
+        enable_color: bool = True,
+        additional_sinks=None,
+    ) -> None:
+        if getattr(self, "_initialized", False):
+            return
+
+        log_dir = Path(log_dir or os.getcwd())
+        self._log_path = str((log_dir / log_file) if log_file else None)
+        self._logger_context = setup_logger(console_log_level=log_level, log_file=self._log_path)
+        self._log_queue = self._logger_context.__enter__()
+        self._listener = self._logger_context.listener
+        self._initialized = True
+
+    def shutdown(self) -> None:
+        if getattr(self, "_logger_context", None):
+            self._logger_context.__exit__(None, None, None)
+            self._logger_context = None
+
+
+def worker_process(log_queue: Queue) -> None:
+    """Compatibility wrapper that configures the logger for a worker process."""
+    worker_configurer(log_queue)

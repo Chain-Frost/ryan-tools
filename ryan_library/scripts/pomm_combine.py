@@ -5,6 +5,10 @@ from multiprocessing import Pool
 from pathlib import Path
 import pandas as pd
 from loguru import logger
+import logging
+import multiprocessing
+from glob import iglob
+from datetime import datetime
 
 from ryan_library.functions.file_utils import (
     find_files_parallel,
@@ -12,6 +16,12 @@ from ryan_library.functions.file_utils import (
     ensure_output_directory,
 )
 from ryan_library.functions.misc_functions import calculate_pool_size, ExcelExporter
+from ryan_library.functions.data_processing import (
+    safe_apply,
+    check_string_TP,
+    check_string_duration,
+    check_string_aep,
+)
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
@@ -20,6 +30,7 @@ from ryan_library.functions.loguru_helpers import (
     log_exception,
     worker_initializer,
 )
+from ryan_library.functions.logging_helpers import setup_logging
 
 
 def main_processing(
@@ -209,3 +220,183 @@ def export_results(results: ProcessorCollection) -> None:
             output_directory=output_path1,  # Pass the optional path
         )
         logger.info(f"Exported data for scenario '{scenario1}' successfully.")
+
+
+# ---------------------------------------------------------------------------
+# Legacy functions preserved for backward compatibility
+# ---------------------------------------------------------------------------
+
+
+def process_pomm_file(file_path: str) -> pd.DataFrame:
+    """Process a single POMM CSV file and transform it into a standardized DataFrame.
+
+    This includes renaming columns, type casting, extracting run code parts, and
+    calculating additional metrics.
+
+    Args:
+        file_path (str): Path to the POMM CSV file.
+
+    Returns:
+        pd.DataFrame: Transformed DataFrame with necessary calculations.
+                      Returns an empty DataFrame if an error occurs.
+    """
+
+    logging.info(f"Processing file: {file_path}")
+
+    try:
+        original_df = pd.read_csv(filepath_or_buffer=file_path, header=None)
+
+        run_code = original_df.iat[0, 0]
+
+        transposed_df = original_df.drop(columns=0).T
+
+        transposed_df.columns = pd.Index(transposed_df.iloc[0], dtype=str)
+        transposed_df = transposed_df.drop(index=transposed_df.index[0])
+
+        column_mappings = {
+            "Type": ("Location", "string"),
+            "Location": ("Time", "string"),
+            "Max": ("Maximum (Extracted from Time Series)", "float"),
+            "Tmax": ("Time of Maximum", "float"),
+            "Min": ("Minimum (Extracted From Time Series)", "float"),
+            "Tmin": ("Time of Minimum", "float"),
+        }
+
+        for new_col, (old_col, dtype) in column_mappings.items():
+            if old_col in transposed_df.columns:
+                transposed_df.rename(columns={old_col: new_col}, inplace=True)
+                transposed_df[new_col] = transposed_df[new_col].astype(dtype)
+
+        run_code_parts: list[str] = run_code.replace("+", "_").split("_")
+        for index, part in enumerate(run_code_parts, start=1):
+            transposed_df.insert(index, f"R{index:02}", str(part))
+
+        transposed_df["AbsMax"] = transposed_df[["Max", "Min"]].abs().max(axis=1)
+
+        transposed_df["SignedAbsMax"] = transposed_df.apply(
+            lambda row: row["Max"] if abs(row["Max"]) >= abs(row["Min"]) else row["Min"],
+            axis=1,
+        )
+
+        transposed_df["TP"] = safe_apply(check_string_TP, run_code)
+        transposed_df["Duration"] = safe_apply(check_string_duration, run_code)
+        transposed_df["AEP"] = safe_apply(check_string_aep, run_code)
+        transposed_df["RunCode"] = run_code
+
+        transposed_df["TrimmedRunCode"] = transposed_df.apply(
+            lambda row: clean_runcode(
+                run_code=row["RunCode"],
+                aep=row["AEP"] + "p" if row["AEP"] is not None else None,
+                duration=row["Duration"] + "m" if row["Duration"] is not None else None,
+                tp="TP" + row["TP"] if row["TP"] is not None else None,
+            ),
+            axis=1,
+        )
+
+        return transposed_df
+
+    except Exception as e:  # pragma: no cover - safety net
+        logging.error(f"Error processing file {file_path}: {e}", exc_info=True)
+        return pd.DataFrame()
+
+
+def clean_runcode(run_code: str, aep: str | None, duration: str | None, tp: str | None) -> str:
+    """Clean the RunCode by removing the extracted AEP, Duration, and TP values."""
+
+    if not isinstance(run_code, str):
+        logging.error(f"RunCode must be a string. Received type: {type(run_code)}")
+        return ""
+
+    standardized_runcode = run_code.replace("+", "_")
+    parts = standardized_runcode.split("_")
+
+    parts_to_remove = set()
+    if aep:
+        parts_to_remove.add(aep)
+    if duration:
+        parts_to_remove.add(duration)
+    if tp:
+        parts_to_remove.add(tp)
+
+    filtered_parts = [part for part in parts if part not in parts_to_remove and part.strip() != ""]
+
+    cleaned_runcode = "_".join(filtered_parts)
+    logging.debug(f"Original RunCode: {run_code}, Cleaned RunCode: {cleaned_runcode}")
+
+    return cleaned_runcode
+
+
+def aggregate_pomm_data(pomm_data: list[pd.DataFrame]) -> pd.DataFrame:
+    """Aggregate a list of DataFrames into a single DataFrame."""
+
+    valid_data_frames = [df for df in pomm_data if not df.empty]
+    aggregated_df = pd.concat(valid_data_frames, ignore_index=True)
+    return aggregated_df
+
+
+def save_to_excel(aep_dur_max: pd.DataFrame, aep_max: pd.DataFrame, output_path: Path):
+    """Save the provided DataFrames to an Excel file with separate sheets."""
+
+    try:
+        logging.info(f"Output path: {output_path}")
+        with pd.ExcelWriter(output_path) as writer:
+            aep_dur_max.to_excel(writer, sheet_name="aep-dur-max", index=False, merge_cells=False)
+            aep_max.to_excel(writer, sheet_name="aep-max", index=False, merge_cells=False)
+        logging.info(f"Peak data exported to {output_path}")
+    except Exception as e:  # pragma: no cover - safety net
+        logging.error(f"Failed to save peak data to Excel: {e}")
+
+
+def save_aggregated_data(aggregated_df: pd.DataFrame, output_path: Path):
+    """Save the aggregated DataFrame to an Excel file."""
+
+    try:
+        aggregated_df.to_excel(output_path, index=False)
+        logging.info(f"Aggregated data exported to {output_path}")
+    except Exception as e:  # pragma: no cover - safety net
+        logging.error(f"Failed to save aggregated data to Excel: {e}")
+
+
+def process_all_files(pomm_files: list[str]) -> pd.DataFrame:
+    """Process all POMM files and aggregate the data."""
+
+    if not pomm_files:
+        logging.warning("No POMM CSV files found. Exiting.")
+        return pd.DataFrame()
+
+    pool_size = calculate_pool_size(len(pomm_files))
+
+    with multiprocessing.Pool(pool_size) as pool:
+        pomm_data = pool.map(process_pomm_file, pomm_files)
+
+    aggregated_df = aggregate_pomm_data(pomm_data)
+    logging.info("Aggregated POMM DataFrame head:")
+    logging.info(f"\n{aggregated_df.head()}")
+    return aggregated_df
+
+
+def legacy_main_processing() -> None:
+    """Legacy main processing for backward compatibility."""
+
+    start_time = datetime.now()
+    setup_logging()
+
+    script_directory = Path.cwd().resolve()
+
+    pomm_files = [str(f) for f in iglob("**/*POMM.csv", recursive=True) if Path(f).is_file()]
+    logging.info(f"Number of POMM files found: {len(pomm_files)}")
+
+    aggregated_df = process_all_files(pomm_files)
+
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+    output_filename_aggregated = f"{timestamp}_POMM.xlsx"
+    output_path_aggregated = script_directory / output_filename_aggregated
+    save_aggregated_data(aggregated_df, output_path_aggregated)
+
+    end_time = datetime.now()
+    runtime = end_time - start_time
+    logging.info(f"Total run time: {runtime}")
+
+
+if __name__ == "__main__":  # pragma: no cover - manual execution
+    legacy_main_processing()

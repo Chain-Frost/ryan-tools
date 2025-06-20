@@ -9,8 +9,8 @@ from ryan_library.scripts.pomm_combine import (
     process_pomm_file,
     aggregate_pomm_data,
     save_to_excel,
-    calculate_pool_size,
 )
+from ryan_library.functions.misc_functions import calculate_pool_size
 import multiprocessing
 from ryan_library.functions.logging_helpers import setup_logging
 
