@@ -6,7 +6,6 @@ from multiprocessing import Pool
 from collections.abc import Iterable
 import pandas as pd
 from loguru import logger
-from pandas import DataFrame
 
 from ryan_library.functions.file_utils import (
     find_files_parallel,
@@ -163,15 +162,26 @@ def aggregated_from_paths(paths: list[Path]) -> pd.DataFrame:
 
 
 def find_aep_dur_max(aggregated_df: pd.DataFrame) -> pd.DataFrame:
-    """Return peak rows for each AEP/Duration/Location/Type/RunCode group."""
+    """Return peak rows for each AEP/Duration/Location/Type/RunCode group,
+    with a column giving the size of each original group."""
+    group_cols: list[str] = [
+        "aep_text",
+        "duration_text",
+        "Location",
+        "Type",
+        "trim_runcode",
+    ]
     try:
-        aep_dur_max: DataFrame = aggregated_df.loc[
-            aggregated_df.groupby(
-                by=["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
-            )["AbsMax"].idxmax()
-        ].reset_index(drop=True)
+        # copy so we don’t clobber the caller’s DataFrame
+        df: pd.DataFrame = aggregated_df.copy()
+        # compute size of each group
+        df["aep_dur_bin"] = df.groupby(group_cols)["AbsMax"].transform("size")
+        # find index of the max in each group
+        idx = df.groupby(group_cols)["AbsMax"].idxmax()
+        # select those rows (they already carry a group_count column)
+        aep_dur_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
         logger.info(
-            "Created 'aep_dur_max' DataFrame with peak records for each AEP-Duration-Location-Type-RunCode group."
+            "Created 'aep_dur_max' DataFrame with peak records and group_count for each AEP-Duration-Location-Type-RunCode group."
         )
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_dur_max' grouping: {e}")
@@ -180,13 +190,17 @@ def find_aep_dur_max(aggregated_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def find_aep_max(aep_dur_max: pd.DataFrame) -> pd.DataFrame:
+    """Return peak rows for each AEP/Location/Type/RunCode group,
+    with a column giving the size of each original AEP group."""
+    group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
-        aep_max: DataFrame = aep_dur_max.loc[
-            aep_dur_max.groupby(["aep_text", "Location", "Type", "trim_runcode"])[
-                "AbsMax"
-            ].idxmax()
-        ].reset_index(drop=True)
-        logger.info("Created 'aep_max' DataFrame with peak records for each AEP group.")
+        df: pd.DataFrame = aep_dur_max.copy()
+        df["aep_bin"] = df.groupby(group_cols)["AbsMax"].transform("size")
+        idx = df.groupby(group_cols)["AbsMax"].idxmax()
+        aep_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
+        logger.info(
+            "Created 'aep_max' DataFrame with peak records and group_count for each AEP-Location-Type-RunCode group."
+        )
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_max' grouping: {e}")
         aep_max = pd.DataFrame()
@@ -225,8 +239,8 @@ def save_peak_report(
     suffix: str = "_peaks.xlsx",
 ) -> None:
     """Save peak data tables to an Excel file."""
-    aep_dur_max: DataFrame = find_aep_dur_max(aggregated_df=aggregated_df)
-    aep_max: DataFrame = find_aep_max(aep_dur_max=aep_dur_max)
+    aep_dur_max: pd.DataFrame = find_aep_dur_max(aggregated_df=aggregated_df)
+    aep_max: pd.DataFrame = find_aep_max(aep_dur_max=aep_dur_max)
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
     save_to_excel(

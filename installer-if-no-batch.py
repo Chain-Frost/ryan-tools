@@ -1,14 +1,14 @@
-import os
 import sys
 import subprocess
 from pathlib import Path
 import glob
 
-def main():
+
+def main() -> None:
     try:
         # Define the working path
-        script_dir = Path(__file__).parent.resolve()
-        package_dir = script_dir / "dist"
+        script_dir: Path = Path(__file__).parent.resolve()
+        package_dir: Path = script_dir / "dist"
         print(f"PACKAGE_DIR: {package_dir}")
 
         if not package_dir.exists():
@@ -19,7 +19,7 @@ def main():
         # Find the latest version of the package
         package_pattern = str(package_dir / "ryan_functions-*.tar.gz")
         packages = sorted(glob.glob(package_pattern), reverse=True)
-        
+
         if not packages:
             print("No package found in the directory.")
             input("Press Enter to exit.")
@@ -29,7 +29,9 @@ def main():
         print(f'Installing or updating "{Path(latest_package).name}"')
 
         # Install or update the package using pip
-        result = subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", latest_package])
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", latest_package]
+        )
 
         # Check if the installation was successful
         if result.returncode == 0:
@@ -41,6 +43,7 @@ def main():
         print(f"An error occurred: {e}")
     finally:
         input("Press Enter to exit.")
+
 
 if __name__ == "__main__":
     main()

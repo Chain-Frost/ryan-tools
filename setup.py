@@ -3,7 +3,7 @@ from setuptools import setup, find_packages  # type: ignore
 
 setup(
     name="ryan_functions",
-    version="25.06.16.1",
+    version="25.06.22.1",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},
