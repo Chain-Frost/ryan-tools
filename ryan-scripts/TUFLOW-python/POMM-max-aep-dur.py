@@ -2,21 +2,24 @@
 
 from pathlib import Path
 import os
-from ryan_library.scripts.pomm_max_items import run_peak_report
+from ryan_library.scripts.pomm_max_items import run_peak_report_modern
 
 
-def main():
-    """
-    Wrapper script to generate peak reports based on 'AEP' and 'Duration'.
-    """
+def main() -> None:
+    """Wrapper script for peak reporting."""
 
-    # Determine the script directory and change the working directory to it
-    script_directory = Path(__file__).resolve().parent
-    os.chdir(script_directory)
+    try:
+        script_directory: Path = Path(__file__).resolve().parent
+        os.chdir(script_directory)
+    except Exception as e:  # pragma: no cover - manual execution
+        print(f"Failed to change working directory: {e}")
+        os.system("PAUSE")
+        raise
 
-    # Run the peak report generation
-    run_peak_report()
+    print(f"Current Working Directory: {Path.cwd()}")
+    run_peak_report_modern(script_directory=script_directory)
 
 
 if __name__ == "__main__":
     main()
+    os.system("PAUSE")
