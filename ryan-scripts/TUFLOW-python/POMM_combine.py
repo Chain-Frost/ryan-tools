@@ -1,8 +1,9 @@
 # ryan-scripts\TUFLOW-python\POMM_combine.py
 
-from ryan_library.scripts.pomm_combine import main_processing
 import os
 from pathlib import Path
+
+from ryan_library.scripts.pomm_combine import main_processing
 
 console_log_level = "INFO"  # "DEBUG" "INFO"
 
@@ -31,9 +32,7 @@ def main() -> None:
     print(f"Current Working Directory: {Path.cwd()}")
     main_processing(
         paths_to_process=[script_directory],
-        include_data_types=[
-            "POMM",
-        ],
+        include_data_types=["POMM"],
         console_log_level=console_log_level,
     )
 
