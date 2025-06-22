@@ -3,7 +3,11 @@
 from loguru import logger
 import pandas as pd
 from pandas import DataFrame
-from ryan_library.functions.dataframe_helpers import reorder_columns, reorder_long_columns, reset_categorical_ordering
+from ryan_library.functions.dataframe_helpers import (
+    reorder_columns,
+    reorder_long_columns,
+    reset_categorical_ordering,
+)
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 
 
@@ -26,7 +30,9 @@ class ProcessorCollection:
             self.processors.append(processor)
             logger.debug(f"Added processor: {processor.file_name}")
         else:
-            logger.warning(f"Attempted to add unprocessed processor: {processor.file_name}")
+            logger.warning(
+                f"Attempted to add unprocessed processor: {processor.file_name}"
+            )
 
     def combine_1d_timeseries(self) -> pd.DataFrame:
         """Combine DataFrames where dataformat is 'Timeseries'.
@@ -55,7 +61,9 @@ class ProcessorCollection:
         columns_to_drop: list[str] = ["file", "rel_path", "path", "directory_path"]
 
         # Check for existing columns and drop them
-        existing_columns_to_drop: list[str] = [col for col in columns_to_drop if col in combined_df.columns]
+        existing_columns_to_drop: list[str] = [
+            col for col in columns_to_drop if col in combined_df.columns
+        ]
         if existing_columns_to_drop:
             combined_df.drop(columns=existing_columns_to_drop, inplace=True)
             logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
@@ -64,7 +72,9 @@ class ProcessorCollection:
         # Reset categorical ordering
         # Group by 'internalName', 'Chan ID', and 'Time'
         group_keys: list[str] = ["internalName", "Chan ID", "Time"]
-        missing_keys: list[str] = [key for key in group_keys if key not in combined_df.columns]
+        missing_keys: list[str] = [
+            key for key in group_keys if key not in combined_df.columns
+        ]
         if missing_keys:
             logger.error(f"Missing group keys {missing_keys} in Timeseries data.")
             return pd.DataFrame()
@@ -72,7 +82,9 @@ class ProcessorCollection:
         combined_df = reorder_long_columns(df=combined_df)
 
         grouped_df: DataFrame = combined_df.groupby(group_keys).agg("max").reset_index()
-        logger.debug(f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows.")
+        logger.debug(
+            f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows."
+        )
 
         return grouped_df
 
@@ -95,14 +107,18 @@ class ProcessorCollection:
             return pd.DataFrame()
 
         # Concatenate DataFrames
-        combined_df: DataFrame = pd.concat([p.df for p in maximums_processors if not p.df.empty], ignore_index=True)
+        combined_df: DataFrame = pd.concat(
+            [p.df for p in maximums_processors if not p.df.empty], ignore_index=True
+        )
         logger.debug(f"Combined Maximums/ccA DataFrame with {len(combined_df)} rows.")
 
         # Columns to drop
         columns_to_drop: list[str] = ["file", "rel_path", "path", "Time"]
 
         # Check for existing columns and drop them
-        existing_columns_to_drop: list[str] = [col for col in columns_to_drop if col in combined_df.columns]
+        existing_columns_to_drop: list[str] = [
+            col for col in columns_to_drop if col in combined_df.columns
+        ]
         if existing_columns_to_drop:
             combined_df.drop(columns=existing_columns_to_drop, inplace=True)
             logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
@@ -113,12 +129,16 @@ class ProcessorCollection:
 
         # Group by 'internalName' and 'Chan ID'
         group_keys: list[str] = ["internalName", "Chan ID"]
-        missing_keys: list[str] = [key for key in group_keys if key not in combined_df.columns]
+        missing_keys: list[str] = [
+            key for key in group_keys if key not in combined_df.columns
+        ]
         if missing_keys:
             logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
             return pd.DataFrame()
 
-        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()
+        grouped_df: DataFrame = (
+            combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()
+        )
         p1_col: list[str] = [
             "trim_runcode",
             "aep_text",
@@ -153,7 +173,9 @@ class ProcessorCollection:
             prefix_order=["R"],
             second_priority_columns=p2_col,
         )
-        logger.debug(f"Grouped {len(maximums_processors)} Maximums/ccA DataFrame with {len(grouped_df)} rows.")
+        logger.debug(
+            f"Grouped {len(maximums_processors)} Maximums/ccA DataFrame with {len(grouped_df)} rows."
+        )
         logger.debug("line157")
         return grouped_df
 
@@ -165,7 +187,9 @@ class ProcessorCollection:
         logger.debug("Combining raw data without grouping.")
 
         # Concatenate all DataFrames
-        combined_df: DataFrame = pd.concat([p.df for p in self.processors if not p.df.empty], ignore_index=True)
+        combined_df: DataFrame = pd.concat(
+            [p.df for p in self.processors if not p.df.empty], ignore_index=True
+        )
         logger.debug(f"Combined Raw DataFrame with {len(combined_df)} rows.")
 
         combined_df = reorder_long_columns(df=combined_df)
@@ -184,15 +208,21 @@ class ProcessorCollection:
         logger.debug("Combining POMM data.")
 
         # Filter processors with dataformat 'POMM'
-        pomm_processors: list[BaseProcessor] = [p for p in self.processors if p.dataformat.lower() == "pomm"]
+        pomm_processors: list[BaseProcessor] = [
+            p for p in self.processors if p.dataformat.lower() == "pomm"
+        ]
 
         if not pomm_processors:
             logger.warning("No processors with dataformat 'POMM' found.")
             return pd.DataFrame()
 
         # Concatenate DataFrames
-        combined_df: DataFrame = pd.concat([p.df for p in pomm_processors if not p.df.empty], ignore_index=True)
-        logger.debug(f"Combined {len(pomm_processors)}  POMM DataFrame with {len(combined_df)} rows.")
+        combined_df: DataFrame = pd.concat(
+            [p.df for p in pomm_processors if not p.df.empty], ignore_index=True
+        )
+        logger.debug(
+            f"Combined {len(pomm_processors)}  POMM DataFrame with {len(combined_df)} rows."
+        )
 
         combined_df = reorder_long_columns(df=combined_df)
 
@@ -210,15 +240,21 @@ class ProcessorCollection:
         logger.debug("Combining PO data.")
 
         # Filter processors with dataformat 'PO'
-        po_processors: list[BaseProcessor] = [p for p in self.processors if p.dataformat.lower() == "po"]
+        po_processors: list[BaseProcessor] = [
+            p for p in self.processors if p.dataformat.lower() == "po"
+        ]
 
         if not po_processors:
             logger.warning("No processors with dataformat 'PO' found.")
             return pd.DataFrame()
 
         # Concatenate DataFrames
-        combined_df = pd.concat([p.df for p in po_processors if not p.df.empty], ignore_index=True)
-        logger.debug(f"Combined {len(po_processors)} PO DataFrame with {len(combined_df)} rows.")
+        combined_df = pd.concat(
+            [p.df for p in po_processors if not p.df.empty], ignore_index=True
+        )
+        logger.debug(
+            f"Combined {len(po_processors)} PO DataFrame with {len(combined_df)} rows."
+        )
 
         combined_df: DataFrame = reorder_long_columns(df=combined_df)
 
@@ -227,7 +263,9 @@ class ProcessorCollection:
 
         return combined_df
 
-    def get_processors_by_data_type(self, data_types: list[str] | str) -> "ProcessorCollection":
+    def get_processors_by_data_type(
+        self, data_types: list[str] | str
+    ) -> "ProcessorCollection":
         """Retrieve processors matching a specific data_type or list of data_types.
 
         Args:
@@ -271,8 +309,8 @@ class ProcessorCollection:
 
         for proc in self.processors:
             # use the raw run code as the internalName
-            run_code = proc.name_parser.raw_run_code
-            key = (run_code, proc.data_type)
+            run_code: str = proc.name_parser.raw_run_code
+            key: tuple[str, str] = (run_code, proc.data_type)
             groups[key].append(proc)
 
         # filter to only “duplicates”
@@ -282,7 +320,8 @@ class ProcessorCollection:
             for (run_code, dtype), procs in duplicates.items():
                 files = ", ".join(p.file_name for p in procs)
                 logger.warning(
-                    f"Potential duplicate group: run_code='{run_code}', " f"data_type='{dtype}' found in files: {files}"
+                    f"Potential duplicate group: run_code='{run_code}', "
+                    f"data_type='{dtype}' found in files: {files}"
                 )
         else:
             logger.debug("No duplicate processors found by run_code & data_type.")
