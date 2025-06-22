@@ -6,11 +6,7 @@ from ryan_library.scripts.pomm_max_items import run_peak_report_modern
 
 
 def main() -> None:
-    """Wrapper script for peak reporting.
-
-    Mirrors :mod:`POMM_combine` so it can be called directly from QGIS or a
-    command prompt.
-    """
+    """Wrapper script for peak reporting."""
 
     try:
         script_directory: Path = Path(__file__).resolve().parent

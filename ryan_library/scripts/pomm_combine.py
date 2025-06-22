@@ -7,8 +7,6 @@ from loguru import logger
 from ryan_library.scripts.pomm_utils import (
     collect_files,
     process_files_in_parallel,
-    combine_processors_from_paths,
-    combine_df_from_paths,
 )
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.functions.file_utils import ensure_output_directory
@@ -28,7 +26,7 @@ def main_processing(
         include_data_types = ["POMM"]
 
     with setup_logger(console_log_level=console_log_level) as log_queue:
-        csv_file_list = collect_files(
+        csv_file_list: list[Path] = collect_files(
             paths_to_process=paths_to_process,
             include_data_types=include_data_types,
             suffixes_config=SuffixesConfig.get_instance(),
@@ -37,9 +35,12 @@ def main_processing(
             logger.info("No valid files found to process.")
             return
 
-        results_set = process_files_in_parallel(file_list=csv_file_list, log_queue=log_queue)
+        results_set: ProcessorCollection = process_files_in_parallel(
+            file_list=csv_file_list, log_queue=log_queue
+        )
 
-    export_results(results_set)
+    export_results(results=results_set)
+    logger.info("End of POMM results combination processing")
 
 
 def export_results(results: ProcessorCollection) -> None:
@@ -61,11 +62,3 @@ def export_results(results: ProcessorCollection) -> None:
         sheet_name="combined_POMM",
         output_directory=Path.cwd(),
     )
-
-
-__all__ = [
-    "main_processing",
-    "combine_processors_from_paths",
-    "combine_df_from_paths",
-    "export_results",
-]
