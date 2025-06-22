@@ -1,4 +1,3 @@
-git+https://github.com/icobro/PyHMA.git@v1.1#egg=PyHMA
 numpy
 pandas
 pyshp

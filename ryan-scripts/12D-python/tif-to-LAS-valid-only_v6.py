@@ -81,13 +81,13 @@ def main() -> None:
 
     # Configuration parameters
     nodata_values = None  # Replace with your no data values or None
-    tile_size = 1000  # Set your desired tile size here (e.g., in coordinate units)
+    tile_size = 100000  # Set your desired tile size here (e.g., in coordinate units)
     use_tiling = True  # Set to True to enable tiling
 
     # Set script_dir to a specific path
     script_dir = Path(__file__).resolve().parent
     script_dir = Path(
-        r"P:\BGER\PER\RP23229 MT MORGANS WATER PROJECTS FS - GMD\99 UNLOCKED\12D\Input\A5690_Mt_Morgans_Ortho_DTM"
+        r"P:\BGER\PER\RP20180.365 BLACKSMITH SCOPING STUDY - FMG\5 CADD\1 MOD\2 CI\12D\Input\2025.06.20_ClippedGIS\h_hr_max"
     )
     logger.info(f"Script directory: {script_dir}")
 
