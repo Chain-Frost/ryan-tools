@@ -46,7 +46,9 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
 ### 4. Testing & Validation
 
-Tests should be ignored. They are out of date and will just give errors.
+* Tests are generally outdated and give errors.
+* Do not create tests unless specifically requested.
+* Do not run tests unless you are creating them or requested by the user to run them. Generally you should only run a subset related to your work items.
 
 ---
 
