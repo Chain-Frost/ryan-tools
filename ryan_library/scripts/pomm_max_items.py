@@ -21,24 +21,24 @@ def generate_peak_report(pomm_files: list[str], output_path: Path) -> None:
 
 def run_peak_report(script_directory: Path | None = None) -> None:
     """Run the peak report generation workflow."""
-    raise RuntimeError(
-        "run_peak_report has been removed. Use the \n"
-        "'POMM-max-aep-dur.py' wrapper in ryan-scripts/TUFLOW-python instead."
-    )
+    print()
+    print("You are using an old wrapper")
+    print()
+    run_peak_report_modern()
 
 
 def run_peak_report_modern(script_directory: Path | None = None) -> None:
     """Locate and process POMM files and export their peak values."""
 
     setup_logging()
-    logger.info(msg=f"Current Working Directory: {Path.cwd()}")
+    logger.info(f"Current Working Directory: {Path.cwd()}")
     if script_directory is None:
         script_directory = Path.cwd()
 
     aggregated_df: pd.DataFrame = aggregated_from_paths([script_directory])
 
     if aggregated_df.empty:
-        logger.warning(msg="No POMM CSV files found. Exiting.")
+        logger.warning("No POMM CSV files found. Exiting.")
         return
 
     timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
