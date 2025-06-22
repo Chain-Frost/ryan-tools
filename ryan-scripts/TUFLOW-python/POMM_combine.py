@@ -1,8 +1,12 @@
 # POMM_combine.py
 
-from ryan_library.scripts.pomm_combine import main_processing
 import os
 from pathlib import Path
+
+from ryan_library.scripts.pomm_combine import (
+    combine_processors_from_paths,
+    export_results,
+)
 
 console_log_level = "INFO"  # "DEBUG" "INFO"
 
@@ -29,13 +33,12 @@ def main() -> None:
         exit(1)
 
     print(f"Current Working Directory: {Path.cwd()}")
-    main_processing(
+    processors = combine_processors_from_paths(
         paths_to_process=[script_directory],
-        include_data_types=[
-            "POMM",
-        ],
+        include_data_types=["POMM"],
         console_log_level=console_log_level,
     )
+    export_results(processors)
 
 
 if __name__ == "__main__":
