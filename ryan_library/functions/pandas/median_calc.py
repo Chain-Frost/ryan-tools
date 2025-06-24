@@ -3,21 +3,15 @@ from typing import Any
 import pandas as pd
 
 
-def _median_stats_for_group(
-    durgrp: pd.DataFrame, statcol: str, tpcol: str, durcol: str
-) -> dict[str, Any]:
+def _median_stats_for_group(durgrp: pd.DataFrame, statcol: str, tpcol: str, durcol: str) -> dict[str, Any]:
     """Return statistics for a single duration group."""
 
-    ensemblestat: pd.DataFrame = durgrp.sort_values(
-        statcol, ascending=True, na_position="first"
-    )
+    ensemblestat: pd.DataFrame = durgrp.sort_values(statcol, ascending=True, na_position="first")
     r: int = len(ensemblestat.index)
     medianpos: int = int(r / 2)
 
     mean_including_zeroes: float = float(ensemblestat[statcol].mean())
-    mean_excluding_zeroes: float = float(
-        ensemblestat[ensemblestat[statcol] != 0][statcol].mean()
-    )
+    mean_excluding_zeroes: float = float(ensemblestat[ensemblestat[statcol] != 0][statcol].mean())
 
     return {
         "mean_including_zeroes": mean_including_zeroes,
@@ -65,9 +59,7 @@ def median_calc(
     count_bin: int = 0
 
     for _, durgrp in thinned_df.groupby(by=durcol):
-        stats_dict: dict[str, Any] = _median_stats_for_group(
-            durgrp=durgrp, statcol=statcol, tpcol=tpcol, durcol=durcol
-        )
+        stats_dict: dict[str, Any] = _median_stats_for_group(durgrp=durgrp, statcol=statcol, tpcol=tpcol, durcol=durcol)
 
         if stats_dict["median"] > tracking_median:
             max_stats_dict = stats_dict.copy()
