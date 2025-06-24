@@ -16,7 +16,7 @@ logger_config = LoggerConfigurator(
 logger_config.configure()
 
 # Now import the TUFLOWResultsStyler class
-from ryan_library.scripts.tuflow_results_styling import TUFLOWResultsStyler
+from ryan_library.scripts.tuflow.tuflow_results_styling import TUFLOWResultsStyler
 
 # Get the logger
 logger = logging.getLogger(__name__)

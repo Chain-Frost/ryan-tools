@@ -1,4 +1,4 @@
-# ryan_library/scripts/tuflow_common.py
+# ryan_library/functions/tuflow/tuflow_common.py
 from __future__ import annotations
 from pathlib import Path
 from multiprocessing import Pool
@@ -76,7 +76,9 @@ def process_files_in_parallel(
     size: int = calculate_pool_size(num_files=len(file_list))
     logger.info(f"Spawning pool with {size} workers")
     coll = ProcessorCollection()
-    with Pool(processes=size, initializer=worker_initializer, initargs=(log_queue,)) as pool:
+    with Pool(
+        processes=size, initializer=worker_initializer, initargs=(log_queue,)
+    ) as pool:
         for proc in pool.map(func=process_file, iterable=file_list):
             if proc and proc.processed:
                 coll.add_processor(processor=proc)
@@ -98,6 +100,8 @@ def bulk_read_and_merge_tuflow_csv(
         logger.error("No files found")
         return ProcessorCollection()
 
-    results: ProcessorCollection = process_files_in_parallel(file_list=files, log_queue=log_queue)
+    results: ProcessorCollection = process_files_in_parallel(
+        file_list=files, log_queue=log_queue
+    )
     # tell the queue “no more data” and wait for its feeder thread to finish
     return results
