@@ -1,0 +1,3098 @@
+{
+  "M01_2.5m_001_POMM.csv": {
+    "AbsMax": [
+      93.2651,
+      43.1906,
+      1.4535
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.2651,
+      43.1906,
+      1.4535
+    ],
+    "Min": [
+      -0.1006,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M01",
+      "M01",
+      "M01"
+    ],
+    "R02": [
+      "2.5m",
+      "2.5m",
+      "2.5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      93.2651,
+      43.1906,
+      1.4535
+    ],
+    "Tmax": [
+      1.1,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M01_2.5m_001",
+      "M01_2.5m_001",
+      "M01_2.5m_001"
+    ],
+    "trim_runcode": [
+      "M01_2.5m_001",
+      "M01_2.5m_001",
+      "M01_2.5m_001"
+    ],
+    "file": [
+      "M01_2.5m_001_POMM.csv",
+      "M01_2.5m_001_POMM.csv",
+      "M01_2.5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_01/results",
+      "tests/test_data/tuflow/tutorials/Module_01/results",
+      "tests/test_data/tuflow/tutorials/Module_01/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_01/results/M01_2.5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_01/results/M01_2.5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_01/results/M01_2.5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results/M01_2.5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results/M01_2.5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results/M01_2.5m_001_POMM.csv"
+    ]
+  },
+  "M01_5m_001_POMM.csv": {
+    "AbsMax": [
+      92.5377,
+      43.2565,
+      1.2355
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      92.5377,
+      43.2565,
+      1.2355
+    ],
+    "Min": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M01",
+      "M01",
+      "M01"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      92.5377,
+      43.2565,
+      1.2355
+    ],
+    "Tmax": [
+      1.1167,
+      1.1667,
+      0.6833
+    ],
+    "Tmin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M01_5m_001",
+      "M01_5m_001",
+      "M01_5m_001"
+    ],
+    "trim_runcode": [
+      "M01_5m_001",
+      "M01_5m_001",
+      "M01_5m_001"
+    ],
+    "file": [
+      "M01_5m_001_POMM.csv",
+      "M01_5m_001_POMM.csv",
+      "M01_5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_01/results",
+      "tests/test_data/tuflow/tutorials/Module_01/results",
+      "tests/test_data/tuflow/tutorials/Module_01/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_01/results/M01_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_01/results/M01_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_01/results/M01_5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results/M01_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results/M01_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_01/results/M01_5m_001_POMM.csv"
+    ]
+  },
+  "M02_5m_001_POMM.csv": {
+    "AbsMax": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Min": [
+      -0.1109,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M02",
+      "M02",
+      "M02"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Tmax": [
+      1.1167,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M02_5m_001",
+      "M02_5m_001",
+      "M02_5m_001"
+    ],
+    "trim_runcode": [
+      "M02_5m_001",
+      "M02_5m_001",
+      "M02_5m_001"
+    ],
+    "file": [
+      "M02_5m_001_POMM.csv",
+      "M02_5m_001_POMM.csv",
+      "M02_5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_02/results",
+      "tests/test_data/tuflow/tutorials/Module_02/results",
+      "tests/test_data/tuflow/tutorials/Module_02/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_001_POMM.csv"
+    ]
+  },
+  "M02_5m_002_POMM.csv": {
+    "AbsMax": [
+      96.3851,
+      42.4163,
+      1.4396
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      96.3851,
+      42.4163,
+      1.4396
+    ],
+    "Min": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M02",
+      "M02",
+      "M02"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "002",
+      "002",
+      "002"
+    ],
+    "SignedAbsMax": [
+      96.3851,
+      42.4163,
+      1.4396
+    ],
+    "Tmax": [
+      1.05,
+      1.0667,
+      0.6833
+    ],
+    "Tmin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M02_5m_002",
+      "M02_5m_002",
+      "M02_5m_002"
+    ],
+    "trim_runcode": [
+      "M02_5m_002",
+      "M02_5m_002",
+      "M02_5m_002"
+    ],
+    "file": [
+      "M02_5m_002_POMM.csv",
+      "M02_5m_002_POMM.csv",
+      "M02_5m_002_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_02/results",
+      "tests/test_data/tuflow/tutorials/Module_02/results",
+      "tests/test_data/tuflow/tutorials/Module_02/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_002_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_02/results/M02_5m_002_POMM.csv"
+    ]
+  },
+  "M03_5m_001_POMM.csv": {
+    "AbsMax": [
+      99.0947,
+      42.9508,
+      1.0071
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      99.0947,
+      42.9508,
+      1.0071
+    ],
+    "Min": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M03",
+      "M03",
+      "M03"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      99.0947,
+      42.9508,
+      1.0071
+    ],
+    "Tmax": [
+      1.0167,
+      1.2833,
+      0.85
+    ],
+    "Tmin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M03_5m_001",
+      "M03_5m_001",
+      "M03_5m_001"
+    ],
+    "trim_runcode": [
+      "M03_5m_001",
+      "M03_5m_001",
+      "M03_5m_001"
+    ],
+    "file": [
+      "M03_5m_001_POMM.csv",
+      "M03_5m_001_POMM.csv",
+      "M03_5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_03/results",
+      "tests/test_data/tuflow/tutorials/Module_03/results",
+      "tests/test_data/tuflow/tutorials/Module_03/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_03/results/M03_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_03/results/M03_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_03/results/M03_5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_03/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_03/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_03/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_03/results/M03_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_03/results/M03_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_03/results/M03_5m_001_POMM.csv"
+    ]
+  },
+  "M04_5m_001_POMM.csv": {
+    "AbsMax": [
+      96.2785,
+      96.598,
+      42.3869,
+      1.4575,
+      99999.0,
+      99999.0
+    ],
+    "Location": [
+      "Loc1_L",
+      "Bridge",
+      "Loc1_P",
+      "Loc1_P",
+      "Bridge",
+      "Bridge"
+    ],
+    "Max": [
+      96.2785,
+      96.598,
+      42.3869,
+      1.4575,
+      40.9482,
+      40.7525
+    ],
+    "Min": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -99999.0,
+      -99999.0
+    ],
+    "R01": [
+      "M04",
+      "M04",
+      "M04",
+      "M04",
+      "M04",
+      "M04"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m",
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001",
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      96.2785,
+      96.598,
+      42.3869,
+      1.4575,
+      -99999.0,
+      -99999.0
+    ],
+    "Tmax": [
+      1.0667,
+      1.1167,
+      1.0667,
+      0.7,
+      1.1167,
+      1.1167
+    ],
+    "Tmin": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Structure Flow",
+      "Water Level",
+      "Velocity",
+      "U/S Structure Water Level",
+      "D/S Structure Water Level"
+    ],
+    "internalName": [
+      "M04_5m_001",
+      "M04_5m_001",
+      "M04_5m_001",
+      "M04_5m_001",
+      "M04_5m_001",
+      "M04_5m_001"
+    ],
+    "trim_runcode": [
+      "M04_5m_001",
+      "M04_5m_001",
+      "M04_5m_001",
+      "M04_5m_001",
+      "M04_5m_001",
+      "M04_5m_001"
+    ],
+    "file": [
+      "M04_5m_001_POMM.csv",
+      "M04_5m_001_POMM.csv",
+      "M04_5m_001_POMM.csv",
+      "M04_5m_001_POMM.csv",
+      "M04_5m_001_POMM.csv",
+      "M04_5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_04/results",
+      "tests/test_data/tuflow/tutorials/Module_04/results",
+      "tests/test_data/tuflow/tutorials/Module_04/results",
+      "tests/test_data/tuflow/tutorials/Module_04/results",
+      "tests/test_data/tuflow/tutorials/Module_04/results",
+      "tests/test_data/tuflow/tutorials/Module_04/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_04/results/M04_5m_001_POMM.csv"
+    ]
+  },
+  "M05_5m_001_POMM.csv": {
+    "AbsMax": [
+      94.5826,
+      43.2504,
+      1.4702
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      94.5826,
+      43.2504,
+      1.4702
+    ],
+    "Min": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M05",
+      "M05",
+      "M05"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      94.5826,
+      43.2504,
+      1.4702
+    ],
+    "Tmax": [
+      1.0667,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M05_5m_001",
+      "M05_5m_001",
+      "M05_5m_001"
+    ],
+    "trim_runcode": [
+      "M05_5m_001",
+      "M05_5m_001",
+      "M05_5m_001"
+    ],
+    "file": [
+      "M05_5m_001_POMM.csv",
+      "M05_5m_001_POMM.csv",
+      "M05_5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_05/results",
+      "tests/test_data/tuflow/tutorials/Module_05/results",
+      "tests/test_data/tuflow/tutorials/Module_05/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_05/results/M05_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_05/results/M05_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_05/results/M05_5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_05/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_05/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_05/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_05/results/M05_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_05/results/M05_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_05/results/M05_5m_001_POMM.csv"
+    ]
+  },
+  "M06_5m_001_POMM.csv": {
+    "AbsMax": [
+      93.3164,
+      43.2048,
+      1.1469
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.3164,
+      43.2048,
+      1.1469
+    ],
+    "Min": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M06",
+      "M06",
+      "M06"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      93.3164,
+      43.2048,
+      1.1469
+    ],
+    "Tmax": [
+      1.1,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M06_5m_001",
+      "M06_5m_001",
+      "M06_5m_001"
+    ],
+    "trim_runcode": [
+      "M06_5m_001",
+      "M06_5m_001",
+      "M06_5m_001"
+    ],
+    "file": [
+      "M06_5m_001_POMM.csv",
+      "M06_5m_001_POMM.csv",
+      "M06_5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_06/results",
+      "tests/test_data/tuflow/tutorials/Module_06/results",
+      "tests/test_data/tuflow/tutorials/Module_06/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_001_POMM.csv"
+    ]
+  },
+  "M06_5m_002_POMM.csv": {
+    "AbsMax": [
+      93.0611,
+      43.2035,
+      1.5164
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.0611,
+      43.2035,
+      1.5164
+    ],
+    "Min": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M06",
+      "M06",
+      "M06"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "002",
+      "002",
+      "002"
+    ],
+    "SignedAbsMax": [
+      93.0611,
+      43.2035,
+      1.5164
+    ],
+    "Tmax": [
+      1.1167,
+      1.1667,
+      0.7
+    ],
+    "Tmin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M06_5m_002",
+      "M06_5m_002",
+      "M06_5m_002"
+    ],
+    "trim_runcode": [
+      "M06_5m_002",
+      "M06_5m_002",
+      "M06_5m_002"
+    ],
+    "file": [
+      "M06_5m_002_POMM.csv",
+      "M06_5m_002_POMM.csv",
+      "M06_5m_002_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_06/results",
+      "tests/test_data/tuflow/tutorials/Module_06/results",
+      "tests/test_data/tuflow/tutorials/Module_06/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_002_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_002_POMM.csv"
+    ]
+  },
+  "M06_5m_003_POMM.csv": {
+    "AbsMax": [
+      93.0516,
+      43.2037,
+      1.5041
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.0516,
+      43.2037,
+      1.5041
+    ],
+    "Min": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M06",
+      "M06",
+      "M06"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "003",
+      "003",
+      "003"
+    ],
+    "SignedAbsMax": [
+      93.0516,
+      43.2037,
+      1.5041
+    ],
+    "Tmax": [
+      1.1167,
+      1.1667,
+      0.7
+    ],
+    "Tmin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M06_5m_003",
+      "M06_5m_003",
+      "M06_5m_003"
+    ],
+    "trim_runcode": [
+      "M06_5m_003",
+      "M06_5m_003",
+      "M06_5m_003"
+    ],
+    "file": [
+      "M06_5m_003_POMM.csv",
+      "M06_5m_003_POMM.csv",
+      "M06_5m_003_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_06/results",
+      "tests/test_data/tuflow/tutorials/Module_06/results",
+      "tests/test_data/tuflow/tutorials/Module_06/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_003_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_003_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_003_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_003_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_003_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_06/results/M06_5m_003_POMM.csv"
+    ]
+  },
+  "M07_5m_001_POMM.csv": {
+    "AbsMax": [
+      93.2124,
+      43.211,
+      1.5007
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.2124,
+      43.211,
+      1.5007
+    ],
+    "Min": [
+      -0.1175,
+      39.0108,
+      0.0
+    ],
+    "R01": [
+      "M07",
+      "M07",
+      "M07"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      93.2124,
+      43.211,
+      1.5007
+    ],
+    "Tmax": [
+      1.1167,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M07_5m_001",
+      "M07_5m_001",
+      "M07_5m_001"
+    ],
+    "trim_runcode": [
+      "M07_5m_001",
+      "M07_5m_001",
+      "M07_5m_001"
+    ],
+    "file": [
+      "M07_5m_001_POMM.csv",
+      "M07_5m_001_POMM.csv",
+      "M07_5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_07/results",
+      "tests/test_data/tuflow/tutorials/Module_07/results",
+      "tests/test_data/tuflow/tutorials/Module_07/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_07/results/M07_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_07/results/M07_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_07/results/M07_5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_07/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_07/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_07/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_07/results/M07_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_07/results/M07_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_07/results/M07_5m_001_POMM.csv"
+    ]
+  },
+  "M08_10m_001_POMM.csv": {
+    "AbsMax": [
+      93.3473,
+      43.2055,
+      1.3693
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.3473,
+      43.2055,
+      1.3693
+    ],
+    "Min": [
+      -0.1375,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M08",
+      "M08",
+      "M08"
+    ],
+    "R02": [
+      "10m",
+      "10m",
+      "10m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      93.3473,
+      43.2055,
+      1.3693
+    ],
+    "Tmax": [
+      1.1167,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M08_10m_001",
+      "M08_10m_001",
+      "M08_10m_001"
+    ],
+    "trim_runcode": [
+      "M08_10m_001",
+      "M08_10m_001",
+      "M08_10m_001"
+    ],
+    "file": [
+      "M08_10m_001_POMM.csv",
+      "M08_10m_001_POMM.csv",
+      "M08_10m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_001_POMM.csv"
+    ]
+  },
+  "M08_10m_DEV_002_POMM.csv": {
+    "AbsMax": [
+      93.7063,
+      43.2952,
+      1.3693
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.7063,
+      43.2952,
+      1.3693
+    ],
+    "Min": [
+      -0.1375,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M08",
+      "M08",
+      "M08"
+    ],
+    "R02": [
+      "10m",
+      "10m",
+      "10m"
+    ],
+    "R03": [
+      "DEV",
+      "DEV",
+      "DEV"
+    ],
+    "R04": [
+      "002",
+      "002",
+      "002"
+    ],
+    "SignedAbsMax": [
+      93.7063,
+      43.2952,
+      1.3693
+    ],
+    "Tmax": [
+      1.05,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M08_10m_DEV_002",
+      "M08_10m_DEV_002",
+      "M08_10m_DEV_002"
+    ],
+    "trim_runcode": [
+      "M08_10m_DEV_002",
+      "M08_10m_DEV_002",
+      "M08_10m_DEV_002"
+    ],
+    "file": [
+      "M08_10m_DEV_002_POMM.csv",
+      "M08_10m_DEV_002_POMM.csv",
+      "M08_10m_DEV_002_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_DEV_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_DEV_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_DEV_002_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_DEV_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_DEV_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_DEV_002_POMM.csv"
+    ]
+  },
+  "M08_10m_EXG_002_POMM.csv": {
+    "AbsMax": [
+      93.3473,
+      43.2055,
+      1.3693
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.3473,
+      43.2055,
+      1.3693
+    ],
+    "Min": [
+      -0.1375,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M08",
+      "M08",
+      "M08"
+    ],
+    "R02": [
+      "10m",
+      "10m",
+      "10m"
+    ],
+    "R03": [
+      "EXG",
+      "EXG",
+      "EXG"
+    ],
+    "R04": [
+      "002",
+      "002",
+      "002"
+    ],
+    "SignedAbsMax": [
+      93.3473,
+      43.2055,
+      1.3693
+    ],
+    "Tmax": [
+      1.1167,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M08_10m_EXG_002",
+      "M08_10m_EXG_002",
+      "M08_10m_EXG_002"
+    ],
+    "trim_runcode": [
+      "M08_10m_EXG_002",
+      "M08_10m_EXG_002",
+      "M08_10m_EXG_002"
+    ],
+    "file": [
+      "M08_10m_EXG_002_POMM.csv",
+      "M08_10m_EXG_002_POMM.csv",
+      "M08_10m_EXG_002_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_EXG_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_EXG_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_EXG_002_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_EXG_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_EXG_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_10m_EXG_002_POMM.csv"
+    ]
+  },
+  "M08_2.5m_001_POMM.csv": {
+    "AbsMax": [
+      92.8763,
+      43.2179,
+      1.4646
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      92.8763,
+      43.2179,
+      1.4646
+    ],
+    "Min": [
+      -0.1009,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M08",
+      "M08",
+      "M08"
+    ],
+    "R02": [
+      "2.5m",
+      "2.5m",
+      "2.5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      92.8763,
+      43.2179,
+      1.4646
+    ],
+    "Tmax": [
+      1.1,
+      1.1667,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M08_2.5m_001",
+      "M08_2.5m_001",
+      "M08_2.5m_001"
+    ],
+    "trim_runcode": [
+      "M08_2.5m_001",
+      "M08_2.5m_001",
+      "M08_2.5m_001"
+    ],
+    "file": [
+      "M08_2.5m_001_POMM.csv",
+      "M08_2.5m_001_POMM.csv",
+      "M08_2.5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_001_POMM.csv"
+    ]
+  },
+  "M08_2.5m_DEV_002_POMM.csv": {
+    "AbsMax": [
+      93.9294,
+      43.2897,
+      1.4646
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.9294,
+      43.2897,
+      1.4646
+    ],
+    "Min": [
+      -0.1009,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M08",
+      "M08",
+      "M08"
+    ],
+    "R02": [
+      "2.5m",
+      "2.5m",
+      "2.5m"
+    ],
+    "R03": [
+      "DEV",
+      "DEV",
+      "DEV"
+    ],
+    "R04": [
+      "002",
+      "002",
+      "002"
+    ],
+    "SignedAbsMax": [
+      93.9294,
+      43.2897,
+      1.4646
+    ],
+    "Tmax": [
+      1.0667,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M08_2.5m_DEV_002",
+      "M08_2.5m_DEV_002",
+      "M08_2.5m_DEV_002"
+    ],
+    "trim_runcode": [
+      "M08_2.5m_DEV_002",
+      "M08_2.5m_DEV_002",
+      "M08_2.5m_DEV_002"
+    ],
+    "file": [
+      "M08_2.5m_DEV_002_POMM.csv",
+      "M08_2.5m_DEV_002_POMM.csv",
+      "M08_2.5m_DEV_002_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_DEV_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_DEV_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_DEV_002_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_DEV_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_DEV_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_DEV_002_POMM.csv"
+    ]
+  },
+  "M08_2.5m_EXG_002_POMM.csv": {
+    "AbsMax": [
+      92.8763,
+      43.2179,
+      1.4646
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      92.8763,
+      43.2179,
+      1.4646
+    ],
+    "Min": [
+      -0.1009,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M08",
+      "M08",
+      "M08"
+    ],
+    "R02": [
+      "2.5m",
+      "2.5m",
+      "2.5m"
+    ],
+    "R03": [
+      "EXG",
+      "EXG",
+      "EXG"
+    ],
+    "R04": [
+      "002",
+      "002",
+      "002"
+    ],
+    "SignedAbsMax": [
+      92.8763,
+      43.2179,
+      1.4646
+    ],
+    "Tmax": [
+      1.1,
+      1.1667,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M08_2.5m_EXG_002",
+      "M08_2.5m_EXG_002",
+      "M08_2.5m_EXG_002"
+    ],
+    "trim_runcode": [
+      "M08_2.5m_EXG_002",
+      "M08_2.5m_EXG_002",
+      "M08_2.5m_EXG_002"
+    ],
+    "file": [
+      "M08_2.5m_EXG_002_POMM.csv",
+      "M08_2.5m_EXG_002_POMM.csv",
+      "M08_2.5m_EXG_002_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_EXG_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_EXG_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_EXG_002_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_EXG_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_EXG_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_2.5m_EXG_002_POMM.csv"
+    ]
+  },
+  "M08_5m_001_POMM.csv": {
+    "AbsMax": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Min": [
+      -0.1109,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M08",
+      "M08",
+      "M08"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Tmax": [
+      1.1167,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M08_5m_001",
+      "M08_5m_001",
+      "M08_5m_001"
+    ],
+    "trim_runcode": [
+      "M08_5m_001",
+      "M08_5m_001",
+      "M08_5m_001"
+    ],
+    "file": [
+      "M08_5m_001_POMM.csv",
+      "M08_5m_001_POMM.csv",
+      "M08_5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_001_POMM.csv"
+    ]
+  },
+  "M08_5m_DEV_002_POMM.csv": {
+    "AbsMax": [
+      94.538,
+      43.2549,
+      1.4463
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      94.538,
+      43.2549,
+      1.4463
+    ],
+    "Min": [
+      -0.1109,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M08",
+      "M08",
+      "M08"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "DEV",
+      "DEV",
+      "DEV"
+    ],
+    "R04": [
+      "002",
+      "002",
+      "002"
+    ],
+    "SignedAbsMax": [
+      94.538,
+      43.2549,
+      1.4463
+    ],
+    "Tmax": [
+      1.0667,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M08_5m_DEV_002",
+      "M08_5m_DEV_002",
+      "M08_5m_DEV_002"
+    ],
+    "trim_runcode": [
+      "M08_5m_DEV_002",
+      "M08_5m_DEV_002",
+      "M08_5m_DEV_002"
+    ],
+    "file": [
+      "M08_5m_DEV_002_POMM.csv",
+      "M08_5m_DEV_002_POMM.csv",
+      "M08_5m_DEV_002_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_DEV_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_DEV_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_DEV_002_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_DEV_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_DEV_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_DEV_002_POMM.csv"
+    ]
+  },
+  "M08_5m_EXG_002_POMM.csv": {
+    "AbsMax": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Min": [
+      -0.1109,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M08",
+      "M08",
+      "M08"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "EXG",
+      "EXG",
+      "EXG"
+    ],
+    "R04": [
+      "002",
+      "002",
+      "002"
+    ],
+    "SignedAbsMax": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Tmax": [
+      1.1167,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M08_5m_EXG_002",
+      "M08_5m_EXG_002",
+      "M08_5m_EXG_002"
+    ],
+    "trim_runcode": [
+      "M08_5m_EXG_002",
+      "M08_5m_EXG_002",
+      "M08_5m_EXG_002"
+    ],
+    "file": [
+      "M08_5m_EXG_002_POMM.csv",
+      "M08_5m_EXG_002_POMM.csv",
+      "M08_5m_EXG_002_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results",
+      "tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_EXG_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_EXG_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_EXG_002_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_EXG_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_EXG_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_08/results/M08_5m_EXG_002_POMM.csv"
+    ]
+  },
+  "M09_5m_01p_1hr_001_POMM.csv": {
+    "AbsMax": [
+      88.4452,
+      43.1789,
+      1.4766
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      88.4452,
+      43.1789,
+      1.4766
+    ],
+    "Min": [
+      -0.1159,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M09",
+      "M09",
+      "M09"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "01p",
+      "01p",
+      "01p"
+    ],
+    "R04": [
+      "1hr",
+      "1hr",
+      "1hr"
+    ],
+    "R05": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      88.4452,
+      43.1789,
+      1.4766
+    ],
+    "Tmax": [
+      0.9333,
+      1.0,
+      0.6
+    ],
+    "Tmin": [
+      0.5833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "aep_numeric": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "aep_text": [
+      "01p",
+      "01p",
+      "01p"
+    ],
+    "internalName": [
+      "M09_5m_01p_1hr_001",
+      "M09_5m_01p_1hr_001",
+      "M09_5m_01p_1hr_001"
+    ],
+    "trim_runcode": [
+      "M09_5m_1hr_001",
+      "M09_5m_1hr_001",
+      "M09_5m_1hr_001"
+    ],
+    "file": [
+      "M09_5m_01p_1hr_001_POMM.csv",
+      "M09_5m_01p_1hr_001_POMM.csv",
+      "M09_5m_01p_1hr_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_1hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_1hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_1hr_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_1hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_1hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_1hr_001_POMM.csv"
+    ]
+  },
+  "M09_5m_01p_2hr_001_POMM.csv": {
+    "AbsMax": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Min": [
+      -0.1109,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M09",
+      "M09",
+      "M09"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "01p",
+      "01p",
+      "01p"
+    ],
+    "R04": [
+      "2hr",
+      "2hr",
+      "2hr"
+    ],
+    "R05": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      93.4108,
+      43.1999,
+      1.4463
+    ],
+    "Tmax": [
+      1.1167,
+      1.15,
+      0.7
+    ],
+    "Tmin": [
+      0.6833,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "aep_numeric": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "aep_text": [
+      "01p",
+      "01p",
+      "01p"
+    ],
+    "internalName": [
+      "M09_5m_01p_2hr_001",
+      "M09_5m_01p_2hr_001",
+      "M09_5m_01p_2hr_001"
+    ],
+    "trim_runcode": [
+      "M09_5m_2hr_001",
+      "M09_5m_2hr_001",
+      "M09_5m_2hr_001"
+    ],
+    "file": [
+      "M09_5m_01p_2hr_001_POMM.csv",
+      "M09_5m_01p_2hr_001_POMM.csv",
+      "M09_5m_01p_2hr_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_2hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_2hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_2hr_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_2hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_2hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_01p_2hr_001_POMM.csv"
+    ]
+  },
+  "M09_5m_02p_1hr_001_POMM.csv": {
+    "AbsMax": [
+      70.0862,
+      43.0983,
+      1.3734
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      70.0862,
+      43.0983,
+      1.3734
+    ],
+    "Min": [
+      -0.0903,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M09",
+      "M09",
+      "M09"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "02p",
+      "02p",
+      "02p"
+    ],
+    "R04": [
+      "1hr",
+      "1hr",
+      "1hr"
+    ],
+    "R05": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      70.0862,
+      43.0983,
+      1.3734
+    ],
+    "Tmax": [
+      0.75,
+      1.05,
+      0.6333
+    ],
+    "Tmin": [
+      0.6,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "aep_numeric": [
+      2.0,
+      2.0,
+      2.0
+    ],
+    "aep_text": [
+      "02p",
+      "02p",
+      "02p"
+    ],
+    "internalName": [
+      "M09_5m_02p_1hr_001",
+      "M09_5m_02p_1hr_001",
+      "M09_5m_02p_1hr_001"
+    ],
+    "trim_runcode": [
+      "M09_5m_1hr_001",
+      "M09_5m_1hr_001",
+      "M09_5m_1hr_001"
+    ],
+    "file": [
+      "M09_5m_02p_1hr_001_POMM.csv",
+      "M09_5m_02p_1hr_001_POMM.csv",
+      "M09_5m_02p_1hr_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_1hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_1hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_1hr_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_1hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_1hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_1hr_001_POMM.csv"
+    ]
+  },
+  "M09_5m_02p_2hr_001_POMM.csv": {
+    "AbsMax": [
+      72.1067,
+      43.1274,
+      1.3844
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      72.1067,
+      43.1274,
+      1.3844
+    ],
+    "Min": [
+      -0.092,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M09",
+      "M09",
+      "M09"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "02p",
+      "02p",
+      "02p"
+    ],
+    "R04": [
+      "2hr",
+      "2hr",
+      "2hr"
+    ],
+    "R05": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      72.1067,
+      43.1274,
+      1.3844
+    ],
+    "Tmax": [
+      1.15,
+      1.2,
+      0.7333
+    ],
+    "Tmin": [
+      0.7,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "aep_numeric": [
+      2.0,
+      2.0,
+      2.0
+    ],
+    "aep_text": [
+      "02p",
+      "02p",
+      "02p"
+    ],
+    "internalName": [
+      "M09_5m_02p_2hr_001",
+      "M09_5m_02p_2hr_001",
+      "M09_5m_02p_2hr_001"
+    ],
+    "trim_runcode": [
+      "M09_5m_2hr_001",
+      "M09_5m_2hr_001",
+      "M09_5m_2hr_001"
+    ],
+    "file": [
+      "M09_5m_02p_2hr_001_POMM.csv",
+      "M09_5m_02p_2hr_001_POMM.csv",
+      "M09_5m_02p_2hr_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_2hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_2hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_2hr_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_2hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_2hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_02p_2hr_001_POMM.csv"
+    ]
+  },
+  "M09_5m_05p_1hr_001_POMM.csv": {
+    "AbsMax": [
+      56.718,
+      43.0188,
+      1.3387
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      56.718,
+      43.0188,
+      1.3387
+    ],
+    "Min": [
+      -0.0966,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M09",
+      "M09",
+      "M09"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "05p",
+      "05p",
+      "05p"
+    ],
+    "R04": [
+      "1hr",
+      "1hr",
+      "1hr"
+    ],
+    "R05": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      56.718,
+      43.0188,
+      1.3387
+    ],
+    "Tmax": [
+      0.7833,
+      1.15,
+      0.6667
+    ],
+    "Tmin": [
+      0.6333,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "aep_numeric": [
+      5.0,
+      5.0,
+      5.0
+    ],
+    "aep_text": [
+      "05p",
+      "05p",
+      "05p"
+    ],
+    "internalName": [
+      "M09_5m_05p_1hr_001",
+      "M09_5m_05p_1hr_001",
+      "M09_5m_05p_1hr_001"
+    ],
+    "trim_runcode": [
+      "M09_5m_1hr_001",
+      "M09_5m_1hr_001",
+      "M09_5m_1hr_001"
+    ],
+    "file": [
+      "M09_5m_05p_1hr_001_POMM.csv",
+      "M09_5m_05p_1hr_001_POMM.csv",
+      "M09_5m_05p_1hr_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_1hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_1hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_1hr_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_1hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_1hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_1hr_001_POMM.csv"
+    ]
+  },
+  "M09_5m_05p_2hr_001_POMM.csv": {
+    "AbsMax": [
+      55.5068,
+      43.0593,
+      1.3758
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      55.5068,
+      43.0593,
+      1.3758
+    ],
+    "Min": [
+      -0.0935,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M09",
+      "M09",
+      "M09"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "05p",
+      "05p",
+      "05p"
+    ],
+    "R04": [
+      "2hr",
+      "2hr",
+      "2hr"
+    ],
+    "R05": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      55.5068,
+      43.0593,
+      1.3758
+    ],
+    "Tmax": [
+      0.9,
+      1.3,
+      0.7667
+    ],
+    "Tmin": [
+      0.7333,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "aep_numeric": [
+      5.0,
+      5.0,
+      5.0
+    ],
+    "aep_text": [
+      "05p",
+      "05p",
+      "05p"
+    ],
+    "internalName": [
+      "M09_5m_05p_2hr_001",
+      "M09_5m_05p_2hr_001",
+      "M09_5m_05p_2hr_001"
+    ],
+    "trim_runcode": [
+      "M09_5m_2hr_001",
+      "M09_5m_2hr_001",
+      "M09_5m_2hr_001"
+    ],
+    "file": [
+      "M09_5m_05p_2hr_001_POMM.csv",
+      "M09_5m_05p_2hr_001_POMM.csv",
+      "M09_5m_05p_2hr_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results",
+      "tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_2hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_2hr_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_2hr_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_2hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_2hr_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_09/results/M09_5m_05p_2hr_001_POMM.csv"
+    ]
+  },
+  "M10_5m_001_POMM.csv": {
+    "AbsMax": [
+      735.9465,
+      44.3502,
+      2.0581
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      735.9465,
+      44.3502,
+      2.0581
+    ],
+    "Min": [
+      -0.5985,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M10",
+      "M10",
+      "M10"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "001",
+      "001",
+      "001"
+    ],
+    "SignedAbsMax": [
+      735.9465,
+      44.3502,
+      2.0581
+    ],
+    "Tmax": [
+      1.25,
+      1.25,
+      1.15
+    ],
+    "Tmin": [
+      0.7333,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M10_5m_001",
+      "M10_5m_001",
+      "M10_5m_001"
+    ],
+    "trim_runcode": [
+      "M10_5m_001",
+      "M10_5m_001",
+      "M10_5m_001"
+    ],
+    "file": [
+      "M10_5m_001_POMM.csv",
+      "M10_5m_001_POMM.csv",
+      "M10_5m_001_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_10/results",
+      "tests/test_data/tuflow/tutorials/Module_10/results",
+      "tests/test_data/tuflow/tutorials/Module_10/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_001_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_001_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_001_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_001_POMM.csv"
+    ]
+  },
+  "M10_5m_002_POMM.csv": {
+    "AbsMax": [
+      430.7163,
+      43.9245,
+      1.6387
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      430.7163,
+      43.9245,
+      1.6387
+    ],
+    "Min": [
+      -0.5954,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M10",
+      "M10",
+      "M10"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "002",
+      "002",
+      "002"
+    ],
+    "SignedAbsMax": [
+      430.7163,
+      43.9245,
+      1.6387
+    ],
+    "Tmax": [
+      1.05,
+      1.0667,
+      0.8833
+    ],
+    "Tmin": [
+      0.7333,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M10_5m_002",
+      "M10_5m_002",
+      "M10_5m_002"
+    ],
+    "trim_runcode": [
+      "M10_5m_002",
+      "M10_5m_002",
+      "M10_5m_002"
+    ],
+    "file": [
+      "M10_5m_002_POMM.csv",
+      "M10_5m_002_POMM.csv",
+      "M10_5m_002_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_10/results",
+      "tests/test_data/tuflow/tutorials/Module_10/results",
+      "tests/test_data/tuflow/tutorials/Module_10/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_002_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_002_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_002_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_002_POMM.csv"
+    ]
+  },
+  "M10_5m_003_POMM.csv": {
+    "AbsMax": [
+      270.3132,
+      43.6342,
+      1.4866
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      270.3132,
+      43.6342,
+      1.4866
+    ],
+    "Min": [
+      -0.4817,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M10",
+      "M10",
+      "M10"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "003",
+      "003",
+      "003"
+    ],
+    "SignedAbsMax": [
+      270.3132,
+      43.6342,
+      1.4866
+    ],
+    "Tmax": [
+      1.3333,
+      1.3667,
+      1.1
+    ],
+    "Tmin": [
+      0.7333,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M10_5m_003",
+      "M10_5m_003",
+      "M10_5m_003"
+    ],
+    "trim_runcode": [
+      "M10_5m_003",
+      "M10_5m_003",
+      "M10_5m_003"
+    ],
+    "file": [
+      "M10_5m_003_POMM.csv",
+      "M10_5m_003_POMM.csv",
+      "M10_5m_003_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_10/results",
+      "tests/test_data/tuflow/tutorials/Module_10/results",
+      "tests/test_data/tuflow/tutorials/Module_10/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_003_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_003_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_003_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_003_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_003_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_003_POMM.csv"
+    ]
+  },
+  "M10_5m_004_POMM.csv": {
+    "AbsMax": [
+      99.6874,
+      43.0118,
+      1.3752
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      99.6874,
+      43.0118,
+      1.3752
+    ],
+    "Min": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M10",
+      "M10",
+      "M10"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "004",
+      "004",
+      "004"
+    ],
+    "SignedAbsMax": [
+      99.6874,
+      43.0118,
+      1.3752
+    ],
+    "Tmax": [
+      0.7,
+      0.85,
+      0.5833
+    ],
+    "Tmin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M10_5m_004",
+      "M10_5m_004",
+      "M10_5m_004"
+    ],
+    "trim_runcode": [
+      "M10_5m_004",
+      "M10_5m_004",
+      "M10_5m_004"
+    ],
+    "file": [
+      "M10_5m_004_POMM.csv",
+      "M10_5m_004_POMM.csv",
+      "M10_5m_004_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_10/results",
+      "tests/test_data/tuflow/tutorials/Module_10/results",
+      "tests/test_data/tuflow/tutorials/Module_10/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_004_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_004_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_004_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_004_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_004_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_004_POMM.csv"
+    ]
+  },
+  "M10_5m_005_POMM.csv": {
+    "AbsMax": [
+      8.0163,
+      42.6637,
+      0.3464
+    ],
+    "Location": [
+      "Loc1_L",
+      "Loc1_P",
+      "Loc1_P"
+    ],
+    "Max": [
+      8.0163,
+      42.6637,
+      0.3464
+    ],
+    "Min": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "R01": [
+      "M10",
+      "M10",
+      "M10"
+    ],
+    "R02": [
+      "5m",
+      "5m",
+      "5m"
+    ],
+    "R03": [
+      "005",
+      "005",
+      "005"
+    ],
+    "SignedAbsMax": [
+      8.0163,
+      42.6637,
+      0.3464
+    ],
+    "Tmax": [
+      0.85,
+      1.9667,
+      0.85
+    ],
+    "Tmin": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "Type": [
+      "Flow",
+      "Water Level",
+      "Velocity"
+    ],
+    "internalName": [
+      "M10_5m_005",
+      "M10_5m_005",
+      "M10_5m_005"
+    ],
+    "trim_runcode": [
+      "M10_5m_005",
+      "M10_5m_005",
+      "M10_5m_005"
+    ],
+    "file": [
+      "M10_5m_005_POMM.csv",
+      "M10_5m_005_POMM.csv",
+      "M10_5m_005_POMM.csv"
+    ],
+    "rel_directory": [
+      "tests/test_data/tuflow/tutorials/Module_10/results",
+      "tests/test_data/tuflow/tutorials/Module_10/results",
+      "tests/test_data/tuflow/tutorials/Module_10/results"
+    ],
+    "rel_path": [
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_005_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_005_POMM.csv",
+      "tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_005_POMM.csv"
+    ],
+    "directory_path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results"
+    ],
+    "path": [
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_005_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_005_POMM.csv",
+      "/workspace/ryan-tools/tests/test_data/tuflow/tutorials/Module_10/results/M10_5m_005_POMM.csv"
+    ]
+  },
+  "M11_5m_001_POMM.csv": {
+    "AbsMax": [],
+    "Location": [],
+    "Max": [],
+    "Min": [],
+    "R01": [],
+    "R02": [],
+    "R03": [],
+    "SignedAbsMax": [],
+    "Tmax": [],
+    "Tmin": [],
+    "Type": [],
+    "internalName": [],
+    "trim_runcode": [],
+    "file": [],
+    "rel_directory": [],
+    "rel_path": [],
+    "directory_path": [],
+    "path": []
+  },
+  "M11_5m_002_POMM.csv": {
+    "AbsMax": [],
+    "Location": [],
+    "Max": [],
+    "Min": [],
+    "R01": [],
+    "R02": [],
+    "R03": [],
+    "SignedAbsMax": [],
+    "Tmax": [],
+    "Tmin": [],
+    "Type": [],
+    "internalName": [],
+    "trim_runcode": [],
+    "file": [],
+    "rel_directory": [],
+    "rel_path": [],
+    "directory_path": [],
+    "path": []
+  }
+}
