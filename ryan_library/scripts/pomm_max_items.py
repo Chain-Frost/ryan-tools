@@ -8,6 +8,7 @@ import pandas as pd
 from ryan_library.scripts.pomm_utils import (
     aggregated_from_paths,
     save_peak_report,
+    save_peak_report_median,
 )
 from ryan_library.functions.logging_helpers import setup_logging
 
@@ -28,9 +29,28 @@ def run_peak_report(script_directory: Path | None = None) -> None:
 
 
 def run_peak_report_modern(script_directory: Path | None = None) -> None:
-    """Locate and process POMM files and export their peak values."""
+    """Deprecated. Use :func:`run_median_peak_report` instead."""
 
-    setup_logging()
+    raise RuntimeError(
+        "run_peak_report_modern is deprecated. Use 'POMM-med-max-aep-dur.py' or "
+        "'run_median_peak_report' instead."
+    )
+
+
+def run_median_peak_report(
+    script_directory: Path | None = None,
+    log_level: str | int = "INFO",
+) -> None:
+    """Locate and process POMM files and export median-based peak values."""
+
+    # Allow log level as string for convenience
+    level: int = (
+        getattr(logging, log_level.upper(), log_level)
+        if isinstance(log_level, str)
+        else int(log_level)
+    )
+
+    setup_logging(log_level=level)
     logger.info(f"Current Working Directory: {Path.cwd()}")
     if script_directory is None:
         script_directory = Path.cwd()
@@ -42,7 +62,7 @@ def run_peak_report_modern(script_directory: Path | None = None) -> None:
         return
 
     timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-    save_peak_report(
+    save_peak_report_median(
         aggregated_df=aggregated_df,
         script_directory=script_directory,
         timestamp=timestamp,

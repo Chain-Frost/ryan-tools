@@ -6,11 +6,20 @@ import pandas as pd
 import logging
 from typing import TypedDict
 from pathlib import Path
+from importlib import metadata
 from openpyxl.utils import get_column_letter
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils.exceptions import InvalidFileException
 from ryan_library.functions.logging_helpers import setup_logging as new_setup_logging
+
+
+def get_tools_version(package: str = "ryan_functions") -> str:
+    """Return the installed version of ``package`` if available."""
+    try:
+        return metadata.version(package)
+    except metadata.PackageNotFoundError:
+        return "unknown"
 
 
 # Deprecated setup_logging function
@@ -133,7 +142,8 @@ class ExcelExporter:
                     "sheets": ["Data"]
                 }
             }
-            ExcelExporter().export_dataframes(export_dict, output_directory=Path("exports"))"""
+            ExcelExporter().export_dataframes(export_dict, output_directory=Path("exports"))
+        """
         datetime_string: str = datetime.now().strftime(format="%Y%m%d-%H%M")
 
         for file_name, content in export_dict.items():
@@ -148,7 +158,9 @@ class ExcelExporter:
             # Determine the export path
             export_filename: str = f"{datetime_string}_{file_name}.xlsx"
             export_path: Path = (
-                (output_directory / export_filename) if output_directory else Path(export_filename)  # Defaults to CWD
+                (output_directory / export_filename)
+                if output_directory
+                else Path(export_filename)  # Defaults to CWD
             )
 
             # Ensure the output directory exists
@@ -159,13 +171,16 @@ class ExcelExporter:
 
             try:
                 with pd.ExcelWriter(path=export_path, engine="openpyxl") as writer:
+                    writer.book.properties.creator = f"ryan-tools {get_tools_version()}"
                     for df, sheet in zip(dataframes, sheets):
                         # Check for unique column names
                         if not df.columns.is_unique:
                             logging.error(
                                 f"DataFrame for sheet '{sheet}' has duplicate column names. Please ensure all column names are unique."
                             )
-                            raise ValueError(f"Duplicate column names found in sheet '{sheet}'.")
+                            raise ValueError(
+                                f"Duplicate column names found in sheet '{sheet}'."
+                            )
 
                         df.to_excel(
                             excel_writer=writer,
@@ -180,8 +195,12 @@ class ExcelExporter:
 
                         # Automatically adjust column widths if enabled
                         if auto_adjust_width:
-                            dynamic_widths: dict[str, float] = self.calculate_column_widths(df=df)
-                            self.auto_adjust_column_widths(worksheet=worksheet, dynamic_widths=dynamic_widths)
+                            dynamic_widths: dict[str, float] = (
+                                self.calculate_column_widths(df=df)
+                            )
+                            self.auto_adjust_column_widths(
+                                worksheet=worksheet, dynamic_widths=dynamic_widths
+                            )
 
                         # Apply specific column widths if provided
                         if column_widths and sheet in column_widths:
@@ -222,7 +241,9 @@ class ExcelExporter:
             auto_adjust_width (bool, optional):
                 If set to True, automatically adjusts the column widths based on the
                 maximum length of the data in each column. Defaults to True."""
-        export_dict: dict[str, ExportContent] = {file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}}
+        export_dict: dict[str, ExportContent] = {
+            file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}
+        }
 
         # Prepare column_widths in the required format
         prepared_column_widths: dict[str, dict[str, float]] | None = (
@@ -243,7 +264,8 @@ class ExcelExporter:
             df (pd.DataFrame): The DataFrame for which to calculate column widths.
 
         Returns:
-            dict[str, float]: A dictionary mapping column letters to their calculated widths."""
+            dict[str, float]: A dictionary mapping column letters to their calculated widths.
+        """
         column_widths: dict[str, float] = {
             get_column_letter(idx + 1): max(
                 # Calculate max length of the column data
@@ -275,7 +297,9 @@ class ExcelExporter:
             TypeError: If column indices are not integers."""
         for col_name, width in column_widths.items():
             if col_name not in df.columns:
-                logging.warning(f"Column '{col_name}' not found in sheet '{sheet_name}'. Skipping width setting.")
+                logging.warning(
+                    f"Column '{col_name}' not found in sheet '{sheet_name}'. Skipping width setting."
+                )
                 continue
 
             try:
@@ -287,9 +311,13 @@ class ExcelExporter:
                 )
                 col_letter: str = get_column_letter(col_idx + 1)
                 worksheet.column_dimensions[col_letter].width = width
-                logging.debug(f"Set width for column '{col_name}' ({col_letter}) in sheet '{sheet_name}' to {width}.")
+                logging.debug(
+                    f"Set width for column '{col_name}' ({col_letter}) in sheet '{sheet_name}' to {width}."
+                )
             except TypeError as e:
-                logging.exception(f"TypeError when setting width for column '{col_name}' in sheet '{sheet_name}': {e}")
+                logging.exception(
+                    f"TypeError when setting width for column '{col_name}' in sheet '{sheet_name}': {e}"
+                )
             except AssertionError as e:
                 logging.exception(str(e))
             except Exception as e:
@@ -297,7 +325,9 @@ class ExcelExporter:
                     f"Unexpected error when setting width for column '{col_name}' in sheet '{sheet_name}': {e}"
                 )
 
-    def auto_adjust_column_widths(self, worksheet: Worksheet, dynamic_widths: dict[str, float]) -> None:
+    def auto_adjust_column_widths(
+        self, worksheet: Worksheet, dynamic_widths: dict[str, float]
+    ) -> None:
         """Automatically adjust column widths based on calculated dynamic widths.
         Args:
             worksheet (Worksheet): The OpenPyXL worksheet object.
@@ -306,11 +336,15 @@ class ExcelExporter:
             current_width: float | None = worksheet.column_dimensions[col_letter].width
             if current_width is None or width > current_width:
                 worksheet.column_dimensions[col_letter].width = width
-                logging.debug(f"Auto-adjusted width for column '{col_letter}' to {width}.")
+                logging.debug(
+                    f"Auto-adjusted width for column '{col_letter}' to {width}."
+                )
 
 
 # Backwards compatibility functions:
-def export_dataframes(export_dict: dict[str, ExportContent], output_directory: Path | None = None) -> None:
+def export_dataframes(
+    export_dict: dict[str, ExportContent], output_directory: Path | None = None
+) -> None:
     """Backwards-compatible function that delegates to ExcelExporter.
     Args:
         export_dict (dict[str, ExportContent]):
@@ -318,7 +352,9 @@ def export_dataframes(export_dict: dict[str, ExportContent], output_directory: P
         output_directory (Path, optional):
             Directory to save the exported Excel files.
             Defaults to the current working directory."""
-    ExcelExporter().export_dataframes(export_dict=export_dict, output_directory=output_directory)
+    ExcelExporter().export_dataframes(
+        export_dict=export_dict, output_directory=output_directory
+    )
 
 
 def save_to_excel(
