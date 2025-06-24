@@ -1,6 +1,6 @@
 # ryan-scripts\TUFLOW-python\LogSummary.py
 
-from ryan_library.scripts.tuflow_logsummary import main_processing
+from ryan_library.scripts.tuflow.tuflow_logsummary import main_processing
 from pathlib import Path
 import os
 

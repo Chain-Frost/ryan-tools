@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from ryan_library.scripts.pomm_combine import main_processing
+from ryan_library.scripts.tuflow.pomm_combine import main_processing
 from ryan_library.scripts.wrapper_utils import (
     change_working_directory,
     print_library_version,
