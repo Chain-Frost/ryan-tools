@@ -9,6 +9,7 @@ _tuflow_modules = [
     "tuflow_culverts_timeseries",
     "tuflow_logsummary",
     "tuflow_results_styling",
+    "pomm_combine",
 ]
 
 for _mod in _tuflow_modules:
