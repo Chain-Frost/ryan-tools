@@ -1,0 +1,482 @@
+[
+  {
+    "file_name": "M01_2.5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M01",
+        "R02": "2.5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M01_2.5m_001"
+    }
+  },
+  {
+    "file_name": "M01_5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M01",
+        "R02": "5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M01_5m_001"
+    }
+  },
+  {
+    "file_name": "M02_5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M02",
+        "R02": "5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M02_5m_001"
+    }
+  },
+  {
+    "file_name": "M02_5m_002_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M02",
+        "R02": "5m",
+        "R03": "002"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M02_5m_002"
+    }
+  },
+  {
+    "file_name": "M03_5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M03",
+        "R02": "5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M03_5m_001"
+    }
+  },
+  {
+    "file_name": "M04_5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M04",
+        "R02": "5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M04_5m_001"
+    }
+  },
+  {
+    "file_name": "M05_5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M05",
+        "R02": "5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M05_5m_001"
+    }
+  },
+  {
+    "file_name": "M06_5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M06",
+        "R02": "5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M06_5m_001"
+    }
+  },
+  {
+    "file_name": "M06_5m_002_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M06",
+        "R02": "5m",
+        "R03": "002"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M06_5m_002"
+    }
+  },
+  {
+    "file_name": "M06_5m_003_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M06",
+        "R02": "5m",
+        "R03": "003"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M06_5m_003"
+    }
+  },
+  {
+    "file_name": "M07_5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M07",
+        "R02": "5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M07_5m_001"
+    }
+  },
+  {
+    "file_name": "M08_10m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M08",
+        "R02": "10m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M08_10m_001"
+    }
+  },
+  {
+    "file_name": "M08_10m_DEV_002_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M08",
+        "R02": "10m",
+        "R03": "DEV",
+        "R04": "002"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M08_10m_DEV_002"
+    }
+  },
+  {
+    "file_name": "M08_10m_EXG_002_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M08",
+        "R02": "10m",
+        "R03": "EXG",
+        "R04": "002"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M08_10m_EXG_002"
+    }
+  },
+  {
+    "file_name": "M08_2.5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M08",
+        "R02": "2.5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M08_2.5m_001"
+    }
+  },
+  {
+    "file_name": "M08_2.5m_DEV_002_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M08",
+        "R02": "2.5m",
+        "R03": "DEV",
+        "R04": "002"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M08_2.5m_DEV_002"
+    }
+  },
+  {
+    "file_name": "M08_2.5m_EXG_002_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M08",
+        "R02": "2.5m",
+        "R03": "EXG",
+        "R04": "002"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M08_2.5m_EXG_002"
+    }
+  },
+  {
+    "file_name": "M08_5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M08",
+        "R02": "5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M08_5m_001"
+    }
+  },
+  {
+    "file_name": "M08_5m_DEV_002_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M08",
+        "R02": "5m",
+        "R03": "DEV",
+        "R04": "002"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M08_5m_DEV_002"
+    }
+  },
+  {
+    "file_name": "M08_5m_EXG_002_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M08",
+        "R02": "5m",
+        "R03": "EXG",
+        "R04": "002"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M08_5m_EXG_002"
+    }
+  },
+  {
+    "file_name": "M09_5m_01p_1hr_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M09",
+        "R02": "5m",
+        "R03": "01p",
+        "R04": "1hr",
+        "R05": "001"
+      },
+      "aep": "01p",
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M09_5m_1hr_001"
+    }
+  },
+  {
+    "file_name": "M09_5m_01p_2hr_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M09",
+        "R02": "5m",
+        "R03": "01p",
+        "R04": "2hr",
+        "R05": "001"
+      },
+      "aep": "01p",
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M09_5m_2hr_001"
+    }
+  },
+  {
+    "file_name": "M09_5m_02p_1hr_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M09",
+        "R02": "5m",
+        "R03": "02p",
+        "R04": "1hr",
+        "R05": "001"
+      },
+      "aep": "02p",
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M09_5m_1hr_001"
+    }
+  },
+  {
+    "file_name": "M09_5m_02p_2hr_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M09",
+        "R02": "5m",
+        "R03": "02p",
+        "R04": "2hr",
+        "R05": "001"
+      },
+      "aep": "02p",
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M09_5m_2hr_001"
+    }
+  },
+  {
+    "file_name": "M09_5m_05p_1hr_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M09",
+        "R02": "5m",
+        "R03": "05p",
+        "R04": "1hr",
+        "R05": "001"
+      },
+      "aep": "05p",
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M09_5m_1hr_001"
+    }
+  },
+  {
+    "file_name": "M09_5m_05p_2hr_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M09",
+        "R02": "5m",
+        "R03": "05p",
+        "R04": "2hr",
+        "R05": "001"
+      },
+      "aep": "05p",
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M09_5m_2hr_001"
+    }
+  },
+  {
+    "file_name": "M10_5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M10",
+        "R02": "5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M10_5m_001"
+    }
+  },
+  {
+    "file_name": "M10_5m_002_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M10",
+        "R02": "5m",
+        "R03": "002"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M10_5m_002"
+    }
+  },
+  {
+    "file_name": "M10_5m_003_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M10",
+        "R02": "5m",
+        "R03": "003"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M10_5m_003"
+    }
+  },
+  {
+    "file_name": "M10_5m_004_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M10",
+        "R02": "5m",
+        "R03": "004"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M10_5m_004"
+    }
+  },
+  {
+    "file_name": "M10_5m_005_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M10",
+        "R02": "5m",
+        "R03": "005"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M10_5m_005"
+    }
+  },
+  {
+    "file_name": "M11_5m_001_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M11",
+        "R02": "5m",
+        "R03": "001"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M11_5m_001"
+    }
+  },
+  {
+    "file_name": "M11_5m_002_POMM.csv",
+    "expected": {
+      "run_code_parts": {
+        "R01": "M11",
+        "R02": "5m",
+        "R03": "002"
+      },
+      "aep": null,
+      "duration": null,
+      "tp": null,
+      "trim_run_code": "M11_5m_002"
+    }
+  }
+]
