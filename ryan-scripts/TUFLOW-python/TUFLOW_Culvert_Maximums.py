@@ -20,7 +20,7 @@ def main() -> None:
     # script_dir = Path(
     #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
     # )
-    if not change_working_directory(script_dir):
+    if not change_working_directory(target_dir=script_dir):
         return
 
     main_processing(

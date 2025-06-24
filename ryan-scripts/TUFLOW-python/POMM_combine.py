@@ -14,9 +14,7 @@ console_log_level = "INFO"  # or "DEBUG"
 
 def main() -> None:
     """Wrapper script to merge POMM results.
-
-    By default, it processes files in the script's directory.
-    """
+    By default, it processes files in the script's directory."""
     print_library_version()
 
     # Determine the script directory
@@ -25,7 +23,7 @@ def main() -> None:
     #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
     # )
 
-    if not change_working_directory(script_directory):
+    if not change_working_directory(target_dir=script_directory):
         return
 
     main_processing(
