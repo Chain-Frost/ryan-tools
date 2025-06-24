@@ -154,9 +154,7 @@ def main_processing(console_log_level: str | None = None) -> None:
         successful_runs = len(results)
         if results:
             try:
-                merged_df: pd.DataFrame = merge_and_sort_data(
-                    frames=results, sort_column="StartDate"
-                )
+                merged_df: pd.DataFrame = merge_and_sort_data(frames=results, sort_column="StartDate")
 
                 # Define the desired column order
                 prioritized_columns = [

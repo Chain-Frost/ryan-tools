@@ -22,9 +22,7 @@ class MappingEntry(BaseMappingEntry, total=False):
 class TUFLOWResultsStyler:
     def __init__(self, user_qml_overrides: dict[str, str] | None = None) -> None:
         """Initializes the TUFLOWResultsStyler with default styles path and user overrides."""
-        self.default_styles_path: Path = (
-            Path(__file__).parent.parent.parent / "QGIS-Styles" / "TUFLOW"
-        )
+        self.default_styles_path: Path = Path(__file__).parent.parent.parent / "QGIS-Styles" / "TUFLOW"
         self.user_qml_overrides: dict[str, str] = user_qml_overrides or {}
         self.mappings: dict[str, MappingEntry] = self.get_file_mappings()
 
@@ -45,8 +43,7 @@ class TUFLOWResultsStyler:
             },
             "V_Max": {
                 "exts": raster_exts,
-                "qml": self.default_styles_path
-                / "velocities scour protection mrwa.qml",
+                "qml": self.default_styles_path / "velocities scour protection mrwa.qml",
             },
             "DEM_Z": {
                 "exts": raster_exts,
@@ -93,22 +90,16 @@ class TUFLOWResultsStyler:
                 with full_qml_path.open("r", encoding="utf-8") as file:
                     return file.read()
             else:
-                logger.error(
-                    f"QML file '{qml_path.name}' not found in default styles path."
-                )
+                logger.error(f"QML file '{qml_path.name}' not found in default styles path.")
                 return ""
 
-    def process_data(
-        self, filename: str, ext: str, current_path: Path, qml_path: Path
-    ) -> None:
+    def process_data(self, filename: str, ext: str, current_path: Path, qml_path: Path) -> None:
         """Processes raster and vector data by applying the QML style."""
         try:
             source_file: Path = current_path / filename
             new_filename: str = f"{source_file.stem}.{ext}"
             destination: Path = current_path / new_filename
-            logger.info(
-                f"Copying {source_file} to {destination}", extra={"simple_format": True}
-            )
+            logger.info(f"Copying {source_file} to {destination}", extra={"simple_format": True})
 
             # Retrieve QML content
             qml_content: str = self.get_qml_content(qml_path)
@@ -123,16 +114,12 @@ class TUFLOWResultsStyler:
         except Exception as e:
             logger.error(f"Error processing data for {filename}: {e}")
 
-    def process_gpkg(
-        self, filename: str, layer_name: str, current_path: Path, qml_path: Path
-    ) -> None:
+    def process_gpkg(self, filename: str, layer_name: str, current_path: Path, qml_path: Path) -> None:
         """Processes GeoPackage files by applying styles to specific layers."""
         # not implemented
         try:
             gpkg_path: Path = current_path / filename
-            logger.info(
-                f"Processing GeoPackage: {gpkg_path}", extra={"simple_format": True}
-            )
+            logger.info(f"Processing GeoPackage: {gpkg_path}", extra={"simple_format": True})
 
             conn: sqlite3.Connection = sqlite3.connect(gpkg_path)
             cursor: sqlite3.Cursor = conn.cursor()
@@ -157,18 +144,14 @@ class TUFLOWResultsStyler:
 
     def tree_process(self, current_path: Path) -> None:
         """Recursively processes directories to apply QML styles based on file mappings."""
-        logger.info(
-            f"Processing directory: {current_path}", extra={"simple_format": True}
-        )
+        logger.info(f"Processing directory: {current_path}", extra={"simple_format": True})
         with ThreadPoolExecutor() as executor:
             futures: list = []
             for item in current_path.iterdir():
                 if item.is_file():
                     for key, value in self.mappings.items():
                         for ext in value["exts"]:  # Now recognized as list[str]
-                            if item.name.lower().endswith(
-                                f"{key.lower()}.{ext.lower()}"
-                            ):
+                            if item.name.lower().endswith(f"{key.lower()}.{ext.lower()}"):
                                 if ext.lower() == "gpkg":
                                     futures.append(
                                         executor.submit(
@@ -204,9 +187,7 @@ class TUFLOWResultsStyler:
             qml_path = Path(qml_path)
             if qml_path.is_absolute():
                 if not qml_path.exists():
-                    logger.warning(
-                        f"User-provided QML path for '{key}' does not exist: {qml_path}"
-                    )
+                    logger.warning(f"User-provided QML path for '{key}' does not exist: {qml_path}")
 
     def apply_styles(self) -> None:
         """Main function to apply QML styles to QGIS results."""
@@ -216,9 +197,7 @@ class TUFLOWResultsStyler:
 
         # Set current path to the script's directory or the desired processing directory
         current_path = Path.cwd()
-        logger.info(
-            f"Current working directory: {current_path}", extra={"simple_format": True}
-        )
+        logger.info(f"Current working directory: {current_path}", extra={"simple_format": True})
         logger.debug("File mappings:")
         logger.debug(self.mappings)
 

@@ -31,7 +31,8 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
 * **Language**: Python 3.13
 * **Import Style**: Absolute imports from `ryan_tools` or vendored packages only.
-* **Formatting**: Follows [Black](https://github.com/psf/black) defaults.
+* **Formatting**: Format with [Black](https://github.com/psf/black) using a 120 character line length. A
+  `pyproject.toml` is provided with this configuration.
 * **Type Hints**: All public functions and methods should include type annotations. Always use Python 3.13+ style.
 * **Linting**: Use `mypy` for static analysis and `flake8` for style compliance.
 

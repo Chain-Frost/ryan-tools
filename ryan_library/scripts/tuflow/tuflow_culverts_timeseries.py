@@ -38,9 +38,7 @@ def main_processing(
                 "sheets": ["1d_timeseries_data"],
             }
         }
-        ExcelExporter().export_dataframes(
-            export_dict=export_dict, output_directory=output_dir
-        )
+        ExcelExporter().export_dataframes(export_dict=export_dict, output_directory=output_dir)
         logger.info("Done.")
     # tell the queue “no more data” and wait for its feeder thread to finish
     log_q.close()

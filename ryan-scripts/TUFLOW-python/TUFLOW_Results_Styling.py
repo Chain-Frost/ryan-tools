@@ -36,9 +36,7 @@ def main() -> None:
     """
     try:
         # Set working directory to the location of the script
-        script_location = (
-            Path(__file__).parent if "__file__" in globals() else Path.cwd()
-        )
+        script_location = Path(__file__).parent if "__file__" in globals() else Path.cwd()
         os.chdir(script_location)
 
         # Initialize and apply styles
