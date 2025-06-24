@@ -63,9 +63,7 @@ def collect_files(
     for invalid_dir in invalid_dirs:
         logger.warning(f"Path {invalid_dir} is not a directory. Skipping.")
 
-    matched_files: list[Path] = find_files_parallel(
-        root_dirs=root_dirs, patterns=patterns
-    )
+    matched_files: list[Path] = find_files_parallel(root_dirs=root_dirs, patterns=patterns)
     csv_file_list.extend(matched_files)
 
     csv_file_list = [f for f in csv_file_list if is_non_zero_file(f)]
@@ -104,9 +102,7 @@ def process_files_in_parallel(file_list: list[Path], log_queue) -> ProcessorColl
     logger.info(f"Initializing multiprocessing pool with {pool_size} processes.")
 
     results_set = ProcessorCollection()
-    with Pool(
-        processes=pool_size, initializer=worker_initializer, initargs=(log_queue,)
-    ) as pool:
+    with Pool(processes=pool_size, initializer=worker_initializer, initargs=(log_queue,)) as pool:
         results: list[BaseProcessor] = pool.map(func=process_file, iterable=file_list)
 
     for result in results:
@@ -135,9 +131,7 @@ def combine_processors_from_paths(
             logger.info("No valid files found to process.")
             return ProcessorCollection()
 
-        results_set: ProcessorCollection = process_files_in_parallel(
-            file_list=csv_file_list, log_queue=log_queue
-        )
+        results_set: ProcessorCollection = process_files_in_parallel(file_list=csv_file_list, log_queue=log_queue)
 
     return results_set
 
@@ -226,12 +220,8 @@ def save_to_excel(
             index=False,
             merge_cells=False,
         )
-        aep_max.to_excel(
-            excel_writer=writer, sheet_name="aep-max", index=False, merge_cells=False
-        )
-        aggregated_df.to_excel(
-            excel_writer=writer, sheet_name="POMM", index=False, merge_cells=False
-        )
+        aep_max.to_excel(excel_writer=writer, sheet_name="aep-max", index=False, merge_cells=False)
+        aggregated_df.to_excel(excel_writer=writer, sheet_name="POMM", index=False, merge_cells=False)
 
     logger.info(f"Peak data exported to {output_path}")
 
@@ -285,9 +275,7 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
             }
             rows.append(row)
         median_df = pd.DataFrame(rows)
-        logger.info(
-            "Created 'aep_dur_median' DataFrame with median records for each AEP-Duration group."
-        )
+        logger.info("Created 'aep_dur_median' DataFrame with median records for each AEP-Duration group.")
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_dur_median' grouping: {e}")
         median_df = pd.DataFrame()
@@ -302,9 +290,7 @@ def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
         df["aep_bin"] = df.groupby(group_cols)["MedianAbsMax"].transform("size")
         idx = df.groupby(group_cols)["MedianAbsMax"].idxmax()
         aep_med_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
-        logger.info(
-            "Created 'aep_median_max' DataFrame with maximum median records for each AEP group."
-        )
+        logger.info("Created 'aep_median_max' DataFrame with maximum median records for each AEP group.")
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_median_max' grouping: {e}")
         aep_med_max = pd.DataFrame()
