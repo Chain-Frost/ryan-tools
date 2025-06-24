@@ -33,7 +33,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 * **Import Style**: Absolute imports from `ryan_tools` or vendored packages only.
 * **Formatting**: Follows [Black](https://github.com/psf/black) defaults.
 * **Type Hints**: All public functions and methods should include type annotations. Always use Python 3.13+ style.
-* **Linting**: Use `mypy` for static analysis and `flake8` for style compliance. But let Black win if it conflicts with flake8 comments.
+* **Linting**: Use `mypy` for static analysis.
 
 ---
 

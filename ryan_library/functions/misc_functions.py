@@ -6,11 +6,20 @@ import pandas as pd
 import logging
 from typing import TypedDict
 from pathlib import Path
+from importlib import metadata
 from openpyxl.utils import get_column_letter
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils.exceptions import InvalidFileException
 from ryan_library.functions.logging_helpers import setup_logging as new_setup_logging
+
+
+def get_tools_version(package: str = "ryan_functions") -> str:
+    """Return the installed version of ``package`` if available."""
+    try:
+        return metadata.version(distribution_name=package)
+    except metadata.PackageNotFoundError:
+        return "unknown"
 
 
 # Deprecated setup_logging function
@@ -133,7 +142,8 @@ class ExcelExporter:
                     "sheets": ["Data"]
                 }
             }
-            ExcelExporter().export_dataframes(export_dict, output_directory=Path("exports"))"""
+            ExcelExporter().export_dataframes(export_dict, output_directory=Path("exports"))
+        """
         datetime_string: str = datetime.now().strftime(format="%Y%m%d-%H%M")
 
         for file_name, content in export_dict.items():
@@ -159,6 +169,7 @@ class ExcelExporter:
 
             try:
                 with pd.ExcelWriter(path=export_path, engine="openpyxl") as writer:
+                    writer.book.properties.creator = f"ryan-tools {get_tools_version()}"
                     for df, sheet in zip(dataframes, sheets):
                         # Check for unique column names
                         if not df.columns.is_unique:
@@ -243,7 +254,8 @@ class ExcelExporter:
             df (pd.DataFrame): The DataFrame for which to calculate column widths.
 
         Returns:
-            dict[str, float]: A dictionary mapping column letters to their calculated widths."""
+            dict[str, float]: A dictionary mapping column letters to their calculated widths.
+        """
         column_widths: dict[str, float] = {
             get_column_letter(idx + 1): max(
                 # Calculate max length of the column data
