@@ -35,9 +35,7 @@ def main_processing(
             logger.info("No valid files found to process.")
             return
 
-        results_set: ProcessorCollection = process_files_in_parallel(
-            file_list=csv_file_list, log_queue=log_queue
-        )
+        results_set: ProcessorCollection = process_files_in_parallel(file_list=csv_file_list, log_queue=log_queue)
 
     export_results(results=results_set)
     logger.info("End of POMM results combination processing")

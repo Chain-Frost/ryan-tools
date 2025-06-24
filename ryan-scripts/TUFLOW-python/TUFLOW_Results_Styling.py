@@ -16,7 +16,7 @@ logger_config = LoggerConfigurator(
 logger_config.configure()
 
 # Now import the TUFLOWResultsStyler class
-from ryan_library.scripts.tuflow_results_styling import TUFLOWResultsStyler
+from ryan_library.scripts.tuflow.tuflow_results_styling import TUFLOWResultsStyler
 
 # Get the logger
 logger = logging.getLogger(__name__)
@@ -36,9 +36,7 @@ def main() -> None:
     """
     try:
         # Set working directory to the location of the script
-        script_location = (
-            Path(__file__).parent if "__file__" in globals() else Path.cwd()
-        )
+        script_location = Path(__file__).parent if "__file__" in globals() else Path.cwd()
         os.chdir(script_location)
 
         # Initialize and apply styles

@@ -1,4 +1,4 @@
-# ryan_library/scripts/pomm_combine.py
+# ryan_library/scripts/pomm_utils.py
 """Utility helpers for processing POMM CSV files."""
 
 from pathlib import Path
