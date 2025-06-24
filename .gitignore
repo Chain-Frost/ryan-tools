@@ -1,8 +1,12 @@
 .mypy_cache/
 pyrightconfig.json
 ryan_functions.egg-info
+
 build/
 %LOCALAPPDATA%
+
+# Local virtual environments
+.venv/
 
 # Ignore everything in the dist folder
 dist/*
