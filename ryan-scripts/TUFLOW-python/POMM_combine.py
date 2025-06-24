@@ -4,32 +4,28 @@ import os
 from pathlib import Path
 
 from ryan_library.scripts.pomm_combine import main_processing
+from ryan_library.scripts.wrapper_utils import (
+    change_working_directory,
+    print_library_version,
+)
 
-console_log_level = "INFO"  # "DEBUG" "INFO"
+console_log_level = "INFO"  # or "DEBUG"
 
 
 def main() -> None:
-    """Wrapper script to merge POMM results
-    By default, it processes files in the directory where the script is located."""
+    """Wrapper script to merge POMM results.
+    By default, it processes files in the script's directory."""
+    print_library_version()
 
-    try:
-        # Determine the script directory
-        script_directory: Path = Path(__file__).resolve().parent
-        # script_directory = Path(
-        # r"Q:\BGER\PER\RPRT\ryan-tools\tests\test_data\tuflow\tutorials"
-        # r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
-        # r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
-        # )
+    # Determine the script directory
+    script_directory: Path = Path(__file__).resolve().parent
+    # script_directory = Path(
+    #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
+    # )
 
-        os.chdir(script_directory)
+    if not change_working_directory(target_dir=script_directory):
+        return
 
-        # You can pass a list of paths here if needed; default is the script directory
-    except Exception as e:
-        print(f"Failed to change working directory: {e}")
-        os.system("PAUSE")
-        exit(1)
-
-    print(f"Current Working Directory: {Path.cwd()}")
     main_processing(
         paths_to_process=[script_directory],
         include_data_types=["POMM"],
