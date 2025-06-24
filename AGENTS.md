@@ -19,6 +19,8 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
   ├── docs/               # Documentation and design notes. Missing - ignore
   ├── ryan-scripts/       # Python entry points which call the ryan-tools library
   ├── ryan-library/       # Python library with all of the functions
+  ├── ryan-library/functions # Python functions used by a variety of scripts
+  ├── ryan-library/scripts  # Python scripts called by wrappers, that then execute a series of functions. Most of the work should be in functions in the functions folder, this is just the controller.
   ├── ryan-functions/     # backward compatability only. Ignore. If anything uses this location, then it is out of date and needs updating.
   ├── requirements.txt    # Python dependencies
   ├── AGENTS.md           # This guidance file
@@ -47,11 +49,13 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
 ### 4. Testing & Validation
 
-Tests should be ignored. They are out of date and will just give errors.
+* Tests are generally outdated and give errors.
+* Do not create tests unless specifically requested.
+* Do not run tests unless you are creating them or requested by the user to run them. Generally you should only run a subset related to your work items.
 
 ---
 
-### 7. Pull Request & Commit Guidelines
+### 5. Pull Request & Commit Guidelines
 
 * **Commit Messages**: Use present-tense, imperative mood (e.g., `Add new rainfall utility`).
 * **PR Title**: Should start with a scope: e.g., `[core] Add data validation`.
@@ -60,11 +64,11 @@ Tests should be ignored. They are out of date and will just give errors.
 
 ---
 
-### 8. How to Interact as an Agent
+### 6. How to Interact as an Agent
 
 1. **Analyze requests**: Read user prompts and test failures to identify required changes.
 2. **Follow conventions**: Generate code adhering to the project standards (sections 2–5).
-5. **Produce PR diffs**: Only modify relevant files; include clear commit messages.
+3. **Produce PR diffs**: Only modify relevant files; include clear commit messages.
 
 ---
 

@@ -13,9 +13,7 @@ def main() -> None:
     try:
         # you can override this Path if needed
         script_dir: Path = Path(__file__).resolve().parent
-        script_dir = Path(
-            r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
-        )
+        # script_dir = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03")
         os.chdir(path=script_dir)
     except Exception as e:
         print(f"Failed to cd: {e}")
