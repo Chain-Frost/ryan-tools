@@ -33,7 +33,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 * **Import Style**: Absolute imports from `ryan_tools` or vendored packages only.
 * **Formatting**: Follows [Black](https://github.com/psf/black) defaults.
 * **Type Hints**: All public functions and methods should include type annotations. Always use Python 3.13+ style.
-* **Linting**: Use `mypy` for static analysis and `flake8` for style compliance.
+* **Linting**: Use `mypy` for static analysis.
 
 ---
 
@@ -46,7 +46,9 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
 ### 4. Testing & Validation
 
-Tests should be ignored. They are out of date and will just give errors.
+* Tests are generally outdated and give errors.
+* Do not create tests unless specifically requested.
+* Do not run tests unless you are creating them or requested by the user to run them. Generally you should only run a subset related to your work items.
 
 ---
 
