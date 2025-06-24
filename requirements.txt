@@ -10,12 +10,10 @@ XlsxWriter
 psutil
 black
 mypy
-colorlog
 laspy
 tqdm
 rasterio
 seaborn
 requests
-graphviz
 openpyxl
 loguru
