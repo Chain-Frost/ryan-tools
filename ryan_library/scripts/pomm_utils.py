@@ -173,9 +173,9 @@ def find_aep_dur_max(aggregated_df: pd.DataFrame) -> pd.DataFrame:
         # copy so we don’t clobber the caller’s DataFrame
         df: pd.DataFrame = aggregated_df.copy()
         # compute size of each group
-        df["aep_dur_bin"] = df.groupby(group_cols)["AbsMax"].transform("size")
+        df["aep_dur_bin"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
         # find index of the max in each group
-        idx = df.groupby(group_cols)["AbsMax"].idxmax()
+        idx = df.groupby(group_cols, observed=True)["AbsMax"].idxmax()
         # select those rows (they already carry a group_count column)
         aep_dur_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
         logger.info(
@@ -193,8 +193,8 @@ def find_aep_max(aep_dur_max: pd.DataFrame) -> pd.DataFrame:
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
         df: pd.DataFrame = aep_dur_max.copy()
-        df["aep_bin"] = df.groupby(group_cols)["AbsMax"].transform("size")
-        idx = df.groupby(group_cols)["AbsMax"].idxmax()
+        df["aep_bin"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
+        idx = df.groupby(group_cols, observed=True)["AbsMax"].idxmax()
         aep_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
         logger.info(
             "Created 'aep_max' DataFrame with peak records and group_count for each AEP-Location-Type-RunCode group."
@@ -257,8 +257,8 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     try:
         df: pd.DataFrame = aggregated_df.copy()
-        df["aep_dur_bin"] = df.groupby(group_cols)["AbsMax"].transform("size")
-        for _, grp in df.groupby(group_cols):
+        df["aep_dur_bin"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
+        for _, grp in df.groupby(group_cols, observed=True):
             stats_dict, _ = median_calc(
                 thinned_df=grp,
                 statcol="AbsMax",
@@ -287,8 +287,8 @@ def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
         df: pd.DataFrame = aep_dur_median.copy()
-        df["aep_bin"] = df.groupby(group_cols)["MedianAbsMax"].transform("size")
-        idx = df.groupby(group_cols)["MedianAbsMax"].idxmax()
+        df["aep_bin"] = df.groupby(group_cols, observed=True)["MedianAbsMax"].transform("size")
+        idx = df.groupby(group_cols, observed=True)["MedianAbsMax"].idxmax()
         aep_med_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
         logger.info("Created 'aep_median_max' DataFrame with maximum median records for each AEP group.")
     except KeyError as e:
