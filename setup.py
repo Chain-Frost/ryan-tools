@@ -3,7 +3,9 @@ from setuptools import setup, find_packages  # type: ignore
 
 setup(
     name="ryan_functions",
-    version="25.06.22.1",
+    # Version scheme: yy.mm.dd.release_number
+    # Increment when publishing new wheels
+    version="25.07.01.1",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},
@@ -38,9 +40,9 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/Chain-Frost/ryan-tools",
     classifiers=[
-        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.13",
         "Operating System :: Windows",
         # 'License :: OSI Approved :: MIT License',  # Example license
     ],
-    python_requires=">=3.12",
+    python_requires=">=3.13",
 )
