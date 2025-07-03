@@ -271,8 +271,9 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
                 "Location": grp["Location"].iloc[0],
                 "Type": grp["Type"].iloc[0],
                 "trim_runcode": grp["trim_runcode"].iloc[0],
-                "MedianAbsMax": stats_dict["median"],
             }
+            row.update(stats_dict)
+            row["MedianAbsMax"] = row.pop("median")
             rows.append(row)
         median_df = pd.DataFrame(rows)
         logger.info("Created 'aep_dur_median' DataFrame with median records for each AEP-Duration group.")
