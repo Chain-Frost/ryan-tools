@@ -5,7 +5,7 @@ setup(
     name="ryan_functions",
     # Version scheme: yy.mm.dd.release_number
     # Increment when publishing new wheels
-    version="25.07.01.1",
+    version="25.07.03.1",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},
@@ -44,5 +44,5 @@ setup(
         "Operating System :: Windows",
         # 'License :: OSI Approved :: MIT License',  # Example license
     ],
-    python_requires=">=3.13",
+    python_requires=">=3.12",
 )
