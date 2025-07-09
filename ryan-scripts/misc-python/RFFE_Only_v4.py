@@ -11,11 +11,11 @@ import requests
 from requests import Response
 from bs4 import BeautifulSoup
 
-from ryan_library.functions.loguru_helpers import setup_logger, logger
+from ryan_library.functions.loguru_helpers import logger, setup_logger
 
 # ─── Hard-coded defaults (override via CLI if desired) ────────────────────
 
-DEFAULT_INPUT_DIR = Path(r"C:\Temp\tester")
+DEFAULT_INPUT_DIR: Path = Path(r"C:\Temp\tester")
 DEFAULT_OUTPUT_DIR: Path = DEFAULT_INPUT_DIR
 
 """
@@ -46,6 +46,8 @@ REQUEST_TIMEOUT = 30  # seconds
 
 
 def main() -> None:
+    """Run the command line interface for fetching RFFE results."""
+
     parser = argparse.ArgumentParser(description="Process RFFE catchments (CLI flags optional).")
     parser.add_argument(
         "--input-dir",
@@ -105,9 +107,9 @@ def main() -> None:
             logger.warning("Failed {}: {}", name, err)
         else:
             if not r_df.empty:
-                agg_r: DataFrame = pd.concat([agg_r, r_df], ignore_index=True)
+                agg_r = pd.concat([agg_r, r_df], ignore_index=True)
             if not a_df.empty:
-                agg_a: DataFrame = pd.concat([agg_a, a_df], ignore_index=True)
+                agg_a = pd.concat([agg_a, a_df], ignore_index=True)
 
     def _save(df: pd.DataFrame, fname: str) -> None:
         path: Path = output_dir / fname
@@ -171,6 +173,8 @@ def fetch_rffe(
 
 
 def parse_json_from_scripts(text: str, var_name: str) -> list[dict[str, Any]]:
+    """Return a JSON array assigned to ``var_name`` inside any <script> tag."""
+
     pattern: str = rf"{var_name}\s*=\s*(\[\{{.*?\}}\]);"
     soup = BeautifulSoup(markup=text, features="html.parser")
 
@@ -193,6 +197,8 @@ def parse_json_from_scripts(text: str, var_name: str) -> list[dict[str, Any]]:
 
 
 def clean_rffe(text: str) -> tuple[DataFrame, DataFrame]:
+    """Parse the RFFE HTML response into DataFrames."""
+
     results = parse_json_from_scripts(text, "results")
     all_catch = parse_json_from_scripts(text, "allCatchmentResults")
 
@@ -204,6 +210,8 @@ def clean_rffe(text: str) -> tuple[DataFrame, DataFrame]:
 
 
 def save_raw_response(catchment: str, folder: Path, resp: Response) -> None:
+    """Persist the raw HTML response for debugging purposes."""
+
     out_file = folder / f"{catchment}_rffe.txt"
     try:
         out_file.write_text(resp.text, encoding="utf-8")
@@ -222,6 +230,8 @@ def process_catchment(
     area: float,
     out_folder: Path,
 ) -> tuple[DataFrame, DataFrame, str | None]:
+    """Fetch and parse RFFE results for a single catchment."""
+
     resp: Response | None = fetch_rffe(
         session=session,
         name=catchment,
