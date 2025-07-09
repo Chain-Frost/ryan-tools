@@ -36,7 +36,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 * **Formatting**: Format with [Black](https://github.com/psf/black) using a 120 character line length. A
   `pyproject.toml` is provided with this configuration.
 * **Type Hints**: All public functions and methods should include type annotations. Always use Python 3.13+ style.
-* **Linting**: Use `mypy` for static analysis.
+* **Linting**: Use `mypy` for static analysis. Only run mypy on files you have modified. Do not run mypy on any other files unless the user asks you to.
 
 ---
 
@@ -44,6 +44,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
 * **requirements.txt**: Primary list of `pip`-installable packages.
 * **Vendoring**: Third‑party modules like `PyHMA` are placed under `vendor/` and must have an `__init__.py`.
+* **pyproject.toml**: black and mypy settings
 
 ---
 
