@@ -1,9 +1,8 @@
-import shutil
 from pathlib import Path
 import sys
+import pandas as pd
+from pandas import DataFrame
 
-import pandas as pd  # type: ignore
-import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -15,12 +14,12 @@ from ryan_library.scripts.pomm_utils import (
 from ryan_library.scripts.pomm_max_items import run_median_peak_report
 
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "test_data" / "tuflow" / "tutorials"
+DATA_DIR: Path = Path(__file__).resolve().parent.parent / "test_data" / "tuflow" / "tutorials"
 
 
 def test_aggregated_from_paths_module01() -> None:
-    path = DATA_DIR / "Module_01" / "results"
-    df = aggregated_from_paths([path])
+    path: Path = DATA_DIR / "Module_01" / "results"
+    df: DataFrame = aggregated_from_paths(paths=[path])
     assert len(df) == 6
     assert set(df["file"].unique()) == {"M01_2.5m_001_POMM.csv", "M01_5m_001_POMM.csv"}
     for col in ["AbsMax", "Location", "Type", "trim_runcode"]:
@@ -39,9 +38,9 @@ def test_find_aep_dur_median_and_max() -> None:
             "tp_text": ["TP1", "TP2", "TP1", "TP2", "TP3"],
         }
     )
-    med = find_aep_dur_median(df)
+    med: DataFrame = find_aep_dur_median(aggregated_df=df)
     assert med["MedianAbsMax"].tolist() == [5, 7, 2]
-    max_df = find_aep_median_max(med)
+    max_df: DataFrame = find_aep_median_max(aep_dur_median=med)
     assert len(max_df) == 2
     row_a = max_df[max_df["aep_text"] == "A"].iloc[0]
     assert row_a["MedianAbsMax"] == 7
@@ -49,11 +48,11 @@ def test_find_aep_dur_median_and_max() -> None:
 
 
 def test_run_median_peak_report_creates_excel() -> None:
-    src_dir = DATA_DIR / "Module_01" / "results"
+    src_dir: Path = DATA_DIR / "Module_01" / "results"
     run_median_peak_report(script_directory=src_dir, log_level="INFO")
-    excel_files = list(src_dir.glob("*_med_peaks.xlsx"))
+    excel_files: list[Path] = list(src_dir.glob("*_med_peaks.xlsx"))
     assert excel_files
-    xl = pd.ExcelFile(excel_files[0])
+    xl = pd.ExcelFile(path_or_buffer=excel_files[0])
     assert set(["aep-dur-max", "aep-max", "POMM"]).issubset(set(xl.sheet_names))
     for f in excel_files:
         f.unlink()
