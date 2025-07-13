@@ -11,11 +11,11 @@ import requests
 from requests import Response
 from bs4 import BeautifulSoup
 
-from ryan_library.functions.loguru_helpers import setup_logger, logger
+from ryan_library.functions.loguru_helpers import logger, setup_logger
 
 # ─── Hard-coded defaults (override via CLI if desired) ────────────────────
 
-DEFAULT_INPUT_DIR = Path(r"C:\Temp\tester")
+DEFAULT_INPUT_DIR: Path = Path(r"C:\Temp\tester")
 DEFAULT_OUTPUT_DIR: Path = DEFAULT_INPUT_DIR
 
 """
@@ -46,6 +46,8 @@ REQUEST_TIMEOUT = 30  # seconds
 
 
 def main() -> None:
+    """Run the command line interface for fetching RFFE results."""
+
     parser = argparse.ArgumentParser(description="Process RFFE catchments (CLI flags optional).")
     parser.add_argument(
         "--input-dir",
@@ -57,21 +59,21 @@ def main() -> None:
         type=Path,
         help="Folder to write CSVs (overrides hard-coded path)",
     )
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
 
-    input_dir = (args.input_dir or DEFAULT_INPUT_DIR).resolve()
-    output_dir = (args.output_dir or DEFAULT_OUTPUT_DIR).resolve()
+    input_dir: Path = (args.input_dir or DEFAULT_INPUT_DIR).resolve()
+    output_dir: Path = (args.output_dir or DEFAULT_OUTPUT_DIR).resolve()
 
     logger.info("Using input directory: {}", input_dir)
     logger.info("Using output directory: {}", output_dir)
 
-    csv_path = input_dir / "input_catchments.csv"
+    csv_path: Path = input_dir / "input_catchments.csv"
     if not csv_path.exists():
         logger.critical("Missing input file: {}", csv_path)
         return
 
     try:
-        df = pd.read_csv(csv_path)
+        df: DataFrame = pd.read_csv(filepath_or_buffer=csv_path)  # type: ignore[attr-defined]
     except Exception as exc:
         logger.critical("Cannot read CSV: {}", exc)
         return
@@ -82,7 +84,7 @@ def main() -> None:
     failures: list[dict[str, Any]] = []
 
     # ← use enumerate to get a true integer counter
-    for count, (_, row) in enumerate(df.iterrows(), start=1):
+    for count, (_, row) in enumerate(iterable=df.itertuples(), start=1):
         raw_name = row.get("Catchment")
         # ensure it's a non-empty string, otherwise fall back
         name: str = raw_name if isinstance(raw_name, str) and raw_name else f"Catchment_{count}"
@@ -171,6 +173,8 @@ def fetch_rffe(
 
 
 def parse_json_from_scripts(text: str, var_name: str) -> list[dict[str, Any]]:
+    """Return a JSON array assigned to ``var_name`` inside any <script> tag."""
+
     pattern: str = rf"{var_name}\s*=\s*(\[\{{.*?\}}\]);"
     soup = BeautifulSoup(markup=text, features="html.parser")
 
@@ -193,6 +197,8 @@ def parse_json_from_scripts(text: str, var_name: str) -> list[dict[str, Any]]:
 
 
 def clean_rffe(text: str) -> tuple[DataFrame, DataFrame]:
+    """Parse the RFFE HTML response into DataFrames."""
+
     results = parse_json_from_scripts(text, "results")
     all_catch = parse_json_from_scripts(text, "allCatchmentResults")
 
@@ -204,6 +210,8 @@ def clean_rffe(text: str) -> tuple[DataFrame, DataFrame]:
 
 
 def save_raw_response(catchment: str, folder: Path, resp: Response) -> None:
+    """Persist the raw HTML response for debugging purposes."""
+
     out_file = folder / f"{catchment}_rffe.txt"
     try:
         out_file.write_text(resp.text, encoding="utf-8")
@@ -222,6 +230,8 @@ def process_catchment(
     area: float,
     out_folder: Path,
 ) -> tuple[DataFrame, DataFrame, str | None]:
+    """Fetch and parse RFFE results for a single catchment."""
+
     resp: Response | None = fetch_rffe(
         session=session,
         name=catchment,
