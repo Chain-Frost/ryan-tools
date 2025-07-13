@@ -11,7 +11,7 @@ def main() -> None:
     try:
         script_directory: Path = Path(__file__).resolve().parent
         os.chdir(script_directory)
-    except Exception as e:  # pragma: no cover - manual execution
+    except Exception as e:
         print(f"Failed to change working directory: {e}")
         os.system("PAUSE")
         raise
