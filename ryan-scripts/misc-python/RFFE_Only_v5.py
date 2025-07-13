@@ -31,7 +31,7 @@ RFFE_URL: Final[str] = "http://rffe.arr-software.org"
 REQUEST_TIMEOUT: Final[int] = 30  # seconds
 
 Record = Mapping[Hashable, Any]
-
+_TRAILING_COMMA_RE: re.Pattern[str] = re.compile(pattern=r",\s*(\}|])")
 """
 Expected input file: input_catchments.csv
 
@@ -61,7 +61,7 @@ class Catchment:
 
     @classmethod
     def from_record(cls, rec: Record, idx: int) -> "Catchment":
-        raw: str | None = rec.get("Catchment", "")
+        raw: str | None = rec.get("Catchment", default="")
         name: str = raw.strip() if isinstance(raw, str) and raw.strip() else f"Catchment_{idx}"
         return cls(
             name=name,
@@ -109,7 +109,7 @@ class Catchment:
             logger.error(f"No matching ']' for '{var_name}'")
             return []
 
-        cleaned: str = re.sub(pattern=r",\s*(\}|])", repl=r"\1", string=raw)
+        cleaned: str = re.sub(pattern=_TRAILING_COMMA_RE, repl=r"\1", string=raw)
         try:
             return json.loads(cleaned)
         except json.JSONDecodeError:
