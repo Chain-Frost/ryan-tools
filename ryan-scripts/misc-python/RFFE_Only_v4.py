@@ -1,4 +1,4 @@
-# 2025-07-08 RFFE extractor update
+# 2025-07-13 RFFE extractor update
 
 import argparse
 import json
@@ -59,21 +59,21 @@ def main() -> None:
         type=Path,
         help="Folder to write CSVs (overrides hard-coded path)",
     )
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
 
-    input_dir = (args.input_dir or DEFAULT_INPUT_DIR).resolve()
-    output_dir = (args.output_dir or DEFAULT_OUTPUT_DIR).resolve()
+    input_dir: Path = (args.input_dir or DEFAULT_INPUT_DIR).resolve()
+    output_dir: Path = (args.output_dir or DEFAULT_OUTPUT_DIR).resolve()
 
     logger.info("Using input directory: {}", input_dir)
     logger.info("Using output directory: {}", output_dir)
 
-    csv_path = input_dir / "input_catchments.csv"
+    csv_path: Path = input_dir / "input_catchments.csv"
     if not csv_path.exists():
         logger.critical("Missing input file: {}", csv_path)
         return
 
     try:
-        df = pd.read_csv(csv_path)
+        df: DataFrame = pd.read_csv(filepath_or_buffer=csv_path)  # type: ignore[attr-defined]
     except Exception as exc:
         logger.critical("Cannot read CSV: {}", exc)
         return
@@ -84,7 +84,7 @@ def main() -> None:
     failures: list[dict[str, Any]] = []
 
     # ← use enumerate to get a true integer counter
-    for count, (_, row) in enumerate(df.iterrows(), start=1):
+    for count, (_, row) in enumerate(iterable=df.itertuples(), start=1):
         raw_name = row.get("Catchment")
         # ensure it's a non-empty string, otherwise fall back
         name: str = raw_name if isinstance(raw_name, str) and raw_name else f"Catchment_{count}"
@@ -107,9 +107,9 @@ def main() -> None:
             logger.warning("Failed {}: {}", name, err)
         else:
             if not r_df.empty:
-                agg_r = pd.concat([agg_r, r_df], ignore_index=True)
+                agg_r: DataFrame = pd.concat([agg_r, r_df], ignore_index=True)
             if not a_df.empty:
-                agg_a = pd.concat([agg_a, a_df], ignore_index=True)
+                agg_a: DataFrame = pd.concat([agg_a, a_df], ignore_index=True)
 
     def _save(df: pd.DataFrame, fname: str) -> None:
         path: Path = output_dir / fname
