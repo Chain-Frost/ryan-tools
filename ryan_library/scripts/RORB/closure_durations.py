@@ -6,33 +6,28 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 from loguru import logger
+from pandas import DataFrame
 
 from ryan_library.functions.RORB.read_rorb_files import (
     find_batch_files,
     parse_batch_output,
     analyze_hydrograph,
 )
-
-if TYPE_CHECKING:  # pragma: no cover - import for type checking only
-    from ryan_library.functions.loguru_helpers import setup_logger
-else:  # pragma: no cover - runtime dynamic import
-    from importlib import import_module
-
-    setup_logger = import_module("ryan_library.functions.loguru_helpers").setup_logger
+from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.pandas.median_calc import median_stats as median_stats_func
 
 
 def _collect_batch_data(paths: Iterable[Path]) -> pd.DataFrame:
-    batch_files = find_batch_files(paths)
-    dfs = [parse_batch_output(p) for p in batch_files]
+    batch_files: list[Path] = find_batch_files(paths=paths)
+    dfs: list[DataFrame] = [parse_batch_output(batchout_file=p) for p in batch_files]
     dfs = [df for df in dfs if not df.empty]
-    return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+    return pd.concat(objs=dfs, ignore_index=True) if dfs else pd.DataFrame()
 
 
 def _process_hydrographs(batch_df: pd.DataFrame, thresholds: list[float]) -> pd.DataFrame:
     records: list[pd.DataFrame] = []
     for _, row in batch_df.iterrows():
-        rec = analyze_hydrograph(
+        rec: DataFrame = analyze_hydrograph(
             aep=str(row["AEP"]),
             duration=str(row["Duration"]),
             tp=int(row["TPat"]),
@@ -46,7 +41,7 @@ def _process_hydrographs(batch_df: pd.DataFrame, thresholds: list[float]) -> pd.
 
 
 def _summarise_results(df: pd.DataFrame) -> pd.DataFrame:
-    final_columns = [
+    final_columns: list[str] = [
         "Path",
         "Location",
         "ThresholdFlow",
@@ -93,23 +88,23 @@ def run_closure_durations(
     if paths is None:
         paths = [Path.cwd()]
     if thresholds is None:
-        values = list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10))
+        values: set[int] = set(list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10)))
         thresholds = [float(v) for v in values]
     threshold_values: list[float] = thresholds
 
     with setup_logger(console_log_level=log_level):
-        batch_df = _collect_batch_data(paths)
+        batch_df: DataFrame = _collect_batch_data(paths=paths)
         if batch_df.empty:
             logger.warning("No batch.out data found.")
             return
-        result_df = _process_hydrographs(batch_df, threshold_values)
+        result_df: DataFrame = _process_hydrographs(batch_df=batch_df, thresholds=threshold_values)
         if result_df.empty:
             logger.warning("No hydrograph data processed.")
             return
 
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M")
-        result_df.to_parquet(f"{timestamp}_durex.parquet.gzip", compression="gzip")
-        result_df.to_csv(f"{timestamp}_durex.csv", index=False)
-        summary_df = _summarise_results(result_df)
-        summary_df.to_csv(f"{timestamp}_QvsTexc.csv", index=False)
+        timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
+        result_df.to_parquet(path=f"{timestamp}_durex.parquet.gzip", compression="gzip")
+        result_df.to_csv(path_or_buf=f"{timestamp}_durex.csv", index=False)
+        summary_df: DataFrame = _summarise_results(df=result_df)
+        summary_df.to_csv(path_or_buf=f"{timestamp}_QvsTexc.csv", index=False)
         logger.info("Processing complete")
