@@ -1,5 +1,7 @@
+# ryan-scripts\TUFLOW-python\set_layer_to_filename_v4.py
+# 250714
 import geopandas as gpd
-import pyogrio
+import pyogrio  # type: ignore
 import os
 import shutil
 import uuid
@@ -51,24 +53,24 @@ def rename_layer_in_geopackage(
 ) -> None:
     try:
         # Read the existing layer
-        gdf = gpd.read_file(gpkg)
+        gdf: gpd.GeoDataFrame = gpd.read_file(filename=gpkg)
         # gdf is a GeoDataFrame
 
         # Perform the layer renaming operation
-        temp_gpkg = f"{uuid.uuid4()}.gpkg"  # Create a temporary GeoPackage
-        gdf.to_file(temp_gpkg, layer=new_layer_name, driver="GPKG")
+        temp_gpkg: str = f"{uuid.uuid4()}.gpkg"  # Create a temporary GeoPackage
+        gdf.to_file(filename=temp_gpkg, layer=new_layer_name, driver="GPKG")
 
         # Replace the original file with the new file
-        shutil.move(temp_gpkg, gpkg)
+        shutil.move(src=temp_gpkg, dst=gpkg)
 
         # Success message with original layer name in brackets
         print_colored(
-            f"Successfully renamed layer in {gpkg} to {new_layer_name} (original name: {old_layer_name}).",
-            success_colour,
+            message=f"Successfully renamed layer in {gpkg} to {new_layer_name} (original name: {old_layer_name}).",
+            color=success_colour,
         )
     except Exception as e:
         # Error message with failure color and exception details
-        print_colored(f"Failed to process {gpkg}: {str(e)}", fail_colour)
+        print_colored(message=f"Failed to process {gpkg}: {str(e)}", color=fail_colour)
 
 
 # Function to process all GeoPackage files in the directory
@@ -78,28 +80,30 @@ def process_geopackage_files(success_colour: str, fail_colour: str) -> None:
         # Use pyogrio to list layers in the GeoPackage
         layers: list[list[str]] = pyogrio.list_layers(gpkg)
 
-        if should_skip_file(layers, gpkg):
+        if should_skip_file(layers=layers, gpkg=gpkg):
             continue
 
         # Extract filename without the .gpkg extension
         new_layer_name: str = os.path.splitext(gpkg)[0]
         old_layer_name: str = layers[0][0]  # Get the actual layer's name
 
-        if is_layer_name_correct(
-            old_layer_name=old_layer_name, new_layer_name=new_layer_name, gpkg=gpkg
-        ):
+        if is_layer_name_correct(old_layer_name=old_layer_name, new_layer_name=new_layer_name, gpkg=gpkg):
             continue
 
         # Rename the layer in the GeoPackage
         rename_layer_in_geopackage(
-            gpkg, new_layer_name, old_layer_name, success_colour, fail_colour
+            gpkg=gpkg,
+            new_layer_name=new_layer_name,
+            old_layer_name=old_layer_name,
+            success_colour=success_colour,
+            fail_colour=fail_colour,
         )
 
 
 # Main function to execute the script
 def main() -> None:
     success_colour, fail_colour = initialize()
-    process_geopackage_files(success_colour, fail_colour)
+    process_geopackage_files(success_colour=success_colour, fail_colour=fail_colour)
 
     # Wait for user input before exiting (Windows only; not tested on Linux)
     if sys.platform == "win32":
