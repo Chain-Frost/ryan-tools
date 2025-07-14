@@ -73,6 +73,12 @@ def median_stats(
         count_bin += stats_dict["count"]
 
     max_stats_dict["count_bin"] = count_bin
+    # override low/high with the true min/max over all groups:
+    if not thinned_df.empty:
+        global_low = float(thinned_df[stat_col].min())
+        global_high = float(thinned_df[stat_col].max())
+        max_stats_dict["low"] = global_low
+        max_stats_dict["high"] = global_high
     return max_stats_dict, bin_stats_list
 
 

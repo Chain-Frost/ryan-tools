@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 from collections.abc import Iterable
+import re
 
 import pandas as pd
 from pandas import DataFrame
@@ -32,9 +33,32 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
             raw[1] = str(float(raw[1]) / 60)
         raw.pop(2)
         processed_line: list[float | int | str] = []
-        for i, el in enumerate(raw):
-            processed_line.append(int(el) if i in (0, 3) else float(el))
-        csv_path: Path = _construct_csv_path(batchout_file, aep_part, duration_part, int(processed_line[3]))
+        for i, el in enumerate(iterable=raw):
+            if i in (0, 3):
+                # run-number and TP should be ints
+                processed_line.append(int(el))
+            elif i == 2:
+                # AEP comes in as something like '0.2EY'—keep it as a string
+                processed_line.append(el)
+            else:
+                # everything else should be numeric; strip any trailing letters
+                m: re.Match[str] | None = re.match(pattern=r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?", string=el)
+                if m:
+                    processed_line.append(float(m.group()))
+                else:
+                    # fallback to raw in case it really isn’t numeric
+                    processed_line.append(el)
+
+            # A few notes:
+            # Index 0 is your “Run” column (int),
+            # Index 2 is the AEP label (e.g. "0.2EY") that you probably want to preserve in your file-naming logic,
+            # Index 3 (after the pop(2)) is TP, which stays an int, and
+            # All other columns you now attempt to parse to float, but first use a regex to pull off a clean numeric prefix.
+            # With that change you’ll never try to do float("0.2EY") again, so the ValueError goes away and you keep the original “EY” suffix in your CSV-naming logic.
+
+        csv_path: Path = _construct_csv_path(
+            batchout=batchout_file, aep_part=aep_part, duration_part=duration_part, tpat=int(processed_line[3])
+        )
         processed_line.append(str(csv_path))
         return processed_line
     except Exception as exc:  # pragma: no cover - parsing errors are logged
@@ -79,7 +103,15 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
         df = pd.DataFrame(data=rorb_runs, columns=headers)
         df["file"] = basename
         df["folder"] = str(object=batchout_file.parent)
-        df["Path"] = str(object=batchout_file)
+        # df["Path"] = str(object=batchout_file)
+        cwd: Path = Path.cwd()
+        try:
+            df["Path"] = batchout_file.relative_to(cwd).as_posix()
+        except ValueError:
+            # if the file lives outside cwd, fall back to just its name:
+            df["Path"] = batchout_file.name
+        # for item in rorb_runs:
+        #     print(item)
         return df
     except Exception as exc:  # pragma: no cover - logs handle detail
         logger.exception("Failed parsing %s", batchout_file)

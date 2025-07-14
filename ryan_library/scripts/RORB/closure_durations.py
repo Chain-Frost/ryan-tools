@@ -106,5 +106,13 @@ def run_closure_durations(
         result_df.to_parquet(path=f"{timestamp}_durex.parquet.gzip", compression="gzip")
         result_df.to_csv(path_or_buf=f"{timestamp}_durex.csv", index=False)
         summary_df: DataFrame = _summarise_results(df=result_df)
+        # ensure the export is in Path, Location, ThresholdFlow, AEP order:
+        summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\.?[0-9]+)")[0].astype(dtype=float)
+
+        # now sort (including original AEP for display), then drop the helper column
+        summary_df.sort_values(
+            by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True, inplace=True
+        )
+        summary_df.drop(columns="AEP_sort_key", inplace=True)
         summary_df.to_csv(path_or_buf=f"{timestamp}_QvsTexc.csv", index=False)
         logger.info("Processing complete")
