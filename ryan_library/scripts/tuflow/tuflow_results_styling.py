@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import sqlite3
 from pathlib import Path
 import logging
-from typing import TypedDict
+from typing import TypedDict, Any
 
 # Get the logger for this module
 logger: logging.Logger = logging.getLogger(__name__)
@@ -22,7 +22,9 @@ class MappingEntry(BaseMappingEntry, total=False):
 class TUFLOWResultsStyler:
     def __init__(self, user_qml_overrides: dict[str, str] | None = None) -> None:
         """Initializes the TUFLOWResultsStyler with default styles path and user overrides."""
-        self.default_styles_path: Path = Path(__file__).parent.parent.parent / "QGIS-Styles" / "TUFLOW"
+        # __file__ resolves to ryan_library/scripts/tuflow/tuflow_results_styling.py
+        # We need the repository root to locate QML files under QGIS-Styles/TUFLOW
+        self.default_styles_path: Path = Path(__file__).resolve().parents[3] / "QGIS-Styles" / "TUFLOW"
         self.user_qml_overrides: dict[str, str] = user_qml_overrides or {}
         self.mappings: dict[str, MappingEntry] = self.get_file_mappings()
 
@@ -128,7 +130,7 @@ class TUFLOWResultsStyler:
                 "SELECT styleName, styleQML FROM layer_styles WHERE f_table_name = ?;",
                 (layer_name,),
             )
-            styles: list = cursor.fetchall()
+            styles: list[tuple[str, str]] = cursor.fetchall()
 
             for style_name, style_qml in styles:
                 logger.info(
@@ -146,7 +148,7 @@ class TUFLOWResultsStyler:
         """Recursively processes directories to apply QML styles based on file mappings."""
         logger.info(f"Processing directory: {current_path}", extra={"simple_format": True})
         with ThreadPoolExecutor() as executor:
-            futures: list = []
+            futures: list[Any] = []
             for item in current_path.iterdir():
                 if item.is_file():
                     for key, value in self.mappings.items():
@@ -183,11 +185,10 @@ class TUFLOWResultsStyler:
 
     def validate_qml_paths(self) -> None:
         """Validates that user-provided QML paths exist."""
-        for key, qml_path in self.user_qml_overrides.items():
-            qml_path = Path(qml_path)
-            if qml_path.is_absolute():
-                if not qml_path.exists():
-                    logger.warning(f"User-provided QML path for '{key}' does not exist: {qml_path}")
+        for key, qml_path_str in self.user_qml_overrides.items():
+            qml_path: Path = Path(qml_path_str)
+            if qml_path.is_absolute() and not qml_path.exists():
+                logger.warning(f"User-provided QML path for '{key}' does not exist: {qml_path}")
 
     def apply_styles(self) -> None:
         """Main function to apply QML styles to QGIS results."""
