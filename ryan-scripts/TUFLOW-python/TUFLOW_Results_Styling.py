@@ -42,6 +42,7 @@ def main() -> None:
         # Initialize and apply styles
         styler = TUFLOWResultsStyler(user_qml_overrides=user_qml_overrides)
         styler.apply_styles()
+        logger.error(f"Styles were sourced from: {styler.default_styles_path}")
         os.system("PAUSE")
 
     except Exception as e:
