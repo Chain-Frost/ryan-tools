@@ -97,9 +97,7 @@ def ARF_long(area, duration, aep, region, params_df) -> None | int:
     all_regions = params_df.columns.tolist()
     if region not in all_regions:
         valid_regions = ", ".join(all_regions)
-        warnings.warn(
-            f'Invalid region. You input "{region}". Valid regions are {valid_regions}'
-        )
+        warnings.warn(f'Invalid region. You input "{region}". Valid regions are {valid_regions}')
         return None
 
     # Assign parameters a-i
@@ -152,12 +150,7 @@ def ARF_short(area, duration, aep) -> int | None:
     try:
         term1 = a * (area**b - c * math.log10(duration)) * duration**-d
         term2 = e * (area**f) * (duration**g) * (0.3 + math.log10(aep))
-        term3 = (
-            h
-            * (area**j)
-            * (10 ** (i * (1 / 1440) * (duration - 180) ** 2))
-            * (0.3 + math.log10(aep))
-        )
+        term3 = h * (area**j) * (10 ** (i * (1 / 1440) * (duration - 180) ** 2)) * (0.3 + math.log10(aep))
         arf = 1 - term1 + term2 + term3
         return min(1, arf)
     except ValueError as ve:
@@ -262,9 +255,7 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
             arf_short_12 = ARF_short(10, 720, aep_frac)
             if arf_long_24 is None or arf_short_12 is None:
                 return None
-            arf_interp_10 = (
-                arf_short_12 + (arf_long_24 - arf_short_12) * (duration - 720) / 720
-            )
+            arf_interp_10 = arf_short_12 + (arf_long_24 - arf_short_12) * (duration - 720) / 720
             arf = 1 - 0.6614 * (1 - arf_interp_10) * (area**0.4 - 1)
             return arf
         elif area >= 10:
@@ -301,22 +292,17 @@ def plot_arf_for_northern_coastal(params_df: pd.DataFrame) -> None:
         arf_data = []
         for area in area_values:
             arf_for_durations = [
-                ARF(area, duration, aep, region=region, params_df=params_df)
-                for duration in duration_values
+                ARF(area, duration, aep, region=region, params_df=params_df) for duration in duration_values
             ]
             # Collect ARF data for maximum value across durations at each area and AEP
-            arf_data.append(
-                max(filter(lambda x: x is not None, arf_for_durations), default=0)
-            )
+            arf_data.append(max(filter(lambda x: x is not None, arf_for_durations), default=0))
 
         plt.plot(area_values, arf_data, label=f"AEP {aep}%")
 
     # Label plot
     plt.xlabel("Area (km²)")
     plt.ylabel("ARF")
-    plt.title(
-        f"ARF vs Area for 'Northern Coastal' Region (Varying AEP, Discrete Durations)"
-    )
+    plt.title(f"ARF vs Area for 'Northern Coastal' Region (Varying AEP, Discrete Durations)")
     plt.legend(title="AEP (%)")
     plt.grid(True)
     plt.show()
@@ -349,9 +335,7 @@ def plot_arf_for_northern_coastal_by_duration(params_df: pd.DataFrame) -> None:
     # Label plot
     plt.xlabel("Area (km²)")
     plt.ylabel("ARF")
-    plt.title(
-        f"ARF vs Area for 'Northern Coastal' Region (Fixed AEP = 5%, Varying Durations)"
-    )
+    plt.title(f"ARF vs Area for 'Northern Coastal' Region (Fixed AEP = 5%, Varying Durations)")
     plt.legend(title="Duration (mins)")
     plt.grid(True)
     plt.show()
@@ -361,7 +345,7 @@ def plot_arf_for_northern_coastal_by_duration(params_df: pd.DataFrame) -> None:
 
 if __name__ == "__main__":
     # Example parameters
-    example_area = 205  # km-squared
+    example_area = 150  # km-squared
     example_duration = 720  # minutes (30 hours)
     example_aep = 2  # percent
     example_region = "Northern Coastal"
@@ -377,9 +361,7 @@ if __name__ == "__main__":
     if arf_value is not None:
         print(f"The ARF is: {arf_value:.3f}")
     else:
-        print(
-            "The ARF could not be calculated due to invalid inputs or an error in computation."
-        )
+        print("The ARF could not be calculated due to invalid inputs or an error in computation.")
     plot_arf_for_northern_coastal_by_duration(params)
     plot_arf_for_northern_coastal(params)
 
