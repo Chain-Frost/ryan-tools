@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 from collections.abc import Iterable
+import re
 
 from typing import TYPE_CHECKING
 
@@ -110,6 +111,83 @@ def run_closure_durations(
         summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\.?[0-9]+)")[0].astype(dtype=float)
 
         # now sort (including original AEP for display), then drop the helper column
+        summary_df.sort_values(
+            by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True, inplace=True
+        )
+        summary_df.drop(columns="AEP_sort_key", inplace=True)
+        summary_df.to_csv(path_or_buf=f"{timestamp}_QvsTexc.csv", index=False)
+        logger.info("Processing complete")
+
+
+def _collect_csv_runs(paths: Iterable[Path]) -> list[tuple[str, str, int, Path]]:
+    """Return metadata tuples for hydrograph CSV files found under ``paths``.
+
+    Each tuple contains the AEP label, duration (hours), temporal pattern number and
+    path to the CSV file.
+    """
+    csv_files: list[tuple[str, str, int, Path]] = []
+    pattern = re.compile(r"aep(?P<aep>[^_]+)_du(?P<duration>[^t]+)hourtp(?P<tp>\d+)", re.IGNORECASE)
+    for root in paths:
+        for csv_path in root.rglob("*.csv"):
+            if not csv_path.is_file():
+                continue
+            match = pattern.search(csv_path.name.replace(" ", ""))
+            if not match:
+                logger.warning("Skipping CSV with unrecognised name: %s", csv_path)
+                continue
+            aep: str = match.group("aep").replace("p", ".")
+            duration: str = match.group("duration").replace("_", ".")
+            tp: int = int(match.group("tp"))
+            csv_files.append((aep, duration, tp, csv_path))
+    return csv_files
+
+
+def run_closure_durations_from_csv(
+    paths: Iterable[Path] | None = None,
+    thresholds: list[float] | None = None,
+    log_level: str = "INFO",
+) -> None:
+    """Process hydrograph CSV files under ``paths`` and report closure durations.
+
+    This variant bypasses ``batch.out`` files entirely and infers the AEP, duration
+    and temporal pattern from each CSV filename (e.g. ``aep50_du168hourtp7``).
+    """
+    if paths is None:
+        paths = [Path.cwd()]
+    if thresholds is None:
+        values: set[int] = set(list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10)))
+        thresholds = [float(v) for v in values]
+    threshold_values: list[float] = thresholds
+
+    with setup_logger(console_log_level=log_level):
+        runs: list[tuple[str, str, int, Path]] = _collect_csv_runs(paths=paths)
+        if not runs:
+            logger.warning("No CSV files found.")
+            return
+
+        records: list[pd.DataFrame] = []
+        for aep, duration, tp, csv_path in runs:
+            rec: DataFrame = analyze_hydrograph(
+                aep=aep,
+                duration=duration,
+                tp=tp,
+                csv_path=csv_path,
+                out_path=csv_path,
+                thresholds=threshold_values,
+            )
+            if not rec.empty:
+                records.append(rec)
+        if not records:
+            logger.warning("No hydrograph data processed.")
+            return
+
+        result_df: DataFrame = pd.concat(records, ignore_index=True)
+        timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
+        result_df.to_parquet(path=f"{timestamp}_durex.parquet.gzip", compression="gzip")
+        result_df.to_csv(path_or_buf=f"{timestamp}_durex.csv", index=False)
+        summary_df: DataFrame = _summarise_results(df=result_df)
+        summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\.?[0-9]+)")[0].astype(dtype=float)
+
         summary_df.sort_values(
             by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True, inplace=True
         )
