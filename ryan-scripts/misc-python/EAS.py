@@ -44,7 +44,7 @@ def calc_slope_ea(x: np.ndarray, y: np.ndarray) -> float:
     y_normalized = y - np.min(y)
 
     # Calculate area under the curve using the trapezoidal rule
-    A = np.trapz(y_normalized, x)  # Units: m·km
+    A = np.trapezoid(y_normalized, x)  # Units: m·km
 
     # Total length in km
     L = x[-1] - x[0]
@@ -127,12 +127,8 @@ def plot_stream_profile_with_slope(profile_df: pd.DataFrame, h: float, save_path
     C_y = profile_df["y"].min() + h * L
 
     plt.figure(figsize=(8, 6))
-    plt.plot(
-        profile_df["x"], profile_df["y"], marker="o", linestyle="-", label="Profile"
-    )
-    plt.scatter(
-        profile_df["x"].max(), C_y, color="blue", s=50, label="Equal Area Slope Point"
-    )
+    plt.plot(profile_df["x"], profile_df["y"], marker="o", linestyle="-", label="Profile")
+    plt.scatter(profile_df["x"].max(), C_y, color="blue", s=50, label="Equal Area Slope Point")
     plt.plot(
         [profile_df["x"].min(), profile_df["x"].max()],
         [profile_df["y"].min(), C_y],
@@ -174,12 +170,8 @@ def plot_stream_profile_with_polygons(
     C_y = profile_df["y"].min() + h * L
 
     plt.figure(figsize=(8, 6))
-    plt.plot(
-        profile_df["x"], profile_df["y"], marker="o", linestyle="-", label="Profile"
-    )
-    plt.scatter(
-        profile_df["x"].max(), C_y, color="blue", s=50, label="Equal Area Slope Point"
-    )
+    plt.plot(profile_df["x"], profile_df["y"], marker="o", linestyle="-", label="Profile")
+    plt.scatter(profile_df["x"].max(), C_y, color="blue", s=50, label="Equal Area Slope Point")
     plt.plot(
         [profile_df["x"].min(), profile_df["x"].max()],
         [profile_df["y"].min(), C_y],
@@ -239,9 +231,7 @@ def find_intersection(profile_df: pd.DataFrame, h: float) -> tuple:
         fill_value="extrapolate",
     )
 
-    profile_y_func = interp1d(
-        profile_df["x"], profile_df["y"], kind="linear", fill_value="extrapolate"
-    )
+    profile_y_func = interp1d(profile_df["x"], profile_df["y"], kind="linear", fill_value="extrapolate")
 
     # Define the difference function
     def calc_ydiff(x_val):
@@ -290,11 +280,7 @@ def define_polygons(profile_df: pd.DataFrame, intersection: tuple, h: float) -> 
     # Polygon A2: Above the intersection
     mask2 = profile_df["x"] > x_int
     x2 = [x_int] + profile_df.loc[mask2, "x"].tolist() + [profile_df["x"].max(), x_int]
-    y2 = (
-        [y_int]
-        + profile_df.loc[mask2, "y"].tolist()
-        + [profile_df["y"].min() + h * L, y_int]
-    )
+    y2 = [y_int] + profile_df.loc[mask2, "y"].tolist() + [profile_df["y"].min() + h * L, y_int]
 
     poly2_df = pd.DataFrame({"x": x2, "y": y2})
 
@@ -374,9 +360,7 @@ def main():
     print(f"Test Slope EA: {test_slope_ea:.6f} m/km")
 
     # Compare test_slope_ea with calculated slope_ea
-    print(
-        f"All equal (test_slope_ea == slope_ea): {np.isclose(test_slope_ea, slope_ea, atol=1e-6)}"
-    )
+    print(f"All equal (test_slope_ea == slope_ea): {np.isclose(test_slope_ea, slope_ea, atol=1e-6)}")
 
 
 if __name__ == "__main__":
