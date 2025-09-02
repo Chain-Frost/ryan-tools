@@ -1,3 +1,5 @@
+# ryan_library\functions\RORB\read_rorb_files.py
+"""Utilities for reading RORB batch.out files and hydrograph CSVs."""
 import logging
 from pathlib import Path
 from collections.abc import Iterable
