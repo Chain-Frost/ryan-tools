@@ -205,8 +205,10 @@ class TuflowStringParser:
         Returns:
             str: Cleaned run code.
         """
-        components_to_remove = {str(component) for component in [self.aep, self.duration, self.tp] if component}
+        components_to_remove = {str(component).lower() for component in [self.aep, self.duration, self.tp] if component}
         logger.debug(f"Components to remove: {components_to_remove}")
-        trimmed_runcode = "_".join(part for part in self.clean_run_code.split("_") if part not in components_to_remove)
+        trimmed_runcode = "_".join(
+            part for part in self.clean_run_code.split("_") if part.lower() not in components_to_remove
+        )
         logger.debug(f"Trimmed run code: {trimmed_runcode}")
         return trimmed_runcode
