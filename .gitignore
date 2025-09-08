@@ -28,3 +28,4 @@ tests/test_data/tuflow/tutorials/**/*.xlsx
 # Others
 */Thumbs.db
 */~$*.xlsx
+tests/test_data/tuflow/Thumbs.db
