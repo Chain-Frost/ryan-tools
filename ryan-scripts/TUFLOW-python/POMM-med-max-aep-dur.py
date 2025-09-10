@@ -3,21 +3,25 @@
 from pathlib import Path
 import os
 from ryan_library.scripts.pomm_max_items import run_median_peak_report
+from ryan_library.scripts.wrapper_utils import (
+    change_working_directory,
+    print_library_version,
+)
 
 
 def main() -> None:
     """Wrapper script for peak reporting."""
+    print_library_version()
+    console_log_level = "INFO"  # or "DEBUG"
+    # Determine the script directory
+    script_directory: Path = Path(__file__).resolve().parent
+    # script_directory = Path(
+    #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
+    # )
 
-    try:
-        script_directory: Path = Path(__file__).resolve().parent
-        os.chdir(script_directory)
-    except Exception as e:
-        print(f"Failed to change working directory: {e}")
-        os.system("PAUSE")
-        raise
-
-    print(f"Current Working Directory: {Path.cwd()}")
-    run_median_peak_report(script_directory=script_directory, log_level="INFO")
+    if not change_working_directory(target_dir=script_directory):
+        return
+    run_median_peak_report(script_directory=script_directory, log_level=console_log_level)
 
 
 if __name__ == "__main__":

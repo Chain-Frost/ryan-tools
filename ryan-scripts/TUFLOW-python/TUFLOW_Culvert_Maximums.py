@@ -9,13 +9,12 @@ from ryan_library.scripts.wrapper_utils import (
     print_library_version,
 )
 
-console_log_level = "DEBUG"  # or "INFO"
-
 
 def main() -> None:
     """Wrapper to merge culvert maximums; double-clickable.
     It processes files in the script's directory by default."""
     print_library_version()
+    console_log_level = "DEBUG"  # or "INFO"
     script_dir: Path = Path(__file__).resolve().parent
     # script_dir = Path(
     #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
