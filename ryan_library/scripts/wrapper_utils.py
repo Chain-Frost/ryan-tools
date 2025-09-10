@@ -9,6 +9,7 @@ def change_working_directory(target_dir: Path) -> bool:
     """Change the working directory and handle failures."""
     try:
         os.chdir(target_dir)
+        print(f"Current Working Directory: {Path.cwd()}")
     except OSError as exc:
         print(f"Failed to change working directory to {target_dir}: {exc}")
         os.system("PAUSE")

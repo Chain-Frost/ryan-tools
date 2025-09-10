@@ -1,22 +1,31 @@
 # ryan-scripts\TUFLOW-python\LogSummary.py
-
-from ryan_library.scripts.tuflow.tuflow_logsummary import main_processing
 from pathlib import Path
 import os
+from ryan_library.scripts.tuflow.tuflow_logsummary import main_processing
+from ryan_library.scripts.wrapper_utils import (
+    change_working_directory,
+    print_library_version,
+)
 
-if __name__ == "__main__":
-    # Change working directory to the script's directory
-    try:
-        script_dir: Path = Path(__file__).resolve().parent
 
-        # script_dir = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_11")
-        os.chdir(script_dir)
-        print(f"Current Working Directory: {Path.cwd()}")
-    except Exception as e:
-        print(f"Failed to change working directory: {e}")
-        os.system("PAUSE")
-        exit(1)
+def main() -> None:
+    """Wrapper script to analyse and summarise TUFLOW log files.
+    By default, it processes files in the script's directory recursively."""
+    print_library_version()
+    console_log_level = "INFO"  # or "DEBUG"
+    # Determine the script directory
+    script_directory: Path = Path(__file__).resolve().parent
+    # script_directory = Path(
+    #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
+    # )
+
+    if not change_working_directory(target_dir=script_directory):
+        return
 
     # Execute the main processing
-    main_processing(console_log_level="INFO")
+    main_processing(console_log_level=console_log_level)
+
+
+if __name__ == "__main__":
+    main()
     os.system("PAUSE")

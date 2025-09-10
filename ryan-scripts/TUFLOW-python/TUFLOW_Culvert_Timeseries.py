@@ -3,6 +3,10 @@ from pathlib import Path
 import os
 
 from ryan_library.scripts.tuflow.tuflow_culverts_timeseries import main_processing
+from ryan_library.scripts.wrapper_utils import (
+    change_working_directory,
+    print_library_version,
+)
 
 console_log_level = "INFO"
 
@@ -10,15 +14,14 @@ console_log_level = "INFO"
 def main() -> None:
     """Wrapper to combine culvert timeseries; double-clickable.
     By default, it processes files in the directory where the script is located."""
-    try:
-        # you can override this Path if needed
-        script_dir: Path = Path(__file__).resolve().parent
-        # script_dir = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03")
-        os.chdir(path=script_dir)
-    except Exception as e:
-        print(f"Failed to cd: {e}")
-        os.system("PAUSE")
-        exit(1)
+    print_library_version()
+    console_log_level = "INFO"
+    script_dir: Path = Path(__file__).resolve().parent
+    # script_dir = Path(
+    #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
+    # )
+    if not change_working_directory(target_dir=script_dir):
+        return
 
     main_processing(
         paths_to_process=[script_dir],
