@@ -1,4 +1,4 @@
-from __future__ import annotations
+# ryan_library\scripts\tuflow\closure_durations.py
 
 from datetime import datetime
 from pathlib import Path
@@ -7,6 +7,10 @@ from collections.abc import Iterable
 import pandas as pd
 from pandas import DataFrame
 from loguru import logger
+import os
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor
+
 
 from ryan_library.functions.tuflow.closure_durations import (
     analyze_po_file,
@@ -16,22 +20,65 @@ from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.pandas.median_calc import median_stats as median_stats_func
 
 
-def _process_files(
-    files: list[Path],
-    thresholds: list[float],
-    data_type: str,
-    allowed_locations: set[str] | None,
-) -> DataFrame:
-    records: list[DataFrame] = []
-    for file_path in files:
-        rec: DataFrame = analyze_po_file(
+def _process_one_po(args: tuple[Path, list[float], str, set[str] | None]) -> DataFrame:
+    file_path, thresholds, data_type, allowed_locations = args
+    try:
+        df = analyze_po_file(
             csv_path=file_path,
             thresholds=thresholds,
             data_type=data_type,
             allowed_locations=allowed_locations,
         )
-        if not rec.empty:
-            records.append(rec)
+        return df if not df.empty else pd.DataFrame()
+    except Exception as exc:
+        # Keep workers quiet if your logger isn't queue-based; this still records failures.
+        logger.exception(f"Worker failed on {file_path}: {exc}")
+        return pd.DataFrame()
+
+
+def _process_files(
+    files: list[Path],
+    thresholds: list[float],
+    data_type: str,
+    allowed_locations: set[str] | None,
+    *,
+    max_workers: int | None = None,
+    chunksize: int | None = None,
+    parallel: bool = True,
+) -> DataFrame:
+    # Fallback to sequential when asked or when trivially small.
+    if not parallel or len(files) <= 1:
+        records: list[DataFrame] = []
+        for fp in files:
+            rec = analyze_po_file(
+                csv_path=fp,
+                thresholds=thresholds,
+                data_type=data_type,
+                allowed_locations=allowed_locations,
+            )
+            if not rec.empty:
+                records.append(rec)
+        return pd.concat(records, ignore_index=True) if records else pd.DataFrame()
+
+    # Sensible defaults
+    if max_workers is None:
+        # Leave one core free for OS/IO; ensure at least 1.
+        max_workers = max(1, (os.cpu_count() or 1) - 1)
+
+    # For ProcessPoolExecutor.map, chunksize>=1; batching reduces overhead on many small files.
+    if chunksize is None:
+        # Rough heuristic: 4 batches per worker
+        chunksize = max(1, len(files) // (max_workers * 4) or 1)
+
+    records: list[DataFrame] = []
+    # Use spawn context (Windows default; explicit is safer/clearer)
+    ctx = mp.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as ex:
+        arg_iter = ((fp, thresholds, data_type, allowed_locations) for fp in files)
+        for rec in ex.map(_process_one_po, arg_iter, chunksize=chunksize):
+            if isinstance(rec, pd.DataFrame) and not rec.empty:
+                records.append(rec)
+
     return pd.concat(records, ignore_index=True) if records else pd.DataFrame()
 
 
@@ -76,6 +123,9 @@ def run_closure_durations(
     data_type: str = "Flow",
     allowed_locations: list[str] | None = None,
     log_level: str = "INFO",
+    max_workers: int | None = None,  # NEW
+    chunksize: int | None = None,  # NEW (optional)
+    parallel: bool = True,  # NEW
 ) -> None:
     """Process ``*_PO.csv`` files under ``paths`` and report closure durations."""
     if paths is None:
@@ -95,6 +145,9 @@ def run_closure_durations(
             thresholds=thresholds,
             data_type=data_type,
             allowed_locations=allowed_set,
+            max_workers=max_workers,
+            chunksize=chunksize,
+            parallel=parallel,
         )
         if result_df.empty:
             logger.warning("No hydrograph data processed.")

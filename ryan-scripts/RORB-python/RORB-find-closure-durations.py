@@ -1,6 +1,8 @@
 # ryan-scripts\RORB-python\RORB-find-closure-durations.py
-"""Wrapper for computing RORB closure durations."""
+"""Wrapper for computing RORB closure durations.
 
+Update ``paths`` or ``thresholds`` below to customise processing.
+Thresholds default to a broad range of flows when ``None``."""
 import os
 from pathlib import Path
 

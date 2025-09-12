@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pathlib import Path
 from collections.abc import Iterable
 import csv
@@ -26,7 +24,9 @@ def parse_metadata(file_path: Path) -> dict[str, str]:
     aep: str = parser.aep.raw_value if parser.aep else ""
     duration: str = parser.duration.raw_value if parser.duration else ""
     if not duration:
-        m = re.search(r"(?:[_+]|^)(\d+(?:\.\d+)?hr)(?:[_+]|$)", file_path.name, flags=re.IGNORECASE)
+        m: re.Match[str] | None = re.search(
+            pattern=r"(?:[_+]|^)(\d+(?:\.\d+)?hr)(?:[_+]|$)", string=file_path.name, flags=re.IGNORECASE
+        )
         if m:
             duration = m.group(1).replace("_", "")
     tp: str = parser.tp.raw_value if parser.tp else ""
@@ -44,8 +44,8 @@ def read_po_csv(
     try:
         with filepath.open() as file:
             reader = csv.reader(file)
-            first_row = list(next(reader))
-            second_row = list(next(reader))
+            first_row: list[str] = list(next(reader))
+            second_row: list[str] = list(next(reader))
     except Exception:
         logger.exception(f"Error reading header {filepath}")
         return DataFrame()
@@ -53,8 +53,8 @@ def read_po_csv(
     usecols: list[int] = []
     col_names: list[str] = []
     for idx, (top, second) in enumerate(zip(first_row, second_row)):
-        top_clean = top.strip().lower()
-        second_clean = second.strip()
+        top_clean: str = top.strip().lower()
+        second_clean: str = second.strip()
         if top_clean == "location" and second_clean == "Time":
             usecols.append(idx)
             col_names.append("Time")
@@ -67,7 +67,7 @@ def read_po_csv(
         logger.error("No matching columns in %s", filepath)
         return DataFrame()
     try:
-        df = pd.read_csv(filepath, skiprows=1, usecols=usecols, header=0)
+        df: DataFrame = pd.read_csv(filepath_or_buffer=filepath, skiprows=1, usecols=usecols, header=0)
         df.columns = col_names
         return df
     except Exception:
@@ -87,7 +87,7 @@ def analyze_po_file(
     if df.empty or "Time" not in df.columns or len(df["Time"]) < 2:
         return DataFrame()
     timestep: float = float(df["Time"].iloc[1] - df["Time"].iloc[0])
-    meta = parse_metadata(file_path=csv_path)
+    meta: dict[str, str] = parse_metadata(file_path=csv_path)
     records: list[dict[str, float | str]] = []
     for thresh in thresholds:
         counts = (df.iloc[:, 1:] > thresh).sum()
