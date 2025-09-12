@@ -1,64 +1,67 @@
 # ryan-scripts\TUFLOW-python\run_tuflow_2025_09.py
-# 2025-09-01 version
-
+# 2025-09-11 version - parameter product and/or read from a list.
 """Single-file TUFLOW launcher for Windows.
-
 USAGE
------
 1. Copy this file into a job folder.
 2. Edit `get_parameters()` ONLY - nowhere else.
 3. Run:  python run_tuflow_2025_09.py"""
 
-###############################################################################
-# ============================= USER PARAMETERS ============================= #
-###############################################################################
-from pathlib import Path
 
-
-# ***** EDIT ONLY THIS FUNCTION *****
+# ========= USER PARAMETERS ====== ***** EDIT ONLY THIS FUNCTION *****
 def get_parameters() -> "Parameters":
+    from pathlib import Path
 
+    # ---- Parameter-product inputs (for 'parameter_product' or 'both') ----    # Values are whitespace-separated; blanks are ignored.
     run_variables_raw: dict[str, str] = {
-        "e1": "01.0p",  # 02.0p 05.0p 10.0p",
-        "e2": "00720m",
-        "e5": "BaseILCL",
-        "s1": "EXG",
-        "s2": "SouthHub",
-        "s4": "32M 16M 08M",
+        "e1": "01.0p 02.0p 05.0p 10.0p 20.0p 50.0p",  # 05.0p 10.0p
+        "e2": "noDUR",
+        "e3": "noTPAT",
+        "e5": "MRWAFortTrapezoid",
+        "s1": "DEV",
+        "s2": "FortescueBridge",
+        "s3": "7C-100m 7C-200m 7C-400m 7C-800m 7B-100m 7B-200m 7B-400m 7B-800m ",
+        "s4": "16M",
     }
 
+    # ---- Core TUFLOW settings ----
     core_params = CoreParameters(
-        tcf=Path(r".\runs\Unity_v02_~s2~_~s1~_~e5~_~e1~_~e2~_~s4~.tcf"),
+        tcf=Path(r".\runs\Unity_v08_~s2~_~s1~_~e5~_~e1~_~e2~_~s4~.tcf"),
         tuflowexe=Path(r"C:\TUFLOW\2025.1.2\TUFLOW_iSP_w64.exe"),
-        batch_commands="-x",  # e.g. "-x", "-b", -t avoid -puN here unless gpu_devices is None/empty.
-        gpu_devices=None,
-        # None or [] → no -pu passed (engine chooses default GPU). Or set like ["-pu0"] or [["-pu0","-pu1"], "-pu2"].
-        # Each element is a GPU *slot*; duplicates allow oversubscription
+        batch_commands="-b",  # e.g. "-x", "-b", "-t". Avoid -puN here unless gpu_devices is None/[]
+        priority_order=None,  # Optional custom ordering of flags; e.g. "s1 s2 e1 e2". If None, uses insertion/first-seen order.
+        # GPU slots (round-robin). Set to None/[] to pass no -pu flags at all.
         # Example: first sim uses GPU0&1, second sim uses GPU2, etc.
         # gpu_devices=[["-pu0", "-pu1"], ["-pu2"]]
-        # Windows START priority: "LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"
-        computational_priority="LOW",
-        # Optional: a Python script to run after all sims finish
-        next_run_file=None,
-        # If you want a custom ordering of keys, e.g. "s1 s2 e1 e2", otherwise None
-        priority_order=None,
-        # If False → only export commands.txt; if True → also run simulations
-        run_simulations=True,
-        # Seconds to wait after launching each simulation
-        wait_time_after_run=2.0,
-        # If True → script waits for any keypress before exiting (Windows only)
-        pause_on_finish=True,
+        # gpu_devices=[["-pu0"], ["-pu1"]],
+        # gpu_devices=[["-pu0"]],
+        # gpu_devices=[["-pu1"]],
+        computational_priority="LOW",  # LOW|BELOWNORMAL|NORMAL|ABOVENORMAL|HIGH|REALTIME
+        next_run_file=None,  # Export commands.txt (always exported) and optionally capture session START/END lines to a .log
+        run_simulations=True,  # If False → only export commands.txt; if True → also run simulations
+        wait_time_after_run=2.0,  # Seconds to wait after launching each simulation
+        pause_on_finish=True,  # If True → script waits for any keypress before exiting
+        # ---- Mode selection ----
+        smart_mode="parameter_product",  # "parameter_product" run_variables_raw | "textfiles" parse .bat/.txt command lists (exact combos) | "both" union of both (deduplicated)
+        # ---- Input command lists (for 'textfiles' or 'both') ----
+        input_files=None,  # [ # r"file1.bat", # r"file2.txt" ]
+        export_commands=True,  # to a text file
+        capture_console_log=False,  # export command prompt to text file log
     )
 
     # Build and validate
-    return build_parameters(
-        core_params=core_params, run_variables_raw=run_variables_raw
-    )
+    return build_parameters(core_params=core_params, run_variables_raw=run_variables_raw)
 
 
-###############################################################################
+# Notes:
+# - In textfiles/both mode, lines starting with comments are ignored and any -puN tokens
+#   are stripped before parsing. Inline trailing comments are also removed outside quotes.
+# - Placeholder enforcement: only -e*/-s* appearing as ~e?~/~s?~ in the TCF filename are
+#   used, and any run missing a required placeholder is dropped.
+# - priority_order: if provided, it controls key order; otherwise:
+#     • textfiles mode: first-seen order from inputs
+#     • parameter_product mode: insertion order of run_variables_raw keys
+
 # ============================= IMPORTS (internal) ========================== #
-###############################################################################
 # imports placed here so that they do not obstruct user editing of the parameters at the top.
 import datetime
 import itertools
@@ -72,7 +75,7 @@ import time
 from dataclasses import dataclass
 from types import FrameType
 from typing import Any, Final, ClassVar
-
+from pathlib import Path
 import colorama
 import psutil
 
@@ -91,13 +94,16 @@ class CoreParameters:
         gpu_devices:            None/[] → pass no -pu flags (engine chooses default).
                                 Or a list of groups: each group is either "-pu0" or ["-pu0","-pu1"].
                                 Each simulation uses exactly one group in round-robin.
-                                If empty list/None, no GPU flags are ever passed.
         computational_priority: One of ["LOW","BELOWNORMAL","NORMAL","ABOVENORMAL","HIGH","REALTIME"].
         next_run_file:          Optional: Python script to run after all sims finish.
         priority_order:         Optional space-separated string for custom key order; None→insertion order.
         run_simulations:        If False→only export commands.txt; if True→launch sims.
         wait_time_after_run:    Seconds to wait after launching each sim.
         pause_on_finish:        If True→wait for any keypress before exiting (Windows only).
+        capture_console_log:    If True→write a session .log of exact START/END lines.
+        smart_mode:             "parameter_product" | "textfiles" | "both".
+        input_files:            List of .bat/.txt files when smart_mode ≠ "parameter_product".
+        export_commands:        If True→write <script>_commands.txt.
     """
 
     tcf: Path
@@ -110,6 +116,10 @@ class CoreParameters:
     run_simulations: bool = True
     wait_time_after_run: float = 2.0
     pause_on_finish: bool = True
+    capture_console_log: bool = False
+    smart_mode: str = "parameter_product"
+    input_files: list[str] | None = None  # set by get_parameters
+    export_commands: bool = True
 
     # ---- Defaults map (for styled dumps) ----
     # IMPORTANT: mark as ClassVar so dataclasses ignores it (avoids mutable-default error).
@@ -122,6 +132,9 @@ class CoreParameters:
         "run_simulations": True,
         "wait_time_after_run": 2.0,
         "pause_on_finish": True,
+        "capture_console_log": False,
+        "smart_mode": "parameter_product",
+        "export_commands": True,
     }
 
     def dump(self) -> None:
@@ -145,7 +158,6 @@ class CoreParameters:
         logging.info("%s==== CORE PARAMETERS ====%s", cyan, reset)
         # Ensure we compute effective batch flags (may raise on conflicts; that’s fine)
         effective_batch: list[str] = get_batch_flags(core=self, for_dump=True)
-
         items: list[tuple[str, Any]] = [
             ("tcf", self.tcf),
             ("tuflowexe", self.tuflowexe),
@@ -155,11 +167,7 @@ class CoreParameters:
             ),
             (
                 "gpu_devices",
-                (
-                    self.gpu_devices
-                    if self.gpu_devices not in (None, [])
-                    else "None/[] (no -pu)"
-                ),
+                (self.gpu_devices if self.gpu_devices not in (None, []) else "None/[] (no -pu)"),
             ),
             ("computational_priority", self.computational_priority),
             ("priority_order", self.priority_order),
@@ -167,12 +175,14 @@ class CoreParameters:
             ("wait_time_after_run", self.wait_time_after_run),
             ("pause_on_finish", self.pause_on_finish),
             ("next_run_file", self.next_run_file),
+            ("smart_mode", self.smart_mode),
+            ("input_files", self.input_files),
+            ("export_commands", self.export_commands),
+            ("capture_console_log", self.capture_console_log),
         ]
         for name, val in items:
             # For "(effective)" label, look up original key for default styling comparison
-            key_for_default = (
-                "batch_commands" if name.startswith("batch_commands") else name
-            )
+            key_for_default = "batch_commands" if name.startswith("batch_commands") else name
             logging.info("%s: %s", name, style(key_for_default, val))
 
 
@@ -216,6 +226,22 @@ class Simulation:
     process: subprocess.Popen[bytes] | None = None
     end_time: datetime.datetime | None = None
 
+    # --- identity & set semantics (for de-duplication across inputs) ---
+    def _identity_tokens(self) -> tuple[str, ...]:
+        # Treat runs as identical even if GPU tokens differ; GPU is injected later.
+        # If args_for_python never contains -puN (current design), this is still stable.
+        return tuple(tok for tok in self.args_for_python if not _GPU_RE.match(tok))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Simulation):
+            return NotImplemented
+        return self._identity_tokens() == other._identity_tokens()
+
+    def __hash__(self) -> int:
+        return hash(self._identity_tokens())
+
+
+# ================================ CONSTANTS =============================== #
 
 _PRIORITY_SET: set[str] = {
     "LOW",
@@ -226,16 +252,12 @@ _PRIORITY_SET: set[str] = {
     "REALTIME",
 }
 # Case-insensitive -puNNN (0 or positive integer; leading zeros allowed)
-_GPU_RE: re.Pattern[str] = re.compile(pattern=r"^-pu\d+$", flags=re.IGNORECASE)
-_FLAG_KEY_RE: re.Pattern[str] = re.compile(pattern=r"^-[es][1-9]$")
+_GPU_RE: re.Pattern[str] = re.compile(pattern=r"(?i)^(?:-pu)(?:\d+)$")
+_FLAG_KEY_RE: re.Pattern[str] = re.compile(pattern=r"^-[es][1-9]$", flags=re.IGNORECASE)
 
 
-###############################################################################
 # ====================== PARAMETER-BUILDING & VALIDATION ==================== #
-###############################################################################
-def build_parameters(
-    core_params: CoreParameters, run_variables_raw: dict[str, str]
-) -> Parameters:
+def build_parameters(core_params: CoreParameters, run_variables_raw: dict[str, str]) -> Parameters:
     """Split raw run-variable strings, assemble a Parameters, validate.
     Args:
         core_params:       A CoreParameters instance (paths, flags, GPUs, etc.).
@@ -245,8 +267,7 @@ def build_parameters(
         Parameters: Fully constructed and validated."""
     # 1) Convert each raw string into list[str] by splitting on whitespace:
     run_variables: dict[str, list[str]] = {
-        key: split_input_strings(input_val=val)
-        for key, val in run_variables_raw.items()
+        key: split_input_strings(input_val=val) for key, val in run_variables_raw.items()
     }
 
     # 2) Build the Parameters dataclass from core_params + run_variables:
@@ -296,19 +317,11 @@ def check_and_set_defaults(params: Parameters) -> None:
     # Check that run_variables keys are only e1-e9 or s1-s9
     for key in params.run_variables.keys():
         if not re.fullmatch(pattern=r"[es][1-9]", string=key):
-            raise ValueError(
-                f"Invalid run variable key: {key}. Must be e1-e9 or s1-s9."
-            )
+            raise ValueError(f"Invalid run variable key: {key}. Must be e1-e9 or s1-s9.")
 
 
-###############################################################################
 # ====================== ARGUMENT-BUILDING HELPERS ========================= #
-###############################################################################
-def _build_padded_flags(
-    keys: list[str],
-    combo: tuple[str, ...],
-    max_lengths: dict[str, int],
-) -> list[str]:
+def _build_padded_flags(keys: list[str], combo: tuple[str, ...], max_lengths: dict[str, int]) -> list[str]:
     """Given parameter keys, one combination (tuple of values), and max_lengths,
     produce a flattened list: ['-key1', 'value1_padded', '-key2', 'value2_padded', ...].
     """
@@ -356,34 +369,29 @@ def generate_arg_for_batch(
     return " ".join(parts)
 
 
-###############################################################################
 # =============================== UTILITY FUNCTIONS ========================= #
-###############################################################################
 def filter_parameters(params: dict[str, list[str]], tcf: Path) -> dict[str, list[str]]:
     """Given all run_variables and the TCF filename,
       1) Drop any flags whose first list-element is blank/whitespace.
       2) Warn if the TCF's "~XX~" placeholders don't match the provided keys.
+      3) We can return flags that are not present in the tcf filename.
     Args:
         parameters: dict mapping flags ("e1") → list[str] of values.
         tcf: Path to the TCF template (whose filename has "~e1~", "~e2~", ...).
     Returns:
         A new dict containing only non-empty flags."""
-    non_empty: dict[str, list[str]] = {
-        k: v for k, v in params.items() if v and v[0].strip()
-    }
-    placeholders: set[str] = set(re.findall(pattern=r"~(\w{2})~", string=tcf.name))
-    missing: set[str] = placeholders - non_empty.keys()
-    extra: set[str] = non_empty.keys() - placeholders
+    non_empty: dict[str, list[str]] = {k: v for k, v in params.items() if v and v[0].strip()}
+    placeholders: set[str] = set(re.findall(pattern=r"~(\w{2})~", string=tcf.name, flags=re.IGNORECASE))
+    missing: set[str] = placeholders - {k.lower() for k in non_empty.keys()}
+    extra: set[str] = {k.lower() for k in non_empty.keys()} - placeholders
     if missing:
         logging.warning(
-            "TCF filename expects flags %s, but run_variables is missing %s.",
+            "TCF expects %s, but run_variables missing %s.",
             sorted(placeholders),
             sorted(missing),
         )
     if extra:
-        logging.warning(
-            "run_variables has extra flags not present in TCF: %s.", sorted(extra)
-        )
+        logging.warning("run_variables has extra flags not present in TCF: %s.", sorted(extra))
     return non_empty
 
 
@@ -420,10 +428,9 @@ def get_batch_flags(core: CoreParameters, *, for_dump: bool = False) -> list[str
     flags: list[str] = split_input_strings(input_val=core.batch_commands)
     batch_gpu: list[str] = [f for f in flags if _GPU_RE.match(f)]
     has_gpu_devices: bool = bool(core.gpu_devices)
-
     if batch_gpu and has_gpu_devices:
         # Abort: double-specified GPU location
-        msg = (
+        raise ValueError(
             "GPU flags were specified in BOTH places:\n"
             f"  batch_commands: {flags}\n"
             f"  gpu_devices: {core.gpu_devices}\n\n"
@@ -431,8 +438,6 @@ def get_batch_flags(core: CoreParameters, *, for_dump: bool = False) -> list[str
             "  • Remove all -puN from batch_commands and keep gpu_devices set; OR\n"
             "  • Set gpu_devices=None (or []) and keep -puN only in batch_commands.\n"
         )
-        raise ValueError(msg)
-
     # Otherwise accept as-is (including -puN in batch_commands when gpu_devices is None/[])
     return flags
 
@@ -464,30 +469,23 @@ def export_commands(cmds: list[str], tuflowexe: Path, tcf: Path) -> None:
 
         # 2) Each command line, replacing full paths with variables
         for c in cmds:
-            f.write(
-                c.replace(str(tuflowexe), "%TUFLOW_EXE%").replace(str(tcf), "%TCF%")
-                + "\n"
-            )
+            f.write(c.replace(str(tuflowexe), "%TUFLOW_EXE%").replace(str(tcf), "%TCF%") + "\n")
 
         # 3) Pause at the end so user can see the model runs
         f.write("\nPause\n")
     logging.info("Batch commands exported to %s (%d commands).", fn, len(cmds))
 
 
-###############################################################################
-# ========================= SIMULATION LAUNCH LOOP ========================= #
-###############################################################################
+# ========================= SIMULATION BUILDERS ============================ #
 def compute_simulations(params: Parameters) -> list[Simulation]:
-    """Build combinations and precompute base args (no GPU injected yet).
+    """Parameter-product path: build product of run_variables.
     1) Filter run variables based on TCF placeholders.
     2) Determine key order.
     3) Build all combinations (itertools.product).
     4) Compute max_lengths for padding.
     5) Call generate_all_args()."""
     core: CoreParameters = params.core_params
-    filtered_vars: dict[str, list[str]] = filter_parameters(
-        params=params.run_variables, tcf=core.tcf
-    )
+    filtered_vars: dict[str, list[str]] = filter_parameters(params=params.run_variables, tcf=core.tcf)
 
     if core.priority_order:
         order_list: list[str] = split_input_strings(input_val=core.priority_order)
@@ -498,10 +496,10 @@ def compute_simulations(params: Parameters) -> list[Simulation]:
     else:
         sorted_keys = list(filtered_vars.keys())
 
-    combos: list[tuple[str, ...]] = list(
-        itertools.product(*(filtered_vars[k] for k in sorted_keys))
+    combos: list[tuple[str, ...]] = (
+        list(itertools.product(*(filtered_vars[k] for k in sorted_keys))) if sorted_keys else []
     )
-    max_len: dict[str, int] = {k: max(map(len, v)) for k, v in filtered_vars.items()}
+    max_len: dict[str, int] = {k: max(map(len, v)) for k, v in filtered_vars.items()} if filtered_vars else {}
     logging.debug("Max lengths: %s", max_len)
     batch_flags: list[str] = get_batch_flags(core=core)
 
@@ -525,51 +523,243 @@ def compute_simulations(params: Parameters) -> list[Simulation]:
             max_lengths=max_len,
             assigned_gpu=None,  # GPU is injected at launch time only
         )
-        sims.append(
-            Simulation(args_for_python=args_py, command_for_batch=cmd_batch, index=i)
-        )
+        sims.append(Simulation(args_for_python=args_py, command_for_batch=cmd_batch, index=i))
     return sims
 
 
-def _log_simulation_parameters(
-    sim: Simulation, core: CoreParameters, total: int
-) -> None:
-    """Structured parameter block printed immediately before launch (exact GPU included)."""
+# ---------- Parsed-list mode helpers  ----------
+FlagKey = str  # "e1", "s2", ...
+FlagVal = str  # "01.0p", "01440m", ...
+Combo = dict[FlagKey, FlagVal]
+
+_GPU_TOKEN_RE: re.Pattern[str] = re.compile(pattern=r"(?<!\S)-pu\d+(?!\S)", flags=re.IGNORECASE)
+_FLAG_PAIR_RE: re.Pattern[str] = re.compile(pattern=r"-(?P<key>[es][1-9])\s+(?P<val>\S+)", flags=re.IGNORECASE)
+_COMMENT_RE: re.Pattern[str] = re.compile(pattern=r"^\s*@?(?:REM\b|::|#|;|//)", flags=re.IGNORECASE)
+
+
+def _strip_inline_comments(line: str) -> str:
+    markers: tuple[str, ...] = (" ::", " #", " ;", " //", " REM", " rem", " !")
+    in_quotes = False
+    i = 0
+    while i < len(line):
+        ch: str = line[i]
+        if ch == '"':
+            in_quotes: bool = not in_quotes
+            i += 1
+            continue
+        if not in_quotes:
+            for m in markers:
+                if line.startswith(m, i):
+                    return line[:i].rstrip()
+        i += 1
+    return line
+
+
+def _is_comment_or_blank(line: str) -> bool:
+    return (not line.strip()) or bool(_COMMENT_RE.match(string=line))
+
+
+def _strip_pu_flags(line: str) -> str:
+    return _GPU_TOKEN_RE.sub(repl=" ", string=line).strip()
+
+
+def _extract_flag_pairs_in_order(line: str) -> list[tuple[FlagKey, FlagVal]]:
+    out: list[tuple[FlagKey, FlagVal]] = []
+    for m in _FLAG_PAIR_RE.finditer(string=line):
+        k = m.group("key").lower().strip()
+        v = m.group("val").strip()
+        if v:
+            out.append((k, v))
+    return out
+
+
+def _canonical_key(combo: Combo) -> tuple[tuple[str, str], ...]:
+    return tuple(sorted(((k, v.lower()) for k, v in combo.items()), key=lambda t: t[0]))
+
+
+def parse_input_files(files: list[Path]) -> tuple[list[Combo], list[str]]:
+    seen: set[tuple[tuple[str, str], ...]] = set()
+    unique: list[Combo] = []
+    first_seen_order: list[str] = []
+    seen_keys: set[str] = set()
+    skipped_count = 0
+
+    for f in files:
+        try:
+            content: list[str] = f.read_text(encoding="utf-8", errors="ignore").splitlines()
+        except Exception as exc:
+            logging.error("Failed to read %s: %s", f, exc)
+            continue
+
+        for idx, raw in enumerate(iterable=content, start=1):
+            line: str = raw.rstrip("\r\n")
+            if _is_comment_or_blank(line=line):
+                skipped_count += 1
+                continue
+            line_no_gpu: str = _strip_pu_flags(line=line)
+            line_clean: str = _strip_inline_comments(line=line_no_gpu)
+            if not line_clean.strip():
+                skipped_count += 1
+                continue
+            pairs: list[tuple[str, str]] = _extract_flag_pairs_in_order(line=line_clean)
+            if not pairs:
+                skipped_count += 1
+                continue
+            for k, _ in pairs:
+                if k not in seen_keys:
+                    seen_keys.add(k)
+                    first_seen_order.append(k)
+            combo: Combo = {}
+            for k, v in pairs:
+                combo[k] = v
+            canon = _canonical_key(combo)
+            if canon in seen:
+                logging.debug("Duplicate run ignored [%s:%d]: %s", f.name, idx, combo)
+                continue
+            seen.add(canon)
+            unique.append(combo)
+
+    logging.info(
+        "Parsed %d unique simulations from %d input file(s). Skipped %d lines.",
+        len(unique),
+        len(files),
+        skipped_count,
+    )
+    return unique, first_seen_order
+
+
+def combos_to_run_variables_raw(combos: list[Combo]) -> dict[str, str]:
+    bins: dict[str, set[str]] = {}
+    for c in combos:
+        for k, v in c.items():
+            bins.setdefault(k, set()).add(v)
+    run_vars: dict[str, str] = {}
+    for k in sorted(bins.keys()):
+        run_vars[k] = " ".join(sorted(bins[k], key=lambda s: s.lower()))
+    return run_vars
+
+
+def _max_lengths_for_padding(combos: list[Combo]) -> dict[str, int]:
+    maxlen: dict[str, int] = {}
+    for c in combos:
+        for k, v in c.items():
+            if len(v) > maxlen.get(k, 0):
+                maxlen[k] = len(v)
+    return dict(maxlen)
+
+
+def _required_placeholders_from_tcf(tcf: Path) -> list[str]:
+    return [x.lower() for x in re.findall(pattern=r"~([es][1-9])~", string=tcf.name, flags=re.IGNORECASE)]
+
+
+# Which should not be enforcing down flags to match the placeholders in the tcf.
+# It is fine to have more flags thant the file name. we just cannot be missing flags.
+def _enforce_placeholders(core: CoreParameters, combos: list[Combo]) -> list[Combo]:
+    required: list[str] = _required_placeholders_from_tcf(core.tcf)
+    req_set: set[str] = set(required)
+    if not required:
+        logging.warning("TCF filename contains no ~e?~/~s?~ placeholders. No enforcement will occur.")
+        return combos
+    filtered: list[Combo] = []
+    for c in combos:
+        trimmed: dict[str, str] = {k: v for k, v in c.items() if k in req_set}
+        if set(trimmed.keys()) != req_set:
+            missing: list[str] = [k for k in required if k not in trimmed]
+            logging.error(
+                "Skipping run missing required placeholders %s ; got keys %s",
+                missing,
+                sorted(c.keys()),
+            )
+            continue
+        filtered.append(trimmed)
+    return filtered
+
+
+def _ordered_keys(core: CoreParameters, combos: list[Combo], first_seen_order: list[str]) -> list[str]:
+    keys_present: list[str] = []
+    seen: set[str] = set()
+    for c in combos:
+        for k in c:
+            if k not in seen:
+                seen.add(k)
+                keys_present.append(k)
+
+    if core.priority_order:
+        order_list: list[str] = split_input_strings(input_val=core.priority_order)
+        ranked: list[str] = [k for k in order_list if k in keys_present]
+        for k in first_seen_order:
+            if k in keys_present and k not in ranked:
+                ranked.append(k)
+        return ranked
+    return [k for k in first_seen_order if k in keys_present]
+
+
+def build_simulations_from_combos(
+    core: CoreParameters, combos: list[Combo], first_seen_order: list[str]
+) -> list[Simulation]:
+    combos = _enforce_placeholders(core=core, combos=combos)
+    if not combos:
+        return []
+    ordered_keys: list[str] = _ordered_keys(core=core, combos=combos, first_seen_order=first_seen_order)
+    max_lengths: dict[str, int] = _max_lengths_for_padding(combos)
+    batch_flags: list[str] = get_batch_flags(core=core)
+
+    sims: list[Simulation] = []
+    for i, combo_dict in enumerate(combos, start=1):
+        keys_for_this: list[str] = [k for k in ordered_keys if k in combo_dict]
+        vals_for_this: tuple[str, ...] = tuple(combo_dict[k] for k in keys_for_this)
+        args_py: list[str] = generate_arg_for_python(
+            tuflowexe=core.tuflowexe,
+            batch=batch_flags,
+            tcf=core.tcf,
+            keys=keys_for_this,
+            combo=vals_for_this,
+            max_lengths=max_lengths,
+            assigned_gpu=None,
+        )
+        cmd_batch: str = generate_arg_for_batch(
+            priority=core.computational_priority,
+            tuflowexe=core.tuflowexe,
+            batch=batch_flags,
+            tcf=core.tcf,
+            keys=keys_for_this,
+            combo=vals_for_this,
+            max_lengths=max_lengths,
+        )
+        sims.append(Simulation(args_for_python=args_py, command_for_batch=cmd_batch, index=i))
+    return sims
+
+
+# ========================= LAUNCH / MONITOR LOOP ========================== #
+def _log_simulation_parameters(sim: Simulation, core: CoreParameters, total: int) -> None:
+    """For each sim, only print the full arg string (no timestamp)."""
     tokens: list[str] = sim.args_for_python
-    exe: str = tokens[0]
-    tcf: str = tokens[-1]
-    batch_flags: list[str] = get_batch_flags(core)
-
-    cursor: int = 1
-    batch: list[str] = tokens[cursor : cursor + len(batch_flags)]
-    cursor += len(batch_flags)
-
-    gpu: list[str] = []
-    while cursor < len(tokens) - 1 and _GPU_RE.match(tokens[cursor]):
-        gpu.append(tokens[cursor])
-        cursor += 1
-
-    pairs: list[str] = tokens[cursor:-1]
-    kv: list[str] = []
-    i: int = 0
-    while i < len(pairs):
-        key: str = pairs[i]
-        val: str = pairs[i + 1].strip() if i + 1 < len(pairs) else ""
-        kv.append(f"{key}={val}")
-        i += 2
-
-    logging.info("---- Simulation %d/%d parameters ----", sim.index, total)
-    logging.info("exe: %s", exe)
-    logging.info("priority: %s", core.computational_priority)
-    logging.info("batch_flags: %s", batch if batch else "[]")
-    logging.info("gpu_flags: %s", gpu if gpu else "[] (none)")
-    logging.info("flags: %s", " ".join(kv) if kv else "(none)")
-    logging.info("tcf: %s", tcf)
-    logging.info("full args: %s", " ".join(tokens))
+    if not tokens:
+        return
+    # Print exactly what will be executed (including exe), with quoted TCF.
+    print(" " + " ".join([*tokens[:-1], f'"{tokens[-1]}"']))
 
 
-def launch_simulations(sims: list[Simulation], core: CoreParameters) -> None:
-    """Launch subprocesses (one per GPU group), monitor completion, handle Ctrl+C, and run any post script."""
+def _args_to_start_line(args: list[str], priority: str) -> str:
+    if not args or len(args) < 2:
+        return ""
+    exe: str = args[0]
+    *middle, tcf = args[1:]
+    return f'START /{priority.upper()} /WAIT "" "{exe}" ' + " ".join(middle) + f' "{tcf}"'
+
+
+def _append_session_log(session_log: Path, text: str) -> None:
+    try:
+        with session_log.open("a", encoding="utf-8") as f:
+            f.write(text)
+            if not text.endswith("\n"):
+                f.write("\n")
+    except Exception as exc:
+        logging.warning("Failed writing session log %s: %s", session_log, exc)
+
+
+def launch_simulations(sims: list[Simulation], core: CoreParameters, session_log: Path | None = None) -> None:
+    """Launch subprocesses (one per GPU group), monitor completion, handle Ctrl+C, and (optionally) log START lines/results."""
     batch_flags: list[str] = get_batch_flags(core=core)
     gpu_slots: list[str | list[str]] = core.gpu_devices or []
     in_use: list[bool] = [False] * len(gpu_slots)
@@ -577,6 +767,13 @@ def launch_simulations(sims: list[Simulation], core: CoreParameters) -> None:
     running: list[Simulation] = []
     queue: list[Simulation] = sims.copy()
     total: int = len(sims)
+
+    # Session log header
+    if session_log and core.capture_console_log:
+        _append_session_log(
+            session_log=session_log,
+            text=f"==== SESSION START ====\npriority={core.computational_priority}\n",
+        )
 
     def next_free_slot() -> int | None:
         for idx, used in enumerate(iterable=in_use):
@@ -588,9 +785,7 @@ def launch_simulations(sims: list[Simulation], core: CoreParameters) -> None:
         logging.warning("Ctrl+C detected - terminating all child processes.")
         for s in running:
             if s.process and s.process.poll() is None:
-                logging.info(
-                    "Terminating simulation %d (PID %s)", s.index, s.process.pid
-                )
+                logging.info("Terminating simulation %d (PID %s)", s.index, s.process.pid)
                 s.process.terminate()
         if core.pause_on_finish:
             os.system("pause")
@@ -621,18 +816,13 @@ def launch_simulations(sims: list[Simulation], core: CoreParameters) -> None:
                 sim.assigned_gpu, sim.slot_index = gpu_group, slot_idx
                 in_use[slot_idx] = True
 
-                gpu_flags: list[str] = (
-                    [gpu_group] if isinstance(gpu_group, str) else list(gpu_group)
-                )
+                gpu_flags: list[str] = [gpu_group] if isinstance(gpu_group, str) else list(gpu_group)
                 insert_at: int = 1 + len(batch_flags)
-                sim.args_for_python = (
-                    sim.args_for_python[:insert_at]
-                    + gpu_flags
-                    + sim.args_for_python[insert_at:]
-                )
+                sim.args_for_python = sim.args_for_python[:insert_at] + gpu_flags + sim.args_for_python[insert_at:]
 
             # ---------- launch ----------
             sim.start_time = datetime.datetime.now()
+            print()  # blank line before each simulation's text block
             logging.info(
                 "Launching sim %d/%d on %s",
                 sim.index,
@@ -644,13 +834,18 @@ def launch_simulations(sims: list[Simulation], core: CoreParameters) -> None:
             _log_simulation_parameters(sim=sim, core=core, total=total)
 
             # On Windows, open in a new console window; elsewhere, just Popen (but we don't support non-Windows here)
+            # ---- session command log (exact START line used) ----
+            if session_log and core.capture_console_log:
+                start_line: str = _args_to_start_line(args=sim.args_for_python, priority=core.computational_priority)
+                _append_session_log(
+                    session_log=session_log,
+                    text=f"[{sim.start_time.strftime(format='%Y-%m-%d %H:%M:%S')}] START sim {sim.index}: {start_line}",
+                )
+
             proc: subprocess.Popen[bytes] = subprocess.Popen(
-                args=sim.args_for_python,
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                args=sim.args_for_python, creationflags=subprocess.CREATE_NEW_CONSOLE
             )
-            psutil.Process(pid=proc.pid).nice(
-                value=get_psutil_priority(priority=core.computational_priority)
-            )
+            psutil.Process(pid=proc.pid).nice(value=get_psutil_priority(priority=core.computational_priority))
             sim.process = proc
             running.append(sim)
             time.sleep(core.wait_time_after_run)
@@ -659,23 +854,26 @@ def launch_simulations(sims: list[Simulation], core: CoreParameters) -> None:
         for sim in running.copy():
             if sim.process and sim.process.poll() is not None:
                 sim.end_time = datetime.datetime.now()
-                dur: float = (
-                    (sim.end_time - sim.start_time).total_seconds()
-                    if sim.start_time
-                    else 0.0
-                )
+                dur: float = (sim.end_time - sim.start_time).total_seconds() if sim.start_time else 0.0
+                return_code_ok = sim.process.returncode == 0
                 status: str = (
                     f"{colorama.Fore.GREEN}OK{colorama.Style.RESET_ALL}"
-                    if sim.process.returncode == 0
+                    if return_code_ok
                     else f"{colorama.Fore.RED}FAIL{colorama.Style.RESET_ALL}"
                 )
-                logging.info(
-                    "Sim %d finished - %s (%s)", sim.index, status, format_duration(dur)
-                )
+                logging.info("Sim %d finished - %s (%s)", sim.index, status, format_duration(dur))
+                if session_log and core.capture_console_log:
+                    _append_session_log(
+                        session_log=session_log,
+                        text=f"[{sim.end_time.strftime(format='%Y-%m-%d %H:%M:%S')}] END   sim {sim.index}: {'OK' if return_code_ok else 'FAIL'} ({format_duration(dur)})",
+                    )
                 if sim.slot_index is not None:
                     in_use[sim.slot_index] = False
                 running.remove(sim)
         time.sleep(0.2)
+
+    if session_log and core.capture_console_log:
+        _append_session_log(session_log=session_log, text="==== SESSION END ====\n")
 
 
 def run_post_script(script_path: str | Path) -> None:
@@ -690,10 +888,8 @@ def run_post_script(script_path: str | Path) -> None:
     if not script_path.is_file():
         logging.error("Post-script not found: %s", script_path)
         return
-
     cmd: list[str] = ["python", str(script_path)]
     creationflags = subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0
-
     try:
         proc: subprocess.Popen[str] = subprocess.Popen(
             args=cmd,
@@ -703,7 +899,6 @@ def run_post_script(script_path: str | Path) -> None:
             text=True,  # decode to str automatically
         )
         out, err = proc.communicate()
-
         if proc.returncode == 0:
             logging.info("Post-script %s executed successfully.", script_path)
             if out.strip():
@@ -732,17 +927,26 @@ def dump_run_variables(run_vars: dict[str, list[str]]) -> None:
 
 
 def dump_simulations_preview(sims: list[Simulation]) -> None:
-    """List all simulations generated (no GPU prediction)."""
-    cyan: str = colorama.Fore.CYAN
-    reset: str = colorama.Style.RESET_ALL
-    logging.info("%s==== SIMULATION PLAN (no GPU assignment yet) ====%s", cyan, reset)
+    """List all simulations generated (no GPU assignment yet), zero-padded indices."""
+    print("==== SIMULATION PLAN (no GPU assignment yet) ====")
     if not sims:
-        logging.info("(none)")
+        print("(none)")
         return
+
+    # Width = digits of the max index actually present (robust if indices aren’t 1..N)
+    max_idx: int = max((s.index for s in sims), default=0)
+    width: int = len(str(max_idx)) if max_idx > 0 else 1
+
     for s in sims:
-        logging.info("Sim %d: %s", s.index, s.command_for_batch)
+        args: list[str] = s.args_for_python  # [exe, <batch>, <-e/-s pairs>, tcf]
+        if not args:
+            continue
+        # keep only flags + quoted TCF (omit exe)
+        body: str = " ".join([*args[1:-1], f'"{args[-1]}"'])
+        print(f"Sim {s.index:0{width}d}: {body}")
 
 
+# ================================== MAIN ================================== #
 def main() -> None:
     if sys.platform != "win32":
         print("This launcher is Windows-only. Exiting.")
@@ -760,31 +964,64 @@ def main() -> None:
     logging.info("Working dir: %s", script_dir)
 
     params: Parameters = get_parameters()
+    core: CoreParameters = params.core_params
 
-    # Print parameters first (raises early if GPU flags are double specified)
-    params.core_params.dump()
-    dump_run_variables(run_vars=params.run_variables)
+    # Print parameters (raises early if GPU flags are double specified)
+    core.dump()
 
-    sims: list[Simulation] = compute_simulations(params=params)
+    # ---- Source simulations based on mode ----
+    sims: list[Simulation] = []
+
+    if core.smart_mode.lower() in {"textfiles", "both"}:
+        combos: list[Combo] = []
+        first_seen: list[str] = []
+        if not core.input_files:
+            logging.warning("smart_mode=%s but input_files is empty.", core.smart_mode)
+        else:
+            paths: list[Path] = [Path(f) for f in core.input_files]
+            combos, first_seen = parse_input_files(files=paths)
+        sims_from_files: list[Simulation] = build_simulations_from_combos(
+            core=core, combos=combos, first_seen_order=first_seen
+        )
+        sims.extend(sims_from_files)
+
+        # For logging, aggregate run_variables from parsed combos when not using product
+        if core.smart_mode.lower() == "textfiles":
+            run_vars_raw_from_files = combos_to_run_variables_raw(combos)
+            dump_run_variables({k: split_input_strings(v) for k, v in run_vars_raw_from_files.items()})
+
+    if core.smart_mode.lower() in {"parameter_product", "both"}:
+        sims_from_product: list[Simulation] = compute_simulations(params=params)
+        sims.extend(sims_from_product)
+        dump_run_variables(run_vars=params.run_variables)
+
+    # De-duplicate at Simulation level (identity ignores GPU placement)
+    sims = list({s: None for s in sims}.keys())
+    sims.sort(key=lambda s: s.index)  # keep stable order within each builder
+
     dump_simulations_preview(sims=sims)
 
-    export_commands(
-        cmds=[s.command_for_batch for s in sims],
-        tuflowexe=params.core_params.tuflowexe,
-        tcf=params.core_params.tcf,
-    )
+    # Export commands
+    if core.export_commands:
+        export_commands(
+            cmds=[s.command_for_batch for s in sims],
+            tuflowexe=core.tuflowexe,
+            tcf=core.tcf,
+        )
 
-    if not params.core_params.run_simulations:
+    if not core.run_simulations:
         logging.info("run_simulations=False → exiting after exporting commands.txt")
         return
 
-    launch_simulations(sims=sims, core=params.core_params)
+    # Optional console capture
+    session_log: Path | None = Path(f"{Path(__file__).stem}_commands.log") if core.capture_console_log else None
+    launch_simulations(sims=sims, core=core, session_log=session_log)
 
-    if params.core_params.next_run_file:
-        run_post_script(script_path=params.core_params.next_run_file)
+    if core.next_run_file:
+        run_post_script(script_path=core.next_run_file)
 
     logging.info("All finished.")
-    if params.core_params.pause_on_finish:
+    if core.pause_on_finish:
         os.system("pause")
 
 
