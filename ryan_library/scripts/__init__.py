@@ -10,6 +10,7 @@ _tuflow_modules = [
     "tuflow_logsummary",
     "tuflow_results_styling",
     "pomm_combine",
+    "closure_durations",
 ]
 
 for _mod in _tuflow_modules:
