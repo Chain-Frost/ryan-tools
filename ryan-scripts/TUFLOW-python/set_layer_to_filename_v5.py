@@ -1,9 +1,5 @@
 # ryan-scripts\TUFLOW-python\set_layer_to_filename_v5.py
-<<<<<<< HEAD
 # 250911
-=======
-# 250715
->>>>>>> 65ddf1bcd678a6fda3e37eb9288a9f1b5acd3eb0
 from pathlib import Path
 import geopandas as gpd
 import pyogrio
