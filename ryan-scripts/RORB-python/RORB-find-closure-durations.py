@@ -3,25 +3,31 @@
 
 Update ``paths`` or ``thresholds`` below to customise processing.
 Thresholds default to a broad range of flows when ``None``."""
-
-from pathlib import Path
 import os
+from pathlib import Path
 
 from ryan_library.scripts.RORB.closure_durations import run_closure_durations
+from ryan_library.scripts.wrapper_utils import (
+    change_working_directory,
+    print_library_version,
+)
+
+console_log_level = "INFO"
 
 
 def main() -> None:
+    print_library_version()
     script_directory: Path = Path(__file__).resolve().parent
-    script_directory = Path(
-        r"P:\BGER\PER\RP23067.012 GOLDEN EAGLE MINE SITE ACC WATERWAY CROSSING - HANROY\4 ENGINEERING\11 HYDROLOGY\RORB\RoC_SSP3-7.0_2030_All"
-    )
-    os.chdir(path=script_directory)
+    # script_directory = Path(r"...")
+    if not change_working_directory(target_dir=script_directory):
+        return
 
     # Edit ``paths`` to point to directories with RORB batch.out files.
     # ``thresholds`` can also be provided if the default flow list is unsuitable.
     # thresholds: set[int] = set(list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10)))
-    run_closure_durations(paths=[script_directory], thresholds=None, log_level="INFO")
+    run_closure_durations(paths=[script_directory], thresholds=None, log_level=console_log_level)
 
 
 if __name__ == "__main__":
     main()
+    os.system("PAUSE")
