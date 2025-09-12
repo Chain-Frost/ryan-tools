@@ -79,9 +79,7 @@ def find_files_parallel(
             with visited_lock:
                 if resolved_root not in visited_dirs:
                     visited_dirs.add(resolved_root)
-                    dir_queue.put(
-                        (resolved_root, resolved_root)
-                    )  # (current_path, root_dir)
+                    dir_queue.put((resolved_root, resolved_root))  # (current_path, root_dir)
         except FileNotFoundError:
             logger.error(f"Root directory does not exist: {root_dir}")
         except Exception as e:
@@ -105,9 +103,7 @@ def find_files_parallel(
                 try:
                     iterator = current_path.iterdir()
                 except PermissionError:
-                    logger.error(
-                        f"Permission denied accessing directory: {current_path}"
-                    )
+                    logger.error(f"Permission denied accessing directory: {current_path}")
                     dir_queue.task_done()
                     continue
                 except Exception as e:
@@ -131,27 +127,19 @@ def find_files_parallel(
                                     display_path = subpath.relative_to(current_dir)
                                 except ValueError:
                                     display_path = subpath.resolve()
-                                logger.info(
-                                    f"Searching (depth {depth}): {display_path}"
-                                )
+                                logger.info(f"Searching (depth {depth}): {display_path}")
 
                         if recursive_search:
                             try:
                                 resolved_subpath = subpath.resolve(strict=True)
                             except FileNotFoundError:
-                                logger.warning(
-                                    f"Subdirectory does not exist (might be a broken symlink): {subpath}"
-                                )
+                                logger.warning(f"Subdirectory does not exist (might be a broken symlink): {subpath}")
                                 continue
                             except PermissionError:
-                                logger.error(
-                                    f"Permission denied accessing subdirectory: {subpath}"
-                                )
+                                logger.error(f"Permission denied accessing subdirectory: {subpath}")
                                 continue
                             except Exception as e:
-                                logger.error(
-                                    f"Error resolving subdirectory {subpath}: {e}"
-                                )
+                                logger.error(f"Error resolving subdirectory {subpath}: {e}")
                                 continue
 
                             with visited_lock:
@@ -168,24 +156,16 @@ def find_files_parallel(
                     # Inclusion Check
                     if any(fnmatch.fnmatch(filename, pattern) for pattern in patterns):
                         # Exclusion Check
-                        if not any(
-                            fnmatch.fnmatch(filename, exclude) for exclude in excludes
-                        ):
+                        if not any(fnmatch.fnmatch(filename, exclude) for exclude in excludes):
                             try:
                                 matched_file = subpath.resolve(strict=True)
-                                logger.debug(
-                                    f"Matched file: {matched_file.relative_to(current_dir)}"
-                                )
+                                logger.debug(f"Matched file: {matched_file.relative_to(current_dir)}")
                                 local_matched.append(matched_file)
                                 local_folders_with_matches.add(matched_file.parent)
                             except FileNotFoundError:
-                                logger.warning(
-                                    f"File does not exist (might have been moved): {subpath}"
-                                )
+                                logger.warning(f"File does not exist (might have been moved): {subpath}")
                             except PermissionError:
-                                logger.error(
-                                    f"Permission denied accessing file: {subpath}"
-                                )
+                                logger.error(f"Permission denied accessing file: {subpath}")
                             except Exception as e:
                                 logger.error(f"Error resolving file {subpath}: {e}")
 
@@ -235,7 +215,7 @@ def find_files_parallel(
     return matched_files
 
 
-def is_non_zero_file(fpath: Path) -> bool:
+def is_non_zero_file(fpath: Path | str) -> bool:
     """Verify that a given file exists, is indeed a file, and is not empty.
 
     This function performs a series of checks on the provided file path to ensure
@@ -249,6 +229,9 @@ def is_non_zero_file(fpath: Path) -> bool:
         bool: True if the file exists, is a regular file, and is non-empty.
               False otherwise.
     """
+
+    # force fpath to a Path. Some legacy scripts passed them as strings.
+    fpath = Path(fpath)
 
     try:
         # Check if the file exists
@@ -274,9 +257,7 @@ def is_non_zero_file(fpath: Path) -> bool:
         return False
     except Exception as e:
         # Catch-all for any other unexpected errors
-        logger.error(
-            f"An unexpected error occurred while accessing file '{fpath}': {e}"
-        )
+        logger.error(f"An unexpected error occurred while accessing file '{fpath}': {e}")
         return False
 
 
