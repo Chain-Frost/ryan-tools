@@ -142,6 +142,8 @@
     "processingParts": {
       "dataformat": "Timeseries",
       "expected_in_header": [
+        "Time",
+        "Chan ID",
         "Q"
       ]
     }

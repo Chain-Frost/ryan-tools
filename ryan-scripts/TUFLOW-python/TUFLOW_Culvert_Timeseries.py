@@ -21,7 +21,7 @@ def main() -> None:
     #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
     # )
     script_dir = Path(r"..\..\tests\test_data\tuflow\tutorials\Module_03")
-    script_dir: Path = script_dir.resolve().parent
+    script_dir: Path = script_dir.absolute()
     if not change_working_directory(target_dir=script_dir):
         return
 
