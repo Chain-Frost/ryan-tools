@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 import importlib
 import pandas as pd
 from loguru import logger
@@ -73,7 +73,6 @@ class BaseProcessor(ABC):
     @classmethod
     def from_file(cls, file_path: Path) -> "BaseProcessor":
         """Factory method to create the appropriate processor instance based on the file suffix."""
-        file_name: str = file_path.name
         logger.debug(f"Attempting to process file: {file_path}")
 
         # Use TuflowStringParser to determine data_type
@@ -115,7 +114,7 @@ class BaseProcessor(ABC):
         module_path: str = f"ryan_library.processors.tuflow.{class_name}"
         try:
             module = importlib.import_module(module_path)
-            processor_cls = getattr(module, class_name)
+            processor_cls: type[BaseProcessor] = cast(type["BaseProcessor"], getattr(module, class_name))
             BaseProcessor._processor_cache[class_name] = processor_cls
             logger.debug(f"Imported processor class '{class_name}' from '{module_path}'.")
             return processor_cls
@@ -461,15 +460,19 @@ class BaseProcessor(ABC):
     def _reshape_timeseries_df(self, df: pd.DataFrame, data_type: str) -> pd.DataFrame:
         """Reshape the timeseries DataFrame based on the data type.
 
+        Headers are validated against a dynamically built list via ``check_headers_match``.
+
         Args:
             df (pd.DataFrame): The cleaned DataFrame.
             data_type (str): The data type identifier.
 
         Returns:
-            pd.DataFrame: The reshaped DataFrame."""
-        category_type = "Chan ID" if "1d" in self.name_parser.suffixes else "Location"
+            pd.DataFrame: The reshaped DataFrame.
+        """
+        is_1d: bool = "_1d_" in self.file_name.lower()
+        category_type: str = "Chan ID" if is_1d else "Location"
         logger.debug(
-            f"{'1d' in self.name_parser.suffixes and 'Chan ID' or 'Location'} suffix detected; using '{category_type}' as category type."
+            f"{self.file_name}: {'1D' if is_1d else '2D'} filename detected; using '{category_type}' as category type."
         )
 
         try:
@@ -488,9 +491,14 @@ class BaseProcessor(ABC):
             raise DataValidationError("No data found after reshaping.")
 
         # Validate headers
+        # Build the expected header list dynamically. It always starts with "Time" and the
+        # category column, which switches between "Chan ID" for 1D results and "Location" for
+        # 2D results. For "H" data types, both "H_US" and "H_DS" are expected; otherwise the
+        # single data type column is used. ``check_headers_match`` validates against this list.
         expected_headers: list[str] = (
             ["Time", category_type, "H_US", "H_DS"] if data_type == "H" else ["Time", category_type, data_type]
         )
+        self.expected_in_header = expected_headers
         if not self.check_headers_match(test_headers=df_melted.columns.tolist()):
             logger.error(f"{self.file_name}: Header mismatch after reshaping.")
             raise DataValidationError("Header mismatch after reshaping.")
@@ -605,6 +613,6 @@ class BaseProcessor(ABC):
             columns (list[str]): List of column names to convert."""
         for col in columns:
             if df[col].dtype.name == "category" and not df[col].cat.ordered:
-                sorted_categories: list = sorted(df[col].cat.categories)
+                sorted_categories: list[str] = sorted(df[col].cat.categories)
                 df[col] = df[col].cat.set_categories(new_categories=sorted_categories, ordered=True)
                 logger.debug(f"Column '{col}' ordered alphabetically.")

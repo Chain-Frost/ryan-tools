@@ -144,15 +144,11 @@ def find_tif_files(root_dir, extension, allowed_suffixes):
         for filename in filenames:
             if filename.lower().endswith(extension):
                 name_without_ext = os.path.splitext(filename)[0]
-                if any(
-                    name_without_ext.endswith(suffix) for suffix in allowed_suffixes
-                ):
+                if any(name_without_ext.endswith(suffix) for suffix in allowed_suffixes):
                     full_path = os.path.join(dirpath, filename)
                     tif_files.append(full_path)
                 else:
-                    logging.info(
-                        f"Skipping file (does not match allowed suffixes): {filename}"
-                    )
+                    logging.info(f"Skipping file (does not match allowed suffixes): {filename}")
     return tif_files
 
 
@@ -175,9 +171,7 @@ def extract_base_name(filename, group_remove_index):
     # Adjust for 1-based indexing
     index = group_remove_index - 1
     if index < 0 or index >= len(parts):
-        logging.warning(
-            f"Filename '{filename}' does not have field {group_remove_index}. Skipping."
-        )
+        logging.warning(f"Filename '{filename}' does not have field {group_remove_index}. Skipping.")
         return None
     # Remove the specified field
     del parts[index]
@@ -289,9 +283,7 @@ def create_vrt(vrt_path, input_files, gdalbuildvrt_path) -> None:
         logging.error(f"GDAL build VRT failed for '{vrt_path}': {e}")
         return
     except PermissionError:
-        logging.error(
-            f"Access denied when writing to '{file_list_path}' or creating VRT '{vrt_path}'."
-        )
+        logging.error(f"Access denied when writing to '{file_list_path}' or creating VRT '{vrt_path}'.")
         return
     except Exception as e:
         logging.error(f"Unexpected error during VRT creation for '{vrt_path}': {e}")
@@ -303,13 +295,9 @@ def create_vrt(vrt_path, input_files, gdalbuildvrt_path) -> None:
                 os.remove(file_list_path)
                 logging.info(f"Removed temporary file list: {file_list_path}")
             except PermissionError:
-                logging.warning(
-                    f"Access denied when trying to remove temporary file list: {file_list_path}"
-                )
+                logging.warning(f"Access denied when trying to remove temporary file list: {file_list_path}")
             except Exception as e:
-                logging.warning(
-                    f"Error removing temporary file list '{file_list_path}': {e}"
-                )
+                logging.warning(f"Error removing temporary file list '{file_list_path}': {e}")
 
 
 # ========================
@@ -348,16 +336,14 @@ def main():
     check_required_components(values)
 
     # Get the directory where the script is located and change to it
-    script_dir = Path(__file__).resolve().parent
+    script_dir = Path(__file__).absolute().parent
     os.chdir(script_dir)
     logging.info(f"Changed working directory to: {script_dir}")
 
     logging.info(f"Searching for .tif files in: {script_dir}")
 
     # Step 1: Find all .tif files that end with allowed suffixes
-    tif_files = find_tif_files(
-        script_dir, values["file_extension"], values["allowed_suffixes"]
-    )
+    tif_files = find_tif_files(script_dir, values["file_extension"], values["allowed_suffixes"])
     logging.info(f"Found {len(tif_files)} .tif files matching allowed suffixes.")
 
     if not tif_files:
@@ -367,9 +353,7 @@ def main():
     # Step 2: Group files by base name after removing the specified field
     group_remove_index = values["group_remove_index"]
     groups = group_files_by_base(tif_files, group_remove_index)
-    logging.info(
-        f"Grouped into {len(groups)} sets based on removing field {group_remove_index}."
-    )
+    logging.info(f"Grouped into {len(groups)} sets based on removing field {group_remove_index}.")
 
     # Output all groups to a text file
     groups_output_path = os.path.join(script_dir, "groups.txt")

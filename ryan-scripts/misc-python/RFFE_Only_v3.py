@@ -19,15 +19,13 @@ def main():
     Modify the `input_folder` and `output_folder` variables below to change directories.
     """
     # Define script directory
-    script_directory: Path = Path(__file__).resolve().parent
+    script_directory: Path = Path(__file__).absolute().parent
     print(f"📂 Script directory resolved to: {script_directory}")
 
     # Set input and output directories
     # By default, output_folder is the same as input_folder
     input_folder: Path = script_directory
-    output_folder: Path = (
-        input_folder  # Change this if you want a different output directory
-    )
+    output_folder: Path = input_folder  # Change this if you want a different output directory
 
     # Example to override output_folder by uncommenting the following line:
     # output_folder = Path(r"/path/to/custom/output/directory")
@@ -69,9 +67,7 @@ def main():
     for idx, row in ctchdata.iterrows():
         catchment_number = idx + 1
         catchment_name = row.get("Catchment", f"Catchment_{catchment_number}")
-        print(
-            f"🔄 Processing catchment {catchment_number}/{total_catchments}: {catchment_name}"
-        )
+        print(f"🔄 Processing catchment {catchment_number}/{total_catchments}: {catchment_name}")
         rffe_results_df, all_catchments_df, error_info = process_catchment(
             lato=row.get("OutletY"),
             lono=row.get("OutletX"),
@@ -96,20 +92,14 @@ def main():
             print(f"⚠️ Catchment {catchment_name} failed with error: {error_info}")
         else:
             if not rffe_results_df.empty:
-                rffes_results = pd.concat(
-                    [rffes_results, rffe_results_df], ignore_index=True
-                )
+                rffes_results = pd.concat([rffes_results, rffe_results_df], ignore_index=True)
             else:
                 print(f"⚠️ No 'results' data returned for catchment: {catchment_name}")
 
             if not all_catchments_df.empty:
-                all_catchments_results = pd.concat(
-                    [all_catchments_results, all_catchments_df], ignore_index=True
-                )
+                all_catchments_results = pd.concat([all_catchments_results, all_catchments_df], ignore_index=True)
             else:
-                print(
-                    f"⚠️ No 'allCatchmentResults' data returned for catchment: {catchment_name}"
-                )
+                print(f"⚠️ No 'allCatchmentResults' data returned for catchment: {catchment_name}")
 
     # Define the output CSV paths
     output_results_csv_path = output_folder / "rffe_results.csv"
@@ -124,9 +114,7 @@ def main():
         print(f"❌ Failed to save 'results' CSV: {e}")
         sys.exit(1)
 
-    print(
-        f"💾 Saving aggregated 'allCatchmentResults' data to: {output_all_catchments_csv_path}"
-    )
+    print(f"💾 Saving aggregated 'allCatchmentResults' data to: {output_all_catchments_csv_path}")
     try:
         all_catchments_results.to_csv(output_all_catchments_csv_path, index=False)
         print("✅ 'allCatchmentResults' data saved successfully.")
@@ -244,9 +232,7 @@ def clean_rffe(rffe_results: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     for script in scripts:
         if script.string:
             if "results =" in script.string:
-                match = re.search(
-                    r"results\s*=\s*(\[\{.*?\}\]);", script.string, re.DOTALL
-                )
+                match = re.search(r"results\s*=\s*(\[\{.*?\}\]);", script.string, re.DOTALL)
                 if match:
                     results_str = match.group(1)
             if "allCatchmentResults =" in script.string:
@@ -295,9 +281,7 @@ def clean_rffe(rffe_results: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     return df_results, df_all_catchments
 
 
-def save_results_to_files(
-    catchment: str, folder_path: Path, rffe_response: requests.Response
-):
+def save_results_to_files(catchment: str, folder_path: Path, rffe_response: requests.Response):
     """
     Saves the raw RFFE response text to a file named '{catchment}_rffe.txt' in the specified folder.
 
@@ -366,9 +350,7 @@ def process_catchment(
 
     except Exception as e:
         error_message = str(e)
-        print(
-            f"❌ An error occurred while processing catchment {name}: {error_message}"
-        )
+        print(f"❌ An error occurred while processing catchment {name}: {error_message}")
         return pd.DataFrame(), pd.DataFrame(), error_message
 
 

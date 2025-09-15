@@ -4,7 +4,7 @@ import pandas as pd
 from ryan_library.processors.tuflow.POMMProcessor import POMMProcessor
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "test_data" / "tuflow"
+DATA_DIR = Path(__file__).absolute().parent.parent / "test_data" / "tuflow"
 
 with open(DATA_DIR / "pomm_run_codes.json", "r", encoding="utf-8") as fp:
     RUN_CODES = json.load(fp)
@@ -27,9 +27,7 @@ def test_tuflow_string_parser_examples():
         parser = TuflowStringParser(file_path)
         assert parser.run_code_parts == expected["run_code_parts"]
         assert (parser.aep.text_repr if parser.aep else None) == expected["aep"]
-        assert (parser.duration.text_repr if parser.duration else None) == expected[
-            "duration"
-        ]
+        assert (parser.duration.text_repr if parser.duration else None) == expected["duration"]
         assert (parser.tp.text_repr if parser.tp else None) == expected["tp"]
         assert parser.trim_run_code == expected["trim_run_code"]
 
