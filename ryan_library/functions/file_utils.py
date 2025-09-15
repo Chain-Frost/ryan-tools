@@ -1,7 +1,6 @@
 # ryan_library/functions/file_utils.py
 
-from typing import Generator
-import warnings
+from collections.abc import Generator
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import fnmatch
@@ -230,7 +229,7 @@ def find_files_parallel(
     return matched_files
 
 
-def is_non_zero_file(fpath: Path) -> bool:
+def is_non_zero_file(fpath: Path | str) -> bool:
     """Verify that a given file exists, is indeed a file, and is not empty.
 
     This function performs a series of checks on the provided file path to ensure
@@ -244,6 +243,9 @@ def is_non_zero_file(fpath: Path) -> bool:
         bool: True if the file exists, is a regular file, and is non-empty.
               False otherwise.
     """
+
+    # force fpath to a Path. Some legacy scripts passed them as strings.
+    fpath = Path(fpath)
 
     try:
         # Check if the file exists
