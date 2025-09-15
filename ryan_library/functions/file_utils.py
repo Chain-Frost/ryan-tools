@@ -1,6 +1,6 @@
 # ryan_library/functions/file_utils.py
 
-import warnings
+from collections.abc import Generator
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 import fnmatch
@@ -57,7 +57,9 @@ def find_files_parallel(
         logger.info(f"Exclude patterns: {excludes}")
 
     # Obtain the current working directory to calculate relative paths later
-    current_dir: Path = Path.cwd()
+    # ``absolute`` preserves drive-letter vs UNC style while ensuring an
+    # absolute path.
+    current_dir: Path = Path.cwd().absolute()
 
     # Thread-safe structures
     matched_files_lock = threading.Lock()
@@ -72,19 +74,17 @@ def find_files_parallel(
     # Queue for directories to process
     dir_queue: Queue[tuple[Path, Path]] = Queue()
 
-    # Initialize the queue with resolved root directories
+    # Initialize the queue with absolute root directories without converting
+    # between drive letters and UNC paths.
     for root_dir in root_dirs:
         try:
-            if root_dir.is_absolute():
-                if not root_dir.exists():
-                    raise FileNotFoundError
-                resolved_root = root_dir
-            else:
-                resolved_root = root_dir.resolve(strict=True)
+            abs_root: Path = root_dir.expanduser().absolute()
+            if not abs_root.exists():
+                raise FileNotFoundError
             with visited_lock:
-                if resolved_root not in visited_dirs:
-                    visited_dirs.add(resolved_root)
-                    dir_queue.put((resolved_root, resolved_root))  # (current_path, root_dir)
+                if abs_root not in visited_dirs:
+                    visited_dirs.add(abs_root)
+                    dir_queue.put((abs_root, abs_root))  # (current_path, root_dir)
         except FileNotFoundError:
             logger.error(f"Root directory does not exist: {root_dir}")
         except Exception as e:
@@ -99,14 +99,14 @@ def find_files_parallel(
                 # Queue is empty or timeout reached
                 return
             try:
-                local_matched = []
-                local_folders_with_matches = set()
+                local_matched: list[Path] = []
+                local_folders_with_matches: set[Path] = set()
                 files_searched = 0
                 folders_searched = 0
 
                 # Use non-recursive glob to avoid overlapping traversals
                 try:
-                    iterator = current_path.iterdir()
+                    iterator: Generator[Path, None, None] = current_path.iterdir()
                 except PermissionError:
                     logger.error(f"Permission denied accessing directory: {current_path}")
                     dir_queue.task_done()
@@ -129,19 +129,19 @@ def find_files_parallel(
 
                             if depth % report_level == 0:
                                 try:
-                                    display_path = subpath.relative_to(current_dir)
+                                    display_path: Path = subpath.relative_to(current_dir)
                                 except ValueError:
                                     display_path = subpath.absolute()
                                 logger.info(f"Searching (depth {depth}): {display_path}")
 
                         if recursive_search:
                             try:
-                                if not subpath.exists():
-                                    raise FileNotFoundError
-                                resolved_subpath = subpath.absolute()
-                            except FileNotFoundError:
-                                logger.warning(f"Subdirectory does not exist (might be a broken symlink): {subpath}")
-                                continue
+                                resolved_subpath: Path = subpath.absolute()
+                                if not resolved_subpath.exists():
+                                    logger.warning(
+                                        f"Subdirectory does not exist (might be a broken symlink): {subpath}"
+                                    )
+                                    continue
                             except PermissionError:
                                 logger.error(f"Permission denied accessing subdirectory: {subpath}")
                                 continue
@@ -165,10 +165,15 @@ def find_files_parallel(
                         # Exclusion Check
                         if not any(fnmatch.fnmatch(filename, exclude) for exclude in excludes):
                             try:
-                                if not subpath.exists():
+                                matched_file: Path = subpath.absolute()
+                                display_path = matched_file
+                                try:
+                                    display_path = matched_file.relative_to(current_dir)
+                                except ValueError:
+                                    pass
+                                logger.debug(f"Matched file: {display_path}")
+                                if not matched_file.exists():
                                     raise FileNotFoundError
-                                matched_file = subpath.absolute()
-                                logger.debug(f"Matched file: {matched_file.relative_to(current_dir)}")
                                 local_matched.append(matched_file)
                                 local_folders_with_matches.add(matched_file.parent)
                             except FileNotFoundError:
