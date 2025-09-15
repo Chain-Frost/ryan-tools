@@ -70,12 +70,17 @@ def find_files_parallel(
     visited_dirs: set[Path] = set()
 
     # Queue for directories to process
-    dir_queue = Queue()
+    dir_queue: Queue[tuple[Path, Path]] = Queue()
 
     # Initialize the queue with resolved root directories
     for root_dir in root_dirs:
         try:
-            resolved_root: Path = root_dir.resolve(strict=True)
+            if root_dir.is_absolute():
+                if not root_dir.exists():
+                    raise FileNotFoundError
+                resolved_root = root_dir
+            else:
+                resolved_root = root_dir.resolve(strict=True)
             with visited_lock:
                 if resolved_root not in visited_dirs:
                     visited_dirs.add(resolved_root)
@@ -126,12 +131,14 @@ def find_files_parallel(
                                 try:
                                     display_path = subpath.relative_to(current_dir)
                                 except ValueError:
-                                    display_path = subpath.resolve()
+                                    display_path = subpath.absolute()
                                 logger.info(f"Searching (depth {depth}): {display_path}")
 
                         if recursive_search:
                             try:
-                                resolved_subpath = subpath.resolve(strict=True)
+                                if not subpath.exists():
+                                    raise FileNotFoundError
+                                resolved_subpath = subpath.absolute()
                             except FileNotFoundError:
                                 logger.warning(f"Subdirectory does not exist (might be a broken symlink): {subpath}")
                                 continue
@@ -158,7 +165,9 @@ def find_files_parallel(
                         # Exclusion Check
                         if not any(fnmatch.fnmatch(filename, exclude) for exclude in excludes):
                             try:
-                                matched_file = subpath.resolve(strict=True)
+                                if not subpath.exists():
+                                    raise FileNotFoundError
+                                matched_file = subpath.absolute()
                                 logger.debug(f"Matched file: {matched_file.relative_to(current_dir)}")
                                 local_matched.append(matched_file)
                                 local_folders_with_matches.add(matched_file.parent)
@@ -207,7 +216,7 @@ def find_files_parallel(
             try:
                 display_path: Path = folder.relative_to(current_dir)
             except ValueError:
-                display_path = folder.resolve()
+                display_path = folder.absolute()
             logger.info(f"Folder with matched files: {display_path}")
 
     logger.info(f"Total files matched: {len(matched_files)}")
