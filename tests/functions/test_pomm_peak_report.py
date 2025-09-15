@@ -5,7 +5,7 @@ import sys
 import pandas as pd  # type: ignore
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).absolute().parents[2]))
 
 from ryan_library.scripts.pomm_utils import (
     aggregated_from_paths,
@@ -15,7 +15,7 @@ from ryan_library.scripts.pomm_utils import (
 from ryan_library.scripts.pomm_max_items import run_median_peak_report
 
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "test_data" / "tuflow" / "tutorials"
+DATA_DIR = Path(__file__).absolute().parent.parent / "test_data" / "tuflow" / "tutorials"
 
 
 def test_aggregated_from_paths_module01() -> None:

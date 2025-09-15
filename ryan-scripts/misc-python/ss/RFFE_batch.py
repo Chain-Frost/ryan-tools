@@ -4,7 +4,7 @@ from loguru import logger
 from pathlib import Path
 import pandas as pd
 
-script_directory: Path = Path(__file__).resolve().parent
+script_directory: Path = Path(__file__).absolute().parent
 script_directory = Path(r"Q:\BGER\PER\RPRT\ryan-tools\tests\test_data")
 
 
@@ -19,9 +19,7 @@ INPUT_CATCHMENTS_FILENAME = "input_catchments.csv"
 OUTPUT_RFFE_FILENAME = "rffe.csv"
 
 
-def fetch_rffe(
-    lono: float, lato: float, lonc: float, latc: float, area: float
-) -> requests.Response:
+def fetch_rffe(lono: float, lato: float, lonc: float, latc: float, area: float) -> requests.Response:
     """
     Fetch RFFE data from the specified URL.
 
@@ -68,12 +66,7 @@ def clean_rffe(rffe_results: str) -> pd.DataFrame:
         # Extract the JSON-like part from the response
         results_str = rffe_results.split("results=[{")[1].split("}]")[0]
         # Replace '},{' with '};{' to split records
-        records = (
-            results_str.replace("},{", "};{")
-            .replace("{", "")
-            .replace("}", "")
-            .split(";")
-        )
+        records = results_str.replace("},{", "};{").replace("{", "").replace("}", "").split(";")
 
         # Parse each record into a dictionary
         data = []
@@ -92,9 +85,7 @@ def clean_rffe(rffe_results: str) -> pd.DataFrame:
         raise
 
 
-def save_results_to_file(
-    catchment: str, folder_path: str, rffe_response: requests.Response
-) -> None:
+def save_results_to_file(catchment: str, folder_path: str, rffe_response: requests.Response) -> None:
     """
     Save the RFFE response text to a file.
 

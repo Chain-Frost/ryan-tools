@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import subprocess
 import concurrent.futures
 from threading import Thread
@@ -335,6 +336,6 @@ def run_app() -> None:
 
 
 if __name__ == "__main__":
-    script_dir: str = os.path.dirname(os.path.realpath(__file__))
+    script_dir: str = Path(__file__).absolute().parent
     os.chdir(script_dir)
     run_app()

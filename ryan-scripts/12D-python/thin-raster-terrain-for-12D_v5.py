@@ -1,4 +1,5 @@
 import rasterio
+from pathlib import Path
 import os
 import pandas as pd
 from glob import glob
@@ -48,13 +49,9 @@ def save_thinned_data(thinned_data, output_path, tile_id, factor):
     """
     try:
         thinned_data.to_csv(output_path, index=False)
-        logging.info(
-            f"{tile_id}: Successfully saved thinned data (factor={factor}) to {output_path}."
-        )
+        logging.info(f"{tile_id}: Successfully saved thinned data (factor={factor}) to {output_path}.")
     except Exception as e:
-        logging.error(
-            f"{tile_id}: Failed to save thinned data (factor={factor}) to {output_path}. Error: {e}"
-        )
+        logging.error(f"{tile_id}: Failed to save thinned data (factor={factor}) to {output_path}. Error: {e}")
 
 
 def assign_tiles(bounds, tile_size):
@@ -176,14 +173,10 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
         # Drop rows with NaN in 'Z' column (Nodata or masked values)
         df.dropna(subset=["Z"], inplace=True)
 
-        logging.info(
-            f"{tile_id}: DataFrame created with {len(df)} rows after removing nodata."
-        )
+        logging.info(f"{tile_id}: DataFrame created with {len(df)} rows after removing nodata.")
 
         if df.empty:
-            logging.warning(
-                f"{tile_id} has no valid data after removing nodata. Skipping."
-            )
+            logging.warning(f"{tile_id} has no valid data after removing nodata. Skipping.")
             return  # Skip saving if there's no data
 
         # Data for thinning is based on row/col
@@ -195,14 +188,10 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
             logging.info(f"{tile_id}: Applying thinning with factor {factor}.")
             thinned_data = thin_data_by_global_selection(df_thin, factor)
             retained_rows = len(thinned_data)
-            logging.info(
-                f"{tile_id}: Thinning with factor {factor} completed. {retained_rows} rows retained."
-            )
+            logging.info(f"{tile_id}: Thinning with factor {factor} completed. {retained_rows} rows retained.")
 
             if retained_rows == 0:
-                logging.warning(
-                    f"{tile_id} has no valid data after thinning with factor {factor}. Skipping save."
-                )
+                logging.warning(f"{tile_id} has no valid data after thinning with factor {factor}. Skipping save.")
                 continue  # Skip saving if there's no data
 
             # Convert thinned row/col back to real-world coordinates for saving
@@ -210,9 +199,7 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
                 thinned_data["col"],
                 thinned_data["row"],
             )
-            output_df = pd.DataFrame(
-                {"X": x_thinned, "Y": y_thinned, "Z": thinned_data["Z"]}
-            )
+            output_df = pd.DataFrame({"X": x_thinned, "Y": y_thinned, "Z": thinned_data["Z"]})
 
             # Define output filename
             output_filename = f"{tile_id}_GRID_DTM_thinned_{factor}m.csv"
@@ -227,9 +214,7 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
         logging.error(f"Unexpected error processing {tile_id}: {e}")
 
 
-def process_terrain_data(
-    input_file, output_dir, thinning_factors=[10, 5, 2], tile_size=5000
-):
+def process_terrain_data(input_file, output_dir, thinning_factors=[10, 5, 2], tile_size=5000):
     """
     Processes the terrain data from a GeoTIFF file: assigns tiles, thins data for multiple thinning factors, and saves to CSV.
 
@@ -257,9 +242,7 @@ def process_terrain_data(
     logging.info(f"Total number of tiles to process: {total_tiles}")
 
     # Start a pool of workers for processing tiles
-    with Pool(
-        processes=os.cpu_count(), initializer=init_worker, initargs=(log_queue,)
-    ) as pool:
+    with Pool(processes=os.cpu_count(), initializer=init_worker, initargs=(log_queue,)) as pool:
         logging.info("Starting parallel processing of tiles.")
         pool.starmap(
             process_tile,
@@ -297,14 +280,12 @@ def main():
     log_queue = Queue()
 
     # Create and start the log listener process
-    listener = Process(
-        target=log_listener_process, args=(log_queue, logging.INFO, log_file_name)
-    )
+    listener = Process(target=log_listener_process, args=(log_queue, logging.INFO, log_file_name))
     listener.start()
 
     try:
         # Get the directory of the script
-        script_dir = os.path.dirname(os.path.realpath(__file__))
+        script_dir = Path(__file__).absolute().parent
 
         # Define the output directory path
         output_dir = os.path.join(script_dir, "thinned-data4")

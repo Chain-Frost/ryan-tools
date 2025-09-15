@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pandas as pd
 from datetime import datetime
 import re
@@ -33,9 +34,7 @@ def extract_metadata_from_filename(file_name):
         tp = f"tp{match.group('tp')}"
 
         # Print the extracted metadata
-        print(
-            f"Extracted Metadata - Crossing Name: {crossing_name}, AEP: {aep}, Duration: {duration}, TP: {tp}"
-        )
+        print(f"Extracted Metadata - Crossing Name: {crossing_name}, AEP: {aep}, Duration: {duration}, TP: {tp}")
 
         return crossing_name, aep, duration, tp
     else:
@@ -58,9 +57,7 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
     """
     # Precompile regex patterns for efficiency
     regex_patterns = {
-        (aep, tp): re.compile(
-            rf"{re.escape(aep)}_du12hour{re.escape(tp)}\b", re.IGNORECASE
-        )
+        (aep, tp): re.compile(rf"{re.escape(aep)}_du12hour{re.escape(tp)}\b", re.IGNORECASE)
         for aep, tp in selected_combinations
     }
 
@@ -107,9 +104,7 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
         df.columns = [col.strip() for col in df.columns]
 
         # Identify hydrograph columns (excluding 'Inc' and 'Time (hrs)')
-        hydrograph_columns = [
-            col for col in df.columns if col not in ["Inc", "Time (hrs)"]
-        ]
+        hydrograph_columns = [col for col in df.columns if col not in ["Inc", "Time (hrs)"]]
 
         if len(hydrograph_columns) == 0:
             print(f"No hydrograph columns found in {file_name}. Skipping.")
@@ -130,24 +125,18 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
                 print(
                     "Please specify the desired hydrograph by setting the 'selected_hydrograph' variable in the script."
                 )
-                print(
-                    "Example: selected_hydrograph = 'Calculated hydrograph: Outlet'\n"
-                )
+                print("Example: selected_hydrograph = 'Calculated hydrograph: Outlet'\n")
                 sys.exit(1)  # Exit the script with an error code
 
             elif selected_hydrograph not in hydrograph_columns:
-                print(
-                    f"\nError: The specified hydrograph '{selected_hydrograph}' is not found in {file_name}."
-                )
+                print(f"\nError: The specified hydrograph '{selected_hydrograph}' is not found in {file_name}.")
                 print(
                     "Please update the 'selected_hydrograph' variable with a valid hydrograph name from the list above.\n"
                 )
                 sys.exit(1)
 
             else:
-                selected_column = (
-                    selected_hydrograph  # Use the user-specified hydrograph
-                )
+                selected_column = selected_hydrograph  # Use the user-specified hydrograph
 
         # Extract relevant data
         try:
@@ -172,9 +161,7 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
         # Extract metadata from filename
         crossing_name, aep, duration, tp = extract_metadata_from_filename(file_name)
         if not all([crossing_name, aep, duration, tp]):
-            print(
-                f"Warning: Unable to extract metadata from {file_name}. Setting as 'Unknown'."
-            )
+            print(f"Warning: Unable to extract metadata from {file_name}. Setting as 'Unknown'.")
             crossing_name = crossing_name or "Unknown"
             aep = aep or "Unknown_AEP"
             duration = duration or "Unknown_Duration"
@@ -237,9 +224,7 @@ def create_plot(combined_df, aep_mapping, crossing_name, script_directory):
         # Sort AEPs based on percentage for ordered legend
         sorted_aeps = sorted(
             aep_mapping.keys(),
-            key=lambda x: (
-                int(re.search(r"\d+", x).group()) if re.search(r"\d+", x) else 0
-            ),
+            key=lambda x: (int(re.search(r"\d+", x).group()) if re.search(r"\d+", x) else 0),
         )
 
         for aep in sorted_aeps:
@@ -299,7 +284,7 @@ def create_plot(combined_df, aep_mapping, crossing_name, script_directory):
 
 def main():
     # Get the directory where the script is located
-    script_directory = os.path.dirname(os.path.abspath(__file__))
+    script_directory = Path(__file__).absolute().parent
 
     # Define specific combinations of AEP and TP to process
     selected_combinations = [
@@ -312,9 +297,7 @@ def main():
     ]
 
     # Import and aggregate data
-    combined_df, aep_mapping, crossing_name = import_data(
-        script_directory, selected_combinations, selected_hydrograph
-    )
+    combined_df, aep_mapping, crossing_name = import_data(script_directory, selected_combinations, selected_hydrograph)
 
     # Save combined data to a single-sheet Excel file
     try:
@@ -326,9 +309,7 @@ def main():
         output_file_path = os.path.join(script_directory, output_file_name)
 
         # Save to Excel with a single sheet
-        combined_df.to_excel(
-            output_file_path, index=False, sheet_name="Hydrograph Data"
-        )
+        combined_df.to_excel(output_file_path, index=False, sheet_name="Hydrograph Data")
         print(f"Combined hydrograph data saved to: {output_file_path}")
     except Exception as e:
         print(f"Error saving combined Excel file: {e}")

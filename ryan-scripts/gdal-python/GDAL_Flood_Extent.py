@@ -14,7 +14,7 @@ def main():
     """
     try:
         # Determine the script directory
-        script_directory: Path = Path(__file__).resolve().parent
+        script_directory: Path = Path(__file__).absolute().parent
 
         # Optionally, override the script directory
         # Example:

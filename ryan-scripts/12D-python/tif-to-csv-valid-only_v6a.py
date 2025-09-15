@@ -64,7 +64,7 @@ def main():
     use_tiling = False  # Set to True to enable tiling
 
     # Set script_dir to a specific path
-    script_dir = Path(__file__).resolve().parent
+    script_dir = Path(__file__).absolute().parent
     logger.info(f"Script directory: {script_dir}")
 
     # Verify that script_dir exists

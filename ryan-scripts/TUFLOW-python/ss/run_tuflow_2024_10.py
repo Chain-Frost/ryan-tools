@@ -414,7 +414,7 @@ def main() -> None:
         script_start_time = datetime.datetime.now()
         print(f"Script start time: {script_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-        script_dir = Path(__file__).resolve().parent
+        script_dir = Path(__file__).absolute().parent
         os.chdir(script_dir)
         print(f"Script directory: {script_dir}")
 

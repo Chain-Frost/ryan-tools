@@ -7,7 +7,7 @@ import glob
 def main() -> None:
     try:
         # Define the working path
-        script_dir: Path = Path(__file__).parent.resolve()
+        script_dir: Path = Path(__file__).absolute().parent
         package_dir: Path = script_dir / "dist"
         print(f"PACKAGE_DIR: {package_dir}")
 
@@ -29,9 +29,7 @@ def main() -> None:
         print(f'Installing or updating "{Path(latest_package).name}"')
 
         # Install or update the package using pip
-        result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--upgrade", latest_package]
-        )
+        result = subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", latest_package])
 
         # Check if the installation was successful
         if result.returncode == 0:

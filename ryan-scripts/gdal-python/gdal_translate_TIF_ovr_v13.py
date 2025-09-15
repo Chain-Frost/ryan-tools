@@ -14,7 +14,7 @@ from ryan_library.functions.gdal.gdal_environment import (
 
 
 def main() -> None:
-    script_dir: Path = Path(__file__).resolve().parent
+    script_dir: Path = Path(__file__).absolute().parent
     script_dir = Path(
         r"P:\BGER\PER\RP20181.366 HOPE DOWNS 4 EARLY TONNES - RTIO\7 DOCUMENT CONTROL\2 RECEIVED DATA\1 CLIENT\250220 - HD Pipeline Survey\DTM Surface XYZ"
     )
@@ -79,14 +79,10 @@ def get_processing_parameters() -> tuple[list[str], list[str], list[str], str, s
 
 
 def main_process() -> None:
-    items, commands, gdaladdo_commands, gdal_translate_path, gdaladdo_path = (
-        get_processing_parameters()
-    )
+    items, commands, gdaladdo_commands, gdal_translate_path, gdaladdo_path = get_processing_parameters()
     max_instances: int = os.cpu_count() or 1
 
-    tasks, skipped_files, max_lengths = prepare_tasks(
-        Path.cwd(), items, commands, gdaladdo_commands
-    )
+    tasks, skipped_files, max_lengths = prepare_tasks(Path.cwd(), items, commands, gdaladdo_commands)
 
     if not tasks:
         handle_no_tasks(skipped_files)
@@ -161,9 +157,7 @@ def run_gdal_commands_with_output(
                 raise Exception(f"gdal_translate failed for {task.out_file.name}")
 
         if success and task.process_ovr:
-            success = execute_gdaladdo(
-                gdaladdo_path, task.gdaladdo_commands, task.out_file, max_lengths
-            )
+            success = execute_gdaladdo(gdaladdo_path, task.gdaladdo_commands, task.out_file, max_lengths)
             if not success:
                 raise Exception(f"gdaladdo failed for {task.out_file.name}")
 
@@ -193,9 +187,7 @@ def execute_gdal_translate(
         + f" -> {out_file.name}"
     )
     print(translate_text)
-    command: list[str] = (
-        [gdal_translate_path] + commands + [str(source_file), str(out_file)]
-    )
+    command: list[str] = [gdal_translate_path] + commands + [str(source_file), str(out_file)]
     try:
         result: subprocess.CompletedProcess = subprocess.run(
             command,
@@ -216,9 +208,7 @@ def execute_gdaladdo(
     out_file: Path,
     max_lengths: dict[str, int],
 ) -> bool:
-    addo_text: str = f"Running gdaladdo: {out_file.name}".ljust(
-        max_lengths["max_filename_length"]
-    )
+    addo_text: str = f"Running gdaladdo: {out_file.name}".ljust(max_lengths["max_filename_length"])
     print(addo_text)
     command: list[str] = [gdaladdo_path] + gdaladdo_commands + ["-ro", str(out_file)]
     try:
@@ -262,12 +252,8 @@ def prepare_tasks(
             source_file: Path = file_path
             tif_file: Path = file_path.with_suffix(f".{output_format}")
             relative_path = file_path.relative_to(directory)
-            max_filename_length = max(
-                max_filename_length, len(file_path.name), len(tif_file.name)
-            )
-            max_relative_path_length = max(
-                max_relative_path_length, len(str(relative_path))
-            )
+            max_filename_length = max(max_filename_length, len(file_path.name), len(tif_file.name))
+            max_relative_path_length = max(max_relative_path_length, len(str(relative_path)))
             process_tif: bool = False
             process_ovr: bool = False
             source_mtime: float = source_file.stat().st_mtime

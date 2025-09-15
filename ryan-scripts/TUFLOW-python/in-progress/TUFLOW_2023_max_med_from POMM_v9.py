@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 import pandas as pd
 import os
 from glob import iglob
@@ -10,9 +11,7 @@ import pprint
 import re
 
 # Configure logging at the start of your script
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Ryan Brook March 2024. adjusted for shorter 0360m and 01.0p, (00360m, 01.00p)
 # assumes we can use POMM.csv, using TF2023
@@ -100,9 +99,7 @@ def processPomm_extended(file, positionsDict):
     for num, runPart in enumerate(pommList[0][0].replace("+", "_").split("_")):
         pommData["r" + str(num)] = runPart
     # Calculate the absolute largest value for each row
-    pommData["abs_max"] = pommData.apply(
-        lambda row: max(abs(row["Max"]), abs(row["Min"])), axis=1
-    )
+    pommData["abs_max"] = pommData.apply(lambda row: max(abs(row["Max"]), abs(row["Min"])), axis=1)
 
     col_names = {
         "abs_max": "float64",
@@ -248,9 +245,7 @@ def stats(thinned_df: pd.DataFrame, statcol: str, tpcol: str, durcol: str) -> tu
         # Therefore, in a range from 0 to 10 (range(0, 11)), the median position of 5 corresponds to the 6th element in the sequence, since indexing starts at 0.
         # round up if odd, +1 if even. so it assumes sorted in ascending order.
         # sort ensemblestat by statcol, ascending
-        ensemblestat.sort_values(
-            statcol, inplace=True, ascending=True, na_position="first"
-        )
+        ensemblestat.sort_values(statcol, inplace=True, ascending=True, na_position="first")
         # make a dict for each durgrp which has the critical TP, low stat, high stat and count of storms in the bin
         stats_dict = {}
         # print('starting checking here')
@@ -260,14 +255,14 @@ def stats(thinned_df: pd.DataFrame, statcol: str, tpcol: str, durcol: str) -> tu
         # pd.set_option('display.max_rows', None)
         # print('')
         # print(ensemblestat)
-        # exclude zeroes for mean 
+        # exclude zeroes for mean
         # median includes zeroes
         # Mean including zeroes
         mean_including_zeroes = ensemblestat[statcol].mean()
-        
+
         # Mean excluding zeroes
         mean_excluding_zeroes = ensemblestat[ensemblestat[statcol] != 0][statcol].mean()
-                     
+
         stats_dict = {
             "mean_including_zeroes": mean_including_zeroes,
             "mean_excluding_zeroes": mean_excluding_zeroes,
@@ -276,7 +271,7 @@ def stats(thinned_df: pd.DataFrame, statcol: str, tpcol: str, durcol: str) -> tu
             "low": ensemblestat[statcol].iloc[0],
             "high": ensemblestat[statcol].iloc[-1],
             "count": r,
-            "median": ensemblestat[statcol].iloc[medianpos]
+            "median": ensemblestat[statcol].iloc[medianpos],
         }
         if stats_dict["median"] > tracking_median:
             # update max_stats_dict if this median stat is higher than the previous highest
@@ -308,9 +303,7 @@ def process_files_in_parallel(po_file_list, positionsDict):
     print(f"Processing {len(po_file_list)} files over {numFiles} threads\n")
     with multiprocessing.Pool(numFiles) as p:
         # Pass positionsDict as an additional argument to map
-        resultsData = p.starmap(
-            processPomm_extended, [(file, positionsDict) for file in po_file_list]
-        )
+        resultsData = p.starmap(processPomm_extended, [(file, positionsDict) for file in po_file_list])
     return resultsData
 
 
@@ -384,21 +377,14 @@ def process_and_aggregate(df):
                     )
 
                     # Update bin stats with new_row keys
-                    bin_stats_list = [
-                        {**new_row, **bin_stats_dict}
-                        for bin_stats_dict in bin_stats_list
-                    ]
+                    bin_stats_list = [{**new_row, **bin_stats_dict} for bin_stats_dict in bin_stats_list]
 
                     # Update new_row with stats from max_stats_dict
                     new_row.update(max_stats_dict)
 
                     # Append to meddf and all_bins_df
-                    meddf = pd.concat(
-                        [meddf, pd.DataFrame([new_row])], ignore_index=True
-                    )
-                    all_bins_df = pd.concat(
-                        [all_bins_df, pd.DataFrame(bin_stats_list)], ignore_index=True
-                    )
+                    meddf = pd.concat([meddf, pd.DataFrame([new_row])], ignore_index=True)
+                    all_bins_df = pd.concat([all_bins_df, pd.DataFrame(bin_stats_list)], ignore_index=True)
 
     return meddf, all_bins_df
 
@@ -433,16 +419,17 @@ def load_files(file_patterns):
     resultsData = process_files_in_parallel(pomm_file_list, positionsDict)
     df = aggregate_and_fill_data(resultsData)
     print(df, df.columns, df.dtypes, sep="\n\n")
-    return df    
+    return df
+
 
 def main(process_medians=True, file_patterns=["_POMM.csv"]) -> None:
-    df=load_files(file_patterns)
-    df.to_parquet('data.parquet') # if you want to save to parquet for faster loading next time
+    df = load_files(file_patterns)
+    df.to_parquet("data.parquet")  # if you want to save to parquet for faster loading next time
 
     # df = pd.read_parquet('data.parquet') # load it in
 
     print(df.head())
-    print(df['Duration'].unique())
+    print(df["Duration"].unique())
 
     meddf, all_bins_df = process_and_aggregate(df)
 
@@ -459,7 +446,7 @@ def main(process_medians=True, file_patterns=["_POMM.csv"]) -> None:
 
 
 if __name__ == "__main__":
-    os.chdir(os.path.dirname(os.path.realpath(__file__)))
+    os.chdir(Path(__file__).absolute().parent)
     # originally developed here for TF2016
     # os.chdir(r'Q:\Model\RP21054.004 PILGANGOORA HYDROLOGY SUPPORT - PILOPE\Tuflow_Models\TF_v0_WholeSite_MGA94z50\results\tuflow-style\Pilg_30m_WholeSite_00180m')
     main()

@@ -20,9 +20,7 @@ def save_tile_las(tile_df, output_dir, base_filename, i, j) -> None:
         header = laspy.LasHeader(point_format=3, version="1.2")
 
         # Set scales and offsets based on tile data
-        header.offsets = np.array(
-            [tile_df["X"].min(), tile_df["Y"].min(), tile_df["Z"].min()]
-        )
+        header.offsets = np.array([tile_df["X"].min(), tile_df["Y"].min(), tile_df["Z"].min()])
         header.scales = np.array([0.01, 0.01, 0.01])  # Adjust scales as needed
 
         # Create LasData object
@@ -73,9 +71,7 @@ def save_full_las(df, output_dir, base_filename):
 
 def main() -> None:
     # Set up logging
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     logger = logging.getLogger(__name__)
     logger.info("Starting LAS terrain data processing script.")
 
@@ -85,7 +81,7 @@ def main() -> None:
     use_tiling = True  # Set to True to enable tiling
 
     # Set script_dir to a specific path
-    script_dir = Path(__file__).resolve().parent
+    script_dir = Path(__file__).absolute().parent
     script_dir = Path(
         r"P:\BGER\PER\RP20180.365 BLACKSMITH SCOPING STUDY - FMG\5 CADD\1 MOD\2 CI\12D\Input\2025.06.20_ClippedGIS\h_hr_max"
     )

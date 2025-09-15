@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import pandas as pd
 import re
 
@@ -171,25 +172,15 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
         print(f"Data reshaped successfully. Long DataFrame shape: {long_df.shape}")
 
         # Process grid_lat and grid_long
-        long_df["grid_lat"] = long_df["grid_lat"].apply(
-            lambda x: process_coordinate(x, "lat")
-        )
-        long_df["grid_long"] = long_df["grid_long"].apply(
-            lambda x: process_coordinate(x, "long")
-        )
+        long_df["grid_lat"] = long_df["grid_lat"].apply(lambda x: process_coordinate(x, "lat"))
+        long_df["grid_long"] = long_df["grid_long"].apply(lambda x: process_coordinate(x, "long"))
 
         # Process req_lat and req_long
-        long_df["req_lat"] = long_df["req_lat"].apply(
-            lambda x: process_coordinate(x, "lat")
-        )
-        long_df["req_long"] = long_df["req_long"].apply(
-            lambda x: process_coordinate(x, "long")
-        )
+        long_df["req_lat"] = long_df["req_lat"].apply(lambda x: process_coordinate(x, "lat"))
+        long_df["req_long"] = long_df["req_long"].apply(lambda x: process_coordinate(x, "long"))
 
         # Convert 'Duration in min' to integer
-        long_df["Duration in min"] = pd.to_numeric(
-            long_df["Duration in min"], errors="coerce"
-        ).astype("Int64")
+        long_df["Duration in min"] = pd.to_numeric(long_df["Duration in min"], errors="coerce").astype("Int64")
 
         # Merge with lookup_df to add additional AEP details
         merged_df = long_df.merge(
@@ -295,7 +286,7 @@ def find_and_process_files(script_dir: str, lookup_df: pd.DataFrame) -> pd.DataF
 
 
 def main() -> None:
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir = Path(__file__).absolute().parent
     print(f"Script directory: {script_dir}")
 
     # Step 1: Find and process CSV files
@@ -304,19 +295,15 @@ def main() -> None:
 
     if not all_data_long.empty:
         # Step 2: Export the complete long data to CSV
-        all_data_csv_path = os.path.join(
-            script_dir, "all_location_data_with_AEP_lookup.csv"
-        )
+        all_data_csv_path = os.path.join(script_dir, "all_location_data_with_AEP_lookup.csv")
         all_data_long.to_csv(all_data_csv_path, index=False)
-        print(
-            f"Step 2: Exported all location data (long format) with AEP lookup to '{all_data_csv_path}'."
-        )
+        print(f"Step 2: Exported all location data (long format) with AEP lookup to '{all_data_csv_path}'.")
     else:
         print("No valid data to export.")
 
 
 if __name__ == "__main__":
-    working_dir = os.path.dirname(os.path.realpath(__file__))
+    working_dir = Path(__file__).absolute().parent
     os.chdir(working_dir)
     print(f"Changed working directory to: {working_dir}")
 

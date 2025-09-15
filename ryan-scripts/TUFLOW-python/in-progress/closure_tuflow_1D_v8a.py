@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from datetime import datetime
 import pandas as pd
 import re
@@ -7,9 +8,7 @@ import csv
 
 
 def setup_logging():
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 def processTScsv(file):
@@ -34,9 +33,7 @@ def processTScsv(file):
         3	0.016667	0	0	0	0 """
 
         val_type = csvdata[0][2].split(" ")[0]
-        chan_list = [
-            c.split("[")[0].removeprefix(f"{val_type} ") for c in csvdata[0][2:]
-        ]
+        chan_list = [c.split("[")[0].removeprefix(f"{val_type} ") for c in csvdata[0][2:]]
         # print(val_type, chan_list)
         # the channel might have a space in it so remove both sides with some extra string logic when looking on row A.
         # not going to bother grabbing the type or internal name each time - it should be identical unless someone has manually merged files.
@@ -64,9 +61,7 @@ def processTScsv(file):
                 for enum, val in enumerate(line[2:], start=0):
                     # we can use the enumerate index to read from the chan_list which will be in the same order
                     # ['Chan_ID', 'Time', val_type]
-                    adj_data.append(
-                        [chan_list[enum].strip(), line[1].strip(), val.strip()]
-                    )
+                    adj_data.append([chan_list[enum].strip(), line[1].strip(), val.strip()])
                     # print(adj_data[-1])
         elif val_type in ["H"]:  # two columns and has .1 .2
             adj_data = [["Chan ID", "Time", "H_US", "H_DS"]]
@@ -102,8 +97,8 @@ def processTScsv(file):
         dfData["path"] = file
         dfData["file"] = fileName
         # print(dfData)
-        if 'Time (h)' in dfData.columns:
-            dfData['Time'] = dfData['Time (h)']        
+        if "Time (h)" in dfData.columns:
+            dfData["Time"] = dfData["Time (h)"]
         col_names = {
             "Chan ID": "string",
             "Time": "float64",
@@ -211,9 +206,7 @@ def read_csv(filepathname, separator, skip_row, header_row, skip_cols):
 
         if file_type == "PO":
             search_entry = "Flow"
-            column_numbers = [
-                i for i, column in enumerate(first_row) if column == search_entry
-            ]
+            column_numbers = [i for i, column in enumerate(first_row) if column == search_entry]
             column_numbers.append(1)  # Always skip the first column
         else:
             column_numbers = list(range(len(first_row)))
@@ -228,9 +221,10 @@ def read_csv(filepathname, separator, skip_row, header_row, skip_cols):
         usecols=column_numbers,
     )
 
-
     # Extract value type from the CSV data
-    val_type = first_row[2].split(" ")[0]  # Assuming the value type is determined from the third column in the first row
+    val_type = first_row[2].split(" ")[
+        0
+    ]  # Assuming the value type is determined from the third column in the first row
 
     # Transform column names
     new_column_names = [c.split("[")[0].removeprefix(f"{val_type} ") for c in returncsv.columns]
@@ -238,21 +232,19 @@ def read_csv(filepathname, separator, skip_row, header_row, skip_cols):
     # Rename columns in the DataFrame
     returncsv.columns = new_column_names
 
-
     # print(returncsv.columns)
 
-    if 'Time (h)' in returncsv.columns:
-        returncsv.rename(columns={'Time (h)': 'Time'}, inplace=True)
+    if "Time (h)" in returncsv.columns:
+        returncsv.rename(columns={"Time (h)": "Time"}, inplace=True)
 
     # Skip columns if required
     # if skip_cols > 0:
     #     returncsv.drop(returncsv.columns[:skip_cols], axis=1, inplace=True)
 
-
-
     return returncsv
 
-#old stats
+
+# old stats
 # def stats(freqdb, statcol, tpcol, durcol):
 #     # this function will extract min, max and median peak for peaks in the dataframe and also return corresponding event/scenario and relevant _PO.csv file
 #     # sourced from Animesh orginal style
@@ -273,6 +265,7 @@ def read_csv(filepathname, separator, skip_row, header_row, skip_cols):
 #             low = ensemblestat[statcol].iloc[0]
 #             high = ensemblestat[statcol].iloc[-1]
 #     return [median, Tcrit, Tpcrit, low, high]
+
 
 def stats(freqdb, statcol, tpcol, durcol):
     """
@@ -313,8 +306,6 @@ def stats(freqdb, statcol, tpcol, durcol):
 
     # Return the calculated statistics
     return [median, Tcrit, Tpcrit, low, high]
-
-
 
 
 def calcNumWorkersCores(numFiles):
@@ -478,22 +469,17 @@ def process_hydrographCSV(params_dict):
             "Runcode",
         ]
     )
-    hydrographs = read_csv(
-        filepathname=csv_read, separator=",", skip_row=[0], header_row=0, skip_cols=1
-    )
+    hydrographs = read_csv(filepathname=csv_read, separator=",", skip_row=[0], header_row=0, skip_cols=1)
     # this has time as the first column then location+flows after
     # read_csv(filepathname, separator, skip_row, header_row, skip_cols)
     # this was for rorb - we just get the location names back now.
     #  hydrographs.columns = [
     #     m.replace('Calculated hydrograph:  ', '') for m in list(hydrographs.columns)]
-    
+
     timestep = hydrographs["Time"][1] - hydrographs["Time"][0]
     for qch in qcheckList:
         location = hydrographs[hydrographs > qch].count()[1:].index.to_list()
-        dur_exc = [
-            (k + int(k > 0)) * timestep
-            for k in hydrographs[hydrographs > qch].count()[1:]
-        ]
+        dur_exc = [(k + int(k > 0)) * timestep for k in hydrographs[hydrographs > qch].count()[1:]]
         dictionary = {
             "AEP": [aep] * len(location),
             "Duration": [dur] * len(location),
@@ -548,6 +534,7 @@ def search_csv_files(search_term="**/*_PO.csv"):
 
 def make_file_list(searchString):
     from glob import iglob
+
     textString = r"**/*" + searchString
     print(f"Recursively searching for {textString} files - can take a while")
     file_list = [f for f in iglob(textString, recursive=True) if os.path.isfile(f)]
@@ -565,16 +552,12 @@ def process_file_list(file_list):
     # Split file_list for multiprocessing
     num_processes = multiprocessing.cpu_count()  # Or set a specific number
     chunk_size = len(file_list) // num_processes
-    files_chunks = [
-        file_list[i : i + chunk_size] for i in range(0, len(file_list), chunk_size)
-    ]
+    files_chunks = [file_list[i : i + chunk_size] for i in range(0, len(file_list), chunk_size)]
 
     # Ensure the worker function can access the duration_skip list
     with multiprocessing.Pool(processes=num_processes) as pool:
         # Map each file chunk to the process_files function
-        result_lists = pool.starmap(
-            process_files, [(chunk, duration_skip) for chunk in files_chunks]
-        )
+        result_lists = pool.starmap(process_files, [(chunk, duration_skip) for chunk in files_chunks])
 
     # Combine the results
     combined_results = []
@@ -586,9 +569,7 @@ def process_file_list(file_list):
 
 
 def output_file_list(files_df):
-    DateTimeString = (
-        datetime.now().strftime("%Y%m%d") + "-" + datetime.now().strftime("%H%M")
-    )
+    DateTimeString = datetime.now().strftime("%Y%m%d") + "-" + datetime.now().strftime("%H%M")
     output = f"{DateTimeString}_PO_list.csv"
     print(f"Outputting file list: {output}")
     files_df.to_csv(output, index=False)
@@ -678,16 +659,15 @@ def merge_data(DATA):
     # # print(q.head())
     # df.append(q)
 
-    DateTimeString = (
-        datetime.now().strftime("d%Y%m%d") + "-" + datetime.now().strftime("%H%M")
-    )
+    DateTimeString = datetime.now().strftime("d%Y%m%d") + "-" + datetime.now().strftime("%H%M")
     output = f"{DateTimeString}_durex"
     df.to_parquet(f"{output}.parquet.gzip")
     # df.to_csv(f"{output}.csv", index=False)
 
     return df
 
-#old create_finaldb
+
+# old create_finaldb
 # def create_finaldb(df):
 #     finaldb = pd.DataFrame(
 #         columns=[
@@ -741,6 +721,7 @@ def create_finaldb(df):
     grouped = df.groupby(["TrimRC", "Location", "ThresholdFlow", "AEP"])
 
     print("Applying the stats function to each group...")
+
     # Define a function to be applied to each group
     def apply_stats(group):
         return stats(group, "Duration_Exceeding", "TP", "Duration")
@@ -752,9 +733,15 @@ def create_finaldb(df):
     # Concatenate the results
     finaldb = pd.concat([results.drop(columns=0), results[0].apply(pd.Series)], axis=1)
     finaldb.columns = [
-        "TrimRC", "location", "Threshold_Q", "AEP", 
-        "Duration_Exceeded", "Critical_Storm", "Critical_Tp", 
-        "Low_Duration", "High_Duration"
+        "TrimRC",
+        "location",
+        "Threshold_Q",
+        "AEP",
+        "Duration_Exceeded",
+        "Critical_Storm",
+        "Critical_Tp",
+        "Low_Duration",
+        "High_Duration",
     ]
 
     # Save the dataframe to a CSV file
@@ -780,9 +767,7 @@ def plot_data(df, working_dir):
     # rorb
     # max_df=db.groupby(['Location','AEP','ThresholdFlow','out_path'])['Duration_Exceeding'].max()
     # tuflow
-    max_df = db.groupby(["Location", "AEP", "ThresholdFlow", "TrimRC"])[
-        "Duration_Exceeding"
-    ].max()
+    max_df = db.groupby(["Location", "AEP", "ThresholdFlow", "TrimRC"])["Duration_Exceeding"].max()
     plot_table = max_df.reset_index()
     # plot_table.loc[plot_table['Location'] == 'Chinnamon Creek']
 
@@ -829,6 +814,6 @@ def main():
 
 
 if __name__ == "__main__":
-    script_dir = os.path.dirname(os.path.realpath(__file__))
+    script_dir = Path(__file__).absolute().parent
     os.chdir(script_dir)
     main()

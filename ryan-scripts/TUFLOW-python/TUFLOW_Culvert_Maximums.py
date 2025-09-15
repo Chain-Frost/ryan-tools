@@ -15,7 +15,7 @@ def main() -> None:
     It processes files in the script's directory by default."""
     print_library_version()
     console_log_level = "DEBUG"  # or "INFO"
-    script_dir: Path = Path(__file__).resolve().parent
+    script_dir: Path = Path(__file__).absolute().parent
     # script_dir = Path(
     #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
     # )

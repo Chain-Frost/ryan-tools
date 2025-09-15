@@ -312,7 +312,7 @@ def calculate_polygon_areas(poly1_df: pd.DataFrame, poly2_df: pd.DataFrame) -> t
 
 def main():
     # Determine the script's directory
-    script_dir = Path(__file__).parent.resolve()
+    script_dir = Path(__file__).absolute().parent
 
     # Generate a random stream profile
     profile_df = generate_random_profile()

@@ -409,6 +409,6 @@ def run_app() -> None:
 
 
 if __name__ == "__main__":
-    script_dir = Path(__file__).resolve().parent
+    script_dir = Path(__file__).absolute().parent
     os.chdir(script_dir)
     run_app()
