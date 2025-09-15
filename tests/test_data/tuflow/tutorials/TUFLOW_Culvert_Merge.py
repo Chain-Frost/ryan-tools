@@ -13,7 +13,7 @@ def main():
 
     try:
         # Determine the script directory
-        script_directory: Path = Path(__file__).resolve().parent
+        script_directory: Path = Path(__file__).absolute().parent
         script_directory = Path(
             # r"Q:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"
             r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials"

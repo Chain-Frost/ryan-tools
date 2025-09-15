@@ -23,12 +23,7 @@ SKIP_ROW = [0]
 HEADER_ROW = 0
 SKIP_COLS = 1
 DURATION_SKIP_LIST = []  # Example: ['5760', '7200', '8640', '10080']
-QC_CHECK_LIST = (
-    list(range(2, 30, 1))
-    + list(range(30, 100, 5))
-    + list(range(100, 500, 20))
-    + list(range(500, 2100, 50))
-)
+QC_CHECK_LIST = list(range(2, 30, 1)) + list(range(30, 100, 5)) + list(range(100, 500, 20)) + list(range(500, 2100, 50))
 
 # Initialize logging using the existing setup
 setup_logging()
@@ -52,9 +47,7 @@ class PODetails:
     run_params: dict[str, str] = field(default_factory=dict)
 
 
-def read_csv(
-    filepath: Path, separator: str, skip_row: list[int], header_row: int, skip_cols: int
-) -> pd.DataFrame:
+def read_csv(filepath: Path, separator: str, skip_row: list[int], header_row: int, skip_cols: int) -> pd.DataFrame:
     """
     Reads a CSV file and extracts the 'Flow' columns along with 'Time'.
 
@@ -73,9 +66,7 @@ def read_csv(
         with filepath.open("r") as file:
             reader = csv.reader(file)
             first_row = next(reader)
-            flow_columns = [
-                i for i, column in enumerate(first_row) if column == search_entry
-            ]
+            flow_columns = [i for i, column in enumerate(first_row) if column == search_entry]
             if not flow_columns:
                 logger.warning(f"No 'Flow' columns found in {filepath}.")
             # Always include the 'Time' column (assuming it's the second column, index 1)
@@ -103,9 +94,7 @@ def read_csv(
         return pd.DataFrame()
 
 
-def stats(
-    freqdb: pd.DataFrame, statcol: str, tpcol: str, durcol: str
-) -> list[Optional[Any]]:
+def stats(freqdb: pd.DataFrame, statcol: str, tpcol: str, durcol: str) -> list[Optional[Any]]:
     """
     Extracts statistical metrics from the frequency database.
 
@@ -238,9 +227,7 @@ def process_hydrographCSV(params_dict: dict[str, Any]) -> Optional[pd.DataFrame]
             return None
         qcheckList = params_dict["qc"]
 
-        logger.debug(
-            f"Processing hydrograph: AEP={aep}, Duration={dur}, TP={tp}, CSV={csv_read}"
-        )
+        logger.debug(f"Processing hydrograph: AEP={aep}, Duration={dur}, TP={tp}, CSV={csv_read}")
 
         hydrographs = read_csv(
             filepath=csv_read,
@@ -303,9 +290,7 @@ def generate_finaldb(df: pd.DataFrame) -> pd.DataFrame:
     try:
         grouped = df.groupby(["TrimRC", "Location", "ThresholdFlow", "AEP"])
         for name, group in grouped:
-            median, Tcrit, Tpcrit, low, high = stats(
-                group, "Duration_Exceeding", "TP", "Duration"
-            )
+            median, Tcrit, Tpcrit, low, high = stats(group, "Duration_Exceeding", "TP", "Duration")
             if None in [median, Tcrit, Tpcrit, low, high]:
                 logger.warning(f"Incomplete stats for group {name}. Skipping.")
                 print(finaldb_records)
@@ -362,13 +347,11 @@ def main(do_plots: bool = False):
         do_plots (bool): Flag to indicate whether to generate plots. Currently ignored.
     """
     try:
-        working_dir = Path(__file__).resolve().parent
+        working_dir = Path(__file__).absolute().parent
         logger.info(f"Working directory set to {working_dir}")
 
         # Recursively search for PO CSV files
-        logger.info(
-            "Recursively searching for '**/*_PO.csv' files. This may take a while..."
-        )
+        logger.info("Recursively searching for '**/*_PO.csv' files. This may take a while...")
         file_list = list(working_dir.rglob("*_PO.csv"))
         logger.info(f"Found {len(file_list)} PO files.")
 
@@ -386,14 +369,8 @@ def main(do_plots: bool = False):
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             # Split file_list into chunks for each worker
             chunk_size = max(1, len(file_list) // max_workers)
-            file_chunks = [
-                file_list[i : i + chunk_size]
-                for i in range(0, len(file_list), chunk_size)
-            ]
-            futures = {
-                executor.submit(process_files, chunk, DURATION_SKIP_LIST): chunk
-                for chunk in file_chunks
-            }
+            file_chunks = [file_list[i : i + chunk_size] for i in range(0, len(file_list), chunk_size)]
+            futures = {executor.submit(process_files, chunk, DURATION_SKIP_LIST): chunk for chunk in file_chunks}
             for future in as_completed(futures):
                 result = future.result()
                 if result:
@@ -414,8 +391,7 @@ def main(do_plots: bool = False):
         hydro_data_list = []
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             hydro_futures = {
-                executor.submit(process_hydrographCSV, row): row
-                for row in files_df.to_dict(orient="records")
+                executor.submit(process_hydrographCSV, row): row for row in files_df.to_dict(orient="records")
             }
             for future in as_completed(hydro_futures):
                 result = future.result()

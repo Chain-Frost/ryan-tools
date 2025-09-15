@@ -14,7 +14,7 @@ def main() -> None:
     print_library_version()
     console_log_level = "INFO"  # or "DEBUG"
     # Determine the script directory
-    script_directory: Path = Path(__file__).resolve().parent
+    script_directory: Path = Path(__file__).absolute().parent
     # script_directory = Path(
     #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
     # )

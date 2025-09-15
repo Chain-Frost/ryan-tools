@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import re
 import csv
 import pandas as pd
@@ -21,9 +22,7 @@ from ryan_functions.processTScsv import processTScsv
 
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 def read_rorb_data(filepath):
@@ -282,9 +281,7 @@ def create_finaldb(df):
         # Apply the function
         results = grouped.apply(apply_stats).reset_index()
         # Concatenate the results
-        finaldb = pd.concat(
-            [results.drop(columns=0), results[0].apply(pd.Series)], axis=1
-        )
+        finaldb = pd.concat([results.drop(columns=0), results[0].apply(pd.Series)], axis=1)
         finaldb.columns = [
             "TrimRC",
             "location",
@@ -312,7 +309,7 @@ def main():
     """
     try:
         # Set working directory
-        script_dir = os.path.dirname(os.path.realpath(__file__))
+        script_dir = Path(__file__).absolute().parent
         os.chdir(script_dir)
         # Collect input files
         data_types = ["RORB", "TUFLOWPO", "TUFLOW1D"]

@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 import os
 from glob import iglob
 import csv
@@ -17,17 +18,13 @@ import fiona
 
 
 def setup_logging():
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 def make_file_list(searchString) -> list[str]:
     textString: str = r"**/*" + searchString
     print(f"Recursively searching for {textString} files - can take a while")
-    file_list: list[str] = [
-        f for f in iglob(pathname=textString, recursive=True) if os.path.isfile(path=f)
-    ]
+    file_list: list[str] = [f for f in iglob(pathname=textString, recursive=True) if os.path.isfile(path=f)]
     print(file_list)
     return file_list
 
@@ -147,9 +144,7 @@ def processCSV(file) -> DataFrame:
 
         # split the run code up by '_'
         dfData["internalName"] = internalName
-        for elem in enumerate(
-            iterable=internalName.replace("+", "_").split(sep="_"), start=1
-        ):
+        for elem in enumerate(iterable=internalName.replace("+", "_").split(sep="_"), start=1):
             dfData[f"R{elem[0]}"] = elem[1]
         dfData["path"] = file
         dfData["file"] = fileName
@@ -253,7 +248,7 @@ def export_to_excel(df, suffix) -> None:
 
 
 def main() -> None:
-    script_dir = os.path.dirname(os.path.realpath(__file__))
+    script_dir = Path(__file__).absolute().parent
     os.chdir(script_dir)
     setup_logging()
 
@@ -316,7 +311,7 @@ def main() -> None:
 
 
 def main_old() -> None:
-    script_dir = os.path.dirname(os.path.realpath(__file__))
+    script_dir = Path(__file__).absolute().parent
     os.chdir(script_dir)
     setup_logging()
     # '1d_V.csv'
@@ -358,9 +353,7 @@ def main_old() -> None:
 
     print(" --now 1dcc1")
     if ccafile_list == []:
-        print(
-            "ccafile_list is empty - skipping - this might be using GPKG which I haven't implemented yet"
-        )
+        print("ccafile_list is empty - skipping - this might be using GPKG which I haven't implemented yet")
     else:
         numFiles = calculate_pool_size(len(ccafile_list))
         with multiprocessing.Pool(numFiles) as p:
@@ -401,9 +394,7 @@ def main_old() -> None:
     print(df.dtypes)
     print("")
 
-    DateTimeString = (
-        datetime.now().strftime("%Y%m%d") + "-" + datetime.now().strftime("%H%M")
-    )
+    DateTimeString = datetime.now().strftime("%Y%m%d") + "-" + datetime.now().strftime("%H%M")
     export_name = f"{DateTimeString}_1d_data_max.xlsx"
     print(f"Exporting {export_name}")
     df.to_excel(export_name)
