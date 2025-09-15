@@ -467,9 +467,10 @@ class BaseProcessor(ABC):
 
         Returns:
             pd.DataFrame: The reshaped DataFrame."""
-        category_type = "Chan ID" if "1d" in self.name_parser.suffixes else "Location"
+        is_1d: bool = "_1d_" in self.file_name.lower()
+        category_type: str = "Chan ID" if is_1d else "Location"
         logger.debug(
-            f"{'1d' in self.name_parser.suffixes and 'Chan ID' or 'Location'} suffix detected; using '{category_type}' as category type."
+            f"{self.file_name}: {'1D' if is_1d else '2D'} filename detected; using '{category_type}' as category type."
         )
 
         try:
