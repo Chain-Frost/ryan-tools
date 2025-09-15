@@ -73,7 +73,6 @@ class BaseProcessor(ABC):
     @classmethod
     def from_file(cls, file_path: Path) -> "BaseProcessor":
         """Factory method to create the appropriate processor instance based on the file suffix."""
-        file_name: str = file_path.name
         logger.debug(f"Attempting to process file: {file_path}")
 
         # Use TuflowStringParser to determine data_type
@@ -115,7 +114,7 @@ class BaseProcessor(ABC):
         module_path: str = f"ryan_library.processors.tuflow.{class_name}"
         try:
             module = importlib.import_module(module_path)
-            processor_cls = cast(type["BaseProcessor"], getattr(module, class_name))
+            processor_cls: type[BaseProcessor] = cast(type["BaseProcessor"], getattr(module, class_name))
             BaseProcessor._processor_cache[class_name] = processor_cls
             logger.debug(f"Imported processor class '{class_name}' from '{module_path}'.")
             return processor_cls
