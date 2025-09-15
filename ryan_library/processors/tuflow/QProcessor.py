@@ -2,7 +2,7 @@
 
 import pandas as pd
 from loguru import logger
-from .base_processor import BaseProcessor, DataValidationError, ProcessorError
+from .base_processor import BaseProcessor
 
 
 class QProcessor(BaseProcessor):
@@ -22,18 +22,14 @@ class QProcessor(BaseProcessor):
             status: int = self.read_and_process_timeseries_csv(data_type="Q")
 
             if status != 0:
-                logger.error(
-                    f"Processing aborted for file: {self.file_path} due to previous errors."
-                )
+                logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
                 self.df = pd.DataFrame()
                 return self.df
 
             # Step 2: Further process the reshaped DataFrame if necessary
             status = self.process_timeseries_raw_dataframe()
             if status != 0:
-                logger.error(
-                    f"Processing aborted for file: {self.file_path} during raw dataframe processing."
-                )
+                logger.error(f"Processing aborted for file: {self.file_path} during raw dataframe processing.")
                 self.df = pd.DataFrame()
                 return self.df
 
@@ -59,70 +55,38 @@ class QProcessor(BaseProcessor):
             self.df = pd.DataFrame()
             return self.df
 
-    def process_timeseries_raw_dataframe(self) -> int:
-        """Process the raw reshaped timeseries DataFrame by melting Q columns into a long format.
+    def process_timeseries_raw_dataframe(self, dropna: bool = True) -> int:
+        """Validate the long-form Q timeseries DataFrame and optionally drop missing values.
+
+        Args:
+            dropna (bool): Drop rows with missing ``Q`` values when True. Defaults to True.
 
         Returns:
             int: Status code.
                 0 - Success
                 1 - Empty DataFrame after processing
-                2 - Header mismatch after processing
+                2 - Missing required columns
                 3 - Processing error"""
         try:
-            logger.debug("Starting to process the raw timeseries DataFrame for Q data.")
+            logger.debug("Validating long-form Q timeseries DataFrame.")
 
-            # Identify Q columns (e.g., "Q ds1", "Q ds2", "Q ds3")
-            q_columns = [col for col in self.df.columns if col.startswith("Q ds")]
-            logger.debug(f"Identified Q columns: {q_columns}")
-
-            if not q_columns:
-                logger.error("No Q columns found in the DataFrame.")
-                return 3
-
-            # Melt the Q columns to transform from wide to long format
-            df_melted = self.df.melt(
-                id_vars=["Time"], value_vars=q_columns, var_name="ds", value_name="Q"
-            )
-            logger.debug(f"Melted DataFrame shape: {df_melted.shape}")
-
-            # Extract ds identifier (e.g., 'ds1', 'ds2', 'ds3') from the 'ds' column
-            df_melted["ds"] = df_melted["ds"].str.extract(r"(ds\d+)")
-
-            # Drop rows with missing Q values
-            initial_row_count = len(df_melted)
-            df_melted.dropna(subset=["Q"], inplace=True)
-            final_row_count = len(df_melted)
-            logger.debug(
-                f"Dropped {initial_row_count - final_row_count} rows with missing Q values."
-            )
-
-            if df_melted.empty:
-                logger.error("DataFrame is empty after melting Q columns.")
-                return 1
-
-            # Assign the melted DataFrame back to self.df
-            self.df = df_melted
-
-            # Validate headers after melting
-            expected_headers = ["Time", "ds", "Q"]
-            if not self.check_headers_match(test_headers=self.df.columns.tolist()):
-                logger.error(f"{self.file_name}: Header mismatch after melting.")
+            required_columns = ["Time", "Chan ID", "Q"]
+            missing = [col for col in required_columns if col not in self.df.columns]
+            if missing:
+                logger.error(f"{self.file_name}: Missing required columns: {missing}")
                 return 2
 
-            logger.info(
-                f"{self.file_name}: Successfully melted Q columns into long format."
-            )
+            if dropna:
+                initial_row_count = len(self.df)
+                self.df.dropna(subset=["Q"], inplace=True)
+                logger.debug(f"Dropped {initial_row_count - len(self.df)} rows with missing Q values.")
+
+            if self.df.empty:
+                logger.error("DataFrame is empty after processing.")
+                return 1
 
             return 0
 
-        except DataValidationError as dve:
-            logger.error(f"{self.file_name}: Data validation error: {dve}")
-            return 3
-        except ProcessorError as pe:
-            logger.error(f"{self.file_name}: Processor error: {pe}")
-            return 3
         except Exception as e:
-            logger.exception(
-                f"{self.file_name}: Unexpected error during processing: {e}"
-            )
+            logger.exception(f"{self.file_name}: Unexpected error during processing: {e}")
             return 3
