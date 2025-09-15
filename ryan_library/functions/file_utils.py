@@ -1,5 +1,6 @@
 # ryan_library/functions/file_utils.py
 
+from typing import Generator
 import warnings
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
@@ -99,14 +100,14 @@ def find_files_parallel(
                 # Queue is empty or timeout reached
                 return
             try:
-                local_matched = []
-                local_folders_with_matches = set()
+                local_matched: list[Path] = []
+                local_folders_with_matches: set[Path] = set()
                 files_searched = 0
                 folders_searched = 0
 
                 # Use non-recursive glob to avoid overlapping traversals
                 try:
-                    iterator = current_path.iterdir()
+                    iterator: Generator[Path, None, None] = current_path.iterdir()
                 except PermissionError:
                     logger.error(f"Permission denied accessing directory: {current_path}")
                     dir_queue.task_done()
@@ -129,14 +130,14 @@ def find_files_parallel(
 
                             if depth % report_level == 0:
                                 try:
-                                    display_path = subpath.relative_to(current_dir)
+                                    display_path: Path = subpath.relative_to(current_dir)
                                 except ValueError:
                                     display_path = subpath.absolute()
                                 logger.info(f"Searching (depth {depth}): {display_path}")
 
                         if recursive_search:
                             try:
-                                resolved_subpath = subpath.absolute()
+                                resolved_subpath: Path = subpath.absolute()
                                 if not resolved_subpath.exists():
                                     logger.warning(
                                         f"Subdirectory does not exist (might be a broken symlink): {subpath}"
@@ -165,7 +166,7 @@ def find_files_parallel(
                         # Exclusion Check
                         if not any(fnmatch.fnmatch(filename, exclude) for exclude in excludes):
                             try:
-                                matched_file = subpath.absolute()
+                                matched_file: Path = subpath.absolute()
                                 display_path = matched_file
                                 try:
                                     display_path = matched_file.relative_to(current_dir)
