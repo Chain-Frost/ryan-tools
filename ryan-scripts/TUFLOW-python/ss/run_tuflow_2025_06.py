@@ -37,9 +37,7 @@ def get_parameters() -> Parameters:
     )
 
     # Build and validate
-    return build_parameters(
-        core_params=core_params, run_variables_raw=run_variables_raw
-    )
+    return build_parameters(core_params=core_params, run_variables_raw=run_variables_raw)
 
 
 # imports placed here so that they do not obstruct user editing of the parameters at the top.
@@ -57,9 +55,7 @@ import colorama
 import psutil
 
 
-def build_parameters(
-    core_params: CoreParameters, run_variables_raw: dict[str, str]
-) -> Parameters:
+def build_parameters(core_params: CoreParameters, run_variables_raw: dict[str, str]) -> Parameters:
     """Split the raw run-variable strings, assemble a Parameters object,
     and validate required fields. This keeps all “internal” logic
     away from the user.
@@ -70,8 +66,7 @@ def build_parameters(
         Parameters: Fully constructed and validated."""
     # 1) Convert each raw string into list[str] by splitting on whitespace:
     run_variables: dict[str, list[str]] = {
-        key: split_input_strings(input_val=value)
-        for key, value in run_variables_raw.items()
+        key: split_input_strings(input_val=value) for key, value in run_variables_raw.items()
     }
 
     # 2) Build the Parameters dataclass from core_params + run_variables:
@@ -205,9 +200,7 @@ def _build_padded_flags(
     return parts
 
 
-def filter_parameters(
-    parameters: dict[str, list[str]], tcf: Path
-) -> dict[str, list[str]]:
+def filter_parameters(parameters: dict[str, list[str]], tcf: Path) -> dict[str, list[str]]:
     """Given all run_variables and the TCF filename,
       1) Drop any flags whose first list-element is blank/whitespace.
       2) Warn if the TCF's "~XX~" placeholders don't match the provided keys.
@@ -216,9 +209,7 @@ def filter_parameters(
         tcf: Path to the TCF template (whose filename has "~e1~", "~e2~", ...).
     Returns:
         A new dict containing only non-empty flags."""
-    non_empty: dict[str, list[str]] = {
-        k: v for k, v in parameters.items() if v and v[0].strip()
-    }
+    non_empty: dict[str, list[str]] = {k: v for k, v in parameters.items() if v and v[0].strip()}
     provided_flags = set(non_empty.keys())
     placeholders = set(re.findall(pattern=r"~(\w{2})~", string=tcf.name))
     missing: set[str] = placeholders - provided_flags
@@ -230,9 +221,7 @@ def filter_parameters(
             f"but run_variables is missing {sorted(missing)}."
         )
     if extra:
-        logging.warning(
-            msg=f"run_variables has extra flags not present in TCF: {sorted(extra)}."
-        )
+        logging.warning(msg=f"run_variables has extra flags not present in TCF: {sorted(extra)}.")
 
     return non_empty
 
@@ -368,9 +357,7 @@ def generate_all_args(
 # -------------------------------------------------------------------------------
 # I/O & POST‐SCRIPT FUNCTIONS
 # -------------------------------------------------------------------------------
-def export_commands(
-    commands_list: list[str], tuflowexe: Path, tcf: Path, base_filename: str
-) -> None:
+def export_commands(commands_list: list[str], tuflowexe: Path, tcf: Path, base_filename: str) -> None:
     """Create a simplified batch file (commands.txt) so that:
     • TUFLOW_EXE is set once at top
     • TCF is set once at top
@@ -398,9 +385,7 @@ def export_commands(
 
             # 2) Each command line, replacing full paths with variables
             for cmd in commands_list:
-                line: str = cmd.replace(str(tuflowexe), "%TUFLOW_EXE%").replace(
-                    str(tcf), "%TCF%"
-                )
+                line: str = cmd.replace(str(tuflowexe), "%TUFLOW_EXE%").replace(str(tcf), "%TCF%")
                 f.write(line + "\n")
 
             # 3) Pause at the end so user can see results
@@ -471,9 +456,7 @@ def compute_simulations(params: Parameters) -> list[Simulation]:
     4) Compute max_lengths for padding.
     5) Call generate_all_args()."""
     core: CoreParameters = params.core_params
-    filtered_vars: dict[str, list[str]] = filter_parameters(
-        parameters=params.run_variables, tcf=core.tcf
-    )
+    filtered_vars: dict[str, list[str]] = filter_parameters(parameters=params.run_variables, tcf=core.tcf)
 
     if core.priority_order:
         order_list: list[str] = split_input_strings(core.priority_order)
@@ -485,9 +468,7 @@ def compute_simulations(params: Parameters) -> list[Simulation]:
         sorted_keys = list(filtered_vars.keys())
 
     combos = list(itertools.product(*(filtered_vars[k] for k in sorted_keys)))
-    max_lengths: dict[str, int] = {
-        k: max(len(val) for val in values) for k, values in filtered_vars.items()
-    }
+    max_lengths: dict[str, int] = {k: max(len(val) for val in values) for k, values in filtered_vars.items()}
     logging.debug(msg=f"Max lengths: {max_lengths}")
 
     simulations: list[Simulation] = generate_all_args(
@@ -508,9 +489,7 @@ def compute_simulations(params: Parameters) -> list[Simulation]:
     return simulations
 
 
-def print_and_export_commands(
-    simulations: list[Simulation], tuflowexe: Path, tcf: Path
-) -> None:
+def print_and_export_commands(simulations: list[Simulation], tuflowexe: Path, tcf: Path) -> None:
     """Print each batch command to console with an index, then export commands.txt."""
     total: int = len(simulations)
     pad_width: int = len(str(total))
@@ -526,9 +505,7 @@ def print_and_export_commands(
     )
 
 
-def launch_simulations_loop(
-    simulations: list[Simulation], core: CoreParameters
-) -> None:
+def launch_simulations_loop(simulations: list[Simulation], core: CoreParameters) -> None:
     """Launch subprocesses (one per GPU group), monitor their completion,
     handle Ctrl+C, and finally run any post-script."""
     running: list[Simulation] = []
@@ -568,9 +545,7 @@ def launch_simulations_loop(
         while queue and (not gpu_list or len(running) < len(gpu_list)):
             sim: Simulation = queue.pop(0)
             sim.start_time = datetime.datetime.now()
-            gpu_desc: str | list[str] = (
-                sim.assigned_gpu if sim.assigned_gpu else "no GPU"
-            )
+            gpu_desc: str | list[str] = sim.assigned_gpu if sim.assigned_gpu else "no GPU"
             logging.info(f"Launching simulation {sim.index}/{total} on {gpu_desc}")
             logging.debug(f"Full args: {' '.join(sim.args_for_python)}")
 
@@ -601,11 +576,7 @@ def launch_simulations_loop(
             if isinstance(p, subprocess.Popen) and p.poll() is not None:
                 sim.end_time = datetime.datetime.now()
                 duration: str = format_duration(
-                    seconds=(
-                        (sim.end_time - sim.start_time).total_seconds()
-                        if sim.start_time
-                        else 0
-                    )
+                    seconds=((sim.end_time - sim.start_time).total_seconds() if sim.start_time else 0)
                 )
                 code = p.returncode
                 if code == 0:
@@ -654,7 +625,7 @@ def main() -> None:
         start_dt: datetime.datetime = datetime.datetime.now()
         logging.info(msg=f"Script start: {start_dt:%Y-%m-%d %H:%M:%S}")
 
-        script_dir: Path = Path(__file__).resolve().parent
+        script_dir: Path = Path(__file__).absolute().parent
         os.chdir(path=script_dir)
         logging.info(msg=f"Working dir: {script_dir}")
 
@@ -662,9 +633,7 @@ def main() -> None:
         core = params.core_params
 
         simulations: list[Simulation] = compute_simulations(params=params)
-        print_and_export_commands(
-            simulations=simulations, tuflowexe=core.tuflowexe, tcf=core.tcf
-        )
+        print_and_export_commands(simulations=simulations, tuflowexe=core.tuflowexe, tcf=core.tcf)
 
         if not core.run_simulations:
             logging.info("run_simulations=False → exiting after exporting commands.txt")

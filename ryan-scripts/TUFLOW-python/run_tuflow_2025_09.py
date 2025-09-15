@@ -959,7 +959,7 @@ def main() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    script_dir: Path = Path(__file__).resolve().parent
+    script_dir: Path = Path(__file__).absolute().parent
     os.chdir(path=script_dir)
     logging.info("Working dir: %s", script_dir)
 

@@ -1,4 +1,5 @@
 import datetime
+from pathlib import Path
 import subprocess
 import itertools
 import pprint
@@ -19,13 +20,9 @@ def get_parameters() -> dict[
     tcf: str = r".\runs\~s1~_17_~s2~_~e1~_~e2~_~s4~.tcf"
     tuflowexe: str = r"C:\TUFLOW\2023-03-AD\TUFLOW_iSP_w64.exe"
     batch_commands: str = " -b -pu0 "
-    computational_priority: str = (
-        "/NORMAL"  # /LOW /BELOWNORMAL /NORMAL /ABOVENORMAL /HIGH /REALTIME
-    )
+    computational_priority: str = "/NORMAL"  # /LOW /BELOWNORMAL /NORMAL /ABOVENORMAL /HIGH /REALTIME
     # run_simulations: bool = False    #True False #if you only want the args list
-    next_run_file: str | None = (
-        None  # "run_HBI_36.py" # Fine to leave this as None if you don't want to
-    )
+    next_run_file: str | None = None  # "run_HBI_36.py" # Fine to leave this as None if you don't want to
     # priority_order = ['e3 s5']  # Define priority: e.g. ['e3', 's2'] e3 is highest, then s2, etc.
 
     parameters: dict[str, list[str]] = {
@@ -52,9 +49,7 @@ def get_parameters() -> dict[
     }
 
     if "priority_order" in locals():  # make sure it exists
-        priority_order = clean_priority_order(
-            priority_order
-        )  # allows for list, string, mixed input
+        priority_order = clean_priority_order(priority_order)  # allows for list, string, mixed input
     # the first item is the last to be iterated over.
     # so all the others would happen first before changing priority one
     # will be sorted in alphabetical order for items not listed
@@ -76,10 +71,7 @@ def get_parameters() -> dict[
 
     parameters = filter_parameters(parameters, tcf)
     parameters: dict[str, list[str]] = split_strings_in_dict(parameters)
-    max_lengths: dict[str, int] = {
-        k: max(len(v) for v in values) if values else 0
-        for k, values in parameters.items()
-    }
+    max_lengths: dict[str, int] = {k: max(len(v) for v in values) if values else 0 for k, values in parameters.items()}
 
     # Check if batch is None, empty, or contains only spaces
     if not batch_commands.strip():
@@ -116,9 +108,7 @@ def get_parameters() -> dict[
     required_vars = ["tuflowexe", "tcf", "batch"]
     missing_vars = [var for var in required_vars if var not in config]
     if missing_vars:
-        raise ValueError(
-            f"Missing required configuration(s): {', '.join(missing_vars)}"
-        )
+        raise ValueError(f"Missing required configuration(s): {', '.join(missing_vars)}")
 
     return config
 
@@ -127,17 +117,13 @@ def run_at_end(script_path: str | None = None) -> None:
     # Use subprocess.run() to execute the script
     if script_path:
         try:
-            process = subprocess.Popen(
-                ["python", script_path], creationflags=subprocess.CREATE_NEW_CONSOLE
-            )
+            process = subprocess.Popen(["python", script_path], creationflags=subprocess.CREATE_NEW_CONSOLE)
             stdout, stderr = process.communicate()
 
             if process.returncode == 0:
                 print("Script executed successfully.")
             else:
-                print(
-                    f"An error occurred:\nSTDOUT: {stdout.decode()}\nSTDERR: {stderr.decode()}"
-                )
+                print(f"An error occurred:\nSTDOUT: {stdout.decode()}\nSTDERR: {stderr.decode()}")
         except Exception as e:
             print(f"An error occurred: {e}")
     else:
@@ -163,9 +149,7 @@ def split_strings(input: Union[str, list[str]]) -> list[str]:
     return split_list
 
 
-def split_strings_in_dict(
-    params_dict: dict[str, Union[str, list[str]]]
-) -> dict[str, list[str]]:
+def split_strings_in_dict(params_dict: dict[str, Union[str, list[str]]]) -> dict[str, list[str]]:
     for key, value in params_dict.items():
         # Use split_strings to handle both string and list of strings cases
         params_dict[key] = split_strings(value)
@@ -187,13 +171,9 @@ def split_strings_in_dict(
 #     return params_dict
 
 
-def filter_parameters(
-    parameters: dict[str, list[str]], tcf: str
-) -> dict[str, list[str]]:
+def filter_parameters(parameters: dict[str, list[str]], tcf: str) -> dict[str, list[str]]:
     # Exclude parameters with effectively empty values
-    non_empty_parameters: dict[str, list[str]] = {
-        k: v for k, v in parameters.items() if v and v[0].strip()
-    }
+    non_empty_parameters: dict[str, list[str]] = {k: v for k, v in parameters.items() if v and v[0].strip()}
     parameter_names: set[str] = set(non_empty_parameters.keys())
     tcf_parameters: set[str] = set(re.findall(r"~(\w{2})~", tcf))
 
@@ -206,9 +186,7 @@ def filter_parameters(
 
     if extra_parameters:
         print("")
-        print(
-            "Warning: TCF filename is missing these flags:", ", ".join(extra_parameters)
-        )
+        print("Warning: TCF filename is missing these flags:", ", ".join(extra_parameters))
 
     return non_empty_parameters
 
@@ -245,9 +223,7 @@ def run_command(args: list[str], index: int, total: int) -> None:
     if process.returncode == 0:
         print("\033[92mSimulation completed successfully.\033[0m")  # Green
     else:
-        print(
-            f"\033[91mSimulation failed with return code {process.returncode}.\033[0m"
-        )  # Red
+        print(f"\033[91mSimulation failed with return code {process.returncode}.\033[0m")  # Red
 
     # if process.returncode == 0:
     #     print("Simulation completed successfully.")
@@ -274,10 +250,7 @@ def generate_arg(
     args.extend(batch)
     args += [
         item
-        for sublist in (
-            [f"-{key}", f"{value.ljust(max_lengths[key])}"]
-            for key, value in zip(keys, combination)
-        )
+        for sublist in ([f"-{key}", f"{value.ljust(max_lengths[key])}"] for key, value in zip(keys, combination))
         for item in sublist
     ]
     args.append(tcf)
@@ -292,10 +265,7 @@ def generate_all_args(
     combinations,
     max_lengths: dict[str, int],
 ) -> list[list[str]]:
-    return [
-        generate_arg(tuflowexe, batch, tcf, keys, combination, max_lengths)
-        for combination in combinations
-    ]
+    return [generate_arg(tuflowexe, batch, tcf, keys, combination, max_lengths) for combination in combinations]
 
 
 def export_args(args_list: list[list[str]], base_filename: str) -> None:
@@ -312,13 +282,11 @@ def export_args(args_list: list[list[str]], base_filename: str) -> None:
 
 
 def main() -> None:
-    script_dir = os.path.dirname(os.path.realpath(__file__))
+    script_dir = Path(__file__).absolute().parent
     os.chdir(script_dir)
     print(script_dir)
     print("")
-    params: dict[
-        str, str | list[str] | dict[str, list[str]] | dict[str, int] | None
-    ] = get_parameters()
+    params: dict[str, str | list[str] | dict[str, list[str]] | dict[str, int] | None] = get_parameters()
 
     tuflowexe: str = params["tuflowexe"]  # type: ignore
     batch: list[str] = params["batch"]  # type: ignore
@@ -336,23 +304,17 @@ def main() -> None:
         priority_order = params["priority_order"]
         sorted_keys = sorted(
             keys,
-            key=lambda x: (
-                priority_order.index(x) if x in priority_order else len(priority_order)
-            ),
+            key=lambda x: (priority_order.index(x) if x in priority_order else len(priority_order)),
         )
         # Step 3: Use sorted_keys for combinations
-        combinations = list(
-            itertools.product(*(parameters[key] for key in sorted_keys))
-        )
+        combinations = list(itertools.product(*(parameters[key] for key in sorted_keys)))
     else:
         # Fallback to original keys order if priority_order doesn't exist
         sorted_keys, values = zip(*sorted(parameters.items()))
         combinations = list(itertools.product(*values))
 
     # Generate all the command line arguments
-    args_list: list[list[str]] = generate_all_args(
-        tuflowexe, batch, tcf, sorted_keys, combinations, max_lengths
-    )
+    args_list: list[list[str]] = generate_all_args(tuflowexe, batch, tcf, sorted_keys, combinations, max_lengths)
 
     # Print all arguments before presenting the parameters
     print("All Generated Arguments:")
@@ -377,9 +339,7 @@ def main() -> None:
                 time.sleep(wait_time_after_run)
         run_at_end(script_path=next_run_file)
     else:
-        print(
-            f'TUFLOW runs exported to text file only - run_simulations: {params["run_simulations"]}'
-        )
+        print(f'TUFLOW runs exported to text file only - run_simulations: {params["run_simulations"]}')
         print()
     subprocess.call("pause", shell=True)  # wait for exit
 

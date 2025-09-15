@@ -17,7 +17,7 @@ console_log_level = "INFO"
 
 def main() -> None:
     print_library_version()
-    script_directory: Path = Path(__file__).resolve().parent
+    script_directory: Path = Path(__file__).absolute().parent
     # script_directory = Path(r"...")
     if not change_working_directory(target_dir=script_directory):
         return
