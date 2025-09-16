@@ -2,11 +2,12 @@
 
 import pandas as pd
 from loguru import logger
-from .base_processor import BaseProcessor
+
+from .max_data_processor import MaxDataProcessor
 
 
 # this processor does not understand pits - only index 1 or 2 for standard culverts
-class NmxProcessor(BaseProcessor):
+class NmxProcessor(MaxDataProcessor):
     """
     Processor for '_1d_Nmx.csv' files.
     """
@@ -25,9 +26,7 @@ class NmxProcessor(BaseProcessor):
             status = self.read_maximums_csv()
 
             if status != 0:
-                logger.error(
-                    f"Processing aborted for file: {self.file_path} due to previous errors."
-                )
+                logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
                 self.df = pd.DataFrame()
                 return self.df
 
@@ -62,21 +61,15 @@ class NmxProcessor(BaseProcessor):
 
         try:
             # Split 'Node ID' into 'Chan ID' and 'node_suffix'
-            self.df[["Chan ID", "node_suffix"]] = self.df["Node ID"].str.rsplit(
-                ".", n=1, expand=True
-            )
+            self.df[["Chan ID", "node_suffix"]] = self.df["Node ID"].str.rsplit(".", n=1, expand=True)
 
             # Validate 'node_suffix' values
             # this processor does not understand pits
             valid_suffixes = {"1", "2"}
             abnormal_suffix_mask = ~self.df["node_suffix"].isin(valid_suffixes)
             if abnormal_suffix_mask.any():
-                abnormal_values = self.df.loc[
-                    abnormal_suffix_mask, "node_suffix"
-                ].unique()
-                logger.warning(
-                    f"Abnormal 'node_suffix' values detected in file {self.file_path}: {abnormal_values}"
-                )
+                abnormal_values = self.df.loc[abnormal_suffix_mask, "node_suffix"].unique()
+                logger.warning(f"Abnormal 'node_suffix' values detected in file {self.file_path}: {abnormal_values}")
                 # Exclude these rows
                 self.df = self.df[~abnormal_suffix_mask]
 
@@ -88,14 +81,10 @@ class NmxProcessor(BaseProcessor):
                 aggfunc="first",
             ).reset_index()
 
-            pivot_df.rename(
-                columns={"1": "US_h", "2": "DS_h", "Time Hmax": "Time"}, inplace=True
-            )
+            pivot_df.rename(columns={"1": "US_h", "2": "DS_h", "Time Hmax": "Time"}, inplace=True)
 
             expected_pivot_columns = ["Chan ID", "Time", "US_h", "DS_h"]
-            missing_pivot_columns = [
-                col for col in expected_pivot_columns if col not in pivot_df.columns
-            ]
+            missing_pivot_columns = [col for col in expected_pivot_columns if col not in pivot_df.columns]
             if missing_pivot_columns:
                 logger.error(
                     f"Missing expected columns after pivoting for file {self.file_path}: {missing_pivot_columns}"
@@ -106,13 +95,9 @@ class NmxProcessor(BaseProcessor):
             self.df = pivot_df[expected_pivot_columns]
 
         except KeyError as e:
-            logger.error(
-                f"Missing expected columns during extraction for file {self.file_path}: {e}"
-            )
+            logger.error(f"Missing expected columns during extraction for file {self.file_path}: {e}")
             self.df = pd.DataFrame()
 
         except Exception as e:
-            logger.error(
-                f"Unexpected error during NMX data extraction for file {self.file_path}: {e}"
-            )
+            logger.error(f"Unexpected error during NMX data extraction for file {self.file_path}: {e}")
             self.df = pd.DataFrame()

@@ -2,10 +2,11 @@
 
 import pandas as pd
 from loguru import logger
-from .base_processor import BaseProcessor
+
+from .timeseries_processor import TimeSeriesProcessor
 
 
-class QProcessor(BaseProcessor):
+class QProcessor(TimeSeriesProcessor):
     """Processor for '_Q' Timeseries CSV files."""
 
     def process(self) -> pd.DataFrame:
@@ -18,8 +19,8 @@ class QProcessor(BaseProcessor):
         logger.info(f"Starting processing of Q file: {self.file_path}")
 
         try:
-            # Step 1: Read and process the timeseries CSV with 'Q' as the data type
-            status: int = self.read_and_process_timeseries_csv(data_type="Q")
+            # Step 1: Read and process the timeseries CSV using the inferred data type
+            status: int = self.read_and_process_timeseries_csv()
 
             if status != 0:
                 logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
