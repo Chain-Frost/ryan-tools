@@ -15,7 +15,24 @@
       "SignedAbsMax": "float"
     },
     "processingParts": {
-      "dataformat": "POMM"
+      "dataformat": "POMM",
+      "_note": "columns_to_use keys reflect the header row after transposing the raw POMM layout.",
+      "expected_in_header": [
+        "Location",
+        "Time",
+        "Maximum (Extracted from Time Series)",
+        "Time of Maximum",
+        "Minimum (Extracted From Time Series)",
+        "Time of Minimum"
+      ],
+      "columns_to_use": {
+        "Location": "string",
+        "Time": "string",
+        "Maximum (Extracted from Time Series)": "float",
+        "Time of Maximum": "float",
+        "Minimum (Extracted From Time Series)": "float",
+        "Time of Minimum": "float"
+      }
     }
   },
   "Cmx": {

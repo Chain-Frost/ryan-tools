@@ -148,14 +148,17 @@ class BaseProcessor(ABC):
             f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, skip_columns: {self.skip_columns}"
         )
 
-        # Depending on dataformat, load columns_to_use or expected_in_header
-        if self.dataformat in ["Maximums", "ccA"]:
+        handled_formats: set[str] = {"Maximums", "ccA", "Timeseries", "POMM"}
+
+        if self.dataformat in {"Maximums", "ccA", "POMM"}:
             self.columns_to_use = processing_parts.columns_to_use
             logger.debug(f"{self.file_name}: Loaded columns_to_use: {self.columns_to_use}")
-        elif self.dataformat == "Timeseries":
+
+        if self.dataformat in {"Timeseries", "POMM"}:
             self.expected_in_header = processing_parts.expected_in_header
             logger.debug(f"{self.file_name}: Loaded expected_in_header: {self.expected_in_header}")
-        else:
+
+        if self.dataformat not in handled_formats:
             logger.warning(f"{self.file_name}: Unknown dataformat '{self.dataformat}'.")
 
     @abstractmethod
