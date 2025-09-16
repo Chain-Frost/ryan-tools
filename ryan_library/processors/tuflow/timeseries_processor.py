@@ -1,118 +1,120 @@
 # ryan_library/processors/tuflow/timeseries_processor.py
 
+from typing import Any
+
 import pandas as pd
 from loguru import logger
+
 from .base_processor import BaseProcessor, DataValidationError, ProcessorError
 
 
 class TimeSeriesProcessor(BaseProcessor):
-    """Intermediate base class for processing timeseries data types."""
+    """Intermediate base class for processing timeseries data types.
 
-    def process_timeseries_raw_dataframe(self, data_type: str) -> int:
-        """
-        Process the raw reshaped timeseries DataFrame by melting or transforming as needed.
+    Subclasses call :meth:`read_and_process_timeseries_csv` to ingest source
+    CSV files before applying dataset specific rules. The default
+    :meth:`process_timeseries_raw_dataframe` implementation is a no-op that can
+    be overridden to perform additional validation or reshaping of the melted
+    DataFrame stored on :attr:`df`.
+    """
+
+    def read_and_process_timeseries_csv(self, data_type: str | None = None) -> int:
+        """Read, clean and reshape a timeseries CSV file into long format.
+
+        Args:
+            data_type (str | None): The data type identifier (e.g. ``"H"`` or
+                ``"Q"``). Defaults to :attr:`self.data_type`.
 
         Returns:
-            int: Status code.
+            int: Status code where ``0`` is success.
         """
-        # Implement the common process_timeseries_raw_dataframe logic here
-        try:
-            logger.debug("Starting to process the raw timeseries DataFrame.")
 
-            # This method can be abstracted based on data_type
-            if data_type == "H":
-                return self._process_h_timeseries()
-            elif data_type == "Q":
-                return self._process_q_timeseries()
-            else:
-                logger.error(
-                    f"Unsupported data_type '{data_type}' for timeseries processing."
-                )
-                return 3
-
-        except (DataValidationError, ProcessorError) as e:
-            logger.error(f"{self.file_name}: Processing error: {e}")
-            return 3
-        except Exception as e:
-            logger.exception(f"{self.file_name}: Unexpected error: {e}")
+        resolved_data_type: str | None = data_type or self.data_type
+        if not resolved_data_type:
+            logger.error(f"{self.file_name}: Unable to determine timeseries data type.")
             return 3
 
-    def _process_q_timeseries(self) -> int:
-        """Process 'Q' timeseries data."""
         try:
-            # Identify Q columns (e.g., "Q ds1", "Q ds2", "Q ds3")
-            q_columns = [col for col in self.df.columns if col.startswith("Q ds")]
-            logger.debug(f"Identified Q columns: {q_columns}")
-
-            if not q_columns:
-                logger.error("No Q columns found in the DataFrame.")
-                return 3
-
-            # Melt the Q columns to transform from wide to long format
-            df_melted = self.df.melt(
-                id_vars=["Time"], value_vars=q_columns, var_name="ds", value_name="Q"
-            )
-            logger.debug(f"Melted DataFrame shape: {df_melted.shape}")
-
-            # Extract ds identifier (e.g., 'ds1', 'ds2', 'ds3') from the 'ds' column
-            df_melted["ds"] = df_melted["ds"].str.extract(r"(ds\d+)")
-
-            # Drop rows with missing Q values
-            initial_row_count = len(df_melted)
-            df_melted.dropna(subset=["Q"], inplace=True)
-            final_row_count = len(df_melted)
-            logger.debug(
-                f"Dropped {initial_row_count - final_row_count} rows with missing Q values."
-            )
-
-            if df_melted.empty:
-                logger.error("DataFrame is empty after melting Q columns.")
+            df_full: pd.DataFrame = self._read_csv(file_path=self.file_path)
+            if df_full.empty:
+                logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
                 return 1
 
-            # Assign the melted DataFrame back to self.df
+            self.raw_df = df_full.copy(deep=False)
+
+            df: pd.DataFrame = self._clean_headers(df=df_full, data_type=resolved_data_type)
+            if df.empty:
+                logger.error(f"{self.file_name}: DataFrame is empty after cleaning headers.")
+                return 1
+
+            df_melted: pd.DataFrame = self._reshape_timeseries_df(
+                df=df, data_type=resolved_data_type
+            )
+            if df_melted.empty:
+                logger.error(f"{self.file_name}: No data found after reshaping.")
+                return 1
+
             self.df = df_melted
-
-            # Validate headers after melting
-            expected_headers = ["Time", "ds", "Q"]
-            if not self.check_headers_match(test_headers=self.df.columns.tolist()):
-                logger.error(f"{self.file_name}: Header mismatch after melting.")
-                return 2
-
-            logger.info(
-                f"{self.file_name}: Successfully melted Q columns into long format."
-            )
-
-            return 0
-
-        except Exception as e:
-            logger.exception(
-                f"{self.file_name}: Failed to process Q timeseries data: {e}"
-            )
-            return 3
-
-    def _process_h_timeseries(self) -> int:
-        """Process 'H' timeseries data."""
-        try:
-            # Implement the H timeseries processing logic
-            # This could include methods like _reshape_h_data, etc.
-            # Similar to what was outlined in your original QProcessor
-
-            # Example:
-            category_type = (
-                "Chan ID" if "1d" in self.name_parser.suffixes else "Location"
-            )
-            df_melted = self._reshape_h_data(df=self.df, category_type=category_type)
-            self.df = df_melted
-            self._apply_final_transformations(data_type="H")
+            self._apply_final_transformations(data_type=resolved_data_type)
             self.processed = True
-            logger.info(f"{self.file_name}: Successfully processed H timeseries data.")
-
+            logger.info(f"{self.file_name}: Timeseries CSV processed successfully.")
             return 0
-
-        except Exception as e:
-            logger.exception(
-                f"{self.file_name}: Failed to process H timeseries data: {e}"
-            )
+        except (ProcessorError, DataValidationError) as exc:
+            logger.error(f"{self.file_name}: Processing error: {exc}")
+            return 3
+        except Exception as exc:
+            logger.exception(f"{self.file_name}: Unexpected error: {exc}")
             return 3
 
-    # Implement any additional shared timeseries processing methods here
+    def process_timeseries_raw_dataframe(self, *args: Any, **kwargs: Any) -> int:
+        """Hook for subclasses to continue processing ``self.df``.
+
+        Returns:
+            int: ``0`` when no additional work is required.
+        """
+
+        return 0
+
+    def _reshape_timeseries_df(self, df: pd.DataFrame, data_type: str) -> pd.DataFrame:
+        """Reshape the timeseries DataFrame based on the data type."""
+        is_1d: bool = "_1d_" in self.file_name.lower()
+        category_type: str = "Chan ID" if is_1d else "Location"
+        logger.debug(
+            f"{self.file_name}: {'1D' if is_1d else '2D'} filename detected; using '{category_type}' as category type."
+        )
+
+        try:
+            if data_type == "H":
+                df_melted: pd.DataFrame = self._reshape_h_data(df=df, category_type=category_type)
+            else:
+                df_melted = df.melt(id_vars=["Time"], var_name=category_type, value_name=data_type)
+                logger.debug(f"Reshaped DataFrame to long format with {len(df_melted)} rows.")
+        except Exception as e:
+            logger.exception(f"{self.file_name}: Failed to reshape DataFrame: {e}")
+            raise ProcessorError(f"Failed to reshape DataFrame: {e}")
+
+        if df_melted.empty:
+            logger.error(f"{self.file_name}: No data found after reshaping.")
+            raise DataValidationError("No data found after reshaping.")
+
+        expected_headers: list[str] = (
+            ["Time", category_type, "H_US", "H_DS"] if data_type == "H" else ["Time", category_type, data_type]
+        )
+        self.expected_in_header = expected_headers
+        if not self.check_headers_match(test_headers=df_melted.columns.tolist()):
+            logger.error(f"{self.file_name}: Header mismatch after reshaping.")
+            raise DataValidationError("Header mismatch after reshaping.")
+
+        return df_melted
+
+    def _apply_final_transformations(self, data_type: str) -> None:
+        """Apply final dtype coercions to the reshaped DataFrame."""
+        col_types: dict[str, str] = {
+            "Time": "float64",
+            data_type: "float64",
+        }
+
+        if data_type == "H":
+            col_types.update({"H_US": "float64", "H_DS": "float64"})
+
+        self.apply_dtype_mapping(dtype_mapping=col_types, context="final_transformations")
