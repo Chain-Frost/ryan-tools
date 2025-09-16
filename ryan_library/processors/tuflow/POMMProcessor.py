@@ -29,21 +29,45 @@ class POMMProcessor(BaseProcessor):
         extract TP, Duration, AEP, and finally add all 'common' columns."""
 
         try:
+            # 1) Load the CSV without headers (header=None)
             raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)
             self.raw_df = raw_df
 
+            # # 2) Extract run_code from top‐left cell
+            # raw_run_code = raw_df.iat[0, 0]
+            # # Overwrite the parser's raw_run_code in case
+            # # the file name didn’t exactly match. But typically:
+            # self.name_parser.raw_run_code = raw_run_code
+
+            # 3) Drop the first column and transpose
             transposed: pd.DataFrame = raw_df.drop(columns=0).T
+
+            # 4) Promote row‐0 (of transposed) to headers
             transposed.columns = pd.Index(transposed.iloc[0], dtype=str)
             transposed = transposed.drop(index=transposed.index[0])
 
-            headers = transposed.columns.tolist()
+            # 5) Rename the core columns to consistent names
+            #    We expect header names like:
+            #        ['Location', 'Time', 'Maximum (Extracted from Time Series)', 'Time of Maximum',
+            #         'Minimum (Extracted From Time Series)', 'Time of Minimum']
+            #    They don't 100% match up to data for the Time/Location headers.
+            #    We will rename them to:
+            #        Location → 'Type'
+            #        Time → 'Location'
+            #        Maximum (Extracted from Time Series) → 'Max'
+            #        Time of Maximum → 'Tmax'
+            #        Minimum (Extracted From Time Series) → 'Min'
+            #        Time of Minimum → 'Tmin'
+            #        Velocity → 'Velocity'
+            # Define new column names and their data types
+            headers: list[str] = transposed.columns.tolist()
             if self.expected_in_header:
                 if not self.check_headers_match(headers):
                     raise DataValidationError(f"{self.file_name}: Header mismatch for POMM data. Got {headers}")
 
             rename_map: dict[str, str] = POMM_RENAME_COLUMNS
 
-            missing_sources = [col for col in rename_map if col not in headers]
+            missing_sources: list[str] = [col for col in rename_map if col not in headers]
             if missing_sources:
                 raise DataValidationError(
                     f"{self.file_name}: Missing expected columns {missing_sources} after transpose."
@@ -55,6 +79,7 @@ class POMMProcessor(BaseProcessor):
 
             self.df = transposed
 
+            # Rename columns and cast to appropriate data types
             base_dtype_map: dict[str, str] = {
                 column: self.output_columns[column] for column in ordered_columns if column in self.output_columns
             }
@@ -66,7 +91,14 @@ class POMMProcessor(BaseProcessor):
                     f"{self.file_name}: Required columns 'Max' and 'Min' not available after renaming."
                 )
 
+            # 10) Finally, apply the dtype mapping from output_columns (so that everything
+            #     matches your JSON’s "output_columns" keys & dtypes).  This is the call that
+            #     looks at Config.get_instance().data_types["POMM"].output_columns and does .astype(...)
+
+            # Calculate AbsMax column as the maximum absolute value between 'Max' and 'Min'
             self.df["AbsMax"] = self.df[["Max", "Min"]].abs().max(axis=1)
+
+            # Calculate SignedAbsMax with the sign of the source data
             self.df["SignedAbsMax"] = self.df.apply(
                 lambda row: row["Max"] if abs(row["Max"]) >= abs(row["Min"]) else row["Min"],
                 axis=1,

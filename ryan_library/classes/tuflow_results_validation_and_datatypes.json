@@ -16,7 +16,7 @@
     },
     "processingParts": {
       "dataformat": "POMM",
-      "_note": "columns_to_use keys reflect the header row after transposing the raw POMM layout.",
+      "_note": "expected_in_header and columns_to_use keys reflect the header row after transposing the raw POMM layout.",
       "expected_in_header": [
         "Location",
         "Time",
