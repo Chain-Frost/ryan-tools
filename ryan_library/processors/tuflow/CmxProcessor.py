@@ -2,10 +2,11 @@
 
 import pandas as pd
 from loguru import logger
-from .base_processor import BaseProcessor
+
+from .max_data_processor import MaxDataProcessor
 
 
-class CmxProcessor(BaseProcessor):
+class CmxProcessor(MaxDataProcessor):
     """Processor for '_1d_Cmx.csv' files."""
 
     def process(self) -> None:
