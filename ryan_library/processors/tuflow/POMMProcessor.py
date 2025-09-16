@@ -16,6 +16,18 @@ class POMMProcessor(BaseProcessor):
         # Let the BaseProcessor __post_init__ do its thing (sets self.name_parser, data_type, etc).
         super().__post_init__()
 
+    def _derive_abs_metrics(self) -> None:
+        """Populate AbsMax and SignedAbsMax from the Max/Min columns."""
+
+        if not {"Max", "Min"}.issubset(self.df.columns):
+            return
+
+        absolute_values = self.df[["Max", "Min"]].abs()
+        self.df["AbsMax"] = absolute_values.max(axis=1)
+
+        use_max = absolute_values["Max"] >= absolute_values["Min"]
+        self.df["SignedAbsMax"] = self.df["Max"].where(use_max, self.df["Min"])
+
     def process(self) -> None:
         """Read the raw POMM CSV, transpose + promote row 1 to header,
         rename the key columns, calculate AbsMax and SignedAbsMax,
@@ -76,27 +88,9 @@ class POMMProcessor(BaseProcessor):
             #     matches your JSON’s "output_columns" keys & dtypes).  This is the call that
             #     looks at Config.get_instance().data_types["POMM"].output_columns and does .astype(...)
 
-            # Calculate AbsMax column as the maximum absolute value between 'Max' and 'Min'
-            self.df["AbsMax"] = self.df[["Max", "Min"]].abs().max(axis=1)
-
-            # Calculate SignedAbsMax with the sign of the source data
-            self.df["SignedAbsMax"] = self.df.apply(
-                lambda row: (
-                    row["Max"] if abs(row["Max"]) >= abs(row["Min"]) else row["Min"]
-                ),
-                axis=1,
-            )
-
-            # 7) Derive AbsMax and SignedAbsMax
-            #    AbsMax = max(|Max|, |Min|), SignedAbsMax = whichever of Max or Min has the larger abs()
-            if {"Max", "Min"}.issubset(self.df.columns):
-                self.df["AbsMax"] = self.df[["Max", "Min"]].abs().max(axis=1)
-                self.df["SignedAbsMax"] = self.df.apply(
-                    lambda row: (
-                        row["Max"] if abs(row["Max"]) >= abs(row["Min"]) else row["Min"]
-                    ),
-                    axis=1,
-                )
+            # 7) Derive AbsMax and SignedAbsMax once the Max/Min columns exist.
+            #    AbsMax = max(|Max|, |Min|); SignedAbsMax keeps the sign of the larger magnitude value.
+            self._derive_abs_metrics()
             self.add_common_columns()
             self.apply_output_transformations()
             # Mark success
