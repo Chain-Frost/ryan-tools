@@ -339,6 +339,11 @@ class BaseProcessor(ABC):
     def read_maximums_csv(self) -> int:
         """Reads CSV files with 'Maximums' or 'ccA' dataformat.
 
+        Subclasses call this loader at the start of :meth:`process` to populate :attr:`self.df` before running
+        any processor-specific enrichment logic.
+
+        Example: CmxProcessor(Path("results/sample_max.csv")).process()
+
         Returns:
              int: status code."""
         usecols = list(self.columns_to_use.keys())
@@ -370,6 +375,11 @@ class BaseProcessor(ABC):
 
     def read_and_process_timeseries_csv(self, data_type: str) -> int:
         """Reads and processes timeseries CSV files, including cleaning headers and reshaping data.
+
+        Subclasses call this helper at the start of :meth:`process` to populate :attr:`self.df` before applying
+        their domain-specific transformations.
+
+        Example: QProcessor(Path("results/sample_timeseries.csv")).process()
 
         Args:
             data_type (str): The data type identifier (e.g., 'H', 'Q').
