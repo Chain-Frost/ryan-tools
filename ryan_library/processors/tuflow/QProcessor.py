@@ -1,45 +1,39 @@
 # ryan_library/processors/tuflow/QProcessor.py
 
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 from loguru import logger
-
-from .base_processor import DataValidationError, ProcessorError, ProcessorStatus
-from .timeseries_processor import TimeSeriesProcessor
+from .base_processor import BaseProcessor, DataValidationError, ProcessorError
 
 
-class QProcessor(TimeSeriesProcessor):
-    """Processor for ``_Q`` timeseries CSV outputs."""
+class QProcessor(BaseProcessor):
+    """Processor for '_Q' Timeseries CSV files."""
 
     def process(self) -> pd.DataFrame:
-        """Run the shared pipeline and Q-specific reshape for a ``_Q`` CSV.
-
-        The method orchestrates each step of the processing workflow:
-
-        1. Invoke :meth:`read_and_process_timeseries_csv` to read and tidy the
-           raw TUFLOW export.
-        2. Normalise the melted discharge values via
-           :meth:`process_timeseries_raw_dataframe`.
-        3. Append metadata columns, apply configured dtype conversions and
-           validate the resulting frame before returning it.
+        """
+        Process the '_Q' timeseries CSV file and return a cleaned DataFrame.
 
         Returns:
-            pandas.DataFrame: Processed Q-series observations.
+            pd.DataFrame: Processed Q data.
         """
         logger.info(f"Starting processing of Q file: {self.file_path}")
 
         try:
             # Step 1: Read and process the timeseries CSV with 'Q' as the data type
-            status: ProcessorStatus = self.read_and_process_timeseries_csv(data_type="Q")
+            status: int = self.read_and_process_timeseries_csv(data_type="Q")
 
-            if status is not ProcessorStatus.SUCCESS:
-                logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
+            if status != 0:
+                logger.error(
+                    f"Processing aborted for file: {self.file_path} due to previous errors."
+                )
                 self.df = pd.DataFrame()
                 return self.df
 
             # Step 2: Further process the reshaped DataFrame if necessary
             status = self.process_timeseries_raw_dataframe()
-            if status is not ProcessorStatus.SUCCESS:
-                logger.error(f"Processing aborted for file: {self.file_path} during raw dataframe processing.")
+            if status != 0:
+                logger.error(
+                    f"Processing aborted for file: {self.file_path} during raw dataframe processing."
+                )
                 self.df = pd.DataFrame()
                 return self.df
 
@@ -65,60 +59,70 @@ class QProcessor(TimeSeriesProcessor):
             self.df = pd.DataFrame()
             return self.df
 
-    def process_timeseries_raw_dataframe(self) -> ProcessorStatus:
-        """Normalise the long-form ``Q`` DataFrame produced by the shared pipeline.
-
-        The shared reader trims the leading ``"Q "`` prefix and any bracketed
-        unit descriptors from the raw column headers (for example ``"Q ds1
-        [M11_5m_001]"`` becomes ``"ds1"``).  This helper keeps whichever
-        identifier column was created during the melt (``"Chan ID"`` for 1D
-        exports or ``"Location"`` for 2D), removes empty discharge values and
-        re-confirms the headers so downstream validation behaves predictably.
+    def process_timeseries_raw_dataframe(self) -> int:
+        """Process the raw reshaped timeseries DataFrame by melting Q columns into a long format.
 
         Returns:
-            ProcessorStatus: Status flag following the shared convention used by
-            :class:`~ryan_library.processors.tuflow.base_processor.BaseProcessor`.
-        """
+            int: Status code.
+                0 - Success
+                1 - Empty DataFrame after processing
+                2 - Header mismatch after processing
+                3 - Processing error"""
         try:
-            logger.debug("Normalising the melted Q DataFrame produced by the shared pipeline.")
+            logger.debug("Starting to process the raw timeseries DataFrame for Q data.")
 
-            identifier_columns = [col for col in self.df.columns if col not in {"Time", "Q"}]
-            if len(identifier_columns) != 1:
-                logger.error(
-                    f"{self.file_name}: Expected a single identifier column alongside 'Time' and 'Q', got {identifier_columns}."
-                )
-                return ProcessorStatus.FAILURE
+            # Identify Q columns (e.g., "Q ds1", "Q ds2", "Q ds3")
+            q_columns = [col for col in self.df.columns if col.startswith("Q ds")]
+            logger.debug(f"Identified Q columns: {q_columns}")
 
-            identifier_column: str = identifier_columns[0]
-            logger.debug(f"Using '{identifier_column}' as the identifier column for Q values.")
+            if not q_columns:
+                logger.error("No Q columns found in the DataFrame.")
+                return 3
 
-            # Drop rows with missing Q values to avoid empty observations downstream
-            initial_row_count = len(self.df)
-            self.df.dropna(subset=["Q"], inplace=True)
-            final_row_count = len(self.df)
-            dropped_rows = initial_row_count - final_row_count
-            if dropped_rows:
-                logger.debug(f"Dropped {dropped_rows} rows with missing Q values.")
+            # Melt the Q columns to transform from wide to long format
+            df_melted = self.df.melt(
+                id_vars=["Time"], value_vars=q_columns, var_name="ds", value_name="Q"
+            )
+            logger.debug(f"Melted DataFrame shape: {df_melted.shape}")
 
-            if self.df.empty:
-                logger.error("DataFrame is empty after removing rows with missing Q values.")
-                return ProcessorStatus.EMPTY_DATAFRAME
+            # Extract ds identifier (e.g., 'ds1', 'ds2', 'ds3') from the 'ds' column
+            df_melted["ds"] = df_melted["ds"].str.extract(r"(ds\d+)")
 
-            # Validate headers after normalisation
+            # Drop rows with missing Q values
+            initial_row_count = len(df_melted)
+            df_melted.dropna(subset=["Q"], inplace=True)
+            final_row_count = len(df_melted)
+            logger.debug(
+                f"Dropped {initial_row_count - final_row_count} rows with missing Q values."
+            )
+
+            if df_melted.empty:
+                logger.error("DataFrame is empty after melting Q columns.")
+                return 1
+
+            # Assign the melted DataFrame back to self.df
+            self.df = df_melted
+
+            # Validate headers after melting
+            expected_headers = ["Time", "ds", "Q"]
             if not self.check_headers_match(test_headers=self.df.columns.tolist()):
                 logger.error(f"{self.file_name}: Header mismatch after melting.")
-                return ProcessorStatus.HEADER_MISMATCH
+                return 2
 
-            logger.info(f"{self.file_name}: Successfully normalised Q DataFrame for downstream processing.")
+            logger.info(
+                f"{self.file_name}: Successfully melted Q columns into long format."
+            )
 
-            return ProcessorStatus.SUCCESS
+            return 0
 
         except DataValidationError as dve:
             logger.error(f"{self.file_name}: Data validation error: {dve}")
-            return ProcessorStatus.FAILURE
+            return 3
         except ProcessorError as pe:
             logger.error(f"{self.file_name}: Processor error: {pe}")
-            return ProcessorStatus.FAILURE
+            return 3
         except Exception as e:
-            logger.exception(f"{self.file_name}: Unexpected error during processing: {e}")
-            return ProcessorStatus.FAILURE
+            logger.exception(
+                f"{self.file_name}: Unexpected error during processing: {e}"
+            )
+            return 3
