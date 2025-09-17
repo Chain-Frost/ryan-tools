@@ -6,7 +6,7 @@ from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, cast
 import importlib
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 from loguru import logger
 from ryan_library.classes.suffixes_and_dtypes import (
     Config,
@@ -67,11 +67,12 @@ class BaseProcessor(ABC):
     processed: bool = field(default=False)
 
     # Define _processor_cache as a ClassVar to make it a class variable
-    _processor_cache: ClassVar[dict[str, type["BaseProcessor"]]] = {}
+    _processor_cache: ClassVar[dict[tuple[str, str], type["BaseProcessor"]]] = {}
 
     # Attributes to hold configuration
     output_columns: dict[str, str] = field(init=False, default_factory=dict)
     dataformat: str = field(init=False, default="")
+    processor_module: str | None = field(init=False, default=None)
     skip_columns: list[int] = field(init=False, default_factory=list)
     columns_to_use: dict[str, str] = field(init=False, default_factory=dict)
     expected_in_header: list[str] = field(init=False, default_factory=list)
@@ -101,16 +102,29 @@ class BaseProcessor(ABC):
             raise ValueError(error_msg)
 
         # Get processor class name based on data type
-        processor_class_name: str | None = SuffixesConfig.get_instance().get_processor_class_for_data_type(
-            data_type=data_type
-        )
+        suffixes_config = SuffixesConfig.get_instance()
+        data_type_def = suffixes_config.get_definition_for_data_type(data_type=data_type)
+
+        processor_class_name: str | None = None
+        processor_dataformat: str | None = None
+        processor_module: str | None = None
+        if data_type_def is not None:
+            processor_class_name = data_type_def.processor
+            processor_parts = data_type_def.processing_parts
+            processor_dataformat = processor_parts.dataformat or None
+            processor_module = processor_parts.processor_module
+
         if not processor_class_name:
             error_msg = f"No processor class specified for data type '{data_type}'."
             logger.error(error_msg)
             raise KeyError(error_msg)
 
         # Dynamically import the processor class
-        processor_cls: type[BaseProcessor] = cls.get_processor_class(class_name=processor_class_name)
+        processor_cls: type[BaseProcessor] = cls.get_processor_class(
+            class_name=processor_class_name,
+            processor_module=processor_module,
+            dataformat=processor_dataformat,
+        )
 
         # Instantiate the processor class
         try:
@@ -121,27 +135,73 @@ class BaseProcessor(ABC):
             raise
 
     @staticmethod
-    def get_processor_class(class_name: str) -> type["BaseProcessor"]:
+    def get_processor_class(
+        class_name: str, processor_module: str | None = None, dataformat: str | None = None
+    ) -> type["BaseProcessor"]:
         """Dynamically import and return a processor class by name with caching."""
-        if class_name in BaseProcessor._processor_cache:
-            logger.debug(f"Using cached processor class '{class_name}'.")
-            return BaseProcessor._processor_cache[class_name]
 
-        module_path: str = f"ryan_library.processors.tuflow.{class_name}"
-        try:
-            module = importlib.import_module(module_path)
-            processor_cls: type[BaseProcessor] = cast(type["BaseProcessor"], getattr(module, class_name))
-            BaseProcessor._processor_cache[class_name] = processor_cls
-            logger.debug(f"Imported processor class '{class_name}' from '{module_path}'.")
-            return processor_cls
-        except ImportError as ie:
-            msg: str = f"Processor module '{module_path}' not found: {ie}"
-            logger.exception(msg)
-            raise ImportProcessorError(msg) from ie
-        except AttributeError as ae:
-            msg = f"Processor class '{class_name}' not found in '{module_path}': {ae}"
-            logger.exception(msg)
-            raise ImportProcessorError(msg) from ae
+        cache_namespace = processor_module or dataformat or ""
+        cache_key = (cache_namespace, class_name)
+        if cache_key in BaseProcessor._processor_cache:
+            logger.debug(
+                "Using cached processor class '%s' for module hint '%s'.",
+                class_name,
+                cache_namespace or "<default>",
+            )
+            return BaseProcessor._processor_cache[cache_key]
+
+        base_package = "ryan_library.processors.tuflow"
+        candidate_modules: list[str] = []
+
+        def extend_with_module(module_hint: str) -> None:
+            module_hint = module_hint.strip()
+            if not module_hint:
+                return
+            is_absolute = module_hint.startswith("ryan_library.")
+            normalized = module_hint.lstrip(".") if not is_absolute else module_hint
+            module_base = normalized if is_absolute else f"{base_package}.{normalized}"
+            candidate_modules.append(f"{module_base}.{class_name}")
+            candidate_modules.append(module_base)
+
+        if processor_module:
+            extend_with_module(processor_module)
+
+        candidate_modules.append(f"{base_package}.{class_name}")
+        candidate_modules.append(base_package)
+
+        seen: set[str] = set()
+        ordered_candidates: list[str] = []
+        for module_path in candidate_modules:
+            if module_path not in seen:
+                seen.add(module_path)
+                ordered_candidates.append(module_path)
+
+        last_exception: Exception | None = None
+        attempted_paths: list[str] = []
+
+        for module_path in ordered_candidates:
+            attempted_paths.append(module_path)
+            try:
+                module = importlib.import_module(module_path)
+                processor_cls: type[BaseProcessor] = cast(
+                    type["BaseProcessor"], getattr(module, class_name)
+                )
+                BaseProcessor._processor_cache[cache_key] = processor_cls
+                logger.debug(f"Imported processor class '{class_name}' from '{module_path}'.")
+                return processor_cls
+            except ImportError as exc:
+                logger.debug(f"Failed to import module '{module_path}': {exc}")
+                last_exception = exc
+            except AttributeError as exc:
+                logger.debug(f"Module '{module_path}' does not define '{class_name}': {exc}")
+                last_exception = exc
+
+        attempted = ", ".join(attempted_paths)
+        msg = f"Processor class '{class_name}' not found in modules: {attempted}."
+        logger.exception(msg)
+        if last_exception is not None:
+            raise ImportProcessorError(msg) from last_exception
+        raise ImportProcessorError(msg)
 
     def _load_configuration(self) -> None:
         """Load configuration for expected headers and output columns from the config."""
@@ -159,10 +219,11 @@ class BaseProcessor(ABC):
         # Load processingParts
         processing_parts: ProcessingParts = data_type_def.processing_parts
         self.dataformat = processing_parts.dataformat
+        self.processor_module = processing_parts.processor_module
         self.skip_columns = processing_parts.skip_columns
         logger.debug(
             f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, "
-            f"skip_columns: {self.skip_columns}"
+            f"processor_module: {self.processor_module}, skip_columns: {self.skip_columns}"
         )
 
         # TODO: tighten configuration validation by inspecting the JSON contents

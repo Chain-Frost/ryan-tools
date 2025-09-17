@@ -69,6 +69,7 @@
     },
     "processingParts": {
       "dataformat": "Maximums",
+      "module": "1d_maximums",
       "columns_to_use": {
         "Chan ID": "string",
         "Qmax": "float",
@@ -91,6 +92,7 @@
     },
     "processingParts": {
       "dataformat": "Maximums",
+      "module": "1d_maximums",
       "columns_to_use": {
         "Node ID": "string",
         "Hmax": "float",
@@ -179,6 +181,7 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
+      "module": "1d_timeseries",
       "expected_in_header": [
         "Time",
         "Chan ID",
@@ -204,6 +207,26 @@
       ]
     }
   },
+  "CF": {
+    "processor": "CFProcessor",
+    "suffixes": [
+      "_1d_CF.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Chan ID": "string",
+      "CF": "string"
+    },
+    "processingParts": {
+      "dataformat": "Timeseries",
+      "module": "1d_timeseries",
+      "expected_in_header": [
+        "Time",
+        "Chan ID",
+        "CF"
+      ]
+    }
+  },
   "V": {
     "processor": "VProcessor",
     "suffixes": [
@@ -216,7 +239,10 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
+      "module": "1d_timeseries",
       "expected_in_header": [
+        "Time",
+        "Chan ID",
         "V"
       ]
     }

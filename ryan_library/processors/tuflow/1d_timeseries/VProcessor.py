@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 
-from .base_processor import ProcessorStatus
-from .timeseries_processor import TimeSeriesProcessor
+from ..base_processor import ProcessorStatus
+from ..timeseries_processor import TimeSeriesProcessor
 
 
 class VProcessor(TimeSeriesProcessor):
