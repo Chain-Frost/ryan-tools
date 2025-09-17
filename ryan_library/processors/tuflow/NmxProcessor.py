@@ -1,8 +1,8 @@
 # ryan_library/processors/tuflow/nmx_processor.py
 
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 from loguru import logger
-from .base_processor import BaseProcessor
+from .base_processor import BaseProcessor, ProcessorStatus
 
 
 # this processor does not understand pits - only index 1 or 2 for standard culverts
@@ -22,9 +22,9 @@ class NmxProcessor(BaseProcessor):
 
         try:
             # Nmx is Maximums type, so use read_maximums_csv
-            status = self.read_maximums_csv()
+            status: ProcessorStatus = self.read_maximums_csv()
 
-            if status != 0:
+            if status is not ProcessorStatus.SUCCESS:
                 logger.error(
                     f"Processing aborted for file: {self.file_path} due to previous errors."
                 )
