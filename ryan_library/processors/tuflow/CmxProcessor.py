@@ -1,8 +1,8 @@
 # ryan_library/processors/tuflow/cmx_processor.py
 
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 from loguru import logger
-from .base_processor import BaseProcessor, ProcessorStatus
+from .base_processor import BaseProcessor
 
 
 class CmxProcessor(BaseProcessor):
@@ -13,9 +13,9 @@ class CmxProcessor(BaseProcessor):
         logger.info(f"Starting processing of CMX file: {self.file_path}")
 
         try:
-            status: ProcessorStatus = self.read_maximums_csv()
+            status = self.read_maximums_csv()
 
-            if status is not ProcessorStatus.SUCCESS:
+            if status != 0:
                 logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
                 self.df = pd.DataFrame()
                 return
