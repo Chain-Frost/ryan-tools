@@ -2,10 +2,11 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, cast
 import importlib
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 from loguru import logger
 from ryan_library.classes.suffixes_and_dtypes import (
     Config,
@@ -32,6 +33,16 @@ class ImportProcessorError(ProcessorError):
 
 class DataValidationError(ProcessorError):
     """Exception raised for data validation errors."""
+
+
+# Standard status codes returned by processor helpers.
+class ProcessorStatus(IntEnum):
+    """Named status codes shared by processor helpers."""
+
+    SUCCESS = 0
+    EMPTY_DATAFRAME = 1
+    HEADER_MISMATCH = 2
+    FAILURE = 3
 
 
 # the processors are imported as required within the class (importlib)
@@ -351,113 +362,57 @@ class BaseProcessor(ABC):
             logger.warning(f"{self.file_name}: No headers to validate against.")
             return True
 
-    def _read_csv(self, file_path: Path) -> pd.DataFrame:
+    def read_maximums_csv(self) -> ProcessorStatus:
+        """Read a ``Maximums`` or ``ccA`` CSV into :attr:`self.df`.
+
+        The helper uses the configuration on the processor instance to select
+        the expected columns, loads the file and validates the header order
+        before storing the DataFrame on the object.
+
+        Returns:
+            ProcessorStatus: ``ProcessorStatus.SUCCESS`` if the CSV was loaded
+            successfully. ``ProcessorStatus.EMPTY_DATAFRAME`` signals a file
+            without data, ``ProcessorStatus.HEADER_MISMATCH`` indicates the
+            headers did not align with the configuration and
+            ``ProcessorStatus.FAILURE`` captures read failures.
+        """
+        usecols = list(self.columns_to_use.keys())
+        dtype: dict[str, str] = {col: self.columns_to_use[col] for col in usecols}
+
         try:
             df: pd.DataFrame = pd.read_csv(
-                filepath_or_buffer=file_path,
+                filepath_or_buffer=self.file_path,
+                usecols=usecols,
                 header=0,
+                dtype=dtype,
                 skipinitialspace=True,
-                encoding="utf-8",
             )
             logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
-            return df
         except Exception as e:
-            logger.exception(f"{self.file_name}: Failed to read CSV file '{file_path}': {e}")
-            raise ProcessorError(f"Failed to read CSV file '{file_path}': {e}")
+            logger.exception(f"{self.file_name}: Failed to read CSV file '{self.file_path}': {e}")
+            return ProcessorStatus.FAILURE
 
-    def _clean_headers(self, df: pd.DataFrame, data_type: str) -> pd.DataFrame:
-        try:
-            df = df.drop(labels=df.columns[0], axis=1)
-            logger.debug(f"Dropped the first column from '{self.file_path}'.")
+        if df.empty:
+            logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
+            return ProcessorStatus.EMPTY_DATAFRAME
 
-            if "Time (h)" in df.columns:
-                df.rename(columns={"Time (h)": "Time"}, inplace=True)
-                logger.debug("Renamed 'Time (h)' to 'Time'.")
+        # Validate headers
+        if not self.check_headers_match(df.columns.tolist()):
+            return ProcessorStatus.HEADER_MISMATCH
 
-            if "Time" not in df.columns:
-                logger.error(f"{self.file_name}: 'Time' column is missing after cleaning headers.")
-                raise DataValidationError("'Time' column is missing after cleaning headers.")
-
-            cleaned_columns: list[str] = self._clean_column_names(columns=df.columns, data_type=data_type)
-            df.columns = cleaned_columns
-            logger.debug(f"Cleaned headers: {cleaned_columns}")
-            return df
-        except Exception as e:
-            logger.exception(f"{self.file_name}: Failed to clean headers: {e}")
-            raise ProcessorError(f"Failed to clean headers: {e}")
-
-    def _clean_column_names(self, columns: pd.Index, data_type: str) -> list[str]:
-        cleaned_columns: list[str] = []
-        for col in columns:
-            if col.startswith(f"{data_type} "):
-                col_clean: str = col[len(data_type) + 1 :]
-            else:
-                col_clean = col
-
-            if "[" in col_clean and "]" in col_clean:
-                col_clean = col_clean.split("[")[0].strip()
-
-            cleaned_columns.append(col_clean)
-        return cleaned_columns
-
-    def _reshape_h_data(self, df: pd.DataFrame, category_type: str) -> pd.DataFrame:
-        """Special handling for 'H' data type which has 'H_US' and 'H_DS' per channel.
-        # Assuming headers are like 'H_US', 'H_DS' for each channel
-        # We need to reshape such that each channel has two entries per time: 'H_US' and 'H_DS'
-        # Alternatively, we can create separate columns for 'H_US' and 'H_DS'
-        # For simplicity, we'll assume each channel has both 'H_US' and 'H_DS' and reshape accordingly
-
-        # First, verify that for each channel, both 'H_US' and 'H_DS' exist
-        Args:
-            df (pd.DataFrame): The cleaned DataFrame.
-            category_type (str): The category type identifier.
-
-        Returns:
-            pd.DataFrame: The reshaped DataFrame."""
-        # Extract channel identifiers by removing suffixes
-        channels = set()
-        for col in df.columns:
-            if col.endswith("_US") or col.endswith("_DS"):
-                channels.add(col.rsplit("_", 1)[0])
-
-        records = []
-        for _, row in df.iterrows():
-            time = row["Time"]
-            for chan in channels:
-                h_us = row.get(f"{chan}_US", -9999.0)
-                h_ds = row.get(f"{chan}_DS", -9999.0)
-                records.append(
-                    {
-                        "Time": time,
-                        category_type: chan,
-                        "H_US": h_us,
-                        "H_DS": h_ds,
-                    }
-                )
-
-        df_melted = pd.DataFrame(data=records)
-        logger.debug(f"Reshaped 'H' DataFrame to long format with {len(df_melted)} rows.")
-        return df_melted
-
-    def read_ccA_data(self) -> tuple[pd.DataFrame, int]:
-        """Reads ccA files with 'ccA' data format.
-
-        Returns:
-            tuple[pd.DataFrame, int]: DataFrame and status code.
-                Status Codes:
-                    0 - Success
-                    1 - Empty DataFrame
-                    2 - Header mismatch
-                    3 - Read error"""
-        # 'ccA' cannot be processed yet; raise NotImplementedError
-        raise NotImplementedError("Processing of ccA data format is not yet implemented.")
+        self.df = df
+        return ProcessorStatus.SUCCESS
 
     def apply_dtype_mapping(self, dtype_mapping: dict[str, str], context: str = "") -> None:
         """Apply dtype mapping to the DataFrame.
 
         Args:
             dtype_mapping (dict[str, str]): Mapping of column names to data types.
-            context (str): Contextual information for logging."""
+            context (str): Contextual information for logging.
+
+        Raises:
+            ProcessorError: If :meth:`pandas.DataFrame.astype` fails for any column.
+        """
         try:
             self.df = self.df.astype(dtype=dtype_mapping)
             logger.debug(f"{self.file_name}: Applied dtype mapping in {context}: {dtype_mapping}")

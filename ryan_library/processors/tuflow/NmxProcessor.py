@@ -1,6 +1,6 @@
 # ryan_library/processors/tuflow/nmx_processor.py
 
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 from loguru import logger
 
 from .max_data_processor import MaxDataProcessor
@@ -23,7 +23,7 @@ class NmxProcessor(MaxDataProcessor):
 
         try:
             # Nmx is Maximums type, so use read_maximums_csv
-            status = self.read_maximums_csv()
+            status: ProcessorStatus = self.read_maximums_csv()
 
             if status != 0:
                 logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")

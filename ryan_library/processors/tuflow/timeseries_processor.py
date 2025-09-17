@@ -1,82 +1,186 @@
 # ryan_library/processors/tuflow/timeseries_processor.py
 
-from typing import Any
+from __future__ import annotations
 
-import pandas as pd
+from abc import abstractmethod
+from pathlib import Path
+
+import pandas as pd  # type: ignore[import-untyped]
 from loguru import logger
 
-from .base_processor import BaseProcessor, DataValidationError, ProcessorError
+from .base_processor import (
+    BaseProcessor,
+    DataValidationError,
+    ProcessorError,
+    ProcessorStatus,
+)
+from .timeseries_helpers import reshape_h_timeseries
 
 
 class TimeSeriesProcessor(BaseProcessor):
-    """Intermediate base class for processing timeseries data types.
+    """Base class for processors that operate on TUFLOW timeseries outputs.
 
-    Subclasses call :meth:`read_and_process_timeseries_csv` to ingest source
-    CSV files before applying dataset specific rules. The default
-    :meth:`process_timeseries_raw_dataframe` implementation is a no-op that can
-    be overridden to perform additional validation or reshaping of the melted
-    DataFrame stored on :attr:`df`.
+    The class centralises the shared read → clean → reshape pipeline required by
+    every timeseries dataset before delegating to
+    :meth:`process_timeseries_raw_dataframe` for format-specific transforms.
     """
 
-    def read_and_process_timeseries_csv(self, data_type: str | None = None) -> int:
-        """Read, clean and reshape a timeseries CSV file into long format.
+    @abstractmethod
+    def process_timeseries_raw_dataframe(self) -> ProcessorStatus:
+        """Transform :attr:`self.df` after the common pipeline finishes.
 
-        Args:
-            data_type (str | None): The data type identifier (e.g. ``"H"`` or
-                ``"Q"``). Defaults to :attr:`self.data_type`.
+        Implementations should update :attr:`self.df` in place and return a
+        :class:`~ryan_library.processors.tuflow.base_processor.ProcessorStatus`
+        describing the outcome of the subclass-specific processing.
 
         Returns:
-            int: Status code where ``0`` is success.
+            ProcessorStatus: Status flag indicating success or the failure reason.
         """
+        raise NotImplementedError
 
-        resolved_data_type: str | None = data_type or self.data_type
-        if not resolved_data_type:
-            logger.error(f"{self.file_name}: Unable to determine timeseries data type.")
-            return 3
+    def read_and_process_timeseries_csv(self, data_type: str) -> ProcessorStatus:
+        """Read, clean and reshape a timeseries CSV into :attr:`self.df`.
 
+        Args:
+            data_type: Abbreviation describing the numeric values contained in the
+                file (for example ``"H"`` or ``"Q"``). The identifier drives how
+                the DataFrame is reshaped and which value columns are created.
+
+        Returns:
+            ProcessorStatus: Status code following the same convention as
+            :meth:`process_timeseries_raw_dataframe`.
+        """
         try:
             df_full: pd.DataFrame = self._read_csv(file_path=self.file_path)
             if df_full.empty:
                 logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
-                return 1
+                return ProcessorStatus.EMPTY_DATAFRAME
 
-            self.raw_df = df_full.copy(deep=False)
-
-            df: pd.DataFrame = self._clean_headers(df=df_full, data_type=resolved_data_type)
-            if df.empty:
+            df_clean: pd.DataFrame = self._clean_headers(df=df_full, data_type=data_type)
+            if df_clean.empty:
                 logger.error(f"{self.file_name}: DataFrame is empty after cleaning headers.")
-                return 1
+                return ProcessorStatus.EMPTY_DATAFRAME
 
-            df_melted: pd.DataFrame = self._reshape_timeseries_df(
-                df=df, data_type=resolved_data_type
-            )
+            df_melted: pd.DataFrame = self._reshape_timeseries_df(df=df_clean, data_type=data_type)
             if df_melted.empty:
                 logger.error(f"{self.file_name}: No data found after reshaping.")
-                return 1
+                return ProcessorStatus.EMPTY_DATAFRAME
 
             self.df = df_melted
-            self._apply_final_transformations(data_type=resolved_data_type)
-            self.processed = True
+            self._apply_final_transformations(data_type=data_type)
+            self.processed = True  # Mark as processed once the shared pipeline completes
             logger.info(f"{self.file_name}: Timeseries CSV processed successfully.")
-            return 0
+            return ProcessorStatus.SUCCESS
         except (ProcessorError, DataValidationError) as exc:
             logger.error(f"{self.file_name}: Processing error: {exc}")
-            return 3
+            return ProcessorStatus.FAILURE
         except Exception as exc:
             logger.exception(f"{self.file_name}: Unexpected error: {exc}")
-            return 3
+            return ProcessorStatus.FAILURE
 
-    def process_timeseries_raw_dataframe(self, *args: Any, **kwargs: Any) -> int:
-        """Hook for subclasses to continue processing ``self.df``.
+    def _read_csv(self, file_path: Path) -> pd.DataFrame:
+        """Return the raw timeseries CSV as a DataFrame using shared options.
+
+        Args:
+            file_path: Location of the CSV produced by TUFLOW.
 
         Returns:
-            int: ``0`` when no additional work is required.
-        """
+            pandas.DataFrame: Raw data read from ``file_path``.
 
-        return 0
+        Raises:
+            ProcessorError: If :mod:`pandas` fails to load the file.
+        """
+        try:
+            df: pd.DataFrame = pd.read_csv(
+                filepath_or_buffer=file_path,
+                header=0,
+                skipinitialspace=True,
+                encoding="utf-8",
+            )
+            logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
+            return df
+        except Exception as exc:
+            logger.exception(f"{self.file_name}: Failed to read CSV file '{file_path}': {exc}")
+            raise ProcessorError(f"Failed to read CSV file '{file_path}': {exc}") from exc
+
+    def _clean_headers(self, df: pd.DataFrame, data_type: str) -> pd.DataFrame:
+        """Normalise the header row before reshaping timeseries data.
+
+        The exported CSVs include a blank descriptor column and occasionally use
+        ``"Time (h)"`` in place of ``"Time"``. This helper removes the redundant
+        column, ensures a ``"Time"`` field exists and trims the ``data_type`` prefix
+        as well as any unit suffixes.
+
+        Args:
+            df: Raw DataFrame returned by :meth:`_read_csv`.
+            data_type: Identifier for the value columns within ``df``.
+
+        Returns:
+            pandas.DataFrame: DataFrame with consistent headers ready for reshaping.
+
+        Raises:
+            ProcessorError: If the DataFrame cannot be cleaned or lacks a ``"Time"``
+                column.
+        """
+        try:
+            df = df.drop(labels=df.columns[0], axis=1)
+            logger.debug(f"Dropped the first column from '{self.file_path}'.")
+
+            if "Time (h)" in df.columns:
+                df.rename(columns={"Time (h)": "Time"}, inplace=True)
+                logger.debug("Renamed 'Time (h)' to 'Time'.")
+
+            if "Time" not in df.columns:
+                logger.error(f"{self.file_name}: 'Time' column is missing after cleaning headers.")
+                raise DataValidationError("'Time' column is missing after cleaning headers.")
+
+            cleaned_columns: list[str] = self._clean_column_names(columns=df.columns, data_type=data_type)
+            df.columns = cleaned_columns
+            logger.debug(f"Cleaned headers: {cleaned_columns}")
+            return df
+        except Exception as exc:
+            logger.exception(f"{self.file_name}: Failed to clean headers: {exc}")
+            raise ProcessorError(f"Failed to clean headers: {exc}") from exc
+
+    def _clean_column_names(self, columns: pd.Index, data_type: str) -> list[str]:
+        """Strip prefixes and unit suffixes from a sequence of column names.
+
+        Args:
+            columns: Columns to normalise.
+            data_type: Identifier prefix included in the exported headers.
+
+        Returns:
+            list[str]: Cleaned column names with redundant descriptors removed.
+        """
+        cleaned_columns: list[str] = []
+        for col in columns:
+            if col.startswith(f"{data_type} "):
+                col_clean: str = col[len(data_type) + 1 :]
+            else:
+                col_clean = col
+
+            if "[" in col_clean and "]" in col_clean:
+                # Example: "Q ds1 [M11_5m_001]" becomes "ds1"
+                col_clean = col_clean.split("[")[0].strip()
+
+            cleaned_columns.append(col_clean)
+        return cleaned_columns
 
     def _reshape_timeseries_df(self, df: pd.DataFrame, data_type: str) -> pd.DataFrame:
-        """Reshape the timeseries DataFrame based on the data type."""
+        """Reshape the cleaned DataFrame into a tidy, long-form structure.
+
+        Args:
+            df: Cleaned DataFrame containing a ``"Time"`` column and value columns.
+            data_type: Identifier for the numeric series in ``df``.
+
+        Returns:
+            pandas.DataFrame: Melted DataFrame with consistent column ordering.
+
+        Raises:
+            ProcessorError: If melting fails for any reason.
+            DataValidationError: If the resulting DataFrame is empty or the headers
+                do not match the expected structure.
+        """
         is_1d: bool = "_1d_" in self.file_name.lower()
         category_type: str = "Chan ID" if is_1d else "Location"
         logger.debug(
@@ -85,13 +189,15 @@ class TimeSeriesProcessor(BaseProcessor):
 
         try:
             if data_type == "H":
-                df_melted: pd.DataFrame = self._reshape_h_data(df=df, category_type=category_type)
+                df_melted: pd.DataFrame = reshape_h_timeseries(
+                    df=df, category_type=category_type, file_label=self.file_name
+                )
             else:
                 df_melted = df.melt(id_vars=["Time"], var_name=category_type, value_name=data_type)
                 logger.debug(f"Reshaped DataFrame to long format with {len(df_melted)} rows.")
-        except Exception as e:
-            logger.exception(f"{self.file_name}: Failed to reshape DataFrame: {e}")
-            raise ProcessorError(f"Failed to reshape DataFrame: {e}")
+        except Exception as exc:
+            logger.exception(f"{self.file_name}: Failed to reshape DataFrame: {exc}")
+            raise ProcessorError(f"Failed to reshape DataFrame: {exc}") from exc
 
         if df_melted.empty:
             logger.error(f"{self.file_name}: No data found after reshaping.")
@@ -100,6 +206,10 @@ class TimeSeriesProcessor(BaseProcessor):
         expected_headers: list[str] = (
             ["Time", category_type, "H_US", "H_DS"] if data_type == "H" else ["Time", category_type, data_type]
         )
+        # Build the expected header list dynamically. It always starts with "Time" and the
+        # category column, which switches between "Chan ID" for 1D results and "Location" for
+        # 2D results. For "H" data types, both "H_US" and "H_DS" are expected; otherwise the
+        # single data type column is used. ``check_headers_match`` validates against this list.
         self.expected_in_header = expected_headers
         if not self.check_headers_match(test_headers=df_melted.columns.tolist()):
             logger.error(f"{self.file_name}: Header mismatch after reshaping.")
@@ -108,7 +218,11 @@ class TimeSeriesProcessor(BaseProcessor):
         return df_melted
 
     def _apply_final_transformations(self, data_type: str) -> None:
-        """Apply final dtype coercions to the reshaped DataFrame."""
+        """Apply dtype coercions expected by downstream consumers.
+
+        Args:
+            data_type: Identifier of the main numeric value column in ``self.df``.
+        """
         col_types: dict[str, str] = {
             "Time": "float64",
             data_type: "float64",

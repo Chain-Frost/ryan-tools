@@ -20,9 +20,7 @@ class MaxDataProcessor(BaseProcessor):
         """
 
         usecols: list[str] = list(self.columns_to_use.keys())
-        dtype_mapping: dict[str, str] = {
-            column: dtype for column, dtype in self.columns_to_use.items() if dtype
-        }
+        dtype_mapping: dict[str, str] = {column: dtype for column, dtype in self.columns_to_use.items() if dtype}
 
         read_csv_kwargs: dict[str, Any] = {
             "filepath_or_buffer": self.file_path,
@@ -36,13 +34,9 @@ class MaxDataProcessor(BaseProcessor):
 
         try:
             df: pd.DataFrame = pd.read_csv(**read_csv_kwargs)
-            logger.debug(
-                f"CSV file '{self.file_name}' read successfully with {len(df)} rows."
-            )
+            logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
         except Exception as exc:
-            logger.exception(
-                f"{self.file_name}: Failed to read CSV file '{self.file_path}': {exc}"
-            )
+            logger.exception(f"{self.file_name}: Failed to read CSV file '{self.file_path}': {exc}")
             return 3
 
         if df.empty:
