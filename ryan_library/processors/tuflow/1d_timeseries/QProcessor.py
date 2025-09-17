@@ -1,9 +1,11 @@
 # ryan_library/processors/tuflow/QProcessor.py
 
-import pandas as pd  # type: ignore[import-untyped]
+from __future__ import annotations
 
-from .base_processor import ProcessorStatus
-from .timeseries_processor import TimeSeriesProcessor
+import pandas as pd
+
+from ..base_processor import ProcessorStatus
+from ..timeseries_processor import TimeSeriesProcessor
 
 
 class QProcessor(TimeSeriesProcessor):

@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from pathlib import Path
 
-import pandas as pd  # type: ignore[import-untyped]
+import pandas as pd
 from loguru import logger
 
 from .base_processor import (

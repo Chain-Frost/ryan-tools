@@ -1,9 +1,12 @@
 # ryan_library/processors/tuflow/nmx_processor.py
 
-import pandas as pd  # type: ignore[import-untyped]
+from __future__ import annotations
+
+import pandas as pd
 from loguru import logger
 
-from .max_data_processor import MaxDataProcessor
+from ..base_processor import ProcessorStatus
+from ..max_data_processor import MaxDataProcessor
 
 
 # this processor does not understand pits - only index 1 or 2 for standard culverts
