@@ -1,24 +1,22 @@
-"""Placeholder processor for TUFLOW V timeseries data.
-
-This stub will be implemented once the Q-processor path is stable so the shared
-infrastructure can be reused confidently.
-"""
+"""Processor for TUFLOW velocity (``_V``) timeseries data."""
 
 from __future__ import annotations
 
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]
 
-from .base_processor import BaseProcessor
+from .base_processor import ProcessorStatus
+from .timeseries_processor import TimeSeriesProcessor
 
 
-class VProcessor(BaseProcessor):
-    """Stub processor for `_1d_V.csv` files until the Q-processor path is stable."""
+class VProcessor(TimeSeriesProcessor):
+    """Process ``_V`` CSV exports using the shared timeseries pipeline."""
 
-    def process(self) -> pd.DataFrame:
-        """Raise ``NotImplementedError`` until V processing is available.
+    def process(self) -> pd.DataFrame:  # type: ignore[override]
+        """Process a ``_V`` CSV using the shared timeseries pipeline."""
 
-        TODO: Implement VProcessor once the Q-processor path is stable.
-        """
-        raise NotImplementedError(
-            "VProcessor is not implemented. It will be completed once the Q-processor path is stable."
-        )
+        return self._process_timeseries_pipeline(data_type="V")
+
+    def process_timeseries_raw_dataframe(self) -> ProcessorStatus:
+        """Normalise the melted velocity DataFrame produced by the shared pipeline."""
+
+        return self._normalise_value_dataframe(value_column="V")
