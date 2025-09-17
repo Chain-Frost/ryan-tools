@@ -25,6 +25,49 @@ class TimeSeriesProcessor(BaseProcessor):
     :meth:`process_timeseries_raw_dataframe` for format-specific transforms.
     """
 
+    def process(self) -> pd.DataFrame:  # type: ignore[override]
+        """Execute the standard timeseries processing pipeline."""
+
+        return self._process_timeseries_pipeline(data_type=self.data_type)
+
+    def _process_timeseries_pipeline(self, data_type: str) -> pd.DataFrame:
+        """Run the shared processing pipeline for a timeseries dataset."""
+
+        logger.info(f"Starting processing of {data_type} file: {self.file_path}")
+
+        try:
+            status: ProcessorStatus = self.read_and_process_timeseries_csv(data_type=data_type)
+            if status is not ProcessorStatus.SUCCESS:
+                logger.error(
+                    f"Processing aborted for file: {self.file_path} while reading and reshaping {data_type} data."
+                )
+                self.df = pd.DataFrame()
+                return self.df
+
+            status = self.process_timeseries_raw_dataframe()
+            if status is not ProcessorStatus.SUCCESS:
+                logger.error(
+                    f"Processing aborted for file: {self.file_path} during {data_type} post-processing step."
+                )
+                self.df = pd.DataFrame()
+                return self.df
+
+            self.add_common_columns()
+            self.apply_output_transformations()
+
+            if not self.validate_data():
+                logger.error(f"{self.file_name}: Data validation failed for {data_type} data.")
+                self.df = pd.DataFrame()
+                return self.df
+
+            self.processed = True
+            logger.info(f"Completed processing of {data_type} file: {self.file_path}")
+            return self.df
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.error(f"Failed to process {data_type} file {self.file_path}: {exc}")
+            self.df = pd.DataFrame()
+            return self.df
+
     @abstractmethod
     def process_timeseries_raw_dataframe(self) -> ProcessorStatus:
         """Transform :attr:`self.df` after the common pipeline finishes.
@@ -126,9 +169,13 @@ class TimeSeriesProcessor(BaseProcessor):
             df = df.drop(labels=df.columns[0], axis=1)
             logger.debug(f"Dropped the first column from '{self.file_path}'.")
 
-            if "Time (h)" in df.columns:
-                df.rename(columns={"Time (h)": "Time"}, inplace=True)
-                logger.debug("Renamed 'Time (h)' to 'Time'.")
+            time_column_aliases: dict[str, str] = {"Time (h)": "Time", "Time(h)": "Time"}
+            rename_columns: dict[str, str] = {
+                original: alias for original, alias in time_column_aliases.items() if original in df.columns
+            }
+            if rename_columns:
+                df.rename(columns=rename_columns, inplace=True)
+                logger.debug(f"Renamed time columns: {rename_columns}.")
 
             if "Time" not in df.columns:
                 logger.error(f"{self.file_name}: 'Time' column is missing after cleaning headers.")
@@ -232,3 +279,71 @@ class TimeSeriesProcessor(BaseProcessor):
             col_types.update({"H_US": "float64", "H_DS": "float64"})
 
         self.apply_dtype_mapping(dtype_mapping=col_types, context="final_transformations")
+
+    def _normalise_value_dataframe(self, value_column: str) -> ProcessorStatus:
+        """Normalise a long-form timeseries DataFrame for a single value column.
+
+        Args:
+            value_column: Name of the numeric value column (for example ``"Q"`` or
+                ``"V"``).
+
+        Returns:
+            ProcessorStatus: ``ProcessorStatus.SUCCESS`` when normalisation
+            succeeds, otherwise a status code describing the failure.
+        """
+
+        try:
+            logger.debug(f"Normalising melted DataFrame for value column '{value_column}'.")
+
+            required_columns: set[str] = {"Time", value_column}
+            missing_columns: set[str] = required_columns - set(self.df.columns)
+            if missing_columns:
+                logger.error(
+                    f"{self.file_name}: Missing required columns after melt: {sorted(missing_columns)}."
+                )
+                return ProcessorStatus.FAILURE
+
+            identifier_columns: list[str] = [col for col in self.df.columns if col not in required_columns]
+            if not identifier_columns:
+                logger.error(f"{self.file_name}: No identifier column found alongside '{value_column}'.")
+                return ProcessorStatus.FAILURE
+            if len(identifier_columns) > 1:
+                identifier_error: str = (
+                    f"{self.file_name}: Expected a single identifier column alongside 'Time' and "
+                    f"'{value_column}', got {identifier_columns}."
+                )
+                logger.error(identifier_error)
+                return ProcessorStatus.FAILURE
+
+            identifier_column: str = identifier_columns[0]
+            logger.debug(f"Using '{identifier_column}' as the identifier column for '{value_column}' values.")
+
+            initial_row_count = len(self.df)
+            self.df.dropna(subset=[value_column], inplace=True)
+            dropped_rows = initial_row_count - len(self.df)
+            if dropped_rows:
+                logger.debug(f"Dropped {dropped_rows} rows with missing '{value_column}' values.")
+
+            if self.df.empty:
+                logger.error(
+                    f"{self.file_name}: DataFrame is empty after removing rows with missing '{value_column}' values."
+                )
+                return ProcessorStatus.EMPTY_DATAFRAME
+
+            expected_order: list[str] = ["Time", identifier_column, value_column]
+            self.df = self.df[expected_order]
+
+            if not self.check_headers_match(test_headers=self.df.columns.tolist()):
+                logger.error(f"{self.file_name}: Header mismatch after normalising '{value_column}' DataFrame.")
+                return ProcessorStatus.HEADER_MISMATCH
+
+            logger.info(
+                f"{self.file_name}: Successfully normalised '{value_column}' DataFrame for downstream processing."
+            )
+            return ProcessorStatus.SUCCESS
+        except (DataValidationError, ProcessorError) as exc:
+            logger.error(f"{self.file_name}: Processor validation error while normalising '{value_column}': {exc}")
+            return ProcessorStatus.FAILURE
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception(f"{self.file_name}: Unexpected error while normalising '{value_column}': {exc}")
+            return ProcessorStatus.FAILURE

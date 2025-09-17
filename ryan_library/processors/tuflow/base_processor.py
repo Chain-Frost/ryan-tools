@@ -161,11 +161,12 @@ class BaseProcessor(ABC):
         self.dataformat = processing_parts.dataformat
         self.skip_columns = processing_parts.skip_columns
         logger.debug(
-            f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, skip_columns: {self.skip_columns}"
+            f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, "
+            f"skip_columns: {self.skip_columns}"
         )
 
-        # it seems like the logic here could be improved. maybe it would be better to check the contents of the json file, then load it.
-        # the check here should instead be to see if the json file contains the expected data for the data types.
+        # TODO: tighten configuration validation by inspecting the JSON contents
+        # before attempting to load data type specific sections.
 
         # Depending on dataformat, load columns_to_use or expected_in_header
         handled_formats: set[str] = {"Maximums", "ccA", "Timeseries", "POMM"}
@@ -303,10 +304,16 @@ class BaseProcessor(ABC):
         missing_columns: list[str] = [col for col in self.output_columns if col not in self.df.columns]
         if missing_columns:
             logger.warning(f"{self.file_name}: Missing columns in DataFrame: {missing_columns}")
+        dtype_mapping: dict[str, str] = {
+            col: dtype for col, dtype in self.output_columns.items() if col in self.df.columns
+        }
+        if not dtype_mapping:
+            logger.debug(f"{self.file_name}: No matching columns found for output datatype mapping.")
+            return
         # Apply data types based on output_columns configuration
         try:
-            self.df = self.df.astype(self.output_columns)
-            logger.debug(f"{self.file_name}: Applied output_columns datatype mapping: {self.output_columns}")
+            self.df = self.df.astype(dtype_mapping)
+            logger.debug(f"{self.file_name}: Applied output_columns datatype mapping: {dtype_mapping}")
         except (KeyError, ValueError, TypeError) as e:
             logger.error(f"{self.file_name}: Error applying output_columns datatypes: {e}")
             raise
@@ -352,9 +359,11 @@ class BaseProcessor(ABC):
             return True
         elif self.expected_in_header:
             if test_headers != self.expected_in_header:
-                logger.error(
-                    f"Error reading {self.file_name}, headers did not match expected_in_header format {self.expected_in_header}. Got {test_headers}"
+                header_error: str = (
+                    f"Error reading {self.file_name}, headers did not match expected_in_header format "
+                    f"{self.expected_in_header}. Got {test_headers}"
                 )
+                logger.error(header_error)
                 return False
             logger.debug("Test headers matched expected_in_header.")
             return True
