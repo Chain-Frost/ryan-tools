@@ -76,6 +76,19 @@ class ProcessorCollection:
         combined_df = reorder_long_columns(df=combined_df)
 
         grouped_df: DataFrame = combined_df.groupby(group_keys).agg("max").reset_index()
+
+        value_columns: list[str] = [col for col in grouped_df.columns if col not in group_keys]
+        if value_columns:
+            before_drop: int = len(grouped_df)
+            grouped_df.dropna(subset=value_columns, how="all", inplace=True)
+            after_drop: int = len(grouped_df)
+            if after_drop != before_drop:
+                logger.debug(
+                    "Dropped %d all-null rows while combining Timeseries outputs.",
+                    before_drop - after_drop,
+                )
+            grouped_df.reset_index(drop=True, inplace=True)
+
         logger.debug(f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows.")
 
         return grouped_df
