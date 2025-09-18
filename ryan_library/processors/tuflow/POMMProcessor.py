@@ -1,12 +1,19 @@
 # ryan_library/processors/tuflow/POMMProcessor.py
 
-import logging
-from pathlib import Path
 import pandas as pd
 from loguru import logger
 
-from ryan_library.processors.tuflow.base_processor import BaseProcessor, ProcessorError
-from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+from ryan_library.processors.tuflow.base_processor import BaseProcessor, DataValidationError
+
+
+POMM_RENAME_COLUMNS: dict[str, str] = {
+    "Location": "Type",
+    "Time": "Location",
+    "Maximum (Extracted from Time Series)": "Max",
+    "Time of Maximum": "Tmax",
+    "Minimum (Extracted From Time Series)": "Min",
+    "Time of Minimum": "Tmin",
+}
 
 
 class POMMProcessor(BaseProcessor):
@@ -16,6 +23,18 @@ class POMMProcessor(BaseProcessor):
         # Let the BaseProcessor __post_init__ do its thing (sets self.name_parser, data_type, etc).
         super().__post_init__()
 
+    def _derive_abs_metrics(self) -> None:
+        """Populate AbsMax and SignedAbsMax from the Max/Min columns."""
+
+        if not {"Max", "Min"}.issubset(self.df.columns):
+            return
+
+        absolute_values = self.df[["Max", "Min"]].abs()
+        self.df["AbsMax"] = absolute_values.max(axis=1)
+
+        use_max = absolute_values["Max"] >= absolute_values["Min"]
+        self.df["SignedAbsMax"] = self.df["Max"].where(use_max, self.df["Min"])
+
     def process(self) -> None:
         """Read the raw POMM CSV, transpose + promote row 1 to header,
         rename the key columns, calculate AbsMax and SignedAbsMax,
@@ -23,9 +42,8 @@ class POMMProcessor(BaseProcessor):
 
         try:
             # 1) Load the CSV without headers (header=None)
-            raw_df: pd.DataFrame = pd.read_csv(
-                filepath_or_buffer=self.file_path, header=None
-            )
+            raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)
+            self.raw_df = raw_df
 
             # # 2) Extract run_code from top‐left cell
             # raw_run_code = raw_df.iat[0, 0]
@@ -54,49 +72,44 @@ class POMMProcessor(BaseProcessor):
             #        Time of Minimum → 'Tmin'
             #        Velocity → 'Velocity'
             # Define new column names and their data types
-            column_mappings = {
-                "Type": ("Location", "string"),
-                "Location": ("Time", "string"),
-                "Max": ("Maximum (Extracted from Time Series)", "float"),
-                "Tmax": ("Time of Maximum", "float"),
-                "Min": ("Minimum (Extracted From Time Series)", "float"),
-                "Tmin": ("Time of Minimum", "float"),
-            }
+            headers: list[str] = transposed.columns.tolist()
+            if self.expected_in_header:
+                if not self.check_headers_match(headers):
+                    raise DataValidationError(f"{self.file_name}: Header mismatch for POMM data. Got {headers}")
+
+            rename_map: dict[str, str] = POMM_RENAME_COLUMNS
+
+            missing_sources: list[str] = [col for col in rename_map if col not in headers]
+            if missing_sources:
+                raise DataValidationError(
+                    f"{self.file_name}: Missing expected columns {missing_sources} after transpose."
+                )
+
+            transposed.rename(columns=rename_map, inplace=True)
+            ordered_columns = list(rename_map.values())
+            transposed = transposed.loc[:, ordered_columns]
+
+            self.df = transposed
 
             # Rename columns and cast to appropriate data types
-            for new_col, (old_col, dtype) in column_mappings.items():
-                if old_col in transposed.columns:
-                    transposed.rename(columns={old_col: new_col}, inplace=True)
-                    transposed[new_col] = transposed[new_col].astype(dtype)
+            base_dtype_map: dict[str, str] = {
+                column: self.output_columns[column] for column in ordered_columns if column in self.output_columns
+            }
+            if base_dtype_map:
+                self.apply_dtype_mapping(dtype_mapping=base_dtype_map, context="pomm_base_columns")
 
-            # 8) Preserve this as our “core” DataFrame
-            self.df = transposed.copy()
+            if not {"Max", "Min"}.issubset(self.df.columns):
+                raise DataValidationError(
+                    f"{self.file_name}: Required columns 'Max' and 'Min' not available after renaming."
+                )
 
             # 10) Finally, apply the dtype mapping from output_columns (so that everything
             #     matches your JSON’s "output_columns" keys & dtypes).  This is the call that
             #     looks at Config.get_instance().data_types["POMM"].output_columns and does .astype(...)
 
-            # Calculate AbsMax column as the maximum absolute value between 'Max' and 'Min'
-            self.df["AbsMax"] = self.df[["Max", "Min"]].abs().max(axis=1)
-
-            # Calculate SignedAbsMax with the sign of the source data
-            self.df["SignedAbsMax"] = self.df.apply(
-                lambda row: (
-                    row["Max"] if abs(row["Max"]) >= abs(row["Min"]) else row["Min"]
-                ),
-                axis=1,
-            )
-
-            # 7) Derive AbsMax and SignedAbsMax
-            #    AbsMax = max(|Max|, |Min|), SignedAbsMax = whichever of Max or Min has the larger abs()
-            if {"Max", "Min"}.issubset(self.df.columns):
-                self.df["AbsMax"] = self.df[["Max", "Min"]].abs().max(axis=1)
-                self.df["SignedAbsMax"] = self.df.apply(
-                    lambda row: (
-                        row["Max"] if abs(row["Max"]) >= abs(row["Min"]) else row["Min"]
-                    ),
-                    axis=1,
-                )
+            # 7) Derive AbsMax and SignedAbsMax once the Max/Min columns exist.
+            #    AbsMax = max(|Max|, |Min|); SignedAbsMax keeps the sign of the larger magnitude value.
+            self._derive_abs_metrics()
             self.add_common_columns()
             self.apply_output_transformations()
             # Mark success
