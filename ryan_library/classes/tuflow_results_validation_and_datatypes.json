@@ -197,13 +197,16 @@
     "output_columns": {
       "Time": "float",
       "Chan ID": "string",
-      "US_H": "float",
-      "DS_H": "float"
+      "H_US": "float",
+      "H_DS": "float"
     },
     "processingParts": {
       "dataformat": "Timeseries",
       "expected_in_header": [
-        "H"
+        "Time",
+        "Chan ID",
+        "H_US",
+        "H_DS"
       ]
     }
   },
