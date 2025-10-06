@@ -63,8 +63,11 @@ class TuflowStringParser:
     """A class to parse Tuflow-specific strings and file paths."""
 
     # Precompile regex patterns for efficiency
+    # ``TP_PATTERN`` finds patterns like ``TP01`` that are surrounded by ``_`` or ``+`` (or appear at the edges).
     TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)TP(\d{2})(?:[_+]|$)", flags=re.IGNORECASE)
+    # ``DURATION_PATTERN`` captures 3-5 digits followed by ``m`` (e.g. ``00360m`` or ``360m``).
     DURATION_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", flags=re.IGNORECASE)
+    # ``AEP_PATTERN`` matches values like ``01.00p`` or ``5p`` and reads the numeric portion before ``p``.
     AEP_PATTERN: re.Pattern[str] = re.compile(
         pattern=r"(?:^|[_+])(?P<aep>(?P<numeric>\d+(?:\.\d{1,2})?)p|(?P<text>PMPF|PMP))(?=$|[_+])",
         flags=re.IGNORECASE,
