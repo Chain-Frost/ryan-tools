@@ -42,7 +42,12 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
                 processed_line.append(el)
             else:
                 # everything else should be numeric; strip any trailing letters
-                m: re.Match[str] | None = re.match(pattern=r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?", string=el)
+                # The pattern matches an optional sign, decimal number, and optional scientific exponent.
+                # Example matches include ``-12.5`` and ``3.1E-03``.
+                m: re.Match[str] | None = re.match(
+                    pattern=r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?",
+                    string=el,
+                )
                 if m:
                     processed_line.append(float(m.group()))
                 else:

@@ -15,22 +15,32 @@ from ryan_library.functions.data_processing import (
 
 # Precompile regex patterns at the module level for efficiency and thread safety
 REGEX_PATTERNS: dict[str, re.Pattern] = {
+    # Looks for the literal heading ``Initialisation Times`` anywhere in the log.
     "initialisation_times": re.compile(r"Initialisation Times"),
+    # Matches ``Final Times`` so the parser knows the log has moved to the summary section.
     "final_times": re.compile(r"Final Times"),
-    # Capture Final Cumulative ME Percentage
-    #     -? : Optional minus sign.
-    #     \d+ : One or more digits.
-    #     (?:\.\d+)? : Non-capturing group for an optional decimal point followed by one or more digits.
-    #     % : Matches the literal percent sign.
+    # Capture Final Cumulative ME Percentage with optional minus sign and decimals.
+    # Example: ``Final Cumulative ME:   -0.45%`` -> stores ``-0.45``.
     "final_me": re.compile(r"Final Cumulative ME:\s*(-?[\d.]+)%"),
+    # Flags the line ``Simulation FINISHED`` to indicate a successful run completion.
     "simulation_finished": re.compile(r"Simulation FINISHED"),
+    # Captures a number (integer or decimal) before ``h`` inside square brackets.
+    # Example: ``Clock Time: [1.25 h]`` -> ``1.25``.
     "clock_time": re.compile(r"Clock Time:.*\[(?P<time>[-+]?\d*\.\d+|\d+)\s*h\]"),
+    # Same structure as ``clock_time`` but for CPU usage.
     "processor_time": re.compile(r"Processor Time:.*\[(?P<time>[-+]?\d*\.\d+|\d+)\s*h\]"),
+    # Grabs the numeric end time after ``End Time (h):`` such as ``End Time (h): 24``.
     "model_end_time": re.compile(r"End Time \(h\):\s*(\d+\.?\d*)"),
+    # Grabs the numeric start time after ``Start Time (h):``.
     "model_start_time": re.compile(r"Start Time \(h\):\s*(\d+\.?\d*)"),
+    # Captures the full path to the ``.tcf`` file reported as ``Input File: path/to/model.tcf``.
     "input_file": re.compile(r"Input File:\s*(.+\.tcf)"),
+    # Captures any characters following ``Log File:`` so the log file path can be recorded.
     "log_path": re.compile(r"Log File:\s*(.+)"),
+    # Collects comma-separated GPU identifiers, e.g. ``GPU Device IDs == 0, 1``.
     "gpu_device_ids": re.compile(r"GPU Device IDs\s*==\s*(?P<ids>[\d,\s]+)"),
+    # Extracts the variable/value pair described on ``BC Event Source == variable | value`` lines, ignoring case.
+    # Example: ``BC Event Source == ~E1~ | rainfall.tsf``.
     "bc_event_source": re.compile(
         r"BC Event Source\s*==\s*(?P<variable>[^|]+?)\s*\|\s*(?P<value>.+)$",
         flags=re.IGNORECASE,
@@ -65,6 +75,8 @@ SET_VARIABLE_PATTERN: re.Pattern[str] = re.compile(
     pattern=r"^Set Variable\s+(?P<var>~[ES]\d*~|\w+)\s*==\s*(?P<val>.+)$",
     flags=re.IGNORECASE,
 )
+# ``SET_VARIABLE_PATTERN`` recognises configuration lines such as ``Set Variable ~E1~ == inflow.csv``
+# and stores the variable name (``~E1~``) plus the assigned value (``inflow.csv``).
 
 
 def _normalise_bcdbase_variable(variable: str) -> str:
@@ -74,6 +86,7 @@ def _normalise_bcdbase_variable(variable: str) -> str:
     if cleaned_variable.startswith("~") and cleaned_variable.endswith("~"):
         cleaned_variable = cleaned_variable[1:-1]
 
+    # ``r"[eEsS]\d+"`` accepts placeholders like ``E1`` or ``s12`` so they can be converted into ``-e1`` style keys.
     if re.fullmatch(pattern=r"[eEsS]\d+", string=cleaned_variable):
         return f"-{cleaned_variable.lower()}"
 
@@ -191,6 +204,8 @@ def search_from_top(
     spec_var: bool,
 ) -> tuple[dict[str, Any], int, bool, bool, bool]:
     """Parses the top of the log file for build info, variables, file references, etc."""
+    # The following ``re.match`` calls look for simple phrases like ``Build:``, ``Simulations Log Folder ==``
+    # or ``Computer Name:`` so we can capture the descriptive text that follows each label.
     if match := re.match(pattern=r"Build:\s*(.*)", string=line):
         data_dict["TUFLOW_version"] = match.group(1).strip()
     elif match := re.match(pattern=r"Simulations Log Folder == .*\\([^\\]+)$", string=line):
