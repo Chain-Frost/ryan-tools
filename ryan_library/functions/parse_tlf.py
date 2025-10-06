@@ -31,6 +31,10 @@ REGEX_PATTERNS: dict[str, re.Pattern] = {
     "input_file": re.compile(r"Input File:\s*(.+\.tcf)"),
     "log_path": re.compile(r"Log File:\s*(.+)"),
     "gpu_device_ids": re.compile(r"GPU Device IDs\s*==\s*(?P<ids>[\d,\s]+)"),
+    "bc_event_source": re.compile(
+        r"BC Event Source\s*==\s*(?P<variable>[^|]+?)\s*\|\s*(?P<value>.+)$",
+        flags=re.IGNORECASE,
+    ),
 }
 
 # Define excluded variable patterns globally for efficiency
@@ -61,6 +65,30 @@ SET_VARIABLE_PATTERN: re.Pattern[str] = re.compile(
     pattern=r"^Set Variable\s+(?P<var>~[ES]\d*~|\w+)\s*==\s*(?P<val>.+)$",
     flags=re.IGNORECASE,
 )
+
+
+def _normalise_bcdbase_variable(variable: str) -> str:
+    """Normalise the BC Database variable name for consistent column naming."""
+
+    cleaned_variable: str = variable.strip()
+    if cleaned_variable.startswith("~") and cleaned_variable.endswith("~"):
+        cleaned_variable = cleaned_variable[1:-1]
+
+    if re.fullmatch(pattern=r"[eEsS]\d+", string=cleaned_variable):
+        return f"-{cleaned_variable.lower()}"
+
+    return cleaned_variable
+
+
+def _extract_bcdbase_pair(line: str) -> tuple[str, str] | None:
+    """Extract key-value pairs from BC Database event source lines."""
+
+    if match := REGEX_PATTERNS["bc_event_source"].search(string=line):
+        variable: str = _normalise_bcdbase_variable(variable=match.group("variable"))
+        value: str = match.group("value").strip()
+        key: str = f"bcdbase: {variable}"
+        return key, value
+    return None
 
 
 def extract_float(match: re.Match) -> float | None:
@@ -134,6 +162,9 @@ def search_for_completion(
             data_dict["Final_Cumulative_ME_pct"] = final_me
             if sim_complete == 1:
                 sim_complete = 2  # This is the last item we grab
+    elif bcdbase_result := _extract_bcdbase_pair(line=line):
+        key, value = bcdbase_result
+        data_dict[key] = value
 
     # within init/final sections capture times
     elif current_section:
@@ -179,6 +210,9 @@ def search_from_top(
     elif match := REGEX_PATTERNS["gpu_device_ids"].search(string=line):
         ids_str = match.group("ids").strip()
         data_dict["GPU_Device_IDs"] = ids_str
+    elif bcdbase_result := _extract_bcdbase_pair(line=line):
+        key, value = bcdbase_result
+        data_dict[key] = value
     elif spec_events:
         if len(line.strip()) == 0:
             spec_events = False
