@@ -21,7 +21,19 @@ def extract_metadata_from_filename(file_name):
       - Boolgeeda_03_ aep1_du12hourtp10.csv
     Returns a tuple: (creek_name, aep, duration, tp)
     """
-    # Regex pattern to extract Creek Name, AEP, Duration, and TP with optional spaces
+    # Regex pattern to extract Creek Name, AEP, Duration, and TP with optional spaces.
+    # Reader's guide:
+    #   * ``^`` and ``$`` lock the pattern to the entire file name.
+    #   * ``(?P<creek_name>[^_]+)`` collects everything up to the first underscore so ``PinarraCreek`` is captured.
+    #   * ``_\d+_\s*`` skips the run number that follows the creek name. ``\s*`` allows the observed space before ``aep``.
+    #   * ``aep(?P<aep>\d+)`` grabs the digits after ``aep`` (e.g. ``aep5``).
+    #   * ``du(?P<duration>\d+)hour`` matches durations such as ``du12hour``.
+    #   * ``tp(?P<tp>\d+)`` captures the temporal pattern (``tp10``).
+    # Example: ``Boolgeeda_03_ aep1_du12hourtp10.csv`` matches with
+    #   creek_name = ``Boolgeeda``
+    #   aep = ``1``
+    #   duration = ``12``
+    #   tp = ``10``
     pattern = re.compile(
         r"^(?P<creek_name>[^_]+)_\d+_\s*aep(?P<aep>\d+)_du(?P<duration>\d+)hourtp(?P<tp>\d+)",
         re.IGNORECASE,
@@ -51,7 +63,10 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
         dict: Mapping of AEP codes to percentage labels.
         str: Creek name extracted from filenames.
     """
-    # Precompile regex patterns for efficiency
+    # Precompile regex patterns for efficiency. The pattern created for each combination looks like
+    # ``aep10_du12hourtp1`` (with the actual AEP and TP plugged in). The ``\b`` word boundary ensures
+    # we match the complete code while still allowing extra text afterwards, such as ``_20240101.csv``.
+    # Example: ``PinarraCreek_01_ aep1_du12hourtp2.csv`` matches the pattern for ("aep1", "tp2").
     regex_patterns = {
         (aep, tp): re.compile(rf"{re.escape(aep)}_du12hour{re.escape(tp)}\b", re.IGNORECASE)
         for aep, tp in selected_combinations
@@ -188,6 +203,7 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
     # Create AEP Mapping (e.g., "aep10" -> "10% AEP")
     aep_mapping = {}
     for aep in unique_aep_set:
+        # ``r"aep(\d+)"`` isolates the digits following ``aep`` so ``aep20`` becomes ``20% AEP`` in the legend labels.
         match = re.match(r"aep(\d+)", aep, re.IGNORECASE)
         if match:
             percentage = match.group(1)
@@ -220,6 +236,7 @@ def create_plot(combined_df, aep_mapping, creek_name, script_directory):
         # Sort AEPs based on percentage for ordered legend
         sorted_aeps = sorted(
             aep_mapping.keys(),
+            # ``r"\d+"`` pulls the first number from labels such as ``aep5`` so the legend appears in numerical order.
             key=lambda x: (int(re.search(r"\d+", x).group()) if re.search(r"\d+", x) else 0),
         )
 
