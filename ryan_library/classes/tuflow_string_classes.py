@@ -23,6 +23,9 @@ class RunCodeComponent:
     def _parse_numeric_value(self, raw_value: str) -> float | int | None:
         """Parse the raw_value into a numeric type. If there is a decimal point,
         round to exactly the number of decimals that appeared in raw_value."""
+        if self.component_type == "aep" and raw_value.upper() in {"PMP", "PMPF"}:
+            return float("nan")
+
         try:
             if "." in raw_value:
                 val = float(raw_value)
@@ -41,12 +44,16 @@ class RunCodeComponent:
         """Generate a textual representation based on the component type.
         Returns:
             str: Textual representation of the component."""
-        mappings = {
-            "tp": f"TP{self.raw_value}",
-            "duration": f"{self.raw_value}m",
-            "aep": f"{self.raw_value}p",
-        }
-        return mappings.get(self.component_type, self.raw_value)
+        if self.component_type == "tp":
+            return f"TP{self.raw_value}"
+        if self.component_type == "duration":
+            return f"{self.raw_value}m"
+        if self.component_type == "aep":
+            normalized_aep: str = self.raw_value.upper()
+            if normalized_aep in {"PMP", "PMPF"}:
+                return normalized_aep
+            return f"{self.raw_value}p"
+        return self.raw_value
 
     def __str__(self) -> str:
         return self.text_repr
@@ -59,7 +66,8 @@ class TuflowStringParser:
     TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)TP(\d{2})(?:[_+]|$)", flags=re.IGNORECASE)
     DURATION_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", flags=re.IGNORECASE)
     AEP_PATTERN: re.Pattern[str] = re.compile(
-        pattern=r"(?:^|[_+])(\d+(?:\.\d{1,2})?)(?:p)(?=$|[_+])", flags=re.IGNORECASE
+        pattern=r"(?:^|[_+])(?P<aep>(?P<numeric>\d+(?:\.\d{1,2})?)p|(?P<text>PMPF|PMP))(?=$|[_+])",
+        flags=re.IGNORECASE,
     )
 
     def __init__(self, file_path: Path | str):
@@ -190,9 +198,12 @@ class TuflowStringParser:
         Returns:
             Optional[RunCodeComponent]: Parsed AEP component or None if not found.
         """
-        match = self.AEP_PATTERN.search(string)
+        match: re.Match[str] | None = self.AEP_PATTERN.search(string)
         if match:
-            aep_value: str = match.group(1)
+            aep_value: str | None = match.group("numeric") or match.group("text")
+            if aep_value is None:
+                logger.error("AEP pattern matched but no numeric or text group was captured.")
+                return None
             logger.debug(f"Parsed AEP value: {aep_value!r}")
             return RunCodeComponent(raw_value=aep_value, component_type="AEP")
         logger.debug("No AEP component found")
