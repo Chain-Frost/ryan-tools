@@ -1,0 +1,40 @@
+name: codex-auto-review
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  nudge-codex:
+    # Auto-trigger if you add label "codex" OR if the head branch starts with "codex/"
+    if: contains(github.event.pull_request.labels.*.name, 'codex') || startsWith(github.head_ref, 'codex/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Avoid duplicate nudges
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            // list last 50 comments and see if we've already asked for a review
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number, per_page: 50 });
+            const alreadyAsked = comments.some(c =>
+              c.body && c.body.trim().toLowerCase().includes('@codex review')
+            );
+            core.setOutput('already', alreadyAsked ? 'true' : 'false');
+
+      - name: Ask Codex to review
+        if: steps.check.outputs.already != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            await github.rest.issues.createComment({
+              owner, repo, issue_number,
+              body: "@codex review"
+            });
