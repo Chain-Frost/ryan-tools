@@ -2,7 +2,7 @@
 import re  # Unlicensed regex
 from loguru import logger
 from typing import Any
-from _collections_abc import Callable
+from collections.abc import Callable
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 
