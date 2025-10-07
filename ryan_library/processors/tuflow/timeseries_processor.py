@@ -46,9 +46,7 @@ class TimeSeriesProcessor(BaseProcessor):
 
             status = self.process_timeseries_raw_dataframe()
             if status is not ProcessorStatus.SUCCESS:
-                logger.error(
-                    f"Processing aborted for file: {self.file_path} during {data_type} post-processing step."
-                )
+                logger.error(f"Processing aborted for file: {self.file_path} during {data_type} post-processing step.")
                 self.df = pd.DataFrame()
                 return self.df
 
@@ -270,13 +268,12 @@ class TimeSeriesProcessor(BaseProcessor):
         Args:
             data_type: Identifier of the main numeric value column in ``self.df``.
         """
-        col_types: dict[str, str] = {
-            "Time": "float64",
-            data_type: "float64",
-        }
+        col_types: dict[str, str] = {"Time": "float64"}
 
         if data_type == "H":
             col_types.update({"H_US": "float64", "H_DS": "float64"})
+        else:
+            col_types[data_type] = "float64"
 
         self.apply_dtype_mapping(dtype_mapping=col_types, context="final_transformations")
 
@@ -298,9 +295,7 @@ class TimeSeriesProcessor(BaseProcessor):
             required_columns: set[str] = {"Time", value_column}
             missing_columns: set[str] = required_columns - set(self.df.columns)
             if missing_columns:
-                logger.error(
-                    f"{self.file_name}: Missing required columns after melt: {sorted(missing_columns)}."
-                )
+                logger.error(f"{self.file_name}: Missing required columns after melt: {sorted(missing_columns)}.")
                 return ProcessorStatus.FAILURE
 
             identifier_columns: list[str] = [col for col in self.df.columns if col not in required_columns]
