@@ -24,7 +24,7 @@ class ConfigLoader:
             dict[str, Any]: The loaded JSON data."""
         try:
             with self.config_path.open("r", encoding="utf-8") as file:
-                config: dict = json.load(file)
+                config: dict[str, Any] = json.load(file)
                 logger.debug(f"Loaded configuration from {self.config_path}: {config}")
                 return config
         except FileNotFoundError:
