@@ -1,13 +1,22 @@
 # tests/functions/test_file_utils.py
 
-import pytest
-from pathlib import Path
 import logging
 import json
+import sys
+from pathlib import Path
 from pprint import pprint
 
+import pytest
+
+from loguru import logger
+
+# Ensure the repository root is on sys.path so ``ryan_library`` can be imported during tests
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 # Import the function to be tested
-from ryan_library.functions.file_utils import find_files_parallel
+from ryan_library.functions.file_utils import find_files_parallel, is_non_zero_file
 
 # Configure logging for tests
 logging.basicConfig(
@@ -318,3 +327,44 @@ def test_find_files_with_report_level(setup_test_environment, load_expected_file
     # Optionally, add more assertions on log messages
     # Example:
     # assert any("Searching in folder" in message.message for message in caplog.records), "Expected log messages not found."
+
+
+@pytest.mark.parametrize(
+    ("scenario", "expected_result", "expected_log_fragment"),
+    [
+        ("missing", False, "File does not exist"),
+        ("directory", False, "Path is not a file"),
+        ("empty", False, "File is empty"),
+        ("populated", True, None),
+    ],
+)
+def test_is_non_zero_file_scenarios(tmp_path, scenario, expected_result, expected_log_fragment):
+    if scenario == "missing":
+        target_path = tmp_path / "missing.txt"
+    elif scenario == "directory":
+        target_path = tmp_path / "as_directory"
+        target_path.mkdir()
+    elif scenario == "empty":
+        target_path = tmp_path / "empty.txt"
+        target_path.touch()
+    elif scenario == "populated":
+        target_path = tmp_path / "data.txt"
+        target_path.write_text("content", encoding="utf-8")
+    else:
+        raise ValueError(f"Unknown scenario: {scenario}")
+
+    captured_messages: list[str] = []
+    handler_id = logger.add(captured_messages.append, level="ERROR", format="{message}")
+    try:
+        result = is_non_zero_file(target_path)
+    finally:
+        logger.remove(handler_id)
+
+    assert result is expected_result
+
+    if expected_log_fragment:
+        assert any(
+            expected_log_fragment in message for message in captured_messages
+        ), f"Expected log fragment '{expected_log_fragment}' not found in {captured_messages}"
+    else:
+        assert not captured_messages
