@@ -1,8 +1,17 @@
+import sys
+from pathlib import Path
 import unittest
+from loguru import logger
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from ryan_library.functions.data_processing import (
     check_string_TP,
     check_string_duration,
     check_string_aep,
+    safe_apply,
 )
 
 # python -m unittest test_check_functions.py
@@ -50,6 +59,32 @@ class TestCheckFunctions(unittest.TestCase):
             check_string_aep("no_aep_here.csv")
         with self.assertRaises(ValueError):
             check_string_aep("example_1.000p.csv")  # Incorrect format (too many digits)
+
+
+def test_safe_apply_returns_value():
+    """safe_apply should return the wrapped function's value when no exception occurs."""
+
+    def double(value: int) -> int:
+        return value * 2
+
+    assert safe_apply(double, 5) == 10
+
+
+def test_safe_apply_handles_exception(caplog):
+    """safe_apply should swallow exceptions and emit a debug log message."""
+
+    def divide_by(value: int) -> float:
+        return 10 / value
+
+    with caplog.at_level("DEBUG"):
+        handler_id = logger.add(caplog.handler, level="DEBUG")
+        try:
+            result = safe_apply(divide_by, 0)
+        finally:
+            logger.remove(handler_id)
+
+    assert result is None
+    assert any("Error applying function" in message for message in caplog.messages)
 
 
 if __name__ == "__main__":
