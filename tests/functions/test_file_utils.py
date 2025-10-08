@@ -2,12 +2,18 @@
 
 import pytest
 from pathlib import Path
+import sys
 import logging
 import json
 from pprint import pprint
 
+# Ensure the project root is on sys.path for direct test execution
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 # Import the function to be tested
-from ryan_library.functions.file_utils import find_files_parallel
+from ryan_library.functions.file_utils import ensure_output_directory, find_files_parallel
 
 # Configure logging for tests
 logging.basicConfig(
@@ -318,3 +324,30 @@ def test_find_files_with_report_level(setup_test_environment, load_expected_file
     # Optionally, add more assertions on log messages
     # Example:
     # assert any("Searching in folder" in message.message for message in caplog.records), "Expected log messages not found."
+
+
+def test_ensure_output_directory_creates_missing_nested(tmp_path):
+    """Ensure missing nested directories are created."""
+
+    nested_dir = tmp_path / "level_one" / "level_two"
+    assert not nested_dir.exists()
+
+    ensure_output_directory(nested_dir)
+
+    assert nested_dir.exists()
+    assert nested_dir.is_dir()
+
+
+def test_ensure_output_directory_idempotent_existing(tmp_path):
+    """Ensure calling on an existing directory does not recreate it."""
+
+    existing_dir = tmp_path / "already_there"
+    existing_dir.mkdir(parents=True)
+    sentinel_file = existing_dir / "sentinel.txt"
+    sentinel_file.write_text("sentinel")
+
+    ensure_output_directory(existing_dir)
+
+    assert existing_dir.exists()
+    assert existing_dir.is_dir()
+    assert sentinel_file.exists()
