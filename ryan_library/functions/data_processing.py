@@ -3,6 +3,7 @@ import re  # Unlicensed regex
 from loguru import logger
 from typing import Any
 from _collections_abc import Callable
+from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 
 def safe_apply(func: Callable[[Any], Any], value: Any) -> Any | None:
@@ -58,14 +59,11 @@ def check_string_TP(string: str) -> str:
     Raises:
         ValueError: If the TP pattern is not found in the string.
     """
-    # Regex pattern to find 'TP' followed by exactly two digits, with context checks
-    pattern = r"(?:[_+]|^)TP(\d{2})(?:[_+]|$)"
-    match: re.Match[str] | None = re.search(
-        pattern=pattern, string=string, flags=re.IGNORECASE
-    )
+    # Delegate to the shared parser pattern so logic lives in one place.
+    match: re.Match[str] | None = TuflowStringParser.TP_PATTERN.search(string)
 
     if match:
-        return match.group(1)  # Return the two digits following 'TP'
+        return match.group(1)
     else:
         raise ValueError(f"TP pattern not found in the string: {string}")
 
@@ -87,12 +85,10 @@ def check_string_duration(string: str) -> str:
     Raises:
         ValueError: If no duration pattern is found in the string.
     """
-    pattern = r"(?:[_+]|^)(\d{3,5}[mM])(?:[_+]|$)"
-    match: re.Match[str] | None = re.search(
-        pattern=pattern, string=string, flags=re.IGNORECASE
-    )
+    # Delegate to the shared parser pattern so logic lives in one place.
+    match: re.Match[str] | None = TuflowStringParser.DURATION_PATTERN.search(string)
     if match:
-        return match.group(0).replace("_", "").replace("m", "")
+        return match.group(1)
     else:
         raise ValueError(f"Duration pattern not found in the string: {string}")
 
@@ -114,11 +110,9 @@ def check_string_aep(string: str) -> str:
     Raises:
         ValueError: If no AEP pattern is found in the string.
     """
-    pattern = r"(?:[_+]|^)(\d{2}\.\d{1,2}p)(?:[_+]|$)"
-    match: re.Match[str] | None = re.search(
-        pattern=pattern, string=string, flags=re.IGNORECASE
-    )
+    # Delegate to the shared parser pattern so logic lives in one place.
+    match: re.Match[str] | None = TuflowStringParser.AEP_PATTERN.search(string)
     if match:
-        return match.group(0).replace("_", "").replace("p", "")
+        return match.group(1)
     else:
         raise ValueError(f"AEP pattern not found in the string: {string}")

@@ -21,7 +21,20 @@ def extract_metadata_from_filename(file_name):
       - Opt2_132Crossing_01_ aep1_du12hourtp10.csv
     Returns a tuple: (crossing_name, aep, duration, tp)
     """
-    # Updated regex pattern to allow underscores in crossing_name
+    # Updated regex pattern to allow underscores in ``crossing_name``.
+    # Plain language guide:
+    #   * ``^`` and ``$`` anchor the pattern to the full file name so partial matches are ignored.
+    #   * ``(?P<crossing_name>[^_]+(?:_[^_]+)*Crossing)`` captures a crossing name that can contain spaces represented
+    #     by underscores (e.g. ``Boolgeeda_Creek_Crossing``).
+    #   * ``\d+_\s*`` skips the numeric identifier that follows the crossing name.
+    #   * ``aep(?P<aep>\d+)`` captures the annual exceedance probability digits such as ``aep10``.
+    #   * ``du(?P<duration>\d+)hour`` records the storm duration in hours (``du12hour``).
+    #   * ``tp(?P<tp>\d+)`` captures the temporal pattern (``tp2``).
+    # Example match: ``Opt2_132Crossing_01_ aep1_du12hourtp2.csv`` becomes
+    #   crossing_name = ``Opt2_132Crossing``
+    #   aep = ``1``
+    #   duration = ``12``
+    #   tp = ``2``
     pattern = re.compile(
         r"^(?P<crossing_name>[^_]+(?:_[^_]+)*Crossing)_\d+_\s*aep(?P<aep>\d+)_du(?P<duration>\d+)hourtp(?P<tp>\d+)\.csv$",
         re.IGNORECASE,
@@ -55,7 +68,10 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
         dict: Mapping of AEP codes to percentage labels.
         str: Crossing name extracted from filenames.
     """
-    # Precompile regex patterns for efficiency
+    # Precompile regex patterns for efficiency. Each pattern is a literal string such as
+    # ``aep10_du12hourtp1`` inside the file name. The ``\b`` word boundary means
+    # ``aep10_du12hourtp1_extra.csv`` still matches but ``aep100`` would not be accepted for ``aep10``.
+    # Example: a file named ``hydrograph_aep10_du12hourtp1.csv`` will match the pattern built from ("aep10", "tp1").
     regex_patterns = {
         (aep, tp): re.compile(rf"{re.escape(aep)}_du12hour{re.escape(tp)}\b", re.IGNORECASE)
         for aep, tp in selected_combinations
@@ -192,6 +208,8 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
     # Create AEP Mapping (e.g., "aep10" -> "10% AEP")
     aep_mapping = {}
     for aep in unique_aep_set:
+        # ``r"aep(\d+)"`` looks for the digits immediately following ``aep``.
+        # Example: ``aep20`` -> ``20`` which is then displayed as ``20% AEP``.
         match = re.match(r"aep(\d+)", aep, re.IGNORECASE)
         if match:
             percentage = match.group(1)
@@ -224,6 +242,8 @@ def create_plot(combined_df, aep_mapping, crossing_name, script_directory):
         # Sort AEPs based on percentage for ordered legend
         sorted_aeps = sorted(
             aep_mapping.keys(),
+            # ``r"\d+"`` finds the first number in labels such as ``aep10`` so they can be sorted numerically.
+            # Example: ``aep2`` (2) comes before ``aep10`` (10) even though ``2`` is a shorter string.
             key=lambda x: (int(re.search(r"\d+", x).group()) if re.search(r"\d+", x) else 0),
         )
 

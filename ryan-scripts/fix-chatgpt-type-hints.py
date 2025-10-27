@@ -21,7 +21,9 @@ def fix_type_hints(file_path: Path) -> None:
                     print(f"Bad import found: {file_path} (Line {line_number}): {line.strip()}")
 
             original_line: str = line
-            # Replace incorrect type hints using regex
+            # Replace incorrect type hints using regex. Each pattern looks for the capitalised typing alias
+            # (e.g. ``Dict[``) and swaps it for the modern ``dict[`` form.
+            # Example: ``Tuple[int, str]`` becomes ``tuple[int, str]``.
             line: str = re.sub(pattern=r"\bDict\[", repl="dict[", string=line)
             line = re.sub(pattern=r"\bList\[", repl="list[", string=line)
             line = re.sub(pattern=r"\bTuple\[", repl="tuple[", string=line)

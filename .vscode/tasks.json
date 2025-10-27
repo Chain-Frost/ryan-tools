@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "python:ensure-venv",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "$python = if (Test-Path '${workspaceFolder}\\.venv\\Scripts\\python.exe') { '${workspaceFolder}\\.venv\\Scripts\\python.exe' } elseif ($env:RYAN_TOOLS_PYTHON) { $env:RYAN_TOOLS_PYTHON } else { 'python' }; & $python '${workspaceFolder}\\repo-scripts\\ensure_venv.py'"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "python:stdin",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "$python = if (Test-Path '${workspaceFolder}\\.venv\\Scripts\\python.exe') { '${workspaceFolder}\\.venv\\Scripts\\python.exe' } elseif ($env:RYAN_TOOLS_PYTHON) { $env:RYAN_TOOLS_PYTHON } else { 'python' }; $snippet = if ($env:RYAN_TOOLS_SNIPPET) { $env:RYAN_TOOLS_SNIPPET } else { '${workspaceFolder}\\repo-scripts\\run_snippet.py' }; Get-Content -Raw - | & $python $snippet"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}
