@@ -6,7 +6,9 @@ from loguru import logger
 import os
 
 
-def run_gdal_calc(input_file: Path, output_file: str, cutoff: float):
+def run_gdal_calc(
+    input_file: Path | str, output_file: Path | str, cutoff: float
+) -> None:
     """
     Run gdal_calc.py with the specified parameters.
 
@@ -30,7 +32,7 @@ def run_gdal_calc(input_file: Path, output_file: str, cutoff: float):
         "-A",
         str(input_file),
         "--outfile",
-        output_file,
+        str(output_file),
     ] + create_opts.split()
 
     logger.debug(f"Running GDAL Calc Command: {' '.join(gdal_calc_cmd)}")
@@ -43,7 +45,7 @@ def run_gdal_calc(input_file: Path, output_file: str, cutoff: float):
         raise
 
 
-def run_gdal_polygonize(input_file: str, output_shp: str):
+def run_gdal_polygonize(input_file: Path | str, output_shp: Path | str) -> None:
     """
     Run gdal_polygonize.py to convert the raster to a polygon.
 
@@ -56,7 +58,12 @@ def run_gdal_polygonize(input_file: str, output_shp: str):
         logger.error("GDAL_POLYGONIZE_PATH is not set in environment variables.")
         raise EnvironmentError("GDAL_POLYGONIZE_PATH is not set.")
 
-    gdal_polygonize_cmd = ["python", gdal_polygonize_path, input_file, output_shp]
+    gdal_polygonize_cmd = [
+        "python",
+        gdal_polygonize_path,
+        str(input_file),
+        str(output_shp),
+    ]
 
     logger.debug(f"Running GDAL Polygonize Command: {' '.join(gdal_polygonize_cmd)}")
 

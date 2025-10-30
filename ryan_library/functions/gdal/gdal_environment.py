@@ -66,7 +66,7 @@ def find_python_installation(qgis_path: Path) -> Path:
     return python_dir
 
 
-def setup_environment(qgis_path: Path = None):
+def setup_environment(qgis_path: Path | None = None) -> None:
     """
     Set up the environment variables needed for GDAL processing based on the QGIS/OSGeo4W installation path.
 
@@ -123,7 +123,7 @@ def setup_environment(qgis_path: Path = None):
     logger.debug("GDAL tool paths set in environment variables.")
 
 
-def check_executable(path: str, name: str):
+def check_executable(path: str, name: str) -> None:
     """
     Check if the specified executable or script exists.
 
@@ -141,7 +141,7 @@ def check_executable(path: str, name: str):
         raise FileNotFoundError(f"{name} not found at {path}.")
 
 
-def check_required_components():
+def check_required_components() -> None:
     """
     Check that all required GDAL components are available.
 
