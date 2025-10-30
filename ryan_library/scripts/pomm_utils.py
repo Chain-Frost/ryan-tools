@@ -281,6 +281,29 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
             )
             rows.append(row)
         median_df = pd.DataFrame(rows)
+        if not median_df.empty:
+            id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
+            mean_columns: list[str] = [
+                "mean_including_zeroes",
+                "mean_excluding_zeroes",
+                "mean_PeakFlow",
+                "mean_Duration",
+                "mean_TP",
+            ]
+            median_columns: list[str] = ["MedianAbsMax", "Duration", "Critical_TP"]
+            info_columns: list[str] = ["low", "high", "count", "count_bin", "mean_storm_is_median_storm"]
+
+            ordered_cols: list[str] = []
+            for group in (id_columns, mean_columns, median_columns):
+                ordered_cols.extend([col for col in group if col in median_df.columns])
+
+            remaining_cols: list[str] = [
+                col for col in median_df.columns if col not in ordered_cols and col not in info_columns
+            ]
+            ordered_cols.extend(remaining_cols)
+            ordered_cols.extend([col for col in info_columns if col in median_df.columns])
+
+            median_df = median_df[ordered_cols]
         logger.info("Created 'aep_dur_median' DataFrame with median records for each AEP-Duration group.")
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_dur_median' grouping: {e}")
@@ -296,6 +319,36 @@ def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
         df["aep_bin"] = df.groupby(group_cols, observed=True)["MedianAbsMax"].transform("size")
         idx = df.groupby(group_cols, observed=True)["MedianAbsMax"].idxmax()
         aep_med_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
+        if not aep_med_max.empty:
+            id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
+            mean_columns: list[str] = [
+                "mean_including_zeroes",
+                "mean_excluding_zeroes",
+                "mean_PeakFlow",
+                "mean_Duration",
+                "mean_TP",
+            ]
+            median_columns: list[str] = ["MedianAbsMax", "Duration", "Critical_TP"]
+            info_columns: list[str] = [
+                "low",
+                "high",
+                "count",
+                "count_bin",
+                "mean_storm_is_median_storm",
+                "aep_bin",
+            ]
+
+            ordered_cols: list[str] = []
+            for group in (id_columns, mean_columns, median_columns):
+                ordered_cols.extend([col for col in group if col in aep_med_max.columns])
+
+            remaining_cols: list[str] = [
+                col for col in aep_med_max.columns if col not in ordered_cols and col not in info_columns
+            ]
+            ordered_cols.extend(remaining_cols)
+            ordered_cols.extend([col for col in info_columns if col in aep_med_max.columns])
+
+            aep_med_max = aep_med_max[ordered_cols]
         logger.info("Created 'aep_median_max' DataFrame with maximum median records for each AEP group.")
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_median_max' grouping: {e}")

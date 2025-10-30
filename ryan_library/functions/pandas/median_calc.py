@@ -19,10 +19,12 @@ def _median_stats_for_group(durgrp: pd.DataFrame, stat_col: str, tp_col: str, du
 
     mean_duration = ensemblestat[dur_col].iloc[medianpos]
     mean_tp = ensemblestat[tp_col].iloc[medianpos]
+    mean_peak_flow = float("nan")
     if stat_series.notna().any():
         closest_idx = (stat_series - mean_including_zeroes).abs().idxmin()
         mean_duration = ensemblestat.loc[closest_idx, dur_col]
         mean_tp = ensemblestat.loc[closest_idx, tp_col]
+        mean_peak_flow = float(ensemblestat.loc[closest_idx, stat_col])
 
     return {
         "mean_including_zeroes": mean_including_zeroes,
@@ -31,6 +33,7 @@ def _median_stats_for_group(durgrp: pd.DataFrame, stat_col: str, tp_col: str, du
         "Critical_TP": ensemblestat[tp_col].iloc[medianpos],
         "mean_Duration": mean_duration,
         "mean_TP": mean_tp,
+        "mean_PeakFlow": mean_peak_flow,
         "low": ensemblestat[stat_col].iloc[0],
         "high": ensemblestat[stat_col].iloc[-1],
         "count": r,

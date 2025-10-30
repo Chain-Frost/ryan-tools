@@ -27,6 +27,7 @@ def test_median_stats_for_group_odd() -> None:
     assert stats["count"] == 3
     assert stats["Duration"] == "5"
     assert stats["Critical_TP"] == "B"
+    assert stats["mean_PeakFlow"] == 2
 
 
 def test_median_stats_for_group_even() -> None:
@@ -39,6 +40,7 @@ def test_median_stats_for_group_even() -> None:
     assert stats["count"] == 4
     assert stats["Duration"] == "1"
     assert stats["Critical_TP"] == "C"
+    assert stats["mean_PeakFlow"] == 2
 
 
 def test_median_stats_for_group_zeros() -> None:
@@ -48,6 +50,7 @@ def test_median_stats_for_group_zeros() -> None:
     assert stats["low"] == 0
     assert stats["high"] == 0
     assert np.isnan(stats["mean_excluding_zeroes"])
+    assert stats["mean_PeakFlow"] == 0
 
 
 def test_median_calc_multiple_groups() -> None:
