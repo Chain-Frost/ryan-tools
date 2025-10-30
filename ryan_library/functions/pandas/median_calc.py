@@ -13,14 +13,24 @@ def _median_stats_for_group(durgrp: pd.DataFrame, stat_col: str, tp_col: str, du
     r: int = len(ensemblestat.index)
     medianpos = int(r / 2)
 
-    mean_including_zeroes = float(ensemblestat[stat_col].mean())
+    stat_series = ensemblestat[stat_col]
+    mean_including_zeroes = float(stat_series.mean())
     mean_excluding_zeroes = float(ensemblestat[ensemblestat[stat_col] != 0][stat_col].mean())
+
+    mean_duration = ensemblestat[dur_col].iloc[medianpos]
+    mean_tp = ensemblestat[tp_col].iloc[medianpos]
+    if stat_series.notna().any():
+        closest_idx = (stat_series - mean_including_zeroes).abs().idxmin()
+        mean_duration = ensemblestat.loc[closest_idx, dur_col]
+        mean_tp = ensemblestat.loc[closest_idx, tp_col]
 
     return {
         "mean_including_zeroes": mean_including_zeroes,
         "mean_excluding_zeroes": mean_excluding_zeroes,
         "Duration": ensemblestat[dur_col].iloc[medianpos],
         "Critical_TP": ensemblestat[tp_col].iloc[medianpos],
+        "mean_Duration": mean_duration,
+        "mean_TP": mean_tp,
         "low": ensemblestat[stat_col].iloc[0],
         "high": ensemblestat[stat_col].iloc[-1],
         "count": r,

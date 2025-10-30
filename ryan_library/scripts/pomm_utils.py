@@ -274,6 +274,11 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
             }
             row.update(stats_dict)
             row["MedianAbsMax"] = row.pop("median")
+            mean_duration = row.get("mean_Duration")
+            mean_tp = row.get("mean_TP")
+            row["mean_storm_is_median_storm"] = bool(
+                row.get("Duration") == mean_duration and row.get("Critical_TP") == mean_tp
+            )
             rows.append(row)
         median_df = pd.DataFrame(rows)
         logger.info("Created 'aep_dur_median' DataFrame with median records for each AEP-Duration group.")
