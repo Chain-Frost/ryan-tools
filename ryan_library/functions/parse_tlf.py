@@ -6,12 +6,7 @@ from datetime import datetime
 import re
 from loguru import logger
 import pandas as pd
-from ryan_library.functions.data_processing import (
-    check_string_aep,
-    check_string_duration,
-    check_string_TP,
-    safe_apply,
-)
+from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 # Precompile regex patterns at the module level for efficiency and thread safety
 REGEX_PATTERNS: dict[str, re.Pattern] = {
@@ -416,13 +411,19 @@ def finalise_data(runcode: str, data_dict: dict[str, Any]) -> pd.DataFrame:
         pd.DataFrame: DataFrame containing the processed data.
     """
     try:
-        adj_runcode: str = runcode.replace("+", "_")
-        for idx, elem in enumerate(adj_runcode.split("_"), start=1):
-            data_dict[f"R{idx}"] = elem
-        data_dict["trim_tcf"] = remove_e_s_from_runcode(adj_runcode, data_dict)
-        data_dict["TP"] = safe_apply(check_string_TP, adj_runcode)
-        data_dict["Duration"] = safe_apply(check_string_duration, adj_runcode)
-        data_dict["AEP"] = safe_apply(check_string_aep, adj_runcode)
+        parser = TuflowStringParser(file_path=runcode)
+
+        clean_run_code: str = parser.clean_run_code
+        data_dict["clean_run_code"] = clean_run_code
+
+        data_dict["trim_run_code"] = parser.trim_run_code
+        data_dict["trim_tcf"] = remove_e_s_from_runcode(clean_run_code, data_dict)
+
+        data_dict.update(parser.run_code_parts)
+
+        data_dict["TP"] = str(parser.tp) if parser.tp else None
+        data_dict["Duration"] = str(parser.duration) if parser.duration else None
+        data_dict["AEP"] = str(parser.aep) if parser.aep else None
 
         df: pd.DataFrame = pd.DataFrame([data_dict])
         return df
