@@ -414,16 +414,16 @@ def finalise_data(runcode: str, data_dict: dict[str, Any]) -> pd.DataFrame:
         parser = TuflowStringParser(file_path=runcode)
 
         clean_run_code: str = parser.clean_run_code
-        data_dict["clean_run_code"] = clean_run_code
+        data_dict["Runcode"] = clean_run_code
 
         data_dict["trim_run_code"] = parser.trim_run_code
         data_dict["trim_tcf"] = remove_e_s_from_runcode(clean_run_code, data_dict)
 
         data_dict.update(parser.run_code_parts)
 
-        data_dict["TP"] = str(parser.tp) if parser.tp else None
-        data_dict["Duration"] = str(parser.duration) if parser.duration else None
-        data_dict["AEP"] = str(parser.aep) if parser.aep else None
+        data_dict["TP"] = str(parser.tp.numeric_value) if parser.tp else None
+        data_dict["Duration"] = str(parser.duration.numeric_value) if parser.duration else None
+        data_dict["AEP"] = str(parser.aep.numeric_value) if parser.aep else None
 
         df: pd.DataFrame = pd.DataFrame([data_dict])
         return df
