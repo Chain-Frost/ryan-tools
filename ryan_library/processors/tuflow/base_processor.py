@@ -155,6 +155,10 @@ class BaseProcessor(ABC):
         elif self.dataformat == "Timeseries":
             self.expected_in_header = processing_parts.expected_in_header
             logger.debug(f"{self.file_name}: Loaded expected_in_header: {self.expected_in_header}")
+        elif self.dataformat == "POMM":
+            logger.debug(f"{self.file_name}: POMM type")
+        elif self.dataformat == "PO":
+            logger.debug(f"{self.file_name}: PO type")
         else:
             logger.warning(f"{self.file_name}: Unknown dataformat '{self.dataformat}'.")
 
