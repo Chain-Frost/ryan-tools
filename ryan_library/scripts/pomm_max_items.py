@@ -23,6 +23,7 @@ def run_peak_report(script_directory: Path | None = None) -> None:
 def run_median_peak_report(
     script_directory: Path | None = None,
     log_level: str = "INFO",
+    include_pomm: bool = True,
 ) -> None:
     """Locate and process POMM files and export median-based peak values."""
 
@@ -42,4 +43,5 @@ def run_median_peak_report(
         aggregated_df=aggregated_df,
         script_directory=script_directory,
         timestamp=timestamp,
+        include_pomm=include_pomm,
     )
