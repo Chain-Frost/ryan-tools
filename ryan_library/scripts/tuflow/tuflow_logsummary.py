@@ -159,6 +159,8 @@ def main_processing(console_log_level: str | None = None) -> None:
                 # Define the desired column order
                 prioritized_columns = [
                     "Runcode",
+                    "clean_run_code",
+                    "trim_run_code",
                     "trim_tcf",
                     "StartDate",
                 ]
