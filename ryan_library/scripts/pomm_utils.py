@@ -21,6 +21,8 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
 
+NAType = type(pd.NA)
+
 
 def collect_files(
     paths_to_process: Iterable[Path],
@@ -288,7 +290,7 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
                     median_df["mean_Duration"], errors="coerce"
                 )
 
-            def norm_tp(value: str | int | float | None) -> str | pd.NA:
+            def norm_tp(value: str | int | float | None) -> str | NAType:
                 if pd.isna(value):
                     return pd.NA
                 cleaned = str(value).replace("TP", "")
