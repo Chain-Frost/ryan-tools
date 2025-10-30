@@ -237,12 +237,14 @@ def save_peak_report(
     aep_max: pd.DataFrame = find_aep_max(aep_dur_max=aep_dur_max)
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
+    logger.info(f"Starting export of peak report to {output_path}")
     save_to_excel(
         aep_dur_max=aep_dur_max,
         aep_max=aep_max,
         aggregated_df=aggregated_df,
         output_path=output_path,
     )
+    logger.info(f"Completed peak report export to {output_path}")
 
 
 def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
@@ -274,14 +276,42 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
             }
             row.update(stats_dict)
             row["MedianAbsMax"] = row.pop("median")
-            mean_duration = row.get("mean_Duration")
-            mean_tp = row.get("mean_TP")
-            row["mean_storm_is_median_storm"] = bool(
-                row.get("Duration") == mean_duration and row.get("Critical_TP") == mean_tp
-            )
             rows.append(row)
         median_df = pd.DataFrame(rows)
         if not median_df.empty:
+            if "median_duration" in median_df.columns:
+                median_df["median_duration"] = pd.to_numeric(
+                    median_df["median_duration"], errors="coerce"
+                )
+            if "mean_Duration" in median_df.columns:
+                median_df["mean_Duration"] = pd.to_numeric(
+                    median_df["mean_Duration"], errors="coerce"
+                )
+
+            def norm_tp(value: str | int | float | None) -> str | pd.NA:
+                if pd.isna(value):
+                    return pd.NA
+                cleaned = str(value).replace("TP", "")
+                numeric = pd.to_numeric(cleaned, errors="coerce")
+                return pd.NA if pd.isna(numeric) else f"TP{int(numeric):02d}"
+
+            for column in ("median_TP", "mean_TP"):
+                if column in median_df.columns:
+                    median_df[column] = median_df[column].apply(norm_tp)
+
+            if {
+                "median_duration",
+                "mean_Duration",
+                "median_TP",
+                "mean_TP",
+            }.issubset(median_df.columns):
+                comparison = median_df["median_duration"].eq(median_df["mean_Duration"]) & median_df[
+                    "median_TP"
+                ].eq(median_df["mean_TP"])
+                median_df["mean_storm_is_median_storm"] = comparison.fillna(False)
+            else:
+                median_df["mean_storm_is_median_storm"] = False
+
             id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
             mean_columns: list[str] = [
                 "mean_including_zeroes",
@@ -290,7 +320,7 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
                 "mean_Duration",
                 "mean_TP",
             ]
-            median_columns: list[str] = ["MedianAbsMax", "Duration", "Critical_TP"]
+            median_columns: list[str] = ["MedianAbsMax", "median_duration", "median_TP"]
             info_columns: list[str] = ["low", "high", "count", "count_bin", "mean_storm_is_median_storm"]
 
             ordered_cols: list[str] = []
@@ -328,7 +358,7 @@ def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
                 "mean_Duration",
                 "mean_TP",
             ]
-            median_columns: list[str] = ["MedianAbsMax", "Duration", "Critical_TP"]
+            median_columns: list[str] = ["MedianAbsMax", "median_duration", "median_TP"]
             info_columns: list[str] = [
                 "low",
                 "high",
@@ -367,9 +397,11 @@ def save_peak_report_median(
     aep_med_max: pd.DataFrame = find_aep_median_max(aep_dur_median=aep_dur_med)
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
+    logger.info(f"Starting export of median peak report to {output_path}")
     save_to_excel(
         aep_dur_max=aep_dur_med,
         aep_max=aep_med_max,
         aggregated_df=aggregated_df,
         output_path=output_path,
     )
+    logger.info(f"Completed median peak report export to {output_path}")

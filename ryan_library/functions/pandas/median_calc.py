@@ -29,8 +29,8 @@ def _median_stats_for_group(durgrp: pd.DataFrame, stat_col: str, tp_col: str, du
     return {
         "mean_including_zeroes": mean_including_zeroes,
         "mean_excluding_zeroes": mean_excluding_zeroes,
-        "Duration": ensemblestat[dur_col].iloc[medianpos],
-        "Critical_TP": ensemblestat[tp_col].iloc[medianpos],
+        "median_duration": ensemblestat[dur_col].iloc[medianpos],
+        "median_TP": ensemblestat[tp_col].iloc[medianpos],
         "mean_Duration": mean_duration,
         "mean_TP": mean_tp,
         "mean_PeakFlow": mean_peak_flow,

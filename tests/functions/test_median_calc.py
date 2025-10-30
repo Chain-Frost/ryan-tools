@@ -25,8 +25,8 @@ def test_median_stats_for_group_odd() -> None:
     assert stats["low"] == 1
     assert stats["high"] == 3
     assert stats["count"] == 3
-    assert stats["Duration"] == "5"
-    assert stats["Critical_TP"] == "B"
+    assert stats["median_duration"] == "5"
+    assert stats["median_TP"] == "B"
     assert stats["mean_PeakFlow"] == 2
 
 
@@ -38,8 +38,8 @@ def test_median_stats_for_group_even() -> None:
     assert stats["low"] == 1
     assert stats["high"] == 4
     assert stats["count"] == 4
-    assert stats["Duration"] == "1"
-    assert stats["Critical_TP"] == "C"
+    assert stats["median_duration"] == "1"
+    assert stats["median_TP"] == "C"
     assert stats["mean_PeakFlow"] == 2
 
 
@@ -63,7 +63,7 @@ def test_median_calc_multiple_groups() -> None:
     max_stats, stats_list = median_calc(df, "val", "tp", "dur")
     assert len(stats_list) == 2
     assert max_stats["median"] == 6
-    assert max_stats["Duration"] == "10"
+    assert max_stats["median_duration"] == "10"
     assert max_stats["count_bin"] == 5
 
 
@@ -76,7 +76,7 @@ def test_median_calc_ties_choose_first() -> None:
     )
     max_stats, _ = median_calc(df, "val", "tp", "dur")
     # groupby sorts keys so '10' comes before '5'; tie keeps first group ('10')
-    assert max_stats["Duration"] == "10"
+    assert max_stats["median_duration"] == "10"
     assert max_stats["median"] == 2
 
 
