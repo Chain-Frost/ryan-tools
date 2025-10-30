@@ -1,11 +1,10 @@
 # ryan_library/classes/suffixes_and_dtypes.py
 
-from __future__ import annotations
 import json
 from pathlib import Path
 from loguru import logger
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 from threading import Lock
 
 
@@ -54,18 +53,53 @@ class ProcessingParts:
     """Encapsulates all processing-related configurations for a data type."""
 
     dataformat: str = ""
+    processor_module: str | None = None
     skip_columns: list[int] = field(default_factory=list)
     columns_to_use: dict[str, str] = field(default_factory=dict)
     expected_in_header: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], data_type_name: str) -> "ProcessingParts":
-        dataformat: str = data.get("dataformat", "")
-        if not isinstance(dataformat, str):
+        dataformat_raw: Any = data.get("dataformat", "")
+        dataformat: str = ""
+
+        module_raw: Any = data.get("module")
+        processor_module: str | None = None
+        if isinstance(module_raw, str) and module_raw.strip():
+            processor_module = module_raw.strip()
+        elif module_raw not in (None, ""):
             logger.error(
-                f"Invalid format for dataformat in '{data_type_name}'. Expected a string."
+                f"Invalid 'module' value for processingParts in '{data_type_name}'. Expected a non-empty string."
             )
-            dataformat = ""
+
+        if isinstance(dataformat_raw, dict):
+            category_value: Any = dataformat_raw.get("category")
+            if isinstance(category_value, str):
+                dataformat = category_value
+            elif category_value is not None:
+                logger.error(
+                    f"Invalid 'category' value for dataformat in '{data_type_name}'. Expected a string."
+                )
+
+            module_value: Any = dataformat_raw.get("module")
+            if module_value not in (None, ""):
+                if isinstance(module_value, str) and module_value.strip():
+                    if processor_module is None:
+                        processor_module = module_value.strip()
+                    logger.warning(
+                        "'dataformat.module' in '%s' is deprecated; move it to 'processingParts.module'.",
+                        data_type_name,
+                    )
+                else:
+                    logger.error(
+                        f"Invalid 'module' value for dataformat in '{data_type_name}'. Expected a non-empty string."
+                    )
+        elif isinstance(dataformat_raw, str):
+            dataformat = dataformat_raw
+        elif dataformat_raw not in (None, ""):
+            logger.error(
+                f"Invalid format for dataformat in '{data_type_name}'. Expected a string or mapping."
+            )
 
         # skip_columns is deprecated; log and ignore
         skip_columns = data.get("skip_columns", [])
@@ -99,10 +133,12 @@ class ProcessingParts:
 
         logger.debug(
             f"ProcessingParts loaded for '{data_type_name}': "
-            f"dataformat={dataformat}, columns_to_use={columns_to_use}, expected_in_header={expected_in_header}"
+            f"dataformat={dataformat}, processor_module={processor_module}, "
+            f"columns_to_use={columns_to_use}, expected_in_header={expected_in_header}"
         )
         return cls(
             dataformat=dataformat,
+            processor_module=processor_module,
             columns_to_use=columns_to_use,
             expected_in_header=expected_in_header,
         )
@@ -112,11 +148,14 @@ class ProcessingParts:
 
         Returns:
             dict[str, Any]: The processing parts as a dictionary."""
-        return {
+        data: dict[str, Any] = {
             "dataformat": self.dataformat,
             "columns_to_use": self.columns_to_use,
             "expected_in_header": self.expected_in_header,
         }
+        if self.processor_module:
+            data["module"] = self.processor_module
+        return data
 
 
 @dataclass
@@ -189,8 +228,8 @@ class DataTypeDefinition:
 class Config:
     """A unified configuration class that holds all data types configurations."""
 
-    _instance: Config | None = None
-    _lock: Lock = Lock()
+    _instance: ClassVar["Config | None"] = None
+    _lock: ClassVar[Lock] = Lock()
 
     DEFAULT_CONFIG_FILENAME = "tuflow_results_validation_and_datatypes.json"
 
@@ -200,7 +239,7 @@ class Config:
         self.data_types: dict[str, DataTypeDefinition] = data_types
 
     @classmethod
-    def load(cls, config_path: Path | None = None) -> Config:
+    def load(cls, config_path: Path | None = None) -> "Config":
         """Load the Config either from a provided config_path or from the default path."""
         if config_path is None:
             config_dir: Path = Path(__file__).parent
@@ -226,7 +265,7 @@ class Config:
         return cls(data_types=data_types)
 
     @classmethod
-    def get_instance(cls, config_path: Path | None = None) -> Config:
+    def get_instance(cls, config_path: Path | None = None) -> "Config":
         """Retrieve the singleton instance of Config."""
         if cls._instance is None:
             with cls._lock:
@@ -238,8 +277,8 @@ class Config:
 class SuffixesConfig:
     """A lookup dictionary that maps file suffixes to their respective data types."""
 
-    _instance: SuffixesConfig | None = None
-    _lock: Lock = Lock()
+    _instance: ClassVar["SuffixesConfig | None"] = None
+    _lock: ClassVar[Lock] = Lock()
 
     DEFAULT_CONFIG_FILENAME = "tuflow_results_validation_and_datatypes.json"
 
@@ -249,7 +288,7 @@ class SuffixesConfig:
         self.config: Config = config  # Store the Config instance
 
     @classmethod
-    def load(cls, config: Config | None = None) -> SuffixesConfig:
+    def load(cls, config: Config | None = None) -> "SuffixesConfig":
         """Load the SuffixesConfig either from a provided Config object or from the default Config."""
         if config is None:
             config = Config.get_instance()
@@ -262,7 +301,7 @@ class SuffixesConfig:
         return cls(suffix_to_type=suffix_to_type, config=config)
 
     @classmethod
-    def get_instance(cls, config: Config | None = None) -> SuffixesConfig:
+    def get_instance(cls, config: Config | None = None) -> "SuffixesConfig":
         """Retrieve the singleton instance of SuffixesConfig."""
         if cls._instance is None:
             with cls._lock:
@@ -290,6 +329,14 @@ class SuffixesConfig:
             logger.error(f"Data type '{data_type}' not found in configuration.")
             return None
         return data_type_def.processor
+
+    def get_definition_for_data_type(self, data_type: str) -> DataTypeDefinition | None:
+        """Return the configuration block for ``data_type`` if it exists."""
+
+        definition: DataTypeDefinition | None = self.config.data_types.get(data_type)
+        if definition is None:
+            logger.error(f"Data type '{data_type}' not found in configuration.")
+        return definition
 
     def invert_suffix_to_type(self) -> dict[str, list[str]]:
         """Invert the suffix_to_type dictionary to map data types to suffixes."""
