@@ -40,6 +40,8 @@ def test_find_aep_dur_median_and_max() -> None:
     )
     med: DataFrame = find_aep_dur_median(aggregated_df=df)
     assert med["MedianAbsMax"].tolist() == [5, 7, 2]
+    assert med["median_duration"].tolist() == ["D1", "D2", "D1"]
+    assert med["mean_Duration"].tolist() == ["D1", "D2", "D1"]
     max_df: DataFrame = find_aep_median_max(aep_dur_median=med)
     assert len(max_df) == 2
     row_a = max_df[max_df["aep_text"] == "A"].iloc[0]
@@ -54,5 +56,17 @@ def test_run_median_peak_report_creates_excel() -> None:
     assert excel_files
     xl = pd.ExcelFile(path_or_buffer=excel_files[0])
     assert set(["aep-dur-max", "aep-max", "POMM"]).issubset(set(xl.sheet_names))
+    for f in excel_files:
+        f.unlink()
+
+
+def test_run_median_peak_report_skips_pomm_sheet_when_disabled() -> None:
+    src_dir: Path = DATA_DIR / "Module_01" / "results"
+    run_median_peak_report(script_directory=src_dir, log_level="INFO", include_pomm=False)
+    excel_files: list[Path] = list(src_dir.glob("*_med_peaks.xlsx"))
+    assert excel_files
+    xl = pd.ExcelFile(path_or_buffer=excel_files[0])
+    assert "POMM" not in set(xl.sheet_names)
+    assert {"aep-dur-max", "aep-max"}.issubset(set(xl.sheet_names))
     for f in excel_files:
         f.unlink()

@@ -61,12 +61,12 @@ def _summarise_results(df: pd.DataFrame) -> pd.DataFrame:
         stats, _ = median_stats_func(group, "Duration_Exceeding", "TP", "Duration")
         row = list(name) + [
             stats.get("median"),
-            stats.get("Duration"),
-            stats.get("Critical_TP"),
+            stats.get("median_duration"),
+            stats.get("median_TP"),
             stats.get("low"),
             stats.get("high"),
             stats.get("mean_including_zeroes"),
-            stats.get("Critical_TP"),
+            stats.get("median_TP"),
             stats.get("median"),
         ]
         finaldb.loc[len(finaldb)] = row
