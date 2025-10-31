@@ -24,6 +24,8 @@ def main() -> None:
 
     # Execute the main processing
     main_processing(console_log_level=console_log_level)
+    print()
+    print_library_version()
 
 
 if __name__ == "__main__":

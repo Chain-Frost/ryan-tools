@@ -391,9 +391,7 @@ def analyze_csv(path: Path) -> list[PeakCheckResult]:
         else:
             end_pct_of_peak = None
 
-        peak_above_start = (
-            (peak_value_f - start_value) if (peak_value_f is not None) else None
-        )
+        peak_above_start = (peak_value_f - start_value) if (peak_value_f is not None) else None
 
         # Warning status based on proximity of peak to end
         if peak_hours_f is None:
@@ -401,11 +399,7 @@ def analyze_csv(path: Path) -> list[PeakCheckResult]:
             hours_from_end = None
         else:
             hours_from_end = end_hours - peak_hours_f
-            status = (
-                "WARN_1H"
-                if hours_from_end < WARN_1HOUR
-                else ("WARN_2H" if hours_from_end < WARN_2HOURS else "OK")
-            )
+            status = "WARN_1H" if hours_from_end < WARN_1HOUR else ("WARN_2H" if hours_from_end < WARN_2HOURS else "OK")
 
         results.append(
             PeakCheckResult(
@@ -537,6 +531,8 @@ def main() -> None:
         output_directory=WORKING_DIR,
     )
     print(f"[OK] Wrote Excel summary in: {WORKING_DIR}")
+    print()
+    print_library_version()
 
 
 if __name__ == "__main__":

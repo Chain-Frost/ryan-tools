@@ -22,6 +22,7 @@ import pandas as pd
 import requests
 from pandas import DataFrame
 from ryan_library.functions.loguru_helpers import logger, setup_logger
+from ryan_library.scripts.wrapper_utils import print_library_version
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 DEFAULT_INPUT_DIR: Final[Path] = Path(r"C:\Temp\tester")
@@ -239,6 +240,8 @@ def main() -> int:
         return 1
 
     logger.info("All catchments processed successfully.")
+    print()
+    print_library_version()
     return 0
 
 

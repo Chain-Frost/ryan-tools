@@ -26,6 +26,8 @@ def main() -> None:
     # ``thresholds`` can also be provided if the default flow list is unsuitable.
     # thresholds: set[int] = set(list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10)))
     run_closure_durations(paths=[script_directory], thresholds=None, log_level=console_log_level)
+    print()
+    print_library_version()
 
 
 if __name__ == "__main__":
