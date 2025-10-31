@@ -36,6 +36,8 @@ def main() -> None:
         log_level=console_log_level,
         include_pomm=args.include_pomm,
     )
+    print()
+    print_library_version()
 
 
 if __name__ == "__main__":

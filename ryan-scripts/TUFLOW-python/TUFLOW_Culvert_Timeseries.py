@@ -38,6 +38,8 @@ def main() -> None:
 
     # is this stil true?
     # Chan is already loaded inside the script for extra info
+    print()
+    print_library_version()
 
 
 if __name__ == "__main__":
