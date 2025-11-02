@@ -3,7 +3,7 @@
 
 from pathlib import Path
 from multiprocessing import Pool
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from typing import Any
 
 import pandas as pd
@@ -74,11 +74,12 @@ def collect_files(
     return csv_file_list
 
 
-def process_file(file_path: Path) -> BaseProcessor:
+def process_file(file_path: Path, location_filter: frozenset[str] | None = None) -> BaseProcessor:
     """Process a single file by delegating to BaseProcessor.
 
     Args:
         file_path (Path): Path to the file to process.
+        location_filter: Normalized set of locations to retain.
 
     Returns:
         BaseProcessor: The processed BaseProcessor instance.
@@ -90,6 +91,9 @@ def process_file(file_path: Path) -> BaseProcessor:
         processor: BaseProcessor = BaseProcessor.from_file(file_path=file_path)
         processor.process()
 
+        if location_filter:
+            processor.filter_locations(location_filter)
+
         if processor.validate_data():
             logger.info(f"Successfully processed file: {file_path}")
         else:
@@ -100,14 +104,17 @@ def process_file(file_path: Path) -> BaseProcessor:
         raise
 
 
-def process_files_in_parallel(file_list: list[Path], log_queue) -> ProcessorCollection:
+def process_files_in_parallel(
+    file_list: list[Path], log_queue, location_filter: frozenset[str] | None = None
+) -> ProcessorCollection:
     """Process files using multiprocessing and return a collection."""
     pool_size: int = calculate_pool_size(num_files=len(file_list))
     logger.info(f"Initializing multiprocessing pool with {pool_size} processes.")
 
     results_set = ProcessorCollection()
     with Pool(processes=pool_size, initializer=worker_initializer, initargs=(log_queue,)) as pool:
-        results: list[BaseProcessor] = pool.map(func=process_file, iterable=file_list)
+        task_arguments = [(file_path, location_filter) for file_path in file_list]
+        results: list[BaseProcessor] = pool.starmap(func=process_file, iterable=task_arguments)
 
     for result in results:
         if result is not None and result.processed:
@@ -119,10 +126,13 @@ def combine_processors_from_paths(
     paths_to_process: list[Path],
     include_data_types: list[str] | None = None,
     console_log_level: str = "INFO",
+    locations_to_include: Collection[str] | None = None,
 ) -> ProcessorCollection:
     """Return a :class:`ProcessorCollection` for the provided directories."""
     if include_data_types is None:
         include_data_types = ["POMM"]
+
+    normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
 
     with setup_logger(console_log_level=console_log_level) as log_queue:
         logger.info("Starting POMM processing for combine_processors_from_paths.")
@@ -135,7 +145,14 @@ def combine_processors_from_paths(
             logger.info("No valid files found to process.")
             return ProcessorCollection()
 
-        results_set: ProcessorCollection = process_files_in_parallel(file_list=csv_file_list, log_queue=log_queue)
+        results_set: ProcessorCollection = process_files_in_parallel(
+            file_list=csv_file_list,
+            log_queue=log_queue,
+            location_filter=normalized_locations if normalized_locations else None,
+        )
+
+    if normalized_locations:
+        results_set.filter_locations(normalized_locations)
 
     return results_set
 
@@ -144,12 +161,14 @@ def combine_df_from_paths(
     paths_to_process: list[Path],
     include_data_types: list[str] | None = None,
     console_log_level: str = "INFO",
+    locations_to_include: Collection[str] | None = None,
 ) -> pd.DataFrame:
     """Return an aggregated DataFrame for the given directories."""
     results_set: ProcessorCollection = combine_processors_from_paths(
         paths_to_process=paths_to_process,
         include_data_types=include_data_types,
         console_log_level=console_log_level,
+        locations_to_include=locations_to_include,
     )
 
     if not results_set.processors:
@@ -158,9 +177,9 @@ def combine_df_from_paths(
     return results_set.pomm_combine()
 
 
-def aggregated_from_paths(paths: list[Path]) -> pd.DataFrame:
+def aggregated_from_paths(paths: list[Path], locations_to_include: Collection[str] | None = None) -> pd.DataFrame:
     """Process directories and return a combined POMM DataFrame."""
-    return combine_df_from_paths(paths_to_process=paths)
+    return combine_df_from_paths(paths_to_process=paths, locations_to_include=locations_to_include)
 
 
 def find_aep_dur_max(aggregated_df: pd.DataFrame) -> pd.DataFrame:
