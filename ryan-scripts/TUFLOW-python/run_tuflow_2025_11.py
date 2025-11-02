@@ -14,22 +14,22 @@ def get_parameters() -> "Parameters":
     # ---- Parameter-product inputs (for 'parameter_product' or 'both') ----
     # Values are whitespace-separated; blanks are ignored.
     run_variables_raw: dict[str, str] = {
-        "e1": "02.00p",  # 01.00p 05.00p 02.00p 01.00p 05.00p 10.00p 50.00p
-        "e2": "00060m 00090m",  # 00720m 01080m 01440m 01800m 00120m 00030m 00060m  00090m 00180m  00270m 00360m 00540m 00720m
+        "e1": "01.0p 20.0p  05.0p 02.0p 10.0p 50.0p",  # 20.0p 01.0p 05.0p 02.0p 10.0p 50.0p
+        "e2": "00720m 01080m 01440m 01800m 02160m 02880m 04320m",  # 00720m 01080m 01440m 01800m 00120m 00030m 00060m  00090m 00180m  00270m 00360m 00540m 00720m
         "e3": "TP01 TP02 TP03  TP04 TP05 TP06 TP07 TP08 TP09 TP10",  #  TP01 TP02 TP03  TP04 TP05 TP06 TP07 TP08 TP09 TP10
-        "e4": "CCNear ",  # CCNear CCNone
+        "e4": "Ensembles ",  #
         "s1": "EXG",
-        "s2": "AccessRoad",  # AccessRoad FullCatchment
+        "s2": "FullCatchment",  # AccessRoad FullCatchment
         "s4": "32M",
-        "s9": "MatUp  MatDown",
+        # "s9": "MatUp  MatDown",
     }
 
     # ---- Core TUFLOW settings ----
     core_params = CoreParameters(
-        tcf=Path(r".\runs\project_v01_~s2~_~s1~_~e4~_~e1~_~e2~_~e3~_~s4~_~s9~.tcf"),
-        tuflowexe=Path(r"C:\TUFLOW\2025.2.0\TUFLOW_iSP_w64.exe"),
-        batch_commands="-t",  # e.g. "-x", "-b", "-t". Avoid -puN here unless gpu_devices is None/[]
-        priority_order="e4 e2 e1",  # Optional custom ordering of flags; e.g. "s1 s2 e1 e2". If None, uses insertion/first-seen order.
+        tcf=Path(r".\runs\Cataby_v01_~s2~_~s1~_~e4~_~e1~_~e2~_~e3~_~s4~.tcf"),
+        tuflowexe=Path(r"C:\TUFLOW\2025.2.1\TUFLOW_iSP_w64.exe"),
+        batch_commands="-b",  # e.g. "-x", "-b", "-t". Avoid -puN here unless gpu_devices is None/[]
+        priority_order="e3 e2 e1",  # Optional custom ordering of flags; e.g. "s1 s2 e1 e2". If None, uses insertion/first-seen order.
         # GPU slots (round-robin). Set to None/[] to pass no -pu flags at all.
         # Example: first sim uses GPU0&1, second sim uses GPU2, etc.
         # gpu_devices=[["-pu0", "-pu1"], ["-pu2"]]
@@ -880,9 +880,12 @@ def launch_simulations(sims: list[Simulation], core: CoreParameters, session_log
             psutil.Process(pid=proc.pid).nice(value=get_psutil_priority(priority=core.computational_priority))
             sim.process = proc
             running.append(sim)
-            time.sleep(core.wait_time_after_run)
+            # Throttle only when launching in parallel to avoid overwhelming the system.
+            if max_parallel > 1 and queue:
+                time.sleep(core.wait_time_after_run)
 
         # -- monitor running procs, Check for completions --
+        finished_any: bool = False
         for sim in running.copy():
             if sim.process and sim.process.poll() is not None:
                 sim.end_time = datetime.datetime.now()
@@ -902,6 +905,10 @@ def launch_simulations(sims: list[Simulation], core: CoreParameters, session_log
                 if sim.slot_index is not None:
                     in_use[sim.slot_index] = False
                 running.remove(sim)
+                finished_any = True
+        # If any simulation finished and there are more queued, wait before starting next
+        if finished_any and queue:
+            time.sleep(core.wait_time_after_run)
         time.sleep(0.2)
 
     if session_log and core.capture_console_log:
