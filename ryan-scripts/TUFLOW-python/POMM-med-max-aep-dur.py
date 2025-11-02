@@ -28,7 +28,7 @@ def main() -> None:
     #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
     # )
 
-    locations_to_include = LOCATIONS_TO_INCLUDE or None
+    locations_to_include: tuple[str, ...] | None = LOCATIONS_TO_INCLUDE or None
 
     if not change_working_directory(target_dir=script_directory):
         return
