@@ -29,6 +29,8 @@ def main() -> None:
         include_data_types=["POMM"],
         console_log_level=console_log_level,
     )
+    print()
+    print_library_version()
 
 
 if __name__ == "__main__":

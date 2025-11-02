@@ -5,6 +5,10 @@ import logging
 
 # Import the LoggerConfigurator
 from ryan_library.functions.logging_helpers import LoggerConfigurator
+from ryan_library.scripts.wrapper_utils import (
+    change_working_directory,
+    print_library_version,
+)
 
 # Configure logging before importing the module that uses logging
 logger_config = LoggerConfigurator(
@@ -37,12 +41,14 @@ def main() -> None:
     try:
         # Set working directory to the location of the script
         script_location = Path(__file__).parent if "__file__" in globals() else Path.cwd()
-        os.chdir(script_location)
-
+        if not change_working_directory(target_dir=script_location):
+            return
         # Initialize and apply styles
         styler = TUFLOWResultsStyler(user_qml_overrides=user_qml_overrides)
         styler.apply_styles()
         logger.error(f"Styles were sourced from: {styler.default_styles_path}")
+        print()
+        print_library_version()
         os.system("PAUSE")
 
     except Exception as e:

@@ -183,9 +183,7 @@ class BaseProcessor(ABC):
             attempted_paths.append(module_path)
             try:
                 module = importlib.import_module(module_path)
-                processor_cls: type[BaseProcessor] = cast(
-                    type["BaseProcessor"], getattr(module, class_name)
-                )
+                processor_cls: type[BaseProcessor] = cast(type["BaseProcessor"], getattr(module, class_name))
                 BaseProcessor._processor_cache[cache_key] = processor_cls
                 logger.debug(f"Imported processor class '{class_name}' from '{module_path}'.")
                 return processor_cls
@@ -235,13 +233,23 @@ class BaseProcessor(ABC):
         if self.dataformat in {"Maximums", "ccA", "POMM"}:
             self.columns_to_use = processing_parts.columns_to_use
             logger.debug(f"{self.file_name}: Loaded columns_to_use: {self.columns_to_use}")
+            return
 
         if self.dataformat in {"Timeseries", "POMM"}:
             self.expected_in_header = processing_parts.expected_in_header
             logger.debug(f"{self.file_name}: Loaded expected_in_header: {self.expected_in_header}")
+            return
+
+        if self.dataformat == "POMM":
+            logger.debug(f"{self.file_name}: POMM type")
+            return
+        if self.dataformat == "PO":
+            logger.debug(f"{self.file_name}: PO type")
+            return
 
         if self.dataformat not in handled_formats:
             logger.warning(f"{self.file_name}: Unknown dataformat '{self.dataformat}'.")
+            return
 
     @abstractmethod
     def process(self) -> None:
