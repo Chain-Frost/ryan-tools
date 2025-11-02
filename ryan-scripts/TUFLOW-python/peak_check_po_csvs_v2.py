@@ -1,19 +1,18 @@
 # peak_check_po_csvs.py
-# Python 3.13
 
-from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import concurrent.futures as cf
 import os
-import sys
 
 import numpy as np
 import pandas as pd
 
+from pandas import DataFrame, Series
 from ryan_library.classes import tuflow_string_classes as tsc
 from ryan_library.functions.misc_functions import ExcelExporter  # hard requirement
+from ryan_library.scripts.wrapper_utils import print_library_version
 
 # -------------------------
 # Configuration
@@ -38,7 +37,8 @@ WARN_1HOUR: float = 1.0
 FLAT_TOL: float = 1e-6
 
 # Multiprocessing
-MAX_WORKERS: int | None = os.cpu_count()
+n: int | None = os.cpu_count()
+MAX_WORKERS: int | None = (max(n - 1, 1)) if n is not None else None
 CHUNKSIZE: int = 1
 
 
@@ -79,24 +79,24 @@ def _norm(vals: list[str], case_sensitive: bool) -> list[str]:
     return vals if case_sensitive else [v.lower() for v in vals]
 
 
-_DT_INC = _norm(DATATYPE_INCLUDE, DATATYPE_CASE_SENSITIVE)
-_LOC_INC = _norm(LOCATION_INCLUDE, LOCATION_CASE_SENSITIVE)
-_LOC_EXC = _norm(LOCATION_EXCLUDE, LOCATION_CASE_SENSITIVE)
+_DT_INC: list[str] = _norm(DATATYPE_INCLUDE, DATATYPE_CASE_SENSITIVE)
+_LOC_INC: list[str] = _norm(LOCATION_INCLUDE, LOCATION_CASE_SENSITIVE)
+_LOC_EXC: list[str] = _norm(LOCATION_EXCLUDE, LOCATION_CASE_SENSITIVE)
 
 
 def _datatype_allowed(dtype_name: str) -> bool:
     if not dtype_name:
         return False
-    key = dtype_name if DATATYPE_CASE_SENSITIVE else dtype_name.strip().lower()
+    key: str = dtype_name if DATATYPE_CASE_SENSITIVE else dtype_name.strip().lower()
     return key in _DT_INC
 
 
 def _location_allowed(loc_name: str) -> bool:
     if not loc_name:
         return False
-    key = loc_name if LOCATION_CASE_SENSITIVE else loc_name.strip().lower()
-    inc_ok = (not _LOC_INC) or (key in _LOC_INC)
-    exc_hit = (key in _LOC_EXC) if _LOC_EXC else False
+    key: str = loc_name if LOCATION_CASE_SENSITIVE else loc_name.strip().lower()
+    inc_ok: bool = (not _LOC_INC) or (key in _LOC_INC)
+    exc_hit: bool = (key in _LOC_EXC) if _LOC_EXC else False
     return inc_ok and not exc_hit
 
 
@@ -104,7 +104,7 @@ def _location_allowed(loc_name: str) -> bool:
 # Filename metadata
 # -------------------------
 def parse_run_meta_from_filename(path: Path) -> dict[str, str]:
-    p = tsc.TuflowStringParser(path)
+    p = tsc.TuflowStringParser(file_path=path)
     meta: dict[str, str] = {
         "data_type": str(p.data_type) if p.data_type is not None else "",
         "raw_run_code": p.raw_run_code,
@@ -141,8 +141,8 @@ def analyze_csv(path: Path) -> list[PeakCheckResult]:
     """
     results: list[PeakCheckResult] = []
 
-    run_meta = parse_run_meta_from_filename(path)
-    run_code = run_meta.get("trim_run_code", path.stem)
+    run_meta: dict[str, str] = parse_run_meta_from_filename(path)
+    run_code: str = run_meta.get("trim_run_code", path.stem)
 
     # Quick empty-file guard
     try:
@@ -173,8 +173,8 @@ def analyze_csv(path: Path) -> list[PeakCheckResult]:
 
     # Read with guards
     try:
-        df = pd.read_csv(
-            path,
+        df: DataFrame = pd.read_csv(  # type: ignore
+            filepath_or_buffer=path,
             header=[0, 1],
             low_memory=False,
             dtype=str,
@@ -272,7 +272,7 @@ def analyze_csv(path: Path) -> list[PeakCheckResult]:
         return results
 
     # Drop blank header columns
-    keep = ~df.columns.to_frame().isna().all(axis=1)
+    keep: Series[bool] = ~df.columns.to_frame().isna().all(axis=1)
     df = df.loc[:, keep]
 
     # Drop Column A unconditionally
@@ -284,7 +284,7 @@ def analyze_csv(path: Path) -> list[PeakCheckResult]:
 
     # Time column (decimal hours)
     time_col_idx = 0
-    time_hours = pd.to_numeric(df.iloc[:, time_col_idx], errors="coerce")
+    time_hours = pd.to_numeric(df.iloc[:, time_col_idx], errors="coerce")  # type: ignore
     time_valid = time_hours.dropna()
 
     if time_valid.empty:
@@ -326,7 +326,7 @@ def analyze_csv(path: Path) -> list[PeakCheckResult]:
         if not _location_allowed(loc_str):
             continue
 
-        values_raw = pd.to_numeric(df.iloc[:, j], errors="coerce")
+        values_raw = pd.to_numeric(df.iloc[:, j], errors="coerce")  # type: ignore
         if values_raw.notna().sum() == 0:
             results.append(
                 PeakCheckResult(
@@ -356,8 +356,8 @@ def analyze_csv(path: Path) -> list[PeakCheckResult]:
 
         # End value aligned to last valid time row
         end_cell = values_raw.iloc[end_row_idx]
-        end_value = float(end_cell) if pd.notna(end_cell) else None
-        end_minus_start = (end_value - start_value) if end_value is not None else None
+        end_value: float | None = float(end_cell) if pd.notna(end_cell) else None
+        end_minus_start: float | None = (end_value - start_value) if end_value is not None else None
 
         # Peak index = argmax(|values_raw - start_value|)
         values_rel = values_raw - start_value
@@ -365,15 +365,15 @@ def analyze_csv(path: Path) -> list[PeakCheckResult]:
         try:
             peak_idx = int(abs_rel.idxmax(skipna=True))
         except Exception:
-            peak_idx = int(np.nanargmax(abs_rel.to_numpy()))
+            peak_idx = int(np.nanargmax(abs_rel.to_numpy()))  # type: ignore
 
         peak_rel = values_rel.iloc[peak_idx]
         peak_value = values_raw.iloc[peak_idx]
         peak_time_val = time_hours.iloc[peak_idx]
 
-        peak_rel_f = float(peak_rel) if pd.notna(peak_rel) else None
-        peak_value_f = float(peak_value) if pd.notna(peak_value) else None
-        peak_hours_f = float(peak_time_val) if pd.notna(peak_time_val) else None
+        peak_rel_f: float | None = float(peak_rel) if pd.notna(peak_rel) else None
+        peak_value_f: float | None = float(peak_value) if pd.notna(peak_value) else None
+        peak_hours_f: float | None = float(peak_time_val) if pd.notna(peak_time_val) else None
 
         # peak_kind with tolerance
         if peak_rel_f is None or abs(peak_rel_f) <= FLAT_TOL:
@@ -382,24 +382,26 @@ def analyze_csv(path: Path) -> list[PeakCheckResult]:
             peak_kind = "max" if peak_rel_f > 0.0 else "min"
 
         # % of peak at end (abs magnitudes)
-        denom = abs(peak_value_f - start_value) if (peak_value_f is not None) else None
-        numer = abs(end_value - start_value) if (end_value is not None) else None
+        denom: float | None = abs(peak_value_f - start_value) if (peak_value_f is not None) else None
+        numer: float | None = abs(end_value - start_value) if (end_value is not None) else None
         if denom is not None and denom > FLAT_TOL and numer is not None:
-            end_pct_of_peak = 100.0 * (numer / denom)
+            end_pct_of_peak: float | None = 100.0 * (numer / denom)
         elif denom is not None and denom <= FLAT_TOL:
             end_pct_of_peak = 0.0 if (numer is not None and numer <= FLAT_TOL) else None
         else:
             end_pct_of_peak = None
 
-        peak_above_start = (peak_value_f - start_value) if (peak_value_f is not None) else None
+        peak_above_start: float | None = (peak_value_f - start_value) if (peak_value_f is not None) else None
 
         # Warning status based on proximity of peak to end
         if peak_hours_f is None:
             status = "TIME_PARSE_FAIL"
-            hours_from_end = None
+            hours_from_end: float | None = None
         else:
             hours_from_end = end_hours - peak_hours_f
-            status = "WARN_1H" if hours_from_end < WARN_1HOUR else ("WARN_2H" if hours_from_end < WARN_2HOURS else "OK")
+            status: str = (
+                "WARN_1H" if hours_from_end < WARN_1HOUR else ("WARN_2H" if hours_from_end < WARN_2HOURS else "OK")
+            )
 
         results.append(
             PeakCheckResult(
@@ -434,7 +436,7 @@ def _analyze_one(path_str: str) -> list[dict[str, object]]:
         rows = analyze_csv(p)
     except Exception:
         # Ensure a single bad file never kills the pool
-        run_meta = parse_run_meta_from_filename(p)
+        run_meta: dict[str, str] = parse_run_meta_from_filename(p)
         fallback = PeakCheckResult(
             file=str(p),
             run_code=run_meta.get("raw_run_code", p.stem),
@@ -453,7 +455,7 @@ def _analyze_one(path_str: str) -> list[dict[str, object]]:
             end_pct_of_peak=None,
             status="WORKER_FAIL",
         )
-        rows = [fallback]
+        rows: list[PeakCheckResult] = [fallback]
 
     out_rows: list[dict[str, object]] = []
     for r in rows:
@@ -473,7 +475,7 @@ def _analyze_one(path_str: str) -> list[dict[str, object]]:
 # Runner
 # -------------------------
 def main() -> None:
-    files = sorted(WORKING_DIR.rglob(CSV_GLOB))
+    files: list[Path] = sorted(WORKING_DIR.rglob(CSV_GLOB))
     if not files:
         print(f"[INFO] No files matched '{CSV_GLOB}' under {WORKING_DIR}")
         return
@@ -488,10 +490,10 @@ def main() -> None:
         print("[INFO] No matching data columns after filters.")
         return
 
-    out_df = pd.DataFrame(all_rows)
+    out_df = pd.DataFrame(data=all_rows)
 
     # Column order: key metrics first, then everything else
-    first_cols = [
+    first_cols: list[str] = [
         "run_code",
         "status",
         "datatype",
@@ -537,3 +539,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    os.system("PAUSE")
