@@ -41,27 +41,6 @@
       "_PO.csv"
     ],
     "output_columns": {
-      "Time": "float",
-      "Location": "string",
-      "Type": "string",
-      "Value": "float"
-    },
-    "processingParts": {
-      "dataformat": "Timeseries",
-      "expected_in_header": [
-        "Time",
-        "Location",
-        "Type",
-        "Value"
-      ]
-    }
-  },
-  "PO": {
-    "processor": "POProcessor",
-    "suffixes": [
-      "_PO.csv"
-    ],
-    "output_columns": {
       "Location": "string",
       "Type": "string",
       "Value": "float",

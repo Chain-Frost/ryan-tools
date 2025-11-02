@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, ClassVar, cast
 import importlib
 import pandas as pd
+from pandas._typing import DtypeArg
 from loguru import logger
 from ryan_library.classes.suffixes_and_dtypes import (
     Config,
@@ -70,12 +71,12 @@ class BaseProcessor(ABC):
     _processor_cache: ClassVar[dict[tuple[str, str], type["BaseProcessor"]]] = {}
 
     # Attributes to hold configuration
-    output_columns: dict[str, str] = field(init=False, default_factory=dict)
+    output_columns: dict[str, str] = field(init=False, default_factory=lambda: cast(dict[str, str], {}))
     dataformat: str = field(init=False, default="")
     processor_module: str | None = field(init=False, default=None)
-    skip_columns: list[int] = field(init=False, default_factory=list)
-    columns_to_use: dict[str, str] = field(init=False, default_factory=dict)
-    expected_in_header: list[str] = field(init=False, default_factory=list)
+    skip_columns: list[int] = field(init=False, default_factory=lambda: cast(list[int], []))
+    columns_to_use: dict[str, str] = field(init=False, default_factory=lambda: cast(dict[str, str], {}))
+    expected_in_header: list[str] = field(init=False, default_factory=lambda: cast(list[str], []))
 
     def __post_init__(self) -> None:
         self.file_name = self.file_path.name
@@ -211,14 +212,14 @@ class BaseProcessor(ABC):
             raise KeyError(f"Data type '{self.data_type}' is not defined in the config.")
 
         # Load output_columns
-        self.output_columns = data_type_def.output_columns
+        self.output_columns: dict[str, str] = data_type_def.output_columns
         logger.debug(f"{self.file_name}: Loaded output_columns: {self.output_columns}")
 
         # Load processingParts
         processing_parts: ProcessingParts = data_type_def.processing_parts
         self.dataformat = processing_parts.dataformat
         self.processor_module = processing_parts.processor_module
-        self.skip_columns = processing_parts.skip_columns
+        self.skip_columns: list[int] = processing_parts.skip_columns
         logger.debug(
             f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, "
             f"processor_module: {self.processor_module}, skip_columns: {self.skip_columns}"
@@ -231,7 +232,7 @@ class BaseProcessor(ABC):
         handled_formats: set[str] = {"Maximums", "ccA", "Timeseries", "POMM"}
 
         if self.dataformat in {"Maximums", "ccA", "POMM"}:
-            self.columns_to_use = processing_parts.columns_to_use
+            self.columns_to_use: dict[str, str] = processing_parts.columns_to_use
             logger.debug(f"{self.file_name}: Loaded columns_to_use: {self.columns_to_use}")
             return
 
@@ -455,10 +456,11 @@ class BaseProcessor(ABC):
             ``ProcessorStatus.FAILURE`` captures read failures.
         """
         usecols = list(self.columns_to_use.keys())
-        dtype: dict[str, str] = {col: self.columns_to_use[col] for col in usecols}
+        # Pandas expects a DtypeArg for dtype; use the official type for clarity
+        dtype: DtypeArg = {col: self.columns_to_use[col] for col in usecols}
 
         try:
-            df: pd.DataFrame = pd.read_csv(
+            df: pd.DataFrame = pd.read_csv(  # type: ignore
                 filepath_or_buffer=self.file_path,
                 usecols=usecols,
                 header=0,

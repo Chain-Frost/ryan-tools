@@ -8,7 +8,7 @@ from ryan_library.functions.dataframe_helpers import (
     reorder_long_columns,
     reset_categorical_ordering,
 )
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from .base_processor import BaseProcessor
 
 
 class ProcessorCollection:
@@ -75,7 +75,7 @@ class ProcessorCollection:
 
         combined_df = reorder_long_columns(df=combined_df)
 
-        grouped_df: DataFrame = combined_df.groupby(group_keys).agg("max").reset_index()
+        grouped_df: DataFrame = combined_df.groupby(group_keys).agg("max").reset_index()  # type: ignore
         logger.debug(f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows.")
 
         return grouped_df
@@ -122,7 +122,7 @@ class ProcessorCollection:
             logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
             return pd.DataFrame()
 
-        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()
+        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()  # type: ignore
         p1_col: list[str] = [
             "trim_runcode",
             "aep_text",

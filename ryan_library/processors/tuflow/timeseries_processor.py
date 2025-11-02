@@ -1,7 +1,5 @@
 # ryan_library/processors/tuflow/timeseries_processor.py
 
-from __future__ import annotations
-
 from abc import abstractmethod
 from pathlib import Path
 
@@ -46,9 +44,7 @@ class TimeSeriesProcessor(BaseProcessor):
 
             status = self.process_timeseries_raw_dataframe()
             if status is not ProcessorStatus.SUCCESS:
-                logger.error(
-                    f"Processing aborted for file: {self.file_path} during {data_type} post-processing step."
-                )
+                logger.error(f"Processing aborted for file: {self.file_path} during {data_type} post-processing step.")
                 self.df = pd.DataFrame()
                 return self.df
 
@@ -134,7 +130,7 @@ class TimeSeriesProcessor(BaseProcessor):
             ProcessorError: If :mod:`pandas` fails to load the file.
         """
         try:
-            df: pd.DataFrame = pd.read_csv(
+            df: pd.DataFrame = pd.read_csv(  # type: ignore
                 filepath_or_buffer=file_path,
                 header=0,
                 skipinitialspace=True,
@@ -240,7 +236,7 @@ class TimeSeriesProcessor(BaseProcessor):
                     df=df, category_type=category_type, file_label=self.file_name
                 )
             else:
-                df_melted = df.melt(id_vars=["Time"], var_name=category_type, value_name=data_type)
+                df_melted = df.melt(id_vars=["Time"], var_name=category_type, value_name=data_type)  # type: ignore
                 logger.debug(f"Reshaped DataFrame to long format with {len(df_melted)} rows.")
         except Exception as exc:
             logger.exception(f"{self.file_name}: Failed to reshape DataFrame: {exc}")
@@ -298,9 +294,7 @@ class TimeSeriesProcessor(BaseProcessor):
             required_columns: set[str] = {"Time", value_column}
             missing_columns: set[str] = required_columns - set(self.df.columns)
             if missing_columns:
-                logger.error(
-                    f"{self.file_name}: Missing required columns after melt: {sorted(missing_columns)}."
-                )
+                logger.error(f"{self.file_name}: Missing required columns after melt: {sorted(missing_columns)}.")
                 return ProcessorStatus.FAILURE
 
             identifier_columns: list[str] = [col for col in self.df.columns if col not in required_columns]
@@ -319,7 +313,7 @@ class TimeSeriesProcessor(BaseProcessor):
             logger.debug(f"Using '{identifier_column}' as the identifier column for '{value_column}' values.")
 
             initial_row_count = len(self.df)
-            self.df.dropna(subset=[value_column], inplace=True)
+            self.df.dropna(subset=[value_column], inplace=True)  # type: ignore
             dropped_rows = initial_row_count - len(self.df)
             if dropped_rows:
                 logger.debug(f"Dropped {dropped_rows} rows with missing '{value_column}' values.")
