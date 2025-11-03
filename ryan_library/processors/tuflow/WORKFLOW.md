@@ -74,6 +74,62 @@ can supply a module override or rely on the default search inside
 `ryan_library.processors.tuflow` so that both standard and specialised processor
 implementations can be loaded without code changes.【F:ryan_library/processors/tuflow/base_processor.py†L73-L180】
 
+## How processors are imported
+
+1. `TuflowStringParser` loads the shared suffix map from `SuffixesConfig` and
+   sets `data_type` on construction, so every processor instance starts with an
+   identified type based solely on the filename suffix.【F:ryan_library/classes/tuflow_string_classes.py†L65-L114】
+2. `SuffixesConfig` and `Config` resolve that `data_type` to a
+   `DataTypeDefinition` by reading `tuflow_results_validation_and_datatypes.json`
+   once, caching it, and exposing both the suffix lookup and the rich
+   configuration block for the data type.【F:ryan_library/classes/suffixes_and_dtypes.py†L228-L340】【F:ryan_library/classes/tuflow_results_validation_and_datatypes.json†L1-L116】
+3. `BaseProcessor.from_file` passes the definition into
+   `BaseProcessor.get_processor_class`, which tries the hinted modules, falls
+   back to package defaults, and caches the imported class so subsequent files of
+   the same type reuse the resolved processor without repeating the import
+   work.【F:ryan_library/processors/tuflow/base_processor.py†L80-L200】
+
+### Example: wiring a new suffix
+
+To support a new results file such as `_1d_X.csv`, add an entry to
+`tuflow_results_validation_and_datatypes.json` that points the suffix at the
+target processor. The structure mirrors the existing definitions (for example
+`Cmx`).【F:ryan_library/classes/tuflow_results_validation_and_datatypes.json†L35-L74】
+
+```jsonc
+"X": {
+  "processor": "XProcessor",
+  "suffixes": ["_1d_X.csv"],
+  "output_columns": {
+    "Chan ID": "string",
+    "Time": "float",
+    "X": "float"
+  },
+  "processingParts": {
+    "dataformat": "Timeseries",
+    "module": "1d_timeseries",
+    "expected_in_header": ["Time", "Chan ID", "X"]
+  }
+}
+```
+
+Once this block is present, `SuffixesConfig` maps `_1d_X.csv` to the `X` data
+type, `Config` exposes the definition to `BaseProcessor`, and
+`get_processor_class` imports `XProcessor`. No additional wiring is required
+inside the codebase.
+
+### Configuration knobs in action
+
+- **`columns_to_use`** is loaded for `Maximums`, `ccA`, and `POMM` formats and
+  drives how `MaxDataProcessor.read_maximums_csv` selects CSV columns and dtypes
+  before validating the header order.【F:ryan_library/processors/tuflow/base_processor.py†L215-L238】【F:ryan_library/processors/tuflow/max_data_processor.py†L14-L54】
+- **`expected_in_header`** is attached for timeseries-style formats and is used
+  by the timeseries pipeline when reshaping long-form DataFrames and validating
+  the resulting column order.【F:ryan_library/processors/tuflow/base_processor.py†L215-L241】【F:ryan_library/processors/tuflow/timeseries_processor.py†L253-L344】
+- **`output_columns`** always loads with the data type definition and feeds
+  `BaseProcessor.apply_output_transformations`, which coerces the processed
+  DataFrame to the configured dtypes before downstream aggregation.【F:ryan_library/processors/tuflow/base_processor.py†L206-L371】
+
 ## Processor lifecycle and shared post-processing
 
 After a concrete processor reads its dataset it calls back into the base class
