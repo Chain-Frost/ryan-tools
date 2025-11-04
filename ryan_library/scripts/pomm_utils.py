@@ -18,7 +18,7 @@ from ryan_library.functions.file_utils import (
     find_files_parallel,
     is_non_zero_file,
 )
-from ryan_library.functions.misc_functions import calculate_pool_size
+from ryan_library.functions.misc_functions import ExcelExporter, calculate_pool_size
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
@@ -255,41 +255,38 @@ def save_to_excel(
         aep_dur_sheet_name=aep_dur_sheet_name,
         aep_sheet_name=aep_sheet_name,
     )
+
+    sheet_frames: dict[str, pd.DataFrame] = {
+        aep_dur_sheet_name: aep_dur_max,
+        aep_sheet_name: aep_max,
+    }
+    sheet_order: list[str] = [aep_dur_sheet_name, aep_sheet_name]
+    sheet_dfs: list[pd.DataFrame] = [aep_dur_max, aep_max]
+
+    if include_pomm:
+        sheet_frames["POMM"] = aggregated_df
+        sheet_order.append("POMM")
+        sheet_dfs.append(aggregated_df)
+
     data_dictionary_df: pd.DataFrame = _build_data_dictionary(
         registry=registry,
-        sheet_frames={
-            aep_dur_sheet_name: aep_dur_max,
-            aep_sheet_name: aep_max,
-        },
+        sheet_frames=sheet_frames,
         metadata_rows=metadata_rows,
     )
 
-    with pd.ExcelWriter(output_path) as writer:
-        aep_dur_max.to_excel(
-            excel_writer=writer,
-            sheet_name=aep_dur_sheet_name,
-            index=False,
-            merge_cells=False,
-        )
-        aep_max.to_excel(
-            excel_writer=writer,
-            sheet_name=aep_sheet_name,
-            index=False,
-            merge_cells=False,
-        )
-        if include_pomm:
-            aggregated_df.to_excel(
-                excel_writer=writer,
-                sheet_name="POMM",
-                index=False,
-                merge_cells=False,
-            )
-        data_dictionary_df.to_excel(
-            excel_writer=writer,
-            sheet_name=DATA_DICTIONARY_SHEET_NAME,
-            index=False,
-            merge_cells=False,
-        )
+    sheet_order.append(DATA_DICTIONARY_SHEET_NAME)
+    sheet_dfs.append(data_dictionary_df)
+
+    ExcelExporter().export_dataframes(
+        export_dict={
+            output_path.stem: {
+                "dataframes": sheet_dfs,
+                "sheets": sheet_order,
+            }
+        },
+        output_directory=output_path.parent,
+        file_name=output_path.name,
+    )
 
     logger.info(f"Peak data exported to {output_path}")
 
@@ -722,6 +719,35 @@ def find_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
     return aep_mean_max
 
 
+def _remove_columns_containing(df: pd.DataFrame, substrings: tuple[str, ...]) -> pd.DataFrame:
+    """Return ``df`` without columns that include any ``substrings``."""
+
+    filtered_df: pd.DataFrame = df.copy()
+    if filtered_df.empty:
+        return filtered_df
+
+    columns_to_drop: list[str] = [
+        column
+        for column in filtered_df.columns
+        if any(substring in column.lower() for substring in substrings)
+    ]
+    if columns_to_drop:
+        filtered_df = filtered_df.drop(columns=columns_to_drop, errors="ignore")
+    return filtered_df
+
+
+def _median_only_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a DataFrame containing only median-focused columns."""
+
+    return _remove_columns_containing(df=df, substrings=("mean",))
+
+
+def _mean_only_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a DataFrame containing only mean-focused columns."""
+
+    return _remove_columns_containing(df=df, substrings=("median",))
+
+
 def save_peak_report_median(
     aggregated_df: pd.DataFrame,
     script_directory: Path,
@@ -735,15 +761,17 @@ def save_peak_report_median(
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
     logger.info(f"Starting export of median peak report to {output_path}")
-    logger.info(f"Starting export of median peak report to {output_path}")
+    aep_dur_med_filtered: pd.DataFrame = _median_only_columns(df=aep_dur_med)
+    aep_med_max_filtered: pd.DataFrame = _median_only_columns(df=aep_med_max)
     save_to_excel(
-        aep_dur_max=aep_dur_med,
-        aep_max=aep_med_max,
+        aep_dur_max=aep_dur_med_filtered,
+        aep_max=aep_med_max_filtered,
         aggregated_df=aggregated_df,
         output_path=output_path,
         include_pomm=include_pomm,
         timestamp=timestamp,
     )
+    logger.info(f"Completed median peak report export to {output_path}")
 
 
 def save_peak_report_mean(
@@ -760,9 +788,11 @@ def save_peak_report_mean(
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
     logger.info(f"Starting export of mean peak report to {output_path}")
+    aep_dur_mean_filtered: pd.DataFrame = _mean_only_columns(df=aep_dur_mean)
+    aep_mean_max_filtered: pd.DataFrame = _mean_only_columns(df=aep_mean_max)
     save_to_excel(
-        aep_dur_max=aep_dur_mean,
-        aep_max=aep_mean_max,
+        aep_dur_max=aep_dur_mean_filtered,
+        aep_max=aep_mean_max_filtered,
         aggregated_df=aggregated_df,
         output_path=output_path,
         include_pomm=include_pomm,
@@ -770,5 +800,4 @@ def save_peak_report_mean(
         aep_dur_sheet_name="aep-dur-mean",
         aep_sheet_name="aep-mean-max",
     )
-    logger.info(f"Completed mean peak report export to {output_path}")
     logger.info(f"Completed mean peak report export to {output_path}")
