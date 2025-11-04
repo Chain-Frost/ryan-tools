@@ -11,7 +11,7 @@ from ryan_library.scripts.pomm_utils import (
     find_aep_dur_median,
     find_aep_median_max,
 )
-from ryan_library.scripts.pomm_max_items import run_median_peak_report
+from ryan_library.scripts.pomm_max_items import run_mean_peak_report, run_median_peak_report
 
 
 DATA_DIR: Path = Path(__file__).absolute().parent.parent / "test_data" / "tuflow" / "tutorials"
@@ -49,6 +49,26 @@ def test_find_aep_dur_median_and_max() -> None:
     assert row_a["duration_text"] == "D2"
 
 
+def test_find_aep_dur_median_filters_columns() -> None:
+    df = pd.DataFrame(
+        {
+            "aep_text": ["A", "A", "A", "A"],
+            "duration_text": ["D1", "D1", "D2", "D2"],
+            "Location": ["L1"] * 4,
+            "Type": ["Flow"] * 4,
+            "trim_runcode": ["Run"] * 4,
+            "AbsMax": [5, 1, 3, 7],
+            "tp_text": ["TP1", "TP2", "TP1", "TP2"],
+        }
+    )
+
+    median_only: DataFrame = find_aep_dur_median(df, include_mean_columns=False)
+    assert "mean_PeakFlow" not in median_only.columns
+
+    mean_only: DataFrame = find_aep_dur_median(df, include_median_columns=False)
+    assert "MedianAbsMax" not in mean_only.columns
+
+
 def test_run_median_peak_report_creates_excel() -> None:
     src_dir: Path = DATA_DIR / "Module_01" / "results"
     run_median_peak_report(script_directory=src_dir, log_level="INFO")
@@ -56,6 +76,8 @@ def test_run_median_peak_report_creates_excel() -> None:
     assert excel_files
     xl = pd.ExcelFile(path_or_buffer=excel_files[0])
     assert set(["aep-dur-max", "aep-max", "POMM"]).issubset(set(xl.sheet_names))
+    sheet_df = xl.parse("aep-dur-max")
+    assert "mean_PeakFlow" not in sheet_df.columns
     for f in excel_files:
         f.unlink()
 
@@ -68,5 +90,18 @@ def test_run_median_peak_report_skips_pomm_sheet_when_disabled() -> None:
     xl = pd.ExcelFile(path_or_buffer=excel_files[0])
     assert "POMM" not in set(xl.sheet_names)
     assert {"aep-dur-max", "aep-max"}.issubset(set(xl.sheet_names))
+    for f in excel_files:
+        f.unlink()
+
+
+def test_run_mean_peak_report_creates_excel() -> None:
+    src_dir: Path = DATA_DIR / "Module_01" / "results"
+    run_mean_peak_report(script_directory=src_dir, log_level="INFO")
+    excel_files: list[Path] = list(src_dir.glob("*_mean_peaks.xlsx"))
+    assert excel_files
+    xl = pd.ExcelFile(path_or_buffer=excel_files[0])
+    assert set(["aep-dur-max", "aep-max", "POMM"]).issubset(set(xl.sheet_names))
+    sheet_df = xl.parse("aep-dur-max")
+    assert "MedianAbsMax" not in sheet_df.columns
     for f in excel_files:
         f.unlink()
