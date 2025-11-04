@@ -3,7 +3,6 @@
 
 from pathlib import Path
 from multiprocessing import Pool
-from collections import OrderedDict
 from collections.abc import Collection, Iterable, Mapping
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
@@ -19,7 +18,7 @@ from ryan_library.functions.file_utils import (
     find_files_parallel,
     is_non_zero_file,
 )
-from ryan_library.functions.misc_functions import ExcelExporter, calculate_pool_size
+from ryan_library.functions.misc_functions import calculate_pool_size
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
@@ -27,24 +26,7 @@ from ryan_library.functions.loguru_helpers import setup_logger, worker_initializ
 
 NAType = type(pd.NA)
 
-ID_COLUMNS: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
-MEAN_COLUMNS: list[str] = [
-    "mean_including_zeroes",
-    "mean_excluding_zeroes",
-    "mean_PeakFlow",
-    "mean_Duration",
-    "mean_TP",
-]
-MEDIAN_COLUMNS: list[str] = ["MedianAbsMax", "median_duration", "median_TP"]
-AEP_DUR_INFO_COLUMNS: list[str] = ["low", "high", "count", "count_bin", "mean_storm_is_median_storm"]
-AEP_MAX_INFO_COLUMNS: list[str] = [
-    "low",
-    "high",
-    "count",
-    "count_bin",
-    "mean_storm_is_median_storm",
-    "aep_bin",
-]
+NAType = type(pd.NA)
 
 DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
 
@@ -413,6 +395,7 @@ def save_peak_report(
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
     logger.info(f"Starting export of peak report to {output_path}")
+    logger.info(f"Starting export of peak report to {output_path}")
     save_to_excel(
         aep_dur_max=aep_dur_max,
         aep_max=aep_max,
@@ -422,57 +405,10 @@ def save_peak_report(
         timestamp=timestamp,
     )
     logger.info(f"Completed peak report export to {output_path}")
+    logger.info(f"Completed peak report export to {output_path}")
 
 
-def _finalize_peak_frame(
-    frame: pd.DataFrame,
-    *,
-    include_mean_columns: bool,
-    include_median_columns: bool,
-    info_columns: Iterable[str],
-) -> pd.DataFrame:
-    """Return ``frame`` with filtered and ordered columns for export."""
-
-    working_frame: pd.DataFrame = frame.copy()
-
-    if not include_mean_columns:
-        working_frame = working_frame.drop(columns=[c for c in MEAN_COLUMNS if c in working_frame.columns], errors="ignore")
-
-    if not include_median_columns:
-        working_frame = working_frame.drop(
-            columns=[c for c in MEDIAN_COLUMNS if c in working_frame.columns], errors="ignore"
-        )
-
-    if not (include_mean_columns and include_median_columns):
-        working_frame = working_frame.drop(columns=["mean_storm_is_median_storm"], errors="ignore")
-
-    ordered_cols: list[str] = [col for col in ID_COLUMNS if col in working_frame.columns]
-
-    if include_mean_columns:
-        ordered_cols.extend([col for col in MEAN_COLUMNS if col in working_frame.columns])
-
-    if include_median_columns:
-        ordered_cols.extend([col for col in MEDIAN_COLUMNS if col in working_frame.columns])
-
-    filtered_info_columns: list[str] = list(info_columns)
-    if not (include_mean_columns and include_median_columns):
-        filtered_info_columns = [col for col in filtered_info_columns if col != "mean_storm_is_median_storm"]
-
-    remaining_cols: list[str] = [
-        col for col in working_frame.columns if col not in ordered_cols and col not in filtered_info_columns
-    ]
-    ordered_cols.extend(remaining_cols)
-    ordered_cols.extend([col for col in filtered_info_columns if col in working_frame.columns])
-
-    return working_frame.loc[:, ordered_cols]
-
-
-def find_aep_dur_median(
-    aggregated_df: pd.DataFrame,
-    *,
-    include_mean_columns: bool = True,
-    include_median_columns: bool = True,
-) -> pd.DataFrame:
+def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
     """Return median stats for each AEP/Duration/Location/Type/RunCode group."""
     group_cols: list[str] = [
         "aep_text",
@@ -555,12 +491,29 @@ def find_aep_dur_median(
                 mean_storm_matches = (duration_match & tp_match).fillna(False)
 
             median_df["mean_storm_is_median_storm"] = mean_storm_matches
-            median_df = _finalize_peak_frame(
-                median_df,
-                include_mean_columns=include_mean_columns,
-                include_median_columns=include_median_columns,
-                info_columns=AEP_DUR_INFO_COLUMNS,
-            )
+
+            id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
+            mean_columns: list[str] = [
+                "mean_including_zeroes",
+                "mean_excluding_zeroes",
+                "mean_PeakFlow",
+                "mean_Duration",
+                "mean_TP",
+            ]
+            median_columns: list[str] = ["MedianAbsMax", "median_duration", "median_TP"]
+            info_columns: list[str] = ["low", "high", "count", "count_bin", "mean_storm_is_median_storm"]
+
+            ordered_cols: list[str] = []
+            for group in (id_columns, mean_columns, median_columns):
+                ordered_cols.extend([col for col in group if col in median_df.columns])
+
+            remaining_cols: list[str] = [
+                col for col in median_df.columns if col not in ordered_cols and col not in info_columns
+            ]
+            ordered_cols.extend(remaining_cols)
+            ordered_cols.extend([col for col in info_columns if col in median_df.columns])
+
+            median_df = median_df[ordered_cols]
         logger.info("Created 'aep_dur_median' DataFrame with median records for each AEP-Duration group.")
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_dur_median' grouping: {e}")
@@ -568,12 +521,7 @@ def find_aep_dur_median(
     return median_df
 
 
-def find_aep_median_max(
-    aep_dur_median: pd.DataFrame,
-    *,
-    include_mean_columns: bool = True,
-    include_median_columns: bool = True,
-) -> pd.DataFrame:
+def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
     """Return rows representing the maximum median for each AEP/Location/Type/RunCode group."""
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
@@ -582,81 +530,70 @@ def find_aep_median_max(
         idx = df.groupby(group_cols, observed=True)["MedianAbsMax"].idxmax()
         aep_med_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
         if not aep_med_max.empty:
-            aep_med_max = _finalize_peak_frame(
-                aep_med_max,
-                include_mean_columns=include_mean_columns,
-                include_median_columns=include_median_columns,
-                info_columns=AEP_MAX_INFO_COLUMNS,
-            )
+            id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
+            mean_columns: list[str] = [
+                "mean_including_zeroes",
+                "mean_excluding_zeroes",
+                "mean_PeakFlow",
+                "mean_Duration",
+                "mean_TP",
+            ]
+            median_columns: list[str] = ["MedianAbsMax", "median_duration", "median_TP"]
+            info_columns: list[str] = [
+                "low",
+                "high",
+                "count",
+                "count_bin",
+                "mean_storm_is_median_storm",
+                "aep_bin",
+            ]
+
+            ordered_cols: list[str] = []
+            for group in (id_columns, mean_columns, median_columns):
+                ordered_cols.extend([col for col in group if col in aep_med_max.columns])
+
+            remaining_cols: list[str] = [
+                col for col in aep_med_max.columns if col not in ordered_cols and col not in info_columns
+            ]
+            ordered_cols.extend(remaining_cols)
+            ordered_cols.extend([col for col in info_columns if col in aep_med_max.columns])
+
+            aep_med_max = aep_med_max[ordered_cols]
+        if not aep_med_max.empty:
+            id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
+            mean_columns: list[str] = [
+                "mean_including_zeroes",
+                "mean_excluding_zeroes",
+                "mean_PeakFlow",
+                "mean_Duration",
+                "mean_TP",
+            ]
+            median_columns: list[str] = ["MedianAbsMax", "median_duration", "median_TP"]
+            info_columns: list[str] = [
+                "low",
+                "high",
+                "count",
+                "count_bin",
+                "mean_storm_is_median_storm",
+                "aep_bin",
+            ]
+
+            ordered_cols: list[str] = []
+            for group in (id_columns, mean_columns, median_columns):
+                ordered_cols.extend([col for col in group if col in aep_med_max.columns])
+
+            remaining_cols: list[str] = [
+                col for col in aep_med_max.columns if col not in ordered_cols and col not in info_columns
+            ]
+            ordered_cols.extend(remaining_cols)
+            ordered_cols.extend([col for col in info_columns if col in aep_med_max.columns])
+
+            aep_med_max = aep_med_max[ordered_cols]
         logger.info("Created 'aep_median_max' DataFrame with maximum median records for each AEP group.")
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_median_max' grouping: {e}")
         aep_med_max = pd.DataFrame()
     return aep_med_max
-
-
-def _export_peak_report(
-    *,
-    aep_dur_frame: pd.DataFrame,
-    aep_max_frame: pd.DataFrame,
-    aggregated_df: pd.DataFrame,
-    script_directory: Path,
-    include_pomm: bool,
-    timestamp: str,
-    file_name_prefix: str,
-    suffix: str,
-) -> None:
-    """Export the prepared peak report tables using :class:`ExcelExporter`."""
-
-    sheet_frames: OrderedDict[str, pd.DataFrame] = OrderedDict()
-    sheet_frames["aep-dur-max"] = aep_dur_frame
-    sheet_frames["aep-max"] = aep_max_frame
-    if include_pomm:
-        sheet_frames["POMM"] = aggregated_df
-
-    registry: ColumnMetadataRegistry = ColumnMetadataRegistry.default()
-    metadata_rows: Mapping[str, str] = _build_metadata_rows(
-        timestamp=timestamp,
-        include_pomm=include_pomm,
-        aep_dur_max=aep_dur_frame,
-        aep_max=aep_max_frame,
-        aggregated_df=aggregated_df,
-    )
-    data_dictionary_df: pd.DataFrame = _build_data_dictionary(
-        registry=registry,
-        sheet_frames=sheet_frames,
-        metadata_rows=metadata_rows,
-    )
-    sheet_frames[DATA_DICTIONARY_SHEET_NAME] = data_dictionary_df
-
-    exporter = ExcelExporter()
-    export_dict = {
-        file_name_prefix: {
-            "dataframes": list(sheet_frames.values()),
-            "sheets": list(sheet_frames.keys()),
-        }
-    }
-    exporter.export_dataframes(export_dict=export_dict, output_directory=script_directory)
-
-    desired_filename: str = f"{timestamp}{suffix}" if timestamp else f"{file_name_prefix}.xlsx"
-    desired_path: Path = script_directory / desired_filename
-    if desired_path.suffix != ".xlsx":
-        desired_path = desired_path.with_suffix(".xlsx")
-
-    generated_files: list[Path] = sorted(
-        script_directory.glob(f"*_{file_name_prefix}.xlsx"),
-        key=lambda p: p.stat().st_mtime,
-        reverse=True,
-    )
-
-    if generated_files:
-        latest_file: Path = generated_files[0]
-        if latest_file == desired_path:
-            return
-        if desired_path.exists():
-            desired_path.unlink()
-        if latest_file != desired_path:
-            latest_file.replace(desired_path)
 
 
 def save_peak_report_median(
@@ -667,60 +604,19 @@ def save_peak_report_median(
     include_pomm: bool = True,
 ) -> None:
     """Save median-based peak data tables to an Excel file."""
-    aep_dur_med: pd.DataFrame = find_aep_dur_median(
+    aep_dur_med: pd.DataFrame = find_aep_dur_median(aggregated_df=aggregated_df)
+    aep_med_max: pd.DataFrame = find_aep_median_max(aep_dur_median=aep_dur_med)
+    output_filename: str = f"{timestamp}{suffix}"
+    output_path: Path = script_directory / output_filename
+    logger.info(f"Starting export of median peak report to {output_path}")
+    logger.info(f"Starting export of median peak report to {output_path}")
+    save_to_excel(
+        aep_dur_max=aep_dur_med,
+        aep_max=aep_med_max,
         aggregated_df=aggregated_df,
-        include_mean_columns=False,
-        include_median_columns=True,
-    )
-    aep_med_max: pd.DataFrame = find_aep_median_max(
-        aep_dur_median=aep_dur_med,
-        include_mean_columns=False,
-        include_median_columns=True,
-    )
-    file_name_prefix: str = suffix.removesuffix(".xlsx").lstrip("_") or "med_peaks"
-    logger.info("Starting export of median peak report")
-    _export_peak_report(
-        aep_dur_frame=aep_dur_med,
-        aep_max_frame=aep_med_max,
-        aggregated_df=aggregated_df,
-        script_directory=script_directory,
+        output_path=output_path,
         include_pomm=include_pomm,
         timestamp=timestamp,
-        file_name_prefix=file_name_prefix,
-        suffix=suffix,
     )
-    logger.info("Completed median peak report export")
-
-
-def save_peak_report_mean(
-    aggregated_df: pd.DataFrame,
-    script_directory: Path,
-    timestamp: str,
-    suffix: str = "_mean_peaks.xlsx",
-    include_pomm: bool = True,
-) -> None:
-    """Save mean-based peak data tables to an Excel file."""
-
-    aep_dur_mean: pd.DataFrame = find_aep_dur_median(
-        aggregated_df=aggregated_df,
-        include_mean_columns=True,
-        include_median_columns=False,
-    )
-    aep_mean_max: pd.DataFrame = find_aep_median_max(
-        aep_dur_median=aep_dur_mean,
-        include_mean_columns=True,
-        include_median_columns=False,
-    )
-    file_name_prefix: str = suffix.removesuffix(".xlsx").lstrip("_") or "mean_peaks"
-    logger.info("Starting export of mean peak report")
-    _export_peak_report(
-        aep_dur_frame=aep_dur_mean,
-        aep_max_frame=aep_mean_max,
-        aggregated_df=aggregated_df,
-        script_directory=script_directory,
-        include_pomm=include_pomm,
-        timestamp=timestamp,
-        file_name_prefix=file_name_prefix,
-        suffix=suffix,
-    )
-    logger.info("Completed mean peak report export")
+    logger.info(f"Completed median peak report export to {output_path}")
+    logger.info(f"Completed median peak report export to {output_path}")
