@@ -1,6 +1,6 @@
 # ryan_library/scripts/pomm_max_items.py
 
-from collections.abc import Collection
+from collections.abc import Collection, Callable
 from loguru import logger
 from pathlib import Path
 from datetime import datetime
@@ -8,6 +8,7 @@ import pandas as pd
 
 from ryan_library.scripts.pomm_utils import (
     aggregated_from_paths,
+    save_peak_report_mean,
     save_peak_report_median,
 )
 from ryan_library.functions.loguru_helpers import setup_logger
@@ -22,13 +23,14 @@ def run_peak_report(script_directory: Path | None = None) -> None:
     run_median_peak_report()
 
 
-def run_median_peak_report(
+def _run_peak_report(
     script_directory: Path | None = None,
     log_level: str = "INFO",
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
+    save_report: Callable[..., None] | None = None,
 ) -> None:
-    """Locate and process POMM files and export median-based peak values."""
+    """Core implementation for running a peak report workflow."""
 
     setup_logger(console_log_level=log_level)
     logger.info(f"Current Working Directory: {Path.cwd()}")
@@ -53,9 +55,45 @@ def run_median_peak_report(
         return
 
     timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-    save_peak_report_median(
+    if save_report is None:
+        save_report = save_peak_report_median
+    save_report(
         aggregated_df=aggregated_df,
         script_directory=script_directory,
         timestamp=timestamp,
         include_pomm=include_pomm,
+    )
+
+
+def run_median_peak_report(
+    script_directory: Path | None = None,
+    log_level: str = "INFO",
+    include_pomm: bool = True,
+    locations_to_include: Collection[str] | None = None,
+) -> None:
+    """Locate and process POMM files and export median-based peak values."""
+
+    _run_peak_report(
+        script_directory=script_directory,
+        log_level=log_level,
+        include_pomm=include_pomm,
+        locations_to_include=locations_to_include,
+        save_report=save_peak_report_median,
+    )
+
+
+def run_mean_peak_report(
+    script_directory: Path | None = None,
+    log_level: str = "INFO",
+    include_pomm: bool = True,
+    locations_to_include: Collection[str] | None = None,
+) -> None:
+    """Locate and process POMM files and export mean-based peak values."""
+
+    _run_peak_report(
+        script_directory=script_directory,
+        log_level=log_level,
+        include_pomm=include_pomm,
+        locations_to_include=locations_to_include,
+        save_report=save_peak_report_mean,
     )
