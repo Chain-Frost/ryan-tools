@@ -3,12 +3,15 @@
 
 from pathlib import Path
 from multiprocessing import Pool
-from collections.abc import Collection, Iterable
+from collections.abc import Collection, Iterable, Mapping
+from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 import pandas as pd
 from loguru import logger
 
+from ryan_library.classes.column_definitions import ColumnMetadataRegistry
 from ryan_library.functions.pandas.median_calc import median_calc
 
 from ryan_library.functions.file_utils import (
@@ -24,6 +27,8 @@ from ryan_library.functions.loguru_helpers import setup_logger, worker_initializ
 NAType = type(pd.NA)
 
 NAType = type(pd.NA)
+
+DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
 
 
 def collect_files(
@@ -234,9 +239,27 @@ def save_to_excel(
     aggregated_df: pd.DataFrame,
     output_path: Path,
     include_pomm: bool = True,
+    timestamp: str | None = None,
 ) -> None:
     """Save peak DataFrames to an Excel file."""
     logger.info(f"Output path: {output_path}")
+    registry: ColumnMetadataRegistry = ColumnMetadataRegistry.default()
+    metadata_rows: Mapping[str, str] = _build_metadata_rows(
+        timestamp=timestamp,
+        include_pomm=include_pomm,
+        aep_dur_max=aep_dur_max,
+        aep_max=aep_max,
+        aggregated_df=aggregated_df,
+    )
+    data_dictionary_df: pd.DataFrame = _build_data_dictionary(
+        registry=registry,
+        sheet_frames={
+            "aep-dur-max": aep_dur_max,
+            "aep-max": aep_max,
+        },
+        metadata_rows=metadata_rows,
+    )
+
     with pd.ExcelWriter(output_path) as writer:
         aep_dur_max.to_excel(
             excel_writer=writer,
@@ -252,8 +275,111 @@ def save_to_excel(
                 index=False,
                 merge_cells=False,
             )
+        data_dictionary_df.to_excel(
+            excel_writer=writer,
+            sheet_name=DATA_DICTIONARY_SHEET_NAME,
+            index=False,
+            merge_cells=False,
+        )
 
     logger.info(f"Peak data exported to {output_path}")
+
+
+def _build_metadata_rows(
+    timestamp: str | None,
+    include_pomm: bool,
+    aep_dur_max: pd.DataFrame,
+    aep_max: pd.DataFrame,
+    aggregated_df: pd.DataFrame,
+) -> Mapping[str, str]:
+    """Return ordered metadata rows for the data dictionary sheet."""
+
+    generated_at: str = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    metadata: dict[str, str] = {
+        "Generated at": generated_at,
+        "Filename timestamp": timestamp if timestamp else "not supplied",
+        "Generator module": __name__,
+        "ryan_functions version": _resolve_package_version("ryan_functions"),
+        "Include POMM sheet": "Yes" if include_pomm else "No",
+        "aep-dur-max rows": str(len(aep_dur_max)),
+        "aep-max rows": str(len(aep_max)),
+    }
+
+    if include_pomm:
+        metadata["POMM rows"] = str(len(aggregated_df))
+
+    if "directory_path" in aggregated_df.columns:
+        try:
+            directories_series = aggregated_df["directory_path"].dropna()
+        except AttributeError:
+            directories_series = pd.Series(dtype="string")
+        unique_directories = sorted({str(Path(dir_value)) for dir_value in directories_series.unique()})
+        if unique_directories:
+            metadata["Source directories"] = "\n".join(unique_directories)
+
+    return metadata
+
+
+def _resolve_package_version(package_name: str) -> str:
+    """Return the installed version for ``package_name`` if available."""
+
+    try:
+        return version(package_name)
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _build_data_dictionary(
+    registry: ColumnMetadataRegistry,
+    sheet_frames: Mapping[str, pd.DataFrame],
+    metadata_rows: Mapping[str, str],
+) -> pd.DataFrame:
+    """Build the DataFrame backing the data dictionary worksheet."""
+
+    rows: list[dict[str, str]] = []
+    for key, value in metadata_rows.items():
+        rows.append(
+            {
+                "sheet": "metadata",
+                "column": key,
+                "description": value,
+                "value_type": "metadata",
+                "pandas_dtype": "",
+            }
+        )
+
+    for sheet_name, frame in sheet_frames.items():
+        columns: list[str] = list(frame.columns)
+        if not columns:
+            rows.append(
+                {
+                    "sheet": sheet_name,
+                    "column": "<no columns>",
+                    "description": "Sheet exported without any columns. Review upstream processing.",
+                    "value_type": "",
+                    "pandas_dtype": "",
+                }
+            )
+            continue
+
+        dtype_map: dict[str, str] = {column: str(dtype) for column, dtype in frame.dtypes.items()}
+        definitions = registry.iter_definitions(columns, sheet_name=sheet_name)
+
+        for column_name, definition in zip(columns, definitions):
+            rows.append(
+                {
+                    "sheet": sheet_name,
+                    "column": column_name,
+                    "description": definition.description,
+                    "value_type": definition.value_type or "",
+                    "pandas_dtype": dtype_map.get(column_name, ""),
+                }
+            )
+
+    return pd.DataFrame(
+        rows,
+        columns=["sheet", "column", "description", "value_type", "pandas_dtype"],
+    )
 
 
 def save_peak_report(
@@ -276,6 +402,7 @@ def save_peak_report(
         aggregated_df=aggregated_df,
         output_path=output_path,
         include_pomm=include_pomm,
+        timestamp=timestamp,
     )
     logger.info(f"Completed peak report export to {output_path}")
     logger.info(f"Completed peak report export to {output_path}")
@@ -489,6 +616,7 @@ def save_peak_report_median(
         aggregated_df=aggregated_df,
         output_path=output_path,
         include_pomm=include_pomm,
+        timestamp=timestamp,
     )
     logger.info(f"Completed median peak report export to {output_path}")
     logger.info(f"Completed median peak report export to {output_path}")
