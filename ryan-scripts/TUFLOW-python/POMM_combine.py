@@ -9,6 +9,10 @@ from ryan_library.scripts.wrapper_utils import (
 
 console_log_level = "INFO"  # or "DEBUG"
 
+# Update this tuple to restrict processing to specific PO/Location values.
+# Leave empty to include every location found in the POMM files.
+LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
+
 
 def main() -> None:
     """Wrapper script to merge POMM results.
@@ -24,10 +28,13 @@ def main() -> None:
     if not change_working_directory(target_dir=script_directory):
         return
 
+    locations_to_include: tuple[str, ...] | None = LOCATIONS_TO_INCLUDE or None
+
     main_processing(
         paths_to_process=[script_directory],
         include_data_types=["POMM"],
         console_log_level=console_log_level,
+        locations_to_include=locations_to_include,
     )
     print()
     print_library_version()
