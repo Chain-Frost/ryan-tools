@@ -26,7 +26,6 @@ from ryan_library.functions.loguru_helpers import setup_logger, worker_initializ
 
 NAType = type(pd.NA)
 
-NAType = type(pd.NA)
 
 DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
 
@@ -550,7 +549,7 @@ def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
         ]
         if mean_value_columns:
             mean_df: pd.DataFrame = aep_dur_median.copy()
-            mean_df["_mean_peakflow_numeric"] = pd.to_numeric(mean_df.get("mean_PeakFlow"), errors="coerce")
+            mean_df["_mean_peakflow_numeric"] = pd.to_numeric(mean_df.get("mean_PeakFlow"), errors="coerce")  # type: ignore
             if mean_df["_mean_peakflow_numeric"].notna().any():
                 idx_mean = (
                     mean_df[mean_df["_mean_peakflow_numeric"].notna()]
@@ -727,9 +726,7 @@ def _remove_columns_containing(df: pd.DataFrame, substrings: tuple[str, ...]) ->
         return filtered_df
 
     columns_to_drop: list[str] = [
-        column
-        for column in filtered_df.columns
-        if any(substring in column.lower() for substring in substrings)
+        column for column in filtered_df.columns if any(substring in column.lower() for substring in substrings)
     ]
     if columns_to_drop:
         filtered_df = filtered_df.drop(columns=columns_to_drop, errors="ignore")

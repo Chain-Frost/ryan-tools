@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar, Iterable, Mapping
+from typing import ClassVar
+from _collections_abc import Iterable, Mapping
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,7 +62,7 @@ class ColumnMetadataRegistry:
         """Return the default registry instance."""
 
         if not hasattr(cls, "_INSTANCE"):
-            base_definitions = {
+            base_definitions: dict[str, ColumnDefinition] = {
                 "AbsMax": ColumnDefinition(
                     name="AbsMax",
                     description="Absolute maximum magnitude observed within the event time-series.",
@@ -74,7 +75,7 @@ class ColumnMetadataRegistry:
                 ),
                 "Max": ColumnDefinition(
                     name="Max",
-                    description="Maximum positive value in the event window.",
+                    description="Maximum value in the event window.",
                     value_type="float",
                 ),
                 "Min": ColumnDefinition(
@@ -94,12 +95,17 @@ class ColumnMetadataRegistry:
                 ),
                 "Location": ColumnDefinition(
                     name="Location",
-                    description="Model result location identifier from the POMM file.",
+                    description="Model result location identifier from the 2d_po file.",
+                    value_type="string",
+                ),
+                "Chan ID": ColumnDefinition(
+                    name="Chan ID",
+                    description="Channel identifier from the 1d_nwk file.",
                     value_type="string",
                 ),
                 "Type": ColumnDefinition(
                     name="Type",
-                    description="Quantity type (for example Flow, Water Level, Velocity).",
+                    description="2d_po quantity type (for example Flow, Water Level, Velocity).",
                     value_type="string",
                 ),
                 "aep_text": ColumnDefinition(
@@ -109,32 +115,32 @@ class ColumnMetadataRegistry:
                 ),
                 "aep_numeric": ColumnDefinition(
                     name="aep_numeric",
-                    description="Annual exceedance probability represented as a numeric percentage.",
+                    description="Annual exceedance probability represented as a numeric percentage e.g 1.",
                     value_type="float",
                 ),
                 "duration_text": ColumnDefinition(
                     name="duration_text",
-                    description="Storm duration label parsed from the run code (e.g. '03hr').",
+                    description="Storm duration label parsed from the run code (e.g. '00030m').",
                     value_type="string",
                 ),
                 "duration_numeric": ColumnDefinition(
                     name="duration_numeric",
-                    description="Storm duration represented as a numeric value (hours).",
+                    description="Storm duration represented as a numeric value (mins - tuflow style).",
                     value_type="float",
                 ),
                 "tp_text": ColumnDefinition(
                     name="tp_text",
-                    description="Temporal pattern identifier parsed from the run code.",
+                    description="Temporal pattern identifier parsed from the run code. e.g. TP07",
                     value_type="string",
                 ),
                 "tp_numeric": ColumnDefinition(
                     name="tp_numeric",
-                    description="Temporal pattern identifier represented as a numeric value.",
+                    description="Temporal pattern identifier represented as a numeric value. e.g. 1",
                     value_type="int",
                 ),
                 "trim_runcode": ColumnDefinition(
                     name="trim_runcode",
-                    description="Run code without the AEP component, used to group comparable scenarios.",
+                    description="Run code without the AEP, TP and Duration component. Used to group comparable scenarios.",
                     value_type="string",
                 ),
                 "internalName": ColumnDefinition(
@@ -169,42 +175,42 @@ class ColumnMetadataRegistry:
                 ),
                 "R01": ColumnDefinition(
                     name="R01",
-                    description="First segment of the run code (often the model identifier).",
+                    description="First segment of the run code.",
                     value_type="string",
                 ),
                 "R02": ColumnDefinition(
                     name="R02",
-                    description="Second segment of the run code (commonly spatial resolution).",
+                    description="Second segment of the run code.",
                     value_type="string",
                 ),
                 "R03": ColumnDefinition(
                     name="R03",
-                    description="Third segment of the run code (commonly the AEP label).",
+                    description="Third segment of the run code.",
                     value_type="string",
                 ),
                 "R04": ColumnDefinition(
                     name="R04",
-                    description="Fourth segment of the run code (commonly the storm duration).",
+                    description="Fourth segment of the run code.",
                     value_type="string",
                 ),
                 "R05": ColumnDefinition(
                     name="R05",
-                    description="Fifth segment of the run code (commonly the run number).",
+                    description="Fifth segment of the run code.",
                     value_type="string",
                 ),
                 "MedianAbsMax": ColumnDefinition(
                     name="MedianAbsMax",
-                    description="Median of absolute maxima across temporal patterns for the group.",
+                    description="Absolute maxima across median of temporal patterns for the group.",
                     value_type="float",
                 ),
                 "median_duration": ColumnDefinition(
                     name="median_duration",
-                    description="Duration associated with the median absolute maximum.",
+                    description="Duration associated with the MedianAbsMax.",
                     value_type="string",
                 ),
                 "median_TP": ColumnDefinition(
                     name="median_TP",
-                    description="Temporal pattern associated with the median absolute maximum.",
+                    description="Temporal pattern associated with the MedianAbsMax.",
                     value_type="string",
                 ),
                 "mean_including_zeroes": ColumnDefinition(
@@ -254,7 +260,7 @@ class ColumnMetadataRegistry:
                 ),
                 "mean_storm_is_median_storm": ColumnDefinition(
                     name="mean_storm_is_median_storm",
-                    description="Indicates whether the mean storm matches the median storm selection.",
+                    description="Deprecated. Don't use. Indicates whether the mean storm matches the median storm selection.",
                     value_type="boolean",
                 ),
                 "aep_dur_bin": ColumnDefinition(
@@ -269,32 +275,32 @@ class ColumnMetadataRegistry:
                 ),
             }
 
-            sheet_specific = {
+            sheet_specific: dict[str, dict[str, ColumnDefinition]] = {
                 "aep-dur-max": {
                     "AbsMax": ColumnDefinition(
                         name="AbsMax",
-                        description="Peak magnitude selected for the AEP/Duration/Location/Type/run grouping.",
+                        description="Peaks for the AEP/Duration/Location/Type/run grouping.",
                         value_type="float",
                     ),
                 },
                 "aep-max": {
                     "AbsMax": ColumnDefinition(
                         name="AbsMax",
-                        description="Peak magnitude selected for the AEP/Location/Type/run grouping.",
+                        description="Peaks for the AEP/Location/Type/run grouping.",
                         value_type="float",
                     ),
                 },
                 "aep-dur-med": {
                     "MedianAbsMax": ColumnDefinition(
                         name="MedianAbsMax",
-                        description="Median magnitude for the specific AEP/Duration/Location/Type/run grouping.",
+                        description="Medians for the specific AEP/Duration/Location/Type/run grouping.",
                         value_type="float",
                     ),
                 },
                 "aep-med-max": {
                     "MedianAbsMax": ColumnDefinition(
                         name="MedianAbsMax",
-                        description="Median magnitude selected as the maximum median per AEP/Location/Type/run grouping.",
+                        description="Medians the maximum median per AEP/Location/Type/run grouping.",
                         value_type="float",
                     ),
                 },
@@ -307,4 +313,4 @@ class ColumnMetadataRegistry:
         return cls._INSTANCE
 
 
-__all__ = ["ColumnDefinition", "ColumnMetadataRegistry"]
+__all__: list[str] = ["ColumnDefinition", "ColumnMetadataRegistry"]
