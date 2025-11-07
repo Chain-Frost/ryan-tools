@@ -1,6 +1,8 @@
 """Modern POMM combination utilities."""
 
+from collections.abc import Collection
 from pathlib import Path
+
 import pandas as pd
 from loguru import logger
 
@@ -8,6 +10,7 @@ from ryan_library.scripts.pomm_utils import (
     collect_files,
     process_files_in_parallel,
 )
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.functions.file_utils import ensure_output_directory
 from ryan_library.functions.misc_functions import ExcelExporter
@@ -19,11 +22,14 @@ def main_processing(
     paths_to_process: list[Path],
     include_data_types: list[str] | None = None,
     console_log_level: str = "INFO",
+    locations_to_include: Collection[str] | None = None,
 ) -> None:
     """Generate merged culvert data and export the results."""
 
     if include_data_types is None:
         include_data_types = ["POMM"]
+
+    normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
 
     with setup_logger(console_log_level=console_log_level) as log_queue:
         csv_file_list: list[Path] = collect_files(
@@ -35,7 +41,14 @@ def main_processing(
             logger.info("No valid files found to process.")
             return
 
-        results_set: ProcessorCollection = process_files_in_parallel(file_list=csv_file_list, log_queue=log_queue)
+        results_set: ProcessorCollection = process_files_in_parallel(
+            file_list=csv_file_list,
+            log_queue=log_queue,
+            location_filter=normalized_locations if normalized_locations else None,
+        )
+
+    if normalized_locations:
+        results_set.filter_locations(normalized_locations)
 
     export_results(results=results_set)
     logger.info("End of POMM results combination processing")
