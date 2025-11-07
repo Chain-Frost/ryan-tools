@@ -7,6 +7,7 @@ import logging
 from typing import TypedDict
 from pathlib import Path
 from importlib import metadata
+import re
 from openpyxl.utils import get_column_letter
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
@@ -101,6 +102,9 @@ class ExcelExporter:
         set_column_widths: Apply specific column widths to a worksheet.
         auto_adjust_column_widths: Automatically adjust column widths based on data."""
 
+    MAX_EXCEL_ROWS: int = 1_048_576
+    MAX_EXCEL_COLUMNS: int = 16_384
+
     def export_dataframes(
         self,
         export_dict: dict[str, ExportContent],
@@ -165,6 +169,20 @@ class ExcelExporter:
                     f"For file '{file_label}', the number of dataframes ({len(dataframes)}) and sheets ({len(sheets)}) must match."
                 )
 
+            if self._exceeds_excel_limits(dataframes=dataframes):
+                logging.warning(
+                    "Data for '%s' exceeds Excel size limits. Exporting to Parquet and CSV instead.",
+                    file_name,
+                )
+                self._export_as_parquet_and_csv(
+                    file_name=file_name,
+                    dataframes=dataframes,
+                    sheets=sheets,
+                    datetime_string=datetime_string,
+                    output_directory=output_directory,
+                )
+                continue
+
             # Determine the export path
             if file_name is not None:
                 export_filename = file_name if file_name.lower().endswith(".xlsx") else f"{file_name}.xlsx"
@@ -220,6 +238,86 @@ class ExcelExporter:
             except InvalidFileException as e:
                 logging.error(f"Failed to write to '{export_path}': {e}")
                 raise
+
+    def _exceeds_excel_limits(self, dataframes: list[pd.DataFrame]) -> bool:
+        """Return True if any dataframe exceeds Excel's size limits."""
+
+        for df in dataframes:
+            num_data_rows: int = len(df.index)
+            num_columns: int = len(df.columns)
+            header_rows: int = df.columns.nlevels if num_columns > 0 else 0
+            total_rows: int = num_data_rows + header_rows
+
+            if total_rows > self.MAX_EXCEL_ROWS or num_columns > self.MAX_EXCEL_COLUMNS:
+                logging.debug(
+                    "Dataframe size rows=%s (including %s header rows) columns=%s exceeds Excel limits (rows=%s, columns=%s).",
+                    total_rows,
+                    header_rows,
+                    num_columns,
+                    self.MAX_EXCEL_ROWS,
+                    self.MAX_EXCEL_COLUMNS,
+                )
+                return True
+        return False
+
+    def _export_as_parquet_and_csv(
+        self,
+        file_name: str,
+        dataframes: list[pd.DataFrame],
+        sheets: list[str],
+        datetime_string: str,
+        output_directory: Path | None,
+    ) -> None:
+        """Export dataframes to Parquet and CSV files when Excel limits are exceeded."""
+
+        export_targets: list[tuple[pd.DataFrame, str, Path, Path]] = []
+
+        for df, sheet in zip(dataframes, sheets):
+            sanitized_sheet: str = self._sanitize_name(sheet)
+            base_filename: str = f"{datetime_string}_{file_name}_{sanitized_sheet}"
+
+            parquet_path: Path = self._build_output_path(
+                base_filename=f"{base_filename}.parquet", output_directory=output_directory
+            )
+            csv_path: Path = self._build_output_path(
+                base_filename=f"{base_filename}.csv", output_directory=output_directory
+            )
+
+            parquet_path.parent.mkdir(parents=True, exist_ok=True)
+            export_targets.append((df, sheet, parquet_path, csv_path))
+
+        for df, sheet, parquet_path, _ in export_targets:
+            try:
+                df.to_parquet(path=parquet_path, index=False)
+                logging.info("Exported Parquet to %s", parquet_path)
+            except (ImportError, ValueError) as exc:
+                message: str = (
+                    "Unable to export Parquet for "
+                    f"'{file_name}' sheet '{sheet}': {exc}. Install pyarrow or fastparquet."
+                )
+                logging.error(message)
+                print(message)
+            except Exception as exc:  # pragma: no cover - unforeseen errors should be logged
+                logging.exception(
+                    "Unexpected error during Parquet export for '%s' sheet '%s': %s", file_name, sheet, exc
+                )
+
+        for df, sheet, _, csv_path in export_targets:
+            df.to_csv(path_or_buf=csv_path, index=False)
+            logging.info("Exported CSV to %s", csv_path)
+
+    def _build_output_path(self, base_filename: str, output_directory: Path | None) -> Path:
+        """Create the full output path for a file name."""
+
+        if output_directory is not None:
+            return output_directory / base_filename
+        return Path(base_filename)
+
+    def _sanitize_name(self, value: str) -> str:
+        """Return a filesystem-friendly version of the provided value."""
+
+        sanitized: str = re.sub(pattern=r"[^A-Za-z0-9_-]+", repl="_", string=value).strip("_")
+        return sanitized or "Sheet"
 
     def save_to_excel(
         self,
