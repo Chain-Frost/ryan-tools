@@ -111,6 +111,7 @@ class ExcelExporter:
         output_directory: Path | None = None,
         column_widths: dict[str, dict[str, float]] | None = None,
         auto_adjust_width: bool = True,
+        file_name: str | None = None,
     ) -> None:
         """Export multiple DataFrames to Excel files with optional column widths.
         Args:
@@ -132,6 +133,11 @@ class ExcelExporter:
             auto_adjust_width (bool, optional):
                 If set to True, automatically adjusts the column widths based on the
                 maximum length of the data in each column. Defaults to True.
+            file_name (str | None, optional):
+                Explicit workbook name to use when exporting a single entry from
+                ``export_dict``. When provided, the auto-generated timestamp prefix is
+                skipped and ``file_name`` is written exactly (``.xlsx`` appended when
+                missing).
         Raises:
             ValueError: If the number of DataFrames doesn't match the number of sheets.
             InvalidFileException: If there's an issue with writing the Excel file.
@@ -150,13 +156,17 @@ class ExcelExporter:
         """
         datetime_string: str = datetime.now().strftime(format="%Y%m%d-%H%M")
 
-        for file_name, content in export_dict.items():
+        if file_name is not None and len(export_dict) != 1:
+            raise ValueError("'file_name' can only be provided when exporting a single workbook.")
+
+        for export_key, content in export_dict.items():
             dataframes: list[pd.DataFrame] = content.get("dataframes", [])
             sheets: list[str] = content.get("sheets", [])
 
             if len(dataframes) != len(sheets):
+                file_label: str = file_name if file_name is not None else export_key
                 raise ValueError(
-                    f"For file '{file_name}', the number of dataframes ({len(dataframes)}) and sheets ({len(sheets)}) must match."
+                    f"For file '{file_label}', the number of dataframes ({len(dataframes)}) and sheets ({len(sheets)}) must match."
                 )
 
             if self._exceeds_excel_limits(dataframes=dataframes):
@@ -174,7 +184,10 @@ class ExcelExporter:
                 continue
 
             # Determine the export path
-            export_filename: str = f"{datetime_string}_{file_name}.xlsx"
+            if file_name is not None:
+                export_filename = file_name if file_name.lower().endswith(".xlsx") else f"{file_name}.xlsx"
+            else:
+                export_filename = f"{datetime_string}_{export_key}.xlsx"
             export_path: Path = (
                 (output_directory / export_filename) if output_directory else Path(export_filename)  # Defaults to CWD
             )
@@ -221,7 +234,7 @@ class ExcelExporter:
                                 column_widths=column_widths[sheet],
                             )
 
-                logging.info(f"Finished exporting '{file_name}' to '{export_path}'")
+                logging.info(f"Finished exporting '{export_filename}' to '{export_path}'")
             except InvalidFileException as e:
                 logging.error(f"Failed to write to '{export_path}': {e}")
                 raise
@@ -314,6 +327,7 @@ class ExcelExporter:
         output_directory: Path | None = None,
         column_widths: dict[str, float] | None = None,
         auto_adjust_width: bool = True,
+        file_name: str | None = None,
     ) -> None:
         """Export a single DataFrame to an Excel file with a single sheet and optional column widths.
 
@@ -330,7 +344,11 @@ class ExcelExporter:
                     {"Name": 20, "Age": 10}
             auto_adjust_width (bool, optional):
                 If set to True, automatically adjusts the column widths based on the
-                maximum length of the data in each column. Defaults to True."""
+                maximum length of the data in each column. Defaults to True.
+            file_name (str | None, optional):
+                Explicit file name to use for the exported workbook. When provided the
+                timestamp-based prefix is skipped and ``file_name`` is written exactly as
+                supplied (``.xlsx`` is appended automatically when missing)."""
         export_dict: dict[str, ExportContent] = {file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}}
 
         # Prepare column_widths in the required format
@@ -343,6 +361,7 @@ class ExcelExporter:
             output_directory=output_directory,
             column_widths=prepared_column_widths,
             auto_adjust_width=auto_adjust_width,
+            file_name=file_name,
         )
 
     def calculate_column_widths(self, df: pd.DataFrame) -> dict[str, float]:
@@ -436,6 +455,8 @@ def save_to_excel(
     file_name_prefix: str = "Export",
     sheet_name: str = "Export",
     output_directory: Path | None = None,
+    *,
+    file_name: str | None = None,
 ) -> None:
     """Backwards-compatible function that delegates to ExcelExporter.
     Args:
@@ -450,4 +471,7 @@ def save_to_excel(
         file_name_prefix=file_name_prefix,
         sheet_name=sheet_name,
         output_directory=output_directory,
+        column_widths=None,
+        auto_adjust_width=True,
+        file_name=file_name,
     )
