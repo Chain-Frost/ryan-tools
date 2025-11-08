@@ -1,6 +1,7 @@
 # ryan_library/processors/tuflow/base_processor.py
 
 from abc import ABC, abstractmethod
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
@@ -66,6 +67,7 @@ class BaseProcessor(ABC):
     df: pd.DataFrame = field(default_factory=pd.DataFrame)
     raw_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
+    applied_location_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
 
     # Define _processor_cache as a ClassVar to make it a class variable
     _processor_cache: ClassVar[dict[tuple[str, str], type["BaseProcessor"]]] = {}
@@ -266,6 +268,71 @@ class BaseProcessor(ABC):
     def reorder_long_text_columns(self) -> None:
         """Move large width column names to the right side."""
         self.df = reorder_long_columns(df=self.df)
+
+    @staticmethod
+    def normalize_locations(locations: Collection[str] | None) -> frozenset[str]:
+        """Return a normalized frozenset of non-empty locations."""
+
+        if not locations:
+            return frozenset()
+
+        if isinstance(locations, frozenset):
+            return locations
+
+        normalized: set[str] = {str(location).strip() for location in locations if str(location).strip()}
+        return frozenset(normalized)
+
+    def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
+        """Filter the processor DataFrame to include only the specified locations.
+
+        Args:
+            locations: Collection of location identifiers to retain.
+
+        Returns:
+            frozenset[str]: The normalized set of locations that were applied.
+        """
+
+        normalized_locations: frozenset[str] = self.normalize_locations(locations)
+        if not normalized_locations:
+            return normalized_locations
+
+        if self.applied_location_filter == normalized_locations:
+            logger.debug(f"{self.file_name}: Location filter already applied; skipping.")
+            return normalized_locations
+
+        if self.df.empty:
+            logger.debug(f"{self.file_name}: DataFrame empty before location filtering; skipping.")
+            self.applied_location_filter = normalized_locations
+            return normalized_locations
+
+        if "Location" not in self.df.columns:
+            logger.debug(
+                f"{self.file_name}: Location filter provided but DataFrame lacks 'Location' column; skipping filter."
+            )
+            self.applied_location_filter = normalized_locations
+            return normalized_locations
+
+        before_count: int = len(self.df)
+        location_series = self.df["Location"].astype(str).str.strip()
+        filtered_df = self.df.loc[location_series.isin(normalized_locations)].copy()
+        after_count: int = len(filtered_df)
+
+        log_method = logger.info if after_count != before_count else logger.debug
+        log_method(
+            "{file_name}: Filtered rows to {after_count}/{before_count} using {location_count} locations.",
+            file_name=self.file_name,
+            after_count=after_count,
+            before_count=before_count,
+            location_count=len(normalized_locations),
+        )
+
+        self.df = filtered_df
+
+        if after_count == 0:
+            logger.warning(f"{self.file_name}: No rows remain after applying the Location filter.")
+
+        self.applied_location_filter = normalized_locations
+        return normalized_locations
 
     def add_common_columns(self) -> None:
         """Add all common columns by delegating to specific methods."""

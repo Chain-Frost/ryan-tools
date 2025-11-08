@@ -7,6 +7,7 @@ import logging
 from typing import TypedDict
 from pathlib import Path
 from importlib import metadata
+import re
 from openpyxl.utils import get_column_letter
 from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
@@ -101,12 +102,16 @@ class ExcelExporter:
         set_column_widths: Apply specific column widths to a worksheet.
         auto_adjust_column_widths: Automatically adjust column widths based on data."""
 
+    MAX_EXCEL_ROWS: int = 1_048_576
+    MAX_EXCEL_COLUMNS: int = 16_384
+
     def export_dataframes(
         self,
         export_dict: dict[str, ExportContent],
         output_directory: Path | None = None,
         column_widths: dict[str, dict[str, float]] | None = None,
         auto_adjust_width: bool = True,
+        file_name: str | None = None,
     ) -> None:
         """Export multiple DataFrames to Excel files with optional column widths.
         Args:
@@ -128,6 +133,11 @@ class ExcelExporter:
             auto_adjust_width (bool, optional):
                 If set to True, automatically adjusts the column widths based on the
                 maximum length of the data in each column. Defaults to True.
+            file_name (str | None, optional):
+                Explicit workbook name to use when exporting a single entry from
+                ``export_dict``. When provided, the auto-generated timestamp prefix is
+                skipped and ``file_name`` is written exactly (``.xlsx`` appended when
+                missing).
         Raises:
             ValueError: If the number of DataFrames doesn't match the number of sheets.
             InvalidFileException: If there's an issue with writing the Excel file.
@@ -146,17 +156,38 @@ class ExcelExporter:
         """
         datetime_string: str = datetime.now().strftime(format="%Y%m%d-%H%M")
 
-        for file_name, content in export_dict.items():
+        if file_name is not None and len(export_dict) != 1:
+            raise ValueError("'file_name' can only be provided when exporting a single workbook.")
+
+        for export_key, content in export_dict.items():
             dataframes: list[pd.DataFrame] = content.get("dataframes", [])
             sheets: list[str] = content.get("sheets", [])
 
             if len(dataframes) != len(sheets):
+                file_label: str = file_name if file_name is not None else export_key
                 raise ValueError(
-                    f"For file '{file_name}', the number of dataframes ({len(dataframes)}) and sheets ({len(sheets)}) must match."
+                    f"For file '{file_label}', the number of dataframes ({len(dataframes)}) and sheets ({len(sheets)}) must match."
                 )
 
+            if self._exceeds_excel_limits(dataframes=dataframes):
+                logging.warning(
+                    "Data for '%s' exceeds Excel size limits. Exporting to Parquet and CSV instead.",
+                    file_name,
+                )
+                self._export_as_parquet_and_csv(
+                    file_name=file_name,
+                    dataframes=dataframes,
+                    sheets=sheets,
+                    datetime_string=datetime_string,
+                    output_directory=output_directory,
+                )
+                continue
+
             # Determine the export path
-            export_filename: str = f"{datetime_string}_{file_name}.xlsx"
+            if file_name is not None:
+                export_filename = file_name if file_name.lower().endswith(".xlsx") else f"{file_name}.xlsx"
+            else:
+                export_filename = f"{datetime_string}_{export_key}.xlsx"
             export_path: Path = (
                 (output_directory / export_filename) if output_directory else Path(export_filename)  # Defaults to CWD
             )
@@ -203,10 +234,90 @@ class ExcelExporter:
                                 column_widths=column_widths[sheet],
                             )
 
-                logging.info(f"Finished exporting '{file_name}' to '{export_path}'")
+                logging.info(f"Finished exporting '{export_filename}' to '{export_path}'")
             except InvalidFileException as e:
                 logging.error(f"Failed to write to '{export_path}': {e}")
                 raise
+
+    def _exceeds_excel_limits(self, dataframes: list[pd.DataFrame]) -> bool:
+        """Return True if any dataframe exceeds Excel's size limits."""
+
+        for df in dataframes:
+            num_data_rows: int = len(df.index)
+            num_columns: int = len(df.columns)
+            header_rows: int = df.columns.nlevels if num_columns > 0 else 0
+            total_rows: int = num_data_rows + header_rows
+
+            if total_rows > self.MAX_EXCEL_ROWS or num_columns > self.MAX_EXCEL_COLUMNS:
+                logging.debug(
+                    "Dataframe size rows=%s (including %s header rows) columns=%s exceeds Excel limits (rows=%s, columns=%s).",
+                    total_rows,
+                    header_rows,
+                    num_columns,
+                    self.MAX_EXCEL_ROWS,
+                    self.MAX_EXCEL_COLUMNS,
+                )
+                return True
+        return False
+
+    def _export_as_parquet_and_csv(
+        self,
+        file_name: str,
+        dataframes: list[pd.DataFrame],
+        sheets: list[str],
+        datetime_string: str,
+        output_directory: Path | None,
+    ) -> None:
+        """Export dataframes to Parquet and CSV files when Excel limits are exceeded."""
+
+        export_targets: list[tuple[pd.DataFrame, str, Path, Path]] = []
+
+        for df, sheet in zip(dataframes, sheets):
+            sanitized_sheet: str = self._sanitize_name(sheet)
+            base_filename: str = f"{datetime_string}_{file_name}_{sanitized_sheet}"
+
+            parquet_path: Path = self._build_output_path(
+                base_filename=f"{base_filename}.parquet", output_directory=output_directory
+            )
+            csv_path: Path = self._build_output_path(
+                base_filename=f"{base_filename}.csv", output_directory=output_directory
+            )
+
+            parquet_path.parent.mkdir(parents=True, exist_ok=True)
+            export_targets.append((df, sheet, parquet_path, csv_path))
+
+        for df, sheet, parquet_path, _ in export_targets:
+            try:
+                df.to_parquet(path=parquet_path, index=False)
+                logging.info("Exported Parquet to %s", parquet_path)
+            except (ImportError, ValueError) as exc:
+                message: str = (
+                    "Unable to export Parquet for "
+                    f"'{file_name}' sheet '{sheet}': {exc}. Install pyarrow or fastparquet."
+                )
+                logging.error(message)
+                print(message)
+            except Exception as exc:  # pragma: no cover - unforeseen errors should be logged
+                logging.exception(
+                    "Unexpected error during Parquet export for '%s' sheet '%s': %s", file_name, sheet, exc
+                )
+
+        for df, sheet, _, csv_path in export_targets:
+            df.to_csv(path_or_buf=csv_path, index=False)
+            logging.info("Exported CSV to %s", csv_path)
+
+    def _build_output_path(self, base_filename: str, output_directory: Path | None) -> Path:
+        """Create the full output path for a file name."""
+
+        if output_directory is not None:
+            return output_directory / base_filename
+        return Path(base_filename)
+
+    def _sanitize_name(self, value: str) -> str:
+        """Return a filesystem-friendly version of the provided value."""
+
+        sanitized: str = re.sub(pattern=r"[^A-Za-z0-9_-]+", repl="_", string=value).strip("_")
+        return sanitized or "Sheet"
 
     def save_to_excel(
         self,
@@ -216,6 +327,7 @@ class ExcelExporter:
         output_directory: Path | None = None,
         column_widths: dict[str, float] | None = None,
         auto_adjust_width: bool = True,
+        file_name: str | None = None,
     ) -> None:
         """Export a single DataFrame to an Excel file with a single sheet and optional column widths.
 
@@ -232,7 +344,11 @@ class ExcelExporter:
                     {"Name": 20, "Age": 10}
             auto_adjust_width (bool, optional):
                 If set to True, automatically adjusts the column widths based on the
-                maximum length of the data in each column. Defaults to True."""
+                maximum length of the data in each column. Defaults to True.
+            file_name (str | None, optional):
+                Explicit file name to use for the exported workbook. When provided the
+                timestamp-based prefix is skipped and ``file_name`` is written exactly as
+                supplied (``.xlsx`` is appended automatically when missing)."""
         export_dict: dict[str, ExportContent] = {file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}}
 
         # Prepare column_widths in the required format
@@ -245,6 +361,7 @@ class ExcelExporter:
             output_directory=output_directory,
             column_widths=prepared_column_widths,
             auto_adjust_width=auto_adjust_width,
+            file_name=file_name,
         )
 
     def calculate_column_widths(self, df: pd.DataFrame) -> dict[str, float]:
@@ -338,6 +455,8 @@ def save_to_excel(
     file_name_prefix: str = "Export",
     sheet_name: str = "Export",
     output_directory: Path | None = None,
+    *,
+    file_name: str | None = None,
 ) -> None:
     """Backwards-compatible function that delegates to ExcelExporter.
     Args:
@@ -352,4 +471,7 @@ def save_to_excel(
         file_name_prefix=file_name_prefix,
         sheet_name=sheet_name,
         output_directory=output_directory,
+        column_widths=None,
+        auto_adjust_width=True,
+        file_name=file_name,
     )
