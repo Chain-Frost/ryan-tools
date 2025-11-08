@@ -40,7 +40,7 @@ def read_po_csv(
     allowed_locations: set[str] | None = None,
 ) -> DataFrame:
     """Read a TUFLOW ``*_PO.csv`` file filtered to ``data_type`` columns."""
-    dtype_low = data_type.lower()
+    dtype_low: str = data_type.lower()
     try:
         with filepath.open() as file:
             reader = csv.reader(file)
@@ -67,7 +67,7 @@ def read_po_csv(
         logger.error("No matching columns in %s", filepath)
         return DataFrame()
     try:
-        df: DataFrame = pd.read_csv(filepath_or_buffer=filepath, skiprows=1, usecols=usecols, header=0)
+        df: DataFrame = pd.read_csv(filepath_or_buffer=filepath, skiprows=1, usecols=usecols, header=0)  # type: ignore
         df.columns = col_names
         return df
     except Exception:

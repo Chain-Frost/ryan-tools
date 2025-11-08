@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, ClassVar, cast
 import importlib
 import pandas as pd
+from pandas import DataFrame, Series
 from pandas._typing import DtypeArg
 from loguru import logger
 from ryan_library.classes.suffixes_and_dtypes import (
@@ -100,13 +101,13 @@ class BaseProcessor(ABC):
         data_type: str | None = name_parser.data_type
 
         if not data_type:
-            error_msg = f"No data type found for file: {file_path}"
+            error_msg: str = f"No data type found for file: {file_path}"
             logger.error(error_msg)
             raise ValueError(error_msg)
 
         # Get processor class name based on data type
-        suffixes_config = SuffixesConfig.get_instance()
-        data_type_def = suffixes_config.get_definition_for_data_type(data_type=data_type)
+        suffixes_config: SuffixesConfig = SuffixesConfig.get_instance()
+        data_type_def: DataTypeDefinition | None = suffixes_config.get_definition_for_data_type(data_type=data_type)
 
         processor_class_name: str | None = None
         processor_dataformat: str | None = None
@@ -143,8 +144,8 @@ class BaseProcessor(ABC):
     ) -> type["BaseProcessor"]:
         """Dynamically import and return a processor class by name with caching."""
 
-        cache_namespace = processor_module or dataformat or ""
-        cache_key = (cache_namespace, class_name)
+        cache_namespace: str = processor_module or dataformat or ""
+        cache_key: tuple[str, str] = (cache_namespace, class_name)
         if cache_key in BaseProcessor._processor_cache:
             logger.debug(
                 "Using cached processor class '%s' for module hint '%s'.",
@@ -160,9 +161,9 @@ class BaseProcessor(ABC):
             module_hint = module_hint.strip()
             if not module_hint:
                 return
-            is_absolute = module_hint.startswith("ryan_library.")
-            normalized = module_hint.lstrip(".") if not is_absolute else module_hint
-            module_base = normalized if is_absolute else f"{base_package}.{normalized}"
+            is_absolute: bool = module_hint.startswith("ryan_library.")
+            normalized: str = module_hint.lstrip(".") if not is_absolute else module_hint
+            module_base: str = normalized if is_absolute else f"{base_package}.{normalized}"
             candidate_modules.append(f"{module_base}.{class_name}")
             candidate_modules.append(module_base)
 
@@ -197,8 +198,8 @@ class BaseProcessor(ABC):
                 logger.debug(f"Module '{module_path}' does not define '{class_name}': {exc}")
                 last_exception = exc
 
-        attempted = ", ".join(attempted_paths)
-        msg = f"Processor class '{class_name}' not found in modules: {attempted}."
+        attempted: str = ", ".join(attempted_paths)
+        msg: str = f"Processor class '{class_name}' not found in modules: {attempted}."
         logger.exception(msg)
         if last_exception is not None:
             raise ImportProcessorError(msg) from last_exception
@@ -226,9 +227,32 @@ class BaseProcessor(ABC):
             f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, "
             f"processor_module: {self.processor_module}, skip_columns: {self.skip_columns}"
         )
+        processing_parts_payload: dict[str, Any] = processing_parts.to_dict()
+        if not self.dataformat:
+            raise ConfigurationError(
+                f"{self.file_name}: '{self.data_type}' is missing 'processingParts.dataformat' in the configuration."
+            )
 
-        # TODO: tighten configuration validation by inspecting the JSON contents
-        # before attempting to load data type specific sections.
+        def has_section_content(section: str) -> bool:
+            value: Any | None = processing_parts_payload.get(section)
+            if isinstance(value, (dict, list, str)):
+                return bool(value)
+            return value is not None
+
+        required_sections: dict[str, tuple[str, ...]] = {
+            "Maximums": ("columns_to_use",),
+            "ccA": ("columns_to_use",),
+            "Timeseries": ("expected_in_header",),
+            "POMM": ("columns_to_use", "expected_in_header"),
+        }
+        required_keys: tuple[str, ...] = required_sections.get(self.dataformat, ())
+        missing_sections: list[str] = [section for section in required_keys if not has_section_content(section)]
+
+        if missing_sections:
+            missing_str: str = ", ".join(missing_sections)
+            raise ConfigurationError(
+                f"{self.file_name}: '{self.data_type}' configuration is missing {missing_str} in processingParts for '{self.dataformat}' files."
+            )
 
         # Depending on dataformat, load columns_to_use or expected_in_header
         handled_formats: set[str] = {"Maximums", "ccA", "Timeseries", "POMM"}
@@ -313,8 +337,8 @@ class BaseProcessor(ABC):
             return normalized_locations
 
         before_count: int = len(self.df)
-        location_series = self.df["Location"].astype(str).str.strip()
-        filtered_df = self.df.loc[location_series.isin(normalized_locations)].copy()
+        location_series: Series[str] = self.df["Location"].astype(str).str.strip()
+        filtered_df: DataFrame = self.df.loc[location_series.isin(normalized_locations)].copy()  # type: ignore
         after_count: int = len(filtered_df)
 
         log_method = logger.info if after_count != before_count else logger.debug
@@ -522,7 +546,7 @@ class BaseProcessor(ABC):
             headers did not align with the configuration and
             ``ProcessorStatus.FAILURE`` captures read failures.
         """
-        usecols = list(self.columns_to_use.keys())
+        usecols: list[str] = list(self.columns_to_use.keys())
         # Pandas expects a DtypeArg for dtype; use the official type for clarity
         dtype: DtypeArg = {col: self.columns_to_use[col] for col in usecols}
 

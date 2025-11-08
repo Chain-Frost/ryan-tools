@@ -50,7 +50,7 @@ def _process_files(
     if not parallel or len(files) <= 1:
         records: list[DataFrame] = []
         for fp in files:
-            rec = analyze_po_file(
+            rec: DataFrame = analyze_po_file(
                 csv_path=fp,
                 thresholds=thresholds,
                 data_type=data_type,

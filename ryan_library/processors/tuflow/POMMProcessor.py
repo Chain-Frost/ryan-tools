@@ -17,7 +17,7 @@ POMM_RENAME_COLUMNS: dict[str, str] = {
 
 
 class POMMProcessor(BaseProcessor):
-    """Processor for POMM output CSVs (post‐transpose, extract run‐code parts, derive AbsMax/SignedAbsMax)."""
+    """Processor for POMM output CSVs (post-transpose, extract run-code parts, derive AbsMax/SignedAbsMax)."""
 
     def __post_init__(self) -> None:
         # Let the BaseProcessor __post_init__ do its thing (sets self.name_parser, data_type, etc).
@@ -42,7 +42,7 @@ class POMMProcessor(BaseProcessor):
 
         try:
             # 1) Load the CSV without headers (header=None)
-            raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)
+            raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)  # type: ignore
             self.raw_df = raw_df
 
             # # 2) Extract run_code from top‐left cell
