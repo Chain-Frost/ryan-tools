@@ -1,6 +1,7 @@
 # ryan-scripts\TUFLOW-python\POMM_combine.py
 import os
 from pathlib import Path
+from typing import Literal
 from ryan_library.scripts.tuflow.pomm_combine import main_processing
 from ryan_library.scripts.wrapper_utils import (
     change_working_directory,
@@ -12,8 +13,8 @@ console_log_level = "INFO"  # or "DEBUG"
 # Update this tuple to restrict processing to specific PO/Location values.
 # Leave empty to include every location found in the POMM files.
 LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
-# Toggle to emit a Parquet copy of the combined output.
-EXPORT_PARQUET: bool = False
+# Choose output format: "excel", "parquet", or "both".
+EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 
 
 def main() -> None:
@@ -37,7 +38,7 @@ def main() -> None:
         include_data_types=["POMM"],
         console_log_level=console_log_level,
         locations_to_include=locations_to_include,
-        export_parquet=EXPORT_PARQUET,
+        export_mode=EXPORT_MODE,
     )
     print()
     print_library_version()

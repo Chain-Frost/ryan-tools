@@ -2,6 +2,7 @@
 
 from collections.abc import Collection
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 from loguru import logger
@@ -23,7 +24,7 @@ def main_processing(
     include_data_types: list[str] | None = None,
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
-    export_parquet: bool = False,
+    export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
     """Generate merged culvert data and export the results."""
 
@@ -51,12 +52,14 @@ def main_processing(
     if normalized_locations:
         results_set.filter_locations(normalized_locations)
 
-    export_results(results=results_set, export_parquet=export_parquet)
+    export_results(results=results_set, export_mode=export_mode)
     logger.info("End of POMM results combination processing")
 
 
-def export_results(*, results: ProcessorCollection, export_parquet: bool = False) -> None:
-    """Export combined DataFrames to either Excel or Parquet based on user preference."""
+def export_results(
+    *, results: ProcessorCollection, export_mode: Literal["excel", "parquet", "both"] = "excel"
+) -> None:
+    """Export combined DataFrames according to the requested mode."""
     if not results.processors:
         logger.warning("No results to export.")
         return
@@ -73,6 +76,6 @@ def export_results(*, results: ProcessorCollection, export_parquet: bool = False
         file_name_prefix="combined_POMM",
         sheet_name="combined_POMM",
         output_directory=Path.cwd(),
-        force_parquet=export_parquet,
+        export_mode=export_mode,
         parquet_compression="gzip",
     )

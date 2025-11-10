@@ -4,7 +4,7 @@ from datetime import datetime
 import multiprocessing
 import pandas as pd
 import logging
-from typing import TypedDict
+from typing import Literal, TypedDict
 from pathlib import Path
 from importlib import metadata
 import re
@@ -113,7 +113,7 @@ class ExcelExporter:
         auto_adjust_width: bool = True,
         file_name: str | None = None,
         *,
-        force_parquet: bool = False,
+        export_mode: Literal["excel", "parquet", "both"] = "excel",
         parquet_compression: str = "gzip",
     ) -> None:
         """Export multiple DataFrames to Excel files with optional column widths.
@@ -141,12 +141,17 @@ class ExcelExporter:
                 ``export_dict``. When provided, the auto-generated timestamp prefix is
                 skipped and ``file_name`` is written exactly (``.xlsx`` appended when
                 missing).
-            force_parquet (bool, optional):
-                If True, skip Excel generation and export Parquet files using the standard
-                naming convention regardless of DataFrame size.
+            export_mode (Literal["excel", "parquet", "both"], optional):
+                Controls which artefacts are produced:
+                  * "excel" (default) writes only Excel files (with automatic Parquet/CSV
+                    fallback when Excel limits are exceeded).
+                  * "parquet" skips Excel entirely and writes Parquet files matching the
+                    Excel naming scheme.
+                  * "both" writes Excel files (subject to the standard fallback) and also
+                    emits companion Parquet files.
             parquet_compression (str, optional):
-                Compression codec passed to pandas when writing Parquet files while
-                ``force_parquet`` is True. Defaults to ``"gzip"``.
+                Compression codec passed to pandas whenever Parquet files are written.
+                Defaults to ``"gzip"``.
         Raises:
             ValueError: If the number of DataFrames doesn't match the number of sheets.
             InvalidFileException: If there's an issue with writing the Excel file.
@@ -164,6 +169,10 @@ class ExcelExporter:
             ExcelExporter().export_dataframes(export_dict, output_directory=Path("exports"))
         """
         datetime_string: str = datetime.now().strftime(format="%Y%m%d-%H%M")
+        normalized_mode: str = export_mode.lower()
+        valid_modes: set[str] = {"excel", "parquet", "both"}
+        if normalized_mode not in valid_modes:
+            raise ValueError(f"Invalid export_mode '{export_mode}'. Expected one of {sorted(valid_modes)}.")
 
         if file_name is not None and len(export_dict) != 1:
             raise ValueError("'file_name' can only be provided when exporting a single workbook.")
@@ -182,7 +191,7 @@ class ExcelExporter:
                 datetime_string=datetime_string, export_key=export_key, file_name=file_name
             )
 
-            if force_parquet:
+            if normalized_mode == "parquet":
                 self._export_as_parquet_only(
                     export_stem=export_stem,
                     dataframes=dataframes,
@@ -202,6 +211,7 @@ class ExcelExporter:
                     dataframes=dataframes,
                     sheets=sheets,
                     output_directory=output_directory,
+                    compression=parquet_compression,
                 )
                 continue
 
@@ -260,6 +270,15 @@ class ExcelExporter:
             except InvalidFileException as e:
                 logging.error(f"Failed to write to '{export_path}': {e}")
                 raise
+
+            if normalized_mode == "both":
+                self._export_as_parquet_only(
+                    export_stem=export_stem,
+                    dataframes=dataframes,
+                    sheets=sheets,
+                    output_directory=output_directory,
+                    compression=parquet_compression,
+                )
 
     def _exceeds_excel_limits(self, dataframes: list[pd.DataFrame]) -> bool:
         """Return True if any dataframe exceeds Excel's size limits."""
@@ -418,7 +437,7 @@ class ExcelExporter:
         auto_adjust_width: bool = True,
         file_name: str | None = None,
         *,
-        force_parquet: bool = False,
+        export_mode: Literal["excel", "parquet", "both"] = "excel",
         parquet_compression: str = "gzip",
     ) -> None:
         """Export a single DataFrame to an Excel file with a single sheet and optional column widths.
@@ -441,11 +460,10 @@ class ExcelExporter:
                 Explicit file name to use for the exported workbook. When provided the
                 timestamp-based prefix is skipped and ``file_name`` is written exactly as
                 supplied (``.xlsx`` is appended automatically when missing).
-            force_parquet (bool, optional):
-                If True, bypass Excel generation and export the data as Parquet files
-                mirroring the Excel naming scheme.
+            export_mode (Literal["excel", "parquet", "both"], optional):
+                See :meth:`export_dataframes` for details.
             parquet_compression (str, optional):
-                Compression codec to use when ``force_parquet`` is enabled. Defaults to
+                Compression codec to use when Parquet outputs are requested. Defaults to
                 ``"gzip"``."""
         export_dict: dict[str, ExportContent] = {file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}}
 
@@ -460,7 +478,7 @@ class ExcelExporter:
             column_widths=prepared_column_widths,
             auto_adjust_width=auto_adjust_width,
             file_name=file_name,
-            force_parquet=force_parquet,
+            export_mode=export_mode,
             parquet_compression=parquet_compression,
         )
 
