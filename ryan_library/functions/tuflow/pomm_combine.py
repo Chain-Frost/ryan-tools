@@ -23,6 +23,7 @@ def main_processing(
     include_data_types: list[str] | None = None,
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
+    export_parquet: bool = False,
 ) -> None:
     """Generate merged culvert data and export the results."""
 
@@ -50,26 +51,28 @@ def main_processing(
     if normalized_locations:
         results_set.filter_locations(normalized_locations)
 
-    export_results(results=results_set)
+    export_results(results=results_set, export_parquet=export_parquet)
     logger.info("End of POMM results combination processing")
 
 
-def export_results(results: ProcessorCollection) -> None:
-    """Export combined DataFrames to Excel."""
+def export_results(*, results: ProcessorCollection, export_parquet: bool = False) -> None:
+    """Export combined DataFrames to either Excel or Parquet based on user preference."""
     if not results.processors:
         logger.warning("No results to export.")
         return
 
-    exporter = ExcelExporter()
     combined_df: pd.DataFrame = results.pomm_combine()
     if combined_df.empty:
         logger.warning("No combined data found. Skipping export.")
         return
 
     ensure_output_directory(output_dir=Path.cwd())
+    exporter = ExcelExporter()
     exporter.save_to_excel(
         data_frame=combined_df,
         file_name_prefix="combined_POMM",
         sheet_name="combined_POMM",
         output_directory=Path.cwd(),
+        force_parquet=export_parquet,
+        parquet_compression="gzip",
     )

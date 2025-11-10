@@ -12,6 +12,8 @@ console_log_level = "INFO"  # or "DEBUG"
 # Update this tuple to restrict processing to specific PO/Location values.
 # Leave empty to include every location found in the POMM files.
 LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
+# Toggle to emit a Parquet copy of the combined output.
+EXPORT_PARQUET: bool = False
 
 
 def main() -> None:
@@ -35,6 +37,7 @@ def main() -> None:
         include_data_types=["POMM"],
         console_log_level=console_log_level,
         locations_to_include=locations_to_include,
+        export_parquet=EXPORT_PARQUET,
     )
     print()
     print_library_version()
