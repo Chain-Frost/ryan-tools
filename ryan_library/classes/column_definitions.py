@@ -227,22 +227,18 @@ class ColumnMetadataRegistry:
                     name="mean_PeakFlow",
                     description=(
                         "Peak flow from the event whose statistic is nearest to the group's arithmetic mean; "
-                        "not an averaged peak flow."
+                        "not an averaged peak flow. Uses mean_including_zeroes."
                     ),
                     value_type="float",
                 ),
                 "mean_Duration": ColumnDefinition(
                     name="mean_Duration",
-                    description=(
-                        "Duration taken from the same nearest-to-mean event used for mean_PeakFlow (not an averaged value)."
-                    ),
+                    description=("Duration taken from the same nearest-to-mean event used for mean_PeakFlow."),
                     value_type="string",
                 ),
                 "mean_TP": ColumnDefinition(
                     name="mean_TP",
-                    description=(
-                        "Temporal pattern taken from the same nearest-to-mean event used for mean_PeakFlow."
-                    ),
+                    description=("Temporal pattern taken from the same nearest-to-mean event used for mean_PeakFlow."),
                     value_type="string",
                 ),
                 "low": ColumnDefinition(
@@ -257,7 +253,7 @@ class ColumnMetadataRegistry:
                 ),
                 "count": ColumnDefinition(
                     name="count",
-                    description="Number of rows contributing to the median statistics for the selected duration.",
+                    description="Number of rows contributing to the mean/median statistics for the selected duration.",
                     value_type="int",
                 ),
                 "count_bin": ColumnDefinition(
