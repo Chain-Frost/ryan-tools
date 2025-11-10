@@ -1,19 +1,20 @@
 # ryan_library/scripts/pomm_max_items.py
 
-from collections.abc import Collection, Callable
-import warnings
-from loguru import logger
-from pathlib import Path
+from collections.abc import Callable, Collection
 from datetime import datetime
-import pandas as pd
+from pathlib import Path
+import warnings
 
+import pandas as pd
+from loguru import logger
+
+from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.scripts.pomm_utils import (
     aggregated_from_paths,
     save_peak_report_mean,
     save_peak_report_median,
 )
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
 
 
 def run_peak_report(script_directory: Path | None = None) -> None:
@@ -25,45 +26,45 @@ def run_peak_report(script_directory: Path | None = None) -> None:
     export_median_peak_report(script_directory=script_directory)
 
 
-def generate_peak_report(
+def run_peak_report_workflow(
     *,
     script_directory: Path | None = None,
     log_level: str = "INFO",
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
-    report_saver: Callable[..., None],
+    exporter: Callable[..., None],
 ) -> None:
-    """Run the shared peak report workflow and delegate saving to ``report_saver``."""
+    """Coordinate loading peak data and exporting via ``exporter``."""
 
-    setup_logger(console_log_level=log_level)
-    logger.info(f"Current Working Directory: {Path.cwd()}")
-    if script_directory is None:
-        script_directory = Path.cwd()
-
+    script_directory = script_directory or Path.cwd()
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
+    location_filter: frozenset[str] | None = normalized_locations if normalized_locations else None
 
-    if locations_to_include and not normalized_locations:
-        logger.warning("Location filter provided but no valid values found. All locations will be included.")
+    with setup_logger(console_log_level=log_level):
+        logger.info(f"Current Working Directory: {Path.cwd()}")
 
-    aggregated_df: pd.DataFrame = aggregated_from_paths(
-        paths=[script_directory],
-        locations_to_include=normalized_locations if normalized_locations else None,
-    )
+        if locations_to_include and not normalized_locations:
+            logger.warning("Location filter provided but no valid values found. All locations will be included.")
 
-    if aggregated_df.empty:
-        if normalized_locations:
-            logger.warning("No rows remain after applying the Location filter. Exiting.")
-        else:
-            logger.warning("No POMM CSV files found. Exiting.")
-        return
+        aggregated_df: pd.DataFrame = aggregated_from_paths(
+            paths=[script_directory],
+            locations_to_include=location_filter,
+        )
 
-    timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-    report_saver(
-        aggregated_df=aggregated_df,
-        script_directory=script_directory,
-        timestamp=timestamp,
-        include_pomm=include_pomm,
-    )
+        if aggregated_df.empty:
+            if location_filter:
+                logger.warning("No rows remain after applying the Location filter. Exiting.")
+            else:
+                logger.warning("No POMM CSV files found. Exiting.")
+            return
+
+        timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
+        exporter(
+            aggregated_df=aggregated_df,
+            script_directory=script_directory,
+            timestamp=timestamp,
+            include_pomm=include_pomm,
+        )
 
 
 def export_median_peak_report(
@@ -75,12 +76,12 @@ def export_median_peak_report(
 ) -> None:
     """Locate and process POMM files and export median-based peak values."""
 
-    generate_peak_report(
+    run_peak_report_workflow(
         script_directory=script_directory,
         log_level=log_level,
         include_pomm=include_pomm,
         locations_to_include=locations_to_include,
-        report_saver=save_peak_report_median,
+        exporter=save_peak_report_median,
     )
 
 
@@ -93,12 +94,12 @@ def export_mean_peak_report(
 ) -> None:
     """Locate and process POMM files and export mean-based peak values."""
 
-    generate_peak_report(
+    run_peak_report_workflow(
         script_directory=script_directory,
         log_level=log_level,
         include_pomm=include_pomm,
         locations_to_include=locations_to_include,
-        report_saver=save_peak_report_mean,
+        exporter=save_peak_report_mean,
     )
 
 
