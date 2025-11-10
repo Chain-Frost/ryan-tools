@@ -1,13 +1,15 @@
 # ryan_library\functions\pandas\median_calc.py
-"""Utilities for computing median statistics for grouped data."""
+"""Utilities for summarising grouped statistics for POMM reports."""
 
 import pandas as pd
 from pandas import DataFrame
 from typing import Any
 
 
-def _median_stats_for_group(durgrp: pd.DataFrame, stat_col: str, tp_col: str, dur_col: str) -> dict[str, Any]:
-    """Return statistics for a single duration group."""
+def _summarise_group_statistics(
+    durgrp: pd.DataFrame, stat_col: str, tp_col: str, dur_col: str
+) -> dict[str, Any]:
+    """Return median and mean-adjacent statistics for a single duration group."""
 
     ensemblestat: DataFrame = durgrp.sort_values(stat_col, ascending=True, na_position="first")
     r: int = len(ensemblestat.index)
@@ -17,8 +19,8 @@ def _median_stats_for_group(durgrp: pd.DataFrame, stat_col: str, tp_col: str, du
     mean_including_zeroes = float(stat_series.mean())
     mean_excluding_zeroes = float(ensemblestat[ensemblestat[stat_col] != 0][stat_col].mean())
 
-    mean_duration = ensemblestat[dur_col].iloc[medianpos]
-    mean_tp = ensemblestat[tp_col].iloc[medianpos]
+    mean_duration: Any = pd.NA
+    mean_tp: Any = pd.NA
     mean_peak_flow = float("nan")
     if stat_series.notna().any():
         closest_idx = (stat_series - mean_including_zeroes).abs().idxmin()
@@ -74,7 +76,7 @@ def median_stats(
     count_bin: int = 0
 
     for _, durgrp in thinned_df.groupby(by=dur_col):
-        stats_dict: dict[str, Any] = _median_stats_for_group(
+        stats_dict: dict[str, Any] = _summarise_group_statistics(
             durgrp=durgrp, stat_col=stat_col, tp_col=tp_col, dur_col=dur_col
         )
 
@@ -98,6 +100,6 @@ def median_stats(
 def median_calc(
     thinned_df: pd.DataFrame, statcol: str, tpcol: str, durcol: str
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Compatibility wrapper for previous function name."""
+    """Compatibility wrapper retaining the legacy public function name."""
 
     return median_stats(thinned_df=thinned_df, stat_col=statcol, tp_col=tpcol, dur_col=durcol)

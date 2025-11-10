@@ -1,6 +1,7 @@
 # ryan_library/scripts/pomm_max_items.py
 
 from collections.abc import Collection, Callable
+import warnings
 from loguru import logger
 from pathlib import Path
 from datetime import datetime
@@ -16,21 +17,23 @@ from ryan_library.processors.tuflow.base_processor import BaseProcessor
 
 
 def run_peak_report(script_directory: Path | None = None) -> None:
-    """Run the peak report generation workflow."""
+    """Legacy entry point retained for backwards compatibility."""
+
     print()
     print("You are using an old wrapper")
     print()
-    run_median_peak_report()
+    export_median_peak_report(script_directory=script_directory)
 
 
-def _run_peak_report(
+def generate_peak_report(
+    *,
     script_directory: Path | None = None,
     log_level: str = "INFO",
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
-    save_report: Callable[..., None] | None = None,
+    report_saver: Callable[..., None],
 ) -> None:
-    """Core implementation for running a peak report workflow."""
+    """Run the shared peak report workflow and delegate saving to ``report_saver``."""
 
     setup_logger(console_log_level=log_level)
     logger.info(f"Current Working Directory: {Path.cwd()}")
@@ -55,13 +58,47 @@ def _run_peak_report(
         return
 
     timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-    if save_report is None:
-        save_report = save_peak_report_median
-    save_report(
+    report_saver(
         aggregated_df=aggregated_df,
         script_directory=script_directory,
         timestamp=timestamp,
         include_pomm=include_pomm,
+    )
+
+
+def export_median_peak_report(
+    *,
+    script_directory: Path | None = None,
+    log_level: str = "INFO",
+    include_pomm: bool = True,
+    locations_to_include: Collection[str] | None = None,
+) -> None:
+    """Locate and process POMM files and export median-based peak values."""
+
+    generate_peak_report(
+        script_directory=script_directory,
+        log_level=log_level,
+        include_pomm=include_pomm,
+        locations_to_include=locations_to_include,
+        report_saver=save_peak_report_median,
+    )
+
+
+def export_mean_peak_report(
+    *,
+    script_directory: Path | None = None,
+    log_level: str = "INFO",
+    include_pomm: bool = True,
+    locations_to_include: Collection[str] | None = None,
+) -> None:
+    """Locate and process POMM files and export mean-based peak values."""
+
+    generate_peak_report(
+        script_directory=script_directory,
+        log_level=log_level,
+        include_pomm=include_pomm,
+        locations_to_include=locations_to_include,
+        report_saver=save_peak_report_mean,
     )
 
 
@@ -71,14 +108,18 @@ def run_median_peak_report(
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
 ) -> None:
-    """Locate and process POMM files and export median-based peak values."""
+    """Deprecated wrapper around :func:`export_median_peak_report`."""
 
-    _run_peak_report(
+    warnings.warn(
+        "run_median_peak_report is deprecated; use export_median_peak_report instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    export_median_peak_report(
         script_directory=script_directory,
         log_level=log_level,
         include_pomm=include_pomm,
         locations_to_include=locations_to_include,
-        save_report=save_peak_report_median,
     )
 
 
@@ -88,12 +129,16 @@ def run_mean_peak_report(
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
 ) -> None:
-    """Locate and process POMM files and export mean-based peak values."""
+    """Deprecated wrapper around :func:`export_mean_peak_report`."""
 
-    _run_peak_report(
+    warnings.warn(
+        "run_mean_peak_report is deprecated; use export_mean_peak_report instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    export_mean_peak_report(
         script_directory=script_directory,
         log_level=log_level,
         include_pomm=include_pomm,
         locations_to_include=locations_to_include,
-        save_report=save_peak_report_mean,
     )

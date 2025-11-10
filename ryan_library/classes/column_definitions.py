@@ -225,17 +225,24 @@ class ColumnMetadataRegistry:
                 ),
                 "mean_PeakFlow": ColumnDefinition(
                     name="mean_PeakFlow",
-                    description="Peak flow corresponding to the mean storm for the group.",
+                    description=(
+                        "Peak flow from the event whose statistic is nearest to the group's arithmetic mean; "
+                        "not an averaged peak flow."
+                    ),
                     value_type="float",
                 ),
                 "mean_Duration": ColumnDefinition(
                     name="mean_Duration",
-                    description="Duration associated with the mean storm for the group.",
+                    description=(
+                        "Duration taken from the same nearest-to-mean event used for mean_PeakFlow (not an averaged value)."
+                    ),
                     value_type="string",
                 ),
                 "mean_TP": ColumnDefinition(
                     name="mean_TP",
-                    description="Temporal pattern associated with the mean storm for the group.",
+                    description=(
+                        "Temporal pattern taken from the same nearest-to-mean event used for mean_PeakFlow."
+                    ),
                     value_type="string",
                 ),
                 "low": ColumnDefinition(
