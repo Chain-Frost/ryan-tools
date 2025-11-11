@@ -144,6 +144,31 @@
       }
     }
   },
+  "RLL_Qmx": {
+    "processor": "RLLQmxProcessor",
+    "suffixes": [
+      "_RLL_Qmx.csv"
+    ],
+    "output_columns": {
+      "ID": "string",
+      "Time": "float",
+      "Q": "float",
+      "dQ": "float",
+      "Time dQ": "float",
+      "H": "float"
+    },
+    "processingParts": {
+      "dataformat": "Maximums",
+      "columns_to_use": {
+        "ID": "string",
+        "Time Qmax": "float",
+        "Qmax": "float",
+        "dQmax": "float",
+        "Time dQmax": "float",
+        "H": "float"
+      }
+    }
+  },
   "Q": {
     "processor": "QProcessor",
     "suffixes": [

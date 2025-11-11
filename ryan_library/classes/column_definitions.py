@@ -103,10 +103,37 @@ class ColumnMetadataRegistry:
                     description="Channel identifier from the 1d_nwk file.",
                     value_type="string",
                 ),
+                "ID": ColumnDefinition(
+                    name="ID",
+                    description="Reporting Location Line identifier from the RLL outputs.",
+                    value_type="string",
+                ),
+                "Location ID": ColumnDefinition(
+                    name="Location ID",
+                    description=(
+                        "Normalized location identifier used when grouping maximums across different source types."
+                    ),
+                    value_type="string",
+                ),
                 "Type": ColumnDefinition(
                     name="Type",
                     description="2d_po quantity type (for example Flow, Water Level, Velocity).",
                     value_type="string",
+                ),
+                "H": ColumnDefinition(
+                    name="H",
+                    description="Water level reported for the location at the time of the maximum flow event.",
+                    value_type="float",
+                ),
+                "dQ": ColumnDefinition(
+                    name="dQ",
+                    description="Differential flow reported by the RLL maximum output.",
+                    value_type="float",
+                ),
+                "Time dQ": ColumnDefinition(
+                    name="Time dQ",
+                    description="Time associated with the differential flow reported by the RLL output.",
+                    value_type="float",
                 ),
                 "aep_text": ColumnDefinition(
                     name="aep_text",
