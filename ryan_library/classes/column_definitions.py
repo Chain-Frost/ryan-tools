@@ -68,6 +68,11 @@ class ColumnMetadataRegistry:
                     description="Absolute maximum magnitude observed within the event time-series.",
                     value_type="float",
                 ),
+                "AbsValue": ColumnDefinition(
+                    name="AbsValue",
+                    description="Absolute value of the 2d_po timeseries result (ignoring sign).",
+                    value_type="float",
+                ),
                 "SignedAbsMax": ColumnDefinition(
                     name="SignedAbsMax",
                     description="Absolute maximum magnitude preserving the original sign (positive/negative).",
@@ -81,6 +86,16 @@ class ColumnMetadataRegistry:
                 "Min": ColumnDefinition(
                     name="Min",
                     description="Minimum value in the event window.",
+                    value_type="float",
+                ),
+                "Area_Culv": ColumnDefinition(
+                    name="Area_Culv",
+                    description="Full cross-sectional area of the culvert barrel reported by ccA outputs.",
+                    value_type="float",
+                ),
+                "Area_Max": ColumnDefinition(
+                    name="Area_Max",
+                    description="Maximum wetted area recorded for the culvert during the event (ccA output).",
                     value_type="float",
                 ),
                 "Tmax": ColumnDefinition(
@@ -115,9 +130,89 @@ class ColumnMetadataRegistry:
                     ),
                     value_type="string",
                 ),
+                "Time": ColumnDefinition(
+                    name="Time",
+                    description="Simulation time (hours) corresponding to the recorded statistic.",
+                    value_type="float",
+                ),
+                "Q": ColumnDefinition(
+                    name="Q",
+                    description="Discharge/flow rate reported for the location.",
+                    value_type="float",
+                ),
+                "V": ColumnDefinition(
+                    name="V",
+                    description="Velocity reported for the location.",
+                    value_type="float",
+                ),
                 "Type": ColumnDefinition(
                     name="Type",
                     description="2d_po quantity type (for example Flow, Water Level, Velocity).",
+                    value_type="string",
+                ),
+                "DS_h": ColumnDefinition(
+                    name="DS_h",
+                    description="Downstream water level extracted from maximum-result CSVs (usually metres AHD).",
+                    value_type="float",
+                ),
+                "US_h": ColumnDefinition(
+                    name="US_h",
+                    description="Upstream water level extracted from maximum-result CSVs (usually metres AHD).",
+                    value_type="float",
+                ),
+                "DS_H": ColumnDefinition(
+                    name="DS_H",
+                    description="Downstream water level taken from the 1d_H timeseries output.",
+                    value_type="float",
+                ),
+                "US_H": ColumnDefinition(
+                    name="US_H",
+                    description="Upstream water level taken from the 1d_H timeseries output.",
+                    value_type="float",
+                ),
+                "US Invert": ColumnDefinition(
+                    name="US Invert",
+                    description="Invert elevation at the upstream end of the culvert/channel.",
+                    value_type="float",
+                ),
+                "DS Invert": ColumnDefinition(
+                    name="DS Invert",
+                    description="Invert elevation at the downstream end of the culvert/channel.",
+                    value_type="float",
+                ),
+                "US Obvert": ColumnDefinition(
+                    name="US Obvert",
+                    description="Crown/obvert elevation at the upstream end of the culvert/channel.",
+                    value_type="float",
+                ),
+                "Height": ColumnDefinition(
+                    name="Height",
+                    description="Barrel height or diameter used for the culvert/channel definition.",
+                    value_type="float",
+                ),
+                "Length": ColumnDefinition(
+                    name="Length",
+                    description="Culvert or channel length taken from the 1d_Chan file.",
+                    value_type="float",
+                ),
+                "n or Cd": ColumnDefinition(
+                    name="n or Cd",
+                    description="Manning's n roughness (for open channels) or discharge coefficient (for culverts).",
+                    value_type="float",
+                ),
+                "pSlope": ColumnDefinition(
+                    name="pSlope",
+                    description="Design slope for the structure (percent).",
+                    value_type="float",
+                ),
+                "pBlockage": ColumnDefinition(
+                    name="pBlockage",
+                    description="Blockage percentage applied to the culvert/barrel.",
+                    value_type="float",
+                ),
+                "Flags": ColumnDefinition(
+                    name="Flags",
+                    description="Source flags describing channel or culvert configuration issues.",
                     value_type="string",
                 ),
                 "H": ColumnDefinition(
@@ -224,6 +319,51 @@ class ColumnMetadataRegistry:
                     name="R05",
                     description="Fifth segment of the run code.",
                     value_type="string",
+                ),
+                "Value": ColumnDefinition(
+                    name="Value",
+                    description="Raw 2d_po metric captured at the reporting location.",
+                    value_type="float",
+                ),
+                "pFull_Max": ColumnDefinition(
+                    name="pFull_Max",
+                    description="Maximum percent full reported by ccA.",
+                    value_type="float",
+                ),
+                "pTime_Full": ColumnDefinition(
+                    name="pTime_Full",
+                    description="Time (hours) at which ccA reports the culvert as maximum percent full.",
+                    value_type="float",
+                ),
+                "Dur_Full": ColumnDefinition(
+                    name="Dur_Full",
+                    description="Duration (hours) the culvert remained full according to ccA.",
+                    value_type="float",
+                ),
+                "Dur_10pFull": ColumnDefinition(
+                    name="Dur_10pFull",
+                    description="Duration (hours) the culvert remained above 10 percent full (ccA output).",
+                    value_type="float",
+                ),
+                "Sur_CD": ColumnDefinition(
+                    name="Sur_CD",
+                    description="Surcharge coefficient/depth reported by ccA when the culvert is surcharged.",
+                    value_type="float",
+                ),
+                "Dur_Sur": ColumnDefinition(
+                    name="Dur_Sur",
+                    description="Duration (hours) the culvert experienced surcharge conditions.",
+                    value_type="float",
+                ),
+                "pTime_Sur": ColumnDefinition(
+                    name="pTime_Sur",
+                    description="Time (hours) at which the surcharge condition peaked.",
+                    value_type="float",
+                ),
+                "TFirst_Sur": ColumnDefinition(
+                    name="TFirst_Sur",
+                    description="Time (hours) when the surcharge condition first began.",
+                    value_type="float",
                 ),
                 "MedianAbsMax": ColumnDefinition(
                     name="MedianAbsMax",
