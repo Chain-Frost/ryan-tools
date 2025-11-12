@@ -4,7 +4,7 @@ from datetime import datetime
 import multiprocessing
 import pandas as pd
 import logging
-from typing import TypedDict
+from typing import Literal, TypedDict
 from pathlib import Path
 from importlib import metadata
 import re
@@ -112,6 +112,9 @@ class ExcelExporter:
         column_widths: dict[str, dict[str, float]] | None = None,
         auto_adjust_width: bool = True,
         file_name: str | None = None,
+        *,
+        export_mode: Literal["excel", "parquet", "both"] = "excel",
+        parquet_compression: str = "gzip",
     ) -> None:
         """Export multiple DataFrames to Excel files with optional column widths.
         Args:
@@ -138,6 +141,17 @@ class ExcelExporter:
                 ``export_dict``. When provided, the auto-generated timestamp prefix is
                 skipped and ``file_name`` is written exactly (``.xlsx`` appended when
                 missing).
+            export_mode (Literal["excel", "parquet", "both"], optional):
+                Controls which artefacts are produced:
+                  * "excel" (default) writes only Excel files (with automatic Parquet/CSV
+                    fallback when Excel limits are exceeded).
+                  * "parquet" skips Excel entirely and writes Parquet files matching the
+                    Excel naming scheme.
+                  * "both" writes Excel files (subject to the standard fallback) and also
+                    emits companion Parquet files.
+            parquet_compression (str, optional):
+                Compression codec passed to pandas whenever Parquet files are written.
+                Defaults to ``"gzip"``.
         Raises:
             ValueError: If the number of DataFrames doesn't match the number of sheets.
             InvalidFileException: If there's an issue with writing the Excel file.
@@ -155,6 +169,10 @@ class ExcelExporter:
             ExcelExporter().export_dataframes(export_dict, output_directory=Path("exports"))
         """
         datetime_string: str = datetime.now().strftime(format="%Y%m%d-%H%M")
+        normalized_mode: str = export_mode.lower()
+        valid_modes: set[str] = {"excel", "parquet", "both"}
+        if normalized_mode not in valid_modes:
+            raise ValueError(f"Invalid export_mode '{export_mode}'. Expected one of {sorted(valid_modes)}.")
 
         if file_name is not None and len(export_dict) != 1:
             raise ValueError("'file_name' can only be provided when exporting a single workbook.")
@@ -169,17 +187,31 @@ class ExcelExporter:
                     f"For file '{file_label}', the number of dataframes ({len(dataframes)}) and sheets ({len(sheets)}) must match."
                 )
 
+            export_stem: str = self._resolve_export_stem(
+                datetime_string=datetime_string, export_key=export_key, file_name=file_name
+            )
+
+            if normalized_mode == "parquet":
+                self._export_as_parquet_only(
+                    export_stem=export_stem,
+                    dataframes=dataframes,
+                    sheets=sheets,
+                    output_directory=output_directory,
+                    compression=parquet_compression,
+                )
+                continue
+
             if self._exceeds_excel_limits(dataframes=dataframes):
                 logging.warning(
                     "Data for '%s' exceeds Excel size limits. Exporting to Parquet and CSV instead.",
-                    file_name,
+                    export_stem,
                 )
                 self._export_as_parquet_and_csv(
-                    file_name=file_name,
+                    export_stem=export_stem,
                     dataframes=dataframes,
                     sheets=sheets,
-                    datetime_string=datetime_string,
                     output_directory=output_directory,
+                    compression=parquet_compression,
                 )
                 continue
 
@@ -187,7 +219,7 @@ class ExcelExporter:
             if file_name is not None:
                 export_filename = file_name if file_name.lower().endswith(".xlsx") else f"{file_name}.xlsx"
             else:
-                export_filename = f"{datetime_string}_{export_key}.xlsx"
+                export_filename = f"{export_stem}.xlsx"
             export_path: Path = (
                 (output_directory / export_filename) if output_directory else Path(export_filename)  # Defaults to CWD
             )
@@ -239,6 +271,15 @@ class ExcelExporter:
                 logging.error(f"Failed to write to '{export_path}': {e}")
                 raise
 
+            if normalized_mode == "both":
+                self._export_as_parquet_only(
+                    export_stem=export_stem,
+                    dataframes=dataframes,
+                    sheets=sheets,
+                    output_directory=output_directory,
+                    compression=parquet_compression,
+                )
+
     def _exceeds_excel_limits(self, dataframes: list[pd.DataFrame]) -> bool:
         """Return True if any dataframe exceeds Excel's size limits."""
 
@@ -260,13 +301,86 @@ class ExcelExporter:
                 return True
         return False
 
-    def _export_as_parquet_and_csv(
+    def _resolve_export_stem(self, *, datetime_string: str, export_key: str, file_name: str | None) -> str:
+        """Return the base filename (without extension) for the current export."""
+
+        if file_name:
+            return file_name[:-5] if file_name.lower().endswith(".xlsx") else file_name
+        return f"{datetime_string}_{export_key}"
+
+    def _build_parquet_filename(self, base_filename: str, compression: str | None) -> str:
+        """Return a parquet filename with an optional compression suffix."""
+
+        if compression:
+            suffix = compression.lower()
+            if suffix == "gzip":
+                return f"{base_filename}.parquet.gzip"
+            return f"{base_filename}.parquet.{suffix}"
+        return f"{base_filename}.parquet"
+
+    def _write_parquet(
         self,
-        file_name: str,
+        *,
+        df: pd.DataFrame,
+        sheet: str,
+        parquet_path: Path,
+        export_label: str,
+        compression: str | None,
+    ) -> None:
+        """Write a DataFrame to Parquet with consistent logging and error handling."""
+
+        try:
+            df.to_parquet(path=parquet_path, index=False, compression=compression)
+            logging.info("Exported Parquet to %s", parquet_path)
+        except (ImportError, ValueError) as exc:
+            message: str = (
+                "Unable to export Parquet for "
+                f"'{export_label}' sheet '{sheet}': {exc}. Install pyarrow or fastparquet."
+            )
+            logging.error(message)
+            print(message)
+        except Exception as exc:  # pragma: no cover - unforeseen errors should be logged
+            logging.exception("Unexpected error during Parquet export for '%s' sheet '%s': %s", export_label, sheet, exc)
+
+    def _export_as_parquet_only(
+        self,
+        *,
+        export_stem: str,
         dataframes: list[pd.DataFrame],
         sheets: list[str],
-        datetime_string: str,
         output_directory: Path | None,
+        compression: str | None,
+    ) -> None:
+        """Export each DataFrame to a Parquet file sharing the Excel naming scheme."""
+
+        export_targets: list[tuple[pd.DataFrame, str, Path]] = []
+        for df, sheet in zip(dataframes, sheets):
+            sanitized_sheet: str = self._sanitize_name(sheet)
+            base_filename: str = f"{export_stem}_{sanitized_sheet}"
+            parquet_filename: str = self._build_parquet_filename(base_filename, compression)
+            parquet_path: Path = self._build_output_path(
+                base_filename=parquet_filename, output_directory=output_directory
+            )
+            parquet_path.parent.mkdir(parents=True, exist_ok=True)
+            export_targets.append((df, sheet, parquet_path))
+
+        for df, sheet, parquet_path in export_targets:
+            self._write_parquet(
+                df=df,
+                sheet=sheet,
+                parquet_path=parquet_path,
+                export_label=export_stem,
+                compression=compression,
+            )
+
+    def _export_as_parquet_and_csv(
+        self,
+        *,
+        export_stem: str,
+        dataframes: list[pd.DataFrame],
+        sheets: list[str],
+        output_directory: Path | None,
+        compression: str | None = None,
     ) -> None:
         """Export dataframes to Parquet and CSV files when Excel limits are exceeded."""
 
@@ -274,10 +388,11 @@ class ExcelExporter:
 
         for df, sheet in zip(dataframes, sheets):
             sanitized_sheet: str = self._sanitize_name(sheet)
-            base_filename: str = f"{datetime_string}_{file_name}_{sanitized_sheet}"
+            base_filename: str = f"{export_stem}_{sanitized_sheet}"
 
+            parquet_filename: str = self._build_parquet_filename(base_filename, compression)
             parquet_path: Path = self._build_output_path(
-                base_filename=f"{base_filename}.parquet", output_directory=output_directory
+                base_filename=parquet_filename, output_directory=output_directory
             )
             csv_path: Path = self._build_output_path(
                 base_filename=f"{base_filename}.csv", output_directory=output_directory
@@ -287,20 +402,13 @@ class ExcelExporter:
             export_targets.append((df, sheet, parquet_path, csv_path))
 
         for df, sheet, parquet_path, _ in export_targets:
-            try:
-                df.to_parquet(path=parquet_path, index=False)
-                logging.info("Exported Parquet to %s", parquet_path)
-            except (ImportError, ValueError) as exc:
-                message: str = (
-                    "Unable to export Parquet for "
-                    f"'{file_name}' sheet '{sheet}': {exc}. Install pyarrow or fastparquet."
-                )
-                logging.error(message)
-                print(message)
-            except Exception as exc:  # pragma: no cover - unforeseen errors should be logged
-                logging.exception(
-                    "Unexpected error during Parquet export for '%s' sheet '%s': %s", file_name, sheet, exc
-                )
+            self._write_parquet(
+                df=df,
+                sheet=sheet,
+                parquet_path=parquet_path,
+                export_label=export_stem,
+                compression=compression,
+            )
 
         for df, sheet, _, csv_path in export_targets:
             df.to_csv(path_or_buf=csv_path, index=False)
@@ -328,6 +436,9 @@ class ExcelExporter:
         column_widths: dict[str, float] | None = None,
         auto_adjust_width: bool = True,
         file_name: str | None = None,
+        *,
+        export_mode: Literal["excel", "parquet", "both"] = "excel",
+        parquet_compression: str = "gzip",
     ) -> None:
         """Export a single DataFrame to an Excel file with a single sheet and optional column widths.
 
@@ -348,7 +459,12 @@ class ExcelExporter:
             file_name (str | None, optional):
                 Explicit file name to use for the exported workbook. When provided the
                 timestamp-based prefix is skipped and ``file_name`` is written exactly as
-                supplied (``.xlsx`` is appended automatically when missing)."""
+                supplied (``.xlsx`` is appended automatically when missing).
+            export_mode (Literal["excel", "parquet", "both"], optional):
+                See :meth:`export_dataframes` for details.
+            parquet_compression (str, optional):
+                Compression codec to use when Parquet outputs are requested. Defaults to
+                ``"gzip"``."""
         export_dict: dict[str, ExportContent] = {file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}}
 
         # Prepare column_widths in the required format
@@ -362,6 +478,8 @@ class ExcelExporter:
             column_widths=prepared_column_widths,
             auto_adjust_width=auto_adjust_width,
             file_name=file_name,
+            export_mode=export_mode,
+            parquet_compression=parquet_compression,
         )
 
     def calculate_column_widths(self, df: pd.DataFrame) -> dict[str, float]:

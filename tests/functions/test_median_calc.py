@@ -1,10 +1,9 @@
-import pandas as pd
 import numpy as np
-
+import pandas as pd
 
 from ryan_library.functions.pandas.median_calc import (
-    _median_stats_for_group,
     median_calc,
+    summarise_duration_statistics,
 )
 
 
@@ -20,7 +19,7 @@ def make_df(values, tps, dur) -> pd.DataFrame:
 
 def test_median_stats_for_group_odd() -> None:
     df: pd.DataFrame = make_df([1, 2, 3], ["A", "B", "C"], ["5", "5", "5"])
-    stats: dict = _median_stats_for_group(df, "val", "tp", "dur")
+    stats: dict = summarise_duration_statistics(df, "val", "tp", "dur")
     assert stats["median"] == 2
     assert stats["low"] == 1
     assert stats["high"] == 3
@@ -32,7 +31,7 @@ def test_median_stats_for_group_odd() -> None:
 
 def test_median_stats_for_group_even() -> None:
     df: pd.DataFrame = make_df([4, 1, 3, 2], ["A", "B", "C", "D"], ["1", "1", "1", "1"])
-    stats: dict = _median_stats_for_group(df, "val", "tp", "dur")
+    stats: dict = summarise_duration_statistics(df, "val", "tp", "dur")
     # sorted values [1,2,3,4], median index 2 -> value 3
     assert stats["median"] == 3
     assert stats["low"] == 1
@@ -45,7 +44,7 @@ def test_median_stats_for_group_even() -> None:
 
 def test_median_stats_for_group_zeros() -> None:
     df: pd.DataFrame = make_df([0, 0, 0], ["A", "B", "C"], ["d", "d", "d"])
-    stats = _median_stats_for_group(df, "val", "tp", "dur")
+    stats = summarise_duration_statistics(df, "val", "tp", "dur")
     assert stats["median"] == 0
     assert stats["low"] == 0
     assert stats["high"] == 0

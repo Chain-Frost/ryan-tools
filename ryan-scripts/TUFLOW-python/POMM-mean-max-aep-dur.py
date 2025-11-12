@@ -3,7 +3,7 @@
 from pathlib import Path
 import os
 
-from ryan_library.scripts.pomm_max_items import run_mean_peak_report
+from ryan_library.scripts.pomm_max_items import export_mean_peak_report
 from ryan_library.scripts.wrapper_utils import (
     change_working_directory,
     print_library_version,
@@ -28,7 +28,7 @@ def main() -> None:
 
     if not change_working_directory(target_dir=script_directory):
         return
-    run_mean_peak_report(
+    export_mean_peak_report(
         script_directory=script_directory,
         log_level=console_log_level,
         include_pomm=INCLUDE_POMM,
