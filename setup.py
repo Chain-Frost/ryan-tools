@@ -21,7 +21,7 @@ setup(
         "XlsxWriter",
         "psutil",
         "black",
-        "mypy",
+        "pyright",
         "laspy",
         "tqdm",
         "rasterio",

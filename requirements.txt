@@ -9,7 +9,7 @@ colorama
 XlsxWriter
 psutil
 black
-mypy
+pyright
 laspy
 tqdm
 rasterio
