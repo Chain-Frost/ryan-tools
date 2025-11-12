@@ -15,7 +15,24 @@
       "SignedAbsMax": "float"
     },
     "processingParts": {
-      "dataformat": "POMM"
+      "dataformat": "POMM",
+      "_note": "expected_in_header and columns_to_use keys reflect the header row after transposing the raw POMM layout.",
+      "expected_in_header": [
+        "Location",
+        "Time",
+        "Maximum (Extracted from Time Series)",
+        "Time of Maximum",
+        "Minimum (Extracted From Time Series)",
+        "Time of Minimum"
+      ],
+      "columns_to_use": {
+        "Location": "string",
+        "Time": "string",
+        "Maximum (Extracted from Time Series)": "float",
+        "Time of Maximum": "float",
+        "Minimum (Extracted From Time Series)": "float",
+        "Time of Minimum": "float"
+      }
     }
   },
   "PO": {
@@ -46,6 +63,7 @@
     },
     "processingParts": {
       "dataformat": "Maximums",
+      "module": "1d_maximums",
       "columns_to_use": {
         "Chan ID": "string",
         "Qmax": "float",
@@ -68,6 +86,7 @@
     },
     "processingParts": {
       "dataformat": "Maximums",
+      "module": "1d_maximums",
       "columns_to_use": {
         "Node ID": "string",
         "Hmax": "float",
@@ -156,7 +175,10 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
+      "module": "1d_timeseries",
       "expected_in_header": [
+        "Time",
+        "Chan ID",
         "Q"
       ]
     }
@@ -179,6 +201,26 @@
       ]
     }
   },
+  "CF": {
+    "processor": "CFProcessor",
+    "suffixes": [
+      "_1d_CF.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Chan ID": "string",
+      "CF": "string"
+    },
+    "processingParts": {
+      "dataformat": "Timeseries",
+      "module": "1d_timeseries",
+      "expected_in_header": [
+        "Time",
+        "Chan ID",
+        "CF"
+      ]
+    }
+  },
   "V": {
     "processor": "VProcessor",
     "suffixes": [
@@ -191,7 +233,10 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
+      "module": "1d_timeseries",
       "expected_in_header": [
+        "Time",
+        "Chan ID",
         "V"
       ]
     }
