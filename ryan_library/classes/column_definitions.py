@@ -238,6 +238,26 @@ class ColumnMetadataRegistry:
                     description="Temporal pattern associated with the mean storm for the group.",
                     value_type="string",
                 ),
+                "mean_Q": ColumnDefinition(
+                    name="mean_Q",
+                    description="Arithmetic mean discharge for the grouped culvert results.",
+                    value_type="float",
+                ),
+                "mean_V": ColumnDefinition(
+                    name="mean_V",
+                    description="Arithmetic mean velocity for the grouped culvert results.",
+                    value_type="float",
+                ),
+                "mean_DS_h": ColumnDefinition(
+                    name="mean_DS_h",
+                    description="Arithmetic mean downstream water level for the grouped culvert results.",
+                    value_type="float",
+                ),
+                "mean_US_h": ColumnDefinition(
+                    name="mean_US_h",
+                    description="Arithmetic mean upstream water level for the grouped culvert results.",
+                    value_type="float",
+                ),
                 "low": ColumnDefinition(
                     name="low",
                     description="Minimum statistic encountered across all temporal patterns in the group.",
@@ -263,6 +283,11 @@ class ColumnMetadataRegistry:
                     description="Deprecated. Don't use. Indicates whether the mean storm matches the median storm selection.",
                     value_type="boolean",
                 ),
+                "mean_bin": ColumnDefinition(
+                    name="mean_bin",
+                    description="Number of events contributing non-null mean metrics within the group.",
+                    value_type="int",
+                ),
                 "aep_dur_bin": ColumnDefinition(
                     name="aep_dur_bin",
                     description="Count of records in the original AEP/Duration/Location/Type/run combination.",
@@ -272,6 +297,69 @@ class ColumnMetadataRegistry:
                     name="aep_bin",
                     description="Count of records in the original AEP/Location/Type/run combination.",
                     value_type="int",
+                ),
+                "min_Q": ColumnDefinition(
+                    name="min_Q",
+                    description="Minimum discharge observed across the grouped culvert events.",
+                    value_type="float",
+                ),
+                "min_V": ColumnDefinition(
+                    name="min_V",
+                    description="Minimum velocity observed across the grouped culvert events.",
+                    value_type="float",
+                ),
+                "min_DS_h": ColumnDefinition(
+                    name="min_DS_h",
+                    description="Minimum downstream water level observed across the grouped culvert events.",
+                    value_type="float",
+                ),
+                "min_US_h": ColumnDefinition(
+                    name="min_US_h",
+                    description="Minimum upstream water level observed across the grouped culvert events.",
+                    value_type="float",
+                ),
+                "max_Q": ColumnDefinition(
+                    name="max_Q",
+                    description="Maximum discharge observed across the grouped culvert events.",
+                    value_type="float",
+                ),
+                "max_V": ColumnDefinition(
+                    name="max_V",
+                    description="Maximum velocity observed across the grouped culvert events.",
+                    value_type="float",
+                ),
+                "max_DS_h": ColumnDefinition(
+                    name="max_DS_h",
+                    description="Maximum downstream water level observed across the grouped culvert events.",
+                    value_type="float",
+                ),
+                "max_US_h": ColumnDefinition(
+                    name="max_US_h",
+                    description="Maximum upstream water level observed across the grouped culvert events.",
+                    value_type="float",
+                ),
+                "adopted_Q": ColumnDefinition(
+                    name="adopted_Q",
+                    description=(
+                        "Discharge from the event whose Q value is closest to the sample mean for the group; used as the adopted"
+                        " representative flow."
+                    ),
+                    value_type="float",
+                ),
+                "adopted_V": ColumnDefinition(
+                    name="adopted_V",
+                    description="Velocity from the adopted event associated with the adopted_Q selection.",
+                    value_type="float",
+                ),
+                "adopted_DS_h": ColumnDefinition(
+                    name="adopted_DS_h",
+                    description="Downstream water level from the adopted event associated with the adopted_Q selection.",
+                    value_type="float",
+                ),
+                "adopted_US_h": ColumnDefinition(
+                    name="adopted_US_h",
+                    description="Upstream water level from the adopted event associated with the adopted_Q selection.",
+                    value_type="float",
                 ),
             }
 
