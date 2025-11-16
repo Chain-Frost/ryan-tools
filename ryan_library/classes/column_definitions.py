@@ -190,6 +190,11 @@ class ColumnMetadataRegistry:
                     description="Barrel height or diameter used for the culvert/channel definition.",
                     value_type="float",
                 ),
+                "num_barrels": ColumnDefinition(
+                    name="num_barrels",
+                    description="Estimated number of circular barrels derived from Area_Culv (1d_ccA_) and Height for C-type culverts.",
+                    value_type="int",
+                ),
                 "Length": ColumnDefinition(
                     name="Length",
                     description="Culvert or channel length taken from the 1d_Chan file.",

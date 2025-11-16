@@ -16,14 +16,14 @@ def main() -> None:
     print_library_version()
     console_log_level = "DEBUG"  # or "INFO"
     script_dir: Path = Path(__file__).absolute().parent
-    script_dir = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_11")
+    # script_dir = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials")
     if not change_working_directory(target_dir=script_dir):
         return
 
     main_processing(
         paths_to_process=[script_dir],
-        # include_data_types=["Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx"],
-        include_data_types=["RLL_Qmx"],
+        include_data_types=["Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx"],
+        # include_data_types=["RLL_Qmx"],
         console_log_level=console_log_level,
         output_parquet=False,
     )
