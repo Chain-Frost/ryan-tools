@@ -3,10 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from multiprocessing import Pool
 from dataclasses import dataclass, field
-from queue import Queue
 from typing import Any
-
-import pandas as pd
 from loguru import logger
 
 from ryan_library.functions.file_utils import (
@@ -14,7 +11,7 @@ from ryan_library.functions.file_utils import (
     is_non_zero_file,
 )
 from ryan_library.functions.misc_functions import calculate_pool_size
-from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
+from ryan_library.functions.loguru_helpers import worker_initializer
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
