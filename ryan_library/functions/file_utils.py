@@ -2,11 +2,11 @@
 
 from collections.abc import Generator
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
 import fnmatch
+import re
 from loguru import logger
 import threading
-from queue import Queue
+from queue import Empty, Queue
 
 
 def find_files_parallel(
@@ -43,18 +43,35 @@ def find_files_parallel(
             match any of the exclusion patterns.
     """
 
-    # Normalize 'patterns' and 'excludes' to lists for consistent processing
-    patterns = [patterns] if isinstance(patterns, str) else patterns
-    excludes = [excludes] if isinstance(excludes, str) else excludes or []
+    def _normalize_globs(globs: str | list[str] | None) -> list[str]:
+        """Ensure downstream logic always receives an iterable of glob strings."""
+        if globs is None:
+            return []
+        if isinstance(globs, str):
+            return [globs]
+        return list(globs)
 
-    # Convert all patterns to lowercase for case-insensitive matching
-    patterns = [p.lower() for p in patterns]
-    excludes = [e.lower() for e in excludes]
+    def _compile_patterns(globs: list[str]) -> list[re.Pattern[str]]:
+        """Translate glob syntax into compiled regex objects once up front."""
+        compiled: list[re.Pattern[str]] = []
+        for raw_pattern in globs:
+            compiled.append(re.compile(fnmatch.translate(raw_pattern), re.IGNORECASE))
+        return compiled
+
+    def _matches_any(name: str, compiled: list[re.Pattern[str]]) -> bool:
+        """Return True when the provided filename matches any compiled glob."""
+        return any(pattern.match(name) for pattern in compiled)
+
+    include_patterns: list[str] = _normalize_globs(patterns)
+    exclude_patterns: list[str] = _normalize_globs(excludes)
+
+    compiled_includes: list[re.Pattern[str]] = _compile_patterns(include_patterns)
+    compiled_excludes: list[re.Pattern[str]] = _compile_patterns(exclude_patterns)
 
     logger.info(f"Root directories: {root_dirs}")
-    logger.info(f"Search patterns: {patterns}")
-    if excludes:
-        logger.info(f"Exclude patterns: {excludes}")
+    logger.info(f"Search patterns: {include_patterns}")
+    if exclude_patterns:
+        logger.info(f"Exclude patterns: {exclude_patterns}")
 
     # Obtain the current working directory to calculate relative paths later
     # ``absolute`` preserves drive-letter vs UNC style while ensuring an
@@ -71,8 +88,9 @@ def find_files_parallel(
     visited_lock = threading.Lock()
     visited_dirs: set[Path] = set()
 
-    # Queue for directories to process
+    # Queue for directories to process; the stop event lets workers exit once traversal finishes.
     dir_queue: Queue[tuple[Path, Path]] = Queue()
+    stop_event = threading.Event()
 
     # Initialize the queue with absolute root directories without converting
     # between drive letters and UNC paths.
@@ -87,39 +105,32 @@ def find_files_parallel(
                     dir_queue.put((abs_root, abs_root))  # (current_path, root_dir)
         except FileNotFoundError:
             logger.error(f"Root directory does not exist: {root_dir}")
-        except Exception as e:
-            logger.error(f"Error resolving root directory {root_dir}: {e}")
+        except Exception as exc:
+            logger.error(f"Error resolving root directory {root_dir}: {exc}")
 
     def worker() -> None:
-        while True:
+        """Continuously pull directories off the queue, scanning files and enqueueing child folders."""
+        while not stop_event.is_set():
             try:
-                current_path, root_dir = dir_queue.get(timeout=1)
-                # Timeout to allow graceful exit
-            except:
-                # Queue is empty or timeout reached
-                return
+                current_path, root_dir = dir_queue.get(timeout=0.2)
+            except Empty:
+                continue
             try:
+                # Keep per-thread results local so we only touch global locks when we have matches.
                 local_matched: list[Path] = []
                 local_folders_with_matches: set[Path] = set()
-                files_searched = 0
-                folders_searched = 0
 
-                # Use non-recursive glob to avoid overlapping traversals
                 try:
                     iterator: Generator[Path, None, None] = current_path.iterdir()
                 except PermissionError:
                     logger.error(f"Permission denied accessing directory: {current_path}")
-                    dir_queue.task_done()
                     continue
-                except Exception as e:
-                    logger.error(f"Error accessing directory {current_path}: {e}")
-                    dir_queue.task_done()
+                except Exception as exc:
+                    logger.error(f"Error accessing directory {current_path}: {exc}")
                     continue
 
                 for subpath in iterator:
                     if subpath.is_dir():
-                        folders_searched += 1
-
                         if recursive_search and report_level:
                             try:
                                 relative_path = subpath.relative_to(root_dir)
@@ -132,7 +143,7 @@ def find_files_parallel(
                                     display_path: Path = subpath.relative_to(current_dir)
                                 except ValueError:
                                     display_path = subpath.absolute()
-                                logger.info(f"Searching (depth {depth}): {display_path}")
+                                logger.debug(f"Searching (depth {depth}): {display_path}")
 
                         if recursive_search:
                             try:
@@ -145,10 +156,12 @@ def find_files_parallel(
                             except PermissionError:
                                 logger.error(f"Permission denied accessing subdirectory: {subpath}")
                                 continue
-                            except Exception as e:
-                                logger.error(f"Error resolving subdirectory {subpath}: {e}")
+                            except Exception as exc:
+                                logger.error(f"Error resolving subdirectory {subpath}: {exc}")
                                 continue
 
+                            # Record directories we've seen so we do not process the same path twice
+                            # when multiple roots overlap or symlinks point back to an ancestor.
                             with visited_lock:
                                 if resolved_subpath in visited_dirs:
                                     continue
@@ -157,31 +170,32 @@ def find_files_parallel(
                             dir_queue.put((resolved_subpath, root_dir))
                         continue
 
-                    files_searched += 1
-                    filename = subpath.name.lower()
+                    filename: str = subpath.name
 
-                    # Inclusion Check
-                    if any(fnmatch.fnmatch(filename, pattern) for pattern in patterns):
-                        # Exclusion Check
-                        if not any(fnmatch.fnmatch(filename, exclude) for exclude in excludes):
-                            try:
-                                matched_file: Path = subpath.absolute()
-                                display_path = matched_file
-                                try:
-                                    display_path = matched_file.relative_to(current_dir)
-                                except ValueError:
-                                    pass
-                                logger.debug(f"Matched file: {display_path}")
-                                if not matched_file.exists():
-                                    raise FileNotFoundError
-                                local_matched.append(matched_file)
-                                local_folders_with_matches.add(matched_file.parent)
-                            except FileNotFoundError:
-                                logger.warning(f"File does not exist (might have been moved): {subpath}")
-                            except PermissionError:
-                                logger.error(f"Permission denied accessing file: {subpath}")
-                            except Exception as e:
-                                logger.error(f"Error resolving file {subpath}: {e}")
+                    if not _matches_any(name=filename, compiled=compiled_includes):
+                        continue
+
+                    if compiled_excludes and _matches_any(name=filename, compiled=compiled_excludes):
+                        continue
+
+                    try:
+                        matched_file: Path = subpath.absolute()
+                        display_path = matched_file
+                        try:
+                            display_path = matched_file.relative_to(current_dir)
+                        except ValueError:
+                            pass
+                        logger.debug(f"Matched file: {display_path}")
+                        if not matched_file.exists():
+                            raise FileNotFoundError
+                        local_matched.append(matched_file)
+                        local_folders_with_matches.add(matched_file.parent)
+                    except FileNotFoundError:
+                        logger.warning(f"File does not exist (might have been moved): {subpath}")
+                    except PermissionError:
+                        logger.error(f"Permission denied accessing file: {subpath}")
+                    except Exception as exc:
+                        logger.error(f"Error resolving file {subpath}: {exc}")
 
                 # Safely update the global matched_files list
                 if local_matched:
@@ -192,28 +206,27 @@ def find_files_parallel(
                     with folders_with_matches_lock:
                         folders_with_matches.update(local_folders_with_matches)
 
-                if len(local_matched) > 0:
-                    logger.info(f"Found {len(local_matched)} files in {current_path}")
-            except Exception as e:
-                logger.error(f"Unexpected error processing {current_path}: {e}")
+                if local_matched:
+                    logger.debug(f"Found {len(local_matched)} files in {current_path}")
+            except Exception as exc:
+                logger.error(f"Unexpected error processing {current_path}: {exc}")
             finally:
                 dir_queue.task_done()
 
     logger.info(f"Starting search in {len(root_dirs)} root directory(ies).")
+    num_workers: int = min(32, max(len(root_dirs) * 4, 4))
+    threads: list[threading.Thread] = [
+        threading.Thread(target=worker, name=f"find-files-worker-{i}", daemon=True) for i in range(num_workers)
+    ]
+    for thread in threads:
+        thread.start()
 
-    # Determine the number of worker threads; adjust as needed
-    num_workers: int = min(32, (len(root_dirs) * 4) or 4)
+    # Wait until every directory queued for processing has been handled.
+    dir_queue.join()
+    stop_event.set()
 
-    with ThreadPoolExecutor(max_workers=num_workers) as executor:
-        # Launch worker threads
-        futures = [executor.submit(worker) for _ in range(num_workers)]
-
-        # Wait for all tasks in the queue to be processed
-        dir_queue.join()
-
-        # Optionally, wait for all worker threads to complete
-        for future in futures:
-            future.result()
+    for thread in threads:
+        thread.join()
 
     # Log folders with matched files
     if print_found_folder:

@@ -1,4 +1,5 @@
 # ryan_library\classes\tuflow_string_classes.py
+import math
 import re
 from pathlib import Path
 from loguru import logger
@@ -64,7 +65,9 @@ class TuflowStringParser:
 
     # Precompile regex patterns for efficiency
     # ``TP_PATTERN`` finds patterns like ``TP01`` that are surrounded by ``_`` or ``+`` (or appear at the edges).
-    TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)TP(\d{2})(?:[_+]|$)", flags=re.IGNORECASE)
+    # Keep the core ``TP##``/``TP#`` style bounded by delimiters so we do not
+    # accidentally read other numbers embedded within filenames.
+    TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)TP(\d{1,2})(?:[_+]|$)", flags=re.IGNORECASE)
     # ``DURATION_PATTERN`` captures 3-5 digits followed by ``m`` (e.g. ``00360m`` or ``360m``).
     DURATION_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", flags=re.IGNORECASE)
     # ``AEP_PATTERN`` matches values like ``01.00p`` or ``5p`` and reads the numeric portion before ``p``.
@@ -72,8 +75,14 @@ class TuflowStringParser:
         pattern=r"(?:^|[_+])(?P<aep>(?P<numeric>\d+(?:\.\d{1,2})?)p|(?P<text>PMPF|PMP))(?=$|[_+])",
         flags=re.IGNORECASE,
     )
+    # ``GENERIC_TP_PATTERN`` handles free-form strings such as "tp 3".
+    GENERIC_TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"TP?\s*(\d{1,2})", flags=re.IGNORECASE)
+    HUMAN_DURATION_PATTERN: re.Pattern[str] = re.compile(
+        pattern=r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>hours?|hrs?|hr|h|minutes?|mins?|min|m)(?=$|[^A-Za-z0-9])",
+        flags=re.IGNORECASE,
+    )
 
-    def __init__(self, file_path: Path | str):
+    def __init__(self, file_path: Path | str) -> None:
         """Initialize the TuflowStringParser with the given file path.
         Args:
             file_path (Path | str): Path to the file to be processed."""
@@ -88,6 +97,103 @@ class TuflowStringParser:
         self.duration: RunCodeComponent | None = self.parse_duration(string=self.clean_run_code)
         self.aep: RunCodeComponent | None = self.parse_aep(string=self.clean_run_code)
         self.trim_run_code: str = self.trim_the_run_code()
+
+    @staticmethod
+    def _coerce_text(value: object) -> str | None:
+        """Convert ``value`` into a cleaned string or ``None`` if it is effectively empty."""
+
+        if value is None:
+            return None
+        try:
+            if math.isnan(value):  # type: ignore[arg-type]
+                return None
+        except (TypeError, ValueError):
+            pass
+        text: str = str(value).strip()
+        if not text:
+            return None
+        lowered: str = text.lower()
+        if lowered in {"nan", "none", "<na>"}:
+            return None
+        return text
+
+    @classmethod
+    def normalize_tp_label(cls, value: object) -> str | None:
+        """Return a canonical ``TP##`` label extracted from ``value`` when possible."""
+
+        text: str | None = cls._coerce_text(value)
+        if text is None:
+            return None
+
+        # Normalise ``+`` to ``_`` so ``TP##`` detection works for both
+        # delimiter styles used in TUFLOW artefacts.
+        normalized: str = text.replace("+", "_")
+        match: re.Match[str] | None = cls.TP_PATTERN.search(normalized.upper())
+        digits: str | None = match.group(1) if match else None
+        if digits is None:
+            generic_match: re.Match[str] | None = cls.GENERIC_TP_PATTERN.search(text)
+            if generic_match:
+                digits = generic_match.group(1)
+        if digits is None:
+            fallback: re.Match[str] | None = re.search(r"\b(\d{1,2})\b", text)
+            digits = fallback.group(1) if fallback else None
+        if digits is None:
+            return None
+        try:
+            numeric = int(digits)
+        except ValueError:
+            logger.debug(f"Unable to parse TP digits from value {text!r}")
+            return None
+        return f"TP{numeric:02d}"
+
+    @classmethod
+    def normalize_duration_value(cls, value: object) -> float:
+        """Return the numeric component of a duration string or ``nan`` when parsing fails."""
+
+        text: str | None = cls._coerce_text(value)
+        if text is None:
+            return float("nan")
+
+        # ``DURATION_PATTERN`` covers the common ``00120m`` style.
+        normalized: str = text.replace("+", "_")
+        match: re.Match[str] | None = cls.DURATION_PATTERN.search(normalized)
+        if match:
+            return float(match.group(1))
+
+        for human_match in cls.HUMAN_DURATION_PATTERN.finditer(normalized):
+            minutes: float | None = cls._minutes_from_human_match(human_match)
+            if minutes is not None:
+                return minutes
+
+        fallback: re.Match[str] | None = re.search(r"\d{3,}", normalized)
+        if fallback:
+            return float(fallback.group(0))
+
+        logger.debug(f"Unable to parse duration from value {text!r}")
+        return float("nan")
+
+    @staticmethod
+    def _minutes_from_human_match(match: re.Match[str]) -> float | None:
+        """Convert a ``HUMAN_DURATION_PATTERN`` match into minutes."""
+
+        value_str: str = match.group("value")
+        unit: str = match.group("unit").lower()
+        digits_only: str = value_str.replace(".", "")
+        if unit == "m" and len(digits_only) <= 2:
+            # Short bare ``m`` tokens (e.g. "5m") represent grid resolutions
+            # rather than durations, so ignore them and keep searching.
+            return None
+
+        try:
+            magnitude = float(value_str)
+        except ValueError:
+            return None
+
+        if unit in {"hours", "hour", "hrs", "hr", "h"}:
+            return magnitude * 60.0
+        if unit in {"minutes", "minute", "mins", "min", "m"}:
+            return magnitude
+        return None
 
     @staticmethod
     def clean_runcode(run_code: str) -> str:
@@ -133,7 +239,7 @@ class TuflowStringParser:
         """
         for suffix in self.suffixes.keys():
             if self.file_name.lower().endswith(suffix.lower()):
-                run_code = self.file_name[: -len(suffix)]
+                run_code: str = self.file_name[: -len(suffix)]
                 logger.debug(f"Extracted raw run code '{run_code}' from file name '{self.file_name}'")
                 return run_code
         logger.debug(f"No suffix matched; using entire file name '{self.file_name}' as run code")
@@ -150,8 +256,8 @@ class TuflowStringParser:
         Returns:
             dict[str, str]: Dictionary of run code parts with keys like 'R01', 'R02', etc.
         """
-        run_code_parts = clean_run_code.split("_")
-        r_dict = {f"R{index:02}": part for index, part in enumerate(run_code_parts, start=1)}
+        run_code_parts: list[str] = clean_run_code.split("_")
+        r_dict: dict[str, str] = {f"R{index:02}": part for index, part in enumerate(run_code_parts, start=1)}
         logger.debug(f"Extracted run code parts: {r_dict}")
         return r_dict
 
@@ -165,9 +271,9 @@ class TuflowStringParser:
         Returns:
             Optional[RunCodeComponent]: Parsed TP component or None if not found.
         """
-        match = self.TP_PATTERN.search(string)
+        match: re.Match[str] | None = self.TP_PATTERN.search(string)
         if match:
-            tp_value = match.group(1)
+            tp_value: str = match.group(1)
             logger.debug(f"Parsed TP value: {tp_value}")
             return RunCodeComponent(raw_value=tp_value, component_type="TP")
         logger.debug("No TP component found")
@@ -183,11 +289,22 @@ class TuflowStringParser:
         Returns:
             Optional[RunCodeComponent]: Parsed Duration component or None if not found.
         """
-        match = self.DURATION_PATTERN.search(string)
+        # Apply the same normalisation rules as ``normalize_duration_value`` so
+        # both parsing paths stay in sync.
+        normalized: str = string.replace("+", "_")
+        match: re.Match[str] | None = self.DURATION_PATTERN.search(normalized)
         if match:
             duration_value = match.group(1)
             logger.debug(f"Parsed Duration value: {duration_value}")
             return RunCodeComponent(raw_value=duration_value, component_type="Duration")
+
+        for human_match in self.HUMAN_DURATION_PATTERN.finditer(normalized):
+            minutes: float | None = self._minutes_from_human_match(human_match)
+            if minutes is None:
+                continue
+            minutes_str: str = str(int(minutes)) if minutes.is_integer() else str(minutes)
+            logger.debug(f"Parsed Duration value from human-readable token: {minutes_str}")
+            return RunCodeComponent(raw_value=minutes_str, component_type="Duration")
         logger.debug("No Duration component found")
         return None
 
@@ -219,9 +336,11 @@ class TuflowStringParser:
         Returns:
             str: Cleaned run code.
         """
-        components_to_remove = {str(component).lower() for component in [self.aep, self.duration, self.tp] if component}
+        components_to_remove: set[str] = {
+            str(component).lower() for component in [self.aep, self.duration, self.tp] if component
+        }
         logger.debug(f"Components to remove: {components_to_remove}")
-        trimmed_runcode = "_".join(
+        trimmed_runcode: str = "_".join(
             part for part in self.clean_run_code.split("_") if part.lower() not in components_to_remove
         )
         logger.debug(f"Trimmed run code: {trimmed_runcode}")
