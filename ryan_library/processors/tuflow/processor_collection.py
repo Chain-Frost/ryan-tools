@@ -11,7 +11,7 @@ from ryan_library.functions.dataframe_helpers import (
     reorder_long_columns,
     reset_categorical_ordering,
 )
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from .base_processor import BaseProcessor
 
 
 class ProcessorCollection:
@@ -168,30 +168,14 @@ class ProcessorCollection:
         # Reset categorical ordering
         combined_df = reset_categorical_ordering(combined_df)
 
-        if "Location ID" not in combined_df.columns:
-            logger.error("Location ID column is missing after maximums preprocessing.")
-            return pd.DataFrame()
-
-        missing_location_mask: Series[bool] = combined_df["Location ID"].isna()
-        if missing_location_mask.any():
-            logger.warning(
-                "Dropping {count} rows without a location identifier from Maximums/ccA data.",
-                count=int(missing_location_mask.sum()),
-            )
-            combined_df = combined_df[~missing_location_mask]
-        if combined_df.empty:
-            logger.error("No Maximums/ccA data remaining after removing rows without location identifiers.")
-            return pd.DataFrame()
-
-        # Group by 'internalName' and the derived 'Location ID'
-        group_keys: list[str] = ["internalName", "Location ID"]
+        # Group by 'internalName' and 'Chan ID'
+        group_keys: list[str] = ["internalName", "Chan ID"]
         missing_keys: list[str] = [key for key in group_keys if key not in combined_df.columns]
         if missing_keys:
             logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
             return pd.DataFrame()
 
         grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()
-        grouped_df = self._calculate_num_barrels(df=grouped_df)
         p1_col: list[str] = [
             "trim_runcode",
             "aep_text",
@@ -351,28 +335,33 @@ class ProcessorCollection:
         return combined_df
 
     def po_combine(self) -> pd.DataFrame:
-        """Combine DataFrames where dataformat is 'PO'.
-        No grouping required as DataFrames are already in the correct format.
-
-        Returns:
-            pd.DataFrame: Combined DataFrame."""
-        logger.debug("Combining PO data.")
+        """Combine processed PO timeseries files into a single tidy DataFrame."""
+        logger.debug("Combining PO timeseries data.")
 
         # Filter processors with dataformat 'PO'
         po_processors: list[BaseProcessor] = [p for p in self.processors if p.dataformat.lower() == "po"]
 
         if not po_processors:
-            logger.warning("No processors with dataformat 'PO' found.")
+            logger.warning("No PO processors available for combination.")
             return pd.DataFrame()
 
         # Concatenate DataFrames
         combined_df = pd.concat([p.df for p in po_processors if not p.df.empty], ignore_index=True)
         logger.debug(f"Combined {len(po_processors)} PO DataFrame with {len(combined_df)} rows.")
 
-        combined_df: DataFrame = reorder_long_columns(df=combined_df)
+        if combined_df.empty:
+            logger.warning("PO DataFrames are empty after concatenation.")
+            return combined_df
 
-        # Reset categorical ordering
-        combined_df = reset_categorical_ordering(combined_df)
+        combined_df = reset_categorical_ordering(df=combined_df)
+        combined_df = reorder_long_columns(df=combined_df)
+
+        sort_columns: list[str] = [
+            column for column in ["internalName", "Location", "Type", "Time"] if column in combined_df.columns
+        ]
+        if sort_columns:
+            combined_df.sort_values(by=sort_columns, inplace=True)
+            combined_df.reset_index(drop=True, inplace=True)
 
         return combined_df
 
