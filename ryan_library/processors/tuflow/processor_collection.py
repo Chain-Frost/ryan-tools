@@ -1,5 +1,6 @@
 # ryan_library/processors/tuflow/processor_collection.py
 
+from collections.abc import Collection
 from loguru import logger
 import pandas as pd
 from pandas import DataFrame
@@ -8,7 +9,7 @@ from ryan_library.functions.dataframe_helpers import (
     reorder_long_columns,
     reset_categorical_ordering,
 )
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from .base_processor import BaseProcessor
 
 
 class ProcessorCollection:
@@ -26,11 +27,60 @@ class ProcessorCollection:
 
         Args:
             processor (BaseProcessor): A processed BaseProcessor instance."""
-        if processor.processed:
+        if processor.processed and not processor.df.empty:
             self.processors.append(processor)
             logger.debug(f"Added processor: {processor.file_name}")
+        elif processor.processed:
+            logger.info(
+                f"{processor.file_name}: Processor completed but has no rows after filtering; skipping add to collection."
+            )
         else:
             logger.warning(f"Attempted to add unprocessed processor: {processor.file_name}")
+
+    def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
+        """Apply a location filter to all processors in the collection.
+
+        Args:
+            locations: Collection of location identifiers to retain.
+
+        Returns:
+            frozenset[str]: Normalized location identifiers that were applied.
+        """
+
+        normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations)
+        if not normalized_locations:
+            return normalized_locations
+
+        total_before: int = sum(len(processor.df) for processor in self.processors)
+
+        for processor in self.processors:
+            if processor.applied_location_filter == normalized_locations:
+                continue
+            processor.filter_locations(normalized_locations)
+
+        filtered_processors: list[BaseProcessor] = [
+            processor for processor in self.processors if not processor.df.empty
+        ]
+        removed_processors: int = len(self.processors) - len(filtered_processors)
+        self.processors = filtered_processors
+
+        total_after: int = sum(len(processor.df) for processor in self.processors)
+
+        log_method = logger.debug if total_before == total_after and removed_processors == 0 else logger.info
+        log_method(
+            "Applied location filter to {processor_count} processors. Rows reduced from {before} to {after}.",
+            processor_count=len(self.processors),
+            before=total_before,
+            after=total_after,
+        )
+
+        if removed_processors:
+            logger.info(
+                "Removed {removed} processors with no remaining rows after location filtering.",
+                removed=removed_processors,
+            )
+
+        return normalized_locations
 
     def combine_1d_timeseries(self) -> pd.DataFrame:
         """Combine DataFrames where dataformat is 'Timeseries'.
@@ -75,7 +125,7 @@ class ProcessorCollection:
 
         combined_df = reorder_long_columns(df=combined_df)
 
-        grouped_df: DataFrame = combined_df.groupby(group_keys).agg("max").reset_index()
+        grouped_df: DataFrame = combined_df.groupby(group_keys).agg("max").reset_index()  # type: ignore
 
         value_columns: list[str] = [col for col in grouped_df.columns if col not in group_keys]
         if value_columns:
@@ -135,7 +185,7 @@ class ProcessorCollection:
             logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
             return pd.DataFrame()
 
-        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()
+        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()  # type: ignore
         p1_col: list[str] = [
             "trim_runcode",
             "aep_text",

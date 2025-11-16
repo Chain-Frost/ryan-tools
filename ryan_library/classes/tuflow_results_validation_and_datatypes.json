@@ -41,19 +41,13 @@
       "_PO.csv"
     ],
     "output_columns": {
-      "Time": "float",
       "Location": "string",
       "Type": "string",
-      "Value": "float"
+      "Value": "float",
+      "AbsValue": "float"
     },
     "processingParts": {
-      "dataformat": "Timeseries",
-      "expected_in_header": [
-        "Time",
-        "Location",
-        "Type",
-        "Value"
-      ]
+      "dataformat": "PO"
     }
   },
   "Cmx": {

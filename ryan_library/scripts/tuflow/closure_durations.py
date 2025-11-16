@@ -50,7 +50,7 @@ def _process_files(
     if not parallel or len(files) <= 1:
         records: list[DataFrame] = []
         for fp in files:
-            rec = analyze_po_file(
+            rec: DataFrame = analyze_po_file(
                 csv_path=fp,
                 thresholds=thresholds,
                 data_type=data_type,
@@ -98,17 +98,38 @@ def _summarise_results(df: DataFrame) -> DataFrame:
         "Closest_Value",
     ]
     finaldb = pd.DataFrame(columns=final_columns)
+    # Capture the full set of (Duration, TP) combinations for each location/AEP so that
+    # thresholds which do not exceed for a given combination can still contribute zeros
+    # to the summary statistics.  Without this we would discard zeros entirely and the
+    # medians could erroneously increase as the threshold increased.
+    combo_lookup = {
+        key: grp.loc[:, ["Duration", "TP"]].drop_duplicates().reset_index(drop=True)
+        for key, grp in df.loc[:, ["out_path", "Location", "AEP", "Duration", "TP"]]
+        .drop_duplicates()
+        .groupby(["out_path", "Location", "AEP"])
+    }
+
     grouped = df.groupby(["out_path", "Location", "ThresholdFlow", "AEP"])
     for name, group in grouped:
+        path, location, threshold, aep = name
+        combos = combo_lookup.get((path, location, aep))
+        if combos is not None:
+            group = combos.merge(group, on=["Duration", "TP"], how="left")
+            group["AEP"] = group["AEP"].fillna(aep)
+            group["out_path"] = group["out_path"].fillna(path)
+            group["Location"] = group["Location"].fillna(location)
+            group["ThresholdFlow"] = group["ThresholdFlow"].fillna(threshold)
+            group["Duration_Exceeding"] = group["Duration_Exceeding"].fillna(0.0)
+
         stats, _ = median_stats_func(group, "Duration_Exceeding", "TP", "Duration")
         row = list(name) + [
             stats.get("median"),
-            stats.get("Duration"),
-            stats.get("Critical_TP"),
+            stats.get("median_duration"),
+            stats.get("median_TP"),
             stats.get("low"),
             stats.get("high"),
             stats.get("mean_including_zeroes"),
-            stats.get("Critical_TP"),
+            stats.get("median_TP"),
             stats.get("median"),
         ]
         finaldb.loc[len(finaldb)] = row

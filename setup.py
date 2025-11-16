@@ -1,11 +1,11 @@
-# setup.py
+﻿# setup.py
 from setuptools import setup, find_packages  # type: ignore
 
 setup(
     name="ryan_functions",
     # Version scheme: yy.mm.dd.release_number
     # Increment when publishing new wheels
-    version="25.09.12.1",
+    version="25.11.07.4",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},

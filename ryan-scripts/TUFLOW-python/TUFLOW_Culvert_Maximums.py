@@ -28,6 +28,8 @@ def main() -> None:
         console_log_level=console_log_level,
         output_parquet=False,
     )
+    print()
+    print_library_version()
 
 
 if __name__ == "__main__":

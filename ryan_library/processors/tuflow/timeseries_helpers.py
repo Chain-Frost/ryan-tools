@@ -1,6 +1,5 @@
+# ryan_library\processors\tuflow\timeseries_helpers.py
 """Utility helpers shared by TUFLOW timeseries processors."""
-
-from __future__ import annotations
 
 import pandas as pd
 from loguru import logger

@@ -5,6 +5,7 @@ from pathlib import Path
 import laspy
 import numpy as np
 from ryan_library.functions.terrain_processing import parallel_process_multiple_terrain
+from ryan_library.scripts.wrapper_utils import print_library_version
 
 
 def save_tile_las(tile_df, output_dir, base_filename, i, j) -> None:
@@ -120,6 +121,8 @@ def main() -> None:
     )
 
     logger.info("Completed all terrain data processing.")
+    print()
+    print_library_version()
 
 
 if __name__ == "__main__":

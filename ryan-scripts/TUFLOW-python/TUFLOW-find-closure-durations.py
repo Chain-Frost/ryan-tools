@@ -31,6 +31,8 @@ def main() -> None:
         allowed_locations=None,
         log_level=console_log_level,
     )
+    print()
+    print_library_version()
 
 
 if __name__ == "__main__":

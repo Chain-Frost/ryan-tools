@@ -15,6 +15,7 @@ from ryan_library.functions.logging_helpers import (
     log_listener_process,
 )
 from ryan_library.functions.file_utils import ensure_output_directory
+from ryan_library.scripts.wrapper_utils import print_library_version
 
 # Global variable for log_queue to be accessible in child processes
 log_queue = None
@@ -313,6 +314,8 @@ def main():
         log_queue.put(None)
         listener.join()
         logging.info("Log listener process has been joined.")
+    print()
+    print_library_version()
 
 
 if __name__ == "__main__":

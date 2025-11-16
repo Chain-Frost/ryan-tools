@@ -1,12 +1,15 @@
 # ryan_library/processors/tuflow/base_processor.py
 
 from abc import ABC, abstractmethod
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, cast
 import importlib
 import pandas as pd
+from pandas import DataFrame, Series
+from pandas._typing import DtypeArg
 from loguru import logger
 from ryan_library.classes.suffixes_and_dtypes import (
     Config,
@@ -65,17 +68,18 @@ class BaseProcessor(ABC):
     df: pd.DataFrame = field(default_factory=pd.DataFrame)
     raw_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
+    applied_location_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
 
     # Define _processor_cache as a ClassVar to make it a class variable
     _processor_cache: ClassVar[dict[tuple[str, str], type["BaseProcessor"]]] = {}
 
     # Attributes to hold configuration
-    output_columns: dict[str, str] = field(init=False, default_factory=dict)
+    output_columns: dict[str, str] = field(init=False, default_factory=lambda: cast(dict[str, str], {}))
     dataformat: str = field(init=False, default="")
     processor_module: str | None = field(init=False, default=None)
-    skip_columns: list[int] = field(init=False, default_factory=list)
-    columns_to_use: dict[str, str] = field(init=False, default_factory=dict)
-    expected_in_header: list[str] = field(init=False, default_factory=list)
+    skip_columns: list[int] = field(init=False, default_factory=lambda: cast(list[int], []))
+    columns_to_use: dict[str, str] = field(init=False, default_factory=lambda: cast(dict[str, str], {}))
+    expected_in_header: list[str] = field(init=False, default_factory=lambda: cast(list[str], []))
 
     def __post_init__(self) -> None:
         self.file_name = self.file_path.name
@@ -97,13 +101,13 @@ class BaseProcessor(ABC):
         data_type: str | None = name_parser.data_type
 
         if not data_type:
-            error_msg = f"No data type found for file: {file_path}"
+            error_msg: str = f"No data type found for file: {file_path}"
             logger.error(error_msg)
             raise ValueError(error_msg)
 
         # Get processor class name based on data type
-        suffixes_config = SuffixesConfig.get_instance()
-        data_type_def = suffixes_config.get_definition_for_data_type(data_type=data_type)
+        suffixes_config: SuffixesConfig = SuffixesConfig.get_instance()
+        data_type_def: DataTypeDefinition | None = suffixes_config.get_definition_for_data_type(data_type=data_type)
 
         processor_class_name: str | None = None
         processor_dataformat: str | None = None
@@ -140,8 +144,8 @@ class BaseProcessor(ABC):
     ) -> type["BaseProcessor"]:
         """Dynamically import and return a processor class by name with caching."""
 
-        cache_namespace = processor_module or dataformat or ""
-        cache_key = (cache_namespace, class_name)
+        cache_namespace: str = processor_module or dataformat or ""
+        cache_key: tuple[str, str] = (cache_namespace, class_name)
         if cache_key in BaseProcessor._processor_cache:
             logger.debug(
                 "Using cached processor class '%s' for module hint '%s'.",
@@ -157,9 +161,9 @@ class BaseProcessor(ABC):
             module_hint = module_hint.strip()
             if not module_hint:
                 return
-            is_absolute = module_hint.startswith("ryan_library.")
-            normalized = module_hint.lstrip(".") if not is_absolute else module_hint
-            module_base = normalized if is_absolute else f"{base_package}.{normalized}"
+            is_absolute: bool = module_hint.startswith("ryan_library.")
+            normalized: str = module_hint.lstrip(".") if not is_absolute else module_hint
+            module_base: str = normalized if is_absolute else f"{base_package}.{normalized}"
             candidate_modules.append(f"{module_base}.{class_name}")
             candidate_modules.append(module_base)
 
@@ -183,9 +187,7 @@ class BaseProcessor(ABC):
             attempted_paths.append(module_path)
             try:
                 module = importlib.import_module(module_path)
-                processor_cls: type[BaseProcessor] = cast(
-                    type["BaseProcessor"], getattr(module, class_name)
-                )
+                processor_cls: type[BaseProcessor] = cast(type["BaseProcessor"], getattr(module, class_name))
                 BaseProcessor._processor_cache[cache_key] = processor_cls
                 logger.debug(f"Imported processor class '{class_name}' from '{module_path}'.")
                 return processor_cls
@@ -196,8 +198,8 @@ class BaseProcessor(ABC):
                 logger.debug(f"Module '{module_path}' does not define '{class_name}': {exc}")
                 last_exception = exc
 
-        attempted = ", ".join(attempted_paths)
-        msg = f"Processor class '{class_name}' not found in modules: {attempted}."
+        attempted: str = ", ".join(attempted_paths)
+        msg: str = f"Processor class '{class_name}' not found in modules: {attempted}."
         logger.exception(msg)
         if last_exception is not None:
             raise ImportProcessorError(msg) from last_exception
@@ -213,35 +215,68 @@ class BaseProcessor(ABC):
             raise KeyError(f"Data type '{self.data_type}' is not defined in the config.")
 
         # Load output_columns
-        self.output_columns = data_type_def.output_columns
+        self.output_columns: dict[str, str] = data_type_def.output_columns
         logger.debug(f"{self.file_name}: Loaded output_columns: {self.output_columns}")
 
         # Load processingParts
         processing_parts: ProcessingParts = data_type_def.processing_parts
         self.dataformat = processing_parts.dataformat
         self.processor_module = processing_parts.processor_module
-        self.skip_columns = processing_parts.skip_columns
+        self.skip_columns: list[int] = processing_parts.skip_columns
         logger.debug(
             f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, "
             f"processor_module: {self.processor_module}, skip_columns: {self.skip_columns}"
         )
+        processing_parts_payload: dict[str, Any] = processing_parts.to_dict()
+        if not self.dataformat:
+            raise ConfigurationError(
+                f"{self.file_name}: '{self.data_type}' is missing 'processingParts.dataformat' in the configuration."
+            )
 
-        # TODO: tighten configuration validation by inspecting the JSON contents
-        # before attempting to load data type specific sections.
+        def has_section_content(section: str) -> bool:
+            value: Any | None = processing_parts_payload.get(section)
+            if isinstance(value, (dict, list, str)):
+                return bool(value)
+            return value is not None
+
+        required_sections: dict[str, tuple[str, ...]] = {
+            "Maximums": ("columns_to_use",),
+            "ccA": ("columns_to_use",),
+            "Timeseries": ("expected_in_header",),
+            "POMM": ("columns_to_use", "expected_in_header"),
+        }
+        required_keys: tuple[str, ...] = required_sections.get(self.dataformat, ())
+        missing_sections: list[str] = [section for section in required_keys if not has_section_content(section)]
+
+        if missing_sections:
+            missing_str: str = ", ".join(missing_sections)
+            raise ConfigurationError(
+                f"{self.file_name}: '{self.data_type}' configuration is missing {missing_str} in processingParts for '{self.dataformat}' files."
+            )
 
         # Depending on dataformat, load columns_to_use or expected_in_header
         handled_formats: set[str] = {"Maximums", "ccA", "Timeseries", "POMM"}
 
         if self.dataformat in {"Maximums", "ccA", "POMM"}:
-            self.columns_to_use = processing_parts.columns_to_use
+            self.columns_to_use: dict[str, str] = processing_parts.columns_to_use
             logger.debug(f"{self.file_name}: Loaded columns_to_use: {self.columns_to_use}")
+            return
 
         if self.dataformat in {"Timeseries", "POMM"}:
             self.expected_in_header = processing_parts.expected_in_header
             logger.debug(f"{self.file_name}: Loaded expected_in_header: {self.expected_in_header}")
+            return
+
+        if self.dataformat == "POMM":
+            logger.debug(f"{self.file_name}: POMM type")
+            return
+        if self.dataformat == "PO":
+            logger.debug(f"{self.file_name}: PO type")
+            return
 
         if self.dataformat not in handled_formats:
             logger.warning(f"{self.file_name}: Unknown dataformat '{self.dataformat}'.")
+            return
 
     @abstractmethod
     def process(self) -> None:
@@ -257,6 +292,71 @@ class BaseProcessor(ABC):
     def reorder_long_text_columns(self) -> None:
         """Move large width column names to the right side."""
         self.df = reorder_long_columns(df=self.df)
+
+    @staticmethod
+    def normalize_locations(locations: Collection[str] | None) -> frozenset[str]:
+        """Return a normalized frozenset of non-empty locations."""
+
+        if not locations:
+            return frozenset()
+
+        if isinstance(locations, frozenset):
+            return locations
+
+        normalized: set[str] = {str(location).strip() for location in locations if str(location).strip()}
+        return frozenset(normalized)
+
+    def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
+        """Filter the processor DataFrame to include only the specified locations.
+
+        Args:
+            locations: Collection of location identifiers to retain.
+
+        Returns:
+            frozenset[str]: The normalized set of locations that were applied.
+        """
+
+        normalized_locations: frozenset[str] = self.normalize_locations(locations)
+        if not normalized_locations:
+            return normalized_locations
+
+        if self.applied_location_filter == normalized_locations:
+            logger.debug(f"{self.file_name}: Location filter already applied; skipping.")
+            return normalized_locations
+
+        if self.df.empty:
+            logger.debug(f"{self.file_name}: DataFrame empty before location filtering; skipping.")
+            self.applied_location_filter = normalized_locations
+            return normalized_locations
+
+        if "Location" not in self.df.columns:
+            logger.debug(
+                f"{self.file_name}: Location filter provided but DataFrame lacks 'Location' column; skipping filter."
+            )
+            self.applied_location_filter = normalized_locations
+            return normalized_locations
+
+        before_count: int = len(self.df)
+        location_series: Series[str] = self.df["Location"].astype(str).str.strip()
+        filtered_df: DataFrame = self.df.loc[location_series.isin(normalized_locations)].copy()  # type: ignore
+        after_count: int = len(filtered_df)
+
+        log_method = logger.info if after_count != before_count else logger.debug
+        log_method(
+            "{file_name}: Filtered rows to {after_count}/{before_count} using {location_count} locations.",
+            file_name=self.file_name,
+            after_count=after_count,
+            before_count=before_count,
+            location_count=len(normalized_locations),
+        )
+
+        self.df = filtered_df
+
+        if after_count == 0:
+            logger.warning(f"{self.file_name}: No rows remain after applying the Location filter.")
+
+        self.applied_location_filter = normalized_locations
+        return normalized_locations
 
     def add_common_columns(self) -> None:
         """Add all common columns by delegating to specific methods."""
@@ -446,11 +546,12 @@ class BaseProcessor(ABC):
             headers did not align with the configuration and
             ``ProcessorStatus.FAILURE`` captures read failures.
         """
-        usecols = list(self.columns_to_use.keys())
-        dtype: dict[str, str] = {col: self.columns_to_use[col] for col in usecols}
+        usecols: list[str] = list(self.columns_to_use.keys())
+        # Pandas expects a DtypeArg for dtype; use the official type for clarity
+        dtype: DtypeArg = {col: self.columns_to_use[col] for col in usecols}
 
         try:
-            df: pd.DataFrame = pd.read_csv(
+            df: pd.DataFrame = pd.read_csv(  # type: ignore
                 filepath_or_buffer=self.file_path,
                 usecols=usecols,
                 header=0,
