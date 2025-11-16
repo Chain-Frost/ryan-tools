@@ -7,10 +7,8 @@ from typing import Literal
 import pandas as pd
 from loguru import logger
 
-from ryan_library.scripts.pomm_utils import (
-    collect_files,
-    process_files_in_parallel,
-)
+from ryan_library.scripts.pomm_utils import process_files_in_parallel
+from ryan_library.functions.tuflow.tuflow_common import collect_files
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.functions.file_utils import ensure_output_directory

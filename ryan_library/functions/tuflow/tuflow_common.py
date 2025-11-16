@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from multiprocessing import Pool
 from dataclasses import dataclass, field
+from collections.abc import Iterable
 from typing import Any
 from loguru import logger
 
@@ -17,6 +18,10 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 
 
+def _string_list() -> list[str]:
+    return []
+
+
 @dataclass(frozen=True)
 class ScenarioConfig:
     """One export scenario."""
@@ -25,31 +30,72 @@ class ScenarioConfig:
     parquet_prefix: str  # e.g. "1d_timeseries_data"
     excel_sheet: str  # e.g. "Timeseries"
     export_parquet: bool  # only True for timeseries
-    column_order: list[str] = field(default_factory=list)
+    column_order: list[str] = field(default_factory=_string_list)
 
 
 def collect_files(
-    paths_to_process: list[Path],
-    include_data_types: list[str],
+    paths_to_process: Iterable[Path],
+    include_data_types: Iterable[str],
     suffixes_config: SuffixesConfig,
 ) -> list[Path]:
-    data_map: dict[str, list[str]] = suffixes_config.invert_suffix_to_type()
-    suffixes: list[str] = []
-    for dt in include_data_types:
-        if dt in data_map:
-            suffixes.extend(data_map[dt])
-        else:
-            logger.error(f"No suffixes for data type '{dt}'")
-    if not suffixes:
+    """Return all non-empty files matching ``include_data_types`` underneath ``paths_to_process``."""
+
+    normalized_roots: list[Path] = []
+    seen_roots: set[Path] = set()
+    for candidate in paths_to_process:
+        path = Path(candidate)
+        if path in seen_roots:
+            continue
+        seen_roots.add(path)
+        normalized_roots.append(path)
+
+    deduped_types: list[str] = []
+    seen_types: set[str] = set()
+    for data_type in include_data_types:
+        if data_type in seen_types:
+            continue
+        seen_types.add(data_type)
+        deduped_types.append(data_type)
+
+    if not deduped_types:
+        logger.error("No data types were supplied for file collection.")
         return []
 
-    patterns: list[str] = [f"*{s}" for s in suffixes]
-    roots: list[Path] = [p for p in paths_to_process if p.is_dir()]
-    for bad in set(paths_to_process) - set(roots):
-        logger.warning(f"Skipping non-dir {bad}")
+    data_map: dict[str, list[str]] = suffixes_config.invert_suffix_to_type()
+    suffixes: list[str] = []
+    for data_type in deduped_types:
+        dt_suffixes: list[str] | None = data_map.get(data_type)
+        if not dt_suffixes:
+            logger.error(f"No suffixes for data type '{data_type}'. Skipping.")
+            continue
+        suffixes.extend(dt_suffixes)
+
+    suffixes = list(dict.fromkeys(suffixes))
+    if not suffixes:
+        logger.error("No suffixes found for the requested data types.")
+        return []
+
+    patterns: list[str] = [f"*{suffix}" for suffix in suffixes]
+    roots: list[Path] = [p for p in normalized_roots if p.is_dir()]
+    invalid_roots: list[Path] = [p for p in normalized_roots if not p.is_dir()]
+    for bad_root in invalid_roots:
+        logger.warning(f"Skipping non-directory path {bad_root}")
+
+    if not roots:
+        logger.warning("No valid directories were supplied for file collection.")
+        return []
 
     files: list[Path] = find_files_parallel(root_dirs=roots, patterns=patterns)
-    return [f for f in files if is_non_zero_file(f)]
+    filtered_files: list[Path] = []
+    seen_files: set[Path] = set()
+    for file_path in files:
+        if not is_non_zero_file(file_path):
+            continue
+        if file_path in seen_files:
+            continue
+        seen_files.add(file_path)
+        filtered_files.append(file_path)
+    return filtered_files
 
 
 def process_file(file_path: Path) -> BaseProcessor | None:
