@@ -1,10 +1,11 @@
 # ryan_library/processors/tuflow/ccAProcessor.py
+from typing import Any
 from pandas import DataFrame
+import fiona
+import geopandas as gpd
+import pandas as pd
 import shapefile
 import sqlite3
-import pandas as pd
-import geopandas as gpd
-import fiona
 from loguru import logger
 from .base_processor import BaseProcessor
 
@@ -56,6 +57,21 @@ class ccAProcessor(BaseProcessor):
             self.df = pd.DataFrame()
             return self.df
 
+    # Mapping of shapefile-safe field names (max 10 chars) to canonical names
+    _SHAPEFILE_COLUMN_RENAMES: dict[str, str] = {"Dur_10pFul": "Dur_10pFull"}
+
+    def _normalize_column_names(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Rename truncated shapefile fields so downstream config matches."""
+        rename_map: dict[str, str] = {
+            truncated: full
+            for truncated, full in self._SHAPEFILE_COLUMN_RENAMES.items()
+            if truncated in df.columns and full not in df.columns
+        }
+        if rename_map:
+            logger.debug(f"{self.file_name}: Renaming truncated shapefile columns: {rename_map}")
+            df = df.rename(columns=rename_map)
+        return df
+
     def process_dbf(self) -> pd.DataFrame:
         """Process a DBF CCA file.
         Returns:
@@ -70,6 +86,7 @@ class ccAProcessor(BaseProcessor):
                 # Rename 'Channel' to 'Chan ID' if present
                 if "Channel" in cca_data.columns:
                     cca_data.rename(columns={"Channel": "Chan ID"}, inplace=True)
+                cca_data: DataFrame = self._normalize_column_names(df=cca_data)
             logger.debug(f"Processed DBF CCA DataFrame head:\n{cca_data.head()}")
             return cca_data
         except Exception as e:
@@ -91,7 +108,7 @@ class ccAProcessor(BaseProcessor):
                      WHERE data_type = 'features';
                 """
                 )
-                layers: list = [row[0] for row in cur.fetchall()]
+                layers: list[Any] = [row[0] for row in cur.fetchall()]
 
             # 2. Find our CCA layer by suffix
             desired = "1d_ccA_L"
@@ -105,8 +122,8 @@ class ccAProcessor(BaseProcessor):
             uri: str = f"file://{self.file_path}?mode=ro&uri=true"
             # Open that URI in read-only mode, specifying the layer
             with fiona.Env():  # clean GDAL/Fiona env
-                with fiona.open(fp=uri, layer=layer_name) as src:
-                    gdf: gpd.GeoDataFrame = gpd.GeoDataFrame.from_features(src, crs=src.crs)
+                with fiona.open(fp=uri, layer=layer_name) as src:  # pyright: ignore[reportUnknownMemberType]
+                    gdf: gpd.GeoDataFrame = gpd.GeoDataFrame.from_features(features=src, crs=src.crs)  # type: ignore
 
             # 4. Strip geometry, rename if needed, and return
             cca_data: DataFrame = gdf.drop(columns="geometry").copy()
@@ -114,6 +131,7 @@ class ccAProcessor(BaseProcessor):
             # 5. Rename 'Channel' to 'Chan ID' if needed
             if "Channel" in cca_data.columns:
                 cca_data.rename(columns={"Channel": "Chan ID"}, inplace=True)
+            cca_data = self._normalize_column_names(df=cca_data)
 
             logger.debug(f"Processed GeoPackage CCA DataFrame head:\n{cca_data.head()}")
             return cca_data

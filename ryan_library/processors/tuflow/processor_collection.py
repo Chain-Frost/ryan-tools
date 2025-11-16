@@ -1,9 +1,11 @@
 # ryan_library/processors/tuflow/processor_collection.py
 
 from collections.abc import Collection
+from math import pi
 from loguru import logger
 import pandas as pd
 from pandas import DataFrame, Series
+from pandas import Index
 from ryan_library.functions.dataframe_helpers import (
     reorder_columns,
     reorder_long_columns,
@@ -189,6 +191,7 @@ class ProcessorCollection:
             return pd.DataFrame()
 
         grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()
+        grouped_df = self._calculate_num_barrels(df=grouped_df)
         p1_col: list[str] = [
             "trim_runcode",
             "aep_text",
@@ -207,6 +210,7 @@ class ProcessorCollection:
             "Flags",
             "Height",
             "Length",
+            "num_barrels",
         ]
 
         p2_col: list[str] = [
@@ -228,6 +232,55 @@ class ProcessorCollection:
         logger.debug(f"Grouped {len(maximums_processors)} Maximums/ccA DataFrame with {len(grouped_df)} rows.")
         logger.debug("line157")
         return grouped_df
+
+    def _calculate_num_barrels(self, df: DataFrame) -> DataFrame:
+        """Derive the number of circular barrels for C-type culverts."""
+        required_columns: set[str] = {"Flags", "Area_Culv", "Height"}
+        missing_columns: set[str] = required_columns - set(df.columns)
+        if missing_columns:
+            logger.debug(f"Skipping num_barrels calculation; missing columns: {sorted(missing_columns)}")
+            return df
+
+        if df.empty:
+            return df
+
+        culvert_type: Series = df["Flags"].astype("string").str.strip()
+        sample_flags: list[str] = [flag for flag in culvert_type.dropna().unique().tolist()[:5]]
+        if sample_flags:
+            logger.debug(f"num_barrels: Flags sample = {sample_flags}")
+        else:
+            logger.debug("num_barrels: Flags column contained no values.")
+        area_series: Series = pd.to_numeric(df["Area_Culv"], errors="coerce")
+        height_series: Series = pd.to_numeric(df["Height"], errors="coerce")
+
+        is_c_type: Series = culvert_type.str.upper().str.startswith("C")
+        valid_mask: Series = is_c_type & area_series.notna() & height_series.notna() & (height_series > 0)
+        candidate_count: int = int(is_c_type.sum())
+        valid_count: int = int(valid_mask.sum())
+        logger.debug(f"num_barrels: {candidate_count} C-type candidates, {valid_count} with valid geometry.")
+
+        num_barrels: Series = pd.Series(pd.NA, index=df.index, dtype="Int64")
+
+        if not valid_mask.any():
+            df["num_barrels"] = num_barrels
+            logger.debug("num_barrels calculation skipped; no C-type culverts present.")
+            return df
+
+        computed: Series = (area_series.loc[valid_mask] * 4.0) / (pi * (height_series.loc[valid_mask] ** 2))
+
+        tolerance: float = 5e-2
+        non_integer_mask: Series[bool] = (computed - computed.round()).abs() > tolerance
+        if non_integer_mask.any():
+            bad_indices: Index = computed.index[non_integer_mask]
+            logger.error(f"num_barrels calculation produced non-integer values for rows: {list(bad_indices)}")
+            computed = computed.mask(non_integer_mask)
+
+        rounded: Series[int] = computed.round().astype("Int64")
+        num_barrels.loc[rounded.index] = rounded
+
+        df["num_barrels"] = num_barrels
+        logger.debug(f"Calculated num_barrels for {int(valid_mask.sum())} C-type culvert rows.")
+        return df
 
     def _ensure_location_identifier(self, df: DataFrame) -> DataFrame:
         """Ensure a 'Location ID' column exists for grouping maximum datasets."""

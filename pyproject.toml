@@ -7,3 +7,4 @@ include = '\.pyi?$'
 pythonVersion = "3.13"
 typeCheckingMode = "strict"
 include = ["ryan_library", "ryan_scripts"]
+extraPaths = ["vendor", "vendor/run_hy8/src"]
