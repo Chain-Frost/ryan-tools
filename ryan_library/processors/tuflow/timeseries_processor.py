@@ -268,7 +268,10 @@ class TimeSeriesProcessor(BaseProcessor):
         Args:
             data_type: Identifier of the main numeric value column in ``self.df``.
         """
-        col_types: dict[str, str] = {"Time": "float64"}
+        col_types: dict[str, str] = {
+            "Time": "float64",
+            data_type: "float64",
+        }
 
         if data_type == "H":
             col_types.update({"H_US": "float64", "H_DS": "float64"})

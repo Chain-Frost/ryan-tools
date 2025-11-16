@@ -1,5 +1,7 @@
 """Processor for TUFLOW ``_H`` timeseries outputs."""
 
+"""not tested, don't know if it works even slightly"""
+
 from __future__ import annotations
 
 import pandas as pd
