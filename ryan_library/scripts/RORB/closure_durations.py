@@ -1,8 +1,9 @@
+# ryan_library\scripts\RORB\closure_durations.py
+
 from datetime import datetime
 from pathlib import Path
 from collections.abc import Iterable
 
-from typing import TYPE_CHECKING
 
 import pandas as pd
 from loguru import logger

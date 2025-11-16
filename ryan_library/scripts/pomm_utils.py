@@ -3,26 +3,23 @@
 
 from pathlib import Path
 from multiprocessing import Pool
-from collections.abc import Collection, Iterable, Mapping
+from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime, timezone
-from importlib.metadata import PackageNotFoundError, version
 from typing import Any
 
 import pandas as pd
 from loguru import logger
+from pandas import Series
 
-from ryan_library.classes.column_definitions import ColumnMetadataRegistry
+from ryan_library.classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
 from ryan_library.functions.pandas.median_calc import median_calc
-
-from ryan_library.functions.file_utils import (
-    find_files_parallel,
-    is_non_zero_file,
-)
-from ryan_library.functions.misc_functions import ExcelExporter, calculate_pool_size
+from ryan_library.functions.misc_functions import ExcelExporter, calculate_pool_size, get_tools_version
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
+from ryan_library.functions.tuflow.tuflow_common import collect_files
+from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 NAType = type(pd.NA)
 
@@ -30,52 +27,21 @@ NAType = type(pd.NA)
 DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
 
 
-def collect_files(
-    paths_to_process: Iterable[Path],
-    include_data_types: Iterable[str],
-    suffixes_config: SuffixesConfig,
-) -> list[Path]:
-    """Collect and filter files based on specified data types.
+def _ordered_columns(
+    df: pd.DataFrame,
+    column_groups: Sequence[Sequence[str]],
+    info_columns: Sequence[str],
+) -> list[str]:
+    """Return a column order keeping identifiers first and meta-data last."""
 
-    Args:
-        paths_to_process (list[Path]): Directories to search.
-        include_data_types (list[str] ): List of data types to include.
-        suffixes_config (SuffixesConfig ): Suffixes configuration instance.
+    ordered: list[str] = []
+    for group in column_groups:
+        ordered.extend([column for column in group if column in df.columns])
 
-    Returns:
-        list[Path]: List of valid file paths."""
-
-    csv_file_list: list[Path] = []
-    suffixes: list[str] = []
-
-    # Determine which suffixes to include based on data types
-    # Invert suffixes config
-    data_type_to_suffix: dict[str, list[str]] = suffixes_config.invert_suffix_to_type()
-
-    for data_type in include_data_types:
-        dt_suffixes: list[str] | None = data_type_to_suffix.get(data_type)
-        if not dt_suffixes:
-            logger.error(f"No suffixes found for data type '{data_type}'. Skipping.")
-            continue
-        suffixes.extend(dt_suffixes)
-
-    if not suffixes:
-        logger.error("No suffixes found for the specified data types.")
-        return csv_file_list
-
-    # Prepend '*' for wildcard searching
-    patterns: list[str] = [f"*{suffix}" for suffix in suffixes]
-
-    root_dirs: list[Path] = [p for p in paths_to_process if p.is_dir()]
-    invalid_dirs: set[Path] = set(paths_to_process) - set(root_dirs)
-    for invalid_dir in invalid_dirs:
-        logger.warning(f"Path {invalid_dir} is not a directory. Skipping.")
-
-    matched_files: list[Path] = find_files_parallel(root_dirs=root_dirs, patterns=patterns)
-    csv_file_list.extend(matched_files)
-
-    csv_file_list = [f for f in csv_file_list if is_non_zero_file(f)]
-    return csv_file_list
+    remaining: list[str] = [column for column in df.columns if column not in ordered and column not in info_columns]
+    ordered.extend(remaining)
+    ordered.extend([column for column in info_columns if column in df.columns])
+    return ordered
 
 
 def process_file(file_path: Path, location_filter: frozenset[str] | None = None) -> BaseProcessor:
@@ -306,7 +272,7 @@ def _build_metadata_rows(
         "Generated at": generated_at,
         "Filename timestamp": timestamp if timestamp else "not supplied",
         "Generator module": __name__,
-        "ryan_functions version": _resolve_package_version("ryan_functions"),
+        "ryan_functions version": get_tools_version(package="ryan_functions"),
         "Include POMM sheet": "Yes" if include_pomm else "No",
         f"{aep_dur_sheet_name} rows": str(len(aep_dur_max)),
         f"{aep_sheet_name} rows": str(len(aep_max)),
@@ -320,20 +286,11 @@ def _build_metadata_rows(
             directories_series = aggregated_df["directory_path"].dropna()
         except AttributeError:
             directories_series = pd.Series(dtype="string")
-        unique_directories = sorted({str(Path(dir_value)) for dir_value in directories_series.unique()})
+        unique_directories: list[str] = sorted({str(Path(dir_value)) for dir_value in directories_series.unique()})
         if unique_directories:
             metadata["Source directories"] = "\n".join(unique_directories)
 
     return metadata
-
-
-def _resolve_package_version(package_name: str) -> str:
-    """Return the installed version for ``package_name`` if available."""
-
-    try:
-        return version(package_name)
-    except PackageNotFoundError:
-        return "unknown"
 
 
 def _build_data_dictionary(
@@ -370,7 +327,7 @@ def _build_data_dictionary(
             continue
 
         dtype_map: dict[str, str] = {column: str(dtype) for column, dtype in frame.dtypes.items()}
-        definitions = registry.iter_definitions(columns, sheet_name=sheet_name)
+        definitions: list[ColumnDefinition] = registry.iter_definitions(columns, sheet_name=sheet_name)
 
         for column_name, definition in zip(columns, definitions):
             rows.append(
@@ -384,7 +341,7 @@ def _build_data_dictionary(
             )
 
     return pd.DataFrame(
-        rows,
+        data=rows,
         columns=["sheet", "column", "description", "value_type", "pandas_dtype"],
     )
 
@@ -402,7 +359,6 @@ def save_peak_report(
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
     logger.info(f"Starting export of peak report to {output_path}")
-    logger.info(f"Starting export of peak report to {output_path}")
     save_to_excel(
         aep_dur_max=aep_dur_max,
         aep_max=aep_max,
@@ -411,7 +367,6 @@ def save_peak_report(
         include_pomm=include_pomm,
         timestamp=timestamp,
     )
-    logger.info(f"Completed peak report export to {output_path}")
     logger.info(f"Completed peak report export to {output_path}")
 
 
@@ -447,54 +402,33 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
             rows.append(row)
         median_df = pd.DataFrame(rows)
         if not median_df.empty:
-
-            def norm_tp(value: str | int | float | None) -> str | NAType:
+            # Normalise TP / duration text so the "mean storm equals median storm" flag is stable.
+            def _normalize_tp(value: object) -> str | NAType:
                 if pd.isna(value):
                     return pd.NA
-                cleaned = str(value).replace("TP", "")
-                numeric = pd.to_numeric(cleaned, errors="coerce")
-                return pd.NA if pd.isna(numeric) else f"TP{int(numeric):02d}"
-
-            def norm_duration(value: object) -> float:
-                if pd.isna(value):
-                    return float("nan")
-                text = str(value).strip().lower()
-                suffixes: tuple[str, ...] = (
-                    "hours",
-                    "hour",
-                    "hrs",
-                    "hr",
-                    "h",
-                    "minutes",
-                    "minute",
-                    "mins",
-                    "min",
-                    "m",
-                )
-                for suffix in suffixes:
-                    if text.endswith(suffix):
-                        text = text[: -len(suffix)]
-                        break
-                cleaned = text.strip()
-                numeric = pd.to_numeric(cleaned, errors="coerce")
-                return float(numeric) if pd.notna(numeric) else float("nan")
+                normalized = TuflowStringParser.normalize_tp_label(value)
+                return pd.NA if normalized is None else normalized
 
             for column in ("median_TP", "mean_TP"):
                 if column in median_df.columns:
-                    median_df[column] = median_df[column].apply(norm_tp)
+                    median_df[column] = median_df[column].apply(_normalize_tp)
 
-            mean_storm_matches = pd.Series(False, index=median_df.index)
-            required_cols = {
+            mean_storm_matches: Series[bool] = pd.Series(False, index=median_df.index)
+            required_cols: set[str] = {
                 "median_duration",
                 "mean_Duration",
                 "median_TP",
                 "mean_TP",
             }
             if required_cols.issubset(median_df.columns):
-                median_duration_norm = median_df["median_duration"].map(norm_duration)
-                mean_duration_norm = median_df["mean_Duration"].map(norm_duration)
-                duration_match = median_duration_norm.eq(mean_duration_norm)
-                tp_match = median_df["median_TP"].eq(median_df["mean_TP"])
+                median_duration_norm: Series[float] = median_df["median_duration"].map(
+                    TuflowStringParser.normalize_duration_value
+                )
+                mean_duration_norm: Series[float] = median_df["mean_Duration"].map(
+                    TuflowStringParser.normalize_duration_value
+                )
+                duration_match: Series[bool] = median_duration_norm.eq(mean_duration_norm)
+                tp_match: Series[bool] = median_df["median_TP"].eq(median_df["mean_TP"])
                 mean_storm_matches = (duration_match & tp_match).fillna(False)
 
             median_df["mean_storm_is_median_storm"] = mean_storm_matches
@@ -510,15 +444,11 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
             median_columns: list[str] = ["MedianAbsMax", "median_duration", "median_TP"]
             info_columns: list[str] = ["low", "high", "count", "count_bin", "mean_storm_is_median_storm"]
 
-            ordered_cols: list[str] = []
-            for group in (id_columns, mean_columns, median_columns):
-                ordered_cols.extend([col for col in group if col in median_df.columns])
-
-            remaining_cols: list[str] = [
-                col for col in median_df.columns if col not in ordered_cols and col not in info_columns
-            ]
-            ordered_cols.extend(remaining_cols)
-            ordered_cols.extend([col for col in info_columns if col in median_df.columns])
+            ordered_cols: list[str] = _ordered_columns(
+                df=median_df,
+                column_groups=(id_columns, mean_columns, median_columns),
+                info_columns=info_columns,
+            )
 
             median_df = median_df[ordered_cols]
         logger.info("Created 'aep_dur_median' DataFrame with median records for each AEP-Duration group.")
@@ -551,6 +481,8 @@ def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
             mean_df: pd.DataFrame = aep_dur_median.copy()
             mean_df["_mean_peakflow_numeric"] = pd.to_numeric(mean_df.get("mean_PeakFlow"), errors="coerce")  # type: ignore
             if mean_df["_mean_peakflow_numeric"].notna().any():
+                # When the mean columns are present we track the rows that best represent
+                # the maximum mean independently from the median selection above.
                 idx_mean = (
                     mean_df[mean_df["_mean_peakflow_numeric"].notna()]
                     .groupby(group_cols, observed=True)["_mean_peakflow_numeric"]
@@ -582,45 +514,11 @@ def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
                 "aep_bin",
             ]
 
-            ordered_cols: list[str] = []
-            for group in (id_columns, mean_columns, median_columns):
-                ordered_cols.extend([col for col in group if col in aep_med_max.columns])
-
-            remaining_cols: list[str] = [
-                col for col in aep_med_max.columns if col not in ordered_cols and col not in info_columns
-            ]
-            ordered_cols.extend(remaining_cols)
-            ordered_cols.extend([col for col in info_columns if col in aep_med_max.columns])
-
-            aep_med_max = aep_med_max[ordered_cols]
-        if not aep_med_max.empty:
-            id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
-            mean_columns: list[str] = [
-                "mean_including_zeroes",
-                "mean_excluding_zeroes",
-                "mean_PeakFlow",
-                "mean_Duration",
-                "mean_TP",
-            ]
-            median_columns: list[str] = ["MedianAbsMax", "median_duration", "median_TP"]
-            info_columns: list[str] = [
-                "low",
-                "high",
-                "count",
-                "count_bin",
-                "mean_storm_is_median_storm",
-                "aep_bin",
-            ]
-
-            ordered_cols: list[str] = []
-            for group in (id_columns, mean_columns, median_columns):
-                ordered_cols.extend([col for col in group if col in aep_med_max.columns])
-
-            remaining_cols: list[str] = [
-                col for col in aep_med_max.columns if col not in ordered_cols and col not in info_columns
-            ]
-            ordered_cols.extend(remaining_cols)
-            ordered_cols.extend([col for col in info_columns if col in aep_med_max.columns])
+            ordered_cols: list[str] = _ordered_columns(
+                df=aep_med_max,
+                column_groups=(id_columns, mean_columns, median_columns),
+                info_columns=info_columns,
+            )
 
             aep_med_max = aep_med_max[ordered_cols]
         logger.info("Created 'aep_median_max' DataFrame with maximum median records for each AEP group.")
@@ -647,15 +545,13 @@ def find_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
     ]
     info_columns: list[str] = ["low", "high", "count", "count_bin", "mean_storm_is_median_storm"]
 
-    ordered_cols: list[str] = []
-    for group in (id_columns, mean_columns):
-        ordered_cols.extend([col for col in group if col in aep_dur_median.columns])
-
-    remaining_cols: list[str] = [
-        col for col in aep_dur_median.columns if col not in ordered_cols and col not in info_columns
-    ]
-    ordered_cols.extend(remaining_cols)
-    ordered_cols.extend([col for col in info_columns if col in aep_dur_median.columns])
+    # Keep the mean-focused statistics grouped together; later callers drop any
+    # residual median columns so the mean workflow can diverge independently.
+    ordered_cols: list[str] = _ordered_columns(
+        df=aep_dur_median,
+        column_groups=(id_columns, mean_columns),
+        info_columns=info_columns,
+    )
 
     return aep_dur_median[ordered_cols]
 
@@ -699,15 +595,11 @@ def find_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
                 "mean_bin",
             ]
 
-            ordered_cols: list[str] = []
-            for group in (id_columns, mean_columns):
-                ordered_cols.extend([col for col in group if col in aep_mean_max.columns])
-
-            remaining_cols: list[str] = [
-                col for col in aep_mean_max.columns if col not in ordered_cols and col not in info_columns
-            ]
-            ordered_cols.extend(remaining_cols)
-            ordered_cols.extend([col for col in info_columns if col in aep_mean_max.columns])
+            ordered_cols: list[str] = _ordered_columns(
+                df=aep_mean_max,
+                column_groups=(id_columns, mean_columns),
+                info_columns=info_columns,
+            )
 
             aep_mean_max = aep_mean_max[ordered_cols]
 

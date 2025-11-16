@@ -1,13 +1,15 @@
 # ryan_library\functions\pandas\median_calc.py
-"""Utilities for computing median statistics for grouped data."""
+"""Utilities for summarising grouped statistics for POMM reports."""
+
+from typing import Any
+from collections.abc import Callable
 
 import pandas as pd
 from pandas import DataFrame
-from typing import Any
 
 
-def _median_stats_for_group(durgrp: pd.DataFrame, stat_col: str, tp_col: str, dur_col: str) -> dict[str, Any]:
-    """Return statistics for a single duration group."""
+def summarise_duration_statistics(durgrp: pd.DataFrame, stat_col: str, tp_col: str, dur_col: str) -> dict[str, Any]:
+    """Return median and mean-adjacent statistics for a single duration group."""
 
     ensemblestat: DataFrame = durgrp.sort_values(stat_col, ascending=True, na_position="first")
     r: int = len(ensemblestat.index)
@@ -17,11 +19,11 @@ def _median_stats_for_group(durgrp: pd.DataFrame, stat_col: str, tp_col: str, du
     mean_including_zeroes = float(stat_series.mean())
     mean_excluding_zeroes = float(ensemblestat[ensemblestat[stat_col] != 0][stat_col].mean())
 
-    mean_duration = ensemblestat[dur_col].iloc[medianpos]
-    mean_tp = ensemblestat[tp_col].iloc[medianpos]
+    mean_duration: Any = pd.NA
+    mean_tp: Any = pd.NA
     mean_peak_flow = float("nan")
     if stat_series.notna().any():
-        closest_idx = (stat_series - mean_including_zeroes).abs().idxmin()
+        closest_idx: int | str = (stat_series - mean_including_zeroes).abs().idxmin()
         mean_duration = ensemblestat.loc[closest_idx, dur_col]
         mean_tp = ensemblestat.loc[closest_idx, tp_col]
         mean_peak_flow = float(ensemblestat.loc[closest_idx, stat_col])
@@ -41,11 +43,11 @@ def _median_stats_for_group(durgrp: pd.DataFrame, stat_col: str, tp_col: str, du
     }
 
 
-def median_stats(
+def calculate_median_statistics(
     thinned_df: pd.DataFrame, stat_col: str, tp_col: str, dur_col: str
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Return median statistics for each duration group and the maximum median.
-    The logic mirrors the ``stats`` function in ``TUFLOW_2023_max_med_from POMM_v9.py``.
+    """Return per-duration stats and the record with the largest median.
+    The logic is based on the ``stats`` function in ``TUFLOW_2023_max_med_from POMM_v9.py``.
     For each duration group the DataFrame is sorted by ``statcol``. The median
     value is selected, along with the associated temporal pattern. The group with
     the highest median is returned separately.
@@ -73,8 +75,8 @@ def median_stats(
     tracking_median: float = float("-inf")
     count_bin: int = 0
 
-    for _, durgrp in thinned_df.groupby(by=dur_col):
-        stats_dict: dict[str, Any] = _median_stats_for_group(
+    for _, durgrp in thinned_df.groupby(by=dur_col):  # type: ignore
+        stats_dict: dict[str, Any] = summarise_duration_statistics(
             durgrp=durgrp, stat_col=stat_col, tp_col=tp_col, dur_col=dur_col
         )
 
@@ -98,6 +100,10 @@ def median_stats(
 def median_calc(
     thinned_df: pd.DataFrame, statcol: str, tpcol: str, durcol: str
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """Compatibility wrapper for previous function name."""
+    """Compatibility wrapper retaining the legacy public function name."""
 
-    return median_stats(thinned_df=thinned_df, stat_col=statcol, tp_col=tpcol, dur_col=durcol)
+    return calculate_median_statistics(thinned_df=thinned_df, stat_col=statcol, tp_col=tpcol, dur_col=durcol)
+
+
+# Backwards compatibility for older imports
+median_stats: Callable[..., tuple[dict[str, Any], list[dict[str, Any]]]] = calculate_median_statistics
