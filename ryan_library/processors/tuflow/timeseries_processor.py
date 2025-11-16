@@ -273,6 +273,8 @@ class TimeSeriesProcessor(BaseProcessor):
 
         if data_type == "H":
             col_types.update({"H_US": "float64", "H_DS": "float64"})
+        else:
+            col_types[data_type] = "float64"
 
         self.apply_dtype_mapping(dtype_mapping=col_types, context="final_transformations")
 
