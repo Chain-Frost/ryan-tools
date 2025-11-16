@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import copy
 import math
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
+from subprocess import CompletedProcess
+from tempfile import TemporaryDirectory
 from typing import Any, Callable, Mapping, Sequence, cast
 
 from loguru import logger
@@ -17,11 +21,18 @@ from run_hy8 import (
     CulvertShape,
     FlowDefinition,
     FlowMethod,
+    Hy8Executable,
+    Hy8FileWriter,
     Hy8Project,
+    Hy8Results,
+    RoadwayProfile,
     RoadwaySurface,
     TailwaterDefinition,
     UnitSystem,
+    parse_rsql,
+    parse_rst,
 )
+from run_hy8.results import FlowProfile, Hy8ResultRow, Hy8Series
 
 _SLUG_PATTERN: re.Pattern[str] = re.compile(pattern=r"[^A-Za-z0-9]+")
 
@@ -78,31 +89,20 @@ def _compose_label(internal_name: str, chan_id: str, row_index: int | str | None
     return " / ".join(parts)
 
 
-@dataclass(slots=True)
-class Hy8CulvertOptions:
-    """Configuration controlling how TUFLOW rows are mapped to HY-8 objects."""
-
-    units: UnitSystem = UnitSystem.SI
-    default_material: CulvertMaterial = CulvertMaterial.CONCRETE
-    material_by_flag: dict[str, CulvertMaterial] = field(default_factory=_default_material_map)
-    shape_by_flag: dict[str, CulvertShape] = field(default_factory=_default_shape_map)
-    default_number_of_barrels: int = 1
-    roadway_width_multiplier: float = 6.0
-    minimum_roadway_width: float = 5.0
-    roadway_crest_offset: float = 0.5
-    tailwater_minimum_gap: float = 0.05
-    flow_minimum_factor: float = 0.9
-    flow_maximum_factor: float = 1.1
-    minimum_flow_cms: float = 0.005
-    crossing_name_template: str = "{internal}_{chan}"
-    flow_builder: Callable[["CulvertMaximumRecord", "Hy8CulvertOptions"], FlowDefinition] | None = None
-    roadway_width_builder: Callable[["CulvertMaximumRecord", "Hy8CulvertOptions"], float] | None = None
-    roadway_crest_builder: Callable[["CulvertMaximumRecord", "Hy8CulvertOptions"], float] | None = None
-    barrel_count_builder: Callable[["CulvertMaximumRecord", "Hy8CulvertOptions"], int] | None = None
-    default_inlet_type: int = 1
-    default_inlet_edge_type: int = 0
-    default_inlet_edge_type71: int = 0
-    default_improved_inlet_edge_type: int = 0
+DEFAULT_UNITS: UnitSystem = UnitSystem.SI
+DEFAULT_MATERIAL: CulvertMaterial = CulvertMaterial.CORRUGATED_STEEL
+DEFAULT_NUMBER_OF_BARRELS: int = 1
+TAILWATER_MINIMUM_GAP: float = 0.05
+FLOW_MINIMUM_FACTOR: float = 0.9
+FLOW_MAXIMUM_FACTOR: float = 1.1
+MINIMUM_FLOW_CMS: float = 0.005
+CROSSING_NAME_TEMPLATE: str = "{internal}_{chan}"
+MATERIAL_BY_FLAG: dict[str, CulvertMaterial] = _default_material_map()
+SHAPE_BY_FLAG: dict[str, CulvertShape] = _default_shape_map()
+DEFAULT_INLET_TYPE: int = 1
+DEFAULT_INLET_EDGE_TYPE: int = 0
+DEFAULT_INLET_EDGE_TYPE71: int = 0
+DEFAULT_IMPROVED_INLET_EDGE_TYPE: int = 0
 
 
 @dataclass(slots=True)
@@ -128,6 +128,7 @@ class CulvertMaximumRecord:
     slope_percent: float | None = None
     blockage_percent: float | None = None
     area_culv: float | None = None
+    num_barrels: int | None = None
     raw: Mapping[str, Any] = field(default_factory=_empty_raw_mapping)
 
     @classmethod
@@ -173,6 +174,10 @@ class CulvertMaximumRecord:
         blockage_percent: float | None = _coerce_float(row.get("pBlockage"))
         mannings_n: float | None = _coerce_float(row.get("n or Cd"))
         area_culv: float | None = _coerce_float(row.get("Area_Culv")) or _coerce_float(row.get("area_culv"))
+        num_barrels: float | None = _coerce_float(row.get("num_barrels")) or _coerce_float(row.get("number_interp"))
+        barrels_int: int | None = None
+        if num_barrels and num_barrels > 0:
+            barrels_int = max(1, int(round(num_barrels)))
         normalized_length: float = length if length > 0 else height
         raw_mapping: dict[str, Any] = {str(key): value for key, value in row.items()}
 
@@ -196,6 +201,7 @@ class CulvertMaximumRecord:
             slope_percent=slope_percent,
             blockage_percent=blockage_percent,
             area_culv=area_culv,
+            num_barrels=barrels_int,
             raw=raw_mapping,
         )
 
@@ -207,18 +213,79 @@ class CulvertMaximumRecord:
         return label
 
 
+@dataclass(slots=True)
+class Hy8SingleFlowResult:
+    """Summary of a HY-8 run evaluated at a single requested discharge."""
+
+    crossing_name: str
+    requested_flow: float
+    flow_used: float = math.nan
+    headwater_elevation: float = math.nan
+    headwater_depth: float = math.nan
+    outlet_velocity: float = math.nan
+    flow_type: str = ""
+    roadway_discharge: float = math.nan
+    overtopping: bool = False
+    iterations: str = ""
+
+
+def calculate_headwater_for_flow(
+    record: CulvertMaximumRecord,
+    flow_cms: float,
+    *,
+    hy8_executable: Hy8Executable | Path | str | None = None,
+    workdir: Path | str | None = None,
+    project_title: str | None = None,
+    project_units: UnitSystem = DEFAULT_UNITS,
+) -> Hy8SingleFlowResult:
+    """Build a crossing from ``record`` and run HY-8 for a single discharge."""
+
+    crossing: CulvertCrossing = build_crossing_from_record(record=record)
+    title: str = project_title or record.identifier
+    return run_crossing_for_flow(
+        crossing=crossing,
+        flow_cms=flow_cms,
+        hy8_executable=hy8_executable,
+        workdir=workdir,
+        project_title=title,
+        project_units=project_units,
+    )
+
+
+def run_crossing_for_flow(
+    crossing: CulvertCrossing,
+    flow_cms: float,
+    *,
+    hy8_executable: Hy8Executable | Path | str | None = None,
+    workdir: Path | str | None = None,
+    project_title: str | None = None,
+    project_units: UnitSystem = DEFAULT_UNITS,
+) -> Hy8SingleFlowResult:
+    """Execute HY-8 for ``crossing`` to retrieve headwater, velocity, and flow type."""
+
+    requested_flow: float = _validate_target_flow(flow_cms=flow_cms)
+    crossing_copy: CulvertCrossing = copy.deepcopy(crossing)
+    crossing_copy.flow = _build_single_flow_definition(flow_cms=requested_flow)
+    project_name: str = project_title or crossing_copy.name or "Crossing"
+    return _execute_single_flow_analysis(
+        crossing=crossing_copy,
+        requested_flow=requested_flow,
+        unit_system=project_units,
+        hy8_executable=hy8_executable,
+        workdir=workdir,
+        project_title=project_name,
+    )
+
+
 def maximums_dataframe_to_crossings(
     maximums: DataFrame,
-    *,
-    options: Hy8CulvertOptions | None = None,
 ) -> list[CulvertCrossing]:
     """Convert the Maximums sheet into HY-8 crossings."""
 
-    cfg: Hy8CulvertOptions = options or Hy8CulvertOptions()
     if maximums.empty:
         return []
 
-    raw_rows = cast(
+    raw_rows: list[dict[str, Any]] = cast(
         list[dict[str, Any]],
         maximums.to_dict(orient="records"),  # pyright: ignore[reportUnknownMemberType]
     )
@@ -228,7 +295,12 @@ def maximums_dataframe_to_crossings(
         record: CulvertMaximumRecord | None = CulvertMaximumRecord.from_mapping(raw_row, row_index=idx)
         if record is None:
             continue
-        crossing: CulvertCrossing = build_crossing_from_record(record, options=cfg)
+        if record.flag and record.flag.upper() != "C":
+            logger.debug(
+                "Skipping %s because flag '%s' is not yet supported for HY-8 bridging.", record.identifier, record.flag
+            )
+            continue
+        crossing: CulvertCrossing = build_crossing_from_record(record)
         crossings.append(crossing)
     logger.info("Built %d HY-8 crossings from %d rows.", len(crossings), len(raw_rows))
     return crossings
@@ -240,39 +312,35 @@ def maximums_dataframe_to_project(
     project_title: str,
     designer: str = "",
     project_notes: str | None = None,
-    options: Hy8CulvertOptions | None = None,
+    units: UnitSystem = DEFAULT_UNITS,
 ) -> Hy8Project:
     """Create a Hy8Project populated with crossings from the provided DataFrame."""
 
-    cfg: Hy8CulvertOptions = options or Hy8CulvertOptions()
-    project = Hy8Project(title=project_title, designer=designer, units=cfg.units, notes=project_notes or "")
-    for crossing in maximums_dataframe_to_crossings(maximums, options=cfg):
+    project = Hy8Project(title=project_title, designer=designer, units=units, notes=project_notes or "")
+    for crossing in maximums_dataframe_to_crossings(maximums):
         project.crossings.append(crossing)
     return project
 
 
 def build_crossing_from_record(
     record: CulvertMaximumRecord,
-    *,
-    options: Hy8CulvertOptions | None = None,
 ) -> CulvertCrossing:
     """Generate a single CulvertCrossing from one culvert maximum row."""
 
-    cfg: Hy8CulvertOptions = options or Hy8CulvertOptions()
-    name: str = _resolve_crossing_name(record, cfg)
+    name: str = _resolve_crossing_name(record)
     crossing = CulvertCrossing(name=name)
     crossing.notes = _build_notes(record)
-    crossing.flow = _build_flow(record, cfg)
-    crossing.tailwater = _build_tailwater(record, cfg)
-    _configure_roadway(crossing, record, cfg)
-    crossing.culverts = [_build_barrel(record, cfg)]
+    crossing.flow = _build_flow(record)
+    crossing.tailwater = _build_tailwater(record)
+    _configure_roadway(crossing, record)
+    crossing.culverts = [_build_barrel(record)]
     return crossing
 
 
-def _resolve_crossing_name(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> str:
+def _resolve_crossing_name(record: CulvertMaximumRecord) -> str:
     internal_slug: str = _slugify(record.internal_name or record.trim_runcode or "Scenario")
     chan_slug: str = _slugify(record.chan_id or "CHAN")
-    template: str = options.crossing_name_template or "{internal}_{chan}"
+    template: str = CROSSING_NAME_TEMPLATE
     try:
         raw_name = template.format(internal=internal_slug, chan=chan_slug, record=record)
     except (KeyError, ValueError):
@@ -280,79 +348,100 @@ def _resolve_crossing_name(record: CulvertMaximumRecord, options: Hy8CulvertOpti
     return _slugify(raw_name, fallback=internal_slug)
 
 
-def _build_flow(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> FlowDefinition:
-    if options.flow_builder is not None:
-        return options.flow_builder(record, options)
-
+def _build_flow(record: CulvertMaximumRecord) -> FlowDefinition:
     flow = FlowDefinition(method=FlowMethod.MIN_DESIGN_MAX)
-    design: float = max(options.minimum_flow_cms, record.flow_q)
-    minimum: float = max(options.minimum_flow_cms, design * options.flow_minimum_factor)
-    maximum: float = max(design + options.minimum_flow_cms, design * options.flow_maximum_factor)
+    design: float = max(MINIMUM_FLOW_CMS, record.flow_q)
+    minimum: float = max(MINIMUM_FLOW_CMS, design * FLOW_MINIMUM_FACTOR)
+    maximum: float = max(design + MINIMUM_FLOW_CMS, design * FLOW_MAXIMUM_FACTOR)
     if minimum >= design:
-        design = minimum + options.minimum_flow_cms
+        design = minimum + MINIMUM_FLOW_CMS
     if design >= maximum:
-        maximum = design + options.minimum_flow_cms
+        maximum = design + MINIMUM_FLOW_CMS
     flow.minimum = minimum
     flow.design = design
     flow.maximum = maximum
     return flow
 
 
-def _build_tailwater(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> TailwaterDefinition:
+def _build_tailwater(record: CulvertMaximumRecord) -> TailwaterDefinition:
     tailwater = TailwaterDefinition()
     tailwater.constant_elevation = record.ds_headwater
-    tailwater.invert_elevation = min(record.ds_invert, tailwater.constant_elevation - options.tailwater_minimum_gap)
+    tailwater.invert_elevation = record.ds_invert
     if tailwater.constant_elevation <= tailwater.invert_elevation:
-        tailwater.constant_elevation = record.ds_invert + options.tailwater_minimum_gap
-        tailwater.invert_elevation = record.ds_invert
+        tailwater.constant_elevation = record.ds_invert
     return tailwater
 
 
-def _configure_roadway(crossing: CulvertCrossing, record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> None:
-    width: float = (
-        options.roadway_width_builder(record, options)
-        if options.roadway_width_builder
-        else _default_roadway_width(record, options)
-    )
-    crest: float = (
-        options.roadway_crest_builder(record, options)
-        if options.roadway_crest_builder
-        else _default_roadway_crest(record, options)
-    )
-    width = max(options.minimum_roadway_width, width)
-    crossing.roadway.width = width
-    crossing.roadway.surface = RoadwaySurface.PAVED
-    half_width: float = width / 2.0
-    crossing.roadway.stations = [-half_width, 0.0, half_width]
-    crossing.roadway.elevations = [crest, crest, crest]
+def _configure_roadway(crossing: CulvertCrossing, record: CulvertMaximumRecord) -> None:
+    barrel: CulvertBarrel | None = crossing.culverts[0] if crossing.culverts else None
+    length: float = _roadway_length_from_barrel(barrel, record.length)
+    width: float = _roadway_top_width(length)
+    crest: float = _roadway_crest_from_barrel(barrel, record)
+    width = max(0.5, width)
+    crest_length: float = 10.0
+    flat_start: float = max(0.0, (length - width) / 2.0)
+    flat_end: float = min(length, flat_start + crest_length)
+    if flat_end <= flat_start:
+        flat_start = 0.0
+        flat_end = min(length, crest_length)
+    stations: list[float] = _unique_stations([0.0, flat_start, flat_end, length])
+    if len(stations) < 2:
+        stations = [0.0, max(length, 1.0)]
+    elevations: list[float] = [crest for _ in stations]
+    roadway = RoadwayProfile()
+    roadway.width = width
+    roadway.surface = RoadwaySurface.PAVED
+    roadway.stations = stations
+    roadway.elevations = elevations
+    crossing.roadway = roadway
 
 
-def _default_roadway_width(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> float:
-    return max(options.minimum_roadway_width, record.height * options.roadway_width_multiplier)
+def _roadway_length_from_barrel(barrel: CulvertBarrel | None, fallback_length: float) -> float:
+    if barrel is not None:
+        length = abs(barrel.outlet_invert_station - barrel.inlet_invert_station)
+        if length > 0:
+            return length
+        if barrel.span > 0:
+            return barrel.span
+    return max(fallback_length, 1.0)
 
 
-def _default_roadway_crest(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> float:
-    candidates: list[float] = []
-    for candidate in (
-        record.us_headwater,
-        record.ds_headwater,
-        record.us_obvert or (record.us_invert + record.height),
-        record.ds_obvert or (record.ds_invert + record.height),
-    ):
-        if candidate is not None:
-            candidates.append(candidate)
-    base: float = max(candidates) if candidates else record.ds_headwater
-    return base + max(0.0, options.roadway_crest_offset)
+def _roadway_top_width(length: float) -> float:
+    usable: float = max(length - 0.1, 0.5)
+    return min(5.0, usable)
 
 
-def _build_barrel(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> CulvertBarrel:
+def _roadway_crest_from_barrel(barrel: CulvertBarrel | None, record: CulvertMaximumRecord) -> float:
+    if barrel is not None:
+        height: float = _barrel_height(barrel, fallback=record.height)
+        return barrel.inlet_invert_elevation + max(height, 0.1) * 10.0
+    return record.us_invert + record.height * 10.0
+
+
+def _barrel_height(barrel: CulvertBarrel, fallback: float) -> float:
+    if barrel.rise > 0:
+        return barrel.rise
+    if barrel.span > 0:
+        return barrel.span
+    return max(fallback, 0.5)
+
+
+def _unique_stations(values: Sequence[float]) -> list[float]:
+    ordered: list[float] = []
+    for value in values:
+        if not ordered or not math.isclose(value, ordered[-1], rel_tol=0.0, abs_tol=1e-6):
+            ordered.append(value)
+    return ordered
+
+
+def _build_barrel(record: CulvertMaximumRecord) -> CulvertBarrel:
     barrel = CulvertBarrel(name=record.chan_id or "Barrel")
-    barrel.material = _resolve_material(record, options)
-    barrel.shape = _infer_shape(record, options)
+    barrel.material = _resolve_material(record)
+    barrel.shape = _infer_shape(record)
     span, rise = _resolve_span_rise(record, barrel.shape)
     barrel.span = span
     barrel.rise = rise
-    barrel.number_of_barrels = _resolve_barrel_count(record, options)
+    barrel.number_of_barrels = _resolve_barrel_count(record)
     barrel.inlet_invert_station = 0.0
     barrel.outlet_invert_station = record.length
     barrel.inlet_invert_elevation = record.us_invert
@@ -360,20 +449,20 @@ def _build_barrel(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> C
     if record.mannings_n and record.mannings_n > 0:
         barrel.manning_n_top = record.mannings_n
         barrel.manning_n_bottom = record.mannings_n
-    barrel.inlet_type = options.default_inlet_type
-    barrel.inlet_edge_type = options.default_inlet_edge_type
-    barrel.inlet_edge_type71 = options.default_inlet_edge_type71
-    barrel.improved_inlet_edge_type = options.default_improved_inlet_edge_type
+    barrel.inlet_type = DEFAULT_INLET_TYPE
+    barrel.inlet_edge_type = DEFAULT_INLET_EDGE_TYPE
+    barrel.inlet_edge_type71 = DEFAULT_INLET_EDGE_TYPE71
+    barrel.improved_inlet_edge_type = DEFAULT_IMPROVED_INLET_EDGE_TYPE
     return barrel
 
 
-def _infer_shape(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> CulvertShape:
+def _infer_shape(record: CulvertMaximumRecord) -> CulvertShape:
     flag: str = record.flag
-    if flag and flag in options.shape_by_flag:
-        return options.shape_by_flag[flag]
+    if flag and flag in SHAPE_BY_FLAG:
+        return SHAPE_BY_FLAG[flag]
     chan_hint: str = record.chan_id.split("_")[-1].upper() if record.chan_id else ""
-    if chan_hint in options.shape_by_flag:
-        return options.shape_by_flag[chan_hint]
+    if chan_hint in SHAPE_BY_FLAG:
+        return SHAPE_BY_FLAG[chan_hint]
     return CulvertShape.CIRCLE
 
 
@@ -384,41 +473,22 @@ def _resolve_span_rise(record: CulvertMaximumRecord, shape: CulvertShape) -> tup
     return record.height, record.height
 
 
-def _resolve_barrel_count(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> int:
-    if options.barrel_count_builder is not None:
-        count: int = options.barrel_count_builder(record, options)
-        return max(1, count)
-    if record.area_culv and record.area_culv > 0:
-        single_area: float = _culvert_cross_section_area(record, options)
-        if single_area > 0:
-            derived: int = max(1, round(record.area_culv / single_area))
-            logger.debug(
-                "Derived %d barrels from Area_Culv %.3f m2 (single %.3f m2).",
-                derived,
-                record.area_culv,
-                single_area,
-            )
-            return derived
-        logger.debug(
-            "Area-based barrel estimate not implemented for flag '%s'; falling back to defaults.",
-            record.flag,
-        )
-    return max(1, options.default_number_of_barrels)
+def _resolve_barrel_count(record: CulvertMaximumRecord) -> int:
+    if record.num_barrels and record.num_barrels > 0:
+        return record.num_barrels
+    logger.warning(
+        "Missing num_barrels for %s; defaulting to %d. Provide num_barrels for circular culverts.",
+        record.identifier,
+        DEFAULT_NUMBER_OF_BARRELS,
+    )
+    return max(1, DEFAULT_NUMBER_OF_BARRELS)
 
 
-def _culvert_cross_section_area(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> float:
-    shape: CulvertShape = _infer_shape(record, options)
-    if shape is CulvertShape.CIRCLE:
-        return math.pi * (record.height / 2.0) ** 2
-    # TODO: support rectangular culverts once Area_Culv width inference is implemented.
-    return 0.0
-
-
-def _resolve_material(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> CulvertMaterial:
+def _resolve_material(record: CulvertMaximumRecord) -> CulvertMaterial:
     flag: str = record.flag
-    if flag and flag in options.material_by_flag:
-        return options.material_by_flag[flag]
-    return options.default_material
+    if flag and flag in MATERIAL_BY_FLAG:
+        return MATERIAL_BY_FLAG[flag]
+    return DEFAULT_MATERIAL
 
 
 def _build_notes(record: CulvertMaximumRecord) -> str:
@@ -438,10 +508,155 @@ def _build_notes(record: CulvertMaximumRecord) -> str:
     return "; ".join(entries)
 
 
+def _validate_target_flow(flow_cms: float) -> float:
+    try:
+        value = float(flow_cms)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Flow must be numeric: {flow_cms!r}") from exc
+    if math.isnan(value) or value <= 0:
+        raise ValueError(f"Flow must be greater than zero (received {flow_cms!r}).")
+    return value
+
+
+def _build_single_flow_definition(flow_cms: float) -> FlowDefinition:
+    target: float = max(MINIMUM_FLOW_CMS, flow_cms)
+    flow = FlowDefinition(method=FlowMethod.USER_DEFINED)
+    flow.user_values = [target]
+    flow.minimum = target
+    flow.design = target
+    flow.maximum = target
+    return flow
+
+
+def _execute_single_flow_analysis(
+    crossing: CulvertCrossing,
+    *,
+    requested_flow: float,
+    unit_system: UnitSystem,
+    hy8_executable: Hy8Executable | Path | str | None,
+    workdir: Path | str | None,
+    project_title: str,
+) -> Hy8SingleFlowResult:
+    executor: Hy8Executable = _coerce_executable(executable=hy8_executable)
+    project = Hy8Project(title=project_title, designer="ryan-tools", units=unit_system)
+    project.crossings.append(crossing)
+    workdir_path, cleanup = _prepare_workdir(path=workdir)
+    slug: str = _slugify(value=project_title, fallback="Crossing")
+    hy8_path: Path = workdir_path / f"{slug}.hy8"
+    try:
+        Hy8FileWriter(project).write(output_path=hy8_path, overwrite=True)
+        logger.debug("Running HY-8 for %s at %.3f cms (workdir=%s)", crossing.name, requested_flow, workdir_path)
+        process: CompletedProcess[str] = executor.open_run_save(hy8_file=hy8_path, check=False)
+        if process.returncode != 0:
+            summary: str = _summarize_process_output(output=process.stderr) or _summarize_process_output(
+                output=process.stdout
+            )
+            message: str = f"HY-8 returned exit code {process.returncode} for {hy8_path}"
+            if summary:
+                message = f"{message}:\n{summary}"
+            raise RuntimeError(message)
+        result: Hy8SingleFlowResult = _parse_single_crossing_results(
+            crossing=crossing,
+            hy8_path=hy8_path,
+            requested_flow=requested_flow,
+        )
+        logger.debug(
+            "HY-8 complete for %s: flow %.3f cms -> HW %.3f, velocity %.3f",
+            crossing.name,
+            requested_flow,
+            result.headwater_elevation,
+            result.outlet_velocity,
+        )
+        return result
+    finally:
+        cleanup()
+
+
+def _prepare_workdir(path: Path | str | None) -> tuple[Path, Callable[[], None]]:
+    if path is not None:
+        target = Path(path)
+        target.mkdir(parents=True, exist_ok=True)
+        return target, lambda: None
+    temp = TemporaryDirectory(prefix="hy8_single_flow_")
+    return Path(temp.name), temp.cleanup
+
+
+def _coerce_executable(executable: Hy8Executable | Path | str | None) -> Hy8Executable:
+    if executable is None:
+        return Hy8Executable()
+    if isinstance(executable, Hy8Executable):
+        return executable
+    return Hy8Executable(Path(executable))
+
+
+def _parse_single_crossing_results(
+    crossing: CulvertCrossing,
+    *,
+    hy8_path: Path,
+    requested_flow: float,
+) -> Hy8SingleFlowResult:
+    rst_path: Path = hy8_path.with_suffix(".rst")
+    if not rst_path.exists():
+        raise FileNotFoundError(f"HY-8 RST output not found for {hy8_path}.")
+    rst_entries: dict[str, Hy8Series] = parse_rst(rst_path)
+    entry: Hy8Series | None = rst_entries.get(crossing.name)
+    if not entry:
+        raise RuntimeError(f"Crossing '{crossing.name}' not found in {rst_path.name}.")
+    rsql_path: Path = hy8_path.with_suffix(".rsql")
+    profile_data: dict[str, list[FlowProfile]] = parse_rsql(rsql_path) if rsql_path.exists() else {}
+    profiles: list[FlowProfile] | None = profile_data.get(crossing.name)
+    results = Hy8Results(entry, profiles)
+    row: Hy8ResultRow | None = results.nearest(requested_flow)
+    if row is None:
+        raise RuntimeError(f"HY-8 output did not include discharge values for {crossing.name}.")
+    headwater_elevation, headwater_depth = _resolve_headwater_elevation(crossing, row)
+    return Hy8SingleFlowResult(
+        crossing_name=crossing.name,
+        requested_flow=requested_flow,
+        flow_used=row.flow,
+        headwater_elevation=headwater_elevation,
+        headwater_depth=headwater_depth,
+        outlet_velocity=row.velocity,
+        flow_type=row.flow_type,
+        roadway_discharge=row.roadway_discharge,
+        overtopping=row.overtopping,
+        iterations=row.iterations,
+    )
+
+
+def _resolve_headwater_elevation(crossing: CulvertCrossing, row: Hy8ResultRow) -> tuple[float, float]:
+    headwater_elevation: float = row.headwater_elevation
+    headwater_depth: float = row.headwater_depth
+    invert: float | None = _upstream_invert_reference(crossing)
+    if invert is not None and not math.isnan(headwater_depth):
+        headwater_elevation = invert + headwater_depth
+    return headwater_elevation, headwater_depth
+
+
+def _upstream_invert_reference(crossing: CulvertCrossing) -> float | None:
+    if crossing.culverts:
+        return crossing.culverts[0].inlet_invert_elevation
+    return None
+
+
+def _summarize_process_output(output: str, limit: int = 12) -> str:
+    if not output:
+        return ""
+    lines: list[str] = [line.strip() for line in output.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    if len(lines) > limit:
+        omitted = len(lines) - limit
+        lines = [f"... ({omitted} lines omitted) ...", *lines[-limit:]]
+    return "\n".join(lines)
+
+
 __all__ = [
     "CulvertMaximumRecord",
-    "Hy8CulvertOptions",
+    "Hy8SingleFlowResult",
     "build_crossing_from_record",
+    "calculate_headwater_for_flow",
     "maximums_dataframe_to_crossings",
     "maximums_dataframe_to_project",
+    "run_crossing_for_flow",
 ]
