@@ -1,12 +1,15 @@
 # ryan_library/processors/tuflow/ChanProcessor.py
 
+from ryan_library.processors.tuflow.base_processor import ProcessorStatus
 from .max_data_processor import MaxDataProcessor
+import pandas as pd
+from loguru import logger
 
 
 class ChanProcessor(MaxDataProcessor):
     """Processor for '_1d_Chan.csv' files."""
 
-    def process(self) -> pd.DataFrame:
+    def process(self) -> None:
         """Process the '_1d_Chan.csv' file and return a cleaned DataFrame.
         Returns:
             pd.DataFrame: Processed Chan data."""
@@ -18,7 +21,7 @@ class ChanProcessor(MaxDataProcessor):
             if status is not ProcessorStatus.SUCCESS:
                 logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             # Calculate Height
             if "LBUS Obvert" in self.df.columns and "US Invert" in self.df.columns:
@@ -27,7 +30,7 @@ class ChanProcessor(MaxDataProcessor):
             else:
                 logger.error(f"Required columns for calculating Height are missing in file {self.file_path}.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             # Rename 'Channel' to 'Chan ID'
             if "Channel" in self.df.columns:
@@ -36,7 +39,7 @@ class ChanProcessor(MaxDataProcessor):
             else:
                 logger.error(f"'Channel' column is missing in file {self.file_path}.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             # Rename 'LBUS Obvert' to 'US Obvert'
             if "LBUS Obvert" in self.df.columns:
@@ -45,7 +48,7 @@ class ChanProcessor(MaxDataProcessor):
             else:
                 logger.error(f"'LBUS Obvert' column is missing in file {self.file_path}.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             # Proceed with common processing steps from BaseProcessor
             self.add_common_columns()
@@ -55,14 +58,14 @@ class ChanProcessor(MaxDataProcessor):
             if not self.validate_data():
                 logger.error(f"{self.file_name}: Data validation failed.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             self.processed = True
             logger.info(f"Completed processing of Chan file: {self.file_path}")
 
-            return self.df
+            return
 
         except Exception as e:
             logger.error(f"Failed to process Chan file {self.file_path}: {e}")
             self.df = pd.DataFrame()
-            return self.df
+            return

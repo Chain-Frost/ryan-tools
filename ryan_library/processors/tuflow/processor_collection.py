@@ -1,9 +1,11 @@
 # ryan_library/processors/tuflow/processor_collection.py
 
 from collections.abc import Collection
+from math import pi
 from loguru import logger
 import pandas as pd
-from pandas import DataFrame
+from pandas import DataFrame, Series
+from pandas import Index
 from ryan_library.functions.dataframe_helpers import (
     reorder_columns,
     reorder_long_columns,
@@ -125,20 +127,7 @@ class ProcessorCollection:
 
         combined_df = reorder_long_columns(df=combined_df)
 
-        grouped_df: DataFrame = combined_df.groupby(group_keys).agg("max").reset_index()  # type: ignore
-
-        value_columns: list[str] = [col for col in grouped_df.columns if col not in group_keys]
-        if value_columns:
-            before_drop: int = len(grouped_df)
-            grouped_df.dropna(subset=value_columns, how="all", inplace=True)
-            after_drop: int = len(grouped_df)
-            if after_drop != before_drop:
-                logger.debug(
-                    "Dropped %d all-null rows while combining Timeseries outputs.",
-                    before_drop - after_drop,
-                )
-            grouped_df.reset_index(drop=True, inplace=True)
-
+        grouped_df: DataFrame = combined_df.groupby(group_keys).agg("max").reset_index()
         logger.debug(f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows.")
 
         return grouped_df
@@ -175,6 +164,7 @@ class ProcessorCollection:
             logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
 
         combined_df = reorder_long_columns(df=combined_df)
+        combined_df = self._ensure_location_identifier(df=combined_df)
         # Reset categorical ordering
         combined_df = reset_categorical_ordering(combined_df)
 
@@ -185,13 +175,15 @@ class ProcessorCollection:
             logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
             return pd.DataFrame()
 
-        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()  # type: ignore
+        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()
         p1_col: list[str] = [
             "trim_runcode",
             "aep_text",
             "duration_text",
             "tp_text",
+            "Location ID",
             "Chan ID",
+            "ID",
             "Q",
             "V",
             "DS_h",
@@ -202,6 +194,7 @@ class ProcessorCollection:
             "Flags",
             "Height",
             "Length",
+            "num_barrels",
         ]
 
         p2_col: list[str] = [
@@ -223,6 +216,79 @@ class ProcessorCollection:
         logger.debug(f"Grouped {len(maximums_processors)} Maximums/ccA DataFrame with {len(grouped_df)} rows.")
         logger.debug("line157")
         return grouped_df
+
+    def _calculate_num_barrels(self, df: DataFrame) -> DataFrame:
+        """Derive the number of circular barrels for C-type culverts."""
+        required_columns: set[str] = {"Flags", "Area_Culv", "Height"}
+        missing_columns: set[str] = required_columns - set(df.columns)
+        if missing_columns:
+            logger.debug(f"Skipping num_barrels calculation; missing columns: {sorted(missing_columns)}")
+            return df
+
+        if df.empty:
+            return df
+
+        culvert_type: Series = df["Flags"].astype("string").str.strip()
+        sample_flags: list[str] = [flag for flag in culvert_type.dropna().unique().tolist()[:5]]
+        if sample_flags:
+            logger.debug(f"num_barrels: Flags sample = {sample_flags}")
+        else:
+            logger.debug("num_barrels: Flags column contained no values.")
+        area_series: Series = pd.to_numeric(df["Area_Culv"], errors="coerce")
+        height_series: Series = pd.to_numeric(df["Height"], errors="coerce")
+
+        is_c_type: Series = culvert_type.str.upper().str.startswith("C")
+        valid_mask: Series = is_c_type & area_series.notna() & height_series.notna() & (height_series > 0)
+        candidate_count: int = int(is_c_type.sum())
+        valid_count: int = int(valid_mask.sum())
+        logger.debug(f"num_barrels: {candidate_count} C-type candidates, {valid_count} with valid geometry.")
+
+        num_barrels: Series = pd.Series(pd.NA, index=df.index, dtype="Int64")
+
+        if not valid_mask.any():
+            df["num_barrels"] = num_barrels
+            logger.debug("num_barrels calculation skipped; no C-type culverts present.")
+            return df
+
+        computed: Series = (area_series.loc[valid_mask] * 4.0) / (pi * (height_series.loc[valid_mask] ** 2))
+
+        tolerance: float = 5e-2
+        non_integer_mask: Series[bool] = (computed - computed.round()).abs() > tolerance
+        if non_integer_mask.any():
+            bad_indices: Index = computed.index[non_integer_mask]
+            logger.error(f"num_barrels calculation produced non-integer values for rows: {list(bad_indices)}")
+            computed = computed.mask(non_integer_mask)
+
+        rounded: Series[int] = computed.round().astype("Int64")
+        num_barrels.loc[rounded.index] = rounded
+
+        df["num_barrels"] = num_barrels
+        logger.debug(f"Calculated num_barrels for {int(valid_mask.sum())} C-type culvert rows.")
+        return df
+
+    def _ensure_location_identifier(self, df: DataFrame) -> DataFrame:
+        """Ensure a 'Location ID' column exists for grouping maximum datasets."""
+        if df.empty:
+            df["Location ID"] = pd.Series(dtype="string")
+            return df
+
+        candidate_columns: list[str] = ["Chan ID", "ID", "Location"]
+        available_columns: list[str] = [col for col in candidate_columns if col in df.columns]
+
+        if not available_columns:
+            logger.error("No location-based columns available to derive 'Location ID'.")
+            df["Location ID"] = pd.Series(pd.NA, index=df.index, dtype="string")
+            return df
+
+        location_series: pd.Series = pd.Series(pd.NA, index=df.index, dtype="string")
+        for column in available_columns:
+            source_values: Series[str] = df[column].astype("string")
+            mask: Series[bool] = location_series.isna() & source_values.notna()
+            if mask.any():
+                location_series.loc[mask] = source_values.loc[mask]
+
+        df["Location ID"] = location_series
+        return df
 
     def combine_raw(self) -> pd.DataFrame:
         """Concatenate all DataFrames together without any grouping.
@@ -272,16 +338,15 @@ class ProcessorCollection:
         """Combine processed PO timeseries files into a single tidy DataFrame."""
         logger.debug("Combining PO timeseries data.")
 
-        po_processors: list[BaseProcessor] = [
-            processor for processor in self.processors if processor.data_type.upper() == "PO"
-        ]
+        # Filter processors with dataformat 'PO'
+        po_processors: list[BaseProcessor] = [p for p in self.processors if p.dataformat.lower() == "po"]
+
         if not po_processors:
             logger.warning("No PO processors available for combination.")
             return pd.DataFrame()
 
-        combined_df: pd.DataFrame = pd.concat(
-            [processor.df for processor in po_processors if not processor.df.empty], ignore_index=True
-        )
+        # Concatenate DataFrames
+        combined_df = pd.concat([p.df for p in po_processors if not p.df.empty], ignore_index=True)
         logger.debug(f"Combined {len(po_processors)} PO DataFrame with {len(combined_df)} rows.")
 
         if combined_df.empty:
