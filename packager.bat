@@ -3,11 +3,12 @@ REM packager.bat
 setlocal
 
 REM Define the build and package directories
-set "BUILD_DIR=C:\temp\ryan-tools-build"
+if defined TEMP (
+    set "BUILD_DIR=%TEMP%\ryan-tools-build"
+) else (
+    set "BUILD_DIR=%~dp0build"
+)
 set "PACKAGE_DIR=%~dp0dist"
-
-REM Ensure the build directory exists
-if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 
 REM Navigate to the directory containing the setup.py script
 cd /d "%~dp0"
@@ -15,7 +16,12 @@ cd /d "%~dp0"
 REM Clean previous builds
 if exist "%PACKAGE_DIR%" rmdir /s /q "%PACKAGE_DIR%"
 if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
-mkdir "%BUILD_DIR%"
+mkdir "%BUILD_DIR%" >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo Failed to create build directory at %BUILD_DIR%.
+    endlocal
+    goto :EOF
+)
 
 REM Install the build tool if it's not already installed
 python -m pip install --upgrade build >nul 2>&1
