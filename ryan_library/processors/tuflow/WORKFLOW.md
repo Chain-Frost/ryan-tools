@@ -164,6 +164,58 @@ The metadata columns added by the base class fall into three groups:
 Because these columns are injected into every processed DataFrame they form the
 key alignment attributes for the aggregation steps.
 
+## Processor-specific workflows
+
+### `POMMProcessor`
+
+`POMMProcessor` loads the chart-style CSV with `pd.read_csv(..., header=None)`
+so that the first column of row labels can be dropped before transposing the
+matrix into a tidy orientation.【F:ryan_library/processors/tuflow/POMMProcessor.py†L43-L60】  The first row after the transpose
+becomes the header that is validated against `processingParts.expected_in_header`
+from the configuration, which mirrors the original POMM row labels prior to the
+rename step.【F:ryan_library/processors/tuflow/POMMProcessor.py†L75-L89】【F:ryan_library/classes/tuflow_results_validation_and_datatypes.json†L2-L35】  Once the expected strings are present the
+processor renames them to the canonical `Type`, `Location`, `Max`, `Min`,
+`Tmax`, and `Tmin` columns and casts the subset covered by `columns_to_use`
+using the types declared in the same JSON block.【F:ryan_library/processors/tuflow/POMMProcessor.py†L80-L104】【F:ryan_library/classes/tuflow_results_validation_and_datatypes.json†L18-L35】
+
+Two defensive checks guard the downstream metrics calculation. Missing rename
+sources raise a `DataValidationError`, while `_derive_abs_metrics` short-circuits
+if either `Max` or `Min` slipped through the earlier validation so that partial
+files do not trigger a crash.【F:ryan_library/processors/tuflow/POMMProcessor.py†L82-L104】【F:ryan_library/processors/tuflow/POMMProcessor.py†L26-L36】  When both extrema exist, the helper derives
+`AbsMax` and `SignedAbsMax` before the shared metadata is attached.
+
+POMM outputs are assigned their own `dataformat` in
+`tuflow_results_validation_and_datatypes.json`, so the collection class combines
+them with `ProcessorCollection.pomm_combine`—a straight concatenation without
+grouping—rather than the standard time- or channel-based aggregations that are
+used for other formats.【F:ryan_library/classes/tuflow_results_validation_and_datatypes.json†L18-L35】【F:ryan_library/processors/tuflow/processor_collection.py†L182-L206】
+
+### `POProcessor`
+
+`POProcessor` also starts with `pd.read_csv(..., header=None, dtype=str)` to
+capture the two header rows that describe measurement type and location before
+handing the DataFrame to `_parse_point_output`.【F:ryan_library/processors/tuflow/POProcessor.py†L16-L37】  The parser drops the first
+column (which contains run metadata), splits the remaining table into the
+measurement row, location row, and data body, then coerces all numeric rows to
+floats.【F:ryan_library/processors/tuflow/POProcessor.py†L59-L83】  `_locate_time_column` searches both header rows for a
+`Time` label so that even files with inconsistent casing or placement can be
+normalised; failing to find one aborts processing early with a clear log message.【F:ryan_library/processors/tuflow/POProcessor.py†L71-L144】
+
+Each measurement column is converted to `float64` values and discarded when the
+series is entirely NaN, ensuring that blank sensors do not pollute the long-form
+output. Remaining columns are stacked into tidy frames with `Time`, `Location`,
+`Type`, and `Value` columns, mirroring the schema declared in the JSON
+configuration.【F:ryan_library/processors/tuflow/POProcessor.py†L85-L131】【F:ryan_library/classes/tuflow_results_validation_and_datatypes.json†L38-L56】  The `processingParts.dataformat` stays set to
+`Timeseries` so PO results participate in the same downstream expectations and
+grouping rules as other time-stepped outputs even though the raw layout is
+re-shaped in bespoke code.【F:ryan_library/classes/tuflow_results_validation_and_datatypes.json†L49-L56】【F:ryan_library/processors/tuflow/processor_collection.py†L35-L81】
+
+At the collection stage PO processors can either flow through the generic
+timeseries combiner or use the dedicated `po_combine` helper, which simply
+concatenates tidy outputs and sorts them by run, location, type, and time. This
+contrasts with the POMM path where `pomm_combine` performs no grouping because
+the processor already materialises the max/min rows it needs.【F:ryan_library/processors/tuflow/processor_collection.py†L35-L206】【F:ryan_library/processors/tuflow/processor_collection.py†L208-L238】
+
 ## Downstream aggregation
 
 `ProcessorCollection` consumes processed `BaseProcessor` instances and merges
