@@ -87,5 +87,10 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
 ---
 
-*End of AGENTS.md*
+### 8. Environment Notes
 
+* On machines joined to the `bge-resources.com` domain (e.g., where `USERDNSDOMAIN=bge-resources.com` or `USERDOMAIN=BGER`), PowerShell sometimes fails to stream file contents reliably. When working on these systems, prefer running commands through `cmd.exe` (e.g., `cmd.exe /C type path\to\file`) so files load correctly in the Codex CLI.
+
+---
+
+*End of AGENTS.md*
