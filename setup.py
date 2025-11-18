@@ -5,7 +5,7 @@ setup(
     name="ryan_functions",
     # Version scheme: yy.mm.dd.release_number
     # Increment when publishing new wheels
-    version="25.11.17.4",
+    version="25.11.18.2",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},

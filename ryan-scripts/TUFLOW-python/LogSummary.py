@@ -15,9 +15,7 @@ def main() -> None:
     console_log_level = "INFO"  # or "DEBUG"
     # Determine the script directory
     script_directory: Path = Path(__file__).absolute().parent
-    # script_directory = Path(
-    #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
-    # )
+    # script_directory = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03")
 
     if not change_working_directory(target_dir=script_directory):
         return
