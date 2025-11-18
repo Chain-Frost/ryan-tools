@@ -1,0 +1,8 @@
+Repository: https://github.com/Chain-Frost/run-hy8.git
+Commit: ebb79fb0f1904ee13754413ff102dd05b4d20a65 (detached)
+Retrieved: 2025-11-17
+
+Update instructions:
+1. From repository root run `git submodule update --remote vendor/run_hy8`.
+2. Verify the new commit hash matches expectations and update this file.
+3. Commit the submodule pointer change alongside any dependent code changes.

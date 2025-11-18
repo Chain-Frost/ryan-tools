@@ -3,8 +3,8 @@ line-length = 120
 target-version = ['py313']
 include = '\.pyi?$'
 
-[tool.mypy]
-python_version="3.13"
-strict=true
-show_error_codes=true
-files=["ryan_library","ryan_scripts"]
+[tool.pyright]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+include = ["ryan_library", "ryan_scripts"]
+extraPaths = ["vendor", "vendor/run_hy8/src"]
