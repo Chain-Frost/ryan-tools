@@ -192,14 +192,13 @@ class ProcessorCollection:
 
         grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()
         grouped_df = self._calculate_num_barrels(df=grouped_df)
+        grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
         p1_col: list[str] = [
             "trim_runcode",
             "aep_text",
             "duration_text",
             "tp_text",
-            "Location ID",
             "Chan ID",
-            "ID",
             "Q",
             "V",
             "DS_h",
@@ -209,18 +208,25 @@ class ProcessorCollection:
             "DS Invert",
             "Flags",
             "Height",
+            "HW_D",
             "Length",
             "num_barrels",
+            "Location ID",
         ]
 
         p2_col: list[str] = [
             "aep_numeric",
             "duration_numeric",
             "tp_numeric",
-            "internalName",
             "pBlockage",
             "pSlope",
             "n or Cd",
+            "internalName",
+            "pFull_Max",
+            "pTime_Full",
+            "Area_Culv",
+            "Dur_Full",
+            "Dur_10pFull",
         ]
         logger.debug("adjusting df columns")
         grouped_df = reorder_columns(
@@ -280,6 +286,42 @@ class ProcessorCollection:
 
         df["num_barrels"] = num_barrels
         logger.debug(f"Calculated num_barrels for {int(valid_mask.sum())} C-type culvert rows.")
+        return df
+
+    def _calculate_hw_d_ratio(self, df: DataFrame) -> DataFrame:
+        """Calculate the HW_D ratio = (US_h - US Invert) / Height."""
+        required_columns: set[str] = {"US_h", "US Invert", "Height"}
+        missing_columns: set[str] = required_columns - set(df.columns)
+        if missing_columns:
+            logger.debug(f"Skipping HW_D calculation; missing columns: {sorted(missing_columns)}")
+            return df
+
+        if df.empty:
+            df["HW_D"] = pd.Series(dtype="Float64")
+            return df
+
+        us_h_series: Series = pd.to_numeric(df["US_h"], errors="coerce")
+        us_invert_series: Series = pd.to_numeric(df["US Invert"], errors="coerce")
+        height_series: Series = pd.to_numeric(df["Height"], errors="coerce")
+
+        valid_mask: Series[bool] = (
+            us_h_series.notna() & us_invert_series.notna() & height_series.notna() & (height_series != 0)
+        )
+
+        hw_d_series: Series = pd.Series(data=pd.NA, index=df.index, dtype="Float64")
+        valid_count: int = int(valid_mask.sum())
+
+        if not valid_mask.any():
+            df["HW_D"] = hw_d_series
+            logger.debug("HW_D calculation skipped; insufficient valid data.")
+            return df
+
+        hw_d_series.loc[valid_mask] = (
+            us_h_series.loc[valid_mask] - us_invert_series.loc[valid_mask]
+        ) / height_series.loc[valid_mask]
+
+        df["HW_D"] = hw_d_series
+        logger.debug(f"Calculated HW_D ratio for {valid_count} rows.")
         return df
 
     def _ensure_location_identifier(self, df: DataFrame) -> DataFrame:
