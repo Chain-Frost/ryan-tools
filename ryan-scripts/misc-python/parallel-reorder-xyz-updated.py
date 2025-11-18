@@ -33,7 +33,7 @@ from ryan_library.functions.misc_functions import calculate_pool_size
 
 def main() -> None:
     startTime: datetime = datetime.now()
-    os.chdir(r"C:\Users\Ryan.Brook\Downloads\2024 Unity - Woolpert LiDAR - June\03_DEMs\DEM")
+    os.chdir(r"C:\Users\Ryan.Brook\Downloads\2019 Unity - AAM - LiDAR - Jan\04_DSM")
     # Mirror the source folder layout by dropping finished files into a local "mod" directory.
     output_dir: str = os.path.join(os.getcwd(), "mod")
     os.makedirs(output_dir, exist_ok=True)
