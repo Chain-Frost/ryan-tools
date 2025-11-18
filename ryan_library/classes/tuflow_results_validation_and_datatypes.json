@@ -220,5 +220,15 @@
         "V"
       ]
     }
+  },
+  "TLF": {
+    "processor": "",
+    "suffixes": [
+      ".tlf"
+    ],
+    "output_columns": {},
+    "processingParts": {
+      "dataformat": ""
+    }
   }
 }
