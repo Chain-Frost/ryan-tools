@@ -26,11 +26,11 @@ REM ================================
 REM Set Input/Output Paths
 REM ================================
 REM Folder containing the individual TIFF files
-set "inputFolder=C:\Users\Ryan.Brook\Downloads\2024 Unity - Woolpert LiDAR - June\03_DEMs\DEM\mod"
+set "inputFolder=C:\Users\Ryan.Brook\Downloads\2024 Unity - Woolpert LiDAR - June\03_DEMs\DSM\mod"
 
 REM Output mosaic filenames (adjust these paths as needed)
-set "outputVRT=C:\Users\Ryan.Brook\Downloads\2024 Unity - Woolpert LiDAR - June\03_DEMs\DEM\mod\Woolpert_2024_DEM.vrt"
-set "outputTIF=C:\Users\Ryan.Brook\Downloads\2024 Unity - Woolpert LiDAR - June\03_DEMs\DEM\mod\Woolpert_2024_DEM.tif"
+set "outputVRT=C:\Users\Ryan.Brook\Downloads\2024 Unity - Woolpert LiDAR - June\03_DEMs\DEM\mod\Woolpert_2024_DSM.vrt"
+set "outputTIF=C:\Users\Ryan.Brook\Downloads\2024 Unity - Woolpert LiDAR - June\03_DEMs\DEM\mod\Woolpert_2024_DSM.tif"
 
 REM ================================
 REM Change to Input Folder
