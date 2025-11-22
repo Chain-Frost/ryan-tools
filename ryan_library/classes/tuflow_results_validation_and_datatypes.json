@@ -63,7 +63,7 @@
     },
     "processingParts": {
       "dataformat": "Maximums",
-      "module": "1d_maximums",
+      "module": "maximums_1d",
       "columns_to_use": {
         "Chan ID": "string",
         "Qmax": "float",
@@ -86,7 +86,7 @@
     },
     "processingParts": {
       "dataformat": "Maximums",
-      "module": "1d_maximums",
+      "module": "maximums_1d",
       "columns_to_use": {
         "Node ID": "string",
         "Hmax": "float",
@@ -148,6 +148,7 @@
     },
     "processingParts": {
       "dataformat": "ccA",
+      "module": "maximums_1d",
       "columns_to_use": {
         "Channel": "string",
         "pFull_Max": "float",
@@ -200,7 +201,7 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
-      "module": "1d_timeseries",
+      "module": "timeseries_1d",
       "expected_in_header": [
         "Time",
         "Chan ID",
@@ -221,6 +222,7 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
+      "module": "timeseries_1d",
       "expected_in_header": [
         "H"
       ]
@@ -238,7 +240,7 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
-      "module": "1d_timeseries",
+      "module": "timeseries_1d",
       "expected_in_header": [
         "Time",
         "Chan ID",
@@ -258,7 +260,7 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
-      "module": "1d_timeseries",
+      "module": "timeseries_1d",
       "expected_in_header": [
         "Time",
         "Chan ID",

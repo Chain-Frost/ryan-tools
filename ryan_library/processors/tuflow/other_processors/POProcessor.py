@@ -6,7 +6,7 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame, Series
 
-from .base_processor import BaseProcessor
+from ..base_processor import BaseProcessor
 
 
 class POProcessor(BaseProcessor):
@@ -14,7 +14,7 @@ class POProcessor(BaseProcessor):
 
     VALUE_COLUMNS: list[str] = ["Time", "Location", "Type", "Value"]
 
-    def process(self) -> pd.DataFrame:
+    def process(self) -> None:
         """Parse the CSV, reshape it to long format, and add common columns."""
         logger.info(f"Starting processing of PO file: {self.file_path}")
 
@@ -24,13 +24,13 @@ class POProcessor(BaseProcessor):
         except Exception as exc:  # pragma: no cover - IO errors handled here
             logger.exception(f"{self.file_name}: Failed to read CSV file: {exc}")
             self.df = pd.DataFrame()
-            return self.df
+            return
 
         tidy_df: DataFrame = self._parse_point_output(raw_df=raw_df)
         if tidy_df.empty:
             logger.warning(f"{self.file_name}: No point output values found after processing.")
             self.df = tidy_df
-            return self.df
+            return
 
         self.df = tidy_df
 
@@ -39,11 +39,10 @@ class POProcessor(BaseProcessor):
 
         if not self.validate_data():
             logger.error(f"{self.file_name}: Data validation failed.")
-            return self.df
+            return
 
         self.processed = True
         logger.info(f"Completed processing of PO file: {self.file_path}")
-        return self.df
 
     def _parse_point_output(self, raw_df: pd.DataFrame) -> pd.DataFrame:
         """Convert the raw PO CSV structure into a long-form DataFrame."""

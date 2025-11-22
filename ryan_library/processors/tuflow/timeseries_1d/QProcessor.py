@@ -11,10 +11,10 @@ from ..timeseries_processor import TimeSeriesProcessor
 class QProcessor(TimeSeriesProcessor):
     """Processor for ``_Q`` timeseries CSV outputs."""
 
-    def process(self) -> pd.DataFrame:  # type: ignore[override]
+    def process(self) -> None:  # type: ignore[override]
         """Process a ``_Q`` CSV using the shared timeseries pipeline."""
 
-        return self._process_timeseries_pipeline(data_type="Q")
+        self._process_timeseries_pipeline(data_type="Q")
 
     def process_timeseries_raw_dataframe(self) -> ProcessorStatus:
         """Normalise the long-form ``Q`` DataFrame produced by the shared pipeline.

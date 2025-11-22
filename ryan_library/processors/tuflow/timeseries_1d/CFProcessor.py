@@ -11,10 +11,10 @@ from ..timeseries_processor import TimeSeriesProcessor
 class CFProcessor(TimeSeriesProcessor):
     """Process ``_CF`` CSV exports using the shared timeseries pipeline."""
 
-    def process(self) -> pd.DataFrame:  # type: ignore[override]
+    def process(self) -> None:  # type: ignore[override]
         """Process a ``_CF`` CSV using the shared timeseries pipeline."""
 
-        return self._process_timeseries_pipeline(data_type="CF")
+        self._process_timeseries_pipeline(data_type="CF")
 
     def process_timeseries_raw_dataframe(self) -> ProcessorStatus:
         """Normalise the melted culvert flow DataFrame produced by the shared pipeline."""

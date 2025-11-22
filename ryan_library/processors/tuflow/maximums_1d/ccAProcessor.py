@@ -7,16 +7,14 @@ import pandas as pd
 import shapefile
 import sqlite3
 from loguru import logger
-from .base_processor import BaseProcessor
+from ..base_processor import BaseProcessor
 
 
 class ccAProcessor(BaseProcessor):
     """Processor for CCA files ('_1d_ccA_L.dbf' and '_Results1D.gpkg')."""
 
-    def process(self) -> pd.DataFrame:
-        """Process the CCA file (DBF or GPKG) and return a cleaned DataFrame.
-        Returns:
-            pd.DataFrame: Processed CCA data."""
+    def process(self) -> None:
+        """Process the CCA file (DBF or GPKG) and modify self.df in place."""
         logger.debug(f"Starting processing of CCA file: {self.file_path}")
         file_ext = self.file_path.suffix.lower()
 
@@ -28,12 +26,12 @@ class ccAProcessor(BaseProcessor):
             else:
                 logger.error(f"Unsupported CCA file type: {self.file_path}")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             if cca_data.empty:
                 logger.error(f"No data read from CCA file: {self.file_path}")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             self.df = cca_data
 
@@ -47,15 +45,14 @@ class ccAProcessor(BaseProcessor):
             if not self.validate_data():
                 logger.error(f"{self.file_name}: Data validation failed.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             self.processed = True
             logger.info(f"Completed processing of CCA file: {self.file_path}")
-            return self.df
         except Exception as e:
             logger.error(f"Failed to process CCA file {self.file_path}: {e}")
             self.df = pd.DataFrame()
-            return self.df
+            return
 
     # Mapping of shapefile-safe field names (max 10 chars) to canonical names
     _SHAPEFILE_COLUMN_RENAMES: dict[str, str] = {"Dur_10pFul": "Dur_10pFull"}

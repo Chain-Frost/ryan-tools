@@ -1,23 +1,23 @@
+from __future__ import annotations
+
 """Processor for TUFLOW ``_H`` timeseries outputs."""
 
-"""not tested, don't know if it works even slightly"""
-
-from __future__ import annotations
+# not tested, don't know if it works even slightly
 
 import pandas as pd
 from loguru import logger
 
-from .base_processor import ProcessorStatus
-from .timeseries_processor import TimeSeriesProcessor
+from ..base_processor import ProcessorStatus
+from ..timeseries_processor import TimeSeriesProcessor
 
 
 class HProcessor(TimeSeriesProcessor):
     """Handle water level (``H``) timeseries files with upstream/downstream values."""
 
-    def process(self) -> pd.DataFrame:  # type: ignore[override]
+    def process(self) -> None:  # type: ignore[override]
         """Process a ``_H`` CSV using the shared timeseries pipeline."""
 
-        return self._process_timeseries_pipeline(data_type="H")
+        self._process_timeseries_pipeline(data_type="H")
 
     def process_timeseries_raw_dataframe(self) -> ProcessorStatus:
         """Normalise the dual-value timeseries DataFrame produced by the shared pipeline."""

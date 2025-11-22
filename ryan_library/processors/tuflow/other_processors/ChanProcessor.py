@@ -1,7 +1,7 @@
 # ryan_library/processors/tuflow/ChanProcessor.py
 
-from ryan_library.processors.tuflow.base_processor import ProcessorStatus
-from .max_data_processor import MaxDataProcessor
+from ..base_processor import ProcessorStatus
+from ..max_data_processor import MaxDataProcessor
 import pandas as pd
 from loguru import logger
 
@@ -18,7 +18,7 @@ class ChanProcessor(MaxDataProcessor):
         try:
             status: ProcessorStatus = self.read_maximums_csv()
 
-            if status is not ProcessorStatus.SUCCESS:
+            if status != ProcessorStatus.SUCCESS:
                 logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
                 self.df = pd.DataFrame()
                 return

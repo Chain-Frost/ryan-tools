@@ -3,21 +3,21 @@
 import pandas as pd
 from loguru import logger
 
-from .base_processor import BaseProcessor
+from ..base_processor import BaseProcessor, ProcessorStatus
 
 
 class RLLQmxProcessor(BaseProcessor):
     """Processor for '_RLL_Qmx.csv' files produced by the Reporting Location Lines maximum export."""
 
-    def process(self) -> pd.DataFrame:
-        """Process the '_RLL_Qmx.csv' file and return the cleaned DataFrame."""
+    def process(self) -> None:
+        """Process the '_RLL_Qmx.csv' file and modify self.df in place."""
         logger.info(f"Starting processing of RLL Qmx file: {self.file_path}")
         try:
-            status: int = self.read_maximums_csv()
-            if status != 0:
+            status: ProcessorStatus = self.read_maximums_csv()
+            if status != ProcessorStatus.SUCCESS:
                 logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             self._reshape_rll_qmx_data()
 
@@ -27,15 +27,14 @@ class RLLQmxProcessor(BaseProcessor):
             if not self.validate_data():
                 logger.error(f"{self.file_name}: Data validation failed.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             self.processed = True
             logger.info(f"Completed processing of RLL Qmx file: {self.file_path}")
-            return self.df
         except Exception as exc:
             logger.error(f"Failed to process RLL Qmx file {self.file_path}: {exc}")
             self.df = pd.DataFrame()
-            return self.df
+            return
 
     def _reshape_rll_qmx_data(self) -> None:
         """Rename columns and align schema with other maximum datasets."""

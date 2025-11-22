@@ -3,7 +3,7 @@
 import pandas as pd
 from loguru import logger
 
-from ryan_library.processors.tuflow.base_processor import BaseProcessor, DataValidationError
+from ..base_processor import BaseProcessor, DataValidationError
 
 
 POMM_RENAME_COLUMNS: dict[str, str] = {

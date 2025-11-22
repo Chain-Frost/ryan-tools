@@ -15,12 +15,9 @@ class NmxProcessor(MaxDataProcessor):
     Processor for '_1d_Nmx.csv' files.
     """
 
-    def process(self) -> pd.DataFrame:
+    def process(self) -> None:
         """
-        Process the '_1d_Nmx.csv' file and return a cleaned DataFrame.
-
-        Returns:
-            pd.DataFrame: Processed NMX data.
+        Process the '_1d_Nmx.csv' file and modify self.df in place.
         """
         logger.info(f"Starting processing of NMX file: {self.file_path}")
 
@@ -28,10 +25,10 @@ class NmxProcessor(MaxDataProcessor):
             # Nmx is Maximums type, so use read_maximums_csv
             status: ProcessorStatus = self.read_maximums_csv()
 
-            if status != 0:
+            if status != ProcessorStatus.SUCCESS:
                 logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             # Perform NMX-specific data extraction and transformation
             self._extract_and_transform_nmx_data()
@@ -44,17 +41,15 @@ class NmxProcessor(MaxDataProcessor):
             if not self.validate_data():
                 logger.error(f"{self.file_name}: Data validation failed.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             self.processed = True
             logger.info(f"Completed processing of NMX file: {self.file_path}")
 
-            return self.df
-
         except Exception as e:
             logger.error(f"Failed to process NMX file {self.file_path}: {e}")
             self.df = pd.DataFrame()
-            return self.df
+            return
 
     def _extract_and_transform_nmx_data(self) -> None:
         """

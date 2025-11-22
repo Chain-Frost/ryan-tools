@@ -28,7 +28,7 @@ class TimeSeriesProcessor(BaseProcessor):
 
         return self._process_timeseries_pipeline(data_type=self.data_type)
 
-    def _process_timeseries_pipeline(self, data_type: str) -> pd.DataFrame:
+    def _process_timeseries_pipeline(self, data_type: str) -> None:
         """Run the shared processing pipeline for a timeseries dataset."""
 
         logger.info(f"Starting processing of {data_type} file: {self.file_path}")
@@ -40,13 +40,13 @@ class TimeSeriesProcessor(BaseProcessor):
                     f"Processing aborted for file: {self.file_path} while reading and reshaping {data_type} data."
                 )
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             status = self.process_timeseries_raw_dataframe()
             if status is not ProcessorStatus.SUCCESS:
                 logger.error(f"Processing aborted for file: {self.file_path} during {data_type} post-processing step.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             self.add_common_columns()
             self.apply_output_transformations()
@@ -54,15 +54,14 @@ class TimeSeriesProcessor(BaseProcessor):
             if not self.validate_data():
                 logger.error(f"{self.file_name}: Data validation failed for {data_type} data.")
                 self.df = pd.DataFrame()
-                return self.df
+                return
 
             self.processed = True
             logger.info(f"Completed processing of {data_type} file: {self.file_path}")
-            return self.df
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.error(f"Failed to process {data_type} file {self.file_path}: {exc}")
             self.df = pd.DataFrame()
-            return self.df
+            return
 
     @abstractmethod
     def process_timeseries_raw_dataframe(self) -> ProcessorStatus:

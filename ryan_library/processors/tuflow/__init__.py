@@ -14,5 +14,6 @@ def _expose(module_name: str, *processor_names: str) -> None:
         __all__.append(name)
 
 
-_expose("1d_maximums", "CmxProcessor", "NmxProcessor")
-_expose("1d_timeseries", "CFProcessor", "QProcessor", "VProcessor")
+_expose("maximums_1d", "ccAProcessor", "CmxProcessor", "NmxProcessor")
+_expose("timeseries_1d", "CFProcessor", "HProcessor", "QProcessor", "VProcessor")
+_expose("other_processors", "ChanProcessor", "POMMProcessor", "POProcessor", "RLLQmxProcessor")
