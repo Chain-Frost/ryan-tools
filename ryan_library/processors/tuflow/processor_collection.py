@@ -14,6 +14,7 @@ from ryan_library.functions.dataframe_helpers import (
 from .base_processor import BaseProcessor
 
 
+
 class ProcessorCollection:
     """A collection of BaseProcessor instances, allowing combined operations based on different scenarios.
 
@@ -132,6 +133,8 @@ class ProcessorCollection:
 
         return grouped_df
 
+
+
     def combine_1d_maximums(self) -> pd.DataFrame:
         """Combine DataFrames where dataformat is 'Maximums' or 'ccA'.
         Drop the 'Time' column.
@@ -150,8 +153,30 @@ class ProcessorCollection:
             logger.warning("No processors with dataformat 'Maximums' or 'ccA' found.")
             return pd.DataFrame()
 
+        # Identify EOF processors for merging
+        eof_processors: list[BaseProcessor] = [
+            p for p in self.processors if p.dataformat.lower() == "eof"
+        ]
+        eof_map = {p.name_parser.raw_run_code: p.df for p in eof_processors}
+        
+        dfs_to_concat = []
+        for p in maximums_processors:
+            df = p.df
+            if p.data_type == "Chan":
+                run_code = p.name_parser.raw_run_code
+                if run_code in eof_map:
+                    logger.info(f"Merging companion EOF data for run code: {run_code}")
+                    df = self._merge_chan_and_eof(df, eof_map[run_code])
+            
+            if not df.empty:
+                dfs_to_concat.append(df)
+
+        if not dfs_to_concat:
+            logger.warning("No data to concatenate after filtering.")
+            return pd.DataFrame()
+
         # Concatenate DataFrames
-        combined_df: DataFrame = pd.concat([p.df for p in maximums_processors if not p.df.empty], ignore_index=True)
+        combined_df: DataFrame = pd.concat(dfs_to_concat, ignore_index=True)
         logger.debug(f"Combined Maximums/ccA DataFrame with {len(combined_df)} rows.")
 
         # Columns to drop
@@ -426,3 +451,42 @@ class ProcessorCollection:
             logger.debug("No duplicate processors found by run_code & data_type.")
 
         return duplicates
+
+    @staticmethod
+    def _merge_chan_and_eof(chan_df: pd.DataFrame, eof_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Merge Chan DataFrame and EOF DataFrame with EOF data taking precedence.
+        
+        Args:
+            chan_df (pd.DataFrame): DataFrame from ChanProcessor.
+            eof_df (pd.DataFrame): DataFrame from EofProcessor.
+            
+        Returns:
+            pd.DataFrame: Merged DataFrame.
+        """
+        if chan_df.empty:
+            return eof_df
+        if eof_df.empty:
+            return chan_df
+            
+        if "Chan ID" not in chan_df.columns or "Chan ID" not in eof_df.columns:
+            logger.warning("Chan ID missing in one of the dataframes, cannot merge.")
+            return chan_df
+
+        # Set index to Chan ID for both
+        chan_indexed = chan_df.set_index("Chan ID")
+        eof_indexed = eof_df.set_index("Chan ID")
+        
+        # combine_first: updates null elements in 'other' with value in 'caller'.
+        # We want EOF to overwrite Chan.
+        # So we call eof.combine_first(chan).
+        # This keeps EOF values if present (even if Chan has value).
+        # If EOF is null, it takes from Chan.
+        # If EOF row is missing, it takes row from Chan.
+        
+        merged_indexed = eof_indexed.combine_first(chan_indexed)
+        
+        # Reset index
+        merged_df = merged_indexed.reset_index()
+        
+        return merged_df

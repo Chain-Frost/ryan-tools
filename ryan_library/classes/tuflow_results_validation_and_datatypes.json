@@ -267,5 +267,26 @@
         "V"
       ]
     }
+  },
+  "EOF": {
+    "processor": "EofProcessor",
+    "suffixes": [
+      ".eof"
+    ],
+    "output_columns": {
+      "Chan ID": "string",
+      "Num_barrels": "Int32",
+      "n or Cd": "float",
+      "Diam_Width": "float",
+      "Height": "float",
+      "Entry Loss": "float",
+      "Exit Loss": "float",
+      "Fixed Loss": "float",
+      "Ent/Exit Losses": "string"
+    },
+    "processingParts": {
+      "dataformat": "EOF",
+      "module": "other_processors"
+    }
   }
 }
