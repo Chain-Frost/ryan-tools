@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 import pandas as pd
-from ryan_library.processors.tuflow.POMMProcessor import POMMProcessor
+from ryan_library.processors.tuflow.other_processors.POMMProcessor import POMMProcessor
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 DATA_DIR = Path(__file__).absolute().parent.parent / "test_data" / "tuflow"

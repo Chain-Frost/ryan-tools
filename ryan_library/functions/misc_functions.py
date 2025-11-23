@@ -207,7 +207,7 @@ class ExcelExporter:
 
             if self._exceeds_excel_limits(dataframes=dataframes):
                 logger.warning(
-                    "Data for '{}' exceeds Excel size limits. Exporting to Parquet and CSV instead.", export_stem
+                    f"Data for '{export_stem}' exceeds Excel size limits. Exporting to Parquet and CSV instead."
                 )
                 self._export_as_parquet_and_csv(
                     export_stem=export_stem,
@@ -231,7 +231,7 @@ class ExcelExporter:
             if output_directory:
                 export_path.parent.mkdir(parents=True, exist_ok=True)
 
-            logger.info("Exporting to {export_path}")
+            logger.info(f"Exporting to {export_path}")
 
             try:
                 with pd.ExcelWriter(path=export_path, engine="openpyxl") as writer:
@@ -271,9 +271,9 @@ class ExcelExporter:
                                 column_widths=column_widths[sheet],
                             )
 
-                logger.info("Finished exporting '{}' to '{}'", export_filename, export_path)
+                logger.info(f"Finished exporting '{export_filename}' to '{export_path}'")
             except InvalidFileException as e:
-                logger.error("Failed to write to '{}': {}", export_path, e)
+                logger.error(f"Failed to write to '{export_path}': {e}")
                 raise
 
             if normalized_mode == "both":
@@ -339,7 +339,7 @@ class ExcelExporter:
 
         try:
             df.to_parquet(path=parquet_path, index=False, compression=compression)
-            logger.info("Exported Parquet to {}", parquet_path)
+            logger.info(f"Exported Parquet to {parquet_path}")
         except (ImportError, ValueError) as exc:
             message: str = (
                 "Unable to export Parquet for "
@@ -348,7 +348,7 @@ class ExcelExporter:
             logger.error(message)
             print(message)
         except Exception as exc:  # pragma: no cover - unforeseen errors should be logged
-            logger.exception("Unexpected error during Parquet export for '{}' sheet '{}': {}", export_label, sheet, exc)
+            logger.exception(f"Unexpected error during Parquet export for '{export_label}' sheet '{sheet}': {exc}")
 
     def _export_as_parquet_only(
         self,
@@ -420,7 +420,7 @@ class ExcelExporter:
 
         for df, sheet, _, csv_path in export_targets:
             df.to_csv(path_or_buf=csv_path, index=False)
-            logger.info("Exported CSV to {}", csv_path)
+            logger.info(f"Exported CSV to {csv_path}")
 
     def _build_output_path(self, base_filename: str, output_directory: Path | None) -> Path:
         """Create the full output path for a file name."""
@@ -530,7 +530,7 @@ class ExcelExporter:
             TypeError: If column indices are not integers."""
         for col_name, width in column_widths.items():
             if col_name not in df.columns:
-                logger.warning("Column '{}' not found in sheet '{}'. Skipping width setting.", col_name, sheet_name)
+                logger.warning(f"Column '{col_name}' not found in sheet '{sheet_name}'. Skipping width setting.")
                 continue
 
             try:
@@ -543,17 +543,17 @@ class ExcelExporter:
                 col_letter: str = get_column_letter(col_idx + 1)
                 worksheet.column_dimensions[col_letter].width = width
                 logger.debug(
-                    "Set width for column '{}' ({}) in sheet '{}' to {}.", col_name, col_letter, sheet_name, width
+                    f"Set width for column '{col_name}' ({col_letter}) in sheet '{sheet_name}' to {width}."
                 )
             except TypeError as e:
                 logger.exception(
-                    "TypeError when setting width for column '{}' in sheet '{}': {}", col_name, sheet_name, e
+                    f"TypeError when setting width for column '{col_name}' in sheet '{sheet_name}': {e}"
                 )
             except AssertionError as e:
                 logger.exception(str(e))
             except Exception as e:
                 logger.exception(
-                    "Unexpected error when setting width for column '{}' in sheet '{}': {}", col_name, sheet_name, e
+                    f"Unexpected error when setting width for column '{col_name}' in sheet '{sheet_name}': {e}"
                 )
 
     def auto_adjust_column_widths(self, worksheet: Worksheet, dynamic_widths: dict[str, float]) -> None:
@@ -565,7 +565,7 @@ class ExcelExporter:
             current_width: float | None = worksheet.column_dimensions[col_letter].width
             if current_width is None or width > current_width:
                 worksheet.column_dimensions[col_letter].width = width
-                logger.debug("Auto-adjusted width for column '{}' to {}.", col_letter, width)
+                logger.debug(f"Auto-adjusted width for column '{col_letter}' to {width}.")
 
 
 # Backwards compatibility functions:

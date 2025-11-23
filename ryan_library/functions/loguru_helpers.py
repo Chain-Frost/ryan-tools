@@ -25,12 +25,44 @@ def worker_initializer(queue: Queue) -> None:
     worker_configurer(queue)
 
 
+def reset_logging() -> None:
+    """Reset loguru configuration by removing all sinks."""
+    logger.remove()
+
+
+def configure_serial_logging(console_log_level: str = "INFO", log_file: str | None = None) -> None:
+    """Configure logging for a simple serial execution (no multiprocessing queue).
+    
+    Parameters:
+        console_log_level (str): Minimum log level for console output.
+            Valid options: "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL".
+        log_file (str | None): Path to the log file. If None, file logging is disabled.
+    """
+    reset_logging()
+
+    # Console sink
+    logger.add(
+        sink=sys.stdout,
+        level=console_log_level,
+        format=CONSOLE_FORMAT,
+        colorize=CONSOLE_COLORIZE,
+        backtrace=True,
+        diagnose=True,
+        enqueue=False,
+    )
+
+    # File sink, if requested
+    if log_file:
+        add_file_sink(log_file)
+
+
 def listener_process(queue: Queue, log_file: str | None = None, console_log_level: str = "INFO") -> None:
     """Listener process that receives log records and writes them to the configured sinks.
     Parameters:
     queue (Queue): The multiprocessing queue to receive log records.
     log_file (str): Path to the log file. If None, file logging is disabled.
-    console_log_level (str): Minimum log level for console output."""
+    console_log_level (str): Minimum log level for console output.
+        Valid options: "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"."""
     logger.remove()  # Remove any default handlers
 
     # File sink, if requested
@@ -48,10 +80,14 @@ def listener_process(queue: Queue, log_file: str | None = None, console_log_leve
         )
 
     # Console sink
+    # Use a format that doesn't include module/func/line because the message already has it
+    # from the worker process, or we reconstruct it.
+    # The worker sends: f"{module}:{function}:{line} - {msg}"
+    # So we just need time and level here.
     logger.add(
         sink=sys.stdout,
         level=console_log_level,
-        format=CONSOLE_FORMAT,
+        format="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | {message}",
         colorize=CONSOLE_COLORIZE,
         backtrace=True,
         diagnose=True,
@@ -77,10 +113,15 @@ def listener_process(queue: Queue, log_file: str | None = None, console_log_leve
             line = message["line"]
             exception = message.get("exception")
 
+            # Reconstruct the message with context
+            # The console sink format is "{time} | {level} | {message}"
+            # So {message} should be "module:func:line - original_msg"
+            formatted_message = f"{module}:{function}:{line} - {msg}"
+
             if exception:
-                logger.opt(exception=exception).log(level, f"{module}:{function}:{line} - {msg}")
+                logger.opt(exception=exception).log(level, formatted_message)
             else:
-                logger.log(level, f"{module}:{function}:{line} - {msg}")
+                logger.log(level, formatted_message)
 
         except Exception:
             logger.opt(exception=True).error("Error in logging listener")
@@ -124,7 +165,8 @@ class LoguruMultiprocessingLogger:
         """Initialize the logger.
         Parameters:
             log_file (str or None): Path to the log file. If None, file logging is disabled.
-            console_log_level (str): Minimum log level for console output."""
+            console_log_level (str): Minimum log level for console output.
+                Valid options: "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"."""
         self.log_file = log_file
         self.console_log_level = console_log_level
         self.queue = Queue()
@@ -168,6 +210,12 @@ class LoguruMultiprocessingLogger:
 
 def setup_logger(console_log_level: str = "INFO", log_file: str | None = None) -> LoguruMultiprocessingLogger:
     """Convenience factory for the multiprocessing logger context manager.
+    
+    Parameters:
+        console_log_level (str): Minimum log level for console output.
+            Valid options: "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL".
+        log_file (str | None): Path to the log file.
+
     Usage:
         with setup_logger("DEBUG", "myapp.log"):
             ..."""

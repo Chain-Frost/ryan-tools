@@ -11,7 +11,7 @@ import pandas as pd
 import pandas.testing as pdt
 
 from ryan_library.processors.tuflow import NmxProcessor
-from ryan_library.processors.tuflow.HProcessor import HProcessor
+from ryan_library.processors.tuflow.timeseries_1d.HProcessor import HProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 

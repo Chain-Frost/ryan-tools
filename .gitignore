@@ -33,3 +33,4 @@ tests/test_data/tuflow/Thumbs.db
 test_output.txt
 
 
+.coverage

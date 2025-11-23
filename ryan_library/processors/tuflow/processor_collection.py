@@ -181,7 +181,7 @@ class ProcessorCollection:
         for run_code, eof_df in eof_map.items():
             if eof_df.empty or run_code in merged_run_codes:
                 continue
-            logger.info("Including EOF-only data for run code {} with no associated maximum datasets.", run_code)
+            logger.info(f"Including EOF-only data for run code {run_code} with no associated maximum datasets.")
             dfs_to_concat.append(eof_df)
 
         if not dfs_to_concat:
@@ -438,7 +438,7 @@ class ProcessorCollection:
             for (run_code, dtype), procs in duplicates.items():
                 files: str = ", ".join(p.file_name for p in procs)
                 logger.warning(
-                    f"Potential duplicate group: run_code='{run_code}', " f"data_type='{dtype}' found in files: {files}"
+                    f"Potential duplicate group: run_code='{run_code}', data_type='{dtype}' found in files: {files}"
                 )
         else:
             logger.debug("No duplicate processors found by run_code & data_type.")
@@ -468,15 +468,12 @@ class ProcessorCollection:
             return source_df
 
         if "Chan ID" not in eof_df.columns:
-            logger.warning("EOF dataset for run code {} missing 'Chan ID'; cannot merge.", run_code)
+            logger.warning(f"EOF dataset for run code {run_code} missing 'Chan ID'; cannot merge.")
             return source_df
 
         merged_df: pd.DataFrame = self._merge_chan_and_eof(chan_df=source_df, eof_df=eof_df)
         logger.info(
-            "Merged EOF data into {} dataset for run code {}; row count now {}.",
-            source_label,
-            run_code,
-            len(merged_df),
+            f"Merged EOF data into {source_label} dataset for run code {run_code}; row count now {len(merged_df)}."
         )
         return merged_df
 

@@ -14,7 +14,7 @@ def read_geotiff(filename, nodata_values=None):
     """
     Reads a GeoTIFF file and returns a DataFrame with X, Y, Z coordinates.
     """
-    logger.info("Loading file: {}", filename)
+    logger.info(f"Loading file: {filename}")
     try:
         with rasterio.open(filename) as f:
             band = f.read(1)
@@ -44,7 +44,7 @@ def read_geotiff(filename, nodata_values=None):
         return df
 
     except Exception as e:
-        logger.error("Error reading file {}: {}", filename, e)
+        logger.error(f"Error reading file {filename}: {e}")
         return pd.DataFrame(columns=["X", "Y", "Z"])
 
 
@@ -61,7 +61,7 @@ def tile_data(df, tile_size):
     x_tiles = int(np.ceil((x_max - x_min) / tile_size))
     y_tiles = int(np.ceil((y_max - y_min) / tile_size))
 
-    logger.info("Tiling data into {} x {} tiles.", x_tiles, y_tiles)
+    logger.info(f"Tiling data into {x_tiles} x {y_tiles} tiles.")
 
     tiles = []
     for i in tqdm(range(x_tiles), desc="Processing tiles (X-axis)"):
@@ -83,7 +83,7 @@ def tile_data(df, tile_size):
                 tiles.append(((i, j), tile_df))
             else:
                 logger.debug("Tile ({}, {}) is empty. Skipping.", i, j)
-    logger.info("Completed tiling. Generated {} non-empty tiles.", len(tiles))
+    logger.info(f"Completed tiling. Generated {len(tiles)} non-empty tiles.")
     return tiles
 
 
@@ -111,7 +111,7 @@ def process_terrain_file_inner(
     - tile_size: Size of each tile
     - save_function: Function to save the data
     """
-    logger.info("Processing file: {}", filename)
+    logger.info(f"Processing file: {filename}")
 
     filename = Path(filename)
 
@@ -128,7 +128,7 @@ def process_terrain_file_inner(
     base_filename = filename.stem
 
     if df.empty:
-        logger.warning("No valid data found in {}. Skipping file.", filename)
+        logger.warning(f"No valid data found in {filename}. Skipping file.")
         return
 
     if tile_size:

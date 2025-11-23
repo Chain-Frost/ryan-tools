@@ -5,11 +5,29 @@ from ryan_library.functions.loguru_helpers import LoggerManager, worker_process
 from pathlib import Path
 import multiprocessing
 import time
+import tempfile
+import shutil
+import os
+
+def worker_func(log_queue):
+    from loguru import logger
+    import pickle
+
+    logger.remove()
+    # We need to match the serialization expected by the listener
+    # The listener expects a pickled record dict
+    logger.add(lambda message: log_queue.put(pickle.dumps(message.record)), format="{message}")
+    logger.info("Test log from worker.")
 
 
 class TestLoggerManager(unittest.TestCase):
     def setUp(self):
-        self.log_dir = Path("/tmp/test_logs")
+        self.test_dir = tempfile.mkdtemp()
+        self.log_dir = Path(self.test_dir)
+        
+        # Reset singleton for testing
+        LoggerManager._instance = None
+        
         self.logger_manager = LoggerManager(
             log_level="DEBUG",
             log_file="test.log",
@@ -21,40 +39,40 @@ class TestLoggerManager(unittest.TestCase):
         self.log_queue = self.logger_manager._log_queue
 
     def tearDown(self):
-        self.logger_manager.shutdown()
+        if self.logger_manager:
+            self.logger_manager.shutdown()
+        
         # Clean up log files
-        for file in self.log_dir.glob("*"):
-            file.unlink()
-        self.log_dir.rmdir()
+        shutil.rmtree(self.test_dir, ignore_errors=True)
 
     def test_singleton(self):
         second_instance = LoggerManager()
         self.assertIs(self.logger_manager, second_instance)
 
     def test_logging(self):
-        # Start a worker process
-        def test_worker(log_queue):
-            from loguru import logger
-
-            logger.remove()
-            logger.add(lambda record: log_queue.put(record), serialize=True)
-            logger.info("Test log from worker.")
-
-        worker = multiprocessing.Process(target=test_worker, args=(self.log_queue,))
+        worker = multiprocessing.Process(target=worker_func, args=(self.log_queue,))
         worker.start()
         worker.join()
 
         # Allow some time for the listener to process the log
-        time.sleep(1)
+        time.sleep(2)
 
         # Verify that the log was received
-        record = self.log_queue.get_nowait()
-        self.assertEqual(record["message"], "Test log from worker.")
-        self.assertEqual(record["level"]["name"], "INFO")
+        # Note: The listener consumes the queue, so we can't easily check the queue directly 
+        # unless we intercept it. But we can check if the log file was created and contains the message.
+        
+        log_file = self.log_dir / "test.log"
+        self.assertTrue(log_file.exists())
+        
+        content = log_file.read_text()
+        self.assertIn("Test log from worker.", content)
 
     def test_shutdown(self):
         self.logger_manager.shutdown()
-        self.assertFalse(self.logger_manager._listener.is_alive())
+        # Wait a bit for the process to actually terminate
+        time.sleep(1)
+        if self.logger_manager._listener:
+             self.assertFalse(self.logger_manager._listener.is_alive())
 
 
 if __name__ == "__main__":

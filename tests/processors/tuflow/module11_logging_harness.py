@@ -51,8 +51,14 @@ def pushd(path: Path) -> Iterator[None]:
 def configure_logging(level: str = "INFO") -> None:
     """Configure loguru for concise, user-readable output."""
 
-    logger.remove()
-    logger.add(sys.stdout, level=level, format="{time:HH:mm:ss} | {level} | {message}")
+    # Force a reset of any existing sinks (including those from imports)
+    try:
+        from ryan_library.functions.loguru_helpers import configure_serial_logging
+        configure_serial_logging(console_log_level=level)
+    except ImportError:
+        logger.remove()
+        logger.add(sys.stdout, level=level)
+
     logger.debug(f"Logger initialised at level {level}")
 
 
@@ -74,17 +80,44 @@ def run_serial(files: list[Path]) -> None:
         logger.info(f"{name}: rows processed={rows}")
 
 
-def run_parallel(files: list[Path]) -> None:
+def run_parallel(files: list[Path], level: str = "INFO") -> None:
     """Run Nmx processing via multiprocessing to inspect listener formatting."""
 
+    from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
+
     logger.info("=== Multiprocessing run (spawn) ===")
-    ctx = mp.get_context("spawn")
-    with ctx.Pool(processes=min(len(files), max(ctx.cpu_count() - 1, 1))) as pool:
-        for name, rows in pool.map(_process_file, files):
+    
+    # Use the production logging setup
+    with setup_logger(console_log_level=level) as queue:
+        ctx = mp.get_context("spawn")
+        with ctx.Pool(
+            processes=min(len(files), max(ctx.cpu_count() - 1, 1)),
+            initializer=worker_initializer,
+            initargs=(queue,)
+        ) as pool:
+            for name, rows in pool.map(_process_file, files):
+                # The worker logs will go to the queue -> listener -> console
+                # This main process log will also go to the queue if we configured it?
+                # setup_logger configures the main process too.
+                logger.info(f"{name}: rows processed={rows}")
+
+
+def run_threaded(files: list[Path], level: str = "INFO") -> None:
+    """Run Nmx processing via multithreading to verify thread safety."""
+    
+    from concurrent.futures import ThreadPoolExecutor
+    
+    logger.info("=== Multithreaded run ===")
+    
+    # Threading shares the same process, so standard logging setup applies.
+    # We just want to ensure no weird interleaving or errors.
+    
+    with ThreadPoolExecutor(max_workers=min(len(files), 4)) as executor:
+        for name, rows in executor.map(_process_file, files):
             logger.info(f"{name}: rows processed={rows}")
 
 
-def main(use_parallel: bool = True) -> None:
+def main(use_parallel: bool = True, use_threaded: bool = False, level: str = "INFO") -> None:
     """Run small Nmx samples through the processor to inspect logging."""
 
     data_root: Path = REPO_ROOT / "tests" / "test_data" / "tuflow" / "tutorials" / "Module_11"
@@ -98,15 +131,28 @@ def main(use_parallel: bool = True) -> None:
     if missing:
         raise FileNotFoundError(f"Missing sample CSV(s): {missing}")
 
-    configure_logging(level="INFO")
+    configure_logging(level=level)
     logger.info(f"Using repository root {REPO_ROOT}")
+    
+    import ryan_library
+    logger.info(f"Using ryan_library from: {ryan_library.__file__}")
+    
     logger.info(f"Data directory {data_root}")
 
     with pushd(data_root):
         run_serial(sample_files)
         if use_parallel:
-            run_parallel(sample_files)
+            run_parallel(sample_files, level=level)
+        if use_threaded:
+            run_threaded(sample_files, level=level)
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+    parser = argparse.ArgumentParser(description="Run logging harness.")
+    parser.add_argument("--level", default="INFO", help="Logging level (default: INFO)")
+    parser.add_argument("--no-parallel", action="store_true", help="Disable parallel run")
+    parser.add_argument("--threaded", action="store_true", help="Enable threaded run")
+    args = parser.parse_args()
+    
+    main(use_parallel=not args.no_parallel, use_threaded=args.threaded, level=args.level)

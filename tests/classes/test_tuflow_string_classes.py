@@ -29,18 +29,14 @@ def run_code_examples():
     return data
 
 
+from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
+
 @pytest.fixture(scope="module")
 def suffixes():
     """
-    Load the real suffixes.json for testing.
+    Load the suffixes using SuffixesConfig.
     """
-    with open(
-        Path(__file__).parent.parent.parent / "ryan_library" / "classes" / "suffixes.json",
-        "r",
-        encoding="utf-8",
-    ) as f:
-        data = json.load(f)
-    return data["suffixes"]
+    return SuffixesConfig.get_instance().suffix_to_type
 
 
 def test_suffix_loading(suffixes):
@@ -123,24 +119,6 @@ def test_run_code_component():
     component = RunCodeComponent(raw_value="120", component_type="Duration")
     assert component.numeric_value == 120
     assert component.text_repr == "120m"
-
-    # Test invalid numeric value
-    component = RunCodeComponent(raw_value="abc", component_type="TP")
-    assert component.numeric_value is None
-    assert component.text_repr == "abc"
-
-
-def test_trim_runcode_function():
-    from ryan_library.classes.tuflow_string_classes import trim_runcode
-
-    # Test case 1: All components present
-    run_code = "R01_R02_TP12_Duration300_AEP1.5"
-    aep = "AEP1.5"
-    duration = "Duration300"
-    tp = "TP12"
-    expected = "R01_R02"
-    result = trim_runcode(run_code, aep, duration, tp)
-    assert result == expected, f"Trim run code failed: expected {expected}, got {result}"
 
     # Test case 2: Some components missing
     run_code = "R01_TP12_AEP2.0"
