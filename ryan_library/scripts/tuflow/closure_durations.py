@@ -142,7 +142,7 @@ def run_closure_durations(
     thresholds: list[float] | None = None,
     *,
     data_type: str = "Flow",
-    allowed_locations: list[str] | None = None,
+    allowed_locations: tuple[str, ...] | None = None,
     log_level: str = "INFO",
     max_workers: int | None = None,  # NEW
     chunksize: int | None = None,  # NEW (optional)

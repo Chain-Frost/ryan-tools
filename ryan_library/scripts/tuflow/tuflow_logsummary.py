@@ -89,6 +89,7 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
             df: pd.DataFrame = finalise_data(
                 runcode=runcode,
                 data_dict=data_dict,
+                logfile_path=logfile_path,
             )
             if not df.empty:
                 logger.debug(df.head())

@@ -23,7 +23,7 @@ class TimeSeriesProcessor(BaseProcessor):
     :meth:`process_timeseries_raw_dataframe` for format-specific transforms.
     """
 
-    def process(self) -> pd.DataFrame:  # type: ignore[override]
+    def process(self) -> None:
         """Execute the standard timeseries processing pipeline."""
 
         return self._process_timeseries_pipeline(data_type=self.data_type)

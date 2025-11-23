@@ -399,19 +399,24 @@ def process_top_lines(
         return data_dict, success, spec_events, spec_scen, spec_var
 
 
-def finalise_data(runcode: str, data_dict: dict[str, Any]) -> pd.DataFrame:
+def finalise_data(runcode: str, data_dict: dict[str, Any], logfile_path: Path | str | None = None) -> pd.DataFrame:
     """
     Finalizes the data dictionary and creates a DataFrame.
 
     Args:
         runcode (str): Run code identifier.
         data_dict (dict[str, Any]): Dictionary containing extracted data.
+        logfile_path (Path | str | None): Optional hint of the original log file path.
 
     Returns:
         pd.DataFrame: DataFrame containing the processed data.
     """
     try:
-        parser = TuflowStringParser(file_path=runcode)
+        parser_source: Path | str = logfile_path if logfile_path is not None else runcode
+        parser_path = Path(parser_source)
+        if not parser_path.suffix:
+            parser_path: Path = parser_path.with_suffix(".tlf")
+        parser = TuflowStringParser(file_path=parser_path)
 
         clean_run_code: str = parser.clean_run_code
         data_dict["Runcode"] = clean_run_code
