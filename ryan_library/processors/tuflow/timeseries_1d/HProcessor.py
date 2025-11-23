@@ -1,12 +1,9 @@
-from __future__ import annotations
+# ryan_library\processors\tuflow\timeseries_1d\HProcessor.py
 
 """Processor for TUFLOW ``_H`` timeseries outputs."""
 
-# not tested, don't know if it works even slightly
 
-import pandas as pd
 from loguru import logger
-
 from ..base_processor import ProcessorStatus
 from ..timeseries_processor import TimeSeriesProcessor
 
@@ -47,7 +44,7 @@ class HProcessor(TimeSeriesProcessor):
             logger.debug(f"{self.file_name}: Using '{identifier_column}' as the identifier column for 'H' values.")
 
             initial_row_count: int = len(self.df)
-            self.df.dropna(subset=["H_US", "H_DS"], how="all", inplace=True)
+            self.df.dropna(subset=["H_US", "H_DS"], how="all", inplace=True)  # pyright: ignore[reportUnknownMemberType]
             dropped_rows: int = initial_row_count - len(self.df)
             if dropped_rows:
                 logger.debug(f"{self.file_name}: Dropped {dropped_rows} rows with missing 'H' values.")

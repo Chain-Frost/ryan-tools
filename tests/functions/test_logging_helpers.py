@@ -1,14 +1,16 @@
 """Tests for logging helper utilities."""
 
 import logging
-import sys
-from pathlib import Path
+
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# from pathlib import Path
+# import sys
+# TODO this appears deprecated - we use loguru now. we should find out what actually still uses normal logging so we can remove from maintenance.
+# # sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from ryan_library.functions.logging_helpers import ConditionalFormatter
+from ...ryan_library.functions.logging_helpers import ConditionalFormatter
 
 
 @pytest.fixture()

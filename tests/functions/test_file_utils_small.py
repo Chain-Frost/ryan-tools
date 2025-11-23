@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-from ryan_library.functions.file_utils import (
+from ...ryan_library.functions.file_utils import (
     ensure_output_directory,
     find_files_parallel,
     is_non_zero_file,
@@ -13,15 +13,15 @@ def _write_file(path: Path, content: str = "data") -> None:
 
 
 def test_find_files_parallel_non_recursive_respects_excludes(tmp_path: Path) -> None:
-    root = tmp_path / "root"
-    sub = root / "nested"
+    root: Path = tmp_path / "root"
+    sub: Path = root / "nested"
     sub.mkdir(parents=True)
-    keep = root / "keep.txt"
-    skip = root / "skip.txt"
-    nested = sub / "nested.txt"
-    _write_file(keep)
-    _write_file(skip)
-    _write_file(nested)
+    keep: Path = root / "keep.txt"
+    skip: Path = root / "skip.txt"
+    nested: Path = sub / "nested.txt"
+    _write_file(path=keep)
+    _write_file(path=skip)
+    _write_file(path=nested)
 
     results = find_files_parallel(
         root_dirs=[root],

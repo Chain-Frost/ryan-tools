@@ -141,7 +141,7 @@ class ProcessorCollection:
 
         Returns:
             pd.DataFrame: Combined and grouped DataFrame."""
-        logger.debug("Combining 1D Maximums and ccA data.")
+        logger.debug("Combining 1D Maximums/ccA data.")
 
         # Filter processors with dataformat 'Maximums' or 'ccA'
         maximums_processors: list[BaseProcessor] = [
@@ -263,7 +263,6 @@ class ProcessorCollection:
             second_priority_columns=p2_col,
         )
         logger.debug(f"Grouped {len(maximums_processors)} Maximums/ccA DataFrame with {len(grouped_df)} rows.")
-        logger.debug("line157")
         return grouped_df
 
     def _calculate_hw_d_ratio(self, df: DataFrame) -> DataFrame:
@@ -305,7 +304,7 @@ class ProcessorCollection:
         ) / height_series.loc[valid_mask]
 
         df["HW_D"] = hw_d_series
-        logger.debug(f"Calculated HW_D ratio for {valid_count} of {df["Chan ID"].count()} rows.")
+        logger.debug(f"Calculated HW_D ratio for {valid_count} of {df['Chan ID'].count()} rows.")
         return df
 
     def combine_raw(self) -> pd.DataFrame:
@@ -411,7 +410,7 @@ class ProcessorCollection:
         """Identify processors that share the same run-code (internalName) and data_type.
 
         Returns:
-            A dict mapping (run_code, data_type) → list of processors. Only entries
+            A dict mapping (run_code, data_type) -> list of processors. Only entries
             where more than one processor share the same key are returned.
 
         # coll = ProcessorCollection()

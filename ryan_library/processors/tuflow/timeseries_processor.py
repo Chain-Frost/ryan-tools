@@ -246,7 +246,7 @@ class TimeSeriesProcessor(BaseProcessor):
             raise DataValidationError("No data found after reshaping.")
 
         expected_headers: list[str] = (
-            ["Time", category_type, "H_US", "H_DS"] if data_type == "H" else ["Time", category_type, data_type]
+            ["Time", category_type, "US_H", "DS_H"] if data_type == "H" else ["Time", category_type, data_type]
         )
         # Build the expected header list dynamically. It always starts with "Time" and the
         # category column, which switches between "Chan ID" for 1D results and "Location" for
@@ -267,11 +267,10 @@ class TimeSeriesProcessor(BaseProcessor):
         """
         col_types: dict[str, str] = {
             "Time": "float64",
-            data_type: "float64",
         }
 
         if data_type == "H":
-            col_types.update({"H_US": "float64", "H_DS": "float64"})
+            col_types.update({"US_H": "float64", "DS_H": "float64"})
         else:
             col_types[data_type] = "float64"
 

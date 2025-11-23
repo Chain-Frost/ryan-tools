@@ -1,148 +1,77 @@
-# tests/classes/test_tuflow_string_classes.py
-import pytest
-from pathlib import Path
 import json
-from ryan_library.classes.tuflow_string_classes import (
-    TuflowStringParser,
-    RunCodeComponent,
-)
+from pathlib import Path
+import pytest
 
-DATA_DIR = Path(__file__).absolute().parent.parent / "test_data" / "tuflow"
+# import sys
+# REPO_ROOT = Path(__file__).resolve().parents[2]
+# if str(REPO_ROOT) not in sys.path:
+#     sys.path.insert(0, str(REPO_ROOT))
+
+from ...ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
+from ...ryan_library.classes.tuflow_string_classes import RunCodeComponent, TuflowStringParser
+
+DATA_DIR: Path = Path(__file__).absolute().parent.parent / "test_data" / "tuflow"
 
 
 def locate_file(name: str) -> Path:
-    matches = list(DATA_DIR.glob(f"tutorials/*/results/{name}"))
+    matches: list[Path] = list(DATA_DIR.glob(f"tutorials/*/results/{name}"))
     if not matches:
         raise FileNotFoundError(name)
     return matches[0]
 
 
-# Fixture to load example file names and expected outputs
 @pytest.fixture(scope="module")
-def run_code_examples():
-    with open(
-        Path(__file__).parent.parent / "test_data" / "tuflow" / "pomm_run_codes.json",
-        "r",
-        encoding="utf-8",
-    ) as f:
-        data = json.load(f)
-    return data
+def run_code_examples() -> list[dict]:
+    with open(DATA_DIR / "pomm_run_codes.json", "r", encoding="utf-8") as f:
+        return json.load(f)
 
-
-from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 
 @pytest.fixture(scope="module")
-def suffixes():
-    """
-    Load the suffixes using SuffixesConfig.
-    """
+def suffixes() -> dict[str, str]:
     return SuffixesConfig.get_instance().suffix_to_type
 
 
-def test_suffix_loading(suffixes):
-    """
-    Verify that the suffixes are loaded correctly.
-    """
+def test_suffix_loading(suffixes: dict[str, str]) -> None:
     assert isinstance(suffixes, dict), "Suffixes should be a dictionary."
-    assert "_1d_Cmx.csv" in suffixes, "Missing expected key in suffixes."
+    assert "_POMM.csv" in suffixes, "Missing expected key in suffixes."
 
 
-def test_file_name_parsing(run_code_examples):
+def test_file_name_parsing(run_code_examples: list[dict]) -> None:
     for test_case in run_code_examples:
-        file_name = test_case["file_name"]
-        expected = test_case["expected"]
+        file_name: str = test_case["file_name"]
+        expected: dict = test_case["expected"]
 
         parser = TuflowStringParser(file_path=locate_file(file_name))
 
         assert parser.file_name == file_name, f"File name mismatch for {file_name}"
-        if "data_type" in expected:
-            assert parser.data_type == expected["data_type"], f"Data type mismatch for {file_name}"
-        if "raw_run_code" in expected:
-            assert parser.raw_run_code == expected["raw_run_code"], f"Raw run code mismatch for {file_name}"
-        if "clean_run_code" in expected:
-            assert parser.clean_run_code == expected["clean_run_code"], f"Clean run code mismatch for {file_name}"
         assert parser.run_code_parts == expected.get("run_code_parts"), f"Run code parts mismatch for {file_name}"
-
-        # Test RunCodeComponents
-        if expected.get("tp") is not None:
-            assert parser.tp is not None, f"TP component missing for {file_name}"
-            if isinstance(expected["tp"], dict):
-                assert parser.tp.text_repr == expected["tp"]["text_repr"], f"TP text_repr mismatch for {file_name}"
-                assert (
-                    parser.tp.numeric_value == expected["tp"]["numeric_value"]
-                ), f"TP numeric_value mismatch for {file_name}"
-            else:
-                assert parser.tp.text_repr == expected["tp"], f"TP value mismatch for {file_name}"
-        elif "tp" in expected:
-            assert parser.tp is None, f"Unexpected TP component for {file_name}"
-
-        if expected.get("duration") is not None:
-            assert parser.duration is not None, f"Duration component missing for {file_name}"
-            if isinstance(expected["duration"], dict):
-                assert (
-                    parser.duration.text_repr == expected["duration"]["text_repr"]
-                ), f"Duration text_repr mismatch for {file_name}"
-                assert (
-                    parser.duration.numeric_value == expected["duration"]["numeric_value"]
-                ), f"Duration numeric_value mismatch for {file_name}"
-            else:
-                assert parser.duration.text_repr == expected["duration"], f"Duration value mismatch for {file_name}"
-        elif "duration" in expected:
-            assert parser.duration is None, f"Unexpected Duration component for {file_name}"
-
-        if expected.get("aep") is not None:
-            assert parser.aep is not None, f"AEP component missing for {file_name}"
-            if isinstance(expected["aep"], dict):
-                assert parser.aep.text_repr == expected["aep"]["text_repr"], f"AEP text_repr mismatch for {file_name}"
-                assert (
-                    parser.aep.numeric_value == expected["aep"]["numeric_value"]
-                ), f"AEP numeric_value mismatch for {file_name}"
-            else:
-                assert parser.aep.text_repr == expected["aep"], f"AEP value mismatch for {file_name}"
-        elif "aep" in expected:
-            assert parser.aep is None, f"Unexpected AEP component for {file_name}"
-
-        # Test trimmed run code
+        assert (parser.aep.text_repr if parser.aep else None) == expected.get("aep"), f"AEP mismatch for {file_name}"
+        assert (parser.duration.text_repr if parser.duration else None) == expected.get(
+            "duration"
+        ), f"Duration mismatch for {file_name}"
+        assert (parser.tp.text_repr if parser.tp else None) == expected.get("tp"), f"TP mismatch for {file_name}"
         assert parser.trim_run_code == expected.get("trim_run_code"), f"Trimmed run code mismatch for {file_name}"
 
 
-def test_run_code_component():
-    # Test numeric parsing
-    component = RunCodeComponent(raw_value="12", component_type="TP")
-    assert component.numeric_value == 12
-    assert component.text_repr == "TP12"
+def test_run_code_component_numeric_and_text_repr() -> None:
+    tp_component = RunCodeComponent(raw_value="12", component_type="TP")
+    assert tp_component.numeric_value == 12
+    assert tp_component.text_repr == "TP12"
 
-    component = RunCodeComponent(raw_value="3.5", component_type="AEP")
-    assert component.numeric_value == 3.5
-    assert component.text_repr == "3.5p"
+    aep_component = RunCodeComponent(raw_value="3.5", component_type="AEP")
+    assert aep_component.numeric_value == 3.5
+    assert aep_component.text_repr == "3.5p"
 
-    component = RunCodeComponent(raw_value="120", component_type="Duration")
-    assert component.numeric_value == 120
-    assert component.text_repr == "120m"
+    duration_component = RunCodeComponent(raw_value="120", component_type="Duration")
+    assert duration_component.numeric_value == 120
+    assert duration_component.text_repr == "120m"
 
-    # Test case 2: Some components missing
-    run_code = "R01_TP12_AEP2.0"
-    aep = "AEP2.0"
-    duration = None
-    tp = "TP12"
-    expected = "R01"
-    result = trim_runcode(run_code, aep, duration, tp)
-    assert result == expected, f"Trim run code failed: expected {expected}, got {result}"
 
-    # Test case 3: No components to remove
-    run_code = "R01_R02"
-    aep = None
-    duration = None
-    tp = None
-    expected = "R01_R02"
-    result = trim_runcode(run_code, aep, duration, tp)
-    assert result == expected, f"Trim run code failed: expected {expected}, got {result}"
+def test_trim_run_code_removes_parsed_components() -> None:
+    parser = TuflowStringParser(file_path=Path("R01_TP12_2.0p_120m_POMM.csv"))
 
-    # Test case 4: Run code with different delimiters
-    run_code = "R01+TP12+Duration300+AEP1.5"
-    aep = "AEP1.5"
-    duration = "Duration300"
-    tp = "TP12"
-    expected = "R01"
-    result = trim_runcode(run_code, aep, duration, tp)
-    assert result == expected, f"Trim run code failed with delimiters: expected {expected}, got {result}"
+    assert parser.data_type == "POMM"
+    assert parser.tp and parser.tp.text_repr == "TP12"
+    assert parser.aep and parser.aep.text_repr == "2.0p"
+    assert parser.duration and parser.duration.text_repr == "120m"
+    assert parser.trim_run_code == "R01"

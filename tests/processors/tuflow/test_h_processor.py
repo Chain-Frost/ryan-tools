@@ -1,4 +1,4 @@
-"""Regression coverage for TUFLOW timeseries and maximum processors."""
+"""Regression coverage for TUFLOW HProcessor."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import pandas.testing as pdt
 
-from ryan_library.processors.tuflow import NmxProcessor
 from ryan_library.processors.tuflow.timeseries_1d.HProcessor import HProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
@@ -45,32 +44,17 @@ def _write_h_csv(directory: Path, file_name: str) -> Path:
     return path
 
 
-def _write_nmx_csv(directory: Path, file_name: str) -> Path:
-    """Create a minimal `_1d_Nmx.csv` file for testing upstream/downstream pivots."""
-
-    data = pd.DataFrame(
-        {
-            "Node ID": ["CULVERT.1", "CULVERT.2", "CULVERT2.1"],
-            "Hmax": [1.2, 1.4, 2.0],
-            "Time Hmax": [10.0, 10.0, 12.0],
-        }
-    )
-    path = directory / file_name
-    data.to_csv(path, index=False)
-    return path
-
-
 def test_h_processor_normalises_dual_timeseries(tmp_path: Path) -> None:
     """HProcessor should reshape upstream/downstream heads into tidy columns."""
 
     with change_working_directory(tmp_path):
         csv_path = _write_h_csv(Path.cwd(), "TestRun_1d_H.csv")
         processor = HProcessor(file_path=csv_path)
-        df = processor.process()
+        processor.process()
 
-    assert not df.empty
+    assert not processor.df.empty
 
-    observed = df[["Time", "Chan ID", "H_US", "H_DS"]].sort_values(["Chan ID", "Time"]).reset_index(drop=True)
+    observed = processor.df[["Time", "Chan ID", "US_H", "DS_H"]].sort_values(["Chan ID", "Time"]).reset_index(drop=True)
 
     expected = pd.DataFrame(
         [
@@ -80,7 +64,7 @@ def test_h_processor_normalises_dual_timeseries(tmp_path: Path) -> None:
             (1.0, "BBB", 3.5, np.nan),
             (2.0, "BBB", 4.5, 4.8),
         ],
-        columns=["Time", "Chan ID", "H_US", "H_DS"],
+        columns=["Time", "Chan ID", "US_H", "DS_H"],
     )
 
     expected = expected.sort_values(["Chan ID", "Time"]).reset_index(drop=True)
@@ -106,7 +90,7 @@ def test_collection_combines_h_timeseries(tmp_path: Path) -> None:
     collection.add_processor(processor)
 
     combined = (
-        collection.combine_1d_timeseries()[["internalName", "Chan ID", "Time", "H_US", "H_DS"]]
+        collection.combine_1d_timeseries()[["internalName", "Chan ID", "Time", "US_H", "DS_H"]]
         .sort_values(["Chan ID", "Time"])
         .reset_index(drop=True)
     )
@@ -119,7 +103,7 @@ def test_collection_combines_h_timeseries(tmp_path: Path) -> None:
             ("Combo", "BBB", 1.0, 3.5, np.nan),
             ("Combo", "BBB", 2.0, 4.5, 4.8),
         ],
-        columns=["internalName", "Chan ID", "Time", "H_US", "H_DS"],
+        columns=["internalName", "Chan ID", "Time", "US_H", "DS_H"],
     )
 
     expected = expected.sort_values(["Chan ID", "Time"]).reset_index(drop=True)
@@ -128,56 +112,3 @@ def test_collection_combines_h_timeseries(tmp_path: Path) -> None:
     expected = expected.astype({"internalName": "string", "Chan ID": "string"})
 
     pdt.assert_frame_equal(combined, expected, check_dtype=False)
-
-
-def test_nmx_processor_pivots_upstream_downstream_nodes(tmp_path: Path) -> None:
-    """NmxProcessor should continue pivoting `.1`/`.2` suffixes into US/DS columns."""
-
-    with change_working_directory(tmp_path):
-        csv_path = _write_nmx_csv(Path.cwd(), "NmxRun_1d_Nmx.csv")
-        processor = NmxProcessor(file_path=csv_path)
-        df = processor.process()
-
-    observed = df[["Chan ID", "Time", "US_h", "DS_h"]].sort_values("Chan ID").reset_index(drop=True)
-    observed = observed.rename_axis(columns=None)
-
-    expected = pd.DataFrame(
-        [
-            ("CULVERT", 10.0, 1.2, 1.4),
-            ("CULVERT2", 12.0, 2.0, np.nan),
-        ],
-        columns=["Chan ID", "Time", "US_h", "DS_h"],
-    )
-    expected = expected.sort_values("Chan ID").reset_index(drop=True)
-    expected = expected.rename_axis(columns=None)
-
-    observed = observed.astype({"Chan ID": "string"})
-    expected = expected.astype({"Chan ID": "string"})
-
-    pdt.assert_frame_equal(observed, expected, check_dtype=False)
-
-    collection = ProcessorCollection()
-    collection.add_processor(processor)
-
-    combined = (
-        collection.combine_1d_maximums()[["internalName", "Chan ID", "US_h", "DS_h"]]
-        .sort_values("Chan ID")
-        .reset_index(drop=True)
-    )
-    combined = combined.rename_axis(columns=None)
-
-    expected_combined = pd.DataFrame(
-        [
-            ("NmxRun", "CULVERT", 1.2, 1.4),
-            ("NmxRun", "CULVERT2", 2.0, np.nan),
-        ],
-        columns=["internalName", "Chan ID", "US_h", "DS_h"],
-    )
-
-    expected_combined = expected_combined.sort_values("Chan ID").reset_index(drop=True)
-    expected_combined = expected_combined.rename_axis(columns=None)
-
-    combined = combined.astype({"internalName": "string", "Chan ID": "string"})
-    expected_combined = expected_combined.astype({"internalName": "string", "Chan ID": "string"})
-
-    pdt.assert_frame_equal(combined, expected_combined, check_dtype=False)

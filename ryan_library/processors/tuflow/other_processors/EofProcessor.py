@@ -6,7 +6,7 @@ from loguru import logger
 import io
 
 
-class EofProcessor(BaseProcessor):
+class EOFProcessor(BaseProcessor):
     """Processor for '.eof' files."""
 
     def process(self) -> None:

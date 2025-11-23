@@ -113,6 +113,7 @@ def check_string_aep(string: str) -> str:
     # Delegate to the shared parser pattern so logic lives in one place.
     match: re.Match[str] | None = TuflowStringParser.AEP_PATTERN.search(string)
     if match:
-        return match.group(1)
+        # Prefer the numeric capture (e.g. "01.00"); fall back to the text token (e.g. "PMP").
+        return match.group("numeric") or match.group("text")  # type: ignore[return-value]
     else:
         raise ValueError(f"AEP pattern not found in the string: {string}")

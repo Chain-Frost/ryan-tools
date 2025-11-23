@@ -1,13 +1,13 @@
-import sys
 from pathlib import Path
 import unittest
 from loguru import logger
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+# import sys
+# ROOT: Path = Path(__file__).resolve().parents[2]
+# if str(ROOT) not in sys.path:
+#     sys.path.insert(0, str(ROOT))
 
-from ryan_library.functions.data_processing import (
+from ...ryan_library.functions.data_processing import (
     check_string_TP,
     check_string_duration,
     check_string_aep,

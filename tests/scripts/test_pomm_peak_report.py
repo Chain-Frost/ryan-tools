@@ -6,7 +6,7 @@ from pandas import DataFrame
 
 sys.path.insert(0, str(Path(__file__).absolute().parents[2]))
 
-from ryan_library.scripts.pomm_utils import (
+from ryan_library.functions.tuflow.pomm_utils import (
     aggregated_from_paths,
     find_aep_dur_median,
     find_aep_median_max,
