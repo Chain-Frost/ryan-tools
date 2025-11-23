@@ -3,18 +3,18 @@
 import pandas as pd
 import numpy as np
 import rasterio
-import logging
+from loguru import logger
 from pathlib import Path
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
+from ryan_library.functions.loguru_helpers import worker_initializer
 
 
 def read_geotiff(filename, nodata_values=None):
     """
     Reads a GeoTIFF file and returns a DataFrame with X, Y, Z coordinates.
     """
-    logger = logging.getLogger(__name__)
-    logger.info(f"Loading file: {filename}")
+    logger.info("Loading file: {}", filename)
     try:
         with rasterio.open(filename) as f:
             band = f.read(1)
@@ -40,11 +40,11 @@ def read_geotiff(filename, nodata_values=None):
             x, y = f.xy(row, col)
 
         df = pd.DataFrame({"X": x, "Y": y, "Z": band.compressed()})
-        logger.debug(f"DataFrame shape after loading: {df.shape}")
+        logger.debug("DataFrame shape after loading: {}", df.shape)
         return df
 
     except Exception as e:
-        logger.error(f"Error reading file {filename}: {e}")
+        logger.error("Error reading file {}: {}", filename, e)
         return pd.DataFrame(columns=["X", "Y", "Z"])
 
 
@@ -53,7 +53,6 @@ def tile_data(df, tile_size):
     Splits the DataFrame into tiles based on the specified tile size.
     Returns a list of tuples containing tile indices and the corresponding tile DataFrame.
     """
-    logger = logging.getLogger(__name__)
     # Determine the range of X and Y
     x_min, x_max = df["X"].min(), df["X"].max()
     y_min, y_max = df["Y"].min(), df["Y"].max()
@@ -62,7 +61,7 @@ def tile_data(df, tile_size):
     x_tiles = int(np.ceil((x_max - x_min) / tile_size))
     y_tiles = int(np.ceil((y_max - y_min) / tile_size))
 
-    logger.info(f"Tiling data into {x_tiles} x {y_tiles} tiles.")
+    logger.info("Tiling data into {} x {} tiles.", x_tiles, y_tiles)
 
     tiles = []
     for i in tqdm(range(x_tiles), desc="Processing tiles (X-axis)"):
@@ -83,8 +82,8 @@ def tile_data(df, tile_size):
             if not tile_df.empty:
                 tiles.append(((i, j), tile_df))
             else:
-                logger.debug(f"Tile ({i}, {j}) is empty. Skipping.")
-    logger.info(f"Completed tiling. Generated {len(tiles)} non-empty tiles.")
+                logger.debug("Tile ({}, {}) is empty. Skipping.", i, j)
+    logger.info("Completed tiling. Generated {} non-empty tiles.", len(tiles))
     return tiles
 
 
@@ -112,8 +111,7 @@ def process_terrain_file_inner(
     - tile_size: Size of each tile
     - save_function: Function to save the data
     """
-    logger = logging.getLogger(__name__)
-    logger.info(f"Processing file: {filename}")
+    logger.info("Processing file: {}", filename)
 
     filename = Path(filename)
 
@@ -123,14 +121,14 @@ def process_terrain_file_inner(
     initial_shape = df.shape
     df.dropna(inplace=True)
     logger.debug(
-        f"Dropped NaN values. DataFrame shape changed from {initial_shape} to {df.shape}"
+        "Dropped NaN values. DataFrame shape changed from {} to {}", initial_shape, df.shape
     )
 
     # Base filename without extension
     base_filename = filename.stem
 
     if df.empty:
-        logger.warning(f"No valid data found in {filename}. Skipping file.")
+        logger.warning("No valid data found in {}. Skipping file.", filename)
         return
 
     if tile_size:
@@ -144,7 +142,7 @@ def process_terrain_file_inner(
 
 
 def parallel_process_multiple_terrain(
-    files, output_dir, nodata_values, tile_size, save_function
+    files, output_dir, nodata_values, tile_size, save_function, log_queue=None
 ):
     """
     Orchestrates the processing of multiple terrain files in parallel.
@@ -162,8 +160,11 @@ def parallel_process_multiple_terrain(
         for file in files
     ]
 
+    initializer = worker_initializer if log_queue is not None else None
+    initargs = (log_queue,) if log_queue is not None else ()
+
     # Use multiprocessing to process files in parallel
-    with Pool(processes=cpu_count()) as pool:
+    with Pool(processes=cpu_count(), initializer=initializer, initargs=initargs) as pool:
         list(
             tqdm(
                 pool.imap_unordered(process_terrain_file, tasks),

@@ -1,7 +1,7 @@
 # ryan_library/functions/path_stuff.py
 
 from pathlib import Path
-import logging
+from loguru import logger
 
 # Define the mapping of network paths to drive letters
 network_drive_mapping: dict[str, str] = {
@@ -66,13 +66,13 @@ def convert_to_relative_path(user_path: Path) -> Path:
         # Return the relative path from the current directory
         try:
             rel_path = user_path.relative_to(current_directory)
-            logging.debug(f"Converting to relative path: {rel_path}")
+            logger.debug("Converting to relative path: {}", rel_path)
             return rel_path
         except ValueError:
-            logging.debug(f"Failed to convert to relative path: {user_path}")
+            logger.debug("Failed to convert to relative path: {}", user_path)
             return user_path
     else:
         # Return the absolute path if not within the current directory
         abs_path = user_path.resolve()
-        logging.debug(f"Returning absolute path: {abs_path}")
+        logger.debug("Returning absolute path: {}", abs_path)
         return abs_path

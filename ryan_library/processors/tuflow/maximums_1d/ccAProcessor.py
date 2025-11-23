@@ -124,7 +124,8 @@ class ccAProcessor(BaseProcessor):
             # Build SQLite URI in read-only mode
             path_posix: str = path.as_posix()  # e.g. q:/folder/.../file.gpkg
             uri_path: str = urllib.parse.quote(path_posix, safe="/:")
-            db_uri: str = f"file:{uri_path}?mode=ro"
+            # immutable=1 guarantees SQLite never attempts to write journal/WAL files
+            db_uri: str = f"file:{uri_path}?mode=ro&immutable=1"
             logger.debug("process_gpkg: Connecting to GeoPackage via sqlite3 with db_uri={!r} (uri=True)", db_uri)
 
             with sqlite3.connect(database=db_uri, uri=True) as conn:

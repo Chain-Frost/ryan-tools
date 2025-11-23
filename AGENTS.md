@@ -71,6 +71,12 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 2. **Follow conventions**: Generate code adhering to the project standards (sections 2–5).
 3. **Produce PR diffs**: Only modify relevant files; include clear commit messages.
 
+#### Logging (loguru) guidance
+- Success/error/exception logs shown to users must use f-strings (or equivalent eager formatting) for clarity.
+- Info logs are also user-facing; prefer f-strings or explicit formatting so rendered messages are readable as-is.
+- Debug logs should remain lazily formatted (loguru parameter style) to avoid unnecessary work when debug is disabled.
+- TODO: Sweep the codebase and align existing log statements with these conventions; ensure logging helpers do not leak internal helper names into user-facing output.
+
 ---
 
 ### 7. Build Workflow
@@ -90,6 +96,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 ### 8. Environment Notes
 
 * On machines joined to the `bge-resources.com` domain (e.g., where `USERDNSDOMAIN=bge-resources.com` or `USERDOMAIN=BGER`), PowerShell sometimes fails to stream file contents reliably. When working on these systems, prefer running commands through `cmd.exe` (e.g., `cmd.exe /C type path\to\file`) so files load correctly in the Codex CLI.
+* CI/CLI host commonly provides system Python 3.12 with PEP 668 (externally-managed) pip. `python -m venv` may fail unless `python3-venv` is installed. If you need repo deps, install the bundled wheel under `dist/` (e.g., `python3 -m pip install --break-system-packages dist/ryan_functions-*.whl`) so `ryan_library` and loguru/geopandas/fiona are available. If isolation is required, install venv tooling first or use user-level installs.
 
 ---
 

@@ -4,6 +4,7 @@ from datetime import datetime
 import multiprocessing
 import pandas as pd
 import logging
+from loguru import logger
 from typing import Literal, TypedDict
 from pathlib import Path
 from importlib import metadata
@@ -184,7 +185,10 @@ class ExcelExporter:
             if len(dataframes) != len(sheets):
                 file_label: str = file_name if file_name is not None else export_key
                 raise ValueError(
-                    f"For file '{file_label}', the number of dataframes ({len(dataframes)}) and sheets ({len(sheets)}) must match."
+                    (
+                        f"For file '{file_label}', the number of dataframes ({len(dataframes)}) and sheets "
+                        f"({len(sheets)}) must match."
+                    )
                 )
 
             export_stem: str = self._resolve_export_stem(
@@ -202,9 +206,8 @@ class ExcelExporter:
                 continue
 
             if self._exceeds_excel_limits(dataframes=dataframes):
-                logging.warning(
-                    "Data for '%s' exceeds Excel size limits. Exporting to Parquet and CSV instead.",
-                    export_stem,
+                logger.warning(
+                    "Data for '{}' exceeds Excel size limits. Exporting to Parquet and CSV instead.", export_stem
                 )
                 self._export_as_parquet_and_csv(
                     export_stem=export_stem,
@@ -228,7 +231,7 @@ class ExcelExporter:
             if output_directory:
                 export_path.parent.mkdir(parents=True, exist_ok=True)
 
-            logging.info(f"Exporting to {export_path}")
+            logger.info("Exporting to {export_path}")
 
             try:
                 with pd.ExcelWriter(path=export_path, engine="openpyxl") as writer:
@@ -236,8 +239,10 @@ class ExcelExporter:
                     for df, sheet in zip(dataframes, sheets):
                         # Check for unique column names
                         if not df.columns.is_unique:
-                            logging.error(
-                                f"DataFrame for sheet '{sheet}' has duplicate column names. Please ensure all column names are unique."
+                            logger.error(
+                                "Duplicate column names in DataFrame for sheet '{}'. "
+                                "Ensure all column names are unique.",
+                                sheet,
                             )
                             raise ValueError(f"Duplicate column names found in sheet '{sheet}'.")
 
@@ -266,9 +271,9 @@ class ExcelExporter:
                                 column_widths=column_widths[sheet],
                             )
 
-                logging.info(f"Finished exporting '{export_filename}' to '{export_path}'")
+                logger.info("Finished exporting '{}' to '{}'", export_filename, export_path)
             except InvalidFileException as e:
-                logging.error(f"Failed to write to '{export_path}': {e}")
+                logger.error("Failed to write to '{}': {}", export_path, e)
                 raise
 
             if normalized_mode == "both":
@@ -290,8 +295,11 @@ class ExcelExporter:
             total_rows: int = num_data_rows + header_rows
 
             if total_rows > self.MAX_EXCEL_ROWS or num_columns > self.MAX_EXCEL_COLUMNS:
-                logging.debug(
-                    "Dataframe size rows=%s (including %s header rows) columns=%s exceeds Excel limits (rows=%s, columns=%s).",
+                logger.debug(
+                    (
+                        "Dataframe size rows={} (including {} header rows) columns={} exceeds Excel limits "
+                        "(rows={}, columns={})."
+                    ),
                     total_rows,
                     header_rows,
                     num_columns,
@@ -331,16 +339,16 @@ class ExcelExporter:
 
         try:
             df.to_parquet(path=parquet_path, index=False, compression=compression)
-            logging.info("Exported Parquet to %s", parquet_path)
+            logger.info("Exported Parquet to {}", parquet_path)
         except (ImportError, ValueError) as exc:
             message: str = (
                 "Unable to export Parquet for "
                 f"'{export_label}' sheet '{sheet}': {exc}. Install pyarrow or fastparquet."
             )
-            logging.error(message)
+            logger.error(message)
             print(message)
         except Exception as exc:  # pragma: no cover - unforeseen errors should be logged
-            logging.exception("Unexpected error during Parquet export for '%s' sheet '%s': %s", export_label, sheet, exc)
+            logger.exception("Unexpected error during Parquet export for '{}' sheet '{}': {}", export_label, sheet, exc)
 
     def _export_as_parquet_only(
         self,
@@ -412,7 +420,7 @@ class ExcelExporter:
 
         for df, sheet, _, csv_path in export_targets:
             df.to_csv(path_or_buf=csv_path, index=False)
-            logging.info("Exported CSV to %s", csv_path)
+            logger.info("Exported CSV to {}", csv_path)
 
     def _build_output_path(self, base_filename: str, output_directory: Path | None) -> Path:
         """Create the full output path for a file name."""
@@ -501,7 +509,7 @@ class ExcelExporter:
             + 2  # Adding extra space
             for idx, col in enumerate(df.columns)
         }
-        logging.debug(f"Calculated dynamic column widths: {column_widths}")
+        logger.debug("Calculated dynamic column widths: {}", column_widths)
         return column_widths
 
     def set_column_widths(
@@ -522,7 +530,7 @@ class ExcelExporter:
             TypeError: If column indices are not integers."""
         for col_name, width in column_widths.items():
             if col_name not in df.columns:
-                logging.warning(f"Column '{col_name}' not found in sheet '{sheet_name}'. Skipping width setting.")
+                logger.warning("Column '{}' not found in sheet '{}'. Skipping width setting.", col_name, sheet_name)
                 continue
 
             try:
@@ -534,14 +542,18 @@ class ExcelExporter:
                 )
                 col_letter: str = get_column_letter(col_idx + 1)
                 worksheet.column_dimensions[col_letter].width = width
-                logging.debug(f"Set width for column '{col_name}' ({col_letter}) in sheet '{sheet_name}' to {width}.")
+                logger.debug(
+                    "Set width for column '{}' ({}) in sheet '{}' to {}.", col_name, col_letter, sheet_name, width
+                )
             except TypeError as e:
-                logging.exception(f"TypeError when setting width for column '{col_name}' in sheet '{sheet_name}': {e}")
+                logger.exception(
+                    "TypeError when setting width for column '{}' in sheet '{}': {}", col_name, sheet_name, e
+                )
             except AssertionError as e:
-                logging.exception(str(e))
+                logger.exception(str(e))
             except Exception as e:
-                logging.exception(
-                    f"Unexpected error when setting width for column '{col_name}' in sheet '{sheet_name}': {e}"
+                logger.exception(
+                    "Unexpected error when setting width for column '{}' in sheet '{}': {}", col_name, sheet_name, e
                 )
 
     def auto_adjust_column_widths(self, worksheet: Worksheet, dynamic_widths: dict[str, float]) -> None:
@@ -553,7 +565,7 @@ class ExcelExporter:
             current_width: float | None = worksheet.column_dimensions[col_letter].width
             if current_width is None or width > current_width:
                 worksheet.column_dimensions[col_letter].width = width
-                logging.debug(f"Auto-adjusted width for column '{col_letter}' to {width}.")
+                logger.debug("Auto-adjusted width for column '{}' to {}.", col_letter, width)
 
 
 # Backwards compatibility functions:

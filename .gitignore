@@ -23,10 +23,13 @@ pytest-cache-files-*
 
 # Ignore all .xlsx files in the tests/test_data folder and its subfolders, such as from testing runs
 tests/test_data/tuflow/tutorials/**/*.xlsx
-
+tests/test_data/**/*.xlsx
+tests/test_data/**/*.py
 
 # Others
 */Thumbs.db
 */~$*.xlsx
 tests/test_data/tuflow/Thumbs.db
 test_output.txt
+
+

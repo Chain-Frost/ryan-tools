@@ -4,8 +4,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 import re
-from multiprocessing import Pool, current_process
-import logging
+from multiprocessing import Pool
+from loguru import logger
+from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
 
 
 # ========================
@@ -69,24 +70,6 @@ def initialize_values():
 
 
 # ========================
-# Setup Logging
-# ========================
-def setup_logging():
-    """Configure logging for the script."""
-    logging.basicConfig(
-        filename="processing.log",
-        filemode="a",
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        level=logging.INFO,
-    )
-    console = logging.StreamHandler()
-    console.setLevel(logging.INFO)
-    formatter = logging.Formatter("%(levelname)s - %(message)s")
-    console.setFormatter(formatter)
-    logging.getLogger("").addHandler(console)
-
-
-# ========================
 # Functions for environment setup and checks
 # ========================
 def setup_environment(values):
@@ -113,7 +96,7 @@ def setup_environment(values):
 def check_executable(path, name):
     """Check if the specified executable or script exists."""
     if not os.path.exists(path):
-        logging.error(f"{name} not found at {path}. Ensure it is correctly installed.")
+        logger.error(f"{name} not found at {path}. Ensure it is correctly installed.")
         sys.exit(1)
 
 
@@ -148,7 +131,7 @@ def find_tif_files(root_dir, extension, allowed_suffixes):
                     full_path = os.path.join(dirpath, filename)
                     tif_files.append(full_path)
                 else:
-                    logging.info(f"Skipping file (does not match allowed suffixes): {filename}")
+                    logger.info(f"Skipping file (does not match allowed suffixes): {filename}")
     return tif_files
 
 
@@ -171,7 +154,7 @@ def extract_base_name(filename, group_remove_index):
     # Adjust for 1-based indexing
     index = group_remove_index - 1
     if index < 0 or index >= len(parts):
-        logging.warning(f"Filename '{filename}' does not have field {group_remove_index}. Skipping.")
+        logger.warning(f"Filename '{filename}' does not have field {group_remove_index}. Skipping.")
         return None
     # Remove the specified field
     del parts[index]
@@ -212,7 +195,7 @@ def process_group(args):
     """
     base_name, files, values, script_dir = args
     try:
-        logging.info(f"Processing group: {base_name}")
+        logger.info(f"Processing group: {base_name}")
 
         # Define output VRT and TIFF paths
         vrt_filename = f"{base_name}.vrt"
@@ -223,7 +206,7 @@ def process_group(args):
 
         # Check if output TIFF already exists
         if os.path.exists(tif_path):
-            logging.info(f"TIFF already exists: {tif_path}. Skipping.")
+            logger.info(f"TIFF already exists: {tif_path}. Skipping.")
             return
 
         # Create VRT
@@ -240,20 +223,20 @@ def process_group(args):
         # Build overviews (pyramids)
         build_overviews(tif_path, values["gdaladdo_path"], values["gdaladdo_options"])
 
-        logging.info(f"Successfully created: {tif_path}")
+        logger.info(f"Successfully created: {tif_path}")
 
     except subprocess.CalledProcessError as e:
-        logging.error(f"Error processing group '{base_name}': {e}")
+        logger.error(f"Error processing group '{base_name}': {e}")
     except Exception as ex:
-        logging.error(f"Unexpected error processing group '{base_name}': {ex}")
+        logger.error(f"Unexpected error processing group '{base_name}': {ex}")
     finally:
         # Remove the VRT file if it exists
         if os.path.exists(vrt_path):
             try:
                 os.remove(vrt_path)
-                logging.info(f"Removed temporary VRT file: {vrt_path}")
+                logger.info(f"Removed temporary VRT file: {vrt_path}")
             except Exception as ex:
-                logging.warning(f"Could not remove VRT file '{vrt_path}': {ex}")
+                logger.warning(f"Could not remove VRT file '{vrt_path}': {ex}")
 
 
 # ========================
@@ -272,32 +255,32 @@ def create_vrt(vrt_path, input_files, gdalbuildvrt_path) -> None:
             for file in input_files:
                 temp_file.write(f"{file}\n")
             file_list_path = temp_file.name
-            logging.info(f"Temporary file list created at: {file_list_path}")
+            logger.info(f"Temporary file list created at: {file_list_path}")
 
-        logging.info(f"Creating VRT: {vrt_path}")
+        logger.info(f"Creating VRT: {vrt_path}")
         cmd = [gdalbuildvrt_path, "-input_file_list", file_list_path, vrt_path]
         subprocess.run(cmd, check=True)
-        logging.info(f"Created VRT: {vrt_path}")
+        logger.info(f"Created VRT: {vrt_path}")
 
     except subprocess.CalledProcessError as e:
-        logging.error(f"GDAL build VRT failed for '{vrt_path}': {e}")
+        logger.error(f"GDAL build VRT failed for '{vrt_path}': {e}")
         return
     except PermissionError:
-        logging.error(f"Access denied when writing to '{file_list_path}' or creating VRT '{vrt_path}'.")
+        logger.error(f"Access denied when writing to '{file_list_path}' or creating VRT '{vrt_path}'.")
         return
     except Exception as e:
-        logging.error(f"Unexpected error during VRT creation for '{vrt_path}': {e}")
+        logger.error(f"Unexpected error during VRT creation for '{vrt_path}': {e}")
         return
     finally:
         # Attempt to remove the temporary file list
         if "file_list_path" in locals() and os.path.exists(file_list_path):
             try:
                 os.remove(file_list_path)
-                logging.info(f"Removed temporary file list: {file_list_path}")
+                logger.info(f"Removed temporary file list: {file_list_path}")
             except PermissionError:
-                logging.warning(f"Access denied when trying to remove temporary file list: {file_list_path}")
+                logger.warning(f"Access denied when trying to remove temporary file list: {file_list_path}")
             except Exception as e:
-                logging.warning(f"Error removing temporary file list '{file_list_path}': {e}")
+                logger.warning(f"Error removing temporary file list '{file_list_path}': {e}")
 
 
 # ========================
@@ -306,9 +289,9 @@ def create_vrt(vrt_path, input_files, gdalbuildvrt_path) -> None:
 def translate_vrt_to_tif(vrt_path, tif_path, gdal_translate_path, translate_options):
     """Translate VRT to compressed TIFF."""
     cmd = [gdal_translate_path] + translate_options + [vrt_path, tif_path]
-    logging.info(f"Translating VRT to TIFF: {tif_path}")
+    logger.info(f"Translating VRT to TIFF: {tif_path}")
     subprocess.run(cmd, check=True)
-    logging.info(f"Translated VRT to TIFF: {tif_path}")
+    logger.info(f"Translated VRT to TIFF: {tif_path}")
 
 
 # ========================
@@ -318,68 +301,66 @@ def build_overviews(tif_path, gdaladdo_path, addo_options):
     """Build pyramids (overviews) for the TIFF."""
     overview_levels = ["2", "4", "8", "16", "32"]
     cmd = [gdaladdo_path] + addo_options + [tif_path] + overview_levels
-    logging.info(f"Building overviews for: {tif_path}")
+    logger.info(f"Building overviews for: {tif_path}")
     subprocess.run(cmd, check=True)
-    logging.info(f"Built overviews for: {tif_path}")
+    logger.info(f"Built overviews for: {tif_path}")
 
 
 def main():
     """Main function to merge TIFF files and build overviews."""
-    # Setup logging
-    setup_logging()
+    with setup_logger(console_log_level="INFO", log_file="processing.log") as log_queue:
+        # Initialize values and configurations
+        values = initialize_values()
 
-    # Initialize values and configurations
-    values = initialize_values()
+        # Set up the environment and check required components
+        setup_environment(values)
+        check_required_components(values)
 
-    # Set up the environment and check required components
-    setup_environment(values)
-    check_required_components(values)
+        # Get the directory where the script is located and change to it
+        script_dir = Path(__file__).absolute().parent
+        os.chdir(script_dir)
+        logger.info(f"Changed working directory to: {script_dir}")
 
-    # Get the directory where the script is located and change to it
-    script_dir = Path(__file__).absolute().parent
-    os.chdir(script_dir)
-    logging.info(f"Changed working directory to: {script_dir}")
+        logger.info(f"Searching for .tif files in: {script_dir}")
 
-    logging.info(f"Searching for .tif files in: {script_dir}")
+        # Step 1: Find all .tif files that end with allowed suffixes
+        tif_files = find_tif_files(script_dir, values["file_extension"], values["allowed_suffixes"])
+        logger.info(f"Found {len(tif_files)} .tif files matching allowed suffixes.")
 
-    # Step 1: Find all .tif files that end with allowed suffixes
-    tif_files = find_tif_files(script_dir, values["file_extension"], values["allowed_suffixes"])
-    logging.info(f"Found {len(tif_files)} .tif files matching allowed suffixes.")
+        if not tif_files:
+            logger.info("No .tif files found matching the allowed suffixes. Exiting.")
+            return
 
-    if not tif_files:
-        logging.info("No .tif files found matching the allowed suffixes. Exiting.")
-        return
+        # Step 2: Group files by base name after removing the specified field
+        group_remove_index = values["group_remove_index"]
+        groups = group_files_by_base(tif_files, group_remove_index)
+        logger.info(f"Grouped into {len(groups)} sets based on removing field {group_remove_index}.")
 
-    # Step 2: Group files by base name after removing the specified field
-    group_remove_index = values["group_remove_index"]
-    groups = group_files_by_base(tif_files, group_remove_index)
-    logging.info(f"Grouped into {len(groups)} sets based on removing field {group_remove_index}.")
+        # Output all groups to a text file
+        groups_output_path = os.path.join(script_dir, "groups.txt")
+        with open(groups_output_path, "w") as f:
+            for idx, (base_name, files) in enumerate(groups.items(), start=1):
+                f.write(f"Group {idx}: {base_name}\n")
+                for file in files:
+                    f.write(f"  - {file}\n")
+                f.write("\n")
+        logger.info(f"All groups have been written to '{groups_output_path}'.")
 
-    # Output all groups to a text file
-    groups_output_path = os.path.join(script_dir, "groups.txt")
-    with open(groups_output_path, "w") as f:
-        for idx, (base_name, files) in enumerate(groups.items(), start=1):
-            f.write(f"Group {idx}: {base_name}\n")
-            for file in files:
-                f.write(f"  - {file}\n")
-            f.write("\n")
-    logging.info(f"All groups have been written to '{groups_output_path}'.")
+        # Prepare arguments for multiprocessing
+        tasks = []
+        for base_name, files in groups.items():
+            tasks.append((base_name, files, values, script_dir))
 
-    # Prepare arguments for multiprocessing
-    tasks = []
-    for base_name, files in groups.items():
-        tasks.append((base_name, files, values, script_dir))
+        # Determine the number of processes to use (e.g., number of CPU cores)
+        num_processes = os.cpu_count() or 4  # Default to 4 if os.cpu_count() is None
 
-    # Determine the number of processes to use (e.g., number of CPU cores)
-    num_processes = os.cpu_count() or 4  # Default to 4 if os.cpu_count() is None
+        logger.info(f"Starting multiprocessing with {num_processes} processes.")
 
-    logging.info(f"Starting multiprocessing with {num_processes} processes.")
+        # Initialize multiprocessing Pool
+        with Pool(processes=num_processes, initializer=worker_initializer, initargs=(log_queue,)) as pool:
+            pool.map(process_group, tasks)
 
-    # Initialize multiprocessing Pool
-    with Pool(processes=num_processes) as pool:
-        pool.map(process_group, tasks)
-
-    logging.info("All processing complete.")
+        logger.info("All processing complete.")
 
 
 if __name__ == "__main__":
