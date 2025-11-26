@@ -1,10 +1,11 @@
-# ryan-scripts/misc-python/RFFE_Only_v5.py
-# 2025-07-13 RFFE extractor update v5  ──────────────────────────────────────────────────────────────────────────────
+# ryan-scripts/misc-python/RFFE_Only_v6.py
+# 2025-11-20 RFFE extractor update v6  ──────────────────────────────────────────────────────────────────────────────
+# fix bugs
 #  RFFE batch extractor – single-file
 #
 #  Copy this file anywhere and run:
-#        python RFFE_Only_v5.py
-# OR     python RFFE_Only_v5.py [--input-dir DIR] [--output-dir DIR]
+#        python RFFE_Only_v6.py
+# OR     python RFFE_Only_v6.py [--input-dir DIR] [--output-dir DIR]
 #
 #  Dependencies: pandas  requests  ryan-tools
 # ─────────────────────────────────────────────────────────────────────────────
@@ -23,10 +24,10 @@ import requests
 from pandas import DataFrame
 from ryan_library.functions.loguru_helpers import setup_logger
 from loguru import logger
-from ryan_library.scripts.wrapper_utils import print_library_version
 
 # ─── Constants ────────────────────────────────────────────────────────────────
-DEFAULT_INPUT_DIR: Final[Path] = Path(r"C:\Temp\tester")
+DEFAULT_INPUT_DIR: Final[Path] = Path(__file__).absolute().parent
+# DEFAULT_INPUT_DIR: Final[Path] = Path(r"C:\Temp\tester")
 DEFAULT_OUTPUT_DIR: Final[Path] = DEFAULT_INPUT_DIR
 INPUT_FILE_NAME: Final[str] = "input_catchments.csv"
 RFFE_URL: Final[str] = "http://rffe.arr-software.org"
@@ -63,7 +64,7 @@ class Catchment:
 
     @classmethod
     def from_record(cls, rec: Record, idx: int) -> "Catchment":
-        raw: str | None = rec.get("Catchment", default="")
+        raw: str | None = rec.get("Catchment", "")
         name: str = raw.strip() if isinstance(raw, str) and raw.strip() else f"Catchment_{idx}"
         return cls(
             name=name,
@@ -185,7 +186,10 @@ def main() -> int:
     p.add_argument("--input-dir", type=Path, help="Folder with input_catchments.csv")
     p.add_argument("--output-dir", type=Path, help="Folder for CSV outputs")
     p.add_argument(
-        "--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"], default="INFO", help="Console log level"
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+        help="Console log level",
     )
     args: argparse.Namespace = p.parse_args()
 
@@ -234,15 +238,16 @@ def main() -> int:
     if all_res:
         save_df(df=pd.concat(objs=all_res, ignore_index=True), path=out / "rffe_results.csv")
     if all_all:
-        save_df(df=pd.concat(objs=all_all, ignore_index=True), path=out / "all_catchment_results.csv")
+        save_df(
+            df=pd.concat(objs=all_all, ignore_index=True),
+            path=out / "all_catchment_results.csv",
+        )
     if fails:
         save_df(df=pd.DataFrame(data=fails), path=out / "failed_catchments.csv")
         logger.error(f"Completed with {len(fails)} failure(s).")
         return 1
 
     logger.info("All catchments processed successfully.")
-    print()
-    print_library_version()
     return 0
 
 
