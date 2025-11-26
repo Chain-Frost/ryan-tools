@@ -15,9 +15,7 @@ warnings.warn(
 )
 
 # Dynamically import all modules from ryan_library.functions
-for loader, module_name, is_pkg in pkgutil.iter_modules(
-    ryan_library.functions.__path__
-):
+for loader, module_name, is_pkg in pkgutil.iter_modules(ryan_library.functions.__path__):
     module = importlib.import_module(f"ryan_library.functions.{module_name}")
     globals()[module_name] = module
 
@@ -50,6 +48,4 @@ def __getattr__(name):
             )
             return module
         except ImportError as e:
-            raise ImportError(
-                f"Module '{name}' not found in 'ryan_functions' or 'ryan_library.functions'."
-            ) from e
+            raise ImportError(f"Module '{name}' not found in 'ryan_functions' or 'ryan_library.functions'.") from e

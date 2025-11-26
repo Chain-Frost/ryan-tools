@@ -14,16 +14,7 @@ from ryan_library.processors.tuflow import NmxProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 
-@contextmanager
-def change_working_directory(path: Path) -> None:
-    """Temporarily change the working directory for processors relying on ``Path.cwd()``."""
-
-    original_cwd = Path.cwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(original_cwd)
+# change_working_directory removed in favor of change_cwd fixture
 
 
 def _write_nmx_csv(directory: Path, file_name: str) -> Path:
@@ -41,10 +32,10 @@ def _write_nmx_csv(directory: Path, file_name: str) -> Path:
     return path
 
 
-def test_nmx_processor_pivots_upstream_downstream_nodes(tmp_path: Path) -> None:
+def test_nmx_processor_pivots_upstream_downstream_nodes(tmp_path: Path, change_cwd) -> None:
     """NmxProcessor should continue pivoting `.1`/`.2` suffixes into US/DS columns."""
 
-    with change_working_directory(tmp_path):
+    with change_cwd(tmp_path):
         csv_path = _write_nmx_csv(Path.cwd(), "NmxRun_1d_Nmx.csv")
         processor = NmxProcessor(file_path=csv_path)
         processor.process()
@@ -92,3 +83,40 @@ def test_nmx_processor_pivots_upstream_downstream_nodes(tmp_path: Path) -> None:
     expected_combined = expected_combined.astype({"internalName": "string", "Chan ID": "string"})
 
     pdt.assert_frame_equal(combined, expected_combined, check_dtype=False)
+
+
+def test_nmx_processor_real_file(find_test_file):
+    """Test NmxProcessor with a real file if available."""
+    file_path = find_test_file("_1d_Nmx.csv")
+    if not file_path:
+        pytest.skip("No _1d_Nmx.csv file found in test data")
+
+    processor = NmxProcessor(file_path=file_path)
+    processor.process()
+
+    assert processor.processed
+    assert not processor.df.empty
+    assert "internalName" in processor.df.columns
+    # Nmx usually has Hmax, Time Hmax
+    # But NmxProcessor might pivot them?
+    # Let's check if it has US_h/DS_h if it did pivoting, or just Hmax if not.
+    # The processor logic pivots if .1/.2 suffixes exist.
+    # We just assert it processed something.
+
+
+def test_nmx_processor_robustness(tmp_path, change_cwd):
+    """Test robustness against invalid files."""
+    with change_cwd(tmp_path):
+        # Empty file
+        empty_path = tmp_path / "Empty_Run_1d_Nmx.csv"
+        empty_path.touch()
+        proc_empty = NmxProcessor(file_path=empty_path)
+        proc_empty.process()
+        assert not proc_empty.processed
+
+        # Missing columns
+        bad_path = tmp_path / "Bad_Run_1d_Nmx.csv"
+        pd.DataFrame({"Wrong": [1]}).to_csv(bad_path, index=False)
+        proc_bad = NmxProcessor(file_path=bad_path)
+        proc_bad.process()
+        assert not proc_bad.processed

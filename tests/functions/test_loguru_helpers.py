@@ -1,7 +1,7 @@
 # tests/functions/test_loguru_helpers.py
 
 import unittest
-from ...ryan_library.functions.loguru_helpers import LoggerManager, worker_process
+from ryan_library.functions.loguru_helpers import LoggerManager, worker_process
 from pathlib import Path
 import multiprocessing
 import time

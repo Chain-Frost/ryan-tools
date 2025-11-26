@@ -82,9 +82,7 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
                     # Common format: "2024-12-20 10:15:00"
                     parsed_date = datetime.strptime(msg_date[:19], "%Y-%m-%d %H:%M:%S")
                 except ValueError:
-                    logger.warning(
-                        f"Unrecognized date format in {file_path}: '{msg_date}'"
-                    )
+                    logger.warning(f"Unrecognized date format in {file_path}: '{msg_date}'")
                     iso_date = "UnknownDate"
                 else:
                     iso_date = parsed_date.strftime("%Y-%m-%d_%H-%M-%S")
@@ -96,9 +94,7 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
                 iso_date = msg_date.strftime("%Y-%m-%d_%H-%M-%S")
                 logger.debug(f"msg.date is a datetime object: {iso_date}")
             else:
-                logger.warning(
-                    f"Unsupported date type in {file_path}: {type(msg_date)}"
-                )
+                logger.warning(f"Unsupported date type in {file_path}: {type(msg_date)}")
                 iso_date = "UnknownDate"
 
             # Sanitize sender and subject to make them filename-safe
@@ -136,11 +132,7 @@ def limit_filename_length(new_filename: str) -> str:
             subject_part = subject_part[:-4]  # Remove '.msg'
 
         # Trim the subject
-        subject_trimmed = (
-            subject_part[:-excess_length]
-            if excess_length < len(subject_part)
-            else "TrimmedSubject"
-        )
+        subject_trimmed = subject_part[:-excess_length] if excess_length < len(subject_part) else "TrimmedSubject"
 
         # Reconstruct the filename
         new_filename = f"{date_part}_{sender_part}_{subject_trimmed}.msg"
@@ -185,9 +177,7 @@ def rename_msg_files(directory: str) -> None:
 
             # Check for identical files
             if file_hash in hash_dict:
-                logger.warning(
-                    f"'{filename}' is identical to '{hash_dict[file_hash]}'. Skipping renaming."
-                )
+                logger.warning(f"'{filename}' is identical to '{hash_dict[file_hash]}'. Skipping renaming.")
                 summary.append(
                     {
                         "Original Filename": filename,
@@ -201,11 +191,7 @@ def rename_msg_files(directory: str) -> None:
 
             # Extract email properties
             sent_on, sender, subject = get_email_properties(original_path)
-            if (
-                sent_on == "UnknownDate"
-                and sender == "UnknownSender"
-                and subject == "NoSubject"
-            ):
+            if sent_on == "UnknownDate" and sender == "UnknownSender" and subject == "NoSubject":
                 logger.warning(f"Skipping file due to missing properties: {filename}")
                 summary.append(
                     {
@@ -280,9 +266,7 @@ def main() -> None:
         directory: str = sys.argv[1]
     else:
         # Prompt the user to enter the directory path
-        directory = input(
-            "Enter the path to the directory containing .msg files: "
-        ).strip()
+        directory = input("Enter the path to the directory containing .msg files: ").strip()
 
     rename_msg_files(directory=directory)
 

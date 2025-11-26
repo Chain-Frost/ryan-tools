@@ -25,9 +25,7 @@ setup_logger(console_log_level="DEBUG")
 def main():
     # Path to the combined_culverts.csv file
     # csv_path = os.path.join(os.getcwd(), "combined_culverts.csv")  # Adjust if necessary
-    csv_path = Path(
-        r"Q:\BGER\PER\RP20180.317 WYLOO CREEK CROSSING PFS - FMG\TUFLOW_Wyloo\model\gis\culverts\241219"
-    )
+    csv_path = Path(r"Q:\BGER\PER\RP20180.317 WYLOO CREEK CROSSING PFS - FMG\TUFLOW_Wyloo\model\gis\culverts\241219")
     # Load combined_df
     combined_df = get_combined_df_from_csv(csv_path)
 
@@ -95,9 +93,7 @@ def rotate_and_translate(polygon, rotation_angle, x, y):
         Polygon: The transformed shapely Polygon.
     """
     # Rotate the polygon around (0,0). Negative sign because Shapely rotates counter-clockwise.
-    rotated = affinity.rotate(
-        polygon, -rotation_angle, origin=(0, 0), use_radians=False
-    )
+    rotated = affinity.rotate(polygon, -rotation_angle, origin=(0, 0), use_radians=False)
     # Translate the polygon to (x, y)
     translated = affinity.translate(rotated, xoff=x, yoff=y)
     return translated
@@ -144,9 +140,7 @@ def generate_geometries(combined_df):
 
         # Validate coordinates
         if pd.isna(us_x) or pd.isna(us_y) or pd.isna(ds_x) or pd.isna(ds_y):
-            logger.warning(
-                f"Missing coordinates for culvert '{name}'. Skipping geometry creation."
-            )
+            logger.warning(f"Missing coordinates for culvert '{name}'. Skipping geometry creation.")
             continue
 
         # Compute delta_x and delta_y
@@ -167,15 +161,11 @@ def generate_geometries(combined_df):
 
         # Create inlet rectangle (2m x 3m) at upstream
         inlet_rect = create_rectangle(width=2, length=3)
-        inlet_rect_transformed = rotate_and_translate(
-            inlet_rect, rotation_angle, us_x, us_y
-        )
+        inlet_rect_transformed = rotate_and_translate(inlet_rect, rotation_angle, us_x, us_y)
 
         # Create outlet rectangle (5m x 10m) at downstream
         outlet_rect = create_rectangle(width=5, length=10)
-        outlet_rect_transformed = rotate_and_translate(
-            outlet_rect, rotation_angle, ds_x, ds_y
-        )
+        outlet_rect_transformed = rotate_and_translate(outlet_rect, rotation_angle, ds_x, ds_y)
 
         # Append inlet polygon and attributes
         polygons.append(inlet_rect_transformed)
@@ -249,9 +239,7 @@ def generate_geometries(combined_df):
         logger.info(f"Generated geometries for culvert '{name}'.")
 
     # Create GeoDataFrames
-    polygons_gdf = gpd.GeoDataFrame(
-        polygon_attributes, geometry=polygons, crs="EPSG:28350"
-    )
+    polygons_gdf = gpd.GeoDataFrame(polygon_attributes, geometry=polygons, crs="EPSG:28350")
     lines_gdf = gpd.GeoDataFrame(line_attributes, geometry=lines, crs="EPSG:28350")
 
     return polygons_gdf, lines_gdf

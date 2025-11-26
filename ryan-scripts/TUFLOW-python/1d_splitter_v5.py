@@ -30,10 +30,7 @@ def main() -> None:
     print(f"Number of 2d_bc groups matched with 1d_nwk: {matched_2d_bc_groups}")
     print(f"Total number of 2d_bc groups found: {total_2d_bc_groups}")
 
-    if (
-        nwk_groups_count != matched_2d_bc_groups
-        or nwk_groups_count != total_2d_bc_groups
-    ):
+    if nwk_groups_count != matched_2d_bc_groups or nwk_groups_count != total_2d_bc_groups:
         print("Warning: Discrepancy detected in group counts!")
 
 
@@ -42,9 +39,7 @@ def get_schemas(shapefile_path: str) -> dict[str, Any]:
         return src.schema or {}
 
 
-def generate_trd_files(
-    output_dir: str, gdf_1d_nwk: GeoDataFrame, gdf_2d_bc: GeoDataFrame
-) -> None:
+def generate_trd_files(output_dir: str, gdf_1d_nwk: GeoDataFrame, gdf_2d_bc: GeoDataFrame) -> None:
     base_string_1d_nwk = "Read GIS Network ==  "
     base_string_2d_bc = "Read GIS BC ==  "
     path_string: str = os.path.join(output_dir, "splits")
@@ -61,8 +56,7 @@ def generate_trd_files(
 
     # Generating 2d_bc.trd file
     trimmed_unique_ids = set(
-        uid[:-2] if uid.endswith("_U") or uid.endswith("_D") else uid
-        for uid in gdf_2d_bc["Name"].unique()
+        uid[:-2] if uid.endswith("_U") or uid.endswith("_D") else uid for uid in gdf_2d_bc["Name"].unique()
     )
 
     output_file_path = os.path.join(output_dir, "2d_bc_data.trd")
@@ -127,8 +121,7 @@ def save_subsets(
 ) -> tuple[int, int, int]:
     unique_ids = gdf_1d_nwk["ID"].unique()
     trimmed_unique_ids = set(
-        uid[:-2] if uid.endswith("_U") or uid.endswith("_D") else uid
-        for uid in gdf_2d_bc["Name"].unique()
+        uid[:-2] if uid.endswith("_U") or uid.endswith("_D") else uid for uid in gdf_2d_bc["Name"].unique()
     )
     total_2d_bc_groups = len(trimmed_unique_ids)
 

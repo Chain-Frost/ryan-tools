@@ -223,6 +223,8 @@ class BaseProcessor(ABC):
         self.dataformat = processing_parts.dataformat
         self.processor_module = processing_parts.processor_module
         self.skip_columns: list[int] = processing_parts.skip_columns
+        self.columns_to_use: dict[str, str] = processing_parts.columns_to_use
+        self.expected_in_header: list[str] = processing_parts.expected_in_header
         logger.debug(
             f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, "
             f"processor_module: {self.processor_module}, skip_columns: {self.skip_columns}"

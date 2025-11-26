@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from ...ryan_library.functions.pandas.median_calc import (
+from ryan_library.functions.pandas.median_calc import (
     median_calc,
     summarise_duration_statistics,
 )

@@ -32,7 +32,7 @@ def reset_logging() -> None:
 
 def configure_serial_logging(console_log_level: str = "INFO", log_file: str | None = None) -> None:
     """Configure logging for a simple serial execution (no multiprocessing queue).
-    
+
     Parameters:
         console_log_level (str): Minimum log level for console output.
             Valid options: "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL".
@@ -210,7 +210,7 @@ class LoguruMultiprocessingLogger:
 
 def setup_logger(console_log_level: str = "INFO", log_file: str | None = None) -> LoguruMultiprocessingLogger:
     """Convenience factory for the multiprocessing logger context manager.
-    
+
     Parameters:
         console_log_level (str): Minimum log level for console output.
             Valid options: "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL".

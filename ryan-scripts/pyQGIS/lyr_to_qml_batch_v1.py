@@ -15,15 +15,11 @@ for subdir, _, files in os.walk(root_dir):
         if file.endswith(".lyr"):
             lyr_file = os.path.join(subdir, file)
             qml_file = os.path.splitext(lyr_file)[0] + ".qml"
-            print(
-                f"Processing {lyr_file}..."
-            )  # Notify when a .lyr file is being processed
+            print(f"Processing {lyr_file}...")  # Notify when a .lyr file is being processed
 
             try:
                 # Run the slyr:lyrtoqml tool and load the result
-                result = processing.run(
-                    "slyr:lyrtoqml", {"INPUT": lyr_file, "OUTPUT": qml_file}
-                )
+                result = processing.run("slyr:lyrtoqml", {"INPUT": lyr_file, "OUTPUT": qml_file})
 
                 print(f"Successfully converted {lyr_file} to {qml_file}")
 

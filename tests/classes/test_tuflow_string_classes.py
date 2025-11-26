@@ -7,8 +7,8 @@ import pytest
 # if str(REPO_ROOT) not in sys.path:
 #     sys.path.insert(0, str(REPO_ROOT))
 
-from ...ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
-from ...ryan_library.classes.tuflow_string_classes import RunCodeComponent, TuflowStringParser
+from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
+from ryan_library.classes.tuflow_string_classes import RunCodeComponent, TuflowStringParser
 
 DATA_DIR: Path = Path(__file__).absolute().parent.parent / "test_data" / "tuflow"
 

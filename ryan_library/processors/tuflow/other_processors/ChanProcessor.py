@@ -69,4 +69,3 @@ class ChanProcessor(MaxDataProcessor):
             logger.error(f"Failed to process Chan file {self.file_path}: {e}")
             self.df = pd.DataFrame()
             return
-

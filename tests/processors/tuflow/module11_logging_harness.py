@@ -54,6 +54,7 @@ def configure_logging(level: str = "INFO") -> None:
     # Force a reset of any existing sinks (including those from imports)
     try:
         from ryan_library.functions.loguru_helpers import configure_serial_logging
+
         configure_serial_logging(console_log_level=level)
     except ImportError:
         logger.remove()
@@ -86,14 +87,12 @@ def run_parallel(files: list[Path], level: str = "INFO") -> None:
     from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
 
     logger.info("=== Multiprocessing run (spawn) ===")
-    
+
     # Use the production logging setup
     with setup_logger(console_log_level=level) as queue:
         ctx = mp.get_context("spawn")
         with ctx.Pool(
-            processes=min(len(files), max(ctx.cpu_count() - 1, 1)),
-            initializer=worker_initializer,
-            initargs=(queue,)
+            processes=min(len(files), max(ctx.cpu_count() - 1, 1)), initializer=worker_initializer, initargs=(queue,)
         ) as pool:
             for name, rows in pool.map(_process_file, files):
                 # The worker logs will go to the queue -> listener -> console
@@ -104,14 +103,14 @@ def run_parallel(files: list[Path], level: str = "INFO") -> None:
 
 def run_threaded(files: list[Path], level: str = "INFO") -> None:
     """Run Nmx processing via multithreading to verify thread safety."""
-    
+
     from concurrent.futures import ThreadPoolExecutor
-    
+
     logger.info("=== Multithreaded run ===")
-    
+
     # Threading shares the same process, so standard logging setup applies.
     # We just want to ensure no weird interleaving or errors.
-    
+
     with ThreadPoolExecutor(max_workers=min(len(files), 4)) as executor:
         for name, rows in executor.map(_process_file, files):
             logger.info(f"{name}: rows processed={rows}")
@@ -133,10 +132,11 @@ def main(use_parallel: bool = True, use_threaded: bool = False, level: str = "IN
 
     configure_logging(level=level)
     logger.info(f"Using repository root {REPO_ROOT}")
-    
+
     import ryan_library
+
     logger.info(f"Using ryan_library from: {ryan_library.__file__}")
-    
+
     logger.info(f"Data directory {data_root}")
 
     with pushd(data_root):
@@ -149,10 +149,11 @@ def main(use_parallel: bool = True, use_threaded: bool = False, level: str = "IN
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="Run logging harness.")
     parser.add_argument("--level", default="INFO", help="Logging level (default: INFO)")
     parser.add_argument("--no-parallel", action="store_true", help="Disable parallel run")
     parser.add_argument("--threaded", action="store_true", help="Enable threaded run")
     args = parser.parse_args()
-    
+
     main(use_parallel=not args.no_parallel, use_threaded=args.threaded, level=args.level)

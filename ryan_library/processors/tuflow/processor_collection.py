@@ -128,7 +128,9 @@ class ProcessorCollection:
         combined_df = reorder_long_columns(df=combined_df)
 
         grouped_df: DataFrame = (
-            combined_df.groupby(group_keys).agg("max").reset_index()  # pyright: ignore[reportUnknownMemberType]
+            combined_df.groupby(group_keys, observed=True)
+            .agg("max")
+            .reset_index()  # pyright: ignore[reportUnknownMemberType]
         )
         logger.debug(f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows.")
 

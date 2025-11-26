@@ -17,54 +17,44 @@ class EOFProcessor(BaseProcessor):
             with open(self.file_path, "r", encoding="utf-8", errors="replace") as f:
                 lines: list[str] = f.readlines()
 
-            # Find the start of the table
-            start_index = -1
+            start_line_idx = -1
+            header_line_idx = -1
+            end_line_idx = -1
+
+            # Find the start of the section
             for i, line in enumerate(lines):
                 if "CULVERT AND PIPE DATA" in line:
-                    start_index = i
+                    start_line_idx = i
+                if start_line_idx != -1 and line.strip().startswith("Channel"):
+                    header_line_idx = i
                     break
 
-            if start_index == -1:
-                logger.warning(f"CULVERT AND PIPE DATA section not found in {self.file_path}")
+            if start_line_idx == -1 or header_line_idx == -1:
+                logger.warning(f"{self.file_path.name}: 'CULVERT AND PIPE DATA' section not found.")
                 self.df = pd.DataFrame()
                 return
 
-            # Skip to the header line starting with "Channel"
-            header_index = -1
-            for i in range(start_index, len(lines)):
-                if lines[i].strip().startswith("Channel"):
-                    header_index: int = i
+            # Find the end of the data block (first blank line after header)
+            for i in range(header_line_idx + 1, len(lines)):
+                if not lines[i].strip():
+                    end_line_idx = i
                     break
 
-            if header_index == -1:
-                logger.warning(f"Header line not found in CULVERT AND PIPE DATA section in {self.file_path}")
-                self.df = pd.DataFrame()
-                return
+            if end_line_idx == -1:
+                end_line_idx = len(lines)
 
-            # Collect data lines
-            data_lines: list[str] = []
-            # Start reading from the line after the header
-            for i in range(header_index + 1, len(lines)):
-                line: str = lines[i]  # Keep original line with spaces for fwf
-                stripped: str = line.strip()
-                if not stripped:
-                    continue  # Skip empty lines
-
-                # Stop if we hit another section or end of data
-                if "VELOCITIES" in stripped or stripped.startswith("-"):
-                    break
-
-                data_lines.append(line)
+            # Extract the data block lines
+            data_lines = lines[header_line_idx:end_line_idx]
 
             if not data_lines:
-                logger.warning(f"No data extracted from CULVERT AND PIPE DATA in {self.file_path}")
+                logger.warning(f"{self.file_path.name}: No data lines found.")
                 self.df = pd.DataFrame()
                 return
 
-            # Use read_fwf to parse the data lines
-            # We define column names manually as the header is complex
-            # Based on the file structure:
-            # Channel, Type, No, U/S, D/S, U/S, D/S, Length, Slope, n, Diameter, Height, Inlet H, Inlet W, Ent, Exit, Fixed, Losses
+            # Create a string buffer
+            data_content = "".join(data_lines)
+
+            # Define column names manually as the header is complex
             col_names: list[str] = [
                 "Chan ID",
                 "Type",
@@ -86,20 +76,19 @@ class EOFProcessor(BaseProcessor):
                 "Ent/Exit Losses",
             ]
 
-            # Create a string buffer
-            data_str: str = "".join(data_lines)
-
             # Parse with read_fwf
-            # infer_nrows should help determine widths from the data
             self.df = pd.read_fwf(
-                filepath_or_buffer=io.StringIO(initial_value=data_str), names=col_names, header=None, infer_nrows=100
+                io.StringIO(data_content),
+                names=col_names,
+                header=0,  # The first line of data_content is the header
+                na_values=["-----", "Adjusted", "---"],
+                keep_default_na=True,
+                infer_nrows=100,
             )
 
-            # Handle '-----' in Height column
+            # Handle '-----' in Height column (if not caught by na_values)
             if "Height" in self.df.columns:
-                self.df["Height"] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    self.df["Height"], errors="coerce"
-                )
+                self.df["Height"] = pd.to_numeric(self.df["Height"], errors="coerce")
 
             # Rename columns to match ChanProcessor conventions
             rename_map: dict[str, str] = {
@@ -111,6 +100,10 @@ class EOFProcessor(BaseProcessor):
                 "Mannings_n": "n or Cd",
             }
             self.df.rename(columns=rename_map, inplace=True)
+
+            # Clean 'Ent/Exit Losses' column if present
+            if "Ent/Exit Losses" in self.df.columns:
+                self.df["Ent/Exit Losses"] = pd.to_numeric(self.df["Ent/Exit Losses"], errors="coerce")
 
             # Proceed with common processing steps
             self.add_common_columns()

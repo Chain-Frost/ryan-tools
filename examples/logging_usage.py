@@ -45,43 +45,43 @@ def main():
     # Use the helper to configure logging for a standard serial script.
     # This handles resetting and setting up the console sink with the standard format.
     configure_serial_logging(console_log_level="INFO")
-    
+
     logger.info("=== Starting Serial Example ===")
     logger.info("This is an info message.")
     logger.debug("This debug message will be hidden because level is INFO.")
-    
+
     # 2. Multiprocessing Logging
     logger.info("=== Starting Multiprocessing Example ===")
-    
+
     # Use the LoguruMultiprocessingLogger context manager (via setup_logger)
     # This starts a listener process and configures the main process to send logs to a queue.
     # The 'console_log_level' determines what the listener prints to stdout.
     with setup_logger(console_log_level="DEBUG") as queue:
         # Create a pool using 'spawn' (recommended for Windows/consistency)
         ctx = mp.get_context("spawn")
-        
+
         with ctx.Pool(
             processes=2,
             initializer=worker_initializer,  # Critical: configures workers to use the queue
-            initargs=(queue,)
+            initargs=(queue,),
         ) as pool:
             results = pool.map(worker_task, range(4))
-            
+
         logger.success(f"Multiprocessing complete. Results: {results}")
 
     # 3. Message Formatting Best Practices
     logger.info("=== Formatting Best Practices ===")
-    
+
     value = 42
-    
+
     # PREFERRED: f-strings for user-facing logs (INFO, SUCCESS, WARNING, ERROR)
     # These are eagerly evaluated but readable and standard.
     logger.info(f"The value is {value}")
-    
+
     # PREFERRED: Lazy formatting for DEBUG/TRACE logs
     # These are only evaluated if the level is enabled, saving performance in production.
     logger.debug("The value is {}", value)
-    
+
     logger.info("Example complete.")
 
     # 4. Log Levels

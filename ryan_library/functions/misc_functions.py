@@ -542,13 +542,9 @@ class ExcelExporter:
                 )
                 col_letter: str = get_column_letter(col_idx + 1)
                 worksheet.column_dimensions[col_letter].width = width
-                logger.debug(
-                    f"Set width for column '{col_name}' ({col_letter}) in sheet '{sheet_name}' to {width}."
-                )
+                logger.debug(f"Set width for column '{col_name}' ({col_letter}) in sheet '{sheet_name}' to {width}.")
             except TypeError as e:
-                logger.exception(
-                    f"TypeError when setting width for column '{col_name}' in sheet '{sheet_name}': {e}"
-                )
+                logger.exception(f"TypeError when setting width for column '{col_name}' in sheet '{sheet_name}': {e}")
             except AssertionError as e:
                 logger.exception(str(e))
             except Exception as e:

@@ -41,13 +41,12 @@ class RLLQmxProcessor(BaseProcessor):
         required_columns: list[str] = ["ID", "Qmax", "Time Qmax", "dQmax", "Time dQmax", "H"]
         missing_columns: list[str] = [col for col in required_columns if col not in self.df.columns]
         if missing_columns:
-            logger.error(
-                f"{self.file_name}: Missing required columns for RLL Qmx processing: {missing_columns}"
-            )
+            logger.error(f"{self.file_name}: Missing required columns for RLL Qmx processing: {missing_columns}")
             self.df = pd.DataFrame()
             return
 
         rename_map: dict[str, str] = {
+            "ID": "Chan ID",
             "Qmax": "Q",
             "Time Qmax": "Time",
             "dQmax": "dQ",
@@ -55,5 +54,5 @@ class RLLQmxProcessor(BaseProcessor):
         }
         self.df.rename(columns=rename_map, inplace=True)
 
-        ordered_columns: list[str] = ["ID", "Time", "Q", "dQ", "Time dQ", "H"]
+        ordered_columns: list[str] = ["Chan ID", "Time", "Q", "dQ", "Time dQ", "H"]
         self.df = self.df[ordered_columns]

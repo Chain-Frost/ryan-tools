@@ -31,9 +31,7 @@ def safe_apply(func: Callable[[Any], Any], value: Any) -> Any | None:
     try:
         # Attempt to apply the function to the value
         result = func(value)
-        logger.debug(
-            f"Function {func.__name__} applied successfully on value: {value}. Result: {result}"
-        )
+        logger.debug(f"Function {func.__name__} applied successfully on value: {value}. Result: {result}")
         return result
     except Exception as e:
         # Catch all exceptions to prevent the application from crashing

@@ -22,7 +22,7 @@ class HProcessor(TimeSeriesProcessor):
         try:
             logger.debug(f"{self.file_name}: Normalising reshaped 'H' DataFrame.")
 
-            required_columns: set[str] = {"Time", "H_US", "H_DS"}
+            required_columns: set[str] = {"Time", "US_H", "DS_H"}
             missing_columns: set[str] = required_columns - set(self.df.columns)
             if missing_columns:
                 logger.error(f"{self.file_name}: Missing required columns after melt: {sorted(missing_columns)}.")
@@ -30,12 +30,12 @@ class HProcessor(TimeSeriesProcessor):
 
             identifier_columns: list[str] = [col for col in self.df.columns if col not in required_columns]
             if not identifier_columns:
-                logger.error(f"{self.file_name}: No identifier column found alongside 'H_US'/'H_DS'.")
+                logger.error(f"{self.file_name}: No identifier column found alongside 'US_H'/'DS_H'.")
                 return ProcessorStatus.FAILURE
             if len(identifier_columns) > 1:
                 identifier_error: str = (
                     f"{self.file_name}: Expected a single identifier column alongside 'Time', "
-                    f"'H_US' and 'H_DS', got {identifier_columns}."
+                    f"'US_H' and 'DS_H', got {identifier_columns}."
                 )
                 logger.error(identifier_error)
                 return ProcessorStatus.FAILURE
@@ -44,7 +44,7 @@ class HProcessor(TimeSeriesProcessor):
             logger.debug(f"{self.file_name}: Using '{identifier_column}' as the identifier column for 'H' values.")
 
             initial_row_count: int = len(self.df)
-            self.df.dropna(subset=["H_US", "H_DS"], how="all", inplace=True)  # pyright: ignore[reportUnknownMemberType]
+            self.df.dropna(subset=["US_H", "DS_H"], how="all", inplace=True)  # pyright: ignore[reportUnknownMemberType]
             dropped_rows: int = initial_row_count - len(self.df)
             if dropped_rows:
                 logger.debug(f"{self.file_name}: Dropped {dropped_rows} rows with missing 'H' values.")
@@ -53,7 +53,7 @@ class HProcessor(TimeSeriesProcessor):
                 logger.error(f"{self.file_name}: DataFrame is empty after removing rows with missing 'H' values.")
                 return ProcessorStatus.EMPTY_DATAFRAME
 
-            expected_order: list[str] = ["Time", identifier_column, "H_US", "H_DS"]
+            expected_order: list[str] = ["Time", identifier_column, "US_H", "DS_H"]
             self.df = self.df[expected_order]
 
             if not self.check_headers_match(test_headers=self.df.columns.tolist()):

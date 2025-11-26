@@ -10,7 +10,7 @@ import pytest
 # if str(PROJECT_ROOT) not in sys.path:
 #     sys.path.insert(0, str(PROJECT_ROOT))
 
-from ...ryan_library.functions import path_stuff
+from ryan_library.functions import path_stuff
 
 
 @pytest.fixture

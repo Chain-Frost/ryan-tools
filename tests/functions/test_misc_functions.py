@@ -7,7 +7,7 @@ from pathlib import Path
 # import sys
 # sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from ...ryan_library.functions.misc_functions import split_strings, split_strings_in_dict
+from ryan_library.functions.misc_functions import split_strings, split_strings_in_dict
 
 
 def test_split_strings_with_single_string() -> None:

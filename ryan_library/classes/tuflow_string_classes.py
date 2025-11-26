@@ -67,12 +67,15 @@ class TuflowStringParser:
     # ``TP_PATTERN`` finds patterns like ``TP01`` that are surrounded by ``_`` or ``+`` (or appear at the edges).
     # Keep the core ``TP##``/``TP#`` style bounded by delimiters so we do not
     # accidentally read other numbers embedded within filenames.
-    TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)TP(\d{1,2})(?:[_+]|$)", flags=re.IGNORECASE)
+    # ``TP_PATTERN`` finds patterns like ``TP01`` that are surrounded by ``_`` or ``+`` (or appear at the edges).
+    # Keep the core ``TP##``/``TP#`` style bounded by delimiters so we do not
+    # accidentally read other numbers embedded within filenames.
+    TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)TP(\d{1,2})(?:[_+.]|$)", flags=re.IGNORECASE)
     # ``DURATION_PATTERN`` captures 3-5 digits followed by ``m`` (e.g. ``00360m`` or ``360m``).
-    DURATION_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", flags=re.IGNORECASE)
+    DURATION_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+.]|$)", flags=re.IGNORECASE)
     # ``AEP_PATTERN`` matches values like ``01.00p`` or ``5p`` and reads the numeric portion before ``p``.
     AEP_PATTERN: re.Pattern[str] = re.compile(
-        pattern=r"(?:^|[_+])(?P<aep>(?P<numeric>\d+(?:\.\d{1,2})?)p|(?P<text>PMPF|PMP))(?=$|[_+])",
+        pattern=r"(?:^|[_+])(?P<aep>(?P<numeric>\d+(?:\.\d{1,2})?)p|(?P<text>PMPF|PMP))(?=$|[_+.])",
         flags=re.IGNORECASE,
     )
     # ``GENERIC_TP_PATTERN`` handles free-form strings such as "tp 3".

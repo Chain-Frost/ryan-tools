@@ -170,7 +170,7 @@
       "_RLL_Qmx.csv"
     ],
     "output_columns": {
-      "ID": "string",
+      "Chan ID": "string",
       "Time": "float",
       "Q": "float",
       "dQ": "float",
@@ -266,6 +266,38 @@
         "Chan ID",
         "V"
       ]
+    }
+  },
+  "EOF": {
+    "processor": "EOFProcessor",
+    "suffixes": [
+      ".eof"
+    ],
+    "output_columns": {
+      "Chan ID": "string",
+      "Type": "string",
+      "Num_barrels": "float",
+      "US Invert": "float",
+      "DS Invert": "float",
+      "US Obvert": "float",
+      "DS Obvert": "float",
+      "Length": "float",
+      "pSlope": "float",
+      "n or Cd": "float",
+      "Diam_Width": "float",
+      "Height": "float",
+      "Inlet_Height": "float",
+      "Inlet_Width": "float",
+      "Entry Loss": "float",
+      "Exit Loss": "float",
+      "Fixed Loss": "float",
+      "Ent/Exit Losses": "float"
+    },
+    "processingParts": {
+      "dataformat": "EOF",
+      "module": "other_processors",
+      "columns_to_use": {},
+      "expected_in_header": []
     }
   }
 }

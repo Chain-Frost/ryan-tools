@@ -40,9 +40,7 @@ class ConfigLoader:
             dict[str, Any]: The data types configuration."""
         data_types: dict[str, Any] = self.config_data
         if not isinstance(data_types, dict):
-            logger.error(
-                "Invalid format for data types. Expected a dictionary at the top level."
-            )
+            logger.error("Invalid format for data types. Expected a dictionary at the top level.")
             return {}
         logger.debug(f"Data types loaded: {list(data_types.keys())}")
         return data_types
@@ -77,9 +75,7 @@ class ProcessingParts:
             if isinstance(category_value, str):
                 dataformat = category_value
             elif category_value is not None:
-                logger.error(
-                    f"Invalid 'category' value for dataformat in '{data_type_name}'. Expected a string."
-                )
+                logger.error(f"Invalid 'category' value for dataformat in '{data_type_name}'. Expected a string.")
 
             module_value: Any = dataformat_raw.get("module")
             if module_value not in (None, ""):
@@ -97,38 +93,26 @@ class ProcessingParts:
         elif isinstance(dataformat_raw, str):
             dataformat = dataformat_raw
         elif dataformat_raw not in (None, ""):
-            logger.error(
-                f"Invalid format for dataformat in '{data_type_name}'. Expected a string or mapping."
-            )
+            logger.error(f"Invalid format for dataformat in '{data_type_name}'. Expected a string or mapping.")
 
         # skip_columns is deprecated; log and ignore
         skip_columns = data.get("skip_columns", [])
         if skip_columns:
-            logger.warning(
-                f"'skip_columns' is deprecated and will be ignored for '{data_type_name}'."
-            )
+            logger.warning(f"'skip_columns' is deprecated and will be ignored for '{data_type_name}'.")
 
         columns_to_use: dict[str, str] = data.get("columns_to_use", {})
         if not isinstance(columns_to_use, dict):
-            logger.error(
-                f"Invalid format for columns_to_use in '{data_type_name}'. Expected a dictionary."
-            )
+            logger.error(f"Invalid format for columns_to_use in '{data_type_name}'. Expected a dictionary.")
             columns_to_use = {}
         else:
             # Ensure all values are strings
             if not all(isinstance(v, str) for v in columns_to_use.values()):
-                logger.error(
-                    f"All values in columns_to_use in '{data_type_name}' must be strings."
-                )
+                logger.error(f"All values in columns_to_use in '{data_type_name}' must be strings.")
                 columns_to_use = {}
 
         expected_in_header: list[str] = data.get("expected_in_header", [])
-        if not isinstance(expected_in_header, list) or not all(
-            isinstance(item, str) for item in expected_in_header
-        ):
-            logger.error(
-                f"Invalid format for expected_in_header in '{data_type_name}'. Expected a list of strings."
-            )
+        if not isinstance(expected_in_header, list) or not all(isinstance(item, str) for item in expected_in_header):
+            logger.error(f"Invalid format for expected_in_header in '{data_type_name}'. Expected a list of strings.")
             expected_in_header = []
 
         logger.debug(
@@ -166,35 +150,25 @@ class DataTypeDefinition:
     processing_parts: ProcessingParts
 
     @classmethod
-    def from_dict(
-        cls, data: dict[str, Any], data_type_name: str
-    ) -> "DataTypeDefinition":
+    def from_dict(cls, data: dict[str, Any], data_type_name: str) -> "DataTypeDefinition":
         processor: str | None = data.get("processor")
         if not isinstance(processor, str):
-            logger.error(
-                f"Invalid or missing 'processor' in '{data_type_name}'. Expected a string."
-            )
+            logger.error(f"Invalid or missing 'processor' in '{data_type_name}'. Expected a string.")
             processor = ""
 
         suffixes: list[str] = data.get("suffixes", [])
         if not isinstance(suffixes, list):
-            logger.error(
-                f"Invalid format for suffixes in '{data_type_name}'. Expected a list."
-            )
+            logger.error(f"Invalid format for suffixes in '{data_type_name}'. Expected a list.")
             suffixes = []
 
         output_columns: dict[str, str] = data.get("output_columns", {})
         if not isinstance(output_columns, dict):
-            logger.error(
-                f"Invalid format for output_columns in '{data_type_name}'. Expected a dictionary."
-            )
+            logger.error(f"Invalid format for output_columns in '{data_type_name}'. Expected a dictionary.")
             output_columns = {}
 
         processing_parts_data: dict[str, Any] = data.get("processingParts", {})
         if not isinstance(processing_parts_data, dict):
-            logger.error(
-                f"Invalid format for processingParts in '{data_type_name}'. Expected a dictionary."
-            )
+            logger.error(f"Invalid format for processingParts in '{data_type_name}'. Expected a dictionary.")
             processing_parts_data = {}
 
         processing_parts: ProcessingParts = ProcessingParts.from_dict(
@@ -253,13 +227,9 @@ class Config:
         data_types: dict[str, DataTypeDefinition] = {}
         for key, value in raw_data_types.items():
             if not isinstance(value, dict):
-                logger.error(
-                    f"Invalid format for data type '{key}'. Expected a dictionary."
-                )
+                logger.error(f"Invalid format for data type '{key}'. Expected a dictionary.")
                 continue
-            data_type_def: DataTypeDefinition = DataTypeDefinition.from_dict(
-                data=value, data_type_name=key
-            )
+            data_type_def: DataTypeDefinition = DataTypeDefinition.from_dict(data=value, data_type_name=key)
             data_types[key] = data_type_def
         logger.debug(f"Config loaded with data types: {list(data_types.keys())}")
         return cls(data_types=data_types)
@@ -313,13 +283,9 @@ class SuffixesConfig:
         """Retrieve the data type based on the file's suffix."""
         for suffix, data_type in self.suffix_to_type.items():
             if file_name.endswith(suffix):
-                logger.debug(
-                    f"File '{file_name}' matches suffix '{suffix}' with data type '{data_type}'"
-                )
+                logger.debug(f"File '{file_name}' matches suffix '{suffix}' with data type '{data_type}'")
                 return data_type
-        logger.debug(
-            f"File '{file_name}' suffix did not match a data_type, returning None"
-        )
+        logger.debug(f"File '{file_name}' suffix did not match a data_type, returning None")
         return None
 
     def get_processor_class_for_data_type(self, data_type: str) -> str | None:
@@ -379,34 +345,26 @@ if __name__ == "__main__":
 
     # Access dataformat for 'CCA'
     if "CCA" in data_types_config.data_types:
-        cca_dataformat: str = data_types_config.data_types[
-            "CCA"
-        ].processing_parts.dataformat
+        cca_dataformat: str = data_types_config.data_types["CCA"].processing_parts.dataformat
         print("CCA Dataformat:", cca_dataformat)
     else:
         print("CCA Dataformat: Not defined")
 
     # Access expected_in_header for 'Q'
     if "Q" in data_types_config.data_types:
-        q_expected_in_header: list[str] = data_types_config.data_types[
-            "Q"
-        ].processing_parts.expected_in_header
+        q_expected_in_header: list[str] = data_types_config.data_types["Q"].processing_parts.expected_in_header
         print("Q Expected In Header:", q_expected_in_header)
     else:
         print("Q Expected In Header: Not defined")
 
     # Access columns_to_use for 'Nmx'
     if "Nmx" in data_types_config.data_types:
-        nmx_columns_to_use: dict[str, str] = data_types_config.data_types[
-            "Nmx"
-        ].processing_parts.columns_to_use
+        nmx_columns_to_use: dict[str, str] = data_types_config.data_types["Nmx"].processing_parts.columns_to_use
         print("Nmx Columns to Use:", nmx_columns_to_use)
     else:
         print("Nmx Columns to Use: Not defined")
 
     # Example of using suffixes_config
     test_suffix = "_1d_Cmx.csv"
-    data_type: str | None = suffixes_config.get_data_type_for_suffix(
-        file_name=test_suffix
-    )
+    data_type: str | None = suffixes_config.get_data_type_for_suffix(file_name=test_suffix)
     print(f"Data type for suffix '{test_suffix}':", data_type)

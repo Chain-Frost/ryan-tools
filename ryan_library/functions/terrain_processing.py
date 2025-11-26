@@ -24,11 +24,7 @@ def read_geotiff(filename, nodata_values=None):
             if nodata_values is None:
                 nodata_values = [file_nodata] if file_nodata is not None else []
             else:
-                nodata_values = (
-                    nodata_values
-                    if isinstance(nodata_values, list)
-                    else [nodata_values]
-                )
+                nodata_values = nodata_values if isinstance(nodata_values, list) else [nodata_values]
 
             # Mask out the nodata and unwanted values
             for value in nodata_values:
@@ -72,12 +68,7 @@ def tile_data(df, tile_size):
             y_end = y_start + tile_size
 
             # Filter data within the tile
-            tile_df = df[
-                (df["X"] >= x_start)
-                & (df["X"] < x_end)
-                & (df["Y"] >= y_start)
-                & (df["Y"] < y_end)
-            ]
+            tile_df = df[(df["X"] >= x_start) & (df["X"] < x_end) & (df["Y"] >= y_start) & (df["Y"] < y_end)]
 
             if not tile_df.empty:
                 tiles.append(((i, j), tile_df))
@@ -98,9 +89,7 @@ def process_terrain_file(args_save_function):
     process_terrain_file_inner(*args, save_function)
 
 
-def process_terrain_file_inner(
-    filename, output_dir, nodata_values, tile_size, save_function
-):
+def process_terrain_file_inner(filename, output_dir, nodata_values, tile_size, save_function):
     """
     Processes a single terrain file: reads, tiles, and saves using the provided save_function.
 
@@ -120,9 +109,7 @@ def process_terrain_file_inner(
     # Ensure no NaN values are included
     initial_shape = df.shape
     df.dropna(inplace=True)
-    logger.debug(
-        "Dropped NaN values. DataFrame shape changed from {} to {}", initial_shape, df.shape
-    )
+    logger.debug("Dropped NaN values. DataFrame shape changed from {} to {}", initial_shape, df.shape)
 
     # Base filename without extension
     base_filename = filename.stem
@@ -141,9 +128,7 @@ def process_terrain_file_inner(
         save_function(df, output_dir, base_filename)
 
 
-def parallel_process_multiple_terrain(
-    files, output_dir, nodata_values, tile_size, save_function, log_queue=None
-):
+def parallel_process_multiple_terrain(files, output_dir, nodata_values, tile_size, save_function, log_queue=None):
     """
     Orchestrates the processing of multiple terrain files in parallel.
 
@@ -155,10 +140,7 @@ def parallel_process_multiple_terrain(
     - save_function: Function to save the data
     """
     # Create tasks for each file as ((args), save_function)
-    tasks = [
-        ((str(file), output_dir, nodata_values, tile_size), save_function)
-        for file in files
-    ]
+    tasks = [((str(file), output_dir, nodata_values, tile_size), save_function) for file in files]
 
     initializer = worker_initializer if log_queue is not None else None
     initargs = (log_queue,) if log_queue is not None else ()

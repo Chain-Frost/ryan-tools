@@ -4,9 +4,7 @@ from pathlib import Path
 from loguru import logger
 
 # Define the mapping of network paths to drive letters
-network_drive_mapping: dict[str, str] = {
-    r"\\bgersgtnas05.bge-resources.com\waterways": "Q:"
-}
+network_drive_mapping: dict[str, str] = {r"\\bgersgtnas05.bge-resources.com\waterways": "Q:"}
 
 
 def is_relative_to_current_directory(user_path: Path) -> bool:

@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 
-import logging
+from loguru import logger
 import json
 from pathlib import Path
 from pprint import pprint
@@ -15,7 +15,7 @@ from pprint import pprint
 #     sys.path.insert(0, str(PROJECT_ROOT))
 
 # Import the function to be tested
-from ...ryan_library.functions.file_utils import ensure_output_directory, find_files_parallel, is_non_zero_file
+from ryan_library.functions.file_utils import ensure_output_directory, find_files_parallel, is_non_zero_file
 
 # TODO this is using the wrong logging - we should be using logru as advised in the repo.
 # Configure logging for tests

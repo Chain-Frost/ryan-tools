@@ -29,8 +29,10 @@ tests/test_data/**/*.py
 # Others
 */Thumbs.db
 */~$*.xlsx
+**/*/~$*.xlsx
 tests/test_data/tuflow/Thumbs.db
 test_output.txt
 
 
 .coverage
+

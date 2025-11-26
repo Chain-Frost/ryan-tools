@@ -54,9 +54,7 @@ def main_processing(
     logger.info("End of POMM results combination processing")
 
 
-def export_results(
-    *, results: ProcessorCollection, export_mode: Literal["excel", "parquet", "both"] = "excel"
-) -> None:
+def export_results(*, results: ProcessorCollection, export_mode: Literal["excel", "parquet", "both"] = "excel") -> None:
     """Export combined DataFrames according to the requested mode."""
     if not results.processors:
         logger.warning("No results to export.")
