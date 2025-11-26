@@ -27,13 +27,13 @@ import os
 import pandas as pd
 from glob import iglob
 from multiprocessing import Pool
-from datetime import datetime
 from ryan_library.functions.misc_functions import calculate_pool_size
 
 
 def main() -> None:
-    startTime: datetime = datetime.now()
-    os.chdir(r"C:\Users\Ryan.Brook\Downloads\2019 Unity - AAM - LiDAR - Jan\04_DSM")
+    os.chdir(
+        path=r"P:\25\RP25177.001 UNITY POA - HR\7 DOCUMENT CONTROL\2 RECEIVED DATA\1 CLIENT\20251111 - Previous LiDAR\2019 Unity - AAM - LiDAR - Jan\04_DSM"
+    )
     # Mirror the source folder layout by dropping finished files into a local "mod" directory.
     output_dir: str = os.path.join(os.getcwd(), "mod")
     os.makedirs(output_dir, exist_ok=True)
