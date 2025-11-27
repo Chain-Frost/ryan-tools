@@ -67,12 +67,12 @@ class CmxProcessor(MaxDataProcessor):
             # Create QMax DataFrame
             q_df = self.df[["Chan ID", "Time Qmax", "Qmax"]].copy()
             q_df.rename(columns={"Time Qmax": "Time", "Qmax": "Q"}, inplace=True)
-            q_df["V"] = pd.NA  # Add V column with NA
+            q_df["V"] = pd.Series([None] * len(q_df), dtype="float64")  # Add V column with NA
 
             # Create VMax DataFrame
             v_df = self.df[["Chan ID", "Time Vmax", "Vmax"]].copy()
             v_df.rename(columns={"Time Vmax": "Time", "Vmax": "V"}, inplace=True)
-            v_df["Q"] = pd.NA  # Add Q column with NA
+            v_df["Q"] = pd.Series([None] * len(v_df), dtype="float64")  # Add Q column with NA
 
             # Concatenate QMax and VMax DataFrames
             cleaned_df = pd.concat([q_df, v_df], ignore_index=True)

@@ -13,7 +13,7 @@ python -m pip install pytest-cov
 
 echo Run pytest with coverage
 set PYTHONPATH=.
-pytest --cov=ryan_library tests/
+pytest -o "cache_dir=%TEMP%\pytest_cache" --cov=ryan_library tests/
 
 REM Deactivate the virtual environment if activated
 REM deactivate
