@@ -100,4 +100,12 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
 ---
 
+### 9. MCP Setup
+
+* This repository supports the Model Context Protocol (MCP).
+* See [MCP_SETUP.md](MCP_SETUP.md) for instructions on how to configure your AI assistant to use the custom tools provided by this repo.
+* The server script is located at `ryan_mcp_server.py`.
+
+---
+
 *End of AGENTS.md*
