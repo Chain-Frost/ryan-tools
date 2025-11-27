@@ -54,18 +54,21 @@ def test_run_median_peak_report_creates_excel() -> None:
     run_median_peak_report(script_directory=src_dir, log_level="INFO")
     excel_files: list[Path] = list(src_dir.glob("*_med_peaks.xlsx"))
     assert excel_files
-    xl = pd.ExcelFile(path_or_buffer=excel_files[0])
-    assert set(["aep-dur-max", "aep-max", "POMM"]).issubset(set(xl.sheet_names))
-    aep_dur_df = xl.parse(sheet_name="aep-dur-max")
-    assert all("mean" not in col.lower() for col in aep_dur_df.columns)
-    if not aep_dur_df.empty:
-        assert "MedianAbsMax" in aep_dur_df.columns
-    aep_max_df = xl.parse(sheet_name="aep-max")
-    assert all("mean" not in col.lower() for col in aep_max_df.columns)
-    if not aep_max_df.empty:
-        assert "MedianAbsMax" in aep_max_df.columns
+    with pd.ExcelFile(path_or_buffer=excel_files[0]) as xl:
+        assert set(["aep-dur-max", "aep-max", "POMM"]).issubset(set(xl.sheet_names))
+        aep_dur_df = xl.parse(sheet_name="aep-dur-max")
+        assert all("mean" not in col.lower() for col in aep_dur_df.columns)
+        if not aep_dur_df.empty:
+            assert "MedianAbsMax" in aep_dur_df.columns
+        aep_max_df = xl.parse(sheet_name="aep-max")
+        assert all("mean" not in col.lower() for col in aep_max_df.columns)
+        if not aep_max_df.empty:
+            assert "MedianAbsMax" in aep_max_df.columns
     for f in excel_files:
-        f.unlink()
+        try:
+            f.unlink()
+        except PermissionError:
+            pass  # Best effort cleanup
 
 
 def test_run_median_peak_report_skips_pomm_sheet_when_disabled() -> None:
@@ -73,11 +76,14 @@ def test_run_median_peak_report_skips_pomm_sheet_when_disabled() -> None:
     run_median_peak_report(script_directory=src_dir, log_level="INFO", include_pomm=False)
     excel_files: list[Path] = list(src_dir.glob("*_med_peaks.xlsx"))
     assert excel_files
-    xl = pd.ExcelFile(path_or_buffer=excel_files[0])
-    assert "POMM" not in set(xl.sheet_names)
-    assert {"aep-dur-max", "aep-max"}.issubset(set(xl.sheet_names))
+    with pd.ExcelFile(path_or_buffer=excel_files[0]) as xl:
+        assert "POMM" not in set(xl.sheet_names)
+        assert {"aep-dur-max", "aep-max"}.issubset(set(xl.sheet_names))
     for f in excel_files:
-        f.unlink()
+        try:
+            f.unlink()
+        except PermissionError:
+            pass
 
 
 def test_run_mean_peak_report_creates_excel_with_mean_only_columns() -> None:
@@ -85,15 +91,18 @@ def test_run_mean_peak_report_creates_excel_with_mean_only_columns() -> None:
     run_mean_peak_report(script_directory=src_dir, log_level="INFO")
     excel_files: list[Path] = list(src_dir.glob("*_mean_peaks.xlsx"))
     assert excel_files
-    xl = pd.ExcelFile(path_or_buffer=excel_files[0])
-    assert {"aep-dur-mean", "aep-mean-max"}.issubset(set(xl.sheet_names))
-    aep_dur_df = xl.parse(sheet_name="aep-dur-mean")
-    assert all("median" not in col.lower() for col in aep_dur_df.columns)
-    if not aep_dur_df.empty:
-        assert "mean_PeakFlow" in aep_dur_df.columns
-    aep_max_df = xl.parse(sheet_name="aep-mean-max")
-    assert all("median" not in col.lower() for col in aep_max_df.columns)
-    if not aep_max_df.empty:
-        assert "mean_PeakFlow" in aep_max_df.columns
+    with pd.ExcelFile(path_or_buffer=excel_files[0]) as xl:
+        assert {"aep-dur-mean", "aep-mean-max"}.issubset(set(xl.sheet_names))
+        aep_dur_df = xl.parse(sheet_name="aep-dur-mean")
+        assert all("median" not in col.lower() for col in aep_dur_df.columns)
+        if not aep_dur_df.empty:
+            assert "mean_PeakFlow" in aep_dur_df.columns
+        aep_max_df = xl.parse(sheet_name="aep-mean-max")
+        assert all("median" not in col.lower() for col in aep_max_df.columns)
+        if not aep_max_df.empty:
+            assert "mean_PeakFlow" in aep_max_df.columns
     for f in excel_files:
-        f.unlink()
+        try:
+            f.unlink()
+        except PermissionError:
+            pass

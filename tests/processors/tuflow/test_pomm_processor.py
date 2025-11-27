@@ -47,9 +47,8 @@ def test_pomm_processor_synthetic(tmp_path, change_cwd):
         # So Col 1 of raw must contain the header names.
 
         raw_data = {
-            0: ["Ignore"] * 7,  # Col 0 is dropped
+            0: ["Ignore"] * 6,  # Col 0 is dropped
             1: [
-                "HeaderLabel",
                 "Location",
                 "Time",
                 "Maximum (Extracted from Time Series)",
@@ -57,8 +56,8 @@ def test_pomm_processor_synthetic(tmp_path, change_cwd):
                 "Minimum (Extracted From Time Series)",
                 "Time of Minimum",
             ],  # Col 1 becomes headers
-            2: ["Run1", "Loc1", 10.0, 5.0, 1.0, 1.0, 3.0],  # Data 1
-            3: ["Run1", "Loc2", 20.0, 6.0, 2.0, 2.0, 4.0],  # Data 2
+            2: ["Loc1", 10.0, 5.0, 1.0, 1.0, 3.0],  # Data 1
+            3: ["Loc2", 20.0, 6.0, 2.0, 2.0, 4.0],  # Data 2
         }
         df_raw = pd.DataFrame(raw_data)
         # Write without header
@@ -81,10 +80,10 @@ def test_pomm_processor_synthetic(tmp_path, change_cwd):
         # Let's assume "_POMM.csv" is a valid suffix or similar.
         # Actually, let's use the find_test_file to see what a real POMM file looks like.
         # But for synthetic test, we might need to mock the config or use a valid name.
-        # Let's try "Test_Run_1d_POMM.csv" - hopefully that maps.
+        # Let's try "Test_Run_POMM.csv" - hopefully that maps.
 
         # Re-write to a better path
-        csv_path = tmp_path / "Test_Run_1d_POMM.csv"
+        csv_path = tmp_path / "Test_Run_POMM.csv"
         df_raw.to_csv(csv_path, index=False, header=False)
 
         processor = POMMProcessor(file_path=csv_path)
