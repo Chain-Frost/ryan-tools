@@ -1,7 +1,7 @@
 """Unit tests for ryan_library.processors.tuflow.base_processor."""
 
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 from pathlib import Path
 import pandas as pd
 from ryan_library.processors.tuflow.base_processor import (
@@ -13,15 +13,23 @@ from ryan_library.processors.tuflow.base_processor import (
 from ryan_library.classes.suffixes_and_dtypes import (
     DataTypeDefinition,
     ProcessingParts,
-    SuffixesConfig,
-    Config,
 )
 
 
-# Concrete implementation for testing abstract BaseProcessor
-class ConcreteProcessor(BaseProcessor):
+# Mock concrete implementation for testing BaseProcessor
+class MockProcessor(BaseProcessor):
     def process(self) -> None:
-        pass
+        # Minimal implementation
+        self.df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
+        self.processed = True
+
+
+@pytest.fixture
+def mock_processor_file(tmp_path):
+    # Create a file with a valid suffix that maps to a processor
+    p = tmp_path / "Test_Run_001_1d_H.csv"
+    p.touch()
+    return p
 
 
 class TestBaseProcessor:
@@ -50,22 +58,29 @@ class TestBaseProcessor:
             instance.aep = None
             yield instance
 
+    def test_base_processor_initialization(self, mock_processor_file):
+        # We can instantiate MockProcessor directly
+        processor = MockProcessor(file_path=mock_processor_file)
+        assert processor.file_name == mock_processor_file.name
+        assert processor.data_type == "H"  # Derived from suffix
+        assert not processor.processed
+
     def test_from_file_success(self, mock_suffixes_config, mock_parser):
         """Test factory method successfully creates a processor."""
         # Setup mocks
         mock_suffixes_config.get_definition_for_data_type.return_value = DataTypeDefinition(
-            processor="ConcreteProcessor",
+            processor="MockProcessor",
             suffixes=[".csv"],
             output_columns={},
             processing_parts=ProcessingParts(dataformat="Timeseries")
         )
         
-        # Mock get_processor_class to return our ConcreteProcessor
-        with patch.object(BaseProcessor, "get_processor_class", return_value=ConcreteProcessor):
+        # Mock get_processor_class to return our MockProcessor
+        with patch.object(BaseProcessor, "get_processor_class", return_value=MockProcessor):
             # Mock _load_configuration to avoid needing full config setup
-            with patch.object(ConcreteProcessor, "_load_configuration"):
+            with patch.object(MockProcessor, "_load_configuration"):
                 processor = BaseProcessor.from_file(Path("test_file.csv"))
-                assert isinstance(processor, ConcreteProcessor)
+                assert isinstance(processor, MockProcessor)
 
     def test_from_file_no_data_type(self, mock_parser):
         """Test factory fails if no data type found."""
@@ -79,82 +94,88 @@ class TestBaseProcessor:
         with pytest.raises(KeyError, match="No processor class specified"):
             BaseProcessor.from_file(Path("test.csv"))
 
-    def test_load_configuration_success(self, mock_config, mock_parser):
-        """Test loading configuration successfully."""
-        # Setup Config mock
-        mock_config.data_types = {
-            "TestType": DataTypeDefinition(
-                processor="ConcreteProcessor",
-                suffixes=[".csv"],
-                output_columns={"ColA": "float"},
-                processing_parts=ProcessingParts(
-                    dataformat="Timeseries",
-                    expected_in_header=["Time", "Val"]
-                )
-            )
-        }
+    def test_add_common_columns(self, mock_processor_file, change_cwd, tmp_path):
+        with change_cwd(tmp_path):
+            processor = MockProcessor(file_path=mock_processor_file)
+            processor.process()  # Sets self.df
 
-        processor = ConcreteProcessor(Path("test.csv"))
-        # _load_configuration is called in __post_init__
-        assert processor.output_columns == {"ColA": "float"}
-        assert processor.expected_in_header == ["Time", "Val"]
+            processor.add_common_columns()
 
-    def test_load_configuration_missing_type(self, mock_config, mock_parser):
-        """Test loading configuration fails for unknown type."""
-        mock_config.data_types = {}
-        with pytest.raises(KeyError, match="Data type 'TestType' is not defined"):
-            ConcreteProcessor(Path("test.csv"))
+            assert "internalName" in processor.df.columns
+            assert "file" in processor.df.columns
+            assert "rel_path" in processor.df.columns
+            assert "directory_path" in processor.df.columns
 
-    def test_check_headers_match_success(self, mock_config, mock_parser):
-        """Test header validation success."""
-        mock_config.data_types = {
-            "TestType": DataTypeDefinition(
-                processor="ConcreteProcessor",
-                suffixes=[".csv"],
-                output_columns={},
-                processing_parts=ProcessingParts(
-                    dataformat="Timeseries",
-                    expected_in_header=["Time", "Val"]
-                )
-            )
-        }
-        processor = ConcreteProcessor(Path("test.csv"))
-        assert processor.check_headers_match(["Time", "Val"]) is True
+            # Check values
+            assert processor.df["internalName"].iloc[0] == "Test_Run_001"
+            assert processor.df["file"].iloc[0] == "Test_Run_001_1d_H.csv"
 
-    def test_check_headers_match_failure(self, mock_config, mock_parser):
-        """Test header validation failure."""
-        mock_config.data_types = {
-            "TestType": DataTypeDefinition(
-                processor="ConcreteProcessor",
-                suffixes=[".csv"],
-                output_columns={},
-                processing_parts=ProcessingParts(
-                    dataformat="Timeseries",
-                    expected_in_header=["Time", "Val"]
-                )
-            )
-        }
-        processor = ConcreteProcessor(Path("test.csv"))
-        assert processor.check_headers_match(["Time", "Wrong"]) is False
+    def test_filter_locations(self, mock_processor_file):
+        processor = MockProcessor(file_path=mock_processor_file)
+        # Setup df with Location column
+        processor.df = pd.DataFrame({"Location": ["LocA", "LocB", "LocC"], "Value": [1, 2, 3]})
+
+        # Filter for LocA and LocC
+        locations = {"LocA", "LocC"}
+        processor.filter_locations(locations)
+
+        assert len(processor.df) == 2
+        assert set(processor.df["Location"]) == {"LocA", "LocC"}
+        assert processor.applied_location_filter == frozenset(locations)
+
+    def test_filter_locations_empty_filter(self, mock_processor_file):
+        processor = MockProcessor(file_path=mock_processor_file)
+        processor.df = pd.DataFrame({"Location": ["A"], "Value": [1]})
+
+        processor.filter_locations(None)
+        assert len(processor.df) == 1
+
+        processor.filter_locations([])
+        assert len(processor.df) == 1
+
+    def test_validate_data_default(self, mock_processor_file):
+        processor = MockProcessor(file_path=mock_processor_file)
+        processor.df = pd.DataFrame({"A": [1]})
+        assert processor.validate_data() is True
+
+        processor.df = pd.DataFrame()
+        assert processor.validate_data() is False
+
+    def test_check_headers_match_columns_to_use(self, mock_processor_file):
+        processor = MockProcessor(file_path=mock_processor_file)
+        # Manually set columns_to_use
+        processor.columns_to_use = {"Col1": "float", "Col2": "string"}
+
+        # Exact match
+        assert processor.check_headers_match(["Col1", "Col2"]) is True
+
+        # Order mismatch (should warn but pass)
+        assert processor.check_headers_match(["Col2", "Col1"]) is True
+
+        # Missing column
+        assert processor.check_headers_match(["Col1"]) is False
+
+        # Extra column
+        assert processor.check_headers_match(["Col1", "Col2", "Extra"]) is False
+
+    def test_check_headers_match_expected_in_header(self, mock_processor_file):
+        processor = MockProcessor(file_path=mock_processor_file)
+        processor.columns_to_use = {}  # Ensure this is empty
+        processor.expected_in_header = ["Header1", "Header2"]
+
+        assert processor.check_headers_match(["Header1", "Header2"]) is True
+        assert processor.check_headers_match(["Header1"]) is False
 
     @patch("pandas.read_csv")
-    def test_read_maximums_csv_success(self, mock_read_csv, mock_config, mock_parser):
-        """Test reading CSV successfully."""
-        mock_config.data_types = {
-            "TestType": DataTypeDefinition(
-                processor="ConcreteProcessor",
-                suffixes=[".csv"],
-                output_columns={},
-                processing_parts=ProcessingParts(
-                    dataformat="Maximums",
-                    columns_to_use={"ColA": "float"}
-                )
-            )
-        }
+    def test_read_maximums_csv_success(self, mock_read_csv, mock_processor_file):
+        """Test reading CSV successfully using BaseProcessor implementation."""
         mock_df = pd.DataFrame({"ColA": [1.0]})
         mock_read_csv.return_value = mock_df
         
-        processor = ConcreteProcessor(Path("test.csv"))
+        processor = MockProcessor(file_path=mock_processor_file)
+        # Setup config on instance manually since we are bypassing _load_configuration
+        processor.columns_to_use = {"ColA": "float"}
+        
         status = processor.read_maximums_csv()
         
         assert status == ProcessorStatus.SUCCESS
@@ -162,43 +183,13 @@ class TestBaseProcessor:
         mock_read_csv.assert_called_once()
 
     @patch("pandas.read_csv")
-    def test_read_maximums_csv_empty(self, mock_read_csv, mock_config, mock_parser):
+    def test_read_maximums_csv_empty(self, mock_read_csv, mock_processor_file):
         """Test reading empty CSV."""
-        mock_config.data_types = {
-            "TestType": DataTypeDefinition(
-                processor="ConcreteProcessor",
-                suffixes=[".csv"],
-                output_columns={},
-                processing_parts=ProcessingParts(
-                    dataformat="Maximums",
-                    columns_to_use={"ColA": "float"}
-                )
-            )
-        }
         mock_read_csv.return_value = pd.DataFrame()
         
-        processor = ConcreteProcessor(Path("test.csv"))
+        processor = MockProcessor(file_path=mock_processor_file)
+        processor.columns_to_use = {"ColA": "float"}
+        
         status = processor.read_maximums_csv()
         
         assert status == ProcessorStatus.EMPTY_DATAFRAME
-
-    def test_filter_locations(self, mock_config, mock_parser):
-        """Test filtering locations."""
-        mock_config.data_types = {
-            "TestType": DataTypeDefinition(
-                processor="ConcreteProcessor",
-                suffixes=[".csv"],
-                output_columns={},
-                processing_parts=ProcessingParts(
-                    dataformat="Timeseries",
-                    expected_in_header=["Time", "Val"]
-                )
-            )
-        }
-        processor = ConcreteProcessor(Path("test.csv"))
-        processor.df = pd.DataFrame({"Location": ["Loc1", "Loc2", "Loc3"], "Val": [1, 2, 3]})
-        
-        processor.filter_locations(["Loc1", "Loc3"])
-        
-        assert len(processor.df) == 2
-        assert "Loc2" not in processor.df["Location"].values

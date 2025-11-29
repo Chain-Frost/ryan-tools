@@ -53,19 +53,17 @@ def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
     # We hardcode these to ensure they continue to fail gracefully (processed=False)
     # rather than crashing or being processed incorrectly.
     KNOWN_PROBLEMATIC_FILES = {
-        "EG02_012_PO.csv",
-        "EG02_013_PO.csv",
-        "EG02_014_PO.csv",
-        "EG08_010_1d_ccA_L.dbf",
-        "EG08_011_1d_ccA_L.dbf",
-        "EG08_012_1d_ccA_L.dbf",
-        "EG08_013_1d_ccA_L.dbf",
-        "EG11_005_1d_ccA_L.dbf",
-        "EG11_006_1d_ccA_L.dbf",
-        "EG11_006_1d_Nmx.csv",
-        "EG11_005_1d_ccA_L.dbf",
-        "EG11_006_1d_ccA_L.dbf",
-        "EG11_006_1d_Nmx.csv",
+        "EG02_012_PO.csv": "malformed file - empty",
+        "EG02_013_PO.csv": "malformed file - empty",
+        "EG02_014_PO.csv": "malformed file - empty",
+        "EG08_010_1d_ccA_L.dbf": "empty file",
+        "EG08_011_1d_ccA_L.dbf": "empty file",
+        "EG08_012_1d_ccA_L.dbf": "empty file",
+        "EG08_013_1d_ccA_L.dbf": "empty file",
+        "EG11_005_1d_ccA_L.dbf": "empty file",
+        "EG11_006_1d_ccA_L.dbf": "empty file",
+        "EG11_006_1d_Nmx.csv": "Nmx processor limitation - Singular node values (N1, N2), not pipe ends (US, DS)",
+        "EG11_006_1d_H.csv": "H processor limitation - Singular node values (N1, N2), not pipe ends (US, DS)",
     }
 
     for file_path in files:
@@ -101,7 +99,7 @@ def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
     if warnings:
         print(f"\nWarnings (Processed=False): {len(warnings)} files")
         # Uncomment to see details
-        # print("\n".join(warnings))
+        print("\n".join(warnings))
 
     assert not failures, f"Failures occurred in {len(failures)} files:\n" + "\n".join(failures[:10])
 

@@ -51,8 +51,9 @@ class EOFProcessor(BaseProcessor):
                 self.df = pd.DataFrame()
                 return
 
-            # Create a string buffer
-            data_content = "".join(data_lines)
+            # Create a string buffer, skipping the header line for better inference
+            # The header line in EOF files is often complex and can confuse read_fwf inference
+            data_content = "".join(data_lines[1:])
 
             # Define column names manually as the header is complex
             col_names: list[str] = [
@@ -80,7 +81,7 @@ class EOFProcessor(BaseProcessor):
             self.df = pd.read_fwf(
                 io.StringIO(data_content),
                 names=col_names,
-                header=0,  # The first line of data_content is the header
+                header=None,  # We skipped the header line
                 na_values=["-----", "Adjusted", "---"],
                 keep_default_na=True,
                 infer_nrows=100,

@@ -9,7 +9,12 @@ from ..timeseries_processor import TimeSeriesProcessor
 
 
 class HProcessor(TimeSeriesProcessor):
-    """Handle water level (``H``) timeseries files with upstream/downstream values."""
+    """Handle water level (``H``) timeseries files with upstream/downstream values.
+
+    .. note::
+        This processor expects channel-based H data (US_H, DS_H). It does not support
+        node-based H data (N1, N2) such as that found in some 1d_H.csv files (e.g., EG11_006_1d_H.csv).
+    """
 
     def process(self) -> None:  # type: ignore[override]
         """Process a ``_H`` CSV using the shared timeseries pipeline."""
