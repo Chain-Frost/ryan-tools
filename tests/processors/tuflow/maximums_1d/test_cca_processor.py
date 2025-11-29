@@ -12,7 +12,8 @@ from ryan_library.processors.tuflow.maximums_1d.ccAProcessor import ccAProcessor
 def _create_minimal_cca_gpkg(path: Path) -> None:
     """Create a tiny GeoPackage with a single ccA layer for read-only tests."""
 
-    with sqlite3.connect(path) as conn:
+    conn = sqlite3.connect(path)
+    try:
         cur = conn.cursor()
         cur.execute(
             """
@@ -65,6 +66,9 @@ def _create_minimal_cca_gpkg(path: Path) -> None:
             ) VALUES (1, NULL, 'CULV1', 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0);
             """
         )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def test_cca_gpkg_read_is_read_only(tmp_path: Path, change_cwd) -> None:

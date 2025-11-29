@@ -11,7 +11,7 @@ from ryan_library.functions.tuflow.pomm_utils import (
     find_aep_dur_median,
     find_aep_median_max,
 )
-from ryan_library.scripts.pomm_max_items import run_mean_peak_report, run_median_peak_report
+from ryan_library.scripts.pomm_max_items import export_mean_peak_report, export_median_peak_report
 
 
 DATA_DIR: Path = Path(__file__).absolute().parent.parent / "test_data" / "tuflow" / "tutorials"
@@ -51,7 +51,7 @@ def test_find_aep_dur_median_and_max() -> None:
 
 def test_run_median_peak_report_creates_excel() -> None:
     src_dir: Path = DATA_DIR / "Module_01" / "results"
-    run_median_peak_report(script_directory=src_dir, log_level="INFO")
+    export_median_peak_report(script_directory=src_dir, log_level="INFO")
     excel_files: list[Path] = list(src_dir.glob("*_med_peaks.xlsx"))
     assert excel_files
     with pd.ExcelFile(path_or_buffer=excel_files[0]) as xl:
@@ -73,7 +73,7 @@ def test_run_median_peak_report_creates_excel() -> None:
 
 def test_run_median_peak_report_skips_pomm_sheet_when_disabled() -> None:
     src_dir: Path = DATA_DIR / "Module_01" / "results"
-    run_median_peak_report(script_directory=src_dir, log_level="INFO", include_pomm=False)
+    export_median_peak_report(script_directory=src_dir, log_level="INFO", include_pomm=False)
     excel_files: list[Path] = list(src_dir.glob("*_med_peaks.xlsx"))
     assert excel_files
     with pd.ExcelFile(path_or_buffer=excel_files[0]) as xl:
@@ -88,7 +88,7 @@ def test_run_median_peak_report_skips_pomm_sheet_when_disabled() -> None:
 
 def test_run_mean_peak_report_creates_excel_with_mean_only_columns() -> None:
     src_dir: Path = DATA_DIR / "Module_01" / "results"
-    run_mean_peak_report(script_directory=src_dir, log_level="INFO")
+    export_mean_peak_report(script_directory=src_dir, log_level="INFO")
     excel_files: list[Path] = list(src_dir.glob("*_mean_peaks.xlsx"))
     assert excel_files
     with pd.ExcelFile(path_or_buffer=excel_files[0]) as xl:

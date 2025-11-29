@@ -64,6 +64,20 @@ def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
         "EG11_006_1d_ccA_L.dbf": "empty file",
         "EG11_006_1d_Nmx.csv": "Nmx processor limitation - Singular node values (N1, N2), not pipe ends (US, DS)",
         "EG11_006_1d_H.csv": "H processor limitation - Singular node values (N1, N2), not pipe ends (US, DS)",
+        # GPKG files with empty 1d_ccA_L layers
+        "EG08_010_Results.gpkg": "empty 1d_ccA_L layer",
+        "EG08_011_Results.gpkg": "empty 1d_ccA_L layer",
+        "EG08_012_Results.gpkg": "empty 1d_ccA_L layer",
+        "EG08_013_Results.gpkg": "empty 1d_ccA_L layer",
+        "EG11_005_Results.gpkg": "empty 1d_ccA_L layer",
+        "EG11_006_Results.gpkg": "empty 1d_ccA_L layer",
+        # EOF files missing "CULVERT AND PIPE DATA" section
+        "EG08_011.eof": "missing CULVERT AND PIPE DATA section",
+        "EG08_013.eof": "missing CULVERT AND PIPE DATA section",
+        "EG11_002.eof": "missing CULVERT AND PIPE DATA section",
+        "EG11_005.eof": "missing CULVERT AND PIPE DATA section",
+        "EG11_006.eof": "missing CULVERT AND PIPE DATA section",
+        "EG11_007.eof": "missing CULVERT AND PIPE DATA section",
     }
 
     for file_path in files:

@@ -128,68 +128,81 @@ class ccAProcessor(BaseProcessor):
             db_uri: str = f"file:{uri_path}?mode=ro&immutable=1"
             logger.debug("process_gpkg: Connecting to GeoPackage via sqlite3 with db_uri={!r} (uri=True)", db_uri)
 
-            with sqlite3.connect(database=db_uri, uri=True) as conn:
+            conn = None
+            try:
+                conn = sqlite3.connect(database=db_uri, uri=True)
                 logger.debug("process_gpkg: SQLite connection opened successfully")
                 cur: sqlite3.Cursor = conn.cursor()
 
-                # 1. Find our ccA layer in gpkg_contents
-                logger.debug("process_gpkg: Executing layer discovery query against gpkg_contents")
-                cur.execute(
-                    """
-                    SELECT table_name
-                    FROM gpkg_contents
-                    WHERE data_type = 'features';
-                    """
-                )
-                rows: list[Any] = cur.fetchall()
-                layers: list[str] = [row[0] for row in rows]
-                logger.debug("process_gpkg: Feature layers in gpkg_contents: {!r}", layers)
-
-                # 2. Find our CCA layer by suffix
-                desired_suffix = "1d_ccA_L"
-                layer_name: str | None = next(
-                    (
-                        lyr
-                        for lyr in layers
-                        if isinstance(lyr, str)  # pyright: ignore[reportUnnecessaryIsInstance]
-                        and lyr.endswith(desired_suffix)
-                    ),
-                    None,
-                )
-                logger.debug("process_gpkg: Desired suffix={!r}, selected layer_name={!r}", desired_suffix, layer_name)
-
-                if layer_name is None:
-                    logger.error(
-                        "process_gpkg: No layer ending with "
-                        f"{desired_suffix!r} found in {str(path)!r}; treating datasource as malformed"
+                try:
+                    # 1. Find our ccA layer in gpkg_contents
+                    logger.debug("process_gpkg: Executing layer discovery query against gpkg_contents")
+                    cur.execute(
+                        """
+                        SELECT table_name
+                        FROM gpkg_contents
+                        WHERE data_type = 'features';
+                        """
                     )
-                    return pd.DataFrame()
+                    rows: list[Any] = cur.fetchall()
+                    layers: list[str] = [row[0] for row in rows]
+                    logger.debug("process_gpkg: Feature layers in gpkg_contents: {!r}", layers)
 
-                # 2b. Inspect actual table columns via PRAGMA
-                cur.execute(f"PRAGMA table_info('{layer_name}')")
-                table_info = cur.fetchall()
-                cols_in_table = [row[1] for row in table_info]
-                logger.debug("process_gpkg: PRAGMA table_info for layer {!r}: {!r}", layer_name, table_info)
-                logger.debug("process_gpkg: Columns in table {!r}: {!r}", layer_name, cols_in_table)
-
-                # Exclude fid + geometry BLOB column (here named 'geom')
-                excluded: set[str] = {"fid", "geom"}
-                value_cols = [c for c in cols_in_table if c not in excluded]
-                if not value_cols:
-                    logger.error(
-                        "process_gpkg: No non-geometry columns found in table "
-                        f"{layer_name!r}; treating datasource as malformed"
+                    # 2. Find our CCA layer by suffix
+                    desired_suffix = "1d_ccA_L"
+                    layer_name: str | None = next(
+                        (
+                            lyr
+                            for lyr in layers
+                            if isinstance(lyr, str)  # pyright: ignore[reportUnnecessaryIsInstance]
+                            and lyr.endswith(desired_suffix)
+                        ),
+                        None,
                     )
-                    return pd.DataFrame()
+                    logger.debug("process_gpkg: Desired suffix={!r}, selected layer_name={!r}", desired_suffix, layer_name)
 
-                col_list_sql: str = ", ".join(f'"{c}"' for c in value_cols)
-                select_sql: str = f'SELECT {col_list_sql} FROM "{layer_name}"'
-                logger.debug("process_gpkg: Running attribute SELECT on table {!r}: {}", layer_name, select_sql)
+                    if layer_name is None:
+                        logger.error(
+                            "process_gpkg: No layer ending with "
+                            f"{desired_suffix!r} found in {str(path)!r}; treating datasource as malformed"
+                        )
+                        return pd.DataFrame()
 
-                # 3. Load attributes into DataFrame
-                cca_data: DataFrame = pd.read_sql_query(  # pyright: ignore[reportUnknownMemberType]
-                    sql=select_sql, con=conn
-                )
+                    # 2b. Inspect actual table columns via PRAGMA
+                    cur.execute(f"PRAGMA table_info('{layer_name}')")
+                    table_info = cur.fetchall()
+                    cols_in_table = [row[1] for row in table_info]
+                    logger.debug("process_gpkg: PRAGMA table_info for layer {!r}: {!r}", layer_name, table_info)
+                    logger.debug("process_gpkg: Columns in table {!r}: {!r}", layer_name, cols_in_table)
+
+                    # Exclude fid + geometry BLOB column (here named 'geom')
+                    excluded: set[str] = {"fid", "geom"}
+                    value_cols = [c for c in cols_in_table if c not in excluded]
+                    if not value_cols:
+                        logger.error(
+                            "process_gpkg: No non-geometry columns found in table "
+                            f"{layer_name!r}; treating datasource as malformed"
+                        )
+                        return pd.DataFrame()
+
+                    col_list_sql: str = ", ".join(f'"{c}"' for c in value_cols)
+                    select_sql: str = f'SELECT {col_list_sql} FROM "{layer_name}"'
+                    logger.debug("process_gpkg: Running attribute SELECT on table {!r}: {}", layer_name, select_sql)
+
+                    # 3. Load attributes into DataFrame
+                    # We use manual fetchall to avoid pandas holding references to the connection
+                    cur.execute(select_sql)
+                    data_rows = cur.fetchall()
+                    cols = [description[0] for description in cur.description]
+                    cca_data = pd.DataFrame(data_rows, columns=cols)
+                finally:
+                    cur.close()
+            except sqlite3.Error as e:
+                logger.error(f"process_gpkg: SQLite error: {e}")
+                return pd.DataFrame()
+            finally:
+                if conn:
+                    conn.close()
 
             logger.debug(
                 "process_gpkg: Raw attribute DataFrame loaded with "

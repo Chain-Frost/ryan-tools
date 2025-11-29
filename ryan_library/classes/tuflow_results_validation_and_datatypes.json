@@ -299,5 +299,18 @@
       "columns_to_use": {},
       "expected_in_header": []
     }
+  },
+  "TLF": {
+    "processor": "TLFProcessor",
+    "suffixes": [
+      ".tlf"
+    ],
+    "output_columns": {},
+    "processingParts": {
+      "dataformat": "TLF",
+      "module": "ryan_library.functions.parse_tlf",
+      "columns_to_use": {},
+      "expected_in_header": []
+    }
   }
 }

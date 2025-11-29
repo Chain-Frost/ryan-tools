@@ -58,7 +58,7 @@ def processed_results() -> dict[str, pd.DataFrame]:
                 combined_df = temp_collection.combine_1d_timeseries()
             elif first_proc.dataformat == "POMM":
                 combined_df = temp_collection.pomm_combine()
-            elif first_proc.dataformat == "Maximums":
+            elif first_proc.dataformat in ["Maximums", "ccA"]:
                 combined_df = temp_collection.combine_1d_maximums()
             else:
                 dfs = [p.df for p in procs if not p.df.empty]
