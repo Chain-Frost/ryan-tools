@@ -1,0 +1,101 @@
+TUFLOW AD Module Build 2021-09-PC
+
+AD Control file successfully checked for integrity.
+
+
+Setting AD Global Database to: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\EG17_AD_Constituents_003.csv
+
+
+Allocating temporary memory for AD boundary processing.
+Memory required: 603kB
+
+Reading AD Boundary Conditions:
+
+
+Setting AD BC Database to: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\bc_dbase_EG17_AD_001.csv
+
+
+Considering TUFLOW "HQ" BC with name ""...
+
+Array sizing TUFLOW "HQ" BC with name ""...
+
+Considering TUFLOW SA BC with name "EG17_AD1"...
+
+Array sizing TUFLOW SA BC with name "EG17_AD1"...
+
+Considering TUFLOW SA BC with name "EG17_AD2"...
+
+Array sizing TUFLOW SA BC with name "EG17_AD2"...
+
+Considering TUFLOW SA BC with name "FC01"...
+
+Array sizing TUFLOW SA BC with name "FC01"...
+Found 6 AD BC line segments
+Found 0 AD Met BC polygons
+
+Releasing temporary memory used for AD boundary processing.
+
+Reading AD Global Database: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\EG17_AD_Constituents_003.csv
+
+
+Heat solution not activated (yet)
+
+
+Finished reading AD Global Database: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\EG17_AD_Constituents_003.csv
+
+
+Number of Constituents Found:            1
+
+
+Allocating temporary memory for AD boundary processing.
+Memory required: 603kB
+
+Reading AD Boundary Conditions:
+
+
+Setting AD BC Database to: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\bc_dbase_EG17_AD_001.csv
+
+
+Considering TUFLOW "HQ" BC with name ""...
+
+Processing TUFLOW "HQ" BC with name ""...
+
+Considering TUFLOW SA BC with name "EG17_AD1"...
+
+Processing TUFLOW SA BC with name "EG17_AD1"...
+
+Considering TUFLOW SA BC with name "EG17_AD2"...
+
+Processing TUFLOW SA BC with name "EG17_AD2"...
+
+Considering TUFLOW SA BC with name "FC01"...
+
+Processing TUFLOW SA BC with name "FC01"...
+Processed 84 AD BC cells
+Processed 0 AD Met BC cells
+
+Releasing temporary memory used for AD boundary processing.
+
+Allocating 141Kb memory for temporary for processing AD SA boundaries...
+
+Checking AD flow boundaries...
+
+...Finished checking AD flow boundaries
+
+!_______________________________________________________________________________
+Write Mass == OFF  ! [ {OFF} | ON ]
+Write CFL == OFF  ! [ {OFF} | ON ]
+Write Iterations == OFF  ! [ {OFF} | ON ]
+Verbose == OFF  ! [ {OFF} | ON ]
+SA Minimum Ambient Concentration Depth == 0.
+
+Number of constituents: 1
+
+#1 - Tracer1
+Heat Name not set.
+Decay Rate = 0.05
+Settling Rate = 0.
+Longitudinal Dispersion Coefficient = 50.
+Transverse Dispersion Coefficient = 5.
+!_______________________________________________________________________________
+
