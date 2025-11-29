@@ -10,7 +10,7 @@ from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
-from ryan_library.scripts.pomm_utils import (
+from ryan_library.functions.tuflow.pomm_utils import (
     aggregated_from_paths,
     save_peak_report_mean,
     save_peak_report_median,

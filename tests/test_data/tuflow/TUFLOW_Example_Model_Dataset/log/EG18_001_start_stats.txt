@@ -1,0 +1,65 @@
+Stage                                             ,Total (s)   ,Elapsed (s) 
+Initilisation (file opened)                       ,      0.00,      0.00
+Initializing Grid Link                            ,      0.00,      0.00
+Found 2D domains                                  ,      0.05,      0.05
+Start 2D BC Array Sizes Domain_001                ,      0.07,      0.02
+End 2D BC Array Sizes Domain_001                  ,      0.07,      0.00
+Start Estry Setup s0                              ,      0.07,      0.00
+End Estry Setup s0                                ,      0.07,      0.00
+Start Estry Setup s1                              ,      0.07,      0.00
+Estry Setup EC (Weir) Initialise                  ,      0.07,      0.00
+End Estry Setup s1                                ,      0.08,      0.00
+Start TUFLOW Setup s2                             ,      0.08,      0.00
+End TUFLOW Setup s2                               ,      0.14,      0.06
+Reading Geometry File Domain_001                  ,      0.16,      0.02
+Start Read Read GIS Code                          ,      0.16,      0.00
+End Read Read GIS Code                            ,      0.16,      0.01
+Start Read GRID Zpts                              ,      0.17,      0.01
+  Start Storing SGS Elevations                    ,      0.19,      0.02
+  End Storing SGS Elevations                      ,      0.30,      0.12
+End Read GRID Zpts                                ,      0.31,      0.00
+Start Read Read GIS Mat                           ,      0.31,      0.00
+End Read Read GIS Mat                             ,      0.32,      0.01
+Finished Reading Geometry File Domain_001         ,      0.32,      0.00
+Starting checking consistency of SGS elevations Do,      0.32,      0.00
+End checking consistency of SGS elevations Domain_,      0.40,      0.08
+Calculating statistics SGS elevations Domain_001  ,      0.40,      0.00
+End C Cell stats                                  ,      0.48,      0.08
+End U Face stats                                  ,      0.49,      0.00
+End V Face stats                                  ,      0.49,      0.00
+End H corner stats                                ,      0.57,      0.08
+End calculating statistics SGS elevations Domain_0,      0.57,      0.00
+Start Read input file (stage 2) Domain_001        ,      0.58,      0.01
+End Read input file (stage 2) Domain_001          ,      0.58,      0.00
+Identifying cells within user defined output zones,      0.58,      0.00
+Finished Identifying cells within user defined out,      0.58,      0.00
+Setting instability water levels Domain_001       ,      0.58,      0.00
+Finished Setting instability water levels Domain_0,      0.58,      0.00
+Assigning any Variable Z Shape 1D Trigger Nodes   ,      0.59,      0.01
+Finished Assigning any Variable Z Shape 1D Trigger,      0.59,      0.00
+Start Reading Input File (Stage 3)                ,      0.59,      0.00
+End Reading Input File (Stage 3)                  ,      0.59,      0.00
+Reading Boundary File Domain_001                  ,      0.59,      0.00
+Finished Reading Boundary File Domain_001         ,      0.63,      0.03
+Initialising 2D Data (Stage 1) Domain_001         ,      0.63,      0.00
+Finished Initialising 2D Data (Stage 1) Domain_001,      0.63,      0.00
+Initialising 2D Data (Stage 2) Domain_001         ,      0.63,      0.00
+Finished Initialising 2D Data (Stage 2) Domain_001,      0.64,      0.00
+Initialising any 2D2D link data Domain_001        ,      0.65,      0.01
+Finished Initialising any 2D2D link data Domain_00,      0.65,      0.00
+Start Writing _grd_check                          ,      0.65,      0.01
+End Writing _grd_check                            ,      1.59,      0.93
+Start Writing _zpt_check                          ,      1.59,      0.00
+End Writing _zpt_check                            ,      5.13,      3.54
+Start Writing _uvpt_check                         ,      5.13,      0.00
+End Writing _uvpt_check                           ,      6.62,      1.49
+Start Writing .2dm                                ,      6.62,      0.00
+End Writing .2dm                                  ,      6.64,      0.02
+Start Writing check DEMs                          ,      6.64,      0.00
+Start Calculating grid interpolation factors      ,      6.64,      0.00
+End Calculating grid interpolation factors        ,      6.65,      0.01
+End Writing check DEMs                            ,      6.68,      0.03
+Start Calculating grid interpolation factors      ,      6.68,      0.00
+End Calculating grid interpolation factors        ,      6.69,      0.01
+Starting Simulation                               ,      6.69,      0.00
+Summary File Close                                ,      6.69,      0.00

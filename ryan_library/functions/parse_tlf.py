@@ -435,3 +435,71 @@ def finalise_data(runcode: str, data_dict: dict[str, Any], logfile_path: Path | 
     except Exception as e:
         logger.error(f"Error finalizing data for {runcode}: {e}")
         return pd.DataFrame()
+
+
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from ryan_library.functions.path_stuff import convert_to_relative_path
+
+
+class TLFProcessor(BaseProcessor):
+    """Processor for TUFLOW Log Files (.tlf)."""
+
+    def process(self) -> None:
+        """Process the TLF file and populate self.df."""
+        sim_complete = 0
+        success = 0
+        spec_events = False
+        spec_scen = False
+        spec_var = False
+        data_dict: dict[str, Any] = {}
+        current_section = None
+
+        file_size = self.file_path.stat().st_size
+        is_large_file = file_size > 10 * 1024 * 1024  # 10 MB
+
+        lines = read_log_file(
+            logfile_path=self.file_path,
+            is_large_file=is_large_file,
+        )
+
+        if not lines:
+            self.processed = False
+            return
+
+        runcode = self.file_path.stem
+        relative_logfile_path = convert_to_relative_path(user_path=self.file_path)
+
+        # Search for completion in the last 100 lines
+        for line in lines[-100:]:
+            data_dict, sim_complete, current_section = search_for_completion(
+                line=line,
+                data_dict=data_dict,
+                sim_complete=sim_complete,
+                current_section=current_section,
+            )
+            if sim_complete == 2:
+                data_dict["Runcode"] = runcode
+                break
+
+        if sim_complete == 2:
+            data_dict, success, spec_events, spec_scen, spec_var = process_top_lines(
+                logfile_path=self.file_path,
+                lines=lines,
+                data_dict=data_dict,
+                success=success,
+                spec_events=spec_events,
+                spec_scen=spec_scen,
+                spec_var=spec_var,
+                is_large_file=is_large_file,
+                runcode=runcode,
+                relative_logfile_path=relative_logfile_path,
+            )
+
+            if success == 4:
+                self.df = finalise_data(
+                    runcode=runcode,
+                    data_dict=data_dict,
+                    logfile_path=self.file_path,
+                )
+                if not self.df.empty:
+                    self.processed = True

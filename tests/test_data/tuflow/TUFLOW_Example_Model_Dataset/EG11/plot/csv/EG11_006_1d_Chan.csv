@@ -1,0 +1,2 @@
+No,Channel,US Node,DS Node,US Channel,DS Channel,Flags,Length,Form Loss,n or Cd,pSlope,US Invert,DS Invert,LBUS Obvert,RBUS Obvert,LBDS Obvert,RBDS Obvert,pBlockage
+     1,"FC01.2_R","N1","N2","------","------","Q",            10.0,   0.000,   0.000,   0.0,    37.600,    37.600,    42.600,    42.600,    42.600,    42.600,     0.000

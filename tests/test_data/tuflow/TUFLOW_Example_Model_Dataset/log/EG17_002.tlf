@@ -1,0 +1,3078 @@
+
+Build: 2025.2.1-iSP-w64
+
+Executable: C:\TUFLOW\2025.2.1\TUFLOW_iSP_w64.exe (Copyright BMT Commercial Australia Pty Ltd)
+
+Licence maintenance period: July 2025 - June 2026
+
+Computer Name: RYAN-AM5
+
+Simulation Started: 2025-Nov-28 00:31
+
+
+Compiler: Intel Fortran 2021.3; Single Precision; 64-bit
+
+Hazard Routines ID in TUFLOW_USER_DEFINED.dll: Default Hazard Routines
+
+No Specified Events.
+
+No Specified Scenarios.
+
+No variables defined using Set Variable ==
+
+Initialising Time of Startup Summary == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_start_stats.txt
+
+Trying to open (O) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_start_stats.txt...OK.  File Unit: 904
+
+Initialising TUFLOW Licence Settings...
+Looking for "C:\TUFLOW\2025.2.1\TUFLOW_Licence_Settings.lcf"...not found.
+Looking for "C:\ProgramData\TUFLOW\TUFLOW_Licence_Settings.lcf"...not found.
+Looking for "C:\BMT_WBM\TUFLOW_Licence_Settings.lcf"...not found.
+Looking for "C:\BMT_WBM\TUFLOW_Dongle_Settings.dcf"...not found.
+
+No TUFLOW licence Settings files found.  Default settings applied.
+WIBU Retry Time == 60  ! Seconds.  Values less than 1 are set to 1.  Default = 60.
+WIBU Retry Count == 0  ! Number of times to retry for a licence at start of simulation.  Use -1 for indefinitely.  Default = 0.
+WIBU Dongles Only == OFF  ! If set to ON, searches for WIBU dongles only.  Default is OFF.
+
+Simulations Log Folder == C:\ProgramData\TUFLOW\log\Ryan\  ! Path or URL to global simulations log folder.  Default is C:\ProgramData\TUFLOW\log\Ryan
+
+Trying to open (A) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\_ TUFLOW Simulations.log...OK.  File Unit: 905
+...Closed File Unit: 905
+
+Detected 16 CPUs.
+CPU limiting not activated for standalone dongle.
+
+Setting up dynamic arrays...
+
+Reading .tcf File .. E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG17_002.tcf
+
+Trying to open (O) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002.wor...OK.  File Unit: 905
+
+Trying to open (O) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002.qgs...OK.  File Unit: 906
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_messages.shp
+GIS Layer assigned ID of 1
+
+Trying to open (BO) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_messages_P.shp...OK.  File Unit: 907
+
+Trying to open (BO) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_messages_P.shx...OK.  File Unit: 908
+
+Trying to open (O) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_messages_P.prj...OK.  File Unit: 909
+
+Trying to open (BO) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_messages_P.dbf...OK.  File Unit: 910
+...Closed File Unit: 909
+
+Trying to open (O) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_messages.csv...OK.  File Unit: 909
+
+Trying to open (I) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_messages.csv...OK.  File Unit: 911
+...Closed File Unit: 911
+
+Home Folder: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\
+
+Free-Form Input Assumed...
+
+
+Trying to open (I) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\materials.csv...OK.  File Unit: 911
+
+  1...Processing: 1,0.06,,,
+
+  2...Processing: 2,0.022,,,
+
+  3...Processing: 3,0.4,,,
+
+  4...Processing: 4,0.03,,,
+
+  5...Processing: 10,0.08,,,
+
+  6...Processing: 11,0.04,,,
+...Closed File Unit: 911
+
+No Event Sources found.
+
+Start Time (h):.......     0.000
+Finish Time (h):......    48.000
+
+Primary 2D timestep (the largest) set to 1. secs
+Domain: Domain_001    Original Timestep:    1.00  Iterations:   1  Adopted Timestep:    1.00
+
+Start Output (h):.....     0.000
+Output Interval (s):..   300.000
+Maximums Start Track Time:      0.000
+1. Wetting & Drying ON with dry side wall checks
+2. Use Manning n based on material specifications
+3. Wave Radiation Stresses OFF
+4. ----------------------
+5. Water Level Checks ON
+6. Extrapolate Heads at Flow Boundaries OFF
+7. Use Static Head at ESTRY Interface
+8. Oblique Boundary Methods OFF
+   Oblique Boundary Alignment Default == NEAREST TO LINE
+   Supercritical Flow Switching ON; Froude No. Check = 1.; Froude Depth Adjustment ON
+9. HPC Weir Factors (C1 =0.30 and C2 =0.78)
+10. Use Wu Viscosity Coefficient
+10. Velocity Dependent Viscosity Coefficient ON
+12. Output Format SMS Generic Files (without land elements)
+13. Display/log status every 100 timesteps
+Warmup Time (s):.............     0.000
+Time Step During Warmup (s):.     1.000
+Depth/Ripple Ht Factor Limit:    10.000
+Wave Period (s):.............     0.000
+
+Start Time PO & LPO Output (h):.......     0.000
+Output Interval PO & LPO Output (s):..    60.000
+
+No Wind Output Specified
+
+Number of Iterations:.................     2
+
+Material Values:
+
+#1 - Material 1:
+Fixed Manning's n = 0.060
+IL/CL values not set.
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#2 - Material 2:
+Fixed Manning's n = 0.022
+IL/CL values not set.
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#3 - Material 3:
+Fixed Manning's n = 0.400
+IL/CL values not set.
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#4 - Material 4:
+Fixed Manning's n = 0.030
+IL/CL values not set.
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#5 - Material 10:
+Fixed Manning's n = 0.080
+IL/CL values not set.
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#6 - Material 11:
+Fixed Manning's n = 0.040
+IL/CL values not set.
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+
+NoXY: WARNING 2583 - Material ID 3 has a manning's n value (0.400) greater than Wu n limit (0.100) - n value will be limited in Wu formulation
+Wiki Link: https://wiki.tuflow.com/TUFLOW_Message_2583
+Output Files to be Pre-fixed by: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\EG17_002
+Log and message files to be pre-fixed by: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002
+
+!_______________________________________________________________________________
+! TUTORIAL / DEMO MODEL COMMANDS
+Tutorial Model == ON
+Demo Model == OFF
+
+!_______________________________________________________________________________
+! BACKWARD COMPATIBILITY DEFAULTS COMMANDS
+! Defaults == 2025  !  Not set  ! [ PRE 2006-06-AA | PRE 2007-07-AA | PRE 2008-08 | PRE 2010 | PRE 2012 | PRE 2013 | PRE 2016 | PRE 2017 | PRE 2020-01 | Pre 2020-10 | Pre 2020-10-AB | Pre 2023 | Pre 2025]
+
+!_______________________________________________________________________________
+! GEOGRAPHIC REFERENCE COMMANDS
+GIS Format == SHP
+GRID Format == TIF
+MI Projection == 
+SHP Projection == PROJCS["WGS_1984_UTM_Zone_60S",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",10000000.0],PARAMETER["Central_Meridian",177.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]
+GPKG Projection == -1
+GPKG WKT CRS EXTENSION == OFF
+TIF Projection == unnamed
+GIS Projection Check == ERROR
+SHP Projection Check Method == Parsed   ! Options [ {PARSED} | SIMPLE ]
+Snap Tolerance == 0.001
+Units == METRIC  ! output to be in same units as input
+GPKG Conversion Check == ERROR
+GPKG Read Only == OFF
+
+!_______________________________________________________________________________
+! READ FILES
+! The following Read Files (if any) were found:
+
+!_______________________________________________________________________________
+! 2D SOLUTION SCHEME AND HARDWARE COMMANDS
+
+2D Solution Scheme == HPC 2nd  ! Explicit FV, Version == 3
+HPC 1D Synchronisation == MAXIMISE 1D TIMESTEP | 10
+HPC Temporal Scheme == 4
+HPC Control Number Factor == 1.  ! If set zero adaptive timestepping is turned off and fixed timestep is used.
+RAM Optimisation == ON
+
+Mass Balance Output == ON   ! Options [ {ON} | OFF ]
+Mass Balance Output Interval (s) == -1.
+
+HARDWARE == GPU
+GPU Device IDs == 0, 
+HPC DP CHECK == CHECK   ! Options [ {CHECK} | ERROR | OFF ]
+
+!_______________________________________________________________________________
+! 2D DOMAIN DEPENDENT COMMANDS
+! Note:  Set / Read MI/GIS FC, PO, LP, GLO, IWL commands not shown - use check files to verify.
+! Found 1 2D Domain(s)
+
+Start 2D Domain == Domain_001
+   Geometry Control File == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG00_001.tgc
+   BC Control File == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG17_001.tbc
+   Cell Wet/Dry Depth (m) == 0.002
+   Cell Side Wet/Dry Depth (m) == 0.001
+   ! Instability Water Level == <default>  ! ie. will use highest Zpt
+   ! Morphology Control File ==  ! None specified
+   AD Control File == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG17_002.adcf
+End 2D Domain == Domain_001
+
+!_______________________________________________________________________________
+! FILE MANAGEMENT COMMANDS
+Write Check Files == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002
+Input Drive == 
+Output Drive == 
+Output Folder == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\
+Check MI Save Date == ERROR  ! [ {ERROR} | WARNING | OFF ]
+Check MI Save Ext == .tab  ! [ {.tab} | <ext> ]
+XF Files  == ON   ! Options [ ON | {OFF} ]
+!XF Files Include in Filename == ! Not set
+XF Files Merge TIN Elevations == Reprocess   ! Options [ {Reprocess} | Use XF ]
+
+!_______________________________________________________________________________
+! BC DATABASE GLOBAL SETTINGS COMMANDS
+BC Database == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\bc_dbase_EG17_002.csv
+BC Event Name == 
+BC Event Source == <source_text> | <source_name>
+BC Zero Flow == OFF  ! [ {OFF} | START | END | START and END ]
+
+!_______________________________________________________________________________
+! SIMULATION CONTROL COMMANDS
+Start Time (h) == 0.
+End Time (h) == 48.
+! End After Maximums (h) ==  ! Finish simulation x hours after maximums have been reached.
+! Auto Terminate not enabled.
+Timestep Minimum (s) == AUTO
+Timestep Repeats == 10
+HPC Timestep Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+HPC Velocity Limit (m/s) == 30.
+
+!_______________________________________________________________________________
+! BED RESISTANCE FORMAT COMMANDS
+Bed Resistance Values == MANNING n   ! Options [ {MANNING n} | MANNING M | CHEZY ]
+Bed Resistance Cell Sides == INTERROGATE   ! Options [ AVERAGE M | AVERAGE n | MAXIMUM n | {INTERROGATE} ]
+Change Zero Material Values to One == OFF   ! Options [ ON | {OFF} ]
+HPC Mannings Depth Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+
+!_______________________________________________________________________________
+! GLOBAL FLOW CONSTRICTION (FC) COMMANDS
+Layered FLC Default Approach == METHOD B  ! [ METHOD A | {METHOD B} | METHOD C | METHOD D]
+BG FLC Default Approach == LINEAR              ! [ LINEAR | {LINEAR-CONSTANT} | PARABOLIC | INVERTED-PARABOLIC ]
+Blank BG FLC Approach == NONE  ! [ {NONE} | METHOD A | METHOD B]
+
+!_______________________________________________________________________________
+! OUTPUT CONTROL AND FORMAT COMMANDS
+
+! Number of active user defined Output Zones = 0
+
+MAP OUTPUT SETTINGS for ENTIRE MODEL
+   Map Output Entire Model == ON   ! Options [ {ON} | OFF ]
+   Output Folder == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\
+   ! Output Name: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\EG17_002
+   Maximums and Minimums == ON MAXIMUMS ONLY   ! Options [ ON | {ON MAXIMUMS ONLY} | OFF ]
+   Map Output Formats ==  XMDF TIF   ! Options  [ ASC ] [ CC ] [ DAT ] [ FLT ] [ GRID ] [ NC ] [ GPKG ] [ TIF ] [ HRASC ] [ HRFLT ] [ HRNC ] [ HRTGO ] [ HRWRR ] [ HRGIS ] [ HRGPKG ] [ HRTIF ] [ T3 ] [ TGO ] [ TMO ] [ WRB ] [ WRC ] [ WRR ] [ {XMDF} ] [ SMS [ {} | TRIANGLES | HIGH RES [ {} | CORNERS ONLY ] ] ]
+   XMDF Map Output Data Types ==  h V d z0
+   XMDF Start Map Output (h) == 0.
+   XMDF End Map Output (h) == 48.
+   XMDF Map Output Interval (s) == 300.
+   Maximums and Minimums Only For Grids == OFF   ! Options [ ON | {OFF} ]
+   TIF Map Output Data Types ==  h
+   ! Temporal TIF map output disabled
+END MAP OUTPUT SETTINGS for ENTIRE MODEL
+
+Grid Output Cell Size == Not Specified
+Grid Output Origin == AUTOMATIC
+
+Maximums Approach == METHOD B
+Map Cutoff Depth (m) == -1.
+Map Cutoff SGS  == CELL AVERAGE
+SGS Map Extent Trim  == ALL
+Maximum Velocity Cutoff Depth (m) == 0.1
+BSS Cutoff Depth (m) == 0.1
+Time Output Cutoff [Depths | VxD] == OFF
+
+ZP Hazard Cutoff Depths ==  0.01 0.01 0.01
+Map Output Corner Interpolation == METHOD C
+Map Output Vector Dry Zpt == OFF   ! Options [ ON | {OFF} ]
+Map Cutoff Vector == ON   ! Options [ {ON} | OFF ]
+Meshparts == OFF   ! Options [ ON | {OFF} ]
+
+UK Hazard Formula == D*(V+0.5)+DF   ! Options [ D*(V+1.5) | {D*(V+0.5)+DF} ]
+!UK Hazard Debris Factor == N/A
+UK Hazard Land Use == CONSERVATIVE   ! Options [ PASTURE | WOODLAND | URBAN | {CONSERVATIVE} | NOT SET ]
+NetCDF Output Compression  == 1
+NetCDF Output Start Date  == 2000-01-01 00:00
+Blue Kenue Start Date == 2000-01-01
+XMDF Output Compression  == 1
+GPKG Output Compression Method  == LZW   ! Options [ NONE | {LZW} ]
+GPKG Output Compression Predictor == HORIZONTAL DIFFERENCING   ! Options [ NONE | {HORIZONTAL DIFFERENCING} ]
+TIF Output Compression Method  == DEFLATE (Level -1)   ! Options [ NONE | LZW | {DEFLATE} | <level> ]
+TIF Output Compression Predictor == HORIZONTAL DIFFERENCING   ! Options [ NONE | {HORIZONTAL DIFFERENCING} ]
+
+!_______________________________________________________________________________
+! SCREEN DISPLAY COMMANDS
+Screen/Log Display Interval == 100   ! timesteps
+TSF Update Interval == 60   ! seconds
+HPC dt Write Interval == 100   ! timesteps
+Verbose == LOW   ! Options [ ON | OFF | {LOW} ]
+
+!_______________________________________________________________________________
+! TIME-SERIES OUTPUT COMMANDS
+Start Time Series Output (PO and LPO) (h) == 0.
+Time Series Output Interval (s) == 60.
+CSV Time == HOURS   ! Options [ {HOURS} | DAYS ]
+CSV Maximum Number Columns == UNLIMITED
+PO Approach == METHOD B
+Write PO Online == OFF   ! Options [ ON | {OFF} ]
+Maximums and Minimums Time Series == ON   ! Options [ ON | {OFF} ]
+Time Series Null Value == Cell Elevation
+Record Gauge Data == Gauge RLP RLL
+
+!_______________________________________________________________________________
+! RESTART FILE COMMANDS
+!Read Restart File ==  ! no restart file specified
+Write Restart File Version == 2
+!Write Restart File at Time (h) ==  ! not specified
+!Write Restart File Interval (h) ==  ! not specified
+!Write Restart Filename == [ {INCLUDE TIME} | OVERWRITE ]
+
+!_______________________________________________________________________________
+! SIMULATION PAUSE COMMANDS
+! Simulation Pause Start (h) == ! not specified
+! Simulation Pause Interval (h) == ! not specified
+
+!_______________________________________________________________________________
+! WETTING AND DRYING COMMANDS
+Wetting and Drying == ON METHOD B   ! Options [ {ON} | ON NO SIDE CHECKS | OFF ]
+Cell Side Checks == METHOD B
+
+!_______________________________________________________________________________
+! FREE-OVERFALL AND WEIR FLOW COMMANDS
+HPC Weir Factor == 0.3, 0.78
+HPC Weir Approach == METHOD B ENERGY   ! Options [ METHOD A | METHOD B | {METHOD B ENERGY} ]
+HPC Thin Weir Parameters == 0.577, 1.5, 8.55, 0.556   ! Defaults [0.577, 1.5, 8.55, 0.556 ]
+HPC Thick Weir Parameters == 0.577, 1.5, 8.55, 0.556   ! Defaults [0.577, 1.5, 8.55, 0.556 ]
+
+!_______________________________________________________________________________
+! EDDY VISCOSITY COMMANDS
+Viscosity Formulation == WU   ! Options [ CONSTANT | NON-NEWTONIAN | SMAGORINSKY | {WU} | WU SECONDARY ]
+[Wu] Viscosity Coefficients == 7., 0., 0.1  ! 3D, 2D components, Mannings n upper limit 
+Viscosity Approach == METHOD B
+
+!_______________________________________________________________________________
+! WATER LEVEL INSTABILITY DETECTION COMMANDS
+Water Level Checks == ON   ! Options [ {ON} | OFF ]
+
+!_______________________________________________________________________________
+! BOUNDARY TREATMENT COMMANDS
+HX Dry 1D Node Test == OFF   ! Options [ ON | {OFF} ]
+Distribute HX Flows == OFF   ! Options [ ON | {OFF} ] - ON ONLY APPLIES TO ESTRY 1D SCHEME
+Unused HX and SX Connections == ERROR   ! Options [ {ERROR} | WARNING ] - Can be used multiple times. Search TLF for "UNUSED HX AND SX CONNECTION" to find all instances of use.
+Adjust Head at Estry Interface == OFF   ! Options [ ON | ON VARIABLE | {OFF} ]
+Oblique Boundary Method == OFF   ! Options [ {ON} | ON METHOD 2 | OFF ]
+Boundary Treatment == METHOD A
+HQ Boundary Approach == METHOD C
+HQ Weighting Factor == 1.
+Boundary Viscosity Factor == 1.
+Rainfall Boundaries == STEPPED
+Rainfall Boundary Factor == 1.
+Rainfall Gauges == UNLIMITED PER CELL
+Global Rainfall Use Material Losses == ! No Material Losses Present
+Soil Negative Rainfall Approach == NONE   ! Options [ {NONE} | FACTOR ]
+Line Cell Selection == METHOD D
+Link 2D2D Approach == METHOD D
+Link 2D2D Distribute Flow == ON
+Link 2D2D Adjust Velocity Head Factor == 0.
+Link 2D2D Weighting Factor == 1.
+Link 2D2D Global Stability Factor == 1.
+Reveal 1D Nodes == OFF
+Inside Region == METHOD B
+SA Minimum Depth == -99999.
+SA Proportion to Depth == ON   ! Options [ {ON} | OFF ]
+SX ZC Check == ON   ! Options [ {ON} | OFF | <value> ]
+SX Head Adjustment == OFF   ! Options [ ON | {OFF} ]
+SX Flow Distribution Cutoff Depth == AUTO
+SX Head Distribution Cutoff Depth == AUTO
+SX Storage Approach == 1D NODE AVERAGE
+SX Storage Factor == 1., 20.
+HX Additional FLC == 0.
+HX Force Weir Equation == OFF   ! Options [ ON | {OFF} | dZ ]
+HX ZC Check == ON   ! Options [ {ON} | OFF ]
+Zpt Range Check == -9998., 99998.
+HPC Boundary Approach == METHOD C   ! Options [ METHOD A | {METHOD B} ]
+HPC HQ Boundary Approach == TOTAL   ! Options [ CELL | {TOTAL} ]
+HPC HQ Boundary Filter Constant == 5.
+HPC Infiltration Drying Approach == METHOD B   ! Options [ METHOD A | {METHOD B} | METHOD C ]
+HPC SX Momentum Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+HPC Dry Face Inertia Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+
+!_______________________________________________________________________________
+! MISCELLANEOUS COMMANDS
+Latitude == 0. ! degrees from equator (-ve for down under)
+Check Inside Grid == ERROR
+Write X1D Check File == OFF   ! Options [ ON | {OFF} ]
+VG Z Adjustment == MAX ZC   ! Options [ {ZC} | MAX ZC | ZH ]
+Density of Air == 1.25
+Density of Water == 1025.
+Wind/Wave Shallow Depths == 0.2, 1.
+GIS Project Path Format == Relative
+DEFAULT GIS Extension == NONE
+Spatial Database Output == GROUPED
+Pit Surcharge ccA Cutoff Depth == 0.
+
+!_______________________________________________________________________________
+! WIND STRESS COMMANDS
+
+!_______________________________________________________________________________
+! WAVE RADIATION STRESS COMMANDS
+
+!_______________________________________________________________________________
+! TEMPORARY ARRAY SIZE LIMITS
+Maximum Points == 500000
+Maximum Vertices == 100000
+Maximum 1D Channels == 100000
+Maximum 2D Cells Linked to a 1D Node == 1000
+Index 1D2D Links == ON   ! Options [ ON | {OFF} ]
+
+!_______________________________________________________________________________
+! BLOCKAGE MATRIX COMMANDS
+Blockage Matrix == OFF
+
+!_______________________________________________________________________________
+! SGS COMMANDS
+SGS == ON   ! Options [ ON | {OFF} ]
+SGS Approach == METHOD C   ! Options [ METHOD A | METHOD B | {METHOD C} ]
+SGS Material == OFF   ! Options [ {OFF} | ON ]
+SGS Z Shape Line Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+SGS SX Z Flag Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+SGS Check Files == ON   ! Options [ {ON} | OFF ]
+SGS Zpt MAX/MIN Approach == MINIMUM   ! Options [ IGNORE | {MINIMUM} | MEDIAN | CENTRE ]
+SGS Hydraulic Radius == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+SGS 2nd Order BC Slope == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+SGS Depth Output == CELL AVERAGE   ! Options [ {CELL AVERAGE} | EXACT | MEAN | MEDIAN | MINIMUM | PERCENTILE ]
+SGS Velocity Based Output == CELL AVERAGE DEPTH   ! Options [ {CELL AVERAGE DEPTH} | SGS DEPTH OUTPUT ]
+SGS Infiltration Approach == AUTO   ! Options [ {AUTO} | TOTAL AREA | WETTED AREA ]
+SGS Negative Rainfall Approach == WETTED AREA   ! Options [ TOTAL AREA | {WETTED AREA} ]
+SGS Sheet Flow Approach == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+
+!_______________________________________________________________________________
+! TIN COMMANDS
+TIN TRIANGULATION APPROACH == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+TIN OUTPUT FORMAT == 2DM   ! Options [ {2DM} | SMS TIN ]
+
+!_______________________________________________________________________________
+! GROUNDWATER COMMANDS
+
+
+Found 0 User Defined Output Zone(s)
+
+
+Found 1 2D domain(s)
+
+
+Projection output: use simulation name.
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\grid\DEM_SI_Unit_01.tif
+GRID Layer assigned ID of 1
+
+Attempting to create XMDF file "E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\EG17_002.xmdf"
+
+Created XMDF file "E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\EG17_002.xmdf"
+
+Found a total of 1 hazard map outputs.
+
+Allocating 1600 Kb of temporary memory (RAM)
+
+Opening BC Control File "E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG17_001.tbc" for 2D Domain Domain_001
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp
+GIS Layer assigned ID of 2
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp]...
+
+Deallocating temporary memory (RAM)
+
+Allocating 0 Kb of temporary 1D domain memory (RAM)
+
+No ESTRY 1D link specified.
+
+
+Found a total of 0 1D nodes.  0 ESTRY nodes and 0 external 1D scheme nodes.
+
+
+Allocating space for output zones based on a resolution factor of 2
+
+tgc>> Read GIS Location == gis\2d_loc_EG00_001_L.shp
+out > Read GIS Location...Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_loc_EG00_001_L.shp
+GIS Layer assigned ID of 2
+1 DBF Fields (Name [#/Type/Length]): Comment [1/C/250]  
+found first line - see below for grid location
+found first line - see below for grid location
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_loc_EG00_001_L.shp]...
+
+tgc>> Cell Size == 5
+out > Cell Size...set to   5.000
+
+tgc>> Grid Size (X,Y) == 850, 1000
+out > Grid Size (X,Y)...see below for calculated size
+
+Domain_001  : Grid Dimensions (N,M): 200,170
+Domain_001  : Geographic Origin:      292725.000     6177615.000
+Domain_001  : Geographic Rotation Angle: -13.165795
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_dom_check.shp
+GIS Layer assigned ID of 2
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_dom_check.shp]...
+
+Counting any Variable Zpt, SGS Zpt,FC and/or Layered FC Shapes...
+
+...Found total of 0 Variable Z Shape Zpts in 2D Domain Domain_001.
+
+...Found total of 0 FC Shape Cell Sides in 2D Domain Domain_001.
+
+...Found total of 0 Layered FC Shape Cell Sides in 2D Domain Domain_001.
+
+Allocated space for 0 Time Series Plot Outputs including Reporting Locations
+
+Allocated space for 0 Time Series Plot Output flow lines including Reporting Locations
+   with a maximum of 1 cell sides plus cell centres along longest line
+
+Allocated space for 0 Longitudinal Plot Line Segments
+   with a maximum of 1 cells along a segment
+Domain_001  : Number of PO Time Series Locations:... 0
+Domain_001  : Number of LP Profile Locations:....... 0
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp
+GIS Layer assigned ID of 2
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+Number of Input Layers: 1
+Input Layer 1: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp]...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_EG17_001_R.shp
+GIS Layer assigned ID of 2
+1 DBF Fields (Name [#/Type/Length]): Name [1/C/100]  
+Reading: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_EG17_001_R.shp
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_EG17_001_R.shp]...
+...Allocating space for   3 new SA time-series boundaries. Total =   3
+Found database line: EG17_AD1,EG17_002.csv,inflow_time_hr,inflow_AD1,,,,,
+...Array size from xf file: 41
+Found database line: EG17_AD2,EG17_002.csv,inflow_time_hr,inflow_AD2,,,,,
+...Array size from xf file: 41
+Found database line: FC01,EG17_002.csv,inflow_time_hr,inflow_FC01,,,,,
+...Array size from xf file: 41
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt    ngt
+
+Just Read:      0     67      0      0     64      0      0      0      0      0      3      0      0      0      0
+Just Read:      0
+
+Found 0 possible pit SX connections inside 2D Domain Domain_001
+Ignoring 0 pit SX connections outside 2D Domain Domain_001
+
+Found a total of 3 different SA(ST) inputs
+...with a maximum number of cells per ST input of 12
+
+Domain_001  : Allocating Memory Pointers:
+Domain_001  : Grid data memory ...............          2 Mb
+Domain_001  : Variable Z and Layered FC memory          0 Mb
+Domain_001  : Sub-domain linking memory ......          0 Mb
+Domain_001  : Flow constrictions memory ......          0 Mb
+Domain_001  : Weirs and viscosity factor memory         0 Mb
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp
+GIS Layer assigned ID of 2
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+Found database line: __tracer1,EG17_001.csv,inflow_time_hr,Null,,,,,
+Looking for data in columns 1, 7 after line starting with:
+inflow_time_hr,inflow_FC01,inflow_AD1,inflow_AD2,Conc_AD1,Conc_AD2,Null
+Extracting Data...
+...Array size from CSV file: 41
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp]...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_EG17_001_R.shp
+GIS Layer assigned ID of 2
+1 DBF Fields (Name [#/Type/Length]): Name [1/C/100]  
+Found database line: EG17_AD1__tracer1,EG17_001.csv,inflow_time_hr,Conc_AD1,,,,,
+Looking for data in columns 1, 5 after line starting with:
+inflow_time_hr,inflow_FC01,inflow_AD1,inflow_AD2,Conc_AD1,Conc_AD2,Null
+Extracting Data...
+...Array size from CSV file: 41
+Found database line: EG17_AD2__tracer1,EG17_001.csv,inflow_time_hr,Conc_AD2,,,,,
+Looking for data in columns 1, 6 after line starting with:
+inflow_time_hr,inflow_FC01,inflow_AD1,inflow_AD2,Conc_AD1,Conc_AD2,Null
+Extracting Data...
+...Array size from CSV file: 41
+Found database line: FC01__tracer1,EG17_001.csv,inflow_time_hr,Null,,,,,
+Looking for data in columns 1, 7 after line starting with:
+inflow_time_hr,inflow_FC01,inflow_AD1,inflow_AD2,Conc_AD1,Conc_AD2,Null
+Extracting Data...
+...Array size from CSV file: 41
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_EG17_001_R.shp]...
+Domain_001  : AD memory ......................          5 Mb
+Domain_001  : Pressure, wind and waves memory           0 Mb
+Domain_001  : General Memory .................          0 Mb
+Domain_001  : Boundary conditions memory .....          0 Mb
+Domain_001  : Wind & waves boundary memory ...          0 Mb
+Domain_001  : Hydraulic results memory .......          3 Mb
+Domain_001  : Maximums results memory ........          2 Mb
+Domain_001  : Mass balance tracking memory ...          0 Mb
+Domain_001  : Minimums results memory ........          0 Mb
+Domain_001  : 2D grid indexing memory ........          1 Mb
+Domain_001  : SMS High Res format memory .....          0 Mb
+Domain_001  : Plot output (PO) memory ........          0 Mb
+Domain_001  : Longitudinal output (LP) memory           0 Mb
+
+Allocating memory (RAM) for SGS coefficients...
+Memory required          6 Mb.
+...Done
+
+Allocating memory (RAM) for storing elevations at SGS sampling points (SGS Approach == Method C)
+Checking SGS Sample Frequency for memory allocation...
+
+SGS sampling:
+Domain 1, Cell Size 5., Sample Frequency 11, Sample Distance 0.5
+
+SGS Sample Frequency == 11
+
+Estimating memory (RAM) requirement...
+Memory required         37 Mb.
+...Done
+
+Domain_001  : Total SGS memory ...............         44 Mb
+
+Memory requested for 2D domain Domain_001     = 14 Mb
+SGS Memory requested for 2D domain Domain_001 = 44 Mb
+Total Memory requested thus far               = 59 Mb
+
+Licence free mode requested.
+
+No sub-domains found
+External 1D Scheme arrays memory ..............          0 Mb
+Cyclone track array memory ....................          0 Mb
+Tri-diagonal matrix memory ....................          0 Mb
+
+Outside extent of model output: 292725., 6177421.396, 293780.4274, 6178588.715
+
+Setting Grid Output Cell Size to: 2.5
+
+Grid output dimensions: 467 rows by 423 columns
+Grid output memory ............................          3 Mb
+TIN and output mesh memory ....................          4 Mb
+Mass balance tracking memory ..................          0 Mb
+
+No (evacuation) routes found.
+Route array memory ............................          0 Mb
+
+Number of Gauges ... 0
+
+Number of GIS Objects/Receptors ... 0
+Output Gauge array memory .....................          0 Mb
+Miscellaneous array memory ....................          0 Mb
+Maximum boundary table size ... 102
+Temporary arrays memory .......................          0 Mb
+
+Total 2D Domain(s) Real SP Memory requested ...         14 Mb
+Total 2D Domain(s) Real DP Memory requested ...          1 Mb
+Total 2D Domain(s) Integer Memory requested ...          4 Mb
+Total 2D Domain(s) Logical Memory requested ...          1 Mb
+Total 2D Domain(s) Character Memory requested .          0 Mb
+
+
+________________________________________________________________________________
+2D Domain Cell Sizes:         5.00, 
+2D Domain Timesteps:         1.000, 
+
+________________________________________________________________________________
+
+
+Deallocating temporary 1D domain memory (RAM)
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\plot\gis\EG17_002_PLOT.shp
+GIS Layer assigned ID of 2
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\plot\gis\EG17_002_PLOT.shp
+GIS Layer assigned ID of 3
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\plot\gis\EG17_002_PLOT.shp
+GIS Layer assigned ID of 4
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000043 h]
+Clock Time:      0:00:00  [0. h]
+
+Domain_001: Reading Geometry File ... E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG00_001.tgc
+Processing Topographic Commands
+
+tgc>> Set Code == 0
+out>> Set Code...global value of     0.000 being applied
+
+tgc>> Read GIS Code == gis\2d_code_EG00_001_R.shp
+out>> Read GIS Code...
+Opening Read GIS Code File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_code_EG00_001_R.shp
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_code_EG00_001_R.shp
+GIS Layer assigned ID of 5
+Reading Read GIS Code File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_code_EG00_001_R.shp
+1 DBF Fields (Name [#/Type/Length]): CODE [1/N/11]  
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_code_EG00_001_R.shp]...
+
+tgc>> Set Zpts == 100
+out>> Set Zpts...global value of   100.000 being applied
+
+tgc>> Read GRID Zpts == grid\DEM_SI_Unit_01.tif
+out>> Read GRID Zpts...
+Reading XF file...
+
+tgc>> Set Mat == 1
+out>> Set Mat...global value of     1.000 being applied
+
+tgc>> Read GIS Mat == gis\2d_mat_EG00_001_R.shp
+out>> Read GIS Mat...
+Opening Read GIS Mat File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_mat_EG00_001_R.shp
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_mat_EG00_001_R.shp
+GIS Layer assigned ID of 5
+Reading Read GIS Mat File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_mat_EG00_001_R.shp
+1 DBF Fields (Name [#/Type/Length]): MATERIAL [1/N/11]  
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_mat_EG00_001_R.shp]...
+...Finished Reading Geometry File
+
+Starting checking consistency of SGS elevations (SGS Approach == Method C)...
+
+Processing C Cell Data...
+
+Processing U Face Data...
+
+Processing V Face Data...
+
+Processing H Corner Data...
+
+... Finished checking consistency of SGS elevations (SGS Approach == Method C). CRC =        120617779
+
+Calculating statistics SGS elevations (SGS Approach == Method C)
+
+Processing C Cell Data...
+
+Processing U Face Data...
+
+Processing V Face Data...
+
+Processing H Corner Data...
+... Finished calculating statistics SGS elevations.
+
+Domain_001: Searching .tcf file for data ... 
+
+Initial water levels (IWL) globally set to 36.5
+...Finished Searching .tcf File
+Identifying cells within user defined output zones...
+...Finished identifying cells within user defined output zones...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp
+GIS Layer assigned ID of 5
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+Found database line: __tracer1,EG17_001.csv,inflow_time_hr,Null,,,,,
+Looking for data in columns 1, 7 after line starting with:
+inflow_time_hr,inflow_FC01,inflow_AD1,inflow_AD2,Conc_AD1,Conc_AD2,Null
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        0.000
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp]...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_EG17_001_R.shp
+GIS Layer assigned ID of 5
+1 DBF Fields (Name [#/Type/Length]): Name [1/C/100]  
+Found database line: EG17_AD1__tracer1,EG17_001.csv,inflow_time_hr,Conc_AD1,,,,,
+Looking for data in columns 1, 5 after line starting with:
+inflow_time_hr,inflow_FC01,inflow_AD1,inflow_AD2,Conc_AD1,Conc_AD2,Null
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from      100.000 to      100.000
+Found database line: EG17_AD2__tracer1,EG17_001.csv,inflow_time_hr,Conc_AD2,,,,,
+Looking for data in columns 1, 6 after line starting with:
+inflow_time_hr,inflow_FC01,inflow_AD1,inflow_AD2,Conc_AD1,Conc_AD2,Null
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from       50.000 to       50.000
+Found database line: FC01__tracer1,EG17_001.csv,inflow_time_hr,Null,,,,,
+Looking for data in columns 1, 7 after line starting with:
+inflow_time_hr,inflow_FC01,inflow_AD1,inflow_AD2,Conc_AD1,Conc_AD2,Null
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        0.000
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_EG17_001_R.shp]...
+
+Setting instability water level...
+...Instability water level limit set to   110.000
+
+Partially releasing memory (RAM) for storing elevations at SGS sampling points (SGS Approach == Method C)
+... Done
+
+Pre-processing breakline ZH points for depth interpolation
+
+... Finished processing breakline ZH points for depth interpolation
+
+Assigning any Variable Z Shape 1D Trigger Nodes...
+...Finished
+
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000165 h]
+Clock Time:      0:00:00  [0. h]
+
+Domain_001: Reading Boundary File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG17_001.tbc
+
+READING Boundary Conditions:
+
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+Requested:            67      0      0     64      0      0      0      0      0      3      0      0      0      0
+
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_bcc_check.shp
+GIS Layer assigned ID of 5
+
+Creating E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_2d_bc_tables_check.csv
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp
+GIS Layer assigned ID of 6
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+Number of Input Layers: 1
+Input Layer 1: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp
+...Reading coordinates of any 1D connections from Layer 1
+Found     0 1D connections
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+
+Processing TUFLOW "HQ" BC with name ""...
+
+Closing GIS Layer 6 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG17_001_L.shp]...
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+     Read:      0     64      0      0     64      0      0      0      0      0      0      0      0      0      0
+Requested:            67      0      0     64      0      0      0      0      0      3      0      0      0      0
+
+Checking all connection objects are used...
+...Finished.
+
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_EG17_001_R.shp
+GIS Layer assigned ID of 6
+1 DBF Fields (Name [#/Type/Length]): Name [1/C/100]  
+
+Closing GIS Layer 6 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_EG17_001_R.shp]...
+...Found     3 new SA/RF time-series boundaries. Total =      3
+Found database line: EG17_AD1,EG17_002.csv,inflow_time_hr,inflow_AD1,,,,,
+Looking for data in columns 1, 3 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        1.000
+Found database line: EG17_AD2,EG17_002.csv,inflow_time_hr,inflow_AD2,,,,,
+Looking for data in columns 1, 4 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        1.000
+Found database line: FC01,EG17_002.csv,inflow_time_hr,inflow_FC01,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to       92.240
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+     Read:      0     67      0      0     64      0      0      0      0      0      3      0      0      0      0
+Requested:            67      0      0     64      0      0      0      0      0      3      0      0      0      0
+
+Checking all connection objects are used...
+...Finished.
+
+
+    Final:            67      0      0     64      0      0      0      0      0      3      0      0      0      0
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_bcc_check.shp]...
+
+...Finished Reading Boundary File for Domain Domain_001
+
+Domain_001: Setting Bed Elevations for SGS Depth Output ... E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG00_001.tgc
+...Finished Setting Bed Elevations for SGS Depth Output
+
+Indexing HX and SX cells connectivity to 1D nodes...
+Maximum number HX cells linked to a 1D node = 0
+Maximum number SX cells linked to a 1D node = 0
+Allocating memory for HX and SX 1D/2D link indexing...
+Domain_001: Indexing HX and SX cells...
+
+Constructing ESTRY AD 1D2D Links...
+
+Finished constructing ESTRY AD 1D2D Links...
+Finished indexing HX and SX cells connectivity to 1D nodes.
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000169 h]
+Clock Time:      0:00:00  [0. h]
+
+Domain_001: Initialising 2D Data (Stage 1)...
+
+Completing unit conversions...
+
+Setting up linear and spline interpolation tables...
+   HT Boundaries...    0
+   HQ Boundaries...   64
+   QT Boundaries...    0
+   QTA Boundaries...    0
+   ST Boundaries...    3
+   SH and SD Boundaries...    0
+   VG Boundaries...    0
+   VT Boundaries...    0
+   WT Boundaries...    0
+
+Checking Material and Manning's n values...
+
+Initialising any layered FC coefficients...
+
+Setting default computational array values...
+
+...Finished Initialising Data (Stage 1) for Domain Domain_001
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000169 h]
+Clock Time:      0:00:00  [0. h]
+
+Domain_001: Initialising 2D Data (Stage 2)...
+
+Assigning 2D cell codes...
+
+Pre-processing any SA regions...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_sac_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_sac_check.shp]...
+
+Setting invert levels for distributing SX flows...
+
+Setting flow constriction lids...
+
+Initialising any tgc FC obverts...
+
+Checking storage reduction factors...
+
+Setting initial wet/dry flags...
+
+Pre-processing bed resistance values...
+
+Checking for any uninitialised Zpt values...
+
+Setting groundwater base levels for distributing SX flows...
+
+Calculating SGS cutoff depths at cells...
+
+Checking all cells have active faces...
+
+...Finished Initialising Data (Stage 2) for Domain Domain_001
+
+________________________________________________________________________________
+
+Domain_001: Checking 2D Input Data...
+
+Calculating any automatic HQ boundaries in Domain Domain_001
+
+...Finished calculating any automatic HQ boundaries in Domain Domain_001
+...Finished Checking Input Data for Domain Domain_001
+
+Checking any 1D/2D and 2D/2D Link Elevations...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_1d_to_2d_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_1d_to_2d_check.shp]...
+...Finished.
+
+________________________________________________________________________________
+
+Domain_001: Setting up any 2D structure flow group and reporting location links... 
+...Finished setting up any 2D structure flow group and reporting location links
+
+Found a total of 0 structure groups.
+
+________________________________________________________________________________
+
+1D Initial water levels (IWL) set by user - use check files to verify
+2D Initial water levels (IWL) set by user - use check files to verify
+
+________________________________________________________________________________
+
+Writing any remaining check files...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_grd_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_grd_check.shp]...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_zpt_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_zpt_check.shp]...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_uvpt_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_uvpt_check.shp]...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_ad_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_ad_check.shp]...
+...Finished writing any remaining check files
+
+Checking Zpt values are within Zpt Range Check values of -9998.000 and 99998.000...
+
+Zpts range from 35.925 to 55.336 m.
+
+...Finished.  All active Zpt values are within Zpt Range Check.
+
+Isolating redundant perimeter sections of 2D domain Domain_001...
+...Reduced computational grid by 8%.  Now extends from [5,7] to [196,169].
+...Reduced output grid by 8%.  Now extends from [5,7] to [196,169].
+
+________________________________________________________________________________
+CPU Time:        0:00:07  [0.001997 h]
+Clock Time:      0:00:07  [0.001944 h]
+
+Processing 1D/2D mesh and writing mesh file(s) where applicable...
+...Processing 2D Domain Domain_001
+
+Allocating 709Kb memory for temporary mesh node arrays...
+
+Processing cell centre nodes for domain...
+Processing mesh elements for domain...
+...found 20604 cells and 41616 nodes
+
+Mesh statistics for Output Zone 
+  Number 1D WLL Elements:            0
+  Number 1D WLL Nodes:               0
+  Number 2D Cells:               20604
+  Number 2D Mesh Elements:       82416
+  Number 2D Mesh Nodes:          41616
+
+...Finished Writing 2DM File
+
+
+Generating and writing check DEMs...
+
+Calculating grid interpolation factors...
+Element:     10000    20000    30000    40000    50000    60000    70000    80000
+Finished calculating grid interpolation factors.
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_DEM_Zmin.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_DEM_M.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG17\EG17_002_DEM_Z.tif
+GRID Layer assigned ID of 1
+...Finished generating and writing check DEMs.
+
+Calculating grid interpolation factors...
+Element:     10000    20000    30000    40000    50000    60000    70000    80000
+Finished calculating grid interpolation factors.
+
+Committing any changes to open GPKG layers...
+
+Number of WARNINGs:    _messages layer =       1     Total =       1
+Number of CHECKs:      _messages layer =       0     Total =       0
+
+________________________________________________________________________________
+CPU Time:        0:00:07  [0.002127 h]
+Clock Time:      0:00:07  [0.001944 h]
+Closing Time of Startup Summary...
+   Done
+
+......................................... Running TUFLOW HPC Solver
+
+
+Allocating 283Kb memory for temporary HPC arrays Stage 1...
+
+Checking boundary data to be sent...
+...Finished checking boundary data to be sent to HPC
+
+Sending HPC .tlf filename...
+
+Identifying HPC solver...
+HPC Solver Build: 3.50.0
+
+Sending HPC time history .hpc.dt.csv filename...
+
+Sending initialisation data to HPC...
+
+Found 1 usable GPU devices.
+GPU memory initialised and graphics card is compatible with HPC solver.
+Parameters initialised.
+...Finished sending initialisation data
+
+Sending elevation data and initial conditions...
+...Finished sending elevation data and initial conditions
+
+No plot output locations to send.
+
+Sending any Evaluation Group Data...
+Finished sending any Evaluation Group Data
+
+Transferring material parameters...
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+
+Transferring Material IDs...
+...Finished transferring Material IDs.
+
+Transferring Storage Reduction Factors (SRF)...
+...Finished transferring Storage Reduction Factors (SRF).
+
+No Cell Width Factors (CWF) to transfer...
+
+No Form Loss Coefficients (FLC) to transfer...
+
+No soils information to be transfered.
+
+No Time Output Cutoff Depth(s) to transfer...
+
+No Layered Flow Constriction data to transfer...
+
+No Variable Z Shapes to transfer...
+
+Transferring tracking scalar maximums settings...
+
+... Finished transferring tracking scalar maximums settings...
+
+... Finished transferring tracking scalar maximums settings...
+
+Transferring tracking vector maximums settings...
+
+... Finished transferring tracking vector maximums settings...
+
+________________________________________________________________________________
+CPU Time:        0:00:09  [0.002643 h]
+Clock Time:      0:00:07  [0.001944 h]
+
+Sending boundary data to HPC...
+
+Allocating 1703Kb memory for temporary HPC arrays Stage 2...
+AD Concentrations for HQ boundary range from 0. to 0.
+AD Concentrations for SA boundary range from 100. to 100.
+AD Concentrations for SA boundary range from 50. to 50.
+AD Concentrations for SA boundary range from 0. to 0.
+
+Sending active/inactive cell data to HPC...
+...Finished sending active/inactive cell data to HPC Solver.
+
+No stream order data to send to HPC Solver.
+
+No global wind shear stress data to send to HPC Solver.
+...Finished sending boundary data to HPC Solver.
+
+Sending SGS data...
+
+Initialising 1D Virtual Pipe data for HPC Solver...
+
+Sending any 1D Virtual Pipe data to HPC Solver...
+Sent 0 virtual pipe pit depth-discharge curves to HPC Solver.
+...Finished sending 1D Virtual Pipe data to HPC Solver.
+...Finished initialising 1D Virtual Pipe data for HPC Solver.
+
+Setting weir angle at breaklines...
+
+Sending Spatial WrF data...
+
+________________________________________________________________________________
+CPU Time:        0:00:09  [0.002695 h]
+Clock Time:      0:00:07  [0.001944 h]
+
+________________________________________________________________________________
+
+Initialising Run Time Summary == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_hpc_run_stats.txt
+SIM:    0:00:00    -d  0  0    0D100%  1D  0%  2D  0%    CE  0.0%  0.0%  0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 0:00:00  Clock: 0:00:07  CPU: 0:00:09
+HPC Solver at time       0.000
+SIM:    0:05:00    -d  0  0    0D 17%  1D  0%  2D 83%    CE  0.0%  0.0%  0.0%    Vi   428  Vo   117  dV   311
+Writing HPC Output at: 0:05:00  Clock: 0:00:07  CPU: 0:00:10
+HPC Solver at time       0.083
+SIM:    0:10:00    -d  0  0    0D 10%  1D  0%  2D 90%    CE  0.0%  0.0%  0.0%    Vi  1223  Vo    50  dV  1172
+Writing HPC Output at: 0:10:00  Clock: 0:00:08  CPU: 0:00:10
+HPC Solver at time       0.167
+SIM:    0:15:00    -d  0  0    0D  7%  1D  0%  2D 93%    CE -0.0%  0.0% -0.0%    Vi  1786  Vo    28  dV  1757
+Writing HPC Output at: 0:15:00  Clock: 0:00:08  CPU: 0:00:11
+HPC Solver at time       0.250
+SIM:    0:20:00    -d  0  0    0D  5%  1D  0%  2D 95%    CE  0.0%  0.0%  0.0%    Vi  2346  Vo    18  dV  2328
+Writing HPC Output at: 0:20:00  Clock: 0:00:09  CPU: 0:00:11
+HPC Solver at time       0.333
+SIM:    0:25:00    -d  0  0    0D  5%  1D  0%  2D 95%    CE -0.0%  0.0% -0.0%    Vi  3513  Vo    12  dV  3501
+Writing HPC Output at: 0:25:00  Clock: 0:00:10  CPU: 0:00:12
+HPC Solver at time       0.417
+SIM:    0:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi  5847  Vo     9  dV  5838
+Writing HPC Output at: 0:30:00  Clock: 0:00:11  CPU: 0:00:13
+HPC Solver at time       0.500
+SIM:    0:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi 12719  Vo     6  dV 12713
+Writing HPC Output at: 0:35:00  Clock: 0:00:13  CPU: 0:00:15
+HPC Solver at time       0.583
+SIM:    0:40:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi 21036  Vo     5  dV 21031
+Writing HPC Output at: 0:40:00  Clock: 0:00:17  CPU: 0:00:19
+HPC Solver at time       0.667
+SIM:    0:45:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 25479  Vo     4  dV 25475
+Writing HPC Output at: 0:45:00  Clock: 0:00:20  CPU: 0:00:22
+HPC Solver at time       0.750
+SIM:    0:50:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 27424  Vo     3  dV 27420
+Writing HPC Output at: 0:50:00  Clock: 0:00:24  CPU: 0:00:26
+HPC Solver at time       0.833
+SIM:    0:55:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 28105  Vo     2  dV 28103
+Writing HPC Output at: 0:55:00  Clock: 0:00:28  CPU: 0:00:30
+HPC Solver at time       0.917
+SIM:    1:00:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 28203  Vo  1163  dV 27041
+Writing HPC Output at: 1:00:00  Clock: 0:00:32  CPU: 0:00:34
+HPC Solver at time       1.000
+SIM:    1:05:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 27761  Vo 13629  dV 14130
+Writing HPC Output at: 1:05:00  Clock: 0:00:35  CPU: 0:00:38
+HPC Solver at time       1.083
+SIM:    1:10:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 26282  Vo 22965  dV  3313
+Writing HPC Output at: 1:10:00  Clock: 0:00:39  CPU: 0:00:41
+HPC Solver at time       1.167
+SIM:    1:15:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 23940  Vo 26124  dV -2186
+Writing HPC Output at: 1:15:00  Clock: 0:00:43  CPU: 0:00:45
+HPC Solver at time       1.250
+SIM:    1:20:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 21028  Vo 25990  dV -4964
+Writing HPC Output at: 1:20:00  Clock: 0:00:46  CPU: 0:00:49
+HPC Solver at time       1.333
+SIM:    1:25:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 17640  Vo 24456  dV -6816
+Writing HPC Output at: 1:25:00  Clock: 0:00:50  CPU: 0:00:52
+HPC Solver at time       1.417
+SIM:    1:30:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 14434  Vo 22194  dV -7760
+Writing HPC Output at: 1:30:00  Clock: 0:00:53  CPU: 0:00:55
+HPC Solver at time       1.500
+SIM:    1:35:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi 11629  Vo 19620  dV -7991
+Writing HPC Output at: 1:35:00  Clock: 0:00:56  CPU: 0:00:58
+HPC Solver at time       1.583
+SIM:    1:40:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  9660  Vo 16943  dV -7284
+Writing HPC Output at: 1:40:00  Clock: 0:00:58  CPU: 0:01:00
+HPC Solver at time       1.667
+SIM:    1:45:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  8198  Vo 14375  dV -6177
+Writing HPC Output at: 1:45:00  Clock: 0:01:01  CPU: 0:01:03
+HPC Solver at time       1.750
+SIM:    1:50:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  7083  Vo 12284  dV -5200
+Writing HPC Output at: 1:50:00  Clock: 0:01:03  CPU: 0:01:05
+HPC Solver at time       1.833
+SIM:    1:55:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  6530  Vo 10681  dV -4151
+Writing HPC Output at: 1:55:00  Clock: 0:01:06  CPU: 0:01:08
+HPC Solver at time       1.917
+SIM:    2:00:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  6098  Vo  9374  dV -3276
+Writing HPC Output at: 2:00:00  Clock: 0:01:08  CPU: 0:01:10
+HPC Solver at time       2.000
+SIM:    2:05:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  5603  Vo  8338  dV -2735
+Writing HPC Output at: 2:05:00  Clock: 0:01:10  CPU: 0:01:12
+HPC Solver at time       2.083
+SIM:    2:10:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  4860  Vo  7533  dV -2671
+Writing HPC Output at: 2:10:00  Clock: 0:01:13  CPU: 0:01:15
+HPC Solver at time       2.167
+SIM:    2:15:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  4307  Vo  6898  dV -2592
+Writing HPC Output at: 2:15:00  Clock: 0:01:15  CPU: 0:01:17
+HPC Solver at time       2.250
+SIM:    2:20:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  3994  Vo  6335  dV -2341
+Writing HPC Output at: 2:20:00  Clock: 0:01:17  CPU: 0:01:19
+HPC Solver at time       2.333
+SIM:    2:25:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  3682  Vo  5796  dV -2113
+Writing HPC Output at: 2:25:00  Clock: 0:01:20  CPU: 0:01:22
+HPC Solver at time       2.417
+SIM:    2:30:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  3380  Vo  5307  dV -1927
+Writing HPC Output at: 2:30:00  Clock: 0:01:22  CPU: 0:01:24
+HPC Solver at time       2.500
+SIM:    2:35:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  3007  Vo  4869  dV -1863
+Writing HPC Output at: 2:35:00  Clock: 0:01:24  CPU: 0:01:26
+HPC Solver at time       2.583
+SIM:    2:40:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  2695  Vo  4483  dV -1787
+Writing HPC Output at: 2:40:00  Clock: 0:01:26  CPU: 0:01:28
+HPC Solver at time       2.667
+SIM:    2:45:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  2393  Vo  4148  dV -1755
+Writing HPC Output at: 2:45:00  Clock: 0:01:28  CPU: 0:01:30
+HPC Solver at time       2.750
+SIM:    2:50:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  2012  Vo  3839  dV -1827
+Writing HPC Output at: 2:50:00  Clock: 0:01:29  CPU: 0:01:31
+HPC Solver at time       2.833
+SIM:    2:55:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  1641  Vo  3537  dV -1896
+Writing HPC Output at: 2:55:00  Clock: 0:01:31  CPU: 0:01:33
+HPC Solver at time       2.917
+SIM:    3:00:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  1361  Vo  3238  dV -1877
+Writing HPC Output at: 3:00:00  Clock: 0:01:33  CPU: 0:01:35
+HPC Solver at time       3.000
+SIM:    3:05:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  1221  Vo  2965  dV -1744
+Writing HPC Output at: 3:05:00  Clock: 0:01:34  CPU: 0:01:36
+HPC Solver at time       3.083
+SIM:    3:10:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  1159  Vo  2699  dV -1540
+Writing HPC Output at: 3:10:00  Clock: 0:01:36  CPU: 0:01:38
+HPC Solver at time       3.167
+SIM:    3:15:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi  1106  Vo  2446  dV -1341
+Writing HPC Output at: 3:15:00  Clock: 0:01:37  CPU: 0:01:39
+HPC Solver at time       3.250
+SIM:    3:20:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi   538  Vo  2219  dV -1681
+Writing HPC Output at: 3:20:00  Clock: 0:01:38  CPU: 0:01:40
+HPC Solver at time       3.333
+SIM:    3:25:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo  2012  dV -2012
+Writing HPC Output at: 3:25:00  Clock: 0:01:39  CPU: 0:01:41
+HPC Solver at time       3.417
+SIM:    3:30:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo  1777  dV -1777
+Writing HPC Output at: 3:30:00  Clock: 0:01:40  CPU: 0:01:42
+HPC Solver at time       3.500
+SIM:    3:35:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo  1545  dV -1545
+Writing HPC Output at: 3:35:00  Clock: 0:01:41  CPU: 0:01:43
+HPC Solver at time       3.583
+SIM:    3:40:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo  1343  dV -1343
+Writing HPC Output at: 3:40:00  Clock: 0:01:42  CPU: 0:01:44
+HPC Solver at time       3.667
+SIM:    3:45:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo  1158  dV -1158
+Writing HPC Output at: 3:45:00  Clock: 0:01:43  CPU: 0:01:45
+HPC Solver at time       3.750
+SIM:    3:50:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   993  dV  -993
+Writing HPC Output at: 3:50:00  Clock: 0:01:44  CPU: 0:01:46
+HPC Solver at time       3.833
+SIM:    3:55:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   859  dV  -859
+Writing HPC Output at: 3:55:00  Clock: 0:01:44  CPU: 0:01:46
+HPC Solver at time       3.917
+SIM:    4:00:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   748  dV  -748
+Writing HPC Output at: 4:00:00  Clock: 0:01:45  CPU: 0:01:47
+HPC Solver at time       4.000
+SIM:    4:05:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   653  dV  -653
+Writing HPC Output at: 4:05:00  Clock: 0:01:46  CPU: 0:01:48
+HPC Solver at time       4.083
+SIM:    4:10:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   578  dV  -578
+Writing HPC Output at: 4:10:00  Clock: 0:01:46  CPU: 0:01:48
+HPC Solver at time       4.167
+SIM:    4:15:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   512  dV  -512
+Writing HPC Output at: 4:15:00  Clock: 0:01:47  CPU: 0:01:49
+HPC Solver at time       4.250
+SIM:    4:20:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   456  dV  -456
+Writing HPC Output at: 4:20:00  Clock: 0:01:48  CPU: 0:01:50
+HPC Solver at time       4.333
+SIM:    4:25:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   409  dV  -409
+Writing HPC Output at: 4:25:00  Clock: 0:01:48  CPU: 0:01:50
+HPC Solver at time       4.417
+SIM:    4:30:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   370  dV  -370
+Writing HPC Output at: 4:30:00  Clock: 0:01:49  CPU: 0:01:51
+HPC Solver at time       4.500
+SIM:    4:35:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   336  dV  -336
+Writing HPC Output at: 4:35:00  Clock: 0:01:49  CPU: 0:01:51
+HPC Solver at time       4.583
+SIM:    4:40:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   307  dV  -307
+Writing HPC Output at: 4:40:00  Clock: 0:01:50  CPU: 0:01:52
+HPC Solver at time       4.667
+SIM:    4:45:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   282  dV  -282
+Writing HPC Output at: 4:45:00  Clock: 0:01:50  CPU: 0:01:52
+HPC Solver at time       4.750
+SIM:    4:50:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   259  dV  -259
+Writing HPC Output at: 4:50:00  Clock: 0:01:51  CPU: 0:01:52
+HPC Solver at time       4.833
+SIM:    4:55:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   238  dV  -238
+Writing HPC Output at: 4:55:00  Clock: 0:01:51  CPU: 0:01:53
+HPC Solver at time       4.917
+SIM:    5:00:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   219  dV  -219
+Writing HPC Output at: 5:00:00  Clock: 0:01:51  CPU: 0:01:53
+HPC Solver at time       5.000
+SIM:    5:05:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   202  dV  -202
+Writing HPC Output at: 5:05:00  Clock: 0:01:52  CPU: 0:01:54
+HPC Solver at time       5.083
+SIM:    5:10:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   186  dV  -186
+Writing HPC Output at: 5:10:00  Clock: 0:01:52  CPU: 0:01:54
+HPC Solver at time       5.167
+SIM:    5:15:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   173  dV  -173
+Writing HPC Output at: 5:15:00  Clock: 0:01:53  CPU: 0:01:54
+HPC Solver at time       5.250
+SIM:    5:20:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   161  dV  -161
+Writing HPC Output at: 5:20:00  Clock: 0:01:53  CPU: 0:01:55
+HPC Solver at time       5.333
+SIM:    5:25:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   150  dV  -150
+Writing HPC Output at: 5:25:00  Clock: 0:01:53  CPU: 0:01:55
+HPC Solver at time       5.417
+SIM:    5:30:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   140  dV  -140
+Writing HPC Output at: 5:30:00  Clock: 0:01:54  CPU: 0:01:56
+HPC Solver at time       5.500
+SIM:    5:35:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   130  dV  -130
+Writing HPC Output at: 5:35:00  Clock: 0:01:54  CPU: 0:01:56
+HPC Solver at time       5.583
+SIM:    5:40:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   122  dV  -122
+Writing HPC Output at: 5:40:00  Clock: 0:01:55  CPU: 0:01:56
+HPC Solver at time       5.667
+SIM:    5:45:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   114  dV  -114
+Writing HPC Output at: 5:45:00  Clock: 0:01:55  CPU: 0:01:57
+HPC Solver at time       5.750
+SIM:    5:50:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   107  dV  -107
+Writing HPC Output at: 5:50:00  Clock: 0:01:55  CPU: 0:01:57
+HPC Solver at time       5.833
+SIM:    5:55:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo   101  dV  -101
+Writing HPC Output at: 5:55:00  Clock: 0:01:56  CPU: 0:01:58
+HPC Solver at time       5.917
+SIM:    6:00:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    95  dV   -95
+Writing HPC Output at: 6:00:00  Clock: 0:01:56  CPU: 0:01:58
+HPC Solver at time       6.000
+SIM:    6:05:00    -d  0  0    0D  1%  1D  0%  2D 99%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    90  dV   -90
+Writing HPC Output at: 6:05:00  Clock: 0:01:56  CPU: 0:01:58
+HPC Solver at time       6.083
+SIM:    6:10:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    84  dV   -84
+Writing HPC Output at: 6:10:00  Clock: 0:01:57  CPU: 0:01:59
+HPC Solver at time       6.167
+SIM:    6:15:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    80  dV   -80
+Writing HPC Output at: 6:15:00  Clock: 0:01:57  CPU: 0:01:59
+HPC Solver at time       6.250
+SIM:    6:20:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    75  dV   -75
+Writing HPC Output at: 6:20:00  Clock: 0:01:58  CPU: 0:01:59
+HPC Solver at time       6.333
+SIM:    6:25:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    71  dV   -71
+Writing HPC Output at: 6:25:00  Clock: 0:01:58  CPU: 0:02:00
+HPC Solver at time       6.417
+SIM:    6:30:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    67  dV   -67
+Writing HPC Output at: 6:30:00  Clock: 0:01:58  CPU: 0:02:00
+HPC Solver at time       6.500
+SIM:    6:35:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    64  dV   -64
+Writing HPC Output at: 6:35:00  Clock: 0:01:59  CPU: 0:02:01
+HPC Solver at time       6.583
+SIM:    6:40:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    60  dV   -60
+Writing HPC Output at: 6:40:00  Clock: 0:01:59  CPU: 0:02:01
+HPC Solver at time       6.667
+SIM:    6:45:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    57  dV   -57
+Writing HPC Output at: 6:45:00  Clock: 0:02:00  CPU: 0:02:01
+HPC Solver at time       6.750
+SIM:    6:50:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    54  dV   -54
+Writing HPC Output at: 6:50:00  Clock: 0:02:00  CPU: 0:02:02
+HPC Solver at time       6.833
+SIM:    6:55:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    52  dV   -52
+Writing HPC Output at: 6:55:00  Clock: 0:02:00  CPU: 0:02:02
+HPC Solver at time       6.917
+SIM:    7:00:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    49  dV   -49
+Writing HPC Output at: 7:00:00  Clock: 0:02:01  CPU: 0:02:03
+HPC Solver at time       7.000
+SIM:    7:05:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    47  dV   -47
+Writing HPC Output at: 7:05:00  Clock: 0:02:01  CPU: 0:02:03
+HPC Solver at time       7.083
+SIM:    7:10:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    45  dV   -45
+Writing HPC Output at: 7:10:00  Clock: 0:02:01  CPU: 0:02:03
+HPC Solver at time       7.167
+SIM:    7:15:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    43  dV   -43
+Writing HPC Output at: 7:15:00  Clock: 0:02:02  CPU: 0:02:04
+HPC Solver at time       7.250
+SIM:    7:20:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    41  dV   -41
+Writing HPC Output at: 7:20:00  Clock: 0:02:02  CPU: 0:02:04
+HPC Solver at time       7.333
+SIM:    7:25:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    39  dV   -39
+Writing HPC Output at: 7:25:00  Clock: 0:02:03  CPU: 0:02:05
+HPC Solver at time       7.417
+SIM:    7:30:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    37  dV   -37
+Writing HPC Output at: 7:30:00  Clock: 0:02:03  CPU: 0:02:05
+HPC Solver at time       7.500
+SIM:    7:35:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    35  dV   -35
+Writing HPC Output at: 7:35:00  Clock: 0:02:03  CPU: 0:02:05
+HPC Solver at time       7.583
+SIM:    7:40:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    34  dV   -34
+Writing HPC Output at: 7:40:00  Clock: 0:02:04  CPU: 0:02:06
+HPC Solver at time       7.667
+SIM:    7:45:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    32  dV   -32
+Writing HPC Output at: 7:45:00  Clock: 0:02:04  CPU: 0:02:06
+HPC Solver at time       7.750
+SIM:    7:50:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    31  dV   -31
+Writing HPC Output at: 7:50:00  Clock: 0:02:05  CPU: 0:02:06
+HPC Solver at time       7.833
+SIM:    7:55:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    30  dV   -30
+Writing HPC Output at: 7:55:00  Clock: 0:02:05  CPU: 0:02:07
+HPC Solver at time       7.917
+SIM:    8:00:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    28  dV   -29
+Writing HPC Output at: 8:00:00  Clock: 0:02:05  CPU: 0:02:07
+HPC Solver at time       8.000
+SIM:    8:05:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    27  dV   -27
+Writing HPC Output at: 8:05:00  Clock: 0:02:06  CPU: 0:02:08
+HPC Solver at time       8.083
+SIM:    8:10:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    26  dV   -26
+Writing HPC Output at: 8:10:00  Clock: 0:02:06  CPU: 0:02:08
+HPC Solver at time       8.167
+SIM:    8:15:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    25  dV   -25
+Writing HPC Output at: 8:15:00  Clock: 0:02:06  CPU: 0:02:08
+HPC Solver at time       8.250
+SIM:    8:20:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    24  dV   -24
+Writing HPC Output at: 8:20:00  Clock: 0:02:07  CPU: 0:02:09
+HPC Solver at time       8.333
+SIM:    8:25:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    23  dV   -23
+Writing HPC Output at: 8:25:00  Clock: 0:02:07  CPU: 0:02:09
+HPC Solver at time       8.417
+SIM:    8:30:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    22  dV   -22
+Writing HPC Output at: 8:30:00  Clock: 0:02:08  CPU: 0:02:10
+HPC Solver at time       8.500
+SIM:    8:35:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    22  dV   -22
+Writing HPC Output at: 8:35:00  Clock: 0:02:08  CPU: 0:02:10
+HPC Solver at time       8.583
+SIM:    8:40:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    21  dV   -21
+Writing HPC Output at: 8:40:00  Clock: 0:02:08  CPU: 0:02:10
+HPC Solver at time       8.667
+SIM:    8:45:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    20  dV   -20
+Writing HPC Output at: 8:45:00  Clock: 0:02:09  CPU: 0:02:11
+HPC Solver at time       8.750
+SIM:    8:50:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    19  dV   -19
+Writing HPC Output at: 8:50:00  Clock: 0:02:09  CPU: 0:02:11
+HPC Solver at time       8.833
+SIM:    8:55:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    19  dV   -19
+Writing HPC Output at: 8:55:00  Clock: 0:02:10  CPU: 0:02:11
+HPC Solver at time       8.917
+SIM:    9:00:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    18  dV   -18
+Writing HPC Output at: 9:00:00  Clock: 0:02:10  CPU: 0:02:12
+HPC Solver at time       9.000
+SIM:    9:05:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    18  dV   -18
+Writing HPC Output at: 9:05:00  Clock: 0:02:10  CPU: 0:02:12
+HPC Solver at time       9.083
+SIM:    9:10:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    17  dV   -17
+Writing HPC Output at: 9:10:00  Clock: 0:02:11  CPU: 0:02:13
+HPC Solver at time       9.167
+SIM:    9:15:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    16  dV   -16
+Writing HPC Output at: 9:15:00  Clock: 0:02:11  CPU: 0:02:13
+HPC Solver at time       9.250
+SIM:    9:20:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    16  dV   -16
+Writing HPC Output at: 9:20:00  Clock: 0:02:12  CPU: 0:02:13
+HPC Solver at time       9.333
+SIM:    9:25:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    15  dV   -15
+Writing HPC Output at: 9:25:00  Clock: 0:02:12  CPU: 0:02:14
+HPC Solver at time       9.417
+SIM:    9:30:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    15  dV   -15
+Writing HPC Output at: 9:30:00  Clock: 0:02:12  CPU: 0:02:14
+HPC Solver at time       9.500
+SIM:    9:35:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    14  dV   -14
+Writing HPC Output at: 9:35:00  Clock: 0:02:13  CPU: 0:02:15
+HPC Solver at time       9.583
+SIM:    9:40:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    14  dV   -14
+Writing HPC Output at: 9:40:00  Clock: 0:02:13  CPU: 0:02:15
+HPC Solver at time       9.667
+SIM:    9:45:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    14  dV   -14
+Writing HPC Output at: 9:45:00  Clock: 0:02:13  CPU: 0:02:15
+HPC Solver at time       9.750
+SIM:    9:50:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    13  dV   -13
+Writing HPC Output at: 9:50:00  Clock: 0:02:14  CPU: 0:02:16
+HPC Solver at time       9.833
+SIM:    9:55:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    13  dV   -13
+Writing HPC Output at: 9:55:00  Clock: 0:02:14  CPU: 0:02:16
+HPC Solver at time       9.917
+SIM:   10:00:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    12  dV   -12
+Writing HPC Output at: 10:00:00  Clock: 0:02:15  CPU: 0:02:16
+HPC Solver at time      10.000
+SIM:   10:05:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    12  dV   -12
+Writing HPC Output at: 10:05:00  Clock: 0:02:15  CPU: 0:02:17
+HPC Solver at time      10.083
+SIM:   10:10:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    12  dV   -12
+Writing HPC Output at: 10:10:00  Clock: 0:02:15  CPU: 0:02:17
+HPC Solver at time      10.167
+SIM:   10:15:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    11  dV   -11
+Writing HPC Output at: 10:15:00  Clock: 0:02:16  CPU: 0:02:18
+HPC Solver at time      10.250
+SIM:   10:20:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    11  dV   -11
+Writing HPC Output at: 10:20:00  Clock: 0:02:16  CPU: 0:02:18
+HPC Solver at time      10.333
+SIM:   10:25:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    11  dV   -11
+Writing HPC Output at: 10:25:00  Clock: 0:02:17  CPU: 0:02:18
+HPC Solver at time      10.417
+SIM:   10:30:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    11  dV   -11
+Writing HPC Output at: 10:30:00  Clock: 0:02:17  CPU: 0:02:19
+HPC Solver at time      10.500
+SIM:   10:35:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    10  dV   -10
+Writing HPC Output at: 10:35:00  Clock: 0:02:17  CPU: 0:02:19
+HPC Solver at time      10.583
+SIM:   10:40:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    10  dV   -10
+Writing HPC Output at: 10:40:00  Clock: 0:02:18  CPU: 0:02:20
+HPC Solver at time      10.667
+SIM:   10:45:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo    10  dV   -10
+Writing HPC Output at: 10:45:00  Clock: 0:02:18  CPU: 0:02:20
+HPC Solver at time      10.750
+SIM:   10:50:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     9  dV    -9
+Writing HPC Output at: 10:50:00  Clock: 0:02:18  CPU: 0:02:20
+HPC Solver at time      10.833
+SIM:   10:55:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     9  dV    -9
+Writing HPC Output at: 10:55:00  Clock: 0:02:19  CPU: 0:02:21
+HPC Solver at time      10.917
+SIM:   11:00:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     9  dV    -9
+Writing HPC Output at: 11:00:00  Clock: 0:02:19  CPU: 0:02:21
+HPC Solver at time      11.000
+SIM:   11:05:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     9  dV    -9
+Writing HPC Output at: 11:05:00  Clock: 0:02:20  CPU: 0:02:21
+HPC Solver at time      11.083
+SIM:   11:10:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     8  dV    -8
+Writing HPC Output at: 11:10:00  Clock: 0:02:20  CPU: 0:02:22
+HPC Solver at time      11.167
+SIM:   11:15:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     8  dV    -8
+Writing HPC Output at: 11:15:00  Clock: 0:02:20  CPU: 0:02:22
+HPC Solver at time      11.250
+SIM:   11:20:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     8  dV    -8
+Writing HPC Output at: 11:20:00  Clock: 0:02:21  CPU: 0:02:23
+HPC Solver at time      11.333
+SIM:   11:25:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     8  dV    -8
+Writing HPC Output at: 11:25:00  Clock: 0:02:21  CPU: 0:02:23
+HPC Solver at time      11.417
+SIM:   11:30:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     8  dV    -8
+Writing HPC Output at: 11:30:00  Clock: 0:02:22  CPU: 0:02:23
+HPC Solver at time      11.500
+SIM:   11:35:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     8  dV    -8
+Writing HPC Output at: 11:35:00  Clock: 0:02:22  CPU: 0:02:24
+HPC Solver at time      11.583
+SIM:   11:40:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     7  dV    -7
+Writing HPC Output at: 11:40:00  Clock: 0:02:22  CPU: 0:02:24
+HPC Solver at time      11.667
+SIM:   11:45:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     7  dV    -7
+Writing HPC Output at: 11:45:00  Clock: 0:02:23  CPU: 0:02:25
+HPC Solver at time      11.750
+SIM:   11:50:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     7  dV    -7
+Writing HPC Output at: 11:50:00  Clock: 0:02:23  CPU: 0:02:25
+HPC Solver at time      11.833
+SIM:   11:55:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     7  dV    -7
+Writing HPC Output at: 11:55:00  Clock: 0:02:23  CPU: 0:02:25
+HPC Solver at time      11.917
+SIM:   12:00:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     7  dV    -7
+Writing HPC Output at: 12:00:00  Clock: 0:02:24  CPU: 0:02:26
+HPC Solver at time      12.000
+SIM:   12:05:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     7  dV    -7
+Writing HPC Output at: 12:05:00  Clock: 0:02:24  CPU: 0:02:26
+HPC Solver at time      12.083
+SIM:   12:10:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     7  dV    -7
+Writing HPC Output at: 12:10:00  Clock: 0:02:25  CPU: 0:02:26
+HPC Solver at time      12.167
+SIM:   12:15:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     6  dV    -6
+Writing HPC Output at: 12:15:00  Clock: 0:02:25  CPU: 0:02:27
+HPC Solver at time      12.250
+SIM:   12:20:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     6  dV    -6
+Writing HPC Output at: 12:20:00  Clock: 0:02:25  CPU: 0:02:27
+HPC Solver at time      12.333
+SIM:   12:25:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     6  dV    -6
+Writing HPC Output at: 12:25:00  Clock: 0:02:26  CPU: 0:02:28
+HPC Solver at time      12.417
+SIM:   12:30:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     6  dV    -6
+Writing HPC Output at: 12:30:00  Clock: 0:02:26  CPU: 0:02:28
+HPC Solver at time      12.500
+SIM:   12:35:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     6  dV    -6
+Writing HPC Output at: 12:35:00  Clock: 0:02:27  CPU: 0:02:28
+HPC Solver at time      12.583
+SIM:   12:40:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     6  dV    -6
+Writing HPC Output at: 12:40:00  Clock: 0:02:27  CPU: 0:02:29
+HPC Solver at time      12.667
+SIM:   12:45:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     6  dV    -6
+Writing HPC Output at: 12:45:00  Clock: 0:02:27  CPU: 0:02:29
+HPC Solver at time      12.750
+SIM:   12:50:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -6
+Writing HPC Output at: 12:50:00  Clock: 0:02:28  CPU: 0:02:30
+HPC Solver at time      12.833
+SIM:   12:55:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 12:55:00  Clock: 0:02:28  CPU: 0:02:30
+HPC Solver at time      12.917
+SIM:   13:00:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 13:00:00  Clock: 0:02:29  CPU: 0:02:30
+HPC Solver at time      13.000
+SIM:   13:05:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 13:05:00  Clock: 0:02:29  CPU: 0:02:31
+HPC Solver at time      13.083
+SIM:   13:10:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 13:10:00  Clock: 0:02:29  CPU: 0:02:31
+HPC Solver at time      13.167
+SIM:   13:15:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 13:15:00  Clock: 0:02:30  CPU: 0:02:31
+HPC Solver at time      13.250
+SIM:   13:20:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 13:20:00  Clock: 0:02:30  CPU: 0:02:32
+HPC Solver at time      13.333
+SIM:   13:25:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 13:25:00  Clock: 0:02:30  CPU: 0:02:32
+HPC Solver at time      13.417
+SIM:   13:30:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 13:30:00  Clock: 0:02:31  CPU: 0:02:33
+HPC Solver at time      13.500
+SIM:   13:35:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 13:35:00  Clock: 0:02:31  CPU: 0:02:33
+HPC Solver at time      13.583
+SIM:   13:40:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 13:40:00  Clock: 0:02:32  CPU: 0:02:33
+HPC Solver at time      13.667
+SIM:   13:45:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     5  dV    -5
+Writing HPC Output at: 13:45:00  Clock: 0:02:32  CPU: 0:02:34
+HPC Solver at time      13.750
+SIM:   13:50:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 13:50:00  Clock: 0:02:32  CPU: 0:02:34
+HPC Solver at time      13.833
+SIM:   13:55:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 13:55:00  Clock: 0:02:33  CPU: 0:02:35
+HPC Solver at time      13.917
+SIM:   14:00:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:00:00  Clock: 0:02:33  CPU: 0:02:35
+HPC Solver at time      14.000
+SIM:   14:05:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:05:00  Clock: 0:02:34  CPU: 0:02:35
+HPC Solver at time      14.083
+SIM:   14:10:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:10:00  Clock: 0:02:34  CPU: 0:02:36
+HPC Solver at time      14.167
+SIM:   14:15:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:15:00  Clock: 0:02:34  CPU: 0:02:36
+HPC Solver at time      14.250
+SIM:   14:20:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:20:00  Clock: 0:02:35  CPU: 0:02:36
+HPC Solver at time      14.333
+SIM:   14:25:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:25:00  Clock: 0:02:35  CPU: 0:02:37
+HPC Solver at time      14.417
+SIM:   14:30:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:30:00  Clock: 0:02:35  CPU: 0:02:37
+HPC Solver at time      14.500
+SIM:   14:35:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:35:00  Clock: 0:02:36  CPU: 0:02:38
+HPC Solver at time      14.583
+SIM:   14:40:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:40:00  Clock: 0:02:36  CPU: 0:02:38
+HPC Solver at time      14.667
+SIM:   14:45:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:45:00  Clock: 0:02:37  CPU: 0:02:38
+HPC Solver at time      14.750
+SIM:   14:50:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:50:00  Clock: 0:02:37  CPU: 0:02:39
+HPC Solver at time      14.833
+SIM:   14:55:00    -d  0  0    0D  2%  1D  0%  2D 98%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 14:55:00  Clock: 0:02:37  CPU: 0:02:39
+HPC Solver at time      14.917
+SIM:   15:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 15:00:00  Clock: 0:02:38  CPU: 0:02:40
+HPC Solver at time      15.000
+SIM:   15:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     4  dV    -4
+Writing HPC Output at: 15:05:00  Clock: 0:02:38  CPU: 0:02:40
+HPC Solver at time      15.083
+SIM:   15:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 15:10:00  Clock: 0:02:39  CPU: 0:02:40
+HPC Solver at time      15.167
+SIM:   15:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 15:15:00  Clock: 0:02:39  CPU: 0:02:41
+HPC Solver at time      15.250
+SIM:   15:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 15:20:00  Clock: 0:02:39  CPU: 0:02:41
+HPC Solver at time      15.333
+SIM:   15:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 15:25:00  Clock: 0:02:40  CPU: 0:02:41
+HPC Solver at time      15.417
+SIM:   15:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 15:30:00  Clock: 0:02:40  CPU: 0:02:42
+HPC Solver at time      15.500
+SIM:   15:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 15:35:00  Clock: 0:02:40  CPU: 0:02:42
+HPC Solver at time      15.583
+SIM:   15:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 15:40:00  Clock: 0:02:41  CPU: 0:02:43
+HPC Solver at time      15.667
+SIM:   15:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 15:45:00  Clock: 0:02:41  CPU: 0:02:43
+HPC Solver at time      15.750
+SIM:   15:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 15:50:00  Clock: 0:02:42  CPU: 0:02:43
+HPC Solver at time      15.833
+SIM:   15:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 15:55:00  Clock: 0:02:42  CPU: 0:02:44
+HPC Solver at time      15.917
+SIM:   16:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:00:00  Clock: 0:02:42  CPU: 0:02:44
+HPC Solver at time      16.000
+SIM:   16:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:05:00  Clock: 0:02:43  CPU: 0:02:45
+HPC Solver at time      16.083
+SIM:   16:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:10:00  Clock: 0:02:43  CPU: 0:02:45
+HPC Solver at time      16.167
+SIM:   16:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:15:00  Clock: 0:02:44  CPU: 0:02:45
+HPC Solver at time      16.250
+SIM:   16:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:20:00  Clock: 0:02:44  CPU: 0:02:46
+HPC Solver at time      16.333
+SIM:   16:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:25:00  Clock: 0:02:44  CPU: 0:02:46
+HPC Solver at time      16.417
+SIM:   16:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:30:00  Clock: 0:02:45  CPU: 0:02:46
+HPC Solver at time      16.500
+SIM:   16:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:35:00  Clock: 0:02:45  CPU: 0:02:47
+HPC Solver at time      16.583
+SIM:   16:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:40:00  Clock: 0:02:45  CPU: 0:02:47
+HPC Solver at time      16.667
+SIM:   16:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:45:00  Clock: 0:02:46  CPU: 0:02:48
+HPC Solver at time      16.750
+SIM:   16:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:50:00  Clock: 0:02:46  CPU: 0:02:48
+HPC Solver at time      16.833
+SIM:   16:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 16:55:00  Clock: 0:02:47  CPU: 0:02:48
+HPC Solver at time      16.917
+SIM:   17:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 17:00:00  Clock: 0:02:47  CPU: 0:02:49
+HPC Solver at time      17.000
+SIM:   17:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 17:05:00  Clock: 0:02:47  CPU: 0:02:49
+HPC Solver at time      17.083
+SIM:   17:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 17:10:00  Clock: 0:02:48  CPU: 0:02:50
+HPC Solver at time      17.167
+SIM:   17:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     3  dV    -3
+Writing HPC Output at: 17:15:00  Clock: 0:02:48  CPU: 0:02:50
+HPC Solver at time      17.250
+SIM:   17:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 17:20:00  Clock: 0:02:49  CPU: 0:02:50
+HPC Solver at time      17.333
+SIM:   17:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 17:25:00  Clock: 0:02:49  CPU: 0:02:51
+HPC Solver at time      17.417
+SIM:   17:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 17:30:00  Clock: 0:02:49  CPU: 0:02:51
+HPC Solver at time      17.500
+SIM:   17:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 17:35:00  Clock: 0:02:50  CPU: 0:02:51
+HPC Solver at time      17.583
+SIM:   17:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 17:40:00  Clock: 0:02:50  CPU: 0:02:52
+HPC Solver at time      17.667
+SIM:   17:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 17:45:00  Clock: 0:02:50  CPU: 0:02:52
+HPC Solver at time      17.750
+SIM:   17:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 17:50:00  Clock: 0:02:51  CPU: 0:02:53
+HPC Solver at time      17.833
+SIM:   17:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 17:55:00  Clock: 0:02:51  CPU: 0:02:53
+HPC Solver at time      17.917
+SIM:   18:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:00:00  Clock: 0:02:52  CPU: 0:02:53
+HPC Solver at time      18.000
+SIM:   18:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:05:00  Clock: 0:02:52  CPU: 0:02:54
+HPC Solver at time      18.083
+SIM:   18:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:10:00  Clock: 0:02:52  CPU: 0:02:54
+HPC Solver at time      18.167
+SIM:   18:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:15:00  Clock: 0:02:53  CPU: 0:02:55
+HPC Solver at time      18.250
+SIM:   18:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:20:00  Clock: 0:02:53  CPU: 0:02:55
+HPC Solver at time      18.333
+SIM:   18:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:25:00  Clock: 0:02:54  CPU: 0:02:55
+HPC Solver at time      18.417
+SIM:   18:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:30:00  Clock: 0:02:54  CPU: 0:02:56
+HPC Solver at time      18.500
+SIM:   18:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:35:00  Clock: 0:02:54  CPU: 0:02:56
+HPC Solver at time      18.583
+SIM:   18:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:40:00  Clock: 0:02:55  CPU: 0:02:56
+HPC Solver at time      18.667
+SIM:   18:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:45:00  Clock: 0:02:55  CPU: 0:02:57
+HPC Solver at time      18.750
+SIM:   18:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:50:00  Clock: 0:02:55  CPU: 0:02:57
+HPC Solver at time      18.833
+SIM:   18:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 18:55:00  Clock: 0:02:56  CPU: 0:02:58
+HPC Solver at time      18.917
+SIM:   19:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:00:00  Clock: 0:02:56  CPU: 0:02:58
+HPC Solver at time      19.000
+SIM:   19:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:05:00  Clock: 0:02:57  CPU: 0:02:58
+HPC Solver at time      19.083
+SIM:   19:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:10:00  Clock: 0:02:57  CPU: 0:02:59
+HPC Solver at time      19.167
+SIM:   19:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:15:00  Clock: 0:02:57  CPU: 0:02:59
+HPC Solver at time      19.250
+SIM:   19:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:20:00  Clock: 0:02:58  CPU: 0:02:59
+HPC Solver at time      19.333
+SIM:   19:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:25:00  Clock: 0:02:58  CPU: 0:03:00
+HPC Solver at time      19.417
+SIM:   19:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:30:00  Clock: 0:02:58  CPU: 0:03:00
+HPC Solver at time      19.500
+SIM:   19:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:35:00  Clock: 0:02:59  CPU: 0:03:01
+HPC Solver at time      19.583
+SIM:   19:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:40:00  Clock: 0:02:59  CPU: 0:03:01
+HPC Solver at time      19.667
+SIM:   19:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:45:00  Clock: 0:03:00  CPU: 0:03:01
+HPC Solver at time      19.750
+SIM:   19:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:50:00  Clock: 0:03:00  CPU: 0:03:02
+HPC Solver at time      19.833
+SIM:   19:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 19:55:00  Clock: 0:03:00  CPU: 0:03:02
+HPC Solver at time      19.917
+SIM:   20:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:00:00  Clock: 0:03:01  CPU: 0:03:03
+HPC Solver at time      20.000
+SIM:   20:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:05:00  Clock: 0:03:01  CPU: 0:03:03
+HPC Solver at time      20.083
+SIM:   20:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:10:00  Clock: 0:03:02  CPU: 0:03:03
+HPC Solver at time      20.167
+SIM:   20:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:15:00  Clock: 0:03:02  CPU: 0:03:04
+HPC Solver at time      20.250
+SIM:   20:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:20:00  Clock: 0:03:02  CPU: 0:03:04
+HPC Solver at time      20.333
+SIM:   20:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:25:00  Clock: 0:03:03  CPU: 0:03:04
+HPC Solver at time      20.417
+SIM:   20:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:30:00  Clock: 0:03:03  CPU: 0:03:05
+HPC Solver at time      20.500
+SIM:   20:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:35:00  Clock: 0:03:03  CPU: 0:03:05
+HPC Solver at time      20.583
+SIM:   20:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:40:00  Clock: 0:03:04  CPU: 0:03:06
+HPC Solver at time      20.667
+SIM:   20:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:45:00  Clock: 0:03:04  CPU: 0:03:06
+HPC Solver at time      20.750
+SIM:   20:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:50:00  Clock: 0:03:05  CPU: 0:03:06
+HPC Solver at time      20.833
+SIM:   20:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 20:55:00  Clock: 0:03:05  CPU: 0:03:07
+HPC Solver at time      20.917
+SIM:   21:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 21:00:00  Clock: 0:03:05  CPU: 0:03:07
+HPC Solver at time      21.000
+SIM:   21:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 21:05:00  Clock: 0:03:06  CPU: 0:03:07
+HPC Solver at time      21.083
+SIM:   21:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 21:10:00  Clock: 0:03:06  CPU: 0:03:08
+HPC Solver at time      21.167
+SIM:   21:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 21:15:00  Clock: 0:03:07  CPU: 0:03:08
+HPC Solver at time      21.250
+SIM:   21:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     2  dV    -2
+Writing HPC Output at: 21:20:00  Clock: 0:03:07  CPU: 0:03:09
+HPC Solver at time      21.333
+SIM:   21:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -2
+Writing HPC Output at: 21:25:00  Clock: 0:03:07  CPU: 0:03:09
+HPC Solver at time      21.417
+SIM:   21:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 21:30:00  Clock: 0:03:08  CPU: 0:03:09
+HPC Solver at time      21.500
+SIM:   21:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 21:35:00  Clock: 0:03:08  CPU: 0:03:10
+HPC Solver at time      21.583
+SIM:   21:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 21:40:00  Clock: 0:03:08  CPU: 0:03:10
+HPC Solver at time      21.667
+SIM:   21:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 21:45:00  Clock: 0:03:09  CPU: 0:03:11
+HPC Solver at time      21.750
+SIM:   21:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 21:50:00  Clock: 0:03:09  CPU: 0:03:11
+HPC Solver at time      21.833
+SIM:   21:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 21:55:00  Clock: 0:03:10  CPU: 0:03:11
+HPC Solver at time      21.917
+SIM:   22:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:00:00  Clock: 0:03:10  CPU: 0:03:12
+HPC Solver at time      22.000
+SIM:   22:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:05:00  Clock: 0:03:10  CPU: 0:03:12
+HPC Solver at time      22.083
+SIM:   22:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:10:00  Clock: 0:03:11  CPU: 0:03:12
+HPC Solver at time      22.167
+SIM:   22:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:15:00  Clock: 0:03:11  CPU: 0:03:13
+HPC Solver at time      22.250
+SIM:   22:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:20:00  Clock: 0:03:12  CPU: 0:03:13
+HPC Solver at time      22.333
+SIM:   22:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:25:00  Clock: 0:03:12  CPU: 0:03:14
+HPC Solver at time      22.417
+SIM:   22:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:30:00  Clock: 0:03:12  CPU: 0:03:14
+HPC Solver at time      22.500
+SIM:   22:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:35:00  Clock: 0:03:13  CPU: 0:03:14
+HPC Solver at time      22.583
+SIM:   22:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:40:00  Clock: 0:03:13  CPU: 0:03:15
+HPC Solver at time      22.667
+SIM:   22:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:45:00  Clock: 0:03:13  CPU: 0:03:15
+HPC Solver at time      22.750
+SIM:   22:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:50:00  Clock: 0:03:14  CPU: 0:03:16
+HPC Solver at time      22.833
+SIM:   22:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 22:55:00  Clock: 0:03:14  CPU: 0:03:16
+HPC Solver at time      22.917
+SIM:   23:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:00:00  Clock: 0:03:15  CPU: 0:03:16
+HPC Solver at time      23.000
+SIM:   23:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:05:00  Clock: 0:03:15  CPU: 0:03:17
+HPC Solver at time      23.083
+SIM:   23:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:10:00  Clock: 0:03:15  CPU: 0:03:17
+HPC Solver at time      23.167
+SIM:   23:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:15:00  Clock: 0:03:16  CPU: 0:03:18
+HPC Solver at time      23.250
+SIM:   23:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:20:00  Clock: 0:03:16  CPU: 0:03:18
+HPC Solver at time      23.333
+SIM:   23:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:25:00  Clock: 0:03:17  CPU: 0:03:18
+HPC Solver at time      23.417
+SIM:   23:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:30:00  Clock: 0:03:17  CPU: 0:03:19
+HPC Solver at time      23.500
+SIM:   23:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:35:00  Clock: 0:03:17  CPU: 0:03:19
+HPC Solver at time      23.583
+SIM:   23:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:40:00  Clock: 0:03:18  CPU: 0:03:19
+HPC Solver at time      23.667
+SIM:   23:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:45:00  Clock: 0:03:18  CPU: 0:03:20
+HPC Solver at time      23.750
+SIM:   23:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:50:00  Clock: 0:03:19  CPU: 0:03:20
+HPC Solver at time      23.833
+SIM:   23:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 23:55:00  Clock: 0:03:19  CPU: 0:03:21
+HPC Solver at time      23.917
+SIM:   24:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:00:00  Clock: 0:03:19  CPU: 0:03:21
+HPC Solver at time      24.000
+SIM:   24:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:05:00  Clock: 0:03:20  CPU: 0:03:21
+HPC Solver at time      24.083
+SIM:   24:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:10:00  Clock: 0:03:20  CPU: 0:03:22
+HPC Solver at time      24.167
+SIM:   24:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:15:00  Clock: 0:03:21  CPU: 0:03:22
+HPC Solver at time      24.250
+SIM:   24:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:20:00  Clock: 0:03:21  CPU: 0:03:23
+HPC Solver at time      24.333
+SIM:   24:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:25:00  Clock: 0:03:21  CPU: 0:03:23
+HPC Solver at time      24.417
+SIM:   24:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:30:00  Clock: 0:03:22  CPU: 0:03:23
+HPC Solver at time      24.500
+SIM:   24:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:35:00  Clock: 0:03:22  CPU: 0:03:24
+HPC Solver at time      24.583
+SIM:   24:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:40:00  Clock: 0:03:22  CPU: 0:03:24
+HPC Solver at time      24.667
+SIM:   24:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:45:00  Clock: 0:03:23  CPU: 0:03:25
+HPC Solver at time      24.750
+SIM:   24:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:50:00  Clock: 0:03:23  CPU: 0:03:25
+HPC Solver at time      24.833
+SIM:   24:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 24:55:00  Clock: 0:03:24  CPU: 0:03:25
+HPC Solver at time      24.917
+SIM:   25:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:00:00  Clock: 0:03:24  CPU: 0:03:26
+HPC Solver at time      25.000
+SIM:   25:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:05:00  Clock: 0:03:24  CPU: 0:03:26
+HPC Solver at time      25.083
+SIM:   25:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:10:00  Clock: 0:03:25  CPU: 0:03:27
+HPC Solver at time      25.167
+SIM:   25:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:15:00  Clock: 0:03:25  CPU: 0:03:27
+HPC Solver at time      25.250
+SIM:   25:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:20:00  Clock: 0:03:26  CPU: 0:03:27
+HPC Solver at time      25.333
+SIM:   25:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:25:00  Clock: 0:03:26  CPU: 0:03:28
+HPC Solver at time      25.417
+SIM:   25:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:30:00  Clock: 0:03:26  CPU: 0:03:28
+HPC Solver at time      25.500
+SIM:   25:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:35:00  Clock: 0:03:27  CPU: 0:03:28
+HPC Solver at time      25.583
+SIM:   25:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:40:00  Clock: 0:03:27  CPU: 0:03:29
+HPC Solver at time      25.667
+SIM:   25:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:45:00  Clock: 0:03:28  CPU: 0:03:29
+HPC Solver at time      25.750
+SIM:   25:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:50:00  Clock: 0:03:28  CPU: 0:03:30
+HPC Solver at time      25.833
+SIM:   25:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 25:55:00  Clock: 0:03:28  CPU: 0:03:30
+HPC Solver at time      25.917
+SIM:   26:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:00:00  Clock: 0:03:29  CPU: 0:03:30
+HPC Solver at time      26.000
+SIM:   26:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:05:00  Clock: 0:03:29  CPU: 0:03:31
+HPC Solver at time      26.083
+SIM:   26:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:10:00  Clock: 0:03:30  CPU: 0:03:31
+HPC Solver at time      26.167
+SIM:   26:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:15:00  Clock: 0:03:30  CPU: 0:03:32
+HPC Solver at time      26.250
+SIM:   26:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:20:00  Clock: 0:03:30  CPU: 0:03:32
+HPC Solver at time      26.333
+SIM:   26:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:25:00  Clock: 0:03:31  CPU: 0:03:32
+HPC Solver at time      26.417
+SIM:   26:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:30:00  Clock: 0:03:31  CPU: 0:03:33
+HPC Solver at time      26.500
+SIM:   26:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:35:00  Clock: 0:03:31  CPU: 0:03:33
+HPC Solver at time      26.583
+SIM:   26:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:40:00  Clock: 0:03:32  CPU: 0:03:34
+HPC Solver at time      26.667
+SIM:   26:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:45:00  Clock: 0:03:32  CPU: 0:03:34
+HPC Solver at time      26.750
+SIM:   26:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:50:00  Clock: 0:03:33  CPU: 0:03:34
+HPC Solver at time      26.833
+SIM:   26:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 26:55:00  Clock: 0:03:33  CPU: 0:03:35
+HPC Solver at time      26.917
+SIM:   27:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:00:00  Clock: 0:03:33  CPU: 0:03:35
+HPC Solver at time      27.000
+SIM:   27:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:05:00  Clock: 0:03:34  CPU: 0:03:35
+HPC Solver at time      27.083
+SIM:   27:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:10:00  Clock: 0:03:34  CPU: 0:03:36
+HPC Solver at time      27.167
+SIM:   27:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:15:00  Clock: 0:03:35  CPU: 0:03:36
+HPC Solver at time      27.250
+SIM:   27:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:20:00  Clock: 0:03:35  CPU: 0:03:37
+HPC Solver at time      27.333
+SIM:   27:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:25:00  Clock: 0:03:35  CPU: 0:03:37
+HPC Solver at time      27.417
+SIM:   27:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:30:00  Clock: 0:03:36  CPU: 0:03:37
+HPC Solver at time      27.500
+SIM:   27:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:35:00  Clock: 0:03:36  CPU: 0:03:38
+HPC Solver at time      27.583
+SIM:   27:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:40:00  Clock: 0:03:37  CPU: 0:03:38
+HPC Solver at time      27.667
+SIM:   27:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:45:00  Clock: 0:03:37  CPU: 0:03:39
+HPC Solver at time      27.750
+SIM:   27:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:50:00  Clock: 0:03:37  CPU: 0:03:39
+HPC Solver at time      27.833
+SIM:   27:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 27:55:00  Clock: 0:03:38  CPU: 0:03:39
+HPC Solver at time      27.917
+SIM:   28:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:00:00  Clock: 0:03:38  CPU: 0:03:40
+HPC Solver at time      28.000
+SIM:   28:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:05:00  Clock: 0:03:38  CPU: 0:03:40
+HPC Solver at time      28.083
+SIM:   28:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:10:00  Clock: 0:03:39  CPU: 0:03:41
+HPC Solver at time      28.167
+SIM:   28:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:15:00  Clock: 0:03:39  CPU: 0:03:41
+HPC Solver at time      28.250
+SIM:   28:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:20:00  Clock: 0:03:40  CPU: 0:03:41
+HPC Solver at time      28.333
+SIM:   28:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:25:00  Clock: 0:03:40  CPU: 0:03:42
+HPC Solver at time      28.417
+SIM:   28:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:30:00  Clock: 0:03:40  CPU: 0:03:42
+HPC Solver at time      28.500
+SIM:   28:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:35:00  Clock: 0:03:41  CPU: 0:03:42
+HPC Solver at time      28.583
+SIM:   28:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:40:00  Clock: 0:03:41  CPU: 0:03:43
+HPC Solver at time      28.667
+SIM:   28:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:45:00  Clock: 0:03:42  CPU: 0:03:43
+HPC Solver at time      28.750
+SIM:   28:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:50:00  Clock: 0:03:42  CPU: 0:03:44
+HPC Solver at time      28.833
+SIM:   28:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 28:55:00  Clock: 0:03:42  CPU: 0:03:44
+HPC Solver at time      28.917
+SIM:   29:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:00:00  Clock: 0:03:43  CPU: 0:03:44
+HPC Solver at time      29.000
+SIM:   29:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:05:00  Clock: 0:03:43  CPU: 0:03:45
+HPC Solver at time      29.083
+SIM:   29:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:10:00  Clock: 0:03:44  CPU: 0:03:45
+HPC Solver at time      29.167
+SIM:   29:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:15:00  Clock: 0:03:44  CPU: 0:03:46
+HPC Solver at time      29.250
+SIM:   29:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:20:00  Clock: 0:03:44  CPU: 0:03:46
+HPC Solver at time      29.333
+SIM:   29:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:25:00  Clock: 0:03:45  CPU: 0:03:46
+HPC Solver at time      29.417
+SIM:   29:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:30:00  Clock: 0:03:45  CPU: 0:03:47
+HPC Solver at time      29.500
+SIM:   29:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:35:00  Clock: 0:03:45  CPU: 0:03:47
+HPC Solver at time      29.583
+SIM:   29:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:40:00  Clock: 0:03:46  CPU: 0:03:47
+HPC Solver at time      29.667
+SIM:   29:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:45:00  Clock: 0:03:46  CPU: 0:03:48
+HPC Solver at time      29.750
+SIM:   29:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:50:00  Clock: 0:03:47  CPU: 0:03:48
+HPC Solver at time      29.833
+SIM:   29:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 29:55:00  Clock: 0:03:47  CPU: 0:03:49
+HPC Solver at time      29.917
+SIM:   30:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:00:00  Clock: 0:03:47  CPU: 0:03:49
+HPC Solver at time      30.000
+SIM:   30:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:05:00  Clock: 0:03:48  CPU: 0:03:49
+HPC Solver at time      30.083
+SIM:   30:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:10:00  Clock: 0:03:48  CPU: 0:03:50
+HPC Solver at time      30.167
+SIM:   30:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:15:00  Clock: 0:03:49  CPU: 0:03:50
+HPC Solver at time      30.250
+SIM:   30:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:20:00  Clock: 0:03:49  CPU: 0:03:51
+HPC Solver at time      30.333
+SIM:   30:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:25:00  Clock: 0:03:49  CPU: 0:03:51
+HPC Solver at time      30.417
+SIM:   30:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:30:00  Clock: 0:03:50  CPU: 0:03:51
+HPC Solver at time      30.500
+SIM:   30:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:35:00  Clock: 0:03:50  CPU: 0:03:52
+HPC Solver at time      30.583
+SIM:   30:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:40:00  Clock: 0:03:51  CPU: 0:03:52
+HPC Solver at time      30.667
+SIM:   30:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:45:00  Clock: 0:03:51  CPU: 0:03:52
+HPC Solver at time      30.750
+SIM:   30:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:50:00  Clock: 0:03:51  CPU: 0:03:53
+HPC Solver at time      30.833
+SIM:   30:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 30:55:00  Clock: 0:03:52  CPU: 0:03:53
+HPC Solver at time      30.917
+SIM:   31:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:00:00  Clock: 0:03:52  CPU: 0:03:54
+HPC Solver at time      31.000
+SIM:   31:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:05:00  Clock: 0:03:52  CPU: 0:03:54
+HPC Solver at time      31.083
+SIM:   31:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:10:00  Clock: 0:03:53  CPU: 0:03:54
+HPC Solver at time      31.167
+SIM:   31:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:15:00  Clock: 0:03:53  CPU: 0:03:55
+HPC Solver at time      31.250
+SIM:   31:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:20:00  Clock: 0:03:54  CPU: 0:03:55
+HPC Solver at time      31.333
+SIM:   31:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:25:00  Clock: 0:03:54  CPU: 0:03:56
+HPC Solver at time      31.417
+SIM:   31:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:30:00  Clock: 0:03:54  CPU: 0:03:56
+HPC Solver at time      31.500
+SIM:   31:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:35:00  Clock: 0:03:55  CPU: 0:03:56
+HPC Solver at time      31.583
+SIM:   31:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:40:00  Clock: 0:03:55  CPU: 0:03:57
+HPC Solver at time      31.667
+SIM:   31:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:45:00  Clock: 0:03:56  CPU: 0:03:57
+HPC Solver at time      31.750
+SIM:   31:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:50:00  Clock: 0:03:56  CPU: 0:03:58
+HPC Solver at time      31.833
+SIM:   31:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 31:55:00  Clock: 0:03:56  CPU: 0:03:58
+HPC Solver at time      31.917
+SIM:   32:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:00:00  Clock: 0:03:57  CPU: 0:03:58
+HPC Solver at time      32.000
+SIM:   32:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:05:00  Clock: 0:03:57  CPU: 0:03:59
+HPC Solver at time      32.083
+SIM:   32:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:10:00  Clock: 0:03:58  CPU: 0:03:59
+HPC Solver at time      32.167
+SIM:   32:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:15:00  Clock: 0:03:58  CPU: 0:03:59
+HPC Solver at time      32.250
+SIM:   32:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:20:00  Clock: 0:03:58  CPU: 0:04:00
+HPC Solver at time      32.333
+SIM:   32:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:25:00  Clock: 0:03:59  CPU: 0:04:00
+HPC Solver at time      32.417
+SIM:   32:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:30:00  Clock: 0:03:59  CPU: 0:04:01
+HPC Solver at time      32.500
+SIM:   32:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:35:00  Clock: 0:03:59  CPU: 0:04:01
+HPC Solver at time      32.583
+SIM:   32:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:40:00  Clock: 0:04:00  CPU: 0:04:01
+HPC Solver at time      32.667
+SIM:   32:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:45:00  Clock: 0:04:00  CPU: 0:04:02
+HPC Solver at time      32.750
+SIM:   32:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:50:00  Clock: 0:04:01  CPU: 0:04:02
+HPC Solver at time      32.833
+SIM:   32:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 32:55:00  Clock: 0:04:01  CPU: 0:04:03
+HPC Solver at time      32.917
+SIM:   33:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:00:00  Clock: 0:04:01  CPU: 0:04:03
+HPC Solver at time      33.000
+SIM:   33:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:05:00  Clock: 0:04:02  CPU: 0:04:03
+HPC Solver at time      33.083
+SIM:   33:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:10:00  Clock: 0:04:02  CPU: 0:04:04
+HPC Solver at time      33.167
+SIM:   33:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:15:00  Clock: 0:04:03  CPU: 0:04:04
+HPC Solver at time      33.250
+SIM:   33:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:20:00  Clock: 0:04:03  CPU: 0:04:05
+HPC Solver at time      33.333
+SIM:   33:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:25:00  Clock: 0:04:03  CPU: 0:04:05
+HPC Solver at time      33.417
+SIM:   33:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:30:00  Clock: 0:04:04  CPU: 0:04:05
+HPC Solver at time      33.500
+SIM:   33:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:35:00  Clock: 0:04:04  CPU: 0:04:06
+HPC Solver at time      33.583
+SIM:   33:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:40:00  Clock: 0:04:05  CPU: 0:04:06
+HPC Solver at time      33.667
+SIM:   33:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:45:00  Clock: 0:04:05  CPU: 0:04:07
+HPC Solver at time      33.750
+SIM:   33:50:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:50:00  Clock: 0:04:05  CPU: 0:04:07
+HPC Solver at time      33.833
+SIM:   33:55:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 33:55:00  Clock: 0:04:06  CPU: 0:04:07
+HPC Solver at time      33.917
+SIM:   34:00:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:00:00  Clock: 0:04:06  CPU: 0:04:08
+HPC Solver at time      34.000
+SIM:   34:05:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:05:00  Clock: 0:04:07  CPU: 0:04:08
+HPC Solver at time      34.083
+SIM:   34:10:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:10:00  Clock: 0:04:07  CPU: 0:04:08
+HPC Solver at time      34.167
+SIM:   34:15:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:15:00  Clock: 0:04:07  CPU: 0:04:09
+HPC Solver at time      34.250
+SIM:   34:20:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:20:00  Clock: 0:04:08  CPU: 0:04:09
+HPC Solver at time      34.333
+SIM:   34:25:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:25:00  Clock: 0:04:08  CPU: 0:04:10
+HPC Solver at time      34.417
+SIM:   34:30:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:30:00  Clock: 0:04:09  CPU: 0:04:10
+HPC Solver at time      34.500
+SIM:   34:35:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:35:00  Clock: 0:04:09  CPU: 0:04:10
+HPC Solver at time      34.583
+SIM:   34:40:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:40:00  Clock: 0:04:09  CPU: 0:04:11
+HPC Solver at time      34.667
+SIM:   34:45:00    -d  0  0    0D  3%  1D  0%  2D 97%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:45:00  Clock: 0:04:10  CPU: 0:04:11
+HPC Solver at time      34.750
+SIM:   34:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:50:00  Clock: 0:04:10  CPU: 0:04:12
+HPC Solver at time      34.833
+SIM:   34:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 34:55:00  Clock: 0:04:10  CPU: 0:04:12
+HPC Solver at time      34.917
+SIM:   35:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:00:00  Clock: 0:04:11  CPU: 0:04:12
+HPC Solver at time      35.000
+SIM:   35:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:05:00  Clock: 0:04:11  CPU: 0:04:13
+HPC Solver at time      35.083
+SIM:   35:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:10:00  Clock: 0:04:12  CPU: 0:04:13
+HPC Solver at time      35.167
+SIM:   35:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:15:00  Clock: 0:04:12  CPU: 0:04:14
+HPC Solver at time      35.250
+SIM:   35:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:20:00  Clock: 0:04:12  CPU: 0:04:14
+HPC Solver at time      35.333
+SIM:   35:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:25:00  Clock: 0:04:13  CPU: 0:04:14
+HPC Solver at time      35.417
+SIM:   35:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:30:00  Clock: 0:04:13  CPU: 0:04:15
+HPC Solver at time      35.500
+SIM:   35:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:35:00  Clock: 0:04:14  CPU: 0:04:15
+HPC Solver at time      35.583
+SIM:   35:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:40:00  Clock: 0:04:14  CPU: 0:04:15
+HPC Solver at time      35.667
+SIM:   35:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:45:00  Clock: 0:04:14  CPU: 0:04:16
+HPC Solver at time      35.750
+SIM:   35:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:50:00  Clock: 0:04:15  CPU: 0:04:16
+HPC Solver at time      35.833
+SIM:   35:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 35:55:00  Clock: 0:04:15  CPU: 0:04:17
+HPC Solver at time      35.917
+SIM:   36:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 36:00:00  Clock: 0:04:16  CPU: 0:04:17
+HPC Solver at time      36.000
+SIM:   36:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV     0
+Writing HPC Output at: 36:05:00  Clock: 0:04:16  CPU: 0:04:17
+HPC Solver at time      36.083
+SIM:   36:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     1  dV    -1
+Writing HPC Output at: 36:10:00  Clock: 0:04:16  CPU: 0:04:18
+HPC Solver at time      36.167
+SIM:   36:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV    -1
+Writing HPC Output at: 36:15:00  Clock: 0:04:17  CPU: 0:04:18
+HPC Solver at time      36.250
+SIM:   36:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 36:20:00  Clock: 0:04:17  CPU: 0:04:19
+HPC Solver at time      36.333
+SIM:   36:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV    -1
+Writing HPC Output at: 36:25:00  Clock: 0:04:18  CPU: 0:04:19
+HPC Solver at time      36.417
+SIM:   36:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 36:30:00  Clock: 0:04:18  CPU: 0:04:19
+HPC Solver at time      36.500
+SIM:   36:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV    -1
+Writing HPC Output at: 36:35:00  Clock: 0:04:18  CPU: 0:04:20
+HPC Solver at time      36.583
+SIM:   36:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 36:40:00  Clock: 0:04:19  CPU: 0:04:20
+HPC Solver at time      36.667
+SIM:   36:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV    -1
+Writing HPC Output at: 36:45:00  Clock: 0:04:19  CPU: 0:04:21
+HPC Solver at time      36.750
+SIM:   36:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV    -1
+Writing HPC Output at: 36:50:00  Clock: 0:04:20  CPU: 0:04:21
+HPC Solver at time      36.833
+SIM:   36:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 36:55:00  Clock: 0:04:20  CPU: 0:04:21
+HPC Solver at time      36.917
+SIM:   37:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:00:00  Clock: 0:04:20  CPU: 0:04:22
+HPC Solver at time      37.000
+SIM:   37:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:05:00  Clock: 0:04:21  CPU: 0:04:22
+HPC Solver at time      37.083
+SIM:   37:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:10:00  Clock: 0:04:21  CPU: 0:04:23
+HPC Solver at time      37.167
+SIM:   37:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:15:00  Clock: 0:04:21  CPU: 0:04:23
+HPC Solver at time      37.250
+SIM:   37:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:20:00  Clock: 0:04:22  CPU: 0:04:23
+HPC Solver at time      37.333
+SIM:   37:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:25:00  Clock: 0:04:22  CPU: 0:04:24
+HPC Solver at time      37.417
+SIM:   37:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:30:00  Clock: 0:04:23  CPU: 0:04:24
+HPC Solver at time      37.500
+SIM:   37:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:35:00  Clock: 0:04:23  CPU: 0:04:24
+HPC Solver at time      37.583
+SIM:   37:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:40:00  Clock: 0:04:23  CPU: 0:04:25
+HPC Solver at time      37.667
+SIM:   37:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:45:00  Clock: 0:04:24  CPU: 0:04:25
+HPC Solver at time      37.750
+SIM:   37:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:50:00  Clock: 0:04:24  CPU: 0:04:26
+HPC Solver at time      37.833
+SIM:   37:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 37:55:00  Clock: 0:04:25  CPU: 0:04:26
+HPC Solver at time      37.917
+SIM:   38:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:00:00  Clock: 0:04:25  CPU: 0:04:26
+HPC Solver at time      38.000
+SIM:   38:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:05:00  Clock: 0:04:25  CPU: 0:04:27
+HPC Solver at time      38.083
+SIM:   38:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:10:00  Clock: 0:04:26  CPU: 0:04:27
+HPC Solver at time      38.167
+SIM:   38:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:15:00  Clock: 0:04:26  CPU: 0:04:28
+HPC Solver at time      38.250
+SIM:   38:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:20:00  Clock: 0:04:27  CPU: 0:04:28
+HPC Solver at time      38.333
+SIM:   38:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:25:00  Clock: 0:04:27  CPU: 0:04:28
+HPC Solver at time      38.417
+SIM:   38:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:30:00  Clock: 0:04:27  CPU: 0:04:29
+HPC Solver at time      38.500
+SIM:   38:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:35:00  Clock: 0:04:28  CPU: 0:04:29
+HPC Solver at time      38.583
+SIM:   38:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:40:00  Clock: 0:04:28  CPU: 0:04:30
+HPC Solver at time      38.667
+SIM:   38:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:45:00  Clock: 0:04:29  CPU: 0:04:30
+HPC Solver at time      38.750
+SIM:   38:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:50:00  Clock: 0:04:29  CPU: 0:04:30
+HPC Solver at time      38.833
+SIM:   38:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 38:55:00  Clock: 0:04:29  CPU: 0:04:31
+HPC Solver at time      38.917
+SIM:   39:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:00:00  Clock: 0:04:30  CPU: 0:04:31
+HPC Solver at time      39.000
+SIM:   39:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:05:00  Clock: 0:04:30  CPU: 0:04:31
+HPC Solver at time      39.083
+SIM:   39:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:10:00  Clock: 0:04:31  CPU: 0:04:32
+HPC Solver at time      39.167
+SIM:   39:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:15:00  Clock: 0:04:31  CPU: 0:04:32
+HPC Solver at time      39.250
+SIM:   39:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:20:00  Clock: 0:04:31  CPU: 0:04:33
+HPC Solver at time      39.333
+SIM:   39:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:25:00  Clock: 0:04:32  CPU: 0:04:33
+HPC Solver at time      39.417
+SIM:   39:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:30:00  Clock: 0:04:32  CPU: 0:04:33
+HPC Solver at time      39.500
+SIM:   39:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:35:00  Clock: 0:04:32  CPU: 0:04:34
+HPC Solver at time      39.583
+SIM:   39:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:40:00  Clock: 0:04:33  CPU: 0:04:34
+HPC Solver at time      39.667
+SIM:   39:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:45:00  Clock: 0:04:33  CPU: 0:04:35
+HPC Solver at time      39.750
+SIM:   39:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:50:00  Clock: 0:04:34  CPU: 0:04:35
+HPC Solver at time      39.833
+SIM:   39:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 39:55:00  Clock: 0:04:34  CPU: 0:04:35
+HPC Solver at time      39.917
+SIM:   40:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:00:00  Clock: 0:04:34  CPU: 0:04:36
+HPC Solver at time      40.000
+SIM:   40:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:05:00  Clock: 0:04:35  CPU: 0:04:36
+HPC Solver at time      40.083
+SIM:   40:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:10:00  Clock: 0:04:35  CPU: 0:04:37
+HPC Solver at time      40.167
+SIM:   40:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:15:00  Clock: 0:04:36  CPU: 0:04:37
+HPC Solver at time      40.250
+SIM:   40:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:20:00  Clock: 0:04:36  CPU: 0:04:37
+HPC Solver at time      40.333
+SIM:   40:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:25:00  Clock: 0:04:36  CPU: 0:04:38
+HPC Solver at time      40.417
+SIM:   40:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:30:00  Clock: 0:04:37  CPU: 0:04:38
+HPC Solver at time      40.500
+SIM:   40:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:35:00  Clock: 0:04:37  CPU: 0:04:38
+HPC Solver at time      40.583
+SIM:   40:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:40:00  Clock: 0:04:38  CPU: 0:04:39
+HPC Solver at time      40.667
+SIM:   40:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:45:00  Clock: 0:04:38  CPU: 0:04:39
+HPC Solver at time      40.750
+SIM:   40:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:50:00  Clock: 0:04:38  CPU: 0:04:40
+HPC Solver at time      40.833
+SIM:   40:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 40:55:00  Clock: 0:04:39  CPU: 0:04:40
+HPC Solver at time      40.917
+SIM:   41:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:00:00  Clock: 0:04:39  CPU: 0:04:40
+HPC Solver at time      41.000
+SIM:   41:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:05:00  Clock: 0:04:39  CPU: 0:04:41
+HPC Solver at time      41.083
+SIM:   41:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:10:00  Clock: 0:04:40  CPU: 0:04:41
+HPC Solver at time      41.167
+SIM:   41:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:15:00  Clock: 0:04:40  CPU: 0:04:42
+HPC Solver at time      41.250
+SIM:   41:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:20:00  Clock: 0:04:41  CPU: 0:04:42
+HPC Solver at time      41.333
+SIM:   41:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:25:00  Clock: 0:04:41  CPU: 0:04:42
+HPC Solver at time      41.417
+SIM:   41:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:30:00  Clock: 0:04:41  CPU: 0:04:43
+HPC Solver at time      41.500
+SIM:   41:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:35:00  Clock: 0:04:42  CPU: 0:04:43
+HPC Solver at time      41.583
+SIM:   41:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:40:00  Clock: 0:04:42  CPU: 0:04:43
+HPC Solver at time      41.667
+SIM:   41:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:45:00  Clock: 0:04:43  CPU: 0:04:44
+HPC Solver at time      41.750
+SIM:   41:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:50:00  Clock: 0:04:43  CPU: 0:04:44
+HPC Solver at time      41.833
+SIM:   41:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 41:55:00  Clock: 0:04:43  CPU: 0:04:45
+HPC Solver at time      41.917
+SIM:   42:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:00:00  Clock: 0:04:44  CPU: 0:04:45
+HPC Solver at time      42.000
+SIM:   42:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:05:00  Clock: 0:04:44  CPU: 0:04:45
+HPC Solver at time      42.083
+SIM:   42:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:10:00  Clock: 0:04:44  CPU: 0:04:46
+HPC Solver at time      42.167
+SIM:   42:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:15:00  Clock: 0:04:45  CPU: 0:04:46
+HPC Solver at time      42.250
+SIM:   42:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:20:00  Clock: 0:04:45  CPU: 0:04:47
+HPC Solver at time      42.333
+SIM:   42:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:25:00  Clock: 0:04:46  CPU: 0:04:47
+HPC Solver at time      42.417
+SIM:   42:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:30:00  Clock: 0:04:46  CPU: 0:04:47
+HPC Solver at time      42.500
+SIM:   42:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:35:00  Clock: 0:04:46  CPU: 0:04:48
+HPC Solver at time      42.583
+SIM:   42:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:40:00  Clock: 0:04:47  CPU: 0:04:48
+HPC Solver at time      42.667
+SIM:   42:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:45:00  Clock: 0:04:47  CPU: 0:04:48
+HPC Solver at time      42.750
+SIM:   42:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:50:00  Clock: 0:04:48  CPU: 0:04:49
+HPC Solver at time      42.833
+SIM:   42:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 42:55:00  Clock: 0:04:48  CPU: 0:04:49
+HPC Solver at time      42.917
+SIM:   43:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:00:00  Clock: 0:04:48  CPU: 0:04:50
+HPC Solver at time      43.000
+SIM:   43:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:05:00  Clock: 0:04:49  CPU: 0:04:50
+HPC Solver at time      43.083
+SIM:   43:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:10:00  Clock: 0:04:49  CPU: 0:04:50
+HPC Solver at time      43.167
+SIM:   43:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:15:00  Clock: 0:04:49  CPU: 0:04:51
+HPC Solver at time      43.250
+SIM:   43:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:20:00  Clock: 0:04:50  CPU: 0:04:51
+HPC Solver at time      43.333
+SIM:   43:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:25:00  Clock: 0:04:50  CPU: 0:04:52
+HPC Solver at time      43.417
+SIM:   43:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:30:00  Clock: 0:04:51  CPU: 0:04:52
+HPC Solver at time      43.500
+SIM:   43:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:35:00  Clock: 0:04:51  CPU: 0:04:52
+HPC Solver at time      43.583
+SIM:   43:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:40:00  Clock: 0:04:51  CPU: 0:04:53
+HPC Solver at time      43.667
+SIM:   43:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:45:00  Clock: 0:04:52  CPU: 0:04:53
+HPC Solver at time      43.750
+SIM:   43:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:50:00  Clock: 0:04:52  CPU: 0:04:54
+HPC Solver at time      43.833
+SIM:   43:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 43:55:00  Clock: 0:04:53  CPU: 0:04:54
+HPC Solver at time      43.917
+SIM:   44:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:00:00  Clock: 0:04:53  CPU: 0:04:54
+HPC Solver at time      44.000
+SIM:   44:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:05:00  Clock: 0:04:53  CPU: 0:04:55
+HPC Solver at time      44.083
+SIM:   44:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:10:00  Clock: 0:04:54  CPU: 0:04:55
+HPC Solver at time      44.167
+SIM:   44:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:15:00  Clock: 0:04:54  CPU: 0:04:55
+HPC Solver at time      44.250
+SIM:   44:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:20:00  Clock: 0:04:55  CPU: 0:04:56
+HPC Solver at time      44.333
+SIM:   44:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:25:00  Clock: 0:04:55  CPU: 0:04:56
+HPC Solver at time      44.417
+SIM:   44:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:30:00  Clock: 0:04:55  CPU: 0:04:57
+HPC Solver at time      44.500
+SIM:   44:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:35:00  Clock: 0:04:56  CPU: 0:04:57
+HPC Solver at time      44.583
+SIM:   44:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:40:00  Clock: 0:04:56  CPU: 0:04:57
+HPC Solver at time      44.667
+SIM:   44:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:45:00  Clock: 0:04:57  CPU: 0:04:58
+HPC Solver at time      44.750
+SIM:   44:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:50:00  Clock: 0:04:57  CPU: 0:04:58
+HPC Solver at time      44.833
+SIM:   44:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 44:55:00  Clock: 0:04:57  CPU: 0:04:59
+HPC Solver at time      44.917
+SIM:   45:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:00:00  Clock: 0:04:58  CPU: 0:04:59
+HPC Solver at time      45.000
+SIM:   45:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:05:00  Clock: 0:04:58  CPU: 0:04:59
+HPC Solver at time      45.083
+SIM:   45:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:10:00  Clock: 0:04:59  CPU: 0:05:00
+HPC Solver at time      45.167
+SIM:   45:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:15:00  Clock: 0:04:59  CPU: 0:05:00
+HPC Solver at time      45.250
+SIM:   45:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:20:00  Clock: 0:04:59  CPU: 0:05:00
+HPC Solver at time      45.333
+SIM:   45:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:25:00  Clock: 0:05:00  CPU: 0:05:01
+HPC Solver at time      45.417
+SIM:   45:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:30:00  Clock: 0:05:00  CPU: 0:05:01
+HPC Solver at time      45.500
+SIM:   45:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:35:00  Clock: 0:05:00  CPU: 0:05:02
+HPC Solver at time      45.583
+SIM:   45:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:40:00  Clock: 0:05:01  CPU: 0:05:02
+HPC Solver at time      45.667
+SIM:   45:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:45:00  Clock: 0:05:01  CPU: 0:05:02
+HPC Solver at time      45.750
+SIM:   45:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:50:00  Clock: 0:05:02  CPU: 0:05:03
+HPC Solver at time      45.833
+SIM:   45:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 45:55:00  Clock: 0:05:02  CPU: 0:05:03
+HPC Solver at time      45.917
+SIM:   46:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:00:00  Clock: 0:05:02  CPU: 0:05:04
+HPC Solver at time      46.000
+SIM:   46:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:05:00  Clock: 0:05:03  CPU: 0:05:04
+HPC Solver at time      46.083
+SIM:   46:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:10:00  Clock: 0:05:03  CPU: 0:05:04
+HPC Solver at time      46.167
+SIM:   46:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:15:00  Clock: 0:05:04  CPU: 0:05:05
+HPC Solver at time      46.250
+SIM:   46:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:20:00  Clock: 0:05:04  CPU: 0:05:05
+HPC Solver at time      46.333
+SIM:   46:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:25:00  Clock: 0:05:04  CPU: 0:05:06
+HPC Solver at time      46.417
+SIM:   46:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:30:00  Clock: 0:05:05  CPU: 0:05:06
+HPC Solver at time      46.500
+SIM:   46:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:35:00  Clock: 0:05:05  CPU: 0:05:06
+HPC Solver at time      46.583
+SIM:   46:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:40:00  Clock: 0:05:06  CPU: 0:05:07
+HPC Solver at time      46.667
+SIM:   46:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:45:00  Clock: 0:05:06  CPU: 0:05:07
+HPC Solver at time      46.750
+SIM:   46:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:50:00  Clock: 0:05:06  CPU: 0:05:07
+HPC Solver at time      46.833
+SIM:   46:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 46:55:00  Clock: 0:05:07  CPU: 0:05:08
+HPC Solver at time      46.917
+SIM:   47:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:00:00  Clock: 0:05:07  CPU: 0:05:08
+HPC Solver at time      47.000
+SIM:   47:05:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:05:00  Clock: 0:05:08  CPU: 0:05:09
+HPC Solver at time      47.083
+SIM:   47:10:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:10:00  Clock: 0:05:08  CPU: 0:05:09
+HPC Solver at time      47.167
+SIM:   47:15:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:15:00  Clock: 0:05:08  CPU: 0:05:09
+HPC Solver at time      47.250
+SIM:   47:20:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:20:00  Clock: 0:05:09  CPU: 0:05:10
+HPC Solver at time      47.333
+SIM:   47:25:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:25:00  Clock: 0:05:09  CPU: 0:05:10
+HPC Solver at time      47.417
+SIM:   47:30:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:30:00  Clock: 0:05:09  CPU: 0:05:11
+HPC Solver at time      47.500
+SIM:   47:35:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:35:00  Clock: 0:05:10  CPU: 0:05:11
+HPC Solver at time      47.583
+SIM:   47:40:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:40:00  Clock: 0:05:10  CPU: 0:05:11
+HPC Solver at time      47.667
+SIM:   47:45:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:45:00  Clock: 0:05:11  CPU: 0:05:12
+HPC Solver at time      47.750
+SIM:   47:50:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:50:00  Clock: 0:05:11  CPU: 0:05:12
+HPC Solver at time      47.833
+SIM:   47:55:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 47:55:00  Clock: 0:05:11  CPU: 0:05:13
+HPC Solver at time      47.917
+SIM:   48:00:00    -d  0  0    0D  4%  1D  0%  2D 96%    CE -0.0%  0.0% -0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 48:00:00  Clock: 0:05:12  CPU: 0:05:13
+
+________________________________________________________________________________
+CPU Time:        0:05:13  [0.08706 h]
+Clock Time:      0:05:12  [0.08667 h]
+
+Finished HPC Solution.
+
+Closing Computational Time Summary.
+
+Receiving tracked maximums from HPC Solver.
+
+Allocating 141Kb memory for temporary HPC array containing any NaN locations...
+
+Total number of High Control Numbers or NaNs (instabilities) causing a timestep correction was 0.
+
+Receiving Maximum Water Levels and Times of Peak Levels from HPC Solver...
+Finished.
+
+Receiving tracked scalar maximums...
+
+... stored cell averaged depth from tracked scalar maximums.
+
+Receiving tracked vector maximums...
+
+Processing maximums from HPC Solver...
+
+Finished processing of HPC results.
+
+Run Finished ..... Steps completed: 576
+   Total Negative Depths: 0
+Simulation took 0.08706 CPU hours
+One hour of model time takes 0.002 CPU hours
+
+________________________________________________________________________________
+
+________________________________________________________________________________
+
+Writing maximums...
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\grids\EG17_002_h_Max.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\grids\EG17_002_TMax_h.tif
+GRID Layer assigned ID of 1
+
+No minimums to write.
+
+Closing map output files...
+
+No PO output to write.
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\plot\gis\EG17_002_PLOT.shp]...
+
+Closing GIS Layer 3 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\plot\gis\EG17_002_PLOT.shp]...
+
+Closing GIS Layer 4 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG17\plot\gis\EG17_002_PLOT.shp]...
+
+Input File ............ E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG17_002.tcfSimulation Log File ... E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002.tlf
+
+Closing GIS Layer 1 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002_messages.shp]...
+
+Closing any unclosed GIS layers...
+
+Deallocating memory for 1D/2D link indexing...
+
+-------------------------------
+--    Simulation FINISHED    --
+-------------------------------
+
+                         PRIOR TO SIMULATION
+  Number of WARNINGs:    _messages layer =       1     Total =       1
+  Number of CHECKs:      _messages layer =       0     Total =       0
+
+                          DURING SIMULATION
+  Number of WARNINGs:    _messages layer =       0     Total =       0
+  Number of CHECKs:      _messages layer =       0     Total =       0
+
+
+_____________________________________________________________________________________________________________
+_____________________________________________________________________________________________________________
+
+SIMULATION SUMMARY
+
+Input File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG17_002.tcf
+Log File:   E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG17_002.tlf
+
+Start Time (h): 0.
+End Time (h):   48.
+
+Initialisation Times
+Clock Time:          0:00:07  [0.001944 h]
+Processor Time:      0:00:07  [0.002127 h]
+Final Times
+NOTE: Processor times may be misleading/inaccurate when using GPU hardware.
+Clock Time:          0:05:12  [0.08667 h]
+Processor Time:      0:05:13  [0.08715 h]
+
+Simulation FINISHED
+
+HPC HCN Repeated Timesteps: 0  ! HCN is High Control Numbers, eg. Courant Number exceedance
+HPC NaN Repeated Timesteps: 0  ! NaN - Not a Number means an instability occurred
+HPC NaN WARNING 2550: 0
+
+WARNINGs prior to simulation:     1  [0 not in _messages layer]
+WARNINGs during simulation:       0  [0 not in _messages layer]
+CHECKs prior to simulation:       0  [0 not in _messages layer]
+CHECKs during simulation:         0  [0 not in _messages layer]
+
+Volume at Start (m3):  269
+Volume at End (m3):    67708
+Total Volume In (m3):  381350
+Total Volume Out (m3): 313901
+Volume Error (m3):     -10 or -0.0% of Volume In + Out
+Final Cumulative ME:   -0.00%
+_____________________________________________________________________________________________________________
+
+Deallocating SGS memory.
+... Finished deallocating SGS memory.
+
+De-allocating memory (RAM) for storing elevations at SGS sampling points (SGS Approach == Method C)
+... Done
+
+Closing all file units...

@@ -1,0 +1,6 @@
+"EG02_010","Location","Flow","Flow","Water Level","Velocity","Water Level","Velocity","Flow into Region","Flow out of Region","Volume"
+"e:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG02_010.tcf","Time","PO_01","PO_02","PO_01","PO_01","PO_02","PO_02","PO_Vol1","PO_Vol1","PO_Vol1"
+"e:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG02\EG02_010_POMM.csv","Maximum (Extracted from Time Series)",         87.8062,         85.5206,         43.2364,          1.1375,         40.1355,          1.0266,         91.9527,         85.9610,     121059.2891
+"","Time of Maximum",          1.1333,          1.2167,          1.1833,          0.6833,          1.2333,          1.2000,          0.9500,          1.1833,          1.1500
+"","Minimum (Extracted From Time Series)",          0.0000,          0.0000,          0.0000,          0.0000,          0.0000,          0.0000,          0.0000,          0.0000,          0.0000
+"","Time of Minimum",          0.0000,          0.0000,          0.0000,          0.0000,          0.9167,          0.0000,          0.0000,          0.0000,          0.0000

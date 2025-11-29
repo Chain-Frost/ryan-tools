@@ -6,7 +6,7 @@ from pandas import DataFrame
 import pytest
 
 import ryan_library.functions.misc_functions as misc_functions
-from ryan_library.functions.tuflow import pomm_combine as pomm_module
+from ryan_library.scripts.tuflow import pomm_combine as pomm_module
 
 
 class _FixedDateTime(datetime):

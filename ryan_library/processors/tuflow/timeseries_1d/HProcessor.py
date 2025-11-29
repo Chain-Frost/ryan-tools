@@ -1,0 +1,72 @@
+# ryan_library\processors\tuflow\timeseries_1d\HProcessor.py
+
+"""Processor for TUFLOW ``_H`` timeseries outputs."""
+
+
+from loguru import logger
+from ..base_processor import ProcessorStatus
+from ..timeseries_processor import TimeSeriesProcessor
+
+
+class HProcessor(TimeSeriesProcessor):
+    """Handle water level (``H``) timeseries files with upstream/downstream values.
+
+    .. note::
+        This processor expects channel-based H data (US_H, DS_H). It does not support
+        node-based H data (N1, N2) such as that found in some 1d_H.csv files (e.g., EG11_006_1d_H.csv).
+    """
+
+    def process(self) -> None:  # type: ignore[override]
+        """Process a ``_H`` CSV using the shared timeseries pipeline."""
+
+        self._process_timeseries_pipeline(data_type="H")
+
+    def process_timeseries_raw_dataframe(self) -> ProcessorStatus:
+        """Normalise the dual-value timeseries DataFrame produced by the shared pipeline."""
+
+        try:
+            logger.debug(f"{self.file_name}: Normalising reshaped 'H' DataFrame.")
+
+            required_columns: set[str] = {"Time", "US_H", "DS_H"}
+            missing_columns: set[str] = required_columns - set(self.df.columns)
+            if missing_columns:
+                logger.error(f"{self.file_name}: Missing required columns after melt: {sorted(missing_columns)}.")
+                return ProcessorStatus.FAILURE
+
+            identifier_columns: list[str] = [col for col in self.df.columns if col not in required_columns]
+            if not identifier_columns:
+                logger.error(f"{self.file_name}: No identifier column found alongside 'US_H'/'DS_H'.")
+                return ProcessorStatus.FAILURE
+            if len(identifier_columns) > 1:
+                identifier_error: str = (
+                    f"{self.file_name}: Expected a single identifier column alongside 'Time', "
+                    f"'US_H' and 'DS_H', got {identifier_columns}."
+                )
+                logger.error(identifier_error)
+                return ProcessorStatus.FAILURE
+
+            identifier_column: str = identifier_columns[0]
+            logger.debug(f"{self.file_name}: Using '{identifier_column}' as the identifier column for 'H' values.")
+
+            initial_row_count: int = len(self.df)
+            self.df.dropna(subset=["US_H", "DS_H"], how="all", inplace=True)  # pyright: ignore[reportUnknownMemberType]
+            dropped_rows: int = initial_row_count - len(self.df)
+            if dropped_rows:
+                logger.debug(f"{self.file_name}: Dropped {dropped_rows} rows with missing 'H' values.")
+
+            if self.df.empty:
+                logger.error(f"{self.file_name}: DataFrame is empty after removing rows with missing 'H' values.")
+                return ProcessorStatus.EMPTY_DATAFRAME
+
+            expected_order: list[str] = ["Time", identifier_column, "US_H", "DS_H"]
+            self.df = self.df[expected_order]
+
+            if not self.check_headers_match(test_headers=self.df.columns.tolist()):
+                logger.error(f"{self.file_name}: Header mismatch after normalising 'H' DataFrame.")
+                return ProcessorStatus.HEADER_MISMATCH
+
+            logger.info(f"{self.file_name}: Successfully normalised 'H' DataFrame for downstream processing.")
+            return ProcessorStatus.SUCCESS
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.exception(f"{self.file_name}: Unexpected error while normalising 'H' DataFrame: {exc}")
+            return ProcessorStatus.FAILURE

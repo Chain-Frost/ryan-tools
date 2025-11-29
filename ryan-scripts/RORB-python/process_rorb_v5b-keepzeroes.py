@@ -37,9 +37,7 @@ def read_rorb_hydrograph_csv(filepath: Path) -> pd.DataFrame:
     except pd.errors.ParserError as e:
         logging.error(f"Parsing error in CSV file {filepath}: {e}", exc_info=True)
     except Exception as e:
-        logging.error(
-            f"Unexpected error reading CSV file {filepath}: {e}", exc_info=True
-        )
+        logging.error(f"Unexpected error reading CSV file {filepath}: {e}", exc_info=True)
     return pd.DataFrame()
 
 
@@ -138,9 +136,7 @@ def parse_summary_section(raw_summary: list[str]) -> dict[str, str]:
     return summary_dict
 
 
-def construct_csv_path(
-    batchout: Path, aep_part: str, duration_part: str, tpat: int
-) -> Path:
+def construct_csv_path(batchout: Path, aep_part: str, duration_part: str, tpat: int) -> Path:
     """
     Construct the CSV file path based on batch output.
 
@@ -260,9 +256,7 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
                             elif lp_indicator == 2:  # ROC
                                 ROC = values[1]
                         except (IndexError, ValueError) as e:
-                            logging.error(
-                                f"Error parsing loss parameters: {e}", exc_info=True
-                            )
+                            logging.error(f"Error parsing loss parameters: {e}", exc_info=True)
                         lp_indicator = 0  # Reset LP after parsing
                     elif "Parameters" in line:
                         # Parsing 'Parameters' line for kc and m
@@ -271,9 +265,7 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
                             kc = float(parts[3])
                             m = float(parts[-1])
                         except (IndexError, ValueError) as e:
-                            logging.error(
-                                f"Error parsing Parameters line: {e}", exc_info=True
-                            )
+                            logging.error(f"Error parsing Parameters line: {e}", exc_info=True)
                     elif "Loss parameters" in line:
                         # Determine which loss parameter to parse next
                         lp_indicator = 1 if "Cont" in line else 2
@@ -297,9 +289,7 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
                     elif " Run        Duration             AEP  " in line:
                         # Header line for runs
                         rorb_runs_header = line.strip().split()
-                        rorb_runs_header.append(
-                            "csv"
-                        )  # Add 'csv' as an additional column
+                        rorb_runs_header.append("csv")  # Add 'csv' as an additional column
                     else:
                         # Parsing individual run lines
                         run_data = parse_run_line(line, batchout_file)
@@ -326,15 +316,11 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
             return batch_df
 
     except Exception as e:
-        logging.error(
-            f"Error processing batchout file {batchout_file}: {e}", exc_info=True
-        )
+        logging.error(f"Error processing batchout file {batchout_file}: {e}", exc_info=True)
         return pd.DataFrame()
 
 
-def analyze_hydrograph(
-    rline: tuple[str, str, int, str, str], qcheck_list: list[float]
-) -> pd.DataFrame:
+def analyze_hydrograph(rline: tuple[str, str, int, str, str], qcheck_list: list[float]) -> pd.DataFrame:
     """
     Analyze hydrograph CSV files to determine durations exceeding specified thresholds.
 
@@ -365,15 +351,10 @@ def analyze_hydrograph(
             return durexcdb  # Return empty DataFrame if CSV couldn't be read
 
         # Clean up column names by removing the prefix
-        hydrographs.columns = [
-            col.replace("Calculated hydrograph:  ", "") for col in hydrographs.columns
-        ]
+        hydrographs.columns = [col.replace("Calculated hydrograph:  ", "") for col in hydrographs.columns]
 
         # Ensure 'Time (hrs)' column exists and has at least two entries to calculate timestep
-        if (
-            "Time (hrs)" not in hydrographs.columns
-            or len(hydrographs["Time (hrs)"]) < 2
-        ):
+        if "Time (hrs)" not in hydrographs.columns or len(hydrographs["Time (hrs)"]) < 2:
             logging.error(f"'Time (hrs)' column missing or insufficient in {csv_read}")
             return durexcdb
 
@@ -420,18 +401,12 @@ def run_processing_pipeline() -> None:
     logging.info("Starting processing pipeline...")
 
     # Recursively search for all batch.out files using pathlib for better path handling
-    logging.info(
-        "Recursively searching for **/*batch.out files - this may take a while"
-    )
-    file_list: list[Path] = [
-        Path(f) for f in iglob("**/*batch.out", recursive=True) if Path(f).is_file()
-    ]
+    logging.info("Recursively searching for **/*batch.out files - this may take a while")
+    file_list: list[Path] = [Path(f) for f in iglob("**/*batch.out", recursive=True) if Path(f).is_file()]
     logging.info(f"Found {len(file_list)} batch.out files")
 
     # Process each batch.out file and collect the data
-    batch_list: list[pd.DataFrame] = [
-        parse_batch_output(batchout_file) for batchout_file in file_list
-    ]
+    batch_list: list[pd.DataFrame] = [parse_batch_output(batchout_file) for batchout_file in file_list]
 
     # Concatenate all DataFrames into one, handling empty lists gracefully
     if batch_list:
@@ -450,9 +425,7 @@ def run_processing_pipeline() -> None:
         # Prepare for processing hydrograph CSVs
         db: pd.DataFrame = files_df
         # Define the threshold flows to check
-        qcheck: list[float] = (
-            list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10))
-        )
+        qcheck: list[float] = list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10))
         # Create a list of tuples for each hydrograph CSV to process
         rorb_csvs = list(
             zip(
@@ -466,9 +439,7 @@ def run_processing_pipeline() -> None:
         num_files: int = len(rorb_csvs)
         # Calculate the optimal number of threads based on the number of files
         num_threads: int = calculate_pool_size(num_files)
-        logging.info(
-            f"Processing {num_files} hydrograph CSV files with {num_threads} threads"
-        )
+        logging.info(f"Processing {num_files} hydrograph CSV files with {num_threads} threads")
 
         # Process hydrograph CSVs using multiprocessing for better performance
         with multiprocessing.Pool(num_threads) as pool:
@@ -478,9 +449,7 @@ def run_processing_pipeline() -> None:
 
         # Concatenate the results into a single DataFrame if any data was returned
         logging.info("Merging the hydrograph results")
-        df: pd.DataFrame = (
-            pd.concat(rorb_data, ignore_index=True) if rorb_data else pd.DataFrame()
-        )
+        df: pd.DataFrame = pd.concat(rorb_data, ignore_index=True) if rorb_data else pd.DataFrame()
 
         if not df.empty:
             # Save the duration exceeding thresholds to files with a timestamp
@@ -488,9 +457,7 @@ def run_processing_pipeline() -> None:
             output_prefix: str = f"{date_time_string}_durex_5b-zeroes"
             df.to_parquet(f"{output_prefix}.parquet.gzip", compression="gzip")
             df.to_csv(f"{output_prefix}.csv", index=False)
-            logging.info(
-                f"Duration exceeding thresholds saved to {output_prefix}.csv and {output_prefix}.parquet.gzip"
-            )
+            logging.info(f"Duration exceeding thresholds saved to {output_prefix}.csv and {output_prefix}.parquet.gzip")
 
             # Prepare to calculate statistics
             finaldb_columns: list[str] = [
@@ -515,9 +482,7 @@ def run_processing_pipeline() -> None:
 
             # Iterate over each group and calculate statistics
             for name, group in grouped:
-                stats_result = calculate_central_tendency_statistics(
-                    group, "Duration_Exceeding", "TP", "Duration"
-                )
+                stats_result = calculate_central_tendency_statistics(group, "Duration_Exceeding", "TP", "Duration")
                 # The result is a list, so we need to concatenate it with the name tuple
                 result = list(name) + stats_result
                 # Append the result to the final DataFrame

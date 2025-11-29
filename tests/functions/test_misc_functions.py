@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# import sys
+# sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from ryan_library.functions.misc_functions import split_strings, split_strings_in_dict
 
@@ -39,13 +39,13 @@ def test_split_strings_with_empty_values() -> None:
 def test_split_strings_in_dict_normalises_mixed_values() -> None:
     """Strings and lists of strings should be flattened into a single list of tokens."""
 
-    params = {
+    params: dict[str, str | list[str]] = {
         "single": "alpha beta",
         "list_value": ["gamma delta", "epsilon"],
         "pre_split": ["zeta", "eta"],
     }
 
-    result = split_strings_in_dict(params)
+    result: dict[str, list[str]] = split_strings_in_dict(params_dict=params)
 
     assert result is params
     assert result == {
@@ -58,14 +58,14 @@ def test_split_strings_in_dict_normalises_mixed_values() -> None:
 def test_split_strings_in_dict_preserves_unrelated_keys() -> None:
     """Keys that are already split remain unchanged aside from normalisation."""
 
-    params = {
+    params: dict[str, list[str] | str] = {
         "already_split": ["theta", "iota"],
         "needs_split": "kappa lambda",
     }
 
     expected_already_split = params["already_split"].copy()
 
-    split_strings_in_dict(params)
+    split_strings_in_dict(params_dict=params)
 
     assert params["already_split"] == expected_already_split
     assert params["needs_split"] == ["kappa", "lambda"]

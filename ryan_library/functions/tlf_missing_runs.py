@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
@@ -7,11 +6,12 @@ import pandas as pd
 
 # ---------- Core expectations ----------
 
-ExpectedTP = Literal["TP01","TP02","TP03","TP04","TP05","TP06","TP07","TP08","TP09","TP10"]
+ExpectedTP = Literal["TP01", "TP02", "TP03", "TP04", "TP05", "TP06", "TP07", "TP08", "TP09", "TP10"]
 EXPECTED_TPS: tuple[ExpectedTP, ...] = tuple(f"TP{n:02d}" for n in range(1, 11))  # TP01..TP10
 
 
 # ---------- Data classes ----------
+
 
 @dataclass(frozen=True, slots=True)
 class CompletedSet:
@@ -19,12 +19,14 @@ class CompletedSet:
     duration: str | int | float
     aep: str | int | float
 
+
 @dataclass(frozen=True, slots=True)
 class OutstandingSet:
     trim_run_code: str
     duration: str | int | float
     aep: str | int | float
     missing_tps: tuple[str, ...]
+
 
 @dataclass(slots=True)
 class AnalysisResult:
@@ -35,6 +37,7 @@ class AnalysisResult:
 
 
 # ---------- Helpers ----------
+
 
 def _standardize_tp(val: object) -> str:
     if val is None:
@@ -50,6 +53,7 @@ def _standardize_tp(val: object) -> str:
         return f"TP{n:02d}"
     return ""
 
+
 def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     cols = {c.lower(): c for c in df.columns}
     for r in ("aep", "duration", "tp"):
@@ -62,13 +66,16 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
             break
     if trc_key is None:
         raise KeyError("Required column 'trim_run_code' (or alias 'trim_runcode') not found.")
-    out = pd.DataFrame({
-        "AEP": df[cols["aep"]],
-        "Duration": df[cols["duration"]],
-        "TP": df[cols["tp"]].map(_standardize_tp),
-        "trim_run_code": df[cols[trc_key]],
-    })
+    out = pd.DataFrame(
+        {
+            "AEP": df[cols["aep"]],
+            "Duration": df[cols["duration"]],
+            "TP": df[cols["tp"]].map(_standardize_tp),
+            "trim_run_code": df[cols[trc_key]],
+        }
+    )
     return out
+
 
 def _unique_sorted(series: pd.Series) -> list:
     vals = series.dropna().unique().tolist()
@@ -81,6 +88,7 @@ def _unique_sorted(series: pd.Series) -> list:
 
 
 # ---------- Analysis ----------
+
 
 def analyze_missing_runs(df: pd.DataFrame) -> AnalysisResult:
     work = _normalize_columns(df).copy()
@@ -96,7 +104,9 @@ def analyze_missing_runs(df: pd.DataFrame) -> AnalysisResult:
         if not missing:
             completed.append(CompletedSet(trim_run_code=str(trc), duration=dur, aep=aep))
         else:
-            outstanding.append(OutstandingSet(trim_run_code=str(trc), duration=dur, aep=aep, missing_tps=tuple(missing)))
+            outstanding.append(
+                OutstandingSet(trim_run_code=str(trc), duration=dur, aep=aep, missing_tps=tuple(missing))
+            )
 
     no_sets = len(completed) == 0
     if no_sets:
@@ -133,14 +143,14 @@ def to_summary_frames(result: AnalysisResult) -> dict[str, pd.DataFrame]:
             counts.setdefault(o.trim_run_code, {"completed_sets": 0, "outstanding_sets": 0})
             counts[o.trim_run_code]["outstanding_sets"] += 1
 
-    frames["per_trim_run_code_counts"] = (
-        pd.DataFrame([{"trim_run_code": k, **v} for k, v in counts.items()])
-        .sort_values("trim_run_code", ignore_index=True)
-    )
+    frames["per_trim_run_code_counts"] = pd.DataFrame(
+        [{"trim_run_code": k, **v} for k, v in counts.items()]
+    ).sort_values("trim_run_code", ignore_index=True)
     return frames
 
 
 # ---------- Concise presentation (CLI + single-table export) ----------
+
 
 def summarize_for_cli(df: pd.DataFrame) -> tuple[str, pd.DataFrame]:
     """
@@ -161,7 +171,9 @@ def summarize_for_cli(df: pd.DataFrame) -> tuple[str, pd.DataFrame]:
 
     if result.no_sets:
         lines.append("No complete (AEP, Duration) sets found in the data. Missing lists suppressed by rule.")
-        rows.append({"trim_run_code": "ALL", "section": "notice", "message": "No complete sets; missing lists suppressed"})
+        rows.append(
+            {"trim_run_code": "ALL", "section": "notice", "message": "No complete sets; missing lists suppressed"}
+        )
         return "\n".join(lines), pd.DataFrame(rows)
 
     work = _normalize_columns(df).copy()
@@ -222,6 +234,7 @@ def summarize_for_cli(df: pd.DataFrame) -> tuple[str, pd.DataFrame]:
 
 # ---------- Optional CLI (no argparse) ----------
 
+
 def main(input_path: str | None = None, sheet_name: str | int | None = 0) -> None:
     if input_path is None:
         print("No input provided. Import this module and call analyze_missing_runs(df) or summarize_for_cli(df).")
@@ -238,8 +251,10 @@ def main(input_path: str | None = None, sheet_name: str | int | None = 0) -> Non
     table.to_csv(out_csv, index=False)
     print(f"\nWrote: {out_csv}")
 
+
 if __name__ == "__main__":
     import sys
+
     path = sys.argv[1] if len(sys.argv) > 1 else None
     sheet = sys.argv[2] if len(sys.argv) > 2 else 0
     try:

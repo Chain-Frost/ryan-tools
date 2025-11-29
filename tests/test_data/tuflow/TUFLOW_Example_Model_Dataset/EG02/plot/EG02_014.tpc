@@ -1,0 +1,45 @@
+Format Version == 2
+Units == METRIC
+Simulation ID == EG02_014
+Time Series Output Format == CSV 
+
+GIS Plot Layer Points == .\gis\EG02_014_PLOT_P.shp
+GIS Plot Layer Lines == .\gis\EG02_014_PLOT_L.shp
+GIS Plot Layer Regions == .\gis\EG02_014_PLOT_R.shp
+GIS Plot Objects == .\gis\EG02_014_PLOT.csv
+
+NetCDF Time Series == NONE
+
+
+Number 1D Nodes == 45
+Number 1D Channels == 41
+
+1D Node Info == .\csv\EG02_014_1d_Node.csv
+1D Channel Info == .\csv\EG02_014_1d_Chan.csv
+
+1D Node Maximums == .\csv\EG02_014_1d_Nmx.csv
+1D Water Levels == .\csv\EG02_014_1d_H.csv
+1D Node Volumes == NONE
+1D Flow Integrals == NONE
+1D Energy Levels == NONE
+1D Mass Balance Errors == .\csv\EG02_014_1d_TSMB.csv
+1D Node Regime == .\csv\EG02_014_1d_NF.csv
+
+1D Channel Maximums == .\csv\EG02_014_1d_Cmx.csv
+1D Flows == .\csv\EG02_014_1d_Q.csv
+1D Velocities == .\csv\EG02_014_1d_V.csv
+1D Flow Areas == NONE
+1D Channel Losses == .\csv\EG02_014_1d_L.csv
+1D Channel Regime == .\csv\EG02_014_1d_CF.csv
+
+Number Reporting Location Points == 2
+Reporting Location Points Water Levels == .\csv\EG02_014_RLP_H.csv
+Reporting Location Points Maximums == .\csv\EG02_014_RLP_Hmx.csv
+
+Number Reporting Location Lines == 3
+Reporting Location Lines Flows == .\csv\EG02_014_RLL_Q.csv
+Reporting Location Lines Maximums == .\csv\EG02_014_RLL_Qmx.csv
+
+Number Reporting Location Regions == 1
+Reporting Location Regions Volumes == .\csv\EG02_014_RLR_Vol.csv
+Reporting Location Regions Maximums == .\csv\EG02_014_RLR_Volmx.csv

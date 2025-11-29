@@ -182,9 +182,7 @@ def find_culvert_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
         logger.warning("Mean metric column '{}' does not contain any numeric values.", metric_column)
         return pd.DataFrame()
 
-    df["mean_bin"] = (
-        df.groupby(group_columns, observed=True)["_has_metric"].transform("sum").astype("Int64")
-    )
+    df["mean_bin"] = df.groupby(group_columns, observed=True)["_has_metric"].transform("sum").astype("Int64")
 
     idx = df[df["_has_metric"]].groupby(group_columns, observed=True)["_mean_metric"].idxmax()
     result: pd.DataFrame = df.loc[idx].drop(columns=["_mean_metric", "_has_metric"]).reset_index(drop=True)

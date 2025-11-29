@@ -49,17 +49,11 @@ def find_python_installation(qgis_path: Path) -> Path:
         FileNotFoundError: If the Python installation directory cannot be found.
     """
     python_pattern = "Python3*"
-    python_dirs = sorted(
-        qgis_path.glob(f"apps/{python_pattern}"), reverse=True
-    )  # Latest first
+    python_dirs = sorted(qgis_path.glob(f"apps/{python_pattern}"), reverse=True)  # Latest first
 
     if not python_dirs:
-        logger.error(
-            "Python installation not found within QGIS/OSGeo4W apps directory."
-        )
-        raise FileNotFoundError(
-            "Python installation not found within QGIS/OSGeo4W apps directory."
-        )
+        logger.error("Python installation not found within QGIS/OSGeo4W apps directory.")
+        raise FileNotFoundError("Python installation not found within QGIS/OSGeo4W apps directory.")
 
     python_dir = python_dirs[0]  # Choose the latest Python version
     logger.info(f"Detected Python installation at: {python_dir}")
@@ -87,9 +81,7 @@ def setup_environment(qgis_path: Path = None):
     # Set environment variables
     os.environ["OSGEO4W_ROOT"] = str(qgis_path)
     os.environ["GDAL_DATA"] = str(qgis_path / "apps" / "gdal" / "share" / "gdal")
-    os.environ["GDAL_DRIVER_PATH"] = str(
-        qgis_path / "apps" / "gdal" / "lib" / "gdalplugins"
-    )
+    os.environ["GDAL_DRIVER_PATH"] = str(qgis_path / "apps" / "gdal" / "lib" / "gdalplugins")
     os.environ["GS_LIB"] = str(qgis_path / "apps" / "gs" / "lib")
     os.environ["OPENSSL_ENGINES"] = str(qgis_path / "lib" / "engines-3")
     os.environ["SSL_CERT_FILE"] = str(qgis_path / "bin" / "curl-ca-bundle.crt")
@@ -99,9 +91,7 @@ def setup_environment(qgis_path: Path = None):
     os.environ["PYTHONHOME"] = str(python_dir)
     os.environ["PYTHONUTF8"] = "1"
     os.environ["QT_PLUGIN_PATH"] = str(qgis_path / "apps" / "Qt5" / "plugins")
-    os.environ["PATH"] = (
-        f"{python_dir / 'Scripts'};" f"{qgis_path / 'bin'};" f"{os.environ['PATH']}"
-    )
+    os.environ["PATH"] = f"{python_dir / 'Scripts'};" f"{qgis_path / 'bin'};" f"{os.environ['PATH']}"
 
     logger.debug("Environment variables set successfully.")
 
@@ -135,9 +125,7 @@ def check_executable(path: str, name: str):
         FileNotFoundError: If the executable or script is not found.
     """
     if not Path(path).exists():
-        logger.error(
-            f"Error: {name} not found at {path}. Ensure it is correctly installed."
-        )
+        logger.error(f"Error: {name} not found at {path}. Ensure it is correctly installed.")
         raise FileNotFoundError(f"{name} not found at {path}.")
 
 

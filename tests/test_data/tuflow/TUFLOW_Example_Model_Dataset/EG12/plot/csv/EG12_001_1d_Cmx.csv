@@ -1,0 +1,5 @@
+"EG12_001 [e:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG12_001.tcf]","Chan ID","Qmax","Time Qmax","Vmax","Time Vmax"
+     1,"FC01.1_R",          47.458,          0.9541,      8.1376,          0.9541
+     2,"FC01.2_R",          70.150,          1.3529,      4.8715,          1.3529
+     3,"FC04.1_C",           0.000,          3.0001,      0.0000,          3.0001
+     4,"OC_001",           1.000,          1.5000,      0.6366,          1.5000

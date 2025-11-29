@@ -11,9 +11,7 @@ import warnings
 
 # Animesh functions
 def read_csv(filepathname, separator, skip_row, header_row, skip_cols):
-    returncsv = pd.read_csv(
-        filepathname, sep=separator, skiprows=skip_row, header=header_row
-    )
+    returncsv = pd.read_csv(filepathname, sep=separator, skiprows=skip_row, header=header_row)
     if skip_cols > 0:  # loop through the columns and delete them
         for d in range(
             skip_cols
@@ -149,9 +147,7 @@ def process_batchout(batchout_file):
                     summaryDict = processSummary(rawSummary)  # type: ignore
                     foundResults = 10
             elif foundResults == 10:
-                if (
-                    "Run,    Representative hydrograph" in line
-                ):  # got to the end, stop recording
+                if "Run,    Representative hydrograph" in line:  # got to the end, stop recording
                     foundResults = 20
                 elif " Run        Duration             AEP  " in line:
                     rorbRuns = line.strip().split()
@@ -184,13 +180,9 @@ def process_batchout(batchout_file):
                     rawLine.pop(2)
                     print(rawLine)
                     processedLine = [float(el) for el in rawLine]  # convert to floats
-                    processedLine[3] = int(
-                        processedLine[3]
-                    )  # make the TPat and integer
+                    processedLine[3] = int(processedLine[3])  # make the TPat and integer
                     processedLine.append(
-                        make_csv_path(
-                            batchout_file, aepPart, durationPart, processedLine[3]
-                        )
+                        make_csv_path(batchout_file, aepPart, durationPart, processedLine[3])
                     )  # the csv value. we don't know which column it has to be, so append
                     # print(processedLine)
                     rorbRuns.append(processedLine)  # type: ignore
@@ -231,16 +223,11 @@ def process_hydrographCSV(printText, rline, qcheckList):
         ]
     )
     hydrographs = read_csv(csv_read, ",", 2, 0, 1)
-    hydrographs.columns = [
-        m.replace("Calculated hydrograph:  ", "") for m in list(hydrographs.columns)
-    ]
+    hydrographs.columns = [m.replace("Calculated hydrograph:  ", "") for m in list(hydrographs.columns)]
     timestep = hydrographs["Time (hrs)"][1] - hydrographs["Time (hrs)"][0]
     for qch in qcheckList:
         location = hydrographs[hydrographs > qch].count()[1:].index.to_list()
-        dur_exc = [
-            (k + int(k > 0)) * timestep
-            for k in hydrographs[hydrographs > qch].count()[1:]
-        ]
+        dur_exc = [(k + int(k > 0)) * timestep for k in hydrographs[hydrographs > qch].count()[1:]]
         dictionary = {
             "AEP": [aep] * len(location),
             "Duration": [dur] * len(location),
@@ -268,9 +255,7 @@ if __name__ == "__main__":
         batch_list.append(process_batchout(batchout_file))
         files_df = pd.concat(batch_list, ignore_index=True)
     files_df
-    DateTimeString = (
-        datetime.now().strftime("%Y%m%d") + "-" + datetime.now().strftime("%H%M")
-    )
+    DateTimeString = datetime.now().strftime("%Y%m%d") + "-" + datetime.now().strftime("%H%M")
     output = f"{DateTimeString}_batchouts.csv"
     files_df.to_csv(output, index=False)
 
@@ -279,9 +264,7 @@ if __name__ == "__main__":
     # durexcdb=pd.DataFrame (columns=['AEP','Duration','TP','Location','ThresholdFlow','Duration_Exceeding', 'out_path'])
     # db=pd.read_excel (r"P:\P21182.01 NANUTARRA ROAD DD\200 CALC\200.2 Civil\Flooding\Hydrology\RORB Models\all ensemble results.xlsx",sheet_name='Samson_files')
     db = files_df
-    qcheck = (
-        list(range(1, 10, 1)) + list(range(10, 100, 2)) + list(range(100, 2100, 10))
-    )
+    qcheck = list(range(1, 10, 1)) + list(range(10, 100, 2)) + list(range(100, 2100, 10))
     reslen = db.shape[0]
 
     rorb_csvs = []
@@ -308,9 +291,7 @@ if __name__ == "__main__":
     # processFolder(num, dir)
 
     with multiprocessing.Pool(numThreads) as p:
-        hydroCSV = partial(
-            process_hydrographCSV, qcheckList=qcheck
-        )  # qcheck is a constant list
+        hydroCSV = partial(process_hydrographCSV, qcheckList=qcheck)  # qcheck is a constant list
         rorbDATA = p.starmap(hydroCSV, enumerate(rorb_csvs, start=1))
 
     print("now to merge")
@@ -321,9 +302,7 @@ if __name__ == "__main__":
     # # print(q.head())
     # df.append(q)
 
-    DateTimeString = (
-        datetime.now().strftime("%Y%m%d") + "-" + datetime.now().strftime("%H%M")
-    )
+    DateTimeString = datetime.now().strftime("%Y%m%d") + "-" + datetime.now().strftime("%H%M")
     output = f"{DateTimeString}_durex"
     print("")
     print("Outputting durex.csv")
@@ -352,9 +331,7 @@ if __name__ == "__main__":
                     )
                     finaldb.loc[len(finaldb)] = result
     print("Outputting QvsTexc.csv")
-    DateTimeString = (
-        datetime.now().strftime("%Y%m%d") + "-" + datetime.now().strftime("%H%M")
-    )
+    DateTimeString = datetime.now().strftime("%Y%m%d") + "-" + datetime.now().strftime("%H%M")
     save_as = f"{DateTimeString}_QvsTexc_TuesdayMorning.csv"
     finaldb.to_csv(save_as, index=False)
     print("")

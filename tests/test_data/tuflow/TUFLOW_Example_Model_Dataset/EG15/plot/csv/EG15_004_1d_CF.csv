@@ -1,0 +1,182 @@
+"EG15_004 [e:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG15_004.tcf]","Time(h)","F FC01.1_R [EG15_004]","F FC01.2_R [EG15_004]","F FC04.1_C [EG15_004]","F Pipe0 [EG15_004]","F Pipe1 [EG15_004]","F Pipe10 [EG15_004]","F Pipe11 [EG15_004]","F Pipe12 [EG15_004]","F Pipe13 [EG15_004]","F Pipe14 [EG15_004]","F Pipe15 [EG15_004]","F Pipe16 [EG15_004]","F Pipe17 [EG15_004]","F Pipe19 [EG15_004]","F Pipe2 [EG15_004]","F Pipe3 [EG15_004]","F Pipe4 [EG15_004]","F Pipe5 [EG15_004]","F Pipe6 [EG15_004]","F Pipe7 [EG15_004]","F Pipe8 [EG15_004]","F Pipe9 [EG15_004]","F Pit1 [EG15_004]","F Pit11 [EG15_004]","F Pit12 [EG15_004]","F Pit14 [EG15_004]","F Pit15 [EG15_004]","F Pit16 [EG15_004]","F Pit18 [EG15_004]","F Pit19 [EG15_004]","F Pit2 [EG15_004]","F Pit4 [EG15_004]","F Pit5 [EG15_004]","F Pit6 [EG15_004]","F Pit7 [EG15_004]","F Pit8 [EG15_004]","F Pit9 [EG15_004]"
+       1,          0.000000,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+       2,          0.016667,G,G,G,A,G,A,G,A,G,A,A,A,A,G,G,A,G,A,D,A,G,G,E,E,E,E,E,E,N,E,E,E,N,E,E,E,E
+       3,          0.033333,G,G,G,A,G,A,G,A,G,A,A,A,A,G,G,A,G,A,A,A,G,G,E,E,E,E,E,E,E,E,N,E,N,E,E,E,E
+       4,          0.050000,G,G,G,A,G,A,G,A,G,D,A,A,D,G,G,A,G,A,A,A,G,G,E,N,E,E,E,N,N,E,E,E,E,N,N,E,E
+       5,          0.066667,G,A,G,A,G,A,G,A,G,A,A,A,A,G,J,A,G,A,A,A,G,G,N,N,N,N,E,E,E,N,E,E,N,N,E,E,E
+       6,          0.083333,G,A,G,A,G,A,G,A,G,A,A,A,A,G,J,A,G,A,A,A,A,A,N,N,N,E,E,E,E,N,N,E,N,N,N,E,N
+       7,          0.100000,G,A,G,D,G,A,G,A,G,A,A,A,A,G,J,A,G,A,A,A,A,A,E,N,N,E,E,E,N,N,N,N,N,N,N,N,E
+       8,          0.116667,G,A,G,J,G,A,G,A,G,A,A,A,D,G,J,A,G,A,A,A,A,A,E,N,N,N,E,E,N,N,N,N,N,N,N,E,N
+       9,          0.133333,G,A,G,J,J,A,G,A,G,A,A,A,D,G,J,A,G,A,A,A,A,A,E,N,N,N,E,E,N,N,N,N,N,N,N,E,E
+      10,          0.150000,G,A,G,J,J,A,G,J,G,A,A,A,D,A,J,A,A,A,A,D,A,A,E,N,N,N,E,E,N,N,N,N,N,N,N,E,N
+      11,          0.166667,G,A,G,J,J,A,G,J,G,A,A,A,D,A,J,A,A,A,A,D,J,A,E,N,N,N,E,E,N,N,N,N,N,N,N,E,N
+      12,          0.183333,G,A,G,D,H,A,G,D,G,A,A,A,D,A,J,A,J,A,A,D,H,A,N,N,N,N,E,E,N,N,N,N,N,N,N,N,N
+      13,          0.200000,A,G,A,H,H L,D,J,J,A,A,A,A,D,A,J,A L,H L,A,A,D L,H L,A,N,N,N,N,N,E,N,N,N,N,N,N,N,N,N
+      14,          0.216667,A,A,A,D L,H,D,H,D,A,D,A,D,D,A,J,D,H L,A,A,D L,H L,A,N,N,N,N,N,E,N,N,N,N,N,N,N,N,N
+      15,          0.233333,A,A,A,F,H,D,H,F,A,F,H,D,F,A,J,D,H L,A,D,D L,H,A,N,N,N,N,N,E,N,N,N,N,N,N,N,N,N
+      16,          0.250000,A,A,A,F L,H,F L,F L,F L,F L,F L,F L,F L,F,H L,H,H,H,F L,F L,F L,H,H,N,N,N,N,N,E,N,N,N,N,N,N,N,N,N
+      17,          0.266667,A,A,A,F L,F,F,F,F,F,F,F L,F,F,F,F L,F L,F,F,F,F,F,F,N,R,R,R,N,E,N,N,N,N,N,D,N,R,R
+      18,          0.283333,A,J,A,F L,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,N,R,R,R,R,E,D,D,D,N,N,D,D,R,R
+      19,          0.300000,A,D,A,F L,F,F,F,F,F,F,F L,F,F,F,F,F,F,F,F,F,F,F,D,R,R,R,R,E,D,D,D,N,D,D,D,R,R
+      20,          0.316667,A,J,A,F L,F L,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,R,R,R,R,D,D,D,D,N,D,D,D,R,R
+      21,          0.333333,A,A,A,F,F,F,F,F,F,F L,F L,F,F,F,F,F,F,F,F,F,F,F,D,R,R,R,R,D,D,D,D,N,D,D,D,R,R
+      22,          0.350000,A,A,A,F L,F,F,F L,F,F,F L,F,F,F L,F,F,F,F,F,F,F,F,F,D,R,R,R,R,D,D,D,D,N,D,D,D,R,R
+      23,          0.366667,A,A,A,F,F L,F,F,F,F L,F,F,F,F,F,F,F,F,F,F,F,F,F,D,R,R,R,R,R,D,D,D,D,D,D,D,R,R
+      24,          0.383333,A,A,A,F,F,F,F L,F,F L,F,F L,F,F,F,F,F,F,F,F,F,F,F,D,R,R,R,R,R,D,D,D,D,D,D,R,R,R
+      25,          0.400000,A,J,A,F,F,F,F,F,F,F,F L,F,F,F,F,F,F,F,F,F,F,F,D,R,R,R,R,R,D,D,D,D,D,D,R,R,R
+      26,          0.416667,A,A,A,F,F,F,F,F L,F L,F,F,F,F,F,F,F,F,F,F L,F,F,F,D,R,R,R,R,R,D,D,D,D,D,D,R,R,R
+      27,          0.433333,A,D,A,F L,F L,F,F,F,F,F L,F L,F,F L,F,F,F,F,F,F L,F,F,F,D,R,R,R,R,R,D,D,D,D,D,D,R,R,R
+      28,          0.450000,A,A,A,F L,F,F,F L,F L,F L,F,F,F,F,F,F,F L,F,F,F L,F,F,F,D,R,R,R,R,R,D,D,D,D,D,D,R,R,R
+      29,          0.466667,A,J,A,F,F,F,F,F,F,F,F,F,F,F,F,F L,F,F,F L,F,F,F,D,R,R,R,R,R,D,D,D,D,D,D,R,R,R
+      30,          0.483333,A,J,A,F,F,F,F,F L,F,F,F,F,F,F,F,F L,F,F L,F L,F,F,F,D,R,R,R,R,R,D,D,D,D,D,D,R,R,R
+      31,          0.500000,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F L,F L,F,F,F,D,R,R,R,R,R,D,D,D,D,D,D,R,R,R
+      32,          0.516667,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,R,R,R,R,R,D,D,R,D,D,D,R,R,R
+      33,          0.533333,A,D,A,F,F,F,F,F L,F,F,F,F,F,F,F,F,F,F,F,F,F,F,R,R,R,R,R,R,D,D,R,D,D,D,R,R,R
+      34,          0.550000,A,D,A,F,F,F,F,F L,F,F,F,F,F,F,F,F,F,F L,F,F,F,F,R,R,R,R,R,R,D,D,R,D,D,R,R,R,R
+      35,          0.566667,B,D,A,F,F,F,F,F L,F,F,F,F,F,F,F L,F L,F,F,F,F,F,F,R,R,R,R,R,R,D,D,R,D,D,R,R,R,R
+      36,          0.583333,L,D,A,F,F,F L,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,R,R,R,R,R,R,D,D,R,D,D,R,R,R,R
+      37,          0.600000,L,F,A,F,F L,F,F,F,F,F,F,F,F,F,F,F L,F L,F L,F,F,F,F,R,R,R,R,R,R,D,D,R,D,D,R,R,R,R
+      38,          0.616667,L,F,A,F,F L,F,F,F,F,F,F,F,F,F,F,F L,F,F L,F,F,F,F,R,R,R,R,R,R,D,D,R,D,D,R,R,R,R
+      39,          0.633333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F L,F L,F,F,F,F,R,R,R,R,R,R,D,D,R,D,D,R,R,R,R
+      40,          0.650000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F L,F,F,F,F,F,F,R,R,D,R,R,R,D,D,R,D,D,R,R,R,R
+      41,          0.666667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F L,F,F,F,F,F,R,R,D,D,R,R,D,D,R,D,D,R,R,R,R
+      42,          0.683333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F L,F,F,R,R,D,D,R,R,D,D,R,D,D,R,R,R,R
+      43,          0.700000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,R,R,D,D,R,R,D,D,R,D,D,R,R,R,R
+      44,          0.716667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F L,F,F,R,R,D,D,R,R,D,D,R,D,D,R,R,R,R
+      45,          0.733333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F L,F L,F,D,R,D,D,R,R,D,D,R,D,D,R,R,R,R
+      46,          0.750000,L,F,A,F,F,F L,F,F,F,F,F,F,F,F,F L,F,F,F,F,F L,F L,F,D,R,D,D,D,R,D,D,R,D,D,R,R,R,R
+      47,          0.766667,L,F,A,F,F,F L,F,F,F,F,F,F,F,F,F,F,F,F,F,F L,F L,F,D,D,D,D,D,R,D,D,R,D,D,R,R,R,R
+      48,          0.783333,L,F,A,F,F,F L,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F L,F,D,D,D,D,D,R,D,D,R,D,D,R,R,R,R
+      49,          0.800000,L,F,A,F,F,F L,F,F,F,F,F,F,F,F,F L,F,F,F,F,F,F,F,D,D,D,D,D,R,D,D,R,D,D,R,R,R,R
+      50,          0.816667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F L,F,F,F,F,F,F,F,D,D,D,D,D,R,D,D,D,D,D,R,R,R,R
+      51,          0.833333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F L,F,F,F,F,F,F,F,D,D,D,D,D,R,R,D,D,D,D,R,R,R,R
+      52,          0.850000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,R,R,R,R
+      53,          0.866667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,R,D,R,R,R,D
+      54,          0.883333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,R,R,R,D
+      55,          0.900000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,R,D,R,R,R,D
+      56,          0.916667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,R,R,R,D
+      57,          0.933333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,R,R,R,D
+      58,          0.950000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,R,R,D,D
+      59,          0.966667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,R,D,R,R,D,D
+      60,          0.983333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,R,D,R,R,D,D
+      61,          1.000000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,D,R,D,D
+      62,          1.016667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,R,R,D,D
+      63,          1.033333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,R,R,D,D
+      64,          1.050000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,R,D,D,D,D,D,D,D,D,D,R,D,R,D,D
+      65,          1.066667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,R,D,D,D,D,D,D,D,D,D,R,D,R,D,D
+      66,          1.083333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,R,D,D,D,D,R,D,D,D,D
+      67,          1.100000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,R,D,D,D,D,R,D,D,D,D
+      68,          1.116667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+      69,          1.133333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+      70,          1.150000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      71,          1.166667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      72,          1.183333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      73,          1.200000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+      74,          1.216667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+      75,          1.233333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,R,D,D,D,D,R,D,D,D,D
+      76,          1.250000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      77,          1.266667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      78,          1.283333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+      79,          1.300000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+      80,          1.316667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      81,          1.333333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+      82,          1.350000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+      83,          1.366667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      84,          1.383333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      85,          1.400000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+      86,          1.416667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      87,          1.433333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,R,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+      88,          1.450000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+      89,          1.466667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      90,          1.483333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+      91,          1.500000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,R,D,D,D,R,D,D,D,D,D
+      92,          1.516667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+      93,          1.533333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+      94,          1.550000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      95,          1.566667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+      96,          1.583333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,R,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      97,          1.600000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+      98,          1.616667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+      99,          1.633333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     100,          1.650000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,R,D,D,D,D,D
+     101,          1.666667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     102,          1.683333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,R,D,R,D,D,D
+     103,          1.700000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,R,D,D,R,D,D,D,D
+     104,          1.716667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+     105,          1.733333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     106,          1.750000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,R,D,D,D,D,D
+     107,          1.766667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     108,          1.783333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+     109,          1.800000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     110,          1.816667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     111,          1.833333,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,R,D
+     112,          1.850000,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     113,          1.866667,L,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     114,          1.883333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     115,          1.900000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+     116,          1.916667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     117,          1.933333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     118,          1.950000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     119,          1.966667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     120,          1.983333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,R,D,D,D,D,R,D,D,D,D,D
+     121,          2.000000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     122,          2.016667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     123,          2.033334,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+     124,          2.050000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     125,          2.066667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     126,          2.083333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,D,D,D,D
+     127,          2.100000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,R,D,D,D,D
+     128,          2.116667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,R,D,R,R,D,D,R,D
+     129,          2.133333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,R,D,D,D,R,R,D,D,D,D
+     130,          2.150000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,R,D,D,D,R,R,D,R,D,D
+     131,          2.166667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,R,D,R,D,D,D,D
+     132,          2.183333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,R,R,D,D,D,D,D,D
+     133,          2.200000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     134,          2.216667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,R,D
+     135,          2.233333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,R,R,D,D,D,D,D,R,R,D
+     136,          2.250000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,R,D,D,D
+     137,          2.266667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,R,D,D,D,D
+     138,          2.283334,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,R,R,D,D,D,D,D
+     139,          2.300000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     140,          2.316667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,R,D,D
+     141,          2.333333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,R,D,D,D,D,D,D,R,D,D,D,D,D
+     142,          2.350000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,R,R,R,D,D,D,D,D,D,D,D
+     143,          2.366667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     144,          2.383333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     145,          2.400000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     146,          2.416667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     147,          2.433333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,D,D,D,D
+     148,          2.450000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,R,D
+     149,          2.466667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,R,D,D,D,D,D,D,D
+     150,          2.483333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     151,          2.500000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     152,          2.516667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     153,          2.533334,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     154,          2.550000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     155,          2.566667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,R,D
+     156,          2.583333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,D,D,D,D
+     157,          2.600000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,R,D,D,D,D,D,D,D,D,D,D
+     158,          2.616667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     159,          2.633333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,R,D,D
+     160,          2.650000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,R,D,D,D,D,D,D
+     161,          2.666667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,R,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     162,          2.683333,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     163,          2.700000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,R,R,D,D,D
+     164,          2.716667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,R,D,D,D,D,D
+     165,          2.733334,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,R,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     166,          2.750000,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     167,          2.766667,A,F,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,R,D,D,R,D,R,D,D
+     168,          2.783334,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     169,          2.800000,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,R,D,D,D,D,D,R,D,D,D,D
+     170,          2.816667,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,R,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     171,          2.833333,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     172,          2.850000,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,R,D,D,D,D,D,D,D
+     173,          2.866667,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     174,          2.883333,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     175,          2.900000,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,R,D,D,D,D,D,D,D,D
+     176,          2.916667,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,R,D,D,D,D,D,D,D,D,R,D
+     177,          2.933333,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     178,          2.950000,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,R,D,D,D,D,D,D
+     179,          2.966667,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,D,D,D,D,D
+     180,          2.983334,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,D,D,D,D,D,D,D,D,R,D,D,D,D
+     181,          3.000000,A,D,A,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,F,D,D,R,D,D,D,D,R,D,D,D,R,D,D,D

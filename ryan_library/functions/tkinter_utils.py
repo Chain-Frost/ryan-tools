@@ -9,9 +9,7 @@ try:
     class TkinterApp:
         """A Tkinter application that manages multiple text widgets with thread-safe updates."""
 
-        def __init__(
-            self, title: str = "Processing", update_interval: int = 100
-        ) -> None:
+        def __init__(self, title: str = "Processing", update_interval: int = 100) -> None:
             """Initialize the Tkinter application."""
             self.root = tk.Tk()
             self.root.title(title)
@@ -22,9 +20,7 @@ try:
             self.counters_enabled: dict[str, bool] = {}  # Manage counters' state
             self.title_bases: dict[str, str] = {}  # Base titles for widgets
             self.labels: dict[str, tk.Label] = {}  # References to the labels
-            self.queue: queue.Queue[tuple[str, str]] = (
-                queue.Queue()
-            )  # Queue for text updates
+            self.queue: queue.Queue[tuple[str, str]] = queue.Queue()  # Queue for text updates
             self.update_id: str | None = None  # ID for after method
 
         def create_text_box(
@@ -52,9 +48,7 @@ try:
         ) -> None:
             """Add a text widget to the application."""
             if key not in self.text_widgets:
-                label, text_widget = self.create_text_box(
-                    title, row, column, height, width
-                )
+                label, text_widget = self.create_text_box(title, row, column, height, width)
                 self.text_widgets[key] = text_widget
                 self.line_counts[key] = 0
                 self.counters_enabled[key] = counter
@@ -73,10 +67,7 @@ try:
             try:
                 while True:
                     key, text = self.queue.get_nowait()
-                    if (
-                        key in self.text_widgets
-                        and self.text_widgets[key].winfo_exists()
-                    ):
+                    if key in self.text_widgets and self.text_widgets[key].winfo_exists():
                         text_widget = self.text_widgets[key]
                         text_widget.insert(tk.END, text)
                         text_widget.see(tk.END)

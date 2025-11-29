@@ -14,7 +14,14 @@ from ryan_library.scripts.wrapper_utils import (
 )
 
 CONSOLE_LOG_LEVEL = "INFO"
-INCLUDE_DATA_TYPES: tuple[str, ...] = ("Q",)
+INCLUDE_DATA_TYPES: tuple[str, ...] = ("Q",)  # , "V", "H"),
+# "CF",
+# "L",
+# "NF",
+# "SQ",
+
+# is this stil true?
+# Chan is already loaded inside the script for extra info
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
@@ -28,7 +35,13 @@ def main(
     """Wrapper to combine culvert timeseries; double-clickable.
     By default, it processes files in the directory where the script is located."""
     print_library_version()
-    script_dir: Path = working_directory or WORKING_DIR
+    console_log_level = "INFO"
+    script_dir: Path = Path(__file__).absolute().parent
+    # script_dir = Path(
+    #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
+    # )
+    script_dir = Path(r"..\..\tests\test_data\tuflow\tutorials\Module_03")
+    script_dir: Path = script_dir.resolve().parent
     if not change_working_directory(target_dir=script_dir):
         return
 
@@ -47,13 +60,13 @@ def _parse_cli_arguments() -> CommonWrapperOptions:
     parser = argparse.ArgumentParser(
         description="Combine culvert timeseries exports. Command-line options override the script defaults."
     )
-    add_common_cli_arguments(parser)
-    args = parser.parse_args()
+    add_common_cli_arguments(parser=parser)
+    args: argparse.Namespace = parser.parse_args()
     return parse_common_cli_arguments(args=args)
 
 
 if __name__ == "__main__":
-    common_options = _parse_cli_arguments()
+    common_options: CommonWrapperOptions = _parse_cli_arguments()
     main(
         console_log_level=common_options.console_log_level,
         locations_to_include=common_options.locations_to_include,

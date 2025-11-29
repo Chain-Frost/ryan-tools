@@ -91,9 +91,7 @@ def create_map_theme_record(base_layer_ids, layer, all_layer_ids):
         raise Exception(f"Layer tree layer for '{layer.name()}' not found.")
 
     # Create the theme from the current state
-    map_theme_record = QgsMapThemeCollection.createThemeFromCurrentState(
-        root, QgsLayerTreeModel(root)
-    )
+    map_theme_record = QgsMapThemeCollection.createThemeFromCurrentState(root, QgsLayerTreeModel(root))
 
     return map_theme_record
 

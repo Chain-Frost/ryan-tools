@@ -1,0 +1,39 @@
+Format Version == 2
+Units == METRIC
+Simulation ID == EG12_010
+Time Series Output Format == CSV 
+
+GIS Plot Layer Points == .\gis\EG12_010_PLOT_P.shp
+GIS Plot Layer Lines == .\gis\EG12_010_PLOT_L.shp
+GIS Plot Layer Regions == .\gis\EG12_010_PLOT_R.shp
+GIS Plot Objects == .\gis\EG12_010_PLOT.csv
+
+NetCDF Time Series == NONE
+
+
+Number 1D Nodes == 6
+Number 1D Channels == 3
+
+1D Node Info == .\csv\EG12_010_1d_Node.csv
+1D Channel Info == .\csv\EG12_010_1d_Chan.csv
+
+1D Node Maximums == .\csv\EG12_010_1d_Nmx.csv
+1D Water Levels == .\csv\EG12_010_1d_H.csv
+1D Node Volumes == NONE
+1D Flow Integrals == NONE
+1D Energy Levels == NONE
+1D Mass Balance Errors == .\csv\EG12_010_1d_TSMB.csv
+1D Node Regime == .\csv\EG12_010_1d_NF.csv
+
+1D Channel Maximums == .\csv\EG12_010_1d_Cmx.csv
+1D Flows == .\csv\EG12_010_1d_Q.csv
+1D Velocities == .\csv\EG12_010_1d_V.csv
+1D Flow Areas == NONE
+1D Channel Losses == .\csv\EG12_010_1d_L.csv
+1D Channel Regime == .\csv\EG12_010_1d_CF.csv
+
+Number Reporting Location Points == 0
+
+Number Reporting Location Lines == 0
+
+Number Reporting Location Regions == 0

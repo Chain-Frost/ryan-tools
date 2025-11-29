@@ -1,0 +1,12 @@
+Format Version == 2
+Units == METRIC
+Simulation ID == EG18_002
+Time Series Output Format == CSV 
+
+GIS Plot Layer Points == .\gis\EG18_002_PLOT_P.shp
+GIS Plot Layer Lines == .\gis\EG18_002_PLOT_L.shp
+GIS Plot Layer Regions == .\gis\EG18_002_PLOT_R.shp
+GIS Plot Objects == .\gis\EG18_002_PLOT.csv
+
+NetCDF Time Series == NONE
+

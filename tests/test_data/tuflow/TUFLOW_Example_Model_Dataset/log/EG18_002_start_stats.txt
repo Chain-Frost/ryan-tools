@@ -1,0 +1,80 @@
+Stage                                             ,Total (s)   ,Elapsed (s) 
+Initilisation (file opened)                       ,      0.00,      0.00
+Initializing Grid Link                            ,      0.00,      0.00
+Found 2D domains                                  ,      0.05,      0.05
+Start 2D BC Array Sizes Domain_001                ,      0.09,      0.04
+End 2D BC Array Sizes Domain_001                  ,      0.10,      0.01
+Start Estry Setup s0                              ,      0.10,      0.00
+End Estry Setup s0                                ,      0.10,      0.00
+Start TUFLOW Setup s2                             ,      0.10,      0.00
+Start Read Geometry GIS File Read GIS Z Shape     ,      0.10,      0.01
+End Read Geometry GIS File Read GIS Z Shape       ,      0.11,      0.01
+Start Read Geometry GIS File Read GIS Variable Z S,      0.11,      0.00
+End Read Geometry GIS File Read GIS Variable Z Sha,      0.14,      0.03
+End TUFLOW Setup s2                               ,      0.24,      0.11
+Reading Geometry File Domain_001                  ,      0.26,      0.02
+Start Read Read GIS Code                          ,      0.26,      0.00
+End Read Read GIS Code                            ,      0.27,      0.00
+Start Read GRID Zpts                              ,      0.27,      0.01
+  Start Storing SGS Elevations                    ,      0.28,      0.01
+  End Storing SGS Elevations                      ,      0.41,      0.12
+End Read GRID Zpts                                ,      0.41,      0.00
+Start Read Geometry GIS File Read GIS Z Shape     ,      0.46,      0.05
+End Read Geometry GIS File Read GIS Z Shape       ,      0.46,      0.01
+Start Read Geometry GIS File Read GIS Z Shape     ,      0.46,      0.00
+End Read Geometry GIS File Read GIS Z Shape       ,      0.49,      0.02
+Start Read Geometry GIS File Read GIS Variable Z S,      0.52,      0.03
+End Read Geometry GIS File Read GIS Variable Z Sha,      0.52,      0.00
+Start Read Geometry GIS File Read GIS Variable Z S,      0.52,      0.00
+Start creating TIN and assigning elevations       ,      0.52,      0.00
+End creating TIN and assigning elevations         ,      0.53,      0.01
+End Read Geometry GIS File Read GIS Variable Z Sha,      0.53,      0.00
+Start Read Read GIS Mat                           ,      0.53,      0.00
+End Read Read GIS Mat                             ,      0.54,      0.01
+Finished Reading Geometry File Domain_001         ,      0.54,      0.00
+Starting checking consistency of SGS elevations Do,      0.55,      0.00
+End checking consistency of SGS elevations Domain_,      0.63,      0.08
+Start Pre-processing SGS elevations Domain_001    ,      0.63,      0.00
+End C Cell NUM_THREADS 16                         ,      0.71,      0.08
+End U Face NUM_THREADS 16                         ,      1.62,      0.90
+End V Face NUM_THREADS 16                         ,      2.51,      0.89
+End H corner NUM_THREADS 16                       ,      2.59,      0.09
+End Pre-processing SGS elevations Domain_001      ,      2.59,      0.00
+Calculating statistics SGS elevations Domain_001  ,      2.59,      0.00
+End C Cell stats                                  ,      2.69,      0.09
+End U Face stats                                  ,      2.69,      0.00
+End V Face stats                                  ,      2.70,      0.00
+End H corner stats                                ,      2.79,      0.09
+End calculating statistics SGS elevations Domain_0,      2.79,      0.00
+Start Read input file (stage 2) Domain_001        ,      2.80,      0.01
+End Read input file (stage 2) Domain_001          ,      2.82,      0.03
+Identifying cells within user defined output zones,      2.82,      0.00
+Finished Identifying cells within user defined out,      2.82,      0.00
+Setting instability water levels Domain_001       ,      2.85,      0.03
+Finished Setting instability water levels Domain_0,      2.85,      0.00
+Assigning any Variable Z Shape 1D Trigger Nodes   ,      2.87,      0.01
+Finished Assigning any Variable Z Shape 1D Trigger,      2.87,      0.00
+Start Reading Input File (Stage 3)                ,      2.87,      0.00
+End Reading Input File (Stage 3)                  ,      2.87,      0.00
+Reading Boundary File Domain_001                  ,      2.87,      0.00
+Finished Reading Boundary File Domain_001         ,      2.90,      0.03
+Initialising 2D Data (Stage 1) Domain_001         ,      2.90,      0.00
+Finished Initialising 2D Data (Stage 1) Domain_001,      2.90,      0.00
+Initialising 2D Data (Stage 2) Domain_001         ,      2.91,      0.00
+Finished Initialising 2D Data (Stage 2) Domain_001,      2.93,      0.02
+Start Writing _grd_check                          ,      2.94,      0.02
+End Writing _grd_check                            ,      3.86,      0.91
+Start Writing _zpt_check                          ,      3.86,      0.00
+End Writing _zpt_check                            ,      7.38,      3.53
+Start Writing _uvpt_check                         ,      7.38,      0.00
+End Writing _uvpt_check                           ,      8.86,      1.48
+Start Writing .2dm                                ,      9.61,      0.75
+End Writing .2dm                                  ,      9.63,      0.02
+Start Writing check DEMs                          ,      9.63,      0.00
+Start Calculating grid interpolation factors      ,      9.63,      0.00
+End Calculating grid interpolation factors        ,      9.64,      0.01
+End Writing check DEMs                            ,      9.81,      0.18
+Start Calculating grid interpolation factors      ,      9.81,      0.00
+End Calculating grid interpolation factors        ,      9.82,      0.01
+Starting Simulation                               ,      9.82,      0.00
+Summary File Close                                ,      9.82,      0.00
