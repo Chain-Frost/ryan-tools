@@ -75,14 +75,14 @@ class POMMProcessor(BaseProcessor):
             headers: list[str] = transposed.columns.tolist()
             if self.expected_in_header:
                 if not self.check_headers_match(headers):
-                    raise DataValidationError(f"{self.file_name}: Header mismatch for POMM data. Got {headers}")
+                    raise DataValidationError(f"{self.log_path}: Header mismatch for POMM data. Got {headers}")
 
             rename_map: dict[str, str] = POMM_RENAME_COLUMNS
 
             missing_sources: list[str] = [col for col in rename_map if col not in headers]
             if missing_sources:
                 raise DataValidationError(
-                    f"{self.file_name}: Missing expected columns {missing_sources} after transpose."
+                    f"{self.log_path}: Missing expected columns {missing_sources} after transpose."
                 )
 
             transposed.rename(columns=rename_map, inplace=True)
@@ -100,7 +100,7 @@ class POMMProcessor(BaseProcessor):
 
             if not {"Max", "Min"}.issubset(self.df.columns):
                 raise DataValidationError(
-                    f"{self.file_name}: Required columns 'Max' and 'Min' not available after renaming."
+                    f"{self.log_path}: Required columns 'Max' and 'Min' not available after renaming."
                 )
 
             # 10) Finally, apply the dtype mapping from output_columns (so that everything
@@ -114,11 +114,11 @@ class POMMProcessor(BaseProcessor):
             self.apply_output_transformations()
             # Mark success
             self.processed = True
-            logger.info(f"{self.file_name}: POMM processed successfully.")
+            logger.info(f"{self.log_path}: POMM processed successfully.")
 
         except Exception as e:
             logger.error(
-                f"{self.file_name}: Failed in POMMProcessor.process(): {e}",
+                f"{self.log_path}: Failed in POMMProcessor.process(): {e}",
                 exc_info=True,
             )
             self.df = pd.DataFrame()

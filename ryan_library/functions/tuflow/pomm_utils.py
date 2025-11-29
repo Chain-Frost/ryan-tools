@@ -65,12 +65,14 @@ def process_file(file_path: Path, location_filter: frozenset[str] | None = None)
             processor.filter_locations(location_filter)
 
         if processor.validate_data():
-            logger.info(f"Successfully processed file: {file_path}")
+            # logger.info(f"Successfully processed file: {processor.log_path}")
+            pass
         else:
-            logger.warning(f"Validation failed for file: {file_path}")
+            # logger.warning(f"Validation failed for file: {processor.log_path}")
+            pass
         return processor
     except Exception as e:
-        logger.exception(f"Failed to process file {file_path}: {e}")
+        logger.exception(f"Failed to process file {processor.log_path}: {e}")
         raise
 
 

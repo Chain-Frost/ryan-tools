@@ -27,7 +27,7 @@ class ccAProcessor(BaseProcessor):
         Sets:
             pd.DataFrame: Processed CCA data.
         """
-        logger.debug(f"Starting processing of CCA file: {self.file_path}")
+        logger.debug(f"Starting processing of CCA file: {self.log_path}")
         file_ext = self.file_path.suffix.lower()
 
         try:
@@ -36,12 +36,12 @@ class ccAProcessor(BaseProcessor):
             elif file_ext == ".gpkg":
                 cca_data = self.process_gpkg()
             else:
-                logger.error(f"Unsupported CCA file type: {self.file_path}")
+                logger.error(f"Unsupported CCA file type: {self.log_path}")
                 self.df = pd.DataFrame()
                 return
 
             if cca_data.empty:
-                logger.error(f"No data read from CCA file: {self.file_path}")
+                logger.error(f"No data read from CCA file: {self.log_path}")
                 self.df = pd.DataFrame()
                 return
 
@@ -60,10 +60,10 @@ class ccAProcessor(BaseProcessor):
                 return
 
             self.processed = True
-            logger.info(f"Completed processing of CCA file: {self.file_path}")
+            logger.info(f"Completed processing of CCA file: {self.log_path}")
             return
         except Exception as e:
-            logger.error(f"Failed to process CCA file {self.file_path}: {e}")
+            logger.error(f"Failed to process CCA file {self.log_path}: {e}")
             self.df = pd.DataFrame()
             return
 
@@ -87,7 +87,7 @@ class ccAProcessor(BaseProcessor):
         Returns:
             pd.DataFrame: Processed DBF CCA data.
         """
-        logger.debug(f"Processing DBF CCA file: {self.file_path}")
+        logger.debug(f"Processing DBF CCA file: {self.log_path}")
         try:
             with self.file_path.open("rb") as dbf_file:
                 sf = shapefile.Reader(dbf=dbf_file)
@@ -99,7 +99,7 @@ class ccAProcessor(BaseProcessor):
             logger.debug(f"Processed DBF CCA DataFrame head:\n{cca_data.head()}")
             return cca_data
         except Exception as e:
-            logger.error(f"Error processing DBF file {self.file_path}: {e}")
+            logger.error(f"Error processing DBF file {self.log_path}: {e}")
             return pd.DataFrame()
 
     def process_gpkg(self) -> pd.DataFrame:

@@ -17,6 +17,7 @@ class TestChanProcessor:
         with patch("ryan_library.processors.tuflow.base_processor.BaseProcessor.__post_init__"):
             processor = ChanProcessor(Path("test_1d_Chan.csv"))
             processor.file_name = "test_1d_Chan.csv"
+            processor.resolved_file_path = processor.file_path.resolve()
             processor.df = pd.DataFrame()
             processor.columns_to_use = {}
             processor.expected_in_header = []

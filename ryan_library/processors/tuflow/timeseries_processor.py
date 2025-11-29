@@ -31,20 +31,20 @@ class TimeSeriesProcessor(BaseProcessor):
     def _process_timeseries_pipeline(self, data_type: str) -> None:
         """Run the shared processing pipeline for a timeseries dataset."""
 
-        logger.info(f"Starting processing of {data_type} file: {self.file_path}")
+        logger.info(f"Starting processing of {data_type} file: {self.log_path}")
 
         try:
             status: ProcessorStatus = self.read_and_process_timeseries_csv(data_type=data_type)
             if status is not ProcessorStatus.SUCCESS:
                 logger.error(
-                    f"Processing aborted for file: {self.file_path} while reading and reshaping {data_type} data."
+                    f"Processing aborted for file: {self.log_path} while reading and reshaping {data_type} data."
                 )
                 self.df = pd.DataFrame()
                 return
 
             status = self.process_timeseries_raw_dataframe()
             if status is not ProcessorStatus.SUCCESS:
-                logger.error(f"Processing aborted for file: {self.file_path} during {data_type} post-processing step.")
+                logger.error(f"Processing aborted for file: {self.log_path} during {data_type} post-processing step.")
                 self.df = pd.DataFrame()
                 return
 
@@ -57,9 +57,9 @@ class TimeSeriesProcessor(BaseProcessor):
                 return
 
             self.processed = True
-            logger.info(f"Completed processing of {data_type} file: {self.file_path}")
+            logger.info(f"Completed processing of {data_type} file: {self.log_path}")
         except Exception as exc:  # pragma: no cover - defensive logging
-            logger.error(f"Failed to process {data_type} file {self.file_path}: {exc}")
+            logger.error(f"Failed to process {data_type} file {self.log_path}: {exc}")
             self.df = pd.DataFrame()
             return
 
@@ -91,7 +91,7 @@ class TimeSeriesProcessor(BaseProcessor):
         try:
             df_full: pd.DataFrame = self._read_csv(file_path=self.file_path)
             if df_full.empty:
-                logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
+                logger.error(f"{self.file_name}: No data found in file: {self.log_path}")
                 return ProcessorStatus.EMPTY_DATAFRAME
 
             df_clean: pd.DataFrame = self._clean_headers(df=df_full, data_type=data_type)
@@ -138,7 +138,7 @@ class TimeSeriesProcessor(BaseProcessor):
             logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
             return df
         except Exception as exc:
-            logger.exception(f"{self.file_name}: Failed to read CSV file '{file_path}': {exc}")
+            logger.exception(f"{self.file_name}: Failed to read CSV file '{self.log_path}': {exc}")
             raise ProcessorError(f"Failed to read CSV file '{file_path}': {exc}") from exc
 
     def _clean_headers(self, df: pd.DataFrame, data_type: str) -> pd.DataFrame:
@@ -162,7 +162,7 @@ class TimeSeriesProcessor(BaseProcessor):
         """
         try:
             df = df.drop(labels=df.columns[0], axis=1)
-            logger.debug(f"Dropped the first column from '{self.file_path}'.")
+            logger.debug(f"Dropped the first column from '{self.log_path}'.")
 
             time_column_aliases: dict[str, str] = {"Time (h)": "Time", "Time(h)": "Time"}
             rename_columns: dict[str, str] = {

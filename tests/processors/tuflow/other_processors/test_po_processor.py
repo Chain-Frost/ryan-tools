@@ -16,6 +16,7 @@ class TestPOProcessor:
         with patch("ryan_library.processors.tuflow.base_processor.BaseProcessor.__post_init__"):
             processor = POProcessor(Path("test_PO.csv"))
             processor.file_name = "test_PO.csv"
+            processor.resolved_file_path = processor.file_path.resolve()
             processor.df = pd.DataFrame()
             processor.columns_to_use = {}
             processor.expected_in_header = []

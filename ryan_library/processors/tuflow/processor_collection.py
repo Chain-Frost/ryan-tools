@@ -473,7 +473,7 @@ class ProcessorCollection:
             return source_df
 
         merged_df: pd.DataFrame = self._merge_chan_and_eof(chan_df=source_df, eof_df=eof_df)
-        logger.info(
+        logger.debug(
             f"Merged EOF data into {source_label} dataset for run code {run_code}; row count now {len(merged_df)}."
         )
         return merged_df

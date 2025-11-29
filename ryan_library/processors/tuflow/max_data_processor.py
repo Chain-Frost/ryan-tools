@@ -36,11 +36,11 @@ class MaxDataProcessor(BaseProcessor):
             df: pd.DataFrame = pd.read_csv(**read_csv_kwargs)
             logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
         except Exception as exc:
-            logger.exception(f"{self.file_name}: Failed to read CSV file '{self.file_path}': {exc}")
+            logger.exception(f"{self.file_name}: Failed to read CSV file '{self.log_path}': {exc}")
             return 3
 
         if df.empty:
-            logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
+            logger.error(f"{self.file_name}: No data found in file: {self.log_path}")
             return 1
 
         self.raw_df = df.copy(deep=False)

@@ -16,7 +16,7 @@ class POProcessor(BaseProcessor):
 
     def process(self) -> None:
         """Parse the CSV, reshape it to long format, and add common columns."""
-        logger.info(f"Starting processing of PO file: {self.file_path}")
+        logger.info(f"Starting processing of PO file: {self.log_path}")
 
         try:
             raw_df: DataFrame = pd.read_csv(self.file_path, header=None, dtype=str)  # type: ignore
@@ -42,7 +42,7 @@ class POProcessor(BaseProcessor):
             return
 
         self.processed = True
-        logger.info(f"Completed processing of PO file: {self.file_path}")
+        logger.info(f"Completed processing of PO file: {self.log_path}")
 
     def _parse_point_output(self, raw_df: pd.DataFrame) -> pd.DataFrame:
         """Convert the raw PO CSV structure into a long-form DataFrame."""

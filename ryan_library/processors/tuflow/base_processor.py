@@ -91,6 +91,14 @@ class BaseProcessor(ABC):
         logger.debug(f"{self.file_name}: Data type identified as '{self.data_type}'")
         self._load_configuration()
 
+    @property
+    def log_path(self) -> str:
+        """Return the relative path from CWD if possible, else absolute path."""
+        try:
+            return str(self.resolved_file_path.relative_to(Path.cwd().resolve()))
+        except ValueError:
+            return str(self.resolved_file_path)
+
     @classmethod
     def from_file(cls, file_path: Path) -> "BaseProcessor":
         """Factory method to create the appropriate processor instance based on the file suffix."""
@@ -488,7 +496,7 @@ class BaseProcessor(ABC):
         Returns:
             bool: True if data is valid, False otherwise."""
         if self.df.empty:
-            logger.warning(f"{self.file_name}: DataFrame is empty for file: {self.file_path}")
+            logger.warning(f"{self.file_name}: DataFrame is empty for file: {self.log_path}")
             return False
         return True
 
@@ -562,11 +570,11 @@ class BaseProcessor(ABC):
             )
             logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
         except Exception as e:
-            logger.exception(f"{self.file_name}: Failed to read CSV file '{self.file_path}': {e}")
+            logger.exception(f"{self.file_name}: Failed to read CSV file '{self.log_path}': {e}")
             return ProcessorStatus.FAILURE
 
         if df.empty:
-            logger.error(f"{self.file_name}: No data found in file: {self.file_path}")
+            logger.error(f"{self.file_name}: No data found in file: {self.log_path}")
             return ProcessorStatus.EMPTY_DATAFRAME
 
         # Validate headers

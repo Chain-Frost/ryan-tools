@@ -11,7 +11,7 @@ class EOFProcessor(BaseProcessor):
 
     def process(self) -> None:
         """Process the '.eof' file and extract CULVERT AND PIPE DATA."""
-        logger.info(f"Starting processing of EOF file: {self.file_path}")
+        logger.info(f"Starting processing of EOF file: {self.log_path}")
 
         try:
             with open(self.file_path, "r", encoding="utf-8", errors="replace") as f:
@@ -117,9 +117,9 @@ class EOFProcessor(BaseProcessor):
                 return
 
             self.processed = True
-            logger.info(f"Completed processing of EOF file: {self.file_path}")
+            logger.info(f"Completed processing of EOF file: {self.log_path}")
 
         except Exception as e:
-            logger.error(f"Failed to process EOF file {self.file_path}: {e}")
+            logger.error(f"Failed to process EOF file {self.log_path}: {e}")
             self.df = pd.DataFrame()
             return

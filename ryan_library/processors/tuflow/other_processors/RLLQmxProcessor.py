@@ -11,11 +11,11 @@ class RLLQmxProcessor(BaseProcessor):
 
     def process(self) -> None:
         """Process the '_RLL_Qmx.csv' file and modify self.df in place."""
-        logger.info(f"Starting processing of RLL Qmx file: {self.file_path}")
+        logger.info(f"Starting processing of RLL Qmx file: {self.log_path}")
         try:
             status: ProcessorStatus = self.read_maximums_csv()
             if status != ProcessorStatus.SUCCESS:
-                logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
+                logger.error(f"Processing aborted for file: {self.log_path} due to previous errors.")
                 self.df = pd.DataFrame()
                 return
 
@@ -30,9 +30,9 @@ class RLLQmxProcessor(BaseProcessor):
                 return
 
             self.processed = True
-            logger.info(f"Completed processing of RLL Qmx file: {self.file_path}")
+            logger.info(f"Completed processing of RLL Qmx file: {self.log_path}")
         except Exception as exc:
-            logger.error(f"Failed to process RLL Qmx file {self.file_path}: {exc}")
+            logger.error(f"Failed to process RLL Qmx file {self.log_path}: {exc}")
             self.df = pd.DataFrame()
             return
 

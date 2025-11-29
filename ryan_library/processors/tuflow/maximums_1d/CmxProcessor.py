@@ -14,13 +14,13 @@ class CmxProcessor(MaxDataProcessor):
 
     def process(self) -> None:
         """Process the '_1d_Cmx.csv' file and save to the class df variable."""
-        logger.info(f"Starting processing of CMX file: {self.file_path}")
+        logger.info(f"Starting processing of CMX file: {self.log_path}")
 
         try:
             status: ProcessorStatus = self.read_maximums_csv()
 
             if status != ProcessorStatus.SUCCESS:
-                logger.error(f"Processing aborted for file: {self.file_path} due to previous errors.")
+                logger.error(f"Processing aborted for file: {self.log_path} due to previous errors.")
                 self.df = pd.DataFrame()
                 return
 
@@ -41,12 +41,12 @@ class CmxProcessor(MaxDataProcessor):
                 return
 
             self.processed = True
-            logger.info(f"Completed processing of CMX file: {self.file_path}")
+            logger.info(f"Completed processing of CMX file: {self.log_path}")
 
             return None
 
         except Exception as e:
-            logger.error(f"Failed to process CMX file {self.file_path}: {e}")
+            logger.error(f"Failed to process CMX file {self.log_path}: {e}")
             self.df = pd.DataFrame()
             return
 
@@ -59,7 +59,7 @@ class CmxProcessor(MaxDataProcessor):
         missing_columns = [col for col in required_columns if col not in self.df.columns]
 
         if missing_columns:
-            logger.error(f"Missing required columns for reshaping in file {self.file_path}: {missing_columns}")
+            logger.error(f"Missing required columns for reshaping in file {self.log_path}: {missing_columns}")
             self.df = pd.DataFrame()
             return
 
@@ -81,7 +81,7 @@ class CmxProcessor(MaxDataProcessor):
             self.df = cleaned_df
 
         except KeyError as e:
-            logger.error(f"Missing expected columns during reshaping for file {self.file_path}: {e}")
+            logger.error(f"Missing expected columns during reshaping for file {self.log_path}: {e}")
             self.df = pd.DataFrame()
 
     def _handle_malformed_data(self) -> None:
@@ -91,7 +91,7 @@ class CmxProcessor(MaxDataProcessor):
         malformed_mask = self.df[["Chan ID", "Time", "Q", "V"]].isnull().all(axis=1)
         if malformed_mask.any():
             malformed_entries = self.df.loc[malformed_mask, "Chan ID"].unique()
-            logger.warning(f"Malformed entries detected in file {self.file_path}: {malformed_entries}")
+            logger.warning(f"Malformed entries detected in file {self.log_path}: {malformed_entries}")
             # Remove malformed entries
             self.df = self.df[~malformed_mask]
             logger.debug(f"DataFrame after removing malformed entries:\n{self.df.head()}")

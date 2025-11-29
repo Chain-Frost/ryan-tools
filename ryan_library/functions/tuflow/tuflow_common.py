@@ -106,12 +106,16 @@ def process_file(file_path: Path) -> BaseProcessor | None:
         proc: BaseProcessor = BaseProcessor.from_file(file_path=file_path)
         proc.process()
         if proc.validate_data():
-            logger.debug(f"Processed {file_path}")
+            logger.debug(f"Processed {proc.log_path}")
         else:
-            logger.warning(f"Validation failed {file_path}")
+            logger.warning(f"Validation failed {proc.log_path}")
         return proc
     except Exception:
-        logger.exception(f"Error processing {file_path}")
+        try:
+            log_path = str(file_path.resolve().relative_to(Path.cwd().resolve()))
+        except ValueError:
+            log_path = str(file_path)
+        logger.exception(f"Error processing {log_path}")
         return None
 
 

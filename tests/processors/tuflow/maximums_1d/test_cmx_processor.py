@@ -18,6 +18,7 @@ class TestCmxProcessor:
         with patch("ryan_library.processors.tuflow.base_processor.BaseProcessor.__post_init__"):
             processor = CmxProcessor(Path("test_1d_Cmx.csv"))
             processor.file_name = "test_1d_Cmx.csv"
+            processor.resolved_file_path = processor.file_path.resolve()
             processor.df = pd.DataFrame()
             processor.columns_to_use = {}
             processor.expected_in_header = []
