@@ -3,6 +3,7 @@
 import pandas as pd
 import pytest
 from unittest.mock import MagicMock, patch
+from pathlib import Path
 from ryan_library.functions.tuflow import pomm_utils
 
 class TestAggregation:
@@ -113,3 +114,161 @@ class TestReporting:
         assert mock_exporter.return_value.export_dataframes.called
         call_args = mock_exporter.return_value.export_dataframes.call_args
         assert call_args.kwargs["file_name"] == "out.xlsx"
+
+class TestProcessing:
+    @patch("ryan_library.functions.tuflow.pomm_utils.BaseProcessor")
+    def test_process_file_success(self, mock_base_processor):
+        """Test successful file processing."""
+        mock_instance = MagicMock()
+        mock_instance.validate_data.return_value = True
+        mock_instance.processed = True
+        mock_base_processor.from_file.return_value = mock_instance
+        
+        path = Path("test.csv")
+        res = pomm_utils.process_file(path)
+        
+        assert res == mock_instance
+        mock_instance.process.assert_called_once()
+        mock_instance.validate_data.assert_called_once()
+
+    @patch("ryan_library.functions.tuflow.pomm_utils.BaseProcessor")
+    def test_process_file_with_filter(self, mock_base_processor):
+        """Test file processing with location filter."""
+        mock_instance = MagicMock()
+        mock_base_processor.from_file.return_value = mock_instance
+        
+        path = Path("test.csv")
+        filters = frozenset(["Loc1"])
+        pomm_utils.process_file(path, location_filter=filters)
+        
+        mock_instance.filter_locations.assert_called_once_with(filters)
+
+    @patch("ryan_library.functions.tuflow.pomm_utils.BaseProcessor")
+    def test_process_file_failure(self, mock_base_processor):
+        """Test exception handling in process_file."""
+        mock_base_processor.from_file.side_effect = Exception("Test Error")
+        
+        with pytest.raises(Exception, match="Test Error"):
+            pomm_utils.process_file(Path("test.csv"))
+
+    @patch("ryan_library.functions.tuflow.pomm_utils.Pool")
+    @patch("ryan_library.functions.tuflow.pomm_utils.calculate_pool_size")
+    def test_process_files_in_parallel(self, mock_calc_pool, mock_pool):
+        """Test parallel processing orchestration."""
+        mock_calc_pool.return_value = 2
+        mock_pool_instance = mock_pool.return_value.__enter__.return_value
+        
+        # Mock results from starmap
+        mock_proc1 = MagicMock()
+        mock_proc1.processed = True
+        mock_proc1.df = pd.DataFrame({"A": [1]}) # Needs data to be added
+        mock_proc2 = MagicMock()
+        mock_proc2.processed = False # Should be skipped
+        mock_pool_instance.starmap.return_value = [mock_proc1, mock_proc2]
+        
+        files = [Path("f1.csv"), Path("f2.csv")]
+        log_queue = MagicMock()
+        
+        res = pomm_utils.process_files_in_parallel(files, log_queue)
+        
+        assert len(res.processors) == 1
+        assert res.processors[0] == mock_proc1
+
+    @patch("ryan_library.functions.tuflow.pomm_utils.collect_files")
+    @patch("ryan_library.functions.tuflow.pomm_utils.process_files_in_parallel")
+    def test_combine_processors_from_paths(self, mock_parallel, mock_collect):
+        """Test combining processors from paths."""
+        mock_collect.return_value = [Path("f1.csv")]
+        mock_result_collection = MagicMock()
+        mock_parallel.return_value = mock_result_collection
+        
+        res = pomm_utils.combine_processors_from_paths([Path("dir")])
+        
+        assert res == mock_result_collection
+        mock_collect.assert_called_once()
+        mock_parallel.assert_called_once()
+
+    @patch("ryan_library.functions.tuflow.pomm_utils.collect_files")
+    def test_combine_processors_no_files(self, mock_collect):
+        """Test combine returns empty collection if no files found."""
+        mock_collect.return_value = []
+        res = pomm_utils.combine_processors_from_paths([Path("dir")])
+        assert not res.processors
+
+class TestMeanAggregation:
+    @pytest.fixture
+    def sample_median_df(self):
+        return pd.DataFrame({
+            "aep_text": ["1%", "1%"],
+            "duration_text": ["1h", "2h"],
+            "Location": ["Loc1", "Loc1"],
+            "Type": ["Type1", "Type1"],
+            "trim_runcode": ["Run1", "Run1"],
+            "MedianAbsMax": [10.0, 20.0],
+            "mean_PeakFlow": [12.0, 18.0],
+            "mean_including_zeroes": [12.0, 18.0],
+            "mean_excluding_zeroes": [12.0, 18.0],
+            "mean_Duration": [1.0, 2.0],
+            "mean_TP": ["TP1", "TP1"],
+            "low": [5.0, 10.0],
+            "high": [15.0, 25.0],
+            "count": [10, 10],
+            "count_bin": [10, 10],
+            "mean_storm_is_median_storm": [True, False]
+        })
+
+    @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_dur_median")
+    def test_find_aep_dur_mean(self, mock_find_median, sample_median_df):
+        """Test extracting mean stats."""
+        mock_find_median.return_value = sample_median_df
+        
+        res = pomm_utils.find_aep_dur_mean(pd.DataFrame()) # Input ignored due to mock
+        
+        assert not res.empty
+        assert "mean_PeakFlow" in res.columns
+        # MedianAbsMax is still present at this stage, it's filtered out later by save_peak_report_mean
+        assert "MedianAbsMax" in res.columns
+
+    def test_find_aep_mean_max(self, sample_median_df):
+        """Test finding max of means."""
+        # 1% group: 12.0 (1h) and 18.0 (2h). Max mean is 18.0.
+        
+        res = pomm_utils.find_aep_mean_max(sample_median_df)
+        
+        assert len(res) == 1
+        assert res["mean_PeakFlow"].iloc[0] == 18.0
+        assert res["duration_text"].iloc[0] == "2h"
+
+class TestReportWrappers:
+    @patch("ryan_library.functions.tuflow.pomm_utils.save_to_excel")
+    @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_median_max")
+    @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_dur_median")
+    def test_save_peak_report_median(self, mock_dur, mock_max, mock_save, tmp_path):
+        """Test median report wrapper."""
+        mock_dur.return_value = pd.DataFrame({"MedianAbsMax": [10]})
+        mock_max.return_value = pd.DataFrame({"MedianAbsMax": [10]})
+        
+        pomm_utils.save_peak_report_median(
+            aggregated_df=pd.DataFrame(),
+            script_directory=tmp_path,
+            timestamp="2025"
+        )
+        
+        mock_save.assert_called_once()
+        
+    @patch("ryan_library.functions.tuflow.pomm_utils.save_to_excel")
+    @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_mean_max")
+    @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_dur_mean")
+    def test_save_peak_report_mean(self, mock_dur, mock_max, mock_save, tmp_path):
+        """Test mean report wrapper."""
+        mock_dur.return_value = pd.DataFrame({"mean_PeakFlow": [10]})
+        mock_max.return_value = pd.DataFrame({"mean_PeakFlow": [10]})
+        
+        pomm_utils.save_peak_report_mean(
+            aggregated_df=pd.DataFrame(),
+            script_directory=tmp_path,
+            timestamp="2025"
+        )
+        
+        mock_save.assert_called_once()
+

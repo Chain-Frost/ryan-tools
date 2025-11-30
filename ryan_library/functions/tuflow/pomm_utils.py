@@ -72,7 +72,7 @@ def process_file(file_path: Path, location_filter: frozenset[str] | None = None)
             pass
         return processor
     except Exception as e:
-        logger.exception(f"Failed to process file {processor.log_path}: {e}")
+        logger.exception(f"Failed to process file {file_path}: {e}")
         raise
 
 
