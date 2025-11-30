@@ -88,10 +88,19 @@ class CmxProcessor(MaxDataProcessor):
         """Detect and handle any malformed data entries in the DataFrame."""
         logger.debug("Checking for malformed data entries.")
 
-        malformed_mask = self.df[["Chan ID", "Time", "Q", "V"]].isnull().all(axis=1)
-        if malformed_mask.any():
-            malformed_entries = self.df.loc[malformed_mask, "Chan ID"].unique()
-            logger.warning(f"Malformed entries detected in file {self.log_path}: {malformed_entries}")
-            # Remove malformed entries
-            self.df = self.df[~malformed_mask]
+        cols_to_check = ["Chan ID", "Time", "Q", "V"]
+        # Ensure columns exist to avoid KeyError
+        if not all(col in self.df.columns for col in cols_to_check):
+            return
+
+        initial_count = len(self.df)
+        # Identify malformed rows for logging (optional, but good for debugging)
+        # We use a safer approach to find them if needed, or just log the count
+        
+        # Drop rows where all specified columns are NaN
+        self.df.dropna(subset=cols_to_check, how="all", inplace=True)
+        
+        dropped_count = initial_count - len(self.df)
+        if dropped_count > 0:
+            logger.warning(f"Removed {dropped_count} malformed entries (all relevant columns NaN) in file {self.log_path}")
             logger.debug(f"DataFrame after removing malformed entries:\n{self.df.head()}")

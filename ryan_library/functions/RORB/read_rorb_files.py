@@ -126,7 +126,9 @@ def read_hydrograph_csv(filepath: Path) -> pd.DataFrame:
     """Return hydrograph DataFrame from RORB CSV."""
     try:
         df: DataFrame = pd.read_csv(filepath_or_buffer=filepath, sep=",", skiprows=2, header=0)
-        df.drop(labels=df.columns[0], axis=1, inplace=True)
+        df.drop(labels=df.columns[0], axis=1, inplace=True) # This was dropping the Time column!
+        # gemini wanted to remove this line - not tested and I think it was using fake data
+        # df.drop(labels=df.columns[0], axis=1, inplace=True) # This was dropping the Time column!
         return df
     except Exception as exc:  # pragma: no cover - file errors
         logger.exception("Error reading hydrograph {}", filepath)

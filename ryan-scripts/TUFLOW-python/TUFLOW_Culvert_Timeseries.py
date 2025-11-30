@@ -35,13 +35,8 @@ def main(
     """Wrapper to combine culvert timeseries; double-clickable.
     By default, it processes files in the directory where the script is located."""
     print_library_version()
-    console_log_level = "INFO"
-    script_dir: Path = Path(__file__).absolute().parent
-    # script_dir = Path(
-    #     r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03"
-    # )
-    script_dir = Path(r"..\..\tests\test_data\tuflow\tutorials\Module_03")
-    script_dir: Path = script_dir.resolve().parent
+
+    script_dir: Path = working_directory or Path(__file__).absolute().parent
     if not change_working_directory(target_dir=script_dir):
         return
 

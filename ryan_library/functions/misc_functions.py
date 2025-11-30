@@ -271,7 +271,7 @@ class ExcelExporter:
                                 column_widths=column_widths[sheet],
                             )
 
-                logger.info(f"Finished exporting '{export_filename}' to '{export_path}'")
+                logger.success(f"Finished exporting '{export_filename}' to '{export_path}'")
             except InvalidFileException as e:
                 logger.error(f"Failed to write to '{export_path}': {e}")
                 raise

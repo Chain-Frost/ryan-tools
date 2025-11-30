@@ -49,13 +49,21 @@ def tile_data(df, tile_size):
     Splits the DataFrame into tiles based on the specified tile size.
     Returns a list of tuples containing tile indices and the corresponding tile DataFrame.
     """
+    if df.empty:
+        return []
+
     # Determine the range of X and Y
     x_min, x_max = df["X"].min(), df["X"].max()
     y_min, y_max = df["Y"].min(), df["Y"].max()
 
     # Compute the number of tiles in each direction
-    x_tiles = int(np.ceil((x_max - x_min) / tile_size))
-    y_tiles = int(np.ceil((y_max - y_min) / tile_size))
+    # Add a small epsilon to ensure the max value is included if it falls exactly on a tile boundary
+    x_tiles = int(np.ceil((x_max - x_min + 1e-6) / tile_size))
+    y_tiles = int(np.ceil((y_max - y_min + 1e-6) / tile_size))
+    
+    # Ensure at least 1 tile if there is data (though the above logic should handle it)
+    x_tiles = max(1, x_tiles)
+    y_tiles = max(1, y_tiles)
 
     logger.info(f"Tiling data into {x_tiles} x {y_tiles} tiles.")
 

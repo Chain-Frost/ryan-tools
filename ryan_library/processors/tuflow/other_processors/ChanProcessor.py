@@ -42,13 +42,9 @@ class ChanProcessor(MaxDataProcessor):
                 return
 
             # Rename 'LBUS Obvert' to 'US Obvert'
-            if "LBUS Obvert" in self.df.columns:
-                self.df.rename(columns={"LBUS Obvert": "US Obvert"}, inplace=True)
-                logger.debug("Renamed 'LBUS Obvert' to 'US Obvert'.")
-            else:
-                logger.error(f"'LBUS Obvert' column is missing in file {self.log_path}.")
-                self.df = pd.DataFrame()
-                return
+            # We already checked for existence of 'LBUS Obvert' above
+            self.df.rename(columns={"LBUS Obvert": "US Obvert"}, inplace=True)
+            logger.debug("Renamed 'LBUS Obvert' to 'US Obvert'.")
 
             # Proceed with common processing steps from BaseProcessor
             self.add_common_columns()
