@@ -18,3 +18,4 @@ seaborn
 requests
 openpyxl
 loguru
+ezdxf
