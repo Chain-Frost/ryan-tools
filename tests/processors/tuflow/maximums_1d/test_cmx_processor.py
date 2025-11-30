@@ -1,3 +1,4 @@
+
 """Unit tests for ryan_library.processors.tuflow.maximums_1d.CmxProcessor."""
 
 import pytest
@@ -108,3 +109,46 @@ class TestCmxProcessor:
         mock_read.assert_called_once()
         mock_add.assert_called_once()
         mock_apply.assert_called_once()
+
+    @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.read_maximums_csv")
+    def test_process_read_failure(self, mock_read, mock_processor):
+        """Test process aborts when read fails."""
+        mock_read.return_value = ProcessorStatus.FAILURE
+        
+        mock_processor.process()
+        
+        assert mock_processor.processed is False
+        assert mock_processor.df.empty
+
+    @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.read_maximums_csv")
+    @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.add_common_columns")
+    @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.apply_output_transformations")
+    @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.validate_data")
+    def test_process_validation_failure(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+        """Test process aborts when validation fails."""
+        mock_read.return_value = ProcessorStatus.SUCCESS
+        mock_validate.return_value = False
+        
+        # Setup df for reshaping
+        mock_processor.df = pd.DataFrame({
+            "Chan ID": ["C1"],
+            "Time Qmax": [1.0],
+            "Qmax": [10.0],
+            "Time Vmax": [1.1],
+            "Vmax": [1.0]
+        })
+
+        mock_processor.process()
+        
+        assert mock_processor.processed is False
+        assert mock_processor.df.empty
+
+    @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.read_maximums_csv")
+    def test_process_exception(self, mock_read, mock_processor):
+        """Test process handles exceptions."""
+        mock_read.side_effect = Exception("Test Error")
+        
+        mock_processor.process()
+        
+        assert mock_processor.processed is False
+        assert mock_processor.df.empty

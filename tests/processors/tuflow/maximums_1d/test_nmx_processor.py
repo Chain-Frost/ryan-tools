@@ -1,3 +1,4 @@
+
 """Unit tests for ryan_library.processors.tuflow.maximums_1d.NmxProcessor."""
 
 import pytest
@@ -70,6 +71,17 @@ class TestNmxProcessor:
         mock_processor._extract_and_transform_nmx_data()
         assert mock_processor.df.empty
 
+    def test_extract_and_transform_nmx_data_missing_pivot_columns(self, mock_processor):
+        """Test failure when pivot results in missing columns (e.g. only suffix .1 present)."""
+        mock_processor.df = pd.DataFrame({
+            "Node ID": ["C1.1"], # Only .1, so .2 (DS_h) will be missing
+            "Time Hmax": [1.0],
+            "Hmax": [10.0]
+        })
+
+        mock_processor._extract_and_transform_nmx_data()
+        assert mock_processor.df.empty
+
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.read_maximums_csv")
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.apply_output_transformations")
@@ -90,3 +102,43 @@ class TestNmxProcessor:
         assert mock_processor.processed is True
         mock_read.assert_called_once()
         mock_add.assert_called_once()
+
+    @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.read_maximums_csv")
+    def test_process_read_failure(self, mock_read, mock_processor):
+        """Test process aborts when read fails."""
+        mock_read.return_value = ProcessorStatus.FAILURE
+        
+        mock_processor.process()
+        
+        assert mock_processor.processed is False
+        assert mock_processor.df.empty
+
+    @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.read_maximums_csv")
+    @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.add_common_columns")
+    @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.apply_output_transformations")
+    @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.validate_data")
+    def test_process_validation_failure(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+        """Test process aborts when validation fails."""
+        mock_read.return_value = ProcessorStatus.SUCCESS
+        mock_validate.return_value = False
+        
+        mock_processor.df = pd.DataFrame({
+            "Node ID": ["C1.1", "C1.2"],
+            "Time Hmax": [1.0, 1.0],
+            "Hmax": [10.0, 9.0]
+        })
+
+        mock_processor.process()
+        
+        assert mock_processor.processed is False
+        assert mock_processor.df.empty
+
+    @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.read_maximums_csv")
+    def test_process_exception(self, mock_read, mock_processor):
+        """Test process handles exceptions."""
+        mock_read.side_effect = Exception("Test Error")
+        
+        mock_processor.process()
+        
+        assert mock_processor.processed is False
+        assert mock_processor.df.empty

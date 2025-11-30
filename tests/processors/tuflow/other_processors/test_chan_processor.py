@@ -1,3 +1,4 @@
+
 """Unit tests for ryan_library.processors.tuflow.other_processors.ChanProcessor."""
 
 import pytest
@@ -55,6 +56,16 @@ class TestChanProcessor:
         assert mock_processor.df.iloc[0]["Height"] == 5.0  # 10.0 - 5.0
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
+    def test_process_read_failure(self, mock_read, mock_processor):
+        """Test process aborts when read fails."""
+        mock_read.return_value = ProcessorStatus.FAILURE
+        
+        mock_processor.process()
+        
+        assert mock_processor.processed is False
+        assert mock_processor.df.empty
+
+    @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
     def test_process_missing_height_columns(self, mock_read, mock_processor):
         """Test failure when columns for Height calculation are missing."""
         mock_read.return_value = ProcessorStatus.SUCCESS
@@ -85,3 +96,33 @@ class TestChanProcessor:
         
         assert mock_processor.df.empty
         assert mock_processor.processed is False
+
+    @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
+    @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.add_common_columns")
+    @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.apply_output_transformations")
+    @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.validate_data")
+    def test_process_validation_failure(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+        """Test process aborts when validation fails."""
+        mock_read.return_value = ProcessorStatus.SUCCESS
+        mock_validate.return_value = False
+        
+        mock_processor.df = pd.DataFrame({
+            "Channel": ["C1"],
+            "LBUS Obvert": [10.0],
+            "US Invert": [5.0]
+        })
+
+        mock_processor.process()
+        
+        assert mock_processor.processed is False
+        assert mock_processor.df.empty
+
+    @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
+    def test_process_exception(self, mock_read, mock_processor):
+        """Test process handles exceptions."""
+        mock_read.side_effect = Exception("Test Error")
+        
+        mock_processor.process()
+        
+        assert mock_processor.processed is False
+        assert mock_processor.df.empty
