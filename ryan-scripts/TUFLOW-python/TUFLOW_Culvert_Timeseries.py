@@ -1,6 +1,7 @@
 # ryan-scripts\TUFLOW-python\TUFLOW_Culvert_Timeseries.py
 
 import argparse
+import gc
 from pathlib import Path
 import os
 
@@ -14,7 +15,7 @@ from ryan_library.scripts.wrapper_utils import (
 )
 
 CONSOLE_LOG_LEVEL = "INFO"
-INCLUDE_DATA_TYPES: tuple[str, ...] = ("Q",)  # , "V", "H"),
+INCLUDE_DATA_TYPES: tuple[str, ...] = ("Q", "V", "H", "CF")
 # "CF",
 # "L",
 # "NF",
@@ -67,4 +68,5 @@ if __name__ == "__main__":
         locations_to_include=common_options.locations_to_include,
         working_directory=common_options.working_directory,
     )
+    gc.collect()
     os.system("PAUSE")

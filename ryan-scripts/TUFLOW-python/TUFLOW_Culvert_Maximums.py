@@ -1,6 +1,7 @@
 # ryan-scripts\TUFLOW-python\TUFLOW_Culvert_Maximums.py
 
 import argparse
+import gc
 from pathlib import Path
 import os
 
@@ -14,7 +15,7 @@ from ryan_library.scripts.wrapper_utils import (
 )
 
 CONSOLE_LOG_LEVEL = "DEBUG"  # or "INFO"
-INCLUDE_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx")
+INCLUDE_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
@@ -61,4 +62,5 @@ if __name__ == "__main__":
         locations_to_include=common_options.locations_to_include,
         working_directory=common_options.working_directory,
     )
+    gc.collect()
     os.system("PAUSE")

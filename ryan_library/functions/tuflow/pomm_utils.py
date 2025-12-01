@@ -149,9 +149,38 @@ def combine_df_from_paths(
     return results_set.pomm_combine()
 
 
-def aggregated_from_paths(paths: list[Path], locations_to_include: Collection[str] | None = None) -> pd.DataFrame:
+def aggregated_from_paths(
+    paths: list[Path],
+    locations_to_include: Collection[str] | None = None,
+    include_data_types: list[str] | None = None,
+) -> pd.DataFrame:
     """Process directories and return a combined POMM DataFrame."""
-    return combine_df_from_paths(paths_to_process=paths, locations_to_include=locations_to_include)
+    df: pd.DataFrame = combine_df_from_paths(
+        paths_to_process=paths,
+        locations_to_include=locations_to_include,
+        include_data_types=include_data_types,
+    )
+
+    if df.empty:
+        return df
+
+    # Normalize columns for RLLQmx support
+    if "Location" in df.columns and "Chan ID" in df.columns:
+        df["Location"] = df["Location"].fillna(df["Chan ID"])
+    elif "Location" not in df.columns and "Chan ID" in df.columns:
+        df["Location"] = df["Chan ID"]
+
+    if "AbsMax" in df.columns and "Q" in df.columns:
+        df["AbsMax"] = df["AbsMax"].fillna(df["Q"])
+    elif "AbsMax" not in df.columns and "Q" in df.columns:
+        df["AbsMax"] = df["Q"]
+
+    if "Type" not in df.columns:
+        df["Type"] = "Q"
+    else:
+        df["Type"] = df["Type"].fillna("Q")
+
+    return df
 
 
 def find_aep_dur_max(aggregated_df: pd.DataFrame) -> pd.DataFrame:

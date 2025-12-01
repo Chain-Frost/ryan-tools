@@ -1,4 +1,5 @@
 from pathlib import Path
+import gc
 import os
 import sys
 from loguru import logger
@@ -13,7 +14,7 @@ from ryan_library.scripts.wrapper_utils import (
 from ryan_library.scripts.tuflow.tuflow_results_styling import TUFLOWResultsStyler
 
 # User Overrides: Define your custom QML paths here
-user_qml_overrides: dict = {
+user_qml_overrides: dict[str, str] = {
     # "d_Max": "/path/to/custom/depth_for_legend_max2m.qml",
     # "h_Max": "/path/to/custom/hmax.qml",
     # Add other overrides as needed
@@ -37,10 +38,12 @@ def main() -> None:
             logger.error(f"Styles were sourced from: {styler.default_styles_path}")
             print()
             print_library_version()
+            gc.collect()
             os.system("PAUSE")
 
     except Exception as e:
         logger.error(f"An error occurred: {e}")
+        gc.collect()
         os.system("PAUSE")
         sys.exit(1)
 

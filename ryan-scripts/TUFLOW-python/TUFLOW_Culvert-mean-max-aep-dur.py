@@ -1,6 +1,7 @@
 # ryan-scripts\TUFLOW-python\TUFLOW_Culvert-mean-max-aep-dur.py
 
 import argparse
+import gc
 from pathlib import Path
 import os
 
@@ -16,7 +17,7 @@ from ryan_library.scripts.wrapper_utils import (
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 
 # Toggle the specific culvert data types to collect. Leave empty to accept the library defaults.
-INCLUDED_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx")
+INCLUDED_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
 
 # Toggle the export of the raw culvert-maximums sheet (may be extremely large).
 EXPORT_RAW_MAXIMUMS: bool = True
@@ -70,4 +71,5 @@ if __name__ == "__main__":
         locations_to_include=common_options.locations_to_include,
         working_directory=common_options.working_directory,
     )
+    gc.collect()
     os.system("PAUSE")

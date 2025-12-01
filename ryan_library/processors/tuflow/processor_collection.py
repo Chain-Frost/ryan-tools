@@ -102,9 +102,50 @@ class ProcessorCollection:
             return pd.DataFrame()
 
         # Concatenate DataFrames
-        combined_df: pd.DataFrame = pd.concat(
-            [p.df for p in timeseries_processors if not p.df.empty], ignore_index=True
-        )
+        # Prepare static data (EOF + Chan)
+        eof_processors: list[BaseProcessor] = [p for p in self.processors if p.data_type == "EOF"]
+        chan_processors: list[BaseProcessor] = [
+            p for p in self.processors if p.data_type == "Chan"
+        ]
+
+        # Map run_code -> processor/df
+        eof_map: dict[str, DataFrame] = {p.name_parser.raw_run_code: p.df for p in eof_processors}
+        chan_map: dict[str, DataFrame] = {p.name_parser.raw_run_code: p.df for p in chan_processors}
+
+        dfs_to_concat: list[DataFrame] = []
+        for p in timeseries_processors:
+            df: DataFrame = p.df
+            if df.empty:
+                continue
+
+            run_code: str = p.name_parser.raw_run_code
+
+            # Get static data
+            eof_df: DataFrame | None = eof_map.get(run_code)
+            chan_df: DataFrame | None = chan_map.get(run_code)
+
+            static_df: DataFrame | None = None
+            if eof_df is not None and chan_df is not None:
+                static_df = self._merge_chan_and_eof(chan_df=chan_df, eof_df=eof_df)
+            elif eof_df is not None:
+                static_df = eof_df
+            elif chan_df is not None:
+                static_df = chan_df
+
+            if static_df is not None and "Chan ID" in static_df.columns and "Chan ID" in df.columns:
+                # Merge static data into timeseries
+                # Use left join to keep all timeseries rows
+                # We drop columns from static that are already in timeseries (except join key) to avoid suffixes
+                cols_to_use = [c for c in static_df.columns if c not in df.columns or c == "Chan ID"]
+                df = df.merge(right=static_df[cols_to_use], on="Chan ID", how="left")
+
+            dfs_to_concat.append(df)
+
+        if not dfs_to_concat:
+            logger.warning("No Timeseries data to concatenate.")
+            return pd.DataFrame()
+
+        combined_df: pd.DataFrame = pd.concat(dfs_to_concat, ignore_index=True)
         logger.debug(f"Combined Timeseries DataFrame with {len(combined_df)} rows.")
 
         # Columns to drop
@@ -132,6 +173,47 @@ class ProcessorCollection:
             .agg("max")
             .reset_index()  # pyright: ignore[reportUnknownMemberType]
         )
+        
+        grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
+        
+        p1_col: list[str] = [
+            "trim_runcode",
+            "aep_text",
+            "duration_text",
+            "tp_text",
+            "Chan ID",
+            "Time",
+            "Q",
+            "V",
+            "US_h",
+            "DS_h",
+            "US Invert",
+            "DS Invert",
+            "Flags",
+            "Diam_Width",
+            "Height",
+            "Num_barrels",
+            "HW_D",
+            "Length",
+        ]
+
+        p2_col: list[str] = [
+            "aep_numeric",
+            "duration_numeric",
+            "tp_numeric",
+            "internalName",
+            "pBlockage",
+            "pSlope",
+
+        ]
+        
+        grouped_df = reorder_columns(
+            data_frame=grouped_df,
+            prioritized_columns=p1_col,
+            prefix_order=["R"],
+            second_priority_columns=p2_col,
+        )
+        
         logger.debug(f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows.")
 
         return grouped_df
@@ -269,7 +351,10 @@ class ProcessorCollection:
 
     def _calculate_hw_d_ratio(self, df: DataFrame) -> DataFrame:
         """Calculate the HW_D ratio = (US_h - US Invert) / Height."""
-        required_columns: set[str] = {"US_h", "US Invert", "Height"}
+        # Determine which column to use for Headwater Level
+        us_h_col: str = "US_h" if "US_h" in df.columns else "US_H"
+        
+        required_columns: set[str] = {us_h_col, "US Invert", "Height"}
         missing_columns: set[str] = required_columns - set(df.columns)
         if missing_columns:
             logger.debug(f"Skipping HW_D calculation; missing columns: {sorted(missing_columns)}")
@@ -280,7 +365,7 @@ class ProcessorCollection:
             return df
 
         us_h_series: Series[float] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            arg=df["US_h"], errors="coerce"
+            arg=df[us_h_col], errors="coerce"
         )
         us_invert_series: Series = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
             arg=df["US Invert"], errors="coerce"

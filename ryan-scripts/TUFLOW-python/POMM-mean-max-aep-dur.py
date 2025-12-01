@@ -1,6 +1,7 @@
 # ryan-scripts\TUFLOW-python\POMM-mean-max-aep-dur.py
 
 import argparse
+import gc
 from pathlib import Path
 import os
 
@@ -51,6 +52,7 @@ def main(
         log_level=effective_console_log_level,
         include_pomm=INCLUDE_POMM,
         locations_to_include=effective_locations,
+        include_data_types=["POMM", "RLL_Qmx"],
     )
     print()
     print_library_version()
@@ -72,4 +74,5 @@ if __name__ == "__main__":
         locations_to_include=common_options.locations_to_include,
         working_directory=common_options.working_directory,
     )
+    gc.collect()
     os.system("PAUSE")

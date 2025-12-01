@@ -1,11 +1,11 @@
-# ryan-scripts\TUFLOW-python\POMM_combine.py
+# ryan-scripts\TUFLOW-python\PO_combine.py
 import argparse
 import gc
 import os
 from pathlib import Path
 from typing import Literal
 
-from ryan_library.scripts.tuflow.pomm_combine import main_processing
+from ryan_library.scripts.tuflow.po_combine import main_processing
 from ryan_library.scripts.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
@@ -17,7 +17,7 @@ from ryan_library.scripts.wrapper_utils import (
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 
 # Update this tuple to restrict processing to specific PO/Location values.
-# Leave empty to include every location found in the POMM files.
+# Leave empty to include every location found in the PO files.
 LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
 # Choose output format: "excel", "parquet", or "both".
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
@@ -34,7 +34,7 @@ def main(
     export_mode: Literal["excel", "parquet", "both"] | None = None,
     working_directory: Path | None = None,
 ) -> None:
-    """Wrapper script to merge POMM results.
+    """Wrapper script to merge PO results.
     By default, it processes files in the script's directory."""
     print_library_version()
 
@@ -51,7 +51,7 @@ def main(
 
     main_processing(
         paths_to_process=[script_directory],
-        include_data_types=["POMM", "RLL_Qmx"],
+        include_data_types=["PO"],
         console_log_level=effective_console_log_level,
         locations_to_include=effective_locations,
         export_mode=effective_export_mode,
@@ -63,7 +63,7 @@ def main(
 def _parse_cli_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Combine TUFLOW POMM outputs. "
+            "Combine TUFLOW PO outputs. "
             "Command-line options override the hard-coded values near the top of this file."
         )
     )

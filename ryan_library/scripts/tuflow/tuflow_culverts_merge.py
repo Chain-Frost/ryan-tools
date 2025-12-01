@@ -11,7 +11,7 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 
 def main_processing(
     paths_to_process: list[Path],
-    include_data_types: list[str],
+    include_data_types: list[str]=("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF"),
     console_log_level: str = "INFO",
     output_dir: Path | None = None,
     output_parquet: bool = False,

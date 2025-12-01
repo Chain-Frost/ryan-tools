@@ -4,6 +4,7 @@
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import concurrent.futures as cf
+import gc
 import os
 
 import numpy as np
@@ -539,4 +540,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    gc.collect()
     os.system("PAUSE")

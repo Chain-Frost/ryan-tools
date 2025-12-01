@@ -105,6 +105,47 @@ class TestProcessorCollection:
         
         assert collection.combine_1d_timeseries().empty
 
+    def test_combine_1d_timeseries_with_eof_and_hwd(self):
+        """Test combining timeseries with EOF data and HW_D calculation."""
+        # Timeseries processor (H)
+        p_ts = MagicMock()
+        p_ts.processed = True
+        p_ts.dataformat = "Timeseries"
+        p_ts.name_parser.raw_run_code = "Run1"
+        p_ts.df = pd.DataFrame({
+            "internalName": ["Run1"], "Chan ID": ["C1"], "Time": [0.0], "US_H": [12.0],
+            "file": ["f1"], "rel_path": ["p1"], "path": ["P1"], "directory_path": ["D1"]
+        })
+
+        # EOF processor
+        p_eof = MagicMock()
+        p_eof.processed = True
+        p_eof.data_type = "EOF"
+        p_eof.dataformat = "EOF"
+        p_eof.name_parser.raw_run_code = "Run1"
+        p_eof.df = pd.DataFrame({
+            "Chan ID": ["C1"], "US Invert": [10.0], "Height": [2.0]
+        })
+
+        collection = ProcessorCollection()
+        collection.add_processor(p_ts)
+        collection.add_processor(p_eof)
+
+        combined = collection.combine_1d_timeseries()
+        
+        assert len(combined) == 1
+        row = combined.iloc[0]
+        assert row["US_H"] == 12.0
+        assert row["US Invert"] == 10.0
+        assert row["Height"] == 2.0
+        # HW_D = (12 - 10) / 2 = 1.0
+        assert row["HW_D"] == 1.0
+        
+        # Check column ordering (Time should be early)
+        cols = combined.columns.tolist()
+        assert cols.index("Time") < cols.index("internalName")
+        assert cols.index("Chan ID") < cols.index("internalName")
+
     def test_combine_1d_maximums_with_eof(self):
         """Test combining maximums with EOF merge."""
         # Max processor

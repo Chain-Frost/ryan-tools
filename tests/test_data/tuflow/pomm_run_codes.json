@@ -298,7 +298,7 @@
       "aep": "01p",
       "duration": "60m",
       "tp": null,
-      "trim_run_code": "M09_5m_1hr_001"
+      "trim_run_code": "M09_5m_001"
     }
   },
   {
@@ -314,7 +314,7 @@
       "aep": "01p",
       "duration": "120m",
       "tp": null,
-      "trim_run_code": "M09_5m_2hr_001"
+      "trim_run_code": "M09_5m_001"
     }
   },
   {
@@ -330,7 +330,7 @@
       "aep": "02p",
       "duration": "60m",
       "tp": null,
-      "trim_run_code": "M09_5m_1hr_001"
+      "trim_run_code": "M09_5m_001"
     }
   },
   {
@@ -346,7 +346,7 @@
       "aep": "02p",
       "duration": "120m",
       "tp": null,
-      "trim_run_code": "M09_5m_2hr_001"
+      "trim_run_code": "M09_5m_001"
     }
   },
   {
@@ -362,7 +362,7 @@
       "aep": "05p",
       "duration": "60m",
       "tp": null,
-      "trim_run_code": "M09_5m_1hr_001"
+      "trim_run_code": "M09_5m_001"
     }
   },
   {
@@ -378,7 +378,7 @@
       "aep": "05p",
       "duration": "120m",
       "tp": null,
-      "trim_run_code": "M09_5m_2hr_001"
+      "trim_run_code": "M09_5m_001"
     }
   },
   {

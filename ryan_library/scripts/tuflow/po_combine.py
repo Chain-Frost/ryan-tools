@@ -1,4 +1,4 @@
-"""Modern POMM combination utilities."""
+"""PO combination utilities."""
 
 from collections.abc import Collection
 from pathlib import Path
@@ -24,10 +24,10 @@ def main_processing(
     locations_to_include: Collection[str] | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
-    """Generate merged culvert data and export the results."""
+    """Generate merged PO data and export the results."""
 
     if include_data_types is None:
-        include_data_types = ["POMM"]
+        include_data_types = ["PO"]
 
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
 
@@ -48,10 +48,10 @@ def main_processing(
         )
 
     if normalized_locations:
-        results_set.filter_locations(normalized_locations)
+        results_set.filter_locations(locations=normalized_locations)
 
     export_results(results=results_set, export_mode=export_mode)
-    logger.info("End of POMM results combination processing")
+    logger.info("End of PO results combination processing")
 
 
 def export_results(*, results: ProcessorCollection, export_mode: Literal["excel", "parquet", "both"] = "excel") -> None:
@@ -60,7 +60,7 @@ def export_results(*, results: ProcessorCollection, export_mode: Literal["excel"
         logger.warning("No results to export.")
         return
 
-    combined_df: pd.DataFrame = results.combine_raw()
+    combined_df: pd.DataFrame = results.po_combine()
     if combined_df.empty:
         logger.warning("No combined data found. Skipping export.")
         return
@@ -69,8 +69,8 @@ def export_results(*, results: ProcessorCollection, export_mode: Literal["excel"
     exporter = ExcelExporter()
     exporter.save_to_excel(
         data_frame=combined_df,
-        file_name_prefix="combined_POMM",
-        sheet_name="combined_POMM",
+        file_name_prefix="combined_PO",
+        sheet_name="combined_PO",
         output_directory=Path.cwd(),
         export_mode=export_mode,
         parquet_compression="gzip",

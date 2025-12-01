@@ -1,4 +1,5 @@
 # ryan_library/scripts/tuflow/tuflow_culverts_timeseries.py
+from typing import Literal
 from loguru import logger
 from pathlib import Path
 from datetime import datetime
@@ -12,7 +13,7 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 
 def main_processing(
     paths_to_process: list[Path],
-    include_data_types: list[str],
+    include_data_types: set[str] = ("Q", "V", "H", "CF", "Chan", "EOF"),
     console_log_level: str = "INFO",
     output_dir: Path | None = None,
     output_parquet: bool = False,

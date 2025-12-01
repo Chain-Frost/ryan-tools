@@ -23,7 +23,7 @@ from ryan_library.functions.loguru_helpers import setup_logger
 def _process_one_po(args: tuple[Path, list[float], str, set[str] | None]) -> DataFrame:
     file_path, thresholds, data_type, allowed_locations = args
     try:
-        df = analyze_po_file(
+        df: DataFrame = analyze_po_file(
             csv_path=file_path,
             thresholds=thresholds,
             data_type=data_type,

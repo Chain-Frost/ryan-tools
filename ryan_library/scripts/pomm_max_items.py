@@ -32,6 +32,7 @@ def run_peak_report_workflow(
     log_level: str = "INFO",
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
+    include_data_types: list[str] | None = ["POMM", "RLL_Qmx"],
     exporter: Callable[..., None],
 ) -> None:
     """Coordinate loading peak data and exporting via ``exporter``."""
@@ -49,6 +50,7 @@ def run_peak_report_workflow(
         aggregated_df: pd.DataFrame = aggregated_from_paths(
             paths=[script_directory],
             locations_to_include=location_filter,
+            include_data_types=include_data_types,
         )
 
         if aggregated_df.empty:
@@ -73,6 +75,7 @@ def export_median_peak_report(
     log_level: str = "INFO",
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
+    include_data_types: list[str] | None = ["POMM", "RLL_Qmx"],
 ) -> None:
     """Locate and process POMM files and export median-based peak values."""
 
@@ -81,6 +84,7 @@ def export_median_peak_report(
         log_level=log_level,
         include_pomm=include_pomm,
         locations_to_include=locations_to_include,
+        include_data_types=include_data_types,
         exporter=save_peak_report_median,
     )
 
@@ -91,6 +95,7 @@ def export_mean_peak_report(
     log_level: str = "INFO",
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
+    include_data_types: list[str] | None = ["POMM", "RLL_Qmx"],
 ) -> None:
     """Locate and process POMM files and export mean-based peak values."""
 
@@ -99,6 +104,7 @@ def export_mean_peak_report(
         log_level=log_level,
         include_pomm=include_pomm,
         locations_to_include=locations_to_include,
+        include_data_types=include_data_types,
         exporter=save_peak_report_mean,
     )
 

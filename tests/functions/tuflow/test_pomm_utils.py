@@ -272,3 +272,42 @@ class TestReportWrappers:
         
         mock_save.assert_called_once()
 
+
+class TestRLLQmxNormalization:
+    @patch("ryan_library.functions.tuflow.pomm_utils.combine_df_from_paths")
+    def test_aggregated_from_paths_normalization(self, mock_combine):
+        """Test normalization of RLLQmx columns."""
+        # Simulate a combined DF with RLLQmx columns
+        mock_combine.return_value = pd.DataFrame({
+            "Chan ID": ["Loc1", "Loc2"],
+            "Q": [10.0, 20.0],
+            "Time": [1.0, 2.0],
+            # "Type" is missing
+        })
+        
+        res = pomm_utils.aggregated_from_paths([Path(".")])
+        
+        assert "Location" in res.columns
+        assert res["Location"].tolist() == ["Loc1", "Loc2"]
+        assert "AbsMax" in res.columns
+        assert res["AbsMax"].tolist() == [10.0, 20.0]
+        assert "Type" in res.columns
+        assert res["Type"].tolist() == ["Q", "Q"]
+
+    @patch("ryan_library.functions.tuflow.pomm_utils.combine_df_from_paths")
+    def test_aggregated_from_paths_mixed(self, mock_combine):
+        """Test normalization with mixed POMM and RLLQmx data."""
+        # Simulate mixed DF
+        mock_combine.return_value = pd.DataFrame({
+            "Location": ["Loc1", None],
+            "Chan ID": [None, "Loc2"],
+            "AbsMax": [10.0, None],
+            "Q": [None, 20.0],
+            "Type": ["V", None]
+        })
+        
+        res = pomm_utils.aggregated_from_paths([Path(".")])
+        
+        assert res["Location"].tolist() == ["Loc1", "Loc2"]
+        assert res["AbsMax"].tolist() == [10.0, 20.0]
+        assert res["Type"].tolist() == ["V", "Q"]

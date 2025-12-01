@@ -265,7 +265,7 @@ class BaseProcessor(ABC):
             )
 
         # Depending on dataformat, load columns_to_use or expected_in_header
-        handled_formats: set[str] = {"Maximums", "ccA", "Timeseries", "POMM"}
+        handled_formats: set[str] = {"Maximums", "ccA", "Timeseries", "POMM", "EOF", "TLF"}
 
         if self.dataformat in {"Maximums", "ccA", "POMM"}:
             self.columns_to_use: dict[str, str] = processing_parts.columns_to_use
