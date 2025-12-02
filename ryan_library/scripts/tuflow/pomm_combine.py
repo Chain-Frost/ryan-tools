@@ -82,8 +82,14 @@ def export_results(*, results: ProcessorCollection, export_mode: Literal["excel"
     if not results.processors:
         logger.warning("No results to export.")
         return
-
-    combined_df: pd.DataFrame = results.combine_raw()
+    combined_df: pd.DataFrame
+    if hasattr(results, "combine_raw"):
+        combined_df = results.combine_raw()  # type: ignore[attr-defined]
+    elif hasattr(results, "pomm_combine"):
+        combined_df = results.pomm_combine()  # type: ignore[attr-defined]
+    else:
+        logger.warning("Results object does not support combine_raw or pomm_combine. Skipping export.")
+        return
     if combined_df.empty:
         logger.warning("No combined data found. Skipping export.")
         return

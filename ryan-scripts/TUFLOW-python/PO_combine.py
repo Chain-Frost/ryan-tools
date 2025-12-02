@@ -1,5 +1,6 @@
 # ryan-scripts\TUFLOW-python\PO_combine.py
 from pathlib import Path
+from typing import Literal
 
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 # Update this tuple to restrict processing to specific PO/Location values.
@@ -16,7 +17,6 @@ WORKING_DIR: Path = Path(__file__).absolute().parent
 import argparse
 import gc
 import os
-from typing import Literal
 
 from ryan_library.scripts.tuflow.po_combine import main_processing
 from ryan_library.scripts.wrapper_utils import (

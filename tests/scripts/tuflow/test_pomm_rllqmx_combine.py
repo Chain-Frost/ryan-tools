@@ -51,7 +51,7 @@ def test_pomm_combine_default(mock_export, mock_process, mock_collect, mock_proc
     mock_collect.assert_called_once()
     # Check that collect_files was called with default "POMM"
     args, kwargs = mock_collect.call_args
-    assert kwargs["include_data_types"] == ["POMM"]
+    assert kwargs["include_data_types"] == ["POMM", "RLL_Qmx"]
     
     mock_process.assert_called_once()
     mock_export.assert_called_once()

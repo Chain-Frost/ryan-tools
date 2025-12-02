@@ -1,5 +1,6 @@
 # ryan-scripts\TUFLOW-python\POMM_combine.py
 from pathlib import Path
+from typing import Literal
 
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 # Update this tuple to restrict processing to specific PO/Location values.
@@ -12,10 +13,10 @@ EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 # Change the working directory
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # WORKING_DIR: Path = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03")
+
 import argparse
 import gc
 import os
-from typing import Literal
 
 from ryan_library.scripts.tuflow.pomm_combine import main_processing
 from ryan_library.scripts.wrapper_utils import (

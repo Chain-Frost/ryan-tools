@@ -348,11 +348,10 @@ class TuflowStringParser:
         Returns:
             str: Cleaned run code.
         """
-        components_to_remove: set[str] = {
-            str(component).lower() for component in [self.aep, self.duration, self.tp] if component
-        }
-        # Add original text to components to remove
-        for component in [self.aep, self.duration, self.tp]:
+        removable_components: list[RunCodeComponent | None] = [self.aep, self.duration, self.tp]
+        components_to_remove: set[str] = {str(component).lower() for component in removable_components if component}
+        # Add original text to components to remove, including duration tokens.
+        for component in removable_components:
             if component and component.original_text:
                 components_to_remove.add(component.original_text.lower())
 

@@ -141,7 +141,8 @@ def search_for_completion(
 
     if match := REGEX_PATTERNS["input_file"].match(string=line):
         full_path: str = match.group(1).strip()
-        filename: str = Path(full_path).name
+        normalized_path = Path(full_path.replace("\\", "/"))
+        filename: str = normalized_path.name
         data_dict["TCF"] = filename
         data_dict["orig_TCF_path"] = full_path
         logger.debug(f"Extracted TCF: {filename}")
@@ -421,6 +422,8 @@ def finalise_data(runcode: str, data_dict: dict[str, Any], logfile_path: Path | 
         clean_run_code: str = parser.clean_run_code
         data_dict["Runcode"] = clean_run_code
 
+        if "TCF" in data_dict:
+            data_dict["TCF"] = Path(str(data_dict["TCF"])).name
         data_dict["trim_run_code"] = parser.trim_run_code
         data_dict["trim_tcf"] = remove_e_s_from_runcode(clean_run_code, data_dict)
 

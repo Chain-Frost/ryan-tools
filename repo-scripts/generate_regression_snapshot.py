@@ -3,6 +3,7 @@
 from pathlib import Path
 import pandas as pd
 from loguru import logger
+from pandas import DataFrame
 
 from ryan_library.functions.tuflow.tuflow_common import collect_files
 from ryan_library.functions.tuflow.pomm_utils import process_files_in_parallel
@@ -19,17 +20,17 @@ SNAPSHOT_DIR = Path("tests/regression/data/snapshot")
 def generate_snapshot() -> None:
     """Process EG02 data and save aggregated Parquet files."""
 
-    source_path = Path.cwd() / SOURCE_DIR
-    output_path = Path.cwd() / SNAPSHOT_DIR
+    source_path: Path = Path.cwd() / SOURCE_DIR
+    output_path: Path = Path.cwd() / SNAPSHOT_DIR
 
-    ensure_output_directory(output_path)
+    ensure_output_directory(output_dir=output_path)
 
     logger.info(f"Generating regression snapshot from: {source_path}")
     logger.info(f"Saving snapshot to: {output_path}")
 
     with setup_logger(console_log_level="INFO") as log_queue:
         # 1. Collect all files
-        suffixes_config = SuffixesConfig.get_instance()
+        suffixes_config: SuffixesConfig = SuffixesConfig.get_instance()
         # We want to test all supported types found in EG02
         # Based on file listing: _1d_H, _1d_V, _1d_Q, _1d_MB, _PO, _POMM, etc.
         # We'll let collect_files find everything it can match.
@@ -40,9 +41,23 @@ def generate_snapshot() -> None:
 
         # Checking collect_files implementation via memory/search if needed,
         # but usually it requires a list. Let's provide a comprehensive list based on EG02 contents.
-        include_types = ["H", "V", "Q", "MB", "PO", "POMM", "Chan", "EOF", "Cmx", "Nmx", "ccA", "CF", "RLL_Qmx"]
+        include_types: list[str] = [
+            "H",
+            "V",
+            "Q",
+            "MB",
+            "PO",
+            "POMM",
+            "Chan",
+            "EOF",
+            "Cmx",
+            "Nmx",
+            "ccA",
+            "CF",
+            "RLL_Qmx",
+        ]
 
-        csv_files = collect_files(
+        csv_files: list[Path] = collect_files(
             paths_to_process=[source_path], include_data_types=include_types, suffixes_config=suffixes_config
         )
 
@@ -69,7 +84,7 @@ def generate_snapshot() -> None:
         # Let's try to group by the 'data_type' attribute of the processors.
         processors_by_type = {}
         for p in results.processors:
-            p_type = p.data_type
+            p_type: str = p.data_type
             if p_type not in processors_by_type:
                 processors_by_type[p_type] = []
             processors_by_type[p_type].append(p)
@@ -95,7 +110,7 @@ def generate_snapshot() -> None:
                 # This is a bit heuristic.
                 first_proc = procs[0]
                 if first_proc.dataformat == "Timeseries":
-                    combined_df = temp_collection.combine_1d_timeseries()
+                    combined_df: DataFrame = temp_collection.combine_1d_timeseries()
                 elif first_proc.dataformat == "POMM":
                     combined_df = temp_collection.pomm_combine()
                 elif first_proc.dataformat == "Maximums":
@@ -109,12 +124,14 @@ def generate_snapshot() -> None:
                 if not combined_df.empty:
                     # Sort for determinism
                     # Try to sort by common columns if they exist
-                    sort_cols = [c for c in ["Time", "Chan ID", "Location", "internalName"] if c in combined_df.columns]
+                    sort_cols: list[str] = [
+                        c for c in ["Time", "Chan ID", "Location", "internalName"] if c in combined_df.columns
+                    ]
                     if sort_cols:
                         combined_df = combined_df.sort_values(sort_cols).reset_index(drop=True)
 
                     # Save Parquet (one file per type)
-                    output_file = output_path / f"{p_type}.parquet"
+                    output_file: Path = output_path / f"{p_type}.parquet"
                     combined_df.to_parquet(output_file, index=False)
                     logger.info(f"Saved {output_file}")
 

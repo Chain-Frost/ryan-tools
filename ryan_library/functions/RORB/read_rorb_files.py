@@ -23,17 +23,23 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
 
     try:
         raw[3] = raw[3].strip("%")
-        duration_part: str = raw[1] + raw[2]
+        unit_value: str = raw[2]
+        duration_part: str = raw[1] + unit_value
         aep_part: str = f"aep{raw[3]}"
         raw[6] = "1" if raw[6].upper() == "Y" else "0"
-        if raw[2].lower() != "hour":
+        if unit_value.lower() != "hour":
             raw[1] = str(float(raw[1]) / 60)
+            unit_value = "hour"
         raw.pop(2)
+        tp_value: int | None = None
         processed_line: list[float | int | str] = []
         for i, el in enumerate(iterable=raw):
             if i in (0, 3):
                 # run-number and TP should be ints
-                processed_line.append(int(el))
+                val = int(el)
+                processed_line.append(val)
+                if i == 3:
+                    tp_value = val
             elif i == 2:
                 # AEP comes in as something like '0.2EY'—keep it as a string
                 processed_line.append(el)
@@ -60,8 +66,9 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
             # so the ValueError goes away and you keep the original “EY” suffix in your CSV-naming
             # logic.
 
+        tp_value = tp_value if tp_value is not None else int(processed_line[3])
         csv_path: Path = _construct_csv_path(
-            batchout=batchout_file, aep_part=aep_part, duration_part=duration_part, tpat=int(processed_line[3])
+            batchout=batchout_file, aep_part=aep_part, duration_part=duration_part, tpat=tp_value
         )
         processed_line.append(str(csv_path))
         return processed_line
@@ -96,7 +103,7 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
                     if "Run,    Representative hydrograph" in line:
                         found_results = 20
                     elif " Run        Duration" in line:
-                        headers = line.strip().split()
+                        headers = [h for h in line.strip().split() if h != "Unit"]
                         headers.append("csv")
                     else:
                         run: list[float | int | str] | None = _parse_run_line(line=line, batchout_file=batchout_file)
@@ -126,9 +133,6 @@ def read_hydrograph_csv(filepath: Path) -> pd.DataFrame:
     """Return hydrograph DataFrame from RORB CSV."""
     try:
         df: DataFrame = pd.read_csv(filepath_or_buffer=filepath, sep=",", skiprows=2, header=0)
-        df.drop(labels=df.columns[0], axis=1, inplace=True) # This was dropping the Time column!
-        # gemini wanted to remove this line - not tested and I think it was using fake data
-        # df.drop(labels=df.columns[0], axis=1, inplace=True) # This was dropping the Time column!
         return df
     except Exception as exc:  # pragma: no cover - file errors
         logger.exception("Error reading hydrograph {}", filepath)
