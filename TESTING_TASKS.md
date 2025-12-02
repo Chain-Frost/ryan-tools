@@ -216,3 +216,10 @@ The following meta-tasks focus on exploding the testing backlog by breaking down
 3. Outline continuous integration implications, including any additional dependencies or environment setup steps that tests will require.
 4. Provide estimates for effort and identify opportunities to parallelise work across contributors.
 :::
+
+:::task-stub{title="Source RORB data for testing and validation"}
+1. Locate or generate representative RORB `batch.out` files and hydrograph CSVs that cover various scenarios (different units, AEPs, TPs).
+2. Ensure these files are anonymized or suitable for inclusion in the repository as test fixtures.
+3. Place these files in a dedicated directory (e.g., `tests/data/RORB`) to support integration testing and validation of `read_rorb_files.py`.
+4. Update `tests/functions/RORB/test_read_rorb_files.py` to utilize these real files for more robust testing, replacing or augmenting the current `xfail` test case.
+:::

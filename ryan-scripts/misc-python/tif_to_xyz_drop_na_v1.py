@@ -11,20 +11,18 @@ from datetime import datetime
 # Set this flag to True if you want to drop rows with missing z values
 DROP_NA = True  # Change to True to drop rows with missing z's instead of filling them
 WORKING_DIR = None
-WORKING_DIR = r"P:\BGER\PER\RP20181.364 YANDI MGD5 DRAIN FS - RTIO\4 ENGINEERING\11 HYDROLOGY\Calcs\20250219 v13 Water Depths"
+WORKING_DIR = (
+    r"P:\BGER\PER\RP20181.364 YANDI MGD5 DRAIN FS - RTIO\4 ENGINEERING\11 HYDROLOGY\Calcs\20250219 v13 Water Depths"
+)
 OUT_FOLDER = r"converted_and_trimmed"
 
 
-def fill_missing_coordinates(
-    df: pd.DataFrame, drop_missing: bool, nodata_value: float
-) -> pd.DataFrame:
+def fill_missing_coordinates(df: pd.DataFrame, drop_missing: bool, nodata_value: float) -> pd.DataFrame:
     unique_x = np.unique(df["x"])
     unique_y = np.unique(df["y"])
 
     # Create a complete grid of x and y coordinates
-    complete_grid = pd.DataFrame(
-        {"x": np.tile(unique_x, len(unique_y)), "y": np.repeat(unique_y, len(unique_x))}
-    )
+    complete_grid = pd.DataFrame({"x": np.tile(unique_x, len(unique_y)), "y": np.repeat(unique_y, len(unique_x))})
 
     # Merge with the original data to find missing coordinates
     merged_df = pd.merge(complete_grid, df, on=["x", "y"], how="left")
@@ -63,9 +61,7 @@ def process_tif_file(file: str) -> None:
             ys = np.array(ys)
 
             # Create a DataFrame with x, y, and z values
-            df = pd.DataFrame(
-                {"x": xs.flatten(), "y": ys.flatten(), "z": band1.flatten()}
-            )
+            df = pd.DataFrame({"x": xs.flatten(), "y": ys.flatten(), "z": band1.flatten()})
 
         print("--sorting")
         df.sort_values(["y", "x"], ascending=[True, True], inplace=True)
@@ -90,9 +86,7 @@ if __name__ == "__main__":
         os.chdir(WORKING_DIR)
 
     # List all TIFF files in the current directory
-    tifFiles: list[str] = [
-        f for f in iglob("*.tif", recursive=False) if os.path.isfile(f)
-    ]
+    tifFiles: list[str] = [f for f in iglob("*.tif", recursive=False) if os.path.isfile(f)]
     print("TIFF Files Found:", tifFiles)
 
     # Create the output directory if it doesn't exist
@@ -101,9 +95,7 @@ if __name__ == "__main__":
     # Process files concurrently using ThreadPoolExecutor
     num_threads = 16  # Adjust as needed
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures: list[Future[None]] = [
-            executor.submit(process_tif_file, file) for file in tifFiles
-        ]
+        futures: list[Future[None]] = [executor.submit(process_tif_file, file) for file in tifFiles]
         for future in futures:
             future.result()
 

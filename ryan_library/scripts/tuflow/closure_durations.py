@@ -15,15 +15,15 @@ from concurrent.futures import ProcessPoolExecutor
 from ryan_library.functions.tuflow.closure_durations import (
     analyze_po_file,
     find_po_files,
+    summarise_results,
 )
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.pandas.median_calc import median_stats as median_stats_func
 
 
 def _process_one_po(args: tuple[Path, list[float], str, set[str] | None]) -> DataFrame:
     file_path, thresholds, data_type, allowed_locations = args
     try:
-        df = analyze_po_file(
+        df: DataFrame = analyze_po_file(
             csv_path=file_path,
             thresholds=thresholds,
             data_type=data_type,
@@ -50,7 +50,7 @@ def _process_files(
     if not parallel or len(files) <= 1:
         records: list[DataFrame] = []
         for fp in files:
-            rec = analyze_po_file(
+            rec: DataFrame = analyze_po_file(
                 csv_path=fp,
                 thresholds=thresholds,
                 data_type=data_type,
@@ -76,65 +76,10 @@ def _process_files(
     with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as ex:
         arg_iter = ((fp, thresholds, data_type, allowed_locations) for fp in files)
         for rec in ex.map(_process_one_po, arg_iter, chunksize=chunksize):
-            if isinstance(rec, pd.DataFrame) and not rec.empty:
+            if isinstance(rec, pd.DataFrame) and not rec.empty:  # pyright: ignore[reportUnnecessaryIsInstance]
                 records.append(rec)
 
     return pd.concat(records, ignore_index=True) if records else pd.DataFrame()
-
-
-def _summarise_results(df: DataFrame) -> DataFrame:
-    final_columns: list[str] = [
-        "Path",
-        "Location",
-        "ThresholdFlow",
-        "AEP",
-        "Central_Value",
-        "Critical_Duration",
-        "Critical_Tp",
-        "Low_Value",
-        "High_Value",
-        "Average_Value",
-        "Closest_Tpcrit",
-        "Closest_Value",
-    ]
-    finaldb = pd.DataFrame(columns=final_columns)
-    # Capture the full set of (Duration, TP) combinations for each location/AEP so that
-    # thresholds which do not exceed for a given combination can still contribute zeros
-    # to the summary statistics.  Without this we would discard zeros entirely and the
-    # medians could erroneously increase as the threshold increased.
-    combo_lookup = {
-        key: grp.loc[:, ["Duration", "TP"]].drop_duplicates().reset_index(drop=True)
-        for key, grp in df.loc[:, ["out_path", "Location", "AEP", "Duration", "TP"]]
-        .drop_duplicates()
-        .groupby(["out_path", "Location", "AEP"])
-    }
-
-    grouped = df.groupby(["out_path", "Location", "ThresholdFlow", "AEP"])
-    for name, group in grouped:
-        path, location, threshold, aep = name
-        combos = combo_lookup.get((path, location, aep))
-        if combos is not None:
-            group = combos.merge(group, on=["Duration", "TP"], how="left")
-            group["AEP"] = group["AEP"].fillna(aep)
-            group["out_path"] = group["out_path"].fillna(path)
-            group["Location"] = group["Location"].fillna(location)
-            group["ThresholdFlow"] = group["ThresholdFlow"].fillna(threshold)
-            group["Duration_Exceeding"] = group["Duration_Exceeding"].fillna(0.0)
-
-        stats, _ = median_stats_func(group, "Duration_Exceeding", "TP", "Duration")
-        row = list(name) + [
-            stats.get("median"),
-            stats.get("median_duration"),
-            stats.get("median_TP"),
-            stats.get("low"),
-            stats.get("high"),
-            stats.get("mean_including_zeroes"),
-            stats.get("median_TP"),
-            stats.get("median"),
-        ]
-        finaldb.loc[len(finaldb)] = row
-    finaldb.columns = final_columns
-    return finaldb
 
 
 def run_closure_durations(
@@ -177,7 +122,7 @@ def run_closure_durations(
         timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
         result_df.to_parquet(path=f"{timestamp}_durex.parquet.gzip", compression="gzip")
         result_df.to_csv(path_or_buf=f"{timestamp}_durex.csv", index=False)
-        summary_df: DataFrame = _summarise_results(df=result_df)
+        summary_df: DataFrame = summarise_results(df=result_df)
         summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\.?[0-9]+)")[0].astype(dtype=float)
         summary_df.sort_values(
             by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True, inplace=True

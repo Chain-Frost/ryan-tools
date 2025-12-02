@@ -115,7 +115,5 @@ def format_cutoff_value(value: float) -> str:
     Returns:
         str: Formatted cutoff value as a string.
     """
-    formatted_value = (
-        f"{value}".rstrip("0").rstrip(".") if "." in f"{value}" else f"{value}"
-    )
+    formatted_value = f"{value}".rstrip("0").rstrip(".") if "." in f"{value}" else f"{value}"
     return formatted_value.replace(".", "")

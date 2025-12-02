@@ -40,17 +40,13 @@ def dms_to_decimal(dms_str: str) -> float:
         dms_clean = re.sub(r'[°\'"]', " ", dms_str).strip()
         parts = dms_clean.split()
         if len(parts) != 3:
-            logger.warning(
-                f"Unexpected DMS format '{dms_str}'. Setting angle_degrees to 0.0."
-            )
+            logger.warning(f"Unexpected DMS format '{dms_str}'. Setting angle_degrees to 0.0.")
             return 0.0
         degrees, minutes, seconds = map(float, parts)
         decimal_degrees = degrees + minutes / 60 + seconds / 3600
         return decimal_degrees
     except Exception as e:
-        logger.error(
-            f"Error converting DMS to decimal for '{dms_str}': {e}. Setting angle_degrees to 0.0."
-        )
+        logger.error(f"Error converting DMS to decimal for '{dms_str}': {e}. Setting angle_degrees to 0.0.")
         return 0.0
 
 
@@ -75,9 +71,7 @@ def get_field(upstream_val: str, downstream_val: str, default=None) -> str:
         return default
 
 
-def extract_numeric(
-    value: str, field_name: str, culvert_name: str, dtype: type, default: float | int
-):
+def extract_numeric(value: str, field_name: str, culvert_name: str, dtype: type, default: float | int):
     """
     Converts a string value to a numeric type with error handling.
 
@@ -94,9 +88,7 @@ def extract_numeric(
     try:
         return dtype(value)
     except (ValueError, TypeError):
-        logger.warning(
-            f"Invalid {field_name} value '{value}' for culvert '{culvert_name}'. Setting to {default}."
-        )
+        logger.warning(f"Invalid {field_name} value '{value}' for culvert '{culvert_name}'. Setting to {default}.")
         return default
 
 
@@ -115,9 +107,7 @@ def parse_rpt_file(rpt_file_path: Path) -> list[dict[str, any]]:
         r'^\s*\d+\.\d+\s+\d+\.\d+\s+(\d+°\s*\d+\'\s*\d+")\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+[-+]?\d+\.\d+\s+"([^"]+)"$'
     )
     encoding = get_encoding(rpt_file_path)
-    logger.info(
-        f"Detected encoding for {rpt_file_path.relative_to(rpt_file_path.parent)}: {encoding}"
-    )
+    logger.info(f"Detected encoding for {rpt_file_path.relative_to(rpt_file_path.parent)}: {encoding}")
 
     try:
         with rpt_file_path.open("r", encoding=encoding, errors="ignore") as file:
@@ -126,24 +116,14 @@ def parse_rpt_file(rpt_file_path: Path) -> list[dict[str, any]]:
                 if match:
                     angle = match.group(1).strip()
                     full_name = match.group(2).strip()
-                    name = (
-                        full_name.split("->")[-1].strip()
-                        if "->" in full_name
-                        else full_name
-                    )
+                    name = full_name.split("->")[-1].strip() if "->" in full_name else full_name
                     name = name.replace("\x00", "").strip()
                     angle = angle if angle else "0°0'0\""
                     angle_degrees = dms_to_decimal(angle)
-                    culverts.append(
-                        {"Name": name, "Angle": angle, "Angle_Degrees": angle_degrees}
-                    )
-                    logger.debug(
-                        f"Parsed Culvert - Name: {name}, Angle: {angle}, Angle_Degrees: {angle_degrees}"
-                    )
+                    culverts.append({"Name": name, "Angle": angle, "Angle_Degrees": angle_degrees})
+                    logger.debug(f"Parsed Culvert - Name: {name}, Angle: {angle}, Angle_Degrees: {angle_degrees}")
     except Exception as e:
-        logger.error(
-            f"Error processing {rpt_file_path.relative_to(rpt_file_path.parent)}: {e}"
-        )
+        logger.error(f"Error processing {rpt_file_path.relative_to(rpt_file_path.parent)}: {e}")
 
     return culverts
 
@@ -160,15 +140,11 @@ def parse_txt_file(txt_file_path: Path) -> list[dict[str, any]]:
     """
     culverts = []
     encoding = get_encoding(txt_file_path)
-    logger.info(
-        f"Detected encoding for {txt_file_path.relative_to(txt_file_path.parent)}: {encoding}"
-    )
+    logger.info(f"Detected encoding for {txt_file_path.relative_to(txt_file_path.parent)}: {encoding}")
 
     try:
         # Read the file, skip the first and third rows
-        df = pd.read_csv(
-            txt_file_path, sep="\t", skiprows=[0, 2], encoding=encoding, dtype=str
-        )
+        df = pd.read_csv(txt_file_path, sep="\t", skiprows=[0, 2], encoding=encoding, dtype=str)
 
         # Normalize column names: strip spaces and convert to lowercase
         df.columns = df.columns.str.strip().str.lower()
@@ -207,16 +183,8 @@ def parse_txt_file(txt_file_path: Path) -> list[dict[str, any]]:
             upstream = df.iloc[i]
             downstream = df.iloc[i + 1]
 
-            name_upstream = (
-                upstream["string name"].strip()
-                if pd.notna(upstream["string name"])
-                else None
-            )
-            name_downstream = (
-                downstream["string name"].strip()
-                if pd.notna(downstream["string name"])
-                else None
-            )
+            name_upstream = upstream["string name"].strip() if pd.notna(upstream["string name"]) else None
+            name_downstream = downstream["string name"].strip() if pd.notna(downstream["string name"]) else None
 
             # Validate that both lines belong to the same culvert
             if name_upstream != name_downstream:
@@ -236,18 +204,10 @@ def parse_txt_file(txt_file_path: Path) -> list[dict[str, any]]:
             invert_ds = get_field(upstream["invert ds"], downstream["invert ds"], "0.0")
             diameter = get_field(upstream["diameter"], downstream["diameter"], "0.0")
             width = get_field(upstream["width"], downstream["width"], "0.0")
-            number_of_pipes = get_field(
-                upstream["number of pipes"], downstream["number of pipes"], "0"
-            )
-            separation = get_field(
-                upstream["separation"], downstream["separation"], "0.0"
-            )
-            direction = get_field(
-                upstream["*direction"], downstream["*direction"], "Unknown"
-            )
-            pipe_type = get_field(
-                upstream["pipe type"], downstream["pipe type"], "Unknown"
-            )
+            number_of_pipes = get_field(upstream["number of pipes"], downstream["number of pipes"], "0")
+            separation = get_field(upstream["separation"], downstream["separation"], "0.0")
+            direction = get_field(upstream["*direction"], downstream["*direction"], "Unknown")
+            pipe_type = get_field(upstream["pipe type"], downstream["pipe type"], "Unknown")
 
             us_x = extract_numeric(us_x, "Pit Centre X (US)", name, float, 0.0)
             us_y = extract_numeric(us_y, "Pit Centre Y (US)", name, float, 0.0)
@@ -257,9 +217,7 @@ def parse_txt_file(txt_file_path: Path) -> list[dict[str, any]]:
             invert_ds = extract_numeric(invert_ds, "Invert DS", name, float, 0.0)
             diameter = extract_numeric(diameter, "Diameter", name, float, 0.0)
             width = extract_numeric(width, "Width", name, float, 0.0)
-            number_of_pipes = extract_numeric(
-                number_of_pipes, "Number of Pipes", name, int, 0
-            )
+            number_of_pipes = extract_numeric(number_of_pipes, "Number of Pipes", name, int, 0)
             separation = extract_numeric(separation, "Separation", name, float, 0.0)
 
             culvert = {
@@ -282,16 +240,12 @@ def parse_txt_file(txt_file_path: Path) -> list[dict[str, any]]:
             logger.debug(f"Parsed TXT Culvert - {culvert}")
 
     except Exception as e:
-        logger.error(
-            f"Error processing {txt_file_path.relative_to(txt_file_path.parent)}: {e}"
-        )
+        logger.error(f"Error processing {txt_file_path.relative_to(txt_file_path.parent)}: {e}")
 
     return culverts
 
 
-def combine_data(
-    rpt_data: list[dict[str, any]], txt_data: list[dict[str, any]]
-) -> pd.DataFrame:
+def combine_data(rpt_data: list[dict[str, any]], txt_data: list[dict[str, any]]) -> pd.DataFrame:
     """
     Combines .rpt and .txt data based on the 'Name' field.
 
@@ -308,17 +262,11 @@ def combine_data(
     logger.info(f"Unique RPT Culverts: {len(rpt_df)}")
     logger.info(f"Unique TXT Culverts: {len(txt_df)}")
 
-    combined_df = pd.merge(
-        rpt_df, txt_df, on="Name", how="outer", suffixes=("_rpt", "_txt")
-    )
+    combined_df = pd.merge(rpt_df, txt_df, on="Name", how="outer", suffixes=("_rpt", "_txt"))
 
     combined_df["Angle"] = combined_df["Angle"].fillna("0°0'0\"")
     combined_df["Angle_Degrees"] = combined_df.apply(
-        lambda row: (
-            row["Angle_Degrees"]
-            if pd.notna(row["Angle_Degrees"])
-            else dms_to_decimal(row["Angle"])
-        ),
+        lambda row: (row["Angle_Degrees"] if pd.notna(row["Angle_Degrees"]) else dms_to_decimal(row["Angle"])),
         axis=1,
     )
 
@@ -392,9 +340,7 @@ def report_missing_culverts(combined_df: pd.DataFrame) -> None:
     """
     missing_rpt = combined_df[combined_df["Angle"] == "0°0'0\""]
     if not missing_rpt.empty:
-        logger.info(
-            "\nCulverts missing or defaulted in .rpt data (Angle set to 0°0'0\"):"
-        )
+        logger.info("\nCulverts missing or defaulted in .rpt data (Angle set to 0°0'0\"):")
         logger.info(missing_rpt["Name"].to_string(index=False))
 
     missing_txt = combined_df[
@@ -435,13 +381,9 @@ def clean_and_convert(combined_df: pd.DataFrame) -> pd.DataFrame:
         if col in combined_df.columns:
             try:
                 if dtype == "float":
-                    combined_df[col] = pd.to_numeric(
-                        combined_df[col], errors="coerce"
-                    ).fillna(0.0)
+                    combined_df[col] = pd.to_numeric(combined_df[col], errors="coerce").fillna(0.0)
                 elif dtype == "Int64":
-                    combined_df[col] = pd.to_numeric(
-                        combined_df[col], errors="coerce"
-                    ).astype("Int64")
+                    combined_df[col] = pd.to_numeric(combined_df[col], errors="coerce").astype("Int64")
             except Exception as e:
                 logger.error(f"Error converting column '{col}' to {dtype}: {e}")
         else:

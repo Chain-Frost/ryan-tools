@@ -1,6 +1,7 @@
 # ryan-scripts\TUFLOW-python\LogSummary.py
 
 import argparse
+import gc
 from pathlib import Path
 import os
 
@@ -54,4 +55,5 @@ if __name__ == "__main__":
         console_log_level=common_options.console_log_level,
         working_directory=common_options.working_directory,
     )
+    gc.collect()
     os.system("PAUSE")

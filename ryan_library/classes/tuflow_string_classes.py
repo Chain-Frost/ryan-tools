@@ -15,6 +15,7 @@ class RunCodeComponent:
     component_type: str
     numeric_value: float | int | None = field(init=False)
     text_repr: str = field(init=False)
+    original_text: str | None = field(default=None)
 
     def __post_init__(self) -> None:
         self.component_type = self.component_type.lower()
@@ -67,12 +68,15 @@ class TuflowStringParser:
     # ``TP_PATTERN`` finds patterns like ``TP01`` that are surrounded by ``_`` or ``+`` (or appear at the edges).
     # Keep the core ``TP##``/``TP#`` style bounded by delimiters so we do not
     # accidentally read other numbers embedded within filenames.
-    TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)TP(\d{1,2})(?:[_+]|$)", flags=re.IGNORECASE)
+    # ``TP_PATTERN`` finds patterns like ``TP01`` that are surrounded by ``_`` or ``+`` (or appear at the edges).
+    # Keep the core ``TP##``/``TP#`` style bounded by delimiters so we do not
+    # accidentally read other numbers embedded within filenames.
+    TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)TP(\d{1,2})(?:[_+.]|$)", flags=re.IGNORECASE)
     # ``DURATION_PATTERN`` captures 3-5 digits followed by ``m`` (e.g. ``00360m`` or ``360m``).
-    DURATION_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+]|$)", flags=re.IGNORECASE)
+    DURATION_PATTERN: re.Pattern[str] = re.compile(pattern=r"(?:[_+]|^)(\d{3,5})[mM](?:[_+.]|$)", flags=re.IGNORECASE)
     # ``AEP_PATTERN`` matches values like ``01.00p`` or ``5p`` and reads the numeric portion before ``p``.
     AEP_PATTERN: re.Pattern[str] = re.compile(
-        pattern=r"(?:^|[_+])(?P<aep>(?P<numeric>\d+(?:\.\d{1,2})?)p|(?P<text>PMPF|PMP))(?=$|[_+])",
+        pattern=r"(?:^|[_+])(?P<aep>(?P<numeric>\d+(?:\.\d{1,2})?)p|(?P<text>PMPF|PMP))(?=$|[_+.])",
         flags=re.IGNORECASE,
     )
     # ``GENERIC_TP_PATTERN`` handles free-form strings such as "tp 3".
@@ -274,8 +278,9 @@ class TuflowStringParser:
         match: re.Match[str] | None = self.TP_PATTERN.search(string)
         if match:
             tp_value: str = match.group(1)
+            original_text: str = match.group(0).strip("_+")
             logger.debug(f"Parsed TP value: {tp_value}")
-            return RunCodeComponent(raw_value=tp_value, component_type="TP")
+            return RunCodeComponent(raw_value=tp_value, component_type="TP", original_text=original_text)
         logger.debug("No TP component found")
         return None
 
@@ -295,16 +300,22 @@ class TuflowStringParser:
         match: re.Match[str] | None = self.DURATION_PATTERN.search(normalized)
         if match:
             duration_value = match.group(1)
+            original_text: str = match.group(0).strip("_+")
             logger.debug(f"Parsed Duration value: {duration_value}")
-            return RunCodeComponent(raw_value=duration_value, component_type="Duration")
+            return RunCodeComponent(
+                raw_value=duration_value, component_type="Duration", original_text=original_text
+            )
 
         for human_match in self.HUMAN_DURATION_PATTERN.finditer(normalized):
             minutes: float | None = self._minutes_from_human_match(human_match)
             if minutes is None:
                 continue
             minutes_str: str = str(int(minutes)) if minutes.is_integer() else str(minutes)
+            original_text = human_match.group(0).strip("_+")
             logger.debug(f"Parsed Duration value from human-readable token: {minutes_str}")
-            return RunCodeComponent(raw_value=minutes_str, component_type="Duration")
+            return RunCodeComponent(
+                raw_value=minutes_str, component_type="Duration", original_text=original_text
+            )
         logger.debug("No Duration component found")
         return None
 
@@ -325,7 +336,8 @@ class TuflowStringParser:
                 logger.error("AEP pattern matched but no numeric or text group was captured.")
                 return None
             logger.debug(f"Parsed AEP value: {aep_value!r}")
-            return RunCodeComponent(raw_value=aep_value, component_type="AEP")
+            original_text: str = match.group(0).strip("_+")
+            return RunCodeComponent(raw_value=aep_value, component_type="AEP", original_text=original_text)
         logger.debug("No AEP component found")
         return None
 
@@ -336,9 +348,13 @@ class TuflowStringParser:
         Returns:
             str: Cleaned run code.
         """
-        components_to_remove: set[str] = {
-            str(component).lower() for component in [self.aep, self.duration, self.tp] if component
-        }
+        removable_components: list[RunCodeComponent | None] = [self.aep, self.duration, self.tp]
+        components_to_remove: set[str] = {str(component).lower() for component in removable_components if component}
+        # Add original text to components to remove, including duration tokens.
+        for component in removable_components:
+            if component and component.original_text:
+                components_to_remove.add(component.original_text.lower())
+
         logger.debug(f"Components to remove: {components_to_remove}")
         trimmed_runcode: str = "_".join(
             part for part in self.clean_run_code.split("_") if part.lower() not in components_to_remove

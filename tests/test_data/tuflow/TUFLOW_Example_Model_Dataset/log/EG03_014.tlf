@@ -1,0 +1,2696 @@
+
+Build: 2025.2.1-iSP-w64
+
+Executable: C:\TUFLOW\2025.2.1\TUFLOW_iSP_w64.exe (Copyright BMT Commercial Australia Pty Ltd)
+
+Licence maintenance period: July 2025 - June 2026
+
+Computer Name: RYAN-AM5
+
+Simulation Started: 2025-Nov-27 23:40
+
+
+Compiler: Intel Fortran 2021.3; Single Precision; 64-bit
+
+Hazard Routines ID in TUFLOW_USER_DEFINED.dll: Default Hazard Routines
+
+No Specified Events.
+
+No Specified Scenarios.
+
+No variables defined using Set Variable ==
+
+Initialising Time of Startup Summary == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_start_stats.txt
+
+Trying to open (O) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_start_stats.txt...OK.  File Unit: 904
+
+Initialising TUFLOW Licence Settings...
+Looking for "C:\TUFLOW\2025.2.1\TUFLOW_Licence_Settings.lcf"...not found.
+Looking for "C:\ProgramData\TUFLOW\TUFLOW_Licence_Settings.lcf"...not found.
+Looking for "C:\BMT_WBM\TUFLOW_Licence_Settings.lcf"...not found.
+Looking for "C:\BMT_WBM\TUFLOW_Dongle_Settings.dcf"...not found.
+
+No TUFLOW licence Settings files found.  Default settings applied.
+WIBU Retry Time == 60  ! Seconds.  Values less than 1 are set to 1.  Default = 60.
+WIBU Retry Count == 0  ! Number of times to retry for a licence at start of simulation.  Use -1 for indefinitely.  Default = 0.
+WIBU Dongles Only == OFF  ! If set to ON, searches for WIBU dongles only.  Default is OFF.
+
+Simulations Log Folder == C:\ProgramData\TUFLOW\log\Ryan\  ! Path or URL to global simulations log folder.  Default is C:\ProgramData\TUFLOW\log\Ryan
+
+Trying to open (A) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\_ TUFLOW Simulations.log...OK.  File Unit: 905
+...Closed File Unit: 905
+
+Detected 16 CPUs.
+CPU limiting not activated for standalone dongle.
+
+Setting up dynamic arrays...
+
+Reading .tcf File .. E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG03_014.tcf
+
+Trying to open (O) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014.wor...OK.  File Unit: 905
+
+Trying to open (O) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014.qgs...OK.  File Unit: 906
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_messages.shp
+GIS Layer assigned ID of 1
+
+Trying to open (BO) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_messages_P.shp...OK.  File Unit: 907
+
+Trying to open (BO) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_messages_P.shx...OK.  File Unit: 908
+
+Trying to open (O) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_messages_P.prj...OK.  File Unit: 909
+
+Trying to open (BO) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_messages_P.dbf...OK.  File Unit: 910
+...Closed File Unit: 909
+
+Trying to open (O) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_messages.csv...OK.  File Unit: 909
+
+Trying to open (I) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_messages.csv...OK.  File Unit: 911
+...Closed File Unit: 911
+
+Home Folder: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\
+
+Free-Form Input Assumed...
+
+
+Trying to open (I) file E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\materials_depth_varying.csv...OK.  File Unit: 911
+
+  1...Processing: 1,"0.03,0.1,0.1,0.06","0,0",,
+
+  2...Processing: 2,0.02,"0,0",,
+
+  3...Processing: 3,"0.03,0.02,0.1,0.4","0,0",,
+
+  4...Processing: 4,0.03,"0,0",,
+
+  5...Processing: 10,"0.03,0.01,0.1,0.08","0,0",,
+
+  6...Processing: 11,"0.03,0.1,0.1,0.04","0,0",,
+...Closed File Unit: 911
+
+No Event Sources found.
+
+Start Time (h):.......     0.000
+Finish Time (h):......     3.000
+
+Primary 2D timestep (the largest) set to 1. secs
+Domain: Domain_001    Original Timestep:    1.00  Iterations:   1  Adopted Timestep:    1.00
+
+Start Output (h):.....     0.000
+Output Interval (s):..   300.000
+Maximums Start Track Time:      0.000
+1. Wetting & Drying ON with dry side wall checks
+2. Use Manning n based on material specifications
+3. Wave Radiation Stresses OFF
+4. ----------------------
+5. Water Level Checks ON
+6. Extrapolate Heads at Flow Boundaries OFF
+7. Use Static Head at ESTRY Interface
+8. Oblique Boundary Methods OFF
+   Oblique Boundary Alignment Default == NEAREST TO LINE
+   Supercritical Flow Switching ON; Froude No. Check = 1.; Froude Depth Adjustment ON
+9. HPC Weir Factors (C1 =0.30 and C2 =0.78)
+10. Use Wu Viscosity Coefficient
+10. Velocity Dependent Viscosity Coefficient ON
+12. Output Format SMS Generic Files (without land elements)
+13. Display/log status every 100 timesteps
+Warmup Time (s):.............     0.000
+Time Step During Warmup (s):.     1.000
+Depth/Ripple Ht Factor Limit:    10.000
+Wave Period (s):.............     0.000
+
+Start Time PO & LPO Output (h):.......     0.000
+Output Interval PO & LPO Output (s):..     1.000
+
+No Wind Output Specified
+
+Number of Iterations:.................     2
+
+Material Values:
+
+#1 - Material 1:
+Manning's n vs Depth Curve:
+  #     Depth         n
+  1    0.0300    0.1000
+  2    0.1000    0.0600
+IL = 0.0mm,  CL = 0.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#2 - Material 2:
+Fixed Manning's n = 0.020
+IL = 0.0mm,  CL = 0.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#3 - Material 3:
+Manning's n vs Depth Curve:
+  #     Depth         n
+  1    0.0300    0.0200
+  2    0.1000    0.4000
+IL = 0.0mm,  CL = 0.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#4 - Material 4:
+Fixed Manning's n = 0.030
+IL = 0.0mm,  CL = 0.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#5 - Material 10:
+Manning's n vs Depth Curve:
+  #     Depth         n
+  1    0.0300    0.0100
+  2    0.1000    0.0800
+IL = 0.0mm,  CL = 0.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+#6 - Material 11:
+Manning's n vs Depth Curve:
+  #     Depth         n
+  1    0.0300    0.1000
+  2    0.1000    0.0400
+IL = 0.0mm,  CL = 0.0mm/h
+SRF (Storage Reduction Factor) = 0.
+Fraction Impervious = 0.
+
+
+NoXY: WARNING 2583 - Material ID 3 contains a manning's n value (0.400) greater than Wu n limit (0.100) - n value will be limited in Wu formulation
+Wiki Link: https://wiki.tuflow.com/TUFLOW_Message_2583
+Output Files to be Pre-fixed by: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\EG03_014
+Log and message files to be pre-fixed by: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014
+
+!_______________________________________________________________________________
+! TUTORIAL / DEMO MODEL COMMANDS
+Tutorial Model == ON
+Demo Model == OFF
+
+!_______________________________________________________________________________
+! BACKWARD COMPATIBILITY DEFAULTS COMMANDS
+! Defaults == 2025  !  Not set  ! [ PRE 2006-06-AA | PRE 2007-07-AA | PRE 2008-08 | PRE 2010 | PRE 2012 | PRE 2013 | PRE 2016 | PRE 2017 | PRE 2020-01 | Pre 2020-10 | Pre 2020-10-AB | Pre 2023 | Pre 2025]
+
+!_______________________________________________________________________________
+! GEOGRAPHIC REFERENCE COMMANDS
+GIS Format == SHP
+GRID Format == TIF
+MI Projection == 
+SHP Projection == PROJCS["WGS_1984_UTM_Zone_60S",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",10000000.0],PARAMETER["Central_Meridian",177.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]
+GPKG Projection == -1
+GPKG WKT CRS EXTENSION == OFF
+TIF Projection == unnamed
+GIS Projection Check == ERROR
+SHP Projection Check Method == Parsed   ! Options [ {PARSED} | SIMPLE ]
+Snap Tolerance == 0.001
+Units == METRIC  ! output to be in same units as input
+GPKG Conversion Check == ERROR
+GPKG Read Only == OFF
+
+!_______________________________________________________________________________
+! READ FILES
+! The following Read Files (if any) were found:
+
+!_______________________________________________________________________________
+! 2D SOLUTION SCHEME AND HARDWARE COMMANDS
+
+2D Solution Scheme == HPC 2nd  ! Explicit FV, Version == 3
+HPC 1D Synchronisation == MAXIMISE 1D TIMESTEP | 10
+HPC Temporal Scheme == 4
+HPC Control Number Factor == 1.  ! If set zero adaptive timestepping is turned off and fixed timestep is used.
+RAM Optimisation == ON
+
+Mass Balance Output == ON   ! Options [ {ON} | OFF ]
+Mass Balance Output Interval (s) == -1.
+
+HARDWARE == GPU
+GPU Device IDs == 0, 
+HPC DP CHECK == CHECK   ! Options [ {CHECK} | ERROR | OFF ]
+
+!_______________________________________________________________________________
+! 2D DOMAIN DEPENDENT COMMANDS
+! Note:  Set / Read MI/GIS FC, PO, LP, GLO, IWL commands not shown - use check files to verify.
+! Found 1 2D Domain(s)
+
+Start 2D Domain == Domain_001
+   Geometry Control File == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG00_001.tgc
+   BC Control File == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG03_014.tbc
+   Cell Wet/Dry Depth (m) == 0.002
+   Cell Side Wet/Dry Depth (m) == 0.001
+   ! Instability Water Level == <default>  ! ie. will use highest Zpt
+   ! Morphology Control File ==  ! None specified
+   ! AD Control File ==  ! None specified
+End 2D Domain == Domain_001
+
+!_______________________________________________________________________________
+! FILE MANAGEMENT COMMANDS
+Write Check Files == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014
+Input Drive == 
+Output Drive == 
+Output Folder == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\
+Check MI Save Date == ERROR  ! [ {ERROR} | WARNING | OFF ]
+Check MI Save Ext == .tab  ! [ {.tab} | <ext> ]
+XF Files  == ON   ! Options [ ON | {OFF} ]
+!XF Files Include in Filename == ! Not set
+XF Files Merge TIN Elevations == Reprocess   ! Options [ {Reprocess} | Use XF ]
+
+!_______________________________________________________________________________
+! BC DATABASE GLOBAL SETTINGS COMMANDS
+BC Database == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\bc_dbase_EG03_006.csv
+BC Event Name == 
+BC Event Source == <source_text> | <source_name>
+BC Zero Flow == OFF  ! [ {OFF} | START | END | START and END ]
+
+!_______________________________________________________________________________
+! SIMULATION CONTROL COMMANDS
+Start Time (h) == 0.
+End Time (h) == 3.
+! End After Maximums (h) ==  ! Finish simulation x hours after maximums have been reached.
+! Auto Terminate not enabled.
+Timestep Minimum (s) == AUTO
+Timestep Repeats == 10
+HPC Timestep Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+HPC Velocity Limit (m/s) == 30.
+
+!_______________________________________________________________________________
+! BED RESISTANCE FORMAT COMMANDS
+Bed Resistance Values == MANNING n   ! Options [ {MANNING n} | MANNING M | CHEZY ]
+Bed Resistance Cell Sides == INTERROGATE   ! Options [ AVERAGE M | AVERAGE n | MAXIMUM n | {INTERROGATE} ]
+Change Zero Material Values to One == OFF   ! Options [ ON | {OFF} ]
+HPC Mannings Depth Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+
+!_______________________________________________________________________________
+! GLOBAL FLOW CONSTRICTION (FC) COMMANDS
+Layered FLC Default Approach == METHOD B  ! [ METHOD A | {METHOD B} | METHOD C | METHOD D]
+BG FLC Default Approach == LINEAR              ! [ LINEAR | {LINEAR-CONSTANT} | PARABOLIC | INVERTED-PARABOLIC ]
+Blank BG FLC Approach == NONE  ! [ {NONE} | METHOD A | METHOD B]
+
+!_______________________________________________________________________________
+! OUTPUT CONTROL AND FORMAT COMMANDS
+
+! Number of active user defined Output Zones = 0
+
+MAP OUTPUT SETTINGS for ENTIRE MODEL
+   Map Output Entire Model == ON   ! Options [ {ON} | OFF ]
+   Output Folder == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\
+   ! Output Name: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\EG03_014
+   Maximums and Minimums == ON MAXIMUMS ONLY   ! Options [ ON | {ON MAXIMUMS ONLY} | OFF ]
+   Map Output Formats ==  XMDF TIF   ! Options  [ ASC ] [ CC ] [ DAT ] [ FLT ] [ GRID ] [ NC ] [ GPKG ] [ TIF ] [ HRASC ] [ HRFLT ] [ HRNC ] [ HRTGO ] [ HRWRR ] [ HRGIS ] [ HRGPKG ] [ HRTIF ] [ T3 ] [ TGO ] [ TMO ] [ WRB ] [ WRC ] [ WRR ] [ {XMDF} ] [ SMS [ {} | TRIANGLES | HIGH RES [ {} | CORNERS ONLY ] ] ]
+   XMDF Map Output Data Types ==  h V d z0 RFR RFC
+   XMDF Start Map Output (h) == 0.
+   XMDF End Map Output (h) == 3.
+   XMDF Map Output Interval (s) == 300.
+   Maximums and Minimums Only For Grids == OFF   ! Options [ ON | {OFF} ]
+   TIF Map Output Data Types ==  h
+   ! Temporal TIF map output disabled
+END MAP OUTPUT SETTINGS for ENTIRE MODEL
+
+Grid Output Cell Size == Not Specified
+Grid Output Origin == AUTOMATIC
+
+Maximums Approach == METHOD B
+Map Cutoff Depth (m) == 0.1
+Map Cutoff SGS (m) == CELL AVERAGE | 0.1
+SGS Map Extent Trim  == ALL
+Maximum Velocity Cutoff Depth (m) == 0.1
+BSS Cutoff Depth (m) == 0.1
+Time Output Cutoff [Depths | VxD] == OFF
+
+ZP Hazard Cutoff Depths ==  0.01 0.01 0.01
+Map Output Corner Interpolation == METHOD C
+Map Output Vector Dry Zpt == OFF   ! Options [ ON | {OFF} ]
+Map Cutoff Vector == ON   ! Options [ {ON} | OFF ]
+Meshparts == OFF   ! Options [ ON | {OFF} ]
+
+UK Hazard Formula == D*(V+0.5)+DF   ! Options [ D*(V+1.5) | {D*(V+0.5)+DF} ]
+!UK Hazard Debris Factor == N/A
+UK Hazard Land Use == CONSERVATIVE   ! Options [ PASTURE | WOODLAND | URBAN | {CONSERVATIVE} | NOT SET ]
+NetCDF Output Compression  == 1
+NetCDF Output Start Date  == 2000-01-01 00:00
+Blue Kenue Start Date == 2000-01-01
+XMDF Output Compression  == 1
+GPKG Output Compression Method  == LZW   ! Options [ NONE | {LZW} ]
+GPKG Output Compression Predictor == HORIZONTAL DIFFERENCING   ! Options [ NONE | {HORIZONTAL DIFFERENCING} ]
+TIF Output Compression Method  == DEFLATE (Level -1)   ! Options [ NONE | LZW | {DEFLATE} | <level> ]
+TIF Output Compression Predictor == HORIZONTAL DIFFERENCING   ! Options [ NONE | {HORIZONTAL DIFFERENCING} ]
+
+!_______________________________________________________________________________
+! SCREEN DISPLAY COMMANDS
+Screen/Log Display Interval == 100   ! timesteps
+TSF Update Interval == 60   ! seconds
+HPC dt Write Interval == 100   ! timesteps
+Verbose == LOW   ! Options [ ON | OFF | {LOW} ]
+
+!_______________________________________________________________________________
+! TIME-SERIES OUTPUT COMMANDS
+Start Time Series Output (PO and LPO) (h) == 0.
+Time Series Output Interval (s) == 1.
+CSV Time == HOURS   ! Options [ {HOURS} | DAYS ]
+CSV Maximum Number Columns == UNLIMITED
+PO Approach == METHOD B
+Write PO Online == OFF   ! Options [ ON | {OFF} ]
+Maximums and Minimums Time Series == ON   ! Options [ ON | {OFF} ]
+Time Series Null Value == Cell Elevation
+Record Gauge Data == Gauge RLP RLL
+
+!_______________________________________________________________________________
+! RESTART FILE COMMANDS
+!Read Restart File ==  ! no restart file specified
+Write Restart File Version == 2
+!Write Restart File at Time (h) ==  ! not specified
+!Write Restart File Interval (h) ==  ! not specified
+!Write Restart Filename == [ {INCLUDE TIME} | OVERWRITE ]
+
+!_______________________________________________________________________________
+! SIMULATION PAUSE COMMANDS
+! Simulation Pause Start (h) == ! not specified
+! Simulation Pause Interval (h) == ! not specified
+
+!_______________________________________________________________________________
+! WETTING AND DRYING COMMANDS
+Wetting and Drying == ON METHOD B   ! Options [ {ON} | ON NO SIDE CHECKS | OFF ]
+Cell Side Checks == METHOD B
+
+!_______________________________________________________________________________
+! FREE-OVERFALL AND WEIR FLOW COMMANDS
+HPC Weir Factor == 0.3, 0.78
+HPC Weir Approach == METHOD B ENERGY   ! Options [ METHOD A | METHOD B | {METHOD B ENERGY} ]
+HPC Thin Weir Parameters == 0.577, 1.5, 8.55, 0.556   ! Defaults [0.577, 1.5, 8.55, 0.556 ]
+HPC Thick Weir Parameters == 0.577, 1.5, 8.55, 0.556   ! Defaults [0.577, 1.5, 8.55, 0.556 ]
+
+!_______________________________________________________________________________
+! EDDY VISCOSITY COMMANDS
+Viscosity Formulation == WU   ! Options [ CONSTANT | NON-NEWTONIAN | SMAGORINSKY | {WU} | WU SECONDARY ]
+[Wu] Viscosity Coefficients == 7., 0., 0.1  ! 3D, 2D components, Mannings n upper limit 
+Viscosity Approach == METHOD B
+
+!_______________________________________________________________________________
+! WATER LEVEL INSTABILITY DETECTION COMMANDS
+Water Level Checks == ON   ! Options [ {ON} | OFF ]
+
+!_______________________________________________________________________________
+! BOUNDARY TREATMENT COMMANDS
+HX Dry 1D Node Test == OFF   ! Options [ ON | {OFF} ]
+Distribute HX Flows == OFF   ! Options [ ON | {OFF} ] - ON ONLY APPLIES TO ESTRY 1D SCHEME
+Unused HX and SX Connections == ERROR   ! Options [ {ERROR} | WARNING ] - Can be used multiple times. Search TLF for "UNUSED HX AND SX CONNECTION" to find all instances of use.
+Adjust Head at Estry Interface == OFF   ! Options [ ON | ON VARIABLE | {OFF} ]
+Oblique Boundary Method == OFF   ! Options [ {ON} | ON METHOD 2 | OFF ]
+Boundary Treatment == METHOD A
+HQ Boundary Approach == METHOD C
+HQ Weighting Factor == 1.
+Boundary Viscosity Factor == 1.
+Rainfall Boundaries == STEPPED
+Rainfall Boundary Factor == 1.
+Rainfall Gauges == UNLIMITED PER CELL
+Global Rainfall Use Material Losses == ON
+Soil Negative Rainfall Approach == NONE   ! Options [ {NONE} | FACTOR ]
+Line Cell Selection == METHOD D
+Link 2D2D Approach == METHOD D
+Link 2D2D Distribute Flow == ON
+Link 2D2D Adjust Velocity Head Factor == 0.
+Link 2D2D Weighting Factor == 1.
+Link 2D2D Global Stability Factor == 1.
+Reveal 1D Nodes == OFF
+Inside Region == METHOD B
+SA Minimum Depth == -99999.
+SA Proportion to Depth == ON   ! Options [ {ON} | OFF ]
+SX ZC Check == ON   ! Options [ {ON} | OFF | <value> ]
+SX Head Adjustment == OFF   ! Options [ ON | {OFF} ]
+SX Flow Distribution Cutoff Depth == AUTO
+SX Head Distribution Cutoff Depth == AUTO
+SX Storage Approach == 1D NODE AVERAGE
+SX Storage Factor == 1., 20.
+HX Additional FLC == 0.
+HX Force Weir Equation == OFF   ! Options [ ON | {OFF} | dZ ]
+HX ZC Check == ON   ! Options [ {ON} | OFF ]
+Zpt Range Check == -9998., 99998.
+HPC Boundary Approach == METHOD C   ! Options [ METHOD A | {METHOD B} ]
+HPC HQ Boundary Approach == TOTAL   ! Options [ CELL | {TOTAL} ]
+HPC HQ Boundary Filter Constant == 5.
+HPC Infiltration Drying Approach == METHOD B   ! Options [ METHOD A | {METHOD B} | METHOD C ]
+HPC SX Momentum Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+HPC Dry Face Inertia Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+
+!_______________________________________________________________________________
+! MISCELLANEOUS COMMANDS
+Latitude == 0. ! degrees from equator (-ve for down under)
+Check Inside Grid == ERROR
+Write X1D Check File == OFF   ! Options [ ON | {OFF} ]
+VG Z Adjustment == MAX ZC   ! Options [ {ZC} | MAX ZC | ZH ]
+Density of Air == 1.25
+Density of Water == 1025.
+Wind/Wave Shallow Depths == 0.2, 1.
+GIS Project Path Format == Relative
+DEFAULT GIS Extension == NONE
+Spatial Database Output == GROUPED
+Pit Surcharge ccA Cutoff Depth == 0.
+
+!_______________________________________________________________________________
+! WIND STRESS COMMANDS
+
+!_______________________________________________________________________________
+! WAVE RADIATION STRESS COMMANDS
+
+!_______________________________________________________________________________
+! TEMPORARY ARRAY SIZE LIMITS
+Maximum Points == 500000
+Maximum Vertices == 100000
+Maximum 1D Channels == 100000
+Maximum 2D Cells Linked to a 1D Node == 1000
+Index 1D2D Links == ON   ! Options [ ON | {OFF} ]
+
+!_______________________________________________________________________________
+! BLOCKAGE MATRIX COMMANDS
+Blockage Matrix == OFF
+
+!_______________________________________________________________________________
+! SGS COMMANDS
+SGS == ON   ! Options [ ON | {OFF} ]
+SGS Approach == METHOD C   ! Options [ METHOD A | METHOD B | {METHOD C} ]
+SGS Material == OFF   ! Options [ {OFF} | ON ]
+SGS Z Shape Line Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+SGS SX Z Flag Approach == METHOD B   ! Options [ METHOD A | {METHOD B} ]
+SGS Check Files == ON   ! Options [ {ON} | OFF ]
+SGS Zpt MAX/MIN Approach == MINIMUM   ! Options [ IGNORE | {MINIMUM} | MEDIAN | CENTRE ]
+SGS Hydraulic Radius == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+SGS 2nd Order BC Slope == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+SGS Depth Output == CELL AVERAGE   ! Options [ {CELL AVERAGE} | EXACT | MEAN | MEDIAN | MINIMUM | PERCENTILE ]
+SGS Velocity Based Output == CELL AVERAGE DEPTH   ! Options [ {CELL AVERAGE DEPTH} | SGS DEPTH OUTPUT ]
+SGS Infiltration Approach == AUTO   ! Options [ {AUTO} | TOTAL AREA | WETTED AREA ]
+SGS Negative Rainfall Approach == WETTED AREA   ! Options [ TOTAL AREA | {WETTED AREA} ]
+SGS Sheet Flow Approach == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+
+!_______________________________________________________________________________
+! TIN COMMANDS
+TIN TRIANGULATION APPROACH == METHOD A   ! Options [ {METHOD A} | METHOD B ]
+TIN OUTPUT FORMAT == 2DM   ! Options [ {2DM} | SMS TIN ]
+
+!_______________________________________________________________________________
+! GROUNDWATER COMMANDS
+
+
+Found 0 User Defined Output Zone(s)
+
+
+Found 1 2D domain(s)
+
+
+Projection output: use simulation name.
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\grid\DEM_SI_Unit_01.tif
+GRID Layer assigned ID of 1
+
+Attempting to create XMDF file "E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\EG03_014.xmdf"
+
+Created XMDF file "E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\EG03_014.xmdf"
+
+Found a total of 1 hazard map outputs.
+
+Allocating 1600 Kb of temporary memory (RAM)
+
+Opening BC Control File "E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG03_014.tbc" for 2D Domain Domain_001
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG00_001_L.shp
+GIS Layer assigned ID of 2
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG00_001_L.shp]...
+
+Deallocating temporary memory (RAM)
+
+Allocating 30000 Kb of temporary 1D domain memory (RAM)
+
+Determining 1D array sizes
+
+Maximum 1D Timestep == 0.5  ! 1D maximum timestep not specified - set to half the starting 2D timestep.
+Temporary memory (RAM) requested =          1 Mb
+
+...Finished determining 1D array sizes
+
+
+Found a total of 1 1D nodes.  1 ESTRY nodes and 0 external 1D scheme nodes.
+
+
+Allocating space for output zones based on a resolution factor of 2
+
+tgc>> Read GIS Location == gis\2d_loc_EG00_001_L.shp
+out > Read GIS Location...Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_loc_EG00_001_L.shp
+GIS Layer assigned ID of 2
+1 DBF Fields (Name [#/Type/Length]): Comment [1/C/250]  
+found first line - see below for grid location
+found first line - see below for grid location
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_loc_EG00_001_L.shp]...
+
+tgc>> Cell Size == 5
+out > Cell Size...set to   5.000
+
+tgc>> Grid Size (X,Y) == 850, 1000
+out > Grid Size (X,Y)...see below for calculated size
+
+Domain_001  : Grid Dimensions (N,M): 200,170
+Domain_001  : Geographic Origin:      292725.000     6177615.000
+Domain_001  : Geographic Rotation Angle: -13.165795
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_dom_check.shp
+GIS Layer assigned ID of 2
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_dom_check.shp]...
+
+Counting any Variable Zpt, SGS Zpt,FC and/or Layered FC Shapes...
+
+...Found total of 0 Variable Z Shape Zpts in 2D Domain Domain_001.
+
+...Found total of 0 FC Shape Cell Sides in 2D Domain Domain_001.
+
+...Found total of 0 Layered FC Shape Cell Sides in 2D Domain Domain_001.
+
+Allocated space for 0 Time Series Plot Outputs including Reporting Locations
+
+Allocated space for 0 Time Series Plot Output flow lines including Reporting Locations
+   with a maximum of 1 cell sides plus cell centres along longest line
+
+Allocated space for 0 Longitudinal Plot Line Segments
+   with a maximum of 1 cells along a segment
+Domain_001  : Number of PO Time Series Locations:... 0
+Domain_001  : Number of LP Profile Locations:....... 0
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG00_001_L.shp
+GIS Layer assigned ID of 2
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+Number of Input Layers: 1
+Input Layer 1: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG00_001_L.shp
+Found database line: FC01,EG00_001.csv,inflow_time_hr,inflow_FC01,,,,,
+...Array size from xf file: 41
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG00_001_L.shp]...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_RF_EG03_014_R.shp
+GIS Layer assigned ID of 2
+3 DBF Fields (Name [#/Type/Length]): Name [1/C/100]  f1 [2/N/16]  f2 [3/N/16]  
+Reading: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_RF_EG03_014_R.shp
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_RF_EG03_014_R.shp]...
+...Allocating space for   1 new SA time-series boundaries. Total =   1
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+...Array size from xf file: 41
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_rf_EG03_014_R.shp
+GIS Layer assigned ID of 2
+5 DBF Fields (Name [#/Type/Length]): Name [1/C/100]  Catchment_ [2/N/16]  Rain_Gauge [3/N/16]  IL [4/N/16]  CL [5/N/16]  
+Reading: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_rf_EG03_014_R.shp
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_rf_EG03_014_R.shp]...
+...Allocating space for   9 new SA time-series boundaries. Total =  10
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+...Array size from xf file: 41
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+...Array size from xf file: 41
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+...Array size from xf file: 41
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+...Array size from xf file: 41
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+...Array size from xf file: 41
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+...Array size from xf file: 41
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+...Array size from xf file: 41
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+...Array size from xf file: 41
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+...Array size from xf file: 41
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt    ngt
+
+Just Read:      0     89      0      0     64      0      0      0      0      0     10      0      0     15      0
+Just Read:      0
+
+Found 0 possible pit SX connections inside 2D Domain Domain_001
+Ignoring 0 pit SX connections outside 2D Domain Domain_001
+
+Found a total of 10 different SA(ST) inputs
+...with a maximum number of cells per ST input of 20535
+
+Domain_001  : Allocating Memory Pointers:
+Domain_001  : Grid data memory ...............          2 Mb
+Domain_001  : Variable Z and Layered FC memory          0 Mb
+Domain_001  : Sub-domain linking memory ......          0 Mb
+Domain_001  : Flow constrictions memory ......          0 Mb
+Domain_001  : Weirs and viscosity factor memory         0 Mb
+Domain_001  : Pressure, wind and waves memory           0 Mb
+Domain_001  : General Memory .................          0 Mb
+Domain_001  : Boundary conditions memory .....          2 Mb
+Domain_001  : Wind & waves boundary memory ...          0 Mb
+Domain_001  : Hydraulic results memory .......          3 Mb
+Domain_001  : Maximums results memory ........          2 Mb
+Domain_001  : Mass balance tracking memory ...          0 Mb
+Domain_001  : Minimums results memory ........          0 Mb
+Domain_001  : 2D grid indexing memory ........          1 Mb
+Domain_001  : SMS High Res format memory .....          0 Mb
+Domain_001  : Plot output (PO) memory ........          0 Mb
+Domain_001  : Longitudinal output (LP) memory           0 Mb
+
+Allocating memory (RAM) for SGS coefficients...
+Memory required          6 Mb.
+...Done
+
+Allocating memory (RAM) for storing elevations at SGS sampling points (SGS Approach == Method C)
+Checking SGS Sample Frequency for memory allocation...
+
+SGS sampling:
+Domain 1, Cell Size 5., Sample Frequency 11, Sample Distance 0.5
+
+SGS Sample Frequency == 11
+
+Estimating memory (RAM) requirement...
+Memory required         37 Mb.
+...Done
+
+Domain_001  : Total SGS memory ...............         44 Mb
+
+Memory requested for 2D domain Domain_001     = 12 Mb
+SGS Memory requested for 2D domain Domain_001 = 44 Mb
+Total Memory requested thus far               = 57 Mb
+
+Licence free mode requested.
+
+No sub-domains found
+External 1D Scheme arrays memory ..............          0 Mb
+Cyclone track array memory ....................          0 Mb
+Tri-diagonal matrix memory ....................          0 Mb
+
+Outside extent of model output: 292725., 6177421.396, 293780.4274, 6178588.715
+
+Setting Grid Output Cell Size to: 2.5
+
+Grid output dimensions: 467 rows by 423 columns
+Grid output memory ............................          3 Mb
+TIN and output mesh memory ....................          4 Mb
+Mass balance tracking memory ..................          0 Mb
+
+No (evacuation) routes found.
+Route array memory ............................          0 Mb
+
+Number of Gauges ... 0
+
+Number of GIS Objects/Receptors ... 0
+Output Gauge array memory .....................          0 Mb
+Miscellaneous array memory ....................          0 Mb
+Maximum boundary table size ... 102
+Temporary arrays memory .......................          0 Mb
+
+Total 2D Domain(s) Real SP Memory requested ...         12 Mb
+Total 2D Domain(s) Real DP Memory requested ...          1 Mb
+Total 2D Domain(s) Integer Memory requested ...          5 Mb
+Total 2D Domain(s) Logical Memory requested ...          1 Mb
+Total 2D Domain(s) Character Memory requested .          0 Mb
+
+
+________________________________________________________________________________
+2D Domain Cell Sizes:         5.00, 
+2D Domain Timesteps:         1.000, 
+
+________________________________________________________________________________
+
+
+Deallocating temporary 1D domain memory (RAM)
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\plot\gis\EG03_014_PLOT.shp
+GIS Layer assigned ID of 2
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\plot\gis\EG03_014_PLOT.shp
+GIS Layer assigned ID of 3
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\plot\gis\EG03_014_PLOT.shp
+GIS Layer assigned ID of 4
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000056 h]
+Clock Time:      0:00:00  [0. h]
+
+Domain_001: Reading Geometry File ... E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG00_001.tgc
+Processing Topographic Commands
+
+tgc>> Set Code == 0
+out>> Set Code...global value of     0.000 being applied
+
+tgc>> Read GIS Code == gis\2d_code_EG00_001_R.shp
+out>> Read GIS Code...
+Opening Read GIS Code File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_code_EG00_001_R.shp
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_code_EG00_001_R.shp
+GIS Layer assigned ID of 5
+Reading Read GIS Code File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_code_EG00_001_R.shp
+1 DBF Fields (Name [#/Type/Length]): CODE [1/N/11]  
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_code_EG00_001_R.shp]...
+
+tgc>> Set Zpts == 100
+out>> Set Zpts...global value of   100.000 being applied
+
+tgc>> Read GRID Zpts == grid\DEM_SI_Unit_01.tif
+out>> Read GRID Zpts...
+Reading XF file...
+
+tgc>> Set Mat == 1
+out>> Set Mat...global value of     1.000 being applied
+
+tgc>> Read GIS Mat == gis\2d_mat_EG00_001_R.shp
+out>> Read GIS Mat...
+Opening Read GIS Mat File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_mat_EG00_001_R.shp
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_mat_EG00_001_R.shp
+GIS Layer assigned ID of 5
+Reading Read GIS Mat File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_mat_EG00_001_R.shp
+1 DBF Fields (Name [#/Type/Length]): MATERIAL [1/N/11]  
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_mat_EG00_001_R.shp]...
+...Finished Reading Geometry File
+
+Starting checking consistency of SGS elevations (SGS Approach == Method C)...
+
+Processing C Cell Data...
+
+Processing U Face Data...
+
+Processing V Face Data...
+
+Processing H Corner Data...
+
+... Finished checking consistency of SGS elevations (SGS Approach == Method C). CRC =        120617779
+
+Calculating statistics SGS elevations (SGS Approach == Method C)
+
+Processing C Cell Data...
+
+Processing U Face Data...
+
+Processing V Face Data...
+
+Processing H Corner Data...
+... Finished calculating statistics SGS elevations.
+
+Domain_001: Searching .tcf file for data ... 
+
+Initial water levels (IWL) globally set to 36.5
+...Finished Searching .tcf File
+Identifying cells within user defined output zones...
+...Finished identifying cells within user defined output zones...
+
+Setting instability water level...
+...Instability water level limit set to   110.000
+
+Partially releasing memory (RAM) for storing elevations at SGS sampling points (SGS Approach == Method C)
+... Done
+
+Pre-processing breakline ZH points for depth interpolation
+
+... Finished processing breakline ZH points for depth interpolation
+
+Assigning any Variable Z Shape 1D Trigger Nodes...
+...Finished
+
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000178 h]
+Clock Time:      0:00:01  [0.000278 h]
+
+Domain_001: Reading Boundary File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG03_014.tbc
+
+READING Boundary Conditions:
+
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+Requested:            89      0      0     64      0      0      0      0      0     10      0      0     15      0
+
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_bcc_check.shp
+GIS Layer assigned ID of 5
+
+Creating E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_2d_bc_tables_check.csv
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG00_001_L.shp
+GIS Layer assigned ID of 6
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+Number of Input Layers: 1
+Input Layer 1: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG00_001_L.shp
+...Reading coordinates of any 1D connections from Layer 1
+Found     0 1D connections
+8 DBF Fields (Name [#/Type/Length]): Type [1/C/2]  Flags [2/C/3]  Name [3/C/100]  f [4/N/19]  d [5/N/19]  td [6/N/19]  a [7/N/19]  b [8/N/19]  
+
+Processing TUFLOW "QT" BC with name "FC01"...
+Found database line: FC01,EG00_001.csv,inflow_time_hr,inflow_FC01,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to       92.240
+
+Processing TUFLOW "HQ" BC with name ""...
+
+Closing GIS Layer 6 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_bc_EG00_001_L.shp]...
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+     Read:      0     79      0      0     64      0      0      0      0      0      0      0      0     15      0
+Requested:            89      0      0     64      0      0      0      0      0     10      0      0     15      0
+
+Checking all connection objects are used...
+...Finished.
+
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_RF_EG03_014_R.shp
+GIS Layer assigned ID of 6
+3 DBF Fields (Name [#/Type/Length]): Name [1/C/100]  f1 [2/N/16]  f2 [3/N/16]  
+
+Closing GIS Layer 6 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_RF_EG03_014_R.shp]...
+...Found     1 new SA/RF time-series boundaries. Total =      1
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        6.912
+RF Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) before any losses or factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.0829999968     52.4819    0.000014578         0.000364458
+    3    0.1669999957     69.8571    0.000019405         0.000485119
+    4    0.2500000000     78.9398    0.000021928         0.000548193
+    5    0.3330000043     82.4096    0.000022892         0.000572289
+    6    0.4169999957     82.2857    0.000022857         0.000571429
+    7    0.5000000000     82.8434    0.000023012         0.000575301
+    8    0.5830000043     80.6747    0.000022410         0.000560241
+    9    0.6669999957     73.2857    0.000020357         0.000508929
+   10    0.7500000000     66.3614    0.000018434         0.000460843
+   11    0.8330000043     56.3855    0.000015663         0.000391566
+   12    0.9169999957     45.4286    0.000012619         0.000315476
+   13    1.0000000000     37.3012    0.000010361         0.000259036
+   14    1.0829999447     29.0603    0.000008072         0.000201807
+   15    1.1670000553     24.8571    0.000006905         0.000172619
+   16    1.2500000000     20.3856    0.000005663         0.000141566
+   17    1.3329999447     18.6506    0.000005181         0.000129518
+   18    1.4170000553     16.7143    0.000004643         0.000116071
+   19    1.5000000000     16.0482    0.000004458         0.000111446
+   20    1.5829999447     14.3133    0.000003976         0.000099398
+   21    1.6670000553     11.5714    0.000003214         0.000080357
+   22    1.7500000000     10.8434    0.000003012         0.000075301
+   23    1.8329999447      9.5422    0.000002651         0.000066265
+   24    1.9170000553      9.0000    0.000002500         0.000062500
+   25    2.0000000000      7.8072    0.000002169         0.000054217
+   26    2.0829999447      6.5060    0.000001807         0.000045181
+   27    2.1670000553      6.0000    0.000001667         0.000041667
+   28    2.2500000000      4.7711    0.000001325         0.000033133
+   29    2.3329999447      3.4699    0.000000964         0.000024096
+   30    2.4170000553      2.5714    0.000000714         0.000017857
+   31    2.5000000000      1.7349    0.000000482         0.000012048
+   32    2.5829999447      1.7349    0.000000482         0.000012048
+   33    2.6670000553      1.7143    0.000000476         0.000011905
+   34    2.7500000000      1.3012    0.000000361         0.000009036
+   35    2.8329999447      1.3012    0.000000361         0.000009036
+   36    2.9170000553      1.2857    0.000000357         0.000008929
+   37    3.0000000000      1.3012    0.000000361         0.000009036
+   38    3.0829999447      1.3012    0.000000361         0.000009036
+   39    3.1670000553      1.2857    0.000000357         0.000008929
+   40    3.2500000000      1.3012    0.000000361         0.000009036
+   41    3.3329999447      1.3012    0.000000361         0.000009036
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+     Read:      0     80      0      0     64      0      0      0      0      0      1      0      0     15      0
+Requested:            89      0      0     64      0      0      0      0      0     10      0      0     15      0
+
+Checking all connection objects are used...
+...Finished.
+
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_rf_EG03_014_R.shp
+GIS Layer assigned ID of 6
+5 DBF Fields (Name [#/Type/Length]): Name [1/C/100]  Catchment_ [2/N/16]  Rain_Gauge [3/N/16]  IL [4/N/16]  CL [5/N/16]  
+
+Closing GIS Layer 6 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_sa_rf_EG03_014_R.shp]...
+...Found     9 new SA/RF time-series boundaries. Total =     10
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        6.912
+Rainfall histogram after rain gauge factor adjustment is:
+    1       0.000      0.0000
+    2       0.083      4.3560
+    3       0.167      5.8680
+    4       0.250      6.5520
+    5       0.333      6.8400
+    6       0.417      6.9120
+    7       0.500      6.8760
+    8       0.583      6.6960
+    9       0.667      6.1560
+   10       0.750      5.5080
+   11       0.833      4.6800
+   12       0.917      3.8160
+   13       1.000      3.0960
+   14       1.083      2.4120
+   15       1.167      2.0880
+   16       1.250      1.6920
+   17       1.333      1.5480
+   18       1.417      1.4040
+   19       1.500      1.3320
+   20       1.583      1.1880
+   21       1.667      0.9720
+   22       1.750      0.9000
+   23       1.833      0.7920
+   24       1.917      0.7560
+   25       2.000      0.6480
+   26       2.083      0.5400
+   27       2.167      0.5040
+   28       2.250      0.3960
+   29       2.333      0.2880
+   30       2.417      0.2160
+   31       2.500      0.1440
+   32       2.583      0.1440
+   33       2.667      0.1440
+   34       2.750      0.1080
+   35       2.833      0.1080
+   36       2.917      0.1080
+   37       3.000      0.1080
+   38       3.083      0.1080
+   39       3.167      0.1080
+   40       3.250      0.1080
+   41       3.333      0.1080
+...Applying an initial loss of 0.mm...
+...Applying a continuing loss of 2.mm/h...
+...Rainfall histogram conversion after IL and CL is:
+    1       0.000      0.0000
+    2       0.083      4.1900
+    3       0.167      5.7000
+    4       0.250      6.3860
+    5       0.333      6.6740
+    6       0.417      6.7440
+    7       0.500      6.7100
+    8       0.583      6.5300
+    9       0.667      5.9880
+   10       0.750      5.3420
+   11       0.833      4.5140
+   12       0.917      3.6480
+   13       1.000      2.9300
+   14       1.083      2.2460
+   15       1.167      1.9200
+   16       1.250      1.5260
+   17       1.333      1.3820
+   18       1.417      1.2360
+   19       1.500      1.1660
+   20       1.583      1.0220
+   21       1.667      0.8040
+   22       1.750      0.7340
+   23       1.833      0.6260
+   24       1.917      0.5880
+   25       2.000      0.4820
+   26       2.083      0.3740
+   27       2.167      0.3360
+   28       2.250      0.2300
+   29       2.333      0.1220
+   30       2.417      0.0480
+   31       2.500      0.0000
+   32       2.583      0.0000
+   33       2.667      0.0000
+   34       2.750      0.0000
+   35       2.833      0.0000
+   36       2.917      0.0000
+   37       3.000      0.0000
+   38       3.083      0.0000
+   39       3.167      0.0000
+   40       3.250      0.0000
+   41       3.333      0.0000
+...Multiplying the excess rainfall by the catchment area of 157.3m2...
+SA Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) after losses and factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.0829999968      2.0193    0.000088232         0.002205796
+    3    0.1669999957      2.7143    0.000118600         0.002965002
+    4    0.2500000000      3.0776    0.000134475         0.003361865
+    5    0.3330000043      3.2164    0.000140539         0.003513481
+    6    0.4169999957      3.2114    0.000140323         0.003508066
+    7    0.5000000000      3.2337    0.000141297         0.003532432
+    8    0.5830000043      3.1470    0.000137507         0.003437672
+    9    0.6669999957      2.8514    0.000124593         0.003114813
+   10    0.7500000000      2.5745    0.000112490         0.002812258
+   11    0.8330000043      2.1754    0.000095055         0.002376364
+   12    0.9169999957      1.7371    0.000075904         0.001897601
+   13    1.0000000000      1.4120    0.000061699         0.001542478
+   14    1.0829999447      1.0824    0.000047296         0.001182392
+   15    1.1670000553      0.9143    0.000039949         0.000998736
+   16    1.2500000000      0.7354    0.000032134         0.000803353
+   17    1.3329999447      0.6660    0.000029102         0.000727545
+   18    1.4170000553      0.5886    0.000025717         0.000642936
+   19    1.5000000000      0.5619    0.000024553         0.000613833
+   20    1.5829999447      0.4925    0.000021521         0.000538025
+   21    1.6670000553      0.3829    0.000016729         0.000418221
+   22    1.7500000000      0.3537    0.000015456         0.000386409
+   23    1.8329999447      0.3017    0.000013182         0.000329554
+   24    1.9170000553      0.2800    0.000012235         0.000305863
+   25    2.0000000000      0.2323    0.000010150         0.000253746
+   26    2.0829999447      0.1802    0.000007876         0.000196890
+   27    2.1670000553      0.1600    0.000006991         0.000174779
+   28    2.2500000000      0.1108    0.000004843         0.000121082
+   29    2.3329999447      0.0588    0.000002569         0.000064226
+   30    2.4170000553      0.0229    0.000000999         0.000024968
+   31    2.5000000000      0.0000    0.000000000         0.000000000
+   32    2.5829999447      0.0000    0.000000000         0.000000000
+   33    2.6670000553      0.0000    0.000000000         0.000000000
+   34    2.7500000000      0.0000    0.000000000         0.000000000
+   35    2.8329999447      0.0000    0.000000000         0.000000000
+   36    2.9170000553      0.0000    0.000000000         0.000000000
+   37    3.0000000000      0.0000    0.000000000         0.000000000
+   38    3.0829999447      0.0000    0.000000000         0.000000000
+   39    3.1670000553      0.0000    0.000000000         0.000000000
+   40    3.2500000000      0.0000    0.000000000         0.000000000
+   41    3.3329999447      0.0000    0.000000000         0.000000000
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        6.912
+Rainfall histogram after rain gauge factor adjustment is:
+    1       0.000      0.0000
+    2       0.083      4.3560
+    3       0.167      5.8680
+    4       0.250      6.5520
+    5       0.333      6.8400
+    6       0.417      6.9120
+    7       0.500      6.8760
+    8       0.583      6.6960
+    9       0.667      6.1560
+   10       0.750      5.5080
+   11       0.833      4.6800
+   12       0.917      3.8160
+   13       1.000      3.0960
+   14       1.083      2.4120
+   15       1.167      2.0880
+   16       1.250      1.6920
+   17       1.333      1.5480
+   18       1.417      1.4040
+   19       1.500      1.3320
+   20       1.583      1.1880
+   21       1.667      0.9720
+   22       1.750      0.9000
+   23       1.833      0.7920
+   24       1.917      0.7560
+   25       2.000      0.6480
+   26       2.083      0.5400
+   27       2.167      0.5040
+   28       2.250      0.3960
+   29       2.333      0.2880
+   30       2.417      0.2160
+   31       2.500      0.1440
+   32       2.583      0.1440
+   33       2.667      0.1440
+   34       2.750      0.1080
+   35       2.833      0.1080
+   36       2.917      0.1080
+   37       3.000      0.1080
+   38       3.083      0.1080
+   39       3.167      0.1080
+   40       3.250      0.1080
+   41       3.333      0.1080
+...Applying an initial loss of 0.mm...
+...Applying a continuing loss of 2.mm/h...
+...Rainfall histogram conversion after IL and CL is:
+    1       0.000      0.0000
+    2       0.083      4.1900
+    3       0.167      5.7000
+    4       0.250      6.3860
+    5       0.333      6.6740
+    6       0.417      6.7440
+    7       0.500      6.7100
+    8       0.583      6.5300
+    9       0.667      5.9880
+   10       0.750      5.3420
+   11       0.833      4.5140
+   12       0.917      3.6480
+   13       1.000      2.9300
+   14       1.083      2.2460
+   15       1.167      1.9200
+   16       1.250      1.5260
+   17       1.333      1.3820
+   18       1.417      1.2360
+   19       1.500      1.1660
+   20       1.583      1.0220
+   21       1.667      0.8040
+   22       1.750      0.7340
+   23       1.833      0.6260
+   24       1.917      0.5880
+   25       2.000      0.4820
+   26       2.083      0.3740
+   27       2.167      0.3360
+   28       2.250      0.2300
+   29       2.333      0.1220
+   30       2.417      0.0480
+   31       2.500      0.0000
+   32       2.583      0.0000
+   33       2.667      0.0000
+   34       2.750      0.0000
+   35       2.833      0.0000
+   36       2.917      0.0000
+   37       3.000      0.0000
+   38       3.083      0.0000
+   39       3.167      0.0000
+   40       3.250      0.0000
+   41       3.333      0.0000
+...Multiplying the excess rainfall by the catchment area of 114.2m2...
+SA Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) after losses and factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.0829999968      2.0193    0.000064049         0.001601221
+    3    0.1669999957      2.7143    0.000086094         0.002152340
+    4    0.2500000000      3.0776    0.000097617         0.002440429
+    5    0.3330000043      3.2164    0.000102020         0.002550490
+    6    0.4169999957      3.2114    0.000101862         0.002546559
+    7    0.5000000000      3.2337    0.000102570         0.002564247
+    8    0.5830000043      3.1470    0.000099818         0.002495460
+    9    0.6669999957      2.8514    0.000090444         0.002261091
+   10    0.7500000000      2.5745    0.000081658         0.002041461
+   11    0.8330000043      2.1754    0.000069002         0.001725039
+   12    0.9169999957      1.7371    0.000055100         0.001377498
+   13    1.0000000000      1.4120    0.000044788         0.001119708
+   14    1.0829999447      1.0824    0.000034333         0.000858316
+   15    1.1670000553      0.9143    0.000029000         0.000724998
+   16    1.2500000000      0.7354    0.000023327         0.000583166
+   17    1.3329999447      0.6660    0.000021125         0.000528136
+   18    1.4170000553      0.5886    0.000018669         0.000466717
+   19    1.5000000000      0.5619    0.000017824         0.000445591
+   20    1.5829999447      0.4925    0.000015622         0.000390561
+   21    1.6670000553      0.3829    0.000012144         0.000303593
+   22    1.7500000000      0.3537    0.000011220         0.000280501
+   23    1.8329999447      0.3017    0.000009569         0.000239228
+   24    1.9170000553      0.2800    0.000008881         0.000222031
+   25    2.0000000000      0.2323    0.000007368         0.000184198
+   26    2.0829999447      0.1802    0.000005717         0.000142925
+   27    2.1670000553      0.1600    0.000005075         0.000126875
+   28    2.2500000000      0.1108    0.000003516         0.000087895
+   29    2.3329999447      0.0588    0.000001865         0.000046623
+   30    2.4170000553      0.0229    0.000000725         0.000018125
+   31    2.5000000000      0.0000    0.000000000         0.000000000
+   32    2.5829999447      0.0000    0.000000000         0.000000000
+   33    2.6670000553      0.0000    0.000000000         0.000000000
+   34    2.7500000000      0.0000    0.000000000         0.000000000
+   35    2.8329999447      0.0000    0.000000000         0.000000000
+   36    2.9170000553      0.0000    0.000000000         0.000000000
+   37    3.0000000000      0.0000    0.000000000         0.000000000
+   38    3.0829999447      0.0000    0.000000000         0.000000000
+   39    3.1670000553      0.0000    0.000000000         0.000000000
+   40    3.2500000000      0.0000    0.000000000         0.000000000
+   41    3.3329999447      0.0000    0.000000000         0.000000000
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        6.912
+Rainfall histogram after rain gauge factor adjustment is:
+    1       0.000      0.0000
+    2       0.083      4.3560
+    3       0.167      5.8680
+    4       0.250      6.5520
+    5       0.333      6.8400
+    6       0.417      6.9120
+    7       0.500      6.8760
+    8       0.583      6.6960
+    9       0.667      6.1560
+   10       0.750      5.5080
+   11       0.833      4.6800
+   12       0.917      3.8160
+   13       1.000      3.0960
+   14       1.083      2.4120
+   15       1.167      2.0880
+   16       1.250      1.6920
+   17       1.333      1.5480
+   18       1.417      1.4040
+   19       1.500      1.3320
+   20       1.583      1.1880
+   21       1.667      0.9720
+   22       1.750      0.9000
+   23       1.833      0.7920
+   24       1.917      0.7560
+   25       2.000      0.6480
+   26       2.083      0.5400
+   27       2.167      0.5040
+   28       2.250      0.3960
+   29       2.333      0.2880
+   30       2.417      0.2160
+   31       2.500      0.1440
+   32       2.583      0.1440
+   33       2.667      0.1440
+   34       2.750      0.1080
+   35       2.833      0.1080
+   36       2.917      0.1080
+   37       3.000      0.1080
+   38       3.083      0.1080
+   39       3.167      0.1080
+   40       3.250      0.1080
+   41       3.333      0.1080
+...Applying an initial loss of 0.mm...
+...Applying a continuing loss of 2.mm/h...
+...Rainfall histogram conversion after IL and CL is:
+    1       0.000      0.0000
+    2       0.083      4.1900
+    3       0.167      5.7000
+    4       0.250      6.3860
+    5       0.333      6.6740
+    6       0.417      6.7440
+    7       0.500      6.7100
+    8       0.583      6.5300
+    9       0.667      5.9880
+   10       0.750      5.3420
+   11       0.833      4.5140
+   12       0.917      3.6480
+   13       1.000      2.9300
+   14       1.083      2.2460
+   15       1.167      1.9200
+   16       1.250      1.5260
+   17       1.333      1.3820
+   18       1.417      1.2360
+   19       1.500      1.1660
+   20       1.583      1.0220
+   21       1.667      0.8040
+   22       1.750      0.7340
+   23       1.833      0.6260
+   24       1.917      0.5880
+   25       2.000      0.4820
+   26       2.083      0.3740
+   27       2.167      0.3360
+   28       2.250      0.2300
+   29       2.333      0.1220
+   30       2.417      0.0480
+   31       2.500      0.0000
+   32       2.583      0.0000
+   33       2.667      0.0000
+   34       2.750      0.0000
+   35       2.833      0.0000
+   36       2.917      0.0000
+   37       3.000      0.0000
+   38       3.083      0.0000
+   39       3.167      0.0000
+   40       3.250      0.0000
+   41       3.333      0.0000
+...Multiplying the excess rainfall by the catchment area of 48.13m2...
+SA Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) after losses and factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.0829999968      2.0193    0.000026994         0.000674861
+    3    0.1669999957      2.7143    0.000036286         0.000907139
+    4    0.2500000000      3.0776    0.000041142         0.001028559
+    5    0.3330000043      3.2164    0.000042998         0.001074946
+    6    0.4169999957      3.2114    0.000042932         0.001073289
+    7    0.5000000000      3.2337    0.000043230         0.001080744
+    8    0.5830000043      3.1470    0.000042070         0.001051752
+    9    0.6669999957      2.8514    0.000038119         0.000952974
+   10    0.7500000000      2.5745    0.000034416         0.000860408
+   11    0.8330000043      2.1754    0.000029082         0.000727046
+   12    0.9169999957      1.7371    0.000023223         0.000580569
+   13    1.0000000000      1.4120    0.000018877         0.000471920
+   14    1.0829999447      1.0824    0.000014470         0.000361752
+   15    1.1670000553      0.9143    0.000012222         0.000305562
+   16    1.2500000000      0.7354    0.000009831         0.000245785
+   17    1.3329999447      0.6660    0.000008904         0.000222592
+   18    1.4170000553      0.5886    0.000007868         0.000196706
+   19    1.5000000000      0.5619    0.000007512         0.000187802
+   20    1.5829999447      0.4925    0.000006584         0.000164608
+   21    1.6670000553      0.3829    0.000005118         0.000127954
+   22    1.7500000000      0.3537    0.000004729         0.000118222
+   23    1.8329999447      0.3017    0.000004033         0.000100827
+   24    1.9170000553      0.2800    0.000003743         0.000093578
+   25    2.0000000000      0.2323    0.000003105         0.000077633
+   26    2.0829999447      0.1802    0.000002410         0.000060238
+   27    2.1670000553      0.1600    0.000002139         0.000053473
+   28    2.2500000000      0.1108    0.000001482         0.000037045
+   29    2.3329999447      0.0588    0.000000786         0.000019650
+   30    2.4170000553      0.0229    0.000000306         0.000007639
+   31    2.5000000000      0.0000    0.000000000         0.000000000
+   32    2.5829999447      0.0000    0.000000000         0.000000000
+   33    2.6670000553      0.0000    0.000000000         0.000000000
+   34    2.7500000000      0.0000    0.000000000         0.000000000
+   35    2.8329999447      0.0000    0.000000000         0.000000000
+   36    2.9170000553      0.0000    0.000000000         0.000000000
+   37    3.0000000000      0.0000    0.000000000         0.000000000
+   38    3.0829999447      0.0000    0.000000000         0.000000000
+   39    3.1670000553      0.0000    0.000000000         0.000000000
+   40    3.2500000000      0.0000    0.000000000         0.000000000
+   41    3.3329999447      0.0000    0.000000000         0.000000000
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        6.912
+Rainfall histogram after rain gauge factor adjustment is:
+    1       0.000      0.0000
+    2       0.083      4.3560
+    3       0.167      5.8680
+    4       0.250      6.5520
+    5       0.333      6.8400
+    6       0.417      6.9120
+    7       0.500      6.8760
+    8       0.583      6.6960
+    9       0.667      6.1560
+   10       0.750      5.5080
+   11       0.833      4.6800
+   12       0.917      3.8160
+   13       1.000      3.0960
+   14       1.083      2.4120
+   15       1.167      2.0880
+   16       1.250      1.6920
+   17       1.333      1.5480
+   18       1.417      1.4040
+   19       1.500      1.3320
+   20       1.583      1.1880
+   21       1.667      0.9720
+   22       1.750      0.9000
+   23       1.833      0.7920
+   24       1.917      0.7560
+   25       2.000      0.6480
+   26       2.083      0.5400
+   27       2.167      0.5040
+   28       2.250      0.3960
+   29       2.333      0.2880
+   30       2.417      0.2160
+   31       2.500      0.1440
+   32       2.583      0.1440
+   33       2.667      0.1440
+   34       2.750      0.1080
+   35       2.833      0.1080
+   36       2.917      0.1080
+   37       3.000      0.1080
+   38       3.083      0.1080
+   39       3.167      0.1080
+   40       3.250      0.1080
+   41       3.333      0.1080
+...Applying an initial loss of 0.mm...
+...Applying a continuing loss of 2.mm/h...
+...Rainfall histogram conversion after IL and CL is:
+    1       0.000      0.0000
+    2       0.083      4.1900
+    3       0.167      5.7000
+    4       0.250      6.3860
+    5       0.333      6.6740
+    6       0.417      6.7440
+    7       0.500      6.7100
+    8       0.583      6.5300
+    9       0.667      5.9880
+   10       0.750      5.3420
+   11       0.833      4.5140
+   12       0.917      3.6480
+   13       1.000      2.9300
+   14       1.083      2.2460
+   15       1.167      1.9200
+   16       1.250      1.5260
+   17       1.333      1.3820
+   18       1.417      1.2360
+   19       1.500      1.1660
+   20       1.583      1.0220
+   21       1.667      0.8040
+   22       1.750      0.7340
+   23       1.833      0.6260
+   24       1.917      0.5880
+   25       2.000      0.4820
+   26       2.083      0.3740
+   27       2.167      0.3360
+   28       2.250      0.2300
+   29       2.333      0.1220
+   30       2.417      0.0480
+   31       2.500      0.0000
+   32       2.583      0.0000
+   33       2.667      0.0000
+   34       2.750      0.0000
+   35       2.833      0.0000
+   36       2.917      0.0000
+   37       3.000      0.0000
+   38       3.083      0.0000
+   39       3.167      0.0000
+   40       3.250      0.0000
+   41       3.333      0.0000
+...Multiplying the excess rainfall by the catchment area of 141.8m2...
+SA Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) after losses and factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.0829999968      2.0193    0.000079535         0.001988381
+    3    0.1669999957      2.7143    0.000106910         0.002672755
+    4    0.2500000000      3.0776    0.000121220         0.003030501
+    5    0.3330000043      3.2164    0.000126687         0.003167172
+    6    0.4169999957      3.2114    0.000126492         0.003162292
+    7    0.5000000000      3.2337    0.000127370         0.003184257
+    8    0.5830000043      3.1470    0.000123953         0.003098837
+    9    0.6669999957      2.8514    0.000112312         0.002807800
+   10    0.7500000000      2.5745    0.000101403         0.002535067
+   11    0.8330000043      2.1754    0.000085685         0.002142136
+   12    0.9169999957      1.7371    0.000068423         0.001710564
+   13    1.0000000000      1.4120    0.000055618         0.001390443
+   14    1.0829999447      1.0824    0.000042634         0.001065849
+   15    1.1670000553      0.9143    0.000036012         0.000900295
+   16    1.2500000000      0.7354    0.000028967         0.000724170
+   17    1.3329999447      0.6660    0.000026233         0.000655834
+   18    1.4170000553      0.5886    0.000023183         0.000579565
+   19    1.5000000000      0.5619    0.000022133         0.000553330
+   20    1.5829999447      0.4925    0.000019400         0.000484995
+   21    1.6670000553      0.3829    0.000015080         0.000376999
+   22    1.7500000000      0.3537    0.000013933         0.000348323
+   23    1.8329999447      0.3017    0.000011883         0.000297071
+   24    1.9170000553      0.2800    0.000011029         0.000275715
+   25    2.0000000000      0.2323    0.000009149         0.000228735
+   26    2.0829999447      0.1802    0.000007099         0.000177483
+   27    2.1670000553      0.1600    0.000006302         0.000157552
+   28    2.2500000000      0.1108    0.000004366         0.000109148
+   29    2.3329999447      0.0588    0.000002316         0.000057896
+   30    2.4170000553      0.0229    0.000000900         0.000022507
+   31    2.5000000000      0.0000    0.000000000         0.000000000
+   32    2.5829999447      0.0000    0.000000000         0.000000000
+   33    2.6670000553      0.0000    0.000000000         0.000000000
+   34    2.7500000000      0.0000    0.000000000         0.000000000
+   35    2.8329999447      0.0000    0.000000000         0.000000000
+   36    2.9170000553      0.0000    0.000000000         0.000000000
+   37    3.0000000000      0.0000    0.000000000         0.000000000
+   38    3.0829999447      0.0000    0.000000000         0.000000000
+   39    3.1670000553      0.0000    0.000000000         0.000000000
+   40    3.2500000000      0.0000    0.000000000         0.000000000
+   41    3.3329999447      0.0000    0.000000000         0.000000000
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        6.912
+Rainfall histogram after rain gauge factor adjustment is:
+    1       0.000      0.0000
+    2       0.083      4.3560
+    3       0.167      5.8680
+    4       0.250      6.5520
+    5       0.333      6.8400
+    6       0.417      6.9120
+    7       0.500      6.8760
+    8       0.583      6.6960
+    9       0.667      6.1560
+   10       0.750      5.5080
+   11       0.833      4.6800
+   12       0.917      3.8160
+   13       1.000      3.0960
+   14       1.083      2.4120
+   15       1.167      2.0880
+   16       1.250      1.6920
+   17       1.333      1.5480
+   18       1.417      1.4040
+   19       1.500      1.3320
+   20       1.583      1.1880
+   21       1.667      0.9720
+   22       1.750      0.9000
+   23       1.833      0.7920
+   24       1.917      0.7560
+   25       2.000      0.6480
+   26       2.083      0.5400
+   27       2.167      0.5040
+   28       2.250      0.3960
+   29       2.333      0.2880
+   30       2.417      0.2160
+   31       2.500      0.1440
+   32       2.583      0.1440
+   33       2.667      0.1440
+   34       2.750      0.1080
+   35       2.833      0.1080
+   36       2.917      0.1080
+   37       3.000      0.1080
+   38       3.083      0.1080
+   39       3.167      0.1080
+   40       3.250      0.1080
+   41       3.333      0.1080
+...Applying an initial loss of 0.mm...
+...Applying a continuing loss of 2.mm/h...
+...Rainfall histogram conversion after IL and CL is:
+    1       0.000      0.0000
+    2       0.083      4.1900
+    3       0.167      5.7000
+    4       0.250      6.3860
+    5       0.333      6.6740
+    6       0.417      6.7440
+    7       0.500      6.7100
+    8       0.583      6.5300
+    9       0.667      5.9880
+   10       0.750      5.3420
+   11       0.833      4.5140
+   12       0.917      3.6480
+   13       1.000      2.9300
+   14       1.083      2.2460
+   15       1.167      1.9200
+   16       1.250      1.5260
+   17       1.333      1.3820
+   18       1.417      1.2360
+   19       1.500      1.1660
+   20       1.583      1.0220
+   21       1.667      0.8040
+   22       1.750      0.7340
+   23       1.833      0.6260
+   24       1.917      0.5880
+   25       2.000      0.4820
+   26       2.083      0.3740
+   27       2.167      0.3360
+   28       2.250      0.2300
+   29       2.333      0.1220
+   30       2.417      0.0480
+   31       2.500      0.0000
+   32       2.583      0.0000
+   33       2.667      0.0000
+   34       2.750      0.0000
+   35       2.833      0.0000
+   36       2.917      0.0000
+   37       3.000      0.0000
+   38       3.083      0.0000
+   39       3.167      0.0000
+   40       3.250      0.0000
+   41       3.333      0.0000
+...Multiplying the excess rainfall by the catchment area of 109.4m2...
+SA Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) after losses and factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.0829999968      2.0193    0.000061349         0.001533725
+    3    0.1669999957      2.7143    0.000082465         0.002061613
+    4    0.2500000000      3.0776    0.000093502         0.002337558
+    5    0.3330000043      3.2164    0.000097719         0.002442979
+    6    0.4169999957      3.2114    0.000097569         0.002439214
+    7    0.5000000000      3.2337    0.000098246         0.002456156
+    8    0.5830000043      3.1470    0.000095611         0.002390268
+    9    0.6669999957      2.8514    0.000086631         0.002165779
+   10    0.7500000000      2.5745    0.000078216         0.001955408
+   11    0.8330000043      2.1754    0.000066093         0.001652323
+   12    0.9169999957      1.7371    0.000052777         0.001319432
+   13    1.0000000000      1.4120    0.000042900         0.001072509
+   14    1.0829999447      1.0824    0.000032885         0.000822136
+   15    1.1670000553      0.9143    0.000027777         0.000694437
+   16    1.2500000000      0.7354    0.000022343         0.000558584
+   17    1.3329999447      0.6660    0.000020235         0.000505873
+   18    1.4170000553      0.5886    0.000017882         0.000447044
+   19    1.5000000000      0.5619    0.000017072         0.000426808
+   20    1.5829999447      0.4925    0.000014964         0.000374097
+   21    1.6670000553      0.3829    0.000011632         0.000290795
+   22    1.7500000000      0.3537    0.000010747         0.000268677
+   23    1.8329999447      0.3017    0.000009166         0.000229144
+   24    1.9170000553      0.2800    0.000008507         0.000212671
+   25    2.0000000000      0.2323    0.000007057         0.000176433
+   26    2.0829999447      0.1802    0.000005476         0.000136901
+   27    2.1670000553      0.1600    0.000004861         0.000121526
+   28    2.2500000000      0.1108    0.000003368         0.000084190
+   29    2.3329999447      0.0588    0.000001786         0.000044657
+   30    2.4170000553      0.0229    0.000000694         0.000017361
+   31    2.5000000000      0.0000    0.000000000         0.000000000
+   32    2.5829999447      0.0000    0.000000000         0.000000000
+   33    2.6670000553      0.0000    0.000000000         0.000000000
+   34    2.7500000000      0.0000    0.000000000         0.000000000
+   35    2.8329999447      0.0000    0.000000000         0.000000000
+   36    2.9170000553      0.0000    0.000000000         0.000000000
+   37    3.0000000000      0.0000    0.000000000         0.000000000
+   38    3.0829999447      0.0000    0.000000000         0.000000000
+   39    3.1670000553      0.0000    0.000000000         0.000000000
+   40    3.2500000000      0.0000    0.000000000         0.000000000
+   41    3.3329999447      0.0000    0.000000000         0.000000000
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        6.912
+Rainfall histogram after rain gauge factor adjustment is:
+    1       0.000      0.0000
+    2       0.083      4.3560
+    3       0.167      5.8680
+    4       0.250      6.5520
+    5       0.333      6.8400
+    6       0.417      6.9120
+    7       0.500      6.8760
+    8       0.583      6.6960
+    9       0.667      6.1560
+   10       0.750      5.5080
+   11       0.833      4.6800
+   12       0.917      3.8160
+   13       1.000      3.0960
+   14       1.083      2.4120
+   15       1.167      2.0880
+   16       1.250      1.6920
+   17       1.333      1.5480
+   18       1.417      1.4040
+   19       1.500      1.3320
+   20       1.583      1.1880
+   21       1.667      0.9720
+   22       1.750      0.9000
+   23       1.833      0.7920
+   24       1.917      0.7560
+   25       2.000      0.6480
+   26       2.083      0.5400
+   27       2.167      0.5040
+   28       2.250      0.3960
+   29       2.333      0.2880
+   30       2.417      0.2160
+   31       2.500      0.1440
+   32       2.583      0.1440
+   33       2.667      0.1440
+   34       2.750      0.1080
+   35       2.833      0.1080
+   36       2.917      0.1080
+   37       3.000      0.1080
+   38       3.083      0.1080
+   39       3.167      0.1080
+   40       3.250      0.1080
+   41       3.333      0.1080
+...Applying an initial loss of 0.mm...
+...Applying a continuing loss of 2.mm/h...
+...Rainfall histogram conversion after IL and CL is:
+    1       0.000      0.0000
+    2       0.083      4.1900
+    3       0.167      5.7000
+    4       0.250      6.3860
+    5       0.333      6.6740
+    6       0.417      6.7440
+    7       0.500      6.7100
+    8       0.583      6.5300
+    9       0.667      5.9880
+   10       0.750      5.3420
+   11       0.833      4.5140
+   12       0.917      3.6480
+   13       1.000      2.9300
+   14       1.083      2.2460
+   15       1.167      1.9200
+   16       1.250      1.5260
+   17       1.333      1.3820
+   18       1.417      1.2360
+   19       1.500      1.1660
+   20       1.583      1.0220
+   21       1.667      0.8040
+   22       1.750      0.7340
+   23       1.833      0.6260
+   24       1.917      0.5880
+   25       2.000      0.4820
+   26       2.083      0.3740
+   27       2.167      0.3360
+   28       2.250      0.2300
+   29       2.333      0.1220
+   30       2.417      0.0480
+   31       2.500      0.0000
+   32       2.583      0.0000
+   33       2.667      0.0000
+   34       2.750      0.0000
+   35       2.833      0.0000
+   36       2.917      0.0000
+   37       3.000      0.0000
+   38       3.083      0.0000
+   39       3.167      0.0000
+   40       3.250      0.0000
+   41       3.333      0.0000
+...Multiplying the excess rainfall by the catchment area of 100.7m2...
+SA Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) after losses and factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.0829999968      2.0193    0.000056500         0.001412507
+    3    0.1669999957      2.7143    0.000075947         0.001898673
+    4    0.2500000000      3.0776    0.000086112         0.002152809
+    5    0.3330000043      3.2164    0.000089996         0.002249898
+    6    0.4169999957      3.2114    0.000089857         0.002246431
+    7    0.5000000000      3.2337    0.000090481         0.002262034
+    8    0.5830000043      3.1470    0.000088054         0.002201354
+    9    0.6669999957      2.8514    0.000079784         0.001994607
+   10    0.7500000000      2.5745    0.000072034         0.001800862
+   11    0.8330000043      2.1754    0.000060869         0.001521732
+   12    0.9169999957      1.7371    0.000048606         0.001215151
+   13    1.0000000000      1.4120    0.000039510         0.000987743
+   14    1.0829999447      1.0824    0.000030286         0.000757158
+   15    1.1670000553      0.9143    0.000025582         0.000639552
+   16    1.2500000000      0.7354    0.000020577         0.000514436
+   17    1.3329999447      0.6660    0.000018636         0.000465892
+   18    1.4170000553      0.5886    0.000016468         0.000411712
+   19    1.5000000000      0.5619    0.000015723         0.000393075
+   20    1.5829999447      0.4925    0.000013781         0.000344531
+   21    1.6670000553      0.3829    0.000010712         0.000267812
+   22    1.7500000000      0.3537    0.000009898         0.000247442
+   23    1.8329999447      0.3017    0.000008441         0.000211033
+   24    1.9170000553      0.2800    0.000007835         0.000195863
+   25    2.0000000000      0.2323    0.000006500         0.000162489
+   26    2.0829999447      0.1802    0.000005043         0.000126081
+   27    2.1670000553      0.1600    0.000004477         0.000111922
+   28    2.2500000000      0.1108    0.000003101         0.000077536
+   29    2.3329999447      0.0588    0.000001645         0.000041128
+   30    2.4170000553      0.0229    0.000000640         0.000015989
+   31    2.5000000000      0.0000    0.000000000         0.000000000
+   32    2.5829999447      0.0000    0.000000000         0.000000000
+   33    2.6670000553      0.0000    0.000000000         0.000000000
+   34    2.7500000000      0.0000    0.000000000         0.000000000
+   35    2.8329999447      0.0000    0.000000000         0.000000000
+   36    2.9170000553      0.0000    0.000000000         0.000000000
+   37    3.0000000000      0.0000    0.000000000         0.000000000
+   38    3.0829999447      0.0000    0.000000000         0.000000000
+   39    3.1670000553      0.0000    0.000000000         0.000000000
+   40    3.2500000000      0.0000    0.000000000         0.000000000
+   41    3.3329999447      0.0000    0.000000000         0.000000000
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        6.912
+Rainfall histogram after rain gauge factor adjustment is:
+    1       0.000      0.0000
+    2       0.083      4.3560
+    3       0.167      5.8680
+    4       0.250      6.5520
+    5       0.333      6.8400
+    6       0.417      6.9120
+    7       0.500      6.8760
+    8       0.583      6.6960
+    9       0.667      6.1560
+   10       0.750      5.5080
+   11       0.833      4.6800
+   12       0.917      3.8160
+   13       1.000      3.0960
+   14       1.083      2.4120
+   15       1.167      2.0880
+   16       1.250      1.6920
+   17       1.333      1.5480
+   18       1.417      1.4040
+   19       1.500      1.3320
+   20       1.583      1.1880
+   21       1.667      0.9720
+   22       1.750      0.9000
+   23       1.833      0.7920
+   24       1.917      0.7560
+   25       2.000      0.6480
+   26       2.083      0.5400
+   27       2.167      0.5040
+   28       2.250      0.3960
+   29       2.333      0.2880
+   30       2.417      0.2160
+   31       2.500      0.1440
+   32       2.583      0.1440
+   33       2.667      0.1440
+   34       2.750      0.1080
+   35       2.833      0.1080
+   36       2.917      0.1080
+   37       3.000      0.1080
+   38       3.083      0.1080
+   39       3.167      0.1080
+   40       3.250      0.1080
+   41       3.333      0.1080
+...Applying an initial loss of 0.mm...
+...Applying a continuing loss of 2.mm/h...
+...Rainfall histogram conversion after IL and CL is:
+    1       0.000      0.0000
+    2       0.083      4.1900
+    3       0.167      5.7000
+    4       0.250      6.3860
+    5       0.333      6.6740
+    6       0.417      6.7440
+    7       0.500      6.7100
+    8       0.583      6.5300
+    9       0.667      5.9880
+   10       0.750      5.3420
+   11       0.833      4.5140
+   12       0.917      3.6480
+   13       1.000      2.9300
+   14       1.083      2.2460
+   15       1.167      1.9200
+   16       1.250      1.5260
+   17       1.333      1.3820
+   18       1.417      1.2360
+   19       1.500      1.1660
+   20       1.583      1.0220
+   21       1.667      0.8040
+   22       1.750      0.7340
+   23       1.833      0.6260
+   24       1.917      0.5880
+   25       2.000      0.4820
+   26       2.083      0.3740
+   27       2.167      0.3360
+   28       2.250      0.2300
+   29       2.333      0.1220
+   30       2.417      0.0480
+   31       2.500      0.0000
+   32       2.583      0.0000
+   33       2.667      0.0000
+   34       2.750      0.0000
+   35       2.833      0.0000
+   36       2.917      0.0000
+   37       3.000      0.0000
+   38       3.083      0.0000
+   39       3.167      0.0000
+   40       3.250      0.0000
+   41       3.333      0.0000
+...Multiplying the excess rainfall by the catchment area of 78.25m2...
+SA Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) after losses and factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.0829999968      2.0193    0.000043890         0.001097257
+    3    0.1669999957      2.7143    0.000058997         0.001474919
+    4    0.2500000000      3.0776    0.000066893         0.001672335
+    5    0.3330000043      3.2164    0.000069910         0.001747755
+    6    0.4169999957      3.2114    0.000069802         0.001745062
+    7    0.5000000000      3.2337    0.000070287         0.001757183
+    8    0.5830000043      3.1470    0.000068402         0.001710045
+    9    0.6669999957      2.8514    0.000061978         0.001549441
+   10    0.7500000000      2.5745    0.000055958         0.001398938
+   11    0.8330000043      2.1754    0.000047284         0.001182105
+   12    0.9169999957      1.7371    0.000037758         0.000943948
+   13    1.0000000000      1.4120    0.000030692         0.000767294
+   14    1.0829999447      1.0824    0.000023527         0.000588172
+   15    1.1670000553      0.9143    0.000019873         0.000496814
+   16    1.2500000000      0.7354    0.000015985         0.000399622
+   17    1.3329999447      0.6660    0.000014476         0.000361912
+   18    1.4170000553      0.5886    0.000012793         0.000319824
+   19    1.5000000000      0.5619    0.000012214         0.000305347
+   20    1.5829999447      0.4925    0.000010705         0.000267637
+   21    1.6670000553      0.3829    0.000008322         0.000208041
+   22    1.7500000000      0.3537    0.000007689         0.000192217
+   23    1.8329999447      0.3017    0.000006557         0.000163934
+   24    1.9170000553      0.2800    0.000006086         0.000152149
+   25    2.0000000000      0.2323    0.000005049         0.000126224
+   26    2.0829999447      0.1802    0.000003918         0.000097941
+   27    2.1670000553      0.1600    0.000003478         0.000086942
+   28    2.2500000000      0.1108    0.000002409         0.000060231
+   29    2.3329999447      0.0588    0.000001278         0.000031949
+   30    2.4170000553      0.0229    0.000000497         0.000012420
+   31    2.5000000000      0.0000    0.000000000         0.000000000
+   32    2.5829999447      0.0000    0.000000000         0.000000000
+   33    2.6670000553      0.0000    0.000000000         0.000000000
+   34    2.7500000000      0.0000    0.000000000         0.000000000
+   35    2.8329999447      0.0000    0.000000000         0.000000000
+   36    2.9170000553      0.0000    0.000000000         0.000000000
+   37    3.0000000000      0.0000    0.000000000         0.000000000
+   38    3.0829999447      0.0000    0.000000000         0.000000000
+   39    3.1670000553      0.0000    0.000000000         0.000000000
+   40    3.2500000000      0.0000    0.000000000         0.000000000
+   41    3.3329999447      0.0000    0.000000000         0.000000000
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        6.912
+Rainfall histogram after rain gauge factor adjustment is:
+    1       0.000      0.0000
+    2       0.083      4.3560
+    3       0.167      5.8680
+    4       0.250      6.5520
+    5       0.333      6.8400
+    6       0.417      6.9120
+    7       0.500      6.8760
+    8       0.583      6.6960
+    9       0.667      6.1560
+   10       0.750      5.5080
+   11       0.833      4.6800
+   12       0.917      3.8160
+   13       1.000      3.0960
+   14       1.083      2.4120
+   15       1.167      2.0880
+   16       1.250      1.6920
+   17       1.333      1.5480
+   18       1.417      1.4040
+   19       1.500      1.3320
+   20       1.583      1.1880
+   21       1.667      0.9720
+   22       1.750      0.9000
+   23       1.833      0.7920
+   24       1.917      0.7560
+   25       2.000      0.6480
+   26       2.083      0.5400
+   27       2.167      0.5040
+   28       2.250      0.3960
+   29       2.333      0.2880
+   30       2.417      0.2160
+   31       2.500      0.1440
+   32       2.583      0.1440
+   33       2.667      0.1440
+   34       2.750      0.1080
+   35       2.833      0.1080
+   36       2.917      0.1080
+   37       3.000      0.1080
+   38       3.083      0.1080
+   39       3.167      0.1080
+   40       3.250      0.1080
+   41       3.333      0.1080
+...Applying an initial loss of 0.mm...
+...Applying a continuing loss of 2.mm/h...
+...Rainfall histogram conversion after IL and CL is:
+    1       0.000      0.0000
+    2       0.083      4.1900
+    3       0.167      5.7000
+    4       0.250      6.3860
+    5       0.333      6.6740
+    6       0.417      6.7440
+    7       0.500      6.7100
+    8       0.583      6.5300
+    9       0.667      5.9880
+   10       0.750      5.3420
+   11       0.833      4.5140
+   12       0.917      3.6480
+   13       1.000      2.9300
+   14       1.083      2.2460
+   15       1.167      1.9200
+   16       1.250      1.5260
+   17       1.333      1.3820
+   18       1.417      1.2360
+   19       1.500      1.1660
+   20       1.583      1.0220
+   21       1.667      0.8040
+   22       1.750      0.7340
+   23       1.833      0.6260
+   24       1.917      0.5880
+   25       2.000      0.4820
+   26       2.083      0.3740
+   27       2.167      0.3360
+   28       2.250      0.2300
+   29       2.333      0.1220
+   30       2.417      0.0480
+   31       2.500      0.0000
+   32       2.583      0.0000
+   33       2.667      0.0000
+   34       2.750      0.0000
+   35       2.833      0.0000
+   36       2.917      0.0000
+   37       3.000      0.0000
+   38       3.083      0.0000
+   39       3.167      0.0000
+   40       3.250      0.0000
+   41       3.333      0.0000
+...Multiplying the excess rainfall by the catchment area of 19.44m2...
+SA Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) after losses and factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.0829999968      2.0193    0.000010903         0.000272577
+    3    0.1669999957      2.7143    0.000014656         0.000366394
+    4    0.2500000000      3.0776    0.000016617         0.000415435
+    5    0.3330000043      3.2164    0.000017367         0.000434171
+    6    0.4169999957      3.2114    0.000017340         0.000433502
+    7    0.5000000000      3.2337    0.000017461         0.000436513
+    8    0.5830000043      3.1470    0.000016992         0.000424803
+    9    0.6669999957      2.8514    0.000015396         0.000384906
+   10    0.7500000000      2.5745    0.000013901         0.000347519
+   11    0.8330000043      2.1754    0.000011746         0.000293654
+   12    0.9169999957      1.7371    0.000009380         0.000234492
+   13    1.0000000000      1.4120    0.000007624         0.000190608
+   14    1.0829999447      1.0824    0.000005844         0.000146112
+   15    1.1670000553      0.9143    0.000004937         0.000123417
+   16    1.2500000000      0.7354    0.000003971         0.000099273
+   17    1.3329999447      0.6660    0.000003596         0.000089905
+   18    1.4170000553      0.5886    0.000003178         0.000079450
+   19    1.5000000000      0.5619    0.000003034         0.000075853
+   20    1.5829999447      0.4925    0.000002659         0.000066485
+   21    1.6670000553      0.3829    0.000002067         0.000051681
+   22    1.7500000000      0.3537    0.000001910         0.000047750
+   23    1.8329999447      0.3017    0.000001629         0.000040724
+   24    1.9170000553      0.2800    0.000001512         0.000037796
+   25    2.0000000000      0.2323    0.000001254         0.000031356
+   26    2.0829999447      0.1802    0.000000973         0.000024330
+   27    2.1670000553      0.1600    0.000000864         0.000021598
+   28    2.2500000000      0.1108    0.000000598         0.000014962
+   29    2.3329999447      0.0588    0.000000317         0.000007937
+   30    2.4170000553      0.0229    0.000000123         0.000003085
+   31    2.5000000000      0.0000    0.000000000         0.000000000
+   32    2.5829999447      0.0000    0.000000000         0.000000000
+   33    2.6670000553      0.0000    0.000000000         0.000000000
+   34    2.7500000000      0.0000    0.000000000         0.000000000
+   35    2.8329999447      0.0000    0.000000000         0.000000000
+   36    2.9170000553      0.0000    0.000000000         0.000000000
+   37    3.0000000000      0.0000    0.000000000         0.000000000
+   38    3.0829999447      0.0000    0.000000000         0.000000000
+   39    3.1670000553      0.0000    0.000000000         0.000000000
+   40    3.2500000000      0.0000    0.000000000         0.000000000
+   41    3.3329999447      0.0000    0.000000000         0.000000000
+Found database line: SB_All,EG03_005.csv,inflow_time_hr,inflow_RF,,,,,
+Looking for data in columns 1, 2 of xf file.
+Extracting Data...
+...Finished Extracting Data
+Checking ascending order of Column 1...OK
+Applying time shift of ...................:       0.000
+Applying value addition factor of ........:       0.000
+Applying value multiplication factor of ..:       1.000
+Column 1 ranges from        0.000 to        3.333
+Column 2 ranges from        0.000 to        6.912
+Rainfall histogram after rain gauge factor adjustment is:
+    1       0.000      0.0000
+    2       0.083      4.3560
+    3       0.167      5.8680
+    4       0.250      6.5520
+    5       0.333      6.8400
+    6       0.417      6.9120
+    7       0.500      6.8760
+    8       0.583      6.6960
+    9       0.667      6.1560
+   10       0.750      5.5080
+   11       0.833      4.6800
+   12       0.917      3.8160
+   13       1.000      3.0960
+   14       1.083      2.4120
+   15       1.167      2.0880
+   16       1.250      1.6920
+   17       1.333      1.5480
+   18       1.417      1.4040
+   19       1.500      1.3320
+   20       1.583      1.1880
+   21       1.667      0.9720
+   22       1.750      0.9000
+   23       1.833      0.7920
+   24       1.917      0.7560
+   25       2.000      0.6480
+   26       2.083      0.5400
+   27       2.167      0.5040
+   28       2.250      0.3960
+   29       2.333      0.2880
+   30       2.417      0.2160
+   31       2.500      0.1440
+   32       2.583      0.1440
+   33       2.667      0.1440
+   34       2.750      0.1080
+   35       2.833      0.1080
+   36       2.917      0.1080
+   37       3.000      0.1080
+   38       3.083      0.1080
+   39       3.167      0.1080
+   40       3.250      0.1080
+   41       3.333      0.1080
+...Applying an initial loss of 0.mm...
+...Applying a continuing loss of 2.mm/h...
+...Rainfall histogram conversion after IL and CL is:
+    1       0.000      0.0000
+    2       0.083      4.1900
+    3       0.167      5.7000
+    4       0.250      6.3860
+    5       0.333      6.6740
+    6       0.417      6.7440
+    7       0.500      6.7100
+    8       0.583      6.5300
+    9       0.667      5.9880
+   10       0.750      5.3420
+   11       0.833      4.5140
+   12       0.917      3.6480
+   13       1.000      2.9300
+   14       1.083      2.2460
+   15       1.167      1.9200
+   16       1.250      1.5260
+   17       1.333      1.3820
+   18       1.417      1.2360
+   19       1.500      1.1660
+   20       1.583      1.0220
+   21       1.667      0.8040
+   22       1.750      0.7340
+   23       1.833      0.6260
+   24       1.917      0.5880
+   25       2.000      0.4820
+   26       2.083      0.3740
+   27       2.167      0.3360
+   28       2.250      0.2300
+   29       2.333      0.1220
+   30       2.417      0.0480
+   31       2.500      0.0000
+   32       2.583      0.0000
+   33       2.667      0.0000
+   34       2.750      0.0000
+   35       2.833      0.0000
+   36       2.917      0.0000
+   37       3.000      0.0000
+   38       3.083      0.0000
+   39       3.167      0.0000
+   40       3.250      0.0000
+   41       3.333      0.0000
+...Multiplying the excess rainfall by the catchment area of 19.22m2...
+SA Rainfall histogram conversion: Time (Col 1), mm/h (Col 2), m/s (Col 3) and m3/s (Col 4) after losses and factors is:
+    1    0.0000000000      0.0000    0.000000000         0.000000000
+    2    0.0829999968      2.0193    0.000010778         0.000269452
+    3    0.1669999957      2.7143    0.000014488         0.000362193
+    4    0.2500000000      3.0776    0.000016427         0.000410673
+    5    0.3330000043      3.2164    0.000017168         0.000429193
+    6    0.4169999957      3.2114    0.000017141         0.000428532
+    7    0.5000000000      3.2337    0.000017260         0.000431508
+    8    0.5830000043      3.1470    0.000016797         0.000419933
+    9    0.6669999957      2.8514    0.000015220         0.000380494
+   10    0.7500000000      2.5745    0.000013741         0.000343535
+   11    0.8330000043      2.1754    0.000011612         0.000290288
+   12    0.9169999957      1.7371    0.000009272         0.000231804
+   13    1.0000000000      1.4120    0.000007537         0.000188423
+   14    1.0829999447      1.0824    0.000005777         0.000144436
+   15    1.1670000553      0.9143    0.000004880         0.000122002
+   16    1.2500000000      0.7354    0.000003925         0.000098134
+   17    1.3329999447      0.6660    0.000003555         0.000088874
+   18    1.4170000553      0.5886    0.000003142         0.000078539
+   19    1.5000000000      0.5619    0.000002999         0.000074983
+   20    1.5829999447      0.4925    0.000002629         0.000065723
+   21    1.6670000553      0.3829    0.000002044         0.000051088
+   22    1.7500000000      0.3537    0.000001888         0.000047202
+   23    1.8329999447      0.3017    0.000001610         0.000040257
+   24    1.9170000553      0.2800    0.000001495         0.000037363
+   25    2.0000000000      0.2323    0.000001240         0.000030997
+   26    2.0829999447      0.1802    0.000000962         0.000024051
+   27    2.1670000553      0.1600    0.000000854         0.000021350
+   28    2.2500000000      0.1108    0.000000592         0.000014791
+   29    2.3329999447      0.0588    0.000000314         0.000007846
+   30    2.4170000553      0.0229    0.000000122         0.000003050
+   31    2.5000000000      0.0000    0.000000000         0.000000000
+   32    2.5829999447      0.0000    0.000000000         0.000000000
+   33    2.6670000553      0.0000    0.000000000         0.000000000
+   34    2.7500000000      0.0000    0.000000000         0.000000000
+   35    2.8329999447      0.0000    0.000000000         0.000000000
+   36    2.9170000553      0.0000    0.000000000         0.000000000
+   37    3.0000000000      0.0000    0.000000000         0.000000000
+   38    3.0829999447      0.0000    0.000000000         0.000000000
+   39    3.1670000553      0.0000    0.000000000         0.000000000
+   40    3.2500000000      0.0000    0.000000000         0.000000000
+   41    3.3329999447      0.0000    0.000000000         0.000000000
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+     Read:      0     89      0      0     64      0      0      0      0      0     10      0      0     15      0
+Requested:            89      0      0     64      0      0      0      0      0     10      0      0     15      0
+
+Checking all connection objects are used...
+...Finished.
+
+
+    Final:            89      0      0     64      0      0      0      0      0     10      0      0     15      0
+            BC ID    nbc    nht    nhs    nhq    nqt    nqc    nvt    nvc    nwp    nst    nsh    nsx    nhx   nvgt
+
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_bcc_check.shp]...
+
+...Finished Reading Boundary File for Domain Domain_001
+
+Domain_001: Setting Bed Elevations for SGS Depth Output ... E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\EG00_001.tgc
+...Finished Setting Bed Elevations for SGS Depth Output
+
+Indexing HX and SX cells connectivity to 1D nodes...
+Maximum number HX cells linked to a 1D node = 15
+Maximum number SX cells linked to a 1D node = 0
+Allocating memory for HX and SX 1D/2D link indexing...
+Domain_001: Indexing HX and SX cells...
+Finished indexing HX and SX cells connectivity to 1D nodes.
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000187 h]
+Clock Time:      0:00:01  [0.000278 h]
+
+Domain_001: Initialising 2D Data (Stage 1)...
+
+Completing unit conversions...
+
+Setting up linear and spline interpolation tables...
+   HT Boundaries...    0
+   HQ Boundaries...   64
+   QT Boundaries...    1
+   QTA Boundaries...    0
+   ST Boundaries...   10
+   SH and SD Boundaries...    0
+   VG Boundaries...    0
+   VT Boundaries...    0
+   WT Boundaries...    0
+
+Checking Material and Manning's n values...
+
+Initialising any layered FC coefficients...
+
+Setting default computational array values...
+
+...Finished Initialising Data (Stage 1) for Domain Domain_001
+
+________________________________________________________________________________
+CPU Time:        0:00:00  [0.000187 h]
+Clock Time:      0:00:01  [0.000278 h]
+
+Domain_001: Initialising 2D Data (Stage 2)...
+
+Assigning 2D cell codes...
+
+Pre-processing any SA regions...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_sac_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_sac_check.shp]...
+
+Setting invert levels for distributing SX flows...
+
+Setting flow constriction lids...
+
+Initialising any tgc FC obverts...
+
+Checking storage reduction factors...
+
+Setting initial wet/dry flags...
+
+Initialising Manning n values which vary with depth...
+
+Pre-processing bed resistance values...
+
+Checking for any uninitialised Zpt values...
+
+Setting groundwater base levels for distributing SX flows...
+
+Calculating SGS cutoff depths at cells...
+
+Checking all cells have active faces...
+
+...Finished Initialising Data (Stage 2) for Domain Domain_001
+
+________________________________________________________________________________
+
+Domain_001: Checking 2D Input Data...
+
+Calculating any automatic HQ boundaries in Domain Domain_001
+
+...Finished calculating any automatic HQ boundaries in Domain Domain_001
+...Finished Checking Input Data for Domain Domain_001
+
+________________________________________________________________________________
+
+Domain_001: Initialising any 2D2D link data
+Domain_001: Finished setting up any 2D2D link data
+
+Checking for mismatches in 1D node/channel bed levels...
+
+Indexed 1 1D nodes and 0 channels for HPC simulation.
+HPC Virtual Pipe system has 0 1D nodes and 0 pit channels.
+
+Setting up 1D structure groups...
+
+Setting up primary upstream and downstream channels...
+
+Checking upstream channel inverts for structures...
+
+Checking any 1D/2D and 2D/2D Link Elevations...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_1d_to_2d_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_1d_to_2d_check.shp]...
+...Finished.
+
+________________________________________________________________________________
+
+Domain_001: Setting up any 2D structure flow group and reporting location links... 
+...Finished setting up any 2D structure flow group and reporting location links
+
+Found a total of 0 structure groups.
+
+________________________________________________________________________________
+
+1D Initial water levels (IWL) set by user - use check files to verify
+2D Initial water levels (IWL) set by user - use check files to verify
+
+________________________________________________________________________________
+
+Writing any remaining check files...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_grd_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_grd_check.shp]...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_zpt_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_zpt_check.shp]...
+Opening GIS Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_uvpt_check.shp
+GIS Layer assigned ID of 5
+
+Closing GIS Layer 5 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_uvpt_check.shp]...
+...Finished writing any remaining check files
+
+Checking Zpt values are within Zpt Range Check values of -9998.000 and 99998.000...
+
+Zpts range from 35.925 to 55.336 m.
+
+...Finished.  All active Zpt values are within Zpt Range Check.
+
+Isolating redundant perimeter sections of 2D domain Domain_001...
+...Reduced computational grid by 8%.  Now extends from [5,7] to [196,169].
+...Reduced output grid by 8%.  Now extends from [5,7] to [196,169].
+
+________________________________________________________________________________
+CPU Time:        0:00:06  [0.001849 h]
+Clock Time:      0:00:07  [0.001944 h]
+
+Processing 1D/2D mesh and writing mesh file(s) where applicable...
+...Processing 2D Domain Domain_001
+
+Allocating 709Kb memory for temporary mesh node arrays...
+
+Processing cell centre nodes for domain...
+Processing mesh elements for domain...
+...found 20611 cells and 41630 nodes
+
+Mesh statistics for Output Zone 
+  Number 1D WLL Elements:            0
+  Number 1D WLL Nodes:               0
+  Number 2D Cells:               20611
+  Number 2D Mesh Elements:       82444
+  Number 2D Mesh Nodes:          41630
+
+...Finished Writing 2DM File
+
+
+Generating and writing check DEMs...
+
+Calculating grid interpolation factors...
+Element:     10000    20000    30000    40000    50000    60000    70000    80000
+Finished calculating grid interpolation factors.
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_DEM_Zmin.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_DEM_M.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\check\EG03\EG03_014_DEM_Z.tif
+GRID Layer assigned ID of 1
+...Finished generating and writing check DEMs.
+
+Calculating grid interpolation factors...
+Element:     10000    20000    30000    40000    50000    60000    70000    80000
+Finished calculating grid interpolation factors.
+
+Committing any changes to open GPKG layers...
+
+Number of WARNINGs:    _messages layer =       1     Total =       1
+Number of CHECKs:      _messages layer =       0     Total =       0
+
+________________________________________________________________________________
+CPU Time:        0:00:07  [0.00197 h]
+Clock Time:      0:00:07  [0.001944 h]
+Closing Time of Startup Summary...
+   Done
+
+......................................... Running TUFLOW HPC Solver
+
+
+Creating and checking 1D HX conditions from 2D SX connections...
+
+Creating and checking 1D QX links from 2D HX connections...
+
+Checking 1D QX boundaries and initialising 2D HX connections...
+
+Allocating 283Kb memory for temporary HPC arrays Stage 1...
+
+Checking boundary data to be sent...
+...Finished checking boundary data to be sent to HPC
+
+Sending HPC .tlf filename...
+
+Identifying HPC solver...
+HPC Solver Build: 3.50.0
+
+Sending HPC time history .hpc.dt.csv filename...
+
+Sending initialisation data to HPC...
+
+Found 1 usable GPU devices.
+GPU memory initialised and graphics card is compatible with HPC solver.
+Parameters initialised.
+...Finished sending initialisation data
+
+Sending elevation data and initial conditions...
+...Finished sending elevation data and initial conditions
+
+No plot output locations to send.
+
+Sending any Evaluation Group Data...
+Finished sending any Evaluation Group Data
+
+Transferring material parameters...
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+...Finished transferring Material Parameters.
+
+Transferring Material IDs...
+...Finished transferring Material IDs.
+
+Transferring Storage Reduction Factors (SRF)...
+...Finished transferring Storage Reduction Factors (SRF).
+
+No Cell Width Factors (CWF) to transfer...
+
+No Form Loss Coefficients (FLC) to transfer...
+
+No soils information to be transfered.
+
+No Time Output Cutoff Depth(s) to transfer...
+
+No Layered Flow Constriction data to transfer...
+
+No Variable Z Shapes to transfer...
+
+Transferring tracking scalar maximums settings...
+
+... Finished transferring tracking scalar maximums settings...
+
+... Finished transferring tracking scalar maximums settings...
+
+Transferring tracking vector maximums settings...
+
+... Finished transferring tracking vector maximums settings...
+
+________________________________________________________________________________
+CPU Time:        0:00:08  [0.002465 h]
+Clock Time:      0:00:07  [0.001944 h]
+
+Sending boundary data to HPC...
+
+Allocating 1703Kb memory for temporary HPC arrays Stage 2...
+
+Sending active/inactive cell data to HPC...
+...Finished sending active/inactive cell data to HPC Solver.
+
+No stream order data to send to HPC Solver.
+
+No global wind shear stress data to send to HPC Solver.
+...Finished sending boundary data to HPC Solver.
+
+Sending SGS data...
+
+Initialising 1D Virtual Pipe data for HPC Solver...
+
+Sending any 1D Virtual Pipe data to HPC Solver...
+Sent 0 virtual pipe pit depth-discharge curves to HPC Solver.
+...Finished sending 1D Virtual Pipe data to HPC Solver.
+...Finished initialising 1D Virtual Pipe data for HPC Solver.
+
+Sending SX locations...
+
+...No non-VP SX locations to send.
+
+Sending HX locations...
+
+Allocating memory for temporary HX data arrays...
+
+...Finished sending HX locations.
+
+Setting weir angle at breaklines...
+
+Sending Spatial WrF data...
+
+________________________________________________________________________________
+CPU Time:        0:00:09  [0.002517 h]
+Clock Time:      0:00:07  [0.001944 h]
+
+________________________________________________________________________________
+
+Initialising Run Time Summary == E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_hpc_run_stats.txt
+SIM:    0:00:00    -d  0  0    0D100%  1D  0%  2D  0%    CE  0.0%  0.0%  0.0%    Vi     0  Vo     0  dV     0
+Writing HPC Output at: 0:00:00  Clock: 0:00:07  CPU: 0:00:09
+SIM:    0:05:00    -d  0  0    0D 26%  1D  1%  2D 73%    CE  0.1%  0.0% -0.0%    Vi  2174  Vo   120  dV  2055
+Writing HPC Output at: 0:05:00  Clock: 0:00:07  CPU: 0:00:09
+SIM:    0:10:00    -d  0  0    0D 25%  1D  1%  2D 75%    CE  0.1%  0.0% -0.0%    Vi  3348  Vo    72  dV  3280
+Writing HPC Output at: 0:10:00  Clock: 0:00:07  CPU: 0:00:09
+SIM:    0:15:00    -d  0  0    0D 22%  1D  1%  2D 78%    CE  0.1%  0.0% -0.0%    Vi  4267  Vo    88  dV  4179
+Writing HPC Output at: 0:15:00  Clock: 0:00:07  CPU: 0:00:09
+SIM:    0:20:00    -d  0  0    0D 20%  1D  1%  2D 80%    CE  0.1%  0.0% -0.0%    Vi  4963  Vo   186  dV  4779
+Writing HPC Output at: 0:20:00  Clock: 0:00:08  CPU: 0:00:10
+SIM:    0:25:00    -d  0  0    0D 18%  1D  1%  2D 81%    CE  0.1%  0.0% -0.0%    Vi  6124  Vo   389  dV  5739
+Writing HPC Output at: 0:25:00  Clock: 0:00:08  CPU: 0:00:10
+SIM:    0:30:00    -d  0  0    0D 17%  1D  1%  2D 82%    CE  0.1%  0.0% -0.0%    Vi  8477  Vo   570  dV  7915
+Writing HPC Output at: 0:30:00  Clock: 0:00:08  CPU: 0:00:10
+SIM:    0:35:00    -d  0  0    0D 16%  1D  1%  2D 83%    CE  0.1%  0.0% -0.0%    Vi 15251  Vo   656  dV 14619
+Writing HPC Output at: 0:35:00  Clock: 0:00:09  CPU: 0:00:10
+SIM:    0:40:00    -d  0  0    0D 16%  1D  1%  2D 84%    CE  0.1%  0.0% -0.0%    Vi 23292  Vo   685  dV 22617
+Writing HPC Output at: 0:40:00  Clock: 0:00:09  CPU: 0:00:11
+SIM:    0:45:00    -d  0  0    0D 15%  1D  1%  2D 84%    CE  0.1% -0.0% -0.0%    Vi 27470  Vo   680  dV 26793
+Writing HPC Output at: 0:45:00  Clock: 0:00:09  CPU: 0:00:11
+SIM:    0:50:00    -d  0  0    0D 15%  1D  1%  2D 85%    CE  0.0% -0.0% -0.0%    Vi 29024  Vo   649  dV 28375
+Writing HPC Output at: 0:50:00  Clock: 0:00:10  CPU: 0:00:12
+SIM:    0:55:00    -d  0  0    0D 14%  1D  1%  2D 85%    CE  0.0% -0.0% -0.0%    Vi 29279  Vo   618  dV 28662
+Writing HPC Output at: 0:55:00  Clock: 0:00:10  CPU: 0:00:12
+SIM:    1:00:00    -d  0  0    0D 14%  1D  1%  2D 85%    CE  0.0% -0.0% -0.0%    Vi 29061  Vo  5920  dV 23140
+Writing HPC Output at: 1:00:00  Clock: 0:00:11  CPU: 0:00:12
+SIM:    1:05:00    -d  0  0    0D 14%  1D  1%  2D 86%    CE  0.0% -0.0% -0.0%    Vi 28295  Vo 19301  dV  8993
+Writing HPC Output at: 1:05:00  Clock: 0:00:11  CPU: 0:00:13
+SIM:    1:10:00    -d  0  0    0D 14%  1D  1%  2D 86%    CE  0.0% -0.0% -0.0%    Vi 26652  Vo 25573  dV  1079
+Writing HPC Output at: 1:10:00  Clock: 0:00:11  CPU: 0:00:13
+SIM:    1:15:00    -d  0  0    0D 14%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi 24137  Vo 27222  dV -3085
+Writing HPC Output at: 1:15:00  Clock: 0:00:12  CPU: 0:00:14
+SIM:    1:20:00    -d  0  0    0D 14%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi 21160  Vo 26533  dV -5379
+Writing HPC Output at: 1:20:00  Clock: 0:00:12  CPU: 0:00:14
+SIM:    1:25:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi 17698  Vo 24759  dV -7068
+Writing HPC Output at: 1:25:00  Clock: 0:00:12  CPU: 0:00:14
+SIM:    1:30:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi 14466  Vo 22386  dV -7926
+Writing HPC Output at: 1:30:00  Clock: 0:00:13  CPU: 0:00:15
+SIM:    1:35:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi 11591  Vo 19694  dV -8108
+Writing HPC Output at: 1:35:00  Clock: 0:00:13  CPU: 0:00:15
+SIM:    1:40:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  9514  Vo 16983  dV -7473
+Writing HPC Output at: 1:40:00  Clock: 0:00:13  CPU: 0:00:15
+SIM:    1:45:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  8024  Vo 14448  dV -6428
+Writing HPC Output at: 1:45:00  Clock: 0:00:14  CPU: 0:00:16
+SIM:    1:50:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  6857  Vo 12312  dV -5457
+Writing HPC Output at: 1:50:00  Clock: 0:00:14  CPU: 0:00:16
+SIM:    1:55:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  6282  Vo 10641  dV -4360
+Writing HPC Output at: 1:55:00  Clock: 0:00:15  CPU: 0:00:16
+SIM:    2:00:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  5804  Vo  9273  dV -3469
+Writing HPC Output at: 2:00:00  Clock: 0:00:15  CPU: 0:00:17
+SIM:    2:05:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  5258  Vo  8179  dV -2923
+Writing HPC Output at: 2:05:00  Clock: 0:00:15  CPU: 0:00:17
+SIM:    2:10:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  4496  Vo  7323  dV -2829
+Writing HPC Output at: 2:10:00  Clock: 0:00:16  CPU: 0:00:17
+SIM:    2:15:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  3894  Vo  6632  dV -2739
+Writing HPC Output at: 2:15:00  Clock: 0:00:16  CPU: 0:00:18
+SIM:    2:20:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  3530  Vo  6010  dV -2481
+Writing HPC Output at: 2:20:00  Clock: 0:00:16  CPU: 0:00:18
+SIM:    2:25:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  3183  Vo  5392  dV -2209
+Writing HPC Output at: 2:25:00  Clock: 0:00:17  CPU: 0:00:18
+SIM:    2:30:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  2849  Vo  4883  dV -2035
+Writing HPC Output at: 2:30:00  Clock: 0:00:17  CPU: 0:00:19
+SIM:    2:35:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0% -0.0%    Vi  2475  Vo  4433  dV -1959
+Writing HPC Output at: 2:35:00  Clock: 0:00:17  CPU: 0:00:19
+SIM:    2:40:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  2163  Vo  4053  dV -1891
+Writing HPC Output at: 2:40:00  Clock: 0:00:18  CPU: 0:00:19
+SIM:    2:45:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  1845  Vo  3738  dV -1894
+Writing HPC Output at: 2:45:00  Clock: 0:00:18  CPU: 0:00:20
+SIM:    2:50:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  1464  Vo  3416  dV -1953
+Writing HPC Output at: 2:50:00  Clock: 0:00:18  CPU: 0:00:20
+SIM:    2:55:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0%  0.0%    Vi  1092  Vo  3102  dV -2012
+Writing HPC Output at: 2:55:00  Clock: 0:00:19  CPU: 0:00:20
+SIM:    3:00:00    -d  0  0    0D 13%  1D  1%  2D 86%    CE  0.0% -0.0% -0.0%    Vi   812  Vo  2831  dV -2020
+Writing HPC Output at: 3:00:00  Clock: 0:00:19  CPU: 0:00:21
+
+________________________________________________________________________________
+CPU Time:        0:00:21  [0.005855 h]
+Clock Time:      0:00:19  [0.005278 h]
+
+Finished HPC Solution.
+
+Closing Computational Time Summary.
+
+Receiving tracked maximums from HPC Solver.
+
+Allocating 141Kb memory for temporary HPC array containing any NaN locations...
+
+Total number of High Control Numbers or NaNs (instabilities) causing a timestep correction was 0.
+
+Receiving Maximum Water Levels and Times of Peak Levels from HPC Solver...
+Finished.
+
+Receiving tracked scalar maximums...
+
+... stored cell averaged depth from tracked scalar maximums.
+
+Receiving tracked vector maximums...
+
+Processing maximums from HPC Solver...
+
+Finished processing of HPC results.
+
+Run Finished ..... Steps completed: 37
+   Total Negative Depths: 0
+Simulation took 0.005855 CPU hours
+One hour of model time takes 0.002 CPU hours
+
+________________________________________________________________________________
+
+________________________________________________________________________________
+
+Writing maximums...
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\grids\EG03_014_h_Max.tif
+GRID Layer assigned ID of 1
+Opening GRID Layer: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\grids\EG03_014_TMax_h.tif
+GRID Layer assigned ID of 1
+
+No minimums to write.
+
+Closing map output files...
+
+No PO output to write.
+
+Closing GIS Layer 2 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\plot\gis\EG03_014_PLOT.shp]...
+
+Closing GIS Layer 3 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\plot\gis\EG03_014_PLOT.shp]...
+
+Closing GIS Layer 4 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG03\plot\gis\EG03_014_PLOT.shp]...
+
+Input File ............ E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG03_014.tcfSimulation Log File ... E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014.tlf
+
+Closing GIS Layer 1 [E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014_messages.shp]...
+
+Closing any unclosed GIS layers...
+
+Deallocating memory for 1D/2D link indexing...
+
+-------------------------------
+--    Simulation FINISHED    --
+-------------------------------
+
+                         PRIOR TO SIMULATION
+  Number of WARNINGs:    _messages layer =       1     Total =       1
+  Number of CHECKs:      _messages layer =       0     Total =       0
+
+                          DURING SIMULATION
+  Number of WARNINGs:    _messages layer =       0     Total =       0
+  Number of CHECKs:      _messages layer =       0     Total =       0
+
+
+_____________________________________________________________________________________________________________
+_____________________________________________________________________________________________________________
+
+SIMULATION SUMMARY
+
+Input File: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG03_014.tcf
+Log File:   E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG03_014.tlf
+
+Start Time (h): 0.
+End Time (h):   3.
+
+Initialisation Times
+Clock Time:          0:00:07  [0.001944 h]
+Processor Time:      0:00:07  [0.00197 h]
+Final Times
+NOTE: Processor times may be misleading/inaccurate when using GPU hardware.
+Clock Time:          0:00:19  [0.005278 h]
+Processor Time:      0:00:21  [0.005916 h]
+
+Simulation FINISHED
+
+TUFLOW 1D Negative Depths: 0
+HPC HCN Repeated Timesteps: 0  ! HCN is High Control Numbers, eg. Courant Number exceedance
+HPC NaN Repeated Timesteps: 0  ! NaN - Not a Number means an instability occurred
+HPC NaN WARNING 2550: 0
+
+WARNINGs prior to simulation:     1  [0 not in _messages layer]
+WARNINGs during simulation:       0  [0 not in _messages layer]
+CHECKs prior to simulation:       0  [0 not in _messages layer]
+CHECKs during simulation:         0  [0 not in _messages layer]
+
+Volume at Start (m3):  269
+Volume at End (m3):    96798
+Total Volume In (m3):  396266
+Total Volume Out (m3): 299749
+Volume Error (m3):     11 or 0.0% of Volume In + Out
+Final Cumulative ME:   0.00%
+_____________________________________________________________________________________________________________
+
+Deallocating SGS memory.
+... Finished deallocating SGS memory.
+
+De-allocating memory (RAM) for storing elevations at SGS sampling points (SGS Approach == Method C)
+... Done
+
+Closing all file units...

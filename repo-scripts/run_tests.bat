@@ -12,7 +12,9 @@ python -m pip install pytest
 python -m pip install pytest-cov
 
 echo Run pytest with coverage
-pytest --cov=ryan_library tests/
+set PYTHONPATH=.
+pytest -o "cache_dir=%TEMP%\pytest_cache" --cov=ryan_library tests/
+REM If you experience crashes with coverage, run: pytest tests/
 
 REM Deactivate the virtual environment if activated
 REM deactivate

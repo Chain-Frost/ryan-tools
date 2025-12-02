@@ -1,0 +1,89 @@
+TUFLOW AD Module Build 2021-09-PC
+
+AD Control file successfully checked for integrity.
+
+
+Setting AD Global Database to: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\EG18_AD_Constituents_002.csv
+
+
+Allocating temporary memory for AD boundary processing.
+Memory required: 603kB
+
+Reading AD Boundary Conditions:
+
+
+Setting AD BC Database to: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\bc_dbase_EG18_AD_002.csv
+
+
+Considering TUFLOW "HQ" BC with name "ds"...
+
+Array sizing TUFLOW "HQ" BC with name "ds"...
+
+Considering TUFLOW SA BC with name "dambreak"...
+
+Array sizing TUFLOW SA BC with name "dambreak"...
+Found 4 AD BC line segments
+Found 0 AD Met BC polygons
+
+Releasing temporary memory used for AD boundary processing.
+
+Reading AD Global Database: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\EG18_AD_Constituents_002.csv
+
+
+Heat solution not activated (yet)
+
+
+Finished reading AD Global Database: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\EG18_AD_Constituents_002.csv
+
+
+Number of Constituents Found:            1
+
+
+Opening IC file with name "E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_ad_ic_EG18_002.shp"...
+
+NN_Frac spatially set using E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\model\gis\2d_ad_ic_EG18_002.shp
+
+Allocating temporary memory for AD boundary processing.
+Memory required: 603kB
+
+Reading AD Boundary Conditions:
+
+
+Setting AD BC Database to: E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\bc_dbase\bc_dbase_EG18_AD_002.csv
+
+
+Considering TUFLOW "HQ" BC with name "ds"...
+
+Processing TUFLOW "HQ" BC with name "ds"...
+
+Considering TUFLOW SA BC with name "dambreak"...
+
+Processing TUFLOW SA BC with name "dambreak"...
+Processed 72 AD BC cells
+Processed 0 AD Met BC cells
+
+Releasing temporary memory used for AD boundary processing.
+
+Allocating 141Kb memory for temporary for processing AD SA boundaries...
+
+Checking AD flow boundaries...
+
+...Finished checking AD flow boundaries
+
+!_______________________________________________________________________________
+Write Mass == OFF  ! [ {OFF} | ON ]
+Write CFL == OFF  ! [ {OFF} | ON ]
+Write Iterations == OFF  ! [ {OFF} | ON ]
+Verbose == OFF  ! [ {OFF} | ON ]
+SA Minimum Ambient Concentration Depth == 0.
+
+Number of constituents: 1
+
+#1 - NN_Frac
+Heat Name not set.
+Decay Rate = 0.
+Settling Rate = 0.
+Longitudinal Dispersion Coefficient = 1.
+Transverse Dispersion Coefficient = 0.2
+!_______________________________________________________________________________
+

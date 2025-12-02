@@ -1,0 +1,55 @@
+TUFLOW Control File == "E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG18_002.tcf"
+TUFLOW Log File == "E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\log\EG18_002.tlf"
+TUFLOW Build == Build: 2025.2.1-iSP-w64
+Solution Scheme == HPC
+Hardware == GPU
+GPU Device IDs == 0 
+Computer Name == RYAN-AM5
+
+Simulation Status == FINISHED
+Simulation Time (h) == 3.
+Simulation Start Time (h) == 0.
+Simulation End Time (h) == 3.
+
+Percentage Complete (%) == 100
+Completed Computational Steps == 17607
+
+CPU Time (h) == 0.01667
+Clock Time (h) == 0.0075
+Approximate Clock Time Remaining (h) == 0.
+
+HPC HCN Repeated Timesteps == 0  ! HCN is High Control Numbers, eg. Courant Number exceedance
+HPC NaN Repeated Timesteps == 0  ! NaN - Not a Number means an instability occurred
+HPC NaN WARNING 2550 == 0
+WARNINGs Prior to Simulation == 0
+WARNINGs During Simulation == 0
+CHECKs Prior to Simulation == 2
+CHECKs During Simulation == 0
+
+Volume at Start (m3) == 55119
+Volume at End (m3) == 185179
+Total Volume In (m3) == 130500
+Total Volume Out (m3) == 441
+Volume Error (m3) == 0
+Volume Error (%) == 0.00  ! % of Volume In + Out
+Cumulative Mass Error [ME] (%) == 0.00
+
+Summary Output Interval (s) == 300.
+Number Summary Values == 37
+Volume In Values [Qi]  == 0.0, 0.0, 0.0, 1500.0, 4500.0, 7500.0, 12000.0, 12000.0, 7500.0, 4500.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0
+Volume Out Values [Qo] == 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 41.8, 95.0, 133.6, 170.6
+Change in Volume Values [dV] == 0.0, -0.0, 0.0, 1500.0, 4500.0, 7500.0, 12000.0, 12000.0, 7500.0, 4500.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.1, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.0, 3000.1, 3000.0, 3000.0, 2958.2, 2905.0, 2866.5, 2829.3
+Mass Error Values [ME] (%) == 0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, -0.0, 0.0, -0.0, -0.0, -0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+
+Number TUFLOW 1D Nodes == 0
+Number TUFLOW 1D Channels == 0
+
+Active 2D Cells == 20604
+Total 2D Cells == 34000
+Inactive 2D Cells == 13396
+Number 2D Domains == 1
+2D Domain Cell Sizes == 5.
+2D Domain Timestep == 0.500 ! Variable
+
+First Start Map Output (h) == 0.
+Shortest Map Output Interval (s) == 300.

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
+from typing import Collection
 
 import pandas as pd
 from loguru import logger
@@ -13,14 +14,18 @@ from pandas.api.types import is_numeric_dtype
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.misc_functions import ExcelExporter
 from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
+from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
-DEFAULT_CULVERT_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA")
+DEFAULT_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
+ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
 
 
 def run_culvert_mean_report(
     script_directory: Path | None = None,
     log_level: str = "INFO",
     include_data_types: Sequence[str] | None = None,
+    locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
 ) -> None:
     """Generate AEP/Duration mean statistics for culvert results and export them to Excel."""
@@ -28,10 +33,20 @@ def run_culvert_mean_report(
     if script_directory is None:
         script_directory = Path.cwd()
 
-    data_types: list[str] = list(include_data_types) if include_data_types else list(DEFAULT_CULVERT_DATA_TYPES)
+    data_types, invalid_types = normalize_data_types(
+        requested=include_data_types,
+        default=DEFAULT_DATA_TYPES,
+        accepted=ACCEPTED_DATA_TYPES,
+    )
 
     with setup_logger(console_log_level=log_level) as log_queue:
-        collection = bulk_read_and_merge_tuflow_csv(
+        warn_on_invalid_types(
+            invalid_types=invalid_types,
+            accepted_types=ACCEPTED_DATA_TYPES,
+            context="Culvert mean report",
+        )
+
+        collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
             paths_to_process=[script_directory],
             include_data_types=data_types,
             log_queue=log_queue,
@@ -39,17 +54,37 @@ def run_culvert_mean_report(
     log_queue.close()
     log_queue.join_thread()
 
+    if locations_to_include:
+        normalized_locations: frozenset[str] = collection.filter_locations(locations=locations_to_include)
+        if not normalized_locations:
+            logger.warning("Location filter provided but no valid values found. Continuing without filtering.")
+
     if not collection.processors:
+        warn_on_invalid_types(
+            invalid_types=invalid_types,
+            accepted_types=ACCEPTED_DATA_TYPES,
+            context="Culvert mean report completed",
+        )
         logger.warning("No culvert result files were processed. Skipping export.")
         return
 
     aggregated_df: pd.DataFrame = collection.combine_1d_maximums()
     if aggregated_df.empty:
+        warn_on_invalid_types(
+            invalid_types=invalid_types,
+            accepted_types=ACCEPTED_DATA_TYPES,
+            context="Culvert mean report completed",
+        )
         logger.warning("Combined culvert maximums DataFrame is empty. Skipping export.")
         return
 
     aep_dur_mean: pd.DataFrame = find_culvert_aep_dur_mean(aggregated_df)
     if aep_dur_mean.empty:
+        warn_on_invalid_types(
+            invalid_types=invalid_types,
+            accepted_types=ACCEPTED_DATA_TYPES,
+            context="Culvert mean report completed",
+        )
         logger.warning("Unable to calculate AEP/Duration mean statistics. Skipping export.")
         return
 
@@ -76,6 +111,12 @@ def run_culvert_mean_report(
     )
 
     logger.info("Culvert mean report exported to {}", script_directory / output_name)
+
+    warn_on_invalid_types(
+        invalid_types=invalid_types,
+        accepted_types=ACCEPTED_DATA_TYPES,
+        context="Culvert mean report completed",
+    )
 
 
 ADOPTED_SOURCE_COLUMNS: tuple[str, ...] = ("Q", "V", "DS_h", "US_h")
@@ -140,17 +181,17 @@ def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
 
             adopted_rows.append(adopted_entry)
 
-    adopted_df: pd.DataFrame = pd.DataFrame(adopted_rows) if adopted_rows else pd.DataFrame()
+    adopted_df: pd.DataFrame = pd.DataFrame(data=adopted_rows) if adopted_rows else pd.DataFrame()
 
     merged: pd.DataFrame = count_df.copy()
     for frame in (mean_df, adopted_df, min_df, max_df):
         if not frame.empty:
-            merged = merged.merge(frame, on=group_columns, how="left")
+            merged = merged.merge(right=frame, on=group_columns, how="left")
 
-    merged = merged.sort_values(group_columns, ignore_index=True)
+    merged = merged.sort_values(by=group_columns, ignore_index=True)
 
     ordered_columns: list[str] = _ordered_columns(
-        merged,
+        df=merged,
         lead=group_columns,
         secondary=["count"],
         value_prefixes=("mean_", "adopted_", "min_", "max_"),
@@ -164,12 +205,12 @@ def find_culvert_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
     if aep_dur_mean.empty:
         return pd.DataFrame()
 
-    metric_column: str | None = _preferred_metric_column(aep_dur_mean)
+    metric_column: str | None = _preferred_metric_column(aep_dur_mean=aep_dur_mean)
     if metric_column is None:
         logger.warning("No mean columns were found for culvert mean-max calculation.")
         return pd.DataFrame()
 
-    group_columns: list[str] = _group_columns(aep_dur_mean, include_duration=False)
+    group_columns: list[str] = _group_columns(df=aep_dur_mean, include_duration=False)
     if not group_columns:
         logger.error("Required grouping columns were not found for the culvert mean-max calculation.")
         return pd.DataFrame()
@@ -182,17 +223,15 @@ def find_culvert_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
         logger.warning("Mean metric column '{}' does not contain any numeric values.", metric_column)
         return pd.DataFrame()
 
-    df["mean_bin"] = (
-        df.groupby(group_columns, observed=True)["_has_metric"].transform("sum").astype("Int64")
-    )
+    df["mean_bin"] = df.groupby(group_columns, observed=True)["_has_metric"].transform("sum").astype("Int64")
 
-    idx = df[df["_has_metric"]].groupby(group_columns, observed=True)["_mean_metric"].idxmax()
+    idx = df[df["_has_metric"]].groupby(by=group_columns, observed=True)["_mean_metric"].idxmax()
     result: pd.DataFrame = df.loc[idx].drop(columns=["_mean_metric", "_has_metric"]).reset_index(drop=True)
     result = result.sort_values(group_columns, ignore_index=True)
 
     ordered_columns: list[str] = _ordered_columns(
-        result,
-        lead=_group_columns(result, include_duration=True),
+        df=result,
+        lead=_group_columns(df=result, include_duration=True),
         secondary=["count", "mean_bin"],
         value_prefixes=("mean_", "adopted_", "min_", "max_"),
     )
@@ -228,7 +267,7 @@ def _group_columns(df: pd.DataFrame, include_duration: bool) -> list[str]:
     base_order.append("trim_runcode")
     base_order.append("Chan ID")
 
-    resolved = [column for column in base_order if column in df.columns]
+    resolved: list[str] = [column for column in base_order if column in df.columns]
     if "Chan ID" not in resolved:
         return []
     return resolved

@@ -40,7 +40,7 @@ def read_po_csv(
     allowed_locations: set[str] | None = None,
 ) -> DataFrame:
     """Read a TUFLOW ``*_PO.csv`` file filtered to ``data_type`` columns."""
-    dtype_low = data_type.lower()
+    dtype_low: str = data_type.lower()
     try:
         with filepath.open() as file:
             reader = csv.reader(file)
@@ -67,7 +67,7 @@ def read_po_csv(
         logger.error("No matching columns in %s", filepath)
         return DataFrame()
     try:
-        df: DataFrame = pd.read_csv(filepath_or_buffer=filepath, skiprows=1, usecols=usecols, header=0)
+        df: DataFrame = pd.read_csv(filepath_or_buffer=filepath, skiprows=1, usecols=usecols, header=0)  # type: ignore
         df.columns = col_names
         return df
     except Exception:
@@ -105,3 +105,61 @@ def analyze_po_file(
                 }
             )
     return DataFrame(records)
+
+
+def summarise_results(df: DataFrame) -> DataFrame:
+    """Summarise closure duration results."""
+    from ..pandas.median_calc import median_stats as median_stats_func
+
+    final_columns: list[str] = [
+        "Path",
+        "Location",
+        "ThresholdFlow",
+        "AEP",
+        "Central_Value",
+        "Critical_Duration",
+        "Critical_Tp",
+        "Low_Value",
+        "High_Value",
+        "Average_Value",
+        "Closest_Tpcrit",
+        "Closest_Value",
+    ]
+    finaldb = pd.DataFrame(columns=final_columns)
+    # Capture the full set of (Duration, TP) combinations for each location/AEP so that
+    # thresholds which do not exceed for a given combination can still contribute zeros
+    # to the summary statistics.  Without this we would discard zeros entirely and the
+    # medians could erroneously increase as the threshold increased.
+    combo_lookup = {
+        key: grp.loc[:, ["Duration", "TP"]].drop_duplicates().reset_index(drop=True)
+        for key, grp in df.loc[:, ["out_path", "Location", "AEP", "Duration", "TP"]]
+        .drop_duplicates()
+        .groupby(["out_path", "Location", "AEP"])
+    }
+
+    grouped = df.groupby(["out_path", "Location", "ThresholdFlow", "AEP"])
+    for name, group in grouped:
+        path, location, threshold, aep = name
+        combos = combo_lookup.get((path, location, aep))
+        if combos is not None:
+            group = combos.merge(group, on=["Duration", "TP"], how="left")
+            group["AEP"] = group["AEP"].fillna(aep)
+            group["out_path"] = group["out_path"].fillna(path)
+            group["Location"] = group["Location"].fillna(location)
+            group["ThresholdFlow"] = group["ThresholdFlow"].fillna(threshold)
+            group["Duration_Exceeding"] = group["Duration_Exceeding"].fillna(0.0)
+
+        stats, _ = median_stats_func(group, "Duration_Exceeding", "TP", "Duration")
+        row = list(name) + [
+            stats.get("median"),
+            stats.get("median_duration"),
+            stats.get("median_TP"),
+            stats.get("low"),
+            stats.get("high"),
+            stats.get("mean_including_zeroes"),
+            stats.get("median_TP"),
+            stats.get("median"),
+        ]
+        finaldb.loc[len(finaldb)] = row
+    finaldb.columns = final_columns
+    return finaldb

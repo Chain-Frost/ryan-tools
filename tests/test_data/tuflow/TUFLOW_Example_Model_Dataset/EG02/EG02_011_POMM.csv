@@ -1,0 +1,6 @@
+"EG02_011","Location","Structure Flow","U/S Structure Water Level","D/S Structure Water Level"
+"e:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\runs\EG02_011.tcf","Time","Bridge","Bridge","Bridge"
+"e:\temp\TUFLOW_Example_Model_Dataset\TUFLOW\results\EG02\EG02_011_POMM.csv","Maximum (Extracted from Time Series)",         80.8936,         40.7877,         40.6995
+"","Time of Maximum",          1.1167,          1.1333,          1.1333
+"","Minimum (Extracted From Time Series)",          0.0000,     -99999.0000,     -99999.0000
+"","Time of Minimum",          0.0000,          0.0000,          0.0000

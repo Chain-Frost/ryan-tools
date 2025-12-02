@@ -1,13 +1,10 @@
-import logging
+from loguru import logger
 from pathlib import Path
 from collections.abc import Iterable
 import re
 
 import pandas as pd
 from pandas import DataFrame
-
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 def find_batch_files(paths: Iterable[Path]) -> list[Path]:
@@ -21,22 +18,28 @@ def find_batch_files(paths: Iterable[Path]) -> list[Path]:
 def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] | None:
     raw: list[str] = line.strip().split()
     if len(raw) < 8:
-        logger.warning("Invalid run line skipped: %s", line.strip())
+        logger.warning("Invalid run line skipped: {}", line.strip())
         return None
 
     try:
         raw[3] = raw[3].strip("%")
-        duration_part: str = raw[1] + raw[2]
+        unit_value: str = raw[2]
+        duration_part: str = raw[1] + unit_value
         aep_part: str = f"aep{raw[3]}"
         raw[6] = "1" if raw[6].upper() == "Y" else "0"
-        if raw[2].lower() != "hour":
+        if unit_value.lower() != "hour":
             raw[1] = str(float(raw[1]) / 60)
+            unit_value = "hour"
         raw.pop(2)
+        tp_value: int | None = None
         processed_line: list[float | int | str] = []
         for i, el in enumerate(iterable=raw):
             if i in (0, 3):
                 # run-number and TP should be ints
-                processed_line.append(int(el))
+                val = int(el)
+                processed_line.append(val)
+                if i == 3:
+                    tp_value = val
             elif i == 2:
                 # AEP comes in as something like '0.2EY'—keep it as a string
                 processed_line.append(el)
@@ -56,18 +59,21 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
 
             # A few notes:
             # Index 0 is your “Run” column (int),
-            # Index 2 is the AEP label (e.g. "0.2EY") that you probably want to preserve in your file-naming logic,
-            # Index 3 (after the pop(2)) is TP, which stays an int, and
-            # All other columns you now attempt to parse to float, but first use a regex to pull off a clean numeric prefix.
-            # With that change you’ll never try to do float("0.2EY") again, so the ValueError goes away and you keep the original “EY” suffix in your CSV-naming logic.
+            # Index 2 is the AEP label (e.g. "0.2EY") that you probably want to preserve in your
+            # file-naming logic, Index 3 (after the pop(2)) is TP, which stays an int, and all
+            # other columns you now attempt to parse to float, but first use a regex to pull off a
+            # clean numeric prefix. With that change you’ll never try to do float("0.2EY") again,
+            # so the ValueError goes away and you keep the original “EY” suffix in your CSV-naming
+            # logic.
 
+        tp_value = tp_value if tp_value is not None else int(processed_line[3])
         csv_path: Path = _construct_csv_path(
-            batchout=batchout_file, aep_part=aep_part, duration_part=duration_part, tpat=int(processed_line[3])
+            batchout=batchout_file, aep_part=aep_part, duration_part=duration_part, tpat=tp_value
         )
         processed_line.append(str(csv_path))
         return processed_line
     except Exception as exc:  # pragma: no cover - parsing errors are logged
-        logger.exception("Error parsing run line: %s", line)
+        logger.exception("Error parsing run line: {}", line)
         return None
 
 
@@ -97,7 +103,7 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
                     if "Run,    Representative hydrograph" in line:
                         found_results = 20
                     elif " Run        Duration" in line:
-                        headers = line.strip().split()
+                        headers = [h for h in line.strip().split() if h != "Unit"]
                         headers.append("csv")
                     else:
                         run: list[float | int | str] | None = _parse_run_line(line=line, batchout_file=batchout_file)
@@ -119,7 +125,7 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
         #     print(item)
         return df
     except Exception as exc:  # pragma: no cover - logs handle detail
-        logger.exception("Failed parsing %s", batchout_file)
+        logger.exception("Failed parsing {}", batchout_file)
         return pd.DataFrame()
 
 
@@ -127,10 +133,9 @@ def read_hydrograph_csv(filepath: Path) -> pd.DataFrame:
     """Return hydrograph DataFrame from RORB CSV."""
     try:
         df: DataFrame = pd.read_csv(filepath_or_buffer=filepath, sep=",", skiprows=2, header=0)
-        df.drop(labels=df.columns[0], axis=1, inplace=True)
         return df
     except Exception as exc:  # pragma: no cover - file errors
-        logger.exception("Error reading hydrograph %s", filepath)
+        logger.exception("Error reading hydrograph {}", filepath)
         return pd.DataFrame()
 
 
@@ -149,7 +154,7 @@ def analyze_hydrograph(
 
     df.columns = [c.replace("Calculated hydrograph:  ", "") for c in df.columns]
     if "Time (hrs)" not in df.columns or len(df["Time (hrs)"]) < 2:
-        logger.error("Missing 'Time (hrs)' in %s", csv_path)
+        logger.error("Missing 'Time (hrs)' in {}", csv_path)
         return pd.DataFrame()
     timestep = df["Time (hrs)"].iloc[1] - df["Time (hrs)"].iloc[0]
 
