@@ -15,6 +15,10 @@ from ryan_library.functions.file_utils import ensure_output_directory
 from ryan_library.functions.misc_functions import ExcelExporter
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
+
+DEFAULT_DATA_TYPES: tuple[str, ...] = ("PO",)
+ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
 
 
 def main_processing(
@@ -26,18 +30,31 @@ def main_processing(
 ) -> None:
     """Generate merged PO data and export the results."""
 
-    if include_data_types is None:
-        include_data_types = ["PO"]
-
-    normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
+    requested_types, invalid_types = normalize_data_types(
+        requested=include_data_types,
+        default=DEFAULT_DATA_TYPES,
+        accepted=ACCEPTED_DATA_TYPES,
+    )
+    normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=locations_to_include)
 
     with setup_logger(console_log_level=console_log_level) as log_queue:
+        warn_on_invalid_types(
+            invalid_types=invalid_types,
+            accepted_types=ACCEPTED_DATA_TYPES,
+            context="PO combination",
+        )
+
         csv_file_list: list[Path] = collect_files(
             paths_to_process=paths_to_process,
-            include_data_types=include_data_types,
+            include_data_types=requested_types,
             suffixes_config=SuffixesConfig.get_instance(),
         )
         if not csv_file_list:
+            warn_on_invalid_types(
+                invalid_types=invalid_types,
+                accepted_types=ACCEPTED_DATA_TYPES,
+                context="PO combination completed",
+            )
             logger.info("No valid files found to process.")
             return
 
@@ -52,6 +69,12 @@ def main_processing(
 
     export_results(results=results_set, export_mode=export_mode)
     logger.info("End of PO results combination processing")
+
+    warn_on_invalid_types(
+        invalid_types=invalid_types,
+        accepted_types=ACCEPTED_DATA_TYPES,
+        context="PO combination completed",
+    )
 
 
 def export_results(*, results: ProcessorCollection, export_mode: Literal["excel", "parquet", "both"] = "excel") -> None:

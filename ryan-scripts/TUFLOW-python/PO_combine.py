@@ -1,8 +1,21 @@
 # ryan-scripts\TUFLOW-python\PO_combine.py
+from pathlib import Path
+
+CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
+# Update this tuple to restrict processing to specific PO/Location values.
+# Leave empty to include every location found in the PO files.
+LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
+# Choose which data types to include; defaults to PO exports.
+INCLUDE_DATA_TYPES: tuple[str, ...] = ("PO",)
+# Choose output format: "excel", "parquet", or "both".
+EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
+# Change the working directory
+WORKING_DIR: Path = Path(__file__).absolute().parent
+# WORKING_DIR: Path = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03")
+
 import argparse
 import gc
 import os
-from pathlib import Path
 from typing import Literal
 
 from ryan_library.scripts.tuflow.po_combine import main_processing
@@ -14,22 +27,11 @@ from ryan_library.scripts.wrapper_utils import (
     print_library_version,
 )
 
-CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
-
-# Update this tuple to restrict processing to specific PO/Location values.
-# Leave empty to include every location found in the PO files.
-LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
-# Choose output format: "excel", "parquet", or "both".
-EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
-
-# Change the working directory
-WORKING_DIR: Path = Path(__file__).absolute().parent
-# WORKING_DIR: Path = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03")
-
 
 def main(
     *,
     console_log_level: str | None = None,
+    include_data_types: tuple[str, ...] | None = None,
     locations_to_include: tuple[str, ...] | None = None,
     export_mode: Literal["excel", "parquet", "both"] | None = None,
     working_directory: Path | None = None,
@@ -44,6 +46,7 @@ def main(
         return
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
+    effective_data_types: list[str] = list(include_data_types or INCLUDE_DATA_TYPES)
     effective_locations: tuple[str, ...] | None = (
         locations_to_include if locations_to_include else (LOCATIONS_TO_INCLUDE or None)
     )
@@ -51,7 +54,7 @@ def main(
 
     main_processing(
         paths_to_process=[script_directory],
-        include_data_types=["PO"],
+        include_data_types=effective_data_types,
         console_log_level=effective_console_log_level,
         locations_to_include=effective_locations,
         export_mode=effective_export_mode,
@@ -67,7 +70,7 @@ def _parse_cli_arguments() -> argparse.Namespace:
             "Command-line options override the hard-coded values near the top of this file."
         )
     )
-    add_common_cli_arguments(parser)
+    add_common_cli_arguments(parser=parser)
     parser.add_argument(
         "--export-mode",
         choices=("excel", "parquet", "both"),
@@ -81,6 +84,7 @@ if __name__ == "__main__":
     common_options: CommonWrapperOptions = parse_common_cli_arguments(args=args)
     main(
         console_log_level=common_options.console_log_level,
+        include_data_types=common_options.data_types,
         locations_to_include=common_options.locations_to_include,
         export_mode=args.export_mode,
         working_directory=common_options.working_directory,
