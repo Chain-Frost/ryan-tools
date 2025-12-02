@@ -15,7 +15,24 @@
       "SignedAbsMax": "float"
     },
     "processingParts": {
-      "dataformat": "POMM"
+      "dataformat": "POMM",
+      "_note": "expected_in_header and columns_to_use keys reflect the header row after transposing the raw POMM layout.",
+      "expected_in_header": [
+        "Location",
+        "Time",
+        "Maximum (Extracted from Time Series)",
+        "Time of Maximum",
+        "Minimum (Extracted From Time Series)",
+        "Time of Minimum"
+      ],
+      "columns_to_use": {
+        "Location": "string",
+        "Time": "string",
+        "Maximum (Extracted from Time Series)": "float",
+        "Time of Maximum": "float",
+        "Minimum (Extracted From Time Series)": "float",
+        "Time of Minimum": "float"
+      }
     }
   },
   "PO": {
@@ -46,6 +63,7 @@
     },
     "processingParts": {
       "dataformat": "Maximums",
+      "module": "maximums_1d",
       "columns_to_use": {
         "Chan ID": "string",
         "Qmax": "float",
@@ -68,6 +86,7 @@
     },
     "processingParts": {
       "dataformat": "Maximums",
+      "module": "maximums_1d",
       "columns_to_use": {
         "Node ID": "string",
         "Hmax": "float",
@@ -129,6 +148,7 @@
     },
     "processingParts": {
       "dataformat": "ccA",
+      "module": "maximums_1d",
       "columns_to_use": {
         "Channel": "string",
         "pFull_Max": "float",
@@ -150,7 +170,7 @@
       "_RLL_Qmx.csv"
     ],
     "output_columns": {
-      "ID": "string",
+      "Chan ID": "string",
       "Time": "float",
       "Q": "float",
       "dQ": "float",
@@ -181,7 +201,10 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
+      "module": "timeseries_1d",
       "expected_in_header": [
+        "Time",
+        "Chan ID",
         "Q"
       ]
     }
@@ -199,8 +222,29 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
+      "module": "timeseries_1d",
       "expected_in_header": [
         "H"
+      ]
+    }
+  },
+  "CF": {
+    "processor": "CFProcessor",
+    "suffixes": [
+      "_1d_CF.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Chan ID": "string",
+      "CF": "string"
+    },
+    "processingParts": {
+      "dataformat": "Timeseries",
+      "module": "timeseries_1d",
+      "expected_in_header": [
+        "Time",
+        "Chan ID",
+        "CF"
       ]
     }
   },
@@ -216,19 +260,57 @@
     },
     "processingParts": {
       "dataformat": "Timeseries",
+      "module": "timeseries_1d",
       "expected_in_header": [
+        "Time",
+        "Chan ID",
         "V"
       ]
     }
   },
+  "EOF": {
+    "processor": "EOFProcessor",
+    "suffixes": [
+      ".eof"
+    ],
+    "output_columns": {
+      "Chan ID": "string",
+      "Type": "string",
+      "Num_barrels": "float",
+      "US Invert": "float",
+      "DS Invert": "float",
+      "US Obvert": "float",
+      "DS Obvert": "float",
+      "Length": "float",
+      "pSlope": "float",
+      "n or Cd": "float",
+      "Diam_Width": "float",
+      "Height": "float",
+      "Inlet_Height": "float",
+      "Inlet_Width": "float",
+      "Entry Loss": "float",
+      "Exit Loss": "float",
+      "Fixed Loss": "float",
+      "Ent/Exit Losses": "float"
+    },
+    "processingParts": {
+      "dataformat": "EOF",
+      "module": "other_processors",
+      "columns_to_use": {},
+      "expected_in_header": []
+    }
+  },
   "TLF": {
-    "processor": "",
+    "processor": "TLFProcessor",
     "suffixes": [
       ".tlf"
     ],
     "output_columns": {},
     "processingParts": {
-      "dataformat": ""
+      "dataformat": "TLF",
+      "module": "ryan_library.functions.parse_tlf",
+      "columns_to_use": {},
+      "expected_in_header": []
     }
   }
 }

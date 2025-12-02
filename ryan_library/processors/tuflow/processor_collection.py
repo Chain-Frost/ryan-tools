@@ -11,7 +11,7 @@ from ryan_library.functions.dataframe_helpers import (
     reorder_long_columns,
     reset_categorical_ordering,
 )
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from .base_processor import BaseProcessor
 
 
 class ProcessorCollection:
@@ -102,9 +102,50 @@ class ProcessorCollection:
             return pd.DataFrame()
 
         # Concatenate DataFrames
-        combined_df: pd.DataFrame = pd.concat(
-            [p.df for p in timeseries_processors if not p.df.empty], ignore_index=True
-        )
+        # Prepare static data (EOF + Chan)
+        eof_processors: list[BaseProcessor] = [p for p in self.processors if p.data_type == "EOF"]
+        chan_processors: list[BaseProcessor] = [
+            p for p in self.processors if p.data_type == "Chan"
+        ]
+
+        # Map run_code -> processor/df
+        eof_map: dict[str, DataFrame] = {p.name_parser.raw_run_code: p.df for p in eof_processors}
+        chan_map: dict[str, DataFrame] = {p.name_parser.raw_run_code: p.df for p in chan_processors}
+
+        dfs_to_concat: list[DataFrame] = []
+        for p in timeseries_processors:
+            df: DataFrame = p.df
+            if df.empty:
+                continue
+
+            run_code: str = p.name_parser.raw_run_code
+
+            # Get static data
+            eof_df: DataFrame | None = eof_map.get(run_code)
+            chan_df: DataFrame | None = chan_map.get(run_code)
+
+            static_df: DataFrame | None = None
+            if eof_df is not None and chan_df is not None:
+                static_df = self._merge_chan_and_eof(chan_df=chan_df, eof_df=eof_df)
+            elif eof_df is not None:
+                static_df = eof_df
+            elif chan_df is not None:
+                static_df = chan_df
+
+            if static_df is not None and "Chan ID" in static_df.columns and "Chan ID" in df.columns:
+                # Merge static data into timeseries
+                # Use left join to keep all timeseries rows
+                # We drop columns from static that are already in timeseries (except join key) to avoid suffixes
+                cols_to_use = [c for c in static_df.columns if c not in df.columns or c == "Chan ID"]
+                df = df.merge(right=static_df[cols_to_use], on="Chan ID", how="left")
+
+            dfs_to_concat.append(df)
+
+        if not dfs_to_concat:
+            logger.warning("No Timeseries data to concatenate.")
+            return pd.DataFrame()
+
+        combined_df: pd.DataFrame = pd.concat(dfs_to_concat, ignore_index=True)
         logger.debug(f"Combined Timeseries DataFrame with {len(combined_df)} rows.")
 
         # Columns to drop
@@ -127,7 +168,52 @@ class ProcessorCollection:
 
         combined_df = reorder_long_columns(df=combined_df)
 
-        grouped_df: DataFrame = combined_df.groupby(group_keys).agg("max").reset_index()
+        grouped_df: DataFrame = (
+            combined_df.groupby(group_keys, observed=True)
+            .agg("max")
+            .reset_index()  # pyright: ignore[reportUnknownMemberType]
+        )
+        
+        grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
+        
+        p1_col: list[str] = [
+            "trim_runcode",
+            "aep_text",
+            "duration_text",
+            "tp_text",
+            "Chan ID",
+            "Time",
+            "Q",
+            "V",
+            "US_h",
+            "DS_h",
+            "US Invert",
+            "DS Invert",
+            "Flags",
+            "Diam_Width",
+            "Height",
+            "Num_barrels",
+            "HW_D",
+            "Length",
+        ]
+
+        p2_col: list[str] = [
+            "aep_numeric",
+            "duration_numeric",
+            "tp_numeric",
+            "internalName",
+            "pBlockage",
+            "pSlope",
+
+        ]
+        
+        grouped_df = reorder_columns(
+            data_frame=grouped_df,
+            prioritized_columns=p1_col,
+            prefix_order=["R"],
+            second_priority_columns=p2_col,
+        )
+        
         logger.debug(f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows.")
 
         return grouped_df
@@ -139,7 +225,7 @@ class ProcessorCollection:
 
         Returns:
             pd.DataFrame: Combined and grouped DataFrame."""
-        logger.debug("Combining 1D Maximums and ccA data.")
+        logger.debug("Combining 1D Maximums/ccA data.")
 
         # Filter processors with dataformat 'Maximums' or 'ccA'
         maximums_processors: list[BaseProcessor] = [
@@ -150,8 +236,45 @@ class ProcessorCollection:
             logger.warning("No processors with dataformat 'Maximums' or 'ccA' found.")
             return pd.DataFrame()
 
-        # Concatenate DataFrames
-        combined_df: DataFrame = pd.concat([p.df for p in maximums_processors if not p.df.empty], ignore_index=True)
+        # Identify EOF processors for merging
+        eof_processors: list[BaseProcessor] = [p for p in self.processors if p.dataformat.lower() == "eof"]
+        eof_map: dict[str, DataFrame] = {p.name_parser.raw_run_code: p.df for p in eof_processors}
+        merged_run_codes: set[str] = set()
+
+        dfs_to_concat: list[DataFrame] = []
+        for processor in maximums_processors:
+            df: DataFrame = processor.df
+            if df.empty:
+                continue
+
+            run_code: str = processor.name_parser.raw_run_code
+            eof_df: DataFrame | None = eof_map.get(run_code)
+            if eof_df is not None:
+                df = self._merge_with_eof_data(
+                    source_df=df,
+                    eof_df=eof_df,
+                    source_label=processor.data_type,
+                    run_code=run_code,
+                )
+                merged_run_codes.add(run_code)
+
+            dfs_to_concat.append(df)
+
+        # Ensure EOF-only runs (no matching maximums/ccA files) are still retained so geometry is not lost.
+        # TODO - that comment does not make sense - we do not keep any geometry anyway. only attributes. check logic and workflow.
+        for run_code, eof_df in eof_map.items():
+            if eof_df.empty or run_code in merged_run_codes:
+                continue
+            logger.info(f"Including EOF-only data for run code {run_code} with no associated maximum datasets.")
+            dfs_to_concat.append(eof_df)
+
+        if not dfs_to_concat:
+            logger.warning("No data to concatenate after filtering.")
+            return pd.DataFrame()
+
+        # Concatenate DataFrames (with EOF geometry merged in above when available)
+        # TODO - there is no geometry? there should only be data columns from the attributes
+        combined_df: DataFrame = pd.concat(dfs_to_concat, ignore_index=True)
         logger.debug(f"Combined Maximums/ccA DataFrame with {len(combined_df)} rows.")
 
         # Columns to drop
@@ -164,34 +287,22 @@ class ProcessorCollection:
             logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
 
         combined_df = reorder_long_columns(df=combined_df)
-        combined_df = self._ensure_location_identifier(df=combined_df)
+
         # Reset categorical ordering
         combined_df = reset_categorical_ordering(combined_df)
 
-        if "Location ID" not in combined_df.columns:
-            logger.error("Location ID column is missing after maximums preprocessing.")
-            return pd.DataFrame()
-
-        missing_location_mask: Series[bool] = combined_df["Location ID"].isna()
-        if missing_location_mask.any():
-            logger.warning(
-                "Dropping {count} rows without a location identifier from Maximums/ccA data.",
-                count=int(missing_location_mask.sum()),
-            )
-            combined_df = combined_df[~missing_location_mask]
-        if combined_df.empty:
-            logger.error("No Maximums/ccA data remaining after removing rows without location identifiers.")
-            return pd.DataFrame()
-
-        # Group by 'internalName' and the derived 'Location ID'
-        group_keys: list[str] = ["internalName", "Location ID"]
+        # Group by 'internalName' and 'Chan ID'
+        group_keys: list[str] = ["internalName", "Chan ID"]
         missing_keys: list[str] = [key for key in group_keys if key not in combined_df.columns]
         if missing_keys:
             logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
             return pd.DataFrame()
 
-        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=False).agg("max").reset_index()
-        grouped_df = self._calculate_num_barrels(df=grouped_df)
+        grouped_df: DataFrame = (
+            combined_df.groupby(by=group_keys, observed=False)  # pyright: ignore[reportUnknownMemberType]
+            .agg("max")
+            .reset_index()
+        )
         grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
         p1_col: list[str] = [
             "trim_runcode",
@@ -201,27 +312,27 @@ class ProcessorCollection:
             "Chan ID",
             "Q",
             "V",
-            "DS_h",
             "US_h",
+            "DS_h",
             "US Invert",
             "US Obvert",
             "DS Invert",
             "Flags",
+            "Diam_Width",
             "Height",
+            "Num_barrels",
             "HW_D",
             "Length",
-            "num_barrels",
-            "Location ID",
         ]
 
         p2_col: list[str] = [
             "aep_numeric",
             "duration_numeric",
             "tp_numeric",
+            "internalName",
             "pBlockage",
             "pSlope",
             "n or Cd",
-            "internalName",
             "pFull_Max",
             "pTime_Full",
             "Area_Culv",
@@ -236,61 +347,14 @@ class ProcessorCollection:
             second_priority_columns=p2_col,
         )
         logger.debug(f"Grouped {len(maximums_processors)} Maximums/ccA DataFrame with {len(grouped_df)} rows.")
-        logger.debug("line157")
         return grouped_df
-
-    def _calculate_num_barrels(self, df: DataFrame) -> DataFrame:
-        """Derive the number of circular barrels for C-type culverts."""
-        required_columns: set[str] = {"Flags", "Area_Culv", "Height"}
-        missing_columns: set[str] = required_columns - set(df.columns)
-        if missing_columns:
-            logger.debug(f"Skipping num_barrels calculation; missing columns: {sorted(missing_columns)}")
-            return df
-
-        if df.empty:
-            return df
-
-        culvert_type: Series = df["Flags"].astype("string").str.strip()
-        sample_flags: list[str] = [flag for flag in culvert_type.dropna().unique().tolist()[:5]]
-        if sample_flags:
-            logger.debug(f"num_barrels: Flags sample = {sample_flags}")
-        else:
-            logger.debug("num_barrels: Flags column contained no values.")
-        area_series: Series = pd.to_numeric(df["Area_Culv"], errors="coerce")
-        height_series: Series = pd.to_numeric(df["Height"], errors="coerce")
-
-        is_c_type: Series = culvert_type.str.upper().str.startswith("C")
-        valid_mask: Series = is_c_type & area_series.notna() & height_series.notna() & (height_series > 0)
-        candidate_count: int = int(is_c_type.sum())
-        valid_count: int = int(valid_mask.sum())
-        logger.debug(f"num_barrels: {candidate_count} C-type candidates, {valid_count} with valid geometry.")
-
-        num_barrels: Series = pd.Series(pd.NA, index=df.index, dtype="Int64")
-
-        if not valid_mask.any():
-            df["num_barrels"] = num_barrels
-            logger.debug("num_barrels calculation skipped; no C-type culverts present.")
-            return df
-
-        computed: Series = (area_series.loc[valid_mask] * 4.0) / (pi * (height_series.loc[valid_mask] ** 2))
-
-        tolerance: float = 5e-2
-        non_integer_mask: Series[bool] = (computed - computed.round()).abs() > tolerance
-        if non_integer_mask.any():
-            bad_indices: Index = computed.index[non_integer_mask]
-            logger.error(f"num_barrels calculation produced non-integer values for rows: {list(bad_indices)}")
-            computed = computed.mask(non_integer_mask)
-
-        rounded: Series[int] = computed.round().astype("Int64")
-        num_barrels.loc[rounded.index] = rounded
-
-        df["num_barrels"] = num_barrels
-        logger.debug(f"Calculated num_barrels for {int(valid_mask.sum())} C-type culvert rows.")
-        return df
 
     def _calculate_hw_d_ratio(self, df: DataFrame) -> DataFrame:
         """Calculate the HW_D ratio = (US_h - US Invert) / Height."""
-        required_columns: set[str] = {"US_h", "US Invert", "Height"}
+        # Determine which column to use for Headwater Level
+        us_h_col: str = "US_h" if "US_h" in df.columns else "US_H"
+        
+        required_columns: set[str] = {us_h_col, "US Invert", "Height"}
         missing_columns: set[str] = required_columns - set(df.columns)
         if missing_columns:
             logger.debug(f"Skipping HW_D calculation; missing columns: {sorted(missing_columns)}")
@@ -300,9 +364,15 @@ class ProcessorCollection:
             df["HW_D"] = pd.Series(dtype="Float64")
             return df
 
-        us_h_series: Series = pd.to_numeric(df["US_h"], errors="coerce")
-        us_invert_series: Series = pd.to_numeric(df["US Invert"], errors="coerce")
-        height_series: Series = pd.to_numeric(df["Height"], errors="coerce")
+        us_h_series: Series[float] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+            arg=df[us_h_col], errors="coerce"
+        )
+        us_invert_series: Series = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+            arg=df["US Invert"], errors="coerce"
+        )
+        height_series: Series = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+            arg=df["Height"], errors="coerce"
+        )
 
         valid_mask: Series[bool] = (
             us_h_series.notna() & us_invert_series.notna() & height_series.notna() & (height_series != 0)
@@ -321,31 +391,7 @@ class ProcessorCollection:
         ) / height_series.loc[valid_mask]
 
         df["HW_D"] = hw_d_series
-        logger.debug(f"Calculated HW_D ratio for {valid_count} rows.")
-        return df
-
-    def _ensure_location_identifier(self, df: DataFrame) -> DataFrame:
-        """Ensure a 'Location ID' column exists for grouping maximum datasets."""
-        if df.empty:
-            df["Location ID"] = pd.Series(dtype="string")
-            return df
-
-        candidate_columns: list[str] = ["Chan ID", "ID", "Location"]
-        available_columns: list[str] = [col for col in candidate_columns if col in df.columns]
-
-        if not available_columns:
-            logger.error("No location-based columns available to derive 'Location ID'.")
-            df["Location ID"] = pd.Series(pd.NA, index=df.index, dtype="string")
-            return df
-
-        location_series: pd.Series = pd.Series(pd.NA, index=df.index, dtype="string")
-        for column in available_columns:
-            source_values: Series[str] = df[column].astype("string")
-            mask: Series[bool] = location_series.isna() & source_values.notna()
-            if mask.any():
-                location_series.loc[mask] = source_values.loc[mask]
-
-        df["Location ID"] = location_series
+        logger.debug(f"Calculated HW_D ratio for {valid_count} of {df['Chan ID'].count()} rows.")
         return df
 
     def combine_raw(self) -> pd.DataFrame:
@@ -393,28 +439,33 @@ class ProcessorCollection:
         return combined_df
 
     def po_combine(self) -> pd.DataFrame:
-        """Combine DataFrames where dataformat is 'PO'.
-        No grouping required as DataFrames are already in the correct format.
-
-        Returns:
-            pd.DataFrame: Combined DataFrame."""
-        logger.debug("Combining PO data.")
+        """Combine processed PO timeseries files into a single tidy DataFrame."""
+        logger.debug("Combining PO timeseries data.")
 
         # Filter processors with dataformat 'PO'
         po_processors: list[BaseProcessor] = [p for p in self.processors if p.dataformat.lower() == "po"]
 
         if not po_processors:
-            logger.warning("No processors with dataformat 'PO' found.")
+            logger.warning("No PO processors available for combination.")
             return pd.DataFrame()
 
         # Concatenate DataFrames
-        combined_df = pd.concat([p.df for p in po_processors if not p.df.empty], ignore_index=True)
+        combined_df: DataFrame = pd.concat([p.df for p in po_processors if not p.df.empty], ignore_index=True)
         logger.debug(f"Combined {len(po_processors)} PO DataFrame with {len(combined_df)} rows.")
 
-        combined_df: DataFrame = reorder_long_columns(df=combined_df)
+        if combined_df.empty:
+            logger.warning("PO DataFrames are empty after concatenation.")
+            return combined_df
 
-        # Reset categorical ordering
-        combined_df = reset_categorical_ordering(combined_df)
+        combined_df = reset_categorical_ordering(df=combined_df)
+        combined_df = reorder_long_columns(df=combined_df)
+
+        sort_columns: list[str] = [
+            column for column in ["internalName", "Location", "Type", "Time"] if column in combined_df.columns
+        ]
+        if sort_columns:
+            combined_df.sort_values(by=sort_columns, inplace=True)
+            combined_df.reset_index(drop=True, inplace=True)
 
         return combined_df
 
@@ -446,7 +497,7 @@ class ProcessorCollection:
         """Identify processors that share the same run-code (internalName) and data_type.
 
         Returns:
-            A dict mapping (run_code, data_type) → list of processors. Only entries
+            A dict mapping (run_code, data_type) -> list of processors. Only entries
             where more than one processor share the same key are returned.
 
         # coll = ProcessorCollection()
@@ -467,15 +518,86 @@ class ProcessorCollection:
             groups[key].append(proc)
 
         # filter to only “duplicates”
-        duplicates = {k: v for k, v in groups.items() if len(v) > 1}
+        duplicates: dict[tuple[str, str], list[BaseProcessor]] = {k: v for k, v in groups.items() if len(v) > 1}
 
         if duplicates:
             for (run_code, dtype), procs in duplicates.items():
-                files = ", ".join(p.file_name for p in procs)
+                files: str = ", ".join(p.file_name for p in procs)
                 logger.warning(
-                    f"Potential duplicate group: run_code='{run_code}', " f"data_type='{dtype}' found in files: {files}"
+                    f"Potential duplicate group: run_code='{run_code}', data_type='{dtype}' found in files: {files}"
                 )
         else:
             logger.debug("No duplicate processors found by run_code & data_type.")
 
         return duplicates
+
+    def _merge_with_eof_data(
+        self, source_df: pd.DataFrame, eof_df: pd.DataFrame, *, source_label: str, run_code: str
+    ) -> pd.DataFrame:
+        """Merge EOF geometry/metadata into another maximum dataset.
+
+        EOF files often contain authoritative culvert geometry that should be
+        carried into maximum datasets regardless of the originating processor.
+        """
+        if source_df.empty:
+            return source_df
+        if eof_df.empty:
+            return source_df
+
+        if "Chan ID" not in source_df.columns:
+            logger.debug(
+                "Skipping EOF merge for {} (run code {}): 'Chan ID' not present in source columns {}",
+                source_label,
+                run_code,
+                list(source_df.columns),
+            )
+            return source_df
+
+        if "Chan ID" not in eof_df.columns:
+            logger.warning(f"EOF dataset for run code {run_code} missing 'Chan ID'; cannot merge.")
+            return source_df
+
+        merged_df: pd.DataFrame = self._merge_chan_and_eof(chan_df=source_df, eof_df=eof_df)
+        logger.debug(
+            f"Merged EOF data into {source_label} dataset for run code {run_code}; row count now {len(merged_df)}."
+        )
+        return merged_df
+
+    @staticmethod
+    def _merge_chan_and_eof(chan_df: pd.DataFrame, eof_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Merge a maximum dataset with EOF data keyed by ``Chan ID`` (EOF wins).
+
+        Args:
+            chan_df (pd.DataFrame): DataFrame from a maximums-style processor.
+            eof_df (pd.DataFrame): DataFrame from EofProcessor.
+
+        Returns:
+            pd.DataFrame: Merged DataFrame.
+        """
+        if chan_df.empty:
+            return eof_df
+        if eof_df.empty:
+            return chan_df
+
+        if "Chan ID" not in chan_df.columns or "Chan ID" not in eof_df.columns:
+            logger.warning("Chan ID missing in one of the dataframes, cannot merge.")
+            return chan_df
+
+        # Set index to Chan ID for both
+        chan_indexed: DataFrame = chan_df.set_index(keys="Chan ID")
+        eof_indexed: DataFrame = eof_df.set_index(keys="Chan ID")
+
+        # combine_first: updates null elements in 'other' with value in 'caller'.
+        # We want EOF to overwrite Chan.
+        # So we call eof.combine_first(chan).
+        # This keeps EOF values if present (even if Chan has value).
+        # If EOF is null, it takes from Chan.
+        # If EOF row is missing, it takes row from Chan.
+
+        merged_indexed: DataFrame = eof_indexed.combine_first(chan_indexed)
+
+        # Reset index
+        merged_df: DataFrame = merged_indexed.reset_index()
+
+        return merged_df

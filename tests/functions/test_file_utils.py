@@ -1,21 +1,21 @@
 # tests/functions/test_file_utils.py
 
 import pytest
-from pathlib import Path
-import sys
 import logging
 import json
 from pathlib import Path
 from pprint import pprint
+from loguru import logger
+import sys
 
-# Ensure the project root is on sys.path for direct test execution
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+# PROJECT_ROOT = Path(__file__).resolve().parents[2]
+# if str(PROJECT_ROOT) not in sys.path:
+#     sys.path.insert(0, str(PROJECT_ROOT))
 
 # Import the function to be tested
 from ryan_library.functions.file_utils import ensure_output_directory, find_files_parallel, is_non_zero_file
 
+# TODO this is using the wrong logging - we should be using logru as advised in the repo.
 # Configure logging for tests
 logging.basicConfig(
     level=logging.INFO,  # Change to DEBUG for more detailed logs during testing
@@ -23,8 +23,8 @@ logging.basicConfig(
 )
 
 # Define the path to the test data and expected_files.json
-TEST_DATA_DIR = Path(__file__).parent.parent / "test_data" / "tuflow" / "tutorials"
-EXPECTED_FILES_JSON = Path(__file__).parent.parent / "test_data" / "expected_files.json"
+TEST_DATA_DIR: Path = Path(__file__).parent.parent / "test_data" / "tuflow" / "tutorials"
+EXPECTED_FILES_JSON: Path = Path(__file__).parent.parent / "test_data" / "expected_files.json"
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def load_expected_files():
 
 
 @pytest.fixture
-def setup_test_environment():
+def setup_test_environment() -> Path:
     """
     Fixture to set up the test environment.
     Ensure that the test data directory exists.
@@ -76,7 +76,7 @@ def test_find_files_inclusion_only(setup_test_environment: Path, load_expected_f
     )
 
     # Load expected files
-    expected_files = resolve_paths(load_expected_files["inclusion_only"])
+    expected_files: list[Path] = resolve_paths(relative_paths=load_expected_files["inclusion_only"])
     pprint("matched_files: ")
     pprint(matched_files)
     pprint("expected_files: ")
@@ -125,7 +125,7 @@ def test_find_files_log_summary(setup_test_environment, load_expected_files):
     # Define inclusion and exclusion patterns
     include_patterns = "*.tlf"
     # Exclude files ending with '_001.hpc.dt.csv', '_DEV_*.hpc.dt.csv', '_EXG_*.hpc.dt.csv'
-    exclude_patterns = ["*.hpc.tlf", "*.gpu.tlf"]
+    exclude_patterns: list[str] = ["*.hpc.tlf", "*.gpu.tlf"]
 
     # Call the function
     matched_files = find_files_parallel(
@@ -137,7 +137,7 @@ def test_find_files_log_summary(setup_test_environment, load_expected_files):
     )
 
     # Load expected files
-    expected_files = resolve_paths(load_expected_files["log_summary"])
+    expected_files: list[Path] = resolve_paths(load_expected_files["log_summary"])
 
     # Assert that the matched files are as expected
     assert set(matched_files) == set(expected_files), "Inclusion with effective exclusions test failed."
@@ -152,10 +152,10 @@ def test_find_files_exclusions_no_effect(setup_test_environment, load_expected_f
     # Define inclusion and exclusion patterns
     include_patterns = "*.hpc.dt.csv"
     # Exclusion patterns that do not match any included files
-    exclude_patterns = ["*.hpc.tlf", "*.gpu.tlf"]
+    exclude_patterns: list[str] = ["*.hpc.tlf", "*.gpu.tlf"]
 
     # Call the function
-    matched_files = find_files_parallel(
+    matched_files: list[Path] = find_files_parallel(
         root_dirs=[root_dir],
         patterns=include_patterns,
         excludes=exclude_patterns,
@@ -177,13 +177,13 @@ def test_find_files_multiple_inclusions(setup_test_environment, load_expected_fi
     root_dir = setup_test_environment
 
     # Define multiple inclusion patterns
-    include_patterns = ["*.hpc.dt.csv", "*.tlf"]
+    include_patterns: list[str] = ["*.hpc.dt.csv", "*.tlf"]
 
     # No exclusions
     exclude_patterns = None
 
     # Call the function
-    matched_files = find_files_parallel(
+    matched_files: list[Path] = find_files_parallel(
         root_dirs=[root_dir],
         patterns=include_patterns,
         excludes=exclude_patterns,
@@ -192,7 +192,7 @@ def test_find_files_multiple_inclusions(setup_test_environment, load_expected_fi
     )
 
     # Load expected files
-    expected_files = resolve_paths(load_expected_files["multiple_inclusions"])
+    expected_files: list[Path] = resolve_paths(load_expected_files["multiple_inclusions"])
 
     # Assert that the matched files are as expected
     assert set(matched_files) == set(expected_files), "Multiple inclusions test failed."
@@ -241,7 +241,7 @@ def test_find_files_no_matches(setup_test_environment, load_expected_files):
     exclude_patterns = None
 
     # Call the function
-    matched_files = find_files_parallel(
+    matched_files: list[Path] = find_files_parallel(
         root_dirs=[root_dir],
         patterns=include_patterns,
         excludes=exclude_patterns,
@@ -250,7 +250,7 @@ def test_find_files_no_matches(setup_test_environment, load_expected_files):
     )
 
     # Load expected files
-    expected_files = resolve_paths(load_expected_files["no_matches"])
+    expected_files: list[Path] = resolve_paths(relative_paths=load_expected_files["no_matches"])
 
     # Assert that no files are matched
     assert set(matched_files) == set(expected_files), "No matches test failed."
@@ -259,7 +259,7 @@ def test_find_files_no_matches(setup_test_environment, load_expected_files):
 # Removed the test_find_files_invalid_patterns as the function no longer requires patterns to start with a dot
 
 
-def test_find_files_empty_root_dirs(load_expected_files):
+def test_find_files_empty_root_dirs(load_expected_files) -> None:
     """
     Test the find_files_parallel function with an empty list of root directories.
     """
@@ -272,7 +272,7 @@ def test_find_files_empty_root_dirs(load_expected_files):
     exclude_patterns = None
 
     # Call the function
-    matched_files = find_files_parallel(
+    matched_files: list[Path] = find_files_parallel(
         root_dirs=root_dirs,
         patterns=include_patterns,
         excludes=exclude_patterns,
@@ -281,7 +281,7 @@ def test_find_files_empty_root_dirs(load_expected_files):
     )
 
     # Load expected files
-    expected_files = resolve_paths(load_expected_files["empty_root_dirs"])
+    expected_files: list[Path] = resolve_paths(relative_paths=load_expected_files["empty_root_dirs"])
 
     # Assert that no files are matched
     assert set(matched_files) == set(expected_files), "Empty root_dirs test failed."
@@ -317,7 +317,7 @@ def test_find_files_with_report_level(setup_test_environment, load_expected_file
         # assert "Searching in folder" in caplog.text
 
     # Load expected files
-    expected_files = resolve_paths(load_expected_files["inclusion_only"])
+    expected_files: list[Path] = resolve_paths(load_expected_files["inclusion_only"])
 
     # Assert that the matched files are as expected
     assert set(matched_files) == set(expected_files), "Report level test failed."
@@ -327,27 +327,27 @@ def test_find_files_with_report_level(setup_test_environment, load_expected_file
     # assert any("Searching in folder" in message.message for message in caplog.records), "Expected log messages not found."
 
 
-def test_ensure_output_directory_creates_missing_nested(tmp_path):
+def test_ensure_output_directory_creates_missing_nested(tmp_path: Path) -> None:
     """Ensure missing nested directories are created."""
 
-    nested_dir = tmp_path / "level_one" / "level_two"
+    nested_dir: Path = tmp_path / "level_one" / "level_two"
     assert not nested_dir.exists()
 
-    ensure_output_directory(nested_dir)
+    ensure_output_directory(output_dir=nested_dir)
 
     assert nested_dir.exists()
     assert nested_dir.is_dir()
 
 
-def test_ensure_output_directory_idempotent_existing(tmp_path):
+def test_ensure_output_directory_idempotent_existing(tmp_path: Path) -> None:
     """Ensure calling on an existing directory does not recreate it."""
 
-    existing_dir = tmp_path / "already_there"
+    existing_dir: Path = tmp_path / "already_there"
     existing_dir.mkdir(parents=True)
-    sentinel_file = existing_dir / "sentinel.txt"
+    sentinel_file: Path = existing_dir / "sentinel.txt"
     sentinel_file.write_text("sentinel")
 
-    ensure_output_directory(existing_dir)
+    ensure_output_directory(output_dir=existing_dir)
 
     assert existing_dir.exists()
     assert existing_dir.is_dir()
@@ -355,17 +355,17 @@ def test_ensure_output_directory_idempotent_existing(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("scenario", "expected_result", "expected_log_fragment"),
-    [
+    argnames=("scenario", "expected_result", "expected_log_fragment"),
+    argvalues=[
         ("missing", False, "File does not exist"),
         ("directory", False, "Path is not a file"),
         ("empty", False, "File is empty"),
         ("populated", True, None),
     ],
 )
-def test_is_non_zero_file_scenarios(tmp_path, scenario, expected_result, expected_log_fragment):
+def test_is_non_zero_file_scenarios(tmp_path: Path, scenario, expected_result, expected_log_fragment) -> None:
     if scenario == "missing":
-        target_path = tmp_path / "missing.txt"
+        target_path: Path = tmp_path / "missing.txt"
     elif scenario == "directory":
         target_path = tmp_path / "as_directory"
         target_path.mkdir()
@@ -381,7 +381,7 @@ def test_is_non_zero_file_scenarios(tmp_path, scenario, expected_result, expecte
     captured_messages: list[str] = []
     handler_id = logger.add(captured_messages.append, level="ERROR", format="{message}")
     try:
-        result = is_non_zero_file(target_path)
+        result: bool = is_non_zero_file(target_path)
     finally:
         logger.remove(handler_id)
 

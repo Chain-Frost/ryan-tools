@@ -1,11 +1,11 @@
-import sys
 from pathlib import Path
 import unittest
 from loguru import logger
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+# import sys
+# ROOT: Path = Path(__file__).resolve().parents[2]
+# if str(ROOT) not in sys.path:
+#     sys.path.insert(0, str(ROOT))
 
 from ryan_library.functions.data_processing import (
     check_string_TP,
@@ -24,11 +24,10 @@ class TestCheckFunctions(unittest.TestCase):
         self.assertEqual(check_string_TP("TP01_somefile.csv"), "01")
         self.assertEqual(check_string_TP("example_TP12.csv"), "12")
         self.assertEqual(check_string_TP("_TP99+file.csv"), "99")
+        self.assertEqual(check_string_TP("TP1_valid.csv"), "1")  # 1 digit is valid
 
     def test_check_string_TP_invalid(self):
         # Invalid cases
-        with self.assertRaises(ValueError):
-            check_string_TP("TP1_invalid.csv")  # Only 1 digit
         with self.assertRaises(ValueError):
             check_string_TP("somefile.csv")  # No TP found
         with self.assertRaises(ValueError):

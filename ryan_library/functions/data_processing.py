@@ -31,9 +31,7 @@ def safe_apply(func: Callable[[Any], Any], value: Any) -> Any | None:
     try:
         # Attempt to apply the function to the value
         result = func(value)
-        logger.debug(
-            f"Function {func.__name__} applied successfully on value: {value}. Result: {result}"
-        )
+        logger.debug(f"Function {func.__name__} applied successfully on value: {value}. Result: {result}")
         return result
     except Exception as e:
         # Catch all exceptions to prevent the application from crashing
@@ -113,6 +111,7 @@ def check_string_aep(string: str) -> str:
     # Delegate to the shared parser pattern so logic lives in one place.
     match: re.Match[str] | None = TuflowStringParser.AEP_PATTERN.search(string)
     if match:
-        return match.group(1)
+        # Prefer the numeric capture (e.g. "01.00"); fall back to the text token (e.g. "PMP").
+        return match.group("numeric") or match.group("text")  # type: ignore[return-value]
     else:
         raise ValueError(f"AEP pattern not found in the string: {string}")

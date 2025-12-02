@@ -76,7 +76,9 @@ def collect_files(
         return []
 
     patterns: list[str] = [f"*{suffix}" for suffix in suffixes]
+    logger.debug(f"Collecting files with patterns: {patterns}")
     roots: list[Path] = [p for p in normalized_roots if p.is_dir()]
+    logger.debug(f"Searching in roots: {roots}")
     invalid_roots: list[Path] = [p for p in normalized_roots if not p.is_dir()]
     for bad_root in invalid_roots:
         logger.warning(f"Skipping non-directory path {bad_root}")
@@ -86,6 +88,7 @@ def collect_files(
         return []
 
     files: list[Path] = find_files_parallel(root_dirs=roots, patterns=patterns)
+    logger.debug(f"find_files_parallel found {len(files)} files.")
     filtered_files: list[Path] = []
     seen_files: set[Path] = set()
     for file_path in files:
@@ -103,12 +106,16 @@ def process_file(file_path: Path) -> BaseProcessor | None:
         proc: BaseProcessor = BaseProcessor.from_file(file_path=file_path)
         proc.process()
         if proc.validate_data():
-            logger.debug(f"Processed {file_path}")
+            logger.debug(f"Processed {proc.log_path}")
         else:
-            logger.warning(f"Validation failed {file_path}")
+            logger.warning(f"Validation failed {proc.log_path}")
         return proc
     except Exception:
-        logger.exception(f"Error processing {file_path}")
+        try:
+            log_path = str(file_path.resolve().relative_to(Path.cwd().resolve()))
+        except ValueError:
+            log_path = str(file_path)
+        logger.exception(f"Error processing {log_path}")
         return None
 
 

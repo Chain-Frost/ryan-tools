@@ -10,9 +10,7 @@ from pathlib import Path
 def main() -> None:
     # Define the current working directory
     # cwd: Path = Path.cwd()
-    cwd = Path(
-        r"Q:\BGER\PER\RP20180.317 WYLOO CREEK CROSSING PFS - FMG\TUFLOW_Wyloo\model\gis\culverts\241219"
-    )
+    cwd = Path(r"Q:\BGER\PER\RP20180.317 WYLOO CREEK CROSSING PFS - FMG\TUFLOW_Wyloo\model\gis\culverts\241219")
 
     # Path to the combined_culverts.csv file
     csv_path: Path = cwd / "minor crossings 241219 for 12D.csv"  # Adjust if necessary
@@ -38,9 +36,7 @@ def main() -> None:
     try:
         # Write lines to GeoPackage
         lines_gdf.to_file(output_gpkg, layer="culvert_lines", driver="GPKG")
-        logger.info(
-            f"Lines GeoDataFrame saved to '{output_gpkg}' in layer 'culvert_lines'."
-        )
+        logger.info(f"Lines GeoDataFrame saved to '{output_gpkg}' in layer 'culvert_lines'.")
     except Exception as e:
         logger.error(f"Error saving to GeoPackage: {e}")
 
@@ -79,10 +75,7 @@ def generate_lines(combined_df: pd.DataFrame) -> gpd.GeoDataFrame:
         return gpd.GeoDataFrame()
 
     # Create LineStrings
-    geometry = [
-        create_linestring(row.US_X, row.US_Y, row.DS_X, row.DS_Y)
-        for _, row in valid_df.iterrows()
-    ]
+    geometry = [create_linestring(row.US_X, row.US_Y, row.DS_X, row.DS_Y) for _, row in valid_df.iterrows()]
 
     # Select relevant attributes
     attributes = valid_df[

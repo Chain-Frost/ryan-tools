@@ -1,0 +1,36 @@
+Logging pipeline review 
+------------------------------------------------------
+1) Audit loguru configuration/initialisation
+   - Confirm logger is configured once at process start and respects configured levels.
+   - Verify sinks/handlers are not duplicated (especially when multiprocessing spins up listeners/workers).
+   - Check global defaults (format, levels, propagation) against user expectations.
+
+2) Enforce level filtering
+   - Reproduce the scenario where setting INFO still emits DEBUG; inspect any overrides in loguru_helpers and process-level init.
+   - Verify any listener/queue-based handler is applying the correct level and not forcing debug.
+   - Add/adjust tests to assert level filtering works with multiprocessing.
+
+3) Clean user-facing context in multiprocessing logs
+   - Trace how log records are enriched; ensure helper names like loguru_helpers:listener_process are stripped from user-visible output.
+   - Keep only originating script/module/function in rendered messages.
+   - Validate both main-process and worker-process logs.
+
+4) Update message formatting
+   - Sweep for success/error/exception/info logs using lazy formatting and convert to f-strings where user-facing.
+   - Ensure debug logs remain lazy/parameterised for performance.
+   - Add linting/checklist item to prevent regressions.
+
+5) End-to-end verification
+   - Run representative workflows (culvert maximums, cca processor) under multiprocessing and serial modes.
+   - Confirm no WAL/SHM sidecar files are created when reading GeoPackages.
+   - Capture before/after log samples to validate readability improvements.
+
+
+from the agent which made this file:
+Added repo-wide loguru guidance and TODO in AGENTS.md covering when to use f-strings vs lazy formatting. Logged a handoff plan in logging_review_tasks.txt with concrete review steps (level enforcement, multiprocessing context cleanup, formatting sweep, end-to-end checks) for another agent to execute. Created a local-only harness tests/test_data/tuflow/tutorials/Module_11/TUFLOW_Culvert_maximums.py that forces imports from the repo (adds pyproject root to sys.path), configures concise loguru output, and runs a small Nmx sample to inspect logging without touching global installs.
+
+Regarding the INFO-but-debug leakage/multiprocessing double identifiers: the handoff checklist outlines how to reproduce and trace loguru initialization and listener/queue configuration to ensure level filtering is respected and helper names like loguru_helpers:listener_process are stripped before presenting logs.
+
+Tests not run (pytest not available here).
+
+Next steps: install pytest and run targeted logging checks as per logging_review_tasks.txt; execute the new Module_11 harness to inspect current log output.

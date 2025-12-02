@@ -3,17 +3,17 @@
 import pandas as pd
 import numpy as np
 import rasterio
-import logging
+from loguru import logger
 from pathlib import Path
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
+from ryan_library.functions.loguru_helpers import worker_initializer
 
 
 def read_geotiff(filename, nodata_values=None):
     """
     Reads a GeoTIFF file and returns a DataFrame with X, Y, Z coordinates.
     """
-    logger = logging.getLogger(__name__)
     logger.info(f"Loading file: {filename}")
     try:
         with rasterio.open(filename) as f:
@@ -24,11 +24,7 @@ def read_geotiff(filename, nodata_values=None):
             if nodata_values is None:
                 nodata_values = [file_nodata] if file_nodata is not None else []
             else:
-                nodata_values = (
-                    nodata_values
-                    if isinstance(nodata_values, list)
-                    else [nodata_values]
-                )
+                nodata_values = nodata_values if isinstance(nodata_values, list) else [nodata_values]
 
             # Mask out the nodata and unwanted values
             for value in nodata_values:
@@ -40,7 +36,7 @@ def read_geotiff(filename, nodata_values=None):
             x, y = f.xy(row, col)
 
         df = pd.DataFrame({"X": x, "Y": y, "Z": band.compressed()})
-        logger.debug(f"DataFrame shape after loading: {df.shape}")
+        logger.debug("DataFrame shape after loading: {}", df.shape)
         return df
 
     except Exception as e:
@@ -53,14 +49,21 @@ def tile_data(df, tile_size):
     Splits the DataFrame into tiles based on the specified tile size.
     Returns a list of tuples containing tile indices and the corresponding tile DataFrame.
     """
-    logger = logging.getLogger(__name__)
+    if df.empty:
+        return []
+
     # Determine the range of X and Y
     x_min, x_max = df["X"].min(), df["X"].max()
     y_min, y_max = df["Y"].min(), df["Y"].max()
 
     # Compute the number of tiles in each direction
-    x_tiles = int(np.ceil((x_max - x_min) / tile_size))
-    y_tiles = int(np.ceil((y_max - y_min) / tile_size))
+    # Add a small epsilon to ensure the max value is included if it falls exactly on a tile boundary
+    x_tiles = int(np.ceil((x_max - x_min + 1e-6) / tile_size))
+    y_tiles = int(np.ceil((y_max - y_min + 1e-6) / tile_size))
+    
+    # Ensure at least 1 tile if there is data (though the above logic should handle it)
+    x_tiles = max(1, x_tiles)
+    y_tiles = max(1, y_tiles)
 
     logger.info(f"Tiling data into {x_tiles} x {y_tiles} tiles.")
 
@@ -73,17 +76,12 @@ def tile_data(df, tile_size):
             y_end = y_start + tile_size
 
             # Filter data within the tile
-            tile_df = df[
-                (df["X"] >= x_start)
-                & (df["X"] < x_end)
-                & (df["Y"] >= y_start)
-                & (df["Y"] < y_end)
-            ]
+            tile_df = df[(df["X"] >= x_start) & (df["X"] < x_end) & (df["Y"] >= y_start) & (df["Y"] < y_end)]
 
             if not tile_df.empty:
                 tiles.append(((i, j), tile_df))
             else:
-                logger.debug(f"Tile ({i}, {j}) is empty. Skipping.")
+                logger.debug("Tile ({}, {}) is empty. Skipping.", i, j)
     logger.info(f"Completed tiling. Generated {len(tiles)} non-empty tiles.")
     return tiles
 
@@ -99,9 +97,7 @@ def process_terrain_file(args_save_function):
     process_terrain_file_inner(*args, save_function)
 
 
-def process_terrain_file_inner(
-    filename, output_dir, nodata_values, tile_size, save_function
-):
+def process_terrain_file_inner(filename, output_dir, nodata_values, tile_size, save_function):
     """
     Processes a single terrain file: reads, tiles, and saves using the provided save_function.
 
@@ -112,7 +108,6 @@ def process_terrain_file_inner(
     - tile_size: Size of each tile
     - save_function: Function to save the data
     """
-    logger = logging.getLogger(__name__)
     logger.info(f"Processing file: {filename}")
 
     filename = Path(filename)
@@ -122,9 +117,7 @@ def process_terrain_file_inner(
     # Ensure no NaN values are included
     initial_shape = df.shape
     df.dropna(inplace=True)
-    logger.debug(
-        f"Dropped NaN values. DataFrame shape changed from {initial_shape} to {df.shape}"
-    )
+    logger.debug("Dropped NaN values. DataFrame shape changed from {} to {}", initial_shape, df.shape)
 
     # Base filename without extension
     base_filename = filename.stem
@@ -143,9 +136,7 @@ def process_terrain_file_inner(
         save_function(df, output_dir, base_filename)
 
 
-def parallel_process_multiple_terrain(
-    files, output_dir, nodata_values, tile_size, save_function
-):
+def parallel_process_multiple_terrain(files, output_dir, nodata_values, tile_size, save_function, log_queue=None):
     """
     Orchestrates the processing of multiple terrain files in parallel.
 
@@ -157,13 +148,13 @@ def parallel_process_multiple_terrain(
     - save_function: Function to save the data
     """
     # Create tasks for each file as ((args), save_function)
-    tasks = [
-        ((str(file), output_dir, nodata_values, tile_size), save_function)
-        for file in files
-    ]
+    tasks = [((str(file), output_dir, nodata_values, tile_size), save_function) for file in files]
+
+    initializer = worker_initializer if log_queue is not None else None
+    initargs = (log_queue,) if log_queue is not None else ()
 
     # Use multiprocessing to process files in parallel
-    with Pool(processes=cpu_count()) as pool:
+    with Pool(processes=cpu_count(), initializer=initializer, initargs=initargs) as pool:
         list(
             tqdm(
                 pool.imap_unordered(process_terrain_file, tasks),

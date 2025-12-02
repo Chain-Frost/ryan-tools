@@ -6,7 +6,11 @@ Update ``paths`` or ``thresholds`` below to customise processing.
 restrict which locations are loaded from the CSV files.
 """
 
+# TODO. expand this to work on a variety of file formats and data types.
+# Ultimately, we are just looking at exceedance duration of some form so should not be that hard.
+
 import argparse
+import gc
 import os
 from pathlib import Path
 
@@ -67,4 +71,5 @@ if __name__ == "__main__":
         locations_to_include=common_options.locations_to_include,
         working_directory=common_options.working_directory,
     )
+    gc.collect()
     os.system("PAUSE")

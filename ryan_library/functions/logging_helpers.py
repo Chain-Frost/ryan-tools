@@ -21,9 +21,7 @@ class ConditionalFormatter(logging.Formatter):
     Custom formatter to switch between detailed and simple formats based on a log record attribute.
     """
 
-    def __init__(
-        self, detailed_fmt: str, simple_fmt: str, datefmt: Optional[str] = None
-    ):
+    def __init__(self, detailed_fmt: str, simple_fmt: str, datefmt: Optional[str] = None):
         super().__init__(fmt=detailed_fmt, datefmt=datefmt)
         self.detailed_fmt = detailed_fmt
         self.simple_fmt = simple_fmt
@@ -64,13 +62,10 @@ class LoggerConfigurator:
                 "%(log_color)s%(asctime)s - %(name)s - %(levelname)s - "
                 "%(filename)s:%(lineno)d - %(funcName)s() - %(message)s%(reset)s"
             )
-            self.simple_format = (
-                "%(log_color)s%(asctime)s - %(levelname)s - %(message)s%(reset)s"
-            )
+            self.simple_format = "%(log_color)s%(asctime)s - %(levelname)s - %(message)s%(reset)s"
         else:
             self.detailed_format = (
-                "%(asctime)s - %(name)s - %(levelname)s - "
-                "%(filename)s:%(lineno)d - %(funcName)s() - %(message)s"
+                "%(asctime)s - %(name)s - %(levelname)s - " "%(filename)s:%(lineno)d - %(funcName)s() - %(message)s"
             )
             self.simple_format = "%(asctime)s - %(levelname)s - %(message)s"
 
