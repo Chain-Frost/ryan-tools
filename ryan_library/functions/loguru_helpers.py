@@ -8,7 +8,7 @@ import sys
 from multiprocessing import Process, Queue
 from pathlib import Path
 from types import TracebackType
-from typing import Any, ClassVar, TypeAlias, cast
+from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias, cast
 
 from loguru import logger
 
@@ -22,7 +22,13 @@ RETENTION = "10 days"
 COMPRESSION = "zip"
 
 SerializedLogRecord: TypeAlias = dict[str, Any]
-LogQueue: TypeAlias = Queue[bytes | None]
+if TYPE_CHECKING:
+    from multiprocessing.queues import Queue as MPQueue
+
+    LogQueue: TypeAlias = MPQueue[bytes | None]
+else:
+    # Runtime Queue isn't subscriptable; keep alias for compatibility while retaining type info for checkers.
+    LogQueue = Queue
 
 
 def worker_initializer(queue: LogQueue) -> None:
