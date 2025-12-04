@@ -1,15 +1,16 @@
 # ryan_library/scripts/pomm_utils.py
 """Utility helpers for processing POMM CSV files."""
+# pyright: reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
 
 from pathlib import Path
-from multiprocessing import Pool
+from multiprocessing import Pool, Queue
 from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable, cast
 
 import pandas as pd
 from loguru import logger
-from pandas import Series
+from pandas import DataFrame, Series
 
 from ryan_library.classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
 from ryan_library.functions.pandas.median_calc import median_calc
@@ -22,13 +23,17 @@ from ryan_library.functions.tuflow.tuflow_common import collect_files
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 NAType = type(pd.NA)
+DataFrameAny = DataFrame
+SeriesAny = Series[Any]
+WorkerInitializer = Callable[[Queue[Any]], None]
+worker_initializer_fn: WorkerInitializer = worker_initializer
 
 
 DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
 
 
 def _ordered_columns(
-    df: pd.DataFrame,
+    df: DataFrameAny,
     column_groups: Sequence[Sequence[str]],
     info_columns: Sequence[str],
 ) -> list[str]:
@@ -77,19 +82,23 @@ def process_file(file_path: Path, location_filter: frozenset[str] | None = None)
 
 
 def process_files_in_parallel(
-    file_list: list[Path], log_queue, location_filter: frozenset[str] | None = None
+    file_list: list[Path],
+    log_queue: Queue[Any],
+    location_filter: frozenset[str] | None = None,
 ) -> ProcessorCollection:
     """Process files using multiprocessing and return a collection."""
     pool_size: int = calculate_pool_size(num_files=len(file_list))
     logger.info(f"Initializing multiprocessing pool with {pool_size} processes.")
 
     results_set = ProcessorCollection()
-    with Pool(processes=pool_size, initializer=worker_initializer, initargs=(log_queue,)) as pool:
-        task_arguments = [(file_path, location_filter) for file_path in file_list]
+    with Pool(processes=pool_size, initializer=worker_initializer_fn, initargs=(log_queue,)) as pool:
+        task_arguments: list[tuple[Path, frozenset[str] | None]] = [
+            (file_path, location_filter) for file_path in file_list
+        ]
         results: list[BaseProcessor] = pool.starmap(func=process_file, iterable=task_arguments)
 
     for result in results:
-        if result is not None and result.processed:
+        if result.processed:
             results_set.add_processor(processor=result)
     return results_set
 
@@ -107,6 +116,7 @@ def combine_processors_from_paths(
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
 
     with setup_logger(console_log_level=console_log_level) as log_queue:
+        log_queue_typed: Queue[Any] = log_queue
         logger.info("Starting POMM processing for combine_processors_from_paths.")
         csv_file_list: list[Path] = collect_files(
             paths_to_process=paths_to_process,
@@ -119,7 +129,7 @@ def combine_processors_from_paths(
 
         results_set: ProcessorCollection = process_files_in_parallel(
             file_list=csv_file_list,
-            log_queue=log_queue,
+            log_queue=log_queue_typed,
             location_filter=normalized_locations if normalized_locations else None,
         )
 
@@ -134,7 +144,7 @@ def combine_df_from_paths(
     include_data_types: list[str] | None = None,
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
-) -> pd.DataFrame:
+) -> DataFrameAny:
     """Return an aggregated DataFrame for the given directories."""
     results_set: ProcessorCollection = combine_processors_from_paths(
         paths_to_process=paths_to_process,
@@ -144,7 +154,7 @@ def combine_df_from_paths(
     )
 
     if not results_set.processors:
-        return pd.DataFrame()
+        return DataFrame()
 
     return results_set.pomm_combine()
 
@@ -153,9 +163,9 @@ def aggregated_from_paths(
     paths: list[Path],
     locations_to_include: Collection[str] | None = None,
     include_data_types: list[str] | None = None,
-) -> pd.DataFrame:
+) -> DataFrameAny:
     """Process directories and return a combined POMM DataFrame."""
-    df: pd.DataFrame = combine_df_from_paths(
+    df: DataFrameAny = combine_df_from_paths(
         paths_to_process=paths,
         locations_to_include=locations_to_include,
         include_data_types=include_data_types,
@@ -183,7 +193,7 @@ def aggregated_from_paths(
     return df
 
 
-def find_aep_dur_max(aggregated_df: pd.DataFrame) -> pd.DataFrame:
+def find_aep_dur_max(aggregated_df: DataFrameAny) -> DataFrameAny:
     """Return peak rows for each AEP/Duration/Location/Type/RunCode group,
     with a column giving the size of each original group."""
     group_cols: list[str] = [
@@ -195,44 +205,44 @@ def find_aep_dur_max(aggregated_df: pd.DataFrame) -> pd.DataFrame:
     ]
     try:
         # copy so we don’t clobber the caller’s DataFrame
-        df: pd.DataFrame = aggregated_df.copy()
+        df: DataFrameAny = aggregated_df.copy()
         # compute size of each group
         df["aep_dur_bin"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
         # find index of the max in each group
         idx = df.groupby(group_cols, observed=True)["AbsMax"].idxmax()
         # select those rows (they already carry a group_count column)
-        aep_dur_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
+        aep_dur_max: DataFrameAny = df.loc[idx].reset_index(drop=True)
         logger.info(
             "Created 'aep_dur_max' DataFrame with peak records and group_count for each AEP-Duration-Location-Type-RunCode group."
         )
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_dur_max' grouping: {e}")
-        aep_dur_max = pd.DataFrame()
+        aep_dur_max = DataFrame()
     return aep_dur_max
 
 
-def find_aep_max(aep_dur_max: pd.DataFrame) -> pd.DataFrame:
+def find_aep_max(aep_dur_max: DataFrameAny) -> DataFrameAny:
     """Return peak rows for each AEP/Location/Type/RunCode group,
     with a column giving the size of each original AEP group."""
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
-        df: pd.DataFrame = aep_dur_max.copy()
+        df: DataFrameAny = aep_dur_max.copy()
         df["aep_bin"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
         idx = df.groupby(group_cols, observed=True)["AbsMax"].idxmax()
-        aep_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
+        aep_max: DataFrameAny = df.loc[idx].reset_index(drop=True)
         logger.info(
             "Created 'aep_max' DataFrame with peak records and group_count for each AEP-Location-Type-RunCode group."
         )
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_max' grouping: {e}")
-        aep_max = pd.DataFrame()
+        aep_max = DataFrame()
     return aep_max
 
 
 def save_to_excel(
-    aep_dur_max: pd.DataFrame,
-    aep_max: pd.DataFrame,
-    aggregated_df: pd.DataFrame,
+    aep_dur_max: DataFrameAny,
+    aep_max: DataFrameAny,
+    aggregated_df: DataFrameAny,
     output_path: Path,
     include_pomm: bool = True,
     timestamp: str | None = None,
@@ -252,19 +262,19 @@ def save_to_excel(
         aep_sheet_name=aep_sheet_name,
     )
 
-    sheet_frames: dict[str, pd.DataFrame] = {
+    sheet_frames: dict[str, DataFrameAny] = {
         aep_dur_sheet_name: aep_dur_max,
         aep_sheet_name: aep_max,
     }
     sheet_order: list[str] = [aep_dur_sheet_name, aep_sheet_name]
-    sheet_dfs: list[pd.DataFrame] = [aep_dur_max, aep_max]
+    sheet_dfs: list[DataFrameAny] = [aep_dur_max, aep_max]
 
     if include_pomm:
         sheet_frames["POMM"] = aggregated_df
         sheet_order.append("POMM")
         sheet_dfs.append(aggregated_df)
 
-    data_dictionary_df: pd.DataFrame = _build_data_dictionary(
+    data_dictionary_df: DataFrameAny = _build_data_dictionary(
         registry=registry,
         sheet_frames=sheet_frames,
         metadata_rows=metadata_rows,
@@ -290,9 +300,9 @@ def save_to_excel(
 def _build_metadata_rows(
     timestamp: str | None,
     include_pomm: bool,
-    aep_dur_max: pd.DataFrame,
-    aep_max: pd.DataFrame,
-    aggregated_df: pd.DataFrame,
+    aep_dur_max: DataFrameAny,
+    aep_max: DataFrameAny,
+    aggregated_df: DataFrameAny,
     aep_dur_sheet_name: str,
     aep_sheet_name: str,
 ) -> Mapping[str, str]:
@@ -314,9 +324,9 @@ def _build_metadata_rows(
 
     if "directory_path" in aggregated_df.columns:
         try:
-            directories_series = aggregated_df["directory_path"].dropna()
+            directories_series: SeriesAny = aggregated_df["directory_path"].dropna()
         except AttributeError:
-            directories_series = pd.Series(dtype="string")
+            directories_series = Series(dtype="string")
         unique_directories: list[str] = sorted({str(Path(dir_value)) for dir_value in directories_series.unique()})
         if unique_directories:
             metadata["Source directories"] = "\n".join(unique_directories)
@@ -326,9 +336,9 @@ def _build_metadata_rows(
 
 def _build_data_dictionary(
     registry: ColumnMetadataRegistry,
-    sheet_frames: Mapping[str, pd.DataFrame],
+    sheet_frames: Mapping[str, DataFrameAny],
     metadata_rows: Mapping[str, str],
-) -> pd.DataFrame:
+) -> DataFrameAny:
     """Build the DataFrame backing the data dictionary worksheet."""
 
     rows: list[dict[str, str]] = []
@@ -357,7 +367,7 @@ def _build_data_dictionary(
             )
             continue
 
-        dtype_map: dict[str, str] = {column: str(dtype) for column, dtype in frame.dtypes.items()}
+        dtype_map: dict[str, str] = {str(column): str(dtype) for column, dtype in frame.dtypes.items()}
         definitions: list[ColumnDefinition] = registry.iter_definitions(columns, sheet_name=sheet_name)
 
         for column_name, definition in zip(columns, definitions):
@@ -371,22 +381,22 @@ def _build_data_dictionary(
                 }
             )
 
-    return pd.DataFrame(
+    return DataFrame(
         data=rows,
         columns=["sheet", "column", "description", "value_type", "pandas_dtype"],
     )
 
 
 def save_peak_report(
-    aggregated_df: pd.DataFrame,
+    aggregated_df: DataFrameAny,
     script_directory: Path,
     timestamp: str,
     suffix: str = "_peaks.xlsx",
     include_pomm: bool = True,
 ) -> None:
     """Save peak data tables to an Excel file."""
-    aep_dur_max: pd.DataFrame = find_aep_dur_max(aggregated_df=aggregated_df)
-    aep_max: pd.DataFrame = find_aep_max(aep_dur_max=aep_dur_max)
+    aep_dur_max: DataFrameAny = find_aep_dur_max(aggregated_df=aggregated_df)
+    aep_max: DataFrameAny = find_aep_max(aep_dur_max=aep_dur_max)
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
     logger.info(f"Starting export of peak report to {output_path}")
@@ -401,7 +411,7 @@ def save_peak_report(
     logger.info(f"Completed peak report export to {output_path}")
 
 
-def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
+def find_aep_dur_median(aggregated_df: DataFrameAny) -> DataFrameAny:
     """Return median stats for each AEP/Duration/Location/Type/RunCode group."""
     group_cols: list[str] = [
         "aep_text",
@@ -411,8 +421,9 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
         "trim_runcode",
     ]
     rows: list[dict[str, Any]] = []
+    median_df: DataFrameAny = DataFrame()
     try:
-        df: pd.DataFrame = aggregated_df.copy()
+        df: DataFrameAny = aggregated_df.copy()
         df["aep_dur_bin"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
         for _, grp in df.groupby(group_cols, observed=True):
             stats_dict, _ = median_calc(
@@ -431,18 +442,18 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
             row.update(stats_dict)
             row["MedianAbsMax"] = row.pop("median")
             rows.append(row)
-        median_df = pd.DataFrame(rows)
+            median_df = DataFrame(rows)
         if not median_df.empty:
             # Normalise TP / duration text so the "mean storm equals median storm" flag is stable.
-            def _normalize_tp(value: object) -> str | NAType:
-                if pd.isna(value):
+            def _normalize_tp(value: object) -> object:
+                if pd.isna(cast(Any, value)):
                     return pd.NA
                 normalized = TuflowStringParser.normalize_tp_label(value)
                 return pd.NA if normalized is None else normalized
 
             for column in ("median_TP", "mean_TP"):
                 if column in median_df.columns:
-                    median_df[column] = median_df[column].apply(_normalize_tp)
+                    median_df[column] = median_df[column].apply(cast(Callable[[object], Any], _normalize_tp))
 
             mean_storm_matches: Series[bool] = pd.Series(False, index=median_df.index)
             required_cols: set[str] = {
@@ -463,6 +474,19 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
                 mean_storm_matches = (duration_match & tp_match).fillna(False)
 
             median_df["mean_storm_is_median_storm"] = mean_storm_matches
+            count_group_cols: list[str] = [
+                col for col in ("aep_text", "Location", "Type", "trim_runcode") if col in median_df.columns
+            ]
+            if count_group_cols and "count" in median_df.columns:
+                count_numeric: Series = pd.to_numeric(median_df["count"], errors="coerce")
+                median_df["count"] = count_numeric.astype("Int64")
+                median_df["_count_numeric"] = count_numeric.fillna(0)
+                median_df["count_bin"] = (
+                    median_df.groupby(count_group_cols, observed=True)["_count_numeric"]
+                    .transform("sum")
+                    .astype("Int64")
+                )
+                median_df = median_df.drop(columns=["_count_numeric"])
 
             id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
             mean_columns: list[str] = [
@@ -485,18 +509,18 @@ def find_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
         logger.info("Created 'aep_dur_median' DataFrame with median records for each AEP-Duration group.")
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_dur_median' grouping: {e}")
-        median_df = pd.DataFrame()
+        median_df = DataFrame()
     return median_df
 
 
-def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
+def find_aep_median_max(aep_dur_median: DataFrameAny) -> DataFrameAny:
     """Return rows representing the maximum median for each AEP/Location/Type/RunCode group."""
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
-        df: pd.DataFrame = aep_dur_median.copy()
+        df: DataFrameAny = aep_dur_median.copy()
         df["aep_bin"] = df.groupby(group_cols, observed=True)["MedianAbsMax"].transform("size")
         idx = df.groupby(group_cols, observed=True)["MedianAbsMax"].idxmax()
-        aep_med_max: pd.DataFrame = df.loc[idx].reset_index(drop=True)
+        aep_med_max: DataFrameAny = df.loc[idx].reset_index(drop=True)
         mean_value_columns: list[str] = [
             column
             for column in (
@@ -509,8 +533,10 @@ def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
             if column in aep_dur_median.columns
         ]
         if mean_value_columns:
-            mean_df: pd.DataFrame = aep_dur_median.copy()
-            mean_df["_mean_peakflow_numeric"] = pd.to_numeric(mean_df.get("mean_PeakFlow"), errors="coerce")  # type: ignore
+            mean_df: DataFrameAny = aep_dur_median.copy()
+            if "mean_PeakFlow" not in mean_df.columns:
+                return DataFrame()
+            mean_df["_mean_peakflow_numeric"] = pd.to_numeric(mean_df["mean_PeakFlow"], errors="coerce")
             if mean_df["_mean_peakflow_numeric"].notna().any():
                 # When the mean columns are present we track the rows that best represent
                 # the maximum mean independently from the median selection above.
@@ -522,7 +548,7 @@ def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
                 merge_columns: list[str] = mean_value_columns.copy()
                 if "mean_storm_is_median_storm" in aep_dur_median.columns:
                     merge_columns.append("mean_storm_is_median_storm")
-                mean_subset: pd.DataFrame = mean_df.loc[idx_mean, group_cols + merge_columns]
+                mean_subset: DataFrameAny = mean_df.loc[idx_mean, group_cols + merge_columns]
                 aep_med_max = aep_med_max.drop(columns=merge_columns, errors="ignore")
                 aep_med_max = aep_med_max.merge(mean_subset, on=group_cols, how="left")
             mean_df = mean_df.drop(columns=["_mean_peakflow_numeric"], errors="ignore")
@@ -555,14 +581,14 @@ def find_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
         logger.info("Created 'aep_median_max' DataFrame with maximum median records for each AEP group.")
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_median_max' grouping: {e}")
-        aep_med_max = pd.DataFrame()
+        aep_med_max = DataFrame()
     return aep_med_max
 
 
-def find_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
+def find_aep_dur_mean(aggregated_df: DataFrameAny) -> DataFrameAny:
     """Return mean stats for each AEP/Duration/Location/Type/RunCode group."""
 
-    aep_dur_median: pd.DataFrame = find_aep_dur_median(aggregated_df=aggregated_df)
+    aep_dur_median: DataFrameAny = find_aep_dur_median(aggregated_df=aggregated_df)
     if aep_dur_median.empty:
         return aep_dur_median
 
@@ -587,26 +613,46 @@ def find_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
     return aep_dur_median[ordered_cols]
 
 
-def find_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
+def find_aep_mean_max(aep_dur_mean: DataFrameAny) -> DataFrameAny:
     """Return rows representing the maximum mean for each AEP/Location/Type/RunCode group."""
 
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
-        df: pd.DataFrame = aep_dur_mean.copy()
+        df: DataFrameAny = aep_dur_mean.copy()
         if "mean_PeakFlow" not in df.columns:
             logger.error("'mean_PeakFlow' column not present for mean analysis. Returning empty DataFrame.")
-            return pd.DataFrame()
+            return DataFrame()
 
         df["_mean_peakflow_numeric"] = pd.to_numeric(df["mean_PeakFlow"], errors="coerce")
-        df["mean_bin"] = df.groupby(group_cols, observed=True)["_mean_peakflow_numeric"].transform("count")
+        if "count" in df.columns:
+            df["_count_numeric"] = pd.to_numeric(df["count"], errors="coerce").fillna(0)
+        else:
+            df["_count_numeric"] = pd.Series(0, index=df.index, dtype="Int64")
+        df["count_bin"] = (
+            df.groupby(group_cols, observed=True)["_count_numeric"]
+            .transform("sum")
+            .astype("Int64")
+        )
+        df["_mean_event_count"] = df["_count_numeric"].where(
+            df["_mean_peakflow_numeric"].notna(),
+            other=0,
+        )
+        df["mean_bin"] = (
+            df.groupby(group_cols, observed=True)["_mean_event_count"]
+            .transform("sum")
+            .astype("Int64")
+        )
 
-        valid_df: pd.DataFrame = df[df["_mean_peakflow_numeric"].notna()]
+        valid_df: DataFrameAny = df[df["_mean_peakflow_numeric"].notna()]
         if valid_df.empty:
             logger.warning("No valid mean peak flow values found. Returning empty DataFrame.")
-            return pd.DataFrame()
+            return DataFrame()
 
         idx = valid_df.groupby(group_cols, observed=True)["_mean_peakflow_numeric"].idxmax()
-        aep_mean_max: pd.DataFrame = df.loc[idx].drop(columns=["_mean_peakflow_numeric"]).reset_index(drop=True)
+        aep_mean_max: DataFrameAny = df.loc[idx].drop(
+            columns=["_mean_peakflow_numeric", "_count_numeric", "_mean_event_count"]
+        )
+        aep_mean_max = aep_mean_max.reset_index(drop=True)
 
         if not aep_mean_max.empty:
             id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
@@ -637,14 +683,14 @@ def find_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
         logger.info("Created 'aep_mean_max' DataFrame with maximum mean records for each AEP group.")
     except KeyError as e:
         logger.error(f"Missing expected columns for 'aep_mean_max' grouping: {e}")
-        aep_mean_max = pd.DataFrame()
+        aep_mean_max = DataFrame()
     return aep_mean_max
 
 
-def _remove_columns_containing(df: pd.DataFrame, substrings: tuple[str, ...]) -> pd.DataFrame:
+def _remove_columns_containing(df: DataFrameAny, substrings: tuple[str, ...]) -> DataFrameAny:
     """Return ``df`` without columns that include any ``substrings``."""
 
-    filtered_df: pd.DataFrame = df.copy()
+    filtered_df: DataFrameAny = df.copy()
     if filtered_df.empty:
         return filtered_df
 
@@ -656,33 +702,33 @@ def _remove_columns_containing(df: pd.DataFrame, substrings: tuple[str, ...]) ->
     return filtered_df
 
 
-def _median_only_columns(df: pd.DataFrame) -> pd.DataFrame:
+def _median_only_columns(df: DataFrameAny) -> DataFrameAny:
     """Return a DataFrame containing only median-focused columns."""
 
     return _remove_columns_containing(df=df, substrings=("mean",))
 
 
-def _mean_only_columns(df: pd.DataFrame) -> pd.DataFrame:
+def _mean_only_columns(df: DataFrameAny) -> DataFrameAny:
     """Return a DataFrame containing only mean-focused columns."""
 
     return _remove_columns_containing(df=df, substrings=("median",))
 
 
 def save_peak_report_median(
-    aggregated_df: pd.DataFrame,
+    aggregated_df: DataFrameAny,
     script_directory: Path,
     timestamp: str,
     suffix: str = "_med_peaks.xlsx",
     include_pomm: bool = True,
 ) -> None:
     """Save median-based peak data tables to an Excel file."""
-    aep_dur_med: pd.DataFrame = find_aep_dur_median(aggregated_df=aggregated_df)
-    aep_med_max: pd.DataFrame = find_aep_median_max(aep_dur_median=aep_dur_med)
+    aep_dur_med: DataFrameAny = find_aep_dur_median(aggregated_df=aggregated_df)
+    aep_med_max: DataFrameAny = find_aep_median_max(aep_dur_median=aep_dur_med)
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
     logger.info(f"Starting export of median peak report to {output_path}")
-    aep_dur_med_filtered: pd.DataFrame = _median_only_columns(df=aep_dur_med)
-    aep_med_max_filtered: pd.DataFrame = _median_only_columns(df=aep_med_max)
+    aep_dur_med_filtered: DataFrameAny = _median_only_columns(df=aep_dur_med)
+    aep_med_max_filtered: DataFrameAny = _median_only_columns(df=aep_med_max)
     save_to_excel(
         aep_dur_max=aep_dur_med_filtered,
         aep_max=aep_med_max_filtered,
@@ -695,7 +741,7 @@ def save_peak_report_median(
 
 
 def save_peak_report_mean(
-    aggregated_df: pd.DataFrame,
+    aggregated_df: DataFrameAny,
     script_directory: Path,
     timestamp: str,
     suffix: str = "_mean_peaks.xlsx",
@@ -703,13 +749,13 @@ def save_peak_report_mean(
 ) -> None:
     """Save mean-based peak data tables to an Excel file."""
 
-    aep_dur_mean: pd.DataFrame = find_aep_dur_mean(aggregated_df=aggregated_df)
-    aep_mean_max: pd.DataFrame = find_aep_mean_max(aep_dur_mean=aep_dur_mean)
+    aep_dur_mean: DataFrameAny = find_aep_dur_mean(aggregated_df=aggregated_df)
+    aep_mean_max: DataFrameAny = find_aep_mean_max(aep_dur_mean=aep_dur_mean)
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
     logger.info(f"Starting export of mean peak report to {output_path}")
-    aep_dur_mean_filtered: pd.DataFrame = _mean_only_columns(df=aep_dur_mean)
-    aep_mean_max_filtered: pd.DataFrame = _mean_only_columns(df=aep_mean_max)
+    aep_dur_mean_filtered: DataFrameAny = _mean_only_columns(df=aep_dur_mean)
+    aep_mean_max_filtered: DataFrameAny = _mean_only_columns(df=aep_mean_max)
     save_to_excel(
         aep_dur_max=aep_dur_mean_filtered,
         aep_max=aep_mean_max_filtered,
