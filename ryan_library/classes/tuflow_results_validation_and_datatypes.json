@@ -181,8 +181,8 @@
       "dataformat": "Maximums",
       "columns_to_use": {
         "ID": "string",
-        "Time Qmax": "float",
         "Qmax": "float",
+        "Time Qmax": "float",
         "dQmax": "float",
         "Time dQmax": "float",
         "H": "float"

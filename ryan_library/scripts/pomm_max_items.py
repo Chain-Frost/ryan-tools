@@ -50,7 +50,7 @@ def run_peak_report_workflow(
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
     location_filter: frozenset[str] | None = normalized_locations if normalized_locations else None
 
-    with setup_logger(console_log_level=log_level):
+    with setup_logger(console_log_level=log_level) as log_queue:
         logger.info(f"Current Working Directory: {Path.cwd()}")
 
         warn_on_invalid_types(
@@ -66,6 +66,7 @@ def run_peak_report_workflow(
             paths=[script_directory],
             locations_to_include=location_filter,
             include_data_types=resolved_data_types,
+            log_queue=log_queue,
         )
 
         if aggregated_df.empty:
