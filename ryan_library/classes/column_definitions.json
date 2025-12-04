@@ -1,0 +1,402 @@
+{
+  "base_definitions": {
+    "AbsMax": {
+      "description": "Absolute maximum magnitude observed within the event time-series.",
+      "value_type": "float"
+    },
+    "AbsValue": {
+      "description": "Absolute value of the 2d_po timeseries result (ignoring sign).",
+      "value_type": "float"
+    },
+    "SignedAbsMax": {
+      "description": "Absolute maximum magnitude preserving the original sign (positive/negative).",
+      "value_type": "float"
+    },
+    "Max": {
+      "description": "Maximum value in the event window.",
+      "value_type": "float"
+    },
+    "Min": {
+      "description": "Minimum value in the event window.",
+      "value_type": "float"
+    },
+    "Area_Culv": {
+      "description": "Full cross-sectional area of the culvert barrel reported by ccA outputs.",
+      "value_type": "float"
+    },
+    "Area_Max": {
+      "description": "Maximum wetted area recorded for the culvert during the event (ccA output).",
+      "value_type": "float"
+    },
+    "Tmax": {
+      "description": "Time (hours) at which the maximum value occurs.",
+      "value_type": "float"
+    },
+    "Tmin": {
+      "description": "Time (hours) at which the minimum value occurs.",
+      "value_type": "float"
+    },
+    "Location": {
+      "description": "Model result location identifier from the 2d_po file.",
+      "value_type": "string"
+    },
+    "Chan ID": {
+      "description": "Channel identifier from the 1d_nwk file.",
+      "value_type": "string"
+    },
+    "ID": {
+      "description": "Reporting Location Line identifier from the RLL outputs.",
+      "value_type": "string"
+    },
+    "Location ID": {
+      "description": "Normalized location identifier used when grouping maximums across different source types.",
+      "value_type": "string"
+    },
+    "Time": {
+      "description": "Simulation time (hours) corresponding to the recorded statistic.",
+      "value_type": "float"
+    },
+    "Q": {
+      "description": "Discharge/flow rate reported for the location.",
+      "value_type": "float"
+    },
+    "V": {
+      "description": "Velocity reported for the location.",
+      "value_type": "float"
+    },
+    "Type": {
+      "description": "2d_po quantity type (for example Flow, Water Level, Velocity).",
+      "value_type": "string"
+    },
+    "DS_h": {
+      "description": "Downstream water level extracted from maximum-result CSVs (usually metres AHD).",
+      "value_type": "float"
+    },
+    "US_h": {
+      "description": "Upstream water level extracted from maximum-result CSVs (usually metres AHD).",
+      "value_type": "float"
+    },
+    "DS_H": {
+      "description": "Downstream water level taken from the 1d_H timeseries output.",
+      "value_type": "float"
+    },
+    "US_H": {
+      "description": "Upstream water level taken from the 1d_H timeseries output.",
+      "value_type": "float"
+    },
+    "US Invert": {
+      "description": "Invert elevation at the upstream end of the culvert/channel.",
+      "value_type": "float"
+    },
+    "DS Invert": {
+      "description": "Invert elevation at the downstream end of the culvert/channel.",
+      "value_type": "float"
+    },
+    "US Obvert": {
+      "description": "Crown/obvert elevation at the upstream end of the culvert/channel.",
+      "value_type": "float"
+    },
+    "Height": {
+      "description": "Barrel height or diameter used for the culvert/channel definition.",
+      "value_type": "float"
+    },
+    "num_barrels": {
+      "description": "Estimated number of circular barrels derived from Area_Culv (1d_ccA_) and Height for C-type culverts.",
+      "value_type": "int"
+    },
+    "Length": {
+      "description": "Culvert or channel length taken from the 1d_Chan file.",
+      "value_type": "float"
+    },
+    "n or Cd": {
+      "description": "Manning's n roughness (for open channels) or discharge coefficient (for culverts).",
+      "value_type": "float"
+    },
+    "pSlope": {
+      "description": "Design slope for the structure (percent).",
+      "value_type": "float"
+    },
+    "pBlockage": {
+      "description": "Blockage percentage applied to the culvert/barrel.",
+      "value_type": "float"
+    },
+    "Flags": {
+      "description": "Source flags describing channel or culvert configuration issues.",
+      "value_type": "string"
+    },
+    "H": {
+      "description": "Water level reported for the location at the time of the maximum flow event.",
+      "value_type": "float"
+    },
+    "dQ": {
+      "description": "Differential flow reported by the RLL maximum output.",
+      "value_type": "float"
+    },
+    "Time dQ": {
+      "description": "Time associated with the differential flow reported by the RLL output.",
+      "value_type": "float"
+    },
+    "aep_text": {
+      "description": "Annual exceedance probability label parsed from the run code (e.g. '01p').",
+      "value_type": "string"
+    },
+    "aep_numeric": {
+      "description": "Annual exceedance probability represented as a numeric percentage e.g 1.",
+      "value_type": "float"
+    },
+    "duration_text": {
+      "description": "Storm duration label parsed from the run code (e.g. '00030m').",
+      "value_type": "string"
+    },
+    "duration_numeric": {
+      "description": "Storm duration represented as a numeric value (mins - tuflow style).",
+      "value_type": "float"
+    },
+    "tp_text": {
+      "description": "Temporal pattern identifier parsed from the run code. e.g. TP07",
+      "value_type": "string"
+    },
+    "tp_numeric": {
+      "description": "Temporal pattern identifier represented as a numeric value. e.g. 1",
+      "value_type": "int"
+    },
+    "trim_runcode": {
+      "description": "Run code without the AEP, TP and Duration component. Used to group comparable scenarios.",
+      "value_type": "string"
+    },
+    "internalName": {
+      "description": "Full run code derived from the source file name.",
+      "value_type": "string"
+    },
+    "file": {
+      "description": "Name of the source CSV file that contributed the row.",
+      "value_type": "string"
+    },
+    "path": {
+      "description": "Absolute path to the source CSV file.",
+      "value_type": "string"
+    },
+    "rel_path": {
+      "description": "Source CSV path relative to the working directory when processing.",
+      "value_type": "string"
+    },
+    "directory_path": {
+      "description": "Absolute directory containing the source CSV file.",
+      "value_type": "string"
+    },
+    "rel_directory": {
+      "description": "Directory containing the source CSV file relative to the working directory.",
+      "value_type": "string"
+    },
+    "R01": {
+      "description": "First segment of the run code.",
+      "value_type": "string"
+    },
+    "R02": {
+      "description": "Second segment of the run code.",
+      "value_type": "string"
+    },
+    "R03": {
+      "description": "Third segment of the run code.",
+      "value_type": "string"
+    },
+    "R04": {
+      "description": "Fourth segment of the run code.",
+      "value_type": "string"
+    },
+    "R05": {
+      "description": "Fifth segment of the run code.",
+      "value_type": "string"
+    },
+    "Value": {
+      "description": "Raw 2d_po metric captured at the reporting location.",
+      "value_type": "float"
+    },
+    "pFull_Max": {
+      "description": "Maximum percent full reported by ccA.",
+      "value_type": "float"
+    },
+    "pTime_Full": {
+      "description": "Time (hours) at which ccA reports the culvert as maximum percent full.",
+      "value_type": "float"
+    },
+    "Dur_Full": {
+      "description": "Duration (hours) the culvert remained full according to ccA.",
+      "value_type": "float"
+    },
+    "Dur_10pFull": {
+      "description": "Duration (hours) the culvert remained above 10 percent full (ccA output).",
+      "value_type": "float"
+    },
+    "Sur_CD": {
+      "description": "Surcharge coefficient/depth reported by ccA when the culvert is surcharged.",
+      "value_type": "float"
+    },
+    "Dur_Sur": {
+      "description": "Duration (hours) the culvert experienced surcharge conditions.",
+      "value_type": "float"
+    },
+    "pTime_Sur": {
+      "description": "Time (hours) at which the surcharge condition peaked.",
+      "value_type": "float"
+    },
+    "TFirst_Sur": {
+      "description": "Time (hours) when the surcharge condition first began.",
+      "value_type": "float"
+    },
+    "MedianAbsMax": {
+      "description": "Absolute maxima across median of temporal patterns for the group.",
+      "value_type": "float"
+    },
+    "median_duration": {
+      "description": "Duration associated with the MedianAbsMax.",
+      "value_type": "string"
+    },
+    "median_TP": {
+      "description": "Temporal pattern associated with the MedianAbsMax.",
+      "value_type": "string"
+    },
+    "mean_including_zeroes": {
+      "description": "Mean of the statistic including zero values within the group.",
+      "value_type": "float"
+    },
+    "mean_excluding_zeroes": {
+      "description": "Mean of the statistic excluding zero values within the group.",
+      "value_type": "float"
+    },
+    "mean_PeakFlow": {
+      "description": "Peak flow from the event whose statistic is nearest to the group's arithmetic mean; not an averaged peak flow. Uses mean_including_zeroes.",
+      "value_type": "float"
+    },
+    "mean_Duration": {
+      "description": "Duration taken from the same nearest-to-mean event used for mean_PeakFlow.",
+      "value_type": "string"
+    },
+    "mean_TP": {
+      "description": "Temporal pattern taken from the same nearest-to-mean event used for mean_PeakFlow.",
+      "value_type": "string"
+    },
+    "mean_Q": {
+      "description": "Arithmetic mean discharge for the grouped culvert results.",
+      "value_type": "float"
+    },
+    "mean_V": {
+      "description": "Arithmetic mean velocity for the grouped culvert results.",
+      "value_type": "float"
+    },
+    "mean_DS_h": {
+      "description": "Arithmetic mean downstream water level for the grouped culvert results.",
+      "value_type": "float"
+    },
+    "mean_US_h": {
+      "description": "Arithmetic mean upstream water level for the grouped culvert results.",
+      "value_type": "float"
+    },
+    "low": {
+      "description": "Minimum statistic encountered across all temporal patterns in the group.",
+      "value_type": "float"
+    },
+    "high": {
+      "description": "Maximum statistic encountered across all temporal patterns in the group.",
+      "value_type": "float"
+    },
+    "count": {
+      "description": "Number of rows contributing to the mean/median statistics for the selected duration.",
+      "value_type": "int"
+    },
+    "count_bin": {
+      "description": "Total number of records considered across all durations for the group.",
+      "value_type": "int"
+    },
+    "mean_storm_is_median_storm": {
+      "description": "Deprecated. Don't use. Indicates whether the mean storm matches the median storm selection.",
+      "value_type": "boolean"
+    },
+    "mean_bin": {
+      "description": "Number of events contributing non-null mean metrics within the group.",
+      "value_type": "int"
+    },
+    "aep_dur_bin": {
+      "description": "Count of records in the original AEP/Duration/Location/Type/run combination.",
+      "value_type": "int"
+    },
+    "aep_bin": {
+      "description": "Count of records in the original AEP/Location/Type/run combination.",
+      "value_type": "int"
+    },
+    "min_Q": {
+      "description": "Minimum discharge observed across the grouped culvert events.",
+      "value_type": "float"
+    },
+    "min_V": {
+      "description": "Minimum velocity observed across the grouped culvert events.",
+      "value_type": "float"
+    },
+    "min_DS_h": {
+      "description": "Minimum downstream water level observed across the grouped culvert events.",
+      "value_type": "float"
+    },
+    "min_US_h": {
+      "description": "Minimum upstream water level observed across the grouped culvert events.",
+      "value_type": "float"
+    },
+    "max_Q": {
+      "description": "Maximum discharge observed across the grouped culvert events.",
+      "value_type": "float"
+    },
+    "max_V": {
+      "description": "Maximum velocity observed across the grouped culvert events.",
+      "value_type": "float"
+    },
+    "max_DS_h": {
+      "description": "Maximum downstream water level observed across the grouped culvert events.",
+      "value_type": "float"
+    },
+    "max_US_h": {
+      "description": "Maximum upstream water level observed across the grouped culvert events.",
+      "value_type": "float"
+    },
+    "adopted_Q": {
+      "description": "Discharge from the event whose Q value is closest to the sample mean for the group; used as the adopted representative flow.",
+      "value_type": "float"
+    },
+    "adopted_V": {
+      "description": "Velocity from the adopted event associated with the adopted_Q selection.",
+      "value_type": "float"
+    },
+    "adopted_DS_h": {
+      "description": "Downstream water level from the adopted event associated with the adopted_Q selection.",
+      "value_type": "float"
+    },
+    "adopted_US_h": {
+      "description": "Upstream water level from the adopted event associated with the adopted_Q selection.",
+      "value_type": "float"
+    }
+  },
+  "sheet_specific_definitions": {
+    "aep-dur-max": {
+      "AbsMax": {
+        "description": "Peaks for the AEP/Duration/Location/Type/run grouping.",
+        "value_type": "float"
+      }
+    },
+    "aep-max": {
+      "AbsMax": {
+        "description": "Peaks for the AEP/Location/Type/run grouping.",
+        "value_type": "float"
+      }
+    },
+    "aep-dur-med": {
+      "MedianAbsMax": {
+        "description": "Medians for the specific AEP/Duration/Location/Type/run grouping.",
+        "value_type": "float"
+      }
+    },
+    "aep-med-max": {
+      "MedianAbsMax": {
+        "description": "Medians the maximum median per AEP/Location/Type/run grouping.",
+        "value_type": "float"
+      }
+    }
+  }
+}

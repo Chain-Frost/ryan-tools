@@ -6,7 +6,7 @@ from pathlib import Path
 from multiprocessing import Pool, Queue
 from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 import pandas as pd
 from loguru import logger
@@ -24,8 +24,14 @@ from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 NAType = type(pd.NA)
 DataFrameAny = DataFrame
-SeriesAny = Series[Any]
-WorkerInitializer = Callable[[Queue[Any]], None]
+if TYPE_CHECKING:
+    SeriesAny = Series[Any]
+    QueueType = Queue[Any]
+    WorkerInitializer = Callable[[Queue[Any]], None]
+else:
+    SeriesAny = Series
+    QueueType = Queue
+    WorkerInitializer = Callable[[Queue], None]
 worker_initializer_fn: WorkerInitializer = worker_initializer
 
 
@@ -83,7 +89,7 @@ def process_file(file_path: Path, location_filter: frozenset[str] | None = None)
 
 def process_files_in_parallel(
     file_list: list[Path],
-    log_queue: Queue[Any],
+    log_queue: QueueType,
     location_filter: frozenset[str] | None = None,
 ) -> ProcessorCollection:
     """Process files using multiprocessing and return a collection."""
@@ -116,7 +122,7 @@ def combine_processors_from_paths(
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
 
     with setup_logger(console_log_level=console_log_level) as log_queue:
-        log_queue_typed: Queue[Any] = log_queue
+        log_queue_typed: QueueType = log_queue
         logger.info("Starting POMM processing for combine_processors_from_paths.")
         csv_file_list: list[Path] = collect_files(
             paths_to_process=paths_to_process,

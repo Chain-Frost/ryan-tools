@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import ClassVar
-from _collections_abc import Iterable, Mapping
+from pathlib import Path
+from types import MappingProxyType
+from typing import Any, ClassVar
 
 
 @dataclass(frozen=True, slots=True)
@@ -16,19 +19,76 @@ class ColumnDefinition:
     value_type: str | None = None
 
 
+BaseDefinitions = Mapping[str, ColumnDefinition]
+SheetSpecificDefinitions = Mapping[str, BaseDefinitions]
+
+_DEFAULT_DEFINITIONS_PATH: Path = Path(__file__).with_name("column_definitions.json")
+
+
+def _freeze_base_definitions(definitions: Mapping[str, ColumnDefinition]) -> BaseDefinitions:
+    return MappingProxyType(mapping=dict(definitions))
+
+
+def _freeze_sheet_specific_definitions(
+    definitions: Mapping[str, Mapping[str, ColumnDefinition]],
+) -> SheetSpecificDefinitions:
+    return MappingProxyType(
+        mapping={sheet: _freeze_base_definitions(definitions=defs) for sheet, defs in definitions.items()}
+    )
+
+
+def _to_column_definition(name: str, payload: Mapping[str, Any]) -> ColumnDefinition:
+    description = payload.get("description")
+    if description is None:
+        msg: str = f"Missing description for column definition '{name}' in {_DEFAULT_DEFINITIONS_PATH.name}"
+        raise ValueError(msg)
+
+    value_type = payload.get("value_type")
+    return ColumnDefinition(
+        name=name,
+        description=str(description),
+        value_type=str(value_type) if value_type is not None else None,
+    )
+
+
+def _load_default_definitions() -> tuple[BaseDefinitions, SheetSpecificDefinitions]:
+    data = json.loads(_DEFAULT_DEFINITIONS_PATH.read_text(encoding="utf-8"))
+    base_definitions: dict[Any, ColumnDefinition] = {
+        name: _to_column_definition(name=name, payload=payload)
+        for name, payload in data.get("base_definitions", {}).items()
+    }
+    sheet_specific_definitions = {
+        sheet_name: {name: _to_column_definition(name=name, payload=payload) for name, payload in definitions.items()}
+        for sheet_name, definitions in data.get("sheet_specific_definitions", {}).items()
+    }
+    return _freeze_base_definitions(definitions=base_definitions), _freeze_sheet_specific_definitions(
+        definitions=sheet_specific_definitions
+    )
+
+
+DEFAULT_BASE_DEFINITIONS, DEFAULT_SHEET_SPECIFIC_DEFINITIONS = _load_default_definitions()
+
+
 class ColumnMetadataRegistry:
     """Registry providing consistent column descriptions across exports."""
 
-    _BASE_DEFINITIONS: ClassVar[Mapping[str, ColumnDefinition]]
-    _SHEET_SPECIFIC_DEFINITIONS: ClassVar[Mapping[str, Mapping[str, ColumnDefinition]]]
+    _INSTANCE: ClassVar["ColumnMetadataRegistry"] | None = None
 
     def __init__(
         self,
-        base_definitions: Mapping[str, ColumnDefinition] | None = None,
-        sheet_specific: Mapping[str, Mapping[str, ColumnDefinition]] | None = None,
+        base_definitions: BaseDefinitions | None = None,
+        sheet_specific: SheetSpecificDefinitions | None = None,
     ) -> None:
-        self._base_definitions: Mapping[str, ColumnDefinition] = base_definitions or {}
-        self._sheet_specific: Mapping[str, Mapping[str, ColumnDefinition]] = sheet_specific or {}
+        self._base_definitions: BaseDefinitions = (
+            _freeze_base_definitions(definitions=base_definitions)
+            if base_definitions is not None
+            else DEFAULT_BASE_DEFINITIONS
+        )
+        self._sheet_specific: SheetSpecificDefinitions = (
+            _freeze_sheet_specific_definitions(definitions=sheet_specific)
+            if sheet_specific is not None
+            else DEFAULT_SHEET_SPECIFIC_DEFINITIONS
+        )
 
     def definition_for(self, column_name: str, sheet_name: str | None = None) -> ColumnDefinition:
         """Return a :class:`ColumnDefinition` for ``column_name``.
@@ -38,8 +98,8 @@ class ColumnMetadataRegistry:
         easy to spot in the exported workbook.
         """
 
-        if sheet_name and sheet_name in self._sheet_specific:
-            sheet_def: Mapping[str, ColumnDefinition] = self._sheet_specific[sheet_name]
+        if sheet_name is not None and sheet_name in self._sheet_specific:
+            sheet_def: BaseDefinitions = self._sheet_specific[sheet_name]
             if column_name in sheet_def:
                 return sheet_def[column_name]
 
@@ -61,517 +121,10 @@ class ColumnMetadataRegistry:
     def default(cls) -> "ColumnMetadataRegistry":
         """Return the default registry instance."""
 
-        if not hasattr(cls, "_INSTANCE"):
-            base_definitions: dict[str, ColumnDefinition] = {
-                "AbsMax": ColumnDefinition(
-                    name="AbsMax",
-                    description="Absolute maximum magnitude observed within the event time-series.",
-                    value_type="float",
-                ),
-                "AbsValue": ColumnDefinition(
-                    name="AbsValue",
-                    description="Absolute value of the 2d_po timeseries result (ignoring sign).",
-                    value_type="float",
-                ),
-                "SignedAbsMax": ColumnDefinition(
-                    name="SignedAbsMax",
-                    description="Absolute maximum magnitude preserving the original sign (positive/negative).",
-                    value_type="float",
-                ),
-                "Max": ColumnDefinition(
-                    name="Max",
-                    description="Maximum value in the event window.",
-                    value_type="float",
-                ),
-                "Min": ColumnDefinition(
-                    name="Min",
-                    description="Minimum value in the event window.",
-                    value_type="float",
-                ),
-                "Area_Culv": ColumnDefinition(
-                    name="Area_Culv",
-                    description="Full cross-sectional area of the culvert barrel reported by ccA outputs.",
-                    value_type="float",
-                ),
-                "Area_Max": ColumnDefinition(
-                    name="Area_Max",
-                    description="Maximum wetted area recorded for the culvert during the event (ccA output).",
-                    value_type="float",
-                ),
-                "Tmax": ColumnDefinition(
-                    name="Tmax",
-                    description="Time (hours) at which the maximum value occurs.",
-                    value_type="float",
-                ),
-                "Tmin": ColumnDefinition(
-                    name="Tmin",
-                    description="Time (hours) at which the minimum value occurs.",
-                    value_type="float",
-                ),
-                "Location": ColumnDefinition(
-                    name="Location",
-                    description="Model result location identifier from the 2d_po file.",
-                    value_type="string",
-                ),
-                "Chan ID": ColumnDefinition(
-                    name="Chan ID",
-                    description="Channel identifier from the 1d_nwk file.",
-                    value_type="string",
-                ),
-                "ID": ColumnDefinition(
-                    name="ID",
-                    description="Reporting Location Line identifier from the RLL outputs.",
-                    value_type="string",
-                ),
-                "Location ID": ColumnDefinition(
-                    name="Location ID",
-                    description=(
-                        "Normalized location identifier used when grouping maximums across different source types."
-                    ),
-                    value_type="string",
-                ),
-                "Time": ColumnDefinition(
-                    name="Time",
-                    description="Simulation time (hours) corresponding to the recorded statistic.",
-                    value_type="float",
-                ),
-                "Q": ColumnDefinition(
-                    name="Q",
-                    description="Discharge/flow rate reported for the location.",
-                    value_type="float",
-                ),
-                "V": ColumnDefinition(
-                    name="V",
-                    description="Velocity reported for the location.",
-                    value_type="float",
-                ),
-                "Type": ColumnDefinition(
-                    name="Type",
-                    description="2d_po quantity type (for example Flow, Water Level, Velocity).",
-                    value_type="string",
-                ),
-                "DS_h": ColumnDefinition(
-                    name="DS_h",
-                    description="Downstream water level extracted from maximum-result CSVs (usually metres AHD).",
-                    value_type="float",
-                ),
-                "US_h": ColumnDefinition(
-                    name="US_h",
-                    description="Upstream water level extracted from maximum-result CSVs (usually metres AHD).",
-                    value_type="float",
-                ),
-                "DS_H": ColumnDefinition(
-                    name="DS_H",
-                    description="Downstream water level taken from the 1d_H timeseries output.",
-                    value_type="float",
-                ),
-                "US_H": ColumnDefinition(
-                    name="US_H",
-                    description="Upstream water level taken from the 1d_H timeseries output.",
-                    value_type="float",
-                ),
-                "US Invert": ColumnDefinition(
-                    name="US Invert",
-                    description="Invert elevation at the upstream end of the culvert/channel.",
-                    value_type="float",
-                ),
-                "DS Invert": ColumnDefinition(
-                    name="DS Invert",
-                    description="Invert elevation at the downstream end of the culvert/channel.",
-                    value_type="float",
-                ),
-                "US Obvert": ColumnDefinition(
-                    name="US Obvert",
-                    description="Crown/obvert elevation at the upstream end of the culvert/channel.",
-                    value_type="float",
-                ),
-                "Height": ColumnDefinition(
-                    name="Height",
-                    description="Barrel height or diameter used for the culvert/channel definition.",
-                    value_type="float",
-                ),
-                "num_barrels": ColumnDefinition(
-                    name="num_barrels",
-                    description="Estimated number of circular barrels derived from Area_Culv (1d_ccA_) and Height for C-type culverts.",
-                    value_type="int",
-                ),
-                "Length": ColumnDefinition(
-                    name="Length",
-                    description="Culvert or channel length taken from the 1d_Chan file.",
-                    value_type="float",
-                ),
-                "n or Cd": ColumnDefinition(
-                    name="n or Cd",
-                    description="Manning's n roughness (for open channels) or discharge coefficient (for culverts).",
-                    value_type="float",
-                ),
-                "pSlope": ColumnDefinition(
-                    name="pSlope",
-                    description="Design slope for the structure (percent).",
-                    value_type="float",
-                ),
-                "pBlockage": ColumnDefinition(
-                    name="pBlockage",
-                    description="Blockage percentage applied to the culvert/barrel.",
-                    value_type="float",
-                ),
-                "Flags": ColumnDefinition(
-                    name="Flags",
-                    description="Source flags describing channel or culvert configuration issues.",
-                    value_type="string",
-                ),
-                "H": ColumnDefinition(
-                    name="H",
-                    description="Water level reported for the location at the time of the maximum flow event.",
-                    value_type="float",
-                ),
-                "dQ": ColumnDefinition(
-                    name="dQ",
-                    description="Differential flow reported by the RLL maximum output.",
-                    value_type="float",
-                ),
-                "Time dQ": ColumnDefinition(
-                    name="Time dQ",
-                    description="Time associated with the differential flow reported by the RLL output.",
-                    value_type="float",
-                ),
-                "aep_text": ColumnDefinition(
-                    name="aep_text",
-                    description="Annual exceedance probability label parsed from the run code (e.g. '01p').",
-                    value_type="string",
-                ),
-                "aep_numeric": ColumnDefinition(
-                    name="aep_numeric",
-                    description="Annual exceedance probability represented as a numeric percentage e.g 1.",
-                    value_type="float",
-                ),
-                "duration_text": ColumnDefinition(
-                    name="duration_text",
-                    description="Storm duration label parsed from the run code (e.g. '00030m').",
-                    value_type="string",
-                ),
-                "duration_numeric": ColumnDefinition(
-                    name="duration_numeric",
-                    description="Storm duration represented as a numeric value (mins - tuflow style).",
-                    value_type="float",
-                ),
-                "tp_text": ColumnDefinition(
-                    name="tp_text",
-                    description="Temporal pattern identifier parsed from the run code. e.g. TP07",
-                    value_type="string",
-                ),
-                "tp_numeric": ColumnDefinition(
-                    name="tp_numeric",
-                    description="Temporal pattern identifier represented as a numeric value. e.g. 1",
-                    value_type="int",
-                ),
-                "trim_runcode": ColumnDefinition(
-                    name="trim_runcode",
-                    description="Run code without the AEP, TP and Duration component. Used to group comparable scenarios.",
-                    value_type="string",
-                ),
-                "internalName": ColumnDefinition(
-                    name="internalName",
-                    description="Full run code derived from the source file name.",
-                    value_type="string",
-                ),
-                "file": ColumnDefinition(
-                    name="file",
-                    description="Name of the source CSV file that contributed the row.",
-                    value_type="string",
-                ),
-                "path": ColumnDefinition(
-                    name="path",
-                    description="Absolute path to the source CSV file.",
-                    value_type="string",
-                ),
-                "rel_path": ColumnDefinition(
-                    name="rel_path",
-                    description="Source CSV path relative to the working directory when processing.",
-                    value_type="string",
-                ),
-                "directory_path": ColumnDefinition(
-                    name="directory_path",
-                    description="Absolute directory containing the source CSV file.",
-                    value_type="string",
-                ),
-                "rel_directory": ColumnDefinition(
-                    name="rel_directory",
-                    description="Directory containing the source CSV file relative to the working directory.",
-                    value_type="string",
-                ),
-                "R01": ColumnDefinition(
-                    name="R01",
-                    description="First segment of the run code.",
-                    value_type="string",
-                ),
-                "R02": ColumnDefinition(
-                    name="R02",
-                    description="Second segment of the run code.",
-                    value_type="string",
-                ),
-                "R03": ColumnDefinition(
-                    name="R03",
-                    description="Third segment of the run code.",
-                    value_type="string",
-                ),
-                "R04": ColumnDefinition(
-                    name="R04",
-                    description="Fourth segment of the run code.",
-                    value_type="string",
-                ),
-                "R05": ColumnDefinition(
-                    name="R05",
-                    description="Fifth segment of the run code.",
-                    value_type="string",
-                ),
-                "Value": ColumnDefinition(
-                    name="Value",
-                    description="Raw 2d_po metric captured at the reporting location.",
-                    value_type="float",
-                ),
-                "pFull_Max": ColumnDefinition(
-                    name="pFull_Max",
-                    description="Maximum percent full reported by ccA.",
-                    value_type="float",
-                ),
-                "pTime_Full": ColumnDefinition(
-                    name="pTime_Full",
-                    description="Time (hours) at which ccA reports the culvert as maximum percent full.",
-                    value_type="float",
-                ),
-                "Dur_Full": ColumnDefinition(
-                    name="Dur_Full",
-                    description="Duration (hours) the culvert remained full according to ccA.",
-                    value_type="float",
-                ),
-                "Dur_10pFull": ColumnDefinition(
-                    name="Dur_10pFull",
-                    description="Duration (hours) the culvert remained above 10 percent full (ccA output).",
-                    value_type="float",
-                ),
-                "Sur_CD": ColumnDefinition(
-                    name="Sur_CD",
-                    description="Surcharge coefficient/depth reported by ccA when the culvert is surcharged.",
-                    value_type="float",
-                ),
-                "Dur_Sur": ColumnDefinition(
-                    name="Dur_Sur",
-                    description="Duration (hours) the culvert experienced surcharge conditions.",
-                    value_type="float",
-                ),
-                "pTime_Sur": ColumnDefinition(
-                    name="pTime_Sur",
-                    description="Time (hours) at which the surcharge condition peaked.",
-                    value_type="float",
-                ),
-                "TFirst_Sur": ColumnDefinition(
-                    name="TFirst_Sur",
-                    description="Time (hours) when the surcharge condition first began.",
-                    value_type="float",
-                ),
-                "MedianAbsMax": ColumnDefinition(
-                    name="MedianAbsMax",
-                    description="Absolute maxima across median of temporal patterns for the group.",
-                    value_type="float",
-                ),
-                "median_duration": ColumnDefinition(
-                    name="median_duration",
-                    description="Duration associated with the MedianAbsMax.",
-                    value_type="string",
-                ),
-                "median_TP": ColumnDefinition(
-                    name="median_TP",
-                    description="Temporal pattern associated with the MedianAbsMax.",
-                    value_type="string",
-                ),
-                "mean_including_zeroes": ColumnDefinition(
-                    name="mean_including_zeroes",
-                    description="Mean of the statistic including zero values within the group.",
-                    value_type="float",
-                ),
-                "mean_excluding_zeroes": ColumnDefinition(
-                    name="mean_excluding_zeroes",
-                    description="Mean of the statistic excluding zero values within the group.",
-                    value_type="float",
-                ),
-                "mean_PeakFlow": ColumnDefinition(
-                    name="mean_PeakFlow",
-                    description=(
-                        "Peak flow from the event whose statistic is nearest to the group's arithmetic mean; "
-                        "not an averaged peak flow. Uses mean_including_zeroes."
-                    ),
-                    value_type="float",
-                ),
-                "mean_Duration": ColumnDefinition(
-                    name="mean_Duration",
-                    description=("Duration taken from the same nearest-to-mean event used for mean_PeakFlow."),
-                    value_type="string",
-                ),
-                "mean_TP": ColumnDefinition(
-                    name="mean_TP",
-                    description=("Temporal pattern taken from the same nearest-to-mean event used for mean_PeakFlow."),
-                    value_type="string",
-                ),
-                "mean_Q": ColumnDefinition(
-                    name="mean_Q",
-                    description="Arithmetic mean discharge for the grouped culvert results.",
-                    value_type="float",
-                ),
-                "mean_V": ColumnDefinition(
-                    name="mean_V",
-                    description="Arithmetic mean velocity for the grouped culvert results.",
-                    value_type="float",
-                ),
-                "mean_DS_h": ColumnDefinition(
-                    name="mean_DS_h",
-                    description="Arithmetic mean downstream water level for the grouped culvert results.",
-                    value_type="float",
-                ),
-                "mean_US_h": ColumnDefinition(
-                    name="mean_US_h",
-                    description="Arithmetic mean upstream water level for the grouped culvert results.",
-                    value_type="float",
-                ),
-                "low": ColumnDefinition(
-                    name="low",
-                    description="Minimum statistic encountered across all temporal patterns in the group.",
-                    value_type="float",
-                ),
-                "high": ColumnDefinition(
-                    name="high",
-                    description="Maximum statistic encountered across all temporal patterns in the group.",
-                    value_type="float",
-                ),
-                "count": ColumnDefinition(
-                    name="count",
-                    description="Number of rows contributing to the mean/median statistics for the selected duration.",
-                    value_type="int",
-                ),
-                "count_bin": ColumnDefinition(
-                    name="count_bin",
-                    description="Total number of records considered across all durations for the group.",
-                    value_type="int",
-                ),
-                "mean_storm_is_median_storm": ColumnDefinition(
-                    name="mean_storm_is_median_storm",
-                    description="Deprecated. Don't use. Indicates whether the mean storm matches the median storm selection.",
-                    value_type="boolean",
-                ),
-                "mean_bin": ColumnDefinition(
-                    name="mean_bin",
-                    description="Number of events contributing non-null mean metrics within the group.",
-                    value_type="int",
-                ),
-                "aep_dur_bin": ColumnDefinition(
-                    name="aep_dur_bin",
-                    description="Count of records in the original AEP/Duration/Location/Type/run combination.",
-                    value_type="int",
-                ),
-                "aep_bin": ColumnDefinition(
-                    name="aep_bin",
-                    description="Count of records in the original AEP/Location/Type/run combination.",
-                    value_type="int",
-                ),
-                "min_Q": ColumnDefinition(
-                    name="min_Q",
-                    description="Minimum discharge observed across the grouped culvert events.",
-                    value_type="float",
-                ),
-                "min_V": ColumnDefinition(
-                    name="min_V",
-                    description="Minimum velocity observed across the grouped culvert events.",
-                    value_type="float",
-                ),
-                "min_DS_h": ColumnDefinition(
-                    name="min_DS_h",
-                    description="Minimum downstream water level observed across the grouped culvert events.",
-                    value_type="float",
-                ),
-                "min_US_h": ColumnDefinition(
-                    name="min_US_h",
-                    description="Minimum upstream water level observed across the grouped culvert events.",
-                    value_type="float",
-                ),
-                "max_Q": ColumnDefinition(
-                    name="max_Q",
-                    description="Maximum discharge observed across the grouped culvert events.",
-                    value_type="float",
-                ),
-                "max_V": ColumnDefinition(
-                    name="max_V",
-                    description="Maximum velocity observed across the grouped culvert events.",
-                    value_type="float",
-                ),
-                "max_DS_h": ColumnDefinition(
-                    name="max_DS_h",
-                    description="Maximum downstream water level observed across the grouped culvert events.",
-                    value_type="float",
-                ),
-                "max_US_h": ColumnDefinition(
-                    name="max_US_h",
-                    description="Maximum upstream water level observed across the grouped culvert events.",
-                    value_type="float",
-                ),
-                "adopted_Q": ColumnDefinition(
-                    name="adopted_Q",
-                    description=(
-                        "Discharge from the event whose Q value is closest to the sample mean for the group; used as the adopted"
-                        " representative flow."
-                    ),
-                    value_type="float",
-                ),
-                "adopted_V": ColumnDefinition(
-                    name="adopted_V",
-                    description="Velocity from the adopted event associated with the adopted_Q selection.",
-                    value_type="float",
-                ),
-                "adopted_DS_h": ColumnDefinition(
-                    name="adopted_DS_h",
-                    description="Downstream water level from the adopted event associated with the adopted_Q selection.",
-                    value_type="float",
-                ),
-                "adopted_US_h": ColumnDefinition(
-                    name="adopted_US_h",
-                    description="Upstream water level from the adopted event associated with the adopted_Q selection.",
-                    value_type="float",
-                ),
-            }
-
-            sheet_specific: dict[str, dict[str, ColumnDefinition]] = {
-                "aep-dur-max": {
-                    "AbsMax": ColumnDefinition(
-                        name="AbsMax",
-                        description="Peaks for the AEP/Duration/Location/Type/run grouping.",
-                        value_type="float",
-                    ),
-                },
-                "aep-max": {
-                    "AbsMax": ColumnDefinition(
-                        name="AbsMax",
-                        description="Peaks for the AEP/Location/Type/run grouping.",
-                        value_type="float",
-                    ),
-                },
-                "aep-dur-med": {
-                    "MedianAbsMax": ColumnDefinition(
-                        name="MedianAbsMax",
-                        description="Medians for the specific AEP/Duration/Location/Type/run grouping.",
-                        value_type="float",
-                    ),
-                },
-                "aep-med-max": {
-                    "MedianAbsMax": ColumnDefinition(
-                        name="MedianAbsMax",
-                        description="Medians the maximum median per AEP/Location/Type/run grouping.",
-                        value_type="float",
-                    ),
-                },
-            }
-
+        if cls._INSTANCE is None:
             cls._INSTANCE = cls(
-                base_definitions=base_definitions,
-                sheet_specific=sheet_specific,
+                base_definitions=DEFAULT_BASE_DEFINITIONS,
+                sheet_specific=DEFAULT_SHEET_SPECIFIC_DEFINITIONS,
             )
         return cls._INSTANCE
 
