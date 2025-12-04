@@ -1,6 +1,7 @@
 # ryan_library/scripts/pomm_utils.py
 """Utility helpers for processing POMM CSV files."""
 # pyright: reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
+from __future__ import annotations
 
 from pathlib import Path
 from multiprocessing import Pool, Queue
@@ -114,6 +115,7 @@ def combine_processors_from_paths(
     include_data_types: list[str] | None = None,
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
+    log_queue: QueueType | None = None,
 ) -> ProcessorCollection:
     """Return a :class:`ProcessorCollection` for the provided directories."""
     if include_data_types is None:
@@ -121,9 +123,11 @@ def combine_processors_from_paths(
 
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
 
-    with setup_logger(console_log_level=console_log_level) as log_queue:
-        log_queue_typed: QueueType = log_queue
-        logger.info("Starting POMM processing for combine_processors_from_paths.")
+    def _run_with_queue(queue: QueueType) -> ProcessorCollection:
+        logger.info(
+            f"Starting POMM processing for combine_processors_from_paths. Data types: {include_data_types}; "
+            f"searching in {len(paths_to_process)} folder(s)."
+        )
         csv_file_list: list[Path] = collect_files(
             paths_to_process=paths_to_process,
             include_data_types=include_data_types,
@@ -132,15 +136,28 @@ def combine_processors_from_paths(
         if not csv_file_list:
             logger.info("No valid files found to process.")
             return ProcessorCollection()
+        logger.info(f"Found {len(csv_file_list)} CSV file(s) to process.")
 
-        results_set: ProcessorCollection = process_files_in_parallel(
+        results_set_local: ProcessorCollection = process_files_in_parallel(
             file_list=csv_file_list,
-            log_queue=log_queue_typed,
+            log_queue=queue,
             location_filter=normalized_locations if normalized_locations else None,
         )
+        processed_count: int = len(results_set_local.processors)
+        combined_rows: int = sum(len(processor.df) for processor in results_set_local.processors)
+        logger.info(f"Processed {processed_count} file(s); combined {combined_rows} row(s) before filters.")
+        return results_set_local
+
+    if log_queue is None:
+        with setup_logger(console_log_level=console_log_level) as queue:
+            results_set: ProcessorCollection = _run_with_queue(queue)
+    else:
+        results_set = _run_with_queue(log_queue)
 
     if normalized_locations:
         results_set.filter_locations(normalized_locations)
+        filtered_rows: int = sum(len(processor.df) for processor in results_set.processors)
+        logger.info(f"Applied location filter; rows after filtering: {filtered_rows}.")
 
     return results_set
 
@@ -150,6 +167,7 @@ def combine_df_from_paths(
     include_data_types: list[str] | None = None,
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
+    log_queue: QueueType | None = None,
 ) -> DataFrameAny:
     """Return an aggregated DataFrame for the given directories."""
     results_set: ProcessorCollection = combine_processors_from_paths(
@@ -157,28 +175,34 @@ def combine_df_from_paths(
         include_data_types=include_data_types,
         console_log_level=console_log_level,
         locations_to_include=locations_to_include,
+        log_queue=log_queue,
     )
 
     if not results_set.processors:
         return DataFrame()
 
-    return results_set.pomm_combine()
+    combined: DataFrameAny = results_set.pomm_combine()
+    logger.info(f"Combined POMM/RLL data into a single DataFrame with {len(combined)} row(s).")
+    return combined
 
 
 def aggregated_from_paths(
     paths: list[Path],
     locations_to_include: Collection[str] | None = None,
     include_data_types: list[str] | None = None,
+    log_queue: QueueType | None = None,
 ) -> DataFrameAny:
     """Process directories and return a combined POMM DataFrame."""
     df: DataFrameAny = combine_df_from_paths(
         paths_to_process=paths,
         locations_to_include=locations_to_include,
         include_data_types=include_data_types,
+        log_queue=log_queue,
     )
 
     if df.empty:
         return df
+    logger.info(f"Aggregated dataframe ready for normalisation with {len(df)} row(s).")
 
     # Normalize columns for RLLQmx support
     if "Location" in df.columns and "Chan ID" in df.columns:
@@ -757,6 +781,10 @@ def save_peak_report_mean(
 
     aep_dur_mean: DataFrameAny = find_aep_dur_mean(aggregated_df=aggregated_df)
     aep_mean_max: DataFrameAny = find_aep_mean_max(aep_dur_mean=aep_dur_mean)
+    logger.info(
+        f"Preparing mean peak report. POMM rows: {len(aggregated_df)}, "
+        f"AEP-duration mean rows: {len(aep_dur_mean)}, AEP mean-max rows: {len(aep_mean_max)}."
+    )
     output_filename: str = f"{timestamp}{suffix}"
     output_path: Path = script_directory / output_filename
     logger.info(f"Starting export of mean peak report to {output_path}")
