@@ -12,12 +12,12 @@ INCLUDE_DATA_TYPES: tuple[str, ...] = ("POMM", "RLL_Qmx")
 # Change the working directory
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
+
 import argparse
 import gc
-
 import os
 
-from ryan_library.scripts.pomm_max_items import export_mean_peak_report
+from ryan_library.scripts.tuflow.pomm_max_items import export_mean_peak_report
 from ryan_library.scripts.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,

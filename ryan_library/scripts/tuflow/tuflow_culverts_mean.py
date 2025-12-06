@@ -50,73 +50,72 @@ def run_culvert_mean_report(
             paths_to_process=[script_directory],
             include_data_types=data_types,
             log_queue=log_queue,
+            console_log_level=log_level,
         )
-    log_queue.close()
-    log_queue.join_thread()
 
-    if locations_to_include:
-        normalized_locations: frozenset[str] = collection.filter_locations(locations=locations_to_include)
-        if not normalized_locations:
-            logger.warning("Location filter provided but no valid values found. Continuing without filtering.")
+        if locations_to_include:
+            normalized_locations: frozenset[str] = collection.filter_locations(locations=locations_to_include)
+            if not normalized_locations:
+                logger.warning("Location filter provided but no valid values found. Continuing without filtering.")
 
-    if not collection.processors:
+        if not collection.processors:
+            warn_on_invalid_types(
+                invalid_types=invalid_types,
+                accepted_types=ACCEPTED_DATA_TYPES,
+                context="Culvert mean report completed",
+            )
+            logger.warning("No culvert result files were processed. Skipping export.")
+            return
+
+        aggregated_df: pd.DataFrame = collection.combine_1d_maximums()
+        if aggregated_df.empty:
+            warn_on_invalid_types(
+                invalid_types=invalid_types,
+                accepted_types=ACCEPTED_DATA_TYPES,
+                context="Culvert mean report completed",
+            )
+            logger.warning("Combined culvert maximums DataFrame is empty. Skipping export.")
+            return
+
+        aep_dur_mean: pd.DataFrame = find_culvert_aep_dur_mean(aggregated_df)
+        if aep_dur_mean.empty:
+            warn_on_invalid_types(
+                invalid_types=invalid_types,
+                accepted_types=ACCEPTED_DATA_TYPES,
+                context="Culvert mean report completed",
+            )
+            logger.warning("Unable to calculate AEP/Duration mean statistics. Skipping export.")
+            return
+
+        aep_mean_max: pd.DataFrame = find_culvert_aep_mean_max(aep_dur_mean)
+
+        timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
+        output_name: str = f"{timestamp}_culvert_mean_peaks.xlsx"
+        sheet_names: list[str] = ["aep-dur-mean", "aep-mean-max"]
+        sheet_frames: list[pd.DataFrame] = [aep_dur_mean, aep_mean_max]
+
+        if export_raw:
+            sheet_names.append("culvert-maximums")
+            sheet_frames.append(aggregated_df)
+
+        ExcelExporter().export_dataframes(
+            export_dict={
+                Path(output_name).stem: {
+                    "dataframes": sheet_frames,
+                    "sheets": sheet_names,
+                }
+            },
+            output_directory=script_directory,
+            file_name=output_name,
+        )
+
+        logger.info("Culvert mean report exported to {}", script_directory / output_name)
+
         warn_on_invalid_types(
             invalid_types=invalid_types,
             accepted_types=ACCEPTED_DATA_TYPES,
             context="Culvert mean report completed",
         )
-        logger.warning("No culvert result files were processed. Skipping export.")
-        return
-
-    aggregated_df: pd.DataFrame = collection.combine_1d_maximums()
-    if aggregated_df.empty:
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context="Culvert mean report completed",
-        )
-        logger.warning("Combined culvert maximums DataFrame is empty. Skipping export.")
-        return
-
-    aep_dur_mean: pd.DataFrame = find_culvert_aep_dur_mean(aggregated_df)
-    if aep_dur_mean.empty:
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context="Culvert mean report completed",
-        )
-        logger.warning("Unable to calculate AEP/Duration mean statistics. Skipping export.")
-        return
-
-    aep_mean_max: pd.DataFrame = find_culvert_aep_mean_max(aep_dur_mean)
-
-    timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-    output_name: str = f"{timestamp}_culvert_mean_peaks.xlsx"
-    sheet_names: list[str] = ["aep-dur-mean", "aep-mean-max"]
-    sheet_frames: list[pd.DataFrame] = [aep_dur_mean, aep_mean_max]
-
-    if export_raw:
-        sheet_names.append("culvert-maximums")
-        sheet_frames.append(aggregated_df)
-
-    ExcelExporter().export_dataframes(
-        export_dict={
-            Path(output_name).stem: {
-                "dataframes": sheet_frames,
-                "sheets": sheet_names,
-            }
-        },
-        output_directory=script_directory,
-        file_name=output_name,
-    )
-
-    logger.info("Culvert mean report exported to {}", script_directory / output_name)
-
-    warn_on_invalid_types(
-        invalid_types=invalid_types,
-        accepted_types=ACCEPTED_DATA_TYPES,
-        context="Culvert mean report completed",
-    )
 
 
 ADOPTED_SOURCE_COLUMNS: tuple[str, ...] = ("Q", "V", "DS_h", "US_h")

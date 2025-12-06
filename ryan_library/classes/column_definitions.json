@@ -300,29 +300,21 @@
       "description": "Maximum statistic encountered across all temporal patterns in the group.",
       "value_type": "float"
     },
-    "count": {
-      "description": "Number of rows contributing to the mean/median statistics for the selected duration.",
+    "count_TP": {
+      "description": "Events (TPs) in this AEP-duration bin that contributed to the per-duration statistic.",
       "value_type": "int"
     },
-    "count_bin": {
-      "description": "Total number of records considered across all durations for the group.",
+    "count_TP_aep": {
+      "description": "Sum of contributing events across all durations for this AEP/Location/Type/run.",
+      "value_type": "int"
+    },
+    "count_duration": {
+      "description": "Number of duration bins considered for the AEP/Location/Type/run statistic.",
       "value_type": "int"
     },
     "mean_storm_is_median_storm": {
       "description": "Deprecated. Don't use. Indicates whether the mean storm matches the median storm selection.",
       "value_type": "boolean"
-    },
-    "mean_bin": {
-      "description": "Number of events contributing non-null mean metrics within the group.",
-      "value_type": "int"
-    },
-    "aep_dur_bin": {
-      "description": "Count of records in the original AEP/Duration/Location/Type/run combination.",
-      "value_type": "int"
-    },
-    "aep_bin": {
-      "description": "Count of records in the original AEP/Location/Type/run combination.",
-      "value_type": "int"
     },
     "min_Q": {
       "description": "Minimum discharge observed across the grouped culvert events.",

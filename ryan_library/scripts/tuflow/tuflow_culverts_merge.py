@@ -1,15 +1,17 @@
 # ryan_library/scripts/tuflow/tuflow_culverts_merge.py
 from collections.abc import Collection
-from loguru import logger
 from pathlib import Path
-from pandas.core.frame import DataFrame
+from typing import Literal
+
+import pandas as pd
+from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.misc_functions import ExcelExporter
 from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
+from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 
 DEFAULT_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
 ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
@@ -21,7 +23,8 @@ def main_processing(
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
     output_dir: Path | None = None,
-    output_parquet: bool = False,
+    export_mode: Literal["excel", "parquet", "both"] = "excel",
+    output_parquet: bool | None = None,
 ) -> None:
     """Driver for culvert-merge exports."""
 
@@ -30,9 +33,14 @@ def main_processing(
         default=DEFAULT_DATA_TYPES,
         accepted=ACCEPTED_DATA_TYPES,
     )
-    normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
+    normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=locations_to_include)
 
-    with setup_logger(console_log_level=console_log_level) as log_q:
+    if output_parquet is not None:
+        logger.warning("`output_parquet` is deprecated; use `export_mode` instead.")
+        if output_parquet and export_mode == "excel":
+            export_mode = "both"
+
+    with setup_logger(console_log_level=console_log_level) as log_queue:
         warn_on_invalid_types(
             invalid_types=invalid_types,
             accepted_types=ACCEPTED_DATA_TYPES,
@@ -42,7 +50,8 @@ def main_processing(
         collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
             paths_to_process=paths_to_process,
             include_data_types=requested_types,
-            log_queue=log_q,
+            log_queue=log_queue,
+            console_log_level=console_log_level,
         )
 
         if normalized_locations:
@@ -57,29 +66,34 @@ def main_processing(
             logger.warning("No culvert result files were processed. Skipping export.")
             return
 
-        df1: DataFrame = collection.combine_1d_maximums()
-        df2: DataFrame = collection.combine_raw()
-        if output_parquet:
-            from datetime import datetime
+        maximums_df: pd.DataFrame = collection.combine_1d_maximums()
+        raw_df: pd.DataFrame = collection.combine_raw()
+        if maximums_df.empty and raw_df.empty:
+            warn_on_invalid_types(
+                invalid_types=invalid_types,
+                accepted_types=ACCEPTED_DATA_TYPES,
+                context="Culvert maximums completed",
+            )
+            logger.warning("Combined culvert DataFrames are empty. Skipping export.")
+            return
 
-            datetime_string: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-            df1.to_parquet(path=f"{datetime_string}_1d_maximums_data.parquet")
-
-        export_dict: dict = {
+        export_dict: dict[str, dict[str, list[pd.DataFrame] | list[str]]] = {
             "1d_maximums_data": {
-                "dataframes": [df1, df2],
+                "dataframes": [maximums_df, raw_df],
                 "sheets": ["Maximums", "raw_data"],
             }
         }
-        logger.info("exporting to excel")
-        ExcelExporter().export_dataframes(export_dict=export_dict, output_directory=output_dir)
-        logger.info("Done.")
+        logger.info(f"Exporting culvert maximums to {output_dir or Path.cwd()}")
+        ExcelExporter().export_dataframes(
+            export_dict=export_dict,
+            output_directory=output_dir,
+            export_mode=export_mode,
+            parquet_compression="gzip",
+        )
+        logger.info("Culvert maximums export complete.")
 
         warn_on_invalid_types(
             invalid_types=invalid_types,
             accepted_types=ACCEPTED_DATA_TYPES,
             context="Culvert maximums completed",
         )
-    # tell the queue “no more data” and wait for its feeder thread to finish
-    log_q.close()
-    log_q.join_thread()

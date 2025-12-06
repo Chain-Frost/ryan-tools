@@ -26,7 +26,7 @@ def summarise_duration_statistics(durgrp: pd.DataFrame, stat_col: str, tp_col: s
         closest_idx: int | str = (stat_series - mean_including_zeroes).abs().idxmin()
         mean_duration = ensemblestat.loc[closest_idx, dur_col]
         mean_tp = ensemblestat.loc[closest_idx, tp_col]
-        mean_peak_flow = float(ensemblestat.loc[closest_idx, stat_col])
+        mean_peak_flow = float(pd.to_numeric(ensemblestat.loc[closest_idx, stat_col], errors="coerce"))
 
     return {
         "mean_including_zeroes": mean_including_zeroes,
@@ -38,7 +38,7 @@ def summarise_duration_statistics(durgrp: pd.DataFrame, stat_col: str, tp_col: s
         "mean_PeakFlow": mean_peak_flow,
         "low": ensemblestat[stat_col].iloc[0],
         "high": ensemblestat[stat_col].iloc[-1],
-        "count": r,
+        "count_TP": r,
         "median": ensemblestat[stat_col].iloc[medianpos],
     }
 
@@ -73,7 +73,8 @@ def calculate_median_statistics(
     max_stats_dict: dict[str, Any] = {}
     bin_stats_list: list[dict[str, Any]] = []
     tracking_median: float = float("-inf")
-    count_bin: int = 0
+    count_TP_aep: int = 0
+    duration_bins: int = 0
 
     for _, durgrp in thinned_df.groupby(by=dur_col):  # type: ignore
         stats_dict: dict[str, Any] = summarise_duration_statistics(
@@ -85,9 +86,11 @@ def calculate_median_statistics(
             tracking_median = stats_dict["median"]
 
         bin_stats_list.append(stats_dict)
-        count_bin += stats_dict["count"]
+        count_TP_aep += stats_dict["count_TP"]
+        duration_bins += 1
 
-    max_stats_dict["count_bin"] = count_bin
+    max_stats_dict["count_TP_aep"] = count_TP_aep
+    max_stats_dict["count_duration"] = duration_bins
     # override low/high with the true min/max over all groups:
     if not thinned_df.empty:
         global_low = float(thinned_df[stat_col].min())

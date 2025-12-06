@@ -77,7 +77,6 @@ class BaseProcessor(ABC):
     output_columns: dict[str, str] = field(init=False, default_factory=lambda: cast(dict[str, str], {}))
     dataformat: str = field(init=False, default="")
     processor_module: str | None = field(init=False, default=None)
-    skip_columns: list[int] = field(init=False, default_factory=lambda: cast(list[int], []))
     columns_to_use: dict[str, str] = field(init=False, default_factory=lambda: cast(dict[str, str], {}))
     expected_in_header: list[str] = field(init=False, default_factory=lambda: cast(list[str], []))
 
@@ -230,12 +229,11 @@ class BaseProcessor(ABC):
         processing_parts: ProcessingParts = data_type_def.processing_parts
         self.dataformat = processing_parts.dataformat
         self.processor_module = processing_parts.processor_module
-        self.skip_columns: list[int] = processing_parts.skip_columns
         self.columns_to_use: dict[str, str] = processing_parts.columns_to_use
         self.expected_in_header: list[str] = processing_parts.expected_in_header
         logger.debug(
             f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, "
-            f"processor_module: {self.processor_module}, skip_columns: {self.skip_columns}"
+            f"processor_module: {self.processor_module}"
         )
         processing_parts_payload: dict[str, Any] = processing_parts.to_dict()
         if not self.dataformat:
