@@ -64,17 +64,17 @@ def main_processing(
             location_filter=normalized_locations if normalized_locations else None,
         )
 
-    if normalized_locations:
-        results_set.filter_locations(locations=normalized_locations)
+        if normalized_locations:
+            results_set.filter_locations(locations=normalized_locations)
 
-    export_results(results=results_set, export_mode=export_mode)
-    logger.info("End of POMM results combination processing")
+        export_results(results=results_set, export_mode=export_mode)
+        logger.info("End of POMM results combination processing")
 
-    warn_on_invalid_types(
-        invalid_types=invalid_types,
-        accepted_types=ACCEPTED_DATA_TYPES,
-        context="POMM combination completed",
-    )
+        warn_on_invalid_types(
+            invalid_types=invalid_types,
+            accepted_types=ACCEPTED_DATA_TYPES,
+            context="POMM combination completed",
+        )
 
 
 def export_results(*, results: ProcessorCollection, export_mode: Literal["excel", "parquet", "both"] = "excel") -> None:

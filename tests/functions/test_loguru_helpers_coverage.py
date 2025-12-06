@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch, ANY
 import pickle
 from ryan_library.functions import loguru_helpers
 
+
 class TestLoguruHelpersCoverage:
     @patch("ryan_library.functions.loguru_helpers.logger")
     def test_reset_logging(self, mock_logger):
@@ -16,7 +17,7 @@ class TestLoguruHelpersCoverage:
     def test_configure_serial_logging_console_only(self, mock_logger):
         """Test configure_serial_logging with console only."""
         loguru_helpers.configure_serial_logging(console_log_level="DEBUG")
-        
+
         # Should call remove once
         mock_logger.remove.assert_called_once()
         # Should call add once for console
@@ -30,17 +31,17 @@ class TestLoguruHelpersCoverage:
     def test_configure_serial_logging_with_file(self, mock_add_file, mock_logger):
         """Test configure_serial_logging with file."""
         loguru_helpers.configure_serial_logging(log_file="test.log")
-        
+
         mock_logger.remove.assert_called_once()
-        mock_logger.add.assert_called_once() # Console
-        mock_add_file.assert_called_once_with("test.log")
+        mock_logger.add.assert_called_once()  # Console
+        mock_add_file.assert_called_once_with(log_file="test.log")
 
     @patch("ryan_library.functions.loguru_helpers.logger")
     def test_add_file_sink(self, mock_logger):
         """Test add_file_sink."""
         with patch("os.getcwd", return_value="/tmp"):
             loguru_helpers.add_file_sink("test.log")
-            
+
             mock_logger.add.assert_called_once()
             args, kwargs = mock_logger.add.call_args
             # Check if path is absolute
@@ -58,19 +59,19 @@ class TestLoguruHelpersCoverage:
         """Test worker_initializer."""
         mock_queue = MagicMock()
         loguru_helpers.worker_initializer(mock_queue)
-        mock_configurer.assert_called_once_with(mock_queue)
+        mock_configurer.assert_called_once_with(queue=mock_queue, level="DEBUG")
 
     @patch("ryan_library.functions.loguru_helpers.logger")
     def test_worker_configurer(self, mock_logger):
         """Test worker_configurer."""
         mock_queue = MagicMock()
         loguru_helpers.worker_configurer(mock_queue)
-        
+
         mock_logger.remove.assert_called_once()
         mock_logger.add.assert_called_once()
         # Check if sink is passed
         args, kwargs = mock_logger.add.call_args
-        sink = args[0]
+        sink = kwargs.get("sink") or args[0]
         # Just verify it's an object with a write method, which QueueSink has
         assert hasattr(sink, "write")
 
@@ -88,10 +89,10 @@ class TestLoguruHelpersCoverage:
     def test_listener_process_loop(self, mock_pickle, mock_logger):
         """Test listener_process loop processing."""
         mock_queue = MagicMock()
-        
+
         # Simulate queue items: 1 record (any object), then None to exit
         mock_queue.get.side_effect = [b"somebytes", None]
-        
+
         # Mock pickle.loads to return a dict-like object
         record_dict = {
             "level": MagicMock(name="INFO"),
@@ -100,14 +101,14 @@ class TestLoguruHelpersCoverage:
             "function": "func",
             "line": 10,
             "exception": None,
-            "file": "other.py"
+            "file": "other.py",
         }
         record_dict["level"].name = "INFO"
-        
+
         mock_pickle.loads.return_value = record_dict
-        
+
         loguru_helpers.listener_process(mock_queue)
-        
+
         # Verify logger.log was called
         mock_logger.log.assert_called()
         args, _ = mock_logger.log.call_args
@@ -120,14 +121,12 @@ class TestLoguruHelpersCoverage:
         """Test listener_process filters logs from loguru_helpers.py."""
         mock_queue = MagicMock()
         mock_queue.get.side_effect = [b"bytes", None]
-        
-        record_dict = {
-            "file": "loguru_helpers.py"
-        }
+
+        record_dict = {"file": "loguru_helpers.py"}
         mock_pickle.loads.return_value = record_dict
-        
+
         loguru_helpers.listener_process(mock_queue)
-        
+
         # Should NOT log
         mock_logger.log.assert_not_called()
         mock_logger.opt.assert_not_called()

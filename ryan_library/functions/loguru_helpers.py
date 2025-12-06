@@ -31,10 +31,14 @@ else:
     LogQueue = Queue
 
 
-def worker_initializer(queue: LogQueue) -> None:
+def worker_initializer(queue: LogQueue, level: str = "DEBUG") -> None:
     """Initializer for worker processes in a multiprocessing Pool.
-    Configures the logger to send log records to the centralized logging queue."""
-    worker_configurer(queue=queue)
+    Configures the logger to send log records to the centralized logging queue.
+
+    Parameters:
+        queue (Queue): The multiprocessing queue to send log records.
+        level (str): Minimum log level workers should emit."""
+    worker_configurer(queue=queue, level=level)
 
 
 def reset_logging() -> None:
@@ -143,10 +147,11 @@ def listener_process(queue: LogQueue, log_file: str | None = None, console_log_l
             logger.opt(exception=True).error("Error in logging listener")
 
 
-def worker_configurer(queue: LogQueue) -> None:
+def worker_configurer(queue: LogQueue, level: str = "DEBUG") -> None:
     """Configures the logger for a worker process to send log records to the listener via the queue.
     Parameters:
-        queue (Queue): The multiprocessing queue to send log records."""
+        queue (Queue): The multiprocessing queue to send log records.
+        level (str): Minimum log level workers should emit."""
 
     class QueueSink:
         """Custom sink that serializes log messages and sends them to a multiprocessing queue."""
@@ -171,7 +176,7 @@ def worker_configurer(queue: LogQueue) -> None:
 
     logger.remove()  # Remove default handlers
     # Add the custom queue sink
-    logger.add(sink=QueueSink(queue=queue), level="DEBUG", format=LOG_FORMAT)
+    logger.add(sink=QueueSink(queue=queue), level=level, format=LOG_FORMAT)
 
 
 class LoguruMultiprocessingLogger:
@@ -197,7 +202,7 @@ class LoguruMultiprocessingLogger:
         self.listener.start()
 
         # configure this (main) process’s logger to use the queue
-        worker_configurer(self.queue)
+        worker_configurer(queue=self.queue, level=self.console_log_level)
 
         # ensure cleanup at exit
         atexit.register(self.shutdown)

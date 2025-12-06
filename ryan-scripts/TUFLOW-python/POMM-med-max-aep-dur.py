@@ -18,7 +18,7 @@ import argparse
 import gc
 import os
 
-from ryan_library.scripts.pomm_max_items import export_median_peak_report
+from ryan_library.scripts.tuflow.pomm_max_items import export_median_peak_report
 from ryan_library.scripts.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,

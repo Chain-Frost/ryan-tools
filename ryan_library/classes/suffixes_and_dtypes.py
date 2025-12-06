@@ -4,13 +4,24 @@ import json
 from pathlib import Path
 from loguru import logger
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 from threading import Lock
+
+
+def _empty_str_dict() -> dict[str, str]:
+    return {}
+
+
+def _empty_str_list() -> list[str]:
+    return []
 
 
 class ConfigLoader:
     """A centralized configuration loader that loads a single JSON configuration file
-    and provides access to its components."""
+    and provides access to its components.
+
+    This loader is intentionally fail-fast: missing files or malformed JSON raise
+    immediately so callers do not proceed with partial configuration."""
 
     def __init__(self, config_path: Path) -> None:
         self.config_path: Path = config_path
@@ -23,15 +34,21 @@ class ConfigLoader:
             dict[str, Any]: The loaded JSON data."""
         try:
             with self.config_path.open("r", encoding="utf-8") as file:
-                config: dict = json.load(file)
-                logger.debug(f"Loaded configuration from {self.config_path}: {config}")
-                return config
+                config: Any = json.load(file)
+                if not isinstance(config, dict):
+                    message: str = f"Configuration root is not a mapping in {self.config_path}"
+                    logger.error(message)
+                    raise ValueError(message)
+                typed_config: dict[str, Any] = cast(dict[str, Any], config)
+                logger.debug("Loaded configuration from {}: {}", self.config_path, typed_config)
+                return typed_config
         except FileNotFoundError:
             logger.error(f"Configuration file not found at {self.config_path}")
-            return {}
+            raise
         except json.JSONDecodeError as e:
-            logger.error(f"Error decoding JSON from {self.config_path}: {e}")
-            return {}
+            message = f"Error decoding JSON from {self.config_path}: {e}"
+            logger.error(message)
+            raise ValueError(message)
 
     def get_data_types(self) -> dict[str, Any]:
         """Extract the data types section from the configuration.
@@ -39,10 +56,7 @@ class ConfigLoader:
         Returns:
             dict[str, Any]: The data types configuration."""
         data_types: dict[str, Any] = self.config_data
-        if not isinstance(data_types, dict):
-            logger.error("Invalid format for data types. Expected a dictionary at the top level.")
-            return {}
-        logger.debug(f"Data types loaded: {list(data_types.keys())}")
+        logger.debug("Data types loaded: {}", list(data_types.keys()))
         return data_types
 
 
@@ -52,9 +66,8 @@ class ProcessingParts:
 
     dataformat: str = ""
     processor_module: str | None = None
-    skip_columns: list[int] = field(default_factory=list)
-    columns_to_use: dict[str, str] = field(default_factory=dict)
-    expected_in_header: list[str] = field(default_factory=list)
+    columns_to_use: dict[str, str] = field(default_factory=_empty_str_dict)
+    expected_in_header: list[str] = field(default_factory=_empty_str_list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], data_type_name: str) -> "ProcessingParts":
@@ -65,60 +78,87 @@ class ProcessingParts:
         processor_module: str | None = None
         if isinstance(module_raw, str) and module_raw.strip():
             processor_module = module_raw.strip()
-        elif module_raw not in (None, ""):
-            logger.error(
-                f"Invalid 'module' value for processingParts in '{data_type_name}'. Expected a non-empty string."
-            )
+        elif module_raw is not None and module_raw != "":
+            message = f"Invalid 'module' value for processingParts in '{data_type_name}'. Expected a non-empty string."
+            logger.error(message)
+            raise ValueError(message)
 
         if isinstance(dataformat_raw, dict):
-            category_value: Any = dataformat_raw.get("category")
+            df_dict: dict[str, Any] = cast(dict[str, Any], dataformat_raw)
+            category_value: Any = df_dict.get("category")
             if isinstance(category_value, str):
                 dataformat = category_value
             elif category_value is not None:
-                logger.error(f"Invalid 'category' value for dataformat in '{data_type_name}'. Expected a string.")
+                message = f"Invalid 'category' value for dataformat in '{data_type_name}'. Expected a string."
+                logger.error(message)
+                raise ValueError(message)
 
-            module_value: Any = dataformat_raw.get("module")
-            if module_value not in (None, ""):
+            module_value: Any = df_dict.get("module")
+            if module_value is not None and module_value != "":
                 if isinstance(module_value, str) and module_value.strip():
                     if processor_module is None:
                         processor_module = module_value.strip()
                     logger.warning(
-                        "'dataformat.module' in '%s' is deprecated; move it to 'processingParts.module'.",
+                        "'dataformat.module' in '{}' is deprecated; move it to 'processingParts.module'.",
                         data_type_name,
                     )
                 else:
-                    logger.error(
+                    message: str = (
                         f"Invalid 'module' value for dataformat in '{data_type_name}'. Expected a non-empty string."
                     )
+                    logger.error(message)
+                    raise ValueError(message)
         elif isinstance(dataformat_raw, str):
             dataformat = dataformat_raw
-        elif dataformat_raw not in (None, ""):
-            logger.error(f"Invalid format for dataformat in '{data_type_name}'. Expected a string or mapping.")
+        elif dataformat_raw is not None and dataformat_raw != "":
+            message = f"Invalid format for dataformat in '{data_type_name}'. Expected a string or mapping."
+            logger.error(message)
+            raise ValueError(message)
 
-        # skip_columns is deprecated; log and ignore
-        skip_columns = data.get("skip_columns", [])
-        if skip_columns:
-            logger.warning(f"'skip_columns' is deprecated and will be ignored for '{data_type_name}'.")
+        if "skip_columns" in data:
+            message = f"'skip_columns' is no longer supported for '{data_type_name}'. Remove it from configuration."
+            logger.error(message)
+            raise ValueError(message)
 
-        columns_to_use: dict[str, str] = data.get("columns_to_use", {})
-        if not isinstance(columns_to_use, dict):
-            logger.error(f"Invalid format for columns_to_use in '{data_type_name}'. Expected a dictionary.")
-            columns_to_use = {}
+        columns_to_use_raw: Any = data.get("columns_to_use", {})
+        columns_to_use: dict[str, str] = {}
+        if not isinstance(columns_to_use_raw, dict):
+            message = f"Invalid format for columns_to_use in '{data_type_name}'. Expected a dictionary."
+            logger.error(message)
+            raise ValueError(message)
+        columns_to_use_raw_dict: dict[object, object] = cast(dict[object, object], columns_to_use_raw)
+        for k, v in columns_to_use_raw_dict.items():
+            if isinstance(k, str) and isinstance(v, str):
+                columns_to_use[k] = v
+            else:
+                message = f"Non-string key or value in columns_to_use in '{data_type_name}'."
+                logger.error(message)
+                raise ValueError(message)
+
+        expected_in_header_raw: Any = data.get("expected_in_header", [])
+        expected_in_header: list[str] = []
+        if isinstance(expected_in_header_raw, list):
+            expected_in_header_raw_list: list[object] = cast(list[object], expected_in_header_raw)
+            for item in expected_in_header_raw_list:
+                if isinstance(item, str):
+                    expected_in_header.append(item)
+                else:
+                    message = f"Non-string item in expected_in_header in '{data_type_name}'."
+                    logger.error(message)
+                    raise ValueError(message)
         else:
-            # Ensure all values are strings
-            if not all(isinstance(v, str) for v in columns_to_use.values()):
-                logger.error(f"All values in columns_to_use in '{data_type_name}' must be strings.")
-                columns_to_use = {}
-
-        expected_in_header: list[str] = data.get("expected_in_header", [])
-        if not isinstance(expected_in_header, list) or not all(isinstance(item, str) for item in expected_in_header):
-            logger.error(f"Invalid format for expected_in_header in '{data_type_name}'. Expected a list of strings.")
-            expected_in_header = []
+            message = f"Invalid format for expected_in_header in '{data_type_name}'. Expected a list of strings."
+            logger.error(message)
+            raise ValueError(message)
 
         logger.debug(
-            f"ProcessingParts loaded for '{data_type_name}': "
-            f"dataformat={dataformat}, processor_module={processor_module}, "
-            f"columns_to_use={columns_to_use}, expected_in_header={expected_in_header}"
+            "ProcessingParts loaded for '{}': dataformat={}, processor_module={}, columns_to_use={}, "
+            "expected_in_header={}",
+            data_type_name,
+            dataformat,
+            processor_module,
+            columns_to_use,
+            expected_in_header,
         )
         return cls(
             dataformat=dataformat,
@@ -151,39 +191,69 @@ class DataTypeDefinition:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], data_type_name: str) -> "DataTypeDefinition":
-        processor: str | None = data.get("processor")
-        if not isinstance(processor, str):
-            logger.error(f"Invalid or missing 'processor' in '{data_type_name}'. Expected a string.")
-            processor = ""
+        processor: Any = data.get("processor")
+        p_str: str = ""
+        if isinstance(processor, str):
+            p_str = processor
+        else:
+            message: str = f"Invalid or missing 'processor' in '{data_type_name}'. Expected a string."
+            logger.error(message)
+            raise ValueError(message)
 
-        suffixes: list[str] = data.get("suffixes", [])
-        if not isinstance(suffixes, list):
-            logger.error(f"Invalid format for suffixes in '{data_type_name}'. Expected a list.")
-            suffixes = []
+        suffixes_raw: Any = data.get("suffixes", [])
+        suffixes: list[str] = []
+        if isinstance(suffixes_raw, list):
+            suffixes_raw_list: list[object] = cast(list[object], suffixes_raw)
+            for item in suffixes_raw_list:
+                if isinstance(item, str):
+                    suffixes.append(item)
+                else:
+                    message = f"Non-string item in suffixes in '{data_type_name}'."
+                    logger.error(message)
+                    raise ValueError(message)
+        else:
+            message = f"Invalid format for suffixes in '{data_type_name}'. Expected a list."
+            logger.error(message)
+            raise ValueError(message)
 
-        output_columns: dict[str, str] = data.get("output_columns", {})
-        if not isinstance(output_columns, dict):
-            logger.error(f"Invalid format for output_columns in '{data_type_name}'. Expected a dictionary.")
-            output_columns = {}
+        output_columns_raw: Any = data.get("output_columns", {})
+        output_columns: dict[str, str] = {}
+        if not isinstance(output_columns_raw, dict):
+            message = f"Invalid format for output_columns in '{data_type_name}'. Expected a dictionary."
+            logger.error(message)
+            raise ValueError(message)
+        output_columns_raw_dict: dict[object, object] = cast(dict[object, object], output_columns_raw)
+        for k, v in output_columns_raw_dict.items():
+            if isinstance(k, str) and isinstance(v, str):
+                output_columns[k] = v
+            else:
+                message = f"Non-string key or value in output_columns in '{data_type_name}'."
+                logger.error(message)
+                raise ValueError(message)
 
-        processing_parts_data: dict[str, Any] = data.get("processingParts", {})
-        if not isinstance(processing_parts_data, dict):
-            logger.error(f"Invalid format for processingParts in '{data_type_name}'. Expected a dictionary.")
-            processing_parts_data = {}
-
-        processing_parts: ProcessingParts = ProcessingParts.from_dict(
-            data=processing_parts_data, data_type_name=data_type_name
-        )
+        processing_parts_data: Any = data.get("processingParts", {})
+        parts: ProcessingParts
+        if isinstance(processing_parts_data, dict):
+            processing_parts_dict: dict[str, Any] = cast(dict[str, Any], processing_parts_data)
+            parts = ProcessingParts.from_dict(data=processing_parts_dict, data_type_name=data_type_name)
+        else:
+            message = f"Invalid format for processingParts in '{data_type_name}'. Expected a dictionary."
+            logger.error(message)
+            raise ValueError(message)
 
         logger.debug(
-            f"DataTypeDefinition loaded for '{data_type_name}': processor={processor}, suffixes={suffixes}, "
-            f"output_columns={output_columns}, processing_parts={processing_parts.to_dict()}"
+            "DataTypeDefinition loaded for '{}': processor={}, suffixes={}, output_columns={}, processing_parts={}",
+            data_type_name,
+            p_str,
+            suffixes,
+            output_columns,
+            parts.to_dict(),
         )
         return cls(
-            processor=processor,
+            processor=p_str,
             suffixes=suffixes,
             output_columns=output_columns,
-            processing_parts=processing_parts,
+            processing_parts=parts,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -209,29 +279,34 @@ class Config:
 
     def __init__(self, data_types: dict[str, DataTypeDefinition]) -> None:
         if Config._instance is not None:
-            raise Exception("This class is a singleton!")
+            raise RuntimeError("This class is a singleton!")
         self.data_types: dict[str, DataTypeDefinition] = data_types
 
     @classmethod
     def load(cls, config_path: Path | None = None) -> "Config":
-        """Load the Config either from a provided config_path or from the default path."""
+        """Load the Config either from a provided config_path or from the default path.
+
+        This method fails fast: unreadable configs or invalid data type entries raise
+        ValueError/FileNotFoundError rather than being skipped."""
         if config_path is None:
             config_dir: Path = Path(__file__).parent
             config_path = config_dir / cls.DEFAULT_CONFIG_FILENAME
-            logger.debug(f"No config_path provided. Using default path: {config_path}")
+            logger.debug("No config_path provided. Using default path: {}", config_path)
         else:
-            logger.debug(f"Loading Config from provided path: {config_path}")
+            logger.debug("Loading Config from provided path: {}", config_path)
 
         loader = ConfigLoader(config_path=config_path)
         raw_data_types: dict[str, Any] = loader.get_data_types()
         data_types: dict[str, DataTypeDefinition] = {}
         for key, value in raw_data_types.items():
             if not isinstance(value, dict):
-                logger.error(f"Invalid format for data type '{key}'. Expected a dictionary.")
-                continue
-            data_type_def: DataTypeDefinition = DataTypeDefinition.from_dict(data=value, data_type_name=key)
+                message: str = f"Invalid format for data type '{key}'. Expected a dictionary."
+                logger.error(message)
+                raise ValueError(message)
+            typed_value: dict[str, Any] = cast(dict[str, Any], value)
+            data_type_def: DataTypeDefinition = DataTypeDefinition.from_dict(data=typed_value, data_type_name=key)
             data_types[key] = data_type_def
-        logger.debug(f"Config loaded with data types: {list(data_types.keys())}")
+        logger.debug("Config loaded with data types: {}", list(data_types.keys()))
         return cls(data_types=data_types)
 
     @classmethod
@@ -266,8 +341,8 @@ class SuffixesConfig:
         for data_type, data_def in config.data_types.items():
             for suffix in data_def.suffixes:
                 suffix_to_type[suffix] = data_type
-                logger.debug(f"Mapping suffix '{suffix}' to data type '{data_type}'")
-        logger.debug(f"SuffixesConfig loaded with {len(suffix_to_type)} suffixes.")
+                logger.debug("Mapping suffix '{}' to data type '{}'", suffix, data_type)
+        logger.debug("SuffixesConfig loaded with {} suffixes.", len(suffix_to_type))
         return cls(suffix_to_type=suffix_to_type, config=config)
 
     @classmethod
@@ -283,9 +358,14 @@ class SuffixesConfig:
         """Retrieve the data type based on the file's suffix."""
         for suffix, data_type in self.suffix_to_type.items():
             if file_name.endswith(suffix):
-                logger.debug(f"File '{file_name}' matches suffix '{suffix}' with data type '{data_type}'")
+                logger.debug(
+                    "File '{}' matches suffix '{}' with data type '{}'",
+                    file_name,
+                    suffix,
+                    data_type,
+                )
                 return data_type
-        logger.debug(f"File '{file_name}' suffix did not match a data_type, returning None")
+        logger.debug("File '{}' suffix did not match a data_type, returning None", file_name)
         return None
 
     def get_processor_class_for_data_type(self, data_type: str) -> str | None:
@@ -309,7 +389,7 @@ class SuffixesConfig:
         inverted: dict[str, list[str]] = {}
         for suffix, data_type in self.suffix_to_type.items():
             inverted.setdefault(data_type, []).append(suffix)
-        logger.debug(f"Inverted dictionary created with {len(inverted)} data types.")
+        logger.debug("Inverted dictionary created with {} data types.", len(inverted))
         return inverted
 
 

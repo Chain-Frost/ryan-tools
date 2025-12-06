@@ -23,7 +23,7 @@ def test_median_stats_for_group_odd() -> None:
     assert stats["median"] == 2
     assert stats["low"] == 1
     assert stats["high"] == 3
-    assert stats["count"] == 3
+    assert stats["count_TP"] == 3
     assert stats["median_duration"] == "5"
     assert stats["median_TP"] == "B"
     assert stats["mean_PeakFlow"] == 2
@@ -36,7 +36,7 @@ def test_median_stats_for_group_even() -> None:
     assert stats["median"] == 3
     assert stats["low"] == 1
     assert stats["high"] == 4
-    assert stats["count"] == 4
+    assert stats["count_TP"] == 4
     assert stats["median_duration"] == "1"
     assert stats["median_TP"] == "C"
     assert stats["mean_PeakFlow"] == 2
@@ -63,7 +63,8 @@ def test_median_calc_multiple_groups() -> None:
     assert len(stats_list) == 2
     assert max_stats["median"] == 6
     assert max_stats["median_duration"] == "10"
-    assert max_stats["count_bin"] == 5
+    assert max_stats["count_TP_aep"] == 5
+    assert max_stats["count_duration"] == 2
 
 
 def test_median_calc_ties_choose_first() -> None:
@@ -83,5 +84,6 @@ def test_median_calc_single_group() -> None:
     df: pd.DataFrame = make_df([7, 9, 8], ["A", "B", "C"], ["1", "1", "1"])
     max_stats, stats_list = median_calc(df, "val", "tp", "dur")
     assert max_stats["median"] == 8
-    assert max_stats["count_bin"] == 3
+    assert max_stats["count_TP_aep"] == 3
+    assert max_stats["count_duration"] == 1
     assert len(stats_list) == 1

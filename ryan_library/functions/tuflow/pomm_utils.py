@@ -237,11 +237,24 @@ def find_aep_dur_max(aggregated_df: DataFrameAny) -> DataFrameAny:
         # copy so we don’t clobber the caller’s DataFrame
         df: DataFrameAny = aggregated_df.copy()
         # compute size of each group
-        df["aep_dur_bin"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
+        df["count_TP"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
+        count_group_cols: list[str] = [
+            col for col in ("aep_text", "Location", "Type", "trim_runcode") if col in df.columns
+        ]
+        if count_group_cols:
+            count_numeric: Series = pd.to_numeric(df["count_TP"], errors="coerce")
+            df["count_TP"] = count_numeric.astype("Int64")
+            df["_count_numeric"] = count_numeric.fillna(0)
+            df["count_TP_aep"] = (
+                df.groupby(count_group_cols, observed=True)["_count_numeric"].transform("sum").astype("Int64")
+            )
+            df["count_duration"] = (
+                df.groupby(count_group_cols, observed=True)["duration_text"].transform("count").astype("Int64")
+            )
         # find index of the max in each group
         idx = df.groupby(group_cols, observed=True)["AbsMax"].idxmax()
         # select those rows (they already carry a group_count column)
-        aep_dur_max: DataFrameAny = df.loc[idx].reset_index(drop=True)
+        aep_dur_max: DataFrameAny = df.loc[idx].reset_index(drop=True).drop(columns=["_count_numeric"], errors="ignore")
         logger.info(
             "Created 'aep_dur_max' DataFrame with peak records and group_count for each AEP-Duration-Location-Type-RunCode group."
         )
@@ -257,7 +270,7 @@ def find_aep_max(aep_dur_max: DataFrameAny) -> DataFrameAny:
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
         df: DataFrameAny = aep_dur_max.copy()
-        df["aep_bin"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
+        df["count_TP_aep"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
         idx = df.groupby(group_cols, observed=True)["AbsMax"].idxmax()
         aep_max: DataFrameAny = df.loc[idx].reset_index(drop=True)
         logger.info(
@@ -454,7 +467,7 @@ def find_aep_dur_median(aggregated_df: DataFrameAny) -> DataFrameAny:
     median_df: DataFrameAny = DataFrame()
     try:
         df: DataFrameAny = aggregated_df.copy()
-        df["aep_dur_bin"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
+        df["count_TP"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
         for _, grp in df.groupby(group_cols, observed=True):
             stats_dict, _ = median_calc(
                 thinned_df=grp,
@@ -507,13 +520,18 @@ def find_aep_dur_median(aggregated_df: DataFrameAny) -> DataFrameAny:
             count_group_cols: list[str] = [
                 col for col in ("aep_text", "Location", "Type", "trim_runcode") if col in median_df.columns
             ]
-            if count_group_cols and "count" in median_df.columns:
-                count_numeric: Series = pd.to_numeric(median_df["count"], errors="coerce")
-                median_df["count"] = count_numeric.astype("Int64")
+            if count_group_cols and "count_TP" in median_df.columns:
+                count_numeric: Series = pd.to_numeric(median_df["count_TP"], errors="coerce")
+                median_df["count_TP"] = count_numeric.astype("Int64")
                 median_df["_count_numeric"] = count_numeric.fillna(0)
-                median_df["count_bin"] = (
+                median_df["count_TP_aep"] = (
                     median_df.groupby(count_group_cols, observed=True)["_count_numeric"]
                     .transform("sum")
+                    .astype("Int64")
+                )
+                median_df["count_duration"] = (
+                    median_df.groupby(count_group_cols, observed=True)["duration_text"]
+                    .transform("count")
                     .astype("Int64")
                 )
                 median_df = median_df.drop(columns=["_count_numeric"])
@@ -527,7 +545,14 @@ def find_aep_dur_median(aggregated_df: DataFrameAny) -> DataFrameAny:
                 "mean_TP",
             ]
             median_columns: list[str] = ["MedianAbsMax", "median_duration", "median_TP"]
-            info_columns: list[str] = ["low", "high", "count", "count_bin", "mean_storm_is_median_storm"]
+            info_columns: list[str] = [
+                "low",
+                "high",
+                "count_TP",
+                "count_TP_aep",
+                "count_duration",
+                "mean_storm_is_median_storm",
+            ]
 
             ordered_cols: list[str] = _ordered_columns(
                 df=median_df,
@@ -548,7 +573,7 @@ def find_aep_median_max(aep_dur_median: DataFrameAny) -> DataFrameAny:
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
         df: DataFrameAny = aep_dur_median.copy()
-        df["aep_bin"] = df.groupby(group_cols, observed=True)["MedianAbsMax"].transform("size")
+        df["count_TP_aep"] = df.groupby(group_cols, observed=True)["MedianAbsMax"].transform("size")
         idx = df.groupby(group_cols, observed=True)["MedianAbsMax"].idxmax()
         aep_med_max: DataFrameAny = df.loc[idx].reset_index(drop=True)
         mean_value_columns: list[str] = [
@@ -595,10 +620,10 @@ def find_aep_median_max(aep_dur_median: DataFrameAny) -> DataFrameAny:
             info_columns: list[str] = [
                 "low",
                 "high",
-                "count",
-                "count_bin",
+                "count_TP",
+                "count_TP_aep",
+                "count_duration",
                 "mean_storm_is_median_storm",
-                "aep_bin",
             ]
 
             ordered_cols: list[str] = _ordered_columns(
@@ -630,7 +655,14 @@ def find_aep_dur_mean(aggregated_df: DataFrameAny) -> DataFrameAny:
         "mean_Duration",
         "mean_TP",
     ]
-    info_columns: list[str] = ["low", "high", "count", "count_bin", "mean_storm_is_median_storm"]
+    info_columns: list[str] = [
+        "low",
+        "high",
+        "count_TP",
+        "count_TP_aep",
+        "count_duration",
+        "mean_storm_is_median_storm",
+    ]
 
     # Keep the mean-focused statistics grouped together; later callers drop any
     # residual median columns so the mean workflow can diverge independently.
@@ -654,23 +686,15 @@ def find_aep_mean_max(aep_dur_mean: DataFrameAny) -> DataFrameAny:
             return DataFrame()
 
         df["_mean_peakflow_numeric"] = pd.to_numeric(df["mean_PeakFlow"], errors="coerce")
-        if "count" in df.columns:
-            df["_count_numeric"] = pd.to_numeric(df["count"], errors="coerce").fillna(0)
+        if "count_TP" in df.columns:
+            df["_count_numeric"] = pd.to_numeric(df["count_TP"], errors="coerce").fillna(0)
         else:
             df["_count_numeric"] = pd.Series(0, index=df.index, dtype="Int64")
-        df["count_bin"] = (
-            df.groupby(group_cols, observed=True)["_count_numeric"]
-            .transform("sum")
-            .astype("Int64")
-        )
-        df["_mean_event_count"] = df["_count_numeric"].where(
-            df["_mean_peakflow_numeric"].notna(),
-            other=0,
-        )
-        df["mean_bin"] = (
-            df.groupby(group_cols, observed=True)["_mean_event_count"]
-            .transform("sum")
-            .astype("Int64")
+        df["count_TP_aep"] = df.groupby(group_cols, observed=True)["_count_numeric"].transform("sum").astype("Int64")
+        df["count_duration"] = (
+            df.groupby(group_cols, observed=True)["duration_text"].transform("count").astype("Int64")
+            if "duration_text" in df.columns
+            else pd.Series(0, index=df.index, dtype="Int64")
         )
 
         valid_df: DataFrameAny = df[df["_mean_peakflow_numeric"].notna()]
@@ -679,9 +703,7 @@ def find_aep_mean_max(aep_dur_mean: DataFrameAny) -> DataFrameAny:
             return DataFrame()
 
         idx = valid_df.groupby(group_cols, observed=True)["_mean_peakflow_numeric"].idxmax()
-        aep_mean_max: DataFrameAny = df.loc[idx].drop(
-            columns=["_mean_peakflow_numeric", "_count_numeric", "_mean_event_count"]
-        )
+        aep_mean_max: DataFrameAny = df.loc[idx].drop(columns=["_mean_peakflow_numeric", "_count_numeric"])
         aep_mean_max = aep_mean_max.reset_index(drop=True)
 
         if not aep_mean_max.empty:
@@ -696,10 +718,10 @@ def find_aep_mean_max(aep_dur_mean: DataFrameAny) -> DataFrameAny:
             info_columns: list[str] = [
                 "low",
                 "high",
-                "count",
-                "count_bin",
+                "count_TP",
+                "count_TP_aep",
+                "count_duration",
                 "mean_storm_is_median_storm",
-                "mean_bin",
             ]
 
             ordered_cols: list[str] = _ordered_columns(

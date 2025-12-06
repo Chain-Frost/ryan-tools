@@ -1,8 +1,10 @@
 # ryan-scripts\TUFLOW-python\TUFLOW_Culvert_Maximums.py
 from pathlib import Path
+from typing import Literal
 
-CONSOLE_LOG_LEVEL = "DEBUG"  # or "INFO"
+CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 INCLUDE_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
+EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
@@ -37,13 +39,14 @@ def main(
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_data_types: list[str] = list(include_data_types or INCLUDE_DATA_TYPES)
+    effective_export_mode: Literal["excel", "parquet", "both"] = EXPORT_MODE
 
     main_processing(
         paths_to_process=[script_dir],
         include_data_types=effective_data_types,
         console_log_level=effective_console_log_level,
         locations_to_include=locations_to_include,
-        output_parquet=False,
+        export_mode=effective_export_mode,
     )
     print()
     print_library_version()
