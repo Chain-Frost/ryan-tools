@@ -1,4 +1,13 @@
 # ryan-scripts\TUFLOW-python\POMM-mean-max-aep-dur.py
+"""
+Wrapper Script: POMM Mean Peak Reports.
+
+This script acts as a mutable wrapper for `export_mean_peak_report`.
+It generates a summary report calculating MEAN peak values across multiple durations.
+Users can edit the hard-coded constants in this file to control data inclusion and filtering logic,
+or use command-line arguments to override these settings.
+"""
+
 from pathlib import Path
 
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
@@ -34,7 +43,18 @@ def main(
     locations_to_include: tuple[str, ...] | None = None,
     working_directory: Path | None = None,
 ) -> None:
-    """Wrapper script for mean peak reporting."""
+    """
+    Main entry point for mean peak reporting.
+
+    This function initializes the environment and calls `export_mean_peak_report`.
+    It uses cli arguments to override the hard-coded defaults if provided.
+
+    Args:
+        console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
+        include_data_types: Overrides the INCLUDE_DATA_TYPES constant.
+        locations_to_include: Overrides the LOCATIONS_TO_INCLUDE constant.
+        working_directory: Overrides the default WORKING_DIR.
+    """
 
     print_library_version()
     script_directory: Path = working_directory or WORKING_DIR
@@ -60,6 +80,12 @@ def main(
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
+    """
+    Parse command-line arguments to override script defaults.
+
+    Returns:
+        CommonWrapperOptions: Parsed and processed common arguments.
+    """
     parser = argparse.ArgumentParser(
         description="Combine mean POMM peak statistics. Command-line options override the script defaults."
     )

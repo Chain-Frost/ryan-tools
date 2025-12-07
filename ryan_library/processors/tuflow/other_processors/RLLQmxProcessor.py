@@ -21,6 +21,7 @@ class RLLQmxProcessor(BaseProcessor):
 
             self._reshape_rll_qmx_data()
 
+            self.apply_entity_filter()
             self.add_common_columns()
             self.apply_output_transformations()
 

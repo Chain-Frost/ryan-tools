@@ -379,7 +379,7 @@ def test_is_non_zero_file_scenarios(tmp_path: Path, scenario, expected_result, e
         raise ValueError(f"Unknown scenario: {scenario}")
 
     captured_messages: list[str] = []
-    handler_id = logger.add(captured_messages.append, level="ERROR", format="{message}")
+    handler_id = logger.add(captured_messages.append, level="WARNING", format="{message}")
     try:
         result: bool = is_non_zero_file(target_path)
     finally:

@@ -1,4 +1,13 @@
 # ryan-scripts\TUFLOW-python\TUFLOW_Culvert-mean-max-aep-dur.py
+"""
+Wrapper Script: Culvert Mean Peak Reports.
+
+This script acts as a mutable wrapper for `run_culvert_mean_report`.
+It generates a summary report calculating MEAN peak values across multiple durations for culverts.
+Users can edit the hard-coded constants in this file to control data types and raw output,
+or use command-line arguments to override these settings.
+"""
+
 from pathlib import Path
 
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
@@ -31,7 +40,19 @@ def main(
     locations_to_include: tuple[str, ...] | None = None,
     working_directory: Path | None = None,
 ) -> None:
-    """Wrapper script to create culvert mean peak reports."""
+    """
+    Main entry point for culvert mean peak reporting.
+
+    This function initializes the environment and calls `run_culvert_mean_report`.
+    It resolves configuration by prioritizing CLI arguments, then falling back to the
+    hard-coded constants in this script.
+
+    Args:
+        console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
+        include_data_types: Overrides the INCLUDED_DATA_TYPES constant.
+        locations_to_include: Overrides the LOCATIONS_TO_INCLUDE (implicit) settings.
+        working_directory: Overrides the default WORKING_DIR.
+    """
 
     print_library_version()
     script_directory: Path = working_directory or WORKING_DIR
@@ -56,6 +77,12 @@ def main(
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
+    """
+    Parse command-line arguments to override script defaults.
+
+    Returns:
+        CommonWrapperOptions: Parsed and processed common arguments.
+    """
     parser = argparse.ArgumentParser(
         description="Create culvert mean peak reports. Command-line options override the script defaults."
     )

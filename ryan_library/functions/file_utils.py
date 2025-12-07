@@ -4,6 +4,7 @@ from collections.abc import Generator
 from pathlib import Path
 import fnmatch
 import re
+import stat
 from loguru import logger
 import threading
 from queue import Empty, Queue
@@ -261,23 +262,10 @@ def is_non_zero_file(fpath: Path | str) -> bool:
     fpath = Path(fpath)
 
     try:
-        # Check if the file exists
-        if not fpath.exists():
-            logger.error(f"File does not exist: {fpath}")
-            return False
-
-        # Check if the path points to a file (not a directory or other type)
-        if not fpath.is_file():
-            logger.error(f"Path is not a file: {fpath}")
-            return False
-
-        # Check if the file size is greater than zero
-        if fpath.stat().st_size == 0:
-            logger.error(f"File is empty: {fpath}")
-            return False
-
-        return True  # All checks passed
-
+        stat_result = fpath.stat()
+    except FileNotFoundError:
+        logger.error(f"File does not exist: {fpath}")
+        return False
     except PermissionError:
         # Handle cases where the file cannot be accessed due to permission issues
         logger.error(f"Permission denied when accessing file: {fpath}")
@@ -287,6 +275,15 @@ def is_non_zero_file(fpath: Path | str) -> bool:
         logger.error(f"An unexpected error occurred while accessing file '{fpath}': {e}")
         return False
 
+    if not stat.S_ISREG(stat_result.st_mode):
+        logger.error(f"Path is not a file: {fpath}")
+        return False
+
+    if stat_result.st_size == 0:
+        logger.warning(f"File is empty: {fpath}")
+        return False
+
+    return True  # All checks passed
 
 def ensure_output_directory(output_dir: Path) -> None:
     """Ensure that the specified output directory exists; create it if it does not.

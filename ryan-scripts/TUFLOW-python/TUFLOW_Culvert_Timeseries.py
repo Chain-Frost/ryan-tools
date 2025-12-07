@@ -1,4 +1,13 @@
 # ryan-scripts\TUFLOW-python\TUFLOW_Culvert_Timeseries.py
+"""
+Wrapper Script: Combine TUFLOW Culvert Timeseries.
+
+This script acts as a mutable wrapper for `tuflow_culverts_timeseries.main_processing`.
+It combines culvert timeseries data (e.g., flow vs time) from multiple CSV files.
+Users can edit the hard-coded constants in this file to control data types and export format,
+or use command-line arguments to override these settings.
+"""
+
 from pathlib import Path
 from typing import Literal
 
@@ -29,8 +38,18 @@ def main(
     locations_to_include: tuple[str, ...] | None = None,
     working_directory: Path | None = None,
 ) -> None:
-    """Wrapper to combine culvert timeseries; double-clickable.
-    By default, it processes files in the directory where the script is located."""
+    """
+    Main entry point to combine culvert timeseries; double-clickable.
+
+    This function initializes the environment and calls `main_processing`.
+    It uses constants defined in this file (e.g., INCLUDE_DATA_TYPES) as default values.
+
+    Args:
+        console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
+        include_data_types: Overrides the INCLUDE_DATA_TYPES constant.
+        locations_to_include: Overrides the locations filter.
+        working_directory: Overrides the default WORKING_DIR.
+    """
     print_library_version()
 
     script_dir: Path = working_directory or WORKING_DIR
@@ -52,6 +71,12 @@ def main(
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
+    """
+    Parse command-line arguments to override script defaults.
+
+    Returns:
+        CommonWrapperOptions: Parsed and processed common arguments.
+    """
     parser = argparse.ArgumentParser(
         description="Combine culvert timeseries exports. Command-line options override the script defaults."
     )

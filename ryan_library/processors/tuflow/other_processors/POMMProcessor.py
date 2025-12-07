@@ -110,6 +110,7 @@ class POMMProcessor(BaseProcessor):
             # 7) Derive AbsMax and SignedAbsMax once the Max/Min columns exist.
             #    AbsMax = max(|Max|, |Min|); SignedAbsMax keeps the sign of the larger magnitude value.
             self._derive_abs_metrics()
+            self.apply_entity_filter()
             self.add_common_columns()
             self.apply_output_transformations()
             # Mark success

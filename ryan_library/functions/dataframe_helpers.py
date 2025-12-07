@@ -129,15 +129,11 @@ def reset_categorical_ordering(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame with reset categorical ordering."""
     for col in df.select_dtypes(include="category").columns:
-        sorted_categories = sorted(df[col].cat.categories)
-        df[col] = df[col].cat.set_categories(sorted_categories, ordered=True)
+        sorted_categories: list[str] = sorted(df[col].cat.categories)
+        df[col] = df[col].cat.set_categories(new_categories=sorted_categories, ordered=True)
         logger.debug(f"Column '{col}' ordered alphabetically with categories: {sorted_categories}")
 
     # Reset missing values if necessary
-    df.fillna(value=pd.NA, inplace=True)
+    df.fillna(value=pd.NA, inplace=True)  # pyright: ignore[reportUnknownMemberType]
     logger.debug("Filled missing values with pd.NA.")
     return df
-
-
-def pleasing_sort(df) -> None:
-    pass

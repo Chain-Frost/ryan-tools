@@ -33,6 +33,7 @@ class NmxProcessor(MaxDataProcessor):
             # Perform NMX-specific data extraction and transformation
             self._extract_and_transform_nmx_data()
 
+            self.apply_entity_filter()
             # Proceed with common processing steps from BaseProcessor
             self.add_common_columns()
             self.apply_output_transformations()

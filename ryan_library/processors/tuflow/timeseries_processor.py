@@ -48,6 +48,7 @@ class TimeSeriesProcessor(BaseProcessor):
                 self.df = pd.DataFrame()
                 return
 
+            self.apply_entity_filter()
             self.add_common_columns()
             self.apply_output_transformations()
 
