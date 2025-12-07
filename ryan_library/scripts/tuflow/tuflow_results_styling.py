@@ -1,4 +1,11 @@
 # ryan_library/scripts/tuflow/tuflow_results_styling.py
+"""
+TUFLOW Results Styling.
+
+This module automates the application of QGIS layer styles (.qml) to TUFLOW result files (e.g., raster .flt/.tif,
+vector .shp/.gpkg). It recursively scans a directory and copies the appropriate .qml file next to the result file
+based on filename matching (e.g. *_d_Max.flt gets depth_for_legend_max2m.qml).
+"""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import sqlite3
@@ -11,15 +18,31 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class BaseMappingEntry(TypedDict):
+    """
+    Base type for style mapping configuration.
+
+    Attributes:
+        exts: List of file extensions to apply this style to (e.g. ["flt", "tif"]).
+        qml: Path to the QML style file.
+    """
+
     exts: list[str]
     qml: Path
 
 
 class MappingEntry(BaseMappingEntry, total=False):
+    """
+    Extended mapping type allowing for optional layer name (for GPKG/database styles).
+    """
+
     layer_name: str
 
 
 class TUFLOWResultsStyler:
+    """
+    Handles the recursive scanning and application of QML styles to TUFLOW results.
+    """
+
     def __init__(self, user_qml_overrides: dict[str, str] | None = None) -> None:
         """Initializes the TUFLOWResultsStyler with default styles path and user overrides."""
         # __file__ resolves to ryan_library/scripts/tuflow/tuflow_results_styling.py
@@ -118,7 +141,11 @@ class TUFLOWResultsStyler:
             logger.error(f"Error processing data for {filename}: {e}")
 
     def process_gpkg(self, filename: str, layer_name: str, current_path: Path, qml_path: Path) -> None:
-        """Processes GeoPackage files by applying styles to specific layers."""
+        """
+        Processes GeoPackage files by applying styles to specific layers.
+
+        Currently a placeholder implementation pending future development (SQL logic).
+        """
         # not implemented
         try:
             gpkg_path: Path = current_path / filename
@@ -211,6 +238,7 @@ class TUFLOWResultsStyler:
 
 
 def main() -> None:
+    """Wrapper entry point for direct execution."""
     # Initialize the LoggerConfigurator
     from ryan_library.functions.logging_helpers import LoggerConfigurator
 

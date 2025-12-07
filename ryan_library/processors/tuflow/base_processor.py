@@ -324,7 +324,7 @@ class BaseProcessor(ABC):
             frozenset[str]: The normalized set of locations that were applied.
         """
 
-        normalized_locations: frozenset[str] = self.normalize_locations(locations)
+        normalized_locations: frozenset[str] = self.normalize_locations(locations=locations)
         if not normalized_locations:
             return normalized_locations
 

@@ -1,4 +1,10 @@
-"""Generate AEP/Duration mean summaries for culvert result datasets."""
+"""
+Generate AEP/Duration Mean Summaries for Culvert Results.
+
+This module processes culvert result data to calculate mean statistics across differing durations for each AEP event.
+It identifies the "critical" duration based on the highest mean flow (or other metrics) and can "adopt" corresponding
+values for other columns from the simulation that matches the mean flow most closely.
+"""
 
 from __future__ import annotations
 
@@ -28,7 +34,16 @@ def run_culvert_mean_report(
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
 ) -> None:
-    """Generate AEP/Duration mean statistics for culvert results and export them to Excel."""
+    """
+    Generate AEP/Duration mean statistics for culvert results and export them to Excel.
+
+    Args:
+        script_directory: Directory to search for culvert result files.
+        log_level: Console logging verbosity.
+        include_data_types: List of file types to include (e.g. "Nmx", "Chan").
+        locations_to_include: Filter for specific culvert IDs/locations.
+        export_raw: If True, includes the raw combined maximums in a separate Excel sheet.
+    """
 
     if script_directory is None:
         script_directory = Path.cwd()
@@ -77,6 +92,7 @@ def run_culvert_mean_report(
             logger.warning("Combined culvert maximums DataFrame is empty. Skipping export.")
             return
 
+        # Calculate mean stats (grouped by AEP and Duration)
         aep_dur_mean: pd.DataFrame = find_culvert_aep_dur_mean(aggregated_df)
         if aep_dur_mean.empty:
             warn_on_invalid_types(
@@ -87,6 +103,7 @@ def run_culvert_mean_report(
             logger.warning("Unable to calculate AEP/Duration mean statistics. Skipping export.")
             return
 
+        # Calculate "Mean Max" - the duration with the highest mean flow for each AEP
         aep_mean_max: pd.DataFrame = find_culvert_aep_mean_max(aep_dur_mean)
 
         timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
@@ -122,7 +139,12 @@ ADOPTED_SOURCE_COLUMNS: tuple[str, ...] = ("Q", "V", "DS_h", "US_h")
 
 
 def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
-    """Return mean statistics grouped by AEP, Duration, TP and Culvert."""
+    """
+    Return mean statistics grouped by AEP, Duration, TP and Culvert.
+
+    Also determines "adopted" values: for each group, it finds the simulation run closest
+    to the mean Flow (Q) and adopts its values for select columns (Q, V, DS_h, US_h).
+    """
 
     if aggregated_df.empty:
         return pd.DataFrame()
@@ -139,6 +161,7 @@ def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
 
     grouped = aggregated_df.groupby(group_columns, observed=True)
 
+    # Calculate arithmetic means for all numeric columns
     mean_df: pd.DataFrame = grouped[numeric_columns].mean(numeric_only=True).reset_index()
     rename_map: dict[str, str] = {column: f"mean_{column}" for column in numeric_columns}
     mean_df = mean_df.rename(columns=rename_map)
@@ -146,6 +169,7 @@ def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
     count_df: pd.DataFrame = grouped.size().rename("count").reset_index()
     count_df["count"] = count_df["count"].astype("Int64")
 
+    # Determine min/max values for key columns
     range_columns: list[str] = [column for column in ADOPTED_SOURCE_COLUMNS if column in aggregated_df.columns]
     min_df: pd.DataFrame = pd.DataFrame()
     max_df: pd.DataFrame = pd.DataFrame()
@@ -156,9 +180,11 @@ def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
         max_df = grouped[range_columns].max(numeric_only=True).reset_index()
         max_df = max_df.rename(columns={column: f"max_{column}" for column in range_columns})
 
+    # "Adopt" values from the run closest to the mean Q
     adopted_rows: list[dict[str, object]] = []
     if range_columns:
         for key, group in grouped:
+            # Reconstruct key dictionary
             key_values: dict[str, object]
             if isinstance(key, tuple):
                 key_values = dict(zip(group_columns, key, strict=False))
@@ -170,6 +196,7 @@ def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
             q_series = pd.to_numeric(group.get("Q"), errors="coerce") if "Q" in group.columns else None
             if q_series is not None and q_series.notna().any():
                 mean_q = float(q_series.mean())
+                # Find index of value closest to mean
                 idx = (q_series - mean_q).abs().idxmin()
                 closest_row = group.loc[idx]
                 for column in range_columns:
@@ -182,6 +209,7 @@ def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
 
     adopted_df: pd.DataFrame = pd.DataFrame(data=adopted_rows) if adopted_rows else pd.DataFrame()
 
+    # Merge everything together
     merged: pd.DataFrame = count_df.copy()
     for frame in (mean_df, adopted_df, min_df, max_df):
         if not frame.empty:
@@ -199,7 +227,11 @@ def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def find_culvert_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
-    """Return the duration row containing the highest mean discharge for each AEP/culvert group."""
+    """
+    Return the duration row containing the highest mean discharge (or specified metric) for each AEP/culvert group.
+
+    This essentially finds the "Critical Duration" based on the mean results calculated previously.
+    """
 
     if aep_dur_mean.empty:
         return pd.DataFrame()
@@ -209,6 +241,7 @@ def find_culvert_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
         logger.warning("No mean columns were found for culvert mean-max calculation.")
         return pd.DataFrame()
 
+    # Group by AEP/Culvert (exclude duration) to find the max across durations
     group_columns: list[str] = _group_columns(df=aep_dur_mean, include_duration=False)
     if not group_columns:
         logger.error("Required grouping columns were not found for the culvert mean-max calculation.")
@@ -222,8 +255,10 @@ def find_culvert_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
         logger.warning("Mean metric column '{}' does not contain any numeric values.", metric_column)
         return pd.DataFrame()
 
+    # count how many valid entries exist for this group
     df["mean_bin"] = df.groupby(group_columns, observed=True)["_has_metric"].transform("sum").astype("Int64")
 
+    # Find the index of the max value within each group
     idx = df[df["_has_metric"]].groupby(by=group_columns, observed=True)["_mean_metric"].idxmax()
     result: pd.DataFrame = df.loc[idx].drop(columns=["_mean_metric", "_has_metric"]).reset_index(drop=True)
     result = result.sort_values(group_columns, ignore_index=True)
@@ -238,7 +273,7 @@ def find_culvert_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
 
 
 def _preferred_metric_column(aep_dur_mean: pd.DataFrame) -> str | None:
-    """Return the preferred mean column used to identify maximum durations."""
+    """Return the preferred mean column used to identify maximum durations (e.g. mean_Q)."""
 
     candidate_columns: list[str] = [column for column in aep_dur_mean.columns if column.startswith("mean_")]
     if not candidate_columns:

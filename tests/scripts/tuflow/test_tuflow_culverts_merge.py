@@ -39,7 +39,7 @@ def test_main_processing_parquet():
                 mock_bulk.return_value = mock_collection
 
                 tuflow_culverts_merge.main_processing(
-                    paths_to_process=[Path(".")], include_data_types=["type"], output_parquet=True
+                    paths_to_process=[Path(".")], include_data_types=["type"], export_mode="both"
                 )
 
                 _, kwargs = mock_exporter.return_value.export_dataframes.call_args

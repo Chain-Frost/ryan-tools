@@ -309,8 +309,7 @@ def check_and_set_defaults(params: Parameters) -> None:
         raise FileNotFoundError(f"TUFLOW exe not found: {c.tuflowexe}")
     if c.computational_priority.upper() not in _PRIORITY_SET:
         raise ValueError(
-            f"Invalid priority: {c.computational_priority}. "
-            f"Must be one of: {', '.join(sorted(_PRIORITY_SET))}"
+            f"Invalid priority: {c.computational_priority}. " f"Must be one of: {', '.join(sorted(_PRIORITY_SET))}"
         )
 
     # Validate gpu_devices if provided

@@ -105,6 +105,8 @@ class ExcelExporter:
 
     MAX_EXCEL_ROWS: int = 1_048_576
     MAX_EXCEL_COLUMNS: int = 16_384
+    DEFAULT_NARROW_WIDTH: float = 8.43  # ~64px (Excel default width)
+    DEFAULT_NARROW_COLUMNS: tuple[str, ...] = ("file", "rel_directory", "rel_path", "directory_path", "path")
 
     def export_dataframes(
         self,
@@ -261,6 +263,7 @@ class ExcelExporter:
                         if auto_adjust_width:
                             dynamic_widths: dict[str, float] = self.calculate_column_widths(df=df)
                             self.auto_adjust_column_widths(worksheet=worksheet, dynamic_widths=dynamic_widths)
+                            self._apply_default_column_widths(worksheet=worksheet, df=df, sheet_name=sheet)
 
                         # Apply specific column widths if provided
                         if column_widths and sheet in column_widths:
@@ -562,6 +565,18 @@ class ExcelExporter:
             if current_width is None or width > current_width:
                 worksheet.column_dimensions[col_letter].width = width
                 logger.debug(f"Auto-adjusted width for column '{col_letter}' to {width}.")
+
+    def _apply_default_column_widths(self, worksheet: Worksheet, df: pd.DataFrame, sheet_name: str) -> None:
+        """Apply hard-coded default widths to known columns after auto-sizing has run."""
+        default_widths: dict[str, float] = {
+            column_name: self.DEFAULT_NARROW_WIDTH
+            for column_name in self.DEFAULT_NARROW_COLUMNS
+            if column_name in df.columns
+        }
+        if not default_widths:
+            return
+
+        self.set_column_widths(worksheet=worksheet, df=df, sheet_name=sheet_name, column_widths=default_widths)
 
 
 # Backwards compatibility functions:
