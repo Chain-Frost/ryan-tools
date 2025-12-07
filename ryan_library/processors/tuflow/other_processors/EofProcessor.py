@@ -106,6 +106,7 @@ class EOFProcessor(BaseProcessor):
             if "Ent/Exit Losses" in self.df.columns:
                 self.df["Ent/Exit Losses"] = pd.to_numeric(self.df["Ent/Exit Losses"], errors="coerce")
 
+            self.apply_entity_filter()
             # Proceed with common processing steps
             self.add_common_columns()
             self.apply_output_transformations()

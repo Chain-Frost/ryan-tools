@@ -2,7 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 from multiprocessing import Pool
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Collection
 from typing import Any
 from loguru import logger
 
@@ -15,6 +15,7 @@ from ryan_library.functions.loguru_helpers import LoguruMultiprocessingLogger, w
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
+from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 
 def collect_files(
@@ -27,11 +28,15 @@ def collect_files(
     normalized_roots: list[Path] = []
     seen_roots: set[Path] = set()
     for candidate in paths_to_process:
-        path = Path(candidate)
-        if path in seen_roots:
+        path: Path = Path(candidate).expanduser()
+        try:
+            normalized: Path = path.resolve(strict=False)
+        except OSError:
+            normalized = path.absolute()
+        if normalized in seen_roots:
             continue
-        seen_roots.add(path)
-        normalized_roots.append(path)
+        seen_roots.add(normalized)
+        normalized_roots.append(normalized)
 
     deduped_types: list[str] = []
     seen_types: set[str] = set()
@@ -60,9 +65,9 @@ def collect_files(
         return []
 
     patterns: list[str] = [f"*{suffix}" for suffix in suffixes]
-    logger.debug(f"Collecting files with patterns: {patterns}")
+    logger.debug("Collecting files with patterns: {}", patterns)
     roots: list[Path] = [p for p in normalized_roots if p.is_dir()]
-    logger.debug(f"Searching in roots: {roots}")
+    logger.debug("Searching in roots: {}", roots)
     invalid_roots: list[Path] = [p for p in normalized_roots if not p.is_dir()]
     for bad_root in invalid_roots:
         logger.warning(f"Skipping non-directory path {bad_root}")
@@ -72,22 +77,47 @@ def collect_files(
         return []
 
     files: list[Path] = find_files_parallel(root_dirs=roots, patterns=patterns)
-    logger.debug(f"find_files_parallel found {len(files)} files.")
+    logger.debug("find_files_parallel found {} files.", len(files))
     filtered_files: list[Path] = []
     seen_files: set[Path] = set()
     for file_path in files:
-        if not is_non_zero_file(file_path):
-            continue
         if file_path in seen_files:
             continue
         seen_files.add(file_path)
+        if not is_non_zero_file(file_path):
+            continue
         filtered_files.append(file_path)
     return filtered_files
 
 
-def process_file(file_path: Path) -> BaseProcessor | None:
+def _resolve_entity_filter_for_file(
+    file_path: Path, entity_filters: Mapping[str, Collection[str]] | Collection[str] | None
+) -> Collection[str] | None:
+    """Select the appropriate entity filter for a given file based on its data type."""
+    if entity_filters is None:
+        return None
+
+    if isinstance(entity_filters, Mapping):
+        parser = TuflowStringParser(file_path=file_path)
+        data_type: str | None = parser.data_type
+        if not data_type:
+            return None
+        return entity_filters.get(data_type) or entity_filters.get(data_type.lower())
+
+    if isinstance(entity_filters, str):
+        return [entity_filters]
+
+    return entity_filters
+
+
+def process_file(
+    file_path: Path, entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None
+) -> BaseProcessor | None:
     try:
-        proc: BaseProcessor = BaseProcessor.from_file(file_path=file_path)
+        entity_filter: Collection[str] | None = _resolve_entity_filter_for_file(
+            file_path=file_path, entity_filters=entity_filters
+        )
+        proc: BaseProcessor = BaseProcessor.from_file(file_path=file_path, entity_filter=entity_filter)
         proc.process()
         if proc.validate_data():
             logger.debug(f"Processed {proc.log_path}")
@@ -107,12 +137,16 @@ def process_files_in_parallel(
     file_list: list[Path],
     log_queue: Any,
     log_level: str = "INFO",
+    entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
 ) -> ProcessorCollection:
     size: int = calculate_pool_size(num_files=len(file_list))
     logger.info(f"Spawning pool with {size} workers")
     coll = ProcessorCollection()
     with Pool(processes=size, initializer=worker_initializer, initargs=(log_queue, log_level)) as pool:
-        for proc in pool.map(func=process_file, iterable=file_list):
+        task_args: list[tuple[Path, Mapping[str, Collection[str]] | Collection[str] | None]] = [
+            (file_path, entity_filters) for file_path in file_list
+        ]
+        for proc in pool.starmap(func=process_file, iterable=task_args):
             if proc and proc.processed:
                 coll.add_processor(processor=proc)
     return coll
@@ -123,6 +157,7 @@ def bulk_read_and_merge_tuflow_csv(
     include_data_types: list[str],
     log_queue: LoguruMultiprocessingLogger,
     console_log_level: str = "INFO",
+    entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
 ) -> ProcessorCollection:
     logger.info("Starting TUFLOW culvert processing")
     files: list[Path] = collect_files(
@@ -135,7 +170,7 @@ def bulk_read_and_merge_tuflow_csv(
         return ProcessorCollection()
 
     results: ProcessorCollection = process_files_in_parallel(
-        file_list=files, log_queue=log_queue, log_level=console_log_level
+        file_list=files, log_queue=log_queue, log_level=console_log_level, entity_filters=entity_filters
     )
     # tell the queue “no more data” and wait for its feeder thread to finish
     return results

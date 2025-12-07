@@ -5,19 +5,14 @@ from typing import Any
 import pandas as pd
 from loguru import logger
 
-from .base_processor import BaseProcessor
+from .base_processor import BaseProcessor, ProcessorStatus
 
 
 class MaxDataProcessor(BaseProcessor):
     """Intermediate base class for processing maximum data types."""
 
-    def read_maximums_csv(self) -> int:
-        """Read a ``Maximums``/``ccA`` CSV into :attr:`df` using configuration metadata.
-
-        Returns:
-            int: Status code where ``0`` is success and non-zero values indicate
-                data availability or validation issues.
-        """
+    def read_maximums_csv(self) -> ProcessorStatus:
+        """Read a ``Maximums``/``ccA`` CSV into :attr:`df` using configuration metadata."""
 
         usecols: list[str] = list(self.columns_to_use.keys())
         dtype_mapping: dict[str, str] = {column: dtype for column, dtype in self.columns_to_use.items() if dtype}
@@ -37,19 +32,20 @@ class MaxDataProcessor(BaseProcessor):
             logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
         except Exception as exc:
             logger.exception(f"{self.file_name}: Failed to read CSV file '{self.log_path}': {exc}")
-            return 3
+            return ProcessorStatus.FAILURE
 
         if df.empty:
             logger.error(f"{self.file_name}: No data found in file: {self.log_path}")
-            return 1
+            return ProcessorStatus.EMPTY_DATAFRAME
 
         self.raw_df = df.copy(deep=False)
 
         if not self.check_headers_match(df.columns.tolist()):
-            return 2
+            return ProcessorStatus.HEADER_MISMATCH
 
         if usecols:
             df = df.loc[:, usecols]
 
         self.df = df
-        return 0
+        self.apply_entity_filter()
+        return ProcessorStatus.SUCCESS

@@ -46,6 +46,7 @@ class ChanProcessor(MaxDataProcessor):
             self.df.rename(columns={"LBUS Obvert": "US Obvert"}, inplace=True)
             logger.debug("Renamed 'LBUS Obvert' to 'US Obvert'.")
 
+            self.apply_entity_filter()
             # Proceed with common processing steps from BaseProcessor
             self.add_common_columns()
             self.apply_output_transformations()

@@ -1,4 +1,17 @@
 # ryan-scripts\TUFLOW-python\PO_combine.py
+"""
+Wrapper Script: Combine TUFLOW PO Results.
+
+This script acts as a mutable wrapper for `ryan_library.scripts.tuflow.po_combine`.
+It allows users to hard-code default configurations for merging TUFLOW "PO" (Plot Output) CSV files,
+while still providing command-line overrides for automation/batch processing.
+
+Key features:
+- Merges PO files from found subdirectories.
+- Configurable defaults (constants) for manual editing.
+- CLI arguments for runtime flexibility.
+"""
+
 from pathlib import Path
 from typing import Literal
 
@@ -36,8 +49,20 @@ def main(
     export_mode: Literal["excel", "parquet", "both"] | None = None,
     working_directory: Path | None = None,
 ) -> None:
-    """Wrapper script to merge PO results.
-    By default, it processes files in the script's directory."""
+    """
+    Main entry point for combining PO results.
+
+    This function sets up the working directory and orchestrates the combination process
+    using 'main_processing' from the library. It resolves configuration by prioritizing
+    CLI arguments, then falling back to the hard-coded constants in this script.
+
+    Args:
+        console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
+        include_data_types: Overrides the INCLUDE_DATA_TYPES constant.
+        locations_to_include: Overrides the LOCATIONS_TO_INCLUDE constant.
+        export_mode: Overrides the EXPORT_MODE constant.
+        working_directory: Overrides the default WORKING_DIR.
+    """
     print_library_version()
 
     script_directory: Path = working_directory or WORKING_DIR
@@ -64,6 +89,12 @@ def main(
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
+    """
+    Parse command-line arguments to override script defaults.
+
+    Returns:
+        argparse.Namespace: Filtered command-line arguments.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Combine TUFLOW PO outputs. "

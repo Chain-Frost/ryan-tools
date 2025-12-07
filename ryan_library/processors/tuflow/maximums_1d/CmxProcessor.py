@@ -30,6 +30,7 @@ class CmxProcessor(MaxDataProcessor):
             # Handle any malformed data if necessary (e.g., all NaNs)
             self._handle_malformed_data()
 
+            self.apply_entity_filter()
             # Proceed with common processing steps from BaseProcessor
             self.add_common_columns()
             self.apply_output_transformations()

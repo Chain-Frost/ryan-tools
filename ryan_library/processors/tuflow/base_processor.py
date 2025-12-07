@@ -69,9 +69,12 @@ class BaseProcessor(ABC):
     raw_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
     applied_location_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
+    applied_entity_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
+    entity_filter: frozenset[str] | None = field(default=None, repr=False)
 
     # Define _processor_cache as a ClassVar to make it a class variable
     _processor_cache: ClassVar[dict[tuple[str, str], type["BaseProcessor"]]] = {}
+    ENTITY_ID_COLUMNS: ClassVar[tuple[str, ...]] = ("Chan ID", "Location", "Node ID", "ID")
 
     # Attributes to hold configuration
     output_columns: dict[str, str] = field(init=False, default_factory=lambda: cast(dict[str, str], {}))
@@ -89,6 +92,7 @@ class BaseProcessor(ABC):
         self.data_type = self.name_parser.data_type
         logger.debug(f"{self.file_name}: Data type identified as '{self.data_type}'")
         self._load_configuration()
+        self.entity_filter = self.normalize_locations(locations=self.entity_filter)
 
     @property
     def log_path(self) -> str:
@@ -99,7 +103,7 @@ class BaseProcessor(ABC):
             return str(self.resolved_file_path)
 
     @classmethod
-    def from_file(cls, file_path: Path) -> "BaseProcessor":
+    def from_file(cls, file_path: Path, entity_filter: Collection[str] | None = None) -> "BaseProcessor":
         """Factory method to create the appropriate processor instance based on the file suffix."""
         logger.debug(f"Attempting to process file: {file_path}")
 
@@ -138,8 +142,10 @@ class BaseProcessor(ABC):
         )
 
         # Instantiate the processor class
+        normalized_filter: frozenset[str] | None = cls.normalize_locations(locations=entity_filter)
+
         try:
-            processor = processor_cls(file_path=file_path)
+            processor: BaseProcessor = processor_cls(file_path=file_path, entity_filter=normalized_filter)
             return processor
         except Exception as e:
             logger.exception(f"Error instantiating processor '{processor_class_name}' for file {file_path}: {e}")
@@ -313,6 +319,58 @@ class BaseProcessor(ABC):
 
         normalized: set[str] = {str(location).strip() for location in locations if str(location).strip()}
         return frozenset(normalized)
+
+    def get_entity_id_columns(self) -> tuple[str, ...]:
+        """Columns that uniquely identify rows for entity filtering."""
+        return self.ENTITY_ID_COLUMNS
+
+    def apply_entity_filter(self) -> frozenset[str] | None:
+        """Filter rows by the configured entity identifiers (Chan ID / Location, etc.)."""
+
+        normalized_filter: frozenset[str] = self.normalize_locations(self.entity_filter)
+        if not normalized_filter:
+            return None
+
+        if self.applied_entity_filter == normalized_filter:
+            logger.debug(f"{self.file_name}: Entity filter already applied; skipping.")
+            return normalized_filter
+
+        if self.df.empty:
+            logger.debug(f"{self.file_name}: DataFrame empty before entity filtering; skipping.")
+            self.applied_entity_filter = normalized_filter
+            return normalized_filter
+
+        candidate_column: str | None = next(
+            (col for col in self.get_entity_id_columns() if col in self.df.columns), None
+        )
+        if candidate_column is None:
+            logger.debug(
+                f"{self.file_name}: Entity filter provided but none of the identifier columns "
+                f"{self.get_entity_id_columns()} are present; skipping filter."
+            )
+            self.applied_entity_filter = normalized_filter
+            return normalized_filter
+
+        before_count: int = len(self.df)
+        id_series: Series[str] = self.df[candidate_column].astype(str).str.strip()
+        filtered_df: DataFrame = self.df.loc[id_series.isin(normalized_filter)].copy()  # type: ignore
+        after_count: int = len(filtered_df)
+
+        log_method = logger.info if after_count != before_count else logger.debug
+        log_method(
+            f"{self.file_name}: Filtered rows to {after_count}/{before_count} using {len(normalized_filter)} "
+            f"identifier(s) on '{candidate_column}'."
+        )
+
+        self.df = filtered_df
+
+        if after_count == 0:
+            logger.warning(
+                f"{self.file_name}: No rows remain after applying the entity filter on '{candidate_column}'."
+            )
+
+        self.applied_entity_filter = normalized_filter
+        return normalized_filter
 
     def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
         """Filter the processor DataFrame to include only the specified locations.

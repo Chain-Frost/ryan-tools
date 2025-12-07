@@ -1,4 +1,17 @@
 # ryan-scripts\TUFLOW-python\POMM_combine.py
+"""
+Wrapper Script: Combine TUFLOW POMM Results.
+
+This script acts as a mutable wrapper for `ryan_library.scripts.tuflow.pomm_combine`.
+It manages the combination of "POMM" (Plot Output Maximums/Minimums) data, primarily used for culvert peak analysis.
+Users can edit hard-coded defaults in this file or use CLI arguments to control the execution.
+
+Key features:
+- Merges POMM and RLL_Qmx files (and others as specified).
+- Configurable defaults (constants) for manual editing.
+- CLI arguments for runtime flexibility.
+"""
+
 from pathlib import Path
 from typing import Literal
 
@@ -36,8 +49,20 @@ def main(
     export_mode: Literal["excel", "parquet", "both"] | None = None,
     working_directory: Path | None = None,
 ) -> None:
-    """Wrapper script to merge POMM results.
-    By default, it processes files in the script's directory."""
+    """
+    Main entry point for combining POMM results.
+
+    This function initializes the environment and calls `main_processing` to merge data.
+    It determines the effective configuration by checking for CLI argument overrides first,
+    then falling back to the hard-coded constants defined in this script.
+
+    Args:
+        console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
+        include_data_types: Overrides the INCLUDE_DATA_TYPES constant.
+        locations_to_include: Overrides the LOCATIONS_TO_INCLUDE constant.
+        export_mode: Overrides the EXPORT_MODE constant.
+        working_directory: Overrides the default WORKING_DIR.
+    """
     print_library_version()
 
     script_directory: Path = working_directory or WORKING_DIR
@@ -64,6 +89,12 @@ def main(
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
+    """
+    Parse command-line arguments to override script defaults.
+
+    Returns:
+        argparse.Namespace: Filtered command-line arguments.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Combine TUFLOW POMM outputs. "

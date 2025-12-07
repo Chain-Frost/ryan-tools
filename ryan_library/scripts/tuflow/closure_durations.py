@@ -28,6 +28,10 @@ from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tufl
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
+# Aliases used for testing/mocking
+_collect_po_data = collect_po_data
+_calculate_threshold_durations = calculate_threshold_durations
+
 
 def run_closure_durations(
     paths: Iterable[Path] | None = None,
@@ -67,13 +71,13 @@ def run_closure_durations(
             return
 
         # Combine PO processor outputs; warns if nothing to work with.
-        po_df: DataFrame = collect_po_data(collection=collection)
+        po_df: DataFrame = _collect_po_data(collection=collection)
         if po_df.empty:
             logger.warning("PO processors returned no data. Skipping export.")
             return
 
         # Calculate exceedance durations per threshold/location.
-        result_df: DataFrame = calculate_threshold_durations(
+        result_df: DataFrame = _calculate_threshold_durations(
             po_df=po_df,
             thresholds=thresholds,
             measurement_type=data_type,

@@ -1,11 +1,9 @@
 # ryan_library/processors/tuflow/processor_collection.py
 
 from collections.abc import Collection
-from math import pi
 from loguru import logger
 import pandas as pd
 from pandas import DataFrame, Series
-from pandas import Index
 from ryan_library.functions.dataframe_helpers import (
     reorder_columns,
     reorder_long_columns,
@@ -19,6 +17,8 @@ class ProcessorCollection:
 
     This class holds one or more processed BaseProcessor instances and provides methods to combine their DataFrames
     according to specific merging strategies."""
+
+    _BATCH_SIZE: int = 500
 
     def __init__(self) -> None:
         """Initialize an empty ProcessorCollection."""
@@ -84,6 +84,18 @@ class ProcessorCollection:
 
         return normalized_locations
 
+    def _concat_in_batches(self, frames: list[DataFrame]) -> DataFrame:
+        """Concatenate frames in smaller batches to reduce peak memory."""
+        if not frames:
+            return DataFrame()
+        batches: list[DataFrame] = []
+        for i in range(0, len(frames), self._BATCH_SIZE):
+            batch: list[DataFrame] = frames[i : i + self._BATCH_SIZE]
+            batches.append(pd.concat(batch, ignore_index=True, copy=False, sort=False))
+        if len(batches) == 1:
+            return batches[0]
+        return pd.concat(batches, ignore_index=True, copy=False, sort=False)
+
     def combine_1d_timeseries(self) -> pd.DataFrame:
         """Combine DataFrames where dataformat is 'Timeseries'.
         Group data based on 'internalName', 'Chan ID', and 'Time'.
@@ -143,7 +155,7 @@ class ProcessorCollection:
             logger.warning("No Timeseries data to concatenate.")
             return pd.DataFrame()
 
-        combined_df: pd.DataFrame = pd.concat(dfs_to_concat, ignore_index=True)
+        combined_df: pd.DataFrame = self._concat_in_batches(frames=dfs_to_concat)
         logger.debug(f"Combined Timeseries DataFrame with {len(combined_df)} rows.")
 
         # Columns to drop
@@ -167,9 +179,9 @@ class ProcessorCollection:
         combined_df = reorder_long_columns(df=combined_df)
 
         grouped_df: DataFrame = (
-            combined_df.groupby(group_keys, observed=True)
-            .agg("max")
-            .reset_index()  # pyright: ignore[reportUnknownMemberType]
+            combined_df.groupby(by=group_keys, observed=True)  # pyright: ignore[reportUnknownMemberType]
+            .agg(func="max")
+            .reset_index()
         )
 
         grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
@@ -238,6 +250,7 @@ class ProcessorCollection:
         eof_map: dict[str, DataFrame] = {p.name_parser.raw_run_code: p.df for p in eof_processors}
         merged_run_codes: set[str] = set()
 
+        columns_to_drop: list[str] = ["file", "rel_path", "path", "Time"]
         dfs_to_concat: list[DataFrame] = []
         for processor in maximums_processors:
             df: DataFrame = processor.df
@@ -255,6 +268,12 @@ class ProcessorCollection:
                 )
                 merged_run_codes.add(run_code)
 
+            # Drop bulky columns early to save memory before concatenation
+            existing_columns_to_drop: list[str] = [col for col in columns_to_drop if col in df.columns]
+            if existing_columns_to_drop:
+                df = df.drop(columns=existing_columns_to_drop)
+            logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
+
             dfs_to_concat.append(df)
 
         # Ensure EOF-only runs (no matching maximums/ccA files) are still retained so geometry is not lost.
@@ -271,17 +290,8 @@ class ProcessorCollection:
 
         # Concatenate DataFrames (with EOF geometry merged in above when available)
         # TODO - there is no geometry? there should only be data columns from the attributes
-        combined_df: DataFrame = pd.concat(dfs_to_concat, ignore_index=True)
+        combined_df: DataFrame = self._concat_in_batches(frames=dfs_to_concat)
         logger.debug(f"Combined Maximums/ccA DataFrame with {len(combined_df)} rows.")
-
-        # Columns to drop
-        columns_to_drop: list[str] = ["file", "rel_path", "path", "Time"]
-
-        # Check for existing columns and drop them
-        existing_columns_to_drop: list[str] = [col for col in columns_to_drop if col in combined_df.columns]
-        if existing_columns_to_drop:
-            combined_df.drop(columns=existing_columns_to_drop, inplace=True)
-            logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
 
         combined_df = reorder_long_columns(df=combined_df)
 
@@ -296,8 +306,8 @@ class ProcessorCollection:
             return pd.DataFrame()
 
         grouped_df: DataFrame = (
-            combined_df.groupby(by=group_keys, observed=False)  # pyright: ignore[reportUnknownMemberType]
-            .agg("max")
+            combined_df.groupby(by=group_keys, observed=True)  # pyright: ignore[reportUnknownMemberType]
+            .agg(func="max")
             .reset_index()
         )
         grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
@@ -399,7 +409,7 @@ class ProcessorCollection:
         logger.debug("Combining raw data without grouping.")
 
         # Concatenate all DataFrames
-        combined_df: DataFrame = pd.concat([p.df for p in self.processors if not p.df.empty], ignore_index=True)
+        combined_df: DataFrame = self._concat_in_batches(frames=[p.df for p in self.processors if not p.df.empty])
         logger.debug(f"Combined Raw DataFrame with {len(combined_df)} rows.")
 
         combined_df = reorder_long_columns(df=combined_df)
@@ -425,7 +435,7 @@ class ProcessorCollection:
             return pd.DataFrame()
 
         # Concatenate DataFrames
-        combined_df: DataFrame = pd.concat([p.df for p in pomm_processors if not p.df.empty], ignore_index=True)
+        combined_df: DataFrame = self._concat_in_batches(frames=[p.df for p in pomm_processors if not p.df.empty])
         logger.debug(f"Combined {len(pomm_processors)}  POMM DataFrame with {len(combined_df)} rows.")
 
         combined_df = reorder_long_columns(df=combined_df)
@@ -447,7 +457,7 @@ class ProcessorCollection:
             return pd.DataFrame()
 
         # Concatenate DataFrames
-        combined_df: DataFrame = pd.concat([p.df for p in po_processors if not p.df.empty], ignore_index=True)
+        combined_df: DataFrame = self._concat_in_batches(frames=[p.df for p in po_processors if not p.df.empty])
         logger.debug(f"Combined {len(po_processors)} PO DataFrame with {len(combined_df)} rows.")
 
         if combined_df.empty:

@@ -34,6 +34,7 @@ class POProcessor(BaseProcessor):
 
         self.df = tidy_df
 
+        self.apply_entity_filter()
         self.add_common_columns()
         self.apply_output_transformations()
 

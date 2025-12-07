@@ -1,4 +1,11 @@
 # ryan-scripts\TUFLOW-python\LogSummary.py
+"""
+Wrapper Script: TUFLOW Log Summary.
+
+This script acts as a mutable wrapper for `tuflow_logsummary.main_processing`.
+It finds and parses TUFLOW log files in the directory tree to generate a simulation summary report.
+Users can edit certain constants (like CONSOLE_LOG_LEVEL) to control the default behavior.
+"""
 
 import argparse
 import gc
@@ -24,8 +31,16 @@ def main(
     console_log_level: str | None = None,
     working_directory: Path | None = None,
 ) -> None:
-    """Wrapper script to analyse and summarise TUFLOW log files.
-    By default, it processes files in the script's directory recursively."""
+    """
+    Main entry point for log summary analysis.
+
+    This function sets up the environment and initiates the log processing logic.
+    By default, it processes files in the script's directory recursively.
+
+    Args:
+        console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
+        working_directory: Overrides the default WORKING_DIR.
+    """
     print_library_version()
     script_directory: Path = working_directory or WORKING_DIR
 
@@ -41,6 +56,12 @@ def main(
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
+    """
+    Parse command-line arguments to override script defaults.
+
+    Returns:
+        CommonWrapperOptions: Parsed and processed common arguments.
+    """
     parser = argparse.ArgumentParser(
         description="Summarise TUFLOW log files. Command-line options override the script defaults."
     )

@@ -26,9 +26,20 @@ def test_run_closure_durations_success(mock_logger, mock_bulk, mock_collect, moc
     collection.processors = [MagicMock(data_type="PO", df=pd.DataFrame({"A": [1]}))]
     mock_bulk.return_value = collection
 
-    result_df = _mock_df()
-    summary_df = _mock_df()
-    mock_collect.return_value = pd.DataFrame({"Type": ["Flow"], "Time": [0.0, 1.0], "Value": [0.0, 2.0], "Location": ["L1", "L1"], "directory_path": ["path", "path"], "aep_text": ["1%", "1%"], "duration_text": ["1hr", "1hr"], "tp_text": ["12", "12"]})
+    result_df: MagicMock = _mock_df()
+    summary_df: MagicMock = _mock_df()
+    mock_collect.return_value = pd.DataFrame(
+        data={
+            "Type": ["Flow", "Flow"],
+            "Time": [0.0, 1.0],
+            "Value": [0.0, 2.0],
+            "Location": ["L1", "L1"],
+            "directory_path": ["path", "path"],
+            "aep_text": ["1%", "1%"],
+            "duration_text": ["1hr", "1hr"],
+            "tp_text": ["12", "12"],
+        }
+    )
     mock_calc.return_value = result_df
     mock_summary.return_value = summary_df
 

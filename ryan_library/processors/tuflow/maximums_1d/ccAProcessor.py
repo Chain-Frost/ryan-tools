@@ -47,6 +47,7 @@ class ccAProcessor(BaseProcessor):
 
             self.df = cca_data
 
+            self.apply_entity_filter()
             # Add common columns like run codes, paths, etc.
             self.add_common_columns()
 

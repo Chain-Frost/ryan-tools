@@ -1,3 +1,12 @@
+# ryan-scripts\TUFLOW-python\TUFLOW_Results_Styling.py
+"""
+Wrapper Script: TUFLOW Results Styling.
+
+This script acts as a mutable wrapper for `ryan_library.scripts.tuflow.tuflow_results_styling`.
+It applies QGIS styles (.qml) to TUFLOW results (rasters/vectors) found in the target directory.
+Users can define custom QML overrides in the `user_qml_overrides` dictionary within this file.
+"""
+
 from pathlib import Path
 import gc
 import os
@@ -23,18 +32,26 @@ user_qml_overrides: dict[str, str] = {
 
 def main() -> None:
     """
-    Entry point for the TUFLOWResultsStyling script.
-    Sets the working directory to the location of this script.
+    Main entry point for the TUFLOW Results Styling script.
+
+    This function sets the working directory to the script's location (or CWD),
+    initializes the logger, and applies the configured styles using `TUFLOWResultsStyler`.
+    It handles basic error logging and keeps the console window open upon completion/error.
     """
     try:
         with setup_logger(console_log_level="INFO"):
             # Set working directory to the location of the script
+            # In some execution contexts (like frozen executables), __file__ might not exist
+            # Fallback to CWD is a safe default for a wrapper script running in-place
             script_location = Path(__file__).parent if "__file__" in globals() else Path.cwd()
+
             if not change_working_directory(target_dir=script_location):
                 return
+
             # Initialize and apply styles
             styler = TUFLOWResultsStyler(user_qml_overrides=user_qml_overrides)
             styler.apply_styles()
+
             logger.error(f"Styles were sourced from: {styler.default_styles_path}")
             print()
             print_library_version()
