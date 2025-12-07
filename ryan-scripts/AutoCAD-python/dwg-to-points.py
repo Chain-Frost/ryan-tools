@@ -46,9 +46,7 @@ def main() -> None:
     if not source.exists():
         raise SystemExit(f"Source '{source}' does not exist.")
     if source.suffix.lower() == ".dwg":
-        raise SystemExit(
-            "DWG files cannot be read directly. Export the drawing to DXF and retry."
-        )
+        raise SystemExit("DWG files cannot be read directly. Export the drawing to DXF and retry.")
     if args.precision < 0:
         raise SystemExit("Precision must be zero or positive.")
 
@@ -60,17 +58,13 @@ def main() -> None:
     unique_points = collect_unique_vertices(doc.modelspace(), args.precision)
     output_path = args.output or source.with_suffix(".xyz")
     if output_path.exists() and not args.force:
-        raise SystemExit(
-            f"Output '{output_path}' already exists; use '--force' to overwrite."
-        )
+        raise SystemExit(f"Output '{output_path}' already exists; use '--force' to overwrite.")
 
     write_xyz(output_path, unique_points.values(), args.precision)
     print(f"Wrote {len(unique_points)} unique vertices to '{output_path}'.")
 
 
-def collect_unique_vertices(
-    modelspace: Iterable[DXFGraphic], precision: int
-) -> dict[Vec3, Vec3]:
+def collect_unique_vertices(modelspace: Iterable[DXFGraphic], precision: int) -> dict[Vec3, Vec3]:
     unique: dict[Vec3, Vec3] = {}
     for entity in modelspace:
         for point in iterate_entity_vertices(entity):

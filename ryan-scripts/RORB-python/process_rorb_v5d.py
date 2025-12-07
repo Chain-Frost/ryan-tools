@@ -18,30 +18,32 @@ from ryan_functions.misc_functions import (
 # =====================================
 
 # Define default threshold flows to check
-DEFAULT_THRESHOLD_FLOWS: list[float] = (
-    list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10))
-)
+DEFAULT_THRESHOLD_FLOWS: list[float] = list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10))
 
 # =====================================
 # Data Classes
 # =====================================
+
 
 @dataclass
 class HydrographAnalysisParams:
     """
     Data class to hold parameters for hydrograph analysis.
     """
+
     AEP: str
     Duration: str
     TP: int
     out_path: str
     csv_read: str
 
+
 @dataclass
 class CentralTendencyStatistics:
     """
     Data class to hold central tendency statistics.
     """
+
     max_central_value: Optional[float]
     Tcrit: Optional[str]
     Tpcrit: Optional[str]
@@ -51,9 +53,11 @@ class CentralTendencyStatistics:
     closest_Tpcrit: Optional[str]
     closest_value: Optional[float]
 
+
 # =====================================
 # Functions (Potentially to be moved to ryan_functions.process_rorb)
 # =====================================
+
 
 def read_rorb_hydrograph_csv(filepath: Path) -> pd.DataFrame:
     """
@@ -88,6 +92,7 @@ def read_rorb_hydrograph_csv(filepath: Path) -> pd.DataFrame:
         logging.error(f"Unexpected error reading CSV file {filepath}: {e}", exc_info=True)
     return pd.DataFrame()
 
+
 def calculate_central_tendency_statistics(
     freqdb: pd.DataFrame, stat_col: str, tp_col: str, duration_col: str
 ) -> CentralTendencyStatistics:
@@ -113,9 +118,7 @@ def calculate_central_tendency_statistics(
     required_columns = {stat_col, tp_col, duration_col}
     if not required_columns.issubset(freqdb.columns):
         missing = required_columns - set(freqdb.columns)
-        logging.error(
-            f"Missing required columns in frequency database: {missing}"
-        )
+        logging.error(f"Missing required columns in frequency database: {missing}")
         return CentralTendencyStatistics(
             max_central_value=None,
             Tcrit=None,
@@ -169,6 +172,7 @@ def calculate_central_tendency_statistics(
         closest_value=closest_value,
     )
 
+
 def parse_summary_section(raw_summary: list[str]) -> dict[str, str]:
     """
     Process the summary section from batch output.
@@ -189,6 +193,7 @@ def parse_summary_section(raw_summary: list[str]) -> dict[str, str]:
         padded = f"Hyd{rnum.zfill(4)}"
         summary_dict[padded] = description.strip()
     return summary_dict
+
 
 def construct_csv_path(batchout: Path, aep_part: str, duration_part: str, tpat: int) -> Path:
     """
@@ -211,6 +216,7 @@ def construct_csv_path(batchout: Path, aep_part: str, duration_part: str, tpat: 
     second_part = f" {aep}_du{du}tp{tpat}.csv"
     # Combine to form the full CSV path
     return batchout.parent / (base_name + second_part)
+
 
 def parse_run_line(line: str, batchout_file: Path) -> Optional[list]:
     """
@@ -267,6 +273,7 @@ def parse_run_line(line: str, batchout_file: Path) -> Optional[list]:
     except ValueError as e:
         logging.error(f"Error converting line to floats: {raw_line} - {e}")
         return None
+
 
 def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
     """
@@ -362,93 +369,97 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
             batch_df["Path"] = str(batchout_file)
 
             return batch_df
+    except FileNotFoundError:
+        logging.error(f"Batch output not found: {batchout_file}", exc_info=True)
+    except Exception as e:
+        logging.error(f"Error parsing {batchout_file}: {e}", exc_info=True)
+    return pd.DataFrame()
 
-    def analyze_hydrograph(params: HydrographAnalysisParams, threshold_flows: list[float]) -> pd.DataFrame:
-        """
-        Analyze hydrograph CSV files to determine durations exceeding specified thresholds.
 
-        Args:
-            params (HydrographAnalysisParams): Parameters for analyzing the hydrograph.
-            threshold_flows (list[float]): List of threshold flows to check.
+def analyze_hydrograph(params: HydrographAnalysisParams, threshold_flows: list[float]) -> pd.DataFrame:
+    """
+    Analyze hydrograph CSV files to determine durations exceeding specified thresholds.
 
-        Returns:
-            pd.DataFrame: DataFrame containing duration exceeding thresholds.
-        """
-        aep, dur, tp, out_path, csv_read = params.AEP, params.Duration, params.TP, params.out_path, params.csv_read
-        # Initialize an empty DataFrame with specified columns
-        duration_exceedance_df = pd.DataFrame(
-            columns=[
-                "AEP",
-                "Duration",
-                "TP",
-                "Location",
-                "ThresholdFlow",
-                "Duration_Exceeding",
-                "out_path",
-            ]
-        )
-        try:
-            hydrographs = read_rorb_hydrograph_csv(Path(csv_read))
-            if hydrographs.empty:
-                logging.info(f"No data in hydrograph CSV: {csv_read}")
-                return duration_exceedance_df  # Return empty DataFrame if CSV couldn't be read
+    Args:
+        params (HydrographAnalysisParams): Parameters for analyzing the hydrograph.
+        threshold_flows (list[float]): List of threshold flows to check.
 
-            # Clean up column names by removing the prefix
-            hydrographs.columns = [
-                col.replace("Calculated hydrograph:  ", "") for col in hydrographs.columns
-            ]
+    Returns:
+        pd.DataFrame: DataFrame containing duration exceeding thresholds.
+    """
+    aep, dur, tp, out_path, csv_read = params.AEP, params.Duration, params.TP, params.out_path, params.csv_read
+    # Initialize an empty DataFrame with specified columns
+    duration_exceedance_df = pd.DataFrame(
+        columns=[
+            "AEP",
+            "Duration",
+            "TP",
+            "Location",
+            "ThresholdFlow",
+            "Duration_Exceeding",
+            "out_path",
+        ]
+    )
+    try:
+        hydrographs = read_rorb_hydrograph_csv(Path(csv_read))
+        if hydrographs.empty:
+            logging.info(f"No data in hydrograph CSV: {csv_read}")
+            return duration_exceedance_df  # Return empty DataFrame if CSV couldn't be read
 
-            # Ensure 'Time (hrs)' column exists and has at least two entries to calculate timestep
-            if "Time (hrs)" not in hydrographs.columns or len(hydrographs["Time (hrs)"]) < 2:
-                logging.error(f"'Time (hrs)' column missing or insufficient in {csv_read}")
-                return duration_exceedance_df
+        # Clean up column names by removing the prefix
+        hydrographs.columns = [col.replace("Calculated hydrograph:  ", "") for col in hydrographs.columns]
 
-            # Calculate the time step based on the first two time entries
-            timestep = hydrographs["Time (hrs)"].iloc[1] - hydrographs["Time (hrs)"].iloc[0]
+        # Ensure 'Time (hrs)' column exists and has at least two entries to calculate timestep
+        if "Time (hrs)" not in hydrographs.columns or len(hydrographs["Time (hrs)"]) < 2:
+            logging.error(f"'Time (hrs)' column missing or insufficient in {csv_read}")
+            return duration_exceedance_df
 
-            # Iterate over each threshold flow
-            for threshold in threshold_flows:
-                # Count the number of times each location exceeds the threshold
-                counts = (hydrographs.iloc[:, 1:] > threshold).sum()
-                # Get locations where the threshold is exceeded at least once
-                locations = counts[counts > 0].index.tolist()
-                # Calculate the duration exceeding the threshold
-                durations_exceeded = (counts[counts > 0] * timestep).tolist()
+        # Calculate the time step based on the first two time entries
+        timestep = hydrographs["Time (hrs)"].iloc[1] - hydrographs["Time (hrs)"].iloc[0]
 
-                # Detailed Description:
-                # - `counts`: Series with counts of exceedances per location for the current threshold.
-                # - `locations`: List of locations where exceedances occurred at least once.
-                # - `durations_exceeded`: List of total durations exceeding the threshold per location.
+        # Iterate over each threshold flow
+        for threshold in threshold_flows:
+            # Count the number of times each location exceeds the threshold
+            counts = (hydrographs.iloc[:, 1:] > threshold).sum()
+            # Get locations where the threshold is exceeded at least once
+            locations = counts[counts > 0].index.tolist()
+            # Calculate the duration exceeding the threshold
+            durations_exceeded = (counts[counts > 0] * timestep).tolist()
 
-                if locations:
-                    # Prepare the DataFrame for the current threshold
-                    threshold_df = pd.DataFrame(
-                        {
-                            "AEP": [aep] * len(locations),
-                            "Duration": [dur] * len(locations),
-                            "TP": [tp] * len(locations),
-                            "Location": locations,
-                            "ThresholdFlow": [threshold] * len(locations),
-                            "Duration_Exceeding": durations_exceeded,
-                            "out_path": [out_path] * len(locations),
-                        }
-                    )
+            # Detailed Description:
+            # - `counts`: Series with counts of exceedances per location for the current threshold.
+            # - `locations`: List of locations where exceedances occurred at least once.
+            # - `durations_exceeded`: List of total durations exceeding the threshold per location.
 
-                    # Check if threshold_df is not empty before concatenation to avoid FutureWarning
-                    if not threshold_df.empty:
-                        # Concatenate with the main DataFrame
-                        duration_exceedance_df = pd.concat(
-                            [duration_exceedance_df, threshold_df], ignore_index=True
-                        )
-        except FileNotFoundError:
-            logging.error(f"File not found: {csv_read}", exc_info=True)
-        except Exception as e:
-            logging.error(f"Error processing hydrograph CSV {csv_read}: {e}", exc_info=True)
-        return duration_exceedance_df
+            if locations:
+                # Prepare the DataFrame for the current threshold
+                threshold_df = pd.DataFrame(
+                    {
+                        "AEP": [aep] * len(locations),
+                        "Duration": [dur] * len(locations),
+                        "TP": [tp] * len(locations),
+                        "Location": locations,
+                        "ThresholdFlow": [threshold] * len(locations),
+                        "Duration_Exceeding": durations_exceeded,
+                        "out_path": [out_path] * len(locations),
+                    }
+                )
+
+                # Check if threshold_df is not empty before concatenation to avoid FutureWarning
+                if not threshold_df.empty:
+                    # Concatenate with the main DataFrame
+                    duration_exceedance_df = pd.concat([duration_exceedance_df, threshold_df], ignore_index=True)
+    except FileNotFoundError:
+        logging.error(f"File not found: {csv_read}", exc_info=True)
+    except Exception as e:
+        logging.error(f"Error processing hydrograph CSV {csv_read}: {e}", exc_info=True)
+    return duration_exceedance_df
+
 
 # =====================================
 # Main Processing Pipeline Function
 # =====================================
+
 
 def run_processing_pipeline(threshold_flows: Optional[list[float]] = None) -> None:
     """
@@ -468,15 +479,11 @@ def run_processing_pipeline(threshold_flows: Optional[list[float]] = None) -> No
 
     # Recursively search for all batch.out files using pathlib for better path handling
     logging.info("Recursively searching for **/*batch.out files - this may take a while")
-    file_list: list[Path] = [
-        Path(f) for f in iglob("**/*batch.out", recursive=True) if Path(f).is_file()
-    ]
+    file_list: list[Path] = [Path(f) for f in iglob("**/*batch.out", recursive=True) if Path(f).is_file()]
     logging.info(f"Found {len(file_list)} batch.out files")
 
     # Process each batch.out file and collect the data
-    batch_list: list[pd.DataFrame] = [
-        parse_batch_output(batchout_file) for batchout_file in file_list
-    ]
+    batch_list: list[pd.DataFrame] = [parse_batch_output(batchout_file) for batchout_file in file_list]
 
     # Concatenate all DataFrames into one, handling empty lists gracefully
     if batch_list:
@@ -510,9 +517,7 @@ def run_processing_pipeline(threshold_flows: Optional[list[float]] = None) -> No
         num_files: int = len(rorb_params_list)
         # Calculate the optimal number of threads based on the number of files
         num_threads: int = calculate_pool_size(num_files)
-        logging.info(
-            f"Processing {num_files} hydrograph CSV files with {num_threads} threads"
-        )
+        logging.info(f"Processing {num_files} hydrograph CSV files with {num_threads} threads")
 
         # Prepare arguments for starmap
         args_for_starmap = [(params, threshold_flows) for params in rorb_params_list]
@@ -535,9 +540,7 @@ def run_processing_pipeline(threshold_flows: Optional[list[float]] = None) -> No
             output_prefix: str = f"{date_time_string}_durex_5b"
             df.to_parquet(f"{output_prefix}.parquet.gzip", compression="gzip")
             df.to_csv(f"{output_prefix}.csv", index=False)
-            logging.info(
-                f"Duration exceeding thresholds saved to {output_prefix}.csv and {output_prefix}.parquet.gzip"
-            )
+            logging.info(f"Duration exceeding thresholds saved to {output_prefix}.csv and {output_prefix}.parquet.gzip")
 
             # Prepare to calculate statistics
             finaldb_columns: list[str] = [
@@ -562,9 +565,7 @@ def run_processing_pipeline(threshold_flows: Optional[list[float]] = None) -> No
 
             # Iterate over each group and calculate statistics
             for name, group in grouped:
-                stats_result = calculate_central_tendency_statistics(
-                    group, "Duration_Exceeding", "TP", "Duration"
-                )
+                stats_result = calculate_central_tendency_statistics(group, "Duration_Exceeding", "TP", "Duration")
                 # The result is a CentralTendencyStatistics object
                 # Combine it with the group identifier
                 result = list(name) + [
@@ -591,6 +592,7 @@ def run_processing_pipeline(threshold_flows: Optional[list[float]] = None) -> No
         logging.warning("No batch output data to process.")
 
     logging.info("Processing complete")
+
 
 if __name__ == "__main__":
     run_processing_pipeline()

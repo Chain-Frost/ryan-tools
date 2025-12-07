@@ -159,7 +159,9 @@ class ccAProcessor(BaseProcessor):
                         ),
                         None,
                     )
-                    logger.debug("process_gpkg: Desired suffix={!r}, selected layer_name={!r}", desired_suffix, layer_name)
+                    logger.debug(
+                        "process_gpkg: Desired suffix={!r}, selected layer_name={!r}", desired_suffix, layer_name
+                    )
 
                     if layer_name is None:
                         logger.error(

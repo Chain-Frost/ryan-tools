@@ -1,4 +1,11 @@
 # ryan_library/scripts/tuflow/tuflow_logsummary.py
+"""
+TUFLOW Log Summary.
+
+This module parses TUFLOW log files (*.tlf) in parallel to extract simulation metadata and key performance metrics
+(timestamps, errors, warnings, durations).
+It aggregates this information into a summary Excel report.
+"""
 
 from multiprocessing import Pool
 from pathlib import Path
@@ -24,11 +31,20 @@ from ryan_library.functions.dataframe_helpers import (
 
 
 def process_log_file(logfile: Path) -> pd.DataFrame:
-    """Processes a single log file and returns a DataFrame with the extracted data.
+    """
+    Processes a single log file and returns a DataFrame with the extracted data.
+
+    This function attempts to:
+      1. Read the log file.
+      2. Check for simulation completion status (by looking at the end of the file/last 100 lines).
+      3. If complete, parse the header lines using `process_top_lines` to extract variables and settings.
+      4. Finalize the data dict into a single-row DataFrame.
+
     Args:
         logfile (Path): Path object to the log file to process.
+
     Returns:
-        pd.DataFrame: DataFrame containing the processed data, or an empty DataFrame on failure.
+        pd.DataFrame: DataFrame containing the processed data, or an empty DataFrame on failure/incomplete run.
     """
     logfile_path: Path = logfile
     sim_complete: int = 0
@@ -106,7 +122,12 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
 
 
 def main_processing(console_log_level: str | None = None) -> None:
-    """Main function to process log files using multiprocessing."""
+    """
+    Main function to process log files using multiprocessing.
+
+    Finds all *.tlf files in the current working directory (excluding hpc/gpu logs recursively),
+    distributes processing across a process pool, and aggregates the results into an Excel report.
+    """
     # log_dir = Path.home() / "Documents" / "MyAppLogs"
     # log_file = "tuflow_logsummary.log"
 

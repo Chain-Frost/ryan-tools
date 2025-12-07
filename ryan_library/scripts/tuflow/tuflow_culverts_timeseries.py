@@ -1,4 +1,12 @@
 # ryan_library/scripts/tuflow/tuflow_culverts_timeseries.py
+"""
+Merge TUFLOW Culvert Timeseries.
+
+This module combines "1d_timeseries" style CSV data (e.g., flow over time for culverts).
+It leverages `combine_1d_timeseries` from `ProcessorCollection` to produce a consolidated
+timeseries dataset.
+"""
+
 from collections.abc import Collection
 from pathlib import Path
 from typing import Literal
@@ -24,20 +32,26 @@ def main_processing(
     locations_to_include: Collection[str] | None = None,
     output_dir: Path | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
-    output_parquet: bool | None = None,
 ) -> None:
-    """Driver for culvert-timeseries exports."""
+    """
+    Driver for culvert-timeseries exports.
+
+    Orchestrates the finding, reading, merging, and exporting of culvert timeseries data.
+
+    Args:
+        paths_to_process: Directories to scan.
+        include_data_types: List of file suffixes to include (e.g. "Q", "V", "H").
+        console_log_level: Logging verbosity.
+        locations_to_include: Specific location IDs to filter for.
+        output_dir: Destination directory for the export.
+        export_mode: "excel", "parquet", or "both".
+    """
     requested_types, invalid_types = normalize_data_types(
         requested=include_data_types,
         default=DEFAULT_DATA_TYPES,
         accepted=ACCEPTED_DATA_TYPES,
     )
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=locations_to_include)
-
-    if output_parquet is not None:
-        logger.warning("`output_parquet` is deprecated; use `export_mode` instead.")
-        if output_parquet and export_mode == "excel":
-            export_mode = "both"
 
     with setup_logger(console_log_level=console_log_level) as log_queue:
         logger.info("Starting TUFLOW culvert processing")

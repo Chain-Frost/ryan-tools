@@ -70,6 +70,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 1. **Analyze requests**: Read user prompts and test failures to identify required changes.
 2. **Follow conventions**: Generate code adhering to the project standards (sections 2–5).
 3. **Produce PR diffs**: Only modify relevant files; include clear commit messages.
+4. **Structure**: Keep heavy logic/parsing in `ryan_library/functions`; use `ryan_library/scripts` as orchestrators/controllers that wire functions together and handle I/O/logging; wrappers in `ryan-scripts` should call into these orchestrators.
 
 #### Logging (loguru) guidance
 - Success/error/exception logs shown to users must use f-strings (or equivalent eager formatting) for clarity.

@@ -302,9 +302,7 @@ class TuflowStringParser:
             duration_value = match.group(1)
             original_text: str = match.group(0).strip("_+")
             logger.debug(f"Parsed Duration value: {duration_value}")
-            return RunCodeComponent(
-                raw_value=duration_value, component_type="Duration", original_text=original_text
-            )
+            return RunCodeComponent(raw_value=duration_value, component_type="Duration", original_text=original_text)
 
         for human_match in self.HUMAN_DURATION_PATTERN.finditer(normalized):
             minutes: float | None = self._minutes_from_human_match(human_match)
@@ -313,9 +311,7 @@ class TuflowStringParser:
             minutes_str: str = str(int(minutes)) if minutes.is_integer() else str(minutes)
             original_text = human_match.group(0).strip("_+")
             logger.debug(f"Parsed Duration value from human-readable token: {minutes_str}")
-            return RunCodeComponent(
-                raw_value=minutes_str, component_type="Duration", original_text=original_text
-            )
+            return RunCodeComponent(raw_value=minutes_str, component_type="Duration", original_text=original_text)
         logger.debug("No Duration component found")
         return None
 

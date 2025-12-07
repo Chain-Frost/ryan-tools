@@ -1,85 +1,32 @@
-# ryan_library\scripts\tuflow\closure_durations.py
+# ryan_library/scripts/tuflow/closure_durations.py
+"""Orchestrator for computing closure durations from TUFLOW PO processors.
+
+This script:
+1. Loads PO files via the TUFLOW processors (`bulk_read_and_merge_tuflow_csv`).
+2. Optionally filters locations using `ProcessorCollection`.
+3. Calculates exceedance durations per threshold and location.
+4. Summarises results (median/mean stats) and writes parquet/CSV artefacts.
+
+Heavy lifting lives in ``ryan_library.functions.tuflow.closure_durations_functions``;
+this module wires the pieces together and handles I/O/logging.
+"""
 
 from datetime import datetime
 from pathlib import Path
 from collections.abc import Iterable
 
-import pandas as pd
 from pandas import DataFrame
 from loguru import logger
-import os
-import multiprocessing as mp
-from concurrent.futures import ProcessPoolExecutor
 
-
-from ryan_library.functions.tuflow.closure_durations import (
-    analyze_po_file,
-    find_po_files,
+from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.tuflow.closure_durations_functions import (
+    calculate_threshold_durations,
+    collect_po_data,
     summarise_results,
 )
-from ryan_library.functions.loguru_helpers import setup_logger
-
-
-def _process_one_po(args: tuple[Path, list[float], str, set[str] | None]) -> DataFrame:
-    file_path, thresholds, data_type, allowed_locations = args
-    try:
-        df: DataFrame = analyze_po_file(
-            csv_path=file_path,
-            thresholds=thresholds,
-            data_type=data_type,
-            allowed_locations=allowed_locations,
-        )
-        return df if not df.empty else pd.DataFrame()
-    except Exception as exc:
-        # Keep workers quiet if your logger isn't queue-based; this still records failures.
-        logger.exception(f"Worker failed on {file_path}: {exc}")
-        return pd.DataFrame()
-
-
-def _process_files(
-    files: list[Path],
-    thresholds: list[float],
-    data_type: str,
-    allowed_locations: set[str] | None,
-    *,
-    max_workers: int | None = None,
-    chunksize: int | None = None,
-    parallel: bool = True,
-) -> DataFrame:
-    # Fallback to sequential when asked or when trivially small.
-    if not parallel or len(files) <= 1:
-        records: list[DataFrame] = []
-        for fp in files:
-            rec: DataFrame = analyze_po_file(
-                csv_path=fp,
-                thresholds=thresholds,
-                data_type=data_type,
-                allowed_locations=allowed_locations,
-            )
-            if not rec.empty:
-                records.append(rec)
-        return pd.concat(records, ignore_index=True) if records else pd.DataFrame()
-
-    # Sensible defaults
-    if max_workers is None:
-        # Leave one core free for OS/IO; ensure at least 1.
-        max_workers = max(1, (os.cpu_count() or 1) - 1)
-
-    # For ProcessPoolExecutor.map, chunksize>=1; batching reduces overhead on many small files.
-    if chunksize is None:
-        # Rough heuristic: 4 batches per worker
-        chunksize = max(1, len(files) // (max_workers * 4) or 1)
-
-    records: list[DataFrame] = []
-    # Use spawn context (Windows default; explicit is safer/clearer)
-    ctx = mp.get_context("spawn")
-    with ProcessPoolExecutor(max_workers=max_workers, mp_context=ctx) as ex:
-        arg_iter = ((fp, thresholds, data_type, allowed_locations) for fp in files)
-        for rec in ex.map(_process_one_po, arg_iter, chunksize=chunksize):
-            if isinstance(rec, pd.DataFrame) and not rec.empty:  # pyright: ignore[reportUnnecessaryIsInstance]
-                records.append(rec)
-
-    return pd.concat(records, ignore_index=True) if records else pd.DataFrame()
+from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 
 def run_closure_durations(
@@ -89,31 +36,47 @@ def run_closure_durations(
     data_type: str = "Flow",
     allowed_locations: tuple[str, ...] | None = None,
     log_level: str = "INFO",
-    max_workers: int | None = None,  # NEW
-    chunksize: int | None = None,  # NEW (optional)
-    parallel: bool = True,  # NEW
 ) -> None:
-    """Process ``*_PO.csv`` files under ``paths`` and report closure durations."""
+    """Process PO files under ``paths`` and report closure durations.
+
+    Workflow:
+    - Discover and parse PO files via the processor pipeline.
+    - Filter by location (if provided).
+    - Compute exceedance durations for each threshold/location.
+    - Summarise results and export parquet/CSV/Excel artefacts.
+    """
     if paths is None:
         paths = [Path.cwd()]
     if thresholds is None:
         values: set[int] = set(list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10)))
         thresholds = [float(v) for v in values]
-    allowed_set: set[str] | None = set(allowed_locations) if allowed_locations else None
+    normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=allowed_locations)
 
-    with setup_logger(console_log_level=log_level):
-        files: list[Path] = find_po_files(paths=paths)
-        if not files:
-            logger.warning("No PO CSV files found.")
+    with setup_logger(console_log_level=log_level) as log_queue:
+        collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
+            paths_to_process=list(paths),
+            include_data_types=["PO"],
+            log_queue=log_queue,
+        )
+
+        if normalized_locations:
+            collection.filter_locations(locations=normalized_locations)
+
+        if not collection.processors:
+            logger.warning("No PO CSV files were processed.")
             return
-        result_df: DataFrame = _process_files(
-            files=files,
+
+        # Combine PO processor outputs; warns if nothing to work with.
+        po_df: DataFrame = collect_po_data(collection=collection)
+        if po_df.empty:
+            logger.warning("PO processors returned no data. Skipping export.")
+            return
+
+        # Calculate exceedance durations per threshold/location.
+        result_df: DataFrame = calculate_threshold_durations(
+            po_df=po_df,
             thresholds=thresholds,
-            data_type=data_type,
-            allowed_locations=allowed_set,
-            max_workers=max_workers,
-            chunksize=chunksize,
-            parallel=parallel,
+            measurement_type=data_type,
         )
         if result_df.empty:
             logger.warning("No hydrograph data processed.")
@@ -122,6 +85,7 @@ def run_closure_durations(
         timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
         result_df.to_parquet(path=f"{timestamp}_durex.parquet.gzip", compression="gzip")
         result_df.to_csv(path_or_buf=f"{timestamp}_durex.csv", index=False)
+
         summary_df: DataFrame = summarise_results(df=result_df)
         summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\.?[0-9]+)")[0].astype(dtype=float)
         summary_df.sort_values(

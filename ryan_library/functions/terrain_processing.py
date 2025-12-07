@@ -60,7 +60,7 @@ def tile_data(df, tile_size):
     # Add a small epsilon to ensure the max value is included if it falls exactly on a tile boundary
     x_tiles = int(np.ceil((x_max - x_min + 1e-6) / tile_size))
     y_tiles = int(np.ceil((y_max - y_min + 1e-6) / tile_size))
-    
+
     # Ensure at least 1 tile if there is data (though the above logic should handle it)
     x_tiles = max(1, x_tiles)
     y_tiles = max(1, y_tiles)

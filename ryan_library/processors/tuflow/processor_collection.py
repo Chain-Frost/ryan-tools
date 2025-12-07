@@ -104,9 +104,7 @@ class ProcessorCollection:
         # Concatenate DataFrames
         # Prepare static data (EOF + Chan)
         eof_processors: list[BaseProcessor] = [p for p in self.processors if p.data_type == "EOF"]
-        chan_processors: list[BaseProcessor] = [
-            p for p in self.processors if p.data_type == "Chan"
-        ]
+        chan_processors: list[BaseProcessor] = [p for p in self.processors if p.data_type == "Chan"]
 
         # Map run_code -> processor/df
         eof_map: dict[str, DataFrame] = {p.name_parser.raw_run_code: p.df for p in eof_processors}
@@ -173,9 +171,9 @@ class ProcessorCollection:
             .agg("max")
             .reset_index()  # pyright: ignore[reportUnknownMemberType]
         )
-        
+
         grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
-        
+
         p1_col: list[str] = [
             "trim_runcode",
             "aep_text",
@@ -204,16 +202,15 @@ class ProcessorCollection:
             "internalName",
             "pBlockage",
             "pSlope",
-
         ]
-        
+
         grouped_df = reorder_columns(
             data_frame=grouped_df,
             prioritized_columns=p1_col,
             prefix_order=["R"],
             second_priority_columns=p2_col,
         )
-        
+
         logger.debug(f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows.")
 
         return grouped_df
@@ -353,7 +350,7 @@ class ProcessorCollection:
         """Calculate the HW_D ratio = (US_h - US Invert) / Height."""
         # Determine which column to use for Headwater Level
         us_h_col: str = "US_h" if "US_h" in df.columns else "US_H"
-        
+
         required_columns: set[str] = {us_h_col, "US Invert", "Height"}
         missing_columns: set[str] = required_columns - set(df.columns)
         if missing_columns:

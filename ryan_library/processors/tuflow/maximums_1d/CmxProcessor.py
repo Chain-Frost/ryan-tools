@@ -96,11 +96,13 @@ class CmxProcessor(MaxDataProcessor):
         initial_count = len(self.df)
         # Identify malformed rows for logging (optional, but good for debugging)
         # We use a safer approach to find them if needed, or just log the count
-        
+
         # Drop rows where all specified columns are NaN
         self.df.dropna(subset=cols_to_check, how="all", inplace=True)
-        
+
         dropped_count = initial_count - len(self.df)
         if dropped_count > 0:
-            logger.warning(f"Removed {dropped_count} malformed entries (all relevant columns NaN) in file {self.log_path}")
+            logger.warning(
+                f"Removed {dropped_count} malformed entries (all relevant columns NaN) in file {self.log_path}"
+            )
             logger.debug(f"DataFrame after removing malformed entries:\n{self.df.head()}")

@@ -2,7 +2,6 @@
 from __future__ import annotations
 from pathlib import Path
 from multiprocessing import Pool
-from dataclasses import dataclass, field
 from collections.abc import Iterable
 from typing import Any
 from loguru import logger
@@ -12,25 +11,10 @@ from ryan_library.functions.file_utils import (
     is_non_zero_file,
 )
 from ryan_library.functions.misc_functions import calculate_pool_size
-from ryan_library.functions.loguru_helpers import worker_initializer
+from ryan_library.functions.loguru_helpers import LoguruMultiprocessingLogger, worker_initializer
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
-
-
-def _string_list() -> list[str]:
-    return []
-
-
-@dataclass(frozen=True)
-class ScenarioConfig:
-    """One export scenario."""
-
-    method_name: str  # e.g. "combine_1d_timeseries"
-    parquet_prefix: str  # e.g. "1d_timeseries_data"
-    excel_sheet: str  # e.g. "Timeseries"
-    export_parquet: bool  # only True for timeseries
-    column_order: list[str] = field(default_factory=_string_list)
 
 
 def collect_files(
@@ -137,7 +121,7 @@ def process_files_in_parallel(
 def bulk_read_and_merge_tuflow_csv(
     paths_to_process: list[Path],
     include_data_types: list[str],
-    log_queue,
+    log_queue: LoguruMultiprocessingLogger,
     console_log_level: str = "INFO",
 ) -> ProcessorCollection:
     logger.info("Starting TUFLOW culvert processing")
