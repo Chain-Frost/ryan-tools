@@ -1,6 +1,10 @@
 # ryan_library/processors/tuflow/processor_collection.py
 
 from collections.abc import Collection
+import copy
+import json
+from pathlib import Path
+from typing import Any
 from loguru import logger
 import pandas as pd
 from pandas import DataFrame, Series
@@ -23,6 +27,13 @@ class ProcessorCollection:
     def __init__(self) -> None:
         """Initialize an empty ProcessorCollection."""
         self.processors: list[BaseProcessor] = []
+
+    def copy(self) -> "ProcessorCollection":
+        """Return a deep copy of the collection."""
+        new_collection = ProcessorCollection()
+        # Deep copy processors to ensure isolation
+        new_collection.processors = [copy.deepcopy(p) for p in self.processors]
+        return new_collection
 
     def add_processor(self, processor: BaseProcessor) -> None:
         """Add a processed BaseProcessor instance to the collection.
@@ -499,6 +510,117 @@ class ProcessorCollection:
             f"Filtered ProcessorCollection created with {len(filtered_collection.processors)} processors matching data types {data_types}."
         )
         return filtered_collection
+
+    def to_hdf(self, file_path: Path | str) -> None:
+        """Save the collection to a single HDF5 file using pandas.HDFStore.
+
+        Args:
+            file_path: Destination HDF5 file path.
+        """
+
+        file_path = Path(file_path)
+        # Ensure parent exists
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        metadata: list[dict[str, Any]] = []
+
+        # User requested blosc:zstd level 9
+        # complib type hint in pandas can be strict, but 'blosc:zstd' is valid at runtime.
+        with pd.HDFStore(
+            str(file_path), mode="w", complevel=9, complib="blosc:zstd"  # pyright: ignore[reportArgumentType]
+        ) as store:
+            for idx, proc in enumerate(self.processors):
+                # We need a unique key for each processor df
+                key = f"proc_{idx:04d}"
+
+                proc_meta = {
+                    "file_path": str(proc.file_path),
+                    "class_name": proc.__class__.__name__,
+                    "processor_module": proc.processor_module,
+                    "dataformat": proc.dataformat,
+                    "hdf_key": key,
+                    "data_type": proc.data_type,
+                    "applied_location_filter": (
+                        list(proc.applied_location_filter) if proc.applied_location_filter else None
+                    ),
+                    "applied_entity_filter": (list(proc.applied_entity_filter) if proc.applied_entity_filter else None),
+                }
+                metadata.append(proc_meta)
+
+                if not proc.df.empty:
+                    # Using fixed format for speed as "cache".
+                    # If querying is needed, 'table' is better but slower/larger.
+                    store.put(key, proc.df, format="fixed")
+
+            meta_df = pd.DataFrame({"json": [json.dumps(metadata)]})
+            store.put("metadata", meta_df)
+
+        logger.info(f"Saved {len(self.processors)} processors to {file_path}")
+
+    @staticmethod
+    def from_hdf(file_path: Path | str, locations: Collection[str] | None = None) -> "ProcessorCollection":
+        """Load a collection from a single HDF5 file.
+
+        Args:
+            file_path: Source HDF5 file.
+            locations: Optional location filter.
+
+        Returns:
+            ProcessorCollection: Rehydrated collection.
+        """
+
+        file_path = Path(file_path)
+        if not file_path.exists():
+            raise FileNotFoundError(f"HDF5 file not found: {file_path}")
+
+        collection = ProcessorCollection()
+
+        with pd.HDFStore(str(file_path), mode="r") as store:
+            if "metadata" not in store:
+                raise KeyError("HDF5 file missing 'metadata' key.")
+
+            meta_df = store.get("metadata")
+            metadata: list[dict[str, Any]] = json.loads(
+                meta_df.iloc[0]["json"]
+            )  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+
+            for item in metadata:
+                file_path_str = item["file_path"]
+                class_name = item["class_name"]
+                hdf_key = item["hdf_key"]
+
+                try:
+                    proc_cls = BaseProcessor.get_processor_class(
+                        class_name=class_name,
+                        processor_module=item.get("processor_module"),
+                        dataformat=item.get("dataformat"),
+                    )
+
+                    proc = proc_cls(file_path=Path(file_path_str))
+
+                    if hdf_key in store:
+                        proc.df = store.get(hdf_key)  # pyright: ignore[reportUnknownMemberType]
+                        proc.processed = True
+                    else:
+                        proc.df = pd.DataFrame()
+                        proc.processed = True
+
+                    if item.get("applied_location_filter"):
+                        proc.applied_location_filter = frozenset(item["applied_location_filter"])
+                    if item.get("applied_entity_filter"):
+                        proc.applied_entity_filter = frozenset(item["applied_entity_filter"])
+
+                    collection.add_processor(proc)
+
+                except Exception as e:
+                    logger.error(f"Failed to rehydrate processor for {file_path_str}: {e}")
+                    continue
+
+        if locations:
+            collection.filter_locations(locations)
+
+        logger.info(f"Loaded {len(collection.processors)} processors from HDF5: {file_path}")
+        return collection
 
     def check_duplicates(self) -> dict[tuple[str, str], list[BaseProcessor]]:
         """Identify processors that share the same run-code (internalName) and data_type.
