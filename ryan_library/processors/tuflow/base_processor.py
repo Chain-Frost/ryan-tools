@@ -10,6 +10,7 @@ import importlib
 import pandas as pd
 from pandas import DataFrame, Series
 from pandas._typing import DtypeArg
+from pandas._libs.missing import NAType
 from loguru import logger
 from ryan_library.classes.suffixes_and_dtypes import (
     Config,
@@ -181,7 +182,7 @@ class BaseProcessor(ABC):
             candidate_modules.append(module_base)
 
         if processor_module:
-            extend_with_module(processor_module)
+            extend_with_module(module_hint=processor_module)
 
         candidate_modules.append(f"{base_package}.{class_name}")
         candidate_modules.append(base_package)
@@ -436,12 +437,12 @@ class BaseProcessor(ABC):
         resolved_path: Path = self.resolved_file_path
         cwd_resolved: Path = Path.cwd().resolve()
         parent_path: Path = resolved_path.parent
-        data: dict[str, str] = {
+        data: dict[str, str | NAType] = {
             "internalName": self.name_parser.raw_run_code,
-            "rel_path": str(resolved_path.relative_to(cwd_resolved)),
+            "rel_path": self._relative_or_na(path=resolved_path, base=cwd_resolved),
             "path": str(resolved_path),
             "directory_path": str(parent_path),
-            "rel_directory": str(parent_path.relative_to(cwd_resolved)),
+            "rel_directory": self._relative_or_na(path=parent_path, base=cwd_resolved),
             "file": self.file_name,
         }
         logger.debug(f"{self.file_name}: Adding basic info columns: {data}")
@@ -688,3 +689,12 @@ class BaseProcessor(ABC):
                 sorted_categories: list[str] = sorted(df[col].cat.categories)
                 df[col] = df[col].cat.set_categories(new_categories=sorted_categories, ordered=True)
                 logger.debug(f"Column '{col}' ordered alphabetically.")
+
+    @staticmethod
+    def _relative_or_na(path: Path, base: Path) -> str | NAType:
+        """Return ``path`` relative to ``base`` or ``pd.NA`` if not possible."""
+        try:
+            return str(path.relative_to(base))
+        except ValueError:
+            logger.debug("Path %s is not under %s; storing NA for relative column.", path, base)
+            return pd.NA
