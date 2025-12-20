@@ -2,6 +2,7 @@
 from __future__ import annotations
 from pathlib import Path
 from multiprocessing import Pool
+from multiprocessing.pool import MaybeEncodingError
 from collections.abc import Iterable, Mapping, Collection
 from typing import Any
 from loguru import logger
@@ -90,6 +91,36 @@ def collect_files(
     return filtered_files
 
 
+def _summarize_file_batch(file_list: list[Path]) -> tuple[int, int, Path | None, int]:
+    """Return count, total bytes, largest path, largest size for ``file_list``."""
+    total_bytes: int = 0
+    largest_file: Path | None = None
+    largest_bytes: int = 0
+    for path in file_list:
+        try:
+            size = path.stat().st_size
+        except OSError:
+            size = 0
+        total_bytes += size
+        if size > largest_bytes:
+            largest_bytes = size
+            largest_file = path
+    return len(file_list), total_bytes, largest_file, largest_bytes
+
+
+def _format_bytes(size: int) -> str:
+    """Convert ``size`` to a human-readable string."""
+    if size <= 0:
+        return "0 B"
+    units: tuple[str, ...] = ("B", "KB", "MB", "GB", "TB", "PB")
+    idx: int = 0
+    value: float = float(size)
+    while value >= 1024 and idx < len(units) - 1:
+        value /= 1024
+        idx += 1
+    return f"{value:.1f} {units[idx]}"
+
+
 def _resolve_entity_filter_for_file(
     file_path: Path, entity_filters: Mapping[str, Collection[str]] | Collection[str] | None
 ) -> Collection[str] | None:
@@ -123,6 +154,7 @@ def process_file(
             logger.debug(f"Processed {proc.log_path}")
         else:
             logger.warning(f"Validation failed {proc.log_path}")
+        proc.discard_raw_dataframe()
         return proc
     except Exception:
         try:
@@ -141,14 +173,54 @@ def process_files_in_parallel(
 ) -> ProcessorCollection:
     size: int = calculate_pool_size(num_files=len(file_list))
     logger.info(f"Spawning pool with {size} workers")
+    file_count, total_bytes, largest_file, largest_bytes = _summarize_file_batch(file_list=file_list)
+    largest_desc: str = f"{largest_file.name} ({_format_bytes(largest_bytes)})" if largest_file else "n/a"
+    logger.info(
+        "Preparing to process {count} files (~{total} on disk; largest {largest}).",
+        count=file_count,
+        total=_format_bytes(total_bytes),
+        largest=largest_desc,
+    )
+    dataset_summary: str = f"{file_count} files (~{_format_bytes(total_bytes)} on disk; largest {largest_desc})"
+    if size <= 1:
+        logger.info("Pool size is 1; processing files sequentially.")
+        return _process_files_serially(file_list=file_list, entity_filters=entity_filters)
+
+    try:
+        with Pool(processes=size, initializer=worker_initializer, initargs=(log_queue, log_level)) as pool:
+            task_args: list[tuple[Path, Mapping[str, Collection[str]] | Collection[str] | None]] = [
+                (file_path, entity_filters) for file_path in file_list
+            ]
+            coll = ProcessorCollection()
+            for proc in pool.starmap(func=process_file, iterable=task_args):
+                if proc and proc.processed:
+                    coll.add_processor(processor=proc)
+            return coll
+    except MaybeEncodingError as exc:
+        logger.warning(
+            "Multiprocessing failed to return processor results ({}). Falling back to sequential execution. Dataset footprint: {}",
+            exc,
+            dataset_summary,
+        )
+    except OSError as exc:
+        logger.warning(
+            "Multiprocessing encountered an OSError ({}). Falling back to sequential execution. Dataset footprint: {}",
+            exc,
+            dataset_summary,
+        )
+    return _process_files_serially(file_list=file_list, entity_filters=entity_filters)
+
+
+def _process_files_serially(
+    file_list: list[Path],
+    entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
+) -> ProcessorCollection:
+    logger.info("Processing {} files sequentially.", len(file_list))
     coll = ProcessorCollection()
-    with Pool(processes=size, initializer=worker_initializer, initargs=(log_queue, log_level)) as pool:
-        task_args: list[tuple[Path, Mapping[str, Collection[str]] | Collection[str] | None]] = [
-            (file_path, entity_filters) for file_path in file_list
-        ]
-        for proc in pool.starmap(func=process_file, iterable=task_args):
-            if proc and proc.processed:
-                coll.add_processor(processor=proc)
+    for file_path in file_list:
+        proc: BaseProcessor | None = process_file(file_path=file_path, entity_filters=entity_filters)
+        if proc and proc.processed:
+            coll.add_processor(processor=proc)
     return coll
 
 

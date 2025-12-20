@@ -1,0 +1,23 @@
+# Windows thumbnail cache
+Thumbs.db
+
+# Exclude specific directories
+model/DEM/
+model/terrain/
+terrain/
+results/
+run/log/
+checks/
+working/
+empty/
+
+# Exclude any directory named "xf" at any level
+xf/
+
+# Exclude all .xf4 files
+*.xf4
+
+/*.xlsx
+/*.tif
+
+*.CSV.bak

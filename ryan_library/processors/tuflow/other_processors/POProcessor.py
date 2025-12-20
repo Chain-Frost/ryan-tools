@@ -33,6 +33,7 @@ class POProcessor(BaseProcessor):
             return
 
         self.df = tidy_df
+        self.df["AbsValue"] = self.df["Value"].abs()
 
         self.apply_entity_filter()
         self.add_common_columns()

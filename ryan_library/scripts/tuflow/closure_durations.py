@@ -5,7 +5,7 @@ This script:
 1. Loads PO files via the TUFLOW processors (`bulk_read_and_merge_tuflow_csv`).
 2. Optionally filters locations using `ProcessorCollection`.
 3. Calculates exceedance durations per threshold and location.
-4. Summarises results (median/mean stats) and writes parquet/CSV artefacts.
+4. Summarises results (median/mean stats) and exports Excel/Parquet artefacts.
 
 Heavy lifting lives in ``ryan_library.functions.tuflow.closure_durations_functions``;
 this module wires the pieces together and handles I/O/logging.
@@ -14,11 +14,13 @@ this module wires the pieces together and handles I/O/logging.
 from datetime import datetime
 from pathlib import Path
 from collections.abc import Iterable
+from typing import Literal
 
 from pandas import DataFrame
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.misc_functions import ExcelExporter
 from ryan_library.functions.tuflow.closure_durations_functions import (
     calculate_threshold_durations,
     collect_po_data,
@@ -40,6 +42,7 @@ def run_closure_durations(
     data_type: str = "Flow",
     allowed_locations: tuple[str, ...] | None = None,
     log_level: str = "INFO",
+    export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
     """Process PO files under ``paths`` and report closure durations.
 
@@ -96,5 +99,43 @@ def run_closure_durations(
             by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True, inplace=True
         )
         summary_df.drop(columns="AEP_sort_key", inplace=True)
-        summary_df.to_csv(path_or_buf=f"{timestamp}_QvsTexc.csv", index=False)
-        logger.info("Processing complete")
+        _export_closure_duration_artifacts(
+            durations_df=result_df,
+            summary_df=summary_df,
+            timestamp=timestamp,
+            export_mode=export_mode,
+        )
+        logger.info("Closure duration export complete.")
+
+
+def _export_closure_duration_artifacts(
+    *,
+    durations_df: DataFrame,
+    summary_df: DataFrame,
+    timestamp: str,
+    export_mode: Literal["excel", "parquet", "both"],
+) -> None:
+    """Export closure duration tables according to ``export_mode``."""
+    frames: list[DataFrame] = []
+    sheet_names: list[str] = []
+    if not durations_df.empty:
+        frames.append(durations_df)
+        sheet_names.append("Duration_Exceedance")
+    if not summary_df.empty:
+        frames.append(summary_df)
+        sheet_names.append("Summary")
+
+    if not frames:
+        logger.warning("No closure duration results to export.")
+        return
+
+    file_label: str = f"{timestamp}_closure_durations"
+    export_dict: dict[str, dict[str, list[DataFrame] | list[str]]] = {
+        file_label: {"dataframes": frames, "sheets": sheet_names}
+    }
+    ExcelExporter().export_dataframes(
+        export_dict=export_dict,
+        output_directory=Path.cwd(),
+        export_mode=export_mode,
+        parquet_compression="gzip",
+    )

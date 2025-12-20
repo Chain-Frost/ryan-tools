@@ -546,6 +546,13 @@ class BaseProcessor(ABC):
             logger.error(f"{self.file_name}: Error applying output_columns datatypes: {e}")
             raise
 
+    def discard_raw_dataframe(self) -> None:
+        """Release the raw dataframe copy to reduce peak memory usage."""
+        if self.raw_df.empty:
+            return
+        logger.debug(f"{self.file_name}: Discarding raw_df with {len(self.raw_df)} rows.")
+        self.raw_df = pd.DataFrame()
+
     def validate_data(self) -> bool:
         """Validate the processed data.
         By default, just checks if DataFrame is non-empty, but can be overridden by subclasses.
