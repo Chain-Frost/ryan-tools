@@ -46,6 +46,12 @@ def reset_logging() -> None:
     logger.remove()
 
 
+def is_loguru_configured() -> bool:
+    """Return True if Loguru has at least one sink configured."""
+    handlers = getattr(getattr(logger, "_core", None), "handlers", {})
+    return bool(handlers)
+
+
 def configure_serial_logging(console_log_level: str = "INFO", log_file: str | None = None) -> None:
     """Configure logging for a simple serial execution (no multiprocessing queue).
 

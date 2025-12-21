@@ -83,8 +83,11 @@ def main_processing(
             logger.warning("No culvert result files were processed. Skipping export.")
             return
 
+        collection.compact_basic_info_columns()
+
         maximums_df: pd.DataFrame = collection.combine_1d_maximums()
         raw_df: pd.DataFrame = collection.combine_raw()
+        raw_df = collection.attach_basic_info(df=raw_df, drop_id=True)
         if maximums_df.empty and raw_df.empty:
             warn_on_invalid_types(
                 invalid_types=invalid_types,
