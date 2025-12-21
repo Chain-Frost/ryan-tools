@@ -120,64 +120,6 @@ class TestReporting:
 
 
 class TestProcessing:
-    @patch("ryan_library.functions.tuflow.pomm_utils.BaseProcessor")
-    def test_process_file_success(self, mock_base_processor) -> None:
-        """Test successful file processing."""
-        mock_instance = MagicMock()
-        mock_instance.validate_data.return_value = True
-        mock_instance.processed = True
-        mock_base_processor.from_file.return_value = mock_instance
-
-        path = Path("test.csv")
-        res: pomm_utils.BaseProcessor = pomm_utils.process_file(path)
-
-        assert res == mock_instance
-        mock_instance.process.assert_called_once()
-        mock_instance.validate_data.assert_called_once()
-
-    @patch("ryan_library.functions.tuflow.pomm_utils.BaseProcessor")
-    def test_process_file_with_filter(self, mock_base_processor):
-        """Test file processing with location filter."""
-        mock_instance = MagicMock()
-        mock_base_processor.from_file.return_value = mock_instance
-
-        path = Path("test.csv")
-        filters = frozenset(["Loc1"])
-        pomm_utils.process_file(path, location_filter=filters)
-
-        mock_instance.filter_locations.assert_called_once_with(filters)
-
-    @patch("ryan_library.functions.tuflow.pomm_utils.BaseProcessor")
-    def test_process_file_failure(self, mock_base_processor) -> None:
-        """Test exception handling in process_file."""
-        mock_base_processor.from_file.side_effect = Exception("Test Error")
-
-        with pytest.raises(Exception, match="Test Error"):
-            pomm_utils.process_file(file_path=Path("test.csv"))
-
-    @patch("ryan_library.functions.tuflow.pomm_utils.Pool")
-    @patch("ryan_library.functions.tuflow.pomm_utils.calculate_pool_size")
-    def test_process_files_in_parallel(self, mock_calc_pool, mock_pool) -> None:
-        """Test parallel processing orchestration."""
-        mock_calc_pool.return_value = 2
-        mock_pool_instance = mock_pool.return_value.__enter__.return_value
-
-        # Mock results from starmap
-        mock_proc1 = MagicMock()
-        mock_proc1.processed = True
-        mock_proc1.df = pd.DataFrame({"A": [1]})  # Needs data to be added
-        mock_proc2 = MagicMock()
-        mock_proc2.processed = False  # Should be skipped
-        mock_pool_instance.starmap.return_value = [mock_proc1, mock_proc2]
-
-        files: list[Path] = [Path("f1.csv"), Path("f2.csv")]
-        log_queue = MagicMock()
-
-        res: pomm_utils.ProcessorCollection = pomm_utils.process_files_in_parallel(file_list=files, log_queue=log_queue)
-
-        assert len(res.processors) == 1
-        assert res.processors[0] == mock_proc1
-
     @patch("ryan_library.functions.tuflow.pomm_utils.collect_files")
     @patch("ryan_library.functions.tuflow.pomm_utils.process_files_in_parallel")
     def test_combine_processors_from_paths(self, mock_parallel, mock_collect):
@@ -185,12 +127,18 @@ class TestProcessing:
         mock_collect.return_value = [Path("f1.csv")]
         mock_result_collection = MagicMock()
         mock_parallel.return_value = mock_result_collection
+        locations = ["Loc1", "Loc2"]
 
-        res: pomm_utils.ProcessorCollection = pomm_utils.combine_processors_from_paths(paths_to_process=[Path("dir")])
+        res: pomm_utils.ProcessorCollection = pomm_utils.combine_processors_from_paths(
+            paths_to_process=[Path("dir")],
+            locations_to_include=locations,
+        )
 
         assert res == mock_result_collection
         mock_collect.assert_called_once()
         mock_parallel.assert_called_once()
+        call_kwargs = mock_parallel.call_args.kwargs
+        assert call_kwargs["entity_filters"] == frozenset(locations)
 
     @patch("ryan_library.functions.tuflow.pomm_utils.collect_files")
     def test_combine_processors_no_files(self, mock_collect):

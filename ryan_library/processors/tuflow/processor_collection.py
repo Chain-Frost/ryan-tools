@@ -23,16 +23,20 @@ class ProcessorCollection:
     according to specific merging strategies."""
 
     _BATCH_SIZE: int = 500
+    BASIC_INFO_COLUMNS: tuple[str, ...] = ("file", "rel_path", "path", "directory_path", "rel_directory")
 
     def __init__(self) -> None:
         """Initialize an empty ProcessorCollection."""
         self.processors: list[BaseProcessor] = []
+        self.basic_info_lookup: DataFrame | None = None
 
     def copy(self) -> "ProcessorCollection":
         """Return a deep copy of the collection."""
         new_collection = ProcessorCollection()
         # Deep copy processors to ensure isolation
         new_collection.processors = [copy.deepcopy(p) for p in self.processors]
+        if self.basic_info_lookup is not None:
+            new_collection.basic_info_lookup = self.basic_info_lookup.copy(deep=True)
         return new_collection
 
     def add_processor(self, processor: BaseProcessor) -> None:
@@ -49,6 +53,86 @@ class ProcessorCollection:
             )
         else:
             logger.warning(f"Attempted to add unprocessed processor: {processor.file_name}")
+
+    def build_basic_info_lookup(
+        self,
+        columns: Collection[str] | None = None,
+        id_column: str = "processor_id",
+    ) -> DataFrame:
+        """Build a lookup table for file/path metadata keyed by processor id."""
+        if columns is None:
+            columns = self.BASIC_INFO_COLUMNS
+
+        rows: list[dict[str, Any]] = []
+        for idx, processor in enumerate(self.processors):
+            payload = processor.build_basic_info_payload()
+            row: dict[str, Any] = {id_column: idx}
+            for column in columns:
+                if column in payload:
+                    row[column] = payload[column]
+            rows.append(row)
+
+        lookup_df = pd.DataFrame(data=rows)
+        if not lookup_df.empty and id_column in lookup_df.columns:
+            lookup_df[id_column] = lookup_df[id_column].astype("Int32")
+        return lookup_df
+
+    def compact_basic_info_columns(
+        self,
+        columns: Collection[str] | None = None,
+        id_column: str = "processor_id",
+    ) -> DataFrame:
+        """Replace repeated file/path columns with a compact processor id reference."""
+        if columns is None:
+            columns = self.BASIC_INFO_COLUMNS
+        columns_to_drop: set[str] = set(columns)
+
+        lookup_df: DataFrame = self.build_basic_info_lookup(columns=columns, id_column=id_column)
+
+        for idx, processor in enumerate(self.processors):
+            if processor.df.empty:
+                continue
+            if id_column in processor.df.columns:
+                logger.warning(
+                    f"{processor.file_name}: '{id_column}' already present; skipping compaction for this processor."
+                )
+                continue
+            processor.df[id_column] = pd.Series(idx, index=processor.df.index, dtype="Int32")
+            drop_columns: list[str] = [column for column in columns_to_drop if column in processor.df.columns]
+            if drop_columns:
+                processor.df = processor.df.drop(columns=drop_columns)
+
+        self.basic_info_lookup = lookup_df
+        return lookup_df
+
+    def attach_basic_info(
+        self,
+        df: DataFrame,
+        id_column: str = "processor_id",
+        drop_id: bool = False,
+    ) -> DataFrame:
+        """Attach compacted file/path columns back onto a DataFrame."""
+        if df.empty or self.basic_info_lookup is None or self.basic_info_lookup.empty:
+            return df
+        if id_column not in df.columns:
+            logger.debug(
+                "Skipping basic info attach; '{id_column}' column is missing.",
+                id_column=id_column,
+            )
+            return df
+
+        merged_df: DataFrame = df.merge(right=self.basic_info_lookup, on=id_column, how="left")
+        if drop_id and id_column in merged_df.columns:
+            merged_df.drop(columns=[id_column], inplace=True)
+        return merged_df
+
+    def discard_raw_dataframes(self) -> int:
+        """Discard raw DataFrames for all processors to reduce memory usage."""
+        discarded = 0
+        for processor in self.processors:
+            processor.discard_raw_dataframe()
+            discarded += 1
+        return discarded
 
     def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
         """Apply a location filter to all processors in the collection.
@@ -107,9 +191,12 @@ class ProcessorCollection:
             return batches[0]
         return pd.concat(batches, ignore_index=True, copy=False, sort=False)
 
-    def combine_1d_timeseries(self) -> pd.DataFrame:
+    def combine_1d_timeseries(self, reset_categoricals: bool = True) -> pd.DataFrame:
         """Combine DataFrames where dataformat is 'Timeseries'.
         Group data based on 'internalName', 'Chan ID', and 'Time'.
+
+        Args:
+            reset_categoricals: Whether to normalize categorical ordering before grouping.
 
         Returns:
             pd.DataFrame: Combined and grouped DataFrame."""
@@ -170,7 +257,14 @@ class ProcessorCollection:
         logger.debug(f"Combined Timeseries DataFrame with {len(combined_df)} rows.")
 
         # Columns to drop
-        columns_to_drop: list[str] = ["file", "rel_path", "path", "directory_path"]
+        columns_to_drop: list[str] = [
+            "file",
+            "rel_path",
+            "path",
+            "directory_path",
+            "rel_directory",
+            "processor_id",
+        ]
 
         # Check for existing columns and drop them
         existing_columns_to_drop: list[str] = [col for col in columns_to_drop if col in combined_df.columns]
@@ -178,7 +272,8 @@ class ProcessorCollection:
             combined_df.drop(columns=existing_columns_to_drop, inplace=True)
             logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
 
-        combined_df = reset_categorical_ordering(df=combined_df)
+        if reset_categoricals:
+            combined_df = reset_categorical_ordering(df=combined_df)
         # Reset categorical ordering
         # Group by 'internalName', 'Chan ID', and 'Time'
         group_keys: list[str] = ["internalName", "Chan ID", "Time"]
@@ -238,10 +333,13 @@ class ProcessorCollection:
 
         return grouped_df
 
-    def combine_1d_maximums(self) -> pd.DataFrame:
+    def combine_1d_maximums(self, reset_categoricals: bool = True) -> pd.DataFrame:
         """Combine DataFrames where dataformat is 'Maximums' or 'ccA'.
         Drop the 'Time' column.
         Group data based on 'internalName' and 'Chan ID'.
+
+        Args:
+            reset_categoricals: Whether to normalize categorical ordering before grouping.
 
         Returns:
             pd.DataFrame: Combined and grouped DataFrame."""
@@ -261,7 +359,15 @@ class ProcessorCollection:
         eof_map: dict[str, DataFrame] = {p.name_parser.raw_run_code: p.df for p in eof_processors}
         merged_run_codes: set[str] = set()
 
-        columns_to_drop: list[str] = ["file", "rel_path", "path", "Time"]
+        columns_to_drop: list[str] = [
+            "file",
+            "rel_path",
+            "path",
+            "directory_path",
+            "rel_directory",
+            "processor_id",
+            "Time",
+        ]
         dfs_to_concat: list[DataFrame] = []
         for processor in maximums_processors:
             df: DataFrame = processor.df
@@ -307,7 +413,8 @@ class ProcessorCollection:
         combined_df = reorder_long_columns(df=combined_df)
 
         # Reset categorical ordering
-        combined_df = reset_categorical_ordering(combined_df)
+        if reset_categoricals:
+            combined_df = reset_categorical_ordering(combined_df)
 
         # Group by 'internalName' and 'Chan ID'
         group_keys: list[str] = ["internalName", "Chan ID"]
@@ -412,8 +519,11 @@ class ProcessorCollection:
         logger.debug(f"Calculated HW_D ratio for {valid_count} of {df['Chan ID'].count()} rows.")
         return df
 
-    def combine_raw(self) -> pd.DataFrame:
+    def combine_raw(self, reset_categoricals: bool = True) -> pd.DataFrame:
         """Concatenate all DataFrames together without any grouping.
+
+        Args:
+            reset_categoricals: Whether to normalize categorical ordering after concatenation.
 
         Returns:
             pd.DataFrame: Concatenated DataFrame."""
@@ -426,13 +536,17 @@ class ProcessorCollection:
         combined_df = reorder_long_columns(df=combined_df)
 
         # Reset categorical ordering
-        combined_df = reset_categorical_ordering(combined_df)
+        if reset_categoricals:
+            combined_df = reset_categorical_ordering(combined_df)
 
         return combined_df
 
-    def pomm_combine(self) -> pd.DataFrame:
+    def pomm_combine(self, reset_categoricals: bool = True) -> pd.DataFrame:
         """Combine DataFrames where dataformat is 'POMM'.
         No grouping required as DataFrames are already in the correct format.
+
+        Args:
+            reset_categoricals: Whether to normalize categorical ordering after concatenation.
 
         Returns:
             pd.DataFrame: Combined DataFrame."""
@@ -452,12 +566,17 @@ class ProcessorCollection:
         combined_df = reorder_long_columns(df=combined_df)
 
         # Reset categorical ordering
-        combined_df = reset_categorical_ordering(combined_df)
+        if reset_categoricals:
+            combined_df = reset_categorical_ordering(combined_df)
 
         return combined_df
 
-    def po_combine(self) -> pd.DataFrame:
-        """Combine processed PO timeseries files into a single tidy DataFrame."""
+    def po_combine(self, reset_categoricals: bool = True) -> pd.DataFrame:
+        """Combine processed PO timeseries files into a single tidy DataFrame.
+
+        Args:
+            reset_categoricals: Whether to normalize categorical ordering after concatenation.
+        """
         logger.debug("Combining PO timeseries data.")
 
         # Filter processors with dataformat 'PO'
@@ -475,7 +594,8 @@ class ProcessorCollection:
             logger.warning("PO DataFrames are empty after concatenation.")
             return combined_df
 
-        combined_df = reset_categorical_ordering(df=combined_df)
+        if reset_categoricals:
+            combined_df = reset_categorical_ordering(df=combined_df)
         combined_df = reorder_long_columns(df=combined_df)
 
         sort_columns: list[str] = [

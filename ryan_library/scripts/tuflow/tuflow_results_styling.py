@@ -10,11 +10,9 @@ based on filename matching (e.g. *_d_Max.flt gets depth_for_legend_max2m.qml).
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import sqlite3
 from pathlib import Path
-import logging
-from typing import TypedDict, Any
+from typing import Any, TypedDict
 
-# Get the logger for this module
-logger: logging.Logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class BaseMappingEntry(TypedDict):
@@ -48,7 +46,7 @@ class TUFLOWResultsStyler:
         # __file__ resolves to ryan_library/scripts/tuflow/tuflow_results_styling.py
         # We need the repository root to locate QML files under QGIS-Styles/TUFLOW
         self.default_styles_path: Path = Path(__file__).absolute().parents[3] / "QGIS-Styles" / "TUFLOW"
-        logger.debug(self.default_styles_path)
+        logger.debug("Default styles path: {}", self.default_styles_path)
         self.user_qml_overrides: dict[str, str] = user_qml_overrides or {}
         self.mappings: dict[str, MappingEntry] = self.get_file_mappings()
 
@@ -106,13 +104,13 @@ class TUFLOWResultsStyler:
     def get_qml_content(self, qml_path: Path) -> str:
         """Retrieves the content of a QML file, either from user-provided path or default styles path."""
         if qml_path.is_absolute() and qml_path.exists():
-            logger.debug(f"Loading QML from user path: {qml_path}")
+            logger.debug("Loading QML from user path: {}", qml_path)
             with qml_path.open("r", encoding="utf-8") as file:
                 return file.read()
         else:
             full_qml_path = self.default_styles_path / qml_path.name
             if full_qml_path.exists():
-                logger.debug(f"Loading QML from default styles path: {full_qml_path}")
+                logger.debug("Loading QML from default styles path: {}", full_qml_path)
                 with full_qml_path.open("r", encoding="utf-8") as file:
                     return file.read()
             else:
@@ -125,7 +123,7 @@ class TUFLOWResultsStyler:
             source_file: Path = current_path / filename
             new_filename: str = f"{source_file.stem}.{ext}"
             destination: Path = current_path / new_filename
-            logger.info(f"Copying {source_file} to {destination}", extra={"simple_format": True})
+            logger.info(f"Copying {source_file} to {destination}")
 
             # Retrieve QML content
             qml_content: str = self.get_qml_content(qml_path)
@@ -149,7 +147,7 @@ class TUFLOWResultsStyler:
         # not implemented
         try:
             gpkg_path: Path = current_path / filename
-            logger.info(f"Processing GeoPackage: {gpkg_path}", extra={"simple_format": True})
+            logger.info(f"Processing GeoPackage: {gpkg_path}")
 
             conn: sqlite3.Connection = sqlite3.connect(gpkg_path)
             cursor: sqlite3.Cursor = conn.cursor()
@@ -163,7 +161,6 @@ class TUFLOWResultsStyler:
             for style_name, style_qml in styles:
                 logger.info(
                     f"Applying style '{style_name}' to layer '{layer_name}'",
-                    extra={"simple_format": True},
                 )
                 # Implement style application logic here
                 # For example, you could update the styleQML in the database or apply it using QGIS APIs
@@ -174,7 +171,7 @@ class TUFLOWResultsStyler:
 
     def tree_process(self, current_path: Path) -> None:
         """Recursively processes directories to apply QML styles based on file mappings."""
-        logger.info(f"Processing directory: {current_path}", extra={"simple_format": True})
+        logger.info(f"Processing directory: {current_path}")
         with ThreadPoolExecutor() as executor:
             futures: list[Any] = []
             for item in current_path.iterdir():
@@ -226,7 +223,7 @@ class TUFLOWResultsStyler:
 
         # Set current path to the script's directory or the desired processing directory
         current_path = Path.cwd()
-        logger.info(f"Current working directory: {current_path}", extra={"simple_format": True})
+        logger.info(f"Current working directory: {current_path}")
         logger.debug("File mappings:")
         logger.debug(self.mappings)
 
@@ -239,24 +236,19 @@ class TUFLOWResultsStyler:
 
 def main() -> None:
     """Wrapper entry point for direct execution."""
-    # Initialize the LoggerConfigurator
-    from ryan_library.functions.logging_helpers import LoggerConfigurator
+    from ryan_library.functions.loguru_helpers import is_loguru_configured, setup_logger
 
-    logger_config = LoggerConfigurator(
-        log_level=logging.INFO,
-        log_file=None,
-        use_rotating_file=False,
-        enable_color=True,
-    )
-    logger_config.configure()
+    # If the caller already configured Loguru, reuse it instead of reconfiguring.
+    if is_loguru_configured():
+        logger.info("Starting TUFLOW Results Styling...")
+        styler = TUFLOWResultsStyler()
+        styler.apply_styles()
+        return
 
-    # Get the logger after configuring logging
-    logger: logging.Logger = logging.getLogger(__name__)
-    logger.info("Starting TUFLOW Results Styling...", extra={"simple_format": True})
-
-    # Initialize and apply styles
-    styler = TUFLOWResultsStyler()
-    styler.apply_styles()
+    with setup_logger(console_log_level="INFO"):
+        logger.info("Starting TUFLOW Results Styling...")
+        styler = TUFLOWResultsStyler()
+        styler.apply_styles()
 
 
 if __name__ == "__main__":

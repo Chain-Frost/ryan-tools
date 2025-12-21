@@ -5,8 +5,8 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
-from ryan_library.functions.tuflow.tuflow_common import collect_files
-from ryan_library.functions.tuflow.pomm_utils import process_files_in_parallel
+from ryan_library.functions.dataframe_helpers import reset_categorical_ordering
+from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
@@ -14,6 +14,25 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 # Constants
 SOURCE_DIR = Path("tests/test_data/tuflow/TUFLOW_Example_Model_Dataset/EG02")
 SNAPSHOT_DIR = Path("tests/regression/data/snapshot")
+PATH_COLUMNS: set[str] = {"file", "rel_path", "path", "directory_path", "rel_directory"}
+
+
+def _normalize_path_value(value: object) -> object:
+    if pd.isna(value):
+        return pd.NA
+    text = str(value).replace("\\", "/")
+    marker = "tests/test_data"
+    idx = text.lower().find(marker)
+    if idx != -1:
+        return text[idx:]
+    return text
+
+
+def _normalize_path_columns(df: pd.DataFrame) -> pd.DataFrame:
+    for column in PATH_COLUMNS:
+        if column in df.columns:
+            df[column] = df[column].astype("string").map(_normalize_path_value)
+    return df
 
 
 @pytest.fixture(scope="module")
@@ -105,6 +124,11 @@ def test_regression_against_snapshot(data_type: str, processed_results: dict[str
         pass
 
     observed_df = observed_df[expected_df.columns]
+
+    expected_df = reset_categorical_ordering(df=expected_df)
+    observed_df = reset_categorical_ordering(df=observed_df)
+    expected_df = _normalize_path_columns(df=expected_df)
+    observed_df = _normalize_path_columns(df=observed_df)
 
     # Sort again just to be sure, although fixture should have sorted
     sort_cols = [c for c in ["Time", "Chan ID", "Location", "internalName"] if c in expected_df.columns]

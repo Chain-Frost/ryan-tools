@@ -13,8 +13,7 @@ from typing import Literal
 import pandas as pd
 from loguru import logger
 
-from ryan_library.functions.tuflow.pomm_utils import process_files_in_parallel
-from ryan_library.functions.tuflow.tuflow_common import collect_files
+from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.functions.file_utils import ensure_output_directory
@@ -87,13 +86,9 @@ def main_processing(
         results_set: ProcessorCollection = process_files_in_parallel(
             file_list=csv_file_list,
             log_queue=log_queue,
-            location_filter=normalized_locations if normalized_locations else None,
+            log_level=console_log_level,
+            entity_filters=normalized_locations if normalized_locations else None,
         )
-
-        # Apply post-processing location filter if provided
-        # (Note: location_filter above filters during reading, this serves as a safeguard or for post-read filtering logic)
-        if normalized_locations:
-            results_set.filter_locations(locations=normalized_locations)
 
         # Export the combined results
         export_results(results=results_set, export_mode=export_mode)

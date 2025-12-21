@@ -2,10 +2,13 @@
 """
 Wrapper Script: POMM Mean Peak Reports.
 
-This script acts as a mutable wrapper for `export_mean_peak_report`.
-It generates a summary report calculating MEAN peak values across multiple durations.
+This script locates TUFLOW POMM/RLL_Qmx CSV outputs in the working directory and produces a
+timestamped Excel workbook summarizing mean peak values across AEPs and durations.
 Users can edit the hard-coded constants in this file to control data inclusion and filtering logic,
 or use command-line arguments to override these settings.
+
+Outputs:
+    - ``<timestamp>_mean_peaks.xlsx`` saved in the working directory.
 """
 
 from pathlib import Path
@@ -29,10 +32,19 @@ import os
 from ryan_library.scripts.tuflow.pomm_max_items import export_mean_peak_report
 from ryan_library.scripts.wrapper_utils import (
     CommonWrapperOptions,
+    PommPeakWrapperDefaults,
     add_common_cli_arguments,
-    change_working_directory,
     parse_common_cli_arguments,
-    print_library_version,
+    run_pomm_peak_report_wrapper,
+)
+
+
+DEFAULTS: PommPeakWrapperDefaults = PommPeakWrapperDefaults(
+    console_log_level=CONSOLE_LOG_LEVEL,
+    include_pomm=INCLUDE_POMM,
+    include_data_types=INCLUDE_DATA_TYPES,
+    locations_to_include=LOCATIONS_TO_INCLUDE,
+    working_directory=WORKING_DIR,
 )
 
 
@@ -46,8 +58,8 @@ def main(
     """
     Main entry point for mean peak reporting.
 
-    This function initializes the environment and calls `export_mean_peak_report`.
-    It uses cli arguments to override the hard-coded defaults if provided.
+    This function resolves overrides and calls `export_mean_peak_report`.
+    It prioritizes CLI arguments over the hard-coded defaults in this file.
 
     Args:
         console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
@@ -56,27 +68,17 @@ def main(
         working_directory: Overrides the default WORKING_DIR.
     """
 
-    print_library_version()
-    script_directory: Path = working_directory or WORKING_DIR
-
-    if not change_working_directory(target_dir=script_directory):
-        return
-
-    effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
-    effective_data_types: tuple[str, ...] | None = include_data_types or INCLUDE_DATA_TYPES or None
-    effective_locations: tuple[str, ...] | None = (
-        locations_to_include if locations_to_include else (LOCATIONS_TO_INCLUDE or None)
+    overrides = CommonWrapperOptions(
+        console_log_level=console_log_level,
+        data_types=include_data_types,
+        locations_to_include=locations_to_include,
+        working_directory=working_directory,
     )
-
-    export_mean_peak_report(
-        script_directory=script_directory,
-        log_level=effective_console_log_level,
-        include_pomm=INCLUDE_POMM,
-        locations_to_include=effective_locations,
-        include_data_types=list(effective_data_types) if effective_data_types else None,
+    run_pomm_peak_report_wrapper(
+        exporter=export_mean_peak_report,
+        defaults=DEFAULTS,
+        overrides=overrides,
     )
-    print()
-    print_library_version()
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
@@ -87,7 +89,11 @@ def _parse_cli_arguments() -> CommonWrapperOptions:
         CommonWrapperOptions: Parsed and processed common arguments.
     """
     parser = argparse.ArgumentParser(
-        description="Combine mean POMM peak statistics. Command-line options override the script defaults."
+        description=(
+            "Combine mean POMM peak statistics into a timestamped Excel report "
+            "(e.g., 20240131-1530_mean_peaks.xlsx). "
+            "Command-line options override the script defaults."
+        )
     )
     add_common_cli_arguments(parser=parser)
     args: argparse.Namespace = parser.parse_args()
@@ -103,4 +109,5 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     gc.collect()
-    os.system("PAUSE")
+    if os.name == "nt":
+        os.system("PAUSE")

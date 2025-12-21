@@ -457,10 +457,10 @@ class TLFProcessor(BaseProcessor):
         data_dict: dict[str, Any] = {}
         current_section = None
 
-        file_size = self.file_path.stat().st_size
-        is_large_file = file_size > 10 * 1024 * 1024  # 10 MB
+        file_size: int = self.file_path.stat().st_size
+        is_large_file: bool = file_size > 10 * 1024 * 1024  # 10 MB
 
-        lines = read_log_file(
+        lines: list[str] = read_log_file(
             logfile_path=self.file_path,
             is_large_file=is_large_file,
         )
@@ -469,8 +469,8 @@ class TLFProcessor(BaseProcessor):
             self.processed = False
             return
 
-        runcode = self.file_path.stem
-        relative_logfile_path = convert_to_relative_path(user_path=self.file_path)
+        runcode: str = self.file_path.stem
+        relative_logfile_path: Path = convert_to_relative_path(user_path=self.file_path)
 
         # Search for completion in the last 100 lines
         for line in lines[-100:]:
