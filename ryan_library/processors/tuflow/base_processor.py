@@ -69,6 +69,7 @@ class BaseProcessor(ABC):
     df: pd.DataFrame = field(default_factory=pd.DataFrame)
     raw_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
+    include_path_columns: bool = field(default=True, repr=False)
     applied_location_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
     applied_entity_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
     entity_filter: frozenset[str] | None = field(default=None, repr=False)
@@ -76,6 +77,7 @@ class BaseProcessor(ABC):
     # Define _processor_cache as a ClassVar to make it a class variable
     _processor_cache: ClassVar[dict[tuple[str, str], type["BaseProcessor"]]] = {}
     ENTITY_ID_COLUMNS: ClassVar[tuple[str, ...]] = ("Chan ID", "Location", "Node ID", "ID")
+    PATH_INFO_COLUMNS: ClassVar[tuple[str, ...]] = ("file", "rel_path", "path", "directory_path", "rel_directory")
 
     # Attributes to hold configuration
     output_columns: dict[str, str] = field(init=False, default_factory=lambda: cast(dict[str, str], {}))
@@ -104,7 +106,13 @@ class BaseProcessor(ABC):
             return str(self.resolved_file_path)
 
     @classmethod
-    def from_file(cls, file_path: Path, entity_filter: Collection[str] | None = None) -> "BaseProcessor":
+    def from_file(
+        cls,
+        file_path: Path,
+        entity_filter: Collection[str] | None = None,
+        *,
+        include_path_columns: bool = True,
+    ) -> "BaseProcessor":
         """Factory method to create the appropriate processor instance based on the file suffix."""
         logger.debug(f"Attempting to process file: {file_path}")
 
@@ -146,7 +154,11 @@ class BaseProcessor(ABC):
         normalized_filter: frozenset[str] | None = cls.normalize_locations(locations=entity_filter)
 
         try:
-            processor: BaseProcessor = processor_cls(file_path=file_path, entity_filter=normalized_filter)
+            processor: BaseProcessor = processor_cls(
+                file_path=file_path,
+                entity_filter=normalized_filter,
+                include_path_columns=include_path_columns,
+            )
             return processor
         except Exception as e:
             logger.exception(f"Error instantiating processor '{processor_class_name}' for file {file_path}: {e}")
@@ -425,19 +437,21 @@ class BaseProcessor(ABC):
         self.applied_location_filter = normalized_locations
         return normalized_locations
 
-    def add_common_columns(self) -> None:
+    def add_common_columns(self, include_path_columns: bool | None = None) -> None:
         """Add all common columns by delegating to specific methods."""
-        self.add_basic_info_to_df()
+        if include_path_columns is None:
+            include_path_columns = self.include_path_columns
+        self.add_basic_info_to_df(include_path_columns=include_path_columns)
         self.run_code_parts_to_df()
         self.additional_attributes_to_df()
         self.reorder_long_text_columns()
 
-    def add_basic_info_to_df(self) -> None:
-        """Add basic information columns to the DataFrame."""
+    def build_basic_info_payload(self) -> dict[str, str | NAType]:
+        """Build the core metadata payload derived from the source file."""
         resolved_path: Path = self.resolved_file_path
         cwd_resolved: Path = Path.cwd().resolve()
         parent_path: Path = resolved_path.parent
-        data: dict[str, str | NAType] = {
+        return {
             "internalName": self.name_parser.raw_run_code,
             "rel_path": self._relative_or_na(path=resolved_path, base=cwd_resolved),
             "path": str(resolved_path),
@@ -445,6 +459,14 @@ class BaseProcessor(ABC):
             "rel_directory": self._relative_or_na(path=parent_path, base=cwd_resolved),
             "file": self.file_name,
         }
+
+    def add_basic_info_to_df(self, include_path_columns: bool = True) -> None:
+        """Add basic information columns to the DataFrame."""
+        data: dict[str, str | NAType] = self.build_basic_info_payload()
+        if not include_path_columns:
+            data = {
+                key: value for key, value in data.items() if key == "internalName" or key not in self.PATH_INFO_COLUMNS
+            }
         logger.debug(f"{self.file_name}: Adding basic info columns: {data}")
         # Assign basic info columns as strings
         self.df = self.df.assign(**data).astype({key: "string" for key in data})

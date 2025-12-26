@@ -1,3 +1,11 @@
+"""QGIS processing algorithm that turns a rainfall raster into clipped rainfall boxes.
+
+Workflow: build a grid in the raster CRS, sample DN values, filter NoData cells, clip to
+the catchment, compute area-weighted averages, reproject with per-vertex snapping,
+rebuild topology, apply an inward buffer, and write the final singlepart polygons.
+Allows an optional control-point override for centroid sampling in the QA output.
+"""
+
 # Spatial_Rainfall_Pattern – QGIS 3.44.3
 # Per-cell grid (no dissolve) → PoS raster sampling → NoData filter → clip in raster CRS
 # → area-weighted average → add f1,f2 on clipped cells
@@ -30,25 +38,38 @@ from qgis.core import (
     QgsDistanceArea,
     QgsFeatureSink,
     QgsCoordinateTransform,
+    QgsCoordinateReferenceSystem,
 )
 from qgis.PyQt.QtCore import QVariant
 from qgis import processing
 
 
 class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
+    """Processing algorithm that creates rainfall tiles snapped to a polygon grid."""
+
     PARAM_CATCHMENT = "catchment"
+    PARAM_CENTROID_OVERRIDE = "centroid_override"
     PARAM_RASTER = "rain_raster"
     PARAM_OUT = "Rainfallboxes"
 
     PRECISION_GRID_M = 0.001  # snap grid in final CRS (m)
-    FINAL_BUFFER_M = -0.1  # inward buffer (m), miter joins
+    FINAL_BUFFER_M: float = -0.1  # inward buffer (m), miter joins
 
     def initAlgorithm(self, config: dict[str, Any] | None = None) -> None:
+        """Register inputs and outputs for the processing tool."""
         self.addParameter(
             QgsProcessingParameterVectorLayer(
                 self.PARAM_CATCHMENT,
                 "Catchment Extent (polygon)",
                 types=[QgsProcessing.TypeVectorPolygon],
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterVectorLayer(
+                self.PARAM_CENTROID_OVERRIDE,
+                "Optional Centroid Override (point)",
+                types=[QgsProcessing.TypeVectorPoint],
+                optional=True,
             )
         )
         self.addParameter(QgsProcessingParameterRasterLayer(self.PARAM_RASTER, "Rainfall Raster (GeoTIFF)"))
@@ -65,25 +86,32 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
     # ---------- helpers ----------
     @staticmethod
     def _round_to_grid(v: float, g: float) -> float:
+        """Snap a numeric value to the nearest multiple of the grid size."""
         return round(v / g) * g
 
     @classmethod
     def _snap_xy(cls, x: float, y: float, grid: float) -> QgsPointXY:
+        """Create a snapped XY point using the provided grid spacing."""
         return QgsPointXY(cls._round_to_grid(x, grid), cls._round_to_grid(y, grid))
 
     @classmethod
     def _close_if_needed(cls, ring: list[QgsPointXY]) -> None:
+        """Explicitly close a ring by repeating the first vertex when required."""
         if ring and (ring[0].x() != ring[-1].x() or ring[0].y() != ring[-1].y()):
             ring.append(QgsPointXY(ring[0]))
 
     @staticmethod
-    def _safe_float(val) -> float:
+    def _safe_float(val: Any) -> float:
+        """Convert to float, returning NaN when parsing fails."""
         try:
             return float(val)
         except Exception:
             return float("nan")
 
-    def _repair_geoms_no_makevalid(self, input_id: str, context, feedback) -> str:
+    def _repair_geoms_no_makevalid(
+        self, input_id: str, context: QgsProcessingContext, feedback: QgsProcessingFeedback
+    ) -> str:
+        """Attempt geometry repair without make_valid; fall back to zero buffer."""
         try:
             return processing.run(
                 "native:fixgeometries",
@@ -117,8 +145,8 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
     def _transform_snap_polygons(
         self,
         input_id: str,
-        src_crs,
-        dst_crs,
+        src_crs: QgsCoordinateReferenceSystem,
+        dst_crs: QgsCoordinateReferenceSystem,
         grid: float,
         context: QgsProcessingContext,
         feedback: QgsProcessingFeedback,
@@ -144,7 +172,7 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
 
         tf = QgsCoordinateTransform(src_crs, dst_crs, context.transformContext())
 
-        def tx_ring(ring_coords) -> list[QgsPointXY]:
+        def tx_ring(ring_coords: list[QgsPointXY]) -> list[QgsPointXY]:
             out = []
             last = None
             for p in ring_coords:
@@ -156,7 +184,7 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
             self._close_if_needed(out)
             return out
 
-        total = max(1, src.featureCount())
+        total: int = max(1, src.featureCount())
         batch: list[QgsFeature] = []
         for i, f in enumerate(src.getFeatures()):
             if feedback.isCanceled():
@@ -192,10 +220,12 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
     def processAlgorithm(
         self, parameters: dict[str, Any], context: QgsProcessingContext, model_feedback: QgsProcessingFeedback
     ) -> dict[str, Any]:
+        """Execute the rainfall tiling pipeline and return sink plus QA metadata."""
         fb = QgsProcessingMultiStepFeedback(60, model_feedback)
         results: dict[str, Any] = {}
 
         catchment = self.parameterAsVectorLayer(parameters, self.PARAM_CATCHMENT, context)
+        centroid_override = self.parameterAsVectorLayer(parameters, self.PARAM_CENTROID_OVERRIDE, context)
         raster = self.parameterAsRasterLayer(parameters, self.PARAM_RASTER, context)
         if catchment is None or raster is None:
             raise QgsProcessingException("Missing input layer(s).")
@@ -213,30 +243,53 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
         )["OUTPUT"]
         fb.setCurrentStep(1)
 
-        cat_r_id = self._repair_geoms_no_makevalid(cat_r_id, context, fb)
+        cat_r_id: str = self._repair_geoms_no_makevalid(cat_r_id, context, fb)
         fb.setCurrentStep(2)
         processing.run(
             "native:createspatialindex", {"INPUT": cat_r_id}, context=context, feedback=fb, is_child_algorithm=True
         )
 
         # A2) Centroid PoS of dissolved catchment (for DN at centroid)
-        cat_diss_id = processing.run(
-            "native:dissolve",
-            {"INPUT": cat_r_id, "FIELD": [], "SEPARATE_DISJOINT": False, "OUTPUT": QgsProcessing.TEMPORARY_OUTPUT},
-            context=context,
-            feedback=fb,
-            is_child_algorithm=True,
-        )["OUTPUT"]
-        fb.setCurrentStep(3)
+        if centroid_override is None:
+            centroid_source = "catchment point-on-surface"
+            cat_diss_id = processing.run(
+                "native:dissolve",
+                {"INPUT": cat_r_id, "FIELD": [], "SEPARATE_DISJOINT": False, "OUTPUT": QgsProcessing.TEMPORARY_OUTPUT},
+                context=context,
+                feedback=fb,
+                is_child_algorithm=True,
+            )["OUTPUT"]
+            fb.setCurrentStep(3)
 
-        cat_centroid_pt = processing.run(
-            "native:pointonsurface",
-            {"INPUT": cat_diss_id, "ALL_PARTS": False, "OUTPUT": QgsProcessing.TEMPORARY_OUTPUT},
-            context=context,
-            feedback=fb,
-            is_child_algorithm=True,
-        )["OUTPUT"]
-        fb.setCurrentStep(4)
+            centroid_input_id = processing.run(
+                "native:pointonsurface",
+                {"INPUT": cat_diss_id, "ALL_PARTS": False, "OUTPUT": QgsProcessing.TEMPORARY_OUTPUT},
+                context=context,
+                feedback=fb,
+                is_child_algorithm=True,
+            )["OUTPUT"]
+            fb.setCurrentStep(4)
+        else:
+            centroid_source = "user control point"
+            if centroid_override.crs() != raster_crs:
+                centroid_input_id = processing.run(
+                    "native:reprojectlayer",
+                    {
+                        "INPUT": centroid_override,
+                        "TARGET_CRS": raster_crs,
+                        "OPERATION": "",
+                        "OUTPUT": QgsProcessing.TEMPORARY_OUTPUT,
+                    },
+                    context=context,
+                    feedback=fb,
+                    is_child_algorithm=True,
+                )["OUTPUT"]
+            else:
+                centroid_input_id = centroid_override.id()
+            fb.setCurrentStep(3)
+            fb.setCurrentStep(4)
+
+        fb.pushInfo(f"Centroid sampling source: {centroid_source}.")
 
         # B) Per-cell grid aligned to raster envelope
         extent = raster.extent()
@@ -306,7 +359,7 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
         centroid_sample = processing.run(
             "native:rastersampling",
             {
-                "INPUT": cat_centroid_pt,
+                "INPUT": centroid_input_id,
                 "RASTERCOPY": raster,
                 "COLUMN_PREFIX": "DN_",
                 "OUTPUT": QgsProcessing.TEMPORARY_OUTPUT,
@@ -453,7 +506,8 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
 
         # Per-vertex reprojection + snap (raster CRS → target CRS)
         fb.pushInfo(
-            f"Per-vertex transform {clipped.crs().authid()} → {target_crs.authid()} with grid={self.PRECISION_GRID_M} m…"
+            f"Per-vertex transform {clipped.crs().authid()} → {target_crs.authid()} "
+            f"with grid={self.PRECISION_GRID_M} m…"
         )
         rebuilt_id = self._transform_snap_polygons(
             input_id=single_work,
@@ -520,6 +574,7 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
         )
 
         def _nearest_join_once(max_dist: float) -> tuple[str, int]:
+            """Join point attributes from rebuilt polygons using a nearest-neighbour search."""
             j = processing.run(
                 "native:joinbynearest",
                 {
@@ -701,13 +756,15 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
 
         fb.pushInfo(f"[Output] Written in CRS={target_crs.authid()}  features={post_layer.featureCount()}")
         fb.pushInfo(
-            f"=== Spatial_Rainfall_Pattern summary === avg_rainfall={avg_rainfall:.4f} | centroid_raster_value={centroid_dn_val:.4f}"
+            f"=== Spatial_Rainfall_Pattern summary === avg_rainfall={avg_rainfall:.4f} "
+            f"| centroid_raster_value={centroid_dn_val:.4f} | centroid_source={centroid_source}"
         )
 
         # Return
         results[self.PARAM_OUT] = sink_id
         results["avg_rainfall"] = float(avg_rainfall)
         results["centroid_raster_value"] = float(centroid_dn_val)
+        results["centroid_source"] = centroid_source
         results["final_buffer_m"] = float(self.FINAL_BUFFER_M)
         results["removed_lt_1m2"] = int(removed_cnt)
         results["area_parity_diff"] = float(area_diff)
@@ -715,16 +772,21 @@ class Spatial_rainfall_pattern(QgsProcessingAlgorithm):
         return results
 
     def name(self) -> str:
+        """Unique algorithm name used by the Processing framework."""
         return "Spatial_Rainfall_Pattern"
 
     def displayName(self) -> str:
+        """Label shown to users in the Processing toolbox."""
         return "Spatial_Rainfall_Pattern"
 
     def group(self) -> str:
-        return ""
+        """Grouping label for the toolbox."""
+        return "TUFLOW"
 
     def groupId(self) -> str:
+        """ID of the toolbox group."""
         return ""
 
-    def createInstance(self):
+    def createInstance(self) -> Spatial_rainfall_pattern:
+        """Required factory for QGIS processing framework."""
         return self.__class__()

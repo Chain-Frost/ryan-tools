@@ -30,6 +30,43 @@ flowchart TD
 > If Mermaid is not available, read the diagram as the ordered list of steps
 > shown in the nodes from **A** through **H**.
 
+## End-to-end architecture (wrappers to exports)
+
+```mermaid
+flowchart LR
+    A[ryan-scripts wrappers] --> B[ryan_library/scripts orchestrators]
+    B --> C[ryan_library/functions helpers]
+    C --> D[BaseProcessor + ProcessorCollection]
+    D --> E[Excel/CSV exports]
+```
+
+> Read the diagram as "wrappers call orchestrators, orchestrators call pure
+> functions, functions rely on processors, processors feed exports."
+
+### Wrapper vs. orchestrator vs. functions
+
+- **Wrappers** live under `ryan-scripts/` and are the user-editable entry points
+  (CLI switches, working directory, logging).
+- **Wrappers stay thin** so the orchestrators remain the stable API; even if a
+  wrapper is stale, the orchestrator drives the real behaviour.
+- **Orchestrators** live under `ryan_library/scripts/` and wire together the
+  high-level workflow (collect files, run processors, call export helpers).
+- **Functions** live under `ryan_library/functions/` and should contain the core
+  logic that is reused across workflows.
+- **Processors** live under `ryan_library/processors/tuflow/` and own the
+  parsing + metadata enrichment; they feed `ProcessorCollection` for combined
+  outputs.
+
+### Example: POMM peak reports
+
+1. `ryan-scripts/TUFLOW-python/POMM-mean-max-aep-dur.py` (or the median variant)
+   sets the defaults and calls the matching orchestrator.
+2. `ryan_library/scripts/tuflow/pomm_max_items.py` runs the mean/median workflow.
+3. `ryan_library/functions/tuflow/pomm_utils.py` aggregates inputs, derives
+   AEP/duration stats, and writes the Excel workbook.
+4. `BaseProcessor` adds common metadata (`internalName`, `trim_runcode`, AEP/TP)
+   so the summary tables group consistently.
+
 ### Bullet flow
 
 1. Parse the filename with `TuflowStringParser` to derive the data type and run
@@ -236,6 +273,15 @@ their DataFrames according to the configured data format:
 Together these steps let the pipeline ingest arbitrary TUFLOW outputs, discover
 an appropriate processor at runtime, enrich the data with a stable metadata
 backbone, and merge results across scenarios with minimal manual wiring.
+
+## Parallel processing helpers
+
+`ryan_library/functions/tuflow/tuflow_common.py::process_files_in_parallel`
+is the shared multiprocessing helper. It logs dataset sizing, supports entity
+filters, and falls back to sequential processing when multiprocessing fails. POMM
+reporting now uses this helper so that multiprocessing behaviour is consistent
+across workflows. Location filters are passed as entity filters so processors
+apply them before aggregation.
 
 ## Testing
 

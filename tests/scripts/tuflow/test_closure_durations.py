@@ -14,12 +14,20 @@ def _mock_df() -> MagicMock:
     return df
 
 
+@patch("ryan_library.scripts.tuflow.closure_durations._export_closure_duration_artifacts")
 @patch("ryan_library.scripts.tuflow.closure_durations.summarise_results")
 @patch("ryan_library.scripts.tuflow.closure_durations._calculate_threshold_durations")
 @patch("ryan_library.scripts.tuflow.closure_durations._collect_po_data")
 @patch("ryan_library.scripts.tuflow.closure_durations.bulk_read_and_merge_tuflow_csv")
 @patch("ryan_library.scripts.tuflow.closure_durations.setup_logger")
-def test_run_closure_durations_success(mock_logger, mock_bulk, mock_collect, mock_calc, mock_summary) -> None:
+def test_run_closure_durations_success(
+    mock_logger,
+    mock_bulk,
+    mock_collect,
+    mock_calc,
+    mock_summary,
+    mock_export,
+) -> None:
     mock_logger.return_value.__enter__.return_value = "log_queue"
 
     collection = MagicMock()
@@ -49,8 +57,7 @@ def test_run_closure_durations_success(mock_logger, mock_bulk, mock_collect, moc
     mock_collect.assert_called_once()
     mock_calc.assert_called_once()
     result_df.to_parquet.assert_called_once()
-    result_df.to_csv.assert_called_once()
-    summary_df.to_csv.assert_called_once()
+    mock_export.assert_called_once()
 
 
 @patch("ryan_library.scripts.tuflow.closure_durations.setup_logger")

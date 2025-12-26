@@ -142,13 +142,19 @@ def _resolve_entity_filter_for_file(
 
 
 def process_file(
-    file_path: Path, entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None
+    file_path: Path,
+    entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
+    include_path_columns: bool = True,
 ) -> BaseProcessor | None:
     try:
         entity_filter: Collection[str] | None = _resolve_entity_filter_for_file(
             file_path=file_path, entity_filters=entity_filters
         )
-        proc: BaseProcessor = BaseProcessor.from_file(file_path=file_path, entity_filter=entity_filter)
+        proc: BaseProcessor = BaseProcessor.from_file(
+            file_path=file_path,
+            entity_filter=entity_filter,
+            include_path_columns=include_path_columns,
+        )
         proc.process()
         if proc.validate_data():
             logger.debug(f"Processed {proc.log_path}")
@@ -170,6 +176,8 @@ def process_files_in_parallel(
     log_queue: Any,
     log_level: str = "INFO",
     entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
+    *,
+    include_path_columns: bool = True,
 ) -> ProcessorCollection:
     size: int = calculate_pool_size(num_files=len(file_list))
     logger.info(f"Spawning pool with {size} workers")
@@ -184,12 +192,16 @@ def process_files_in_parallel(
     dataset_summary: str = f"{file_count} files (~{_format_bytes(total_bytes)} on disk; largest {largest_desc})"
     if size <= 1:
         logger.info("Pool size is 1; processing files sequentially.")
-        return _process_files_serially(file_list=file_list, entity_filters=entity_filters)
+        return _process_files_serially(
+            file_list=file_list,
+            entity_filters=entity_filters,
+            include_path_columns=include_path_columns,
+        )
 
     try:
         with Pool(processes=size, initializer=worker_initializer, initargs=(log_queue, log_level)) as pool:
-            task_args: list[tuple[Path, Mapping[str, Collection[str]] | Collection[str] | None]] = [
-                (file_path, entity_filters) for file_path in file_list
+            task_args: list[tuple[Path, Mapping[str, Collection[str]] | Collection[str] | None, bool]] = [
+                (file_path, entity_filters, include_path_columns) for file_path in file_list
             ]
             coll = ProcessorCollection()
             for proc in pool.starmap(func=process_file, iterable=task_args):
@@ -208,17 +220,27 @@ def process_files_in_parallel(
             exc,
             dataset_summary,
         )
-    return _process_files_serially(file_list=file_list, entity_filters=entity_filters)
+    return _process_files_serially(
+        file_list=file_list,
+        entity_filters=entity_filters,
+        include_path_columns=include_path_columns,
+    )
 
 
 def _process_files_serially(
     file_list: list[Path],
     entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
+    *,
+    include_path_columns: bool = True,
 ) -> ProcessorCollection:
     logger.info("Processing {} files sequentially.", len(file_list))
     coll = ProcessorCollection()
     for file_path in file_list:
-        proc: BaseProcessor | None = process_file(file_path=file_path, entity_filters=entity_filters)
+        proc: BaseProcessor | None = process_file(
+            file_path=file_path,
+            entity_filters=entity_filters,
+            include_path_columns=include_path_columns,
+        )
         if proc and proc.processed:
             coll.add_processor(processor=proc)
     return coll
@@ -230,6 +252,8 @@ def bulk_read_and_merge_tuflow_csv(
     log_queue: LoguruMultiprocessingLogger,
     console_log_level: str = "INFO",
     entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
+    *,
+    include_path_columns: bool = True,
 ) -> ProcessorCollection:
     logger.info("Starting TUFLOW culvert processing")
     files: list[Path] = collect_files(
@@ -242,7 +266,11 @@ def bulk_read_and_merge_tuflow_csv(
         return ProcessorCollection()
 
     results: ProcessorCollection = process_files_in_parallel(
-        file_list=files, log_queue=log_queue, log_level=console_log_level, entity_filters=entity_filters
+        file_list=files,
+        log_queue=log_queue,
+        log_level=console_log_level,
+        entity_filters=entity_filters,
+        include_path_columns=include_path_columns,
     )
     # tell the queue “no more data” and wait for its feeder thread to finish
     return results

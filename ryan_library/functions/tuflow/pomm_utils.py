@@ -4,23 +4,23 @@
 from __future__ import annotations
 
 from pathlib import Path
-from multiprocessing import Pool, Queue
+from multiprocessing import Queue
 from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 import pandas as pd
 from loguru import logger
-from pandas import DataFrame, Series
+from pandas import DataFrame, Index, Series
 
 from ryan_library.classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
 from ryan_library.functions.pandas.median_calc import median_calc
-from ryan_library.functions.misc_functions import ExcelExporter, calculate_pool_size, get_tools_version
+from ryan_library.functions.misc_functions import ExcelExporter, get_tools_version
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
-from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
-from ryan_library.functions.tuflow.tuflow_common import collect_files
+from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 NAType = type(pd.NA)
@@ -28,12 +28,9 @@ DataFrameAny = DataFrame
 if TYPE_CHECKING:
     SeriesAny = Series[Any]
     QueueType = Queue[Any]
-    WorkerInitializer = Callable[[Queue[Any]], None]
 else:
     SeriesAny = Series
     QueueType = Queue
-    WorkerInitializer = Callable[[Queue], None]
-worker_initializer_fn: WorkerInitializer = worker_initializer
 
 
 DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
@@ -56,58 +53,28 @@ def _ordered_columns(
     return ordered
 
 
-def process_file(file_path: Path, location_filter: frozenset[str] | None = None) -> BaseProcessor:
-    """Process a single file by delegating to BaseProcessor.
+def _select_internal_names_for_group(group: DataFrameAny) -> tuple[object, object]:
+    """Return (median_internal_name, mean_internal_name) for a grouped DataFrame."""
 
-    Args:
-        file_path (Path): Path to the file to process.
-        location_filter: Normalized set of locations to retain.
+    if "internalName" not in group.columns or "AbsMax" not in group.columns:
+        return pd.NA, pd.NA
 
-    Returns:
-        BaseProcessor: The processed BaseProcessor instance.
+    stat_series: Series = pd.to_numeric(group["AbsMax"], errors="coerce")
+    if not stat_series.notna().any():
+        return pd.NA, pd.NA
 
-    Raises:
-        Exception: If processing fails."""
-    try:
-        # BaseProcessor.from_file determines and instantiates the correct processor
-        processor: BaseProcessor = BaseProcessor.from_file(file_path=file_path)
-        processor.process()
+    sorted_idx: Index[Any] = stat_series.sort_values(ascending=True, na_position="first").index
+    median_pos = int(len(sorted_idx) / 2)
+    median_internal_name = group.loc[sorted_idx[median_pos], "internalName"]
 
-        if location_filter:
-            processor.filter_locations(location_filter)
+    mean_value = float(stat_series.mean())
+    if pd.isna(mean_value):
+        mean_internal_name = pd.NA
+    else:
+        closest_idx: int | str = (stat_series - mean_value).abs().idxmin()
+        mean_internal_name = group.loc[closest_idx, "internalName"]
 
-        if processor.validate_data():
-            # logger.info(f"Successfully processed file: {processor.log_path}")
-            pass
-        else:
-            # logger.warning(f"Validation failed for file: {processor.log_path}")
-            pass
-        return processor
-    except Exception as e:
-        logger.exception(f"Failed to process file {file_path}: {e}")
-        raise
-
-
-def process_files_in_parallel(
-    file_list: list[Path],
-    log_queue: QueueType,
-    location_filter: frozenset[str] | None = None,
-) -> ProcessorCollection:
-    """Process files using multiprocessing and return a collection."""
-    pool_size: int = calculate_pool_size(num_files=len(file_list))
-    logger.info(f"Initializing multiprocessing pool with {pool_size} processes.")
-
-    results_set = ProcessorCollection()
-    with Pool(processes=pool_size, initializer=worker_initializer_fn, initargs=(log_queue,)) as pool:
-        task_arguments: list[tuple[Path, frozenset[str] | None]] = [
-            (file_path, location_filter) for file_path in file_list
-        ]
-        results: list[BaseProcessor] = pool.starmap(func=process_file, iterable=task_arguments)
-
-    for result in results:
-        if result.processed:
-            results_set.add_processor(processor=result)
-    return results_set
+    return median_internal_name, mean_internal_name
 
 
 def combine_processors_from_paths(
@@ -138,10 +105,14 @@ def combine_processors_from_paths(
             return ProcessorCollection()
         logger.info(f"Found {len(csv_file_list)} CSV file(s) to process.")
 
+        if normalized_locations:
+            logger.info(f"Applying location filter during processing for {len(normalized_locations)} location(s).")
+
         results_set_local: ProcessorCollection = process_files_in_parallel(
             file_list=csv_file_list,
             log_queue=queue,
-            location_filter=normalized_locations if normalized_locations else None,
+            log_level=console_log_level,
+            entity_filters=normalized_locations if normalized_locations else None,
         )
         processed_count: int = len(results_set_local.processors)
         combined_rows: int = sum(len(processor.df) for processor in results_set_local.processors)
@@ -153,11 +124,6 @@ def combine_processors_from_paths(
             results_set: ProcessorCollection = _run_with_queue(queue)
     else:
         results_set = _run_with_queue(log_queue)
-
-    if normalized_locations:
-        results_set.filter_locations(normalized_locations)
-        filtered_rows: int = sum(len(processor.df) for processor in results_set.processors)
-        logger.info(f"Applied location filter; rows after filtering: {filtered_rows}.")
 
     return results_set
 
@@ -475,6 +441,7 @@ def find_aep_dur_median(aggregated_df: DataFrameAny) -> DataFrameAny:
                 tpcol="tp_text",
                 durcol="duration_text",
             )
+            median_internal_name, mean_internal_name = _select_internal_names_for_group(grp)
             row = {
                 "aep_text": grp["aep_text"].iloc[0],
                 "duration_text": grp["duration_text"].iloc[0],
@@ -482,6 +449,9 @@ def find_aep_dur_median(aggregated_df: DataFrameAny) -> DataFrameAny:
                 "Type": grp["Type"].iloc[0],
                 "trim_runcode": grp["trim_runcode"].iloc[0],
             }
+            if "internalName" in grp.columns:
+                row["internalName"] = median_internal_name
+                row["mean_internalName"] = mean_internal_name
             row.update(stats_dict)
             row["MedianAbsMax"] = row.pop("median")
             rows.append(row)
@@ -536,7 +506,14 @@ def find_aep_dur_median(aggregated_df: DataFrameAny) -> DataFrameAny:
                 )
                 median_df = median_df.drop(columns=["_count_numeric"])
 
-            id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
+            id_columns: list[str] = [
+                "aep_text",
+                "duration_text",
+                "Location",
+                "Type",
+                "trim_runcode",
+                "internalName",
+            ]
             mean_columns: list[str] = [
                 "mean_including_zeroes",
                 "mean_excluding_zeroes",
@@ -608,7 +585,14 @@ def find_aep_median_max(aep_dur_median: DataFrameAny) -> DataFrameAny:
                 aep_med_max = aep_med_max.merge(mean_subset, on=group_cols, how="left")
             mean_df = mean_df.drop(columns=["_mean_peakflow_numeric"], errors="ignore")
         if not aep_med_max.empty:
-            id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
+            id_columns: list[str] = [
+                "aep_text",
+                "duration_text",
+                "Location",
+                "Type",
+                "trim_runcode",
+                "internalName",
+            ]
             mean_columns: list[str] = [
                 "mean_including_zeroes",
                 "mean_excluding_zeroes",
@@ -647,7 +631,18 @@ def find_aep_dur_mean(aggregated_df: DataFrameAny) -> DataFrameAny:
     if aep_dur_median.empty:
         return aep_dur_median
 
-    id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
+    if "mean_internalName" in aep_dur_median.columns:
+        aep_dur_median["internalName"] = aep_dur_median["mean_internalName"]
+        aep_dur_median = aep_dur_median.drop(columns=["mean_internalName"], errors="ignore")
+
+    id_columns: list[str] = [
+        "aep_text",
+        "duration_text",
+        "Location",
+        "Type",
+        "trim_runcode",
+        "internalName",
+    ]
     mean_columns: list[str] = [
         "mean_including_zeroes",
         "mean_excluding_zeroes",
@@ -707,7 +702,14 @@ def find_aep_mean_max(aep_dur_mean: DataFrameAny) -> DataFrameAny:
         aep_mean_max = aep_mean_max.reset_index(drop=True)
 
         if not aep_mean_max.empty:
-            id_columns: list[str] = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
+            id_columns: list[str] = [
+                "aep_text",
+                "duration_text",
+                "Location",
+                "Type",
+                "trim_runcode",
+                "internalName",
+            ]
             mean_columns: list[str] = [
                 "mean_including_zeroes",
                 "mean_excluding_zeroes",
