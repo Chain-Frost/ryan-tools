@@ -1,0 +1,58 @@
+Proposed tree (orchestrators grouped by domain)
+
+ryan_library/
+├── orchestrators/
+│   ├── __init__.py
+│   ├── py.typed
+│   ├── gdal/
+│   │   ├── __init__.py
+│   │   ├── py.typed
+│   │   └── gdal_flood_extent.py
+│   ├── tuflow/
+│   │   ├── __init__.py
+│   │   ├── closure_durations.py
+│   │   ├── peak_check_po_csvs.py
+│   │   ├── po_combine.py
+│   │   ├── pomm_combine.py
+│   │   ├── pomm_max_items.py
+│   │   ├── tuflow_culverts_merge.py
+│   │   ├── tuflow_culverts_mean.py
+│   │   ├── tuflow_culverts_timeseries.py
+│   │   ├── tuflow_logsummary.py
+│   │   ├── tuflow_results_styling.py
+│   │   └── tuflow_timeseries_stability.py
+│   └── rorb/
+│       ├── __init__.py
+│       └── closure_durations.py
+├── functions/
+│   └── wrapper_utils.py
+└── scripts/
+    ├── __init__.py  (compat shim -> orchestrators)
+    ├── py.typed     (compat shim package marker)
+    ├── wrapper_utils.py (compat shim -> functions)
+    ├── gdal/
+    │   ├── __init__.py  (compat shim -> orchestrators.gdal)
+    │   ├── py.typed
+    │   └── gdal_flood_extent.py (compat shim)
+    ├── tuflow/
+    │   ├── __init__.py  (compat shim -> orchestrators.tuflow)
+    │   ├── closure_durations.py (compat shim)
+    │   ├── peak_check_po_csvs.py (compat shim)
+    │   ├── po_combine.py (compat shim)
+    │   ├── pomm_combine.py (compat shim)
+    │   ├── pomm_max_items.py (compat shim)
+    │   ├── tuflow_culverts_merge.py (compat shim)
+    │   ├── tuflow_culverts_mean.py (compat shim)
+    │   ├── tuflow_culverts_timeseries.py (compat shim)
+    │   ├── tuflow_logsummary.py (compat shim)
+    │   ├── tuflow_results_styling.py (compat shim)
+    │   └── tuflow_timeseries_stability.py (compat shim)
+    └── rorb/
+        ├── __init__.py (compat shim -> orchestrators.rorb)
+        └── closure_durations.py (compat shim)
+
+Notes
+- All functional modules live in ryan_library/orchestrators.
+- ryan_library/functions/wrapper_utils.py holds shared wrapper utilities.
+- ryan_library/scripts becomes compatibility-only until 31/12/2026 with DeprecationWarning notices.
+- Orchestrators are grouped by domain (gdal, tuflow, rorb).

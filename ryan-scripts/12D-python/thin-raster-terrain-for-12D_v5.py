@@ -13,7 +13,7 @@ from math import ceil
 from loguru import logger
 from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
 from ryan_library.functions.file_utils import ensure_output_directory
-from ryan_library.scripts.wrapper_utils import print_library_version
+from ryan_library.functions.wrapper_utils import print_library_version
 
 
 def thin_data_by_global_selection(df: pd.DataFrame, thinning_factor: int) -> pd.DataFrame:

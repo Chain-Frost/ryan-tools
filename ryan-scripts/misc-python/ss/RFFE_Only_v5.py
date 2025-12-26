@@ -23,7 +23,7 @@ import requests
 from pandas import DataFrame
 from ryan_library.functions.loguru_helpers import setup_logger
 from loguru import logger
-from ryan_library.scripts.wrapper_utils import print_library_version
+from ryan_library.functions.wrapper_utils import print_library_version
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 DEFAULT_INPUT_DIR: Final[Path] = Path(r"C:\Temp\tester")

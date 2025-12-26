@@ -3,7 +3,7 @@
 Wrapper Script: Peak checks for TUFLOW PO CSV files.
 
 This wrapper exposes hard-coded defaults for quick edits while delegating the heavy
-lifting to ``ryan_library.scripts.tuflow.peak_check_po_csvs``.
+lifting to ``ryan_library.orchestrators.tuflow.peak_check_po_csvs``.
 """
 
 from pathlib import Path
@@ -12,8 +12,8 @@ import argparse
 import gc
 import os
 
-from ryan_library.scripts.tuflow.peak_check_po_csvs import main_processing
-from ryan_library.scripts.wrapper_utils import (
+from ryan_library.orchestrators.tuflow.peak_check_po_csvs import main_processing
+from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
     change_working_directory,

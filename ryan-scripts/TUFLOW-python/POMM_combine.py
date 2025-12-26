@@ -2,7 +2,7 @@
 """
 Wrapper Script: Combine TUFLOW POMM Results.
 
-This script acts as a mutable wrapper for `ryan_library.scripts.tuflow.pomm_combine`.
+This script acts as a mutable wrapper for `ryan_library.orchestrators.tuflow.pomm_combine`.
 It manages the combination of "POMM" (Plot Output Maximums/Minimums) data, primarily used for culvert peak analysis.
 Users can edit hard-coded defaults in this file or use CLI arguments to control the execution.
 
@@ -31,8 +31,8 @@ import argparse
 import gc
 import os
 
-from ryan_library.scripts.tuflow.pomm_combine import main_processing
-from ryan_library.scripts.wrapper_utils import (
+from ryan_library.orchestrators.tuflow.pomm_combine import main_processing
+from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
     change_working_directory,
