@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 import re
 import sys
-from typing import Any
+from typing import Any, Protocol, cast
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, ContentStream, NameObject
@@ -23,6 +23,18 @@ from pypdf.generic import ArrayObject, ContentStream, NameObject
 DEFAULT_INPUT_PDF = r"folder/file.pdf"
 DEFAULT_OUTPUT_PDF = None
 DEFAULT_DECRYPT_PASSWORD = ""
+
+
+class _PageLike(Protocol):
+    def get(self, key: Any, default: Any | None = None, /) -> Any: ...
+
+    def __setitem__(self, key: Any, value: Any) -> Any: ...
+
+    def __delitem__(self, key: Any, /) -> None: ...
+
+
+def _writer_add_object(writer: PdfWriter, obj: Any) -> Any:
+    return cast(Any, writer)._add_object(obj)
 
 
 def _name_to_key(value: Any) -> str | None:
@@ -48,7 +60,9 @@ def _resolve_dict(value: Any) -> dict[Any, Any]:
             value = value.get_object()
         except Exception:
             return {}
-    return value if isinstance(value, dict) else {}
+    if isinstance(value, dict):
+        return cast(dict[Any, Any], value)
+    return {}
 
 
 def _normalize_ocg_label(label: str | None) -> str | None:
@@ -84,21 +98,30 @@ def _resolve_ocg_name(ocg_obj: Any) -> str | None:
         except Exception:
             return None
     if isinstance(ocg_obj, dict):
-        if "/Name" in ocg_obj:
-            return _name_to_key(ocg_obj.get("/Name"))
-        if "/OCGs" in ocg_obj:
+        ocg_dict = cast(dict[Any, Any], ocg_obj)
+        if "/Name" in ocg_dict:
+            return _name_to_key(ocg_dict.get("/Name"))
+        if "/OCGs" in ocg_dict:
             names: list[str] = []
-            for item in ocg_obj.get("/OCGs", []):
+            ocg_list_obj = ocg_dict.get("/OCGs", [])
+            ocg_list: list[Any]
+            if isinstance(ocg_list_obj, list):
+                ocg_list = list(cast(list[Any], ocg_list_obj))
+            else:
+                ocg_list = []
+            for item in ocg_list:
                 entry = item
                 if hasattr(entry, "get_object"):
                     try:
                         entry = entry.get_object()
                     except Exception:
                         continue
-                if isinstance(entry, dict) and "/Name" in entry:
-                    name = _name_to_key(entry.get("/Name"))
-                    if name:
-                        names.append(name)
+                if isinstance(entry, dict):
+                    entry_dict = cast(dict[Any, Any], entry)
+                    if "/Name" in entry_dict:
+                        name = _name_to_key(entry_dict.get("/Name"))
+                        if name:
+                            names.append(name)
             if names:
                 return ", ".join(names)
     return None
@@ -145,8 +168,9 @@ def _remove_ocg_xobjects(resources: dict[Any, Any]) -> tuple[set[str], int]:
                 continue
         if not isinstance(xobj, dict):
             continue
-        subtype = _name_to_key(xobj.get("/Subtype"))
-        if subtype == "/Form" and "/OC" in xobj:
+        xobj_dict = cast(dict[Any, Any], xobj)
+        subtype = _name_to_key(xobj_dict.get("/Subtype"))
+        if subtype == "/Form" and "/OC" in xobj_dict:
             key = _name_to_key(name)
             if key:
                 ocg_names.add(key)
@@ -256,8 +280,9 @@ def _strip_js_from_action(action: Any) -> bool:
         return True
     if "/Next" in action_dict:
         next_obj = action_dict.get("/Next")
+        next_list: list[Any]
         if isinstance(next_obj, list):
-            next_list = list(next_obj)
+            next_list = list(cast(list[Any], next_obj))
         elif next_obj is not None:
             next_list = [next_obj]
         else:
@@ -278,7 +303,7 @@ def _strip_js_from_action(action: Any) -> bool:
     return False
 
 
-def _remove_js_from_annotations(page) -> int:
+def _remove_js_from_annotations(page: _PageLike) -> int:
     removed = 0
     annotations = page.get("/Annots")
     if not annotations:
@@ -291,7 +316,8 @@ def _remove_js_from_annotations(page) -> int:
             return 0
     if not isinstance(annots_obj, list):
         return 0
-    for annot_ref in annots_obj:
+    annots_list = cast(list[Any], annots_obj)
+    for annot_ref in annots_list:
         annot = annot_ref
         if hasattr(annot, "get_object"):
             try:
@@ -300,14 +326,15 @@ def _remove_js_from_annotations(page) -> int:
                 continue
         if not isinstance(annot, dict):
             continue
-        action = annot.get("/A")
+        annot_dict = cast(dict[Any, Any], annot)
+        action = annot_dict.get("/A")
         if action and _strip_js_from_action(action):
             try:
-                del annot["/A"]
+                del annot_dict["/A"]
             except Exception:
                 pass
             removed += 1
-        aa = annot.get("/AA")
+        aa = annot_dict.get("/AA")
         if aa:
             aa_dict = _resolve_dict(aa)
             if aa_dict:
@@ -320,13 +347,13 @@ def _remove_js_from_annotations(page) -> int:
                         removed += 1
                 if not aa_dict:
                     try:
-                        del annot["/AA"]
+                        del annot_dict["/AA"]
                     except Exception:
                         pass
     return removed
 
 
-def _remove_widget_annotations(page) -> int:
+def _remove_widget_annotations(page: _PageLike) -> int:
     annotations = page.get("/Annots")
     if not annotations:
         return 0
@@ -338,9 +365,10 @@ def _remove_widget_annotations(page) -> int:
             return 0
     if not isinstance(annots_obj, list):
         return 0
-    kept = []
+    kept: list[Any] = []
     removed = 0
-    for annot_ref in annots_obj:
+    annots_list = cast(list[Any], annots_obj)
+    for annot_ref in annots_list:
         annot = annot_ref
         if hasattr(annot, "get_object"):
             try:
@@ -348,7 +376,11 @@ def _remove_widget_annotations(page) -> int:
             except Exception:
                 kept.append(annot_ref)
                 continue
-        subtype = annot.get("/Subtype") if isinstance(annot, dict) else None
+        if not isinstance(annot, dict):
+            kept.append(annot_ref)
+            continue
+        annot_dict = cast(dict[Any, Any], annot)
+        subtype = annot_dict.get("/Subtype")
         if str(subtype) == "/Widget":
             removed += 1
             continue
@@ -365,9 +397,12 @@ def _remove_widget_annotations(page) -> int:
 
 def _remove_doc_level_js(writer: PdfWriter) -> bool:
     # Run after cloning so we can safely mutate writer's root object.
-    root = writer._root_object
-    if not root:
+    root_obj = cast(Any, writer)._root_object
+    if not root_obj:
         return False
+    if not isinstance(root_obj, dict):
+        return False
+    root = cast(dict[Any, Any], root_obj)
     removed = False
     names = root.get("/Names")
     if names:
@@ -443,14 +478,14 @@ def main() -> int:
         decrypt_status = f"decrypted (result={result})"
         warnings.append("Input was encrypted; permissions removed by decrypt before processing.")
 
-    def process_page(page, page_num: int) -> None:
+    def process_page(page: _PageLike, page_num: int) -> None:
         nonlocal total_ocg_blocks, total_xforms, total_do_removed, total_js_annots, total_widgets_removed
 
         def record_error(stage: str, exc: Exception) -> None:
             errors.append(f"Page {page_num} [{stage}]: {type(exc).__name__}: {exc}")
 
-        resources = {}
-        props_dict = {}
+        resources: dict[Any, Any] = {}
+        props_dict: dict[Any, Any] = {}
         ocg_xobject_names: set[str] = set()
 
         try:
@@ -483,7 +518,7 @@ def main() -> int:
                 )
                 total_ocg_blocks += removed_blocks
                 total_do_removed += do_removed
-                page[NameObject("/Contents")] = writer._add_object(content_stream)
+                page[NameObject("/Contents")] = _writer_add_object(writer, content_stream)
                 if removed_props:
                     removed_list = ", ".join(sorted(removed_props))
                     page_notes.append(f"Page {page_num}: removed OCG blocks {removed_list}")
@@ -495,7 +530,7 @@ def main() -> int:
     total_pages = len(reader.pages)
     processed_pages = {"value": 0}
 
-    def process_page_with_progress(page) -> None:
+    def process_page_with_progress(page: _PageLike) -> None:
         processed_pages["value"] += 1
         page_num = processed_pages["value"]
         print(f"Processing page {page_num}/{total_pages}")
