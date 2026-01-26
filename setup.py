@@ -5,7 +5,7 @@ setup(
     name="ryan_functions",
     # Version scheme: yy.mm.dd.release_number
     # Increment when publishing new wheels
-    version="25.12.21.13",
+    version="26.01.26.01",
     packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},
@@ -30,6 +30,7 @@ setup(
         "openpyxl",
         "loguru",
         "tabulate",
+        "pypdf",
         # "beautifulsoup4",
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],
