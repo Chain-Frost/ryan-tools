@@ -20,7 +20,7 @@ from typing import Any, Protocol, cast
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, ContentStream, NameObject
 
-DEFAULT_INPUT_PDF = r"C:\Users\Ryan\Documents\OtherPeople\shaun\standards\260126\from-raw\original-from-email.pdf"
+DEFAULT_INPUT_PDF = r"folder/file.pdf"
 DEFAULT_OUTPUT_PDF = None
 DEFAULT_DECRYPT_PASSWORD = ""
 
