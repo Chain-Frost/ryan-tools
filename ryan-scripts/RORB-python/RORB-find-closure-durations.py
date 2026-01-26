@@ -6,8 +6,8 @@ Thresholds default to a broad range of flows when ``None``."""
 import os
 from pathlib import Path
 
-from ryan_library.scripts.RORB.closure_durations import run_closure_durations
-from ryan_library.scripts.wrapper_utils import (
+from ryan_library.orchestrators.rorb.closure_durations import run_closure_durations
+from ryan_library.functions.wrapper_utils import (
     change_working_directory,
     print_library_version,
 )

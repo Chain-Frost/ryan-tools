@@ -23,8 +23,8 @@ import argparse
 import gc
 import os
 
-from ryan_library.scripts.tuflow.tuflow_culverts_mean import run_culvert_mean_report
-from ryan_library.scripts.wrapper_utils import (
+from ryan_library.orchestrators.tuflow.tuflow_culverts_mean import run_culvert_mean_report
+from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
     change_working_directory,
