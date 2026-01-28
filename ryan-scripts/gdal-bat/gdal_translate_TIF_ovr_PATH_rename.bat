@@ -8,7 +8,7 @@ setlocal enabledelayedexpansion
 REM ========================
 REM Parameters and Configurations
 REM ========================
-set "_items=flt asc rst tif"
+set "_items=flt asc rst tif tiff"
 set "_commands=-stats -co COMPRESS=DEFLATE -co PREDICTOR=2 -co NUM_THREADS=ALL_CPUS -co SPARSE_OK=TRUE -co BIGTIFF=IF_SAFER"
 set "_gdaladdoCommands=--config COMPRESS_OVERVIEW DEFLATE --config PREDICTOR_OVERVIEW 2 --config NUM_THREADS ALL_CPUS --config SPARSE_OK TRUE"
 set /a "_MAXinstances=%NUMBER_OF_PROCESSORS%"
