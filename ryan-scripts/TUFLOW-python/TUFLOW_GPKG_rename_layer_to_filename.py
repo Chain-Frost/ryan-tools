@@ -1,13 +1,17 @@
-# ryan-scripts\TUFLOW-python\set_layer_to_filename_v5.py
-# 250913
+# TUFLOW_GPKG_rename_layer_to_filename.py
+# 20241011
 from collections.abc import Iterator
 from pathlib import Path
+import argparse
 import geopandas as gpd
 import pyogrio
 import shutil
 import uuid
 from colorama import init, Fore, Style
 import sys
+
+SCRIPT_NAME: str = "TUFLOW_GPKG_rename_layer_to_filename"
+LAST_UPDATED: str = "2024-10-11"
 
 # === Configuration ===
 # Toggle to search subfolders recursively underneath the Python file.
@@ -42,18 +46,16 @@ def press_any_key(prompt: str = "Press any key to exit...") -> None:
         pass
 
 
-# Initialization function to set up environment and return colors
-def initialize(target_dir: str | None = None) -> tuple[Path, str, str]:
+# Initialization function to set up environment and return colours
+def initialize(target_dir: str | None = None) -> tuple[Path, str, str, str]:
     """
-    Returns the base directory to process, plus colours.
-    - If target_dir is provided, use it (must be a drive-letter path if you plan to chdir).
+    Returns the base directory plus colours.
+    - If target_dir is provided, use it (supports drive-letter paths).
     - Else use the script's folder, keeping the Q: form by using .absolute(), not .resolve().
     """
-    # Initialize colorama for Windows support
     init()
     base: Path = Path(target_dir).expanduser() if target_dir else Path(__file__).absolute().parent
-    # Return success and failure colors
-    return base, Fore.GREEN, Fore.RED
+    return base, Fore.GREEN, Fore.RED, Fore.CYAN
 
 
 # Helper function to check if we should skip the file
@@ -67,9 +69,11 @@ def should_skip_file(layers: list[list[str]], gpkg: str, fail_colour: str) -> bo
 
 
 # Helper function to check if renaming is needed
-def is_layer_name_correct(old_layer_name: str, new_layer_name: str, gpkg: str, success_colour: str) -> bool:
+def is_layer_name_correct(
+    old_layer_name: str, new_layer_name: str, gpkg: str, skip_colour: str
+) -> bool:
     if old_layer_name == new_layer_name:
-        print_colored(message=f"Skipping {gpkg} as the layer name is already correct.", color=success_colour)
+        print_colored(message=f"Skipping {gpkg} as the layer name is already correct.", color=skip_colour)
         return True
     return False
 
@@ -105,7 +109,9 @@ def rename_layer_in_geopackage(
 
 
 # Function to process all GeoPackage files in the directory
-def process_geopackage_files(base_dir: Path, success_colour: str, fail_colour: str) -> None:
+def process_geopackage_files(
+    base_dir: Path, success_colour: str, fail_colour: str, skip_colour: str
+) -> None:
     # No chdir needed; operate with absolute paths to avoid UNC/cwd issues entirely
     # Loop over all .gpkg files in the current directory
     # (If SEARCH_RECURSIVELY is True, this will search all subfolders as well.)
@@ -123,7 +129,10 @@ def process_geopackage_files(base_dir: Path, success_colour: str, fail_colour: s
         new_layer_name: str = gpkg_path.stem
         old_layer_name: str = layers[0][0]
         if is_layer_name_correct(
-            old_layer_name=old_layer_name, new_layer_name=new_layer_name, gpkg=gpkg, success_colour=success_colour
+            old_layer_name=old_layer_name,
+            new_layer_name=new_layer_name,
+            gpkg=gpkg,
+            skip_colour=skip_colour,
         ):
             continue
 
@@ -137,23 +146,43 @@ def process_geopackage_files(base_dir: Path, success_colour: str, fail_colour: s
         )
 
 
+# CLI helpers
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Rename single layers in GeoPackages so the layer matches the file name."
+    )
+    parser.add_argument(
+        "-t",
+        "--target",
+        help="Optional target folder; defaults to the script location when omitted.",
+        type=str,
+    )
+    return parser.parse_args()
+
+
+def announce_start(base_dir: Path, target_dir: str | None, info_colour: str) -> None:
+    target_label = "script folder" if target_dir is None else f"target {target_dir}"
+    print_colored(
+        message=(
+            f"{SCRIPT_NAME} · Last updated {LAST_UPDATED} · working directory {base_dir} ({target_label})"
+        ),
+        color=info_colour,
+    )
+
+
 # Main function to execute the script
 def main() -> None:
-    # OPTION A: Use the script's folder (keeps Q: if you launched it that way)
-    base_dir, success_colour, fail_colour = initialize()
+    args = parse_args()
+    base_dir, success_colour, fail_colour, skip_colour = initialize(args.target)
+    announce_start(base_dir=base_dir, target_dir=args.target, info_colour=skip_colour)
 
-    # OPTION B: Explicitly target a folder (drive-letter path); uncomment and set if desired
-    # base_dir, success_colour, fail_colour = initialize(
-    #     r"Q:\BGER\PER\RP20180.387 WYLOO NANUTARRA ACCESS ROAD - FMG\TUFLOW_Metawandy\model"
-    # )
+    process_geopackage_files(
+        base_dir=base_dir,
+        success_colour=success_colour,
+        fail_colour=fail_colour,
+        skip_colour=skip_colour,
+    )
 
-    # If you really want to change cwd (not required), only chdir to a drive-letter path:
-    # if base_dir.drive:  # e.g., 'Q:'
-    #     os.chdir(base_dir)
-
-    process_geopackage_files(base_dir=base_dir, success_colour=success_colour, fail_colour=fail_colour)
-
-    # Wait for user input before exiting (Windows only)
     if sys.platform == "win32":
         press_any_key()
 
