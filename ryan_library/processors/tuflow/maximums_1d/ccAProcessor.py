@@ -122,15 +122,34 @@ class ccAProcessor(BaseProcessor):
             return pd.DataFrame()
 
         try:
-            # Build SQLite URI in read-only mode
-            path_posix: str = path.as_posix()  # e.g. q:/folder/.../file.gpkg
-            uri_path: str = urllib.parse.quote(path_posix, safe="/:")
+            # Build SQLite URI in read-only mode.
+            # NOTE: UNC paths (//server/share/...) can raise
+            # sqlite3 "invalid uri authority" on some builds when uri=True.
+            path_posix: str = path.as_posix()  # e.g. q:/folder/.../file.gpkg or //server/share/file.gpkg
+            is_unc_path: bool = path_posix.startswith("//")
+            if is_unc_path:
+                # Build a UNC URI path without an authority component.
+                # Example: //server/share/f.gpkg -> /server/share/f.gpkg
+                # so sqlite sees file:/server/share/f.gpkg?... (mode=ro)
+                # instead of file://server/share/... (authority=server),
+                # which can error on builds without URI authority support.
+                normalized_uri_path: str = "/" + path_posix.lstrip("/")
+            else:
+                normalized_uri_path = path_posix
+
+            uri_path: str = urllib.parse.quote(normalized_uri_path, safe="/:")
             # immutable=1 guarantees SQLite never attempts to write journal/WAL files
             db_uri: str = f"file:{uri_path}?mode=ro&immutable=1"
-            logger.debug("process_gpkg: Connecting to GeoPackage via sqlite3 with db_uri={!r} (uri=True)", db_uri)
+            logger.debug(
+                "process_gpkg: Prepared db connection target for {!r}; is_unc_path={!r}; db_uri={!r}",
+                path_posix,
+                is_unc_path,
+                db_uri,
+            )
 
             conn = None
             try:
+                logger.debug("process_gpkg: Opening SQLite connection using URI (uri=True)")
                 conn = sqlite3.connect(database=db_uri, uri=True)
                 logger.debug("process_gpkg: SQLite connection opened successfully")
                 cur: sqlite3.Cursor = conn.cursor()
