@@ -1,0 +1,2 @@
+pip install gdal-installer
+python -m gdal_installer.cli
