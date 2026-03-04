@@ -103,6 +103,53 @@ class ccAProcessor(BaseProcessor):
             logger.error(f"Error processing DBF file {self.log_path}: {e}")
             return pd.DataFrame()
 
+    @staticmethod
+    def _build_sqlite_connection_targets(path: Path) -> list[tuple[str, str, bool]]:
+        """Build SQLite connection candidates in a robust fallback order."""
+        path_posix: str = path.as_posix()
+        is_unc_path: bool = path_posix.startswith("//")
+        targets: list[tuple[str, str, bool]] = []
+
+        # Standard URI path: local drives keep `q:/...`; UNC keeps `//server/share/...`.
+        standard_uri_path: str = urllib.parse.quote(path_posix, safe="/:")
+        targets.append(("uri_standard", f"file:{standard_uri_path}?mode=ro&immutable=1", True))
+
+        if is_unc_path:
+            # Some SQLite builds reject a URI authority for UNC paths; retry without authority.
+            unc_without_authority: str = "/" + path_posix.lstrip("/")
+            unc_uri_path: str = urllib.parse.quote(unc_without_authority, safe="/:")
+            targets.append(("uri_unc_without_authority", f"file:{unc_uri_path}?mode=ro&immutable=1", True))
+
+        # Last resort: raw path open. We switch SQLite to query-only immediately after connecting.
+        targets.append(("direct_path", str(path), False))
+        return targets
+
+    def _open_sqlite_connection(self, path: Path) -> sqlite3.Connection | None:
+        """Try opening a SQLite connection with multiple path/URI strategies."""
+        attempt_errors: list[str] = []
+
+        for label, database_target, use_uri in self._build_sqlite_connection_targets(path=path):
+            logger.debug(
+                "process_gpkg: Trying SQLite open strategy={!r}, target={!r}, uri={!r}",
+                label,
+                database_target,
+                use_uri,
+            )
+            try:
+                conn: sqlite3.Connection = sqlite3.connect(database=database_target, uri=use_uri)
+                conn.execute("PRAGMA query_only=ON;")
+                logger.debug("process_gpkg: SQLite open succeeded using strategy={!r}", label)
+                return conn
+            except sqlite3.Error as exc:
+                attempt_errors.append(f"{label}: {exc}")
+                logger.debug("process_gpkg: SQLite open failed using strategy={!r} with error={!r}", label, exc)
+
+        logger.error(
+            f"process_gpkg: SQLite connection failed for {str(path)!r}. "
+            f"Attempted strategies: {' | '.join(attempt_errors)}"
+        )
+        return None
+
     def process_gpkg(self) -> pd.DataFrame:
         """Process a GeoPackage CCA file in read-only mode, using sqlite only (no Fiona)."""
         path = Path(self.file_path)
@@ -122,36 +169,12 @@ class ccAProcessor(BaseProcessor):
             return pd.DataFrame()
 
         try:
-            # Build SQLite URI in read-only mode.
-            # NOTE: UNC paths (//server/share/...) can raise
-            # sqlite3 "invalid uri authority" on some builds when uri=True.
-            path_posix: str = path.as_posix()  # e.g. q:/folder/.../file.gpkg or //server/share/file.gpkg
-            is_unc_path: bool = path_posix.startswith("//")
-            if is_unc_path:
-                # Build a UNC URI path without an authority component.
-                # Example: //server/share/f.gpkg -> /server/share/f.gpkg
-                # so sqlite sees file:/server/share/f.gpkg?... (mode=ro)
-                # instead of file://server/share/... (authority=server),
-                # which can error on builds without URI authority support.
-                normalized_uri_path: str = "/" + path_posix.lstrip("/")
-            else:
-                normalized_uri_path = path_posix
-
-            uri_path: str = urllib.parse.quote(normalized_uri_path, safe="/:")
-            # immutable=1 guarantees SQLite never attempts to write journal/WAL files
-            db_uri: str = f"file:{uri_path}?mode=ro&immutable=1"
-            logger.debug(
-                "process_gpkg: Prepared db connection target for {!r}; is_unc_path={!r}; db_uri={!r}",
-                path_posix,
-                is_unc_path,
-                db_uri,
-            )
-
-            conn = None
+            conn: sqlite3.Connection | None = None
             try:
-                logger.debug("process_gpkg: Opening SQLite connection using URI (uri=True)")
-                conn = sqlite3.connect(database=db_uri, uri=True)
-                logger.debug("process_gpkg: SQLite connection opened successfully")
+                conn = self._open_sqlite_connection(path=path)
+                if conn is None:
+                    return pd.DataFrame()
+
                 cur: sqlite3.Cursor = conn.cursor()
 
                 try:
