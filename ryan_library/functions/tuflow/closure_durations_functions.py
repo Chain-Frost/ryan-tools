@@ -73,7 +73,7 @@ def calculate_threshold_durations(
         return DataFrame()
 
     records: list[dict[str, object]] = []
-    for _, group in filtered.groupby(available_keys, dropna=False):
+    for _, group in filtered.groupby(available_keys, dropna=False, observed=False):
         timestep: float | None = timestep_from_series(time_values=group["Time"])
         if timestep is None:
             location_label: str = first_value(group["Location"])

@@ -5,6 +5,7 @@ pyshp
 geopandas
 fiona
 pyarrow
+fastparquet
 matplotlib
 colorama
 XlsxWriter
