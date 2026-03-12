@@ -81,6 +81,7 @@ def calculate_threshold_durations(
             continue
 
         out_path: str = first_value(series=group["directory_path"]) if "directory_path" in group.columns else ""
+        trim_runcode: str = first_value(series=group["trim_runcode"]) if "trim_runcode" in group.columns else ""
         aep: str = first_value(series=group["aep_text"]) if "aep_text" in group.columns else ""
         duration: str = first_value(series=group["duration_text"]) if "duration_text" in group.columns else ""
         tp: str = first_value(series=group["tp_text"]) if "tp_text" in group.columns else ""
@@ -99,6 +100,7 @@ def calculate_threshold_durations(
                     "ThresholdFlow": float(threshold),
                     "Duration_Exceeding": float(exceed_count) * timestep,
                     "out_path": out_path,
+                    "trim_runcode": trim_runcode,
                 }
             )
 
@@ -128,11 +130,13 @@ def summarise_results(df: DataFrame) -> DataFrame:
     # thresholds which do not exceed for a given combination can still contribute zeros
     # to the summary statistics.  Without this we would discard zeros entirely and the
     # medians could erroneously increase as the threshold increased.
+    scenario_keys: list[str] = ["Duration", "TP"]
+    if "trim_runcode" in df.columns:
+        scenario_keys.insert(0, "trim_runcode")
+    combo_columns: list[str] = ["out_path", "Location", "AEP", *scenario_keys]
     combo_lookup = {
-        key: grp.loc[:, ["Duration", "TP"]].drop_duplicates().reset_index(drop=True)
-        for key, grp in df.loc[:, ["out_path", "Location", "AEP", "Duration", "TP"]]
-        .drop_duplicates()
-        .groupby(["out_path", "Location", "AEP"])
+        key: grp.loc[:, scenario_keys].drop_duplicates().reset_index(drop=True)
+        for key, grp in df.loc[:, combo_columns].drop_duplicates().groupby(["out_path", "Location", "AEP"])
     }
 
     grouped = df.groupby(["out_path", "Location", "ThresholdFlow", "AEP"])
@@ -140,7 +144,7 @@ def summarise_results(df: DataFrame) -> DataFrame:
         path, location, threshold, aep = name
         combos: DataFrame | None = combo_lookup.get((path, location, aep))
         if combos is not None:
-            group: DataFrame = combos.merge(right=group, on=["Duration", "TP"], how="left")
+            group = combos.merge(right=group, on=scenario_keys, how="left")
             group["AEP"] = group["AEP"].fillna(aep)
             group["out_path"] = group["out_path"].fillna(path)
             group["Location"] = group["Location"].fillna(location)

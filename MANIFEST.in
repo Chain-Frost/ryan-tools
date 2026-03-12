@@ -1,7 +1,7 @@
-global-exclude *.egg-info
-prune *.egg-info
 recursive-include QGIS-Styles/TUFLOW *.qml
 include ryan_library/classes/*.json
 include ryan_library/py.typed
-recursive-include vendor *
+include vendor/run_hy8.UPSTREAM
+include vendor/run_hy8/HY8_PATH.txt
+recursive-include vendor/run_hy8/src/run_hy8 *.py
 
