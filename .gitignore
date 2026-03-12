@@ -36,3 +36,6 @@ test_output.txt
 
 .coverage
 
+ryan-scripts/misc-python/style_audit_report/styles_applied_summary.json
+ryan-scripts/misc-python/style_audit_report/styles_applied.csv
+ryan-scripts/misc-python/style_audit_report/styles_defined.json

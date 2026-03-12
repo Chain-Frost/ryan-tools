@@ -9,6 +9,8 @@ if defined TEMP (
     set "BUILD_DIR=%~dp0build"
 )
 set "PACKAGE_DIR=%~dp0dist"
+set "PROJECT_BUILD_DIR=%~dp0build"
+set "EGG_INFO_DIR=%~dp0ryan_functions.egg-info"
 
 REM Navigate to the directory containing the setup.py script
 cd /d "%~dp0"
@@ -16,6 +18,8 @@ cd /d "%~dp0"
 REM Clean previous builds
 if exist "%PACKAGE_DIR%" rmdir /s /q "%PACKAGE_DIR%"
 if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
+if exist "%PROJECT_BUILD_DIR%" rmdir /s /q "%PROJECT_BUILD_DIR%"
+if exist "%EGG_INFO_DIR%" rmdir /s /q "%EGG_INFO_DIR%"
 mkdir "%BUILD_DIR%" >nul 2>&1
 if %ERRORLEVEL% neq 0 (
     echo Failed to create build directory at %BUILD_DIR%.

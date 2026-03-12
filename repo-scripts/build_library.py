@@ -25,12 +25,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-RE_VERSION = re.compile(r'(version\s*=\s*")(?P<version>[^\"]+)(")')
+RE_VERSION: re.Pattern[str] = re.compile(pattern=r'(version\s*=\s*")(?P<version>[^\"]+)(")')
 
 
 def _read_setup_version(setup_path: Path) -> str:
-    content = setup_path.read_text(encoding="utf-8")
-    match = RE_VERSION.search(content)
+    content: str = setup_path.read_text(encoding="utf-8")
+    match: re.Match[str] | None = RE_VERSION.search(string=content)
     if not match:
         msg = "Could not locate version string in setup.py"
         raise RuntimeError(msg)
@@ -38,11 +38,11 @@ def _read_setup_version(setup_path: Path) -> str:
 
 
 def _format_auto_version(current_version: str, today: _dt.date) -> str:
-    date_prefix = today.strftime("%y.%m.%d")
-    parts = current_version.split(".")
+    date_prefix: str = today.strftime("%y.%m.%d")
+    parts: list[str] = current_version.split(".")
     if len(parts) == 4 and ".".join(parts[:3]) == date_prefix:
         try:
-            counter = int(parts[3]) + 1
+            counter: int = int(parts[3]) + 1
         except ValueError:
             counter = 1
     else:
@@ -51,13 +51,13 @@ def _format_auto_version(current_version: str, today: _dt.date) -> str:
 
 
 def _update_setup_version(setup_path: Path, new_version: str) -> str:
-    content = setup_path.read_text(encoding="utf-8")
-    match = RE_VERSION.search(content)
+    content: str = setup_path.read_text(encoding="utf-8")
+    match: re.Match[str] | None = RE_VERSION.search(string=content)
     if not match:
         msg = "Could not locate version string in setup.py"
         raise RuntimeError(msg)
-    updated = RE_VERSION.sub(rf"\g<1>{new_version}\g<3>", content, count=1)
-    setup_path.write_text(updated, encoding="utf-8")
+    updated: str = RE_VERSION.sub(repl=rf"\g<1>{new_version}\g<3>", string=content, count=1)
+    setup_path.write_text(data=updated, encoding="utf-8")
     return match.group("version")
 
 
@@ -73,13 +73,13 @@ def _run_build(python: str, project_root: Path, dist_dir: Path) -> Path:
             cwd=project_root,
             check=True,
         )
-        wheels = list(build_dir.glob("*.whl"))
+        wheels: list[Path] = list(build_dir.glob("*.whl"))
         if not wheels:
             msg = "Build succeeded but no wheel was produced"
             raise RuntimeError(msg)
         dist_dir.mkdir(parents=True, exist_ok=True)
         for wheel in wheels:
-            target = dist_dir / wheel.name
+            target: Path = dist_dir / wheel.name
             if target.exists():
                 target.unlink()
             shutil.move(str(wheel), target)
@@ -90,9 +90,13 @@ def _run_build(python: str, project_root: Path, dist_dir: Path) -> Path:
 
 def _clean_directories(project_root: Path) -> None:
     for dirname in ("dist", "build"):
-        path = project_root / dirname
+        path: Path = project_root / dirname
         if path.exists():
             shutil.rmtree(path)
+
+    for egg_info in project_root.glob("*.egg-info"):
+        if egg_info.exists():
+            shutil.rmtree(egg_info)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -109,32 +113,32 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Skip ensuring the 'build' package is installed",
     )
-    args = parser.parse_args(argv)
+    args: argparse.Namespace = parser.parse_args(argv)
 
-    project_root = Path(__file__).resolve().parents[1]
-    setup_path = project_root / "setup.py"
+    project_root: Path = Path(__file__).resolve().parents[1]
+    setup_path: Path = project_root / "setup.py"
 
     if not setup_path.exists():
         msg = "setup.py not found relative to script location"
         raise SystemExit(msg)
 
-    current_version = _read_setup_version(setup_path)
-    new_version = args.version or _format_auto_version(current_version, _dt.date.today())
+    current_version: str = _read_setup_version(setup_path=setup_path)
+    new_version = args.version or _format_auto_version(current_version=current_version, today=_dt.date.today())
 
     print(f"Current version: {current_version}")
     print(f"New version:     {new_version}")
 
-    previous_content = setup_path.read_text(encoding="utf-8")
+    previous_content: str = setup_path.read_text(encoding="utf-8")
     try:
-        _update_setup_version(setup_path, new_version)
+        _update_setup_version(setup_path=setup_path, new_version=new_version)
         if not args.skip_pip:
-            _ensure_build_installed(sys.executable)
-        _clean_directories(project_root)
-        dist_dir = project_root / "dist"
-        wheel_path = _run_build(sys.executable, project_root, dist_dir)
+            _ensure_build_installed(python=sys.executable)
+        _clean_directories(project_root=project_root)
+        dist_dir: Path = project_root / "dist"
+        wheel_path: Path = _run_build(python=sys.executable, project_root=project_root, dist_dir=dist_dir)
         print(f"Wheel written to {dist_dir / wheel_path.name}")
     except Exception:
-        setup_path.write_text(previous_content, encoding="utf-8")
+        setup_path.write_text(data=previous_content, encoding="utf-8")
         raise
 
     return 0

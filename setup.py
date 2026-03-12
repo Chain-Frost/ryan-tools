@@ -1,12 +1,31 @@
 ﻿# setup.py
-from setuptools import setup, find_packages  # type: ignore
+from setuptools import find_namespace_packages, find_packages, setup  # type: ignore
+
+PACKAGE_EXCLUDES: list[str] = ["*.tests", "*.tests.*", "tests.*", "tests"]
+VENDORED_NAMESPACE_EXCLUDES: list[str] = [
+    "vendor.run_hy8.dist",
+    "vendor.run_hy8.dist.*",
+    "vendor.run_hy8.docs",
+    "vendor.run_hy8.docs.*",
+    "vendor.run_hy8.scripts",
+    "vendor.run_hy8.scripts.*",
+    "vendor.run_hy8.tests",
+    "vendor.run_hy8.tests.*",
+]
+packages: list[str] = find_packages(exclude=PACKAGE_EXCLUDES)
+packages.extend(
+    find_namespace_packages(
+        include=["vendor.run_hy8", "vendor.run_hy8.*"],
+        exclude=VENDORED_NAMESPACE_EXCLUDES,
+    )
+)
 
 setup(
     name="ryan_functions",
     # Version scheme: yy.mm.dd.release_number
     # Increment when publishing new wheels
-    version="26.03.05.2",
-    packages=find_packages(exclude=["*.tests", "*.tests.*", "tests.*", "tests"]),
+    version="26.03.05.3",
+    packages=packages,
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},
     install_requires=[
