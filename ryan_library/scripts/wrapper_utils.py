@@ -16,6 +16,7 @@ class CommonWrapperOptions:
     console_log_level: str | None = None
     data_types: tuple[str, ...] | None = None
     locations_to_include: tuple[str, ...] | None = None
+    paths_to_process: tuple[Path, ...] | None = None
     working_directory: Path | None = None
 
 
@@ -26,6 +27,7 @@ class PeakReportExporter(Protocol):
         self,
         *,
         script_directory: Path,
+        paths_to_process: Collection[Path] | None,
         log_level: str,
         include_pomm: bool,
         locations_to_include: Collection[str] | None,
@@ -41,6 +43,7 @@ class PommPeakWrapperDefaults:
     include_pomm: bool
     include_data_types: tuple[str, ...]
     locations_to_include: tuple[str, ...]
+    paths_to_process: tuple[Path, ...]
     working_directory: Path
 
 
@@ -121,9 +124,11 @@ def run_pomm_peak_report_wrapper(
     effective_locations: tuple[str, ...] | None = (
         overrides.locations_to_include if overrides.locations_to_include else (defaults.locations_to_include or None)
     )
+    effective_paths_to_process: tuple[Path, ...] | None = overrides.paths_to_process or defaults.paths_to_process or None
 
     exporter(
         script_directory=script_directory,
+        paths_to_process=effective_paths_to_process,
         log_level=effective_console_log_level,
         include_pomm=defaults.include_pomm,
         locations_to_include=effective_locations,

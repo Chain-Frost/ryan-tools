@@ -5,18 +5,17 @@ setlocal
 @REM If you are missing pip, use this
 @REM python -m ensurepip --upgrade
 
-REM Define the path to the Python executable
-set "PYTHON_EXEC=C:\Program Files\Python313\python.exe"
-
-REM Check if the Python executable exists
-if not exist "%PYTHON_EXEC%" (
-    echo "%PYTHON_EXEC%" not found. Falling back to Python in PATH.
-    set "PYTHON_EXEC=python"
+REM Prefer the Windows Python launcher because it resolves to the latest installed Python 3.x.
+set "PYTHON_CMD=py -3"
+py -3 --version >nul 2>&1
+if errorlevel 1 (
+    echo Python launcher not found. Falling back to python in PATH.
+    set "PYTHON_CMD=python"
 )
 
 REM Define the working path
 set "PACKAGE_DIR=%~dp0dist"
-echo Using Python executable: %PYTHON_EXEC%
+echo Using Python command: %PYTHON_CMD%
 echo %PACKAGE_DIR%
 
 REM Find the latest version of the package (wheel format)
@@ -36,7 +35,7 @@ if "%LATEST_PACKAGE%"=="" (
 echo Installing or updating "%LATEST_PACKAGE%"
 
 REM Install or update the package using pip
-"%PYTHON_EXEC%" -m pip install --upgrade "%PACKAGE_DIR%\%LATEST_PACKAGE%"
+call %PYTHON_CMD% -m pip install --upgrade "%PACKAGE_DIR%\%LATEST_PACKAGE%"
 
 REM Check if the installation was successful
 if %ERRORLEVEL% equ 0 (

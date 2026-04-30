@@ -29,6 +29,7 @@ ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
 
 def run_culvert_mean_report(
     script_directory: Path | None = None,
+    paths_to_process: Sequence[Path] | None = None,
     log_level: str = "INFO",
     include_data_types: Sequence[str] | None = None,
     locations_to_include: Collection[str] | None = None,
@@ -38,7 +39,8 @@ def run_culvert_mean_report(
     Generate AEP/Duration mean statistics for culvert results and export them to Excel.
 
     Args:
-        script_directory: Directory to search for culvert result files.
+        script_directory: Output directory for exported files.
+        paths_to_process: Folder roots to search for culvert result files.
         log_level: Console logging verbosity.
         include_data_types: List of file types to include (e.g. "Nmx", "Chan").
         locations_to_include: Filter for specific culvert IDs/locations.
@@ -47,6 +49,7 @@ def run_culvert_mean_report(
 
     if script_directory is None:
         script_directory = Path.cwd()
+    effective_paths_to_process: list[Path] = list(paths_to_process or (script_directory,))
 
     data_types, invalid_types = normalize_data_types(
         requested=include_data_types,
@@ -62,7 +65,7 @@ def run_culvert_mean_report(
         )
 
         collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
-            paths_to_process=[script_directory],
+            paths_to_process=effective_paths_to_process,
             include_data_types=data_types,
             log_queue=log_queue,
             console_log_level=log_level,

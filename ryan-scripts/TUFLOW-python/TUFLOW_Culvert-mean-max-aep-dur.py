@@ -17,6 +17,8 @@ INCLUDED_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", 
 EXPORT_RAW_MAXIMUMS: bool = True
 # Change the working directory
 WORKING_DIR: Path = Path(__file__).absolute().parent
+# Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
+PATHS_TO_PROCESS: tuple[Path, ...] = ()
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
 import argparse
@@ -38,6 +40,7 @@ def main(
     console_log_level: str | None = None,
     include_data_types: tuple[str, ...] | None = None,
     locations_to_include: tuple[str, ...] | None = None,
+    paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> None:
     """
@@ -51,6 +54,7 @@ def main(
         console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
         include_data_types: Overrides the INCLUDED_DATA_TYPES constant.
         locations_to_include: Overrides the LOCATIONS_TO_INCLUDE (implicit) settings.
+        paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides the default WORKING_DIR.
     """
 
@@ -63,9 +67,11 @@ def main(
     to_include_data_types: tuple[str, ...] | None = include_data_types or INCLUDED_DATA_TYPES or None
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_locations: tuple[str, ...] | None = locations_to_include
+    effective_paths_to_process: tuple[Path, ...] | None = paths_to_process or PATHS_TO_PROCESS or None
 
     run_culvert_mean_report(
         script_directory=script_directory,
+        paths_to_process=effective_paths_to_process,
         log_level=effective_console_log_level,
         include_data_types=to_include_data_types,
         locations_to_include=effective_locations,

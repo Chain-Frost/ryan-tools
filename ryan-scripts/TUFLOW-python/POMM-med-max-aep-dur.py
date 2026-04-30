@@ -23,6 +23,8 @@ LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
 INCLUDE_DATA_TYPES: tuple[str, ...] = ("POMM", "RLL_Qmx")
 # Change the working directory
 WORKING_DIR: Path = Path(__file__).absolute().parent
+# Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
+PATHS_TO_PROCESS: tuple[Path, ...] = ()
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
 
@@ -45,6 +47,7 @@ DEFAULTS: PommPeakWrapperDefaults = PommPeakWrapperDefaults(
     include_pomm=INCLUDE_POMM,
     include_data_types=INCLUDE_DATA_TYPES,
     locations_to_include=LOCATIONS_TO_INCLUDE,
+    paths_to_process=PATHS_TO_PROCESS,
     working_directory=WORKING_DIR,
 )
 
@@ -54,6 +57,7 @@ def main(
     console_log_level: str | None = None,
     include_data_types: tuple[str, ...] | None = None,
     locations_to_include: tuple[str, ...] | None = None,
+    paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> None:
     """
@@ -66,6 +70,7 @@ def main(
         console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
         include_data_types: Overrides the INCLUDE_DATA_TYPES constant.
         locations_to_include: Overrides the LOCATIONS_TO_INCLUDE constant.
+        paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides the default WORKING_DIR.
     """
 
@@ -73,6 +78,7 @@ def main(
         console_log_level=console_log_level,
         data_types=include_data_types,
         locations_to_include=locations_to_include,
+        paths_to_process=paths_to_process,
         working_directory=working_directory,
     )
     run_pomm_peak_report_wrapper(
