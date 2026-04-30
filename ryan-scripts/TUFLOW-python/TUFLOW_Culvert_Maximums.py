@@ -15,6 +15,8 @@ CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 INCLUDE_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 WORKING_DIR: Path = Path(__file__).absolute().parent
+# Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
+PATHS_TO_PROCESS: tuple[Path, ...] = ()
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
 import argparse
@@ -36,6 +38,7 @@ def main(
     console_log_level: str | None = None,
     include_data_types: tuple[str, ...] | None = None,
     locations_to_include: tuple[str, ...] | None = None,
+    paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> None:
     """
@@ -48,6 +51,7 @@ def main(
         console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
         include_data_types: Overrides the INCLUDE_DATA_TYPES constant.
         locations_to_include: Overrides the locations filter.
+        paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides the default WORKING_DIR.
     """
     print_library_version()
@@ -59,9 +63,10 @@ def main(
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_data_types: list[str] = list(include_data_types or INCLUDE_DATA_TYPES)
     effective_export_mode: Literal["excel", "parquet", "both"] = EXPORT_MODE
+    effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_dir,))
 
     main_processing(
-        paths_to_process=[script_dir],
+        paths_to_process=effective_paths_to_process,
         include_data_types=effective_data_types,
         console_log_level=effective_console_log_level,
         locations_to_include=locations_to_include,

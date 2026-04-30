@@ -25,6 +25,8 @@ from ryan_library.scripts.wrapper_utils import (
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
+# Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
+PATHS_TO_PROCESS: tuple[Path, ...] = ()
 CSV_GLOB: str = "**/*_PO.csv"
 
 # Datatype filter (include-list). Default: only 'Flow'.
@@ -57,6 +59,7 @@ def main(
     include_data_types: tuple[str, ...] | None = None,
     locations_to_include: tuple[str, ...] | None = None,
     export_mode: Literal["excel", "parquet", "both"] | None = None,
+    paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> None:
     """
@@ -67,6 +70,7 @@ def main(
         include_data_types: Overrides DATATYPE_INCLUDE.
         locations_to_include: Overrides LOCATION_INCLUDE.
         export_mode: Overrides EXPORT_MODE.
+        paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides WORKING_DIR.
     """
     print_library_version()
@@ -81,9 +85,10 @@ def main(
         locations_to_include if locations_to_include else (LOCATION_INCLUDE or ())
     )
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
+    effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_directory,))
 
     main_processing(
-        paths_to_process=[script_directory],
+        paths_to_process=effective_paths_to_process,
         csv_glob=CSV_GLOB,
         datatype_include=effective_data_types,
         datatype_case_sensitive=DATATYPE_CASE_SENSITIVE,

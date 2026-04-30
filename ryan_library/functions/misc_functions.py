@@ -504,8 +504,7 @@ class ExcelExporter:
         """
         column_widths: dict[str, float] = {
             get_column_letter(idx + 1): max(
-                # Calculate max length of the column data
-                df[col].astype(str).map(len).max(),
+                self._calculate_max_cell_length(series=df[col]),
                 # Consider the column name length as well
                 len(str(col)),
             )
@@ -514,6 +513,20 @@ class ExcelExporter:
         }
         logger.debug("Calculated dynamic column widths: {}", column_widths)
         return column_widths
+
+    def _calculate_max_cell_length(self, series: pd.Series) -> int:
+        """Return the longest display length for a Series when exporting to Excel."""
+
+        if series.empty:
+            return 0
+
+        max_length: int = 0
+        for value in series.to_numpy(dtype=object, copy=False):
+            value_length: int = len("" if pd.isna(value) else str(value))
+            if value_length > max_length:
+                max_length = value_length
+
+        return max_length
 
     def set_column_widths(
         self,

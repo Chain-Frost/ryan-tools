@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
 break_pdf_signatures.py
+updated 2026-03-31 to be more aggressive
 
-Rewrites a PDF using pypdf, invalidates all digital signatures,
-and removes signature fields (/Sig) from the AcroForm.
+Aggressively rebuilds a PDF using pypdf, invalidates all digital signatures,
+removes signature widgets/fields, and drops document-level signature locks.
 
 Priority order for input:
 1. If HARD_CODED_INPUT is set, it is always used.
@@ -19,8 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import ArrayObject, NameObject
-from pypdf.generic._data_structures import DictionaryObject
+from pypdf.generic import ArrayObject, DictionaryObject, NameObject
 
 # --- User configuration -----------------------------------------------------
 
@@ -36,6 +36,25 @@ def _normalize_path(value: Path | str) -> Path:
 
 def _resolve_indirect(value: Any) -> Any:
     return value.get_object() if hasattr(value, "get_object") else value
+
+
+def _is_signature_field(value: Any) -> bool:
+    field_dict = _resolve_indirect(value)
+    if not isinstance(field_dict, dict):
+        return False
+
+    if field_dict.get("/FT") == NameObject("/Sig"):
+        return True
+
+    parent = field_dict.get("/Parent")
+    if parent is not None and _is_signature_field(parent):
+        return True
+
+    value_dict = _resolve_indirect(field_dict.get("/V"))
+    if isinstance(value_dict, dict) and value_dict.get("/Type") == NameObject("/Sig"):
+        return True
+
+    return False
 
 
 def _strip_signature_fields(writer: PdfWriter) -> None:
@@ -82,11 +101,62 @@ def _strip_signature_fields(writer: PdfWriter) -> None:
         root.pop("/AcroForm", None)
 
 
+def _strip_signature_annotations(writer: PdfWriter) -> None:
+    for page in writer.pages:
+        annots_entry = page.get("/Annots")
+        if annots_entry is None:
+            continue
+
+        annots_array = _resolve_indirect(annots_entry)
+        if not isinstance(annots_array, ArrayObject):
+            page.pop("/Annots", None)
+            continue
+
+        kept_annots = ArrayObject()
+        for annot_ref in annots_array:
+            annot_dict = _resolve_indirect(annot_ref)
+            if not isinstance(annot_dict, dict):
+                continue
+
+            if _is_signature_field(annot_dict):
+                continue
+
+            kept_annots.append(annot_ref)
+
+        if kept_annots:
+            page[NameObject("/Annots")] = kept_annots
+        else:
+            page.pop("/Annots", None)
+
+
+def _sanitize_catalog(writer: PdfWriter) -> None:
+    root: DictionaryObject = writer._root_object
+    root.pop("/AcroForm", None)
+    root.pop("/Perms", None)
+
+
+def _copy_document_metadata(reader: PdfReader, writer: PdfWriter) -> None:
+    metadata = reader.metadata
+    if metadata is None:
+        return
+
+    clean_metadata = {
+        str(key): str(value) for key, value in metadata.items() if isinstance(key, str) and isinstance(value, str)
+    }
+    if clean_metadata:
+        writer.add_metadata(clean_metadata)
+
+
 def break_and_remove_signature_fields(src: Path, dst: Path) -> None:
     reader = PdfReader(str(src))
     writer = PdfWriter()
-    writer.clone_document_from_reader(reader)
+    for page in reader.pages:
+        writer.add_page(page)
+
+    _copy_document_metadata(reader=reader, writer=writer)
+    _strip_signature_annotations(writer)
     _strip_signature_fields(writer)
+    _sanitize_catalog(writer)
 
     with dst.open("wb") as output_stream:
         writer.write(output_stream)

@@ -7,7 +7,7 @@ It allows extracting Mean or Median peak values across multiple events/durations
 It includes both modern workflow functions and deprecated wrappers for backward compatibility.
 """
 
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Sequence
 from datetime import datetime
 from pathlib import Path
 import warnings
@@ -45,6 +45,7 @@ def run_peak_report(script_directory: Path | None = None) -> None:
 def run_peak_report_workflow(
     *,
     script_directory: Path | None = None,
+    paths_to_process: Sequence[Path] | None = None,
     log_level: str = "INFO",
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
@@ -60,7 +61,8 @@ def run_peak_report_workflow(
       3. Invokes the callback `exporter` (e.g., save mean or median report) with the aggregated data.
 
     Args:
-        script_directory: The root directory to search for files. Defaults to CWD.
+        script_directory: Output directory for the export. Defaults to CWD.
+        paths_to_process: Folder roots to search for files. Defaults to ``script_directory``.
         log_level: Logging verbosity level ("INFO", "DEBUG").
         include_pomm: Whether to include the full POMM sheet in the export.
         locations_to_include: List of specific locations to filter by.
@@ -69,6 +71,7 @@ def run_peak_report_workflow(
     """
 
     script_directory = script_directory or Path.cwd()
+    effective_paths_to_process: list[Path] = list(paths_to_process or (script_directory,))
     resolved_data_types, invalid_types = normalize_data_types(
         requested=include_data_types,
         default=DEFAULT_DATA_TYPES,
@@ -91,7 +94,7 @@ def run_peak_report_workflow(
 
         # Aggregate data from all found files in the directory
         aggregated_df: pd.DataFrame = aggregated_from_paths(
-            paths=[script_directory],
+            paths=effective_paths_to_process,
             locations_to_include=location_filter,
             include_data_types=resolved_data_types,
             log_queue=log_queue,
@@ -129,6 +132,7 @@ def run_peak_report_workflow(
 def export_median_peak_report(
     *,
     script_directory: Path | None = None,
+    paths_to_process: Sequence[Path] | None = None,
     log_level: str = "INFO",
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
@@ -142,6 +146,7 @@ def export_median_peak_report(
 
     run_peak_report_workflow(
         script_directory=script_directory,
+        paths_to_process=paths_to_process,
         log_level=log_level,
         include_pomm=include_pomm,
         locations_to_include=locations_to_include,
@@ -153,6 +158,7 @@ def export_median_peak_report(
 def export_mean_peak_report(
     *,
     script_directory: Path | None = None,
+    paths_to_process: Sequence[Path] | None = None,
     log_level: str = "INFO",
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
@@ -166,6 +172,7 @@ def export_mean_peak_report(
 
     run_peak_report_workflow(
         script_directory=script_directory,
+        paths_to_process=paths_to_process,
         log_level=log_level,
         include_pomm=include_pomm,
         locations_to_include=locations_to_include,

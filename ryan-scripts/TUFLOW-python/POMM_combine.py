@@ -25,6 +25,8 @@ INCLUDE_DATA_TYPES: tuple[str, ...] = ("POMM", "RLL_Qmx")
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 # Change the working directory
 WORKING_DIR: Path = Path(__file__).absolute().parent
+# Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
+PATHS_TO_PROCESS: tuple[Path, ...] = ()
 # WORKING_DIR: Path = Path(r"E:\Library\Automation\ryan-tools\tests\test_data\tuflow\tutorials\Module_03")
 
 import argparse
@@ -47,6 +49,7 @@ def main(
     include_data_types: tuple[str, ...] | None = None,
     locations_to_include: tuple[str, ...] | None = None,
     export_mode: Literal["excel", "parquet", "both"] | None = None,
+    paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> None:
     """
@@ -61,6 +64,7 @@ def main(
         include_data_types: Overrides the INCLUDE_DATA_TYPES constant.
         locations_to_include: Overrides the LOCATIONS_TO_INCLUDE constant.
         export_mode: Overrides the EXPORT_MODE constant.
+        paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides the default WORKING_DIR.
     """
     print_library_version()
@@ -76,9 +80,10 @@ def main(
         locations_to_include if locations_to_include else (LOCATIONS_TO_INCLUDE or None)
     )
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
+    effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_directory,))
 
     main_processing(
-        paths_to_process=[script_directory],
+        paths_to_process=effective_paths_to_process,
         include_data_types=effective_data_types,
         console_log_level=effective_console_log_level,
         locations_to_include=effective_locations,
