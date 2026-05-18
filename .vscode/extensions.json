@@ -5,6 +5,8 @@
         "usernamehw.errorlens",
         "nilssoderman.batch-runner",
         "fr43nk.seito-openfile",
-        "mechatroner.rainbow-csv"
+        "mechatroner.rainbow-csv",
+        "Chain-Frost.tuflow-path-validator",
+        "earshinov.permute-lines"
     ]
 }
