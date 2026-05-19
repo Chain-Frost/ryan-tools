@@ -1,10 +1,12 @@
 # ryan-scripts\TUFLOW-python\run_tuflow_batch.py
 # 2025-11-02 version - parameter product and/or read from a list.
+# Non-native libraries used by this script: python -m pip install rich colorama psutil
 """Single-file TUFLOW launcher for Windows.
 USAGE
 1. Copy this file into a job folder.
 2. Edit `get_parameters()` ONLY - nowhere else.
-3. Run:  python run_tuflow_batch.py"""
+3. Run:  python run_tuflow_batch.py
+4. Demo dashboard without TUFLOW: python run_tuflow_batch.py --demo-dashboard"""
 
 
 # ========= USER PARAMETERS ====== ***** EDIT ONLY THIS FUNCTION *****
@@ -48,6 +50,12 @@ def get_parameters() -> "Parameters":
         export_commands=True,  # to a text file
         capture_console_log=False,  # export command prompt to text file log
         minimize_on_launch=True,
+        use_live_dashboard=True,
+        live_refresh_per_second=1.0,
+        live_max_rows=200,
+        pending_head_rows=25,
+        pending_tail_rows=25,
+        write_results_csv=True,
     )
 
     # Build and validate
@@ -66,6 +74,7 @@ def get_parameters() -> "Parameters":
 # ============================= IMPORTS (internal) ========================== #
 # imports placed here so that they do not obstruct user editing of the parameters at the top.
 import datetime
+import csv
 import itertools
 import logging
 import os
@@ -80,6 +89,12 @@ from typing import Any, Final, ClassVar
 from pathlib import Path
 import colorama
 import psutil
+from rich import box
+from rich.console import Console, Group
+from rich.live import Live
+from rich.markup import escape
+from rich.panel import Panel
+from rich.table import Table
 
 
 ###############################################################################
@@ -107,6 +122,12 @@ class CoreParameters:
         input_files:            List of .bat/.txt files when smart_mode != "parameter_product".
         export_commands:        If True -> write <script>_commands.txt.
         minimize_on_launch:     If True -> new TUFLOW consoles start minimised (do not steal focus).
+        use_live_dashboard:     If True -> show Rich live status dashboard while simulations run.
+        live_refresh_per_second: Rich live dashboard refresh rate.
+        live_max_rows:          Maximum live rows to render under normal operation.
+        pending_head_rows:      Number of earliest blocked finished rows to show.
+        pending_tail_rows:      Number of latest blocked finished rows to show.
+        write_results_csv:      If True -> write <script>_results.csv in ordered static print order.
     """
 
     tcf: Path
@@ -124,6 +145,12 @@ class CoreParameters:
     input_files: list[str] | None = None  # set by get_parameters
     export_commands: bool = True
     minimize_on_launch: bool = False
+    use_live_dashboard: bool = True
+    live_refresh_per_second: float = 1.0
+    live_max_rows: int = 200
+    pending_head_rows: int = 25
+    pending_tail_rows: int = 25
+    write_results_csv: bool = True
 
     # ---- Defaults map (for styled dumps) ----
     # IMPORTANT: mark as ClassVar so dataclasses ignores it (avoids mutable-default error).
@@ -140,6 +167,12 @@ class CoreParameters:
         "smart_mode": "parameter_product",
         "export_commands": True,
         "minimize_on_launch": False,
+        "use_live_dashboard": True,
+        "live_refresh_per_second": 1.0,
+        "live_max_rows": 200,
+        "pending_head_rows": 25,
+        "pending_tail_rows": 25,
+        "write_results_csv": True,
     }
 
     def dump(self) -> None:
@@ -185,6 +218,12 @@ class CoreParameters:
             ("export_commands", self.export_commands),
             ("capture_console_log", self.capture_console_log),
             ("minimize_on_launch", self.minimize_on_launch),
+            ("use_live_dashboard", self.use_live_dashboard),
+            ("live_refresh_per_second", self.live_refresh_per_second),
+            ("live_max_rows", self.live_max_rows),
+            ("pending_head_rows", self.pending_head_rows),
+            ("pending_tail_rows", self.pending_tail_rows),
+            ("write_results_csv", self.write_results_csv),
         ]
         for name, val in items:
             # For "(effective)" label, look up original key for default styling comparison
@@ -247,6 +286,17 @@ class Simulation:
         return hash(self._identity_tokens())
 
 
+@dataclass(slots=True, kw_only=True)
+class SimResult:
+    """Completed simulation result waiting for ordered static output."""
+
+    sim: Simulation
+    status: str  # "OK" or "FAIL"
+    return_code: int | None
+    duration: str
+    finished_time: datetime.datetime
+
+
 # ================================ CONSTANTS =============================== #
 
 _PRIORITY_SET: set[str] = {
@@ -261,6 +311,12 @@ _PRIORITY_SET: set[str] = {
 _GPU_RE: re.Pattern[str] = re.compile(pattern=r"(?i)^(?:-pu)(?:\d+)$")
 _FLAG_KEY_RE: re.Pattern[str] = re.compile(pattern=r"^-[es][1-9]$", flags=re.IGNORECASE)
 _SW_SHOWMINNOACTIVE = 7  # Windows API constant
+STATUS_QUEUED: Final[str] = "QUEUED"
+STATUS_RUNNING: Final[str] = "RUNNING"
+STATUS_DONE_PENDING_PRINT: Final[str] = "DONE_PENDING_PRINT"
+STATUS_PRINTED: Final[str] = "PRINTED"
+RESULT_OK: Final[str] = "OK"
+RESULT_FAIL: Final[str] = "FAIL"
 
 
 # ====================== PARAMETER-BUILDING & VALIDATION ==================== #
@@ -757,13 +813,19 @@ def build_simulations_from_combos(
 
 
 # ========================= LAUNCH / MONITOR LOOP ========================== #
-def _log_simulation_parameters(sim: Simulation, core: CoreParameters, total: int) -> None:
+def _log_simulation_parameters(
+    sim: Simulation, core: CoreParameters, total: int, console: Console | None = None
+) -> None:
     """For each sim, only print the full arg string (no timestamp)."""
     tokens: list[str] = sim.args_for_python
     if not tokens:
         return
     # Print exactly what will be executed (including exe), with quoted TCF.
-    print(" " + " ".join([*tokens[:-1], f'"{tokens[-1]}"']))
+    line: str = " " + " ".join([*tokens[:-1], f'"{tokens[-1]}"'])
+    if console:
+        console.print(line, markup=False)
+    else:
+        print(line)
 
 
 def _args_to_start_line(args: list[str], priority: str) -> str:
@@ -784,8 +846,209 @@ def _append_session_log(session_log: Path, text: str) -> None:
         logging.warning("Failed writing session log %s: %s", session_log, exc)
 
 
-def launch_simulations(sims: list[Simulation], core: CoreParameters, session_log: Path | None = None) -> None:
-    """Launch subprocesses (one per GPU group), monitor completion, handle Ctrl+C, and (optionally) log START lines/results."""
+def _extract_flag_value(args: list[str], flag: str) -> str:
+    """Return the first value after a command-line flag, or an empty string."""
+    wanted: str = flag.lower()
+    for idx, token in enumerate(args[:-1]):
+        if token.lower() == wanted:
+            return args[idx + 1].strip()
+    return ""
+
+
+def _sim_label(sim: Simulation) -> str:
+    """Build a concise label from -e*/-s* values, excluding executable, batch flags, GPU, and TCF path."""
+    values: list[str] = []
+    seen_flags: set[str] = set()
+    for token in sim.args_for_python:
+        if _FLAG_KEY_RE.match(string=token):
+            flag: str = token.lower()
+            if flag in seen_flags:
+                continue
+            seen_flags.add(flag)
+            values.append(_extract_flag_value(args=sim.args_for_python, flag=flag))
+    return " ".join(v for v in values if v) or Path(sim.args_for_python[-1]).name
+
+
+def _gpu_label(sim: Simulation) -> str:
+    if sim.assigned_gpu:
+        return " ".join([sim.assigned_gpu] if isinstance(sim.assigned_gpu, str) else sim.assigned_gpu)
+    gpu_flags: list[str] = [token for token in sim.args_for_python if _GPU_RE.match(string=token)]
+    return " ".join(gpu_flags) if gpu_flags else "engine-default"
+
+
+def _completion_line(result: SimResult) -> str:
+    timestamp: str = result.finished_time.strftime(format="%Y-%m-%d %H:%M:%S")
+    base: str = f"{timestamp} | Sim {result.sim.index:03d} | {_gpu_label(sim=result.sim)} | " f"{result.status:<4} | "
+    if result.status == RESULT_FAIL:
+        base += f"rc={result.return_code} | "
+    return f"{base}{result.duration} | {_sim_label(sim=result.sim)}"
+
+
+def _initialise_results_csv(path: Path) -> None:
+    # Safer than mixing runs: overwrite at session start, then append rows as ordered static lines are printed.
+    with path.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            ["sim", "status", "return_code", "gpu", "duration", "start_time", "end_time", "label", "command"]
+        )
+
+
+def _append_result_csv(path: Path, result: SimResult) -> None:
+    with path.open("a", encoding="utf-8", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                result.sim.index,
+                result.status,
+                "" if result.return_code is None else result.return_code,
+                _gpu_label(sim=result.sim),
+                result.duration,
+                result.sim.start_time.strftime(format="%Y-%m-%d %H:%M:%S") if result.sim.start_time else "",
+                result.sim.end_time.strftime(format="%Y-%m-%d %H:%M:%S") if result.sim.end_time else "",
+                _sim_label(sim=result.sim),
+                " ".join(result.sim.args_for_python),
+            ]
+        )
+
+
+def _result_style(status: str) -> str:
+    return "green" if status == RESULT_OK else "red"
+
+
+def _bounded_pending_results(
+    pending_results: dict[int, SimResult], core: CoreParameters, running_count: int
+) -> tuple[list[SimResult], int, list[SimResult]]:
+    pending: list[SimResult] = [pending_results[idx] for idx in sorted(pending_results)]
+    available_rows: int = max(core.live_max_rows - running_count, 0)
+    if len(pending) <= available_rows:
+        return pending, 0, []
+
+    head_limit: int = min(max(core.pending_head_rows, 0), available_rows)
+    tail_limit: int = min(max(core.pending_tail_rows, 0), max(available_rows - head_limit, 0))
+    head: list[SimResult] = pending[:head_limit]
+    tail: list[SimResult] = pending[-tail_limit:] if tail_limit else []
+    shown_indexes: set[int] = {result.sim.index for result in [*head, *tail]}
+    tail = [result for result in tail if result.sim.index not in {r.sim.index for r in head}]
+    hidden_count: int = len(pending) - len(shown_indexes)
+    return head, hidden_count, tail
+
+
+def _render_dashboard(
+    *,
+    sims: list[Simulation],
+    running: list[Simulation],
+    pending_static_results: dict[int, SimResult],
+    statuses: dict[int, str],
+    durations: dict[int, str],
+    return_codes: dict[int, int | None],
+    printed_results: set[int],
+    next_static_index: int,
+    total: int,
+    core: CoreParameters,
+) -> Panel:
+    now: datetime.datetime = datetime.datetime.now()
+    running_by_index: dict[int, Simulation] = {sim.index: sim for sim in running}
+    for sim in running:
+        if sim.start_time:
+            durations[sim.index] = format_duration((now - sim.start_time).total_seconds())
+
+    ok_count: int = sum(1 for code in return_codes.values() if code == 0)
+    fail_count: int = sum(1 for code in return_codes.values() if code not in (None, 0))
+    queued_count: int = sum(1 for status in statuses.values() if status == STATUS_QUEUED)
+    pending_count: int = len(pending_static_results)
+    printed_count: int = len(printed_results)
+
+    summary = Table.grid(expand=True)
+    summary.add_column(justify="left")
+    summary.add_column(justify="left")
+    summary.add_column(justify="left")
+    summary.add_column(justify="left")
+    summary.add_row(
+        f"printed {printed_count}/{total}",
+        f"pending print {pending_count}",
+        f"running {len(running)}",
+        f"queued {queued_count}",
+    )
+    summary.add_row(
+        f"OK {ok_count}",
+        f"FAIL {fail_count}",
+        f"next static Sim {next_static_index:03d}" if next_static_index <= total else "next static complete",
+        f"rows <= {core.live_max_rows}",
+    )
+
+    table = Table(box=box.SIMPLE_HEAVY, expand=True)
+    table.add_column("Sim", justify="right", no_wrap=True)
+    table.add_column("State", no_wrap=True)
+    table.add_column("GPU", no_wrap=True)
+    table.add_column("Duration", no_wrap=True)
+    table.add_column("RC", no_wrap=True)
+    table.add_column("Label", overflow="fold")
+
+    for sim in sorted(running, key=lambda item: item.index):
+        table.add_row(
+            f"{sim.index:03d}",
+            "[cyan]RUNNING[/cyan]",
+            escape(_gpu_label(sim=sim)),
+            durations.get(sim.index, "00:00:00"),
+            "",
+            escape(_sim_label(sim=sim)),
+        )
+
+    head, hidden_count, tail = _bounded_pending_results(
+        pending_results=pending_static_results,
+        core=core,
+        running_count=len(running_by_index),
+    )
+    for result in head:
+        style: str = _result_style(status=result.status)
+        table.add_row(
+            f"{result.sim.index:03d}",
+            f"[{style}]DONE - waiting print[/{style}]",
+            escape(_gpu_label(sim=result.sim)),
+            result.duration,
+            "" if result.return_code is None else str(result.return_code),
+            escape(_sim_label(sim=result.sim)),
+        )
+    if hidden_count:
+        table.add_row(
+            "...",
+            f"... {hidden_count} more finished simulations waiting for Sim {next_static_index:03d} before ordered print ...",
+            "",
+            "",
+            "",
+            "",
+            style="dim",
+        )
+    for result in tail:
+        style = _result_style(status=result.status)
+        table.add_row(
+            f"{result.sim.index:03d}",
+            f"[{style}]DONE - waiting print[/{style}]",
+            escape(_gpu_label(sim=result.sim)),
+            result.duration,
+            "" if result.return_code is None else str(result.return_code),
+            escape(_sim_label(sim=result.sim)),
+        )
+
+    if not running and not pending_static_results:
+        table.add_row("", "No active or blocked simulations", "", "", "", "", style="dim")
+
+    return Panel(
+        Group(summary, table),
+        title="TUFLOW Simulation Status",
+        subtitle=f"{Path(__file__).stem} | total {len(sims)}",
+        border_style="cyan",
+    )
+
+
+def launch_simulations(
+    sims: list[Simulation],
+    core: CoreParameters,
+    session_log: Path | None = None,
+    *,
+    inject_gpu_flags: bool = True,
+) -> None:
+    """Launch subprocesses, monitor completion, and emit ordered static completion history."""
     batch_flags: list[str] = get_batch_flags(core=core)
     gpu_slots: list[str | list[str]] = core.gpu_devices or []
     in_use: list[bool] = [False] * len(gpu_slots)
@@ -793,6 +1056,17 @@ def launch_simulations(sims: list[Simulation], core: CoreParameters, session_log
     running: list[Simulation] = []
     queue: list[Simulation] = sims.copy()
     total: int = len(sims)
+    console = Console()
+
+    pending_static_results: dict[int, SimResult] = {}
+    printed_results: set[int] = set()
+    next_static_index: int = 1
+    statuses: dict[int, str] = {s.index: STATUS_QUEUED for s in sims}
+    durations: dict[int, str] = {}
+    return_codes: dict[int, int | None] = {}
+    results_csv: Path | None = Path(f"{Path(__file__).stem}_results.csv") if core.write_results_csv else None
+    if results_csv:
+        _initialise_results_csv(path=results_csv)
 
     # Session log header
     if session_log and core.capture_console_log:
@@ -808,10 +1082,10 @@ def launch_simulations(sims: list[Simulation], core: CoreParameters, session_log
         return None
 
     def sigint_handler(signum: int, frame: FrameType | None) -> None:
-        logging.warning("Ctrl+C detected - terminating all child processes.")
+        console.print("[yellow]Ctrl+C detected - terminating all child processes.[/yellow]")
         for s in running:
             if s.process and s.process.poll() is None:
-                logging.info("Terminating simulation %d (PID %s)", s.index, s.process.pid)
+                console.print(f"Terminating simulation {s.index} (PID {s.process.pid})")
                 s.process.terminate()
         if core.pause_on_finish:
             os.system("pause")
@@ -825,104 +1099,167 @@ def launch_simulations(sims: list[Simulation], core: CoreParameters, session_log
     # Maximum parallelism: len(gpu_slots) if GPUs are listed, otherwise 1 GPU slot
     max_parallel: int = len(gpu_slots) if gpu_slots else 1
     slot_idx: int | None = None
+    min_refresh_interval: float = 1.0 / max(core.live_refresh_per_second, 0.1)
+    last_live_refresh: float = 0.0
 
-    while queue or running:
-        # -- Can we start another run? -- # Launch new sims if a GPU group slot is free
+    def renderable() -> Panel:
+        return _render_dashboard(
+            sims=sims,
+            running=running,
+            pending_static_results=pending_static_results,
+            statuses=statuses,
+            durations=durations,
+            return_codes=return_codes,
+            printed_results=printed_results,
+            next_static_index=next_static_index,
+            total=total,
+            core=core,
+        )
+
+    def refresh_live(live: Live | None, *, force: bool = False) -> None:
+        nonlocal last_live_refresh
+        if live is None:
+            return
+        now_monotonic: float = time.monotonic()
+        if force or now_monotonic - last_live_refresh >= min_refresh_interval:
+            live.update(renderable=renderable(), refresh=True)
+            last_live_refresh = now_monotonic
+
+    def flush_ordered_results(live: Live | None) -> None:
+        nonlocal next_static_index
+        while next_static_index in pending_static_results:
+            result: SimResult = pending_static_results.pop(next_static_index)
+            statuses[result.sim.index] = STATUS_PRINTED
+            printed_results.add(result.sim.index)
+            if results_csv:
+                _append_result_csv(path=results_csv, result=result)
+            if session_log and core.capture_console_log:
+                _append_session_log(
+                    session_log=session_log,
+                    text=(
+                        f"[{result.finished_time.strftime(format='%Y-%m-%d %H:%M:%S')}] END   "
+                        f"sim {result.sim.index}: {result.status} ({result.duration})"
+                    ),
+                )
+            console.print(_completion_line(result=result), markup=False)
+            next_static_index += 1
+            refresh_live(live=live, force=True)
+
+    def launch_ready_sim() -> bool:
+        nonlocal slot_idx
         can_start: bool = (len(running) < max_parallel) and (
             not gpu_slots or (slot_idx := next_free_slot()) is not None
         )
+        if not queue or not can_start:
+            return False
 
-        if queue and can_start:
-            sim: Simulation = queue.pop(0)
+        sim: Simulation = queue.pop(0)
 
-            # Inject GPU flags only now (exact assignment; no prediction earlier) (only if gpu_slots was provided)
-            if gpu_slots:
-                assert slot_idx is not None  # convince type-checker
-                gpu_group: str | list[str] = gpu_slots[slot_idx]
-                sim.assigned_gpu, sim.slot_index = gpu_group, slot_idx
-                in_use[slot_idx] = True
+        # Inject GPU flags only now (exact assignment; no prediction earlier) when real TUFLOW commands are launched.
+        if gpu_slots:
+            assert slot_idx is not None  # convince type-checker
+            gpu_group: str | list[str] = gpu_slots[slot_idx]
+            sim.assigned_gpu, sim.slot_index = gpu_group, slot_idx
+            in_use[slot_idx] = True
 
+            if inject_gpu_flags:
                 gpu_flags: list[str] = [gpu_group] if isinstance(gpu_group, str) else list(gpu_group)
                 insert_at: int = 1 + len(batch_flags)
                 sim.args_for_python = sim.args_for_python[:insert_at] + gpu_flags + sim.args_for_python[insert_at:]
 
-            # ---------- launch ----------
-            sim.start_time = datetime.datetime.now()
-            print()  # blank line before each simulation's text block
-            logging.info(
-                "Launching sim %d/%d on %s",
-                sim.index,
-                total,
-                sim.assigned_gpu or "No GPU Assigned (engine default if any)",
+        # ---------- launch ----------
+        sim.start_time = datetime.datetime.now()
+        statuses[sim.index] = STATUS_RUNNING
+        durations[sim.index] = "00:00:00"
+
+        console.print(
+            f"\nLaunching sim {sim.index}/{total} on {sim.assigned_gpu or 'No GPU Assigned (engine default if any)'}"
+        )
+        _log_simulation_parameters(sim=sim, core=core, total=total, console=console)
+
+        # On Windows, open in a new console window; elsewhere, use the same session.
+        # ---- session command log (exact START line used) ----
+        if session_log and core.capture_console_log:
+            start_line: str = _args_to_start_line(args=sim.args_for_python, priority=core.computational_priority)
+            _append_session_log(
+                session_log=session_log,
+                text=f"[{sim.start_time.strftime(format='%Y-%m-%d %H:%M:%S')}] START sim {sim.index}: {start_line}",
             )
+        startupinfo = None
+        if core.minimize_on_launch and sys.platform == "win32":
+            si = subprocess.STARTUPINFO()
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            si.wShowWindow = _SW_SHOWMINNOACTIVE  # (minimized, do not activate)
+            startupinfo = si
 
-            # Print the exact parameters being used at launch
-            _log_simulation_parameters(sim=sim, core=core, total=total)
-
-            # On Windows, open in a new console window; elsewhere, just Popen (but we don't support non-Windows here)
-            # ---- session command log (exact START line used) ----
-            if session_log and core.capture_console_log:
-                start_line: str = _args_to_start_line(args=sim.args_for_python, priority=core.computational_priority)
-                _append_session_log(
-                    session_log=session_log,
-                    text=f"[{sim.start_time.strftime(format='%Y-%m-%d %H:%M:%S')}] START sim {sim.index}: {start_line}",
-                )
-            startupinfo = None
-            if core.minimize_on_launch and sys.platform == "win32":
-                si = subprocess.STARTUPINFO()
-                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                si.wShowWindow = _SW_SHOWMINNOACTIVE  # (minimized, do not activate)
-                startupinfo = si
-
-            proc: subprocess.Popen[bytes] = subprocess.Popen(
-                args=sim.args_for_python,
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
-                startupinfo=startupinfo,
-            )
+        proc: subprocess.Popen[bytes] = subprocess.Popen(
+            args=sim.args_for_python,
+            creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0,
+            startupinfo=startupinfo,
+        )
+        if sys.platform == "win32":
             psutil.Process(pid=proc.pid).nice(value=get_psutil_priority(priority=core.computational_priority))
-            sim.process = proc
-            running.append(sim)
-            # Throttle only when launching in parallel to avoid overwhelming the system.
-            if max_parallel > 1 and queue:
-                time.sleep(core.wait_time_after_run)
+        sim.process = proc
+        running.append(sim)
+        return True
 
-        # -- monitor running procs, Check for completions --
-        finished_any: bool = False
+    def poll_finished(live: Live | None) -> bool:
+        finished_any = False
         for sim in running.copy():
             if sim.process and sim.process.poll() is not None:
                 sim.end_time = datetime.datetime.now()
                 dur: float = (sim.end_time - sim.start_time).total_seconds() if sim.start_time else 0.0
-                return_code_ok = sim.process.returncode == 0
-                status: str = (
-                    f"{colorama.Fore.GREEN}OK{colorama.Style.RESET_ALL}"
-                    if return_code_ok
-                    else f"{colorama.Fore.RED}FAIL{colorama.Style.RESET_ALL}"
+                duration: str = format_duration(dur)
+                durations[sim.index] = duration
+                return_code: int | None = sim.process.returncode
+                return_codes[sim.index] = return_code
+                result = SimResult(
+                    sim=sim,
+                    status=RESULT_OK if return_code == 0 else RESULT_FAIL,
+                    return_code=return_code,
+                    duration=duration,
+                    finished_time=sim.end_time,
                 )
-                finished_count = total - len(running) - len(queue)
-                logging.info(
-                    "Sim %d finished - %s (%s) [%d/%d completed]",
-                    sim.index,
-                    status,
-                    format_duration(dur),
-                    finished_count,
-                    total,
-                )
-                if session_log and core.capture_console_log:
-                    _append_session_log(
-                        session_log=session_log,
-                        text=f"[{sim.end_time.strftime(format='%Y-%m-%d %H:%M:%S')}] END   sim {sim.index}: {'OK' if return_code_ok else 'FAIL'} ({format_duration(dur)})",
-                    )
+                pending_static_results[sim.index] = result
+                statuses[sim.index] = STATUS_DONE_PENDING_PRINT
                 if sim.slot_index is not None:
                     in_use[sim.slot_index] = False
                 running.remove(sim)
                 finished_any = True
-        # If any simulation finished and there are more queued, wait before starting next
-        if finished_any and queue:
-            time.sleep(core.wait_time_after_run)
-        time.sleep(0.2)
+                flush_ordered_results(live=live)
+        return finished_any
+
+    def run_loop(live: Live | None) -> None:
+        refresh_live(live=live, force=True)
+        while queue or running:
+            launched_any = launch_ready_sim()
+            if launched_any and max_parallel > 1 and queue:
+                refresh_live(live=live, force=True)
+                time.sleep(core.wait_time_after_run)
+
+            finished_any: bool = poll_finished(live=live)
+            if finished_any and queue:
+                refresh_live(live=live, force=True)
+                time.sleep(core.wait_time_after_run)
+
+            refresh_live(live=live)
+            time.sleep(0.2)
+        flush_ordered_results(live=live)
+        refresh_live(live=live, force=True)
+
+    if core.use_live_dashboard:
+        with Live(
+            renderable(),
+            console=console,
+            refresh_per_second=max(core.live_refresh_per_second, 0.1),
+            transient=False,
+        ) as live:
+            run_loop(live=live)
+    else:
+        run_loop(live=None)
 
     # ---- Final Summary ----
-    success_count = sum(1 for s in sims if s.process and s.process.returncode == 0)
+    success_count = sum(1 for code in return_codes.values() if code == 0)
     fail_count = total - success_count
     if fail_count == 0:
         logging.info("All %d simulations completed successfully.", total)
@@ -1003,8 +1340,63 @@ def dump_simulations_preview(sims: list[Simulation]) -> None:
         print(f"Sim {s.index:0{width}d}: {body}")
 
 
+def run_dashboard_demo() -> None:
+    """Run a short out-of-order completion demo without TUFLOW or model files."""
+    colorama.init(autoreset=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    core = CoreParameters(
+        tcf=Path("dashboard_demo.tcf"),
+        tuflowexe=Path(sys.executable),
+        batch_commands="",
+        gpu_devices=[["-pu0"], ["-pu1"], ["-pu2"], ["-pu3"]],
+        computational_priority="NORMAL",
+        run_simulations=True,
+        wait_time_after_run=0.0,
+        pause_on_finish=False,
+        use_live_dashboard=True,
+        live_refresh_per_second=4.0,
+        live_max_rows=8,
+        pending_head_rows=2,
+        pending_tail_rows=2,
+        write_results_csv=True,
+    )
+    sleep_seconds: list[float] = [0.2, 3.0, 0.4, 0.5, 0.6, 0.7]
+    sims: list[Simulation] = []
+    for index, seconds in enumerate(sleep_seconds, start=1):
+        code: str = f"import time, sys; time.sleep({seconds}); sys.exit(0)"
+        args: list[str] = [
+            sys.executable,
+            "-c",
+            code,
+            "-e1",
+            f"demo{index:02d}",
+            "-e2",
+            f"sleep{seconds:.1f}s",
+            "dashboard_demo.tcf",
+        ]
+        sims.append(
+            Simulation(
+                args_for_python=args,
+                command_for_batch=f'python -c "{code}" -e1 demo{index:02d} -e2 sleep{seconds:.1f}s dashboard_demo.tcf',
+                index=index,
+            )
+        )
+
+    logging.info("Running dashboard demo. Expected static completion order: 1, then 2, 3, 4, 5, 6.")
+    launch_simulations(sims=sims, core=core, inject_gpu_flags=False)
+
+
 # ================================== MAIN ================================== #
 def main() -> None:
+    if "--demo-dashboard" in sys.argv:
+        run_dashboard_demo()
+        return
+
     if sys.platform != "win32":
         print("This launcher is Windows-only. Exiting.")
         sys.exit(1)
@@ -1055,6 +1447,8 @@ def main() -> None:
     # De-duplicate at Simulation level (identity ignores GPU placement)
     sims = list({s: None for s in sims}.keys())
     sims.sort(key=lambda s: s.index)  # keep stable order within each builder
+    for idx, sim in enumerate(sims, start=1):
+        sim.index = idx
 
     dump_simulations_preview(sims=sims)
 

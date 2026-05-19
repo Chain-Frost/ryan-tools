@@ -1,8 +1,6 @@
 # ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Stability.py
 """
-Wrapper Script: Timeseries stability checks for TUFLOW PO CSVs.
-
-Currently supports PO CSVs; Q support can be added in the library script later.
+Wrapper Script: Timeseries stability checks for TUFLOW PO and 1D Q CSVs.
 """
 
 from pathlib import Path
@@ -25,8 +23,9 @@ WORKING_DIR: Path = Path(__file__).absolute().parent
 # Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
 PATHS_TO_PROCESS: tuple[Path, ...] = ()
 CSV_GLOB: str = "**/*_PO.csv"
+RESULT_TYPES: tuple[str, ...] = ("PO", "Q")
 
-DATATYPE_INCLUDE: tuple[str, ...] = ("Flow",)
+DATATYPE_INCLUDE: tuple[str, ...] = ("Flow", "Q")
 DATATYPE_CASE_SENSITIVE: bool = False
 
 LOCATION_INCLUDE: tuple[str, ...] = ()
@@ -49,6 +48,7 @@ def main(
     *,
     console_log_level: str | None = None,
     include_data_types: tuple[str, ...] | None = None,
+    result_types: tuple[str, ...] | None = None,
     locations_to_include: tuple[str, ...] | None = None,
     export_mode: Literal["excel", "parquet", "both"] | None = None,
     paths_to_process: tuple[Path, ...] | None = None,
@@ -59,7 +59,8 @@ def main(
 
     Args:
         console_log_level: Overrides CONSOLE_LOG_LEVEL.
-        include_data_types: Overrides DATATYPE_INCLUDE.
+        include_data_types: Overrides DATATYPE_INCLUDE for series types such as "Flow" or "Q".
+        result_types: Overrides RESULT_TYPES for file families: "PO", "Q", or "all".
         locations_to_include: Overrides LOCATION_INCLUDE.
         export_mode: Overrides EXPORT_MODE.
         paths_to_process: Explicit folder roots to scan for result files.
@@ -73,6 +74,7 @@ def main(
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_data_types: tuple[str, ...] = include_data_types or DATATYPE_INCLUDE
+    effective_result_types: tuple[str, ...] = result_types or RESULT_TYPES
     effective_locations: tuple[str, ...] | tuple[()] = (
         locations_to_include if locations_to_include else (LOCATION_INCLUDE or ())
     )
@@ -82,6 +84,7 @@ def main(
     main_processing(
         paths_to_process=effective_paths_to_process,
         csv_glob=CSV_GLOB,
+        result_types=effective_result_types,
         datatype_include=effective_data_types,
         datatype_case_sensitive=DATATYPE_CASE_SENSITIVE,
         location_include=effective_locations,
@@ -105,7 +108,7 @@ def main(
 def _parse_cli_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Check PO timeseries stability. "
+            "Check PO and 1D Q timeseries stability. "
             "Command-line options override the hard-coded values near the top of this file."
         )
     )
@@ -114,6 +117,12 @@ def _parse_cli_arguments() -> argparse.Namespace:
         "--export-mode",
         choices=("excel", "parquet", "both"),
         help="Select export format. Defaults to the script value.",
+    )
+    parser.add_argument(
+        "--result-types",
+        nargs="+",
+        metavar="TYPE",
+        help="Result file families to process: PO, Q, or all. Defaults to the script value.",
     )
     return parser.parse_args()
 
@@ -124,6 +133,7 @@ if __name__ == "__main__":
     main(
         console_log_level=common_options.console_log_level,
         include_data_types=common_options.data_types,
+        result_types=tuple(args.result_types) if args.result_types else None,
         locations_to_include=common_options.locations_to_include,
         export_mode=args.export_mode,
         working_directory=common_options.working_directory,

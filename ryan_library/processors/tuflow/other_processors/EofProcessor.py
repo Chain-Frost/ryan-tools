@@ -3,7 +3,7 @@
 from ..base_processor import BaseProcessor
 import pandas as pd
 from loguru import logger
-import io
+import re
 
 
 class EOFProcessor(BaseProcessor):
@@ -51,10 +51,6 @@ class EOFProcessor(BaseProcessor):
                 self.df = pd.DataFrame()
                 return
 
-            # Create a string buffer, skipping the header line for better inference
-            # The header line in EOF files is often complex and can confuse read_fwf inference
-            data_content = "".join(data_lines[1:])
-
             # Define column names manually as the header is complex
             col_names: list[str] = [
                 "Chan ID",
@@ -77,15 +73,40 @@ class EOFProcessor(BaseProcessor):
                 "Ent/Exit Losses",
             ]
 
-            # Parse with read_fwf
-            self.df = pd.read_fwf(
-                io.StringIO(data_content),
-                names=col_names,
-                header=None,  # We skipped the header line
-                na_values=["-----", "Adjusted", "---"],
-                keep_default_na=True,
-                infer_nrows=100,
-            )
+            parsed_rows: list[list[str]] = []
+            for line in data_lines[1:]:
+                stripped_line = line.strip()
+                if not stripped_line:
+                    continue
+
+                # EOF culvert rows are fixed-width-ish text, but the channel
+                # label itself can contain a single space (for example
+                # "MLETP 156.66"). Splitting only on runs of two or more spaces
+                # keeps that printed label intact while still separating the
+                # report columns.
+                parts: list[str] = re.split(pattern=r"\s{2,}", string=stripped_line)
+                if len(parts) < len(col_names):
+                    logger.warning(f"{self.file_path.name}: Skipping malformed EOF culvert row: {stripped_line}")
+                    continue
+                if len(parts) > len(col_names):
+                    # Keep a stable schema if the final text field contains
+                    # unexpected spacing by folding the overflow into the last
+                    # column rather than shifting earlier numeric fields.
+                    parts = parts[: len(col_names) - 1] + [" ".join(parts[len(col_names) - 1 :])]
+
+                parsed_rows.append(parts)
+
+            if not parsed_rows:
+                logger.warning(f"{self.file_path.name}: No parseable culvert rows found.")
+                self.df = pd.DataFrame()
+                return
+
+            self.df = pd.DataFrame(data=parsed_rows, columns=col_names)
+            self.df.replace(to_replace=["-----", "Adjusted", "---"], value=pd.NA, inplace=True)
+
+            numeric_columns: list[str] = [col for col in col_names if col not in {"Chan ID", "Type"}]
+            for column in numeric_columns:
+                self.df[column] = pd.to_numeric(self.df[column], errors="coerce")
 
             # Handle '-----' in Height column (if not caught by na_values)
             if "Height" in self.df.columns:

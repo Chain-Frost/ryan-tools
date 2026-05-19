@@ -2,7 +2,7 @@
 """
 Timeseries stability checks for TUFLOW outputs.
 
-Currently this supports PO CSV files only; 1D Q support can be added later.
+Supports PO CSV files and 1D Q CSV timeseries files.
 """
 
 from __future__ import annotations
@@ -21,29 +21,73 @@ from ryan_library.functions.misc_functions import ExcelExporter
 from ryan_library.functions.tuflow.po_timeseries_checks import (
     StabilityCheckConfig,
     StabilityCheckResult,
+    analyze_stability_q_csv,
     analyze_stability_csv,
     flatten_stability_results,
 )
 
+DEFAULT_RESULT_TYPES: tuple[str, ...] = ("PO",)
+ACCEPTED_RESULT_TYPES: tuple[str, ...] = ("PO", "Q")
+RESULT_TYPE_GLOBS: dict[str, str] = {
+    "PO": "**/*_PO.csv",
+    "Q": "**/*_1d_Q.csv",
+}
 
-def _collect_files(paths_to_process: Sequence[Path], csv_glob: str) -> list[Path]:
-    files: list[Path] = []
-    seen: set[Path] = set()
+
+def _normalize_result_types(result_types: Sequence[str] | None) -> tuple[str, ...]:
+    if not result_types:
+        return DEFAULT_RESULT_TYPES
+
+    normalized: list[str] = []
+    accepted_lookup: dict[str, str] = {value.lower(): value for value in ACCEPTED_RESULT_TYPES}
+    for raw_value in result_types:
+        value = str(raw_value).strip()
+        if not value:
+            continue
+        if value.lower() == "all":
+            for accepted in ACCEPTED_RESULT_TYPES:
+                if accepted not in normalized:
+                    normalized.append(accepted)
+            continue
+        canonical = accepted_lookup.get(value.lower())
+        if canonical is None:
+            logger.warning(f"Skipping unsupported result type '{value}'. Accepted values: PO, Q, all.")
+            continue
+        if canonical not in normalized:
+            normalized.append(canonical)
+
+    return tuple(normalized) or DEFAULT_RESULT_TYPES
+
+
+def _collect_files(
+    paths_to_process: Sequence[Path],
+    result_types: Sequence[str],
+    result_type_globs: dict[str, str],
+) -> list[tuple[Path, str]]:
+    files: list[tuple[Path, str]] = []
+    seen: set[tuple[Path, str]] = set()
     for root in paths_to_process:
         path = Path(root)
         if not path.is_dir():
             logger.warning(f"Skipping non-directory path: {path}")
             continue
-        for match in path.rglob(csv_glob):
-            if match in seen:
-                continue
-            seen.add(match)
-            files.append(match)
+        for result_type in result_types:
+            csv_glob: str = result_type_globs[result_type]
+            for match in path.rglob(csv_glob):
+                key: tuple[Path, str] = (match, result_type)
+                if key in seen:
+                    continue
+                seen.add(key)
+                files.append(key)
     return sorted(files)
 
 
-def _analyze_stability_worker(path_str: str, config: StabilityCheckConfig) -> list[dict[str, object]]:
-    results: list[StabilityCheckResult] = analyze_stability_csv(path=Path(path_str), config=config)
+def _analyze_stability_worker(path_str: str, result_type: str, config: StabilityCheckConfig) -> list[dict[str, object]]:
+    path = Path(path_str)
+    if result_type == "Q":
+        results: list[StabilityCheckResult] = analyze_stability_q_csv(path=path, config=config)
+    else:
+        results = analyze_stability_csv(path=path, config=config)
     return flatten_stability_results(results=results)
 
 
@@ -51,7 +95,8 @@ def main_processing(
     *,
     paths_to_process: Sequence[Path],
     csv_glob: str = "**/*_PO.csv",
-    datatype_include: Sequence[str] = ("Flow",),
+    result_types: Sequence[str] | None = None,
+    datatype_include: Sequence[str] = ("Flow", "Q"),
     datatype_case_sensitive: bool = False,
     location_include: Sequence[str] = (),
     location_exclude: Sequence[str] = (),
@@ -68,12 +113,13 @@ def main_processing(
     export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
     """
-    Run stability checks for PO timeseries CSV files and export a summary.
+    Run stability checks for selected TUFLOW timeseries CSV files and export a summary.
 
     Args:
-        paths_to_process: Directories to scan for PO CSVs.
-        csv_glob: Glob pattern to match PO CSV files.
-        datatype_include: Measurement types to include (e.g., "Flow").
+        paths_to_process: Directories to scan for timeseries CSVs.
+        csv_glob: Deprecated PO glob argument retained for compatibility.
+        result_types: Result file families to process: "PO", "Q", or "all".
+        datatype_include: Measurement types to include (e.g., "Flow", "Q").
         datatype_case_sensitive: Whether datatype filtering is case-sensitive.
         location_include: Optional location allow-list.
         location_exclude: Optional location block-list.
@@ -101,19 +147,30 @@ def main_processing(
         max_sign_changes=max_sign_changes,
         min_points=min_points,
     )
-
     with setup_logger(console_log_level=console_log_level):
-        files: list[Path] = _collect_files(paths_to_process=paths_to_process, csv_glob=csv_glob)
+        effective_result_types: tuple[str, ...] = _normalize_result_types(result_types=result_types)
+        result_type_globs: dict[str, str] = {**RESULT_TYPE_GLOBS, "PO": csv_glob}
+
+        files: list[tuple[Path, str]] = _collect_files(
+            paths_to_process=paths_to_process,
+            result_types=effective_result_types,
+            result_type_globs=result_type_globs,
+        )
         if not files:
-            logger.info(f"No files matched '{csv_glob}' in the provided directories.")
+            selected_patterns: list[str] = [result_type_globs[result_type] for result_type in effective_result_types]
+            logger.info(f"No files matched {selected_patterns} in the provided directories.")
             return
 
-        logger.info(f"Processing {len(files)} PO CSV file(s) for stability checks.")
+        logger.info(
+            f"Processing {len(files)} timeseries CSV file(s) for stability checks "
+            f"({', '.join(effective_result_types)})."
+        )
         all_rows: list[dict[str, object]] = []
         with cf.ProcessPoolExecutor(max_workers=max_workers) as executor:
             for rows in executor.map(
                 _analyze_stability_worker,
-                (str(path) for path in files),
+                (str(path) for path, _ in files),
+                (result_type for _, result_type in files),
                 (config for _ in files),
                 chunksize=chunksize,
             ):
