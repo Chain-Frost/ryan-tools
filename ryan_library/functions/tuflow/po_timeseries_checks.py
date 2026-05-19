@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -93,6 +93,12 @@ class PoCsvData:
     time_hours: Series
     end_row_idx: int
     end_hours: float
+
+
+@dataclass(slots=True)
+class QCsvData:
+    df: DataFrame
+    time_hours: Series
 
 
 def parse_run_meta_from_filename(path: Path) -> dict[str, str]:
@@ -189,6 +195,238 @@ def _parse_po_csv(path: Path) -> tuple[PoCsvData | None, str | None, bool]:
     end_row_idx = int(time_valid.index[-1])
     end_hours = float(time_valid.iloc[-1])
     return PoCsvData(df=df, time_hours=time_hours, end_row_idx=end_row_idx, end_hours=end_hours), None, False
+
+
+def _parse_q_csv(path: Path) -> tuple[QCsvData | None, str | None, bool]:
+    try:
+        if path.stat().st_size == 0:
+            return None, "EMPTY_FILE", True
+    except Exception:
+        pass
+
+    try:
+        df: DataFrame = pd.read_csv(  # type: ignore
+            filepath_or_buffer=path,
+            header=0,
+            low_memory=False,
+            dtype=str,
+            skipinitialspace=True,
+            encoding="utf-8",
+            on_bad_lines="skip",
+            engine="c",
+        )
+    except pd.errors.EmptyDataError:
+        return None, "NO_COLUMNS", True
+    except UnicodeDecodeError:
+        return None, "DECODE_FAIL", True
+    except Exception:
+        return None, "CSV_PARSE_FAIL", True
+
+    if df.empty:
+        return None, "NO_DATA", True
+
+    df = df.dropna(axis=1, how="all")
+    if df.shape[1] == 0:
+        return None, "NO_COLUMNS", True
+
+    first_column = str(df.columns[0]).strip()
+    time_aliases: set[str] = {"Time", "Time (h)", "Time(h)"}
+    if first_column not in time_aliases and df.shape[1] > 1:
+        df = df.iloc[:, 1:].copy()
+
+    rename_columns: dict[object, str] = {
+        column: "Time" for column in df.columns if str(column).strip() in {"Time (h)", "Time(h)"}
+    }
+    if rename_columns:
+        df.rename(columns=rename_columns, inplace=True)
+
+    if "Time" not in df.columns:
+        return None, "TIME_PARSE_FAIL", True
+
+    cleaned_columns: list[str] = []
+    for column in df.columns:
+        column_text = str(column).strip()
+        if column_text == "Time":
+            cleaned_columns.append("Time")
+            continue
+        if column_text.startswith("Q "):
+            column_text = column_text[2:].strip()
+        if "[" in column_text and "]" in column_text:
+            column_text = column_text.split("[", maxsplit=1)[0].strip()
+        cleaned_columns.append(column_text)
+    df.columns = cleaned_columns
+
+    time_hours = pd.to_numeric(df["Time"], errors="coerce")  # type: ignore
+    if time_hours.dropna().empty:
+        return None, "TIME_PARSE_FAIL", True
+
+    value_columns = [column for column in df.columns if column != "Time"]
+    if not value_columns:
+        return None, None, False
+
+    return QCsvData(df=df, time_hours=time_hours), None, False
+
+
+def _build_empty_stability_result(
+    *,
+    path: Path,
+    run_code: str,
+    run_meta: dict[str, str],
+    status: str,
+    datatype: str = "",
+    location: str = "",
+    points: int | None = None,
+) -> StabilityCheckResult:
+    return StabilityCheckResult(
+        file=str(path),
+        run_code=run_code,
+        run_meta=run_meta,
+        datatype=datatype,
+        location=location,
+        status=status,
+        points=points,
+        sign_changes=None,
+        nonzero_steps=None,
+        delta_tol=None,
+        value_min=None,
+        value_max=None,
+        value_range=None,
+        start_time=None,
+        end_time=None,
+        time_span=None,
+        start_value=None,
+        end_value=None,
+        max_abs_step=None,
+        mean_abs_step=None,
+    )
+
+
+def _evaluate_stability_series(
+    *,
+    path: Path,
+    run_code: str,
+    run_meta: dict[str, str],
+    datatype: str,
+    location: str,
+    values_raw: Series,
+    time_hours: Series,
+    config: StabilityCheckConfig,
+) -> StabilityCheckResult:
+    valid_mask = values_raw.notna() & time_hours.notna()
+    points = int(valid_mask.sum())
+
+    if points == 0:
+        return _build_empty_stability_result(
+            path=path,
+            run_code=run_code,
+            run_meta=run_meta,
+            status="NO_DATA",
+            datatype=datatype,
+            location=location,
+            points=0,
+        )
+
+    values_valid = values_raw.loc[valid_mask].astype("float64")
+    time_valid = time_hours.loc[valid_mask].astype("float64")
+    start_time = float(time_valid.iloc[0])
+    end_time = float(time_valid.iloc[-1])
+    start_value = float(values_valid.iloc[0])
+    end_value = float(values_valid.iloc[-1])
+    value_min = float(values_valid.min())
+    value_max = float(values_valid.max())
+    value_range = value_max - value_min
+
+    if points < max(config.min_points, 2):
+        return StabilityCheckResult(
+            file=str(path),
+            run_code=run_code,
+            run_meta=run_meta,
+            datatype=datatype,
+            location=location,
+            status="INSUFFICIENT_POINTS",
+            points=points,
+            sign_changes=None,
+            nonzero_steps=None,
+            delta_tol=None,
+            value_min=value_min,
+            value_max=value_max,
+            value_range=value_range,
+            start_time=start_time,
+            end_time=end_time,
+            time_span=end_time - start_time,
+            start_value=start_value,
+            end_value=end_value,
+            max_abs_step=None,
+            mean_abs_step=None,
+        )
+
+    if value_range <= config.flat_tol:
+        return StabilityCheckResult(
+            file=str(path),
+            run_code=run_code,
+            run_meta=run_meta,
+            datatype=datatype,
+            location=location,
+            status="FLAT",
+            points=points,
+            sign_changes=0,
+            nonzero_steps=0,
+            delta_tol=None,
+            value_min=value_min,
+            value_max=value_max,
+            value_range=value_range,
+            start_time=start_time,
+            end_time=end_time,
+            time_span=end_time - start_time,
+            start_value=start_value,
+            end_value=end_value,
+            max_abs_step=None,
+            mean_abs_step=None,
+        )
+
+    delta_tol: float = max(config.diff_abs_tol, config.diff_rel_tol * value_range)
+    diffs = np.diff(values_valid.to_numpy(dtype=float))
+    abs_diffs = np.abs(diffs)
+    max_abs_step: float | None = float(abs_diffs.max()) if abs_diffs.size else None
+    mean_abs_step: float | None = float(abs_diffs.mean()) if abs_diffs.size else None
+
+    if abs_diffs.size == 0:
+        sign_changes = 0
+        nonzero_steps = 0
+    else:
+        signs = np.sign(diffs)
+        signs[abs_diffs <= delta_tol] = 0
+        nonzero = signs[signs != 0]
+        nonzero_steps = int(nonzero.size)
+        if nonzero.size < 2:
+            sign_changes = 0
+        else:
+            sign_changes = int(np.sum(nonzero[1:] * nonzero[:-1] < 0))
+
+    status: str = "UNSTABLE" if sign_changes > config.max_sign_changes else "OK"
+
+    return StabilityCheckResult(
+        file=str(path),
+        run_code=run_code,
+        run_meta=run_meta,
+        datatype=datatype,
+        location=location,
+        status=status,
+        points=points,
+        sign_changes=sign_changes,
+        nonzero_steps=nonzero_steps,
+        delta_tol=delta_tol,
+        value_min=value_min,
+        value_max=value_max,
+        value_range=value_range,
+        start_time=start_time,
+        end_time=end_time,
+        time_span=end_time - start_time,
+        start_value=start_value,
+        end_value=end_value,
+        max_abs_step=max_abs_step,
+        mean_abs_step=mean_abs_step,
+    )
 
 
 def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResult]:
@@ -351,27 +589,11 @@ def analyze_stability_csv(path: Path, config: StabilityCheckConfig) -> list[Stab
     if parsed is None:
         if status and emit_row:
             results.append(
-                StabilityCheckResult(
-                    file=str(path),
+                _build_empty_stability_result(
+                    path=path,
                     run_code=run_code,
                     run_meta=run_meta,
-                    datatype="",
-                    location="",
                     status=status,
-                    points=None,
-                    sign_changes=None,
-                    nonzero_steps=None,
-                    delta_tol=None,
-                    value_min=None,
-                    value_max=None,
-                    value_range=None,
-                    start_time=None,
-                    end_time=None,
-                    time_span=None,
-                    start_value=None,
-                    end_value=None,
-                    max_abs_step=None,
-                    mean_abs_step=None,
                 )
             )
         return results
@@ -397,149 +619,68 @@ def analyze_stability_csv(path: Path, config: StabilityCheckConfig) -> list[Stab
             continue
 
         values_raw = pd.to_numeric(df.iloc[:, j], errors="coerce")  # type: ignore
-        valid_mask = values_raw.notna() & time_hours.notna()
-        points = int(valid_mask.sum())
-
-        if points == 0:
-            results.append(
-                StabilityCheckResult(
-                    file=str(path),
-                    run_code=run_code,
-                    run_meta=run_meta,
-                    datatype=dtype_str,
-                    location=loc_str,
-                    status="NO_DATA",
-                    points=0,
-                    sign_changes=None,
-                    nonzero_steps=None,
-                    delta_tol=None,
-                    value_min=None,
-                    value_max=None,
-                    value_range=None,
-                    start_time=None,
-                    end_time=None,
-                    time_span=None,
-                    start_value=None,
-                    end_value=None,
-                    max_abs_step=None,
-                    mean_abs_step=None,
-                )
-            )
-            continue
-
-        if points < max(config.min_points, 2):
-            values_valid = values_raw.loc[valid_mask].astype("float64")
-            time_valid = time_hours.loc[valid_mask].astype("float64")
-            start_time = float(time_valid.iloc[0])
-            end_time = float(time_valid.iloc[-1])
-            start_value = float(values_valid.iloc[0])
-            end_value = float(values_valid.iloc[-1])
-            results.append(
-                StabilityCheckResult(
-                    file=str(path),
-                    run_code=run_code,
-                    run_meta=run_meta,
-                    datatype=dtype_str,
-                    location=loc_str,
-                    status="INSUFFICIENT_POINTS",
-                    points=points,
-                    sign_changes=None,
-                    nonzero_steps=None,
-                    delta_tol=None,
-                    value_min=float(values_valid.min()),
-                    value_max=float(values_valid.max()),
-                    value_range=float(values_valid.max() - values_valid.min()),
-                    start_time=start_time,
-                    end_time=end_time,
-                    time_span=end_time - start_time,
-                    start_value=start_value,
-                    end_value=end_value,
-                    max_abs_step=None,
-                    mean_abs_step=None,
-                )
-            )
-            continue
-
-        values_valid = values_raw.loc[valid_mask].astype("float64")
-        time_valid = time_hours.loc[valid_mask].astype("float64")
-        start_time = float(time_valid.iloc[0])
-        end_time = float(time_valid.iloc[-1])
-        start_value = float(values_valid.iloc[0])
-        end_value = float(values_valid.iloc[-1])
-        value_min = float(values_valid.min())
-        value_max = float(values_valid.max())
-        value_range = value_max - value_min
-
-        if value_range <= config.flat_tol:
-            results.append(
-                StabilityCheckResult(
-                    file=str(path),
-                    run_code=run_code,
-                    run_meta=run_meta,
-                    datatype=dtype_str,
-                    location=loc_str,
-                    status="FLAT",
-                    points=points,
-                    sign_changes=0,
-                    nonzero_steps=0,
-                    delta_tol=None,
-                    value_min=value_min,
-                    value_max=value_max,
-                    value_range=value_range,
-                    start_time=start_time,
-                    end_time=end_time,
-                    time_span=end_time - start_time,
-                    start_value=start_value,
-                    end_value=end_value,
-                    max_abs_step=None,
-                    mean_abs_step=None,
-                )
-            )
-            continue
-
-        delta_tol: float = max(config.diff_abs_tol, config.diff_rel_tol * value_range)
-        diffs = np.diff(values_valid.to_numpy(dtype=float))
-        abs_diffs = np.abs(diffs)
-        max_abs_step: float | None = float(abs_diffs.max()) if abs_diffs.size else None
-        mean_abs_step: float | None = float(abs_diffs.mean()) if abs_diffs.size else None
-
-        if abs_diffs.size == 0:
-            sign_changes = 0
-            nonzero_steps = 0
-        else:
-            signs = np.sign(diffs)
-            signs[abs_diffs <= delta_tol] = 0
-            nonzero = signs[signs != 0]
-            nonzero_steps = int(nonzero.size)
-            if nonzero.size < 2:
-                sign_changes = 0
-            else:
-                sign_changes = int(np.sum(nonzero[1:] * nonzero[:-1] < 0))
-
-        status: str | None = "UNSTABLE" if sign_changes > config.max_sign_changes else "OK"
-
         results.append(
-            StabilityCheckResult(
-                file=str(path),
+            _evaluate_stability_series(
+                path=path,
                 run_code=run_code,
                 run_meta=run_meta,
                 datatype=dtype_str,
                 location=loc_str,
-                status=status,
-                points=points,
-                sign_changes=sign_changes,
-                nonzero_steps=nonzero_steps,
-                delta_tol=delta_tol,
-                value_min=value_min,
-                value_max=value_max,
-                value_range=value_range,
-                start_time=start_time,
-                end_time=end_time,
-                time_span=end_time - start_time,
-                start_value=start_value,
-                end_value=end_value,
-                max_abs_step=max_abs_step,
-                mean_abs_step=mean_abs_step,
+                values_raw=values_raw,
+                time_hours=time_hours,
+                config=config,
+            )
+        )
+
+    return results
+
+
+def analyze_stability_q_csv(path: Path, config: StabilityCheckConfig) -> list[StabilityCheckResult]:
+    results: list[StabilityCheckResult] = []
+
+    run_meta: dict[str, str] = parse_run_meta_from_filename(path)
+    run_code: str = run_meta.get("trim_run_code", path.stem)
+
+    parsed, status, emit_row = _parse_q_csv(path=path)
+    if parsed is None:
+        if status and emit_row:
+            results.append(
+                _build_empty_stability_result(
+                    path=path,
+                    run_code=run_code,
+                    run_meta=run_meta,
+                    status=status,
+                    datatype="Q",
+                )
+            )
+        return results
+
+    dtype_include: set[str] = _normalize_filter(config.datatype_include, config.datatype_case_sensitive)
+    loc_include: set[str] = _normalize_filter(config.location_include, config.location_case_sensitive)
+    loc_exclude: set[str] = _normalize_filter(config.location_exclude, config.location_case_sensitive)
+
+    if not _datatype_allowed("Q", dtype_include, config.datatype_case_sensitive):
+        return results
+
+    for column in parsed.df.columns:
+        if column == "Time":
+            continue
+
+        loc_str = str(column).strip()
+        if not _location_allowed(loc_str, loc_include, loc_exclude, config.location_case_sensitive):
+            continue
+
+        values_raw = pd.to_numeric(parsed.df[column], errors="coerce")  # type: ignore
+        results.append(
+            _evaluate_stability_series(
+                path=path,
+                run_code=run_code,
+                run_meta=run_meta,
+                datatype="Q",
+                location=loc_str,
+                values_raw=values_raw,
+                time_hours=parsed.time_hours,
+                config=config,
             )
         )
 

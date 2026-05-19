@@ -84,6 +84,10 @@ def main_processing(
             return
 
         collection.compact_basic_info_columns()
+        # EOF text reports can carry truncated printed channel labels. Align
+        # them to the full IDs from CSV/GPKG result files before creating both
+        # the grouped maximums and raw export sheets.
+        collection.align_eof_channel_ids()
 
         maximums_df: pd.DataFrame = collection.combine_1d_maximums()
         raw_df: pd.DataFrame = collection.combine_raw()

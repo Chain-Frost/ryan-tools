@@ -8,6 +8,7 @@ pyarrow
 fastparquet
 matplotlib
 colorama
+rich
 XlsxWriter
 psutil
 black

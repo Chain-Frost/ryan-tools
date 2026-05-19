@@ -4,6 +4,7 @@ from collections.abc import Collection
 import copy
 import json
 from pathlib import Path
+import re
 from typing import Any
 from loguru import logger
 import pandas as pd
@@ -105,6 +106,87 @@ class ProcessorCollection:
         self.basic_info_lookup = lookup_df
         return lookup_df
 
+    def align_eof_channel_ids(self) -> int:
+        """Replace shortened EOF channel IDs with full IDs from matching run outputs.
+
+        TUFLOW EOF reports can truncate long channel IDs when writing the text
+        report table. In the MLTP data this appears as values such as
+        ``MLETP 159.975`` being printed as ``MLETP 159.97``. The CSV/GPKG result
+        outputs retain the full model ID, so we use those result IDs as the
+        authoritative labels and only use the truncated EOF label as a lookup
+        key. This prevents duplicate short-ID rows in combined culvert summaries.
+        """
+
+        source_maps: dict[str, dict[str, str]] = {}
+        ambiguous_keys: dict[str, set[str]] = {}
+
+        # First pass: build a per-run lookup from "what the EOF report would
+        # print" to the full channel ID seen in non-EOF result files. If two
+        # different full IDs collapse to the same printed key, leave that key
+        # unresolved rather than guessing.
+        for processor in self.processors:
+            if processor.data_type == "EOF" or "Chan ID" not in processor.df.columns:
+                continue
+
+            run_code: str = processor.name_parser.raw_run_code
+            run_map: dict[str, str] = source_maps.setdefault(run_code, {})
+            run_ambiguous: set[str] = ambiguous_keys.setdefault(run_code, set())
+
+            seen_values: set[str] = set()
+            for raw_value in processor.df["Chan ID"].to_numpy(dtype=object):
+                if raw_value is None or raw_value is pd.NA:
+                    continue
+                value = str(raw_value).strip()
+                if not value or value in seen_values:
+                    continue
+                seen_values.add(value)
+
+                key: str | None = self._channel_match_key(value=value)
+                if key is None or key in run_ambiguous:
+                    continue
+
+                existing_value: str | None = run_map.get(key)
+                if existing_value is None:
+                    run_map[key] = value
+                elif existing_value != value:
+                    run_map.pop(key, None)
+                    run_ambiguous.add(key)
+
+        # Second pass: rewrite only EOF processor IDs. Non-EOF processors already
+        # contain the full model labels and remain unchanged.
+        changed_count = 0
+        for processor in self.processors:
+            if processor.data_type != "EOF" or "Chan ID" not in processor.df.columns:
+                continue
+
+            run_code = processor.name_parser.raw_run_code
+            run_map = source_maps.get(run_code, {})
+            if not run_map:
+                continue
+
+            aligned_values: list[object] = []
+            processor_changed_count = 0
+            for value in processor.df["Chan ID"].astype("string").to_numpy(dtype=object):
+                if value is None or value is pd.NA:
+                    aligned_values.append(pd.NA)
+                    continue
+
+                text_value = str(value).strip()
+                key = self._channel_match_key(value=text_value)
+                aligned_value: str = run_map.get(key, text_value) if key is not None else text_value
+                if aligned_value != text_value:
+                    processor_changed_count += 1
+                aligned_values.append(aligned_value)
+
+            if processor_changed_count:
+                processor.df["Chan ID"] = pd.Series(data=aligned_values, index=processor.df.index, dtype="string")
+                changed_count += processor_changed_count
+                logger.info(
+                    f"{processor.file_name}: Aligned {processor_changed_count} EOF channel IDs to full result IDs."
+                )
+
+        return changed_count
+
     def attach_basic_info(
         self,
         df: DataFrame,
@@ -201,6 +283,7 @@ class ProcessorCollection:
         Returns:
             pd.DataFrame: Combined and grouped DataFrame."""
         logger.debug("Combining 1D Timeseries data.")
+        self.align_eof_channel_ids()
 
         # Filter processors with dataformat 'Timeseries'
         timeseries_processors: list[BaseProcessor] = [
@@ -344,6 +427,7 @@ class ProcessorCollection:
         Returns:
             pd.DataFrame: Combined and grouped DataFrame."""
         logger.debug("Combining 1D Maximums/ccA data.")
+        self.align_eof_channel_ids()
 
         # Filter processors with dataformat 'Maximums' or 'ccA'
         maximums_processors: list[BaseProcessor] = [
@@ -473,6 +557,50 @@ class ProcessorCollection:
         )
         logger.debug(f"Grouped {len(maximums_processors)} Maximums/ccA DataFrame with {len(grouped_df)} rows.")
         return grouped_df
+
+    @staticmethod
+    def _channel_match_key(value: object) -> str | None:
+        """Return the comparable printed-ID key for a channel label.
+
+        This is deliberately a truncation key, not a rounding key. We do not
+        assume TUFLOW numerically evaluates the channel ID string; we mirror the
+        observed text report behaviour where only the leading two decimal places
+        of the numeric suffix are printed. The prefix is retained so east/west or
+        otherwise named roads with the same numeric suffix do not collide.
+        """
+
+        if value is None or value is pd.NA:
+            return None
+
+        text_value: str = str(value).strip()
+        if not text_value or text_value.lower() in {"nan", "nat", "<na>"}:
+            return None
+        match: re.Match[str] | None = re.match(
+            pattern=r"^(?P<prefix>.*?)(?P<number>-?\d+(?:\.\d+)?)$",
+            string=text_value,
+        )
+        if match is None:
+            return None
+
+        prefix: str = re.sub(pattern=r"\s+", repl=" ", string=match.group("prefix").strip()).upper()
+        number: str = ProcessorCollection._truncate_decimal_text(value=match.group("number"), decimal_places=2)
+        return f"{prefix}|{number}"
+
+    @staticmethod
+    def _truncate_decimal_text(value: str, decimal_places: int) -> str:
+        """Return ``value`` with its decimal text truncated, not rounded.
+
+        Channel IDs are labels, not measured values, so this intentionally works
+        on the matched text rather than converting through ``float`` or
+        ``Decimal``. Examples from the EOF output are mirrored directly:
+        ``159.975`` becomes ``159.97`` and ``202.231`` becomes ``202.23``.
+        """
+
+        integer_part, separator, fractional_part = value.partition(".")
+        if not separator:
+            return f"{integer_part}.{'0' * decimal_places}"
+        truncated_fraction: str = fractional_part[:decimal_places].ljust(decimal_places, "0")
+        return f"{integer_part}.{truncated_fraction}"
 
     def _calculate_hw_d_ratio(self, df: DataFrame) -> DataFrame:
         """Calculate the HW_D ratio = (US_h - US Invert) / Height."""
