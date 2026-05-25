@@ -22,6 +22,52 @@
         "$python = if (Test-Path '${workspaceFolder}\\.venv\\Scripts\\python.exe') { '${workspaceFolder}\\.venv\\Scripts\\python.exe' } elseif ($env:RYAN_TOOLS_PYTHON) { $env:RYAN_TOOLS_PYTHON } else { 'python' }; $snippet = if ($env:RYAN_TOOLS_SNIPPET) { $env:RYAN_TOOLS_SNIPPET } else { '${workspaceFolder}\\repo-scripts\\run_snippet.py' }; Get-Content -Raw - | & $python $snippet"
       ],
       "problemMatcher": []
+    },
+    {
+      "label": "qgis:python-current-file",
+      "type": "shell",
+      "command": "C:\\OSGeo4W\\bin\\python-qgis.bat",
+      "args": [
+        "${file}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "qgis:python-repl",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/K",
+        "C:\\OSGeo4W\\bin\\python-qgis.bat"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "qgis:open-qgis",
+      "type": "shell",
+      "command": "C:\\OSGeo4W\\bin\\qgis.bat",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
     }
   ]
 }
