@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "QGIS: current Python file",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "python": "C:\\OSGeo4W\\bin\\python.exe",
+      "env": {
+        "OSGEO4W_ROOT": "C:\\OSGeo4W",
+        "PYTHONHOME": "C:\\OSGeo4W\\apps\\Python312",
+        "PYTHONNOUSERSITE": "1",
+        "PYTHONUTF8": "1",
+        "QGIS_PREFIX_PATH": "C:/OSGeo4W/apps/qgis",
+        "GDAL_FILENAME_IS_UTF8": "YES",
+        "VSI_CACHE": "TRUE",
+        "VSI_CACHE_SIZE": "1000000",
+        "QT_PLUGIN_PATH": "C:\\OSGeo4W\\apps\\qgis\\qtplugins;C:\\OSGeo4W\\apps\\qt6\\plugins",
+        "PATH": "C:\\OSGeo4W\\apps\\Python312\\Scripts;C:\\OSGeo4W\\apps\\qgis\\bin;C:\\OSGeo4W\\bin;${env:PATH}",
+        "PYTHONPATH": "C:\\OSGeo4W\\apps\\qgis\\python"
+      }
+    }
+  ]
+}

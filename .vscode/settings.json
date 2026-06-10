@@ -8,6 +8,14 @@
   "terminal.integrated.profiles.windows": {
     "PowerShell": {
       "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    },
+    "OSGeo4W Cmd": {
+      "path": "C:\\Windows\\System32\\cmd.exe",
+      "args": [
+        "/K",
+        "C:\\OSGeo4W\\OSGeo4W.bat"
+      ]
     }
-  }
+  },
+  "python-envs.defaultEnvManager": "ms-python.python:system"
 }
