@@ -14,7 +14,7 @@ CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 # Toggle the specific culvert data types to collect. Leave empty to accept the library defaults.
 INCLUDED_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
 # Toggle the export of the raw culvert-maximums sheet (may be extremely large).
-EXPORT_RAW_MAXIMUMS: bool = True
+EXPORT_RAW_MAXIMUMS: bool = False
 # Change the working directory
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.

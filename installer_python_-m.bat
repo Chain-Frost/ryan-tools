@@ -17,7 +17,7 @@ REM python314 does not have fiona working nicely yet
 python -m pip install gdal-installer
 python -m gdal_installer.cli
 
-python -m pip install --extra-index-url https://gisidx.github.io/gwi fiona
+@REM python -m pip install --extra-index-url https://gisidx.github.io/gwi fiona
 
 REM Define the working path
 set "PACKAGE_DIR=%~dp0dist"

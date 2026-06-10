@@ -24,7 +24,7 @@ setup(
     name="ryan_functions",
     # Version scheme: yy.mm.dd.release_number
     # Increment when publishing new wheels
-    version="26.05.19.4",
+    version="26.06.08.1",
     packages=packages,
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},

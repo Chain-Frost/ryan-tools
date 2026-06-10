@@ -139,25 +139,33 @@ def run_culvert_mean_report(
 
 
 ADOPTED_SOURCE_COLUMNS: tuple[str, ...] = ("Q", "V", "DS_h", "US_h")
+ADOPTED_CONTEXT_COLUMNS: tuple[str, ...] = ("tp_text", "internalName")
+EXCLUDED_MEAN_NUMERIC_COLUMNS: frozenset[str] = frozenset({"tp_numeric"})
 
 
 def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Return mean statistics grouped by AEP, Duration, TP and Culvert.
+    Return mean statistics grouped by AEP, Duration, run variant and Culvert.
 
-    Also determines "adopted" values: for each group, it finds the simulation run closest
-    to the mean Flow (Q) and adopts its values for select columns (Q, V, DS_h, US_h).
+    Temporal patterns are intentionally collapsed here so each duration row represents
+    the mean response across contributing TPs. Also determines "adopted" values: for
+    each group, it finds the simulation run closest to the mean Flow (Q) and adopts
+    its values for select columns (Q, V, DS_h, US_h).
     """
 
     if aggregated_df.empty:
         return pd.DataFrame()
 
-    group_columns: list[str] = _group_columns(aggregated_df, include_duration=True)
+    group_columns: list[str] = _group_columns(df=aggregated_df, include_duration=True)
     if not group_columns:
         logger.error("Required grouping columns were not found in the aggregated culvert DataFrame.")
         return pd.DataFrame()
 
-    numeric_columns: list[str] = [col for col in aggregated_df.columns if is_numeric_dtype(aggregated_df[col])]
+    numeric_columns: list[str] = [
+        col
+        for col in aggregated_df.columns
+        if col not in EXCLUDED_MEAN_NUMERIC_COLUMNS and is_numeric_dtype(arr_or_dtype=aggregated_df[col])
+    ]
     if not numeric_columns:
         logger.warning("No numeric columns available for culvert mean calculations.")
         return pd.DataFrame()
@@ -204,9 +212,15 @@ def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
                 closest_row = group.loc[idx]
                 for column in range_columns:
                     adopted_entry[f"adopted_{column}"] = closest_row.get(column, pd.NA)
+                for column in ADOPTED_CONTEXT_COLUMNS:
+                    if column in group.columns:
+                        adopted_entry[f"adopted_{column}"] = closest_row.get(column, pd.NA)
             else:
                 for column in range_columns:
                     adopted_entry[f"adopted_{column}"] = pd.NA
+                for column in ADOPTED_CONTEXT_COLUMNS:
+                    if column in group.columns:
+                        adopted_entry[f"adopted_{column}"] = pd.NA
 
             adopted_rows.append(adopted_entry)
 
@@ -233,7 +247,7 @@ def find_culvert_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
     """
     Return the duration row containing the highest mean discharge (or specified metric) for each AEP/culvert group.
 
-    This essentially finds the "Critical Duration" based on the mean results calculated previously.
+    This finds the "Critical Duration" based on the mean-across-TP results calculated previously.
     """
 
     if aep_dur_mean.empty:
@@ -300,7 +314,6 @@ def _group_columns(df: pd.DataFrame, include_duration: bool) -> list[str]:
     base_order: list[str] = ["aep_text"]
     if include_duration:
         base_order.append("duration_text")
-    base_order.append("tp_text")
     base_order.append("trim_runcode")
     base_order.append("Chan ID")
 

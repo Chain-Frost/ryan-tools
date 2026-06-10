@@ -1,5 +1,7 @@
 {
     "recommendations": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
         "lmillard79.tuflow-helper",
         "ms-python.black-formatter",
         "usernamehw.errorlens",
