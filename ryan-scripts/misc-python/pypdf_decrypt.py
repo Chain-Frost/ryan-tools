@@ -9,6 +9,8 @@ Usage:
   python3 pypdf_decrypt.py
 """
 
+# Standalone install: python -m pip install pypdf "cryptography>=3.1"
+
 from __future__ import annotations
 
 import os

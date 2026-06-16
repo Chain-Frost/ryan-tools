@@ -22,3 +22,4 @@ openpyxl
 loguru
 ezdxf
 pypdf
+cryptography>=3.1

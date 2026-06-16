@@ -10,6 +10,8 @@ Usage:
   python3 ocg_clean_file.py
 """
 
+# Standalone install: python -m pip install pypdf "cryptography>=3.1"
+
 from __future__ import annotations
 
 import os
@@ -20,7 +22,7 @@ from typing import Any, Protocol, cast
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, ContentStream, NameObject
 
-DEFAULT_INPUT_PDF = r"folder/file.pdf"
+DEFAULT_INPUT_PDF = r"C:\temp\file.pdf"
 DEFAULT_OUTPUT_PDF = None
 DEFAULT_DECRYPT_PASSWORD = ""
 
