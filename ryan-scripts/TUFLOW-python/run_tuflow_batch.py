@@ -77,6 +77,7 @@ import datetime
 import csv
 import itertools
 import logging
+import msvcrt
 import os
 import re
 import signal
@@ -1088,7 +1089,8 @@ def launch_simulations(
                 console.print(f"Terminating simulation {s.index} (PID {s.process.pid})")
                 s.process.terminate()
         if core.pause_on_finish:
-            os.system("pause")
+            print("Press any key to continue...")
+            msvcrt.getch()
         sys.exit(1)
 
     # Register SIGINT handler
@@ -1473,7 +1475,8 @@ def main() -> None:
 
     logging.info("All finished.")
     if core.pause_on_finish:
-        os.system("pause")
+        print("Press any key to continue...")
+        msvcrt.getch()
 
 
 if __name__ == "__main__":
@@ -1481,5 +1484,6 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         logging.critical("An error occurred: %s", e, exc_info=True)
-        os.system("pause")
+        print("Press any key to continue...")
+        msvcrt.getch()
         sys.exit(1)
