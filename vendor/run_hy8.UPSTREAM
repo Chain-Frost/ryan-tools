@@ -1,6 +1,6 @@
 Repository: https://github.com/Chain-Frost/run-hy8.git
-Commit: bf6c86f727d7cabd6a321be83c66e32049e2a5a6 (detached)
-Retrieved: 2025-11-26
+Commit: 87dece6693cfd8d9ecdd1574b6f5189e4ed55221 (origin/main)
+Retrieved: 2026-06-10
 
 Update instructions:
 1. From repository root run `git submodule update --remote vendor/run_hy8`.
