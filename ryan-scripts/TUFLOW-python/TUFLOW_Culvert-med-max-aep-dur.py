@@ -1,0 +1,109 @@
+# ryan-scripts\TUFLOW-python\TUFLOW_Culvert-med-max-aep-dur.py
+"""
+Wrapper Script: Culvert Median Peak Reports.
+
+This script acts as a mutable wrapper for `run_culvert_median_report`.
+It generates a summary report calculating MEDIAN peak values across multiple durations for culverts.
+Users can edit the hard-coded constants in this file to control data types and raw output,
+or use command-line arguments to override these settings.
+"""
+
+from pathlib import Path
+
+CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
+# Toggle the specific culvert data types to collect. Leave empty to accept the library defaults.
+INCLUDED_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
+# Toggle the export of the raw culvert-maximums sheet (may be extremely large).
+EXPORT_RAW_MAXIMUMS: bool = False
+# Change the working directory
+WORKING_DIR: Path = Path(__file__).absolute().parent
+# Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
+PATHS_TO_PROCESS: tuple[Path, ...] = ()
+# WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
+
+import argparse
+import gc
+import os
+
+from ryan_library.scripts.tuflow.tuflow_culverts_mean import run_culvert_median_report
+from ryan_library.scripts.wrapper_utils import (
+    CommonWrapperOptions,
+    add_common_cli_arguments,
+    change_working_directory,
+    parse_common_cli_arguments,
+    print_library_version,
+)
+
+
+def main(
+    *,
+    console_log_level: str | None = None,
+    include_data_types: tuple[str, ...] | None = None,
+    locations_to_include: tuple[str, ...] | None = None,
+    paths_to_process: tuple[Path, ...] | None = None,
+    working_directory: Path | None = None,
+) -> None:
+    """
+    Main entry point for culvert median peak reporting.
+
+    This function initializes the environment and calls `run_culvert_median_report`.
+    It resolves configuration by prioritizing CLI arguments, then falling back to the
+    hard-coded constants in this script.
+
+    Args:
+        console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
+        include_data_types: Overrides the INCLUDED_DATA_TYPES constant.
+        locations_to_include: Overrides the LOCATIONS_TO_INCLUDE (implicit) settings.
+        paths_to_process: Explicit folder roots to scan for result files.
+        working_directory: Overrides the default WORKING_DIR.
+    """
+
+    print_library_version()
+    script_directory: Path = working_directory or WORKING_DIR
+
+    if not change_working_directory(target_dir=script_directory):
+        return
+
+    to_include_data_types: tuple[str, ...] | None = include_data_types or INCLUDED_DATA_TYPES or None
+    effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
+    effective_locations: tuple[str, ...] | None = locations_to_include
+    effective_paths_to_process: tuple[Path, ...] | None = paths_to_process or PATHS_TO_PROCESS or None
+
+    run_culvert_median_report(
+        script_directory=script_directory,
+        paths_to_process=effective_paths_to_process,
+        log_level=effective_console_log_level,
+        include_data_types=to_include_data_types,
+        locations_to_include=effective_locations,
+        export_raw=EXPORT_RAW_MAXIMUMS,
+    )
+
+    print()
+    print_library_version()
+
+
+def _parse_cli_arguments() -> CommonWrapperOptions:
+    """
+    Parse command-line arguments to override script defaults.
+
+    Returns:
+        CommonWrapperOptions: Parsed and processed common arguments.
+    """
+    parser = argparse.ArgumentParser(
+        description="Create culvert median peak reports. Command-line options override the script defaults."
+    )
+    add_common_cli_arguments(parser=parser)
+    args: argparse.Namespace = parser.parse_args()
+    return parse_common_cli_arguments(args=args)
+
+
+if __name__ == "__main__":
+    common_options: CommonWrapperOptions = _parse_cli_arguments()
+    main(
+        console_log_level=common_options.console_log_level,
+        include_data_types=common_options.data_types,
+        locations_to_include=common_options.locations_to_include,
+        working_directory=common_options.working_directory,
+    )
+    gc.collect()
+    os.system("PAUSE")

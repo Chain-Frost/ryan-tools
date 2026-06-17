@@ -8,12 +8,33 @@ import pandas as pd
 from pandas import DataFrame
 
 
+def upper_middle_position(row_count: int) -> int:
+    """Return the upper-middle row position used by the TUFLOW median workflows."""
+
+    return int(row_count / 2)
+
+
+def upper_middle_row(group: pd.DataFrame, value_column: str) -> pd.Series:
+    """Return the upper-middle row after sorting, preserving an actual simulation record."""
+
+    sorted_group: DataFrame = group.sort_values(value_column, ascending=True, na_position="first")
+    return sorted_group.iloc[upper_middle_position(row_count=len(sorted_group.index))]
+
+
+def upper_middle_value(group: pd.DataFrame, value_column: str) -> Any:
+    """Return the upper-middle sorted value for a column."""
+
+    if value_column not in group.columns:
+        return pd.NA
+    return upper_middle_row(group=group, value_column=value_column).get(value_column, pd.NA)
+
+
 def summarise_duration_statistics(durgrp: pd.DataFrame, stat_col: str, tp_col: str, dur_col: str) -> dict[str, Any]:
     """Return median and mean-adjacent statistics for a single duration group."""
 
     ensemblestat: DataFrame = durgrp.sort_values(stat_col, ascending=True, na_position="first")
     r: int = len(ensemblestat.index)
-    medianpos = int(r / 2)
+    medianpos = upper_middle_position(row_count=r)
 
     stat_series = ensemblestat[stat_col]
     mean_including_zeroes = float(stat_series.mean())
