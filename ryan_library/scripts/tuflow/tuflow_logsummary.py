@@ -7,27 +7,47 @@ This module parses TUFLOW log files (*.tlf) in parallel to extract simulation me
 It aggregates this information into a summary Excel report.
 """
 
-from multiprocessing import Pool
 from pathlib import Path
+from dataclasses import dataclass
+from typing import Literal
 import pandas as pd
 from loguru import logger
+from ryan_library.functions.dashboard_workflow import run_dashboard_workflow
 from ryan_library.functions.file_utils import find_files_parallel
 from ryan_library.functions.misc_functions import calculate_pool_size, save_to_excel
 from ryan_library.functions.path_stuff import convert_to_relative_path
-from ryan_library.functions.loguru_helpers import (
-    setup_logger,
-    worker_initializer,
-)
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowStatus
+from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.parse_tlf import (
     search_for_completion,
     read_log_file,
     process_top_lines,
     finalise_data,
+    is_complete_tlf,
 )
 from ryan_library.functions.dataframe_helpers import (
     merge_and_sort_data,
     reorder_columns,
 )
+
+LogSummaryStatus = Literal["OK", "SKIP", "FAIL"]
+
+LOG_SUMMARY_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
+    WorkflowColumn(header="State", source="status", no_wrap=True),
+    WorkflowColumn(header="Size", source="metadata", metadata_key="size", justify="right", no_wrap=True),
+    WorkflowColumn(header="Duration", source="duration", no_wrap=True),
+    WorkflowColumn(header="Log file", source="label", overflow="fold"),
+)
+
+
+@dataclass(slots=True)
+class LogFileProcessingResult:
+    """Result payload returned by multiprocessing workers for dashboard progress."""
+
+    logfile: Path
+    data_frame: pd.DataFrame
+    status: LogSummaryStatus
+    detail: str
 
 
 def process_log_file(logfile: Path) -> pd.DataFrame:
@@ -46,6 +66,39 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame containing the processed data, or an empty DataFrame on failure/incomplete run.
     """
+    return _process_log_file_dataframe(logfile=logfile)
+
+
+def process_log_file_for_dashboard(logfile: Path) -> LogFileProcessingResult:
+    """Process one log file and return enough metadata to update a live dashboard."""
+    try:
+        data_frame: pd.DataFrame = _process_log_file_dataframe(logfile=logfile)
+    except Exception as exc:
+        logger.exception(f"Unhandled error while processing {logfile}")
+        return LogFileProcessingResult(
+            logfile=logfile,
+            data_frame=pd.DataFrame(),
+            status="FAIL",
+            detail=str(exc),
+        )
+
+    if data_frame.empty:
+        return LogFileProcessingResult(
+            logfile=logfile,
+            data_frame=data_frame,
+            status="SKIP",
+            detail="no completed run data",
+        )
+
+    return LogFileProcessingResult(
+        logfile=logfile,
+        data_frame=data_frame,
+        status="OK",
+        detail=f"{len(data_frame)} row(s)",
+    )
+
+
+def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
     logfile_path: Path = logfile
     sim_complete: int = 0
     success: int = 0
@@ -86,7 +139,7 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
             break
     logger.debug(f"search_for_completion: {data_dict}")
 
-    if sim_complete == 2:
+    if is_complete_tlf(data_dict=data_dict, sim_complete=sim_complete):
         data_dict, success, spec_events, spec_scen, spec_var = process_top_lines(
             logfile_path=logfile_path,
             lines=lines,  # if not is_large_file else [],
@@ -121,7 +174,13 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
         return pd.DataFrame()
 
 
-def main_processing(console_log_level: str | None = None) -> None:
+def main_processing(
+    console_log_level: str | None = None,
+    *,
+    use_live_dashboard: bool = True,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 25,
+) -> None:
     """
     Main function to process log files using multiprocessing.
 
@@ -131,15 +190,13 @@ def main_processing(console_log_level: str | None = None) -> None:
     # log_dir = Path.home() / "Documents" / "MyAppLogs"
     # log_file = "tuflow_logsummary.log"
 
-    results = [pd.DataFrame()]
+    processing_results: list[LogFileProcessingResult] = []
     successful_runs: int = 0
     if not console_log_level:
         console_log_level = "INFO"
     with setup_logger(console_log_level=console_log_level) as log_queue:
         logger.info("Starting log file processing...")
-        logger.info(
-            "Built and tested with 2023-03-AF-iSP-w64. Might miss some items for older versions - use the old log_summary version instead if required"
-        )
+        logger.info("Built and tested with modern TUFLOW logs; older completed logs use compatibility parsing.")
 
         root_dir: Path = Path.cwd()
         files: list[Path] = list(
@@ -158,21 +215,43 @@ def main_processing(console_log_level: str | None = None) -> None:
             pool_size = calculate_pool_size(num_files=len(files))
             logger.info(f"Processing {len(files)} files using {pool_size} processes.")
 
-            # Initialize the Pool with the worker initializer and pass the log_queue via initargs
-            with Pool(
-                processes=pool_size,
-                initializer=worker_initializer,
-                initargs=(log_queue,),
-            ) as pool:
-                try:
-                    results = pool.map(process_log_file, files)
-                except Exception:
-                    logger.exception("Error during multiprocessing Pool.map")
-                    results = []
+            dashboard = LiveWorkflowDashboard(
+                title="TUFLOW Log Summary",
+                subtitle=str(root_dir),
+                enabled=use_live_dashboard,
+                refresh_per_second=live_refresh_per_second,
+                max_rows=live_max_rows,
+                columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
+            )
+            dashboard.set_tasks(
+                labels=[_format_dashboard_label(logfile=file) for file in files],
+                metadata=[{"size": _format_bytes(file.stat().st_size)} for file in files],
+            )
+            dashboard.set_extra_metrics(metrics={"workers": pool_size})
 
-        # After the Pool context, shutdown is handled by the logging_context
-        # Filter out empty DataFrames
-        results: list[pd.DataFrame] = [res for res in results if not res.empty]
+            # LogSummary owns TLF parsing and result shaping; the shared helper
+            # owns serial/process-pool execution and dashboard state updates.
+            processing_results.extend(
+                run_dashboard_workflow(
+                    items=files,
+                    process_item=process_log_file_for_dashboard,
+                    dashboard=dashboard,
+                    pool_size=pool_size,
+                    status_for_result=_dashboard_status,
+                    detail_for_result=_dashboard_detail,
+                    log_queue=log_queue,
+                    worker_log_level="ERROR" if use_live_dashboard else console_log_level,
+                    max_start_events=max(pool_size * 2, live_max_rows),
+                )
+            )
+
+        # Keep output rows aligned with the original file discovery order.
+        if files:
+            file_indexes = {file: index for index, file in enumerate(files, start=1)}
+            processing_results.sort(key=lambda result: file_indexes[result.logfile])
+        results: list[pd.DataFrame] = [
+            result.data_frame for result in processing_results if not result.data_frame.empty
+        ]
         successful_runs = len(results)
         if results:
             try:
@@ -233,6 +312,30 @@ def main_processing(console_log_level: str | None = None) -> None:
             logger.warning("No completed logs found - no output generated.")
 
         logger.success(f"Number of successful runs: {successful_runs}")
+
+
+def _format_dashboard_label(*, logfile: Path) -> str:
+    try:
+        return str(logfile.relative_to(Path.cwd()))
+    except ValueError:
+        return str(logfile)
+
+
+def _dashboard_status(result: LogFileProcessingResult) -> WorkflowStatus:
+    return result.status
+
+
+def _dashboard_detail(result: LogFileProcessingResult) -> str:
+    return result.detail
+
+
+def _format_bytes(size_bytes: int) -> str:
+    value: float = float(size_bytes)
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1024 or unit == "GB":
+            return f"{value:.1f} {unit}" if unit != "B" else f"{size_bytes} B"
+        value /= 1024
+    return f"{size_bytes} B"
 
 
 if __name__ == "__main__":

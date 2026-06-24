@@ -24,7 +24,7 @@ setup(
     name="ryan_functions",
     # Version scheme: yy.mm.dd.release_number
     # Increment when publishing new wheels
-    version="26.06.17.1",
+    version="26.06.25.3",
     packages=packages,
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},
@@ -51,8 +51,8 @@ setup(
         "loguru",
         "tabulate",
         "pypdf",
-        "cryptography>=3.1", 
-        "ezdxf"
+        "cryptography>=3.1",
+        "ezdxf",
         # "beautifulsoup4",
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],

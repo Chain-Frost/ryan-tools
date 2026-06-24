@@ -7,17 +7,48 @@ setlocal
 
 REM Prefer the Windows Python launcher because it resolves to the latest installed Python 3.x.
 set "PYTHON_CMD=py -3"
-py -3 --version >nul 2>&1
+set "GIS_WHEEL_INDEX=https://gisidx.github.io/gwi"
+
+%PYTHON_CMD% --version >nul 2>&1
 if errorlevel 1 (
     echo Python launcher not found. Falling back to python in PATH.
     set "PYTHON_CMD=python"
 )
 
-REM python314 does not have fiona working nicely yet
-python -m pip install gdal-installer
-python -m gdal_installer.cli
+call %PYTHON_CMD% -c "import sys; raise SystemExit(0 if sys.version_info[0] == 3 else 1)" >nul 2>&1
+if errorlevel 1 (
+    echo Python 3 was not found. Install the latest Python 3 and try again.
+    pause
+    endlocal
+    goto :EOF
+)
 
-@REM python -m pip install --extra-index-url https://gisidx.github.io/gwi fiona
+call %PYTHON_CMD% -m pip install --upgrade gdal-installer
+if errorlevel 1 (
+    echo Failed to install gdal-installer.
+    pause
+    endlocal
+    goto :EOF
+)
+
+call %PYTHON_CMD% -m gdal_installer.cli
+if errorlevel 1 (
+    echo Failed to install GDAL for %PYTHON_CMD%.
+    pause
+    endlocal
+    goto :EOF
+)
+
+REM Install compiled geospatial dependencies as wheels before installing ryan-functions.
+REM If a new Python version does not have matching wheels yet, fail here instead of attempting a source build.
+call %PYTHON_CMD% -m pip install --upgrade --extra-index-url "%GIS_WHEEL_INDEX%" --only-binary=:all: fiona rasterio
+if errorlevel 1 (
+    echo Failed to install Fiona/Rasterio binary wheels for %PYTHON_CMD%.
+    echo The latest Python may be too new for the available geospatial wheels.
+    pause
+    endlocal
+    goto :EOF
+)
 
 REM Define the working path
 set "PACKAGE_DIR=%~dp0dist"
@@ -41,13 +72,13 @@ if "%LATEST_PACKAGE%"=="" (
 echo Installing or updating "%LATEST_PACKAGE%"
 
 REM Install or update the package using pip
-call %PYTHON_CMD% -m pip install --upgrade "%PACKAGE_DIR%\%LATEST_PACKAGE%"
+call %PYTHON_CMD% -m pip install --upgrade --prefer-binary --extra-index-url "%GIS_WHEEL_INDEX%" --only-binary=fiona --only-binary=rasterio "%PACKAGE_DIR%\%LATEST_PACKAGE%"
 
 REM Check if the installation was successful
-if %ERRORLEVEL% equ 0 (
-    echo Installation completed successfully.
-) else (
+if errorlevel 1 (
     echo Installation failed. Please check the path and try again.
+) else (
+    echo Installation completed successfully.
 )
 
 endlocal

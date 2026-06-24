@@ -2,18 +2,26 @@
 @REM installer_python_-m.bat
 setlocal
 
-REM Define the path to the Python executable
-set "PYTHON_EXEC=C:\Program Files\Python313\python.exe"
+REM Prefer the Windows Python launcher because it resolves to the latest installed Python 3.x.
+set "PYTHON_CMD=py -3"
 
-REM Check if the Python executable exists
-if not exist "%PYTHON_EXEC%" (
-    echo "%PYTHON_EXEC%" not found. Falling back to Python in PATH.
-    set "PYTHON_EXEC=python"
+%PYTHON_CMD% --version >nul 2>&1
+if errorlevel 1 (
+    echo Python launcher not found. Falling back to python in PATH.
+    set "PYTHON_CMD=python"
+)
+
+call %PYTHON_CMD% -c "import sys; raise SystemExit(0 if sys.version_info[0] == 3 else 1)" >nul 2>&1
+if errorlevel 1 (
+    echo Python 3 was not found. Install the latest Python 3 and try again.
+    pause
+    endlocal
+    goto :EOF
 )
 
 REM Define the working path
 set "PACKAGE_DIR=%~dp0dist"
-echo Using Python executable: %PYTHON_EXEC%
+echo Using Python command: %PYTHON_CMD%
 echo %PACKAGE_DIR%
 
 REM Find the latest version of the package (wheel format)
@@ -33,13 +41,13 @@ if "%LATEST_PACKAGE%"=="" (
 echo Installing or updating "%LATEST_PACKAGE%"
 
 REM Install or update the package using pip
-"%PYTHON_EXEC%" -m pip install --upgrade --force-reinstall --no-deps "%PACKAGE_DIR%\%LATEST_PACKAGE%"
+call %PYTHON_CMD% -m pip install --upgrade --force-reinstall --no-deps "%PACKAGE_DIR%\%LATEST_PACKAGE%"
 
 REM Check if the installation was successful
-if %ERRORLEVEL% equ 0 (
-    echo Installation completed successfully.
-) else (
+if errorlevel 1 (
     echo Installation failed. Please check the path and try again.
+) else (
+    echo Installation completed successfully.
 )
 
 endlocal
