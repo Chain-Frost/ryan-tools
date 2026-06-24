@@ -1,5 +1,5 @@
 # ryan-scripts\TUFLOW-python\run_tuflow_batch.py
-# 2026-05-19 version - parameter product and/or read from a list.
+# 2026-06-25 version - live dashboard
 # Non-native libraries used by this script: python -m pip install rich colorama psutil
 """Single-file TUFLOW launcher for Windows.
 USAGE
@@ -65,8 +65,8 @@ def get_parameters() -> "Parameters":
 # Notes:
 # - In textfiles/both mode, lines starting with comments are ignored and any -puN tokens
 #   are stripped before parsing. Inline trailing comments are also removed outside quotes.
-# - Placeholder enforcement: only -e*/-s* appearing as ~e?~/~s?~ in the TCF filename are
-#   used, and any run missing a required placeholder is dropped.
+# - Placeholder enforcement: every ~e?~/~s?~ in the TCF filename must be supplied.
+#   Extra -e*/-s* flags are allowed and passed through to TUFLOW.
 # - priority_order: if provided, it controls key order; otherwise:
 #     - textfiles mode: first-seen order from inputs
 #     - parameter_product mode: insertion order of run_variables_raw keys
@@ -77,7 +77,6 @@ import datetime
 import csv
 import itertools
 import logging
-import msvcrt
 import os
 import re
 import signal
@@ -155,7 +154,7 @@ class CoreParameters:
 
     # ---- Defaults map (for styled dumps) ----
     # IMPORTANT: mark as ClassVar so dataclasses ignores it (avoids mutable-default error).
-    _DEFAULTS: ClassVar[Final[dict[str, Any]]] = {
+    _DEFAULTS: ClassVar[dict[str, Any]] = {
         "batch_commands": "-x",
         "gpu_devices": None,
         "computational_priority": "NORMAL",
@@ -471,28 +470,49 @@ def _assemble_simulation(
 
 
 # =============================== UTILITY FUNCTIONS ========================= #
+
+
+def configure_console_ansi() -> None:
+    """Enable ANSI on Windows without wrapping stdout/stderr.
+
+    Rich controls live dashboard rendering with cursor movement sequences.  The
+    stream wrapper installed by colorama.init() can interfere with those
+    sequences in modern terminals such as VS Code's integrated terminal.
+    """
+    colorama.just_fix_windows_console()
+
+
+def _pause_on_windows() -> None:
+    if sys.platform == "win32":
+        subprocess.run(args=["cmd", "/C", "pause"], check=False)
+
+
 def filter_parameters(params: dict[str, list[str]], tcf: Path) -> dict[str, list[str]]:
-    """Given all run_variables and the TCF filename,
+    """Return non-empty run variables after validating TCF filename placeholders.
+
+    Rules:
       1) Drop any flags whose first list-element is blank/whitespace.
-      2) Warn if the TCF's "~XX~" placeholders don't match the provided keys.
-      3) We can return flags that are not present in the tcf filename.
+      2) Require all ~e?~/~s?~ placeholders from the TCF filename.
+      3) Preserve extra -e*/-s* flags not present in the TCF filename.
     Args:
         parameters: dict mapping flags ("e1") -> list[str] of values.
         tcf: Path to the TCF template (whose filename has "~e1~", "~e2~", ...).
     Returns:
         A new dict containing only non-empty flags."""
     non_empty: dict[str, list[str]] = {k: v for k, v in params.items() if v and v[0].strip()}
-    placeholders: set[str] = set(re.findall(pattern=r"~(\w{2})~", string=tcf.name, flags=re.IGNORECASE))
-    missing: set[str] = placeholders - {k.lower() for k in non_empty.keys()}
-    extra: set[str] = {k.lower() for k in non_empty.keys()} - placeholders
+    placeholders: set[str] = set(re.findall(pattern=r"~([es][1-9])~", string=tcf.name, flags=re.IGNORECASE))
+    missing: set[str] = {placeholder.lower() for placeholder in placeholders} - {k.lower() for k in non_empty.keys()}
     if missing:
-        logging.warning(
-            "TCF expects %s, but run_variables missing %s.",
-            sorted(placeholders),
-            sorted(missing),
+        raise ValueError(
+            "TCF filename expects placeholders "
+            f"{sorted(placeholders)}, but run_variables is missing {sorted(missing)}."
         )
+    extra: set[str] = {k.lower() for k in non_empty.keys()} - {placeholder.lower() for placeholder in placeholders}
     if extra:
-        logging.warning("run_variables has extra flags not present in TCF: %s.", sorted(extra))
+        logging.debug(
+            "Passing through run_variables not present in TCF filename: %s.",
+            sorted(extra),
+        )
     return non_empty
 
 
@@ -507,15 +527,19 @@ def format_duration(seconds: float) -> str:
 
 def get_psutil_priority(priority: str) -> int:
     """Map WINDOWS START priorities to psutil constants."""
+
+    def priority_constant(name: str, default: int) -> int:
+        return int(getattr(psutil, name, default))
+
     mapping: dict[str, int] = {
-        "LOW": psutil.IDLE_PRIORITY_CLASS,
-        "BELOWNORMAL": psutil.BELOW_NORMAL_PRIORITY_CLASS,
-        "NORMAL": psutil.NORMAL_PRIORITY_CLASS,
-        "ABOVENORMAL": psutil.ABOVE_NORMAL_PRIORITY_CLASS,
-        "HIGH": psutil.HIGH_PRIORITY_CLASS,
-        "REALTIME": psutil.REALTIME_PRIORITY_CLASS,
+        "LOW": priority_constant(name="IDLE_PRIORITY_CLASS", default=64),
+        "BELOWNORMAL": priority_constant(name="BELOW_NORMAL_PRIORITY_CLASS", default=16384),
+        "NORMAL": priority_constant(name="NORMAL_PRIORITY_CLASS", default=32),
+        "ABOVENORMAL": priority_constant(name="ABOVE_NORMAL_PRIORITY_CLASS", default=32768),
+        "HIGH": priority_constant(name="HIGH_PRIORITY_CLASS", default=128),
+        "REALTIME": priority_constant(name="REALTIME_PRIORITY_CLASS", default=256),
     }
-    return mapping.get(priority.upper(), psutil.NORMAL_PRIORITY_CLASS)
+    return mapping.get(priority.upper(), priority_constant(name="NORMAL_PRIORITY_CLASS", default=32))
 
 
 def get_batch_flags(core: CoreParameters, *, for_dump: bool = False) -> list[str]:
@@ -744,8 +768,6 @@ def _required_placeholders_from_tcf(tcf: Path) -> list[str]:
     return [x.lower() for x in re.findall(pattern=r"~([es][1-9])~", string=tcf.name, flags=re.IGNORECASE)]
 
 
-# Which should not be enforcing down flags to match the placeholders in the tcf.
-# It is fine to have more flags thant the file name. we just cannot be missing flags.
 def _enforce_placeholders(core: CoreParameters, combos: list[Combo]) -> list[Combo]:
     required: list[str] = _required_placeholders_from_tcf(core.tcf)
     req_set: set[str] = set(required)
@@ -754,16 +776,18 @@ def _enforce_placeholders(core: CoreParameters, combos: list[Combo]) -> list[Com
         return combos
     filtered: list[Combo] = []
     for c in combos:
-        trimmed: dict[str, str] = {k: v for k, v in c.items() if k in req_set}
-        if set(trimmed.keys()) != req_set:
-            missing: list[str] = [k for k in required if k not in trimmed]
+        if not req_set.issubset(c):
+            missing: list[str] = [k for k in required if k not in c]
             logging.error(
                 "Skipping run missing required placeholders %s ; got keys %s",
                 missing,
                 sorted(c.keys()),
             )
             continue
-        filtered.append(trimmed)
+        extra: list[str] = sorted(k for k in c if k not in req_set)
+        if extra:
+            logging.debug("Passing through flags not present in TCF filename: %s.", extra)
+        filtered.append(c)
     return filtered
 
 
@@ -1089,8 +1113,7 @@ def launch_simulations(
                 console.print(f"Terminating simulation {s.index} (PID {s.process.pid})")
                 s.process.terminate()
         if core.pause_on_finish:
-            print("Press any key to continue...")
-            msvcrt.getch()
+            _pause_on_windows()
         sys.exit(1)
 
     # Register SIGINT handler
@@ -1344,7 +1367,7 @@ def dump_simulations_preview(sims: list[Simulation]) -> None:
 
 def run_dashboard_demo() -> None:
     """Run a short out-of-order completion demo without TUFLOW or model files."""
-    colorama.init(autoreset=True)
+    configure_console_ansi()
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -1403,7 +1426,7 @@ def main() -> None:
         print("This launcher is Windows-only. Exiting.")
         sys.exit(1)
 
-    colorama.init(autoreset=True)
+    configure_console_ansi()
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -1475,8 +1498,7 @@ def main() -> None:
 
     logging.info("All finished.")
     if core.pause_on_finish:
-        print("Press any key to continue...")
-        msvcrt.getch()
+        _pause_on_windows()
 
 
 if __name__ == "__main__":
@@ -1484,6 +1506,5 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         logging.critical("An error occurred: %s", e, exc_info=True)
-        print("Press any key to continue...")
-        msvcrt.getch()
+        _pause_on_windows()
         sys.exit(1)

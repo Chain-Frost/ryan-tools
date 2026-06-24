@@ -9,7 +9,7 @@ import pandas as pd
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 # Precompile regex patterns at the module level for efficiency and thread safety
-REGEX_PATTERNS: dict[str, re.Pattern] = {
+REGEX_PATTERNS: dict[str, re.Pattern[str]] = {
     # Looks for the literal heading ``Initialisation Times`` anywhere in the log.
     "initialisation_times": re.compile(r"Initialisation Times"),
     # Matches ``Final Times`` so the parser knows the log has moved to the summary section.
@@ -99,7 +99,7 @@ def _extract_bcdbase_pair(line: str) -> tuple[str, str] | None:
     return None
 
 
-def extract_float(match: re.Match) -> float | None:
+def extract_float(match: re.Match[str]) -> float | None:
     """
     Extracts and converts the first captured group of a regex match to a float.
 
@@ -189,6 +189,13 @@ def search_for_completion(
             data_dict[key] = processor_time
 
     return data_dict, sim_complete, current_section
+
+
+def is_complete_tlf(data_dict: dict[str, Any], sim_complete: int) -> bool:
+    """Return True when a TLF has enough footer evidence to treat it as complete."""
+    if sim_complete == 2:
+        return True
+    return sim_complete == 1 and "Final_RunTime" in data_dict
 
 
 def search_from_top(
@@ -370,9 +377,6 @@ def process_top_lines(
                         spec_scen=spec_scen,
                         spec_var=spec_var,
                     )
-                    if result is None:
-                        logger.error(f"search_from_top returned None for file: {relative_logfile_path}")
-                        return data_dict, success, spec_events, spec_scen, spec_var
                     data_dict, success, spec_events, spec_scen, spec_var = result
                     if success == 4 and counter > 4000:
                         logger.debug(f"Early termination after {counter} lines for {runcode}")
@@ -387,9 +391,6 @@ def process_top_lines(
                     spec_scen=spec_scen,
                     spec_var=spec_var,
                 )
-                if result is None:
-                    logger.error(f"search_from_top returned None for file: {relative_logfile_path}")
-                    return data_dict, success, spec_events, spec_scen, spec_var
                 data_dict, success, spec_events, spec_scen, spec_var = result
                 if success == 4 and counter > 4000:
                     logger.debug(f"Early termination after {counter} lines for {runcode}")
@@ -484,7 +485,7 @@ class TLFProcessor(BaseProcessor):
                 data_dict["Runcode"] = runcode
                 break
 
-        if sim_complete == 2:
+        if is_complete_tlf(data_dict=data_dict, sim_complete=sim_complete):
             data_dict, success, spec_events, spec_scen, spec_var = process_top_lines(
                 logfile_path=self.file_path,
                 lines=lines,

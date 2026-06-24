@@ -15,8 +15,11 @@ class CommonWrapperOptions:
 
     console_log_level: str | None = None
     data_types: tuple[str, ...] | None = None
+    live_max_rows: int | None = None
+    live_refresh_per_second: float | None = None
     locations_to_include: tuple[str, ...] | None = None
     paths_to_process: tuple[Path, ...] | None = None
+    use_live_dashboard: bool | None = None
     working_directory: Path | None = None
 
 
@@ -92,6 +95,33 @@ def add_common_cli_arguments(parser: ArgumentParser) -> None:
         type=Path,
         help="Directory to process instead of the script's location.",
     )
+    live_group = parser.add_mutually_exclusive_group()
+    live_group.add_argument(
+        "--live-dashboard",
+        action="store_const",
+        const=True,
+        default=None,
+        dest="use_live_dashboard",
+        help="Enable the Rich live status dashboard for wrappers that support it.",
+    )
+    live_group.add_argument(
+        "--no-live-dashboard",
+        action="store_const",
+        const=False,
+        default=None,
+        dest="use_live_dashboard",
+        help="Disable the Rich live status dashboard for wrappers that support it.",
+    )
+    parser.add_argument(
+        "--live-refresh-per-second",
+        type=float,
+        help="Override the Rich live dashboard refresh rate for wrappers that support it.",
+    )
+    parser.add_argument(
+        "--live-max-rows",
+        type=int,
+        help="Override the maximum live dashboard rows for wrappers that support it.",
+    )
 
 
 def parse_common_cli_arguments(args: Namespace) -> CommonWrapperOptions:
@@ -101,7 +131,10 @@ def parse_common_cli_arguments(args: Namespace) -> CommonWrapperOptions:
     return CommonWrapperOptions(
         console_log_level=getattr(args, "console_log_level", None),
         data_types=_coerce_sequence_argument(raw_values=data_types_argument),
+        live_max_rows=getattr(args, "live_max_rows", None),
+        live_refresh_per_second=getattr(args, "live_refresh_per_second", None),
         locations_to_include=_coerce_locations_argument(raw_locations=locations_argument),
+        use_live_dashboard=getattr(args, "use_live_dashboard", None),
         working_directory=getattr(args, "working_directory", None),
     )
 
@@ -124,7 +157,9 @@ def run_pomm_peak_report_wrapper(
     effective_locations: tuple[str, ...] | None = (
         overrides.locations_to_include if overrides.locations_to_include else (defaults.locations_to_include or None)
     )
-    effective_paths_to_process: tuple[Path, ...] | None = overrides.paths_to_process or defaults.paths_to_process or None
+    effective_paths_to_process: tuple[Path, ...] | None = (
+        overrides.paths_to_process or defaults.paths_to_process or None
+    )
 
     exporter(
         script_directory=script_directory,
