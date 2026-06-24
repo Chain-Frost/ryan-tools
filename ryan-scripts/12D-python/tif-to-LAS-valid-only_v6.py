@@ -6,7 +6,7 @@ import laspy  # pyright: ignore[reportMissingTypeStubs]
 import numpy as np
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.terrain_processing import parallel_process_multiple_terrain
-from ryan_library.scripts.wrapper_utils import print_library_version
+from ryan_library.functions.wrapper_utils import print_library_version
 
 
 def save_tile_las(tile_df, output_dir, base_filename, i, j) -> None:
