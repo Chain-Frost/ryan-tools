@@ -2,7 +2,7 @@
 """
 Wrapper Script: TUFLOW Results Styling.
 
-This script acts as a mutable wrapper for `ryan_library.scripts.tuflow.tuflow_results_styling`.
+This script acts as a mutable wrapper for `ryan_library.orchestrators.tuflow.tuflow_results_styling`.
 It applies QGIS styles (.qml) to TUFLOW results (rasters/vectors) found in the target directory.
 Users can define custom QML overrides in the `user_qml_overrides` dictionary within this file.
 """
@@ -14,13 +14,13 @@ import sys
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.scripts.wrapper_utils import (
+from ryan_library.functions.wrapper_utils import (
     change_working_directory,
     print_library_version,
 )
 
 # Now import the TUFLOWResultsStyler class
-from ryan_library.scripts.tuflow.tuflow_results_styling import TUFLOWResultsStyler
+from ryan_library.orchestrators.tuflow.tuflow_results_styling import TUFLOWResultsStyler
 
 # User Overrides: Define your custom QML paths here
 user_qml_overrides: dict[str, str] = {
