@@ -24,7 +24,7 @@ setup(
     name="ryan_functions",
     # Version scheme: yy.mm.dd.release_number
     # Increment when publishing new wheels
-    version="26.06.25.3",
+    version="26.06.25.5",
     packages=packages,
     include_package_data=True,  # Include package data as specified in MANIFEST.in
     # package_data={"ryan_library": ["py.typed"]},
@@ -40,8 +40,6 @@ setup(
         "colorama",
         "XlsxWriter",
         "psutil",
-        "black",
-        "pyright",
         "laspy",
         "tqdm",
         "rasterio",
@@ -53,9 +51,17 @@ setup(
         "pypdf",
         "cryptography>=3.1",
         "ezdxf",
+        "rich",
         # "beautifulsoup4",
         # Add any dependencies here, e.g., 'numpy', 'pandas'
     ],
+    extras_require={
+        "dev": [
+            "black",
+            "pandas-stubs",
+            "pyright",
+        ],
+    },
     author="Chain Frost",
     author_email="chainfrost@outlook.com",
     description="Collection of TUFLOW and data processing functions.",
