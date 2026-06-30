@@ -1,5 +1,5 @@
 # ryan-scripts\TUFLOW-python\run_tuflow_batch.py
-# 2026-06-25 version - live dashboard
+# 2026-06-28 version
 # Non-native libraries used by this script: python -m pip install rich colorama psutil
 """Single-file TUFLOW launcher for Windows.
 USAGE
@@ -95,6 +95,7 @@ from rich.live import Live
 from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 
 ###############################################################################
@@ -845,12 +846,11 @@ def _log_simulation_parameters(
     tokens: list[str] = sim.args_for_python
     if not tokens:
         return
-    # Print exactly what will be executed (including exe), with quoted TCF.
-    line: str = " " + " ".join([*tokens[:-1], f'"{tokens[-1]}"'])
+    line: Text = _simulation_command_text(sim=sim)
     if console:
-        console.print(line, markup=False)
+        console.print(line)
     else:
-        print(line)
+        print(line.plain)
 
 
 def _args_to_start_line(args: list[str], priority: str) -> str:
@@ -901,12 +901,68 @@ def _gpu_label(sim: Simulation) -> str:
     return " ".join(gpu_flags) if gpu_flags else "engine-default"
 
 
-def _completion_line(result: SimResult) -> str:
-    timestamp: str = result.finished_time.strftime(format="%Y-%m-%d %H:%M:%S")
-    base: str = f"{timestamp} | Sim {result.sim.index:03d} | {_gpu_label(sim=result.sim)} | " f"{result.status:<4} | "
+def _timestamp_text(timestamp: datetime.datetime) -> Text:
+    return Text(timestamp.strftime(format="%Y-%m-%d %H:%M:%S"), style="dim cyan")
+
+
+def _launch_line(sim: Simulation, total: int) -> Text:
+    timestamp: datetime.datetime = sim.start_time or datetime.datetime.now()
+    gpu_label: str = _gpu_label(sim=sim)
+    if gpu_label == "engine-default":
+        gpu_label = "No GPU Assigned (engine default if any)"
+    line = Text()
+    line.append_text(_timestamp_text(timestamp=timestamp))
+    line.append(" | ", style="dim")
+    line.append("Launching sim ", style="bold white")
+    line.append(f"{sim.index}/{total}", style="bold cyan")
+    line.append(" on ", style="dim")
+    line.append(gpu_label, style="bold green")
+    return line
+
+
+def _simulation_command_text(sim: Simulation) -> Text:
+    tokens: list[str] = sim.args_for_python
+    line = Text(" ")
+    if not tokens:
+        return line
+
+    quoted_tokens: list[str] = [*tokens[:-1], f'"{tokens[-1]}"']
+    for idx, token in enumerate(quoted_tokens):
+        if idx > 0:
+            line.append(" ")
+        if idx == 0:
+            line.append(token, style="bright_blue")
+        elif _GPU_RE.match(string=token):
+            line.append(token, style="bold green")
+        elif token.startswith("-"):
+            line.append(token, style="yellow")
+        elif idx == len(quoted_tokens) - 1:
+            line.append(token, style="green")
+        else:
+            line.append(token, style="cyan")
+    return line
+
+
+def _completion_text(result: SimResult) -> Text:
+    line = Text()
+    line.append_text(_timestamp_text(timestamp=result.finished_time))
+    line.append(" | ", style="dim")
+    line.append("Sim ", style="dim")
+    line.append(f"{result.sim.index:03d}", style="bold cyan")
+    line.append(" | ", style="dim")
+    line.append(_gpu_label(sim=result.sim), style="bold green")
+    line.append(" | ", style="dim")
+
+    status_style: str = "bold green" if result.status == RESULT_OK else "bold red"
+    line.append(f"{result.status:<4}", style=status_style)
+    line.append(" | ", style="dim")
     if result.status == RESULT_FAIL:
-        base += f"rc={result.return_code} | "
-    return f"{base}{result.duration} | {_sim_label(sim=result.sim)}"
+        line.append(f"rc={result.return_code}", style="bold red")
+        line.append(" | ", style="dim")
+    line.append(result.duration, style="green" if result.status == RESULT_OK else "red")
+    line.append(" | ", style="dim")
+    line.append(_sim_label(sim=result.sim), style="white")
+    return line
 
 
 def _initialise_results_csv(path: Path) -> None:
@@ -1166,7 +1222,7 @@ def launch_simulations(
                         f"sim {result.sim.index}: {result.status} ({result.duration})"
                     ),
                 )
-            console.print(_completion_line(result=result), markup=False)
+            console.print(_completion_text(result=result))
             next_static_index += 1
             refresh_live(live=live, force=True)
 
@@ -1197,9 +1253,8 @@ def launch_simulations(
         statuses[sim.index] = STATUS_RUNNING
         durations[sim.index] = "00:00:00"
 
-        console.print(
-            f"\nLaunching sim {sim.index}/{total} on {sim.assigned_gpu or 'No GPU Assigned (engine default if any)'}"
-        )
+        console.print()
+        console.print(_launch_line(sim=sim, total=total))
         _log_simulation_parameters(sim=sim, core=core, total=total, console=console)
 
         # On Windows, open in a new console window; elsewhere, use the same session.

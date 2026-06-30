@@ -27,6 +27,8 @@ WorkflowStatus = Literal["QUEUED", "RUNNING", "OK", "SKIP", "FAIL"]
 WorkflowColumnSource = Literal["index", "status", "duration", "label", "detail", "metadata"]
 WorkflowOverflow = Literal["fold", "crop", "ellipsis", "ignore"]
 
+_LIVE_PANEL_FIXED_ROW_ALLOWANCE = 12
+
 
 def _empty_metadata() -> dict[str, str]:
     return {}
@@ -95,13 +97,22 @@ class LiveWorkflowDashboard:
         refresh_per_second: float = 2.0,
         max_rows: int = 25,
         columns: Sequence[WorkflowColumn] | None = None,
+        transient: bool = True,
+        screen: bool = True,
     ) -> None:
+        if enabled:
+            # Rich inspects console capabilities when Console is constructed.
+            # Enable native ANSI handling first so Windows terminals can update
+            # the live region in place instead of leaving old frames behind.
+            colorama.just_fix_windows_console()
         self.title: str = title
         self.subtitle: str = subtitle
         self.enabled: bool = enabled
         self.refresh_per_second: float = max(refresh_per_second, 0.1)
         self.max_rows: int = max(max_rows, 1)
         self.columns: tuple[WorkflowColumn, ...] = tuple(columns or DEFAULT_WORKFLOW_COLUMNS)
+        self.transient: bool = transient
+        self.screen: bool = screen
         self.console: Console = Console()
         self._live: Live | None = None
         self._last_refresh: float = 0.0
@@ -112,17 +123,17 @@ class LiveWorkflowDashboard:
 
     def __enter__(self) -> "LiveWorkflowDashboard":
         if self.enabled:
-            colorama.just_fix_windows_console()
             self._live = Live(
                 self._render(),
                 console=self.console,
+                screen=self.screen,
                 refresh_per_second=self.refresh_per_second,
-                transient=False,
+                transient=self.transient,
                 redirect_stdout=True,
                 redirect_stderr=True,
+                vertical_overflow="crop",
             )
             self._live.__enter__()
-            self.refresh(force=True)
         return self
 
     def __exit__(
@@ -132,7 +143,6 @@ class LiveWorkflowDashboard:
         exc_tb: TracebackType | None,
     ) -> None:
         if self._live is not None:
-            self.refresh(force=True)
             self._live.__exit__(exc_type, exc_val, exc_tb)
             self._live = None
 
@@ -239,6 +249,7 @@ class LiveWorkflowDashboard:
         )
 
     def _build_summary(self) -> Table:
+        effective_max_rows: int = self._effective_max_rows()
         total: int = len(self._tasks)
         counts: dict[WorkflowStatus, int] = {
             "QUEUED": 0,
@@ -262,7 +273,7 @@ class LiveWorkflowDashboard:
             f"finished {finished}/{total}",
             f"active {active}",
             f"queued {counts['QUEUED']}",
-            f"rows <= {self.max_rows}",
+            self._format_row_limit(effective_max_rows=effective_max_rows),
         )
         summary.add_row(
             f"OK {counts['OK']}",
@@ -317,13 +328,14 @@ class LiveWorkflowDashboard:
         first, recent finished tasks fill any spare rows, and queued tasks are
         shown only while nothing has started yet.
         """
+        max_rows: int = self._effective_max_rows()
         running: list[WorkflowTask] = [
             task for task in sorted(self._tasks.values(), key=lambda item: item.index) if task.status == "RUNNING"
         ]
-        if len(running) >= self.max_rows:
-            return running[: self.max_rows]
+        if len(running) >= max_rows:
+            return running[:max_rows]
 
-        remaining_rows: int = max(self.max_rows - len(running), 0)
+        remaining_rows: int = max(max_rows - len(running), 0)
         recent_indexes: list[int] = list(self._completed_order)[-remaining_rows:] if remaining_rows else []
         recent: list[WorkflowTask] = [self._tasks[index] for index in recent_indexes if index in self._tasks]
 
@@ -333,7 +345,18 @@ class LiveWorkflowDashboard:
         queued: list[WorkflowTask] = [
             task for task in sorted(self._tasks.values(), key=lambda item: item.index) if task.status == "QUEUED"
         ]
-        return queued[: self.max_rows]
+        return queued[:max_rows]
+
+    def _effective_max_rows(self) -> int:
+        """Clamp visible task rows so the live region fits in the terminal."""
+        terminal_height: int = self.console.size.height
+        safe_rows: int = max(terminal_height - _LIVE_PANEL_FIXED_ROW_ALLOWANCE, 1)
+        return min(self.max_rows, safe_rows)
+
+    def _format_row_limit(self, *, effective_max_rows: int) -> str:
+        if effective_max_rows == self.max_rows:
+            return f"rows <= {self.max_rows}"
+        return f"rows <= {effective_max_rows}/{self.max_rows}"
 
     def _task_duration(self, *, task: WorkflowTask) -> str:
         if task.started_time is None:

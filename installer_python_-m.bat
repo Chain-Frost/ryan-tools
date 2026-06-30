@@ -23,27 +23,12 @@ if errorlevel 1 (
     goto :EOF
 )
 
-call %PYTHON_CMD% -m pip install --upgrade gdal-installer
-if errorlevel 1 (
-    echo Failed to install gdal-installer.
-    pause
-    endlocal
-    goto :EOF
-)
-
-call %PYTHON_CMD% -m gdal_installer.cli
-if errorlevel 1 (
-    echo Failed to install GDAL for %PYTHON_CMD%.
-    pause
-    endlocal
-    goto :EOF
-)
-
 REM Install compiled geospatial dependencies as wheels before installing ryan-functions.
+REM Keep GDAL in the same resolver transaction as Rasterio/Fiona so their version constraints stay compatible.
 REM If a new Python version does not have matching wheels yet, fail here instead of attempting a source build.
-call %PYTHON_CMD% -m pip install --upgrade --extra-index-url "%GIS_WHEEL_INDEX%" --only-binary=:all: fiona rasterio
+call %PYTHON_CMD% -m pip install --upgrade --extra-index-url "%GIS_WHEEL_INDEX%" --only-binary=:all: fiona rasterio gdal
 if errorlevel 1 (
-    echo Failed to install Fiona/Rasterio binary wheels for %PYTHON_CMD%.
+    echo Failed to install Fiona/Rasterio/GDAL binary wheels for %PYTHON_CMD%.
     echo The latest Python may be too new for the available geospatial wheels.
     pause
     endlocal
@@ -72,7 +57,7 @@ if "%LATEST_PACKAGE%"=="" (
 echo Installing or updating "%LATEST_PACKAGE%"
 
 REM Install or update the package using pip
-call %PYTHON_CMD% -m pip install --upgrade --prefer-binary --extra-index-url "%GIS_WHEEL_INDEX%" --only-binary=fiona --only-binary=rasterio "%PACKAGE_DIR%\%LATEST_PACKAGE%"
+call %PYTHON_CMD% -m pip install --upgrade --prefer-binary --extra-index-url "%GIS_WHEEL_INDEX%" --only-binary=fiona --only-binary=rasterio --only-binary=gdal "%PACKAGE_DIR%\%LATEST_PACKAGE%"
 
 REM Check if the installation was successful
 if errorlevel 1 (
