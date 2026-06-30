@@ -36,7 +36,7 @@ LOG_SUMMARY_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
     WorkflowColumn(header="State", source="status", no_wrap=True),
     WorkflowColumn(header="Size", source="metadata", metadata_key="size", justify="right", no_wrap=True),
     WorkflowColumn(header="Duration", source="duration", no_wrap=True),
-    WorkflowColumn(header="Log file", source="label", overflow="fold"),
+    WorkflowColumn(header="Log file", source="label", no_wrap=True, overflow="ellipsis"),
 )
 
 
@@ -244,6 +244,7 @@ def main_processing(
                     max_start_events=max(pool_size * 2, live_max_rows),
                 )
             )
+            _log_processing_results(processing_results=processing_results)
 
         # Keep output rows aligned with the original file discovery order.
         if files:
@@ -319,6 +320,17 @@ def _format_dashboard_label(*, logfile: Path) -> str:
         return str(logfile.relative_to(Path.cwd()))
     except ValueError:
         return str(logfile)
+
+
+def _log_processing_results(*, processing_results: list[LogFileProcessingResult]) -> None:
+    for result in processing_results:
+        relative_logfile_path: str = _format_dashboard_label(logfile=result.logfile)
+        if result.status == "OK":
+            logger.info(f"Completed {relative_logfile_path}")
+        elif result.status == "SKIP":
+            logger.warning(f"Skipped {relative_logfile_path}: {result.detail}")
+        else:
+            logger.error(f"Failed {relative_logfile_path}: {result.detail}")
 
 
 def _dashboard_status(result: LogFileProcessingResult) -> WorkflowStatus:

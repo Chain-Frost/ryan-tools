@@ -2,6 +2,7 @@
 setlocal
 
 set "PYTHON_CMD=py -3"
+set "GIS_WHEEL_INDEX=https://gisidx.github.io/gwi"
 
 %PYTHON_CMD% --version >nul 2>&1
 if errorlevel 1 (
@@ -19,17 +20,9 @@ if errorlevel 1 (
 
 echo Using Python command: %PYTHON_CMD%
 
-call %PYTHON_CMD% -m pip install --upgrade gdal-installer
+call %PYTHON_CMD% -m pip install --upgrade --extra-index-url "%GIS_WHEEL_INDEX%" --only-binary=:all: gdal
 if errorlevel 1 (
-    echo Failed to install gdal-installer.
-    pause
-    endlocal
-    goto :EOF
-)
-
-call %PYTHON_CMD% -m gdal_installer.cli
-if errorlevel 1 (
-    echo Failed to install GDAL for %PYTHON_CMD%.
+    echo Failed to install a GDAL binary wheel for %PYTHON_CMD%.
     pause
     endlocal
     goto :EOF

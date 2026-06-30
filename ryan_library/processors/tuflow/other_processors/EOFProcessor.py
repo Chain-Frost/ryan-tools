@@ -1,4 +1,4 @@
-# ryan_library/processors/tuflow/other_processors/EofProcessor.py
+# ryan_library/processors/tuflow/other_processors/EOFProcessor.py
 
 from ..base_processor import BaseProcessor
 import pandas as pd
@@ -73,7 +73,8 @@ class EOFProcessor(BaseProcessor):
                 "Ent/Exit Losses",
             ]
 
-            parsed_rows: list[list[str]] = []
+            missing_markers: set[str] = {"-----", "Adjusted", "---"}
+            parsed_rows: list[list[object]] = []
             for line in data_lines[1:]:
                 stripped_line = line.strip()
                 if not stripped_line:
@@ -94,7 +95,7 @@ class EOFProcessor(BaseProcessor):
                     # column rather than shifting earlier numeric fields.
                     parts = parts[: len(col_names) - 1] + [" ".join(parts[len(col_names) - 1 :])]
 
-                parsed_rows.append(parts)
+                parsed_rows.append([pd.NA if part in missing_markers else part for part in parts])
 
             if not parsed_rows:
                 logger.warning(f"{self.file_path.name}: No parseable culvert rows found.")
@@ -102,8 +103,6 @@ class EOFProcessor(BaseProcessor):
                 return
 
             self.df = pd.DataFrame(data=parsed_rows, columns=col_names)
-            self.df.replace(to_replace=["-----", "Adjusted", "---"], value=pd.NA, inplace=True)
-
             numeric_columns: list[str] = [col for col in col_names if col not in {"Chan ID", "Type"}]
             for column in numeric_columns:
                 self.df[column] = pd.to_numeric(self.df[column], errors="coerce")
