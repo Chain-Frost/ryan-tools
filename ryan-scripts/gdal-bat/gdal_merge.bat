@@ -7,7 +7,9 @@ REM ================================
 set "ENV_SETUP="
 
 REM Check for a non-interactive GDAL environment setup script.
-if exist "C:\Program Files\QGIS 3.44.3\bin\o4w_env.bat" (
+if exist "C:\Program Files\QGIS 4.0.1\bin\o4w_env.bat" (
+    set "ENV_SETUP=C:\Program Files\QGIS 4.0.1\bin\o4w_env.bat"
+) else if exist "C:\Program Files\QGIS 3.44.3\bin\o4w_env.bat" (
     set "ENV_SETUP=C:\Program Files\QGIS 3.44.3\bin\o4w_env.bat"
 ) else if exist "C:\OSGEO4W\bin\o4w_env.bat" (
     set "ENV_SETUP=C:\OSGEO4W\bin\o4w_env.bat"
@@ -25,21 +27,21 @@ if errorlevel 1 (
 REM ================================
 REM Set Input/Output Paths
 REM ================================
-REM Folder containing the individual TIFF files
-set "inputFolder=C:\Users\Ryan.Brook\Downloads\2024 Unity - Woolpert LiDAR - June\03_DEMs\DSM\mod"
+REM Folder containing the individual XYZ files
+set "inputFolder=C:\Temp\westgold\higginsville\DTM_1.0m"
 
 REM Output mosaic filenames (adjust these paths as needed)
-set "outputVRT=C:\Users\Ryan.Brook\Downloads\2024 Unity - Woolpert LiDAR - June\03_DEMs\DEM\mod\Woolpert_2024_DSM.vrt"
-set "outputTIF=C:\Users\Ryan.Brook\Downloads\2024 Unity - Woolpert LiDAR - June\03_DEMs\DEM\mod\Woolpert_2024_DSM.tif"
+set "outputVRT=C:\Temp\westgold\higginsville\DTM_1.0m\Higginsville_DTM_1m_EPSG7851.vrt"
+set "outputTIF=C:\Temp\westgold\higginsville\DTM_1.0m\Higginsville_DTM_1m_EPSG7851.tif"
 
 REM ================================
 REM Change to Input Folder
 REM ================================
 pushd "%inputFolder%"
 
-echo Building VRT from TIFF files in %inputFolder%...
-REM Create a VRT mosaic of all .tif files in the folder.
-gdalbuildvrt "%outputVRT%" *.XYZ
+echo Building VRT from XYZ files in %inputFolder%...
+REM Create a VRT mosaic of all .xyz files in the folder and assign GDA2020 MGA Zone 51.
+gdalbuildvrt -a_srs EPSG:7851 -vrtnodata -9999 "%outputVRT%" *.xyz
 if errorlevel 1 (
     echo Error: gdalbuildvrt failed.
     popd
@@ -48,7 +50,7 @@ if errorlevel 1 (
 
 echo Converting VRT to GeoTIFF...
 REM Convert the VRT to a final GeoTIFF with DEFLATE compression and tiling.
-gdal_translate -of GTiff -co COMPRESS=DEFLATE -co TILED=YES "%outputVRT%" "%outputTIF%"
+gdal_translate -of GTiff -a_nodata -9999 -co COMPRESS=DEFLATE -co TILED=YES -co BIGTIFF=IF_SAFER -co SPARSE_OK=YES -co NUM_THREADS=ALL_CPUS "%outputVRT%" "%outputTIF%"
 if errorlevel 1 (
     echo Error: gdal_translate failed.
     popd

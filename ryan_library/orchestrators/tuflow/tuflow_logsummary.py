@@ -17,7 +17,7 @@ from ryan_library.functions.file_utils import find_files_parallel
 from ryan_library.functions.misc_functions import calculate_pool_size, save_to_excel
 from ryan_library.functions.path_stuff import convert_to_relative_path
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowStatus
-from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.loguru_helpers import LogQueue, setup_logger
 from ryan_library.functions.parse_tlf import (
     search_for_completion,
     read_log_file,
@@ -38,6 +38,35 @@ LOG_SUMMARY_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
     WorkflowColumn(header="Duration", source="duration", no_wrap=True),
     WorkflowColumn(header="Log file", source="label", no_wrap=True, overflow="ellipsis"),
 )
+
+LOG_SUMMARY_PRIORITIZED_COLUMNS: tuple[str, ...] = (
+    "Runcode",
+    "clean_run_code",
+    "trim_run_code",
+    "trim_tcf",
+    "StartDate",
+)
+LOG_SUMMARY_PREFIX_ORDER: tuple[str, ...] = ("-e", "-s")
+LOG_SUMMARY_SECOND_PRIORITY_COLUMNS: tuple[str, ...] = (
+    "Initialise_RunTime",
+    "Final_RunTime",
+    "Model_Start_Time",
+    "Model_End_Time",
+    "TGC",
+    "TBC",
+    "ECF",
+    "TEF",
+    "BC_dbase",
+    "TCF",
+    "TUFLOW_version",
+    "ComputerName",
+    "username",
+    "EndStatus",
+    "AEP",
+    "Duration",
+    "TP",
+)
+LOG_SUMMARY_COLUMNS_TO_END: tuple[str, ...] = ("orig_TCF_path", "orig_log_path", "orig_results_path")
 
 
 @dataclass(slots=True)
@@ -199,107 +228,32 @@ def main_processing(
         logger.info("Built and tested with modern TUFLOW logs; older completed logs use compatibility parsing.")
 
         root_dir: Path = Path.cwd()
-        files: list[Path] = list(
-            find_files_parallel(
-                root_dirs=[root_dir],
-                patterns="*.tlf",
-                excludes=["*.hpc.tlf", "*.gpu.tlf"],
-            )
-        )
+        files: list[Path] = discover_log_files(root_dir=root_dir)
 
         logger.info(f"Found {len(files)} log files.")
 
         if not files:
             logger.warning("No log files found to process.")
         else:
-            pool_size = calculate_pool_size(num_files=len(files))
-            logger.info(f"Processing {len(files)} files using {pool_size} processes.")
-
-            dashboard = LiveWorkflowDashboard(
-                title="TUFLOW Log Summary",
-                subtitle=str(root_dir),
-                enabled=use_live_dashboard,
-                refresh_per_second=live_refresh_per_second,
-                max_rows=live_max_rows,
-                columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
-            )
-            dashboard.set_tasks(
-                labels=[_format_dashboard_label(logfile=file) for file in files],
-                metadata=[{"size": _format_bytes(file.stat().st_size)} for file in files],
-            )
-            dashboard.set_extra_metrics(metrics={"workers": pool_size})
-
-            # LogSummary owns TLF parsing and result shaping; the shared helper
-            # owns serial/process-pool execution and dashboard state updates.
             processing_results.extend(
-                run_dashboard_workflow(
-                    items=files,
-                    process_item=process_log_file_for_dashboard,
-                    dashboard=dashboard,
-                    pool_size=pool_size,
-                    status_for_result=_dashboard_status,
-                    detail_for_result=_dashboard_detail,
+                process_log_files(
+                    files=files,
+                    root_dir=root_dir,
+                    use_live_dashboard=use_live_dashboard,
+                    live_refresh_per_second=live_refresh_per_second,
+                    live_max_rows=live_max_rows,
                     log_queue=log_queue,
-                    worker_log_level="ERROR" if use_live_dashboard else console_log_level,
-                    max_start_events=max(pool_size * 2, live_max_rows),
+                    console_log_level=console_log_level,
                 )
             )
-            _log_processing_results(processing_results=processing_results)
 
-        # Keep output rows aligned with the original file discovery order.
-        if files:
-            file_indexes = {file: index for index, file in enumerate(files, start=1)}
-            processing_results.sort(key=lambda result: file_indexes[result.logfile])
-        results: list[pd.DataFrame] = [
-            result.data_frame for result in processing_results if not result.data_frame.empty
-        ]
-        successful_runs = len(results)
-        if results:
+        successful_runs = _count_successful_results(processing_results=processing_results)
+        merged_df: pd.DataFrame = build_log_summary_dataframe(
+            files=files,
+            processing_results=processing_results,
+        )
+        if not merged_df.empty:
             try:
-                merged_df: pd.DataFrame = merge_and_sort_data(frames=results, sort_column="StartDate")
-
-                # Define the desired column order
-                prioritized_columns = [
-                    "Runcode",
-                    "clean_run_code",
-                    "trim_run_code",
-                    "trim_tcf",
-                    "StartDate",
-                ]
-
-                prefix_order = ["-e", "-s"]  # Event and Scenario variables
-
-                second_priority_columns = [
-                    "Initialise_RunTime",
-                    "Final_RunTime",
-                    "Model_Start_Time",
-                    "Model_End_Time",
-                    "TGC",
-                    "TBC",
-                    "ECF",
-                    "TEF",
-                    "BC_dbase",
-                    "TCF",
-                    "TUFLOW_version",
-                    "ComputerName",
-                    "username",
-                    "EndStatus",
-                    "AEP",
-                    "Duration",
-                    "TP",
-                ]
-
-                columns_to_end = ["orig_TCF_path", "orig_log_path", "orig_results_path"]
-
-                # Reorder the columns using the helper function
-                merged_df = reorder_columns(
-                    data_frame=merged_df,
-                    prioritized_columns=prioritized_columns,
-                    prefix_order=prefix_order,
-                    second_priority_columns=second_priority_columns,
-                    columns_to_end=columns_to_end,
-                )
-
                 save_to_excel(
                     data_frame=merged_df,
                     file_name_prefix="ModellingLog",
@@ -313,6 +267,91 @@ def main_processing(
             logger.warning("No completed logs found - no output generated.")
 
         logger.success(f"Number of successful runs: {successful_runs}")
+
+
+def discover_log_files(*, root_dir: Path) -> list[Path]:
+    return list(
+        find_files_parallel(
+            root_dirs=[root_dir],
+            patterns="*.tlf",
+            excludes=["*.hpc.tlf", "*.gpu.tlf"],
+        )
+    )
+
+
+def process_log_files(
+    *,
+    files: list[Path],
+    root_dir: Path,
+    use_live_dashboard: bool,
+    live_refresh_per_second: float,
+    live_max_rows: int,
+    log_queue: LogQueue | None,
+    console_log_level: str,
+) -> list[LogFileProcessingResult]:
+    pool_size = calculate_pool_size(num_files=len(files))
+    logger.info(f"Processing {len(files)} files using {pool_size} processes.")
+
+    dashboard = LiveWorkflowDashboard(
+        title="TUFLOW Log Summary",
+        subtitle=str(root_dir),
+        enabled=use_live_dashboard,
+        refresh_per_second=live_refresh_per_second,
+        max_rows=live_max_rows,
+        columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
+    )
+    dashboard.set_tasks(
+        labels=[_format_dashboard_label(logfile=file) for file in files],
+        metadata=[{"size": _format_bytes(file.stat().st_size)} for file in files],
+    )
+    dashboard.set_extra_metrics(metrics={"workers": pool_size})
+
+    # LogSummary owns TLF parsing and result shaping; the shared helper
+    # owns serial/process-pool execution and dashboard state updates.
+    processing_results: list[LogFileProcessingResult] = run_dashboard_workflow(
+        items=files,
+        process_item=process_log_file_for_dashboard,
+        dashboard=dashboard,
+        pool_size=pool_size,
+        status_for_result=_dashboard_status,
+        detail_for_result=_dashboard_detail,
+        log_queue=log_queue,
+        worker_log_level="ERROR" if use_live_dashboard else console_log_level,
+        max_start_events=max(pool_size * 2, live_max_rows),
+    )
+    _log_processing_results(processing_results=processing_results)
+    return processing_results
+
+
+def build_log_summary_dataframe(
+    *,
+    files: list[Path],
+    processing_results: list[LogFileProcessingResult],
+) -> pd.DataFrame:
+    if files:
+        file_indexes = {file: index for index, file in enumerate(files, start=1)}
+        processing_results.sort(key=lambda result: file_indexes[result.logfile])
+
+    results: list[pd.DataFrame] = [result.data_frame for result in processing_results if not result.data_frame.empty]
+    if not results:
+        return pd.DataFrame()
+
+    merged_df: pd.DataFrame = merge_and_sort_data(frames=results, sort_column="StartDate")
+    return _reorder_log_summary_columns(data_frame=merged_df)
+
+
+def _reorder_log_summary_columns(*, data_frame: pd.DataFrame) -> pd.DataFrame:
+    return reorder_columns(
+        data_frame=data_frame,
+        prioritized_columns=list(LOG_SUMMARY_PRIORITIZED_COLUMNS),
+        prefix_order=list(LOG_SUMMARY_PREFIX_ORDER),
+        second_priority_columns=list(LOG_SUMMARY_SECOND_PRIORITY_COLUMNS),
+        columns_to_end=list(LOG_SUMMARY_COLUMNS_TO_END),
+    )
+
+
+def _count_successful_results(*, processing_results: list[LogFileProcessingResult]) -> int:
+    return sum(1 for result in processing_results if not result.data_frame.empty)
 
 
 def _format_dashboard_label(*, logfile: Path) -> str:

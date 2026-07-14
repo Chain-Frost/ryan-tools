@@ -1,10 +1,10 @@
 [tool.black]
 line-length = 120
-target-version = ['py313']
+target-version = ['py314']
 include = '\.pyi?$'
 
 [tool.pyright]
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 typeCheckingMode = "strict"
 include = ["ryan_library", "ryan_scripts"]
 extraPaths = ["vendor", "vendor/run_hy8/src"]
