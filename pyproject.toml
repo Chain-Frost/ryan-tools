@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.07.19.1"
+version = "26.07.19.4"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 authors = [
     { name = "Chain Frost", email = "chainfrost@outlook.com" },
 ]
 classifiers = [
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: Microsoft :: Windows",
 ]
 dependencies = [
@@ -44,8 +44,11 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "black",
+    "build",
     "pandas-stubs",
     "pyright",
+    "pytest",
+    "pytest-cov",
 ]
 
 [project.urls]
@@ -85,11 +88,11 @@ namespaces = true
 
 [tool.black]
 line-length = 120
-target-version = ['py313']
+target-version = ['py314']
 include = '\.pyi?$'
 
 [tool.pyright]
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 typeCheckingMode = "strict"
 include = ["ryan_library", "ryan-scripts"]
 extraPaths = ["vendor", "vendor/run_hy8/src"]

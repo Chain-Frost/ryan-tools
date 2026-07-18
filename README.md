@@ -17,9 +17,9 @@ varies.
 
 Python support is currently:
 
-- `pyproject.toml`: targets Python 3.13 for Black and Pyright.
-- Package metadata: allows Python >=3.12.
-- Development should prefer Python 3.13 where possible.
+- `pyproject.toml`: targets Python 3.14 for Black and Pyright.
+- Package metadata: requires Python >=3.14.
+- Development uses Python 3.14.
 
 Tests exist, but many are historical or environment-dependent. Treat targeted local validation as more useful
 than running the whole test suite unless you are specifically working on tests.
@@ -69,10 +69,10 @@ git lfs pull
 Tests do not support an alternate data path, cache, or automatic download. If `tests/test_data` is absent or
 incomplete, pytest exits with an error telling you to initialise the submodule.
 
-On Windows, use Python 3.13 if available:
+On Windows, use Python 3.14:
 
 ```powershell
-py -3.13 -m venv .venv
+py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
 python -m pip install -r requirements.txt
@@ -447,7 +447,7 @@ interpreter path so it stops asking for approvals every time it opens a terminal
 from your global install to avoid version drift between human and agent sessions.
 
 ```powershell
-py -3.13 -m venv .venv
+py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -U pip
 ```

@@ -11,7 +11,7 @@ packaging work below. Excel workbooks remain in the main repository under Git LF
 
 ## Completed: repository hygiene
 
-- Align Black and Pyright with the documented Python 3.13 development target.
+- Align Black and Pyright with the documented Python 3.14 development target.
 - Point Pyright at the real `ryan-scripts` directory.
 - Remove the stale PyHMA submodule declaration while retaining its vendored package.
 - Correct repository paths and static-analysis guidance in agent documentation.

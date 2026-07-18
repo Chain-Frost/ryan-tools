@@ -1,15 +1,15 @@
-## AGENTS.md
+# AGENTS.md
 
 This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and contribute to the **ryan-tools** repository.
 
 ---
 
-### 1. Repository Overview
+## 1. Repository Overview
 
 * **Purpose**: A collection of Python utilities and scripts for geospatial and data processing (`ryan-tools`).
 * **Root Structure**:
 
-  ```
+  ``` text
   ryan-tools/
   ├── ryan_library/           # Main Python package
   │   ├── functions/          # Reusable workflow logic
@@ -33,11 +33,11 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
 ### 2. Coding Conventions
 
-* **Language**: Python 3.13
+* **Language**: Python 3.14
 * **Import Style**: Absolute imports from `ryan_library` or vendored packages only.
 * **Formatting**: Format with [Black](https://github.com/psf/black) using a 120 character line length. A
   `pyproject.toml` is provided with this configuration.
-* **Type Hints**: All public functions and methods should include type annotations. Always use Python 3.13+ style.
+* **Type Hints**: All public functions and methods should include type annotations. Always use Python 3.14+ style.
 * **Linting**: Use `pyright` for static analysis in `strict` mode (configured via `pyproject.toml`). Only run Pyright on files you have modified (e.g., `pyright ryan_library/path/to_file.py`).
 
 ---
@@ -75,10 +75,12 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 4. **Structure**: Keep heavy logic/parsing in `ryan_library/functions`; use `ryan_library/scripts` as orchestrators/controllers that wire functions together and handle I/O/logging; wrappers in `ryan-scripts` should call into these orchestrators.
 
 #### Logging (loguru) guidance
-- Success/error/exception logs shown to users must use f-strings (or equivalent eager formatting) for clarity.
-- Info logs are also user-facing; prefer f-strings or explicit formatting so rendered messages are readable as-is.
-- Debug logs should remain lazily formatted (loguru parameter style) to avoid unnecessary work when debug is disabled.
-- TODO: Sweep the codebase and align existing log statements with these conventions; ensure logging helpers do not leak internal helper names into user-facing output.
+
+* Success/error/exception logs shown to users must use f-strings (or equivalent eager formatting) for clarity.
+
+* Info logs are also user-facing; prefer f-strings or explicit formatting so rendered messages are readable as-is.
+* Debug logs should remain lazily formatted (loguru parameter style) to avoid unnecessary work when debug is disabled.
+* TODO: Sweep the codebase and align existing log statements with these conventions; ensure logging helpers do not leak internal helper names into user-facing output.
 
 ---
 
@@ -99,7 +101,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 ### 8. Environment Notes
 
 * On machines joined to the `bge-resources.com` domain (e.g., where `USERDNSDOMAIN=bge-resources.com` or `USERDOMAIN=BGER`), PowerShell sometimes fails to stream file contents reliably. When working on these systems, prefer running commands through `cmd.exe` (e.g., `cmd.exe /C type path\to\file`) so files load correctly in the Codex CLI.
-* CI/CLI host commonly provides system Python 3.12 with PEP 668 (externally-managed) pip. `python -m venv` may fail unless `python3-venv` is installed. If you need repo deps, install the bundled wheel under `dist/` (e.g., `python3 -m pip install --break-system-packages dist/ryan_functions-*.whl`) so `ryan_library` and loguru/geopandas/fiona are available. If isolation is required, install venv tooling first or use user-level installs.
+* The package and bundled `run_hy8` component require Python 3.14. Prefer a persistent virtual environment over modifying an externally managed system Python. If you need repo dependencies, install the bundled wheel under `dist/` or install the project in editable mode with its `dev` extra.
 
 ---
 
@@ -111,4 +113,4 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
 ---
 
-*End of AGENTS.md*
+End of AGENTS.md
