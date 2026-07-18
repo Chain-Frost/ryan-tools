@@ -103,14 +103,4 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 * On machines joined to the `bge-resources.com` domain (e.g., where `USERDNSDOMAIN=bge-resources.com` or `USERDOMAIN=BGER`), PowerShell sometimes fails to stream file contents reliably. When working on these systems, prefer running commands through `cmd.exe` (e.g., `cmd.exe /C type path\to\file`) so files load correctly in the Codex CLI.
 * The package and bundled `run_hy8` component require Python 3.14. Prefer a persistent virtual environment over modifying an externally managed system Python. If you need repo dependencies, install the bundled wheel under `dist/` or install the project in editable mode with its `dev` extra.
 
----
-
-### 9. MCP Setup
-
-* This repository supports the Model Context Protocol (MCP).
-* See [MCP_SETUP.md](MCP_SETUP.md) for instructions on how to configure your AI assistant to use the custom tools provided by this repo.
-* The server script is located at `ryan_mcp_server.py`.
-
----
-
 End of AGENTS.md
