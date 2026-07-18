@@ -74,7 +74,7 @@ def _update_project_version(project_path: Path, new_version: str) -> str:
         raise RuntimeError(msg)
     updated_section: str = RE_VERSION.sub(repl=rf"\g<1>{new_version}\g<3>", string=section, count=1)
     updated: str = f"{content[:section_start]}{updated_section}{content[section_end:]}"
-    project_path.write_text(data=updated, encoding="utf-8")
+    project_path.write_text(data=updated, encoding="utf-8", newline="\n")
     return match.group("version")
 
 
@@ -163,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
         wheel_path: Path = _run_build(python=sys.executable, project_root=project_root, dist_dir=dist_dir)
         print(f"Wheel written to {dist_dir / wheel_path.name}")
     except Exception:
-        project_path.write_text(data=previous_content, encoding="utf-8")
+        project_path.write_text(data=previous_content, encoding="utf-8", newline="\n")
         raise
 
     return 0

@@ -93,6 +93,15 @@ python repo-scripts/build_library.py
 Use `python repo-scripts/build_library.py --skip-artifacts` when wheel artifacts cannot be created or committed
 in the current environment.
 
+On Windows, the supported build-and-install entry point is:
+
+```powershell
+.\package_and_install.bat
+```
+
+Use `.\install-latest-wheel.bat` to install an existing wheel without rebuilding it. The older
+`installer_python_-m.bat` filename remains as a compatibility wrapper.
+
 ## Useful Entry Points
 
 ### Parse TUFLOW filenames and run codes

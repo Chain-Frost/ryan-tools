@@ -30,18 +30,22 @@ The migration:
 4. Added the documented `--skip-artifacts` version-bump mode to `repo-scripts/build_library.py`.
 5. Retained QGIS resources in the wheel until the later QGIS repository decision is implemented.
 
-## Next: Windows installer consolidation
+## Completed: Windows installer consolidation
 
-There are several overlapping root-level batch files. `installer-if-no-batch.py` is already incompatible with
-the current wheel-only build because it searches for a `ryan_functions-*.tar.gz` archive.
+One typed Python utility now selects and installs the latest wheel. Normal mode retains the geospatial binary
+wheel handling, and force-reinstall mode deliberately avoids dependency changes.
 
-The supported workflow should become:
+The supported workflow is:
 
 1. One Python build implementation in `repo-scripts/build_library.py`.
-2. One normal Windows install script for the newest wheel in `dist/`.
-3. One explicitly named force-reinstall script for recovery use.
-4. Thin convenience wrappers for build-and-install and build-and-force-reinstall.
-5. Removal of obsolete installers only after their replacements have been exercised on Windows.
+2. One Python install implementation in `repo-scripts/install_latest_wheel.py`.
+3. `install-latest-wheel.bat` for normal Windows installation.
+4. Thin compatibility and force-reinstall wrappers around that implementation.
+5. Thin build-and-install wrappers that stop immediately when the build fails.
+
+The obsolete `installer-if-no-batch.py` was removed because it searched for a source archive that the build no
+longer creates. Normal, force, and legacy-wrapper command construction was verified through Windows `cmd.exe`
+in dry-run mode without changing the installed environment.
 
 ## Then: script triage
 

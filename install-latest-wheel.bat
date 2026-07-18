@@ -12,8 +12,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-call %PYTHON_CMD% "%~dp0repo-scripts\build_library.py" %*
+call %PYTHON_CMD% "%~dp0repo-scripts\install_latest_wheel.py" %*
 set "EXIT_CODE=%ERRORLEVEL%"
-if not "%EXIT_CODE%"=="0" echo Build failed.
+if not "%EXIT_CODE%"=="0" echo Installation failed.
 
 endlocal & exit /b %EXIT_CODE%
