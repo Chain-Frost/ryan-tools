@@ -1,18 +1,49 @@
-# Repository Storage Migration Plan
+# Repository Storage Migration Plan and Record
 
 ## Status
 
-Planning only. No repository extraction, submodule conversion, Git LFS migration, force-push, or history rewrite
-has been performed.
+Completed on 18 July 2026. The test-data repository was extracted and published, `tests/test_data` was replaced
+by a strict fixed-location submodule, remaining XLSX history was migrated to Git LFS, and all 34 ordinary
+branches in `ryan-tools` were rewritten and published.
 
-Reviewed on 18 July 2026 against:
+Executed on 18 July 2026 against:
 
 - Main repository: `https://github.com/Chain-Frost/ryan-tools.git`
 - New data repository: `https://github.com/Chain-Frost/ryan-tools-test-data.git`
 - Main branch: `main`
 
-The new data repository currently has no refs, which is the correct starting state for importing filtered
-history.
+The migration was performed from fresh WSL clones under
+`$HOME/ryan-tools-storage-migration-20260718`. The pre-existing checkout on the Windows-mounted filesystem was
+not used as a migration source and was not modified during the rewrite.
+
+## Completion record
+
+- Pre-rewrite `ryan-tools` transition commit: `e90ddd83d7a61788408e684cb00f17cf1cd96917`.
+- Rewritten `ryan-tools` migration commit: `057c8416effa521343c700c8eda0753ff462d062`.
+- Published `ryan-tools-test-data` commit: `b347e9b9668c50b1d0130301d45f7cd3dbdc7caa`.
+- The test-data repository contains 7,432 current files (147,063,632 bytes). Its current tree was compared
+  byte-for-byte with the source tree before publication.
+- XLSX paths were removed from every published test-data ref. No XLSX path is reachable in that repository.
+- Divergent extracted histories are preserved as `archive/work-on-qprocessor-that-could-break-stuff`,
+  `archive/codex-outline-mean-value-calculation-in-workflow`, and `archive/pull-22-head`.
+- Reachable `tests/test_data/...` object paths in the main repository changed from 3,243 to zero. The exact
+  `tests/test_data` path remains as a mode-`160000` gitlink to the data commit above.
+- Git LFS migrated 18 historical XLSX objects (about 50 MB) into 15 unique LFS objects. The current tree has
+  11 XLSX files, all represented by LFS pointers and verified after hydration.
+- The original mirror pack was 57.78 MiB. A fresh post-rewrite GitHub clone uses an 8.92 MiB ordinary Git pack;
+  workbook content is downloaded separately through LFS.
+- Fresh local-staging and GitHub clones passed `git fsck --full`, `git lfs fsck`, submodule sentinel checks,
+  historical-path checks, and XLSX pointer/hydration checks.
+- With the submodule absent, `pytest -s --collect-only` exits with the deliberate fixed-path usage error. With
+  it present, pytest reaches the existing suite and collects 448 tests before three unrelated pre-existing
+  collection errors (`run_hy8`, `tkinter`, and `tuflow_logsummary`).
+- `git-filter-repo` 2.47.0 and Git LFS 3.7.1 were installed under `~/.local/bin` because WSL package installation
+  required unavailable `sudo` credentials. GitHub HTTPS authentication used Windows Git Credential Manager.
+- Verified recovery bundles and SHA-256 files were retained outside the active repositories. Their ref sets
+  include the original ordinary branches and the pull-request refs advertised by GitHub at backup time.
+
+The command sections below are retained as the audit runbook. Minor staging-path and installation differences
+are recorded above; the filtering and publication commands were run as specified.
 
 ## Final decisions
 

@@ -46,6 +46,26 @@ ryan-tools/
 
 ## Setup
 
+This repository uses Git LFS for XLSX workbooks and a Git submodule at the only supported test-data location,
+`tests/test_data`. Install Git LFS before cloning, then clone with submodules:
+
+```powershell
+git lfs install
+git clone --recurse-submodules https://github.com/Chain-Frost/ryan-tools.git
+cd ryan-tools
+git lfs pull
+```
+
+For an existing post-migration clone, populate the required data with:
+
+```powershell
+git submodule update --init tests/test_data
+git lfs pull
+```
+
+Tests do not support an alternate data path, cache, or automatic download. If `tests/test_data` is absent or
+incomplete, pytest exits with an error telling you to initialise the submodule.
+
 On Windows, use Python 3.13 if available:
 
 ```powershell
