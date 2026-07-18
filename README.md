@@ -35,6 +35,7 @@ ryan-tools/
 |   `-- scripts/               # Orchestrators used by wrapper scripts
 |-- ryan-scripts/              # Human-facing wrappers and older standalone scripts
 |-- repo-scripts/              # Build, venv, and snippet helper scripts
+|-- docs/                      # Architecture and maintenance documentation
 |-- vendor/                    # Vendored dependencies
 |-- tests/                     # Historical and targeted tests
 |-- excel-tools/               # Workbook/model assets, not Python package code
@@ -43,6 +44,8 @@ ryan-tools/
 |-- pyproject.toml
 `-- setup.py
 ```
+
+Repository maintenance plans and design notes are indexed in [`docs/README.md`](docs/README.md).
 
 ## Setup
 
