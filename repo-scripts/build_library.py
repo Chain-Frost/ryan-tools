@@ -4,8 +4,8 @@ This mirrors the behaviour of ``packager.bat`` so it can be executed on
 platforms without a Windows shell. The script will:
 
 1. Determine the version number to apply (either from ``--version`` or by
-   incrementing the daily counter used in ``setup.py``).
-2. Update ``setup.py`` with the chosen version string.
+   incrementing the daily counter used in ``pyproject.toml``).
+2. Update ``pyproject.toml`` with the chosen version string.
 3. Ensure ``python -m build`` is available.
 4. Build the wheel into a temporary directory and move it into ``dist/``.
 
@@ -25,14 +25,28 @@ import sys
 import tempfile
 from pathlib import Path
 
-RE_VERSION: re.Pattern[str] = re.compile(pattern=r'(version\s*=\s*")(?P<version>[^\"]+)(")')
+RE_SECTION_HEADER: re.Pattern[str] = re.compile(pattern=r"(?m)^\[(?P<name>[^]]+)]\s*$")
+RE_VERSION: re.Pattern[str] = re.compile(pattern=r'(?m)^(version[\t ]*=[\t ]*")(?P<version>[^\"]+)(")[\t ]*$')
 
 
-def _read_setup_version(setup_path: Path) -> str:
-    content: str = setup_path.read_text(encoding="utf-8")
-    match: re.Match[str] | None = RE_VERSION.search(string=content)
+def _project_section_bounds(content: str) -> tuple[int, int]:
+    """Return the content bounds of the ``[project]`` TOML section."""
+    headers: list[re.Match[str]] = list(RE_SECTION_HEADER.finditer(content))
+    for index, header in enumerate(headers):
+        if header.group("name") != "project":
+            continue
+        section_end: int = headers[index + 1].start() if index + 1 < len(headers) else len(content)
+        return header.end(), section_end
+    msg = "Could not locate [project] section in pyproject.toml"
+    raise RuntimeError(msg)
+
+
+def _read_project_version(project_path: Path) -> str:
+    content: str = project_path.read_text(encoding="utf-8")
+    section_start, section_end = _project_section_bounds(content=content)
+    match: re.Match[str] | None = RE_VERSION.search(string=content[section_start:section_end])
     if not match:
-        msg = "Could not locate version string in setup.py"
+        msg = "Could not locate version string in pyproject.toml [project] section"
         raise RuntimeError(msg)
     return match.group("version")
 
@@ -50,14 +64,17 @@ def _format_auto_version(current_version: str, today: _dt.date) -> str:
     return f"{date_prefix}.{counter}"
 
 
-def _update_setup_version(setup_path: Path, new_version: str) -> str:
-    content: str = setup_path.read_text(encoding="utf-8")
-    match: re.Match[str] | None = RE_VERSION.search(string=content)
+def _update_project_version(project_path: Path, new_version: str) -> str:
+    content: str = project_path.read_text(encoding="utf-8")
+    section_start, section_end = _project_section_bounds(content=content)
+    section: str = content[section_start:section_end]
+    match: re.Match[str] | None = RE_VERSION.search(string=section)
     if not match:
-        msg = "Could not locate version string in setup.py"
+        msg = "Could not locate version string in pyproject.toml [project] section"
         raise RuntimeError(msg)
-    updated: str = RE_VERSION.sub(repl=rf"\g<1>{new_version}\g<3>", string=content, count=1)
-    setup_path.write_text(data=updated, encoding="utf-8")
+    updated_section: str = RE_VERSION.sub(repl=rf"\g<1>{new_version}\g<3>", string=section, count=1)
+    updated: str = f"{content[:section_start]}{updated_section}{content[section_end:]}"
+    project_path.write_text(data=updated, encoding="utf-8")
     return match.group("version")
 
 
@@ -105,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
         "--version",
         help=(
             "Explicit version string to apply. If omitted, the version is derived "
-            "from today's date and the current counter in setup.py."
+            "from today's date and the current counter in pyproject.toml."
         ),
     )
     parser.add_argument(
@@ -113,24 +130,32 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Skip ensuring the 'build' package is installed",
     )
+    parser.add_argument(
+        "--skip-artifacts",
+        action="store_true",
+        help="Update the version without building or replacing wheel artifacts",
+    )
     args: argparse.Namespace = parser.parse_args(argv)
 
     project_root: Path = Path(__file__).resolve().parents[1]
-    setup_path: Path = project_root / "setup.py"
+    project_path: Path = project_root / "pyproject.toml"
 
-    if not setup_path.exists():
-        msg = "setup.py not found relative to script location"
+    if not project_path.exists():
+        msg = "pyproject.toml not found relative to script location"
         raise SystemExit(msg)
 
-    current_version: str = _read_setup_version(setup_path=setup_path)
+    current_version: str = _read_project_version(project_path=project_path)
     new_version = args.version or _format_auto_version(current_version=current_version, today=_dt.date.today())
 
     print(f"Current version: {current_version}")
     print(f"New version:     {new_version}")
 
-    previous_content: str = setup_path.read_text(encoding="utf-8")
+    previous_content: str = project_path.read_text(encoding="utf-8")
     try:
-        _update_setup_version(setup_path=setup_path, new_version=new_version)
+        _update_project_version(project_path=project_path, new_version=new_version)
+        if args.skip_artifacts:
+            print("Artifact build skipped")
+            return 0
         if not args.skip_pip:
             _ensure_build_installed(python=sys.executable)
         _clean_directories(project_root=project_root)
@@ -138,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
         wheel_path: Path = _run_build(python=sys.executable, project_root=project_root, dist_dir=dist_dir)
         print(f"Wheel written to {dist_dir / wheel_path.name}")
     except Exception:
-        setup_path.write_text(data=previous_content, encoding="utf-8")
+        project_path.write_text(data=previous_content, encoding="utf-8")
         raise
 
     return 0

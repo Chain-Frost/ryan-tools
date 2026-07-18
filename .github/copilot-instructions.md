@@ -20,7 +20,7 @@
 - Use Pyright in strict mode for static analysis, but only on files you modify unless otherwise instructed.
 
 ## Developer Workflows
-- **Build/Install**: Use `setup.py` or `requirements.txt` for dependencies. For local development, editable installs are supported.
+- **Build/Install**: Package metadata and dependencies live in `pyproject.toml`; `requirements.txt` performs an editable development install.
 - **Testing**: Tests are minimal. If adding tests, place them in `tests/` and follow the structure of the code under test.
 - **Script Execution**: Most scripts in `ryan-scripts/` are run directly (e.g., `python ryan-scripts/TUFLOW-python/POMM-med-max-aep-dur.py`). They often change the working directory to their own location before running.
 - **Logging**: Scripts typically accept a `log_level` argument and print to stdout.

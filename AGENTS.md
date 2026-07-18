@@ -85,7 +85,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 ### 7. Build Workflow
 
 * When modifying anything inside `ryan_library/` or other package metadata, run `python repo-scripts/build_library.py` from the repository root.
-* The script bumps the `setup.py` version using today's date plus a daily counter and rebuilds the wheel artefact under `dist/`.
+* The script bumps the `pyproject.toml` version using today's date plus a daily counter and rebuilds the wheel artefact under `dist/`.
 * Binary artifacts in Codex Web Viewer:
   * `.whl` files and other binary artifacts cannot be saved/committed when using the Codex web viewer. This is a platform limitation.
   * When working in the web viewer or any read‑only environment, do not attempt to commit wheel artifacts. Submit the version bump and source changes only, and add a PR note requesting a maintainer to run the build locally and commit the wheel.

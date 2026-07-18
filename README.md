@@ -18,7 +18,7 @@ varies.
 Python support is currently:
 
 - `pyproject.toml`: targets Python 3.13 for Black and Pyright.
-- `setup.py`: allows Python >=3.12.
+- Package metadata: allows Python >=3.12.
 - Development should prefer Python 3.13 where possible.
 
 Tests exist, but many are historical or environment-dependent. Treat targeted local validation as more useful

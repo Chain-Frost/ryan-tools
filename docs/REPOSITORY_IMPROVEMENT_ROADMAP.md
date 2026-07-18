@@ -17,20 +17,18 @@ packaging work below. Excel workbooks remain in the main repository under Git LF
 - Correct repository paths and static-analysis guidance in agent documentation.
 - Stop tracking generated coverage output.
 
-## Next: package metadata and build workflow
+## Completed: package metadata and build workflow
 
-Package metadata currently lives in `setup.py`, while `pyproject.toml` contains only tool configuration. The
-build utility also edits the version directly in `setup.py`, so these files must be migrated together.
+Package metadata and dependencies now have one authoritative source in `pyproject.toml`. The build utility reads
+and updates the project version there, and `setup.py` remains only as a minimal compatibility entry point.
 
-The package change should:
+The migration:
 
-1. Make `pyproject.toml` the single source of package metadata and dependencies using the standard `[project]`
-   table.
-2. Update `repo-scripts/build_library.py` to read and update the version from that same file.
-3. Retain a minimal `setup.py` temporarily only if an existing local workflow still requires it.
-4. Preserve the `ryan_functions` distribution name and the `ryan_library` import package during this change;
-   renaming either would be a separate compatibility migration.
-5. Build the wheel and compare its package contents with the currently published wheel before replacing it.
+1. Preserved the `ryan_functions` distribution name and the `ryan_library` import package.
+2. Preserved all 149 wheel paths and all dependency metadata from the previous build.
+3. Verified all 145 non-metadata payload files byte-for-byte after normalising Windows and WSL line endings.
+4. Added the documented `--skip-artifacts` version-bump mode to `repo-scripts/build_library.py`.
+5. Retained QGIS resources in the wheel until the later QGIS repository decision is implemented.
 
 ## Next: Windows installer consolidation
 

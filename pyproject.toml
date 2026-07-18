@@ -1,3 +1,88 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ryan_functions"
+version = "26.07.19.1"
+description = "Collection of TUFLOW and data processing functions."
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Chain Frost", email = "chainfrost@outlook.com" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: Microsoft :: Windows",
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyshp",
+    "geopandas",
+    "fiona",
+    "pyarrow",
+    "fastparquet",
+    "matplotlib",
+    "colorama",
+    "XlsxWriter",
+    "psutil",
+    "laspy",
+    "tqdm",
+    "rasterio",
+    "seaborn",
+    "requests",
+    "openpyxl",
+    "loguru",
+    "tabulate",
+    "pypdf",
+    "cryptography>=3.1",
+    "ezdxf",
+    "rich",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "pandas-stubs",
+    "pyright",
+]
+
+[project.urls]
+Repository = "https://github.com/Chain-Frost/ryan-tools"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = [
+    "QGIS-Styles",
+    "QGIS-Styles.*",
+    "ryan_functions",
+    "ryan_functions.*",
+    "ryan_library",
+    "ryan_library.*",
+    "vendor",
+    "vendor.PyHMA",
+    "vendor.PyHMA.*",
+    "vendor.run_hy8",
+    "vendor.run_hy8.*",
+]
+exclude = [
+    "tests",
+    "tests.*",
+    "vendor.run_hy8.dist",
+    "vendor.run_hy8.dist.*",
+    "vendor.run_hy8.docs",
+    "vendor.run_hy8.docs.*",
+    "vendor.run_hy8.scripts",
+    "vendor.run_hy8.scripts.*",
+    "vendor.run_hy8.tests",
+    "vendor.run_hy8.tests.*",
+]
+namespaces = true
+
 [tool.black]
 line-length = 120
 target-version = ['py313']
