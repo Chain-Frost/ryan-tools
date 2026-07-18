@@ -7,3 +7,6 @@
 [submodule "vendor/run_hy8"]
 	path = vendor/run_hy8
 	url = https://github.com/Chain-Frost/run-hy8.git
+[submodule "tests/test_data"]
+	path = tests/test_data
+	url = https://github.com/Chain-Frost/ryan-tools-test-data.git
