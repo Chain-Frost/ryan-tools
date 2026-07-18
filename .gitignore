@@ -34,7 +34,11 @@ tests/test_data/tuflow/Thumbs.db
 test_output.txt
 
 
+# Coverage output is generated locally and must not be committed.
 .coverage
+coverage.xml
+coverage_report.txt
+htmlcov/
 
 ryan-scripts/misc-python/style_audit_report/styles_applied_summary.json
 ryan-scripts/misc-python/style_audit_report/styles_applied.csv

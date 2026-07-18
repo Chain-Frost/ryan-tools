@@ -11,20 +11,22 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
   ```
   ryan-tools/
-  ├── src/                # Main Python package (ryan_tools)
-  ├── excel-tools/        # Excel Workbooks - not code - ignore.
-  ├── QGIS-Styles/        # QGIS-Styles - not code - ignore.
-  ├── tests/              # Unit and integration tests. Ignore.
-  ├── vendor/             # Vendored third-party code (e.g., PyHMA)
-  ├── docs/               # Documentation and design notes. Missing - ignore
-  ├── ryan-scripts/       # Python entry points which call the ryan-tools library
-  ├── ryan-library/       # Python library with all of the functions
-  ├── ryan-library/functions # Python functions used by a variety of scripts
-  ├── ryan-library/scripts  # Python scripts called by wrappers, that then execute a series of functions. Most of the work should be in functions in the functions folder, this is just the controller.
-  ├── ryan-functions/     # backward compatability only. Ignore. If anything uses this location, then it is out of date and needs updating.
-  ├── requirements.txt    # Python dependencies
-  ├── AGENTS.md           # This guidance file
-  └── README.md           # Getting Started & Setup instructions
+  ├── ryan_library/           # Main Python package
+  │   ├── functions/          # Reusable workflow logic
+  │   └── scripts/            # Compatibility controllers and orchestrators
+  ├── ryan-scripts/           # Human-facing wrappers and standalone entry points
+  ├── ryan_functions/         # Deprecated import-compatibility package
+  ├── tests/                  # Unit and integration tests
+  │   └── test_data/          # Required test-data submodule
+  ├── vendor/                 # Vendored PyHMA code and the run_hy8 submodule
+  ├── unsorted/               # Separate holding-area submodule
+  ├── excel-tools/            # Excel workbooks managed by Git LFS; not code
+  ├── QGIS-Styles/            # QGIS resources; not code
+  ├── repo-scripts/           # Repository build and maintenance scripts
+  ├── requirements.txt        # Editable development-install entry point
+  ├── pyproject.toml          # Black and Pyright configuration
+  ├── AGENTS.md               # This guidance file
+  └── README.md               # Getting started and repository overview
   ```
 
 ---
@@ -32,7 +34,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 ### 2. Coding Conventions
 
 * **Language**: Python 3.13
-* **Import Style**: Absolute imports from `ryan_tools` or vendored packages only.
+* **Import Style**: Absolute imports from `ryan_library` or vendored packages only.
 * **Formatting**: Format with [Black](https://github.com/psf/black) using a 120 character line length. A
   `pyproject.toml` is provided with this configuration.
 * **Type Hints**: All public functions and methods should include type annotations. Always use Python 3.13+ style.
@@ -42,7 +44,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 
 ### 3. Dependency Management
 
-* **requirements.txt**: Primary list of `pip`-installable packages.
+* **requirements.txt**: Installs the project and its development extra in editable mode.
 * **Vendoring**: Third‑party modules like `PyHMA` are placed under `vendor/` and must have an `__init__.py`.
 * **pyproject.toml**: black and pyright settings
 

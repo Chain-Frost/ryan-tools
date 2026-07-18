@@ -1,6 +1,3 @@
-[submodule "PyHMA"]
-	path = vendor/PyHMA
-	url = https://github.com/icobro/PyHMA.git
 [submodule "unsorted"]
 	path = unsorted
 	url = https://github.com/Chain-Frost/ryan-tools-unsorted.git
