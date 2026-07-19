@@ -7,3 +7,9 @@
 [submodule "tests/test_data"]
 	path = tests/test_data
 	url = https://github.com/Chain-Frost/ryan-tools-test-data.git
+[submodule "qgis-resources"]
+	path = qgis-resources
+	url = https://github.com/Chain-Frost/qgis-resources.git
+[submodule "excel-resources"]
+	path = excel-resources
+	url = https://github.com/Chain-Frost/excel-resources.git
