@@ -9,7 +9,7 @@ Users can define custom QML overrides in the `user_qml_overrides` dictionary wit
 
 from pathlib import Path
 import gc
-import os
+import subprocess
 import sys
 from loguru import logger
 
@@ -48,20 +48,23 @@ def main() -> None:
             if not change_working_directory(target_dir=script_location):
                 return
 
+            repository_root = Path(__file__).resolve().parents[2] if "__file__" in globals() else Path.cwd()
+            styles_path = repository_root / "qgis-resources" / "styles" / "TUFLOW"
+
             # Initialize and apply styles
-            styler = TUFLOWResultsStyler(user_qml_overrides=user_qml_overrides)
+            styler = TUFLOWResultsStyler(user_qml_overrides=user_qml_overrides, styles_path=styles_path)
             styler.apply_styles()
 
             logger.error(f"Styles were sourced from: {styler.default_styles_path}")
             print()
             print_library_version()
             gc.collect()
-            os.system("PAUSE")
+            subprocess.run(["cmd.exe", "/C", "pause"], check=False)
 
     except Exception as e:
         logger.error(f"An error occurred: {e}")
         gc.collect()
-        os.system("PAUSE")
+        subprocess.run(["cmd.exe", "/C", "pause"], check=False)
         sys.exit(1)
 
 

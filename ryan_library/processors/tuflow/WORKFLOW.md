@@ -34,7 +34,7 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A[ryan-scripts wrappers] --> B[ryan_library/scripts orchestrators]
+    A[ryan-scripts wrappers] --> B[ryan_library/orchestrators]
     B --> C[ryan_library/functions helpers]
     C --> D[BaseProcessor + ProcessorCollection]
     D --> E[Excel/CSV exports]
@@ -49,7 +49,7 @@ flowchart LR
   (CLI switches, working directory, logging).
 - **Wrappers stay thin** so the orchestrators remain the stable API; even if a
   wrapper is stale, the orchestrator drives the real behaviour.
-- **Orchestrators** live under `ryan_library/scripts/` and wire together the
+- **Orchestrators** live under `ryan_library/orchestrators/` and wire together the
   high-level workflow (collect files, run processors, call export helpers).
 - **Functions** live under `ryan_library/functions/` and should contain the core
   logic that is reused across workflows.
@@ -61,7 +61,7 @@ flowchart LR
 
 1. `ryan-scripts/TUFLOW-python/POMM-mean-max-aep-dur.py` (or the median variant)
    sets the defaults and calls the matching orchestrator.
-2. `ryan_library/scripts/tuflow/pomm_max_items.py` runs the mean/median workflow.
+2. `ryan_library/orchestrators/tuflow/pomm_max_items.py` runs the mean/median workflow.
 3. `ryan_library/functions/tuflow/pomm_utils.py` aggregates inputs, derives
    AEP/duration stats, and writes the Excel workbook.
 4. `BaseProcessor` adds common metadata (`internalName`, `trim_runcode`, AEP/TP)

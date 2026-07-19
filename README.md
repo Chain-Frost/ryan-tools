@@ -31,15 +31,16 @@ ryan-tools/
 |-- ryan_library/              # Main reusable Python package
 |   |-- classes/               # Config, metadata, and TUFLOW filename parsing
 |   |-- functions/             # Reusable workflow functions
+|   |-- orchestrators/         # Active workflow controllers
 |   |-- processors/            # Structured TUFLOW result processors
-|   `-- scripts/               # Orchestrators used by wrapper scripts
+|   `-- scripts/               # Deprecated import-compatibility wrappers
 |-- ryan-scripts/              # Human-facing wrappers and older standalone scripts
 |-- repo-scripts/              # Build, venv, and snippet helper scripts
 |-- docs/                      # Architecture and maintenance documentation
 |-- vendor/                    # Vendored dependencies
 |-- tests/                     # Historical and targeted tests
-|-- excel-tools/               # Workbook/model assets, not Python package code
-|-- QGIS-Styles/               # QGIS style/layout assets
+|-- excel-resources/           # Excel workbook resources submodule
+|-- qgis-resources/            # QGIS resources and supporting workbook submodule
 |-- requirements.txt
 |-- pyproject.toml
 `-- setup.py
@@ -49,8 +50,8 @@ Repository maintenance plans and design notes are indexed in [`docs/README.md`](
 
 ## Setup
 
-This repository uses Git LFS for XLSX workbooks and a Git submodule at the only supported test-data location,
-`tests/test_data`. Install Git LFS before cloning, then clone with submodules:
+This repository uses Git LFS for XLSX workbooks and Git submodules for test data and resource repositories.
+Install Git LFS before cloning, then clone with submodules:
 
 ```powershell
 git lfs install
@@ -59,11 +60,13 @@ cd ryan-tools
 git lfs pull
 ```
 
-For an existing post-migration clone, populate the required data with:
+For an existing clone, populate all submodules and their LFS objects with:
 
 ```powershell
-git submodule update --init tests/test_data
+git submodule update --init --recursive
 git lfs pull
+git -C qgis-resources lfs pull
+git -C excel-resources lfs pull
 ```
 
 Tests do not support an alternate data path, cache, or automatic download. If `tests/test_data` is absent or
@@ -229,13 +232,13 @@ maximums = collection.combine_1d_maximums()
 
 ### Ready-made TUFLOW workflow orchestrators
 
-The modules under `ryan_library.scripts.tuflow` are the preferred entry points when you want the existing
+The modules under `ryan_library.orchestrators.tuflow` are the preferred entry points when you want the existing
 workflow behavior and export format.
 
 ```python
 from pathlib import Path
 
-from ryan_library.scripts.tuflow.tuflow_culverts_merge import main_processing as merge_culvert_maximums
+from ryan_library.orchestrators.tuflow.tuflow_culverts_merge import main_processing as merge_culvert_maximums
 
 merge_culvert_maximums(
     paths_to_process=[Path("results")],
@@ -248,16 +251,16 @@ merge_culvert_maximums(
 
 Useful orchestrator modules include:
 
-- `ryan_library.scripts.tuflow.tuflow_culverts_merge`
-- `ryan_library.scripts.tuflow.tuflow_culverts_timeseries`
-- `ryan_library.scripts.tuflow.tuflow_culverts_mean`
-- `ryan_library.scripts.tuflow.pomm_combine`
-- `ryan_library.scripts.tuflow.pomm_max_items`
-- `ryan_library.scripts.tuflow.po_combine`
-- `ryan_library.scripts.tuflow.peak_check_po_csvs`
-- `ryan_library.scripts.tuflow.tuflow_timeseries_stability`
-- `ryan_library.scripts.tuflow.tuflow_logsummary`
-- `ryan_library.scripts.tuflow.tuflow_results_styling`
+- `ryan_library.orchestrators.tuflow.tuflow_culverts_merge`
+- `ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries`
+- `ryan_library.orchestrators.tuflow.tuflow_culverts_mean`
+- `ryan_library.orchestrators.tuflow.pomm_combine`
+- `ryan_library.orchestrators.tuflow.pomm_max_items`
+- `ryan_library.orchestrators.tuflow.po_combine`
+- `ryan_library.orchestrators.tuflow.peak_check_po_csvs`
+- `ryan_library.orchestrators.tuflow.tuflow_timeseries_stability`
+- `ryan_library.orchestrators.tuflow.tuflow_logsummary`
+- `ryan_library.orchestrators.tuflow.tuflow_results_styling`
 
 The files in `ryan-scripts/TUFLOW-python/` are ready-made wrappers for many of these workflows. They are useful
 when you want a double-clickable or command-line script with editable constants near the top of the file,
@@ -266,11 +269,11 @@ rather than writing your own import snippet.
 Common TUFLOW wrappers include:
 
 - `ryan-scripts/TUFLOW-python/TUFLOW_Culvert_Maximums.py`: calls
-  `ryan_library.scripts.tuflow.tuflow_culverts_merge`.
+  `ryan_library.orchestrators.tuflow.tuflow_culverts_merge`.
 - `ryan-scripts/TUFLOW-python/TUFLOW_Culvert_Timeseries.py`: calls
-  `ryan_library.scripts.tuflow.tuflow_culverts_timeseries`.
-- `ryan-scripts/TUFLOW-python/POMM_combine.py`: calls `ryan_library.scripts.tuflow.pomm_combine`.
-- `ryan-scripts/TUFLOW-python/PO_combine.py`: calls `ryan_library.scripts.tuflow.po_combine`.
+  `ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries`.
+- `ryan-scripts/TUFLOW-python/POMM_combine.py`: calls `ryan_library.orchestrators.tuflow.pomm_combine`.
+- `ryan-scripts/TUFLOW-python/PO_combine.py`: calls `ryan_library.orchestrators.tuflow.po_combine`.
 - `ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Peaks_Check.py`: calls the PO peak-check workflow.
 - `ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Stability.py`: calls the timeseries stability workflow.
 - `ryan-scripts/TUFLOW-python/LogSummary.py`: calls the TUFLOW `.tlf` log summary workflow.
@@ -378,22 +381,21 @@ from ryan_library.functions.process_12D_culverts import get_combined_df_from_fil
 culverts = get_combined_df_from_files(Path("12d_exports"))
 ```
 
-### Excel workbook and model tools
+### Excel workbook and QGIS model resources
 
-The `excel-tools/` folder contains non-Python assets that are still part of the working toolbox. They are not
-importable package code, but they are useful starting points for manual workflows:
+The resource submodules contain non-Python assets used by manual and QGIS workflows:
 
-- `excel-tools/TUFLOW/TUFLOW culverts.xlsx`: culvert result and model-prep workbook.
-- `excel-tools/TUFLOW/TUFLOW Nested Frequency Storms v2.xlsx`: nested frequency storm workbook.
-- `excel-tools/TUFLOW/bc_dbase_trapezoid_03.xlsx`: boundary condition database helper.
-- `excel-tools/Culvert Sizing-12D.xlsx`: culvert sizing workbook for 12D-style workflows.
-- `excel-tools/Exceedance Probability Spreadsheet AEP_v4.xlsx`: AEP/exceedance probability calculations.
-- `excel-tools/format_IFD.xlsx`: IFD formatting helper.
-- `excel-tools/TUFLOW/*.model3`: QGIS processing model files for generating common TUFLOW inputs such as
-  `1d_nwk`, `2d_bc`, `2d_sx`, and `2d_zsh` layers from tabular inputs.
+- `excel-resources/workbooks/`: general Excel templates, including nested-frequency, boundary-condition,
+  culvert-sizing, AEP, and IFD helpers.
+- `qgis-resources/processing-models/tuflow/`: QGIS models for generating common TUFLOW inputs such as `1d_nwk`,
+  `2d_bc`, `2d_sx`, and `2d_zsh` layers.
+- `qgis-resources/processing-models/tuflow/supporting-workbooks/TUFLOW culverts.xlsx`: the workbook required to
+  prepare culvert data for relevant QGIS processing models.
+- `qgis-resources/styles/`: QML styles, QPT layouts, and supporting spatial assets.
+- `qgis-resources/scripts/`: QGIS Python console and PyQGIS utilities formerly under `ryan-scripts/pyQGIS`.
 
 Treat these as templates: copy or open them for a project workflow, but do not expect them to be installed with
-the Python package.
+the Python package. The parent repository pins each submodule to a reviewed resource commit.
 
 ### GDAL batch tools
 

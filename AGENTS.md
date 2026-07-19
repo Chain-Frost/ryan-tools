@@ -13,15 +13,16 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
   ryan-tools/
   ├── ryan_library/           # Main Python package
   │   ├── functions/          # Reusable workflow logic
-  │   └── scripts/            # Compatibility controllers and orchestrators
+  │   ├── orchestrators/      # Active workflow controllers
+  │   └── scripts/            # Deprecated import-compatibility wrappers
   ├── ryan-scripts/           # Human-facing wrappers and standalone entry points
   ├── ryan_functions/         # Deprecated import-compatibility package
   ├── tests/                  # Unit and integration tests
   │   └── test_data/          # Required test-data submodule
   ├── vendor/                 # Vendored PyHMA code and the run_hy8 submodule
   ├── unsorted/               # Separate holding-area submodule
-  ├── excel-tools/            # Excel workbooks managed by Git LFS; not code
-  ├── QGIS-Styles/            # QGIS resources; not code
+  ├── excel-resources/        # Excel workbook resources submodule
+  ├── qgis-resources/         # QGIS resources and supporting workbook submodule
   ├── repo-scripts/           # Repository build and maintenance scripts
   ├── requirements.txt        # Editable development-install entry point
   ├── pyproject.toml          # Black and Pyright configuration
@@ -72,7 +73,7 @@ This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and con
 1. **Analyze requests**: Read user prompts and test failures to identify required changes.
 2. **Follow conventions**: Generate code adhering to the project standards (sections 2–5).
 3. **Produce PR diffs**: Only modify relevant files; include clear commit messages.
-4. **Structure**: Keep heavy logic/parsing in `ryan_library/functions`; use `ryan_library/scripts` as orchestrators/controllers that wire functions together and handle I/O/logging; wrappers in `ryan-scripts` should call into these orchestrators.
+4. **Structure**: Keep heavy logic/parsing in `ryan_library/functions`; use `ryan_library/orchestrators` as controllers that wire functions together and handle I/O/logging; wrappers in `ryan-scripts` should call into these orchestrators. Do not add new code to the deprecated `ryan_library/scripts` compatibility namespace.
 
 #### Logging (loguru) guidance
 

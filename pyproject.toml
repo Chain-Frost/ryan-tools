@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.07.19.4"
+version = "26.07.19.6"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -60,8 +60,6 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = ["."]
 include = [
-    "QGIS-Styles",
-    "QGIS-Styles.*",
     "ryan_functions",
     "ryan_functions.*",
     "ryan_library",

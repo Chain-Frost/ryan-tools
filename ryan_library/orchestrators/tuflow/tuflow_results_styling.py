@@ -41,11 +41,20 @@ class TUFLOWResultsStyler:
     Handles the recursive scanning and application of QML styles to TUFLOW results.
     """
 
-    def __init__(self, user_qml_overrides: dict[str, str] | None = None) -> None:
-        """Initializes the TUFLOWResultsStyler with default styles path and user overrides."""
-        # __file__ resolves to ryan_library/scripts/tuflow/tuflow_results_styling.py
-        # We need the repository root to locate QML files under QGIS-Styles/TUFLOW
-        self.default_styles_path: Path = Path(__file__).absolute().parents[3] / "QGIS-Styles" / "TUFLOW"
+    def __init__(
+        self,
+        user_qml_overrides: dict[str, str] | None = None,
+        styles_path: Path | None = None,
+    ) -> None:
+        """Initialize the styler with the QGIS resource checkout or an explicit styles path.
+
+        Args:
+            user_qml_overrides: Optional mapping of result keys to custom QML files.
+            styles_path: Directory containing the default TUFLOW QML files. When omitted, use the
+                ``qgis-resources`` submodule in a source checkout.
+        """
+        repository_styles_path: Path = Path(__file__).absolute().parents[3] / "qgis-resources" / "styles" / "TUFLOW"
+        self.default_styles_path: Path = styles_path or repository_styles_path
         logger.debug("Default styles path: {}", self.default_styles_path)
         self.user_qml_overrides: dict[str, str] = user_qml_overrides or {}
         self.mappings: dict[str, MappingEntry] = self.get_file_mappings()
@@ -158,7 +167,7 @@ class TUFLOWResultsStyler:
             )
             styles: list[tuple[str, str]] = cursor.fetchall()
 
-            for style_name, style_qml in styles:
+            for style_name, _style_qml in styles:
                 logger.info(
                     f"Applying style '{style_name}' to layer '{layer_name}'",
                 )
