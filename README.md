@@ -391,11 +391,13 @@ The resource submodules contain non-Python assets used by manual and QGIS workfl
   `2d_bc`, `2d_sx`, and `2d_zsh` layers.
 - `qgis-resources/processing-models/tuflow/supporting-workbooks/TUFLOW culverts.xlsx`: the workbook required to
   prepare culvert data for relevant QGIS processing models.
-- `qgis-resources/styles/`: QML styles, QPT layouts, and supporting spatial assets.
+- `qgis-resources/styles/`: QML styles, QPT layouts, and supporting spatial assets. Wheel builds copy the TUFLOW
+  QML files into the Python package so the Results Styler continues to work without a submodule checkout.
 - `qgis-resources/scripts/`: QGIS Python console and PyQGIS utilities formerly under `ryan-scripts/pyQGIS`.
 
-Treat these as templates: copy or open them for a project workflow, but do not expect them to be installed with
-the Python package. The parent repository pins each submodule to a reviewed resource commit.
+Except for the TUFLOW QML files required by the Results Styler, treat these as templates: copy or open them for a
+project workflow, but do not expect them to be installed with the Python package. The parent repository pins each
+submodule to a reviewed resource commit.
 
 ### GDAL batch tools
 

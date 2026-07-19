@@ -20,7 +20,8 @@ automated build or test service. The resource repositories will use Git submodul
 ## Completed: package metadata and build workflow
 
 Package metadata and dependencies now have one authoritative source in `pyproject.toml`. The build utility reads
-and updates the project version there, and `setup.py` remains only as a minimal compatibility entry point.
+and updates the project version there, while `setup.py` provides the compatibility entry point and stages the
+TUFLOW QML files from the pinned `qgis-resources` checkout into wheel builds.
 
 The migration:
 
@@ -28,7 +29,7 @@ The migration:
 2. Preserved all 149 wheel paths and all dependency metadata from the previous build.
 3. Verified all 145 non-metadata payload files byte-for-byte after normalising Windows and WSL line endings.
 4. Added the documented `--skip-artifacts` version-bump mode to `repo-scripts/build_library.py`.
-5. Retained QGIS resources in the wheel pending the resource-repository extraction described below.
+5. Retained the TUFLOW QML files required by the Results Styler in the wheel.
 
 ## Completed: Windows installer consolidation
 
@@ -70,8 +71,8 @@ The `ryan-tools` transition:
 1. Removes the transplanted paths from the current tree.
 2. Adds `qgis-resources/` and `excel-resources/` at pinned submodule commits.
 3. Updates `.gitmodules`, setup documentation, workspace files, hard-coded paths, and QGIS model references.
-4. Removes `QGIS-Styles` from Python package discovery and lets installed-wheel users pass an explicit styles
-   path to `TUFLOWResultsStyler`.
+4. Removes the former `QGIS-Styles` tree from Python package discovery, then stages the required TUFLOW QML files
+   from `qgis-resources` into the wheel so `TUFLOWResultsStyler` works from both source and installed packages.
 5. Verifies a fresh recursive clone and the library build before publication.
 
 Do not rewrite `ryan-tools` history after the extraction. Removing the old paths in the transition commit keeps

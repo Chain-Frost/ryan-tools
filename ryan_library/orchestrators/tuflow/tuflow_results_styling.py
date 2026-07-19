@@ -46,15 +46,18 @@ class TUFLOWResultsStyler:
         user_qml_overrides: dict[str, str] | None = None,
         styles_path: Path | None = None,
     ) -> None:
-        """Initialize the styler with the QGIS resource checkout or an explicit styles path.
+        """Initialize the styler with QGIS resources or an explicit styles path.
 
         Args:
             user_qml_overrides: Optional mapping of result keys to custom QML files.
             styles_path: Directory containing the default TUFLOW QML files. When omitted, use the
-                ``qgis-resources`` submodule in a source checkout.
+                ``qgis-resources`` submodule in a source checkout or the styles bundled in an installed wheel.
         """
         repository_styles_path: Path = Path(__file__).absolute().parents[3] / "qgis-resources" / "styles" / "TUFLOW"
-        self.default_styles_path: Path = styles_path or repository_styles_path
+        packaged_styles_path: Path = Path(__file__).absolute().parents[2] / "resources" / "qgis" / "tuflow"
+        self.default_styles_path: Path = styles_path or (
+            repository_styles_path if repository_styles_path.is_dir() else packaged_styles_path
+        )
         logger.debug("Default styles path: {}", self.default_styles_path)
         self.user_qml_overrides: dict[str, str] = user_qml_overrides or {}
         self.mappings: dict[str, MappingEntry] = self.get_file_mappings()
@@ -94,7 +97,7 @@ class TUFLOWResultsStyler:
             "Results1D": {
                 "exts": vector_exts,
                 "layer_name": "1d_ccA_L",
-                "qml": self.default_styles_path / "1d_ccA.qml",
+                "qml": self.default_styles_path / "_1d_ccA_L.qml",
             },
         }
 
