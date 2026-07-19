@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.07.19.7"
+version = "26.07.19.8"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -56,6 +56,9 @@ Repository = "https://github.com/Chain-Frost/ryan-tools"
 
 [tool.setuptools]
 include-package-data = true
+
+[tool.setuptools.package-data]
+"ryan_library.classes" = ["*.json"]
 
 [tool.setuptools.packages.find]
 where = ["."]
