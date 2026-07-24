@@ -28,7 +28,7 @@ from pypdf.generic import ArrayObject, ContentStream, NameObject
 # --- User configuration -----------------------------------------------------
 
 DEFAULT_INPUT_PDFS: Path | str | Sequence[Path | str] = Path(
-    r"P:\26\RP26052 SOUTHAMPTON AUSTIN DAM RAISE - TALLIT\4 ENGINEERING\1 GENERAL\01 ANCOLD\Flood Capacity for Dams 2025 (Digital Edition).pdf"
+    r"C:\folder\file.pdf"
 )
 DEFAULT_OUTPUT: Path | str | None = None
 DEFAULT_OUTPUT_DIR: Path | str | None = None
