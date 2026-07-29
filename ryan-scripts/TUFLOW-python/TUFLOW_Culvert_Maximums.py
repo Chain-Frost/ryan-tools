@@ -21,7 +21,6 @@ PATHS_TO_PROCESS: tuple[Path, ...] = ()
 
 import argparse
 import gc
-import os
 
 from ryan_library.orchestrators.tuflow.tuflow_culverts_merge import main_processing
 from ryan_library.functions.wrapper_utils import (
@@ -29,6 +28,7 @@ from ryan_library.functions.wrapper_utils import (
     add_common_cli_arguments,
     change_working_directory,
     parse_common_cli_arguments,
+    pause_console,
     print_library_version,
 )
 
@@ -100,4 +100,4 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     gc.collect()
-    os.system("PAUSE")
+    pause_console()

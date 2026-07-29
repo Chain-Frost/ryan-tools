@@ -312,5 +312,65 @@
       "columns_to_use": {},
       "expected_in_header": []
     }
+  },
+  "d_HR_Max": {
+    "processor": "",
+    "suffixes": [
+      "_d_HR_Max.tif"
+    ],
+    "output_columns": {},
+    "processingParts": {
+      "dataformat": "Raster"
+    }
+  },
+  "d_Max": {
+    "processor": "",
+    "suffixes": [
+      "_d_Max.tif"
+    ],
+    "output_columns": {},
+    "processingParts": {
+      "dataformat": "Raster"
+    }
+  },
+  "h_HR_Max": {
+    "processor": "",
+    "suffixes": [
+      "_h_HR_Max.tif"
+    ],
+    "output_columns": {},
+    "processingParts": {
+      "dataformat": "Raster"
+    }
+  },
+  "h_Max": {
+    "processor": "",
+    "suffixes": [
+      "_h_Max.tif"
+    ],
+    "output_columns": {},
+    "processingParts": {
+      "dataformat": "Raster"
+    }
+  },
+  "V_Max": {
+    "processor": "",
+    "suffixes": [
+      "_V_Max.tif"
+    ],
+    "output_columns": {},
+    "processingParts": {
+      "dataformat": "Raster"
+    }
+  },
+  "Z0_Max": {
+    "processor": "",
+    "suffixes": [
+      "_Z0_Max.tif"
+    ],
+    "output_columns": {},
+    "processingParts": {
+      "dataformat": "Raster"
+    }
   }
 }

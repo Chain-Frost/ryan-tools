@@ -5,6 +5,8 @@ from collections.abc import Collection
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import subprocess
+import sys
 from typing import Protocol, Sequence
 from importlib.metadata import PackageNotFoundError, version
 
@@ -30,7 +32,7 @@ class PeakReportExporter(Protocol):
         self,
         *,
         script_directory: Path,
-        paths_to_process: Collection[Path] | None,
+        paths_to_process: Sequence[Path] | None,
         log_level: str,
         include_pomm: bool,
         locations_to_include: Collection[str] | None,
@@ -50,6 +52,19 @@ class PommPeakWrapperDefaults:
     working_directory: Path
 
 
+def pause_console(message: str = "Press Enter to continue . . .") -> None:
+    """Pause an interactive console without blocking redirected or automated runs."""
+    if not sys.stdin.isatty():
+        return
+    if os.name == "nt":
+        subprocess.run(["cmd.exe", "/C", "PAUSE"], check=False)
+        return
+    try:
+        input(message)
+    except EOFError:
+        pass
+
+
 def change_working_directory(target_dir: Path) -> bool:
     """Change the working directory and handle failures."""
     try:
@@ -57,8 +72,7 @@ def change_working_directory(target_dir: Path) -> bool:
         print(f"Current Working Directory: {Path.cwd()}")
     except OSError as exc:
         print(f"Failed to change working directory to {target_dir}: {exc}")
-        if os.name == "nt":
-            os.system("PAUSE")
+        pause_console()
         return False
     return True
 

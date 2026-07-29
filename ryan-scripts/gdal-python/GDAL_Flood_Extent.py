@@ -4,9 +4,10 @@ from pathlib import Path
 import os
 import sys
 from ryan_library.orchestrators.gdal.gdal_flood_extent import main_processing
+from ryan_library.functions.wrapper_utils import pause_console
 
 
-def main():
+def main() -> None:
     """
     Wrapper script to process GDAL flood extent.
     By default, it processes files in the directory where the script is located.
@@ -24,7 +25,7 @@ def main():
         print(f"Working directory set to: {script_directory}")
 
         # Define directories to process; modify as needed
-        directories_to_process = [script_directory]
+        directories_to_process: list[Path] = [script_directory]
         # Example: directories_to_process = [Path("dir1"), Path("dir2")]
 
         # Optional: Specify the QGIS install path here
@@ -39,10 +40,10 @@ def main():
         )
     except Exception as e:
         print(f"An error occurred in the wrapper: {e}")
-        os.system("PAUSE")
+        pause_console()
         sys.exit(1)
 
 
 if __name__ == "__main__":
     main()
-    os.system("PAUSE")
+    pause_console()

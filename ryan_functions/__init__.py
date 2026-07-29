@@ -1,31 +1,35 @@
 # ryan_functions/__init__.py
 
-import warnings
 import importlib
 import pkgutil
 import sys  # Import sys to manipulate sys.modules
+import warnings
+from types import ModuleType
+
 import ryan_library.functions
 
 # Issue a warning when the module is imported
 warnings.warn(
-    "The 'ryan_functions' package is deprecated and has been moved to 'ryan_library.functions'. "
+    message="The 'ryan_functions' package is deprecated and has been moved to 'ryan_library.functions'. "
     "Please update your import statements accordingly.",
-    UserWarning,
+    category=UserWarning,
     stacklevel=2,
 )
 
 # Dynamically import all modules from ryan_library.functions
-for loader, module_name, is_pkg in pkgutil.iter_modules(ryan_library.functions.__path__):
-    module = importlib.import_module(f"ryan_library.functions.{module_name}")
+for loader, module_name, is_pkg in pkgutil.iter_modules(path=ryan_library.functions.__path__):
+    module: ModuleType = importlib.import_module(name=f"ryan_library.functions.{module_name}")
     globals()[module_name] = module
 
     # Register each submodule in sys.modules
     sys.modules[f"ryan_functions.{module_name}"] = module
 
-__all__ = [name for _, name, _ in pkgutil.iter_modules(ryan_library.functions.__path__)]
+__all__: list[str] = [  # pyright: ignore[reportUnsupportedDunderAll]
+    name for _, name, _ in pkgutil.iter_modules(ryan_library.functions.__path__)
+]
 
 
-def __getattr__(name):
+def __getattr__(name: str) -> ModuleType:
     """
     Handle attribute access for submodules dynamically.
     """
@@ -34,16 +38,16 @@ def __getattr__(name):
     else:
         # Attempt to import the submodule from the new location
         try:
-            module = importlib.import_module(f"ryan_library.functions.{name}")
+            module: ModuleType = importlib.import_module(name=f"ryan_library.functions.{name}")
             globals()[name] = module
 
             # Register the submodule in sys.modules
             sys.modules[f"ryan_functions.{name}"] = module
 
             warnings.warn(
-                f"The '{name}' module is deprecated and has been moved to 'ryan_library.functions.{name}'. "
+                message=f"The '{name}' module is deprecated and has been moved to 'ryan_library.functions.{name}'. "
                 "Please update your import statements accordingly.",
-                UserWarning,
+                category=UserWarning,
                 stacklevel=2,
             )
             return module

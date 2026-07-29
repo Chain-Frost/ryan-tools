@@ -9,13 +9,13 @@ Users can define custom QML overrides in the `user_qml_overrides` dictionary wit
 
 from pathlib import Path
 import gc
-import subprocess
 import sys
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.wrapper_utils import (
     change_working_directory,
+    pause_console,
     print_library_version,
 )
 
@@ -59,12 +59,12 @@ def main() -> None:
             print()
             print_library_version()
             gc.collect()
-            subprocess.run(["cmd.exe", "/C", "pause"], check=False)
+            pause_console()
 
     except Exception as e:
         logger.error(f"An error occurred: {e}")
         gc.collect()
-        subprocess.run(["cmd.exe", "/C", "pause"], check=False)
+        pause_console()
         sys.exit(1)
 
 

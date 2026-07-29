@@ -15,6 +15,7 @@ from ryan_library.functions.wrapper_utils import (
     add_common_cli_arguments,
     change_working_directory,
     parse_common_cli_arguments,
+    pause_console,
     print_library_version,
 )
 
@@ -38,7 +39,8 @@ DIFF_ABS_TOL: float = 1e-6
 MAX_SIGN_CHANGES: int = 2
 MIN_POINTS: int = 5
 
-MAX_WORKERS: int | None = (max(int(os.cpu_count()) - 1, 1)) if os.cpu_count() is not None else None
+CPU_COUNT: int | None = os.cpu_count()
+MAX_WORKERS: int | None = max(CPU_COUNT - 1, 1) if CPU_COUNT is not None else None
 CHUNKSIZE: int = 1
 
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
@@ -139,4 +141,4 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     gc.collect()
-    os.system("PAUSE")
+    pause_console()

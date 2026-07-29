@@ -30,7 +30,6 @@ PATHS_TO_PROCESS: tuple[Path, ...] = ()
 
 import argparse
 import gc
-import os
 
 from ryan_library.orchestrators.tuflow.pomm_max_items import export_median_peak_report
 from ryan_library.functions.wrapper_utils import (
@@ -38,9 +37,9 @@ from ryan_library.functions.wrapper_utils import (
     PommPeakWrapperDefaults,
     add_common_cli_arguments,
     parse_common_cli_arguments,
+    pause_console,
     run_pomm_peak_report_wrapper,
 )
-
 
 DEFAULTS: PommPeakWrapperDefaults = PommPeakWrapperDefaults(
     console_log_level=CONSOLE_LOG_LEVEL,
@@ -116,5 +115,4 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     gc.collect()
-    if os.name == "nt":
-        os.system("PAUSE")
+    pause_console()

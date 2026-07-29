@@ -5,6 +5,7 @@ Update ``paths`` or ``thresholds`` below to customise processing.
 ``data_type`` defaults to ``"Flow"`` and ``allowed_locations`` can
 restrict which locations are loaded from the CSV files.
 """
+
 from pathlib import Path
 from typing import Literal
 
@@ -21,7 +22,6 @@ PATHS_TO_PROCESS: tuple[Path, ...] = ()
 
 import argparse
 import gc
-import os
 
 
 from ryan_library.orchestrators.tuflow.closure_durations import run_closure_durations
@@ -30,6 +30,7 @@ from ryan_library.functions.wrapper_utils import (
     add_common_cli_arguments,
     change_working_directory,
     parse_common_cli_arguments,
+    pause_console,
     print_library_version,
 )
 
@@ -90,4 +91,4 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     gc.collect()
-    os.system("PAUSE")
+    pause_console()

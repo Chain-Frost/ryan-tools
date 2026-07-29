@@ -6,7 +6,6 @@ from loguru import logger
 from multiprocessing import Pool
 from ryan_library.functions.loguru_helpers import (
     setup_logger,
-    log_exception,
     worker_initializer,
 )
 from ryan_library.functions.gdal.gdal_environment import (
@@ -15,13 +14,12 @@ from ryan_library.functions.gdal.gdal_environment import (
 )
 from ryan_library.functions.gdal.gdal_runners import run_gdal_calc, run_gdal_polygonize
 from ryan_library.functions.file_utils import find_files_parallel
-from ryan_library.functions.misc_functions import calculate_pool_size
 
 
 def main_processing(
     paths_to_process: list[Path],
     console_log_level: str = "INFO",
-    qgis_path: Path = None,
+    qgis_path: Path | None = None,
 ) -> None:
     """
     Generate merged flood extent data by processing various GDAL files.
@@ -37,7 +35,10 @@ def main_processing(
             logger.info(f"Current Working Directory: {os.getcwd()}")
 
             # Step 1: Setup environment and check components
-            setup_environment(qgis_path)  # Pass the QGIS path here
+            if qgis_path is None:
+                setup_environment()
+            else:
+                setup_environment(qgis_path)
             check_required_components()
 
             # Step 2: Find files to process
@@ -52,30 +53,22 @@ def main_processing(
 
             logger.debug(f"Matched files: {matched_files}")
             logger.info(f"Total files to process: {len(matched_files)}")
-            # import sys
-
-            # print(sys.path)
-            # os.system("PAUSE")
-
             # Remove any paths containing "AppData\\Roaming"
             # sys.path = [p for p in sys.path if "AppData\\Roaming" not in p]
-            # os.system("PAUSE")
             # Step 3: Process files in parallel
-            pool_size = calculate_pool_size(num_files=len(matched_files))
             with Pool(
-                processes=1,  # pool_size,
+                processes=1,
                 initializer=worker_initializer,
                 initargs=(log_queue,),
             ) as pool:
                 pool.map(process_file, matched_files)
 
             logger.info("GDAL flood extent processing completed successfully.")
-        except Exception as e:
+        except Exception:
             logger.exception("An error occurred during GDAL flood extent processing.")
-            os.system("PAUSE")
 
 
-def process_file(filepath: Path):
+def process_file(filepath: Path) -> None:
     """
     Process a single file: run gdal_calc and gdal_polygonize.
 

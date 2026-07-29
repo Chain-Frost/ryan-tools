@@ -3,14 +3,11 @@
 
 Update ``paths`` or ``thresholds`` below to customise processing.
 Thresholds default to a broad range of flows when ``None``."""
-import os
+
 from pathlib import Path
 
 from ryan_library.orchestrators.rorb.closure_durations import run_closure_durations
-from ryan_library.functions.wrapper_utils import (
-    change_working_directory,
-    print_library_version,
-)
+from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_library_version
 
 console_log_level = "INFO"
 
@@ -32,4 +29,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    os.system("PAUSE")
+    pause_console()
