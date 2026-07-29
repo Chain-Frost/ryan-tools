@@ -34,7 +34,7 @@ from ryan_library.functions.wrapper_utils import (
     pause_console,
     print_library_version,
 )
-from ryan_library.orchestrators.tuflow.asc2asc_max_by_search import build_max_searches, run_max_workflow
+from ryan_library.orchestrators.tuflow.asc2asc_max_by_search import MaxSearch, build_max_searches, run_max_workflow
 
 
 @dataclass(slots=True, frozen=True)
@@ -61,7 +61,7 @@ def main(
     if not change_working_directory(target_dir=search_root):
         return 1
 
-    searches = build_max_searches(
+    searches: tuple[MaxSearch, ...] = build_max_searches(
         input_glob_template=INPUT_GLOB_TEMPLATE,
         output_filename_template=OUTPUT_FILENAME_TEMPLATE,
         template_axes=TEMPLATE_AXES,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import warnings
 
-_DEPRECATION_DATE = "31/12/2026"
+_DEPRECATION_DATE = "31 December 2026"
 
 
 def warn_deprecated(module_name: str, replacement: str) -> None:
@@ -18,4 +18,3 @@ def warn_deprecated(module_name: str, replacement: str) -> None:
         DeprecationWarning,
         stacklevel=2,
     )
-
