@@ -29,6 +29,8 @@ def convert_rasters(
     directory: Path,
     *,
     extensions: Sequence[str] = DEFAULT_SOURCE_EXTENSIONS,
+    output_directory: Path | None = None,
+    output_suffix: str = "",
     recursive: bool = True,
     profile: RasterProfile = "tuflow",
     build_overviews: bool = True,
@@ -46,6 +48,9 @@ def convert_rasters(
     Args:
         directory: Root directory searched for source rasters.
         extensions: Case-insensitive input extensions, with or without dots.
+        output_directory: Optional output root. The source directory structure
+            is reproduced below it.
+        output_suffix: Text appended to each source stem before ``.tif``.
         recursive: Search child directories when true.
         profile: GeoTIFF and overview storage profile.
         build_overviews: Create ``.tif.ovr`` sidecars after conversion.
@@ -63,13 +68,15 @@ def convert_rasters(
         return []
 
     concurrency: GdalConcurrency = plan_gdal_concurrency(len(sources), workers)
+    output_root = output_directory.resolve() if output_directory is not None else directory.resolve()
     logger.info(
         f"Processing {len(sources)} raster(s) with {concurrency.workers} worker(s) and "
         f"{concurrency.threads_per_dataset} GDAL thread(s) per raster."
     )
 
     def process(source: Path) -> Path:
-        output: Path = source.with_suffix(".tif")
+        relative = source.relative_to(directory.resolve())
+        output = output_root / relative.parent / f"{source.stem}{output_suffix}.tif"
         # Timestamp checks avoid recompressing large terrain rasters on routine reruns.
         needs_conversion: bool = overwrite or not output.exists() or output.stat().st_mtime < source.stat().st_mtime
         if needs_conversion:

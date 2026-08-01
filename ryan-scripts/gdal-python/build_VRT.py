@@ -1,4 +1,4 @@
-"""Mutable wrapper for grouped GeoTIFF mosaic creation.
+r"""Mutable wrapper for grouped GeoTIFF mosaic creation.
 
 Input stems are split on underscores and plus signs. The selected one-based
 field is removed to form a group name. Each group is assembled through a
@@ -8,7 +8,7 @@ I don't know what this actually does. Too long ago.
 
 Example::
 
-    python build_VRT.py --working-directory "D:\\Model\\Results" --remove-field 2
+    python build_VRT.py --working-directory "D:\Model\Results" --remove-field 2
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ from __future__ import annotations
 import argparse
 import gc
 from pathlib import Path
-import sys
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).resolve().parent
@@ -28,11 +27,6 @@ OVERVIEW_LEVELS: tuple[int, ...] = (2, 4, 8, 16, 32)
 OVERVIEW_RESAMPLING: OverviewResampling = "nearest"
 WORKERS: int | None = None
 OVERWRITE = False
-
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-# Allow direct execution from a source checkout before the wheel is installed.
-if str(REPOSITORY_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from loguru import logger
 
@@ -88,7 +82,8 @@ def _parse_cli_arguments() -> argparse.Namespace:
     """Parse CLI overrides for the editable constants above."""
     parser = argparse.ArgumentParser(
         description="Group matching TIFFs, mosaic each group, and create external overviews.",
-        epilog='Example:\n  python build_VRT.py --working-directory "D:\\Model\\Results" --remove-field 2',
+        epilog=r'''Example:
+  python build_VRT.py --working-directory "D:\Model\Results" --remove-field 2''',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("directory", nargs="?", type=Path, help="Directory to process (positional shorthand).")

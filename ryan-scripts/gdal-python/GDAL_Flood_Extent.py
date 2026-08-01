@@ -1,13 +1,15 @@
-"""Mutable wrapper for TUFLOW flood-extent raster and polygon generation.
+r"""Mutable wrapper for TUFLOW flood-extent raster and polygon generation.
 
-Inputs must match ``*_d_HR_Max.tif``. Each cutoff produces a Byte GeoTIFF mask
-and a vector dataset beside the source. GeoPackage is the default vector
-format; set ``VECTOR_FORMAT`` or use ``--vector-format shp`` for Shapefile.
+The default input pattern is ``*_d_HR_Max.tif``, but patterns, recursion, and
+the source band are configurable. Each cutoff produces a Byte GeoTIFF mask and
+a vector dataset beside the source. Optional sieving removes connected regions
+smaller than a chosen pixel count. GeoPackage is the default vector format.
 
 Examples::
 
-    python GDAL_Flood_Extent.py --working-directory "D:\\Model\\Results"
-    python GDAL_Flood_Extent.py "D:\\Model\\Results" --cutoff 0.05 0.30 --vector-format shp
+    python GDAL_Flood_Extent.py --working-directory "D:\Model\Results"
+    python GDAL_Flood_Extent.py "D:\Model\Results" --cutoff 0.05 0.30 --vector-format shp
+    python GDAL_Flood_Extent.py "D:\Results" --patterns "*.ecw" --input-band 4 --sieve-pixels 8
 """
 
 from __future__ import annotations
@@ -15,22 +17,23 @@ from __future__ import annotations
 import argparse
 import gc
 from pathlib import Path
-import sys
+from typing import Literal
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).resolve().parent
 PATHS_TO_PROCESS: tuple[Path, ...] = ()
 CONSOLE_LOG_LEVEL = "INFO"
 CUTOFF_VALUES: tuple[float, ...] = (0.0,)
+FILE_PATTERNS: tuple[str, ...] = ("*_d_HR_Max.tif",)
+RECURSIVE = False
+INPUT_BAND = 1
+SIEVE_PIXELS: int | None = None
+CONNECTEDNESS: Literal[4, 8] = 8
+KEEP_INTERMEDIATE_MASKS = False
 PROFILE: RasterProfile = "tuflow"
 VECTOR_FORMAT: VectorFormat = "gpkg"
 WORKERS: int | None = None
 OVERWRITE = False
-
-REPOSITORY_ROOT: Path = Path(__file__).resolve().parents[2]
-# Allow direct execution from a source checkout before the wheel is installed.
-if str(REPOSITORY_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from ryan_library.functions.gdal.raster_processing import RasterProfile, VectorFormat
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_library_version
@@ -43,6 +46,12 @@ def main(
     paths_to_process: tuple[Path, ...] | None = None,
     console_log_level: str | None = None,
     cutoff_values: tuple[float, ...] | None = None,
+    file_patterns: tuple[str, ...] | None = None,
+    recursive: bool | None = None,
+    input_band: int | None = None,
+    sieve_pixels: int | None = None,
+    connectedness: Literal[4, 8] | None = None,
+    keep_intermediate_masks: bool | None = None,
     profile: RasterProfile | None = None,
     vector_format: VectorFormat | None = None,
     workers: int | None = None,
@@ -62,6 +71,14 @@ def main(
             paths_to_process=list(effective_paths),
             console_log_level=console_log_level or CONSOLE_LOG_LEVEL,
             cutoff_values=cutoff_values or CUTOFF_VALUES,
+            file_patterns=file_patterns or FILE_PATTERNS,
+            recursive=RECURSIVE if recursive is None else recursive,
+            input_band=input_band or INPUT_BAND,
+            sieve_pixels=SIEVE_PIXELS if sieve_pixels is None else sieve_pixels,
+            connectedness=connectedness or CONNECTEDNESS,
+            keep_intermediate_masks=(
+                KEEP_INTERMEDIATE_MASKS if keep_intermediate_masks is None else keep_intermediate_masks
+            ),
             profile=profile or PROFILE,
             vector_format=vector_format or VECTOR_FORMAT,
             workers=workers if workers is not None else WORKERS,
@@ -81,18 +98,28 @@ def main(
 def _parse_cli_arguments() -> argparse.Namespace:
     """Parse CLI overrides for the editable constants above."""
     parser = argparse.ArgumentParser(
-        description="Create flood-extent TIFFs and vector polygons from *_d_HR_Max.tif files.",
-        epilog=(
-            "Examples:\n"
-            '  python GDAL_Flood_Extent.py --working-directory "D:\\Model\\Results"\n'
-            '  python GDAL_Flood_Extent.py "D:\\Model\\Results" --cutoff 0.05 0.30 --vector-format shp'
-        ),
+        description="Create flood-extent TIFFs and vector polygons from matching rasters.",
+        epilog=r"""Examples:
+  python GDAL_Flood_Extent.py --working-directory "D:\Model\Results"
+  python GDAL_Flood_Extent.py "D:\Model\Results" --cutoff 0.05 0.30 --vector-format shp
+  python GDAL_Flood_Extent.py "D:\Results" --patterns "*.ecw" --input-band 4 --sieve-pixels 8""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("directories", nargs="*", type=Path, help="Directories containing depth rasters.")
     parser.add_argument("--working-directory", type=Path, help="Working directory instead of WORKING_DIR.")
     parser.add_argument("--console-log-level", help="Log verbosity such as INFO or DEBUG.")
     parser.add_argument("--cutoff", nargs="+", type=float, metavar="DEPTH")
+    parser.add_argument("--patterns", nargs="+", metavar="GLOB", help="Input globs; default: *_d_HR_Max.tif.")
+    parser.add_argument("--recursive", action="store_true", default=None, help="Search subdirectories.")
+    parser.add_argument("--input-band", type=int, help="One-based source raster band; default: 1.")
+    parser.add_argument("--sieve-pixels", type=int, help="Remove connected regions smaller than this many pixels.")
+    parser.add_argument("--connectedness", type=int, choices=(4, 8), help="Sieve neighbourhood; default: 8.")
+    parser.add_argument(
+        "--keep-intermediate-masks",
+        action="store_true",
+        default=None,
+        help="Retain the unsieved classification mask beside each source.",
+    )
     parser.add_argument("--profile", choices=("tuflow", "efficient"))
     parser.add_argument(
         "--vector-format",
@@ -112,6 +139,12 @@ if __name__ == "__main__":
         paths_to_process=tuple(args.directories) if args.directories else None,
         console_log_level=args.console_log_level,
         cutoff_values=tuple(args.cutoff) if args.cutoff else None,
+        file_patterns=tuple(args.patterns) if args.patterns else None,
+        recursive=args.recursive,
+        input_band=args.input_band,
+        sieve_pixels=args.sieve_pixels,
+        connectedness=args.connectedness,
+        keep_intermediate_masks=args.keep_intermediate_masks,
         profile=args.profile,
         vector_format=args.vector_format,
         workers=args.workers,

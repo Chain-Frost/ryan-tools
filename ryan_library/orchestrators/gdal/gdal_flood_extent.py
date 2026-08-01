@@ -1,12 +1,15 @@
-"""Discover TUFLOW maximum-depth rasters and generate flood extents.
+"""Discover rasters and generate flood extents from a selectable source band.
 
-The orchestrator processes ``*_d_HR_Max.tif`` inputs non-recursively, creates
-one Byte mask and vector dataset per requested cutoff, and skips outputs that
-are newer than their source data. Polygon output defaults to GeoPackage.
+The default discovery pattern targets TUFLOW maximum-depth rasters. Callers may
+instead provide any glob pattern, recurse through subdirectories, select a
+different raster band, and remove small connected regions with GDAL's sieve
+filter. Polygon output defaults to GeoPackage.
 """
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import ExitStack
 from pathlib import Path
+import tempfile
 from typing import Literal
 
 from loguru import logger
@@ -18,6 +21,7 @@ from ryan_library.functions.gdal.raster_processing import (
     calculate_flood_extent,
     plan_gdal_concurrency,
     polygonize_flood_extent,
+    sieve_raster,
 )
 from ryan_library.functions.loguru_helpers import setup_logger
 
@@ -28,12 +32,18 @@ def main_processing(
     qgis_path: Path | None = None,
     *,
     cutoff_values: tuple[float, ...] = (0.0,),
+    file_patterns: tuple[str, ...] = ("*_d_HR_Max.tif",),
+    recursive: bool = False,
+    input_band: int = 1,
+    sieve_pixels: int | None = None,
+    connectedness: Literal[4, 8] = 8,
+    keep_intermediate_masks: bool = False,
     profile: RasterProfile = "tuflow",
     vector_format: VectorFormat = "gpkg",
     workers: int | None = None,
     overwrite: bool = False,
 ) -> list[Path]:
-    """Generate flood extents for non-recursive ``*_d_HR_Max.tif`` inputs.
+    """Generate raster and polygon flood extents for matching inputs.
 
     Args:
         paths_to_process: Directories searched for input rasters.
@@ -41,6 +51,12 @@ def main_processing(
         qgis_path: Deprecated compatibility argument; Python GDAL no longer
             requires a QGIS installation path.
         cutoff_values: Depth thresholds in source-raster units.
+        file_patterns: Glob patterns used to discover source rasters.
+        recursive: Search below each input directory when true.
+        input_band: One-based source band used for classification.
+        sieve_pixels: Optional minimum connected-region size in pixels.
+        connectedness: Four- or eight-connected neighbourhood for sieving.
+        keep_intermediate_masks: Retain unsieved masks beside their sources.
         profile: Storage profile used for flood-mask GeoTIFFs.
         vector_format: Polygon output format; ``gpkg`` (default) or ``shp``.
         workers: Optional upper limit for concurrent source rasters.
@@ -57,12 +73,13 @@ def main_processing(
             {
                 path.resolve()
                 for root in paths_to_process
-                for path in root.resolve().glob("*_d_HR_Max.tif")
+                for pattern in file_patterns
+                for path in (root.resolve().rglob(pattern) if recursive else root.resolve().glob(pattern))
                 if path.is_file() and "_FE_" not in path.stem
             }
         )
         if not matched_files:
-            logger.warning("No *_d_HR_Max.tif files found to process.")
+            logger.warning(f"No files matching {file_patterns} found to process.")
             return []
 
         concurrency: GdalConcurrency = plan_gdal_concurrency(len(matched_files), workers)
@@ -75,6 +92,10 @@ def main_processing(
             return process_file(
                 filepath,
                 cutoff_values=cutoff_values,
+                input_band=input_band,
+                sieve_pixels=sieve_pixels,
+                connectedness=connectedness,
+                keep_intermediate_masks=keep_intermediate_masks,
                 profile=profile,
                 vector_format=vector_format,
                 threads=concurrency.threads_per_dataset,
@@ -95,6 +116,10 @@ def process_file(
     filepath: Path,
     *,
     cutoff_values: tuple[float, ...] = (0.0,),
+    input_band: int = 1,
+    sieve_pixels: int | None = None,
+    connectedness: Literal[4, 8] = 8,
+    keep_intermediate_masks: bool = False,
     profile: RasterProfile = "tuflow",
     vector_format: VectorFormat = "gpkg",
     threads: str = "ALL_CPUS",
@@ -102,9 +127,10 @@ def process_file(
 ) -> list[Path]:
     """Create flood-mask rasters and vector datasets beside one depth raster.
 
-    Output names follow ``<input-stem>_FE_<cutoff>m``. A pair is current only
-    when the mask is newer than the source and the vector dataset is newer than
-    the mask.
+    Output names follow ``<input-stem>_FE_<cutoff>m``. When sieving is enabled,
+    the classified mask is filtered before polygonization. A pair is current
+    only when the final mask is newer than the source and the vector dataset is
+    newer than the final mask.
     """
     outputs: list[Path] = []
     logger.info(f"Processing flood extents: {filepath}")
@@ -123,14 +149,33 @@ def process_file(
         if current and not overwrite:
             logger.info(f"Flood extent outputs are current: {output_vector}")
         else:
-            calculate_flood_extent(
-                input_file=filepath,
-                output_raster=output_raster,
-                cutoff=cutoff,
-                profile=profile,
-                threads=threads,
-                overwrite=output_raster.exists(),
-            )
+            with ExitStack() as stack:
+                calculation_output: Path = output_raster
+                if sieve_pixels is not None:
+                    if keep_intermediate_masks:
+                        calculation_output = output_raster.with_name(f"{output_raster.stem}_mask.tif")
+                    else:
+                        temp_dir = Path(stack.enter_context(tempfile.TemporaryDirectory(prefix="ryan_fe_")))
+                        calculation_output = temp_dir / output_raster.name
+                calculate_flood_extent(
+                    input_file=filepath,
+                    output_raster=calculation_output,
+                    cutoff=cutoff,
+                    input_band=input_band,
+                    profile=profile,
+                    threads=threads,
+                    overwrite=calculation_output.exists(),
+                )
+                if sieve_pixels is not None:
+                    sieve_raster(
+                        calculation_output,
+                        output_raster,
+                        threshold_pixels=sieve_pixels,
+                        connectedness=connectedness,
+                        profile=profile,
+                        threads=threads,
+                        overwrite=output_raster.exists(),
+                    )
             polygonize_flood_extent(
                 input_raster=output_raster,
                 output_vector=output_vector,

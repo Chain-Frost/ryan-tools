@@ -1,4 +1,4 @@
-"""Mutable wrapper for terrain-raster conversion and external overviews.
+r"""Mutable wrapper for terrain-raster conversion and external overviews.
 
 Edit the constants near the top for routine interactive use, or supply CLI
 options to override them for one run. The implementation lives in
@@ -6,8 +6,8 @@ options to override them for one run. The implementation lives in
 
 Examples::
 
-    python gdal_translate_TIF_ovr.py "D:\\Model\\Grid"
-    python gdal_translate_TIF_ovr.py --working-directory "D:\\Model\\Grid" --profile efficient
+    python gdal_translate_TIF_ovr.py "D:\Model\Grid"
+    python gdal_translate_TIF_ovr.py --working-directory "D:\Model\Grid" --profile efficient
 """
 
 from __future__ import annotations
@@ -15,24 +15,20 @@ from __future__ import annotations
 import argparse
 import gc
 from pathlib import Path
-import sys
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).resolve().parent
 CONSOLE_LOG_LEVEL = "INFO"
 PROFILE: RasterProfile = "tuflow"
 SOURCE_EXTENSIONS: tuple[str, ...] = ("flt", "asc", "rst", "xyz")
+OUTPUT_DIRECTORY: Path | None = None
+OUTPUT_SUFFIX = ""
 OVERVIEW_LEVELS: tuple[int, ...] = (2, 4, 8, 16, 32)
 OVERVIEW_RESAMPLING: OverviewResampling = "nearest"
 WORKERS: int | None = None
 RECURSIVE = True
 BUILD_OVERVIEWS = True
 OVERWRITE = False
-
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-# Allow direct execution from a source checkout before the wheel is installed.
-if str(REPOSITORY_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from loguru import logger
 
@@ -48,6 +44,8 @@ def main(
     console_log_level: str | None = None,
     profile: RasterProfile | None = None,
     extensions: tuple[str, ...] | None = None,
+    output_directory: Path | None = None,
+    output_suffix: str | None = None,
     overview_levels: tuple[int, ...] | None = None,
     overview_resampling: OverviewResampling | None = None,
     workers: int | None = None,
@@ -59,6 +57,8 @@ def main(
     print_library_version()
     # Resolve before chdir so relative CLI paths remain relative to the launch directory.
     target_directory = (working_directory or WORKING_DIR).resolve()
+    configured_output_directory = output_directory or OUTPUT_DIRECTORY
+    resolved_output_directory = configured_output_directory.resolve() if configured_output_directory else None
     if not change_working_directory(target_dir=target_directory):
         return 1
 
@@ -68,6 +68,8 @@ def main(
             outputs = convert_rasters(
                 target_directory,
                 extensions=extensions or SOURCE_EXTENSIONS,
+                output_directory=resolved_output_directory,
+                output_suffix=OUTPUT_SUFFIX if output_suffix is None else output_suffix,
                 recursive=RECURSIVE if recursive is None else recursive,
                 profile=profile or PROFILE,
                 build_overviews=BUILD_OVERVIEWS if build_overviews is None else build_overviews,
@@ -90,11 +92,9 @@ def _parse_cli_arguments() -> argparse.Namespace:
     """Parse CLI overrides for the editable constants above."""
     parser = argparse.ArgumentParser(
         description="Convert FLT, ASC, RST, and XYZ rasters to GeoTIFF and build external overviews.",
-        epilog=(
-            "Examples:\n"
-            '  python gdal_translate_TIF_ovr.py "D:\\Model\\Grid"\n'
-            '  python gdal_translate_TIF_ovr.py --working-directory "D:\\Model\\Grid" --profile efficient'
-        ),
+        epilog=r'''Examples:
+  python gdal_translate_TIF_ovr.py "D:\Model\Grid"
+  python gdal_translate_TIF_ovr.py --working-directory "D:\Model\Grid" --profile efficient''',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("directory", nargs="?", type=Path, help="Directory to process (positional shorthand).")
@@ -102,6 +102,8 @@ def _parse_cli_arguments() -> argparse.Namespace:
     parser.add_argument("--console-log-level", help="Log verbosity such as INFO or DEBUG.")
     parser.add_argument("--profile", choices=("tuflow", "efficient"))
     parser.add_argument("--extensions", nargs="+", metavar="EXT")
+    parser.add_argument("--output-directory", type=Path, help="Optional root directory for output TIFFs.")
+    parser.add_argument("--output-suffix", help="Text appended to output stems, for example _compress.")
     parser.add_argument("--levels", nargs="+", type=int, metavar="LEVEL")
     parser.add_argument("--resampling", choices=("nearest", "average", "bilinear", "cubic", "mode"))
     parser.add_argument("--workers", type=int, help="Maximum concurrent raster jobs.")
@@ -119,6 +121,8 @@ if __name__ == "__main__":
         console_log_level=args.console_log_level,
         profile=args.profile,
         extensions=tuple(args.extensions) if args.extensions else None,
+        output_directory=args.output_directory,
+        output_suffix=args.output_suffix,
         overview_levels=tuple(args.levels) if args.levels else None,
         overview_resampling=args.resampling,
         workers=args.workers,

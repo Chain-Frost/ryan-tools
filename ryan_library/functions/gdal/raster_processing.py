@@ -110,6 +110,7 @@ def translate_to_geotiff(
     *,
     profile: RasterProfile = "tuflow",
     threads: str = "ALL_CPUS",
+    nodata: float | None = None,
     overwrite: bool = False,
 ) -> Path:
     """Convert any GDAL-readable raster to a verified, lossless GeoTIFF.
@@ -123,6 +124,7 @@ def translate_to_geotiff(
         output: Destination ``.tif`` path.
         profile: GeoTIFF storage profile.
         threads: GDAL compression thread setting.
+        nodata: Optional NoData value assigned to every output band.
         overwrite: Permit replacement of an existing output.
 
     Returns:
@@ -140,6 +142,7 @@ def translate_to_geotiff(
         format="GTiff",
         creationOptions=geotiff_creation_options(profile, threads),
         stats=True,
+        noData=nodata,
     )
     logger.debug("Translating raster {} to {} with profile {}", source, output, profile)
     with gdal.ExceptionMgr():
@@ -213,7 +216,15 @@ def build_external_overviews(
     return overview
 
 
-def build_vrt(input_files: Sequence[Path], output: Path) -> Path:
+def build_vrt(
+    input_files: Sequence[Path],
+    output: Path,
+    *,
+    output_bounds: tuple[float, float, float, float] | None = None,
+    output_srs: str | None = None,
+    source_nodata: float | None = None,
+    vrt_nodata: float | None = None,
+) -> Path:
     """Build a virtual mosaic from one or more source rasters.
 
     The VRT references its input files; callers must keep those files available
@@ -222,6 +233,10 @@ def build_vrt(input_files: Sequence[Path], output: Path) -> Path:
     Args:
         input_files: Ordered source rasters included in the mosaic.
         output: Destination ``.vrt`` path.
+        output_bounds: Optional ``(xmin, ymin, xmax, ymax)`` crop bounds.
+        output_srs: Optional CRS assigned to the VRT, such as ``EPSG:7851``.
+        source_nodata: Optional source value treated as NoData.
+        vrt_nodata: Optional NoData value exposed by the VRT.
 
     Returns:
         The resolved VRT path.
@@ -231,8 +246,14 @@ def build_vrt(input_files: Sequence[Path], output: Path) -> Path:
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Building VRT {} from {} inputs", output, len(input_files))
+    options = gdal.BuildVRTOptions(
+        outputBounds=output_bounds,
+        outputSRS=output_srs,
+        srcNodata=source_nodata,
+        VRTNodata=vrt_nodata,
+    )
     with gdal.ExceptionMgr():
-        dataset = gdal.BuildVRT(str(output), [str(path.resolve()) for path in input_files])
+        dataset = gdal.BuildVRT(str(output), [str(path.resolve()) for path in input_files], options=options)
         if dataset is None:
             raise RuntimeError(f"GDAL could not build VRT {output}")
         dataset.FlushCache()
@@ -246,6 +267,7 @@ def calculate_flood_extent(
     output_raster: Path,
     cutoff: float,
     *,
+    input_band: int = 1,
     profile: RasterProfile = "tuflow",
     threads: str = "ALL_CPUS",
     overwrite: bool = False,
@@ -260,6 +282,7 @@ def calculate_flood_extent(
         input_file: Source depth raster.
         output_raster: Destination flood-mask GeoTIFF.
         cutoff: Minimum depth treated as flooded.
+        input_band: One-based source band used for the threshold calculation.
         profile: GeoTIFF storage profile.
         threads: GDAL compression thread setting.
         overwrite: Permit replacement of an existing mask.
@@ -271,10 +294,13 @@ def calculate_flood_extent(
     if output_raster.exists() and not overwrite:
         raise FileExistsError(f"Output already exists: {output_raster}")
     output_raster.parent.mkdir(parents=True, exist_ok=True)
+    if input_band < 1:
+        raise ValueError("input_band must be one or greater.")
     logger.debug("Calculating flood extent for {} at cutoff {}", input_file, cutoff)
     with gdal.ExceptionMgr():
         result = Calc(
             A=str(input_file.resolve()),
+            A_band=input_band,
             outfile=str(output_raster),
             calc=f"where(A >= {cutoff!r}, 1, 0)",
             type="Byte",
@@ -290,6 +316,168 @@ def calculate_flood_extent(
         _verify_raster(output_raster)
     logger.info(f"Created flood extent raster: {output_raster}")
     return output_raster
+
+
+def sieve_raster(
+    input_raster: Path,
+    output_raster: Path,
+    *,
+    threshold_pixels: int = 8,
+    connectedness: Literal[4, 8] = 8,
+    profile: RasterProfile = "tuflow",
+    threads: str = "ALL_CPUS",
+    overwrite: bool = False,
+) -> Path:
+    """Remove raster regions smaller than a pixel-count threshold.
+
+    This is the Python equivalent of ``gdal_sieve``. The first source band is
+    sieved using its validity mask, while georeferencing, data type, and NoData
+    metadata are retained.
+    """
+    if threshold_pixels < 1:
+        raise ValueError("threshold_pixels must be one or greater.")
+    if connectedness not in (4, 8):
+        raise ValueError("connectedness must be 4 or 8.")
+    input_raster = input_raster.resolve()
+    output_raster = output_raster.resolve()
+    if output_raster.exists() and not overwrite:
+        raise FileExistsError(f"Output already exists: {output_raster}")
+
+    with gdal.ExceptionMgr():
+        source = gdal.Open(str(input_raster), gdal.GA_ReadOnly)
+        if source is None:
+            raise RuntimeError(f"GDAL could not open {input_raster}")
+        source_band = source.GetRasterBand(1)
+        driver = gdal.GetDriverByName("GTiff")
+        output_raster.parent.mkdir(parents=True, exist_ok=True)
+        destination = driver.Create(
+            str(output_raster),
+            source.RasterXSize,
+            source.RasterYSize,
+            1,
+            source_band.DataType,
+            options=geotiff_creation_options(profile, threads),
+        )
+        if destination is None:
+            raise RuntimeError(f"GDAL could not create {output_raster}")
+        destination.SetGeoTransform(source.GetGeoTransform())
+        destination.SetProjection(source.GetProjection())
+        destination_band = destination.GetRasterBand(1)
+        nodata = source_band.GetNoDataValue()
+        if nodata is not None:
+            destination_band.SetNoDataValue(nodata)
+        result = gdal.SieveFilter(
+            source_band,
+            source_band.GetMaskBand(),
+            destination_band,
+            threshold_pixels,
+            connectedness,
+        )
+        destination.FlushCache()
+        destination = None
+        source = None
+        if result != gdal.CE_None:
+            raise RuntimeError(f"GDAL failed to sieve {input_raster} (error {result})")
+        _verify_raster(output_raster)
+    logger.info(f"Created sieved raster: {output_raster}")
+    return output_raster
+
+
+def set_raster_nodata(raster: Path, nodata: float, *, bands: Sequence[int] | None = None) -> Path:
+    """Assign NoData metadata to selected bands of an existing raster in place.
+
+    Pixel values are not changed. This is equivalent to ``gdal_edit
+    -a_nodata`` and therefore requires a driver that supports update access.
+    """
+    raster = raster.resolve()
+    with gdal.ExceptionMgr():
+        dataset = gdal.Open(str(raster), gdal.GA_Update)
+        if dataset is None:
+            raise RuntimeError(f"GDAL could not open {raster} for update")
+        selected_bands = tuple(bands) if bands is not None else tuple(range(1, dataset.RasterCount + 1))
+        for band_number in selected_bands:
+            if band_number < 1 or band_number > dataset.RasterCount:
+                raise ValueError(f"Band {band_number} does not exist in {raster}")
+            dataset.GetRasterBand(band_number).SetNoDataValue(nodata)
+        dataset.FlushCache()
+        dataset = None
+    logger.info(f"Set NoData={nodata:g} on {raster}")
+    return raster
+
+
+def create_raster_footprint(
+    input_raster: Path,
+    output_vector: Path,
+    *,
+    vector_format: VectorFormat = "gpkg",
+    layer_name: str = "raster_footprint",
+    overwrite: bool = False,
+) -> Path:
+    """Create a valid-data footprint excluding source NoData pixels."""
+    input_raster = input_raster.resolve()
+    output_vector = output_vector.resolve()
+    driver_name = {"gpkg": "GPKG", "shp": "ESRI Shapefile"}.get(vector_format)
+    if driver_name is None:
+        raise ValueError(f"Unsupported vector format: {vector_format}")
+    driver = ogr.GetDriverByName(driver_name)
+    if driver is None:
+        raise RuntimeError(f"The GDAL {driver_name} driver is unavailable.")
+    if output_vector.exists():
+        if not overwrite:
+            raise FileExistsError(f"Output already exists: {output_vector}")
+        driver.DeleteDataSource(str(output_vector))
+    output_vector.parent.mkdir(parents=True, exist_ok=True)
+    options = gdal.FootprintOptions(format=driver_name, layerName=layer_name, writeAbsolutePath=True)
+    with gdal.ExceptionMgr():
+        result = gdal.Footprint(str(output_vector), str(input_raster), options=options)
+        if result is None:
+            raise RuntimeError(f"GDAL could not create a footprint for {input_raster}")
+        result = None
+    logger.info(f"Created raster footprint: {output_vector}")
+    return output_vector
+
+
+def get_vector_extent(vector_path: Path) -> tuple[float, float, float, float]:
+    """Return the combined ``(xmin, ymin, xmax, ymax)`` extent of all vector layers."""
+    vector_path = vector_path.resolve()
+    with gdal.ExceptionMgr():
+        dataset = gdal.OpenEx(str(vector_path), gdal.OF_VECTOR)
+        if dataset is None or dataset.GetLayerCount() < 1:
+            raise RuntimeError(f"GDAL could not open vector layers from {vector_path}")
+        extents = [dataset.GetLayerByIndex(index).GetExtent() for index in range(dataset.GetLayerCount())]
+        dataset = None
+    return (
+        min(extent[0] for extent in extents),
+        min(extent[2] for extent in extents),
+        max(extent[1] for extent in extents),
+        max(extent[3] for extent in extents),
+    )
+
+
+def get_raster_extent(raster: Path) -> tuple[float, float, float, float]:
+    """Return an axis-aligned extent calculated from all four raster corners."""
+    raster = raster.resolve()
+    with gdal.ExceptionMgr():
+        dataset = gdal.Open(str(raster), gdal.GA_ReadOnly)
+        if dataset is None:
+            raise RuntimeError(f"GDAL could not open {raster}")
+        transform = dataset.GetGeoTransform()
+        corners = [
+            gdal.ApplyGeoTransform(transform, pixel, line)
+            for pixel, line in (
+                (0, 0),
+                (dataset.RasterXSize, 0),
+                (0, dataset.RasterYSize),
+                (dataset.RasterXSize, dataset.RasterYSize),
+            )
+        ]
+        dataset = None
+    return (
+        min(point[0] for point in corners),
+        min(point[1] for point in corners),
+        max(point[0] for point in corners),
+        max(point[1] for point in corners),
+    )
 
 
 def polygonize_flood_extent(

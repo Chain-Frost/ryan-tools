@@ -1,4 +1,4 @@
-"""Mutable wrapper for external GeoTIFF overview generation.
+r"""Mutable wrapper for external GeoTIFF overview generation.
 
 Edit the defaults below for interactive use. CLI options override them without
 changing the file. Overview levels are always written to ``.tif.ovr`` sidecars;
@@ -6,8 +6,8 @@ the source TIFFs are opened read-only.
 
 Examples::
 
-    python gdaladdo_tif_pyramids.py "D:\\Model\\Results"
-    python gdaladdo_tif_pyramids.py --working-directory "D:\\Model\\Results" --refresh
+    python gdaladdo_tif_pyramids.py "D:\Model\Results"
+    python gdaladdo_tif_pyramids.py --working-directory "D:\Model\Results" --refresh
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from __future__ import annotations
 import argparse
 import gc
 from pathlib import Path
-import sys
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).resolve().parent
@@ -26,11 +25,6 @@ OVERVIEW_RESAMPLING: OverviewResampling = "nearest"
 WORKERS: int | None = None
 RECURSIVE = True
 REFRESH = False
-
-REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-# Allow direct execution from a source checkout before the wheel is installed.
-if str(REPOSITORY_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPOSITORY_ROOT))
 
 from loguru import logger
 
@@ -84,11 +78,9 @@ def _parse_cli_arguments() -> argparse.Namespace:
     """Parse CLI overrides for the editable constants above."""
     parser = argparse.ArgumentParser(
         description="Create or refresh external .ovr files for GeoTIFF rasters.",
-        epilog=(
-            "Examples:\n"
-            '  python gdaladdo_tif_pyramids.py "D:\\Model\\Results"\n'
-            '  python gdaladdo_tif_pyramids.py --working-directory "D:\\Model\\Results" --refresh'
-        ),
+        epilog=r'''Examples:
+  python gdaladdo_tif_pyramids.py "D:\Model\Results"
+  python gdaladdo_tif_pyramids.py --working-directory "D:\Model\Results" --refresh''',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("directory", nargs="?", type=Path, help="Directory to process (positional shorthand).")
@@ -105,8 +97,8 @@ def _parse_cli_arguments() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    args = _parse_cli_arguments()
-    result = main(
+    args: argparse.Namespace = _parse_cli_arguments()
+    result: int = main(
         working_directory=args.working_directory or args.directory,
         console_log_level=args.console_log_level,
         profile=args.profile,
