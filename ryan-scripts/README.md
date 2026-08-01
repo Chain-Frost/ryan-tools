@@ -1,5 +1,10 @@
 # Ryan Scripts
 
+Maintained library-backed wrappers should follow
+[`WRAPPER_STANDARD.md`](WRAPPER_STANDARD.md). It defines file layout, embedded
+wrapper versions, editable defaults, CLI behaviour, exit codes, headless
+pausing and garbage-collection guidance.
+
 This folder contains human-facing entry points for reusable code in `ryan_library`, together with older standalone
 utilities retained for reference. Read the module docstring at the top of a Python script before running it: the
 docstring identifies whether the script uses command-line arguments, editable settings, the current working directory,
@@ -58,7 +63,7 @@ log messages, prompts, and failures remain visible.
 | `pdf-python`, `docx-python` | PDF and Word document utilities. |
 | `point-cloud-python`, `raster-python` | XYZ/LAS and raster conversion or cleanup. |
 | `RORB-python` | RORB rainfall, hydrograph, peak, and closure-period processing. |
-| `TUFLOW-python` | TUFLOW result processing, GIS preparation, copying, and model checks. |
+| `TUFLOW-python` | TUFLOW result processing, GIS preparation, copying, and model checks; see its README for maintained-wrapper and shared-CLI conventions. |
 | `powershell`, `GlobalMapper` | PowerShell helpers and Global Mapper scripts. |
 | `python-not-polished` | Experimental or project-specific scripts; treat these as examples, not stable tools. |
 

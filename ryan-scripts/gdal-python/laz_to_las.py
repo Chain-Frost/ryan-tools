@@ -1,26 +1,24 @@
 r"""Convert LAZ point clouds to LAS using bounded, chunked processing.
 
-This replaces ``LAZ-to-LAS.bat``. Files are streamed in chunks so a large point
-cloud is not loaded wholly into memory. Directory structure is preserved when
-recursive discovery is enabled.
+Files are streamed in chunks so a large point cloud is not loaded wholly into
+memory. Directory structure is preserved when recursive discovery is enabled.
 
 Examples::
 
     python laz_to_las.py "D:\PointClouds" --output-directory "D:\PointClouds\LAS"
     python laz_to_las.py "D:\PointClouds" --recursive --workers 2 --overwrite
+
+Common scenario::
+
+    # Convert one source folder into a separate LAS folder.
+    python laz_to_las.py "D:\Classified_LAZ" --output-directory "D:\Classified_LAS"
 """
 
 from __future__ import annotations
 
-import argparse
-import gc
 from pathlib import Path
 
-from loguru import logger
-
-from ryan_library.functions.lidar_processing import convert_laz_directory
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_library_version
+WRAPPER_VERSION = "2026-08-02.3"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 OUTPUT_DIRECTORY: Path | None = None
@@ -29,6 +27,18 @@ RECURSIVE = False
 WORKERS: int | None = 1
 CHUNK_SIZE = 1_000_000
 OVERWRITE = False
+
+import argparse
+
+from loguru import logger
+
+from ryan_library.functions.lidar_processing import convert_laz_directory
+from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.wrapper_utils import (
+    change_working_directory,
+    pause_console,
+    print_wrapper_banner,
+)
 
 
 def main(
@@ -42,7 +52,7 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and convert discovered LAZ files through the shared library."""
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     target_directory = (working_directory or WORKING_DIR).resolve()
     configured_output = output_directory or OUTPUT_DIRECTORY or target_directory / "LAS"
     resolved_output = configured_output.resolve()
@@ -67,7 +77,15 @@ def main(
 
 def _parse_cli_arguments() -> argparse.Namespace:
     """Parse optional command-line overrides for the editable constants."""
-    parser = argparse.ArgumentParser(description="Convert LAZ files to uncompressed LAS using chunked I/O.")
+    parser = argparse.ArgumentParser(
+        description="Convert LAZ files to uncompressed LAS using chunked I/O.",
+        epilog=r"""Processing scenario:
+  python laz_to_las.py "D:\Classified_LAZ" --output-directory "D:\Classified_LAS"
+
+This streams points through laspy/lazrs and preserves the source directory
+tree when --recursive is used.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("directory", nargs="?", type=Path, help="Directory containing LAZ files.")
     parser.add_argument("--output-directory", type=Path, help="Default: an LAS subdirectory under the input.")
     parser.add_argument("--console-log-level")
@@ -90,7 +108,11 @@ if __name__ == "__main__":
         chunk_size=args.chunk_size,
         overwrite=args.overwrite,
     )
-    gc.collect()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if not args.no_pause:
         pause_console()
     raise SystemExit(result)

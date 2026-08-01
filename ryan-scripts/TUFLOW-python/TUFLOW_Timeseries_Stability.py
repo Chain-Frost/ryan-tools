@@ -13,19 +13,9 @@ and expected signal scale before treating flagged periods as instability.
 
 from pathlib import Path
 from typing import Literal
-import argparse
-import gc
 import os
 
-from ryan_library.orchestrators.tuflow.tuflow_timeseries_stability import main_processing
-from ryan_library.functions.wrapper_utils import (
-    CommonWrapperOptions,
-    add_common_cli_arguments,
-    change_working_directory,
-    parse_common_cli_arguments,
-    pause_console,
-    print_library_version,
-)
+WRAPPER_VERSION = "2026-08-02.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -53,6 +43,19 @@ CHUNKSIZE: int = 1
 
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 
+import argparse
+
+from ryan_library.functions.wrapper_utils import (
+    CommonWrapperOptions,
+    add_common_cli_arguments,
+    add_export_mode_cli_argument,
+    change_working_directory,
+    parse_common_cli_arguments,
+    pause_console,
+    print_wrapper_banner,
+)
+from ryan_library.orchestrators.tuflow.tuflow_timeseries_stability import main_processing
+
 
 def main(
     *,
@@ -63,7 +66,7 @@ def main(
     export_mode: Literal["excel", "parquet", "both"] | None = None,
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
-) -> None:
+) -> int:
     """
     Run stability checks on PO CSVs using wrapper defaults and optional CLI overrides.
 
@@ -76,11 +79,11 @@ def main(
         paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides WORKING_DIR.
     """
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
     script_directory: Path = working_directory or WORKING_DIR
     if not change_working_directory(target_dir=script_directory):
-        return
+        return 1
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_data_types: tuple[str, ...] = include_data_types or DATATYPE_INCLUDE
@@ -111,8 +114,7 @@ def main(
         export_mode=effective_export_mode,
     )
 
-    print()
-    print_library_version()
+    return 0
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
@@ -123,11 +125,7 @@ def _parse_cli_arguments() -> argparse.Namespace:
         )
     )
     add_common_cli_arguments(parser=parser)
-    parser.add_argument(
-        "--export-mode",
-        choices=("excel", "parquet", "both"),
-        help="Select export format. Defaults to the script value.",
-    )
+    add_export_mode_cli_argument(parser=parser)
     parser.add_argument(
         "--result-types",
         nargs="+",
@@ -140,7 +138,7 @@ def _parse_cli_arguments() -> argparse.Namespace:
 if __name__ == "__main__":
     args: argparse.Namespace = _parse_cli_arguments()
     common_options: CommonWrapperOptions = parse_common_cli_arguments(args=args)
-    main(
+    result: int = main(
         console_log_level=common_options.console_log_level,
         include_data_types=common_options.data_types,
         result_types=tuple(args.result_types) if args.result_types else None,
@@ -148,5 +146,11 @@ if __name__ == "__main__":
         export_mode=args.export_mode,
         working_directory=common_options.working_directory,
     )
-    gc.collect()
-    pause_console()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
+    if not common_options.no_pause:
+        pause_console()
+    raise SystemExit(result)

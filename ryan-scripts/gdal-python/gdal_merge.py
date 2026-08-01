@@ -1,27 +1,28 @@
 r"""Merge a directory of rasters into a persistent VRT and GeoTIFF.
 
-This replaces the general ``gdal_merge_CLI.bat`` workflow. The GeoTIFF uses
-the TUFLOW-compatible profile by default; ``--profile efficient`` opts into a
-smaller, tiled ZSTD output. External overviews are optional.
+The GeoTIFF uses the TUFLOW-compatible profile by default; ``--profile
+efficient`` opts into a smaller, tiled ZSTD output. External overviews are
+optional.
 
 Examples::
 
     python gdal_merge.py "D:\Tiles" --pattern "*.tif"
     python gdal_merge.py "D:\Tiles" --output-tif "D:\Mosaics\dem.tif" --overviews
+
+Common scenarios::
+
+    # Merge using a folder, file pattern, and output basename.
+    python gdal_merge.py "D:\Tiles" "*.tif" Final_DEM
+
+    # Assign EPSG:7851 and NoData=-9999 while merging XYZ tiles.
+    python gdal_merge.py "D:\XYZ" "*.xyz" Higginsville_DTM_1m_EPSG7851 --output-srs EPSG:7851 --nodata -9999
 """
 
 from __future__ import annotations
 
-import argparse
-import gc
 from pathlib import Path
 
-from loguru import logger
-
-from ryan_library.functions.gdal.raster_processing import RasterProfile
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_library_version
-from ryan_library.orchestrators.gdal.raster_merge import merge_directory
+WRAPPER_VERSION = "2026-08-02.3"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 CONSOLE_LOG_LEVEL = "INFO"
@@ -34,6 +35,19 @@ NODATA_VALUE: float | None = None
 PROFILE: RasterProfile = "tuflow"
 BUILD_OVERVIEWS = False
 OVERWRITE = False
+
+import argparse
+
+from loguru import logger
+
+from ryan_library.functions.gdal.raster_processing import RasterProfile
+from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.wrapper_utils import (
+    change_working_directory,
+    pause_console,
+    print_wrapper_banner,
+)
+from ryan_library.orchestrators.gdal.raster_merge import merge_directory
 
 
 def main(
@@ -51,7 +65,7 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and merge matching rasters through the shared library."""
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     target_directory: Path = (working_directory or WORKING_DIR).resolve()
     configured_basename: str | None = output_basename or OUTPUT_BASENAME
     default_tif: Path | None = target_directory / f"{configured_basename}.tif" if configured_basename else None
@@ -84,7 +98,19 @@ def main(
 
 def _parse_cli_arguments() -> argparse.Namespace:
     """Parse optional command-line overrides for the editable constants."""
-    parser = argparse.ArgumentParser(description="Merge matching rasters to VRT and GeoTIFF.")
+    parser = argparse.ArgumentParser(
+        description="Merge matching rasters to VRT and GeoTIFF.",
+        epilog=r"""Processing scenarios:
+  Merge using input folder, pattern, and output basename:
+    python gdal_merge.py "D:\Tiles" "*.tif" Final_DEM
+
+  Create an XYZ mosaic with assigned CRS and NoData:
+    python gdal_merge.py "D:\XYZ" "*.xyz" Higginsville_DTM_1m_EPSG7851 --output-srs EPSG:7851 --nodata -9999
+
+The default profile is TUFLOW-compatible. Add --profile efficient for a tiled,
+smaller ZSTD GeoTIFF, and --overviews for an external .ovr sidecar.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("directory", nargs="?", type=Path)
     parser.add_argument("file_pattern", nargs="?", help="Positional input glob, matching the old BAT interface.")
     parser.add_argument("output_basename", nargs="?", help="Positional output stem, matching the old BAT interface.")
@@ -116,7 +142,11 @@ if __name__ == "__main__":
         build_overviews=args.overviews,
         overwrite=args.overwrite,
     )
-    gc.collect()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if not args.no_pause:
         pause_console()
     raise SystemExit(result)

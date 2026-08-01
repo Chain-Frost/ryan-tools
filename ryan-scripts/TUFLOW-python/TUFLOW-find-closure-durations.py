@@ -9,6 +9,8 @@ restrict which locations are loaded from the CSV files.
 from pathlib import Path
 from typing import Literal
 
+WRAPPER_VERSION = "2026-08-02.1"
+
 CONSOLE_LOG_LEVEL = "INFO"
 LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
@@ -21,17 +23,17 @@ PATHS_TO_PROCESS: tuple[Path, ...] = ()
 # Ultimately, we are just looking at exceedance duration of some form so should not be that hard.
 
 import argparse
-import gc
 
 
 from ryan_library.orchestrators.tuflow.closure_durations import run_closure_durations
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
+    add_export_mode_cli_argument,
     change_working_directory,
     parse_common_cli_arguments,
     pause_console,
-    print_library_version,
+    print_wrapper_banner,
 )
 
 
@@ -42,11 +44,11 @@ def main(
     export_mode: Literal["excel", "parquet", "both"] | None = None,
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
-) -> None:
-    print_library_version()
+) -> int:
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     script_directory: Path = working_directory or WORKING_DIR
     if not change_working_directory(target_dir=script_directory):
-        return
+        return 1
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_locations: tuple[str, ...] | None = (
@@ -62,8 +64,7 @@ def main(
         log_level=effective_console_log_level,
         export_mode=effective_export_mode,
     )
-    print()
-    print_library_version()
+    return 0
 
 
 def _parse_cli_arguments() -> tuple[CommonWrapperOptions, Literal["excel", "parquet", "both"] | None]:
@@ -71,11 +72,7 @@ def _parse_cli_arguments() -> tuple[CommonWrapperOptions, Literal["excel", "parq
         description="Compute closure durations from PO files. Command-line options override the script defaults."
     )
     add_common_cli_arguments(parser=parser)
-    parser.add_argument(
-        "--export-mode",
-        choices=("excel", "parquet", "both"),
-        help="Select export format. Defaults to the script value.",
-    )
+    add_export_mode_cli_argument(parser=parser)
     args: argparse.Namespace = parser.parse_args()
     common: CommonWrapperOptions = parse_common_cli_arguments(args=args)
     export_mode: Literal["excel", "parquet", "both"] | None = args.export_mode  # type: ignore[attr-defined]
@@ -84,11 +81,17 @@ def _parse_cli_arguments() -> tuple[CommonWrapperOptions, Literal["excel", "parq
 
 if __name__ == "__main__":
     common_options, cli_export_mode = _parse_cli_arguments()
-    main(
+    result: int = main(
         console_log_level=common_options.console_log_level,
         locations_to_include=common_options.locations_to_include,
         export_mode=cli_export_mode,
         working_directory=common_options.working_directory,
     )
-    gc.collect()
-    pause_console()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
+    if not common_options.no_pause:
+        pause_console()
+    raise SystemExit(result)

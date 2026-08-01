@@ -7,17 +7,28 @@ smaller than a chosen pixel count. GeoPackage is the default vector format.
 
 Examples::
 
-    python GDAL_Flood_Extent.py --working-directory "D:\Model\Results"
-    python GDAL_Flood_Extent.py "D:\Model\Results" --cutoff 0.05 0.30 --vector-format shp
-    python GDAL_Flood_Extent.py "D:\Results" --patterns "*.ecw" --input-band 4 --sieve-pixels 8
+    python gdal_flood_extent.py --working-directory "D:\Model\Results"
+    python gdal_flood_extent.py "D:\Model\Results" --cutoff 0.05 0.30 --vector-format shp
+    python gdal_flood_extent.py "D:\Results" --patterns "*.ecw" --input-band 4 --sieve-pixels 8
+
+Common scenarios::
+
+    # Recursively threshold band 1 and write GPKG.
+    python gdal_flood_extent.py "D:\Results" --patterns "*.tif" --recursive --cutoff 0.1
+
+    # Process band 4 of ECW inputs at cutoff 50 and write Shapefile output.
+    python gdal_flood_extent.py "D:\Imagery" --patterns "*.ecw" --recursive --input-band 4 --cutoff 50 --vector-format shp
+
+    # Remove regions below 8 pixels using 8-connectivity.
+    python gdal_flood_extent.py "D:\Results" --patterns "*.tif" --recursive --cutoff 0.1 --sieve-pixels 8 --connectedness 8 --keep-intermediate-masks
 """
 
 from __future__ import annotations
 
-import argparse
-import gc
 from pathlib import Path
 from typing import Literal
+
+WRAPPER_VERSION = "2026-08-02.4"
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).resolve().parent
@@ -35,8 +46,14 @@ VECTOR_FORMAT: VectorFormat = "gpkg"
 WORKERS: int | None = None
 OVERWRITE = False
 
+import argparse
+
 from ryan_library.functions.gdal.raster_processing import RasterProfile, VectorFormat
-from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_library_version
+from ryan_library.functions.wrapper_utils import (
+    change_working_directory,
+    pause_console,
+    print_wrapper_banner,
+)
 from ryan_library.orchestrators.gdal.gdal_flood_extent import main_processing
 
 
@@ -58,16 +75,16 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and run the shared flood-extent workflow."""
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     # Resolve every user path before chdir so relative paths retain their original meaning.
-    target_directory = (working_directory or WORKING_DIR).resolve()
-    configured_paths = paths_to_process or PATHS_TO_PROCESS or (target_directory,)
-    effective_paths = tuple(path.resolve() for path in configured_paths)
+    target_directory: Path = (working_directory or WORKING_DIR).resolve()
+    configured_paths: tuple[Path, ...] | tuple[Path] = paths_to_process or PATHS_TO_PROCESS or (target_directory,)
+    effective_paths: tuple[Path, ...] = tuple(path.resolve() for path in configured_paths)
     if not change_working_directory(target_dir=target_directory):
         return 1
 
     try:
-        outputs = main_processing(
+        outputs: list[Path] = main_processing(
             paths_to_process=list(effective_paths),
             console_log_level=console_log_level or CONSOLE_LOG_LEVEL,
             cutoff_values=cutoff_values or CUTOFF_VALUES,
@@ -90,8 +107,6 @@ def main(
         print(f"Flood-extent processing failed: {exc}")
         return 1
 
-    print()
-    print_library_version()
     return 0
 
 
@@ -99,10 +114,19 @@ def _parse_cli_arguments() -> argparse.Namespace:
     """Parse CLI overrides for the editable constants above."""
     parser = argparse.ArgumentParser(
         description="Create flood-extent TIFFs and vector polygons from matching rasters.",
-        epilog=r"""Examples:
-  python GDAL_Flood_Extent.py --working-directory "D:\Model\Results"
-  python GDAL_Flood_Extent.py "D:\Model\Results" --cutoff 0.05 0.30 --vector-format shp
-  python GDAL_Flood_Extent.py "D:\Results" --patterns "*.ecw" --input-band 4 --sieve-pixels 8""",
+        epilog=r"""Common examples:
+  python gdal_flood_extent.py --working-directory "D:\Model\Results"
+  python gdal_flood_extent.py "D:\Model\Results" --cutoff 0.05 0.30 --vector-format shp
+
+Processing scenarios:
+  Recursively process band-1 TIFFs at cutoff 0.1:
+    python gdal_flood_extent.py "D:\Results" --patterns "*.tif" --recursive --cutoff 0.1
+
+  Process band 4 of ECW files at cutoff 50 and create SHP:
+    python gdal_flood_extent.py "D:\Imagery" --patterns "*.ecw" --recursive --input-band 4 --cutoff 50 --vector-format shp
+
+  Remove connected regions smaller than 8 pixels and retain raw masks:
+    python gdal_flood_extent.py "D:\Results" --patterns "*.tif" --recursive --cutoff 0.1 --sieve-pixels 8 --connectedness 8 --keep-intermediate-masks""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("directories", nargs="*", type=Path, help="Directories containing depth rasters.")
@@ -133,8 +157,8 @@ def _parse_cli_arguments() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    args = _parse_cli_arguments()
-    result = main(
+    args: argparse.Namespace = _parse_cli_arguments()
+    result: int = main(
         working_directory=args.working_directory,
         paths_to_process=tuple(args.directories) if args.directories else None,
         console_log_level=args.console_log_level,
@@ -150,7 +174,11 @@ if __name__ == "__main__":
         workers=args.workers,
         overwrite=args.overwrite,
     )
-    gc.collect()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if not args.no_pause:
         pause_console()
     raise SystemExit(result)

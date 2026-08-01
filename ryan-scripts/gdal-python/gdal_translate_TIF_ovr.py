@@ -8,13 +8,24 @@ Examples::
 
     python gdal_translate_TIF_ovr.py "D:\Model\Grid"
     python gdal_translate_TIF_ovr.py --working-directory "D:\Model\Grid" --profile efficient
+
+Common scenarios::
+
+    # Recursively convert FLT/ASC/RST inputs beside their sources.
+    python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst
+
+    # Rewrite supported rasters as <source-stem>_compress.tif.
+    python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst tif tiff --output-suffix _compress
+
+    # Import XYZ files and create GeoTIFFs under another output root.
+    python gdal_translate_TIF_ovr.py "D:\XYZ" --extensions xyz --output-directory "D:\GeoTIFF"
 """
 
 from __future__ import annotations
 
-import argparse
-import gc
 from pathlib import Path
+
+WRAPPER_VERSION = "2026-08-02.4"
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).resolve().parent
@@ -30,11 +41,17 @@ RECURSIVE = True
 BUILD_OVERVIEWS = True
 OVERWRITE = False
 
+import argparse
+
 from loguru import logger
 
 from ryan_library.functions.gdal.raster_processing import OverviewResampling, RasterProfile
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_library_version
+from ryan_library.functions.wrapper_utils import (
+    change_working_directory,
+    pause_console,
+    print_wrapper_banner,
+)
 from ryan_library.orchestrators.gdal.raster_workflows import convert_rasters
 
 
@@ -54,7 +71,7 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and run the shared raster-conversion workflow."""
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     # Resolve before chdir so relative CLI paths remain relative to the launch directory.
     target_directory = (working_directory or WORKING_DIR).resolve()
     configured_output_directory = output_directory or OUTPUT_DIRECTORY
@@ -83,8 +100,6 @@ def main(
             logger.exception("Raster conversion failed.")
             return 1
 
-    print()
-    print_library_version()
     return 0
 
 
@@ -92,17 +107,38 @@ def _parse_cli_arguments() -> argparse.Namespace:
     """Parse CLI overrides for the editable constants above."""
     parser = argparse.ArgumentParser(
         description="Convert FLT, ASC, RST, and XYZ rasters to GeoTIFF and build external overviews.",
-        epilog=r'''Examples:
+        epilog=r"""Common examples:
   python gdal_translate_TIF_ovr.py "D:\Model\Grid"
-  python gdal_translate_TIF_ovr.py --working-directory "D:\Model\Grid" --profile efficient''',
+  python gdal_translate_TIF_ovr.py "D:\Model\Grid" --profile efficient
+
+Processing scenarios:
+  Convert FLT, ASC, and RST to TIFF beside each source:
+    python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst
+
+  Create *_compress.tif outputs, including from existing TIFFs:
+    python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst tif tiff --output-suffix _compress
+
+  Import XYZ and create TIFF files in another output tree:
+    python gdal_translate_TIF_ovr.py "D:\XYZ" --extensions xyz --output-directory "D:\GeoTIFF"
+
+XYZ is an input format for this tool; outputs are always GeoTIFF.""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("directory", nargs="?", type=Path, help="Directory to process (positional shorthand).")
     parser.add_argument("--working-directory", type=Path, help="Directory to process instead of WORKING_DIR.")
     parser.add_argument("--console-log-level", help="Log verbosity such as INFO or DEBUG.")
     parser.add_argument("--profile", choices=("tuflow", "efficient"))
-    parser.add_argument("--extensions", nargs="+", metavar="EXT")
-    parser.add_argument("--output-directory", type=Path, help="Optional root directory for output TIFFs.")
+    parser.add_argument(
+        "--extensions",
+        nargs="+",
+        metavar="EXT",
+        help="Input formats to discover, such as flt asc rst xyz or tif; outputs are always GeoTIFF.",
+    )
+    parser.add_argument(
+        "--output-directory",
+        type=Path,
+        help="Optional output root; recursive source subdirectories are preserved below it.",
+    )
     parser.add_argument("--output-suffix", help="Text appended to output stems, for example _compress.")
     parser.add_argument("--levels", nargs="+", type=int, metavar="LEVEL")
     parser.add_argument("--resampling", choices=("nearest", "average", "bilinear", "cubic", "mode"))
@@ -130,7 +166,11 @@ if __name__ == "__main__":
         build_overviews=args.build_overviews,
         overwrite=args.overwrite,
     )
-    gc.collect()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if not args.no_pause:
         pause_console()
     raise SystemExit(result)

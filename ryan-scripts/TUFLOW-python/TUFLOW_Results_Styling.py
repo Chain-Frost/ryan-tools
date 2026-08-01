@@ -8,19 +8,11 @@ Users can define custom QML overrides in the `user_qml_overrides` dictionary wit
 """
 
 from pathlib import Path
-import gc
-import sys
-from loguru import logger
 
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.wrapper_utils import (
-    change_working_directory,
-    pause_console,
-    print_library_version,
-)
+WRAPPER_VERSION = "2026-08-02.1"
 
-# Now import the TUFLOWResultsStyler class
-from ryan_library.orchestrators.tuflow.tuflow_results_styling import TUFLOWResultsStyler
+CONSOLE_LOG_LEVEL = "INFO"
+WORKING_DIR: Path = Path(__file__).resolve().parent
 
 # User Overrides: Define your custom QML paths here
 user_qml_overrides: dict[str, str] = {
@@ -29,8 +21,23 @@ user_qml_overrides: dict[str, str] = {
     # Add other overrides as needed
 }
 
+import argparse
 
-def main() -> None:
+from loguru import logger
+
+from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.wrapper_utils import (
+    CommonWrapperOptions,
+    add_execution_cli_arguments,
+    change_working_directory,
+    parse_common_cli_arguments,
+    pause_console,
+    print_wrapper_banner,
+)
+from ryan_library.orchestrators.tuflow.tuflow_results_styling import TUFLOWResultsStyler
+
+
+def main(*, console_log_level: str | None = None, working_directory: Path | None = None) -> int:
     """
     Main entry point for the TUFLOW Results Styling script.
 
@@ -38,35 +45,43 @@ def main() -> None:
     initializes the logger, and applies the configured styles using `TUFLOWResultsStyler`.
     It handles basic error logging and keeps the console window open upon completion/error.
     """
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
-        with setup_logger(console_log_level="INFO"):
-            # Set working directory to the location of the script
-            # In some execution contexts (like frozen executables), __file__ might not exist
-            # Fallback to CWD is a safe default for a wrapper script running in-place
-            script_location = Path(__file__).parent if "__file__" in globals() else Path.cwd()
-
+        with setup_logger(console_log_level=console_log_level or CONSOLE_LOG_LEVEL):
+            script_location: Path = working_directory or WORKING_DIR
             if not change_working_directory(target_dir=script_location):
-                return
+                return 1
 
-            repository_root = Path(__file__).resolve().parents[2] if "__file__" in globals() else Path.cwd()
-            styles_path = repository_root / "qgis-resources" / "styles" / "TUFLOW"
-
-            # Initialize and apply styles
-            styler = TUFLOWResultsStyler(user_qml_overrides=user_qml_overrides, styles_path=styles_path)
+            # The orchestrator locates packaged styles, with a source-checkout fallback.
+            styler = TUFLOWResultsStyler(user_qml_overrides=user_qml_overrides)
             styler.apply_styles()
 
             logger.error(f"Styles were sourced from: {styler.default_styles_path}")
-            print()
-            print_library_version()
-            gc.collect()
-            pause_console()
+            return 0
 
-    except Exception as e:
-        logger.error(f"An error occurred: {e}")
-        gc.collect()
-        pause_console()
-        sys.exit(1)
+    except Exception:
+        logger.exception("TUFLOW result styling failed.")
+        return 1
+
+
+def _parse_cli_arguments() -> CommonWrapperOptions:
+    """Parse common execution overrides for the styling wrapper."""
+    parser = argparse.ArgumentParser(description="Apply configured QGIS styles to TUFLOW result files.")
+    add_execution_cli_arguments(parser=parser)
+    return parse_common_cli_arguments(args=parser.parse_args())
 
 
 if __name__ == "__main__":
-    main()
+    common_options: CommonWrapperOptions = _parse_cli_arguments()
+    result: int = main(
+        console_log_level=common_options.console_log_level,
+        working_directory=common_options.working_directory,
+    )
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
+    if not common_options.no_pause:
+        pause_console()
+    raise SystemExit(result)

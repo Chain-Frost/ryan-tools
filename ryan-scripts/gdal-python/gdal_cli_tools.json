@@ -1,0 +1,461 @@
+{
+  "schema_version": "1.0",
+  "catalogue": "ryan-tools GDAL command-line wrappers",
+  "catalogue_updated": "2026-08-02",
+  "wrapper_versions": {
+    "gdal_translate_TIF_ovr.py": "2026-08-02.4",
+    "gdaladdo_tif_pyramids.py": "2026-08-02.4",
+    "gdal_flood_extent.py": "2026-08-02.4",
+    "gdal_merge.py": "2026-08-02.3",
+    "gdal_merge_by_extent.py": "2026-08-02.3",
+    "gdal_set_nodata.py": "2026-08-02.3",
+    "gdal_raster_footprint.py": "2026-08-02.3",
+    "laz_to_las.py": "2026-08-02.3",
+    "build_VRT.py": "2026-08-02.4"
+  },
+  "resolve_scripts_relative_to": "directory containing this manifest",
+  "command_prefix": [
+    "py",
+    "-3.14"
+  ],
+  "agent_guidance": {
+    "discovery": "Select a tool by its id or scenarios, then run its help command before execution.",
+    "non_interactive": "Always include --no-pause when an AI or automation invokes a wrapper.",
+    "default_raster_profile": "tuflow",
+    "efficient_raster_profile": "Use --profile efficient only when the user prefers storage efficiency over the conservative TUFLOW default.",
+    "default_vector_format": "gpkg",
+    "overviews": "Raster pyramids are external .ovr sidecars.",
+    "overwrite": "Do not add --overwrite unless replacement of existing outputs has been explicitly requested.",
+    "in_place_changes": "Obtain explicit approval before invoking a tool whose mutation is in_place.",
+    "placeholders": "Values enclosed in braces must be replaced with real paths or values. Do not pass the braces literally."
+  },
+  "tools": [
+    {
+      "id": "translate_rasters_to_geotiff",
+      "script": "gdal_translate_TIF_ovr.py",
+      "purpose": "Convert GDAL-readable terrain rasters to GeoTIFF and optionally create external overviews.",
+      "mutation": "creates_outputs",
+      "defaults": {
+        "input_extensions": [
+          "flt",
+          "asc",
+          "rst",
+          "xyz"
+        ],
+        "recursive": true,
+        "profile": "tuflow",
+        "external_overviews": true
+      },
+      "help_arguments": [
+        "gdal_translate_TIF_ovr.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "convert_flt_asc_rst_beside_sources",
+          "arguments": [
+            "gdal_translate_TIF_ovr.py",
+            "{input_directory}",
+            "--extensions",
+            "flt",
+            "asc",
+            "rst",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "rewrite_supported_rasters_with_compress_suffix",
+          "arguments": [
+            "gdal_translate_TIF_ovr.py",
+            "{input_directory}",
+            "--extensions",
+            "flt",
+            "asc",
+            "rst",
+            "tif",
+            "tiff",
+            "--output-suffix",
+            "_compress",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "import_xyz_and_create_geotiffs",
+          "arguments": [
+            "gdal_translate_TIF_ovr.py",
+            "{input_directory}",
+            "--extensions",
+            "xyz",
+            "--output-directory",
+            "{output_directory}",
+            "--no-pause"
+          ],
+          "note": "XYZ is the input format. The output is GeoTIFF, not XYZ. Source subdirectories are preserved below the output directory."
+        },
+        {
+          "name": "efficient_geotiff_output",
+          "arguments": [
+            "gdal_translate_TIF_ovr.py",
+            "{input_directory}",
+            "--profile",
+            "efficient",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "build_external_overviews",
+      "script": "gdaladdo_tif_pyramids.py",
+      "purpose": "Create or refresh external overview sidecars for existing GeoTIFFs.",
+      "mutation": "creates_or_replaces_sidecars",
+      "defaults": {
+        "recursive": true,
+        "levels": [
+          2,
+          4,
+          8,
+          16,
+          32
+        ],
+        "resampling": "nearest",
+        "profile": "tuflow"
+      },
+      "help_arguments": [
+        "gdaladdo_tif_pyramids.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "create_missing_external_overviews",
+          "arguments": [
+            "gdaladdo_tif_pyramids.py",
+            "{input_directory}",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "refresh_external_overviews",
+          "arguments": [
+            "gdaladdo_tif_pyramids.py",
+            "{input_directory}",
+            "--refresh",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "create_flood_extents",
+      "script": "gdal_flood_extent.py",
+      "purpose": "Threshold a selected raster band into a Byte flood mask and polygonize it to GPKG or SHP.",
+      "mutation": "creates_outputs",
+      "defaults": {
+        "patterns": [
+          "*_d_HR_Max.tif"
+        ],
+        "recursive": false,
+        "input_band": 1,
+        "cutoff": 0.0,
+        "vector_format": "gpkg",
+        "profile": "tuflow"
+      },
+      "help_arguments": [
+        "gdal_flood_extent.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "recursive_band_1_tiff_flood_extent",
+          "arguments": [
+            "gdal_flood_extent.py",
+            "{input_directory}",
+            "--patterns",
+            "*.tif",
+            "--recursive",
+            "--cutoff",
+            "0.1",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "band_4_ecw_to_shapefile",
+          "arguments": [
+            "gdal_flood_extent.py",
+            "{input_directory}",
+            "--patterns",
+            "*.ecw",
+            "--recursive",
+            "--input-band",
+            "4",
+            "--cutoff",
+            "50",
+            "--vector-format",
+            "shp",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "sieved_flood_extent",
+          "arguments": [
+            "gdal_flood_extent.py",
+            "{input_directory}",
+            "--patterns",
+            "*.tif",
+            "--recursive",
+            "--cutoff",
+            "0.1",
+            "--sieve-pixels",
+            "8",
+            "--connectedness",
+            "8",
+            "--keep-intermediate-masks",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "merge_rasters",
+      "script": "gdal_merge.py",
+      "purpose": "Merge matching rasters into a persistent VRT and GeoTIFF.",
+      "mutation": "creates_outputs",
+      "defaults": {
+        "pattern": "*.tif",
+        "profile": "tuflow",
+        "external_overviews": false
+      },
+      "help_arguments": [
+        "gdal_merge.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "merge_tiffs_with_output_basename",
+          "arguments": [
+            "gdal_merge.py",
+            "{input_directory}",
+            "*.tif",
+            "{output_basename}",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "merge_xyz_with_assigned_crs_and_nodata",
+          "arguments": [
+            "gdal_merge.py",
+            "{input_directory}",
+            "*.xyz",
+            "{output_basename}",
+            "--output-srs",
+            "{crs}",
+            "--nodata",
+            "-9999",
+            "--no-pause"
+          ],
+          "example_crs": "EPSG:7851"
+        }
+      ]
+    },
+    {
+      "id": "merge_rasters_by_vector_extent",
+      "script": "gdal_merge_by_extent.py",
+      "purpose": "Select raster tiles intersecting a GPKG or SHP bounding box and optionally merge them.",
+      "mutation": "creates_outputs_unless_list_only",
+      "defaults": {
+        "pattern": "*.xyz",
+        "nodata": -9999.0,
+        "profile": "tuflow"
+      },
+      "help_arguments": [
+        "gdal_merge_by_extent.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "preview_intersecting_tiles",
+          "arguments": [
+            "gdal_merge_by_extent.py",
+            "{input_directory}",
+            "{extent_vector}",
+            "--pattern",
+            "*.xyz",
+            "--list-only",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "merge_intersecting_xyz_tiles",
+          "arguments": [
+            "gdal_merge_by_extent.py",
+            "{input_directory}",
+            "{extent_vector}",
+            "--pattern",
+            "*.xyz",
+            "--nodata",
+            "-9999",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "set_raster_nodata",
+      "script": "gdal_set_nodata.py",
+      "purpose": "Set NoData metadata on selected bands without changing pixel values.",
+      "mutation": "in_place",
+      "requires_explicit_approval": true,
+      "defaults": {
+        "pattern": "*.tif",
+        "nodata": -9999.0,
+        "recursive": false,
+        "bands": "all"
+      },
+      "help_arguments": [
+        "gdal_set_nodata.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "set_nodata_on_tiffs_in_one_directory",
+          "arguments": [
+            "gdal_set_nodata.py",
+            "{input_directory}",
+            "--pattern",
+            "*.tif",
+            "--nodata",
+            "-9999",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "set_nodata_on_band_1_recursively",
+          "arguments": [
+            "gdal_set_nodata.py",
+            "{input_directory}",
+            "--pattern",
+            "*.tif",
+            "--nodata",
+            "-9999",
+            "--bands",
+            "1",
+            "--recursive",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "create_raster_footprints",
+      "script": "gdal_raster_footprint.py",
+      "purpose": "Create valid-data vector footprints for matching rasters.",
+      "mutation": "creates_outputs",
+      "defaults": {
+        "pattern": "*.tif",
+        "vector_format": "gpkg",
+        "recursive": true
+      },
+      "help_arguments": [
+        "gdal_raster_footprint.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "recursive_geopackage_footprints",
+          "arguments": [
+            "gdal_raster_footprint.py",
+            "{input_directory}",
+            "--pattern",
+            "*.tif",
+            "--vector-format",
+            "gpkg",
+            "--recursive",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "shapefile_footprints",
+          "arguments": [
+            "gdal_raster_footprint.py",
+            "{input_directory}",
+            "--vector-format",
+            "shp",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "convert_laz_to_las",
+      "script": "laz_to_las.py",
+      "purpose": "Stream compressed LAZ point clouds to uncompressed LAS files.",
+      "mutation": "creates_outputs",
+      "defaults": {
+        "output_directory": "LAS subdirectory below input",
+        "recursive": false,
+        "workers": 1,
+        "chunk_size": 1000000
+      },
+      "help_arguments": [
+        "laz_to_las.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "convert_one_laz_directory_to_separate_las_directory",
+          "arguments": [
+            "laz_to_las.py",
+            "{input_directory}",
+            "--output-directory",
+            "{output_directory}",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "recursive_laz_conversion",
+          "arguments": [
+            "laz_to_las.py",
+            "{input_directory}",
+            "--output-directory",
+            "{output_directory}",
+            "--recursive",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "build_grouped_tuflow_mosaics",
+      "script": "build_VRT.py",
+      "purpose": "Group TUFLOW result TIFFs by filename fields, create one GeoTIFF mosaic per group, and build external overviews.",
+      "mutation": "creates_outputs",
+      "defaults": {
+        "remove_field": 2,
+        "suffixes": [
+          "d_HR_Max",
+          "h_HR_Max",
+          "V_Max",
+          "DEM_Z_HR"
+        ],
+        "profile": "tuflow"
+      },
+      "help_arguments": [
+        "build_VRT.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "group_tuflow_results_using_default_suffixes",
+          "arguments": [
+            "build_VRT.py",
+            "{input_directory}",
+            "--remove-field",
+            "2",
+            "--no-pause"
+          ],
+          "note": "Review representative filenames and the field-removal rule before execution."
+        }
+      ]
+    }
+  ]
+}

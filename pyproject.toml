@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.08.01.1"
+version = "26.08.02.8"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -50,6 +50,12 @@ dev = [
     "pytest",
     "pytest-cov",
 ]
+mcp = [
+    "mcp[cli]",
+]
+
+[project.scripts]
+ryan-mcp = "ryan_mcp_server:main"
 
 [project.urls]
 Repository = "https://github.com/Chain-Frost/ryan-tools"

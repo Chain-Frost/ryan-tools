@@ -9,20 +9,92 @@ GeoTIFF output defaults to the conservative `tuflow` profile. Select the
 overviews are external `.ovr` files, and vector outputs default to GeoPackage
 with Shapefile available as an option.
 
-## Batch-file replacements
+## Wrapper identity
 
-| Historical BAT behavior | Python wrapper |
-| --- | --- |
-| `gdal_translate*` format, compression, output-folder, and rename variants | `gdal_translate_TIF_ovr.py` |
-| `gdaladdo*` overview variants | `gdaladdo_tif_pyramids.py` |
-| `gdal_FloodExtent*`, band-4, and sieve variants | `GDAL_Flood_Extent.py` |
-| `Build_*_VRT` grouped TUFLOW mosaics | `build_VRT.py` |
-| `gdal_merge.bat` and `gdal_merge_CLI.bat` | `gdal_merge.py` |
-| `gdal_merge_xyz_extent.bat` | `gdal_merge_by_extent.py` |
-| `gdal_edit_Set_nodata.bat` | `gdal_set_nodata.py` |
-| `gdal_raster_footprint.bat` | `gdal_raster_footprint.py` |
-| `LAZ-to-LAS.bat` | `laz_to_las.py` |
+Each wrapper contains a `WRAPPER_VERSION` in `YYYY-MM-DD.N` form and prints it
+with the resolved path of the running file. That identity remains with a
+wrapper copied into a job folder. The separately printed `ryan_functions`
+version identifies the installed shared library that performs the work. Both
+identities are printed at the start and end of processing, so the closing
+details remain visible after lengthy output and beside the interactive pause.
 
-Run any wrapper with `--help` for its supported options and examples. The BAT
-files remain useful as historical references during migration, but new work
-should use these unversioned Python wrappers.
+New and updated wrappers follow the repository-wide
+[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md).
+
+## AI and automation discovery
+
+[`gdal_cli_tools.json`](gdal_cli_tools.json) is the machine-readable catalogue
+for AI assistants and automation. It lists every wrapper's relative location,
+purpose, defaults, mutation risk, and argument arrays for common processing
+scenarios. It describes only the current Python tools, without migration
+history.
+
+An AI should resolve each `script` path relative to the JSON file, prepend the
+catalogue's `command_prefix`, replace values such as `{input_directory}`, and
+include `--no-pause`. The wrapper's `help_arguments` can be executed whenever
+the complete current CLI reference is needed.
+
+Run any wrapper with `--help` for its supported options and examples.
+
+## Usage recipes
+
+### Raster conversion and compression
+
+```powershell
+# Recursively convert FLT/ASC/RST beside each source.
+python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst
+
+# Produce *_compress.tif, including from existing TIFF inputs.
+python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst tif tiff --output-suffix _compress
+
+# Import XYZ files and create TIFFs under another output root.
+python gdal_translate_TIF_ovr.py "D:\XYZ" --extensions xyz --output-directory "D:\GeoTIFF"
+```
+
+When `--output-directory` is used, source subdirectories are preserved below
+the output root. This avoids filename collisions when identically named XYZ
+files exist in different source subdirectories.
+
+### Existing TIFF overviews
+
+```powershell
+# Create external overviews recursively.
+python gdaladdo_tif_pyramids.py "D:\Model\Results"
+
+# Rebuild existing .ovr sidecars.
+python gdaladdo_tif_pyramids.py "D:\Model\Results" --refresh
+```
+
+### Flood extents
+
+```powershell
+# Recursively threshold band-1 TIFFs at 0.1 and create GPKG output.
+python gdal_flood_extent.py "D:\Results" --patterns "*.tif" --recursive --cutoff 0.1
+
+# Threshold band 4 of ECW files at 50 and create Shapefiles.
+python gdal_flood_extent.py "D:\Imagery" --patterns "*.ecw" --recursive --input-band 4 --cutoff 50 --vector-format shp
+
+# Remove regions smaller than eight connected pixels and retain raw masks.
+python gdal_flood_extent.py "D:\Results" --patterns "*.tif" --recursive --cutoff 0.1 --sieve-pixels 8 --connectedness 8 --keep-intermediate-masks
+```
+
+### Mosaics
+
+```powershell
+# Merge using input folder, glob, and output basename.
+python gdal_merge.py "D:\Tiles" "*.tif" Final_DEM
+
+# Create an XYZ mosaic with assigned CRS and NoData metadata.
+python gdal_merge.py "D:\XYZ" "*.xyz" Higginsville_DTM_1m_EPSG7851 --output-srs EPSG:7851 --nodata -9999
+
+# Select XYZ tiles intersecting a vector extent.
+python gdal_merge_by_extent.py "D:\XYZ" "D:\Extent\site.gpkg" --pattern "*.xyz" --nodata -9999
+```
+
+### Metadata, footprints, and point clouds
+
+```powershell
+python gdal_set_nodata.py "D:\Terrain" --pattern "*.tif" --nodata -9999
+python gdal_raster_footprint.py "D:\Rasters" --pattern "*.tif" --vector-format gpkg --recursive
+python laz_to_las.py "D:\Classified_LAZ" --output-directory "D:\Classified_LAS"
+```

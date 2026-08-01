@@ -8,20 +8,18 @@ Examples::
 
     python gdal_raster_footprint.py "D:\Rasters"
     python gdal_raster_footprint.py "D:\Rasters" --pattern "*.vrt" --vector-format shp
+
+Common scenario::
+
+    # Recursively create valid-data footprints.
+    python gdal_raster_footprint.py "D:\Rasters" --pattern "*.tif" --vector-format gpkg --recursive
 """
 
 from __future__ import annotations
 
-import argparse
-import gc
 from pathlib import Path
 
-from loguru import logger
-
-from ryan_library.functions.gdal.raster_processing import VectorFormat
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_library_version
-from ryan_library.orchestrators.gdal.raster_maintenance import create_footprints_in_directory
+WRAPPER_VERSION = "2026-08-02.3"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 CONSOLE_LOG_LEVEL = "INFO"
@@ -31,6 +29,19 @@ LAYER_NAME = "raster_footprint"
 RECURSIVE = True
 WORKERS: int | None = None
 OVERWRITE = False
+
+import argparse
+
+from loguru import logger
+
+from ryan_library.functions.gdal.raster_processing import VectorFormat
+from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.wrapper_utils import (
+    change_working_directory,
+    pause_console,
+    print_wrapper_banner,
+)
+from ryan_library.orchestrators.gdal.raster_maintenance import create_footprints_in_directory
 
 
 def main(
@@ -45,7 +56,7 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and create footprints through the shared library."""
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     target_directory = (working_directory or WORKING_DIR).resolve()
     if not change_working_directory(target_dir=target_directory):
         return 1
@@ -69,7 +80,15 @@ def main(
 
 def _parse_cli_arguments() -> argparse.Namespace:
     """Parse optional command-line overrides for the editable constants."""
-    parser = argparse.ArgumentParser(description="Create GPKG or SHP valid-data footprints for matching rasters.")
+    parser = argparse.ArgumentParser(
+        description="Create GPKG or SHP valid-data footprints for matching rasters.",
+        epilog=r"""Processing scenario:
+  python gdal_raster_footprint.py "D:\Rasters" --pattern "*.tif" --vector-format gpkg --recursive
+
+Each output follows <raster-stem>_footprint.gpkg. Use --vector-format shp when
+the receiving workflow requires Shapefile.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("directory", nargs="?", type=Path)
     parser.add_argument("--console-log-level")
     parser.add_argument("--pattern", help="Input glob; default: *.tif.")
@@ -94,7 +113,11 @@ if __name__ == "__main__":
         workers=args.workers,
         overwrite=args.overwrite,
     )
-    gc.collect()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if not args.no_pause:
         pause_console()
     raise SystemExit(result)

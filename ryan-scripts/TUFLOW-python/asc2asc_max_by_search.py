@@ -6,6 +6,8 @@ The input glob determines what each job aggregates; it need not vary by duration
 
 from pathlib import Path
 
+WRAPPER_VERSION = "2026-08-02.1"
+
 ASC_TO_ASC_EXE = Path(r"C:\TUFLOW\asc_to_asc.2024-06-AB\asc_to_asc_w64.exe")
 WORKING_DIR: Path = Path(__file__).absolute().parent
 
@@ -24,7 +26,6 @@ LIVE_MAX_ROWS = 25
 
 import argparse
 from dataclasses import dataclass
-import gc
 
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
@@ -32,7 +33,7 @@ from ryan_library.functions.wrapper_utils import (
     change_working_directory,
     parse_common_cli_arguments,
     pause_console,
-    print_library_version,
+    print_wrapper_banner,
 )
 from ryan_library.orchestrators.tuflow.asc2asc_max_by_search import MaxSearch, build_max_searches, run_max_workflow
 
@@ -56,7 +57,7 @@ def main(
     live_max_rows: int | None = None,
 ) -> int:
     """Resolve wrapper settings and run the maximum-search orchestrator."""
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     search_root: Path = working_directory or WORKING_DIR
     if not change_working_directory(target_dir=search_root):
         return 1
@@ -78,8 +79,6 @@ def main(
         ),
         live_max_rows=LIVE_MAX_ROWS if live_max_rows is None else live_max_rows,
     )
-    print()
-    print_library_version()
     return exit_code
 
 
@@ -108,6 +107,11 @@ if __name__ == "__main__":
         live_refresh_per_second=cli_options.common.live_refresh_per_second,
         live_max_rows=cli_options.common.live_max_rows,
     )
-    gc.collect()
-    pause_console()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
+    if not cli_options.common.no_pause:
+        pause_console()
     raise SystemExit(result)

@@ -1,28 +1,27 @@
 r"""Select raster tiles intersecting a vector extent and merge them.
 
-This replaces ``gdal_merge_xyz_extent.bat`` without depending on tile names.
 GDAL reads each raster's actual georeferenced extent and compares it with the
-bounding box of the selected GPKG or SHP layer. Inputs and the vector must use
-the same CRS; this workflow does not reproject the extent before selection.
+bounding box of the selected GPKG or SHP layer, without depending on tile
+names. Inputs and the vector must use the same CRS; this workflow does not
+reproject the extent before selection.
 
 Examples::
 
     python gdal_merge_by_extent.py "D:\XYZ" "D:\Extent\site.gpkg"
     python gdal_merge_by_extent.py "D:\Tiles" site.shp --pattern "*.tif" --list-only
+
+Common scenario::
+
+    # Find intersecting XYZ tiles, crop the mosaic to a vector bounding box,
+    # assign NoData, and create a VRT plus GeoTIFF.
+    python gdal_merge_by_extent.py "D:\XYZ" "D:\Extent\site.gpkg" --pattern "*.xyz" --nodata -9999
 """
 
 from __future__ import annotations
 
-import argparse
-import gc
 from pathlib import Path
 
-from loguru import logger
-
-from ryan_library.functions.gdal.raster_processing import RasterProfile
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_library_version
-from ryan_library.orchestrators.gdal.raster_merge import merge_directory_by_vector_extent
+WRAPPER_VERSION = "2026-08-02.3"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 EXTENT_VECTOR: Path | None = None
@@ -36,6 +35,19 @@ PROFILE: RasterProfile = "tuflow"
 BUILD_OVERVIEWS = False
 LIST_ONLY = False
 OVERWRITE = False
+
+import argparse
+
+from loguru import logger
+
+from ryan_library.functions.gdal.raster_processing import RasterProfile
+from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.wrapper_utils import (
+    change_working_directory,
+    pause_console,
+    print_wrapper_banner,
+)
+from ryan_library.orchestrators.gdal.raster_merge import merge_directory_by_vector_extent
 
 
 def main(
@@ -54,7 +66,7 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings, select intersecting tiles, and optionally merge them."""
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     target_directory = (working_directory or WORKING_DIR).resolve()
     configured_extent = extent_vector or EXTENT_VECTOR
     if configured_extent is None:
@@ -89,7 +101,18 @@ def main(
 
 def _parse_cli_arguments() -> argparse.Namespace:
     """Parse optional command-line overrides for the editable constants."""
-    parser = argparse.ArgumentParser(description="Select and merge rasters intersecting a GPKG or SHP extent.")
+    parser = argparse.ArgumentParser(
+        description="Select and merge rasters intersecting a GPKG or SHP extent.",
+        epilog=r"""Processing scenario:
+  Select XYZ tiles intersecting a GeoPackage extent and create a cropped mosaic:
+    python gdal_merge_by_extent.py "D:\XYZ" "D:\Extent\site.gpkg" --pattern "*.xyz" --nodata -9999
+
+  Inspect the selection without creating a VRT or TIFF:
+    python gdal_merge_by_extent.py "D:\XYZ" "D:\Extent\site.gpkg" --list-only
+
+The input rasters and extent vector must already use the same CRS.""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("directory", nargs="?", type=Path, help="Directory containing raster or XYZ tiles.")
     parser.add_argument("extent", nargs="?", type=Path, help="GPKG or SHP whose bounding box selects tiles.")
     parser.add_argument("--console-log-level")
@@ -122,7 +145,11 @@ if __name__ == "__main__":
         list_only=args.list_only,
         overwrite=args.overwrite,
     )
-    gc.collect()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if not args.no_pause:
         pause_console()
     raise SystemExit(result)

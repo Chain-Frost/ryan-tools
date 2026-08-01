@@ -6,6 +6,10 @@ temporary VRT and retained as ``merged_<group>.tif`` with external overviews.
 
 I don't know what this actually does. Too long ago.
 
+For example, removing field 2 groups files whose names differ only in that
+field. Only rasters ending in one of ``ALLOWED_SUFFIXES`` participate. Edit the
+defaults below for routine use or use the CLI to override them for one run.
+
 Example::
 
     python build_VRT.py --working-directory "D:\Model\Results" --remove-field 2
@@ -13,9 +17,9 @@ Example::
 
 from __future__ import annotations
 
-import argparse
-import gc
 from pathlib import Path
+
+WRAPPER_VERSION = "2026-08-02.4"
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).resolve().parent
@@ -28,11 +32,17 @@ OVERVIEW_RESAMPLING: OverviewResampling = "nearest"
 WORKERS: int | None = None
 OVERWRITE = False
 
+import argparse
+
 from loguru import logger
 
 from ryan_library.functions.gdal.raster_processing import OverviewResampling, RasterProfile
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_library_version
+from ryan_library.functions.wrapper_utils import (
+    change_working_directory,
+    pause_console,
+    print_wrapper_banner,
+)
 from ryan_library.orchestrators.gdal.raster_mosaic import create_grouped_mosaics
 
 
@@ -49,7 +59,7 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and run the shared grouped-mosaic workflow."""
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     # Resolve before chdir so relative CLI paths remain relative to the launch directory.
     target_directory: Path = (working_directory or WORKING_DIR).resolve()
     if not change_working_directory(target_dir=target_directory):
@@ -73,8 +83,6 @@ def main(
             logger.exception("Grouped mosaic creation failed.")
             return 1
 
-    print()
-    print_library_version()
     return 0
 
 
@@ -82,8 +90,8 @@ def _parse_cli_arguments() -> argparse.Namespace:
     """Parse CLI overrides for the editable constants above."""
     parser = argparse.ArgumentParser(
         description="Group matching TIFFs, mosaic each group, and create external overviews.",
-        epilog=r'''Example:
-  python build_VRT.py --working-directory "D:\Model\Results" --remove-field 2''',
+        epilog=r"""Example:
+  python build_VRT.py --working-directory "D:\Model\Results" --remove-field 2""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("directory", nargs="?", type=Path, help="Directory to process (positional shorthand).")
@@ -113,7 +121,11 @@ if __name__ == "__main__":
         workers=args.workers,
         overwrite=args.overwrite,
     )
-    gc.collect()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if not args.no_pause:
         pause_console()
     raise SystemExit(result)
