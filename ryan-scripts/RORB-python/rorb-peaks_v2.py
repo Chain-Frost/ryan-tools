@@ -1,3 +1,15 @@
+"""Extract median peak-flow records from RORB ``.out`` files.
+
+Place this script at the root of the output tree to scan, then run
+``python rorb-peaks_v2.py``. It recursively reads ``*.out`` files beneath the
+script folder, extracts run parameters and median peak rows, and writes
+``processed_output.csv`` beside the script.
+
+The workflow executes immediately when imported and raises an error if no files
+are found. It uses fixed text markers and filename assumptions, so compare a
+representative extracted record with the source RORB output before bulk use.
+"""
+
 import pandas as pd
 import re
 import os

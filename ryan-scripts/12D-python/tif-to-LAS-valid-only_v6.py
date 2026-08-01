@@ -1,4 +1,14 @@
-# tif-to-LAS-valid-only_v6.py
+"""Convert valid GeoTIFF cells to LAS point clouds for 12d.
+
+Before running, replace the project-specific ``script_dir`` in :func:`main`
+and review ``nodata_values``, ``tile_size``, and ``use_tiling``. The script
+scans that directory for ``*.tif`` and writes LAS 1.2 point-format 3 files to
+``output_las_files`` using 0.01-unit XYZ scales.
+
+Run ``python tif-to-LAS-valid-only_v6.py`` from a terminal. The configured
+default uses tiling and may create many LAS files; validate coordinate units,
+offsets, and a representative output before bulk processing.
+"""
 
 from loguru import logger
 from pathlib import Path

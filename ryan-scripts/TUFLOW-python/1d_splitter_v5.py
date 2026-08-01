@@ -1,4 +1,14 @@
-# ryan-scripts\TUFLOW-python\1d_splitter_v5.py
+"""Split combined TUFLOW 1d_nwk and 2d_bc shapefiles by culvert ID.
+
+Edit ``working_dir``, ``nwk_path``, ``bc_path``, and ``output_dir`` in
+:func:`main`, then run ``python 1d_splitter_v5.py``. The source layers must have
+the ``ID`` and ``Name`` fields expected by the filter functions.
+
+The script writes per-ID shapefiles plus ``1d_nwk_data.trd`` and
+``2d_bc_data.trd`` include files under the output folder. Review the printed
+group counts and inspect unmatched network/boundary-condition groups in GIS.
+"""
+
 from typing import Any, Union
 import os
 import geopandas as gpd

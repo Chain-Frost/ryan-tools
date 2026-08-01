@@ -1,4 +1,15 @@
-# generate_culvert_lines.py
+"""Create 12d culvert centre lines from a project-specific culvert CSV.
+
+Before running, edit ``cwd`` and ``csv_path`` in :func:`main` to point to a CSV
+accepted by ``get_combined_df_from_csv``. The input must include upstream and
+downstream coordinates plus the culvert attributes selected in
+``generate_lines``.
+
+Run ``python generate_culvert_lines.py``. The script writes the
+``culvert_lines`` layer to ``culvert_geometries.gpkg`` in the configured folder.
+Rows without complete upstream/downstream coordinates are skipped.
+"""
+
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import LineString

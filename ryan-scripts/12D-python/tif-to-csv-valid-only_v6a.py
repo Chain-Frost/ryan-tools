@@ -1,4 +1,15 @@
-# tif-to-csv-valid-only_v6a.py
+"""Convert valid GeoTIFF cells to XYZ CSV, rounded to 0.001 units.
+
+Place input ``*.tif`` files beside this script and review ``nodata_values``,
+``tile_size``, and ``use_tiling`` in :func:`main`. Run
+``python tif-to-csv-valid-only_v6a.py``. CSVs are written under
+``output_csv_files`` beside the script; ``csv_processing.log`` is written in
+the directory from which the command is launched.
+
+All ``X``, ``Y``, and ``Z`` values are rounded to three decimal places. Enable
+tiling when a single output would be too large for the intended 12d workflow.
+"""
+
 # Note that this will round outputs to nearest 0.001
 from loguru import logger
 from pathlib import Path

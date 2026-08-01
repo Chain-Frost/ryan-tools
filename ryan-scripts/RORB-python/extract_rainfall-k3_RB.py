@@ -1,5 +1,14 @@
-# I think this was superseded by ryan-scripts\RORB-python\extract_rainfall-to-TUFLOW.py
-# but not sure and I have not checked.
+"""Extract a fixed row range of RORB rainfall data (legacy script).
+
+This script appears to be superseded by ``extract_rainfall-to-TUFLOW.py`` and
+has not been confirmed against current RORB output. If reproducing an old job,
+edit ``directory_path``, ``start_row``, ``end_row``, and ``time_increment`` at
+the bottom before running it.
+
+The workflow executes immediately when imported and writes ``*_Rainfall.csv``
+files under ``extracted_rainfall``. Test it on copied output and verify column
+alignment and the added final zero-rainfall row.
+"""
 
 import os
 import pandas as pd

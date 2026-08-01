@@ -1,5 +1,16 @@
 #!/usr/bin/env python
-"""Trim *_V_Max rasters so that only cells with depth >= threshold retain velocity values."""
+"""Mask TUFLOW ``*_V_Max.tif`` rasters where maximum depth is below a threshold.
+
+Edit ``TARGET_DIRECTORIES``, ``DEPTH_THRESHOLD``, and logging settings, then run
+``python velocity_masker.py``. Each target directory is scanned for top-level
+velocity rasters; the corresponding depth raster is aligned to the velocity grid
+before the mask is applied.
+
+Before the first edit, the source velocity is moved to a sibling
+``*_V_Max_original.tif`` backup. Later runs reuse that backup so thresholds do
+not compound. Check AEP/path matching and inspect a representative masked raster.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,27 +40,19 @@ TARGET_DIRECTORIES: Sequence[Path] = (
     # Path(
     # r"Q:\BGER\PER\RP20180.387 WYLOO NANUTARRA ACCESS ROAD - FMG\TUFLOW_Metawandy\results\v13\PilaruUpper\EXG\Max"
     # ),
-    Path(
-        r"Q:\BGER\PER\RP20180.387 WYLOO NANUTARRA ACCESS ROAD - FMG\TUFLOW_Metawandy\results\v13"
-    ),
+    Path(r"Q:\BGER\PER\RP20180.387 WYLOO NANUTARRA ACCESS ROAD - FMG\TUFLOW_Metawandy\results\v13"),
 )
 DEPTH_THRESHOLD = 0.05  # metres
 LOG_LEVEL = "INFO"
-LOG_FILE: Path | None = (
-    None  # e.g. Path(__file__).with_suffix(".log") if a file sink is desired
-)
+LOG_FILE: Path | None = None  # e.g. Path(__file__).with_suffix(".log") if a file sink is desired
 
 
 def derive_depth_path(velocity_path: Path) -> Path:
-    return velocity_path.with_name(
-        name=velocity_path.name.replace("_V_Max", "_d_HR_Max", count=1)
-    )
+    return velocity_path.with_name(name=velocity_path.name.replace("_V_Max", "_d_HR_Max", count=1))
 
 
 def derive_original_velocity_path(velocity_path: Path) -> Path:
-    return velocity_path.with_name(
-        name=f"{velocity_path.stem}_original{velocity_path.suffix}"
-    )
+    return velocity_path.with_name(name=f"{velocity_path.stem}_original{velocity_path.suffix}")
 
 
 def extract_aep_label(path: Path) -> str:
@@ -87,9 +90,7 @@ def build_aligned_mask(
         depth_values = depth_ds.read(1, masked=True).filled(-np.inf)
         fine_mask = (depth_values >= threshold).astype(np.uint8)
 
-        aligned_mask = np.zeros(
-            (velocity_dataset.height, velocity_dataset.width), dtype=np.uint8
-        )
+        aligned_mask = np.zeros((velocity_dataset.height, velocity_dataset.width), dtype=np.uint8)
         reproject(
             source=fine_mask,
             destination=aligned_mask,
@@ -113,26 +114,18 @@ def mask_velocity_data(
     nodata = profile.get("nodata")
     fill_scalar = np.array(0 if nodata is None else nodata).astype(dtype).item()
 
-    velocity_values = (
-        velocity_dataset.read(1, masked=True)
-        .filled(fill_scalar)
-        .astype(dtype, copy=False)
-    )
+    velocity_values = velocity_dataset.read(1, masked=True).filled(fill_scalar).astype(dtype, copy=False)
     trimmed = np.where(mask, velocity_values, fill_scalar).astype(dtype, copy=False)
 
     return trimmed[np.newaxis, ...], profile
 
 
-def process_velocity_file(
-    velocity_path: Path, depth_path: Path, threshold: float, aep_label: str
-) -> bool:
+def process_velocity_file(velocity_path: Path, depth_path: Path, threshold: float, aep_label: str) -> bool:
     original_path: Path | None = ensure_original_backup(velocity_path=velocity_path)
     if original_path is None:
         return False
     if not depth_path.exists():
-        logger.error(
-            "Missing depth raster for {} ({}).", velocity_path.name, depth_path.name
-        )
+        logger.error("Missing depth raster for {} ({}).", velocity_path.name, depth_path.name)
         return False
 
     logger.info(
@@ -192,9 +185,7 @@ def process_root(root: Path, threshold: float) -> None:
             success_count += 1
 
     if success_count == len(velocity_files):
-        logger.success(
-            "Completed masking for all {} rasters in {}.", success_count, resolved
-        )
+        logger.success("Completed masking for all {} rasters in {}.", success_count, resolved)
     else:
         logger.error(
             "Masked {kept} of {total} rasters in {root}; please review the log for failures.",
@@ -207,9 +198,7 @@ def process_root(root: Path, threshold: float) -> None:
 def main() -> None:
     log_file_str: str | None = str(LOG_FILE) if LOG_FILE else None
     with setup_logger(console_log_level=LOG_LEVEL.upper(), log_file=log_file_str):
-        logger.info(
-            "Velocity masker starting for {} folder(s).", len(TARGET_DIRECTORIES)
-        )
+        logger.info("Velocity masker starting for {} folder(s).", len(TARGET_DIRECTORIES))
         for target in TARGET_DIRECTORIES:
             process_root(root=target, threshold=DEPTH_THRESHOLD)
 

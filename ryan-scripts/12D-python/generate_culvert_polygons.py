@@ -1,4 +1,15 @@
-# generate_culvert_polygons.py
+"""Generate approximate culvert polygons and centre lines for 12d.
+
+This is a project-specific, in-progress geometry helper. Edit ``csv_path`` in
+:func:`main` before running ``python generate_culvert_polygons.py``. It reads
+culvert attributes through ``get_combined_df_from_csv`` and writes
+``culvert_polygons2.shp`` and ``culvert_lines2.shp`` to the current working
+directory.
+
+Review the generated placement and dimensions in GIS before use; the script's
+geometry placement is explicitly not considered fully polished.
+"""
+
 import pandas as pd
 import geopandas as gpd
 from shapely.geometry import Polygon, LineString
@@ -9,7 +20,6 @@ from shapely import affinity
 from math import atan2, degrees
 from pathlib import Path
 from ryan_library.functions.loguru_helpers import (
-    LoguruMultiprocessingLogger,
     setup_logger,
 )
 

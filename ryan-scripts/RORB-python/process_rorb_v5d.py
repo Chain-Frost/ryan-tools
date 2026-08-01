@@ -1,3 +1,15 @@
+"""Analyze RORB batch hydrographs across configurable threshold flows (v5d).
+
+Run this script from the root of a RORB results tree. It recursively discovers
+``*batch.out`` files, derives hydrograph CSV paths, processes them in parallel,
+and writes timestamped batch, duration-exceedance, Parquet, and ``QvsTexc``
+summaries in the current directory.
+
+Review ``DEFAULT_THRESHOLD_FLOWS`` before running. This standalone snapshot
+still relies on project-specific RORB filenames and table layouts, so validate
+the parser and outputs on a small copied dataset first.
+"""
+
 import logging
 import multiprocessing
 from glob import iglob

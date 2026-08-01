@@ -1,3 +1,15 @@
+"""Reproject a raster onto square cells while retaining its array dimensions.
+
+Edit ``SOURCE_RASTER`` and ``CELL_SIZE`` near the top, then run
+``python square_raster_cells.py`` from a directory where the source path
+resolves. The output is named ``<stem>_square_<size>m.tif`` beside the source and
+uses nearest-neighbour resampling for every band.
+
+The width and height are deliberately retained, so changing cell size changes
+the covered extent. Review the printed resolutions, sizes, CRS, nodata value,
+and spatial extent before using the result.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,7 +18,6 @@ import numpy as np
 import rasterio
 from rasterio.transform import Affine
 from rasterio.warp import Resampling, reproject
-
 
 SOURCE_RASTER = Path("model/grid/LeveeDesign.tif")
 CELL_SIZE = 0.5

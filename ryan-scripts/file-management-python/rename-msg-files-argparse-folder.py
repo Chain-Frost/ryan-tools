@@ -1,3 +1,14 @@
+"""Rename Outlook MSG files from their sent date, sender, and subject.
+
+Run ``python rename-msg-files-argparse-folder.py <folder>`` or omit ``<folder>``
+to enter it interactively. Only MSG files directly inside that folder are
+processed. Duplicate content and filename collisions are detected, and a
+summary table is printed after processing.
+
+This changes filenames in place and has no dry-run mode. Work on a backed-up
+folder first and review the configured filename length limits.
+"""
+
 import os
 import sys
 import extract_msg

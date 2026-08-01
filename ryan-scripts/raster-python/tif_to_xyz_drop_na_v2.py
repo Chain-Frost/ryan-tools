@@ -1,9 +1,21 @@
+"""Convert GeoTIFFs to chunked XYZ CSV files with bounded memory use.
+
+Edit ``WORKING_DIR``, ``OUT_FOLDER``, ``DROP_NA``, and
+``TARGET_CELLS_PER_CHUNK``, then run ``python tif_to_xyz_drop_na_v2.py``. The
+script scans top-level ``*.tif`` files and writes one ``x,y,z``
+``*_mod.xyz`` file per raster under the output folder.
+
+Only one raster band is exported. Missing/nodata cells are dropped when
+``DROP_NA`` is true or written with a fallback value otherwise. Validate cell
+centre coordinates and the CSV-style output expected by the consumer.
+"""
+
 from concurrent.futures._base import Future
 import math
 import os
 import subprocess
 import numpy as np
-import rasterio  # type:ignore
+import rasterio  # type: ignore
 from glob import iglob
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime

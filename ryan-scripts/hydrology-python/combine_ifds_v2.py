@@ -1,10 +1,23 @@
+"""Combine BOM IFD CSV exports into one long-format hydrology table.
+
+Place the location-specific ``*_ifds.csv``, ``*_rare.csv``, and
+``*_very_frequent.csv`` files beside this script, then run
+``python combine_ifds_v2.py``. Durations and probability labels are normalized
+with the lookup table defined near the top of the module.
+
+The result is written beside the script as
+``all_location_data_with_AEP_lookup.csv``. Files that do not follow the expected
+naming or table layout are reported and may be skipped.
+"""
+
+# is this made obsolete by just downloading the all data csv from BOM?
 import os
 from pathlib import Path
 import pandas as pd
 import re
 
 # Define the lookup data
-lookup_data = [
+lookup_data: list[dict[str, str | float] | dict[str, str | float | int]] = [
     {
         "raw": "63.2%",
         "percentage": 63.20,
@@ -73,7 +86,7 @@ lookup_data = [
 lookup_df = pd.DataFrame(lookup_data)
 
 # Optional: If there are duplicate 'raw' entries, ensure uniqueness
-lookup_df = lookup_df.drop_duplicates(subset=["raw"])
+lookup_df: pd.DataFrame = lookup_df.drop_duplicates(subset=["raw"])
 
 
 def process_coordinate(coord: str, coord_type: str) -> float:
@@ -89,13 +102,13 @@ def process_coordinate(coord: str, coord_type: str) -> float:
     """
     try:
         # Remove any non-numeric characters except for the decimal point and negative sign
-        cleaned_coord = re.sub(r"[^\d\.-]", "", coord)
+        cleaned_coord: str = re.sub(r"[^\d\.-]", "", coord)
         value = float(cleaned_coord)
 
         # For latitude, it's always negative
         if coord_type == "lat":
             if value > 0:
-                value = -value
+                value: float = -value
         # For longitude, it's always positive
         elif coord_type == "long":
             if value < 0:
@@ -111,18 +124,18 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
     try:
         # Read the file into a list of lines
         with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+            lines: list[str] = f.readlines()
         print(f"File read successfully. Total lines: {len(lines)}")
 
         # Split lines into columns
-        data = [line.strip().split(",") for line in lines]
+        data: list[list[str]] = [line.strip().split(",") for line in lines]
 
         # Extract required fields
-        req_lat = data[5][2]  # Row 6 (index 5), Column C (index 2)
-        req_long = data[5][4]  # Row 6, Column E (index 4)
-        grid_lat = data[6][2]  # Row 7, Column C
-        grid_long = data[6][4]  # Row 7, Column E
-        location_label = data[4][1]  # Row 5, Column B (index 1)
+        req_lat: str = data[5][2]  # Row 6 (index 5), Column C (index 2)
+        req_long: str = data[5][4]  # Row 6, Column E (index 4)
+        grid_lat: str = data[6][2]  # Row 7, Column C
+        grid_long: str = data[6][4]  # Row 7, Column E
+        location_label: str = data[4][1]  # Row 5, Column B (index 1)
 
         print(f"Extracted req_lat: {req_lat}")
         print(f"Extracted req_long: {req_long}")
@@ -132,7 +145,7 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
 
         # Process CSV data starting from the header line
         # Find the index where the header starts
-        header_index = None
+        header_index: int | None = None
         for idx, line in enumerate(data):
             if "Duration" in line[0]:
                 header_index = idx
@@ -141,14 +154,14 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
             raise ValueError("Header line with 'Duration' not found.")
 
         # Extract header and data rows
-        header = data[header_index]
-        data_rows = data[header_index + 1 :]
+        header: list[str] = data[header_index]
+        data_rows: list[list[str]] = data[header_index + 1 :]
 
         # Remove any empty lines
         data_rows = [row for row in data_rows if len(row) > 1]
 
         # Create DataFrame
-        df = pd.DataFrame(data_rows, columns=header)
+        df = pd.DataFrame(data=data_rows, columns=header)
         print(f"CSV data read successfully. DataFrame shape: {df.shape}")
 
         # Convert numeric columns to appropriate data types
@@ -156,7 +169,7 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
         # Melt the DataFrame to long format
-        long_df = df.melt(
+        long_df: pd.DataFrame = df.melt(
             id_vars=["Duration", "Duration in min"],
             var_name="AEP",
             value_name="Value",
@@ -183,8 +196,8 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
         long_df["Duration in min"] = pd.to_numeric(long_df["Duration in min"], errors="coerce").astype("Int64")
 
         # Merge with lookup_df to add additional AEP details
-        merged_df = long_df.merge(
-            lookup_df,
+        merged_df: pd.DataFrame = long_df.merge(
+            right=lookup_df,
             how="left",
             left_on="AEP",
             right_on="raw",
@@ -196,7 +209,7 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
 
         # Enforce data types
         # Define columns to convert
-        float_columns = [
+        float_columns: list[str] = [
             "Value",
             "req_lat",
             "req_long",
@@ -207,8 +220,8 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
             "EY",
             "ARI",
         ]
-        int_columns = ["Duration in min"]
-        text_columns = ["Duration", "AEP", "location_label", "Location", "File_Type"]
+        int_columns: list[str] = ["Duration in min"]
+        text_columns: list[str] = ["Duration", "AEP", "location_label", "Location", "File_Type"]
 
         # Convert float columns
         for col in float_columns:
@@ -234,8 +247,8 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
 
 def find_and_process_files(script_dir: str, lookup_df: pd.DataFrame) -> pd.DataFrame:
     print(f"Scanning directory: {script_dir}")
-    all_files = os.listdir(script_dir)
-    csv_files = [f for f in all_files if f.lower().endswith(".csv")]
+    all_files: list[str] = os.listdir(script_dir)
+    csv_files: list[str] = [f for f in all_files if f.lower().endswith(".csv")]
     print(f"Found {len(csv_files)} CSV files.")
 
     # Group files by patterns
@@ -286,16 +299,16 @@ def find_and_process_files(script_dir: str, lookup_df: pd.DataFrame) -> pd.DataF
 
 
 def main() -> None:
-    script_dir = Path(__file__).absolute().parent
+    script_dir: Path = Path(__file__).absolute().parent
     print(f"Script directory: {script_dir}")
 
     # Step 1: Find and process CSV files
     print("\nStep 1: Finding and processing CSV files.")
-    all_data_long = find_and_process_files(script_dir, lookup_df)
+    all_data_long: pd.DataFrame = find_and_process_files(script_dir, lookup_df)
 
     if not all_data_long.empty:
         # Step 2: Export the complete long data to CSV
-        all_data_csv_path = os.path.join(script_dir, "all_location_data_with_AEP_lookup.csv")
+        all_data_csv_path: str = os.path.join(script_dir, "all_location_data_with_AEP_lookup.csv")
         all_data_long.to_csv(all_data_csv_path, index=False)
         print(f"Step 2: Exported all location data (long format) with AEP lookup to '{all_data_csv_path}'.")
     else:
@@ -303,7 +316,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    working_dir = Path(__file__).absolute().parent
+    working_dir: Path = Path(__file__).absolute().parent
     os.chdir(working_dir)
     print(f"Changed working directory to: {working_dir}")
 

@@ -1,3 +1,15 @@
+"""Combine selected RORB hydrograph CSVs and create comparison plots.
+
+Place input CSVs beside this script, then edit ``selected_hydrograph`` and the
+AEP/TP combinations in :func:`main`. Filenames must match the creek, run, AEP,
+duration, and temporal-pattern convention documented by
+``extract_metadata_from_filename``. Run ``python hydrograph_extract_rorb_csv.py``.
+
+The script writes a timestamped Excel workbook and PNG plot beside itself, then
+waits for Enter. Review filename parsing and plotted hydrograph selection when
+adapting it to a different RORB naming convention.
+"""
+
 import os
 from pathlib import Path
 import pandas as pd

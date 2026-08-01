@@ -1,3 +1,15 @@
+"""Summarize RORB threshold exceedance while retaining zeroes (v5c snapshot).
+
+Run this script from the root of a RORB results tree. It recursively reads
+``*batch.out`` files and associated hydrograph CSVs, processes thresholds in a
+multiprocessing pool, and writes timestamped batch, duration-exceedance,
+Parquet, and ``QvsTexc`` summaries to the current directory.
+
+The comments identify this as a Wyloo/Coondiner-era script still needing tidy-up.
+Confirm thresholds, filename parsing, and CSV layout on copied data before
+reusing it on another project.
+"""
+
 import logging
 import multiprocessing
 from functools import partial
@@ -11,7 +23,6 @@ from ryan_library.functions.misc_functions import (
     setup_logging,
     calculate_pool_size,
 )
-
 
 # more tidy required. latest from Wyloo / Coondiner
 

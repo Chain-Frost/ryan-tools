@@ -1,4 +1,15 @@
-"""Mutable wrapper for ASC_to_ASC temporal-pattern means and duration maximums."""
+"""Build temporal-pattern means and duration maxima with ASC_to_ASC.
+
+Edit the wrapper constants for the executable, working directory, input glob,
+expected temporal patterns, scenarios, result types, output folder, and dashboard
+settings. Start with
+``python asc2asc_mean_then_max_by_search.py --dry-run`` to inspect discovered
+groups without creating rasters; use ``--help`` for worker and strictness options.
+
+The workflow completes all per-duration means before calculating maxima across
+durations. Input globs may contain wildcards, but output naming templates must
+render concrete filenames and must not rediscover generated outputs.
+"""
 
 from pathlib import Path
 

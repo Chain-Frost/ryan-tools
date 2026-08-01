@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""Extract unique XYZ vertices from an AutoCAD TIN-face text export.
+
+Edit ``INPUT_PATH`` and ``OUTPUT_PATH`` in the configuration block, then run
+``python dwg-polygons-txt-to-csv.py``. The parser selects closed
+``DESCRIPTION=TIN Face Area`` records, collects their vertices, removes exact
+duplicate XYZ triples while preserving order, and writes an ``X,Y,Z`` CSV.
+
+The input is a structured text export rather than a DWG/DXF file. A malformed
+or unexpected record is reported with its source line number.
+"""
+
 from __future__ import annotations
 
 import csv

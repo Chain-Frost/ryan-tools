@@ -1,4 +1,16 @@
-# ryan-scripts\misc-python\parallel-reorder-xyz-updated.py
+"""Reorder XYZ grids and fill missing coordinate pairs for downstream GDAL use.
+
+Replace the project-specific working directory in :func:`main`, then run
+``python parallel-reorder-xyz-updated.py``. All top-level ``*.xyz`` files are
+processed with a multiprocessing pool, sorted into consistent grid order, and
+completed with ``-9999`` Z values where coordinate pairs are missing.
+
+Outputs are whitespace-delimited ``*_mod.xyz`` files under the working
+directory's ``mod`` folder. Check coordinate spacing and a sample output before
+processing a large point-cloud collection.
+"""
+
+
 # Updated 2025-11-18 to suit gdal_buildvrt point order, mulitprocessing instead of multithreading (much faster)
 def fill_missing_coordinates(df) -> "pd.DataFrame":
     """Return a DataFrame where the full X/Y grid exists and missing Zs are filled with -9999."""

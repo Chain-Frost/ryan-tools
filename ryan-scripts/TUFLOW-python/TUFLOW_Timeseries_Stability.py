@@ -1,6 +1,14 @@
-# ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Stability.py
-"""
-Wrapper Script: Timeseries stability checks for TUFLOW PO and 1D Q CSVs.
+"""Run configurable stability checks on TUFLOW PO and 1D Q time-series CSVs.
+
+Review the editable configuration for search roots/glob, result and datatype
+filters, locations, flatness/difference tolerances, rolling windows, output
+paths, and dashboard settings. Run
+``python TUFLOW_Timeseries_Stability.py --help`` to select export mode or limit
+result types at the command line.
+
+The wrapper delegates processing to the shared TUFLOW stability orchestrator and
+exports the configured reports. Validate tolerances against the model timestep
+and expected signal scale before treating flagged periods as instability.
 """
 
 from pathlib import Path

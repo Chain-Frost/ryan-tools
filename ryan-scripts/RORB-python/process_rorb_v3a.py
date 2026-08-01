@@ -1,3 +1,15 @@
+"""Analyze RORB batch outputs and hydrograph threshold exceedance (legacy v3a).
+
+Run this script from the root of a copied RORB results tree. It recursively
+finds ``*batch.out`` files, derives associated hydrograph CSV paths, processes
+the hydrographs with a multiprocessing pool, and writes timestamped batch,
+duration-exceedance, Parquet, and ``QvsTexc`` summaries to the current directory.
+
+This is a legacy project snapshot with fixed parsing and threshold assumptions.
+Review ``qcheck`` and filename parsing in the ``__main__`` block before use;
+prefer a validated newer workflow when available.
+"""
+
 import pandas as pd
 import os
 from glob import iglob

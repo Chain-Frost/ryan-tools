@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+"""Dissolve DXF polygons by entity colour and replace them with hatches.
+
+This is a project-configured standalone script. Edit the working directory,
+``input_file``, ``output_file``, ``TOLERANCE``, and ``PROGRESS_INTERVAL`` in
+:func:`main`, then run
+``python group-by-entity-colour-and-dissolve-to-hatch.py``.
+
+The source DXF is read with ezdxf, polygonal entities are grouped by true colour,
+and Shapely unions are written back as solid hatches on colour-specific layers.
+Inspect the new DXF in CAD before replacing any production data.
+"""
+
 import os
 import ezdxf
 from ezdxf.document import Drawing

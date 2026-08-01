@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""Dissolve colour-grouped DXF polygons into hatches using Dask workers.
+
+Edit the configuration constants and project paths/filenames in :func:`main`,
+then run ``python group-by-entity-colour-and-dissolve-to-hatch_dask3.py``. Large
+colour groups are divided into chunks, dissolved by local Dask workers, merged
+again, and written as solid hatches to a new DXF.
+
+Tune ``N_WORKERS``, ``MEMORY_LIMIT``, ``CHUNK_SIZE``, and ``TOLERANCE`` for the
+machine and drawing. Validate colour assignment and dissolved boundaries in CAD.
+"""
+
 import os
 from datetime import datetime
 from collections import defaultdict

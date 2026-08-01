@@ -1,10 +1,20 @@
+"""Collect key TUFLOW result and check files into a review folder.
+
+Change to the upper-level results directory and run this script by full path.
+It recursively matches the patterns in ``RUNS`` and copies results into typed
+subfolders under ``TFfiles_ext_tmp`` while recording source/destination lists.
+
+The script refuses to start when that output folder already exists, preventing
+an accidental merge with an earlier collection. Review ``RUNS`` and exclusions
+before use; duplicate basenames are automatically given unique destinations.
+"""
+
 from __future__ import annotations
 
 import fnmatch
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-
 
 # copy speicfic files from below this script into an output folder.
 
@@ -113,6 +123,7 @@ RUNS = (
 # Script logic
 # ---------------------------------------------------------------------------
 
+
 def print_banner() -> None:
     print('  "*******************************************************************"')
     print('  " Tool to extract key TUFLOW files from output folders              "')
@@ -218,10 +229,7 @@ def write_file_list(file_list_path: Path, records: list[CopyRecord]) -> None:
         file.write("Source\tDestination\n")
 
         for record in records:
-            file.write(
-                f"{record.source.resolve()}\t"
-                f"{record.destination.resolve()}\n"
-            )
+            file.write(f"{record.source.resolve()}\t" f"{record.destination.resolve()}\n")
 
 
 def run_copy_job(copy_run: CopyRun, root: Path, output_dir: Path) -> int:

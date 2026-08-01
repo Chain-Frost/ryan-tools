@@ -1,3 +1,14 @@
+"""Copy a folder from an authenticated Windows share with progress reporting.
+
+Edit the network, source, destination, and credential settings near the top,
+then choose ``COPY_ENGINE = "robocopy"`` or ``"copyfileex"``. Run
+``python copy_folder.py``. Robocopy uses multithreaded copying; CopyFileEx shows
+per-file and aggregate Rich progress bars.
+
+This module executes immediately when imported. Do not commit real credentials,
+review the copy options, and test with a disposable destination first.
+"""
+
 from __future__ import annotations
 
 import ctypes

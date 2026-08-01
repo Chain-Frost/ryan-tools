@@ -1,4 +1,14 @@
-# ryan-scripts\TUFLOW-python\set_layer_to_filename_v5.py
+"""Rename a single GeoPackage layer to match its GeoPackage filename.
+
+Place this script with the GeoPackages or pass a target path by adapting
+:func:`main`. Set ``SEARCH_RECURSIVELY`` and ``GPKG_PATTERN`` as required, then
+run ``python set_layer_to_filename_v6.py``. Multi-layer GeoPackages are skipped.
+
+Each changed GeoPackage is rebuilt through a temporary file and replaces the
+original. Keep a backup and test on copied data first; the script pauses for a
+keypress when complete.
+"""
+
 # 250913
 from collections.abc import Iterator
 from pathlib import Path
