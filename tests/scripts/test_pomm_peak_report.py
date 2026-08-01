@@ -3,7 +3,6 @@ import sys
 import pandas as pd
 from pandas import DataFrame
 
-
 sys.path.insert(0, str(Path(__file__).absolute().parents[2]))
 
 from ryan_library.functions.tuflow.pomm_utils import (
@@ -11,8 +10,7 @@ from ryan_library.functions.tuflow.pomm_utils import (
     find_aep_dur_median,
     find_aep_median_max,
 )
-from ryan_library.scripts.pomm_max_items import export_mean_peak_report, export_median_peak_report
-
+from ryan_library.orchestrators.tuflow.pomm_max_items import export_mean_peak_report, export_median_peak_report
 
 DATA_DIR: Path = Path(__file__).absolute().parent.parent / "test_data" / "tuflow" / "tutorials"
 

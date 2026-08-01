@@ -7,9 +7,16 @@ import pytest
 TEST_DATA_ROOT: Path = Path(__file__).resolve().parent / "test_data"
 REQUIRED_TEST_DATA_PATHS: tuple[Path, ...] = (
     TEST_DATA_ROOT / "expected_files.json",
+    TEST_DATA_ROOT / "raster" / "expected.json",
     TEST_DATA_ROOT / "tlf_regression_snapshot.json",
     TEST_DATA_ROOT / "tuflow",
 )
+
+
+@pytest.fixture(scope="session")
+def raster_test_data() -> Path:
+    """Return the root of the synthetic raster fixture suite."""
+    return TEST_DATA_ROOT / "raster"
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:

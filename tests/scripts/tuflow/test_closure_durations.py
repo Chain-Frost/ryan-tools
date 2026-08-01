@@ -1,11 +1,11 @@
-"""Tests for ryan_library.scripts.tuflow.closure_durations."""
+"""Tests for the active TUFLOW closure-duration orchestrator."""
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
-from ryan_library.scripts.tuflow import closure_durations
+from ryan_library.orchestrators.tuflow import closure_durations
 
 
 def _mock_df() -> MagicMock:
@@ -14,12 +14,12 @@ def _mock_df() -> MagicMock:
     return df
 
 
-@patch("ryan_library.scripts.tuflow.closure_durations._export_closure_duration_artifacts")
-@patch("ryan_library.scripts.tuflow.closure_durations.summarise_results")
-@patch("ryan_library.scripts.tuflow.closure_durations._calculate_threshold_durations")
-@patch("ryan_library.scripts.tuflow.closure_durations._collect_po_data")
-@patch("ryan_library.scripts.tuflow.closure_durations.bulk_read_and_merge_tuflow_csv")
-@patch("ryan_library.scripts.tuflow.closure_durations.setup_logger")
+@patch("ryan_library.orchestrators.tuflow.closure_durations._export_closure_duration_artifacts")
+@patch("ryan_library.orchestrators.tuflow.closure_durations.summarise_results")
+@patch("ryan_library.orchestrators.tuflow.closure_durations._calculate_threshold_durations")
+@patch("ryan_library.orchestrators.tuflow.closure_durations._collect_po_data")
+@patch("ryan_library.orchestrators.tuflow.closure_durations.bulk_read_and_merge_tuflow_csv")
+@patch("ryan_library.orchestrators.tuflow.closure_durations.setup_logger")
 def test_run_closure_durations_success(
     mock_logger,
     mock_bulk,
@@ -60,8 +60,8 @@ def test_run_closure_durations_success(
     mock_export.assert_called_once()
 
 
-@patch("ryan_library.scripts.tuflow.closure_durations.setup_logger")
-@patch("ryan_library.scripts.tuflow.closure_durations.bulk_read_and_merge_tuflow_csv")
+@patch("ryan_library.orchestrators.tuflow.closure_durations.setup_logger")
+@patch("ryan_library.orchestrators.tuflow.closure_durations.bulk_read_and_merge_tuflow_csv")
 def test_run_closure_durations_no_processors(mock_bulk, mock_logger) -> None:
     mock_logger.return_value.__enter__.return_value = "log_queue"
     collection = MagicMock()

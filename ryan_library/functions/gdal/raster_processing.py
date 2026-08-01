@@ -331,8 +331,9 @@ def sieve_raster(
     """Remove raster regions smaller than a pixel-count threshold.
 
     This is the Python equivalent of ``gdal_sieve``. The first source band is
-    sieved using its validity mask, while georeferencing, data type, and NoData
-    metadata are retained.
+    sieved with all classification pixels participating, while georeferencing,
+    data type, and NoData metadata are retained. Including background pixels is
+    necessary for small foreground regions to be replaced by that background.
     """
     if threshold_pixels < 1:
         raise ValueError("threshold_pixels must be one or greater.")
@@ -368,7 +369,7 @@ def sieve_raster(
             destination_band.SetNoDataValue(nodata)
         result = gdal.SieveFilter(
             source_band,
-            source_band.GetMaskBand(),
+            None,
             destination_band,
             threshold_pixels,
             connectedness,

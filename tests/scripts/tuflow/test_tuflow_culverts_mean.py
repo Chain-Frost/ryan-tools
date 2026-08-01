@@ -1,10 +1,10 @@
-"""Tests for ryan_library.scripts.tuflow.tuflow_culverts_mean."""
+"""Tests for the active TUFLOW culvert-mean orchestrator."""
 
 import pytest
 import pandas as pd
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from ryan_library.scripts.tuflow import tuflow_culverts_mean
+from ryan_library.orchestrators.tuflow import tuflow_culverts_mean
 
 
 @pytest.fixture
@@ -64,9 +64,11 @@ def test_find_culvert_aep_mean_max_success(mock_aggregated_df):
 
 
 def test_run_culvert_mean_report_success():
-    with patch("ryan_library.scripts.tuflow.tuflow_culverts_mean.setup_logger"):
-        with patch("ryan_library.scripts.tuflow.tuflow_culverts_mean.bulk_read_and_merge_tuflow_csv") as mock_bulk:
-            with patch("ryan_library.scripts.tuflow.tuflow_culverts_mean.ExcelExporter") as mock_exporter:
+    with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_mean.setup_logger"):
+        with patch(
+            "ryan_library.orchestrators.tuflow.tuflow_culverts_mean.bulk_read_and_merge_tuflow_csv"
+        ) as mock_bulk:
+            with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_mean.ExcelExporter") as mock_exporter:
 
                 # Mock collection
                 mock_collection = MagicMock()
@@ -91,8 +93,10 @@ def test_run_culvert_mean_report_success():
 
 
 def test_run_culvert_mean_report_no_processors():
-    with patch("ryan_library.scripts.tuflow.tuflow_culverts_mean.setup_logger"):
-        with patch("ryan_library.scripts.tuflow.tuflow_culverts_mean.bulk_read_and_merge_tuflow_csv") as mock_bulk:
+    with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_mean.setup_logger"):
+        with patch(
+            "ryan_library.orchestrators.tuflow.tuflow_culverts_mean.bulk_read_and_merge_tuflow_csv"
+        ) as mock_bulk:
             mock_collection = MagicMock()
             mock_collection.processors = []  # Empty
             mock_bulk.return_value = mock_collection

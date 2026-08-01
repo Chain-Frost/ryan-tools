@@ -7,6 +7,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import re
 import subprocess
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
@@ -61,16 +62,29 @@ def require_component_text(*, value: str | None, component: str, filename: str) 
 
 
 def replace_filename_component(*, filename: str, old_component: str, new_component: str | None) -> str:
-    """Replace or remove one complete underscore-delimited filename component."""
-    parts: list[str] = filename.split("_")
-    indexes: list[int] = [index for index, part in enumerate(parts) if part.casefold() == old_component.casefold()]
+    """Replace or remove one complete ``_``- or ``+``-delimited component.
+
+    Delimiters are retained exactly as supplied so the output keeps the input
+    filename's separator style. When removing a component, its following
+    delimiter is removed as well (or its preceding delimiter at the end).
+    """
+    parts: list[str] = re.split(r"([_+])", filename)
+    indexes: list[int] = [
+        index for index in range(0, len(parts), 2) if parts[index].casefold() == old_component.casefold()
+    ]
     if len(indexes) != 1:
         raise ValueError(f"Expected one {old_component!r} component in {filename!r}; found {len(indexes)}")
+    component_index: int = indexes[0]
     if new_component is None:
-        del parts[indexes[0]]
+        if component_index + 1 < len(parts):
+            del parts[component_index : component_index + 2]
+        elif component_index > 0:
+            del parts[component_index - 1 : component_index + 1]
+        else:
+            del parts[component_index]
     else:
-        parts[indexes[0]] = new_component
-    return "_".join(parts)
+        parts[component_index] = new_component
+    return "".join(parts)
 
 
 def format_user_template(*, template: str, values: Mapping[str, object], description: str) -> str:
