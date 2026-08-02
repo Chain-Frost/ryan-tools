@@ -20,14 +20,96 @@ from pathlib import Path
 from typing import Literal
 
 from loguru import logger
+import numpy as np
 from osgeo import gdal, ogr
-from osgeo_utils.gdal_calc import Calc
 
 RasterProfile = Literal["tuflow", "efficient"]
 OverviewResampling = Literal["nearest", "average", "bilinear", "cubic", "mode"]
 VectorFormat = Literal["gpkg", "shp"]
 
 DEFAULT_OVERVIEW_LEVELS: tuple[int, ...] = (2, 4, 8, 16, 32)
+
+
+def read_raster_band(
+    raster: str | Path,
+    *,
+    band: int = 1,
+    window: tuple[int, int, int, int] | None = None,
+) -> np.ndarray:
+    """Read one raster band through GDAL without Rasterio's NumPy shape shim.
+
+    Args:
+        raster: Raster path supported by GDAL.
+        band: One-based band number.
+        window: Optional ``(x_offset, y_offset, width, height)`` window.
+
+    Returns:
+        A NumPy array containing the requested raster cells.
+    """
+    if band < 1:
+        raise ValueError("band must be one or greater.")
+
+    raster_path = Path(raster).resolve()
+    with gdal.ExceptionMgr():
+        dataset = gdal.Open(str(raster_path), gdal.GA_ReadOnly)
+        if dataset is None:
+            raise RuntimeError(f"GDAL could not open {raster_path}")
+        if band > dataset.RasterCount:
+            raise ValueError(f"Raster {raster_path} has {dataset.RasterCount} band(s); requested band {band}.")
+
+        source_band = dataset.GetRasterBand(band)
+        if window is None:
+            values = source_band.ReadAsArray()
+        else:
+            x_offset, y_offset, width, height = window
+            if x_offset < 0 or y_offset < 0 or width < 1 or height < 1:
+                raise ValueError("Raster window offsets must be non-negative and dimensions must be positive.")
+            if x_offset + width > dataset.RasterXSize or y_offset + height > dataset.RasterYSize:
+                raise ValueError(f"Raster window {window} lies outside {raster_path}.")
+            values = source_band.ReadAsArray(x_offset, y_offset, width, height)
+        dataset = None
+
+    if values is None:
+        raise RuntimeError(f"GDAL could not read band {band} from {raster_path}")
+    return np.asarray(values)
+
+
+def read_masked_raster_band(
+    raster: str | Path,
+    *,
+    band: int = 1,
+    window: tuple[int, int, int, int] | None = None,
+) -> np.ma.MaskedArray:
+    """Read one raster band and apply its GDAL validity mask."""
+    if band < 1:
+        raise ValueError("band must be one or greater.")
+
+    raster_path = Path(raster).resolve()
+    with gdal.ExceptionMgr():
+        dataset = gdal.Open(str(raster_path), gdal.GA_ReadOnly)
+        if dataset is None:
+            raise RuntimeError(f"GDAL could not open {raster_path}")
+        if band > dataset.RasterCount:
+            raise ValueError(f"Raster {raster_path} has {dataset.RasterCount} band(s); requested band {band}.")
+
+        source_band = dataset.GetRasterBand(band)
+        mask_band = source_band.GetMaskBand()
+        if window is None:
+            values = source_band.ReadAsArray()
+            validity = mask_band.ReadAsArray()
+        else:
+            x_offset, y_offset, width, height = window
+            if x_offset < 0 or y_offset < 0 or width < 1 or height < 1:
+                raise ValueError("Raster window offsets must be non-negative and dimensions must be positive.")
+            if x_offset + width > dataset.RasterXSize or y_offset + height > dataset.RasterYSize:
+                raise ValueError(f"Raster window {window} lies outside {raster_path}.")
+            values = source_band.ReadAsArray(x_offset, y_offset, width, height)
+            validity = mask_band.ReadAsArray(x_offset, y_offset, width, height)
+        dataset = None
+
+    if values is None or validity is None:
+        raise RuntimeError(f"GDAL could not read band {band} and its validity mask from {raster_path}")
+    return np.ma.array(np.asarray(values), mask=np.asarray(validity) == 0, copy=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,7 +358,8 @@ def calculate_flood_extent(
 
     Cells greater than or equal to ``cutoff`` receive value 1. Cells below the
     cutoff receive value 0, which is also assigned as the output NoData value.
-    Input NoData cells remain masked by ``gdal_calc``.
+    Input NoData cells remain masked through the source band's GDAL validity
+    mask.
 
     Args:
         input_file: Source depth raster.
@@ -290,7 +373,10 @@ def calculate_flood_extent(
     Returns:
         The resolved flood-mask path.
     """
+    input_file = input_file.resolve()
     output_raster = output_raster.resolve()
+    if input_file == output_raster:
+        raise ValueError(f"Input and output paths are identical: {input_file}")
     if output_raster.exists() and not overwrite:
         raise FileExistsError(f"Output already exists: {output_raster}")
     output_raster.parent.mkdir(parents=True, exist_ok=True)
@@ -298,21 +384,51 @@ def calculate_flood_extent(
         raise ValueError("input_band must be one or greater.")
     logger.debug("Calculating flood extent for {} at cutoff {}", input_file, cutoff)
     with gdal.ExceptionMgr():
-        result = Calc(
-            A=str(input_file.resolve()),
-            A_band=input_band,
-            outfile=str(output_raster),
-            calc=f"where(A >= {cutoff!r}, 1, 0)",
-            type="Byte",
-            NoDataValue=0,  # pyright: ignore[reportArgumentType] -- accepted by GDAL; its stub is too narrow.
-            creation_options=geotiff_creation_options(profile, threads),
-            overwrite=overwrite,
-            quiet=True,
+        source = gdal.Open(str(input_file), gdal.GA_ReadOnly)
+        if source is None:
+            raise RuntimeError(f"GDAL could not open {input_file}")
+        if input_band > source.RasterCount:
+            raise ValueError(f"Raster {input_file} has {source.RasterCount} band(s); requested band {input_band}.")
+
+        source_band = source.GetRasterBand(input_band)
+        source_mask = source_band.GetMaskBand()
+        driver = gdal.GetDriverByName("GTiff")
+        destination = driver.Create(
+            str(output_raster),
+            source.RasterXSize,
+            source.RasterYSize,
+            1,
+            gdal.GDT_Byte,
+            options=geotiff_creation_options(profile, threads),
         )
-        if result is None:
-            raise RuntimeError(f"GDAL could not calculate flood extent for {input_file}")
-        result.FlushCache()
-        result = None
+        if destination is None:
+            raise RuntimeError(f"GDAL could not create {output_raster}")
+        destination.SetGeoTransform(source.GetGeoTransform())
+        destination.SetProjection(source.GetProjection())
+        destination_band = destination.GetRasterBand(1)
+        destination_band.SetNoDataValue(0)
+
+        block_width, block_height = source_band.GetBlockSize()
+        chunk_width = block_width if block_width > 0 else min(source.RasterXSize, 1024)
+        chunk_height = block_height if block_height > 0 else min(source.RasterYSize, 1024)
+        for y_offset in range(0, source.RasterYSize, chunk_height):
+            height = min(chunk_height, source.RasterYSize - y_offset)
+            for x_offset in range(0, source.RasterXSize, chunk_width):
+                width = min(chunk_width, source.RasterXSize - x_offset)
+                values = source_band.ReadAsArray(x_offset, y_offset, width, height)
+                validity = source_mask.ReadAsArray(x_offset, y_offset, width, height)
+                if values is None or validity is None:
+                    raise RuntimeError(f"GDAL could not read flood extent source data from {input_file}")
+                flood_mask = np.where(
+                    (np.asarray(validity) != 0) & (np.asarray(values) >= cutoff),
+                    1,
+                    0,
+                ).astype(np.uint8, copy=False)
+                destination_band.WriteArray(flood_mask, x_offset, y_offset)
+
+        destination.FlushCache()
+        destination = None
+        source = None
         _verify_raster(output_raster)
     logger.info(f"Created flood extent raster: {output_raster}")
     return output_raster

@@ -340,6 +340,10 @@ class SuffixesConfig:
         suffix_to_type: dict[str, str] = {}
         for data_type, data_def in config.data_types.items():
             for suffix in data_def.suffixes:
+                if suffix in suffix_to_type:
+                    msg = f"Duplicate suffix '{suffix}' defined for data type '{data_type}'. Already mapped to '{suffix_to_type[suffix]}'."
+                    logger.error(msg)
+                    raise ValueError(msg)
                 suffix_to_type[suffix] = data_type
                 logger.debug("Mapping suffix '{}' to data type '{}'", suffix, data_type)
         logger.debug("SuffixesConfig loaded with {} suffixes.", len(suffix_to_type))

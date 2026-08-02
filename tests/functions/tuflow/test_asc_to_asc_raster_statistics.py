@@ -10,9 +10,9 @@ from typing import cast
 
 import numpy as np
 import pytest
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+from ryan_library.functions.gdal.raster_processing import read_raster_band
 from ryan_library.functions.tuflow.asc_to_asc_statistics import replace_filename_component
 from ryan_library.orchestrators.tuflow.asc2asc_max_by_search import (
     build_max_searches,
@@ -109,8 +109,7 @@ def test_discovered_mean_inputs_match_expected_pixel_values(raster_test_data: Pa
     )
     arrays: list[np.ndarray] = []
     for input_file in selected.job.input_files:
-        with rasterio.open(input_file) as dataset:
-            arrays.append(dataset.read(1))
+        arrays.append(read_raster_band(input_file))
     calculated = np.mean(np.stack(arrays), axis=0)
 
     expected_document = cast(

@@ -1,6 +1,6 @@
 # ryan_library/processors/tuflow/max_data_processor.py
 
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from loguru import logger
@@ -28,8 +28,8 @@ class MaxDataProcessor(BaseProcessor):
             read_csv_kwargs["dtype"] = dtype_mapping
 
         try:
-            df: pd.DataFrame = pd.read_csv(**read_csv_kwargs)
-            logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
+            df = cast(pd.DataFrame, pd.read_csv(**read_csv_kwargs))
+            logger.debug("CSV file '{}' read successfully with {} rows.", self.file_name, len(df))
         except Exception as exc:
             logger.exception(f"{self.file_name}: Failed to read CSV file '{self.log_path}': {exc}")
             return ProcessorStatus.FAILURE

@@ -5,7 +5,6 @@ from loguru import logger
 
 from ..base_processor import BaseProcessor, DataValidationError
 
-
 POMM_RENAME_COLUMNS: dict[str, str] = {
     "Location": "Type",
     "Time": "Location",
@@ -42,7 +41,7 @@ class POMMProcessor(BaseProcessor):
 
         try:
             # 1) Load the CSV without headers (header=None)
-            raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)  # type: ignore
+            raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)
             self.raw_df = raw_df
 
             # # 2) Extract run_code from top‐left cell

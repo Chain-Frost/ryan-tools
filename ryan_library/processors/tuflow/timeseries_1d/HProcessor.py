@@ -2,7 +2,6 @@
 
 """Processor for TUFLOW ``_H`` timeseries outputs."""
 
-
 from loguru import logger
 from ..base_processor import ProcessorStatus
 from ..timeseries_processor import TimeSeriesProcessor
@@ -16,7 +15,7 @@ class HProcessor(TimeSeriesProcessor):
         node-based H data (N1, N2) such as that found in some 1d_H.csv files (e.g., EG11_006_1d_H.csv).
     """
 
-    def process(self) -> None:  # type: ignore[override]
+    def process(self) -> None:
         """Process a ``_H`` CSV using the shared timeseries pipeline."""
 
         self._process_timeseries_pipeline(data_type="H")
@@ -25,7 +24,7 @@ class HProcessor(TimeSeriesProcessor):
         """Normalise the dual-value timeseries DataFrame produced by the shared pipeline."""
 
         try:
-            logger.debug(f"{self.file_name}: Normalising reshaped 'H' DataFrame.")
+            logger.debug("{}: Normalising reshaped 'H' DataFrame.", self.file_name)
 
             required_columns: set[str] = {"Time", "US_H", "DS_H"}
             missing_columns: set[str] = required_columns - set(self.df.columns)
@@ -46,13 +45,13 @@ class HProcessor(TimeSeriesProcessor):
                 return ProcessorStatus.FAILURE
 
             identifier_column: str = identifier_columns[0]
-            logger.debug(f"{self.file_name}: Using '{identifier_column}' as the identifier column for 'H' values.")
+            logger.debug("{}: Using '{}' as the identifier column for 'H' values.", self.file_name, identifier_column)
 
             initial_row_count: int = len(self.df)
             self.df.dropna(subset=["US_H", "DS_H"], how="all", inplace=True)  # pyright: ignore[reportUnknownMemberType]
             dropped_rows: int = initial_row_count - len(self.df)
             if dropped_rows:
-                logger.debug(f"{self.file_name}: Dropped {dropped_rows} rows with missing 'H' values.")
+                logger.debug("{}: Dropped {} rows with missing 'H' values.", self.file_name, dropped_rows)
 
             if self.df.empty:
                 logger.error(f"{self.file_name}: DataFrame is empty after removing rows with missing 'H' values.")

@@ -15,6 +15,8 @@ from ryan_library.functions.gdal.raster_processing import (
     calculate_flood_extent,
     create_raster_footprint,
     get_vector_extent,
+    read_masked_raster_band,
+    read_raster_band,
     sieve_raster,
 )
 from ryan_library.orchestrators.gdal.raster_mosaic import create_grouped_mosaics
@@ -32,7 +34,7 @@ def test_conversion_sources_describe_the_same_surface(raster_test_data: Path) ->
             assert dataset.shape == (64, 64)
             assert dataset.transform.a == 2.0
             assert dataset.transform.e == -2.0
-            arrays.append(dataset.read(1))
+            arrays.append(read_raster_band(conversion / filename))
 
     np.testing.assert_array_equal(arrays[0], arrays[1])
     np.testing.assert_array_equal(arrays[0], arrays[2])
@@ -54,7 +56,7 @@ def test_merge_directory_builds_expected_adjacent_mosaic(raster_test_data: Path,
     with rasterio.open(tif) as dataset:
         assert dataset.shape == (32, 64)
         assert dataset.dtypes == ("float32",)
-        values = dataset.read(1, masked=True)
+        values = read_masked_raster_band(tif)
     assert set(np.unique(values.compressed())) == {1.0, 2.0}
 
 
@@ -79,7 +81,7 @@ def test_grouped_mosaic_uses_delimited_tile_field(raster_test_data: Path, tmp_pa
     assert [path.name for path in outputs] == ["merged_01_DEV_d_HR_Max.tif"]
     with rasterio.open(outputs[0]) as dataset:
         assert dataset.shape == (16, 32)
-        assert set(np.unique(dataset.read(1))) == {1.0, 2.0}
+        assert set(np.unique(read_raster_band(outputs[0]))) == {1.0, 2.0}
     assert outputs[0].with_suffix(".tif.ovr").is_file()
 
 
@@ -88,10 +90,8 @@ def test_flood_extent_and_sieve_remove_the_isolated_wet_cell(raster_test_data: P
     raw_mask = calculate_flood_extent(source, tmp_path / "flood_raw.tif", 0.05)
     sieved_mask = sieve_raster(raw_mask, tmp_path / "flood_sieved.tif", threshold_pixels=2)
 
-    with rasterio.open(raw_mask) as dataset:
-        raw = dataset.read(1)
-    with rasterio.open(sieved_mask) as dataset:
-        sieved = dataset.read(1)
+    raw = read_raster_band(raw_mask)
+    sieved = read_raster_band(sieved_mask)
     assert np.count_nonzero(raw == 1) == 1_025
     assert np.count_nonzero(sieved == 1) == 1_024
 
@@ -100,8 +100,7 @@ def test_flood_extent_can_select_band_four(raster_test_data: Path, tmp_path: Pat
     source = raster_test_data / "maintenance" / "four_band_depth.tif"
     output = calculate_flood_extent(source, tmp_path / "band_four_flood.tif", 0.1, input_band=4)
 
-    with rasterio.open(output) as dataset:
-        values = dataset.read(1)
+    values = read_raster_band(output)
     assert np.count_nonzero(values == 1) == 512
 
 

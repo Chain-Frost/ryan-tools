@@ -10,6 +10,9 @@ the covered extent. Review the printed resolutions, sizes, CRS, nodata value,
 and spatial extent before using the result.
 """
 
+# pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -18,6 +21,8 @@ import numpy as np
 import rasterio
 from rasterio.transform import Affine
 from rasterio.warp import Resampling, reproject
+
+from ryan_library.functions.gdal.raster_processing import read_raster_band
 
 SOURCE_RASTER = Path("model/grid/LeveeDesign.tif")
 CELL_SIZE = 0.5
@@ -28,7 +33,7 @@ def cell_size_label(cell_size: float) -> str:
 
 
 def output_path_for(src_path: Path, cell_size: float) -> Path:
-    suffix = f"_square_{cell_size_label(cell_size)}m"
+    suffix: str = f"_square_{cell_size_label(cell_size)}m"
     return src_path.with_name(f"{src_path.stem}{suffix}{src_path.suffix}")
 
 
@@ -57,7 +62,7 @@ def square_raster_cells(src_path: Path, dst_path: Path, cell_size: float) -> Non
         dst_path.parent.mkdir(parents=True, exist_ok=True)
         with rasterio.open(dst_path, "w", **profile) as dst:
             for band_index in range(1, src.count + 1):
-                src_data = src.read(band_index)
+                src_data = read_raster_band(raster=src_path, band=band_index)
                 fill_value = src.nodata if src.nodata is not None else 0
                 dst_data = np.full(src_data.shape, fill_value, dtype=src_data.dtype)
 

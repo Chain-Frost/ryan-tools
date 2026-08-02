@@ -47,7 +47,7 @@ class ProcessorCollection:
             processor (BaseProcessor): A processed BaseProcessor instance."""
         if processor.processed and not processor.df.empty:
             self.processors.append(processor)
-            logger.debug(f"Added processor: {processor.file_name}")
+            logger.debug("Added processor: {}", processor.file_name)
         elif processor.processed:
             logger.info(
                 f"{processor.file_name}: Processor completed but has no rows after filtering; skipping add to collection."
@@ -268,10 +268,10 @@ class ProcessorCollection:
         batches: list[DataFrame] = []
         for i in range(0, len(frames), self._BATCH_SIZE):
             batch: list[DataFrame] = frames[i : i + self._BATCH_SIZE]
-            batches.append(pd.concat(batch, ignore_index=True, copy=False, sort=False))
+            batches.append(pd.concat(batch, ignore_index=True, sort=False))
         if len(batches) == 1:
             return batches[0]
-        return pd.concat(batches, ignore_index=True, copy=False, sort=False)
+        return pd.concat(batches, ignore_index=True, sort=False)
 
     def combine_1d_timeseries(self, reset_categoricals: bool = True) -> pd.DataFrame:
         """Combine DataFrames where dataformat is 'Timeseries'.
@@ -337,7 +337,7 @@ class ProcessorCollection:
             return pd.DataFrame()
 
         combined_df: pd.DataFrame = self._concat_in_batches(frames=dfs_to_concat)
-        logger.debug(f"Combined Timeseries DataFrame with {len(combined_df)} rows.")
+        logger.debug("Combined Timeseries DataFrame with {} rows.", len(combined_df))
 
         # Columns to drop
         columns_to_drop: list[str] = [
@@ -353,7 +353,7 @@ class ProcessorCollection:
         existing_columns_to_drop: list[str] = [col for col in columns_to_drop if col in combined_df.columns]
         if existing_columns_to_drop:
             combined_df.drop(columns=existing_columns_to_drop, inplace=True)
-            logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
+            logger.debug("Dropped columns {} from DataFrame.", existing_columns_to_drop)
 
         if reset_categoricals:
             combined_df = reset_categorical_ordering(df=combined_df)
@@ -412,7 +412,7 @@ class ProcessorCollection:
             second_priority_columns=p2_col,
         )
 
-        logger.debug(f"Grouped {len(timeseries_processors)} Timeseries DataFrame with {len(grouped_df)} rows.")
+        logger.debug("Grouped {} Timeseries DataFrame with {} rows.", len(timeseries_processors), len(grouped_df))
 
         return grouped_df
 
@@ -473,7 +473,7 @@ class ProcessorCollection:
             existing_columns_to_drop: list[str] = [col for col in columns_to_drop if col in df.columns]
             if existing_columns_to_drop:
                 df = df.drop(columns=existing_columns_to_drop)
-            logger.debug(f"Dropped columns {existing_columns_to_drop} from DataFrame.")
+            logger.debug("Dropped columns {} from DataFrame.", existing_columns_to_drop)
 
             dfs_to_concat.append(df)
 
@@ -492,7 +492,7 @@ class ProcessorCollection:
         # Concatenate DataFrames (with EOF geometry merged in above when available)
         # TODO - there is no geometry? there should only be data columns from the attributes
         combined_df: DataFrame = self._concat_in_batches(frames=dfs_to_concat)
-        logger.debug(f"Combined Maximums/ccA DataFrame with {len(combined_df)} rows.")
+        logger.debug("Combined Maximums/ccA DataFrame with {} rows.", len(combined_df))
 
         combined_df = reorder_long_columns(df=combined_df)
 
@@ -555,7 +555,7 @@ class ProcessorCollection:
             prefix_order=["R"],
             second_priority_columns=p2_col,
         )
-        logger.debug(f"Grouped {len(maximums_processors)} Maximums/ccA DataFrame with {len(grouped_df)} rows.")
+        logger.debug("Grouped {} Maximums/ccA DataFrame with {} rows.", len(maximums_processors), len(grouped_df))
         return grouped_df
 
     @staticmethod
@@ -610,7 +610,7 @@ class ProcessorCollection:
         required_columns: set[str] = {us_h_col, "US Invert", "Height"}
         missing_columns: set[str] = required_columns - set(df.columns)
         if missing_columns:
-            logger.debug(f"Skipping HW_D calculation; missing columns: {sorted(missing_columns)}")
+            logger.debug("Skipping HW_D calculation; missing columns: {}", sorted(missing_columns))
             return df
 
         if df.empty:
@@ -644,7 +644,7 @@ class ProcessorCollection:
         ) / height_series.loc[valid_mask]
 
         df["HW_D"] = hw_d_series
-        logger.debug(f"Calculated HW_D ratio for {valid_count} of {df['Chan ID'].count()} rows.")
+        logger.debug("Calculated HW_D ratio for {} of {} rows.", valid_count, df["Chan ID"].count())
         return df
 
     def combine_raw(self, reset_categoricals: bool = True) -> pd.DataFrame:
@@ -659,7 +659,7 @@ class ProcessorCollection:
 
         # Concatenate all DataFrames
         combined_df: DataFrame = self._concat_in_batches(frames=[p.df for p in self.processors if not p.df.empty])
-        logger.debug(f"Combined Raw DataFrame with {len(combined_df)} rows.")
+        logger.debug("Combined Raw DataFrame with {} rows.", len(combined_df))
 
         combined_df = reorder_long_columns(df=combined_df)
 
@@ -689,7 +689,7 @@ class ProcessorCollection:
 
         # Concatenate DataFrames
         combined_df: DataFrame = self._concat_in_batches(frames=[p.df for p in pomm_processors if not p.df.empty])
-        logger.debug(f"Combined {len(pomm_processors)}  POMM DataFrame with {len(combined_df)} rows.")
+        logger.debug("Combined {}  POMM DataFrame with {} rows.", len(pomm_processors), len(combined_df))
 
         combined_df = reorder_long_columns(df=combined_df)
 
@@ -716,7 +716,7 @@ class ProcessorCollection:
 
         # Concatenate DataFrames
         combined_df: DataFrame = self._concat_in_batches(frames=[p.df for p in po_processors if not p.df.empty])
-        logger.debug(f"Combined {len(po_processors)} PO DataFrame with {len(combined_df)} rows.")
+        logger.debug("Combined {} PO DataFrame with {} rows.", len(po_processors), len(combined_df))
 
         if combined_df.empty:
             logger.warning("PO DataFrames are empty after concatenation.")
@@ -755,7 +755,9 @@ class ProcessorCollection:
                 filtered_collection.add_processor(processor)
 
         logger.debug(
-            f"Filtered ProcessorCollection created with {len(filtered_collection.processors)} processors matching data types {data_types}."
+            "Filtered ProcessorCollection created with {} processors matching data types {}.",
+            len(filtered_collection.processors),
+            data_types,
         )
         return filtered_collection
 
@@ -847,7 +849,10 @@ class ProcessorCollection:
                     proc = proc_cls(file_path=Path(file_path_str))
 
                     if hdf_key in store:
-                        proc.df = store.get(hdf_key)  # pyright: ignore[reportUnknownMemberType]
+                        stored_frame = store.get(hdf_key)
+                        if not isinstance(stored_frame, pd.DataFrame):
+                            raise TypeError(f"HDF5 key {hdf_key!r} did not contain a DataFrame.")
+                        proc.df = stored_frame
                         proc.processed = True
                     else:
                         proc.df = pd.DataFrame()
@@ -936,7 +941,7 @@ class ProcessorCollection:
 
         merged_df: pd.DataFrame = self._merge_chan_and_eof(chan_df=source_df, eof_df=eof_df)
         logger.debug(
-            f"Merged EOF data into {source_label} dataset for run code {run_code}; row count now {len(merged_df)}."
+            "Merged EOF data into {} dataset for run code {}; row count now {}.", source_label, run_code, len(merged_df)
         )
         return merged_df
 
@@ -960,6 +965,13 @@ class ProcessorCollection:
         if "Chan ID" not in chan_df.columns or "Chan ID" not in eof_df.columns:
             logger.warning("Chan ID missing in one of the dataframes, cannot merge.")
             return chan_df
+
+        # Check for specific Chan ID values in chan_df that are missing in eof_df
+        missing_in_eof = set(chan_df["Chan ID"]) - set(eof_df["Chan ID"])
+        if missing_in_eof:
+            logger.warning(
+                f"Warning: {len(missing_in_eof)} nodes in timeseries/maximums were not found in the EOF geometry table."
+            )
 
         # Set index to Chan ID for both
         chan_indexed: DataFrame = chan_df.set_index(keys="Chan ID")

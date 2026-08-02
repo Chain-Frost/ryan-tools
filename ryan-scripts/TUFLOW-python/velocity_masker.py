@@ -11,10 +11,13 @@ Before the first edit, the source velocity is moved to a sibling
 not compound. Check AEP/path matching and inspect a representative masked raster.
 """
 
+# pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownParameterType=false
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 import numpy as np
 import rasterio
@@ -23,6 +26,7 @@ from rasterio.enums import Resampling
 from rasterio.warp import reproject
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+from ryan_library.functions.gdal.raster_processing import read_masked_raster_band
 from ryan_library.functions.loguru_helpers import setup_logger
 
 TARGET_DIRECTORIES: Sequence[Path] = (
@@ -87,7 +91,7 @@ def build_aligned_mask(
     threshold: float,
 ) -> np.ndarray:
     with rasterio.open(depth_path) as depth_ds:
-        depth_values = depth_ds.read(1, masked=True).filled(-np.inf)
+        depth_values = read_masked_raster_band(depth_path).filled(-np.inf)
         fine_mask = (depth_values >= threshold).astype(np.uint8)
 
         aligned_mask = np.zeros((velocity_dataset.height, velocity_dataset.width), dtype=np.uint8)
@@ -106,15 +110,15 @@ def build_aligned_mask(
 
 
 def mask_velocity_data(
-    velocity_dataset: rasterio.io.DatasetReader,
+    velocity_dataset: rasterio.io.DatasetReader,  # pyright: ignore[reportAttributeAccessIssue]
     mask: np.ndarray,
-) -> tuple[np.ndarray, dict]:
+) -> tuple[np.ndarray, dict[str, Any]]:
     profile = velocity_dataset.profile.copy()
     dtype = np.dtype(profile["dtype"])
     nodata = profile.get("nodata")
     fill_scalar = np.array(0 if nodata is None else nodata).astype(dtype).item()
 
-    velocity_values = velocity_dataset.read(1, masked=True).filled(fill_scalar).astype(dtype, copy=False)
+    velocity_values = read_masked_raster_band(velocity_dataset.name).filled(fill_scalar).astype(dtype, copy=False)
     trimmed = np.where(mask, velocity_values, fill_scalar).astype(dtype, copy=False)
 
     return trimmed[np.newaxis, ...], profile

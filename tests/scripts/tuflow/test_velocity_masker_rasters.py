@@ -10,7 +10,8 @@ import shutil
 from types import ModuleType
 
 import numpy as np
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+
+from ryan_library.functions.gdal.raster_processing import read_masked_raster_band
 
 
 def _load_velocity_masker() -> ModuleType:
@@ -40,7 +41,6 @@ def test_velocity_masker_uses_fine_depth_grid_without_mutating_fixture(raster_te
 
     assert succeeded is True
     assert velocity_path.with_name(f"{velocity_path.stem}_original.tif").is_file()
-    with rasterio.open(velocity_path) as dataset:
-        masked = dataset.read(1, masked=True)
+    masked = read_masked_raster_band(velocity_path)
     assert np.count_nonzero(~masked.mask) == 25
     assert (source_directory / velocity_name).is_file()
