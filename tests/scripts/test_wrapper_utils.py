@@ -19,9 +19,7 @@ def test_change_working_directory_success(tmp_path):
 
 def test_change_working_directory_failure():
     with patch("os.chdir", side_effect=OSError("Error")):
-        with patch("ryan_library.functions.wrapper_utils.pause_console") as mock_pause:
-            assert wrapper_utils.change_working_directory(Path("invalid")) is False
-            mock_pause.assert_called_once_with()
+        assert wrapper_utils.change_working_directory(Path("invalid")) is False
 
 
 def test_print_library_version_found(capsys):

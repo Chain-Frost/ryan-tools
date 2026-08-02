@@ -1,8 +1,6 @@
 import pytest
 from pathlib import Path
 from typing import Generator
-import pandas as pd
-from io import StringIO
 import os
 from contextlib import contextmanager
 
@@ -64,7 +62,7 @@ def tuflow_test_data_root() -> Path:
 
 
 @pytest.fixture(scope="session")
-def find_test_file(tuflow_test_data_root):
+def find_test_file(tuflow_test_data_root: Path):
     """
     Returns a function that finds the first file matching a suffix in the test data.
     Usage:

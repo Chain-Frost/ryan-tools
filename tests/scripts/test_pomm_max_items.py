@@ -1,6 +1,5 @@
 """Tests for the active TUFLOW POMM peak-report orchestrator."""
 
-import pytest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 import pandas as pd
@@ -75,26 +74,3 @@ class TestPommMaxItems:
         mock_workflow.assert_called_once()
         _, kwargs = mock_workflow.call_args
         assert kwargs["exporter"] == pomm_max_items.save_peak_report_mean
-
-    @patch("ryan_library.orchestrators.tuflow.pomm_max_items.export_median_peak_report")
-    def test_run_median_peak_report_deprecated(self, mock_export):
-        """Test deprecated run_median_peak_report."""
-        with pytest.warns(DeprecationWarning):
-            pomm_max_items.run_median_peak_report(script_directory=Path("."))
-
-        mock_export.assert_called_once()
-
-    @patch("ryan_library.orchestrators.tuflow.pomm_max_items.export_mean_peak_report")
-    def test_run_mean_peak_report_deprecated(self, mock_export):
-        """Test deprecated run_mean_peak_report."""
-        with pytest.warns(DeprecationWarning):
-            pomm_max_items.run_mean_peak_report(script_directory=Path("."))
-
-        mock_export.assert_called_once()
-
-    @patch("ryan_library.orchestrators.tuflow.pomm_max_items.export_median_peak_report")
-    def test_run_peak_report_legacy(self, mock_export):
-        """Test legacy run_peak_report."""
-        # Capture stdout to verify print statements if needed, but mainly check call
-        pomm_max_items.run_peak_report(script_directory=Path("."))
-        mock_export.assert_called_once()

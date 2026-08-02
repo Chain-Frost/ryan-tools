@@ -7,8 +7,9 @@ unit-tested independently of the orchestration layer.
 """
 
 import pandas as pd
-from pandas import DataFrame
 from loguru import logger
+from pandas import DataFrame
+from typing import cast
 
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
@@ -55,10 +56,6 @@ def calculate_threshold_durations(
         logger.warning(f"No PO rows found for measurement type '{measurement_type}'. Skipping.")
         return DataFrame()
 
-    filtered["Time"] = pd.to_numeric(filtered["Time"], errors="coerce")
-    filtered["Value"] = pd.to_numeric(filtered["Value"], errors="coerce")
-    filtered = filtered.dropna(subset=["Time", "Value", "Location"])
-
     group_keys: list[str] = [
         "directory_path",
         "trim_runcode",
@@ -71,6 +68,10 @@ def calculate_threshold_durations(
     if "Location" not in available_keys:
         logger.warning("PO data is missing a 'Location' column. Skipping duration calculation.")
         return DataFrame()
+
+    filtered["Time"] = pd.to_numeric(filtered["Time"], errors="coerce")
+    filtered["Value"] = pd.to_numeric(filtered["Value"], errors="coerce")
+    filtered = filtered.dropna(subset=["Time", "Value", "Location"])
 
     records: list[dict[str, object]] = []
     for _, group in filtered.groupby(available_keys, dropna=False, observed=False):
@@ -125,7 +126,6 @@ def summarise_results(df: DataFrame) -> DataFrame:
         "Closest_Tpcrit",
         "Closest_Value",
     ]
-    finaldb = pd.DataFrame(columns=final_columns)
     # Capture the full set of (Duration, TP) combinations for each location/AEP so that
     # thresholds which do not exceed for a given combination can still contribute zeros
     # to the summary statistics.  Without this we would discard zeros entirely and the
@@ -134,14 +134,15 @@ def summarise_results(df: DataFrame) -> DataFrame:
     if "trim_runcode" in df.columns:
         scenario_keys.insert(0, "trim_runcode")
     combo_columns: list[str] = ["out_path", "Location", "AEP", *scenario_keys]
-    combo_lookup = {
-        key: grp.loc[:, scenario_keys].drop_duplicates().reset_index(drop=True)
-        for key, grp in df.loc[:, combo_columns].drop_duplicates().groupby(["out_path", "Location", "AEP"])
-    }
+    combo_lookup: dict[tuple[str, str, str], DataFrame] = {}
+    for key, combo_group in df.loc[:, combo_columns].drop_duplicates().groupby(["out_path", "Location", "AEP"]):
+        combo_key: tuple[str, str, str] = cast(tuple[str, str, str], key)
+        combo_lookup[combo_key] = combo_group.loc[:, scenario_keys].drop_duplicates().reset_index(drop=True)
 
     grouped = df.groupby(["out_path", "Location", "ThresholdFlow", "AEP"])
+    records: list[dict[str, object]] = []
     for name, group in grouped:
-        path, location, threshold, aep = name
+        path, location, threshold, aep = cast(tuple[str, str, float, str], name)
         combos: DataFrame | None = combo_lookup.get((path, location, aep))
         if combos is not None:
             group = combos.merge(right=group, on=scenario_keys, how="left")
@@ -152,16 +153,18 @@ def summarise_results(df: DataFrame) -> DataFrame:
             group["Duration_Exceeding"] = group["Duration_Exceeding"].fillna(0.0)
 
         stats, _ = median_stats_func(group, "Duration_Exceeding", "TP", "Duration")
-        row = list(name) + [
-            stats.get("median"),
-            stats.get("median_duration"),
-            stats.get("median_TP"),
-            stats.get("low"),
-            stats.get("high"),
-            stats.get("mean_including_zeroes"),
-            stats.get("median_TP"),
-            stats.get("median"),
-        ]
-        finaldb.loc[len(finaldb)] = row
-    finaldb.columns = final_columns
-    return finaldb
+        row: list[object] = [path, location, threshold, aep]
+        row.extend(
+            [
+                stats.get("median"),
+                stats.get("median_duration"),
+                stats.get("median_TP"),
+                stats.get("low"),
+                stats.get("high"),
+                stats.get("mean_including_zeroes"),
+                stats.get("median_TP"),
+                stats.get("median"),
+            ]
+        )
+        records.append(dict(zip(final_columns, row, strict=True)))
+    return DataFrame.from_records(data=records, columns=final_columns)

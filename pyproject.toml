@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.08.02.8"
+version = "26.08.02.10"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -67,7 +67,7 @@ include-package-data = true
 "ryan_library.classes" = ["*.json"]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = [".", "vendor/run_hy8/src"]
 include = [
     "ryan_functions",
     "ryan_functions.*",
@@ -76,20 +76,12 @@ include = [
     "vendor",
     "vendor.PyHMA",
     "vendor.PyHMA.*",
-    "vendor.run_hy8",
-    "vendor.run_hy8.*",
+    "run_hy8",
+    "run_hy8.*",
 ]
 exclude = [
     "tests",
     "tests.*",
-    "vendor.run_hy8.dist",
-    "vendor.run_hy8.dist.*",
-    "vendor.run_hy8.docs",
-    "vendor.run_hy8.docs.*",
-    "vendor.run_hy8.scripts",
-    "vendor.run_hy8.scripts.*",
-    "vendor.run_hy8.tests",
-    "vendor.run_hy8.tests.*",
 ]
 namespaces = true
 
