@@ -20,7 +20,7 @@ from pandas import DataFrame
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.misc_functions import ExcelExporter
+from ryan_library.functions.misc_functions import ExcelExporter, ExportContent
 from ryan_library.functions.tuflow.closure_durations_functions import (
     calculate_threshold_durations,
     collect_po_data,
@@ -130,12 +130,12 @@ def _export_closure_duration_artifacts(
         return
 
     file_label: str = f"{timestamp}_closure_durations"
-    export_dict: dict[str, dict[str, list[DataFrame] | list[str]]] = {
-        file_label: {"dataframes": frames, "sheets": sheet_names}
-    }
+    export_dict: dict[str, ExportContent] = {file_label: {"dataframes": frames, "sheets": sheet_names}}
     ExcelExporter().export_dataframes(
         export_dict=export_dict,
         output_directory=Path.cwd(),
         export_mode=export_mode,
         parquet_compression="gzip",
+        include_data_dictionary=True,
+        data_dictionary_metadata={"Workflow": "Closure durations"},
     )

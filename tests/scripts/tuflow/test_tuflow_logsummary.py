@@ -63,7 +63,8 @@ def test_main_processing_success():
     with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.setup_logger"):
         with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.discover_log_files") as mock_discover:
             with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.process_log_files") as mock_process:
-                with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.save_to_excel") as mock_save:
+                with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.ExcelExporter") as mock_exporter:
+                    mock_save = mock_exporter.return_value.save_to_excel
 
                     mock_discover.return_value = [log_file]
                     mock_process.return_value = [processing_result]

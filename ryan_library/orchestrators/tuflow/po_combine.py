@@ -132,4 +132,6 @@ def export_results(*, results: ProcessorCollection, export_mode: Literal["excel"
         output_directory=Path.cwd(),
         export_mode=export_mode,
         parquet_compression="gzip",
+        include_data_dictionary=True,
+        data_dictionary_metadata={"Workflow": "PO combine"},
     )

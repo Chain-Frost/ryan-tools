@@ -224,5 +224,7 @@ def main_processing(
             output_directory=output_dir,
             export_mode=export_mode,
             parquet_compression="gzip",
+            include_data_dictionary=True,
+            data_dictionary_metadata={"Workflow": "Timeseries stability"},
         )
         logger.info("Timeseries stability export complete.")

@@ -189,23 +189,39 @@
       "value_type": "string"
     },
     "R01": {
-      "description": "First segment of the run code.",
+      "description": "First underscore-delimited component of the normalized source run code.",
       "value_type": "string"
     },
     "R02": {
-      "description": "Second segment of the run code.",
+      "description": "Second underscore-delimited component of the normalized source run code.",
       "value_type": "string"
     },
     "R03": {
-      "description": "Third segment of the run code.",
+      "description": "Third underscore-delimited component of the normalized source run code.",
       "value_type": "string"
     },
     "R04": {
-      "description": "Fourth segment of the run code.",
+      "description": "Fourth underscore-delimited component of the normalized source run code.",
       "value_type": "string"
     },
     "R05": {
-      "description": "Fifth segment of the run code.",
+      "description": "Fifth underscore-delimited component of the normalized source run code.",
+      "value_type": "string"
+    },
+    "R06": {
+      "description": "Sixth underscore-delimited component of the normalized source run code.",
+      "value_type": "string"
+    },
+    "R07": {
+      "description": "Seventh underscore-delimited component of the normalized source run code.",
+      "value_type": "string"
+    },
+    "R08": {
+      "description": "Eighth underscore-delimited component of the normalized source run code.",
+      "value_type": "string"
+    },
+    "R09": {
+      "description": "Ninth underscore-delimited component of the normalized source run code.",
       "value_type": "string"
     },
     "Value": {
@@ -245,35 +261,35 @@
       "value_type": "float"
     },
     "MedianAbsMax": {
-      "description": "Absolute maxima across median of temporal patterns for the group.",
+      "description": "AbsMax from the middle temporal-pattern result after sorting AbsMax from lowest to highest. For an odd number of results, this is the single middle value; for an even number, it is the higher of the two middle values. The value comes from an actual result and is not the average of the two middle values.",
       "value_type": "float"
     },
     "median_duration": {
-      "description": "Duration associated with the MedianAbsMax.",
+      "description": "Storm duration associated with the temporal-pattern record selected for MedianAbsMax.",
       "value_type": "string"
     },
     "median_TP": {
-      "description": "Temporal pattern associated with the MedianAbsMax.",
+      "description": "Temporal pattern associated with the record selected for MedianAbsMax.",
       "value_type": "string"
     },
     "mean_including_zeroes": {
-      "description": "Mean of the statistic including zero values within the group.",
+      "description": "Arithmetic mean of AbsMax across temporal patterns in the group, including zero values.",
       "value_type": "float"
     },
     "mean_excluding_zeroes": {
-      "description": "Mean of the statistic excluding zero values within the group.",
+      "description": "Arithmetic mean of AbsMax across temporal patterns in the group after excluding zero values.",
       "value_type": "float"
     },
     "mean_PeakFlow": {
-      "description": "Peak flow from the event whose statistic is nearest to the group's arithmetic mean; not an averaged peak flow. Uses mean_including_zeroes.",
+      "description": "Actual AbsMax from the temporal-pattern record nearest to mean_including_zeroes; this is a representative event value, not the arithmetic mean itself.",
       "value_type": "float"
     },
     "mean_Duration": {
-      "description": "Duration taken from the same nearest-to-mean event used for mean_PeakFlow.",
+      "description": "Storm duration from the same representative event as mean_PeakFlow.",
       "value_type": "string"
     },
     "mean_TP": {
-      "description": "Temporal pattern taken from the same nearest-to-mean event used for mean_PeakFlow.",
+      "description": "Temporal pattern from the same representative event as mean_PeakFlow.",
       "value_type": "string"
     },
     "mean_Q": {
@@ -349,44 +365,467 @@
       "value_type": "float"
     },
     "adopted_Q": {
-      "description": "Discharge from the event whose Q value is closest to the sample mean for the group; used as the adopted representative flow.",
+      "description": "Discharge from the representative event selected using Q: nearest to the arithmetic mean for a mean report, or the higher-middle observed Q for a median report.",
       "value_type": "float"
     },
     "adopted_V": {
-      "description": "Velocity from the adopted event associated with the adopted_Q selection.",
+      "description": "Velocity from the same representative event as adopted_Q.",
       "value_type": "float"
     },
     "adopted_DS_h": {
-      "description": "Downstream water level from the adopted event associated with the adopted_Q selection.",
+      "description": "Downstream water level from the same representative event as adopted_Q.",
       "value_type": "float"
     },
     "adopted_US_h": {
-      "description": "Upstream water level from the adopted event associated with the adopted_Q selection.",
+      "description": "Upstream water level from the same representative event as adopted_Q.",
       "value_type": "float"
+    },
+    "adopted_tp_text": {
+      "description": "Temporal-pattern label from the adopted representative culvert event.",
+      "value_type": "string"
+    },
+    "adopted_internalName": {
+      "description": "Full run code of the adopted representative culvert event.",
+      "value_type": "string"
+    },
+    "Num_barrels": {
+      "description": "Number of culvert barrels reported by the EOF channel attributes.",
+      "value_type": "int"
+    },
+    "DS Obvert": {
+      "description": "Crown or obvert elevation at the downstream end of the culvert or channel.",
+      "value_type": "float"
+    },
+    "Diam_Width": {
+      "description": "Culvert diameter or channel width reported by the EOF channel attributes.",
+      "value_type": "float"
+    },
+    "Inlet_Height": {
+      "description": "Inlet height reported by the EOF channel attributes.",
+      "value_type": "float"
+    },
+    "Inlet_Width": {
+      "description": "Inlet width reported by the EOF channel attributes.",
+      "value_type": "float"
+    },
+    "Entry Loss": {
+      "description": "Entry-loss coefficient reported for the culvert or channel.",
+      "value_type": "float"
+    },
+    "Exit Loss": {
+      "description": "Exit-loss coefficient reported for the culvert or channel.",
+      "value_type": "float"
+    },
+    "Fixed Loss": {
+      "description": "Fixed energy-loss value reported for the culvert or channel.",
+      "value_type": "float"
+    },
+    "Ent/Exit Losses": {
+      "description": "Combined entry and exit loss information reported by the EOF channel attributes.",
+      "value_type": "float"
+    },
+    "CF": {
+      "description": "Conveyance or capacity factor reported by the 1d_CF timeseries output.",
+      "value_type": "float"
+    },
+    "HW_D": {
+      "description": "Headwater-depth ratio calculated as upstream water depth above invert divided by culvert height.",
+      "value_type": "float"
+    },
+    "count": {
+      "description": "Number of temporal-pattern records contributing to the grouped statistic.",
+      "value_type": "int"
+    },
+    "mean_bin": {
+      "description": "Number of duration rows with a valid mean metric considered when selecting the critical duration.",
+      "value_type": "int"
+    },
+    "median_bin": {
+      "description": "Number of duration rows with a valid median metric considered when selecting the critical duration.",
+      "value_type": "int"
+    },
+    "AEP": {
+      "description": "Annual exceedance probability parsed from the run code or retained from the source workflow.",
+      "value_type": "string"
+    },
+    "AEP_value": {
+      "description": "Annual exceedance probability expressed as a numeric percentage.",
+      "value_type": "float"
+    },
+    "Duration": {
+      "description": "Storm-duration label or value parsed from the run code.",
+      "value_type": "string"
+    },
+    "Duration_m": {
+      "description": "Storm duration expressed numerically in minutes.",
+      "value_type": "float"
+    },
+    "TP": {
+      "description": "Temporal-pattern label or value parsed from the run code.",
+      "value_type": "string"
+    },
+    "TP_num": {
+      "description": "Temporal-pattern identifier expressed numerically.",
+      "value_type": "int"
+    },
+    "ThresholdFlow": {
+      "description": "Flow threshold above which closure duration is calculated.",
+      "value_type": "float"
+    },
+    "Duration_Exceeding": {
+      "description": "Total model time for which the result exceeds ThresholdFlow within the event.",
+      "value_type": "float"
+    },
+    "out_path": {
+      "description": "Directory containing the source result files for the closure-duration record.",
+      "value_type": "string"
+    },
+    "Path": {
+      "description": "Source result directory associated with the closure-duration summary group.",
+      "value_type": "string"
+    },
+    "Central_Value": {
+      "description": "Higher-middle Duration_Exceeding value after sorting the contributing scenarios; an even middle pair is not averaged.",
+      "value_type": "float"
+    },
+    "Critical_Duration": {
+      "description": "Storm duration associated with Central_Value.",
+      "value_type": "string"
+    },
+    "Critical_Tp": {
+      "description": "Temporal pattern associated with Central_Value.",
+      "value_type": "string"
+    },
+    "Low_Value": {
+      "description": "Lowest Duration_Exceeding value across the contributing scenarios.",
+      "value_type": "float"
+    },
+    "High_Value": {
+      "description": "Highest Duration_Exceeding value across the contributing scenarios.",
+      "value_type": "float"
+    },
+    "Average_Value": {
+      "description": "Arithmetic mean Duration_Exceeding value, including scenarios with zero exceedance.",
+      "value_type": "float"
+    },
+    "Closest_Tpcrit": {
+      "description": "Temporal pattern associated with Central_Value in the current implementation.",
+      "value_type": "string"
+    },
+    "Closest_Value": {
+      "description": "Central_Value repeated for compatibility with the closure-duration summary layout.",
+      "value_type": "float"
+    },
+    "run_code": {
+      "description": "Run identifier used by the timeseries diagnostic workflow.",
+      "value_type": "string"
+    },
+    "raw_run_code": {
+      "description": "Full run code parsed from the source filename before event components are removed.",
+      "value_type": "string"
+    },
+    "trim_run_code": {
+      "description": "Normalized source run code with any recognized AEP, duration and temporal-pattern components removed.",
+      "value_type": "string"
+    },
+    "data_type": {
+      "description": "TUFLOW result type parsed from the source filename.",
+      "value_type": "string"
+    },
+    "datatype": {
+      "description": "Timeseries quantity reported by the source column, such as flow, level or velocity.",
+      "value_type": "string"
+    },
+    "location": {
+      "description": "Timeseries reporting-location identifier from the source column.",
+      "value_type": "string"
+    },
+    "peak_kind": {
+      "description": "Direction of the largest change from the starting value: positive, negative or flat.",
+      "value_type": "string"
+    },
+    "peak_value": {
+      "description": "Source timeseries value at the largest absolute departure from the starting value.",
+      "value_type": "float"
+    },
+    "peak_time": {
+      "description": "Model time in hours at which peak_value occurs.",
+      "value_type": "float"
+    },
+    "end_time": {
+      "description": "Final model time represented by the analyzed timeseries.",
+      "value_type": "float"
+    },
+    "hours_from_end": {
+      "description": "Hours between peak_time and the end of the analyzed timeseries.",
+      "value_type": "float"
+    },
+    "start_value": {
+      "description": "First valid value in the analyzed timeseries.",
+      "value_type": "float"
+    },
+    "end_value": {
+      "description": "Value at the end of the analyzed timeseries.",
+      "value_type": "float"
+    },
+    "end_minus_start": {
+      "description": "Difference between end_value and start_value.",
+      "value_type": "float"
+    },
+    "peak_above_start": {
+      "description": "Difference between peak_value and start_value.",
+      "value_type": "float"
+    },
+    "end_pct_of_peak": {
+      "description": "End-of-series departure from the starting value expressed as a percentage of the peak departure.",
+      "value_type": "float"
+    },
+    "status": {
+      "description": "Diagnostic classification or processing outcome for the result row.",
+      "value_type": "string"
+    },
+    "points": {
+      "description": "Number of valid time-value pairs analyzed for stability.",
+      "value_type": "int"
+    },
+    "sign_changes": {
+      "description": "Number of direction changes between significant consecutive timeseries steps.",
+      "value_type": "int"
+    },
+    "nonzero_steps": {
+      "description": "Number of consecutive timeseries steps whose change exceeds delta_tol.",
+      "value_type": "int"
+    },
+    "delta_tol": {
+      "description": "Absolute change tolerance used to ignore insignificant timeseries steps.",
+      "value_type": "float"
+    },
+    "value_min": {
+      "description": "Minimum value in the analyzed timeseries.",
+      "value_type": "float"
+    },
+    "value_max": {
+      "description": "Maximum value in the analyzed timeseries.",
+      "value_type": "float"
+    },
+    "value_range": {
+      "description": "Difference between value_max and value_min.",
+      "value_type": "float"
+    },
+    "start_time": {
+      "description": "First valid model time in the analyzed timeseries.",
+      "value_type": "float"
+    },
+    "time_span": {
+      "description": "Elapsed model time between start_time and end_time.",
+      "value_type": "float"
+    },
+    "max_abs_step": {
+      "description": "Largest absolute change between consecutive valid timeseries values.",
+      "value_type": "float"
+    },
+    "mean_abs_step": {
+      "description": "Arithmetic mean absolute change between consecutive valid timeseries values.",
+      "value_type": "float"
+    },
+    "Runcode": {
+      "description": "TUFLOW log filename stem with plus delimiters normalized to underscores.",
+      "value_type": "string"
+    },
+    "clean_run_code": {
+      "description": "Normalized TUFLOW simulation run code when supplied by the log parser.",
+      "value_type": "string"
+    },
+    "trim_tcf": {
+      "description": "Normalized log run code with every value listed under Specified Events and Specified Scenarios removed.",
+      "value_type": "string"
+    },
+    "StartDate": {
+      "description": "Date and time at which the TUFLOW simulation started.",
+      "value_type": "datetime"
+    },
+    "Initialise_RunTime": {
+      "description": "Clock time in hours reported for TUFLOW model initialization.",
+      "value_type": "float"
+    },
+    "Initialise_CPU_Time": {
+      "description": "Processor time in hours reported for TUFLOW model initialization.",
+      "value_type": "float"
+    },
+    "Final_RunTime": {
+      "description": "Total clock time in hours reported in the final TUFLOW timing section.",
+      "value_type": "float"
+    },
+    "Final_CPU_Time": {
+      "description": "Total processor time in hours reported in the final TUFLOW timing section.",
+      "value_type": "float"
+    },
+    "Model_Start_Time": {
+      "description": "Configured simulation start time in model hours.",
+      "value_type": "float"
+    },
+    "Model_End_Time": {
+      "description": "Configured simulation end time in model hours.",
+      "value_type": "float"
+    },
+    "Final_Cumulative_ME_pct": {
+      "description": "Final cumulative mass error reported by TUFLOW, expressed as a percentage.",
+      "value_type": "float"
+    },
+    "TGC": {
+      "description": "TUFLOW geometry control filename reported in the log.",
+      "value_type": "string"
+    },
+    "TBC": {
+      "description": "TUFLOW boundary control filename reported in the log.",
+      "value_type": "string"
+    },
+    "ECF": {
+      "description": "Base name of the ESTRY control file reported by the log parser, without its extension.",
+      "value_type": "string"
+    },
+    "TEF": {
+      "description": "Base name of the TUFLOW event file reported by the log parser, without its extension.",
+      "value_type": "string"
+    },
+    "BC_dbase": {
+      "description": "Boundary-condition database filename reported in the log.",
+      "value_type": "string"
+    },
+    "TCF": {
+      "description": "TUFLOW control filename used for the simulation.",
+      "value_type": "string"
+    },
+    "TUFLOW_version": {
+      "description": "TUFLOW build or version reported in the log.",
+      "value_type": "string"
+    },
+    "ComputerName": {
+      "description": "Computer name reported for the simulation.",
+      "value_type": "string"
+    },
+    "username": {
+      "description": "Final directory name parsed from the Simulations Log Folder path reported in the TUFLOW log, normally the TUFLOW user name.",
+      "value_type": "string"
+    },
+    "GPU_Device_IDs": {
+      "description": "GPU device identifiers used by the simulation.",
+      "value_type": "string"
+    },
+    "Version_note": {
+      "description": "Compatibility note emitted by the log parser for older TUFLOW GPU solver versions.",
+      "value_type": "string"
+    },
+    "EndStatus": {
+      "description": "Simulation completion status line captured from the TUFLOW log.",
+      "value_type": "string"
+    },
+    "orig_TCF_path": {
+      "description": "Original full path to the TUFLOW control file as written in the log.",
+      "value_type": "string"
+    },
+    "orig_log_path": {
+      "description": "Original full path to the TUFLOW log file as written in the log.",
+      "value_type": "string"
+    },
+    "orig_results_path": {
+      "description": "Original results-prefix path reported in the TUFLOW log.",
+      "value_type": "string"
+    },
+    "VERSION": {
+      "description": "Value assigned to the user-defined TUFLOW variable VERSION in the log.",
+      "value_type": "string"
+    },
+    "BRANCHROOT": {
+      "description": "Value assigned to the user-defined TUFLOW variable BRANCHROOT in the log.",
+      "value_type": "string"
+    },
+    "OUTPUTROOT": {
+      "description": "Value assigned to the user-defined TUFLOW variable OUTPUTROOT in the log.",
+      "value_type": "string"
+    },
+    "OUTINTERVAL": {
+      "description": "Value assigned to the user-defined TUFLOW variable OUTINTERVAL in the log.",
+      "value_type": "string"
+    },
+    "VARCELLSIZE": {
+      "description": "Value assigned to the user-defined TUFLOW variable VARCELLSIZE in the log.",
+      "value_type": "string"
+    }
+  },
+  "prefix_definitions": {
+    "mean_": {
+      "description_template": "Arithmetic mean of {base_name} across the contributing temporal-pattern results. Base quantity: {base_description}"
+    },
+    "median_": {
+      "description_template": "Middle observed {base_name} after sorting the contributing temporal-pattern results from lowest to highest. For an even number of results, the higher middle value is selected and the middle pair is not averaged. Base quantity: {base_description}"
+    },
+    "min_": {
+      "description_template": "Minimum observed {base_name} across the contributing results. Base quantity: {base_description}"
+    },
+    "max_": {
+      "description_template": "Maximum observed {base_name} across the contributing results. Base quantity: {base_description}"
+    },
+    "adopted_": {
+      "description_template": "Value of {base_name} from the representative event selected by the workflow. Base quantity: {base_description}"
+    },
+    "bcdbase: ": {
+      "description_template": "Boundary-condition event source recorded in the TUFLOW log for variable {base_name}.",
+      "value_type": "string"
+    },
+    "-e": {
+      "description_template": "Value assigned to TUFLOW event placeholder {column_name} for this simulation.",
+      "value_type": "string"
+    },
+    "-s": {
+      "description_template": "Value assigned to TUFLOW scenario placeholder {column_name} for this simulation.",
+      "value_type": "string"
     }
   },
   "sheet_specific_definitions": {
+    "Log Summary": {
+      "AEP": {
+        "description": "Numeric annual exceedance probability parsed from the log filename, expressed as a percentage and stored as text.",
+        "value_type": "string"
+      },
+      "Duration": {
+        "description": "Numeric storm duration parsed from the log filename, expressed in minutes and stored as text.",
+        "value_type": "string"
+      },
+      "TP": {
+        "description": "Numeric temporal-pattern identifier parsed from the log filename and stored as text; blank when no numeric temporal-pattern token is recognized.",
+        "value_type": "string"
+      }
+    },
     "aep-dur-max": {
       "AbsMax": {
-        "description": "Peaks for the AEP/Duration/Location/Type/run grouping.",
+        "description": "Largest AbsMax across temporal patterns for this AEP/duration/location/type/run group.",
+        "value_type": "float"
+      },
+      "MedianAbsMax": {
+        "description": "AbsMax from the middle temporal-pattern result in this AEP/duration/location/type/run group after sorting AbsMax from lowest to highest. For an even number of results, the higher of the two middle values is selected; the middle pair is not averaged.",
         "value_type": "float"
       }
     },
     "aep-max": {
       "AbsMax": {
-        "description": "Peaks for the AEP/Location/Type/run grouping.",
+        "description": "Largest duration-level AbsMax for this AEP/location/type/run group.",
+        "value_type": "float"
+      },
+      "MedianAbsMax": {
+        "description": "Largest duration-level MedianAbsMax for this AEP/location/type/run group.",
         "value_type": "float"
       }
     },
-    "aep-dur-med": {
-      "MedianAbsMax": {
-        "description": "Medians for the specific AEP/Duration/Location/Type/run grouping.",
+    "aep-dur-mean": {
+      "mean_PeakFlow": {
+        "description": "Actual AbsMax from the temporal-pattern record nearest to the arithmetic mean for this AEP/duration/location/type/run group.",
         "value_type": "float"
       }
     },
-    "aep-med-max": {
-      "MedianAbsMax": {
-        "description": "Medians the maximum median per AEP/Location/Type/run grouping.",
+    "aep-mean-max": {
+      "mean_PeakFlow": {
+        "description": "Largest duration-level mean_PeakFlow representative-event value for this AEP/location/type/run group.",
         "value_type": "float"
       }
     }

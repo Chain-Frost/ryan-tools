@@ -4,16 +4,20 @@ from datetime import datetime
 import multiprocessing
 import pandas as pd
 import logging
+from collections.abc import Mapping
 from loguru import logger
 from typing import Literal, TypedDict
 from pathlib import Path
 from importlib import metadata
 import re
 from openpyxl.utils import get_column_letter
-from openpyxl import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils.exceptions import InvalidFileException
+from ryan_library.classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
 from ryan_library.functions.logging_helpers import setup_logging as new_setup_logging
+
+DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
+ParquetCompression = Literal["snappy", "gzip", "brotli", "lz4", "zstd"] | None
 
 
 def get_tools_version(package: str = "ryan_functions") -> str:
@@ -93,6 +97,61 @@ class ExportContent(TypedDict):
     sheets: list[str]
 
 
+def build_data_dictionary(
+    *,
+    sheet_frames: Mapping[str, pd.DataFrame],
+    metadata_rows: Mapping[str, str] | None = None,
+    registry: ColumnMetadataRegistry | None = None,
+) -> pd.DataFrame:
+    """Return a column data dictionary for the supplied worksheet DataFrames."""
+
+    effective_registry: ColumnMetadataRegistry = registry or ColumnMetadataRegistry.default()
+    rows: list[dict[str, str]] = []
+
+    for key, value in (metadata_rows or {}).items():
+        rows.append(
+            {
+                "sheet": "metadata",
+                "column": key,
+                "description": value,
+                "value_type": "metadata",
+                "pandas_dtype": "",
+            }
+        )
+
+    for sheet_name, frame in sheet_frames.items():
+        columns: list[str] = [str(column) for column in frame.columns]
+        if not columns:
+            rows.append(
+                {
+                    "sheet": sheet_name,
+                    "column": "<no columns>",
+                    "description": "Sheet exported without any columns. Review upstream processing.",
+                    "value_type": "",
+                    "pandas_dtype": "",
+                }
+            )
+            continue
+
+        dtype_map: dict[str, str] = {str(column): str(dtype) for column, dtype in frame.dtypes.items()}
+        definitions: list[ColumnDefinition] = effective_registry.iter_definitions(columns, sheet_name=sheet_name)
+        for column_name, definition in zip(columns, definitions, strict=True):
+            rows.append(
+                {
+                    "sheet": sheet_name,
+                    "column": column_name,
+                    "description": definition.description,
+                    "value_type": definition.value_type or "",
+                    "pandas_dtype": dtype_map.get(column_name, ""),
+                }
+            )
+
+    return pd.DataFrame(
+        data=rows,
+        columns=["sheet", "column", "description", "value_type", "pandas_dtype"],
+    )
+
+
 class ExcelExporter:
     """A utility class for exporting pandas DataFrames to Excel files.
 
@@ -117,7 +176,9 @@ class ExcelExporter:
         file_name: str | None = None,
         *,
         export_mode: Literal["excel", "parquet", "both"] = "excel",
-        parquet_compression: str = "gzip",
+        parquet_compression: ParquetCompression = "gzip",
+        include_data_dictionary: bool = False,
+        data_dictionary_metadata: Mapping[str, str] | None = None,
     ) -> None:
         """Export multiple DataFrames to Excel files with optional column widths.
         Args:
@@ -155,6 +216,11 @@ class ExcelExporter:
             parquet_compression (str, optional):
                 Compression codec passed to pandas whenever Parquet files are written.
                 Defaults to ``"gzip"``.
+            include_data_dictionary (bool, optional):
+                Add a ``data-dictionary`` worksheet describing every exported Excel
+                column. Parquet-only exports are unchanged. Defaults to ``False``.
+            data_dictionary_metadata (Mapping[str, str] | None, optional):
+                Additional metadata rows to place before the column definitions.
         Raises:
             ValueError: If the number of DataFrames doesn't match the number of sheets.
             InvalidFileException: If there's an issue with writing the Excel file.
@@ -191,6 +257,11 @@ class ExcelExporter:
                         f"For file '{file_label}', the number of dataframes ({len(dataframes)}) and sheets "
                         f"({len(sheets)}) must match."
                     )
+                )
+
+            if include_data_dictionary and DATA_DICTIONARY_SHEET_NAME in sheets:
+                raise ValueError(
+                    f"Sheet name '{DATA_DICTIONARY_SHEET_NAME}' is reserved when include_data_dictionary=True."
                 )
 
             export_stem: str = self._resolve_export_stem(
@@ -236,9 +307,24 @@ class ExcelExporter:
             logger.info(f"Exporting to {export_path}")
 
             try:
+                excel_dataframes: list[pd.DataFrame] = list(dataframes)
+                excel_sheets: list[str] = list(sheets)
+                if include_data_dictionary:
+                    metadata_rows: dict[str, str] = {
+                        "Generated at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                        "Generator": f"ryan-tools {get_tools_version()}",
+                    }
+                    metadata_rows.update(data_dictionary_metadata or {})
+                    dictionary_df: pd.DataFrame = build_data_dictionary(
+                        sheet_frames=dict(zip(sheets, dataframes, strict=True)),
+                        metadata_rows=metadata_rows,
+                    )
+                    excel_dataframes.append(dictionary_df)
+                    excel_sheets.append(DATA_DICTIONARY_SHEET_NAME)
+
                 with pd.ExcelWriter(path=export_path, engine="openpyxl") as writer:
                     writer.book.properties.creator = f"ryan-tools {get_tools_version()}"
-                    for df, sheet in zip(dataframes, sheets):
+                    for df, sheet in zip(excel_dataframes, excel_sheets, strict=True):
                         # Check for unique column names
                         if not df.columns.is_unique:
                             logger.error(
@@ -248,7 +334,7 @@ class ExcelExporter:
                             )
                             raise ValueError(f"Duplicate column names found in sheet '{sheet}'.")
 
-                        df.to_excel(
+                        df.to_excel(  # pyright: ignore[reportUnknownMemberType]
                             excel_writer=writer,
                             sheet_name=sheet,
                             merge_cells=False,
@@ -256,7 +342,6 @@ class ExcelExporter:
                         )
 
                         # Access the worksheet
-                        workbook: Workbook = writer.book
                         worksheet: Worksheet = writer.sheets[sheet]
 
                         # Automatically adjust column widths if enabled
@@ -319,7 +404,7 @@ class ExcelExporter:
             return file_name[:-5] if file_name.lower().endswith(".xlsx") else file_name
         return f"{datetime_string}_{export_key}"
 
-    def _build_parquet_filename(self, base_filename: str, compression: str | None) -> str:
+    def _build_parquet_filename(self, base_filename: str, compression: ParquetCompression) -> str:
         """Return a parquet filename with an optional compression suffix."""
 
         if compression:
@@ -336,7 +421,7 @@ class ExcelExporter:
         sheet: str,
         parquet_path: Path,
         export_label: str,
-        compression: str | None,
+        compression: ParquetCompression,
     ) -> None:
         """Write a DataFrame to Parquet with consistent logging and error handling."""
 
@@ -360,7 +445,7 @@ class ExcelExporter:
         dataframes: list[pd.DataFrame],
         sheets: list[str],
         output_directory: Path | None,
-        compression: str | None,
+        compression: ParquetCompression,
     ) -> None:
         """Export each DataFrame to a Parquet file sharing the Excel naming scheme."""
 
@@ -391,7 +476,7 @@ class ExcelExporter:
         dataframes: list[pd.DataFrame],
         sheets: list[str],
         output_directory: Path | None,
-        compression: str | None = None,
+        compression: ParquetCompression = None,
     ) -> None:
         """Export dataframes to Parquet and CSV files when Excel limits are exceeded."""
 
@@ -449,7 +534,9 @@ class ExcelExporter:
         file_name: str | None = None,
         *,
         export_mode: Literal["excel", "parquet", "both"] = "excel",
-        parquet_compression: str = "gzip",
+        parquet_compression: ParquetCompression = "gzip",
+        include_data_dictionary: bool = False,
+        data_dictionary_metadata: Mapping[str, str] | None = None,
     ) -> None:
         """Export a single DataFrame to an Excel file with a single sheet and optional column widths.
 
@@ -475,7 +562,11 @@ class ExcelExporter:
                 See :meth:`export_dataframes` for details.
             parquet_compression (str, optional):
                 Compression codec to use when Parquet outputs are requested. Defaults to
-                ``"gzip"``."""
+                ``"gzip"``.
+            include_data_dictionary (bool, optional):
+                Add a ``data-dictionary`` worksheet to Excel output.
+            data_dictionary_metadata (Mapping[str, str] | None, optional):
+                Additional metadata rows for the data dictionary."""
         export_dict: dict[str, ExportContent] = {file_name_prefix: {"dataframes": [data_frame], "sheets": [sheet_name]}}
 
         # Prepare column_widths in the required format
@@ -491,6 +582,8 @@ class ExcelExporter:
             file_name=file_name,
             export_mode=export_mode,
             parquet_compression=parquet_compression,
+            include_data_dictionary=include_data_dictionary,
+            data_dictionary_metadata=data_dictionary_metadata,
         )
 
     def calculate_column_widths(self, df: pd.DataFrame) -> dict[str, float]:
@@ -574,8 +667,8 @@ class ExcelExporter:
             worksheet (Worksheet): The OpenPyXL worksheet object.
             dynamic_widths (dict[str, float]): Calculated dynamic column widths."""
         for col_letter, width in dynamic_widths.items():
-            current_width: float | None = worksheet.column_dimensions[col_letter].width
-            if current_width is None or width > current_width:
+            current_width: float = worksheet.column_dimensions[col_letter].width
+            if width > current_width:
                 worksheet.column_dimensions[col_letter].width = width
                 logger.debug(f"Auto-adjusted width for column '{col_letter}' to {width}.")
 

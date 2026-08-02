@@ -78,8 +78,9 @@ def test_process_log_file_dataframe(
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.discover_log_files")
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.process_log_files")
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.build_log_summary_dataframe")
-@patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.save_to_excel")
-def test_main_processing(mock_save, mock_build, mock_process, mock_discover, tmp_path: Path) -> None:
+@patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.ExcelExporter")
+def test_main_processing(mock_exporter, mock_build, mock_process, mock_discover, tmp_path: Path) -> None:
+    mock_save = mock_exporter.return_value.save_to_excel
     # No files
     mock_discover.return_value = []
     main_processing()
