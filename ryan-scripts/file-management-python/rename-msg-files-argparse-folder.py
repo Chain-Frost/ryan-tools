@@ -1,5 +1,7 @@
+from _hashlib import HASH
 import os
 import sys
+from typing import Any, Generator, Literal
 import extract_msg
 import hashlib
 import re
@@ -17,7 +19,7 @@ MAX_FILENAME_LENGTH = 255  # Typical Windows max path length
 def sanitize_filename(s: str) -> str:
     """Remove or replace characters that are invalid in filenames."""
     # Replace invalid characters with underscores
-    sanitized: str = re.sub(r'[\\/*?:"<>|]', "_", s)
+    sanitized: str = re.sub(pattern=r'[\\/*?:"<>|]', repl="_", string=s)
     return sanitized
 
 
@@ -32,8 +34,8 @@ def compute_file_hash(file_path: str, hash_algo: str = "sha256") -> str | None:
         Hexadecimal hash string if successful, None otherwise.
     """
     try:
-        hash_func = hashlib.new(hash_algo)
-        with open(file_path, "rb") as f:
+        hash_func: HASH = hashlib.new(hash_algo)
+        with open(file=file_path, mode="rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_func.update(chunk)
         return hash_func.hexdigest()
@@ -43,7 +45,7 @@ def compute_file_hash(file_path: str, hash_algo: str = "sha256") -> str | None:
 
 
 @contextmanager
-def open_msg(file_path: str):
+def open_msg(file_path: str) -> Generator[extract_msg.Message, Any, None]:
     """Context manager to open and close a .msg file.
 
     Args:
@@ -72,7 +74,7 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
     try:
         with open_msg(file_path) as msg:
             msg_sender: str = msg.sender if msg.sender else "UnknownSender"
-            msg_date = msg.date if msg.date else "1970-01-01 00:00:00"
+            msg_date: datetime | Literal['1970-01-01 00:00:00'] = msg.date if msg.date else "1970-01-01 00:00:00"
             msg_subject: str = msg.subject if msg.subject else "NoSubject"
 
             # Determine if msg_date is a string or datetime object
@@ -86,7 +88,7 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
                     iso_date = "UnknownDate"
                 else:
                     iso_date = parsed_date.strftime("%Y-%m-%d_%H-%M-%S")
-            elif isinstance(msg_date, datetime):
+            elif isinstance(msg_date, datetime): # pyright: ignore[reportUnnecessaryIsInstance]
                 # Convert to local timezone if timezone aware
                 if msg_date.tzinfo is not None:
                     local_tz = datetime.now().astimezone().tzinfo
@@ -164,7 +166,7 @@ def rename_msg_files(directory: str) -> None:
             original_path = os.path.join(directory, filename)
 
             # Compute file hash
-            file_hash = compute_file_hash(original_path)
+            file_hash = compute_file_hash(file_path=original_path)
             if file_hash is None:
                 summary.append(
                     {
@@ -203,9 +205,9 @@ def rename_msg_files(directory: str) -> None:
                 continue  # Skip files with missing properties
 
             # Construct the new filename
-            base_new_name = f"{sent_on}_{sender}_{subject}"
-            new_name = f"{base_new_name}.msg"
-            new_path = os.path.join(directory, new_name)
+            base_new_name: str = f"{sent_on}_{sender}_{subject}"
+            new_name: str = f"{base_new_name}.msg"
+            new_path: str = os.path.join(directory, new_name)
 
             # Handle duplicate filenames by appending a numerical suffix
             if new_name in filename_counts:

@@ -16,4 +16,5 @@ call %PYTHON_CMD% "%~dp0repo-scripts\install_latest_wheel.py" %*
 set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" echo Installation failed.
 
+Pause
 endlocal & exit /b %EXIT_CODE%
