@@ -1,9 +1,21 @@
+"""Convert top-level GeoTIFFs to complete-grid XYZ CSV files (legacy version).
+
+Edit ``WORKING_DIR``, ``OUT_FOLDER``, and ``DROP_NA``, then run
+``python tif_to_xyz_drop_na_v1.py``. Each first raster band is expanded into an
+``x,y,z`` table and written as ``*_mod.xyz`` under the output folder. Missing Z
+values are either dropped or filled with the raster nodata value.
+
+This version builds each full grid in memory and uses threads across files. Use
+the chunked v2 script for large rasters, and test coordinate ordering on a small
+input first.
+"""
+
 from concurrent.futures._base import Future
 import os
 import subprocess
 import pandas as pd
 import numpy as np
-import rasterio  # type:ignore
+import rasterio  # type: ignore
 from glob import iglob
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime

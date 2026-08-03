@@ -1,4 +1,14 @@
-# ryan-scripts\fix-chatgpt-type-hints.py
+"""Rewrite selected legacy ``typing`` aliases in Python source files.
+
+Edit ``folder_paths`` in the ``__main__`` block, then run this script from the
+repository root. It recursively replaces ``Dict[``, ``List[``, ``Tuple[``, and
+``Set[`` with built-in generic forms and reports imports that may need manual
+cleanup.
+
+Files are rewritten in place with no dry-run or automatic import cleanup.
+Review the Git diff afterwards and run Black and Pyright on intended changes.
+"""
+
 from pathlib import Path
 import re
 

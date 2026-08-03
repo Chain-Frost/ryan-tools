@@ -7,20 +7,9 @@ It finds and parses TUFLOW log files in the directory tree to generate a simulat
 Users can edit certain constants (like CONSOLE_LOG_LEVEL) to control the default behavior.
 """
 
-import argparse
-import gc
 from pathlib import Path
-import os
-import subprocess
 
-from ryan_library.orchestrators.tuflow.tuflow_logsummary import main_processing
-from ryan_library.functions.wrapper_utils import (
-    CommonWrapperOptions,
-    add_common_cli_arguments,
-    change_working_directory,
-    parse_common_cli_arguments,
-    print_library_version,
-)
+WRAPPER_VERSION = "2026-08-02.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -28,6 +17,18 @@ WORKING_DIR: Path = Path(__file__).absolute().parent
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
 LIVE_MAX_ROWS = 25
+
+import argparse
+
+from ryan_library.functions.wrapper_utils import (
+    CommonWrapperOptions,
+    add_common_cli_arguments,
+    change_working_directory,
+    parse_common_cli_arguments,
+    pause_console,
+    print_wrapper_banner,
+)
+from ryan_library.orchestrators.tuflow.tuflow_logsummary import main_processing
 
 
 def main(
@@ -37,7 +38,7 @@ def main(
     live_max_rows: int | None = None,
     live_refresh_per_second: float | None = None,
     use_live_dashboard: bool | None = None,
-) -> None:
+) -> int:
     """
     Main entry point for log summary analysis.
 
@@ -51,11 +52,11 @@ def main(
         live_refresh_per_second: Overrides the LIVE_REFRESH_PER_SECOND constant.
         use_live_dashboard: Overrides the USE_LIVE_DASHBOARD constant.
     """
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     script_directory: Path = working_directory or WORKING_DIR
 
     if not change_working_directory(target_dir=script_directory):
-        return
+        return 1
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_live_max_rows: int = live_max_rows or LIVE_MAX_ROWS
@@ -69,8 +70,7 @@ def main(
         live_refresh_per_second=effective_live_refresh_per_second,
         live_max_rows=effective_live_max_rows,
     )
-    print()
-    print_library_version()
+    return 0
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
@@ -88,19 +88,20 @@ def _parse_cli_arguments() -> CommonWrapperOptions:
     return parse_common_cli_arguments(args=args)
 
 
-def _pause_on_windows() -> None:
-    if os.name == "nt":
-        subprocess.run(args=["cmd", "/C", "pause"], check=False)
-
-
 if __name__ == "__main__":
     common_options: CommonWrapperOptions = _parse_cli_arguments()
-    main(
+    result: int = main(
         console_log_level=common_options.console_log_level,
         working_directory=common_options.working_directory,
         live_max_rows=common_options.live_max_rows,
         live_refresh_per_second=common_options.live_refresh_per_second,
         use_live_dashboard=common_options.use_live_dashboard,
     )
-    gc.collect()
-    _pause_on_windows()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
+    if not common_options.no_pause:
+        pause_console()
+    raise SystemExit(result)

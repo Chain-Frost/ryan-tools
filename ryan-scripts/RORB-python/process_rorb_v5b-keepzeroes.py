@@ -1,3 +1,16 @@
+"""Summarize RORB hydrograph threshold exceedance while retaining zeroes (v5b).
+
+Change to the root of the RORB results tree and run
+``python process_rorb_v5b-keepzeroes.py``. The script recursively discovers
+``*batch.out`` files, locates their hydrograph CSVs, uses multiprocessing for
+threshold analysis, and writes timestamped batch, duration-exceedance, Parquet,
+and ``QvsTexc`` outputs in the current directory.
+
+This standalone version encodes project-era filename and table assumptions.
+Test a small copied dataset and inspect its threshold list and statistics before
+using it for reporting.
+"""
+
 import logging
 import multiprocessing
 from functools import partial

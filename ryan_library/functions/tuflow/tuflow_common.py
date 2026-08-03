@@ -2,9 +2,9 @@
 from __future__ import annotations
 from pathlib import Path
 from multiprocessing import Pool
-from multiprocessing.pool import MaybeEncodingError
+import multiprocessing.pool as multiprocessing_pool
 from collections.abc import Iterable, Mapping, Collection
-from typing import Any
+from typing import cast
 from loguru import logger
 
 from ryan_library.functions.file_utils import (
@@ -12,11 +12,16 @@ from ryan_library.functions.file_utils import (
     is_non_zero_file,
 )
 from ryan_library.functions.misc_functions import calculate_pool_size
-from ryan_library.functions.loguru_helpers import LoguruMultiprocessingLogger, worker_initializer
+from ryan_library.functions.loguru_helpers import LogQueue, worker_initializer
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+
+MaybeEncodingError: type[Exception] = cast(
+    type[Exception],
+    getattr(multiprocessing_pool, "MaybeEncodingError"),
+)
 
 
 def collect_files(
@@ -129,11 +134,12 @@ def _resolve_entity_filter_for_file(
         return None
 
     if isinstance(entity_filters, Mapping):
+        mapped_filters: Mapping[str, Collection[str]] = cast(Mapping[str, Collection[str]], entity_filters)
         parser = TuflowStringParser(file_path=file_path)
         data_type: str | None = parser.data_type
         if not data_type:
             return None
-        return entity_filters.get(data_type) or entity_filters.get(data_type.lower())
+        return mapped_filters.get(data_type) or mapped_filters.get(data_type.lower())
 
     if isinstance(entity_filters, str):
         return [entity_filters]
@@ -173,7 +179,7 @@ def process_file(
 
 def process_files_in_parallel(
     file_list: list[Path],
-    log_queue: Any,
+    log_queue: LogQueue,
     log_level: str = "INFO",
     entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
     *,
@@ -211,7 +217,7 @@ def process_files_in_parallel(
     except MaybeEncodingError as exc:
         logger.warning(
             "Multiprocessing failed to return processor results ({}). Falling back to sequential execution. Dataset footprint: {}",
-            exc,
+            str(exc),
             dataset_summary,
         )
     except OSError as exc:
@@ -249,7 +255,7 @@ def _process_files_serially(
 def bulk_read_and_merge_tuflow_csv(
     paths_to_process: list[Path],
     include_data_types: list[str],
-    log_queue: LoguruMultiprocessingLogger,
+    log_queue: LogQueue,
     console_log_level: str = "INFO",
     entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
     *,

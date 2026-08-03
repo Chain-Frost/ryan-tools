@@ -14,7 +14,7 @@ import pandas as pd
 from loguru import logger
 from ryan_library.functions.dashboard_workflow import run_dashboard_workflow
 from ryan_library.functions.file_utils import find_files_parallel
-from ryan_library.functions.misc_functions import calculate_pool_size, save_to_excel
+from ryan_library.functions.misc_functions import ExcelExporter, calculate_pool_size
 from ryan_library.functions.path_stuff import convert_to_relative_path
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowStatus
 from ryan_library.functions.loguru_helpers import LogQueue, setup_logger
@@ -254,10 +254,12 @@ def main_processing(
         )
         if not merged_df.empty:
             try:
-                save_to_excel(
+                ExcelExporter().save_to_excel(
                     data_frame=merged_df,
                     file_name_prefix="ModellingLog",
                     sheet_name="Log Summary",
+                    include_data_dictionary=True,
+                    data_dictionary_metadata={"Workflow": "TUFLOW log summary"},
                 )
 
                 logger.success("Log file processing completed successfully.")

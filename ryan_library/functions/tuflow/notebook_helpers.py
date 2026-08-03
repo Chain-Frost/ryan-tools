@@ -1,49 +1,164 @@
 """
 Helper functions to enable easy usage of TUFLOW workflows in Jupyter Notebooks.
+
+This module provides notebook-friendly wrappers around the TUFLOW orchestrators in
+``ryan_library.orchestrators.tuflow``.  Each helper returns a ``pandas.DataFrame``
+(or a small collection of them) so the results are immediately available for
+interactive inspection, plotting, and further analysis.
+
+Jupyter / multiprocessing notes
+-------------------------------
+On Windows, ``multiprocessing.Pool`` requires a ``if __name__ == "__main__":`` guard
+in the entry module.  Jupyter kernels do not provide this, so parallel processing can
+silently hang or crash.  By default, all helpers in this module **detect the Jupyter
+environment and fall back to serial processing**.  You can force parallel mode by
+passing ``parallel=True``, but be aware this may not work reliably in all notebook
+configurations.
 """
 
-from collections.abc import Collection
+from __future__ import annotations
+
+import multiprocessing
+import sys
+from collections.abc import Collection, Sequence
 from pathlib import Path
-from typing import Literal
+from typing import cast
+
+import pandas as pd
+from loguru import logger
 
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel, process_file
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from ryan_library.functions.tuflow.tuflow_common import (
+    collect_files,
+    process_file,
+    process_files_in_parallel,
+)
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-from ryan_library.orchestrators.tuflow.tuflow_culverts_mean import find_culvert_aep_dur_mean, find_culvert_aep_mean_max
-
-import pandas as pd
-import matplotlib.pyplot as plt
 
 # Default console log level for notebooks
 DEFAULT_NOTEBOOK_LOG_LEVEL = "INFO"
 
+# ---------------------------------------------------------------------------
+# Windows multiprocessing safety
+# ---------------------------------------------------------------------------
+multiprocessing.freeze_support()
+
+
+# ---------------------------------------------------------------------------
+# Environment detection
+# ---------------------------------------------------------------------------
+
+
+def is_notebook() -> bool:
+    """Return ``True`` when running inside a Jupyter / IPython notebook kernel.
+
+    Detection uses the ``IPKernelApp`` check which is reliable across classic
+    Jupyter, JupyterLab, VS Code notebooks, and Google Colab.
+    """
+    try:
+        from IPython import get_ipython  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
+
+        shell: object | None = cast(object | None, get_ipython())
+        if shell is None:
+            return False
+        return type(shell).__name__ == "ZMQInteractiveShell"
+    except ImportError:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Logging helpers
+# ---------------------------------------------------------------------------
+
+
+_notebook_logging_configured: bool = False
+
+
+def init_notebook_logging(level: str = DEFAULT_NOTEBOOK_LOG_LEVEL) -> None:
+    """Configure loguru for clean notebook output.
+
+    Removes all existing sinks and adds a single ``sys.stderr`` sink with the
+    requested level.  This avoids the duplicate-output problem that occurs when
+    cells are re-run and loguru accumulates sinks.
+
+    Safe to call multiple times — subsequent calls are no-ops unless the module
+    is reloaded.
+    """
+    global _notebook_logging_configured  # noqa: PLW0603
+    if _notebook_logging_configured:
+        return
+
+    logger.remove()
+    logger.add(
+        sink=sys.stderr,
+        level=level,
+        format="<level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
+        colorize=True,
+    )
+    _notebook_logging_configured = True
+
+
+# ---------------------------------------------------------------------------
+# Resolve whether to use parallel processing
+# ---------------------------------------------------------------------------
+
+
+def _resolve_parallel(parallel: bool | None) -> bool:
+    """Decide whether to use multiprocessing.
+
+    * ``None`` (default) → auto-detect: serial in notebooks, parallel otherwise.
+    * Explicit ``True`` / ``False`` → honour the caller's choice, but warn if
+      ``True`` inside a notebook.
+    """
+    if parallel is None:
+        if is_notebook():
+            logger.info(
+                "Notebook detected — defaulting to serial processing. "
+                "Pass parallel=True to override (may be unreliable on Windows)."
+            )
+            return False
+        return True
+
+    if parallel and is_notebook():
+        logger.warning(
+            "Parallel processing forced inside a Jupyter notebook. "
+            "This may hang on Windows due to multiprocessing limitations."
+        )
+    return parallel
+
+
+# ---------------------------------------------------------------------------
+# Core data-loading helper
+# ---------------------------------------------------------------------------
+
 
 def load_tuflow_data(
-    paths: list[str] | list[Path],
+    paths: Sequence[str | Path],
     data_types: Collection[str],
-    parallel: bool = True,
+    parallel: bool | None = None,
     log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
     locations: Collection[str] | None = None,
 ) -> ProcessorCollection:
-    """
-    Load TUFLOW data from the specified paths into a ProcessorCollection.
+    """Load TUFLOW result files into a :class:`ProcessorCollection`.
 
-    This function abstracts away the complexity of setting up multiprocessing loggers
-    and configuration loading, making it easier to use in interactive environments
-    like Jupyter Notebooks.
+    This function abstracts away the complexity of setting up multiprocessing
+    loggers and configuration loading, making it straightforward to use in
+    interactive environments like Jupyter Notebooks.
 
     Args:
-        paths: List of directory paths to search for files.
-        data_types: List of TUFLOW data types to load (e.g., ["Q", "V", "H", "POMM"]).
-        parallel: Whether to use parallel processing (multiprocessing). Defaults to True.
-        log_level: Logging verbosity. Defaults to "INFO".
-        locations: Optional list of location IDs to filter the results by.
+        paths: Directory paths to search for files.
+        data_types: TUFLOW data types to load (e.g. ``["Q", "V", "H", "POMM"]``).
+        parallel: ``None`` = auto-detect (serial in notebooks), ``True`` = force
+            parallel, ``False`` = force serial.
+        log_level: Logging verbosity.  Defaults to ``"INFO"``.
+        locations: Optional location IDs to filter the results by.
 
     Returns:
-        ProcessorCollection: A collection containing the loaded and processed data.
+        A :class:`ProcessorCollection` containing the loaded and processed data.
     """
+    use_parallel: bool = _resolve_parallel(parallel)
+
     # Normalize paths to Path objects
     path_objects: list[Path] = [Path(p) for p in paths]
 
@@ -58,14 +173,15 @@ def load_tuflow_data(
     )
 
     if not files:
-        print(f"No files found matching types {data_types} in {paths}")
+        print(f"No files found matching types {list(data_types)} in {[str(p) for p in path_objects]}")
         return ProcessorCollection()
+
+    print(f"Found {len(files)} file(s) matching types {list(data_types)}")
 
     # Process files
     collection = ProcessorCollection()
 
-    if parallel:
-        # Use the parallel processing helper with a temporary logger context
+    if use_parallel:
         with setup_logger(console_log_level=log_level) as log_queue:
             collection = process_files_in_parallel(
                 file_list=files,
@@ -73,11 +189,6 @@ def load_tuflow_data(
                 log_level=log_level,
             )
     else:
-        # Serial processing
-        # We still might want to configure basic logging for serial execution if not already set
-        # But commonly in notebooks, users might just rely on print or existing logger config.
-        # For consistency with the parallel block, we'll process sequentially.
-
         for file_path in files:
             proc = process_file(file_path=file_path)
             if proc:
@@ -87,151 +198,622 @@ def load_tuflow_data(
     if locations:
         collection.filter_locations(locations)
 
+    print(f"Loaded {len(collection.processors)} processor(s).")
     return collection
 
 
-def get_critical_hydrographs(collection: ProcessorCollection, metric: str = "Q") -> dict[tuple[str, str], pd.DataFrame]:
-    """
-    Identify the critical mean runs and extract their full timeseries.
+# ---------------------------------------------------------------------------
+# Workflow: POMM Combine
+# ---------------------------------------------------------------------------
 
-    1. Calculates AEP/Duration means (scalar).
-    2. Identifies the critical duration (max mean) for each AEP.
-    3. Identifies the specific simulation run that is closest to the mean for that critical duration.
-    4. Extracts the timeseries for that run.
+
+def run_pomm_combine(
+    paths: Sequence[str | Path],
+    *,
+    data_types: Collection[str] = ("POMM", "RLL_Qmx"),
+    locations: Collection[str] | None = None,
+    parallel: bool | None = None,
+    log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
+) -> pd.DataFrame:
+    """Combine POMM (Plot Output Maximums/Minimums) files into a single DataFrame.
+
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/POMM_combine.py``.
 
     Args:
-        collection: The loaded ProcessorCollection (should contain both Maximums and Timeseries data if possible,
-                   but at least Maximums for the mean logic and Timeseries for the result).
-        metric: The column to optimize for (default "Q").
+        paths: Directories to scan for POMM CSV files.
+        data_types: File types to include.  Defaults to ``("POMM", "RLL_Qmx")``.
+        locations: Optional location filter.
+        parallel: Parallelism mode (see :func:`load_tuflow_data`).
+        log_level: Console log level.
 
     Returns:
-        dict: Keys are (AEP_Text, Chan_ID), Values are the timeseries DataFrame for the representative run.
+        Combined POMM DataFrame, or an empty DataFrame if no data was found.
     """
-    # 1. Combine maximums to get scalar stats
-    max_df = collection.combine_1d_maximums()
-    if max_df.empty:
-        print("No maximums data found.")
-        return {}
-
-    # 2. Calculate Mean Stats
-    aep_dur_mean = find_culvert_aep_dur_mean(max_df)
-
-    # 3. Find Critical Duration (Max of Mean)
-    # This returns one row per AEP/Culvert corresponding to the critical duration
-    # It contains 'adopted_run_code' etc if find_culvert_aep_dur_mean logic supports it?
-    # Wait, find_culvert_aep_dur_mean currently just finds the row.
-    # The 'adopted' columns in `find_culvert_aep_dur_mean` store values like 'adopted_Q', but do they store the run ID?
-    # Let's check `tuflow_culverts_mean.py` again.
-    # It seems `find_culvert_aep_dur_mean` implementation I read earlier calculates 'adopted_Q' etc but DOES NOT explicitly store the `internalName` of the adopted run.
-    # I need to enhance that or re-implement logic here to capture the RUN ID.
-
-    # Re-implementing simplified logic here to ensure we get the Run ID
-    return _extract_critical_timeseries(collection, max_df, metric)
+    collection: ProcessorCollection = load_tuflow_data(
+        paths=list(paths),
+        data_types=data_types,
+        parallel=parallel,
+        log_level=log_level,
+        locations=locations,
+    )
+    if not collection.processors:
+        return pd.DataFrame()
+    return collection.pomm_combine()
 
 
-def _extract_critical_timeseries(
-    collection: ProcessorCollection, max_df: pd.DataFrame, metric: str
-) -> dict[tuple[str, str], pd.DataFrame]:
-
-    # map run_code -> processor (timeseries)
-    # This allows fast lookup of the timeseries dataframe once we know the run_code
-    ts_processors = {p.name_parser.raw_run_code: p for p in collection.processors if p.dataformat == "Timeseries"}
-
-    # Group max_df by AEP, Duration, Chan ID
-    # We need to find the mean Q for each group, then find the run closest to it.
-
-    results = {}
-
-    # columns we need
-    group_cols = ["aep_text", "Chan ID"]
-
-    # Only work with compatible data
-    if metric not in max_df.columns:
-        return {}
-
-    # We want to find the "Global Critical" event for each AEP/ChanID combo.
-    # Strategy:
-    # 1. Calculate Mean Metric for each Duration
-    # 2. Find Duration with Max Mean Metric
-    # 3. For that Duration, find the individual Run closest to the Mean
-    # 4. Return that Run's timeseries
-
-    # Calculate means per duration
-    dur_group_cols = ["aep_text", "duration_text", "Chan ID"]
-    if not all(c in max_df.columns for c in dur_group_cols):
-        print("Missing required grouping columns.")
-        return {}
-
-    # Valid numeric rows
-    valid_df = max_df.dropna(subset=[metric]).copy()
-
-    # Mean per duration
-    means = valid_df.groupby(dur_group_cols)[metric].mean().reset_index(name="mean_metric")
-
-    # Find max mean per AEP/Chan (Critical Duration)
-    # idxmax returns the index of the max value
-    crit_idx = means.groupby(group_cols)["mean_metric"].idxmax()
-    critical_events = means.loc[crit_idx]
-    # critical_events has [aep_text, duration_text, Chan ID, mean_metric] representing the critical duration
-
-    # Now, for each critical event, go back to valid_df and find the specific run closest to mean
-    for _, row in critical_events.iterrows():
-        aep = row["aep_text"]
-        dur = row["duration_text"]
-        chan = row["Chan ID"]
-        target_mean = row["mean_metric"]
-
-        # Filter raw max rows for this specific bucket
-        subset = valid_df[
-            (valid_df["aep_text"] == aep) & (valid_df["duration_text"] == dur) & (valid_df["Chan ID"] == chan)
-        ]
-
-        if subset.empty:
-            continue
-
-        # Find row with metric closest to target_mean
-        subset = subset.copy()
-        subset["diff"] = (subset[metric] - target_mean).abs()
-        closest_row = subset.loc[subset["diff"].idxmin()]
-
-        run_code = closest_row["internalName"]
-
-        # Get timeseries
-        proc = ts_processors.get(run_code)
-        if proc:
-            # We filter the big timeseries DF for just this channel
-            # Optimisation: The processor DF contains all channels for that run.
-            ts_df = proc.df
-            if "Chan ID" in ts_df.columns:
-                chan_ts = ts_df[ts_df["Chan ID"] == chan].copy()
-                if not chan_ts.empty:
-                    results[(aep, chan)] = chan_ts
-
-    return results
+# ---------------------------------------------------------------------------
+# Workflow: PO Combine
+# ---------------------------------------------------------------------------
 
 
-def plot_hydrographs(hydrographs: dict[tuple[str, str], pd.DataFrame], title: str = "Hydrographs"):
-    """
-    Plot the provided hydrographs.
+def run_po_combine(
+    paths: Sequence[str | Path],
+    *,
+    data_types: Collection[str] = ("PO",),
+    locations: Collection[str] | None = None,
+    parallel: bool | None = None,
+    log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
+) -> pd.DataFrame:
+    """Combine PO (Plot Output) timeseries CSV files into a single DataFrame.
+
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/PO_combine.py``.
 
     Args:
-        hydrographs: Dictionary returned by get_critical_hydrographs.
+        paths: Directories to scan for PO CSV files.
+        data_types: File types to include.  Defaults to ``("PO",)``.
+        locations: Optional location filter.
+        parallel: Parallelism mode (see :func:`load_tuflow_data`).
+        log_level: Console log level.
+
+    Returns:
+        Combined PO timeseries DataFrame.
     """
-    if not hydrographs:
-        print("No hydrographs to plot.")
+    collection: ProcessorCollection = load_tuflow_data(
+        paths=list(paths),
+        data_types=data_types,
+        parallel=parallel,
+        log_level=log_level,
+        locations=locations,
+    )
+    if not collection.processors:
+        return pd.DataFrame()
+    return collection.po_combine()
+
+
+# ---------------------------------------------------------------------------
+# Workflow: Culvert Maximums
+# ---------------------------------------------------------------------------
+
+
+def run_culvert_maximums(
+    paths: Sequence[str | Path],
+    *,
+    data_types: Collection[str] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF"),
+    locations: Collection[str] | None = None,
+    parallel: bool | None = None,
+    log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Load and combine culvert maximum data.
+
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Culvert_Maximums.py``.
+
+    Args:
+        paths: Directories to scan.
+        data_types: File types to include.
+        locations: Optional location filter.
+        parallel: Parallelism mode (see :func:`load_tuflow_data`).
+        log_level: Console log level.
+
+    Returns:
+        A tuple of ``(maximums_df, raw_df)``.  ``maximums_df`` is the grouped
+        1D maximums result; ``raw_df`` is the raw concatenation of all files.
+    """
+    collection: ProcessorCollection = load_tuflow_data(
+        paths=list(paths),
+        data_types=data_types,
+        parallel=parallel,
+        log_level=log_level,
+        locations=locations,
+    )
+    if not collection.processors:
+        return pd.DataFrame(), pd.DataFrame()
+
+    collection.align_eof_channel_ids()
+    maximums_df: pd.DataFrame = collection.combine_1d_maximums()
+    raw_df: pd.DataFrame = collection.combine_raw()
+    return maximums_df, raw_df
+
+
+# ---------------------------------------------------------------------------
+# Workflow: Culvert Timeseries
+# ---------------------------------------------------------------------------
+
+
+def run_culvert_timeseries(
+    paths: Sequence[str | Path],
+    *,
+    data_types: Collection[str] = ("Q", "V", "H", "Chan", "EOF"),
+    locations: Collection[str] | None = None,
+    parallel: bool | None = None,
+    log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
+) -> pd.DataFrame:
+    """Load and combine culvert timeseries data.
+
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Culvert_Timeseries.py``.
+
+    Args:
+        paths: Directories to scan.
+        data_types: File types to include.
+        locations: Optional location filter.
+        parallel: Parallelism mode.
+        log_level: Console log level.
+
+    Returns:
+        Combined 1D timeseries DataFrame.
+    """
+    collection: ProcessorCollection = load_tuflow_data(
+        paths=list(paths),
+        data_types=data_types,
+        parallel=parallel,
+        log_level=log_level,
+        locations=locations,
+    )
+    if not collection.processors:
+        return pd.DataFrame()
+    return collection.combine_1d_timeseries()
+
+
+# ---------------------------------------------------------------------------
+# Workflow: Culvert Mean / Median Peaks
+# ---------------------------------------------------------------------------
+
+
+def run_culvert_mean_peaks(
+    paths: Sequence[str | Path],
+    *,
+    data_types: Collection[str] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF"),
+    locations: Collection[str] | None = None,
+    parallel: bool | None = None,
+    log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Calculate mean peak values per AEP/duration for culvert maximums.
+
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Culvert-mean-max-aep-dur.py``.
+
+    This first loads and combines the culvert maximums, then calculates the
+    AEP/duration mean using :func:`find_culvert_aep_dur_mean` and the
+    critical-duration mean-max using :func:`find_culvert_aep_mean_max`.
+
+    Args:
+        paths: Directories to scan.
+        data_types: File types to include.
+        locations: Optional location filter.
+        parallel: Parallelism mode.
+        log_level: Console log level.
+
+    Returns:
+        A tuple of ``(aep_dur_mean_df, aep_mean_max_df)``.
+    """
+    from ryan_library.orchestrators.tuflow.tuflow_culverts_mean import (
+        find_culvert_aep_dur_mean,
+        find_culvert_aep_mean_max,
+    )
+
+    collection: ProcessorCollection = load_tuflow_data(
+        paths=list(paths),
+        data_types=data_types,
+        parallel=parallel,
+        log_level=log_level,
+        locations=locations,
+    )
+    if not collection.processors:
+        return pd.DataFrame(), pd.DataFrame()
+
+    maximums_df: pd.DataFrame = collection.combine_1d_maximums()
+    if maximums_df.empty:
+        print("No maximums data found for mean peak calculation.")
+        return pd.DataFrame(), pd.DataFrame()
+
+    aep_dur_mean: pd.DataFrame = find_culvert_aep_dur_mean(maximums_df)
+    aep_mean_max: pd.DataFrame = find_culvert_aep_mean_max(maximums_df)
+    return aep_dur_mean, aep_mean_max
+
+
+# ---------------------------------------------------------------------------
+# Workflow: Log Summary
+# ---------------------------------------------------------------------------
+
+
+def run_log_summary(
+    paths: Sequence[str | Path],
+    *,
+    log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
+) -> pd.DataFrame:
+    """Parse TUFLOW log files (.tlf) and return a summary DataFrame.
+
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/LogSummary.py``.
+
+    Unlike the wrapper script, this function does **not** use a live dashboard
+    and processes files serially to avoid multiprocessing issues in notebooks.
+
+    Args:
+        paths: Directories to scan for ``.tlf`` files.
+        log_level: Console log level.
+
+    Returns:
+        A DataFrame with one row per completed simulation log.
+    """
+    from ryan_library.orchestrators.tuflow.tuflow_logsummary import (
+        LogFileProcessingResult,
+        build_log_summary_dataframe,
+        discover_log_files,
+        process_log_file_for_dashboard,
+    )
+
+    path_objects: list[Path] = [Path(p) for p in paths]
+
+    all_files: list[Path] = []
+    for root in path_objects:
+        if root.is_dir():
+            all_files.extend(discover_log_files(root_dir=root))
+        else:
+            logger.warning(f"Skipping non-directory path: {root}")
+
+    if not all_files:
+        print("No .tlf log files found.")
+        return pd.DataFrame()
+
+    print(f"Found {len(all_files)} log file(s).  Processing serially...")
+
+    results: list[LogFileProcessingResult] = []
+    for logfile in all_files:
+        result = process_log_file_for_dashboard(logfile=logfile)
+        results.append(result)
+
+    summary_df: pd.DataFrame = build_log_summary_dataframe(
+        files=all_files,
+        processing_results=results,
+    )
+    ok_count: int = sum(1 for r in results if r.status == "OK")
+    print(f"Processed {len(all_files)} log(s): {ok_count} completed, {len(all_files) - ok_count} skipped/failed.")
+    return summary_df
+
+
+# ---------------------------------------------------------------------------
+# Workflow: Closure Durations
+# ---------------------------------------------------------------------------
+
+
+def run_closure_durations(
+    paths: Sequence[str | Path],
+    *,
+    thresholds: list[float] | None = None,
+    data_type: str = "Flow",
+    locations: Collection[str] | None = None,
+    log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Compute closure (exceedance) durations from PO timeseries files.
+
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW-find-closure-durations.py``.
+
+    Args:
+        paths: Directories to scan for PO CSV files.
+        thresholds: Flow thresholds (m³/s) at which to compute exceedance durations.
+            ``None`` uses a wide default set from 1 to 2090.
+        data_type: The measurement column to analyze (default ``"Flow"``).
+        locations: Optional location filter.
+        log_level: Console log level.
+
+    Returns:
+        A tuple of ``(durations_df, summary_df)``.
+    """
+    from ryan_library.functions.tuflow.closure_durations_functions import (
+        calculate_threshold_durations,
+        collect_po_data,
+        summarise_results,
+    )
+
+    if thresholds is None:
+        values: set[int] = set(list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10)))
+        thresholds = [float(v) for v in sorted(values)]
+
+    # Load PO data — use load_tuflow_data to handle notebook parallel safety
+    collection: ProcessorCollection = load_tuflow_data(
+        paths=paths,
+        data_types=["PO"],
+        parallel=False,  # Closure durations is typically fast; serial is fine
+        log_level=log_level,
+        locations=locations,
+    )
+
+    if not collection.processors:
+        print("No PO processors found.")
+        return pd.DataFrame(), pd.DataFrame()
+
+    po_df: pd.DataFrame = collect_po_data(collection=collection)
+
+    if po_df.empty:
+        print("No PO data found after collection.")
+        return pd.DataFrame(), pd.DataFrame()
+
+    print(f"Calculating closure durations for {len(thresholds)} threshold(s)...")
+    durations_df: pd.DataFrame = calculate_threshold_durations(
+        po_df=po_df,
+        thresholds=thresholds,
+        measurement_type=data_type,
+    )
+    if durations_df.empty:
+        print(f"No exceedances found for measurement type '{data_type}'.")
+        return pd.DataFrame(), pd.DataFrame()
+
+    summary_df: pd.DataFrame = summarise_results(df=durations_df)
+    return durations_df, summary_df
+
+
+# ---------------------------------------------------------------------------
+# Workflow: Timeseries Stability
+# ---------------------------------------------------------------------------
+
+
+def run_timeseries_stability(
+    paths: Sequence[str | Path],
+    *,
+    result_types: Sequence[str] = ("PO",),
+    datatype_include: Sequence[str] = ("Flow", "Q"),
+    location_include: Sequence[str] = (),
+    location_exclude: Sequence[str] = (),
+    flat_tol: float = 1e-6,
+    diff_rel_tol: float = 0.01,
+    diff_abs_tol: float = 1e-6,
+    max_sign_changes: int = 2,
+    min_points: int = 5,
+    log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
+) -> pd.DataFrame:
+    """Run stability checks on PO and/or 1D Q timeseries CSVs.
+
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Stability.py``.
+
+    Runs serially in the notebook process to avoid multiprocessing issues.
+
+    Args:
+        paths: Directories to scan.
+        result_types: File families: ``"PO"``, ``"Q"``, or both.
+        datatype_include: Measurement types to include.
+        location_include: Optional location allow-list.
+        location_exclude: Optional location block-list.
+        flat_tol: Range threshold for treating a series as flat.
+        diff_rel_tol: Relative tolerance for ignoring step noise.
+        diff_abs_tol: Absolute tolerance for ignoring step noise.
+        max_sign_changes: Maximum sign changes before flagging instability.
+        min_points: Minimum points for stability evaluation.
+        log_level: Console log level.
+
+    Returns:
+        DataFrame of stability check results.
+    """
+    from ryan_library.functions.tuflow.po_timeseries_checks import (
+        StabilityCheckConfig,
+        analyze_stability_csv,
+        analyze_stability_q_csv,
+        flatten_stability_results,
+    )
+
+    path_objects: list[Path] = [Path(p) for p in paths]
+
+    config = StabilityCheckConfig(
+        datatype_include=datatype_include,
+        datatype_case_sensitive=False,
+        location_include=location_include,
+        location_exclude=location_exclude,
+        location_case_sensitive=False,
+        flat_tol=flat_tol,
+        diff_rel_tol=diff_rel_tol,
+        diff_abs_tol=diff_abs_tol,
+        max_sign_changes=max_sign_changes,
+        min_points=min_points,
+    )
+
+    # Map result types to glob patterns (inlined to avoid private imports)
+    result_type_globs: dict[str, str] = {"PO": "**/*_PO.csv", "Q": "**/*_1d_Q.csv"}
+    effective_result_types: list[str] = []
+    for rt in result_types:
+        canonical: str = rt.strip().upper()
+        if canonical == "ALL":
+            effective_result_types = list(result_type_globs.keys())
+            break
+        if canonical in result_type_globs:
+            effective_result_types.append(canonical)
+    if not effective_result_types:
+        effective_result_types = ["PO"]
+
+    # Collect files matching the glob patterns
+    files: list[tuple[Path, str]] = []
+    seen: set[tuple[Path, str]] = set()
+    for root in path_objects:
+        if not root.is_dir():
+            logger.warning(f"Skipping non-directory path: {root}")
+            continue
+        for rt in effective_result_types:
+            for match in root.rglob(result_type_globs[rt]):
+                key = (match, rt)
+                if key not in seen:
+                    seen.add(key)
+                    files.append(key)
+    if not files:
+        print("No timeseries CSV files found for stability checking.")
+        return pd.DataFrame()
+
+    print(f"Running stability checks on {len(files)} file(s) serially...")
+    all_rows: list[dict[str, object]] = []
+    for csv_path, rt in files:
+        if rt == "Q":
+            results = analyze_stability_q_csv(path=csv_path, config=config)
+        else:
+            results = analyze_stability_csv(path=csv_path, config=config)
+        all_rows.extend(flatten_stability_results(results=results))
+
+    if not all_rows:
+        print("No matching data columns after filters.")
+        return pd.DataFrame()
+
+    return pd.DataFrame(data=all_rows)
+
+
+# ---------------------------------------------------------------------------
+# Workflow: Timeseries Peak Checks
+# ---------------------------------------------------------------------------
+
+
+def run_timeseries_peaks_check(
+    paths: Sequence[str | Path],
+    *,
+    csv_glob: str = "**/*_PO.csv",
+    datatype_include: Sequence[str] = ("Flow",),
+    location_include: Sequence[str] = (),
+    location_exclude: Sequence[str] = (),
+    warn_2hours: float = 2.0,
+    warn_1hour: float = 1.0,
+    flat_tol: float = 1e-6,
+    log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
+) -> pd.DataFrame:
+    """Check peak timing relative to end of simulation in PO CSVs.
+
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Peaks_Check.py``.
+
+    Runs serially to avoid multiprocessing issues in notebooks.
+
+    Args:
+        paths: Directories to scan.
+        csv_glob: Glob pattern for PO CSV files.
+        datatype_include: Measurement types to include.
+        location_include: Optional location allow-list.
+        location_exclude: Optional location block-list.
+        warn_2hours: Threshold (hours from end) for WARN_2H.
+        warn_1hour: Threshold (hours from end) for WARN_1H.
+        flat_tol: Tolerance for treating peak deviations as flat.
+        log_level: Console log level.
+
+    Returns:
+        DataFrame of peak check results.
+    """
+    from ryan_library.functions.tuflow.po_timeseries_checks import (
+        PeakCheckConfig,
+        analyze_peak_csv,
+        flatten_peak_results,
+    )
+
+    path_objects: list[Path] = [Path(p) for p in paths]
+
+    config = PeakCheckConfig(
+        datatype_include=datatype_include,
+        datatype_case_sensitive=False,
+        location_include=location_include,
+        location_exclude=location_exclude,
+        location_case_sensitive=False,
+        warn_2hours=warn_2hours,
+        warn_1hour=warn_1hour,
+        flat_tol=flat_tol,
+    )
+
+    # Collect PO CSV files (inlined to avoid private imports)
+    files: list[Path] = []
+    seen: set[Path] = set()
+    for root in path_objects:
+        if not root.is_dir():
+            logger.warning(f"Skipping non-directory path: {root}")
+            continue
+        for match in root.rglob(csv_glob):
+            if match not in seen:
+                seen.add(match)
+                files.append(match)
+    files.sort()
+    if not files:
+        print(f"No files matched '{csv_glob}' in the provided directories.")
+        return pd.DataFrame()
+
+    print(f"Running peak checks on {len(files)} PO CSV file(s) serially...")
+    all_rows: list[dict[str, object]] = []
+    for csv_path in files:
+        results = analyze_peak_csv(path=csv_path, config=config)
+        all_rows.extend(flatten_peak_results(results=results))
+
+    if not all_rows:
+        print("No matching data columns after filters.")
+        return pd.DataFrame()
+
+    out_df = pd.DataFrame(data=all_rows)
+    # Apply standard column ordering
+    first_cols: list[str] = [
+        "run_code",
+        "status",
+        "datatype",
+        "location",
+        "peak_kind",
+        "peak_value",
+        "peak_time",
+        "end_time",
+        "hours_from_end",
+    ]
+    ordered: list[str] = [c for c in first_cols if c in out_df.columns] + [
+        c for c in out_df.columns if c not in first_cols
+    ]
+    return out_df.reindex(columns=ordered)
+
+
+# ---------------------------------------------------------------------------
+# Plotting helpers
+# ---------------------------------------------------------------------------
+
+
+def plot_hydrographs(
+    df: pd.DataFrame,
+    *,
+    time_col: str = "Time",
+    value_col: str = "Q",
+    group_col: str = "Chan ID",
+    title: str = "Hydrographs",
+    xlabel: str = "Time (h)",
+    ylabel: str = "Flow (m³/s)",
+) -> None:
+    """Plot timeseries data grouped by a column.
+
+    A simple convenience wrapper around matplotlib for quick visual inspection.
+
+    Args:
+        df: DataFrame containing timeseries data (e.g. from :func:`run_culvert_timeseries`).
+        time_col: Column name for the x-axis (time).
+        value_col: Column name for the y-axis (value to plot).
+        group_col: Column to group/colour by.
+        title: Plot title.
+        xlabel: X-axis label.
+        ylabel: Y-axis label.
+    """
+    import matplotlib.pyplot as plt
+
+    if df.empty:
+        print("No data to plot.")
         return
 
-    plt.figure(figsize=(10, 6))
+    if time_col not in df.columns or value_col not in df.columns:
+        print(f"Required columns '{time_col}' and/or '{value_col}' not found in DataFrame.")
+        return
 
-    for (aep, chan), df in hydrographs.items():
-        # Ensure numeric
-        df = df.sort_values("Time")
-        label = f"{chan} - {aep}"
-        plt.plot(df["Time"], df["Q"], label=label)
+    _fig, ax = plt.subplots(figsize=(12, 6))  # pyright: ignore[reportUnknownMemberType]
 
-    plt.xlabel("Time (h)")
-    plt.ylabel("Flow (m³/s)")
-    plt.title(title)
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    if group_col in df.columns:
+        for label, group in df.groupby(group_col, observed=True):
+            group_sorted = group.sort_values(time_col)
+            ax.plot(  # pyright: ignore[reportUnknownMemberType]
+                group_sorted[time_col], group_sorted[value_col], label=str(label)
+            )
+        ax.legend(loc="best", fontsize=8)  # pyright: ignore[reportUnknownMemberType]
+    else:
+        sorted_df = df.sort_values(time_col)
+        ax.plot(sorted_df[time_col], sorted_df[value_col])  # pyright: ignore[reportUnknownMemberType]
+
+    ax.set_xlabel(xlabel)  # pyright: ignore[reportUnknownMemberType]
+    ax.set_ylabel(ylabel)  # pyright: ignore[reportUnknownMemberType]
+    ax.set_title(title)  # pyright: ignore[reportUnknownMemberType]
+    ax.grid(True, alpha=0.3)  # pyright: ignore[reportUnknownMemberType]
+    plt.tight_layout()  # pyright: ignore[reportUnknownMemberType]
+    plt.show()  # pyright: ignore[reportUnknownMemberType]

@@ -15,7 +15,7 @@ import pandas as pd
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.misc_functions import ExcelExporter
+from ryan_library.functions.misc_functions import ExcelExporter, ExportContent
 from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
 from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
@@ -101,7 +101,7 @@ def main_processing(
             logger.warning("Combined culvert DataFrames are empty. Skipping export.")
             return
 
-        export_dict: dict[str, dict[str, list[pd.DataFrame] | list[str]]] = {
+        export_dict: dict[str, ExportContent] = {
             "1d_maximums_data": {
                 "dataframes": [maximums_df, raw_df],
                 "sheets": ["Maximums", "raw_data"],
@@ -113,6 +113,8 @@ def main_processing(
             output_directory=output_dir,
             export_mode=export_mode,
             parquet_compression="gzip",
+            include_data_dictionary=True,
+            data_dictionary_metadata={"Workflow": "Culvert maximums"},
         )
         logger.info("Culvert maximums export complete.")
 

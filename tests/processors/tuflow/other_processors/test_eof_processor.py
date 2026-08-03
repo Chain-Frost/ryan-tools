@@ -23,44 +23,20 @@ class TestEOFProcessor:
             processor.data_type = "EOF"
             return processor
 
-    @patch("pandas.read_fwf")
     @patch("ryan_library.processors.tuflow.other_processors.EOFProcessor.EOFProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.other_processors.EOFProcessor.EOFProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.other_processors.EOFProcessor.EOFProcessor.validate_data")
-    def test_process_success(self, mock_validate, mock_apply, mock_add, mock_read_fwf, mock_processor):
+    def test_process_success(self, mock_validate, mock_apply, mock_add, mock_processor):
         """Test successful processing of a valid EOF file content."""
         mock_validate.return_value = True
-        
-        # Mock read_fwf return
-        data = {
-            "Chan ID": ["C1"],
-            "Type": ["R"],
-            "Num_barrels": [1],
-            "US_Invert": [10.0],
-            "DS_Invert": [9.0],
-            "US_Obvert": [12.0],
-            "DS_Obvert": [11.0],
-            "Length": [100.0],
-            "Slope": [0.01],
-            "Mannings_n": [0.013],
-            "Diam_Width": [2.0],
-            "Height": [2.0],
-            "Inlet_Height": [2.0],
-            "Inlet_Width": [2.0],
-            "Entry Loss": [0.5],
-            "Exit Loss": [1.0],
-            "Fixed Loss": [0.0],
-            "Ent/Exit Losses": [1.5]
-        }
-        mock_read_fwf.return_value = pd.DataFrame(data)
 
         # Sample EOF content to satisfy the file reading part
         eof_content = """
 Some Header Info
 ...
 CULVERT AND PIPE DATA
-Channel  Type  Num_barrels
-C1       R     1
+Channel  Type  Num_barrels  US_Invert  DS_Invert  US_Obvert  DS_Obvert  Length  Slope  Mannings_n  Diam_Width  Height  Inlet_Height  Inlet_Width  Entry Loss  Exit Loss  Fixed Loss  Ent/Exit Losses
+C1  R  1  10.0  9.0  12.0  11.0  100.0  0.01  0.013  2.0  2.0  2.0  2.0  0.5  1.0  0.0  1.5
 """
         with patch("builtins.open", mock_open(read_data=eof_content)):
             mock_processor.process()
@@ -68,12 +44,12 @@ C1       R     1
         assert mock_processor.processed is True
         assert not mock_processor.df.empty
         assert len(mock_processor.df) == 1
-        
+
         # Check renaming
         assert "US Invert" in mock_processor.df.columns
         assert "pSlope" in mock_processor.df.columns
         assert "n or Cd" in mock_processor.df.columns
-        
+
         # Check values
         row = mock_processor.df.iloc[0]
         assert row["Chan ID"] == "C1"

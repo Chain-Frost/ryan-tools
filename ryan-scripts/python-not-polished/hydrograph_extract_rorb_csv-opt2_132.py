@@ -1,3 +1,15 @@
+"""Experimental Opt2_132 RORB hydrograph combiner and plotter.
+
+This project-specific variant lives in ``python-not-polished``. Place matching
+CSV files beside it, review ``selected_hydrograph`` and the AEP/TP combinations
+in :func:`main`, then run the script. Filenames must match the Opt2 crossing
+pattern documented by ``extract_metadata_from_filename``.
+
+It writes a timestamped Excel workbook and hydrograph plot beside the script and
+waits for Enter. Treat it as an example: validate filename parsing, selected
+columns, and plot labels before adapting it to another dataset.
+"""
+
 import os
 from pathlib import Path
 import pandas as pd

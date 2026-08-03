@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pandas as pd
 
 from ..base_processor import ProcessorStatus
 from ..timeseries_processor import TimeSeriesProcessor
@@ -11,7 +10,7 @@ from ..timeseries_processor import TimeSeriesProcessor
 class QProcessor(TimeSeriesProcessor):
     """Processor for ``_Q`` timeseries CSV outputs."""
 
-    def process(self) -> None:  # type: ignore[override]
+    def process(self) -> None:
         """Process a ``_Q`` CSV using the shared timeseries pipeline."""
 
         self._process_timeseries_pipeline(data_type="Q")

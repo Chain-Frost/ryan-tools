@@ -1,4 +1,63 @@
-# ryan-scripts/misc-python/RFFE_Only_v6.py
+r"""Batch-submit catchments to the Australian RFFE web service.
+
+The script reads ``input_catchments.csv``, sends each catchment to the Regional
+Flood Frequency Estimation (RFFE) service, extracts the result tables embedded
+in the returned HTML, and combines the responses into CSV files. Catchments are
+processed sequentially using one reusable HTTP session.
+
+Input file
+----------
+The input directory must contain a CSV named ``input_catchments.csv`` with
+these columns:
+
+``Catchment``
+    Unique catchment name. A blank value becomes ``Catchment_<row number>``.
+    Use a filesystem-safe value because it is also used in a raw-output filename.
+``AreaKm2``
+    Catchment area in square kilometres.
+``OutletX`` / ``OutletY``
+    Outlet longitude and latitude in decimal degrees.
+``CentroidX`` / ``CentroidY``
+    Catchment-centroid longitude and latitude in decimal degrees.
+
+Example input::
+
+    Catchment,AreaKm2,OutletX,OutletY,CentroidX,CentroidY
+    GoldenEagles,211.52,120.1088,-21.9645,120.1194,-22.0615
+
+Running the script
+------------------
+Both directories default to the folder containing this script. Supplying an
+input directory does not change the default output directory, so specify both
+when the files should remain together::
+
+    python RFFE_Only_v6.py --input-dir "C:\RFFE\input" --output-dir "C:\RFFE\output"
+
+Use ``python RFFE_Only_v6.py --help`` for all options. ``--log-level`` accepts
+``DEBUG``, ``INFO``, ``WARNING``, or ``ERROR``.
+
+Outputs
+-------
+The output directory is created when required. Depending on the service
+response, the script writes:
+
+* ``<Catchment>_rffe.txt`` - raw HTML returned for each successful request.
+* ``rffe_results.csv`` - combined records from the service's ``results`` table.
+* ``all_catchment_results.csv`` - combined records from
+  ``allCatchmentResults``.
+* ``failed_catchments.csv`` - catchments whose request or response validation
+  failed.
+
+Operational notes
+-----------------
+Each request has a 30-second timeout and is not retried. The program returns
+exit code 1 when the input file is missing or unreadable, or when any catchment
+request fails; otherwise it returns 0. A structurally successful response can
+still contain empty result tables, so review row counts and the retained raw
+responses before using the combined data. This workflow depends on the external
+service and its HTML/JavaScript response format.
+"""
+
 # 2025-11-20 RFFE extractor update v6  ──────────────────────────────────────────────────────────────────────────────
 # fix bugs
 #  RFFE batch extractor – single-file
@@ -35,21 +94,6 @@ REQUEST_TIMEOUT: Final[int] = 30  # seconds
 
 Record = Mapping[Hashable, Any]
 _TRAILING_COMMA_RE: re.Pattern[str] = re.compile(pattern=r",\s*(\}|])")
-"""
-Expected input file: input_catchments.csv
-
-A comma-separated values file with a header row and the following columns:
-
-    Catchment   (str)   Unique name or identifier for each catchment.
-    AreaKm2     (float) Total catchment area in square kilometres.
-    OutletX     (float) Longitude of the catchment's outlet, in decimal degrees.
-    OutletY     (float) Latitude of the catchment's outlet, in decimal degrees.
-    CentroidX   (float) Longitude of the catchment's centroid, in decimal degrees.
-    CentroidY   (float) Latitude of the catchment's centroid, in decimal degrees.
-Example row:
-    Catchment,AreaKm2,OutletX,OutletY,CentroidX,CentroidY
-    GoldenEagles,211.52,120.1088,-21.9645,120.1194,-22.0615
-"""
 
 
 # ─── Data + Processing Model ─────────────────────────────────────────────────

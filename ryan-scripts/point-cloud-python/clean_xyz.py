@@ -1,3 +1,15 @@
+"""Remove sentinel-Z or malformed rows from XYZ text files in place.
+
+Run ``python clean_xyz.py --help`` before use. The default scans ``*.xyz`` beside
+the script and removes rows whose third field numerically equals the configured
+sentinel; options control the directory, glob, recursion, worker count, string
+matching, sentinel value, and malformed-row handling.
+
+Each changed file is atomically replaced by a temporary cleaned copy, but there
+is no dry-run or backup. Test on copied data and use ``--workers 0`` while
+checking a new file format.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -5,7 +17,6 @@ from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Literal
-
 
 MatchMode = Literal["numeric", "string"]
 
@@ -152,11 +163,14 @@ def clean_file(
     tmp_path: Path = path.with_name(path.name + ".tmp")
 
     try:
-        with path.open("r", encoding="utf-8", errors="replace") as src, tmp_path.open(
-            "w",
-            encoding="utf-8",
-            newline="",
-        ) as dst:
+        with (
+            path.open("r", encoding="utf-8", errors="replace") as src,
+            tmp_path.open(
+                "w",
+                encoding="utf-8",
+                newline="",
+            ) as dst,
+        ):
             for line in src:
                 hit, malformed = z_matches(line, match=match, value=value, value_str=value_str)
 

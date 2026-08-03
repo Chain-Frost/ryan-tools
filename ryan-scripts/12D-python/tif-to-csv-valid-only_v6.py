@@ -1,4 +1,13 @@
-# tif-to-csv-valid-only_v5.py
+"""Convert valid cells from adjacent GeoTIFFs to XYZ CSV files for 12d.
+
+Place input ``*.tif`` files beside this script, then review ``nodata_values``,
+``tile_size``, and ``use_tiling`` in :func:`main`. Run
+``python tif-to-csv-valid-only_v6.py``; outputs are written under
+``output_csv_files`` beside the script.
+
+With tiling disabled, each raster produces one CSV. With tiling enabled, the
+output is split into coordinate-based tiles by the shared terrain processor.
+"""
 
 import logging
 from pathlib import Path

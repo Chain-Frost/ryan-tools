@@ -1,5 +1,14 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
-"""Convert extracted DXF polyface Parquet tables to a filtered 3D GeoPackage."""
+"""Convert extracted DXF polyface Parquet tables to a filtered 3D GeoPackage.
+
+Run ``python polyface_parquet_to_gpkg.py --help``. Supply the vertices and faces
+Parquet files produced by ``dwg-to-points.py`` plus an output path, for example
+``--vertices model.vertices.parquet --faces model.triangles.parquet --output model.gpkg``.
+
+The output contains 3D vertex and polygon layers in an undefined Cartesian CRS.
+An existing output GeoPackage is deleted and rebuilt, so retain any file that
+must be preserved.
+"""
 
 from __future__ import annotations
 

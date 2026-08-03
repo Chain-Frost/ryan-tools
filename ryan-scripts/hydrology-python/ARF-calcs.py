@@ -1,3 +1,15 @@
+"""Calculate Australian Rainfall and Runoff areal reduction factors (ARFs).
+
+The module provides ``ARF_long``, ``ARF_short``, and ``ARF`` calculations using
+the regional parameter table defined below. Running ``python ARF-calcs.py``
+evaluates the example catchment in the ``__main__`` block and displays Northern
+Coastal diagnostic plots.
+
+Edit the example area (km2), duration (minutes), AEP (percent), and region before
+running it as a script. Treat the plots and printed result as calculation aids;
+confirm inputs and applicability against the governing ARR guidance.
+"""
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import math

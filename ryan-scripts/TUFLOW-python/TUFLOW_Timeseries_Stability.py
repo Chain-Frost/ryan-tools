@@ -1,22 +1,21 @@
-# ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Stability.py
-"""
-Wrapper Script: Timeseries stability checks for TUFLOW PO and 1D Q CSVs.
+"""Run configurable stability checks on TUFLOW PO and 1D Q time-series CSVs.
+
+Review the editable configuration for search roots/glob, result and datatype
+filters, locations, flatness/difference tolerances, rolling windows, output
+paths, and dashboard settings. Run
+``python TUFLOW_Timeseries_Stability.py --help`` to select export mode or limit
+result types at the command line.
+
+The wrapper delegates processing to the shared TUFLOW stability orchestrator and
+exports the configured reports. Validate tolerances against the model timestep
+and expected signal scale before treating flagged periods as instability.
 """
 
 from pathlib import Path
 from typing import Literal
-import argparse
-import gc
 import os
 
-from ryan_library.orchestrators.tuflow.tuflow_timeseries_stability import main_processing
-from ryan_library.functions.wrapper_utils import (
-    CommonWrapperOptions,
-    add_common_cli_arguments,
-    change_working_directory,
-    parse_common_cli_arguments,
-    print_library_version,
-)
+WRAPPER_VERSION = "2026-08-02.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -38,10 +37,24 @@ DIFF_ABS_TOL: float = 1e-6
 MAX_SIGN_CHANGES: int = 2
 MIN_POINTS: int = 5
 
-MAX_WORKERS: int | None = (max(int(os.cpu_count()) - 1, 1)) if os.cpu_count() is not None else None
+CPU_COUNT: int | None = os.cpu_count()
+MAX_WORKERS: int | None = max(CPU_COUNT - 1, 1) if CPU_COUNT is not None else None
 CHUNKSIZE: int = 1
 
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
+
+import argparse
+
+from ryan_library.functions.wrapper_utils import (
+    CommonWrapperOptions,
+    add_common_cli_arguments,
+    add_export_mode_cli_argument,
+    change_working_directory,
+    parse_common_cli_arguments,
+    pause_console,
+    print_wrapper_banner,
+)
+from ryan_library.orchestrators.tuflow.tuflow_timeseries_stability import main_processing
 
 
 def main(
@@ -53,7 +66,7 @@ def main(
     export_mode: Literal["excel", "parquet", "both"] | None = None,
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
-) -> None:
+) -> int:
     """
     Run stability checks on PO CSVs using wrapper defaults and optional CLI overrides.
 
@@ -66,11 +79,11 @@ def main(
         paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides WORKING_DIR.
     """
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
     script_directory: Path = working_directory or WORKING_DIR
     if not change_working_directory(target_dir=script_directory):
-        return
+        return 1
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_data_types: tuple[str, ...] = include_data_types or DATATYPE_INCLUDE
@@ -101,8 +114,7 @@ def main(
         export_mode=effective_export_mode,
     )
 
-    print()
-    print_library_version()
+    return 0
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
@@ -113,11 +125,7 @@ def _parse_cli_arguments() -> argparse.Namespace:
         )
     )
     add_common_cli_arguments(parser=parser)
-    parser.add_argument(
-        "--export-mode",
-        choices=("excel", "parquet", "both"),
-        help="Select export format. Defaults to the script value.",
-    )
+    add_export_mode_cli_argument(parser=parser)
     parser.add_argument(
         "--result-types",
         nargs="+",
@@ -130,7 +138,7 @@ def _parse_cli_arguments() -> argparse.Namespace:
 if __name__ == "__main__":
     args: argparse.Namespace = _parse_cli_arguments()
     common_options: CommonWrapperOptions = parse_common_cli_arguments(args=args)
-    main(
+    result: int = main(
         console_log_level=common_options.console_log_level,
         include_data_types=common_options.data_types,
         result_types=tuple(args.result_types) if args.result_types else None,
@@ -138,5 +146,11 @@ if __name__ == "__main__":
         export_mode=args.export_mode,
         working_directory=common_options.working_directory,
     )
-    gc.collect()
-    os.system("PAUSE")
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
+    if not common_options.no_pause:
+        pause_console()
+    raise SystemExit(result)

@@ -1,0 +1,22 @@
+[run]
+branch = True
+source =
+    ryan_library
+omit =
+    ryan_library/scripts/*
+
+[report]
+exclude_also =
+    if TYPE_CHECKING:
+    if __name__ == .__main__.:
+precision = 1
+show_missing = True
+skip_covered = True
+# Conservative non-raster baseline; raise this as additional suites land.
+fail_under = 55.0
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml

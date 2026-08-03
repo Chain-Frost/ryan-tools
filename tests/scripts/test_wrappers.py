@@ -1,4 +1,5 @@
 import sys
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -17,6 +18,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import importlib.util
 
+
 def import_script(path: Path):
     spec = importlib.util.spec_from_file_location(path.stem, path)
     if spec is None or spec.loader is None:
@@ -26,27 +28,42 @@ def import_script(path: Path):
     spec.loader.exec_module(module)
     return module
 
+
 SCRIPTS_DIR = REPO_ROOT / "ryan-scripts" / "TUFLOW-python"
+
+
+@pytest.fixture(autouse=True)
+def restore_working_directory():
+    """Keep wrapper tests from leaking their working directory into later tests."""
+    original_directory = Path.cwd()
+    yield
+    os.chdir(original_directory)
+
 
 @pytest.fixture
 def pomm_combine_script():
     return import_script(SCRIPTS_DIR / "POMM_combine.py")
 
+
 @pytest.fixture
 def culvert_maximums_script():
     return import_script(SCRIPTS_DIR / "TUFLOW_Culvert_Maximums.py")
+
 
 @pytest.fixture
 def log_summary_script():
     return import_script(SCRIPTS_DIR / "LogSummary.py")
 
+
 @pytest.fixture
 def closure_durations_script():
     return import_script(SCRIPTS_DIR / "TUFLOW-find-closure-durations.py")
 
+
 @pytest.fixture
 def culvert_timeseries_script():
     return import_script(SCRIPTS_DIR / "TUFLOW_Culvert_Timeseries.py")
+
 
 # @pytest.fixture
 # def results_styling_script():
@@ -58,12 +75,9 @@ def test_pomm_combine_wrapper(pomm_combine_script, tmp_path):
     with patch.object(pomm_combine_script, "main_processing") as mock_main_processing:
         # Call main with specific arguments
         pomm_combine_script.main(
-            console_log_level="DEBUG",
-            locations_to_include=("LocA",),
-            export_mode="parquet",
-            working_directory=tmp_path
+            console_log_level="DEBUG", locations_to_include=("LocA",), export_mode="parquet", working_directory=tmp_path
         )
-        
+
         mock_main_processing.assert_called_once()
         call_args = mock_main_processing.call_args
         assert call_args.kwargs["console_log_level"] == "DEBUG"
@@ -75,11 +89,8 @@ def test_pomm_combine_wrapper(pomm_combine_script, tmp_path):
 def test_culvert_maximums_wrapper(culvert_maximums_script, tmp_path):
     """Test TUFLOW_Culvert_Maximums.py wrapper calls main_processing correctly."""
     with patch.object(culvert_maximums_script, "main_processing") as mock_main_processing:
-        culvert_maximums_script.main(
-            console_log_level="INFO",
-            working_directory=tmp_path
-        )
-        
+        culvert_maximums_script.main(console_log_level="INFO", working_directory=tmp_path)
+
         mock_main_processing.assert_called_once()
         call_args = mock_main_processing.call_args
         assert call_args.kwargs["console_log_level"] == "INFO"
@@ -92,11 +103,8 @@ def test_culvert_maximums_wrapper(culvert_maximums_script, tmp_path):
 def test_log_summary_wrapper(log_summary_script, tmp_path):
     """Test LogSummary.py wrapper calls main_processing correctly."""
     with patch.object(log_summary_script, "main_processing") as mock_main_processing:
-        log_summary_script.main(
-            console_log_level="DEBUG",
-            working_directory=tmp_path
-        )
-        
+        log_summary_script.main(console_log_level="DEBUG", working_directory=tmp_path)
+
         mock_main_processing.assert_called_once()
         call_args = mock_main_processing.call_args
         assert call_args.kwargs["console_log_level"] == "DEBUG"
@@ -106,11 +114,9 @@ def test_closure_durations_wrapper(closure_durations_script, tmp_path):
     """Test TUFLOW-find-closure-durations.py wrapper calls run_closure_durations correctly."""
     with patch.object(closure_durations_script, "run_closure_durations") as mock_run:
         closure_durations_script.main(
-            console_log_level="INFO",
-            locations_to_include=("Loc1", "Loc2"),
-            working_directory=tmp_path
+            console_log_level="INFO", locations_to_include=("Loc1", "Loc2"), working_directory=tmp_path
         )
-        
+
         mock_run.assert_called_once()
         call_args = mock_run.call_args
         assert call_args.kwargs["log_level"] == "INFO"
@@ -121,11 +127,8 @@ def test_closure_durations_wrapper(closure_durations_script, tmp_path):
 def test_culvert_timeseries_wrapper(culvert_timeseries_script, tmp_path):
     """Test TUFLOW_Culvert_Timeseries.py wrapper calls main_processing correctly."""
     with patch.object(culvert_timeseries_script, "main_processing") as mock_main_processing:
-        culvert_timeseries_script.main(
-            console_log_level="DEBUG",
-            working_directory=tmp_path
-        )
-        
+        culvert_timeseries_script.main(console_log_level="DEBUG", working_directory=tmp_path)
+
         mock_main_processing.assert_called_once()
         call_args = mock_main_processing.call_args
         assert call_args.kwargs["console_log_level"] == "DEBUG"
@@ -137,32 +140,25 @@ def test_pomm_combine_functional(pomm_combine_script, tmp_path):
     """Functional test for POMM_combine.py using real data."""
     # Setup: Copy test data to tmp_path
     import shutil
-    
+
     # Source data
     src_dir = REPO_ROOT / "tests" / "test_data" / "tuflow" / "tutorials" / "Module_01" / "results"
-    
+
     # Copy relevant files (POMM.csv)
     for f in src_dir.glob("*_POMM.csv"):
         shutil.copy(f, tmp_path / f.name)
-        
-    # Run the script
-    # We need to mock print_library_version and change_working_directory to avoid side effects
-    # but we want the real main_processing to run.
-    
-    with patch("ryan_library.scripts.wrapper_utils.change_working_directory", return_value=True):
-        pomm_combine_script.main(
-            console_log_level="INFO",
-            export_mode="excel",
-            working_directory=tmp_path
-        )
-        
+
+    # Run the wrapper and real orchestrator in the isolated temporary directory.
+    pomm_combine_script.main(console_log_level="INFO", export_mode="excel", working_directory=tmp_path)
+
     # Verify output
     # Expecting a file like *_combined_POMM.xlsx
     output_files = list(tmp_path.glob("*_combined_POMM.xlsx"))
     assert len(output_files) > 0, "No combined POMM Excel file created"
-    
+
     # Optional: Read the excel file to check contents
     import pandas as pd
+
     df = pd.read_excel(output_files[0])
     assert not df.empty
     assert "file" in df.columns

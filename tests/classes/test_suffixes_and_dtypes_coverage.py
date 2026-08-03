@@ -11,13 +11,14 @@ from ryan_library.classes.suffixes_and_dtypes import (
     Config,
 )
 
+
 class TestConfigLoaderCoverage:
     def test_load_json_config_success(self, tmp_path):
         """Test successful JSON load."""
         f = tmp_path / "config.json"
         data = {"test": "data"}
         f.write_text(json.dumps(data), encoding="utf-8")
-        
+
         loader = ConfigLoader(f)
         assert loader.config_data == data
 
@@ -42,6 +43,7 @@ class TestConfigLoaderCoverage:
         with pytest.raises(ValueError):
             ConfigLoader(f)
 
+
 class TestProcessingPartsCoverage:
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
     def test_from_dict_invalid_module(self, mock_logger):
@@ -55,22 +57,6 @@ class TestProcessingPartsCoverage:
     def test_from_dict_dataformat_invalid_category(self, mock_logger):
         """Test invalid dataformat category."""
         data = {"dataformat": {"category": 123}}
-        with pytest.raises(ValueError):
-            ProcessingParts.from_dict(data, "TestType")
-        mock_logger.error.assert_called()
-
-    @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_from_dict_dataformat_deprecated_module(self, mock_logger):
-        """Test deprecated dataformat.module."""
-        data = {"dataformat": {"module": "dep_mod"}}
-        pp = ProcessingParts.from_dict(data, "TestType")
-        assert pp.processor_module == "dep_mod"
-        mock_logger.warning.assert_called()
-
-    @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_from_dict_dataformat_invalid_module_type(self, mock_logger):
-        """Test invalid dataformat.module type."""
-        data = {"dataformat": {"module": 123}}
         with pytest.raises(ValueError):
             ProcessingParts.from_dict(data, "TestType")
         mock_logger.error.assert_called()
@@ -91,7 +77,7 @@ class TestProcessingPartsCoverage:
         with pytest.raises(ValueError):
             ProcessingParts.from_dict(data, "TestType")
         mock_logger.error.assert_called()
-        
+
         # Case 2: Values not strings
         mock_logger.reset_mock()
         data = {"columns_to_use": {"A": 1}}
@@ -107,6 +93,7 @@ class TestProcessingPartsCoverage:
             ProcessingParts.from_dict(data, "TestType")
         mock_logger.error.assert_called()
 
+
 class TestDataTypeDefinitionCoverage:
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
     def test_from_dict_invalid_fields(self, mock_logger):
@@ -121,13 +108,14 @@ class TestDataTypeDefinitionCoverage:
             DataTypeDefinition.from_dict(data, "TestType")
         assert mock_logger.error.call_count >= 1
 
+
 class TestSuffixesConfigCoverage:
     def test_invert_suffix_to_type(self):
         """Test invert_suffix_to_type."""
         suffix_to_type = {".a": "TypeA", ".b": "TypeA", ".c": "TypeB"}
         config = MagicMock(spec=Config)
         sc = SuffixesConfig(suffix_to_type, config)
-        
+
         inverted = sc.invert_suffix_to_type()
         assert set(inverted["TypeA"]) == {".a", ".b"}
         assert inverted["TypeB"] == [".c"]
@@ -138,7 +126,7 @@ class TestSuffixesConfigCoverage:
         config = MagicMock(spec=Config)
         config.data_types = {}
         sc = SuffixesConfig({}, config)
-        
+
         assert sc.get_definition_for_data_type("Missing") is None
         mock_logger.error.assert_called()
 
@@ -148,9 +136,10 @@ class TestSuffixesConfigCoverage:
         config = MagicMock(spec=Config)
         config.data_types = {}
         sc = SuffixesConfig({}, config)
-        
+
         assert sc.get_processor_class_for_data_type("Missing") is None
         mock_logger.error.assert_called()
+
 
 class TestConfigCoverage:
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")

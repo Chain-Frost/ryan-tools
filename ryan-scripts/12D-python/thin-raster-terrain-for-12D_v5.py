@@ -1,6 +1,18 @@
+"""Thin GeoTIFF terrain grids into tiled XYZ CSV files for 12d import.
+
+The script looks for ``*.tif`` files beside this file and writes multiple
+thinned CSV datasets under ``thinned-data4``. Edit the thinning factors, tile
+size, input search, and output directory in :func:`main` before use. Each CSV
+contains ``X``, ``Y``, and ``Z`` columns; cells with missing elevations are
+omitted.
+
+Run ``python thin-raster-terrain-for-12D_v5.py`` from a terminal. Processing is
+multiprocessed and can create many files, so test the settings on one raster
+before running a large terrain set.
+"""
+
 from collections.abc import Generator
 from typing import Any
-from pandas import Series
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from pathlib import Path
 import os

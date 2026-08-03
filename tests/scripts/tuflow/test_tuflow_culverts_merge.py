@@ -1,16 +1,18 @@
-"""Tests for ryan_library.scripts.tuflow.tuflow_culverts_merge."""
+"""Tests for the active TUFLOW culvert-merge orchestrator."""
 
 import pytest
 import pandas as pd
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from ryan_library.scripts.tuflow import tuflow_culverts_merge
+from ryan_library.orchestrators.tuflow import tuflow_culverts_merge
 
 
 def test_main_processing_success():
-    with patch("ryan_library.scripts.tuflow.tuflow_culverts_merge.setup_logger"):
-        with patch("ryan_library.scripts.tuflow.tuflow_culverts_merge.bulk_read_and_merge_tuflow_csv") as mock_bulk:
-            with patch("ryan_library.scripts.tuflow.tuflow_culverts_merge.ExcelExporter") as mock_exporter:
+    with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.setup_logger"):
+        with patch(
+            "ryan_library.orchestrators.tuflow.tuflow_culverts_merge.bulk_read_and_merge_tuflow_csv"
+        ) as mock_bulk:
+            with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.ExcelExporter") as mock_exporter:
 
                 # Mock collection
                 mock_collection = MagicMock()
@@ -29,9 +31,11 @@ def test_main_processing_success():
 
 
 def test_main_processing_parquet():
-    with patch("ryan_library.scripts.tuflow.tuflow_culverts_merge.setup_logger"):
-        with patch("ryan_library.scripts.tuflow.tuflow_culverts_merge.bulk_read_and_merge_tuflow_csv") as mock_bulk:
-            with patch("ryan_library.scripts.tuflow.tuflow_culverts_merge.ExcelExporter") as mock_exporter:
+    with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.setup_logger"):
+        with patch(
+            "ryan_library.orchestrators.tuflow.tuflow_culverts_merge.bulk_read_and_merge_tuflow_csv"
+        ) as mock_bulk:
+            with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.ExcelExporter") as mock_exporter:
 
                 mock_collection = MagicMock()
                 mock_collection.combine_1d_maximums.return_value = pd.DataFrame({"A": [1]})

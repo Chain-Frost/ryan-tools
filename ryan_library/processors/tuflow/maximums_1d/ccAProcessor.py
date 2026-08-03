@@ -1,9 +1,9 @@
 # ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py
-from pathlib import Path
-from typing import Any
 import os
 import sqlite3
 import urllib.parse
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import shapefile  # pyright: ignore[reportMissingTypeStubs]
@@ -27,7 +27,7 @@ class ccAProcessor(BaseProcessor):
         Sets:
             pd.DataFrame: Processed CCA data.
         """
-        logger.debug(f"Starting processing of CCA file: {self.log_path}")
+        logger.debug("Starting processing of CCA file: {}", self.log_path)
         file_ext = self.file_path.suffix.lower()
 
         try:
@@ -78,7 +78,7 @@ class ccAProcessor(BaseProcessor):
             if truncated in df.columns and full not in df.columns:
                 rename_map[truncated] = full
         if rename_map:
-            logger.debug(f"{self.file_name}: Renaming columns for consistency: {rename_map}")
+            logger.debug("{}: Renaming columns for consistency: {}", self.file_name, rename_map)
             df = df.rename(columns=rename_map)
         return df
 
@@ -88,16 +88,16 @@ class ccAProcessor(BaseProcessor):
         Returns:
             pd.DataFrame: Processed DBF CCA data.
         """
-        logger.debug(f"Processing DBF CCA file: {self.log_path}")
+        logger.debug("Processing DBF CCA file: {}", self.log_path)
         try:
             with self.file_path.open("rb") as dbf_file:
                 sf = shapefile.Reader(dbf=dbf_file)
-                records: list[str | float | int | object] = sf.records()  # type: ignore
-                fieldnames: list[str] = [field[0] for field in sf.fields[1:]]  # type: ignore
+                records = sf.records()
+                fieldnames: list[str] = [field[0] for field in sf.fields[1:]]
                 cca_data = pd.DataFrame(records, columns=fieldnames)
                 # Normalise column names so downstream configuration and validation align
                 cca_data: DataFrame = self._normalize_column_names(df=cca_data)
-            logger.debug(f"Processed DBF CCA DataFrame head:\n{cca_data.head()}")
+            logger.debug("Processed DBF CCA DataFrame head:\n{}", cca_data.head())
             return cca_data
         except Exception as e:
             logger.error(f"Error processing DBF file {self.log_path}: {e}")
@@ -180,13 +180,11 @@ class ccAProcessor(BaseProcessor):
                 try:
                     # 1. Find our ccA layer in gpkg_contents
                     logger.debug("process_gpkg: Executing layer discovery query against gpkg_contents")
-                    cur.execute(
-                        """
+                    cur.execute("""
                         SELECT table_name
                         FROM gpkg_contents
                         WHERE data_type = 'features';
-                        """
-                    )
+                        """)
                     rows: list[Any] = cur.fetchall()
                     layers: list[str] = [row[0] for row in rows]
                     logger.debug("process_gpkg: Feature layers in gpkg_contents: {!r}", layers)
@@ -250,8 +248,9 @@ class ccAProcessor(BaseProcessor):
                     conn.close()
 
             logger.debug(
-                "process_gpkg: Raw attribute DataFrame loaded with "
-                f"shape={cca_data.shape}, columns={list(cca_data.columns)!r}"
+                "process_gpkg: Raw attribute DataFrame loaded with shape={}, columns={}",
+                cca_data.shape,
+                list(cca_data.columns),
             )
 
             # 4. Normalise column names to align with CSV/DBF output
@@ -280,10 +279,11 @@ class ccAProcessor(BaseProcessor):
                 return pd.DataFrame()
 
             logger.debug(
-                "process_gpkg: Final CCA DataFrame ready to return. "
-                f"shape={cca_data.shape}, columns={list(cca_data.columns)!r}"
+                "process_gpkg: Final CCA DataFrame ready to return. shape={}, columns={}",
+                cca_data.shape,
+                list(cca_data.columns),
             )
-            logger.debug(f"process_gpkg: Completed successfully for file_path={str(path)!r}")
+            logger.debug("process_gpkg: Completed successfully for file_path={}", str(path))
 
             return cca_data
 

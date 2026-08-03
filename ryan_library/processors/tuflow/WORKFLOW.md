@@ -297,15 +297,16 @@ pytest tests/processors/tuflow
 
 ### Testing Strategy
 
-1.  **Robustness Tests**: `test_robustness.py` verifies that the `BaseProcessor` and its factory methods handle invalid files, missing configurations, and malformed data gracefully without crashing.
-2.  **Concrete Processor Tests**: Each processor type (e.g., `Cmx`, `H`, `POMM`) has a dedicated test file (e.g., `test_cmx_processor.py`) that checks:
-    *   **Happy Path**: Loading a valid file produces a DataFrame with the correct schema and data.
-    *   **Edge Cases**: Empty files, missing headers, or data type mismatches are handled correctly (usually by logging an error and returning `processed=False` or an empty DataFrame).
-    *   **Integration**: Verifies that the processor integrates correctly with `ProcessorCollection` (where applicable).
+1. **Robustness Tests**: `test_robustness.py` verifies that the `BaseProcessor` and its factory methods handle invalid files, missing configurations, and malformed data gracefully without crashing.
+2. **Concrete Processor Tests**: Each processor type (e.g., `Cmx`, `H`, `POMM`) has a dedicated test file (e.g., `test_cmx_processor.py`) that checks:
+    - **Happy Path**: Loading a valid file produces a DataFrame with the correct schema and data.
+    - **Edge Cases**: Empty files, missing headers, or data type mismatches are handled correctly (usually by logging an error and returning `processed=False` or an empty DataFrame).
+    - **Integration**: Verifies that the processor integrates correctly with `ProcessorCollection` (where applicable).
 
 ### Adding New Tests
 
 When adding a new processor or fixing a bug:
-1.  Add a sample CSV file to `tests/data` (or mock it in the test).
-2.  Create or update the corresponding `test_<type>_processor.py`.
-3.  Use the shared fixtures in `conftest.py` to simplify test setup.
+
+1. Add a sample CSV file to `tests/data` (or mock it in the test).
+2. Create or update the corresponding `test_<type>_processor.py`.
+3. Use the shared fixtures in `conftest.py` to simplify test setup.

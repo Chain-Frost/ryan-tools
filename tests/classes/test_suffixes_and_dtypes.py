@@ -29,18 +29,6 @@ class TestProcessingParts:
         assert pp.columns_to_use == {"A": "B"}
         assert pp.expected_in_header == ["Time", "Val"]
 
-    def test_from_dict_nested_dataformat(self):
-        """Test parsing with nested dataformat dictionary (deprecated style)."""
-        data = {
-            "dataformat": {
-                "category": "Timeseries",
-                "module": "old_module"
-            }
-        }
-        pp = ProcessingParts.from_dict(data, "TestType")
-        assert pp.dataformat == "Timeseries"
-        assert pp.processor_module == "old_module"
-
 
 class TestDataTypeDefinition:
     """Tests for DataTypeDefinition dataclass."""
@@ -51,9 +39,7 @@ class TestDataTypeDefinition:
             "processor": "MyProcessor",
             "suffixes": [".csv"],
             "output_columns": {"A": "B"},
-            "processingParts": {
-                "dataformat": "Timeseries"
-            }
+            "processingParts": {"dataformat": "Timeseries"},
         }
         dtd = DataTypeDefinition.from_dict(data, "TestType")
         assert dtd.processor == "MyProcessor"
@@ -68,7 +54,9 @@ class TestConfig:
     def setup_method(self):
         """Reset singleton before each test."""
         Config._instance = None
-        Config._lock = MagicMock() # Mock lock to avoid threading issues in tests if needed, though simple reset usually works
+        Config._lock = (
+            MagicMock()
+        )  # Mock lock to avoid threading issues in tests if needed, though simple reset usually works
 
     def teardown_method(self):
         Config._instance = None
@@ -78,12 +66,7 @@ class TestConfig:
         """Test loading configuration."""
         mock_loader = mock_loader_cls.return_value
         mock_loader.get_data_types.return_value = {
-            "TestType": {
-                "processor": "TestProc",
-                "suffixes": [".tst"],
-                "output_columns": {},
-                "processingParts": {}
-            }
+            "TestType": {"processor": "TestProc", "suffixes": [".tst"], "output_columns": {}, "processingParts": {}}
         }
 
         config = Config.load(Path("dummy.json"))
@@ -113,15 +96,12 @@ class TestSuffixesConfig:
         """Test loading from Config and looking up suffixes."""
         # Create a dummy Config
         dtd = DataTypeDefinition(
-            processor="TestProc",
-            suffixes=["_test.csv"],
-            output_columns={},
-            processing_parts=ProcessingParts()
+            processor="TestProc", suffixes=["_test.csv"], output_columns={}, processing_parts=ProcessingParts()
         )
         config = Config(data_types={"TestType": dtd})
 
         suffixes_config = SuffixesConfig.load(config)
-        
+
         # Test lookup
         assert suffixes_config.get_data_type_for_suffix("file_test.csv") == "TestType"
         assert suffixes_config.get_data_type_for_suffix("file_other.csv") is None
@@ -129,10 +109,7 @@ class TestSuffixesConfig:
     def test_get_processor_class(self):
         """Test retrieving processor class name."""
         dtd = DataTypeDefinition(
-            processor="TestProc",
-            suffixes=[],
-            output_columns={},
-            processing_parts=ProcessingParts()
+            processor="TestProc", suffixes=[], output_columns={}, processing_parts=ProcessingParts()
         )
         config = Config(data_types={"TestType": dtd})
         suffixes_config = SuffixesConfig(suffix_to_type={}, config=config)

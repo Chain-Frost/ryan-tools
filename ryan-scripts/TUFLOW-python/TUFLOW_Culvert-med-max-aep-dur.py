@@ -10,6 +10,8 @@ or use command-line arguments to override these settings.
 
 from pathlib import Path
 
+WRAPPER_VERSION = "2026-08-02.1"
+
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 # Toggle the specific culvert data types to collect. Leave empty to accept the library defaults.
 INCLUDED_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
@@ -22,8 +24,6 @@ PATHS_TO_PROCESS: tuple[Path, ...] = ()
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
 import argparse
-import gc
-import os
 
 from ryan_library.orchestrators.tuflow.tuflow_culverts_mean import run_culvert_median_report
 from ryan_library.functions.wrapper_utils import (
@@ -31,7 +31,8 @@ from ryan_library.functions.wrapper_utils import (
     add_common_cli_arguments,
     change_working_directory,
     parse_common_cli_arguments,
-    print_library_version,
+    pause_console,
+    print_wrapper_banner,
 )
 
 
@@ -42,7 +43,7 @@ def main(
     locations_to_include: tuple[str, ...] | None = None,
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
-) -> None:
+) -> int:
     """
     Main entry point for culvert median peak reporting.
 
@@ -58,11 +59,11 @@ def main(
         working_directory: Overrides the default WORKING_DIR.
     """
 
-    print_library_version()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     script_directory: Path = working_directory or WORKING_DIR
 
     if not change_working_directory(target_dir=script_directory):
-        return
+        return 1
 
     to_include_data_types: tuple[str, ...] | None = include_data_types or INCLUDED_DATA_TYPES or None
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
@@ -78,8 +79,7 @@ def main(
         export_raw=EXPORT_RAW_MAXIMUMS,
     )
 
-    print()
-    print_library_version()
+    return 0
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
@@ -99,11 +99,17 @@ def _parse_cli_arguments() -> CommonWrapperOptions:
 
 if __name__ == "__main__":
     common_options: CommonWrapperOptions = _parse_cli_arguments()
-    main(
+    result: int = main(
         console_log_level=common_options.console_log_level,
         include_data_types=common_options.data_types,
         locations_to_include=common_options.locations_to_include,
         working_directory=common_options.working_directory,
     )
-    gc.collect()
-    os.system("PAUSE")
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
+    if not common_options.no_pause:
+        pause_console()
+    raise SystemExit(result)

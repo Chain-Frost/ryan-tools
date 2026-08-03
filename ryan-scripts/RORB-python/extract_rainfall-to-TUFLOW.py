@@ -1,3 +1,15 @@
+"""Extract RORB rainfall tables into TUFLOW-ready CSV files.
+
+Edit ``directory_path``, ``start_row``, and ``end_row`` in the ``__main__``
+block, and optionally override ``DEFAULT_OUTPUT_DIRECTORY``. Run
+``python extract_rainfall-to-TUFLOW.py``. The script reads the time increment
+and multi-line catchment/sub-area headings from each top-level ``*.out`` file.
+
+Each output is named ``*_Rainfall.csv`` and includes source/row metadata plus a
+normalized rainfall table. Check the configured row range against the RORB file
+format and validate the first and final increments before TUFLOW use.
+"""
+
 import os
 import re
 from collections.abc import Sequence

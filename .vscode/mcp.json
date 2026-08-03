@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "ryan-tools": {
+      "command": "python",
+      "args": [
+        "${workspaceFolder}/ryan_mcp_server.py"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "PYTHONUTF8": "1"
+      }
+    }
+  }
+}

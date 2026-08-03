@@ -1,17 +1,18 @@
 # ryan_library/processors/tuflow/base_processor.py
 
+import importlib
 from abc import ABC, abstractmethod
-from collections.abc import Collection
+from collections.abc import Collection, Sized
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
 from typing import Any, ClassVar, cast
-import importlib
+
 import pandas as pd
-from pandas import DataFrame, Series
-from pandas._typing import DtypeArg
-from pandas._libs.missing import NAType
 from loguru import logger
+from pandas import DataFrame, Series
+from pandas._libs.missing import NAType
+
 from ryan_library.classes.suffixes_and_dtypes import (
     Config,
     DataTypeDefinition,
@@ -93,7 +94,7 @@ class BaseProcessor(ABC):
         if self.name_parser.data_type is None:
             raise ValueError("data_type was not set in TuflowStringParser for self.file_path.name")
         self.data_type = self.name_parser.data_type
-        logger.debug(f"{self.file_name}: Data type identified as '{self.data_type}'")
+        logger.debug("{}: Data type identified as '{}'", self.file_name, self.data_type)
         self._load_configuration()
         self.entity_filter = self.normalize_locations(locations=self.entity_filter)
 
@@ -114,7 +115,7 @@ class BaseProcessor(ABC):
         include_path_columns: bool = True,
     ) -> "BaseProcessor":
         """Factory method to create the appropriate processor instance based on the file suffix."""
-        logger.debug(f"Attempting to process file: {file_path}")
+        logger.debug("Attempting to process file: {}", file_path)
 
         # Use TuflowStringParser to determine data_type
         name_parser = TuflowStringParser(file_path=file_path)
@@ -215,13 +216,13 @@ class BaseProcessor(ABC):
                 module = importlib.import_module(module_path)
                 processor_cls: type[BaseProcessor] = cast(type["BaseProcessor"], getattr(module, class_name))
                 BaseProcessor._processor_cache[cache_key] = processor_cls
-                logger.debug(f"Imported processor class '{class_name}' from '{module_path}'.")
+                logger.debug("Imported processor class '{}' from '{}'.", class_name, module_path)
                 return processor_cls
             except ImportError as exc:
-                logger.debug(f"Failed to import module '{module_path}': {exc}")
+                logger.debug("Failed to import module '{}': {}", module_path, exc)
                 last_exception = exc
             except AttributeError as exc:
-                logger.debug(f"Module '{module_path}' does not define '{class_name}': {exc}")
+                logger.debug("Module '{}' does not define '{}': {}", module_path, class_name, exc)
                 last_exception = exc
 
         attempted: str = ", ".join(attempted_paths)
@@ -242,7 +243,7 @@ class BaseProcessor(ABC):
 
         # Load output_columns
         self.output_columns: dict[str, str] = data_type_def.output_columns
-        logger.debug(f"{self.file_name}: Loaded output_columns: {self.output_columns}")
+        logger.debug("{}: Loaded output_columns: {}", self.file_name, self.output_columns)
 
         # Load processingParts
         processing_parts: ProcessingParts = data_type_def.processing_parts
@@ -251,8 +252,10 @@ class BaseProcessor(ABC):
         self.columns_to_use: dict[str, str] = processing_parts.columns_to_use
         self.expected_in_header: list[str] = processing_parts.expected_in_header
         logger.debug(
-            f"{self.file_name}: Loaded processingParts - dataformat: {self.dataformat}, "
-            f"processor_module: {self.processor_module}"
+            "{}: Loaded processingParts - dataformat: {}, processor_module: {}",
+            self.file_name,
+            self.dataformat,
+            self.processor_module,
         )
         processing_parts_payload: dict[str, Any] = processing_parts.to_dict()
         if not self.dataformat:
@@ -263,7 +266,7 @@ class BaseProcessor(ABC):
         def has_section_content(section: str) -> bool:
             value: Any | None = processing_parts_payload.get(section)
             if isinstance(value, (dict, list, str)):
-                return bool(value)
+                return len(cast(Sized, value)) > 0
             return value is not None
 
         required_sections: dict[str, tuple[str, ...]] = {
@@ -286,19 +289,19 @@ class BaseProcessor(ABC):
 
         if self.dataformat in {"Maximums", "ccA", "POMM"}:
             self.columns_to_use: dict[str, str] = processing_parts.columns_to_use
-            logger.debug(f"{self.file_name}: Loaded columns_to_use: {self.columns_to_use}")
+            logger.debug("{}: Loaded columns_to_use: {}", self.file_name, self.columns_to_use)
             return
 
         if self.dataformat in {"Timeseries", "POMM"}:
             self.expected_in_header = processing_parts.expected_in_header
-            logger.debug(f"{self.file_name}: Loaded expected_in_header: {self.expected_in_header}")
+            logger.debug("{}: Loaded expected_in_header: {}", self.file_name, self.expected_in_header)
             return
 
         if self.dataformat == "POMM":
-            logger.debug(f"{self.file_name}: POMM type")
+            logger.debug("{}: POMM type", self.file_name)
             return
         if self.dataformat == "PO":
-            logger.debug(f"{self.file_name}: PO type")
+            logger.debug("{}: PO type", self.file_name)
             return
 
         if self.dataformat not in handled_formats:
@@ -345,11 +348,11 @@ class BaseProcessor(ABC):
             return None
 
         if self.applied_entity_filter == normalized_filter:
-            logger.debug(f"{self.file_name}: Entity filter already applied; skipping.")
+            logger.debug("{}: Entity filter already applied; skipping.", self.file_name)
             return normalized_filter
 
         if self.df.empty:
-            logger.debug(f"{self.file_name}: DataFrame empty before entity filtering; skipping.")
+            logger.debug("{}: DataFrame empty before entity filtering; skipping.", self.file_name)
             self.applied_entity_filter = normalized_filter
             return normalized_filter
 
@@ -358,15 +361,16 @@ class BaseProcessor(ABC):
         )
         if candidate_column is None:
             logger.debug(
-                f"{self.file_name}: Entity filter provided but none of the identifier columns "
-                f"{self.get_entity_id_columns()} are present; skipping filter."
+                "{}: Entity filter provided but none of the identifier columns {} are present; skipping filter.",
+                self.file_name,
+                self.get_entity_id_columns(),
             )
             self.applied_entity_filter = normalized_filter
             return normalized_filter
 
         before_count: int = len(self.df)
         id_series: Series[str] = self.df[candidate_column].astype(str).str.strip()
-        filtered_df: DataFrame = self.df.loc[id_series.isin(normalized_filter)].copy()  # type: ignore
+        filtered_df: DataFrame = self.df.loc[id_series.isin(normalized_filter)].copy()
         after_count: int = len(filtered_df)
 
         log_method = logger.info if after_count != before_count else logger.debug
@@ -400,24 +404,24 @@ class BaseProcessor(ABC):
             return normalized_locations
 
         if self.applied_location_filter == normalized_locations:
-            logger.debug(f"{self.file_name}: Location filter already applied; skipping.")
+            logger.debug("{}: Location filter already applied; skipping.", self.file_name)
             return normalized_locations
 
         if self.df.empty:
-            logger.debug(f"{self.file_name}: DataFrame empty before location filtering; skipping.")
+            logger.debug("{}: DataFrame empty before location filtering; skipping.", self.file_name)
             self.applied_location_filter = normalized_locations
             return normalized_locations
 
         if "Location" not in self.df.columns:
             logger.debug(
-                f"{self.file_name}: Location filter provided but DataFrame lacks 'Location' column; skipping filter."
+                "{}: Location filter provided but DataFrame lacks 'Location' column; skipping filter.", self.file_name
             )
             self.applied_location_filter = normalized_locations
             return normalized_locations
 
         before_count: int = len(self.df)
         location_series: Series[str] = self.df["Location"].astype(str).str.strip()
-        filtered_df: DataFrame = self.df.loc[location_series.isin(normalized_locations)].copy()  # type: ignore
+        filtered_df: DataFrame = self.df.loc[location_series.isin(normalized_locations)].copy()
         after_count: int = len(filtered_df)
 
         log_method = logger.info if after_count != before_count else logger.debug
@@ -467,25 +471,25 @@ class BaseProcessor(ABC):
             data = {
                 key: value for key, value in data.items() if key == "internalName" or key not in self.PATH_INFO_COLUMNS
             }
-        logger.debug(f"{self.file_name}: Adding basic info columns: {data}")
+        logger.debug("{}: Adding basic info columns: {}", self.file_name, data)
         # Assign basic info columns as strings
-        self.df = self.df.assign(**data).astype({key: "string" for key in data})
+        self.df = self.df.assign(**data).astype({key: "string" for key in data})  # pyright: ignore[reportArgumentType]
         # Convert columns to 'category' dtype before ordering
         basic_info_columns = list(data.keys())
         self.df[basic_info_columns] = self.df[basic_info_columns].astype(dtype="category")
         self.order_categorical_columns(df=self.df, columns=basic_info_columns)
-        logger.debug(f"{self.file_name}: Basic info columns added and converted to ordered categorical.")
+        logger.debug("{}: Basic info columns added and converted to ordered categorical.", self.file_name)
 
     def run_code_parts_to_df(self) -> None:
         """Extract and add R01, R02, etc., based on the run code."""
         run_code_keys = list(self.name_parser.run_code_parts.keys())
-        logger.debug(f"{self.file_name}: Run code keys: {run_code_keys}")
+        logger.debug("{}: Run code keys: {}", self.file_name, run_code_keys)
         for key, value in self.name_parser.run_code_parts.items():
             self.df[key] = value
         # Convert run code parts to 'category' dtype before ordering
         self.df[run_code_keys] = self.df[run_code_keys].astype(dtype="category")
         self.order_categorical_columns(df=self.df, columns=run_code_keys)
-        logger.debug(f"{self.file_name}: Run code parts added and converted to ordered categorical.")
+        logger.debug("{}: Run code parts added and converted to ordered categorical.", self.file_name)
 
     def additional_attributes_to_df(self) -> None:
         """Extract and add TP, Duration, and AEP using the parser."""
@@ -503,7 +507,7 @@ class BaseProcessor(ABC):
                 if getattr(self.name_parser, attr) is not None
             },
         }
-        logger.debug(f"{self.file_name}: Additional attributes to add: {attributes}")
+        logger.debug("{}: Additional attributes to add: {}", self.file_name, attributes)
 
         # Assign attributes to DataFrame
         self.df = self.df.assign(**attributes)
@@ -528,7 +532,7 @@ class BaseProcessor(ABC):
         if dtype_mapping:
             try:
                 self.df = self.df.astype(dtype=dtype_mapping)
-                logger.debug(f"{self.file_name}: Applied additional attributes datatype mapping: {dtype_mapping}")
+                logger.debug("{}: Applied additional attributes datatype mapping: {}", self.file_name, dtype_mapping)
             except (KeyError, ValueError, TypeError) as e:
                 logger.error(f"{self.file_name}: Error applying additional attributes datatypes: {e}")
                 raise
@@ -538,7 +542,7 @@ class BaseProcessor(ABC):
         existing_category_columns: list[str] = [col for col in category_columns if col in self.df.columns]
         self.df[existing_category_columns] = self.df[existing_category_columns].astype(dtype="category")
         self.order_categorical_columns(df=self.df, columns=existing_category_columns)
-        logger.debug(f"{self.file_name}: Additional attributes converted to ordered categorical.")
+        logger.debug("{}: Additional attributes converted to ordered categorical.", self.file_name)
 
     def apply_output_transformations(self) -> None:
         """Apply output column transformations:
@@ -558,12 +562,12 @@ class BaseProcessor(ABC):
             col: dtype for col, dtype in self.output_columns.items() if col in self.df.columns
         }
         if not dtype_mapping:
-            logger.debug(f"{self.file_name}: No matching columns found for output datatype mapping.")
+            logger.debug("{}: No matching columns found for output datatype mapping.", self.file_name)
             return
         # Apply data types based on output_columns configuration
         try:
             self.df = self.df.astype(dtype_mapping)
-            logger.debug(f"{self.file_name}: Applied output_columns datatype mapping: {dtype_mapping}")
+            logger.debug("{}: Applied output_columns datatype mapping: {}", self.file_name, dtype_mapping)
         except (KeyError, ValueError, TypeError) as e:
             logger.error(f"{self.file_name}: Error applying output_columns datatypes: {e}")
             raise
@@ -572,7 +576,7 @@ class BaseProcessor(ABC):
         """Release the raw dataframe copy to reduce peak memory usage."""
         if self.raw_df.empty:
             return
-        logger.debug(f"{self.file_name}: Discarding raw_df with {len(self.raw_df)} rows.")
+        logger.debug("{}: Discarding raw_df with {} rows.", self.file_name, len(self.raw_df))
         self.raw_df = pd.DataFrame()
 
     def validate_data(self) -> bool:
@@ -643,18 +647,17 @@ class BaseProcessor(ABC):
             ``ProcessorStatus.FAILURE`` captures read failures.
         """
         usecols: list[str] = list(self.columns_to_use.keys())
-        # Pandas expects a DtypeArg for dtype; use the official type for clarity
-        dtype: DtypeArg = {col: self.columns_to_use[col] for col in usecols}
+        dtype: dict[str, str] = {col: self.columns_to_use[col] for col in usecols}
 
         try:
-            df: pd.DataFrame = pd.read_csv(  # type: ignore
+            df: pd.DataFrame = pd.read_csv(
                 filepath_or_buffer=self.file_path,
                 usecols=usecols,
                 header=0,
-                dtype=dtype,
+                dtype=dtype,  # pyright: ignore[reportArgumentType]
                 skipinitialspace=True,
             )
-            logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
+            logger.debug("CSV file '{}' read successfully with {} rows.", self.file_name, len(df))
         except Exception as e:
             logger.exception(f"{self.file_name}: Failed to read CSV file '{self.log_path}': {e}")
             return ProcessorStatus.FAILURE
@@ -682,7 +685,7 @@ class BaseProcessor(ABC):
         """
         try:
             self.df = self.df.astype(dtype=dtype_mapping)
-            logger.debug(f"{self.file_name}: Applied dtype mapping in {context}: {dtype_mapping}")
+            logger.debug("{}: Applied dtype mapping in {}: {}", self.file_name, context, dtype_mapping)
         except (KeyError, ValueError, TypeError) as e:
             msg: str = f"{self.file_name}: Error applying dtype mapping in {context}: {e}"
             logger.error(msg)
@@ -717,7 +720,7 @@ class BaseProcessor(ABC):
             if df[col].dtype.name == "category" and not df[col].cat.ordered:
                 sorted_categories: list[str] = sorted(df[col].cat.categories)
                 df[col] = df[col].cat.set_categories(new_categories=sorted_categories, ordered=True)
-                logger.debug(f"Column '{col}' ordered alphabetically.")
+                logger.debug("Column '{}' ordered alphabetically.", col)
 
     @staticmethod
     def _relative_or_na(path: Path, base: Path) -> str | NAType:

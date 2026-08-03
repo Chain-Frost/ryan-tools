@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
@@ -19,8 +19,18 @@ class ColumnDefinition:
     value_type: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class _PrefixDefinition:
+    """Describe columns whose names share a generated prefix."""
+
+    prefix: str
+    description_template: str
+    value_type: str | None = None
+
+
 BaseDefinitions = Mapping[str, ColumnDefinition]
 SheetSpecificDefinitions = Mapping[str, BaseDefinitions]
+PrefixDefinitions = Sequence[_PrefixDefinition]
 
 _DEFAULT_DEFINITIONS_PATH: Path = Path(__file__).with_name("column_definitions.json")
 
@@ -51,7 +61,21 @@ def _to_column_definition(name: str, payload: Mapping[str, Any]) -> ColumnDefini
     )
 
 
-def _load_default_definitions() -> tuple[BaseDefinitions, SheetSpecificDefinitions]:
+def _to_prefix_definition(prefix: str, payload: Mapping[str, Any]) -> _PrefixDefinition:
+    description_template = payload.get("description_template")
+    if description_template is None:
+        msg: str = f"Missing description_template for prefix definition '{prefix}' in {_DEFAULT_DEFINITIONS_PATH.name}"
+        raise ValueError(msg)
+
+    value_type = payload.get("value_type")
+    return _PrefixDefinition(
+        prefix=prefix,
+        description_template=str(description_template),
+        value_type=str(value_type) if value_type is not None else None,
+    )
+
+
+def _load_default_definitions() -> tuple[BaseDefinitions, SheetSpecificDefinitions, PrefixDefinitions]:
     data = json.loads(_DEFAULT_DEFINITIONS_PATH.read_text(encoding="utf-8"))
     base_definitions: dict[Any, ColumnDefinition] = {
         name: _to_column_definition(name=name, payload=payload)
@@ -61,12 +85,18 @@ def _load_default_definitions() -> tuple[BaseDefinitions, SheetSpecificDefinitio
         sheet_name: {name: _to_column_definition(name=name, payload=payload) for name, payload in definitions.items()}
         for sheet_name, definitions in data.get("sheet_specific_definitions", {}).items()
     }
-    return _freeze_base_definitions(definitions=base_definitions), _freeze_sheet_specific_definitions(
-        definitions=sheet_specific_definitions
+    prefix_definitions: tuple[_PrefixDefinition, ...] = tuple(
+        _to_prefix_definition(prefix=prefix, payload=payload)
+        for prefix, payload in data.get("prefix_definitions", {}).items()
+    )
+    return (
+        _freeze_base_definitions(definitions=base_definitions),
+        _freeze_sheet_specific_definitions(definitions=sheet_specific_definitions),
+        prefix_definitions,
     )
 
 
-DEFAULT_BASE_DEFINITIONS, DEFAULT_SHEET_SPECIFIC_DEFINITIONS = _load_default_definitions()
+DEFAULT_BASE_DEFINITIONS, DEFAULT_SHEET_SPECIFIC_DEFINITIONS, DEFAULT_PREFIX_DEFINITIONS = _load_default_definitions()
 
 
 class ColumnMetadataRegistry:
@@ -78,6 +108,7 @@ class ColumnMetadataRegistry:
         self,
         base_definitions: BaseDefinitions | None = None,
         sheet_specific: SheetSpecificDefinitions | None = None,
+        prefix_definitions: PrefixDefinitions | None = None,
     ) -> None:
         self._base_definitions: BaseDefinitions = (
             _freeze_base_definitions(definitions=base_definitions)
@@ -88,6 +119,9 @@ class ColumnMetadataRegistry:
             _freeze_sheet_specific_definitions(definitions=sheet_specific)
             if sheet_specific is not None
             else DEFAULT_SHEET_SPECIFIC_DEFINITIONS
+        )
+        self._prefix_definitions: PrefixDefinitions = (
+            tuple(prefix_definitions) if prefix_definitions is not None else DEFAULT_PREFIX_DEFINITIONS
         )
 
     def definition_for(self, column_name: str, sheet_name: str | None = None) -> ColumnDefinition:
@@ -105,6 +139,31 @@ class ColumnMetadataRegistry:
 
         if column_name in self._base_definitions:
             return self._base_definitions[column_name]
+
+        for prefix_definition in self._prefix_definitions:
+            if not column_name.startswith(prefix_definition.prefix):
+                continue
+
+            base_name: str = column_name.removeprefix(prefix_definition.prefix)
+            base_definition: ColumnDefinition | None = self._base_definitions.get(base_name)
+            base_description: str = (
+                base_definition.description
+                if base_definition is not None
+                else f"No exact definition is registered for '{base_name}'."
+            )
+            return ColumnDefinition(
+                name=column_name,
+                description=prefix_definition.description_template.format(
+                    column_name=column_name,
+                    base_name=base_name,
+                    base_description=base_description,
+                ),
+                value_type=(
+                    prefix_definition.value_type
+                    if prefix_definition.value_type is not None
+                    else base_definition.value_type if base_definition is not None else None
+                ),
+            )
 
         return ColumnDefinition(
             name=column_name,
@@ -125,6 +184,7 @@ class ColumnMetadataRegistry:
             cls._INSTANCE = cls(
                 base_definitions=DEFAULT_BASE_DEFINITIONS,
                 sheet_specific=DEFAULT_SHEET_SPECIFIC_DEFINITIONS,
+                prefix_definitions=DEFAULT_PREFIX_DEFINITIONS,
             )
         return cls._INSTANCE
 

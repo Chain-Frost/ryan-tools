@@ -1,3 +1,16 @@
+"""Load, filter, and plot selected TUFLOW PO time-series scenarios.
+
+Edit the configuration block for the results root, CSV pattern or Parquet cache,
+location filters, scenario dimensions, and plotted locations. Run
+``python po_timeseries_analysis_runner.py``. CSV mode processes matching PO files
+through ``ryan_library`` and updates the configured Parquet cache; Parquet mode
+loads that cache directly.
+
+The script opens interactive Matplotlib plots grouped by location and scenario.
+Confirm the internal-name filter and scenario-column mapping before interpreting
+the comparison.
+"""
+
 from __future__ import annotations
 
 import os

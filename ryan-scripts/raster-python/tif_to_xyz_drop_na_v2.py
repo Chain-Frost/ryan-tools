@@ -1,19 +1,36 @@
+"""Convert GeoTIFFs to chunked XYZ CSV files with bounded memory use.
+
+Edit ``WORKING_DIR``, ``OUT_FOLDER``, ``DROP_NA``, and
+``TARGET_CELLS_PER_CHUNK``, then run ``python tif_to_xyz_drop_na_v2.py``. The
+script scans top-level ``*.tif`` files and writes one ``x,y,z``
+``*_mod.xyz`` file per raster under the output folder.
+
+Only one raster band is exported. Missing/nodata cells are dropped when
+``DROP_NA`` is true or written with a fallback value otherwise. Validate cell
+centre coordinates and the CSV-style output expected by the consumer.
+"""
+
+# pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+# pyright: reportUnnecessaryComparison=false
+
 from concurrent.futures._base import Future
 import math
 import os
 import subprocess
 import numpy as np
-import rasterio  # type:ignore
+import rasterio  # type: ignore
 from glob import iglob
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from affine import Affine
-from rasterio.windows import Window
+
+from ryan_library.functions.gdal.raster_processing import read_raster_band
 
 # Set this flag to True if you want to drop rows with missing z values
 DROP_NA = True  # Change to True to drop rows with missing z's instead of filling them
 # WORKING_DIR = None
-WORKING_DIR = r"folder"
+WORKING_DIR: str | None = r"folder"
 OUT_FOLDER = r"converted_and_trimmed"
 TARGET_CELLS_PER_CHUNK = 500_000  # Limits memory use to ~20-30 MB per chunk
 
@@ -87,8 +104,10 @@ def process_tif_file(file: str) -> None:
 
                 for chunk_index, row_start in enumerate(range(0, rows, rows_per_chunk), start=1):
                     chunk_height = min(rows_per_chunk, rows - row_start)
-                    window = Window(col_off=0, row_off=row_start, width=cols, height=chunk_height)
-                    band_chunk = src.read(1, window=window, masked=False).astype(np.float64, copy=False)
+                    band_chunk = read_raster_band(
+                        file,
+                        window=(0, row_start, cols, chunk_height),
+                    ).astype(np.float64, copy=False)
                     print(
                         f"---- chunk {chunk_index}/{total_chunks} rows {row_start}-{row_start + chunk_height - 1} "
                         f"({chunk_height} rows)"

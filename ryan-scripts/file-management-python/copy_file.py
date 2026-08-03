@@ -1,10 +1,20 @@
+"""Copy one local file to an authenticated Windows network share.
+
+Edit ``source``, ``share``, ``username``, and ``password`` before running
+``python copy_file.py``. The script connects to the UNC share with the Windows
+MPR API, copies the source file with metadata, reports its size, and disconnects
+only if it created the connection.
+
+This module executes immediately when imported. Do not store real credentials
+in the repository, and note that ``shutil.copy2`` can overwrite the destination.
+"""
+
 from __future__ import annotations
 
 import ctypes
 import shutil
 from ctypes import wintypes
 from pathlib import Path
-
 
 source = Path(r"C:\path\file.zip")
 share = r"\\ipv4\folder"
@@ -19,8 +29,9 @@ RESOURCETYPE_DISK = 0x00000001
 NO_ERROR = 0
 ERROR_SESSION_CREDENTIAL_CONFLICT = 1219
 
+
 class NETRESOURCE(ctypes.Structure):
-    _fields_= [
+    _fields_ = [
         ("dwScope", wintypes.DWORD),
         ("dwType", wintypes.DWORD),
         ("dwDisplayType", wintypes.DWORD),
@@ -30,6 +41,7 @@ class NETRESOURCE(ctypes.Structure):
         ("lpComment", wintypes.LPWSTR),
         ("lpProvider", wintypes.LPWSTR),
     ]
+
 
 mpr = ctypes.WinDLL("mpr")
 mpr.WNetAddConnection2W.argtypes = [ctypes.POINTER(NETRESOURCE), wintypes.LPCWSTR, wintypes.LPCWSTR, wintypes.DWORD]

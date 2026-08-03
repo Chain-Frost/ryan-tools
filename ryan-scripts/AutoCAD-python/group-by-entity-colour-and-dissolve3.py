@@ -1,4 +1,16 @@
 #!/usr/bin/env python3
+"""Group DXF polygon entities by colour and dissolve each group.
+
+Edit the working directory, ``input_file``, ``output_file``, ``TOLERANCE``, and
+``PROGRESS_INTERVAL`` in :func:`main`, then run
+``python group-by-entity-colour-and-dissolve3.py``. The script replaces selected
+source polygons with dissolved polygon boundaries on colour-named layers and
+saves a new DXF.
+
+Review the new drawing in CAD, especially geometries that only touch within the
+configured tolerance.
+"""
+
 import os
 import ezdxf
 from ezdxf.document import Drawing

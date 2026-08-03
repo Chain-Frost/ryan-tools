@@ -15,6 +15,20 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 SOURCE_DIR = Path("tests/test_data/tuflow/TUFLOW_Example_Model_Dataset/EG02")
 SNAPSHOT_DIR = Path("tests/regression/data/snapshot")
 PATH_COLUMNS: set[str] = {"file", "rel_path", "path", "directory_path", "rel_directory"}
+REGRESSION_DATA_TYPES: tuple[str, ...] = (
+    "H",
+    "V",
+    "Q",
+    "PO",
+    "POMM",
+    "Chan",
+    "Cmx",
+    "Nmx",
+    "ccA",
+    "CF",
+    "EOF",
+    "RLL_Qmx",
+)
 
 
 def _normalize_path_value(value: object) -> object:
@@ -42,7 +56,7 @@ def processed_results() -> dict[str, pd.DataFrame]:
 
     with setup_logger(console_log_level="INFO") as log_queue:
         suffixes_config = SuffixesConfig.get_instance()
-        include_types = ["H", "V", "Q", "MB", "PO", "POMM", "Chan", "EOF", "Cmx", "Nmx", "ccA", "CF", "RLL_Qmx"]
+        include_types = list(REGRESSION_DATA_TYPES)
 
         csv_files = collect_files(
             paths_to_process=[source_path], include_data_types=include_types, suffixes_config=suffixes_config
@@ -93,9 +107,12 @@ def processed_results() -> dict[str, pd.DataFrame]:
         return aggregated_dfs
 
 
-@pytest.mark.parametrize(
-    "data_type", ["H", "V", "Q", "PO", "POMM", "Chan", "Cmx", "Nmx", "ccA", "CF", "EOF", "RLL_Qmx"]
-)
+def test_regression_data_types_exact(processed_results: dict[str, pd.DataFrame]) -> None:
+    """Ensure the processor output set matches the snapshot contract exactly."""
+    assert set(processed_results) == set(REGRESSION_DATA_TYPES)
+
+
+@pytest.mark.parametrize("data_type", REGRESSION_DATA_TYPES)
 def test_regression_against_snapshot(data_type: str, processed_results: dict[str, pd.DataFrame]):
     """Compare processed results against the golden snapshot for each data type."""
     snapshot_path = Path.cwd() / SNAPSHOT_DIR / f"{data_type}.parquet"
@@ -120,8 +137,7 @@ def test_regression_against_snapshot(data_type: str, processed_results: dict[str
 
     extra_cols = set(observed_df.columns) - set(expected_df.columns)
     if extra_cols:
-        # This might be okay if we added new features, but for strict regression we might want to know
-        pass
+        pytest.fail(f"Unexpected columns in observed data: {extra_cols}")
 
     observed_df = observed_df[expected_df.columns]
 

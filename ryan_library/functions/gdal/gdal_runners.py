@@ -1,68 +1,83 @@
-# ryan_library/functions/gdal/gdal_runners.py
+"""Stable runner names for the Python-native flood-extent operations.
 
-import subprocess
+Older orchestrators imported ``run_gdal_calc`` and ``run_gdal_polygonize``
+when those functions launched command-line utilities. Keeping these small
+adapters preserves the public names while delegating all work to the shared
+``osgeo`` implementation.
+"""
+
 from pathlib import Path
-from loguru import logger
-import os
+import warnings
+
+from ryan_library.functions.gdal.raster_processing import (
+    RasterProfile,
+    VectorFormat,
+    calculate_flood_extent,
+    polygonize_flood_extent,
+)
+
+warnings.warn(
+    "ryan_library.functions.gdal.gdal_runners is deprecated; import calculate_flood_extent and "
+    "polygonize_flood_extent from ryan_library.functions.gdal.raster_processing instead. Backwards compatibility "
+    "is supported until 30 June 2027.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
-def run_gdal_calc(input_file: Path, output_file: str, cutoff: float):
-    """
-    Run gdal_calc.py with the specified parameters.
-
-    Args:
-        input_file (Path): Path to the input TIFF file.
-        output_file (str): Filename for the output TIFF.
-        cutoff (float): Cutoff value for the calculation.
-    """
-    commands_calc = '--calc="where(A>=%%%c,1,0)"'
-    create_opts = "--NoDataValue=0 --co COMPRESS=DEFLATE --co PREDICTOR=2 --co NUM_THREADS=ALL_CPUS --co SPARSE_OK=TRUE --co BIGTIFF=IF_SAFER"
-
-    gdal_calc_path = os.environ.get("GDAL_CALC_PATH")
-    if not gdal_calc_path:
-        logger.error("GDAL_CALC_PATH is not set in environment variables.")
-        raise EnvironmentError("GDAL_CALC_PATH is not set.")
-
-    gdal_calc_cmd = [
-        "python",
-        gdal_calc_path,
-        commands_calc.replace("%%%c", str(cutoff)),
-        "-A",
-        str(input_file),
-        "--outfile",
-        output_file,
-    ] + create_opts.split()
-
-    logger.debug(f"Running GDAL Calc Command: {' '.join(gdal_calc_cmd)}")
-
-    try:
-        subprocess.run(gdal_calc_cmd, check=True)
-        logger.info(f"gdal_calc.py completed for {input_file} -> {output_file}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"gdal_calc.py failed for {input_file}: {e}")
-        raise
-
-
-def run_gdal_polygonize(input_file: str, output_shp: str):
-    """
-    Run gdal_polygonize.py to convert the raster to a polygon.
+def run_gdal_calc(
+    input_file: Path,
+    output_file: str | Path,
+    cutoff: float,
+    *,
+    profile: RasterProfile = "tuflow",
+    threads: str = "ALL_CPUS",
+    overwrite: bool = False,
+) -> Path:
+    """Create a flood-extent mask using the in-process GDAL calculator.
 
     Args:
-        input_file (str): Path to the input TIFF file.
-        output_shp (str): Filename for the output Shapefile.
+        input_file: Source depth raster.
+        output_file: Destination Byte GeoTIFF.
+        cutoff: Minimum depth assigned to the flooded class.
+        profile: GeoTIFF storage profile.
+        threads: GDAL compression thread setting.
+        overwrite: Permit replacement of an existing output.
+
+    Returns:
+        The resolved output raster path.
     """
-    gdal_polygonize_path = os.environ.get("GDAL_POLYGONIZE_PATH")
-    if not gdal_polygonize_path:
-        logger.error("GDAL_POLYGONIZE_PATH is not set in environment variables.")
-        raise EnvironmentError("GDAL_POLYGONIZE_PATH is not set.")
+    return calculate_flood_extent(
+        input_file,
+        Path(output_file),
+        cutoff,
+        profile=profile,
+        threads=threads,
+        overwrite=overwrite,
+    )
 
-    gdal_polygonize_cmd = ["python", gdal_polygonize_path, input_file, output_shp]
 
-    logger.debug(f"Running GDAL Polygonize Command: {' '.join(gdal_polygonize_cmd)}")
+def run_gdal_polygonize(
+    input_file: str | Path,
+    output_vector: str | Path,
+    *,
+    vector_format: VectorFormat = "gpkg",
+    overwrite: bool = False,
+) -> Path:
+    """Polygonize a flood-extent mask using the in-process GDAL API.
 
-    try:
-        subprocess.run(gdal_polygonize_cmd, check=True)
-        logger.info(f"gdal_polygonize.py completed for {input_file} -> {output_shp}")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"gdal_polygonize.py failed for {input_file}: {e}")
-        raise
+    Args:
+        input_file: Byte flood-mask raster.
+        output_vector: Destination GeoPackage or ESRI Shapefile.
+        vector_format: ``gpkg`` or ``shp``; defaults to ``gpkg``.
+        overwrite: Permit recreation of an existing vector dataset.
+
+    Returns:
+        The resolved vector dataset path.
+    """
+    return polygonize_flood_extent(
+        Path(input_file),
+        Path(output_vector),
+        vector_format=vector_format,
+        overwrite=overwrite,
+    )

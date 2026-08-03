@@ -77,7 +77,7 @@ class CmxProcessor(MaxDataProcessor):
 
             # Concatenate QMax and VMax DataFrames
             cleaned_df = pd.concat([q_df, v_df], ignore_index=True)
-            logger.debug(f"Reshaped DataFrame:\n{cleaned_df.head()}")
+            logger.debug("Reshaped DataFrame:\n{}", cleaned_df.head())
 
             self.df = cleaned_df
 
@@ -106,4 +106,4 @@ class CmxProcessor(MaxDataProcessor):
             logger.warning(
                 f"Removed {dropped_count} malformed entries (all relevant columns NaN) in file {self.log_path}"
             )
-            logger.debug(f"DataFrame after removing malformed entries:\n{self.df.head()}")
+            logger.debug("DataFrame after removing malformed entries:\n{}", self.df.head())

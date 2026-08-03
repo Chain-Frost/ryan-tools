@@ -1,5 +1,6 @@
 # ryan_library/scripts/pomm_utils.py
 """Utility helpers for processing POMM CSV files."""
+
 # pyright: reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
 from __future__ import annotations
 
@@ -13,9 +14,14 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame, Index, Series
 
-from ryan_library.classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
+from ryan_library.classes.column_definitions import ColumnMetadataRegistry
 from ryan_library.functions.pandas.median_calc import median_calc
-from ryan_library.functions.misc_functions import ExcelExporter, get_tools_version
+from ryan_library.functions.misc_functions import (
+    DATA_DICTIONARY_SHEET_NAME,
+    ExcelExporter,
+    build_data_dictionary,
+    get_tools_version,
+)
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
@@ -31,9 +37,6 @@ if TYPE_CHECKING:
 else:
     SeriesAny = Series
     QueueType = Queue
-
-
-DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
 
 
 def _ordered_columns(
@@ -349,50 +352,10 @@ def _build_data_dictionary(
     metadata_rows: Mapping[str, str],
 ) -> DataFrameAny:
     """Build the DataFrame backing the data dictionary worksheet."""
-
-    rows: list[dict[str, str]] = []
-    for key, value in metadata_rows.items():
-        rows.append(
-            {
-                "sheet": "metadata",
-                "column": key,
-                "description": value,
-                "value_type": "metadata",
-                "pandas_dtype": "",
-            }
-        )
-
-    for sheet_name, frame in sheet_frames.items():
-        columns: list[str] = list(frame.columns)
-        if not columns:
-            rows.append(
-                {
-                    "sheet": sheet_name,
-                    "column": "<no columns>",
-                    "description": "Sheet exported without any columns. Review upstream processing.",
-                    "value_type": "",
-                    "pandas_dtype": "",
-                }
-            )
-            continue
-
-        dtype_map: dict[str, str] = {str(column): str(dtype) for column, dtype in frame.dtypes.items()}
-        definitions: list[ColumnDefinition] = registry.iter_definitions(columns, sheet_name=sheet_name)
-
-        for column_name, definition in zip(columns, definitions):
-            rows.append(
-                {
-                    "sheet": sheet_name,
-                    "column": column_name,
-                    "description": definition.description,
-                    "value_type": definition.value_type or "",
-                    "pandas_dtype": dtype_map.get(column_name, ""),
-                }
-            )
-
-    return DataFrame(
-        data=rows,
-        columns=["sheet", "column", "description", "value_type", "pandas_dtype"],
+    return build_data_dictionary(
+        registry=registry,
+        sheet_frames=sheet_frames,
+        metadata_rows=metadata_rows,
     )
 
 

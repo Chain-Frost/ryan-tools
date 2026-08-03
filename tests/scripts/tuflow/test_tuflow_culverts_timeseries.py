@@ -1,17 +1,17 @@
-"""Tests for ryan_library.scripts.tuflow.tuflow_culverts_timeseries."""
+"""Tests for the active TUFLOW culvert-timeseries orchestrator."""
 
 import pandas as pd
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from ryan_library.scripts.tuflow import tuflow_culverts_timeseries
+from ryan_library.orchestrators.tuflow import tuflow_culverts_timeseries
 
 
 def test_main_processing_success() -> None:
-    with patch("ryan_library.scripts.tuflow.tuflow_culverts_timeseries.setup_logger"):
+    with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.setup_logger"):
         with patch(
-            "ryan_library.scripts.tuflow.tuflow_culverts_timeseries.bulk_read_and_merge_tuflow_csv"
+            "ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.bulk_read_and_merge_tuflow_csv"
         ) as mock_bulk:
-            with patch("ryan_library.scripts.tuflow.tuflow_culverts_timeseries.ExcelExporter") as mock_exporter:
+            with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.ExcelExporter") as mock_exporter:
 
                 # Mock collection
                 mock_collection = MagicMock()
@@ -28,11 +28,11 @@ def test_main_processing_success() -> None:
 
 
 def test_main_processing_parquet() -> None:
-    with patch("ryan_library.scripts.tuflow.tuflow_culverts_timeseries.setup_logger"):
+    with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.setup_logger"):
         with patch(
-            "ryan_library.scripts.tuflow.tuflow_culverts_timeseries.bulk_read_and_merge_tuflow_csv"
+            "ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.bulk_read_and_merge_tuflow_csv"
         ) as mock_bulk:
-            with patch("ryan_library.scripts.tuflow.tuflow_culverts_timeseries.ExcelExporter") as mock_exporter:
+            with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.ExcelExporter") as mock_exporter:
 
                 mock_collection = MagicMock()
                 mock_collection.combine_1d_timeseries.return_value = pd.DataFrame({"A": [1]})

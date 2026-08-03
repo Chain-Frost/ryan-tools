@@ -1,3 +1,15 @@
+"""Find and optionally delete identical files in TUFLOW ``check`` folders.
+
+Run this from the model/result root or edit ``ROOT_DIR``. Start with
+``DRY_RUN = True`` and review ``duplicate_files_to_delete.txt``. Files are
+grouped by suffix, size, and content hash either across all check folders or
+within each one according to ``COMPARE_ACROSS_CHECK_FOLDERS``.
+
+With dry-run disabled, deletion still requires typing ``DELETE``. The script
+keeps one copy and may write ``.DUPLICATE_REMOVED.txt`` placeholders pointing to
+it. Keep a backup and inspect the proposed keep/delete choices before approval.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -38,6 +50,7 @@ PLACEHOLDER_SUFFIX = ".DUPLICATE_REMOVED.txt"
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class FileRecord:
@@ -80,6 +93,7 @@ class PlaceholderAction:
 # ---------------------------------------------------------------------------
 # Path helpers
 # ---------------------------------------------------------------------------
+
 
 def absolute_path(path: Path) -> Path:
     """
@@ -131,16 +145,13 @@ def relative_or_absolute_path_from_placeholder_to_kept_file(
 # Discovery
 # ---------------------------------------------------------------------------
 
+
 def find_check_folders(root_dir: Path) -> list[Path]:
     """Find folders named CHECK_FOLDER_NAME under root_dir."""
     root_dir = absolute_path(root_dir)
 
     return sorted(
-        (
-            path
-            for path in root_dir.rglob("*")
-            if path.is_dir() and path.name.lower() == CHECK_FOLDER_NAME.lower()
-        ),
+        (path for path in root_dir.rglob("*") if path.is_dir() and path.name.lower() == CHECK_FOLDER_NAME.lower()),
         key=lambda p: str(p).lower(),
     )
 
@@ -179,6 +190,7 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
 # ---------------------------------------------------------------------------
 # Duplicate detection
 # ---------------------------------------------------------------------------
+
 
 def file_hash(path: Path) -> str:
     """Hash a file using SHA-256."""
@@ -294,12 +306,10 @@ def build_delete_actions(duplicate_groups: list[DuplicateGroup]) -> list[DeleteA
 # Placeholder handling
 # ---------------------------------------------------------------------------
 
+
 def build_check_folder_lookup(records: list[FileRecord]) -> dict[Path, Path]:
     """Map each scanned file to its containing check folder."""
-    return {
-        record.path: record.check_folder
-        for record in records
-    }
+    return {record.path: record.check_folder for record in records}
 
 
 def should_write_placeholder(
@@ -381,9 +391,7 @@ def build_placeholder_actions(
         deleted_files = tuple(action.delete_file for action in sorted_actions)
 
         representative_deleted_file = deleted_files[0]
-        placeholder_file = placeholder_path_for_representative_deleted_file(
-            representative_deleted_file
-        )
+        placeholder_file = placeholder_path_for_representative_deleted_file(representative_deleted_file)
 
         placeholder_actions.append(
             PlaceholderAction(
@@ -473,6 +481,7 @@ def write_placeholder_files(placeholder_actions: list[PlaceholderAction]) -> Non
 # ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
+
 
 def write_report(
     duplicate_groups: list[DuplicateGroup],
@@ -579,6 +588,7 @@ def print_summary(
 # Deletion
 # ---------------------------------------------------------------------------
 
+
 def confirm_deletion() -> bool:
     """Ask user to confirm deletion."""
     print("Deletion requires confirmation.")
@@ -633,6 +643,7 @@ def delete_duplicate_files(actions: list[DeleteAction]) -> list[DeleteAction]:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     check_folders = find_check_folders(ROOT_DIR)

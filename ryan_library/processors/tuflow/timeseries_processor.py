@@ -130,13 +130,13 @@ class TimeSeriesProcessor(BaseProcessor):
             ProcessorError: If :mod:`pandas` fails to load the file.
         """
         try:
-            df: pd.DataFrame = pd.read_csv(  # type: ignore
+            df: pd.DataFrame = pd.read_csv(
                 filepath_or_buffer=file_path,
                 header=0,
                 skipinitialspace=True,
                 encoding="utf-8",
             )
-            logger.debug(f"CSV file '{self.file_name}' read successfully with {len(df)} rows.")
+            logger.debug("CSV file '{}' read successfully with {} rows.", self.file_name, len(df))
             return df
         except Exception as exc:
             logger.exception(f"{self.file_name}: Failed to read CSV file '{self.log_path}': {exc}")
@@ -163,7 +163,7 @@ class TimeSeriesProcessor(BaseProcessor):
         """
         try:
             df = df.drop(labels=df.columns[0], axis=1)
-            logger.debug(f"Dropped the first column from '{self.log_path}'.")
+            logger.debug("Dropped the first column from '{}'.", self.log_path)
 
             time_column_aliases: dict[str, str] = {"Time (h)": "Time", "Time(h)": "Time"}
             rename_columns: dict[str, str] = {
@@ -171,7 +171,7 @@ class TimeSeriesProcessor(BaseProcessor):
             }
             if rename_columns:
                 df.rename(columns=rename_columns, inplace=True)
-                logger.debug(f"Renamed time columns: {rename_columns}.")
+                logger.debug("Renamed time columns: {}.", rename_columns)
 
             if "Time" not in df.columns:
                 logger.error(f"{self.file_name}: 'Time' column is missing after cleaning headers.")
@@ -179,7 +179,7 @@ class TimeSeriesProcessor(BaseProcessor):
 
             cleaned_columns: list[str] = self._clean_column_names(columns=df.columns, data_type=data_type)
             df.columns = cleaned_columns
-            logger.debug(f"Cleaned headers: {cleaned_columns}")
+            logger.debug("Cleaned headers: {}", cleaned_columns)
             return df
         except Exception as exc:
             logger.exception(f"{self.file_name}: Failed to clean headers: {exc}")
@@ -227,7 +227,10 @@ class TimeSeriesProcessor(BaseProcessor):
         is_1d: bool = "_1d_" in self.file_name.lower()
         category_type: str = "Chan ID" if is_1d else "Location"
         logger.debug(
-            f"{self.file_name}: {'1D' if is_1d else '2D'} filename detected; using '{category_type}' as category type."
+            "{}: {} filename detected; using '{}' as category type.",
+            self.file_name,
+            "1D" if is_1d else "2D",
+            category_type,
         )
 
         try:
@@ -236,8 +239,8 @@ class TimeSeriesProcessor(BaseProcessor):
                     df=df, category_type=category_type, file_label=self.file_name
                 )
             else:
-                df_melted = df.melt(id_vars=["Time"], var_name=category_type, value_name=data_type)  # type: ignore
-                logger.debug(f"Reshaped DataFrame to long format with {len(df_melted)} rows.")
+                df_melted = df.melt(id_vars=["Time"], var_name=category_type, value_name=data_type)
+                logger.debug("Reshaped DataFrame to long format with {} rows.", len(df_melted))
         except Exception as exc:
             logger.exception(f"{self.file_name}: Failed to reshape DataFrame: {exc}")
             raise ProcessorError(f"Failed to reshape DataFrame: {exc}") from exc
@@ -290,7 +293,7 @@ class TimeSeriesProcessor(BaseProcessor):
         """
 
         try:
-            logger.debug(f"Normalising melted DataFrame for value column '{value_column}'.")
+            logger.debug("Normalising melted DataFrame for value column '{}'.", value_column)
 
             required_columns: set[str] = {"Time", value_column}
             missing_columns: set[str] = required_columns - set(self.df.columns)
@@ -311,13 +314,13 @@ class TimeSeriesProcessor(BaseProcessor):
                 return ProcessorStatus.FAILURE
 
             identifier_column: str = identifier_columns[0]
-            logger.debug(f"Using '{identifier_column}' as the identifier column for '{value_column}' values.")
+            logger.debug("Using '{}' as the identifier column for '{}' values.", identifier_column, value_column)
 
             initial_row_count = len(self.df)
-            self.df.dropna(subset=[value_column], inplace=True)  # type: ignore
+            self.df.dropna(subset=[value_column], inplace=True)
             dropped_rows = initial_row_count - len(self.df)
             if dropped_rows:
-                logger.debug(f"Dropped {dropped_rows} rows with missing '{value_column}' values.")
+                logger.debug("Dropped {} rows with missing '{}' values.", dropped_rows, value_column)
 
             if self.df.empty:
                 logger.error(

@@ -1,4 +1,13 @@
-"""Extract DXF mesh coordinates to Parquet and optional XYZ text."""
+"""Extract DXF mesh vertices and triangles to Parquet and optional XYZ text.
+
+Run ``python dwg-to-points.py --help`` for the complete CLI. A typical call is
+``python dwg-to-points.py model.dxf --xyz-output model.xyz``. Raw vertices and
+triangulated faces are written to separate Parquet files, while the optional XYZ
+file contains deduplicated coordinates at the requested precision.
+
+Existing outputs are protected unless ``--force`` is supplied. This reads DXF,
+not binary DWG; export or convert a DWG before running the tool.
+"""
 
 from __future__ import annotations
 
@@ -50,8 +59,7 @@ TRIANGLE_SCHEMA = pa.schema(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Read a DXF (or a DWG that has been exported to DXF) and collect every "
-            "mesh vertex and triangle face."
+            "Read a DXF (or a DWG that has been exported to DXF) and collect every " "mesh vertex and triangle face."
         )
     )
     parser.add_argument("source", type=Path, help="DXF file that contains the mesh geometry.")
@@ -274,9 +282,7 @@ def iterate_entity_triangles(entity: DXFGraphic) -> Iterator[Triangle]:
     dxftype = entity.dxftype()
     if dxftype == "3DFACE":
         points = [
-            point
-            for attr in ("vtx0", "vtx1", "vtx2", "vtx3")
-            if (point := _to_vec3(entity.dxf.get(attr))) is not None
+            point for attr in ("vtx0", "vtx1", "vtx2", "vtx3") if (point := _to_vec3(entity.dxf.get(attr))) is not None
         ]
         yield from triangulate_points(points)
         return

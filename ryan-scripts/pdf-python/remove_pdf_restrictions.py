@@ -31,13 +31,11 @@ import argparse
 from collections.abc import Sequence
 from pathlib import Path
 
-from pypdf import PdfReader, PdfWriter
+from pypdf import PasswordType, PdfReader, PdfWriter
 
 # --- User configuration -----------------------------------------------------
 
-DEFAULT_INPUT_PDFS: Path | str | Sequence[Path | str] = Path(
-    r"C:\folder\file.pdf"
-)
+DEFAULT_INPUT_PDFS: Path | str | Sequence[Path | str] = Path(r"C:\folder\file.pdf")
 # DEFAULT_INPUT_PDFS = Path(r"C:\Temp\input.pdf")
 # DEFAULT_INPUT_PDFS = r"C:\Temp\input.pdf"
 # DEFAULT_INPUT_PDFS = [r"C:\Temp\first.pdf", Path(r"C:\Temp\second.pdf")]
@@ -88,7 +86,7 @@ def remove_pdf_restrictions_from_file(
     src: PathInput, dst: PathInput | None = None, password: str = ""
 ) -> tuple[Path, str]:
     source_path = Path(src)
-    destination_path = Path(dst) if dst is not None else default_output_path(source_path)
+    destination_path: Path = Path(dst) if dst is not None else default_output_path(source_path)
 
     if not source_path.exists():
         raise FileNotFoundError(f"Input file does not exist: {source_path}")
@@ -97,10 +95,10 @@ def remove_pdf_restrictions_from_file(
     decrypt_status = "not encrypted"
 
     if reader.is_encrypted:
-        result = reader.decrypt(password)
+        result: PasswordType = reader.decrypt(password)
         if result == 0:
             raise ValueError("PDF is encrypted and could not be decrypted with the supplied password.")
-        decrypt_status = f"decrypted with result {result}"
+        decrypt_status: str = f"decrypted with result {result}"
 
     writer = PdfWriter()
     writer.clone_document_from_reader(reader)
@@ -118,12 +116,12 @@ def remove_pdf_restrictions(
     output_dir: PathInput | None = None,
     password: str = DEFAULT_DECRYPT_PASSWORD,
 ) -> list[tuple[Path, str]]:
-    input_paths = normalize_inputs(inputs)
+    input_paths: list[Path] = normalize_inputs(inputs)
     if not input_paths:
         raise ValueError("No input PDFs were supplied.")
 
-    output_path = Path(output) if output is not None else None
-    output_dir_path = Path(output_dir) if output_dir is not None else None
+    output_path: Path | None = Path(output) if output is not None else None
+    output_dir_path: Path | None = Path(output_dir) if output_dir is not None else None
 
     if output_path is not None and output_dir_path is not None:
         raise ValueError("Use either output or output_dir, not both.")
@@ -133,7 +131,7 @@ def remove_pdf_restrictions(
 
     results: list[tuple[Path, str]] = []
     for src in input_paths:
-        dst = resolve_output_path(
+        dst: Path = resolve_output_path(
             src=src,
             output=output_path,
             output_dir=output_dir_path,
@@ -165,7 +163,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    args = parse_args()
+    args: argparse.Namespace = parse_args()
     inputs = args.input_pdfs if args.input_pdfs else DEFAULT_INPUT_PDFS
     output = args.output if args.output is not None else DEFAULT_OUTPUT
     output_dir = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
@@ -174,7 +172,7 @@ def main() -> int:
         raise SystemExit("Use either --output or --output-dir, not both.")
 
     try:
-        results = remove_pdf_restrictions(
+        results: list[tuple[Path, str]] = remove_pdf_restrictions(
             inputs=inputs,
             output=output,
             output_dir=output_dir,

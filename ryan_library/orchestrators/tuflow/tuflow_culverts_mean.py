@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Collection, Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, cast
 
 import pandas as pd
 from loguru import logger
@@ -193,6 +193,8 @@ def _run_culvert_statistic_report(
             },
             output_directory=script_directory,
             file_name=output_name,
+            include_data_dictionary=True,
+            data_dictionary_metadata={"Workflow": f"Culvert {statistic} peak report"},
         )
 
         logger.info(f"Culvert {statistic} report exported to {script_directory / output_name}")
@@ -288,18 +290,25 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
     # "Adopt" values from the run closest to the target Q statistic.
     adopted_rows: list[dict[str, object]] = []
     if range_columns:
-        for key, group in grouped:
-            adopted_entry: dict[str, object] = _group_key_values(group_columns=group_columns, key=key)
+        for key, raw_group in grouped:
+            group: pd.DataFrame = raw_group
+            adopted_entry: dict[str, object] = _group_key_values(
+                group_columns=group_columns,
+                key=cast(object, key),
+            )
 
-            q_series = pd.to_numeric(group.get("Q"), errors="coerce") if "Q" in group.columns else None
-            if q_series is not None and q_series.notna().any():
+            q_series: pd.Series | None = pd.to_numeric(group["Q"], errors="coerce") if "Q" in group.columns else None
+            closest_row: pd.Series | None = None
+            if q_series is not None and bool(q_series.notna().any()):
                 if statistic == "mean":
                     target_q = float(q_series.mean())
                     # Find index of value closest to the statistic.
-                    idx = (q_series - target_q).abs().idxmin()
-                    closest_row = group.loc[idx]
+                    idx: Any = (q_series - target_q).abs().idxmin()
+                    closest_row = cast(pd.Series, group.loc[idx])
                 else:
                     closest_row = upper_middle_row(group=group, value_column="Q")
+
+            if closest_row is not None:
                 for column in range_columns:
                     adopted_entry[f"adopted_{column}"] = closest_row.get(column, pd.NA)
                 for column in ADOPTED_CONTEXT_COLUMNS:
@@ -402,7 +411,8 @@ def _group_key_values(group_columns: list[str], key: object) -> dict[str, object
     """Return grouping column values for a pandas groupby key."""
 
     if isinstance(key, tuple):
-        return dict(zip(group_columns, key, strict=False))
+        key_values: tuple[object, ...] = cast(tuple[object, ...], key)
+        return dict(zip(group_columns, key_values, strict=False))
     return {group_columns[0]: key}
 
 

@@ -1,6 +1,8 @@
 """TUFLOW processor package."""
 
 from importlib import import_module
+from types import ModuleType
+from typing import cast
 
 __all__: list[str] = []
 
@@ -10,7 +12,7 @@ def _expose(module_name: str, *processor_names: str) -> None:
 
     module: ModuleType = import_module(f".{module_name}", __name__)
     for name in processor_names:
-        globals()[name] = getattr(module, name)
+        globals()[name] = cast(object, getattr(module, name))
         __all__.append(name)
 
 

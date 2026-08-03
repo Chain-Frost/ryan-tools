@@ -1,3 +1,15 @@
+"""Prototype a combined RORB/TUFLOW closure-period analysis.
+
+This script is explicitly unfinished: the RORB and TUFLOW readers contain
+placeholder column mappings. Its current entry point scans beneath the script
+folder for configured RORB, TUFLOW PO, and TUFLOW 1D patterns, processes files
+in parallel, and writes timestamped CSV summaries.
+
+Do not use it for production decisions without completing and validating the
+readers against representative source files. It is retained as development
+scaffolding rather than a supported command-line tool.
+"""
+
 import os
 from pathlib import Path
 import re

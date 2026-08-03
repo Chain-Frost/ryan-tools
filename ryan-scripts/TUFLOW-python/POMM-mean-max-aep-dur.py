@@ -1,5 +1,5 @@
 # ryan-scripts\TUFLOW-python\POMM-mean-max-aep-dur.py
-"""
+r"""
 Wrapper Script: POMM Mean Peak Reports.
 
 This script locates TUFLOW POMM/RLL_Qmx CSV outputs in the working directory and produces a
@@ -9,9 +9,15 @@ or use command-line arguments to override these settings.
 
 Outputs:
     - ``<timestamp>_mean_peaks.xlsx`` saved in the working directory.
+
+Examples:
+    python POMM-mean-max-aep-dur.py --no-pause
+    python POMM-mean-max-aep-dur.py --working-directory E:\TUFLOW\Results --locations PO_01 PO_02
 """
 
 from pathlib import Path
+
+WRAPPER_VERSION = "2026-08-02.2"
 
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 # Toggle to include the combined POMM sheet in the Excel export.
@@ -28,26 +34,17 @@ PATHS_TO_PROCESS: tuple[Path, ...] = ()
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
 import argparse
-import gc
-import os
+
+from loguru import logger
 
 from ryan_library.orchestrators.tuflow.pomm_max_items import export_mean_peak_report
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
-    PommPeakWrapperDefaults,
     add_common_cli_arguments,
+    change_working_directory,
     parse_common_cli_arguments,
-    run_pomm_peak_report_wrapper,
-)
-
-
-DEFAULTS: PommPeakWrapperDefaults = PommPeakWrapperDefaults(
-    console_log_level=CONSOLE_LOG_LEVEL,
-    include_pomm=INCLUDE_POMM,
-    include_data_types=INCLUDE_DATA_TYPES,
-    locations_to_include=LOCATIONS_TO_INCLUDE,
-    paths_to_process=PATHS_TO_PROCESS,
-    working_directory=WORKING_DIR,
+    pause_console,
+    print_wrapper_banner,
 )
 
 
@@ -58,7 +55,7 @@ def main(
     locations_to_include: tuple[str, ...] | None = None,
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
-) -> None:
+) -> int:
     """
     Main entry point for mean peak reporting.
 
@@ -73,18 +70,30 @@ def main(
         working_directory: Overrides the default WORKING_DIR.
     """
 
-    overrides = CommonWrapperOptions(
-        console_log_level=console_log_level,
-        data_types=include_data_types,
-        locations_to_include=locations_to_include,
-        paths_to_process=paths_to_process,
-        working_directory=working_directory,
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    target_directory: Path = (working_directory or WORKING_DIR).resolve()
+    if not change_working_directory(target_dir=target_directory):
+        return 1
+
+    effective_data_types: tuple[str, ...] = INCLUDE_DATA_TYPES if include_data_types is None else include_data_types
+    effective_locations: tuple[str, ...] = (
+        LOCATIONS_TO_INCLUDE if locations_to_include is None else locations_to_include
     )
-    run_pomm_peak_report_wrapper(
-        exporter=export_mean_peak_report,
-        defaults=DEFAULTS,
-        overrides=overrides,
-    )
+    effective_paths: tuple[Path, ...] = PATHS_TO_PROCESS if paths_to_process is None else paths_to_process
+
+    try:
+        export_mean_peak_report(
+            script_directory=target_directory,
+            paths_to_process=effective_paths or None,
+            log_level=console_log_level or CONSOLE_LOG_LEVEL,
+            include_pomm=INCLUDE_POMM,
+            locations_to_include=effective_locations or None,
+            include_data_types=effective_data_types or None,
+        )
+    except Exception:
+        logger.exception("POMM mean peak report failed.")
+        return 1
+    return 0
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
@@ -99,7 +108,10 @@ def _parse_cli_arguments() -> CommonWrapperOptions:
             "Combine mean POMM peak statistics into a timestamped Excel report "
             "(e.g., 20240131-1530_mean_peaks.xlsx). "
             "Command-line options override the script defaults."
-        )
+        ),
+        epilog=r"""Example:
+  python POMM-mean-max-aep-dur.py --working-directory E:\TUFLOW\Results --locations PO_01 PO_02 --no-pause""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_common_cli_arguments(parser=parser)
     args: argparse.Namespace = parser.parse_args()
@@ -108,12 +120,17 @@ def _parse_cli_arguments() -> CommonWrapperOptions:
 
 if __name__ == "__main__":
     common_options: CommonWrapperOptions = _parse_cli_arguments()
-    main(
+    result: int = main(
         console_log_level=common_options.console_log_level,
         include_data_types=common_options.data_types,
         locations_to_include=common_options.locations_to_include,
         working_directory=common_options.working_directory,
     )
-    gc.collect()
-    if os.name == "nt":
-        os.system("PAUSE")
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
+    if not common_options.no_pause:
+        pause_console()
+    raise SystemExit(result)

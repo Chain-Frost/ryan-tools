@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.07.19.8"
+version = "26.08.03.4"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -27,7 +27,7 @@ dependencies = [
     "colorama",
     "XlsxWriter",
     "psutil",
-    "laspy",
+    "laspy[lazrs]",
     "tqdm",
     "rasterio",
     "seaborn",
@@ -50,6 +50,12 @@ dev = [
     "pytest",
     "pytest-cov",
 ]
+mcp = [
+    "mcp[cli]",
+]
+
+[project.scripts]
+ryan-mcp = "ryan_mcp_server:main"
 
 [project.urls]
 Repository = "https://github.com/Chain-Frost/ryan-tools"
@@ -61,7 +67,7 @@ include-package-data = true
 "ryan_library.classes" = ["*.json"]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = [".", "vendor/run_hy8/src"]
 include = [
     "ryan_functions",
     "ryan_functions.*",
@@ -70,20 +76,12 @@ include = [
     "vendor",
     "vendor.PyHMA",
     "vendor.PyHMA.*",
-    "vendor.run_hy8",
-    "vendor.run_hy8.*",
+    "run_hy8",
+    "run_hy8.*",
 ]
 exclude = [
     "tests",
     "tests.*",
-    "vendor.run_hy8.dist",
-    "vendor.run_hy8.dist.*",
-    "vendor.run_hy8.docs",
-    "vendor.run_hy8.docs.*",
-    "vendor.run_hy8.scripts",
-    "vendor.run_hy8.scripts.*",
-    "vendor.run_hy8.tests",
-    "vendor.run_hy8.tests.*",
 ]
 namespaces = true
 
