@@ -1,47 +1,124 @@
-# ryan_library\scripts\RORB\closure_durations.py
+"""Coordinate RORB threshold-exceedance processing and exports."""
 
-from datetime import datetime
-from pathlib import Path
 from collections.abc import Iterable
+from dataclasses import dataclass
+from datetime import datetime
+from multiprocessing import Pool
+import os
+from pathlib import Path
 
-
-import pandas as pd
 from loguru import logger
+import pandas as pd
 from pandas import DataFrame
 
-from ryan_library.functions.RORB.read_rorb_files import (
-    find_batch_files,
-    parse_batch_output,
-    analyze_hydrograph,
-)
-from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.RORB.read_rorb_files import analyze_hydrograph, find_batch_files, parse_batch_output
+from ryan_library.functions.loguru_helpers import LogQueue, setup_logger, worker_initializer
 from ryan_library.functions.pandas.median_calc import median_stats as median_stats_func
 
 
+@dataclass(slots=True, frozen=True)
+class HydrographJob:
+    """Picklable inputs for one RORB hydrograph analysis."""
+
+    aep: str
+    duration: str
+    tp: int
+    csv_path: Path
+    out_path: Path
+    thresholds: tuple[float, ...]
+
+
+def _analyze_job(job: HydrographJob) -> pd.DataFrame:
+    """Analyze one hydrograph job in either the parent or a pool worker."""
+
+    return analyze_hydrograph(
+        aep=job.aep,
+        duration=job.duration,
+        tp=job.tp,
+        csv_path=job.csv_path,
+        out_path=job.out_path,
+        thresholds=list(job.thresholds),
+    )
+
+
 def _collect_batch_data(paths: Iterable[Path]) -> pd.DataFrame:
+    """Collect parsed run tables from all discovered batch outputs."""
+
     batch_files: list[Path] = find_batch_files(paths=paths)
-    dfs: list[DataFrame] = [parse_batch_output(batchout_file=p) for p in batch_files]
-    dfs = [df for df in dfs if not df.empty]
-    return pd.concat(objs=dfs, ignore_index=True) if dfs else pd.DataFrame()
+    tables: list[DataFrame] = [parse_batch_output(batchout_file=path) for path in batch_files]
+    populated_tables = [table for table in tables if not table.empty]
+    return pd.concat(objs=populated_tables, ignore_index=True) if populated_tables else pd.DataFrame()
 
 
-def _process_hydrographs(batch_df: pd.DataFrame, thresholds: list[float]) -> pd.DataFrame:
-    records: list[pd.DataFrame] = []
-    for _, row in batch_df.iterrows():
-        rec: DataFrame = analyze_hydrograph(
-            aep=str(row["AEP"]),
-            duration=str(row["Duration"]),
-            tp=int(row["TPat"]),
-            csv_path=Path(row["csv"]),
-            out_path=Path(row["Path"]),
-            thresholds=thresholds,
+def _build_jobs(batch_df: pd.DataFrame, thresholds: list[float]) -> list[HydrographJob]:
+    """Convert parsed batch rows into typed worker jobs."""
+
+    threshold_values = tuple(float(value) for value in thresholds)
+    return [
+        HydrographJob(
+            aep=str(row.AEP),
+            duration=str(row.Duration),
+            tp=int(float(str(row.TPat))),
+            csv_path=Path(str(row.csv)),
+            out_path=Path(str(row.Path)),
+            thresholds=threshold_values,
         )
-        if not rec.empty:
-            records.append(rec)
-    return pd.concat(records, ignore_index=True) if records else pd.DataFrame()
+        for row in batch_df.itertuples(index=False)
+    ]
+
+
+def _worker_count(job_count: int, pool_size: int | None) -> int:
+    """Return a safe worker count for the available jobs and CPUs."""
+
+    if job_count < 1:
+        return 1
+    if pool_size is not None:
+        if pool_size < 1:
+            raise ValueError("pool_size must be at least 1")
+        return min(pool_size, job_count)
+    available_workers: int = max((os.cpu_count() or 1) - 1, 1)
+    return min(available_workers, job_count, 20)
+
+
+def _process_hydrographs(
+    batch_df: pd.DataFrame,
+    thresholds: list[float],
+    *,
+    log_queue: LogQueue | None = None,
+    pool_size: int | None = None,
+) -> pd.DataFrame:
+    """Analyze all hydrographs, using a process pool when beneficial."""
+
+    jobs: list[HydrographJob] = _build_jobs(batch_df=batch_df, thresholds=thresholds)
+    worker_count: int = _worker_count(job_count=len(jobs), pool_size=pool_size)
+    logger.info("Processing {} RORB hydrographs with {} worker(s)", len(jobs), worker_count)
+
+    if worker_count == 1:
+        results: list[DataFrame] = [_analyze_job(job) for job in jobs]
+    elif log_queue is None:
+        with Pool(processes=worker_count) as pool:
+            results = pool.map(func=_analyze_job, iterable=jobs)
+    else:
+        with Pool(
+            processes=worker_count,
+            initializer=worker_initializer,
+            initargs=(log_queue,),
+        ) as pool:
+            results = pool.map(func=_analyze_job, iterable=jobs)
+
+    populated_results: list[DataFrame] = [result for result in results if not result.empty]
+    return pd.concat(objs=populated_results, ignore_index=True) if populated_results else pd.DataFrame()
 
 
 def _summarise_results(df: pd.DataFrame) -> pd.DataFrame:
+    """Summarise each path, location, threshold, and AEP population.
+
+    The central value is the upper-middle temporal-pattern result for each
+    duration, followed by the duration with the greatest such value. Low and
+    high are the extrema across all durations; the critical-duration average
+    includes zeroes.
+    """
+
     final_columns: list[str] = [
         "Path",
         "Location",
@@ -56,64 +133,86 @@ def _summarise_results(df: pd.DataFrame) -> pd.DataFrame:
         "Closest_Tpcrit",
         "Closest_Value",
     ]
-    finaldb = pd.DataFrame(columns=final_columns)
-    grouped = df.groupby(["out_path", "Location", "ThresholdFlow", "AEP"])
+    rows: list[list[object]] = []
+    grouped = df.groupby(["out_path", "Location", "ThresholdFlow", "AEP"], sort=False)
     for name, group in grouped:
         stats, _ = median_stats_func(group, "Duration_Exceeding", "TP", "Duration")
-        row = list(name) + [
-            stats.get("median"),
-            stats.get("median_duration"),
-            stats.get("median_TP"),
-            stats.get("low"),
-            stats.get("high"),
-            stats.get("mean_including_zeroes"),
-            stats.get("median_TP"),
-            stats.get("median"),
-        ]
-        finaldb.loc[len(finaldb)] = row
-    finaldb.columns = final_columns
-    return finaldb
+        rows.append(
+            [
+                *name,
+                stats.get("median"),
+                stats.get("median_duration"),
+                stats.get("median_TP"),
+                stats.get("low"),
+                stats.get("high"),
+                stats.get("mean_including_zeroes"),
+                stats.get("median_TP"),
+                stats.get("median"),
+            ]
+        )
+    return pd.DataFrame(rows, columns=final_columns)
+
+
+def _default_thresholds() -> list[float]:
+    """Return the maintained, ascending default flow thresholds."""
+
+    values: list[int] = [*range(1, 10), *range(10, 100, 2), *range(100, 2100, 10)]
+    return [float(value) for value in values]
 
 
 def run_closure_durations(
     paths: Iterable[Path] | None = None,
     thresholds: list[float] | None = None,
     log_level: str = "INFO",
+    pool_size: int | None = None,
 ) -> None:
-    """Process ``batch.out`` files under ``paths`` and report closure durations.
+    """Process RORB ``batch.out`` files and export exceedance tables.
 
-    Parameters can be overridden to specify custom folders or flow thresholds.
-    ``paths`` defaults to the current working directory when ``None``.
-    ``thresholds`` defaults to a wide range of increasing flow values.
+    Args:
+        paths: Roots searched recursively. Defaults to the working directory.
+        thresholds: Flow thresholds. Defaults to the maintained ascending set.
+        log_level: Minimum console log level.
+        pool_size: Worker count, or ``None`` to select one automatically.
     """
-    if paths is None:
-        paths = [Path.cwd()]
-    if thresholds is None:
-        values: set[int] = set(list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10)))
-        thresholds = [float(v) for v in values]
-    threshold_values: list[float] = thresholds
 
-    with setup_logger(console_log_level=log_level):
-        batch_df: DataFrame = _collect_batch_data(paths=paths)
+    search_paths: list[Path] = list(paths) if paths is not None else [Path.cwd()]
+    threshold_values: list[float] = (
+        _default_thresholds() if thresholds is None else [float(value) for value in thresholds]
+    )
+    if not threshold_values:
+        raise ValueError("At least one threshold is required")
+
+    with setup_logger(console_log_level=log_level) as log_queue:
+        batch_df: DataFrame = _collect_batch_data(paths=search_paths)
         if batch_df.empty:
-            logger.warning("No batch.out data found.")
-            return
-        result_df: DataFrame = _process_hydrographs(batch_df=batch_df, thresholds=threshold_values)
-        if result_df.empty:
-            logger.warning("No hydrograph data processed.")
+            logger.warning("No RORB batch.out data found.")
             return
 
-        timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-        result_df.to_parquet(path=f"{timestamp}_durex.parquet.gzip", compression="gzip")
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+        batch_df.to_csv(path_or_buf=f"{timestamp}_batchouts.csv", index=False)
+
+        result_df: DataFrame = _process_hydrographs(
+            batch_df=batch_df,
+            thresholds=threshold_values,
+            log_queue=log_queue,
+            pool_size=pool_size,
+        )
+        if result_df.empty:
+            logger.warning("No RORB hydrograph data processed.")
+            return
+
+        result_df.to_parquet(path=f"{timestamp}_durex.parquet.gzip", compression="gzip", index=False)
         result_df.to_csv(path_or_buf=f"{timestamp}_durex.csv", index=False)
         summary_df: DataFrame = _summarise_results(df=result_df)
-        # ensure the export is in Path, Location, ThresholdFlow, AEP order:
-        summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\.?[0-9]+)")[0].astype(dtype=float)
-
-        # now sort (including original AEP for display), then drop the helper column
+        summary_df["AEP_sort_key"] = pd.to_numeric(
+            summary_df["AEP"].astype(str).str.extract(r"([0-9]*\.?[0-9]+)")[0],
+            errors="coerce",
+        )
         summary_df.sort_values(
-            by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True, inplace=True
+            by=["Path", "Location", "ThresholdFlow", "AEP_sort_key", "AEP"],
+            ignore_index=True,
+            inplace=True,
         )
         summary_df.drop(columns="AEP_sort_key", inplace=True)
         summary_df.to_csv(path_or_buf=f"{timestamp}_QvsTexc.csv", index=False)
-        logger.info("Processing complete")
+        logger.success("RORB closure-duration processing complete")

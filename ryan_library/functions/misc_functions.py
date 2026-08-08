@@ -3,7 +3,6 @@
 from datetime import datetime
 import multiprocessing
 import pandas as pd
-import logging
 from collections.abc import Mapping
 from loguru import logger
 from typing import Literal, TypedDict
@@ -14,7 +13,6 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils.exceptions import InvalidFileException
 from ryan_library.classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
-from ryan_library.functions.logging_helpers import setup_logging as new_setup_logging
 
 DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
 ParquetCompression = Literal["snappy", "gzip", "brotli", "lz4", "zstd"] | None
@@ -28,26 +26,6 @@ def get_tools_version(package: str = "ryan_functions") -> str:
         return "unknown"
 
 
-# Deprecated setup_logging function
-def setup_logging(
-    log_level: int = logging.INFO,
-    log_file: str | None = None,
-    max_bytes: int = 10**6,  # 1 MB
-    backup_count: int = 5,
-    use_rotating_file: bool = False,
-    enable_color: bool = True,
-) -> None:
-    print("This is using a deprecated logging procedure")
-    new_setup_logging(
-        log_level=log_level,
-        log_file=log_file,
-        max_bytes=max_bytes,
-        backup_count=backup_count,
-        use_rotating_file=use_rotating_file,
-        enable_color=enable_color,
-    )
-
-
 def calculate_pool_size(num_files: int) -> int:
     """Calculate the optimal pool size based on the number of files and CPU cores.
     Args:
@@ -57,7 +35,7 @@ def calculate_pool_size(num_files: int) -> int:
     splits: int = max(num_files // 3, 1)
     available_cores: int = min(multiprocessing.cpu_count(), 20)
     calc_threads: int = min(available_cores - 1, splits) if available_cores > 1 else 1
-    logging.info(f"Processing threads: {calc_threads}")
+    logger.info("Processing threads: {}", calc_threads)
     return calc_threads
 
 

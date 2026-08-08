@@ -231,8 +231,8 @@ numbers. Assertions should target semantic fields and duplication, not the entir
 3. Add concise public docstrings for new level arguments and lifecycle rules.
 4. Retain the short superseded notice in `logging_review_tasks.txt` for historical discoverability, or remove that
    file once references to it have been checked; do not leave two apparently active plans.
-5. Decide whether `ryan_library/functions/logging_helpers.py` is a distinct supported standard-library logging path,
-   a compatibility path, or dead code. Document that decision before attempting consolidation.
+5. The former `ryan_library/functions/logging_helpers.py` path was classified as obsolete compatibility code and
+   removed after its RORB callers were superseded. `loguru_helpers.py` is the maintained logging path.
 
 ## Additional recommendations
 

@@ -4,7 +4,8 @@ The wrapper recursively discovers RORB ``batch.out`` files below each input
 path, reads their referenced hydrographs, and calculates how long each location
 exceeds each configured flow threshold. The working directory receives a
 timestamped detailed CSV, a gzip-compressed detailed Parquet file, and a
-summary ``QvsTexc`` CSV.
+parsed ``batch.out`` CSV plus a summary ``QvsTexc`` CSV. Zero-duration results
+are retained so every processed temporal pattern contributes to the summary.
 
 Edit the defaults below for normal double-click use, or override them from a
 terminal. Leave ``THRESHOLDS`` as ``None`` to use the library's broad default
@@ -19,13 +20,14 @@ Examples::
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.1"
+WRAPPER_VERSION = "2026-08-08.1"
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).resolve().parent
 PATHS_TO_PROCESS: tuple[Path, ...] = ()
 THRESHOLDS: tuple[float, ...] | None = None
 CONSOLE_LOG_LEVEL = "INFO"
+POOL_SIZE: int | None = None
 
 import argparse
 
@@ -46,6 +48,7 @@ def main(
     paths_to_process: tuple[Path, ...] | None = None,
     thresholds: tuple[float, ...] | None = None,
     console_log_level: str | None = None,
+    pool_size: int | None = None,
 ) -> int:
     """Resolve wrapper settings and run the shared RORB closure workflow.
 
@@ -57,6 +60,7 @@ def main(
         thresholds: Flow thresholds used for exceedance calculations. ``None``
             selects the library's default range.
         console_log_level: Loguru console level such as ``INFO`` or ``DEBUG``.
+        pool_size: Worker count. ``None`` selects a size automatically.
 
     Returns:
         ``0`` after the orchestrator completes, or ``1`` when the working
@@ -75,11 +79,14 @@ def main(
         paths=effective_paths,
         thresholds=list(effective_thresholds) if effective_thresholds is not None else None,
         log_level=console_log_level or CONSOLE_LOG_LEVEL,
+        pool_size=POOL_SIZE if pool_size is None else pool_size,
     )
     return 0
 
 
-def _parse_cli_arguments() -> tuple[CommonWrapperOptions, tuple[Path, ...] | None, tuple[float, ...] | None]:
+def _parse_cli_arguments() -> (
+    tuple[CommonWrapperOptions, tuple[Path, ...] | None, tuple[float, ...] | None, int | None]
+):
     """Parse CLI overrides while retaining editable defaults for omitted values."""
     parser = argparse.ArgumentParser(
         description="Calculate threshold exceedance durations from RORB batch.out hydrographs.",
@@ -102,21 +109,29 @@ def _parse_cli_arguments() -> tuple[CommonWrapperOptions, tuple[Path, ...] | Non
         metavar="FLOW",
         help="Flow thresholds; default: THRESHOLDS or the library's generated range.",
     )
+    parser.add_argument(
+        "--pool-size",
+        type=int,
+        metavar="WORKERS",
+        help="Worker process count; default: POOL_SIZE or automatic selection.",
+    )
     args: argparse.Namespace = parser.parse_args()
     return (
         parse_common_cli_arguments(args=args),
         tuple(args.paths) if args.paths else None,
         tuple(args.thresholds) if args.thresholds else None,
+        args.pool_size,
     )
 
 
 if __name__ == "__main__":
-    common_options, cli_paths, cli_thresholds = _parse_cli_arguments()
+    common_options, cli_paths, cli_thresholds, cli_pool_size = _parse_cli_arguments()
     result: int = main(
         working_directory=common_options.working_directory,
         paths_to_process=cli_paths,
         thresholds=cli_thresholds,
         console_log_level=common_options.console_log_level,
+        pool_size=cli_pool_size,
     )
     print_wrapper_banner(
         wrapper_file=Path(__file__),

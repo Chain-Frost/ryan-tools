@@ -14,15 +14,14 @@ import pandas as pd
 import re
 import os
 from pathlib import Path
-import math
 from functools import reduce
 
 # Set script to run in the folder it is saved in
-script_dir = Path(__file__).absolute().parent
-os.chdir(script_dir)
+script_dir: Path = Path(__file__).absolute().parent
+os.chdir(path=script_dir)
 
 # Identify all .out files in the directory and subdirectories
-out_files = list(script_dir.rglob("*.out"))
+out_files: list[Path] = list(script_dir.rglob(pattern="*.out"))
 
 # Check if any .out files are found
 if not out_files:
@@ -39,8 +38,8 @@ skipped_count = 0
 for file_path in out_files:
     # Read the file content
     try:
-        with open(file_path, "r", encoding="latin1") as file:
-            lines = file.readlines()
+        with open(file=file_path, mode="r", encoding="latin1") as file:
+            lines: list[str] = file.readlines()
     except Exception:
         # If there's an error reading the file, skip it
         skipped_count += 1
@@ -49,10 +48,10 @@ for file_path in out_files:
     # Initialize dictionaries and lists for capturing parameters and data rows
     parameters = {}
     data_rows = []
-    header_index = None
+    header_index: int | None = None
 
     # Extract relevant rows and parameters
-    for i, line in enumerate(lines):
+    for i, line in enumerate(iterable=lines):
         # Extract parameters from specific lines
         if "Parameters:  kc =" in line:
             params = re.findall(r"[-+]?\d*\.\d+|\d+", line)
@@ -82,22 +81,22 @@ for file_path in out_files:
         continue  # Skip to the next file
 
     # Create a DataFrame from the collected data rows
-    df = pd.DataFrame(data_rows, columns=headers)
+    df = pd.DataFrame(data=data_rows, columns=headers)
 
     # Convert numeric columns to appropriate types, excluding specified non-numeric columns
-    non_numeric_columns = ["Run", "Duration", "AEP", "TPat"]
+    non_numeric_columns: list[str] = ["Run", "Duration", "AEP", "TPat"]
     for col in df.columns:
         if col not in non_numeric_columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
     # Identify Peak columns (assuming they start with 'Peak')
-    peak_columns = [col for col in df.columns if col.startswith("Peak")]
+    peak_columns: list[str] = [col for col in df.columns if col.startswith("Peak")]
     if not peak_columns:
         skipped_count += 1
         continue  # Skip to the next file
 
     # Define a function to extract the higher median and corresponding TPat
-    def get_higher_median_tpat(group, peak_col):
+    def get_higher_median_tpat(group, peak_col) -> pd.Series:
         """
         For a given group and Peak column:
         - Sort the group by the Peak column in ascending order.
@@ -106,12 +105,12 @@ for file_path in out_files:
         """
         # Sort the group by the specified Peak column in ascending order
         sorted_group = group.sort_values(by=peak_col, ascending=True).reset_index(drop=True)
-        n = len(sorted_group)
+        n: int = len(sorted_group)
 
         # Calculate the index for the higher median
         # For n=10, median_index=5 (6th element)
         # For n=9, median_index=4 (5th element)
-        median_index = n // 2  # Integer division
+        median_index: int = n // 2  # Integer division
 
         # Handle cases where the group might be empty
         if n == 0:
@@ -125,7 +124,7 @@ for file_path in out_files:
             median_peak = None
             median_tpat = None
 
-        return pd.Series({"Median_Peak": median_peak, "Median_TPat": median_tpat})
+        return pd.Series(data={"Median_Peak": median_peak, "Median_TPat": median_tpat})
 
     # Initialize an empty list to collect median data for all Peak columns
     median_data = []
@@ -133,7 +132,7 @@ for file_path in out_files:
     # Iterate over each Peak column to compute median and corresponding TPat
     for peak_col in peak_columns:
         # Select only the Peak column and 'TPat' for the apply function to exclude grouping columns
-        median_df = (
+        median_df: pd.DataFrame = (
             df.groupby(["Duration", "AEP"])[[peak_col, "TPat"]]
             .apply(get_higher_median_tpat, peak_col=peak_col)
             .reset_index()

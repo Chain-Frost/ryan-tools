@@ -61,13 +61,14 @@ a permanent module status. Accidental loading does not count as usage and should
 
 ## Applied classification
 
-The classifications below cover all 88 Python files in scope.
+The classifications below cover the 87 Python files remaining in scope after removal of the obsolete standard-library
+logging compatibility module.
 
 | Status | Count | Classification |
 | --- | ---: | --- |
 | Maintained | 59 | `ryan_library/__init__.py`; all four files under `ryan_library/classes`; all 24 files under `ryan_library/orchestrators`; all three files under `ryan_library/resources`; and all `ryan_library/functions` files not listed as exceptions below |
 | Public API | 1 | `ryan_library/functions/tuflow/notebook_helpers.py` |
-| Compatibility-only | 23 | All 20 files under `ryan_library/scripts`; `functions/gdal/gdal_environment.py`; `functions/gdal/gdal_runners.py`; `functions/logging_helpers.py` |
+| Compatibility-only | 22 | All 20 files under `ryan_library/scripts`; `functions/gdal/gdal_environment.py`; `functions/gdal/gdal_runners.py` |
 | Experimental | 2 | `functions/hy8/__init__.py`; `functions/hy8/run_hy8_bridge.py` |
 | Removal candidate | 3 | `functions/data_processing.py`; `functions/tkinter_utils.py`; `functions/tlf_missing_runs.py` |
 | Accidentally loaded | qualifier | Top-level modules discovered and imported by `ryan_functions/__init__.py`; this does not alter their primary classifications above |
@@ -78,8 +79,8 @@ The classifications below cover all 88 Python files in scope.
   `examples/tuflow_workflow_demo.ipynb`. Its lack of a production `.py` caller is expected.
 - The whole `ryan_library/scripts` namespace is compatibility-only. Its current deadline is 31 December 2026.
 - The two deprecated GDAL modules have no repository callers. Their current compatibility deadline is 31 December 2026.
-- `logging_helpers.py` is reachable through legacy `misc_functions.setup_logging()` and old versioned RORB scripts. It
-  is compatibility-only even though it does not yet have a formal warning and removal date.
+- The obsolete standard-library `logging_helpers.py` implementation and `misc_functions.setup_logging()` forwarder
+  were removed after their RORB callers were superseded; maintained workflows use `loguru_helpers.py`.
 - `data_processing.py` is used only by tests and an explicitly unfinished RORB script (`closure_period_RORB_TUFLOW_v9.py`) through the deprecated
   `ryan_functions` package. That does not qualify as a maintained workflow.
 - `tkinter_utils.py` and `tlf_missing_runs.py` are referenced only by tests.
@@ -147,7 +148,6 @@ Files:
 - `ryan_library/scripts/**`
 - `ryan_library/functions/gdal/gdal_environment.py`
 - `ryan_library/functions/gdal/gdal_runners.py`
-- `ryan_library/functions/logging_helpers.py`
 - `ryan_library/functions/misc_functions.py`
 - compatibility documentation
 
@@ -159,8 +159,8 @@ Actions:
    explicitly revised.
 3. Retain the two deprecated GDAL modules through 31 December 2026 unless external-use review supports an earlier breaking
    removal.
-4. Mark the standard-library logging path as deprecated, identify its remaining RORB callers, and assign a removal
-   date. Avoid leaving `print("This is using a deprecated logging procedure")` as the only notice.
+4. Keep the removed standard-library logging path out of maintained imports; use `loguru_helpers.py` for serial,
+   notebook, and multiprocessing configuration.
 5. Ensure every compatibility module delegates to maintained code and contains no independent workflow logic.
 6. Add a removal checklist for each deadline: migrate callers, update documentation, remove shims and aliases, then
    verify the built wheel no longer contains them.
@@ -301,15 +301,14 @@ Suggested commit: `Share notebook and timeseries workflow logic`
 
 Files:
 
-- `ryan_library/functions/logging_helpers.py`
 - `ryan_library/functions/loguru_helpers.py`
 - `ryan_library/functions/misc_functions.py`
 - affected maintained callers
 
 Actions:
 
-1. Make `loguru_helpers.py` the maintained logging implementation.
-2. Migrate remaining maintained and legacy-wrapper callers away from the standard-library logging configurator.
+1. Keep `loguru_helpers.py` as the sole maintained logging implementation.
+2. Keep maintained and legacy-wrapper callers on Loguru; the obsolete standard-library configurator has been removed.
 3. Decide whether `LoggerManager`, `worker_process`, and `log_exception` are supported compatibility APIs; deprecate or
    remove test-only endpoints rather than preserving them indefinitely.
 4. Change eager debug f-strings to Loguru's parameterized form. The audit counted 37 occurrences outside processors.

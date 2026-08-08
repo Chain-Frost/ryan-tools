@@ -120,8 +120,5 @@ An explicit worker level is reserved for workflows such as a live dashboard that
 messages. Nested multiprocessing logging contexts are rejected because Loguru configuration is process-global.
 Shutdown is idempotent and drains the normal queue path before closing the listener.
 
-## Legacy standard-library logging
-
-`ryan_library/functions/logging_helpers.py` remains a compatibility implementation for older standalone RORB code,
-reached through the deprecated `misc_functions.setup_logging()` wrapper. Do not use it for new library-backed
-workflows and do not combine its handlers with Loguru sinks in the same workflow.
+The former standard-library `logging_helpers` compatibility implementation and
+`misc_functions.setup_logging()` forwarding API have been removed. Use the Loguru helpers documented above.
