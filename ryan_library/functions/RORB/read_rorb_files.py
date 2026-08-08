@@ -18,7 +18,7 @@ def find_batch_files(paths: Iterable[Path]) -> list[Path]:
 def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] | None:
     raw: list[str] = line.strip().split()
     if len(raw) < 8:
-        logger.warning("Invalid run line skipped: {}", line.strip())
+        logger.warning("Invalid run line skipped: {}".format(line.strip()))
         return None
 
     try:
@@ -72,8 +72,8 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
         )
         processed_line.append(str(csv_path))
         return processed_line
-    except Exception as exc:  # pragma: no cover - parsing errors are logged
-        logger.exception("Error parsing run line: {}", line)
+    except Exception:  # pragma: no cover - parsing errors are logged
+        logger.exception("Error parsing run line: {}".format(line))
         return None
 
 
@@ -124,8 +124,8 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
         # for item in rorb_runs:
         #     print(item)
         return df
-    except Exception as exc:  # pragma: no cover - logs handle detail
-        logger.exception("Failed parsing {}", batchout_file)
+    except Exception:  # pragma: no cover - logs handle detail
+        logger.exception("Failed parsing {}".format(batchout_file))
         return pd.DataFrame()
 
 
@@ -134,8 +134,8 @@ def read_hydrograph_csv(filepath: Path) -> pd.DataFrame:
     try:
         df: DataFrame = pd.read_csv(filepath_or_buffer=filepath, sep=",", skiprows=2, header=0)
         return df
-    except Exception as exc:  # pragma: no cover - file errors
-        logger.exception("Error reading hydrograph {}", filepath)
+    except Exception:  # pragma: no cover - file errors
+        logger.exception("Error reading hydrograph {}".format(filepath))
         return pd.DataFrame()
 
 
@@ -154,7 +154,7 @@ def analyze_hydrograph(
 
     df.columns = [c.replace("Calculated hydrograph:  ", "") for c in df.columns]
     if "Time (hrs)" not in df.columns or len(df["Time (hrs)"]) < 2:
-        logger.error("Missing 'Time (hrs)' in {}", csv_path)
+        logger.error("Missing 'Time (hrs)' in {}".format(csv_path))
         return pd.DataFrame()
     timestep = df["Time (hrs)"].iloc[1] - df["Time (hrs)"].iloc[0]
 

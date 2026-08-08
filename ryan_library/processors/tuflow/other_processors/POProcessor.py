@@ -19,7 +19,7 @@ class POProcessor(BaseProcessor):
         logger.info(f"Starting processing of PO file: {self.log_path}")
 
         try:
-            raw_df: DataFrame = pd.read_csv(self.file_path, header=None, dtype=str)  # type: ignore
+            raw_df: DataFrame = pd.read_csv(self.file_path, header=None, dtype=str)
             self.raw_df = raw_df.copy()
         except Exception as exc:  # pragma: no cover - IO errors handled here
             logger.exception(f"{self.file_name}: Failed to read CSV file: {exc}")
@@ -57,15 +57,15 @@ class POProcessor(BaseProcessor):
             return pd.DataFrame(columns=self.VALUE_COLUMNS)
 
         trimmed: DataFrame = raw_df.drop(columns=0)
-        measurement_row = trimmed.iloc[0].fillna("")  # type: ignore
-        location_row = trimmed.iloc[1].fillna("")  # type: ignore
+        measurement_row: Series = trimmed.iloc[0].fillna("")
+        location_row: Series = trimmed.iloc[1].fillna("")
         data_rows: DataFrame = trimmed.iloc[2:]
 
         if measurement_row.empty or location_row.empty:
             logger.error(f"{self.file_name}: Missing measurement or location headers.")
             return pd.DataFrame(columns=self.VALUE_COLUMNS)
 
-        numeric_data: DataFrame = data_rows.apply(pd.to_numeric, errors="coerce")  # type: ignore
+        numeric_data: DataFrame = data_rows.apply(pd.to_numeric, errors="coerce")
         numeric_data.reset_index(drop=True, inplace=True)
 
         time_idx: int | None = self._locate_time_column(measurement_row=measurement_row, location_row=location_row)
@@ -84,12 +84,12 @@ class POProcessor(BaseProcessor):
 
         tidy_frames: list[pd.DataFrame] = []
         for idx, (measurement, location) in enumerate(zip(measurement_row, location_row)):
-            measurement: str = str(measurement).strip()
-            location: str = str(location).strip()
+            measurement_text: str = str(measurement).strip()
+            location_text: str = str(location).strip()
 
             if idx == time_idx:
                 continue
-            if not measurement or not location:
+            if not measurement_text or not location_text:
                 continue
 
             values: Series[float] = numeric_data.iloc[:, idx].astype("float64")
@@ -104,19 +104,17 @@ class POProcessor(BaseProcessor):
             frame: DataFrame = pd.DataFrame(
                 {
                     "Time": time_values,
-                    "Location": location,
-                    "Type": measurement,
+                    "Location": location_text,
+                    "Type": measurement_text,
                     "Value": values,
                 }
-            ).dropna(  # type: ignore
-                subset=["Value"]
-            )  # type: ignore
+            ).dropna(subset=["Value"])
 
             if frame.empty:
                 logger.debug(
                     "Skipping column '%s'/'%s' because it produced no valid rows after cleaning.",
-                    measurement,
-                    location,
+                    measurement_text,
+                    location_text,
                 )
                 continue
 

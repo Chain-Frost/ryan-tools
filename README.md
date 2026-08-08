@@ -1,66 +1,65 @@
 # ryan-tools
 
-`ryan-tools` is a collection of Python utilities for TUFLOW, RORB, 12D, GDAL, QGIS, and general data
-processing workflows. The reusable code lives in `ryan_library`; the files under `ryan-scripts` are mostly
-project wrappers that call into that library.
+`ryan-tools` is a collection of Python utilities for TUFLOW, RORB, 12D, GDAL, QGIS and general data-processing
+workflows. Reusable code lives in `ryan_library`; files under `ryan-scripts` are human-facing wrappers and standalone
+utilities.
 
-The package is published as `ryan_functions`, but most user imports are from `ryan_library`.
+The distribution is named `ryan_functions`, while maintained imports normally use `ryan_library`.
 
-## Status
+## Project status
 
+The repository targets Python 3.14. Maintained library code, orchestrators and unversioned wrappers follow the current
+repository standards; older standalone, versioned and compatibility files remain where they still support migration or
+narrow workflows.
 
-// This readme was AI generated and needs to be cleaned and made more succinct. //
+Start with:
 
-This repository is actively being cleaned up as tools are reused. The TUFLOW processors and supporting
-helpers are the most structured part of the codebase. Many legacy scripts are still useful, but their quality
-varies.
+- [Development guide](docs/DEVELOPMENT_GUIDE.md) for architecture, code categories, lifecycle terms and validation.
+- [Environment guide](docs/ENVIRONMENTS.md) for Python, VS Code, installed-wheel and QGIS/OSGeo4W setup.
+- [Ryan Scripts guide](ryan-scripts/README.md) for choosing and safely running scripts.
+- [Maintained wrapper standard](ryan-scripts/WRAPPER_STANDARD.md) when changing a library-backed wrapper.
+- [Project documentation index](docs/README.md) for setup guides, roadmaps and dated audits.
+- [Examples](examples/README.md) for direct library use when an existing wrapper is not the right fit.
 
-Python support is currently:
-
-- `pyproject.toml`: targets Python 3.14 for Black and Pyright.
-- Package metadata: requires Python >=3.14.
-- Development uses Python 3.14.
-
-Tests exist, but many are historical or environment-dependent. Treat targeted local validation as more useful
-than running the whole test suite unless you are specifically working on tests.
-
-## Repository Map
+## Repository map
 
 ```text
 ryan-tools/
-|-- ryan_library/              # Main reusable Python package
-|   |-- classes/               # Config, metadata, and TUFLOW filename parsing
-|   |-- functions/             # Reusable workflow functions
-|   |-- orchestrators/         # Active workflow controllers
-|   |-- processors/            # Structured TUFLOW result processors
+|-- ryan_library/              # Maintained Python package
+|   |-- classes/               # Configuration, metadata and filename parsing
+|   |-- functions/             # Reusable algorithms and focused I/O helpers
+|   |-- orchestrators/         # Complete workflow controllers
+|   |-- processors/            # Stateful processors for supported result formats
 |   `-- scripts/               # Deprecated import-compatibility wrappers
-|-- ryan-scripts/              # Human-facing wrappers and older standalone scripts
-|-- repo-scripts/              # Build, venv, and snippet helper scripts
-|-- docs/                      # Architecture and maintenance documentation
-|-- vendor/                    # Vendored dependencies
-|-- tests/                     # Historical and targeted tests
+|-- ryan-scripts/              # Human-facing wrappers and standalone utilities
+|-- docs/                      # Development guidance, plans and setup documentation
+|-- examples/                  # Example notebooks and supporting demonstrations
+|-- repo-scripts/              # Build, environment and repository maintenance tools
+|-- tests/                     # Unit, integration and regression tests
+|   `-- test_data/             # Required synthetic test-data submodule
+|-- vendor/
+|   `-- run_hy8/               # HY-8 submodule
 |-- excel-resources/           # Excel workbook resources submodule
-|-- qgis-resources/            # QGIS resources and supporting workbook submodule
-|-- requirements.txt
-|-- pyproject.toml
-`-- setup.py
+|-- qgis-resources/            # QGIS resources submodule
+|-- unsorted/                  # Separate holding-area submodule
+|-- pyproject.toml             # Package metadata and tool configuration
+`-- setup.py                   # Setuptools hook that stages QGIS styles into wheels
 ```
 
-Repository maintenance plans and design notes are indexed in [`docs/README.md`](docs/README.md).
+## Set up the repository
 
-## Setup
-
-This repository uses Git LFS for XLSX workbooks and Git submodules for test data and resource repositories.
-Install Git LFS before cloning, then clone with submodules:
+This repository uses Git submodules and Git LFS for workbook resources. Install Git LFS, then clone recursively:
 
 ```powershell
 git lfs install
 git clone --recurse-submodules https://github.com/Chain-Frost/ryan-tools.git
 cd ryan-tools
 git lfs pull
+git -C qgis-resources lfs pull
+git -C excel-resources lfs pull
 ```
 
-For an existing clone, populate all submodules and their LFS objects with:
+For an existing clone:
 
 ```powershell
 git submodule update --init --recursive
@@ -69,48 +68,77 @@ git -C qgis-resources lfs pull
 git -C excel-resources lfs pull
 ```
 
-Tests do not support an alternate data path, cache, or automatic download. If `tests/test_data` is absent or
-incomplete, pytest exits with an error telling you to initialise the submodule.
+The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically.
 
-On Windows, use Python 3.14:
-
-```powershell
-py -3.14 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -U pip
-python -m pip install -r requirements.txt
-```
-
-The package can also be installed from the wheel in `dist/` when dependency isolation is awkward:
+Install the repository requirements into the user's normal Python 3.14 installation. `ryan-tools` does not require or
+assume that users know how to create or activate a virtual environment:
 
 ```powershell
-python -m pip install --break-system-packages dist/ryan_functions-*.whl
+py -3.14 -m pip install --upgrade pip
+py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
+py -3.14 -m pip install -r requirements.txt
 ```
 
-For local development after changing `ryan_library/` or package metadata, run:
+`requirements.txt` installs the checkout and development tools into that Python installation. Installing the project is
+important when running wrappers copied outside the repository because they import the shared implementation from the
+installed `ryan_functions` distribution. The dependency bootstrap installs binary Fiona, Rasterio and GDAL packages
+from the configured geospatial wheel index, avoiding a local source build on Windows.
+
+## Build and install
+
+After changing `ryan_library` or package metadata, rebuild from the repository root:
 
 ```powershell
 python repo-scripts/build_library.py
 ```
 
-Use `python repo-scripts/build_library.py --skip-artifacts` when wheel artifacts cannot be created or committed
-in the current environment.
+The build script updates the version in `pyproject.toml` and creates the wheel under `dist/`. Use `--skip-pip` when the
+build dependency is already installed, or `--skip-artifacts` in an environment that cannot create or retain wheel
+artifacts. Wheel builds require the QGIS resource submodule because `setup.py` stages the pinned TUFLOW QML styles into
+the package.
 
-On Windows, the supported build-and-install entry point is:
+Windows convenience entry points are:
 
 ```powershell
 .\package_and_install.bat
+.\install-latest-wheel.bat
 ```
 
-Use `.\install-latest-wheel.bat` to install an existing wheel without rebuilding it. The older
-`installer_python_-m.bat` filename remains as a compatibility wrapper.
+The first builds and installs the package; the second installs the newest existing wheel.
 
-## Useful Entry Points
+## Test changes
 
-### Parse TUFLOW filenames and run codes
+Use focused pytest commands for a bounded change. Keep temporary files under the repository on this Windows checkout:
 
-Use `TuflowStringParser` when you have a TUFLOW result path and want the inferred data type, raw run code,
-cleaned run code, AEP, duration, and temporal pattern fields.
+```powershell
+python -m pytest tests\path\to\test_file.py --basetemp=.pytest_cache\basetemp
+```
+
+Run the complete suite through the repository runner:
+
+```powershell
+cmd.exe /C repo-scripts\run_tests.bat
+```
+
+The runner configures the source and bundled HY-8 import paths, uses a repository-local base temporary directory and
+generates terminal, HTML and XML coverage reports. See the [development guide](docs/DEVELOPMENT_GUIDE.md#validation-by-change-type)
+for proportional validation expectations.
+
+## Choose a workflow
+
+| Need | Start here |
+| --- | --- |
+| Run or adapt a human-facing script | [`ryan-scripts/README.md`](ryan-scripts/README.md) |
+| Process TUFLOW results with maintained wrappers | [`ryan-scripts/TUFLOW-python/README.md`](ryan-scripts/TUFLOW-python/README.md) |
+| Extend the TUFLOW processor framework | [`ryan_library/processors/tuflow/README.md`](ryan_library/processors/tuflow/README.md) |
+| Use reusable Python APIs directly | [`examples/README.md`](examples/README.md) |
+| Run maintained GDAL workflows | [`ryan-scripts/gdal-python/README.md`](ryan-scripts/gdal-python/README.md) |
+| Map a remaining legacy GDAL BAT file to its replacement | [`ryan-scripts/gdal-bat/README.md`](ryan-scripts/gdal-bat/README.md) |
+| Connect the repository MCP server | [`docs/MCP_SETUP.md`](docs/MCP_SETUP.md) |
+
+### Parse a TUFLOW result filename
+
+`TuflowStringParser` extracts the configured data type and run metadata from a result path:
 
 ```python
 from pathlib import Path
@@ -127,94 +155,13 @@ print(parser.duration)
 print(parser.tp)
 ```
 
-The parser uses suffix configuration from
-`ryan_library/classes/tuflow_results_validation_and_datatypes.json`, so it should stay aligned with the
-processor factory.
+The authoritative suffix registry is
+[`ryan_library/classes/tuflow_results_validation_and_datatypes.json`](ryan_library/classes/tuflow_results_validation_and_datatypes.json).
+It contains both processor-backed tabular types and raster classifications used for discovery.
 
-### Process one TUFLOW result file
+### Load TUFLOW data for exploration
 
-Use `BaseProcessor.from_file()` for ad-hoc processing of a single supported result file. The factory chooses
-the correct concrete processor from the configured suffix and data type.
-
-```python
-from pathlib import Path
-
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
-
-processor = BaseProcessor.from_file(Path("M11_01p_00120m_TP01_1d_Q.csv"))
-processor.process()
-
-df = processor.df
-print(processor.data_type)
-print(df.head())
-```
-
-For large files or repeated analysis, call `processor.discard_raw_dataframe()` after `processor.df` has the
-processed data you need.
-
-### Collect and process many TUFLOW files
-
-Use `collect_files()` and `process_file()` for small custom workflows, or `process_files_in_parallel()` for a
-batch that returns a `ProcessorCollection`.
-
-```python
-from pathlib import Path
-
-from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
-
-roots = [Path("results")]
-data_types = ["Nmx", "Cmx", "Chan", "ccA", "EOF"]
-
-files = collect_files(
-    paths_to_process=roots,
-    include_data_types=data_types,
-    suffixes_config=SuffixesConfig.get_instance(),
-)
-
-with setup_logger(console_log_level="INFO") as log_queue:
-    collection = process_files_in_parallel(
-        file_list=files,
-        log_queue=log_queue,
-        log_level="INFO",
-        entity_filters=["Culvert_01", "Culvert_02"],
-    )
-
-maximums = collection.combine_1d_maximums()
-raw = collection.combine_raw()
-```
-
-`entity_filters` can be a single collection of IDs, or a mapping keyed by data type.
-
-### Use `ProcessorCollection`
-
-`ProcessorCollection` is the main object for combining processed TUFLOW outputs. Useful methods include:
-
-- `combine_1d_maximums()` for `Nmx`, `Cmx`, `Chan`, `ccA`, `RLL_Qmx`, and optionally `EOF`.
-- `combine_1d_timeseries()` for 1D `Q`, `H`, `V`, and `CF` time series, with optional `Chan`/`EOF` attributes.
-- `po_combine()` for `_PO.csv` outputs.
-- `pomm_combine()` for `_POMM.csv` outputs.
-- `combine_raw()` for concatenating processed rows without a specialist grouping step.
-- `filter_locations([...])` for post-load filtering.
-- `compact_basic_info_columns()` and `attach_basic_info(...)` for reducing repeated path metadata in memory.
-- `to_hdf(...)` and `from_hdf(...)` for caching a processed collection.
-- `check_duplicates()` for run-code/data-type duplicate checks.
-
-```python
-from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-
-collection = ProcessorCollection()
-collection.add_processor(processor)
-
-duplicates = collection.check_duplicates()
-combined = collection.combine_raw()
-```
-
-### Notebook-friendly TUFLOW loading
-
-For notebooks and quick exploration, `load_tuflow_data()` wraps file discovery, logging setup, processing, and
-optional location filtering.
+`load_tuflow_data()` handles discovery, logging, serial or parallel processing and optional location filtering:
 
 ```python
 from ryan_library.functions.tuflow.notebook_helpers import load_tuflow_data
@@ -230,17 +177,20 @@ timeseries = collection.combine_1d_timeseries()
 maximums = collection.combine_1d_maximums()
 ```
 
-### Ready-made TUFLOW workflow orchestrators
+Processor-backed types currently include `POMM`, `PO`, `Cmx`, `Nmx`, `Chan`, `ccA`, `RLL_Qmx`, `Q`, `H`, `CF`,
+`V`, `EOF` and `TLF`. Use the processor development notes for combination behavior, caching and extension guidance.
 
-The modules under `ryan_library.orchestrators.tuflow` are the preferred entry points when you want the existing
-workflow behavior and export format.
+### Run a ready-made TUFLOW workflow
+
+Orchestrators are callable workflow controllers; wrappers add editable defaults, CLI handling, banners, exit codes and
+optional pauses:
 
 ```python
 from pathlib import Path
 
-from ryan_library.orchestrators.tuflow.tuflow_culverts_merge import main_processing as merge_culvert_maximums
+from ryan_library.orchestrators.tuflow.tuflow_culverts_merge import main_processing
 
-merge_culvert_maximums(
+main_processing(
     paths_to_process=[Path("results")],
     include_data_types=["Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF"],
     locations_to_include=["Culvert_01"],
@@ -249,116 +199,13 @@ merge_culvert_maximums(
 )
 ```
 
-Useful orchestrator modules include:
+Representative orchestrators cover culvert maximums and time series, PO/POMM combination, closure durations, peak and
+stability checks, TUFLOW log summaries and result styling. The corresponding maintained wrappers are under
+`ryan-scripts/TUFLOW-python`; use that folder's README and each wrapper's `--help` output as the current interface.
 
-- `ryan_library.orchestrators.tuflow.tuflow_culverts_merge`
-- `ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries`
-- `ryan_library.orchestrators.tuflow.tuflow_culverts_mean`
-- `ryan_library.orchestrators.tuflow.pomm_combine`
-- `ryan_library.orchestrators.tuflow.pomm_max_items`
-- `ryan_library.orchestrators.tuflow.po_combine`
-- `ryan_library.orchestrators.tuflow.peak_check_po_csvs`
-- `ryan_library.orchestrators.tuflow.tuflow_timeseries_stability`
-- `ryan_library.orchestrators.tuflow.tuflow_logsummary`
-- `ryan_library.orchestrators.tuflow.tuflow_results_styling`
+### Use other library helpers
 
-The files in `ryan-scripts/TUFLOW-python/` are ready-made wrappers for many of these workflows. They are useful
-when you want a double-clickable or command-line script with editable constants near the top of the file,
-rather than writing your own import snippet.
-
-Common TUFLOW wrappers include:
-
-- `ryan-scripts/TUFLOW-python/TUFLOW_Culvert_Maximums.py`: calls
-  `ryan_library.orchestrators.tuflow.tuflow_culverts_merge`.
-- `ryan-scripts/TUFLOW-python/TUFLOW_Culvert_Timeseries.py`: calls
-  `ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries`.
-- `ryan-scripts/TUFLOW-python/POMM_combine.py`: calls `ryan_library.orchestrators.tuflow.pomm_combine`.
-- `ryan-scripts/TUFLOW-python/PO_combine.py`: calls `ryan_library.orchestrators.tuflow.po_combine`.
-- `ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Peaks_Check.py`: calls the PO peak-check workflow.
-- `ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Stability.py`: calls the timeseries stability workflow.
-- `ryan-scripts/TUFLOW-python/LogSummary.py`: calls the TUFLOW `.tlf` log summary workflow.
-- `ryan-scripts/TUFLOW-python/TUFLOW_Results_Styling.py`: calls the results styling workflow.
-- `ryan-scripts/TUFLOW-python/run_tuflow_batch.py`: ready-made batch runner for TUFLOW runs.
-- `ryan-scripts/TUFLOW-python/set_layer_to_filename_v6.py`: utility for renaming a GeoPackage layer to match
-  the file name.
-
-Most wrappers support command-line overrides for common options such as working directory, data types, log
-level, and location filters, while still allowing quick edits to script constants.
-
-## Supported TUFLOW Processor Data Types
-
-The currently configured TUFLOW data types are:
-
-| Data type | Processor | Format | Suffixes |
-| --- | --- | --- | --- |
-| `POMM` | `POMMProcessor` | `POMM` | `_POMM.csv` |
-| `PO` | `POProcessor` | `PO` | `_PO.csv` |
-| `Cmx` | `CmxProcessor` | `Maximums` | `_1d_Cmx.csv` |
-| `Nmx` | `NmxProcessor` | `Maximums` | `_1d_Nmx.csv` |
-| `Chan` | `ChanProcessor` | `Maximums` | `_1d_Chan.csv` |
-| `ccA` | `ccAProcessor` | `ccA` | `_1d_ccA_L.dbf`, `_Results1D.gpkg`, `_Results.gpkg` |
-| `RLL_Qmx` | `RLLQmxProcessor` | `Maximums` | `_RLL_Qmx.csv` |
-| `Q` | `QProcessor` | `Timeseries` | `_1d_Q.csv` |
-| `H` | `HProcessor` | `Timeseries` | `_1d_H.csv` |
-| `CF` | `CFProcessor` | `Timeseries` | `_1d_CF.csv` |
-| `V` | `VProcessor` | `Timeseries` | `_1d_V.csv` |
-| `EOF` | `EOFProcessor` | `EOF` | `.eof` |
-| `TLF` | `TLFProcessor` | `TLF` | `.tlf` |
-
-Update `ryan_library/classes/tuflow_results_validation_and_datatypes.json` when adding a processor or suffix.
-See `ryan_library/processors/tuflow/README.md` for processor development notes.
-
-## Other Ad-hoc Processing Helpers
-
-### PO peak and stability checks
-
-Use `ryan_library.functions.tuflow.po_timeseries_checks` for direct analysis of PO and Q CSV files:
-
-```python
-from pathlib import Path
-
-from ryan_library.functions.tuflow.po_timeseries_checks import PeakCheckConfig, analyze_peak_csv
-
-results = analyze_peak_csv(
-    Path("M11_01p_00120m_TP01_PO.csv"),
-    PeakCheckConfig(
-        datatype_include=["Flow"],
-        datatype_case_sensitive=False,
-        location_include=[],
-        location_exclude=[],
-        location_case_sensitive=False,
-        warn_2hours=2.0,
-        warn_1hour=1.0,
-        flat_tol=1e-6,
-    ),
-)
-```
-
-The same module exposes `StabilityCheckConfig`, `analyze_stability_csv()`,
-`analyze_stability_q_csv()`, `flatten_peak_results()`, and `flatten_stability_results()`.
-
-### POMM summary utilities
-
-Use `ryan_library.functions.tuflow.pomm_utils` when you already have POMM-style outputs and want peak, median,
-or mean summaries:
-
-```python
-from pathlib import Path
-
-from ryan_library.functions.tuflow.pomm_utils import aggregated_from_paths, find_aep_dur_max, find_aep_max
-
-aggregated = aggregated_from_paths([Path("results")])
-aep_duration_max = find_aep_dur_max(aggregated)
-aep_max = find_aep_max(aep_duration_max)
-```
-
-Related helpers include `find_aep_dur_median()`, `find_aep_median_max()`, `find_aep_dur_mean()`,
-`find_aep_mean_max()`, and `save_peak_report()`.
-
-### RORB hydrograph utilities
-
-Use `ryan_library.functions.RORB.read_rorb_files` to find `batch.out` files, parse run metadata, and analyse
-hydrograph CSV threshold durations:
+RORB hydrograph discovery and parsing:
 
 ```python
 from pathlib import Path
@@ -369,9 +216,7 @@ batch_files = find_batch_files([Path("rorb_outputs")])
 runs = [parse_batch_output(path) for path in batch_files]
 ```
 
-### 12D culvert utilities
-
-Use `ryan_library.functions.process_12D_culverts` for parsing 12D `.rpt` and `.txt` culvert exports:
+12D culvert export processing:
 
 ```python
 from pathlib import Path
@@ -381,109 +226,26 @@ from ryan_library.functions.process_12D_culverts import get_combined_df_from_fil
 culverts = get_combined_df_from_files(Path("12d_exports"))
 ```
 
-### Excel workbook and QGIS model resources
+For GDAL raster conversion, mosaics, flood extents, footprints, metadata and point-cloud conversion, use the
+[maintained GDAL Python wrappers](ryan-scripts/gdal-python/README.md). The BAT files that remain under
+`ryan-scripts/gdal-bat` are legacy migration references and should not be selected for new work.
 
-The resource submodules contain non-Python assets used by manual and QGIS workflows:
+## Excel and QGIS resources
 
-- `excel-resources/workbooks/`: general Excel templates, including nested-frequency, boundary-condition,
-  culvert-sizing, AEP, and IFD helpers.
-- `qgis-resources/processing-models/tuflow/`: QGIS models for generating common TUFLOW inputs such as `1d_nwk`,
-  `2d_bc`, `2d_sx`, and `2d_zsh` layers.
-- `qgis-resources/processing-models/tuflow/supporting-workbooks/TUFLOW culverts.xlsx`: the workbook required to
-  prepare culvert data for relevant QGIS processing models.
-- `qgis-resources/styles/`: QML styles, QPT layouts, and supporting spatial assets. Wheel builds copy the TUFLOW
-  QML files into the Python package so the Results Styler continues to work without a submodule checkout.
-- `qgis-resources/scripts/`: QGIS Python console and PyQGIS utilities formerly under `ryan-scripts/pyQGIS`.
+The resource submodules contain project templates and application assets:
 
-Except for the TUFLOW QML files required by the Results Styler, treat these as templates: copy or open them for a
-project workflow, but do not expect them to be installed with the Python package. The parent repository pins each
-submodule to a reviewed resource commit.
+- `excel-resources/workbooks/`: Excel templates for hydrology, frequency and culvert workflows.
+- `qgis-resources/processing-models/tuflow/`: QGIS models for common TUFLOW input layers.
+- `qgis-resources/processing-models/tuflow/supporting-workbooks/`: formula-driven supporting workbooks used by relevant models.
+- `qgis-resources/styles/`: QML styles, QPT layouts and supporting spatial assets.
+- `qgis-resources/scripts/`: QGIS Python console and PyQGIS utilities.
 
-### GDAL batch tools
+Except for the TUFLOW QML files staged into wheel builds, treat these resources as project templates rather than files
+installed with the Python package. The parent repository pins each submodule to a reviewed commit.
 
-The `ryan-scripts/gdal-bat/` folder contains Windows batch scripts for common raster processing jobs. They
-try to load an OSGeo4W or QGIS GDAL environment, then run GDAL command-line tools over the current folder or a
-supplied target folder.
+## Repository automation
 
-Useful scripts include:
-
-- `gdal_translate_TIF_ovr_v9.bat`: converts `flt`, `asc`, and `rst` rasters to tiled, DEFLATE-compressed
-  GeoTIFFs and builds overviews.
-- `gdaladdo_Pyramids_deflate_v5.bat`: builds compressed overview pyramids for `.tif` files.
-- `gdal_merge_CLI.bat`: builds a VRT from matching rasters and translates it to a merged GeoTIFF.
-- `gdal_edit_Set_nodata.bat`: applies a NoData value to rasters matching a pattern.
-- `gdal_flood_extent_v9.bat`: creates flood extent polygons from rasters using a cutoff threshold.
-- `gdal_flood_extent_sieve.bat`: flood extent variant with sieve-style cleanup.
-- `gdal_raster_footprint.bat`: creates valid-data footprint polygons for rasters.
-- `gdal_translate_TIF_ovr_PATH.bat` and variants: path-based conversion helpers for tiled GeoTIFF and
-  overview generation.
-
-Several older variants remain for reference, including files marked `old` or `not working`. Prefer the newest
-plainly named version unless you are reproducing an old workflow.
-
-### DataFrame and export helpers
-
-Common helpers used across workflows:
-
-- `ryan_library.functions.dataframe_helpers`: `merge_and_sort_data()`, `reorder_columns()`,
-  `reorder_long_columns()`, `reset_categorical_ordering()`.
-- `ryan_library.functions.misc_functions.ExcelExporter`: export one or more DataFrames to Excel and/or Parquet.
-- `ryan_library.functions.file_utils`: recursive file discovery and output directory helpers.
-- `ryan_library.functions.loguru_helpers`: serial and multiprocessing Loguru setup.
-
-## Automation Support
-
-This repository is configured for automated pull requests generated by tools such as ChatGPT Codex.
-The pull request template at `.github/pull_request_template.md` captures the required summary, testing
-commands, and checklists so that automated agents provide consistent information. Keep the template up to
-date when workflows change to ensure the automation continues to produce useful PRs.
-
-Automated code reviews by Codex should follow `.github/code_review_instructions.md`, which documents the
-repository structure, review checklist, and feedback expectations. Update the guide when review patterns
-change so that automated reviewers stay aligned with human preferences.
-
-## VS Code + Codex Agent Setup On Windows
-
-### 1. Pick a Python interpreter
-
-**Recommended: repo-local virtual environment.** Keeping everything inside `.venv` gives Codex a stable
-interpreter path so it stops asking for approvals every time it opens a terminal, and it isolates dependencies
-from your global install to avoid version drift between human and agent sessions.
-
-```powershell
-py -3.14 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -U pip
-```
-
-After those steps, the checked-in `.vscode/settings.json` automatically pins
-`${workspaceFolder}\.venv\Scripts\python.exe` for both you and the Codex extension.
-
-**Alternative: reuse an existing interpreter.** Update the `python.defaultInterpreterPath` setting, or set the
-`RYAN_TOOLS_PYTHON` environment variable, to the interpreter you prefer. The repo task below falls back to
-that variable or to `python` on `PATH` if `.venv` is missing. Expect VS Code to prompt for interpreter approval
-more often in this mode because the path can change between sessions.
-
-To save the back-and-forth, run `python repo-scripts/ensure_venv.py` or the `python:ensure-venv` task before
-you start a Codex session. The script will create `.venv` if it is missing, upgrade `pip`, and install
-`requirements.txt`. It also stores a hash so `python repo-scripts/ensure_venv.py --check-only` can tell you
-whether the environment is still in sync when you come back later.
-
-### 2. Keep the shell stable
-
-Leave the integrated terminal on the default PowerShell profile. Changing shells mid-session forces the Codex
-agent to request approvals again.
-
-### 3. Provide a safe entry point for snippets
-
-Use the pre-defined `python:stdin` task, available from Tasks -> Run Task -> `python:stdin`, and pipe code into
-it. The task automatically selects the interpreter from step 1 and executes the code through
-`repo-scripts/run_snippet.py`, so the agent does not have to craft fragile `python -c` strings. To launch a
-different snippet runner, set `RYAN_TOOLS_SNIPPET` to the alternative script path.
-
-Codex can also call the `python:ensure-venv` task whenever it needs to guarantee the repo-managed environment
-exists. That command resolves the same interpreter heuristics as `python:stdin`, so it works whether you stick
-with `.venv` or point `RYAN_TOOLS_PYTHON` at a different install.
-
-For anything non-trivial, put the code into a reusable script such as `python repo-scripts/<name>.py` or another
-module in the repo so it can be rerun easily.
+- [Pull request template](.github/pull_request_template.md) records summaries, validation and review checklists.
+- [Code-review instructions](.github/code_review_instructions.md) describe repository-specific review expectations.
+- [Development guide](docs/DEVELOPMENT_GUIDE.md) is the canonical architecture and validation reference.
+- [MCP setup](docs/MCP_SETUP.md) documents the repository's read-only discovery and inspection tools for AI clients.

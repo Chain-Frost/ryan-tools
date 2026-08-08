@@ -20,7 +20,7 @@ from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, Workflo
 from ryan_library.functions.loguru_helpers import LogQueue, setup_logger
 from ryan_library.functions.parse_tlf import (
     search_for_completion,
-    read_log_file,
+    get_log_lines,
     process_top_lines,
     finalise_data,
     is_complete_tlf,
@@ -103,7 +103,7 @@ def process_log_file_for_dashboard(logfile: Path) -> LogFileProcessingResult:
     try:
         data_frame: pd.DataFrame = _process_log_file_dataframe(logfile=logfile)
     except Exception as exc:
-        logger.exception(f"Unhandled error while processing {logfile}")
+        logger.exception("Unhandled error while processing {}", logfile)
         return LogFileProcessingResult(
             logfile=logfile,
             data_frame=pd.DataFrame(),
@@ -140,7 +140,7 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
     file_size: int = logfile_path.stat().st_size
     is_large_file: bool = file_size > 10 * 1024 * 1024  # 10 MB
 
-    lines: list[str] = read_log_file(
+    lines, last_lines = get_log_lines(
         logfile_path=logfile_path,
         is_large_file=is_large_file,
     )
@@ -148,15 +148,15 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
 
     # lines_reversed = list(reversed(lines))
 
-    if not lines:
+    if not lines and not last_lines:
         return pd.DataFrame()
 
     runcode: str = logfile_path.stem
     relative_logfile_path: Path = convert_to_relative_path(user_path=logfile_path)
-    logger.info(f"Processing {runcode} : {relative_logfile_path}")
+    logger.info("Processing {} : {}", runcode, relative_logfile_path)
 
-    logger.debug(f"search_for_completion: {runcode}")
-    for line in lines[-100:]:
+    logger.debug("search_for_completion: {}", runcode)
+    for line in last_lines:
         data_dict, sim_complete, current_section = search_for_completion(
             line=line,
             data_dict=data_dict,
@@ -166,7 +166,7 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
         if sim_complete == 2:
             data_dict["Runcode"] = runcode
             break
-    logger.debug(f"search_for_completion: {data_dict}")
+    logger.debug("search_for_completion: {}", data_dict)
 
     if is_complete_tlf(data_dict=data_dict, sim_complete=sim_complete):
         data_dict, success, spec_events, spec_scen, spec_var = process_top_lines(
@@ -181,7 +181,7 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
             runcode=runcode,
             relative_logfile_path=relative_logfile_path,
         )
-        logger.debug(f"process_top_lines: {data_dict}")
+        logger.debug("process_top_lines: {}", data_dict)
 
         if success == 4:
             df: pd.DataFrame = finalise_data(
@@ -193,13 +193,13 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
                 logger.debug(df.head())
                 return df
             else:
-                logger.warning(f"Finalization failed for {runcode}, skipping")
+                logger.warning("Finalization failed for {}, skipping", runcode)
                 return pd.DataFrame()
         else:
-            logger.warning(f"{runcode} ({success}) did not complete, skipping")
+            logger.warning("{} ({}) did not complete, skipping", runcode, success)
             return pd.DataFrame()
     else:
-        logger.warning(f"{runcode} did not complete, skipping")
+        logger.warning("{} did not complete, skipping", runcode)
         return pd.DataFrame()
 
 

@@ -163,7 +163,7 @@ def process_file(
         )
         proc.process()
         if proc.validate_data():
-            logger.debug(f"Processed {proc.log_path}")
+            logger.debug("Processed {}", proc.log_path)
         else:
             logger.warning(f"Validation failed {proc.log_path}")
         proc.discard_raw_dataframe()
@@ -185,15 +185,17 @@ def process_files_in_parallel(
     *,
     include_path_columns: bool = True,
 ) -> ProcessorCollection:
+    # ``log_level`` is retained for caller compatibility. The queue now carries
+    # the lowest capture level required by its independently filtered sinks.
+    del log_level
     size: int = calculate_pool_size(num_files=len(file_list))
     logger.info(f"Spawning pool with {size} workers")
     file_count, total_bytes, largest_file, largest_bytes = _summarize_file_batch(file_list=file_list)
     largest_desc: str = f"{largest_file.name} ({_format_bytes(largest_bytes)})" if largest_file else "n/a"
     logger.info(
-        "Preparing to process {count} files (~{total} on disk; largest {largest}).",
-        count=file_count,
-        total=_format_bytes(total_bytes),
-        largest=largest_desc,
+        "Preparing to process {count} files (~{total} on disk; largest {largest}).".format(
+            count=file_count, total=_format_bytes(total_bytes), largest=largest_desc
+        ),
     )
     dataset_summary: str = f"{file_count} files (~{_format_bytes(total_bytes)} on disk; largest {largest_desc})"
     if size <= 1:
@@ -205,7 +207,7 @@ def process_files_in_parallel(
         )
 
     try:
-        with Pool(processes=size, initializer=worker_initializer, initargs=(log_queue, log_level)) as pool:
+        with Pool(processes=size, initializer=worker_initializer, initargs=(log_queue,)) as pool:
             task_args: list[tuple[Path, Mapping[str, Collection[str]] | Collection[str] | None, bool]] = [
                 (file_path, entity_filters, include_path_columns) for file_path in file_list
             ]
@@ -216,15 +218,15 @@ def process_files_in_parallel(
             return coll
     except MaybeEncodingError as exc:
         logger.warning(
-            "Multiprocessing failed to return processor results ({}). Falling back to sequential execution. Dataset footprint: {}",
-            str(exc),
-            dataset_summary,
+            "Multiprocessing failed to return processor results ({}). Falling back to sequential execution. Dataset footprint: {}".format(
+                str(exc), dataset_summary
+            ),
         )
     except OSError as exc:
         logger.warning(
-            "Multiprocessing encountered an OSError ({}). Falling back to sequential execution. Dataset footprint: {}",
-            exc,
-            dataset_summary,
+            "Multiprocessing encountered an OSError ({}). Falling back to sequential execution. Dataset footprint: {}".format(
+                exc, dataset_summary
+            ),
         )
     return _process_files_serially(
         file_list=file_list,
@@ -239,7 +241,7 @@ def _process_files_serially(
     *,
     include_path_columns: bool = True,
 ) -> ProcessorCollection:
-    logger.info("Processing {} files sequentially.", len(file_list))
+    logger.info("Processing {} files sequentially.".format(len(file_list)))
     coll = ProcessorCollection()
     for file_path in file_list:
         proc: BaseProcessor | None = process_file(

@@ -6,9 +6,9 @@ It handles finding files, processing them in parallel via `ProcessorCollection`,
 and exporting the consolidated results to Excel or Parquet.
 """
 
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol, runtime_checkable
 
 import pandas as pd
 from loguru import logger
@@ -24,6 +24,25 @@ from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, 
 
 DEFAULT_DATA_TYPES: tuple[str, ...] = ("POMM", "RLL_Qmx")
 ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
+
+
+class PommCombinationResults(Protocol):
+    """Minimum result-collection interface needed for POMM export."""
+
+    @property
+    def processors(self) -> Sequence[object]: ...
+
+    def pomm_combine(self) -> pd.DataFrame: ...
+
+
+@runtime_checkable
+class RawCombinationResults(Protocol):
+    """Result collection that supports the preferred generic combination path."""
+
+    @property
+    def processors(self) -> Sequence[object]: ...
+
+    def combine_raw(self) -> pd.DataFrame: ...
 
 
 def main_processing(
@@ -96,26 +115,23 @@ def main_processing(
         )
 
 
-def export_results(*, results: ProcessorCollection, export_mode: Literal["excel", "parquet", "both"] = "excel") -> None:
+def export_results(
+    *,
+    results: RawCombinationResults | PommCombinationResults,
+    export_mode: Literal["excel", "parquet", "both"] = "excel",
+) -> None:
     """
     Export combined DataFrames according to the requested mode.
 
-    Attempts to use `combine_raw` (generic) or `pomm_combine` (specific) methods on the
-    ProcessorCollection to aggregate data before saving.
+    Prefer the generic raw-data combination when available, while retaining the
+    POMM-specific collection protocol used by compatibility callers.
     """
     if not results.processors:
         logger.warning("No results to export.")
         return
-    combined_df: pd.DataFrame
-
-    # Try generic combine first, then specific pomm combine
-    if hasattr(results, "combine_raw"):
-        combined_df = results.combine_raw()  # type: ignore[attr-defined]
-    elif hasattr(results, "pomm_combine"):
-        combined_df = results.pomm_combine()  # type: ignore[attr-defined]
-    else:
-        logger.warning("Results object does not support combine_raw or pomm_combine. Skipping export.")
-        return
+    combined_df: pd.DataFrame = (
+        results.combine_raw() if isinstance(results, RawCombinationResults) else results.pomm_combine()
+    )
 
     if combined_df.empty:
         logger.warning("No combined data found. Skipping export.")

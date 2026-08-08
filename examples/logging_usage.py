@@ -12,35 +12,35 @@ Usage:
     python examples/logging_usage.py
 """
 
+from multiprocessing.context import SpawnContext
 import sys
 import multiprocessing as mp
 from loguru import logger
 from pathlib import Path
 
 # Ensure the library is in the path for this example
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from ryan_library.functions.loguru_helpers import (
-    reset_logging,
+    configure_serial_logging,
     setup_logger,
     worker_initializer,
-    configure_serial_logging,
 )
 
 
 def worker_task(x: int) -> int:
     """A simple worker task that logs messages."""
-    logger.debug(f"Worker processing item: {x}")
+    logger.debug("Worker processing item: {}", x)
     if x % 2 == 0:
-        logger.info(f"Item {x} is even.")
+        logger.info("Item {} is even.", x)
     else:
-        logger.warning(f"Item {x} is odd.")
+        logger.warning("Item {} is odd.", x)
     return x * x
 
 
-def main():
+def main() -> None:
     # 1. Basic Configuration (Serial)
     # Use the helper to configure logging for a standard serial script.
     # This handles resetting and setting up the console sink with the standard format.
@@ -55,32 +55,40 @@ def main():
 
     # Use the LoguruMultiprocessingLogger context manager (via setup_logger)
     # This starts a listener process and configures the main process to send logs to a queue.
-    # The 'console_log_level' determines what the listener prints to stdout.
-    with setup_logger(console_log_level="DEBUG") as queue:
+    # SUCCESS is a low-context option for AI/MCP output. A DEBUG file can still
+    # retain detailed records because producer and sink levels are independent.
+    with setup_logger(
+        console_log_level="SUCCESS",
+        log_file="logging-example-debug.log",
+        file_log_level="DEBUG",
+    ) as queue:
         # Create a pool using 'spawn' (recommended for Windows/consistency)
-        ctx = mp.get_context("spawn")
+        ctx: SpawnContext = mp.get_context("spawn")
 
         with ctx.Pool(
             processes=2,
             initializer=worker_initializer,  # Critical: configures workers to use the queue
             initargs=(queue,),
         ) as pool:
-            results = pool.map(worker_task, range(4))
+            results: list[int] = pool.map(worker_task, range(4))
 
-        logger.success(f"Multiprocessing complete. Results: {results}")
+        logger.success("Multiprocessing complete. Results: {}", results)
 
     # 3. Message Formatting Best Practices
+    configure_serial_logging(console_log_level="INFO")
     logger.info("=== Formatting Best Practices ===")
 
     value = 42
 
-    # PREFERRED: f-strings for user-facing logs (INFO, SUCCESS, WARNING, ERROR)
-    # These are eagerly evaluated but readable and standard.
-    logger.info(f"The value is {value}")
+    # PREFERRED: Loguru parameterized formatting at every level.
+    logger.info("The value is {}", value)
 
-    # PREFERRED: Lazy formatting for DEBUG/TRACE logs
-    # These are only evaluated if the level is enabled, saving performance in production.
+    # Parameterized formatting defers rendering, but ordinary Python argument
+    # expressions are still evaluated before the logging call.
     logger.debug("The value is {}", value)
+
+    # Use explicit lazy callables for genuinely expensive diagnostics.
+    logger.opt(lazy=True).debug("Expensive value is {}", lambda: sum(range(100)))
 
     logger.info("Example complete.")
 
@@ -96,10 +104,12 @@ def main():
     #
     # INFO (20):    General operational events. User-facing progress updates.
     #               "Starting process X", "Completed Y", "Loaded Z".
-    #               Use f-strings: logger.info(f"Processing file {path}")
+    #               Use parameterized formatting: logger.info("Processing file {}", path)
     #
     # SUCCESS (25): Positive confirmation of a significant workflow completion.
     #               "Multiprocessing run finished successfully".
+    #               Useful as concise console output for AI/MCP consumers.
+    #               Visibility is controlled by the configured sink level.
     #
     # WARNING (30): Something unexpected happened, but execution can continue.
     #               "File not found, skipping", "Deprecated argument used".

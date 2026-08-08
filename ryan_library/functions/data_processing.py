@@ -1,12 +1,13 @@
 # ryan_library.functions.data_processing.py
 import re  # Unlicensed regex
+from collections.abc import Callable
+
 from loguru import logger
-from typing import Any
-from _collections_abc import Callable
+
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 
-def safe_apply(func: Callable[[Any], Any], value: Any) -> Any | None:
+def safe_apply[T, R](func: Callable[[T], R], value: T) -> R | None:
     """
     Safely applies a function to a given value, ignoring any exceptions that occur.
 
@@ -14,11 +15,11 @@ def safe_apply(func: Callable[[Any], Any], value: Any) -> Any | None:
     the exception is caught, an error is logged, and `None` is returned instead.
 
     Args:
-        func (Callable[[Any], Any]): A function that takes a single argument and returns a value.
-        value (Any): The value to be processed by `func`.
+        func: A function that takes a value of type ``T`` and returns ``R``.
+        value: The value passed to ``func``.
 
     Returns:
-        Optional[Any]: The result of `func(value)` if successful; otherwise, `None`.
+        The result of ``func(value)`` if successful; otherwise, ``None``.
 
     Example:
         >>> def divide_by_two(x):
@@ -30,14 +31,18 @@ def safe_apply(func: Callable[[Any], Any], value: Any) -> Any | None:
     """
     try:
         # Attempt to apply the function to the value
-        result = func(value)
-        logger.debug(f"Function {func.__name__} applied successfully on value: {value}. Result: {result}")
+        result: R = func(value)
+        function_name: str = getattr(func, "__name__", type(func).__name__)
+        logger.debug("Function {} applied successfully on value: {}. Result: {}", function_name, value, result)
         return result
     except Exception as e:
         # Catch all exceptions to prevent the application from crashing
-        logger.debug(
-            f"Error applying function '{func.__name__}' on value '{value}': {e}",
-            exc_info=True,
+        function_name = getattr(func, "__name__", type(func).__name__)
+        logger.opt(exception=True).debug(
+            "Error applying function '{}' on value '{}': {}",
+            function_name,
+            value,
+            e,
         )
         return None
 
@@ -112,6 +117,9 @@ def check_string_aep(string: str) -> str:
     match: re.Match[str] | None = TuflowStringParser.AEP_PATTERN.search(string)
     if match:
         # Prefer the numeric capture (e.g. "01.00"); fall back to the text token (e.g. "PMP").
-        return match.group("numeric") or match.group("text")  # type: ignore[return-value]
+        matched_aep: str | None = match.group("numeric") or match.group("text")
+        if matched_aep is None:
+            raise ValueError(f"AEP pattern did not capture a value in: {string}")
+        return matched_aep
     else:
         raise ValueError(f"AEP pattern not found in the string: {string}")

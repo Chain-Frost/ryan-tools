@@ -15,15 +15,12 @@ from multiprocessing import Pool, Queue
 from multiprocessing.pool import ApplyResult
 from queue import Empty
 import time
-from typing import Generic, Protocol, TypeVar, cast
+from typing import Protocol, cast
 
 from loguru import logger
 
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowStatus
 from ryan_library.functions.loguru_helpers import LogQueue, worker_initializer
-
-TItem = TypeVar("TItem")
-TResult = TypeVar("TResult")
 
 
 class ProgressQueue(Protocol):
@@ -35,7 +32,7 @@ class ProgressQueue(Protocol):
 
 
 @dataclass(slots=True, frozen=True)
-class IndexedWorkflowItem(Generic[TItem]):
+class IndexedWorkflowItem[TItem]:
     """One processing request plus its one-based dashboard row index."""
 
     index: int
@@ -46,7 +43,7 @@ _workflow_start_queue: ProgressQueue | None = None
 _workflow_processor: Callable[[object], object] | None = None
 
 
-def run_dashboard_workflow(
+def run_dashboard_workflow[TItem, TResult](
     *,
     items: Sequence[TItem],
     process_item: Callable[[TItem], TResult],
@@ -98,7 +95,7 @@ def run_dashboard_workflow(
     return [indexed_results[index] for index in sorted(indexed_results)]
 
 
-def _run_serial_dashboard_workflow(
+def _run_serial_dashboard_workflow[TItem, TResult](
     *,
     items: Sequence[TItem],
     process_item: Callable[[TItem], TResult],
@@ -124,7 +121,7 @@ def _run_serial_dashboard_workflow(
         )
 
 
-def _run_parallel_dashboard_workflow(
+def _run_parallel_dashboard_workflow[TItem, TResult](
     *,
     items: Sequence[TItem],
     process_item: Callable[[TItem], TResult],
@@ -231,7 +228,7 @@ def _mark_started_dashboard_rows(
     return started_count
 
 
-def _collect_finished_dashboard_results(
+def _collect_finished_dashboard_results[TResult](
     *,
     dashboard: LiveWorkflowDashboard,
     pending_results: dict[int, ApplyResult[TResult]],

@@ -89,7 +89,7 @@ def reorder_columns(
     ordered_columns.extend([col for col in columns_to_end if col in data_frame.columns])
 
     # Log the final column order for debugging
-    logger.debug(f"Final column order: {ordered_columns}")
+    logger.debug("Final column order: {}", ordered_columns)
 
     # Return DataFrame with reordered columns accordingly
     return data_frame[ordered_columns]
@@ -131,7 +131,7 @@ def reset_categorical_ordering(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.select_dtypes(include="category").columns:
         sorted_categories: list[str] = sorted(df[col].cat.categories)
         df[col] = df[col].cat.set_categories(new_categories=sorted_categories, ordered=True)
-        logger.debug(f"Column '{col}' ordered alphabetically with categories: {sorted_categories}")
+        logger.debug("Column '{}' ordered alphabetically with categories: {}", col, sorted_categories)
 
     # Reset missing values if necessary
     df.fillna(value=pd.NA, inplace=True)  # pyright: ignore[reportUnknownMemberType]

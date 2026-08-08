@@ -108,11 +108,8 @@ class TuflowStringParser:
 
         if value is None:
             return None
-        try:
-            if math.isnan(value):  # type: ignore[arg-type]
-                return None
-        except (TypeError, ValueError):
-            pass
+        if isinstance(value, float) and math.isnan(value):
+            return None
         text: str = str(value).strip()
         if not text:
             return None
@@ -146,7 +143,7 @@ class TuflowStringParser:
         try:
             numeric = int(digits)
         except ValueError:
-            logger.debug(f"Unable to parse TP digits from value {text!r}")
+            logger.debug("Unable to parse TP digits from value {!r}", text)
             return None
         return f"TP{numeric:02d}"
 
@@ -173,7 +170,7 @@ class TuflowStringParser:
         if fallback:
             return float(fallback.group(0))
 
-        logger.debug(f"Unable to parse duration from value {text!r}")
+        logger.debug("Unable to parse duration from value {!r}", text)
         return float("nan")
 
     @staticmethod
@@ -216,7 +213,7 @@ class TuflowStringParser:
             dict[str, str]: Suffix to type mapping."""
         try:
             suffixes: dict[str, str] = SuffixesConfig.get_instance().suffix_to_type
-            logger.debug(f"Loaded suffixes: {suffixes}")
+            logger.debug("Loaded suffixes: {}", suffixes)
             return suffixes
         except AttributeError as e:
             logger.error(f"Error accessing suffixes from SuffixesConfig: {e}")
@@ -226,10 +223,10 @@ class TuflowStringParser:
         """Determine the data type based on the file suffix.
 
         Returns:
-            Optional[str]: Data type if a matching suffix is found, otherwise None."""
+            str | None: Data type if a matching suffix is found, otherwise None."""
         for suffix, data_type in self.suffixes.items():
             if self.file_name.lower().endswith(suffix.lower()):
-                logger.debug(f"Determined data type '{data_type}' for suffix '{suffix}'")
+                logger.debug("Determined data type '{}' for suffix '{}'", data_type, suffix)
                 return data_type
         logger.warning(f"No matching suffix found for file '{self.file_name}'")
         return None
@@ -244,9 +241,9 @@ class TuflowStringParser:
         for suffix in self.suffixes.keys():
             if self.file_name.lower().endswith(suffix.lower()):
                 run_code: str = self.file_name[: -len(suffix)]
-                logger.debug(f"Extracted raw run code '{run_code}' from file name '{self.file_name}'")
+                logger.debug("Extracted raw run code '{}' from file name '{}'", run_code, self.file_name)
                 return run_code
-        logger.debug(f"No suffix matched; using entire file name '{self.file_name}' as run code")
+        logger.debug("No suffix matched; using entire file name '{}' as run code", self.file_name)
         return self.file_name
 
     @staticmethod
@@ -262,7 +259,7 @@ class TuflowStringParser:
         """
         run_code_parts: list[str] = clean_run_code.split("_")
         r_dict: dict[str, str] = {f"R{index:02}": part for index, part in enumerate(run_code_parts, start=1)}
-        logger.debug(f"Extracted run code parts: {r_dict}")
+        logger.debug("Extracted run code parts: {}", r_dict)
         return r_dict
 
     def parse_tp(self, string: str) -> RunCodeComponent | None:
@@ -273,13 +270,13 @@ class TuflowStringParser:
             string (str): The run code string.
 
         Returns:
-            Optional[RunCodeComponent]: Parsed TP component or None if not found.
+            RunCodeComponent | None: Parsed TP component or None if not found.
         """
         match: re.Match[str] | None = self.TP_PATTERN.search(string)
         if match:
             tp_value: str = match.group(1)
             original_text: str = match.group(0).strip("_+")
-            logger.debug(f"Parsed TP value: {tp_value}")
+            logger.debug("Parsed TP value: {}", tp_value)
             return RunCodeComponent(raw_value=tp_value, component_type="TP", original_text=original_text)
         logger.debug("No TP component found")
         return None
@@ -292,7 +289,7 @@ class TuflowStringParser:
             string (str): The run code string.
 
         Returns:
-            Optional[RunCodeComponent]: Parsed Duration component or None if not found.
+            RunCodeComponent | None: Parsed Duration component or None if not found.
         """
         # Apply the same normalisation rules as ``normalize_duration_value`` so
         # both parsing paths stay in sync.
@@ -301,7 +298,7 @@ class TuflowStringParser:
         if match:
             duration_value = match.group(1)
             original_text: str = match.group(0).strip("_+")
-            logger.debug(f"Parsed Duration value: {duration_value}")
+            logger.debug("Parsed Duration value: {}", duration_value)
             return RunCodeComponent(raw_value=duration_value, component_type="Duration", original_text=original_text)
 
         for human_match in self.HUMAN_DURATION_PATTERN.finditer(normalized):
@@ -310,7 +307,7 @@ class TuflowStringParser:
                 continue
             minutes_str: str = str(int(minutes)) if minutes.is_integer() else str(minutes)
             original_text = human_match.group(0).strip("_+")
-            logger.debug(f"Parsed Duration value from human-readable token: {minutes_str}")
+            logger.debug("Parsed Duration value from human-readable token: {}", minutes_str)
             return RunCodeComponent(raw_value=minutes_str, component_type="Duration", original_text=original_text)
         logger.debug("No Duration component found")
         return None
@@ -323,7 +320,7 @@ class TuflowStringParser:
             string (str): The run code string.
 
         Returns:
-            Optional[RunCodeComponent]: Parsed AEP component or None if not found.
+            RunCodeComponent | None: Parsed AEP component or None if not found.
         """
         match: re.Match[str] | None = self.AEP_PATTERN.search(string)
         if match:
@@ -331,7 +328,7 @@ class TuflowStringParser:
             if aep_value is None:
                 logger.error("AEP pattern matched but no numeric or text group was captured.")
                 return None
-            logger.debug(f"Parsed AEP value: {aep_value!r}")
+            logger.debug("Parsed AEP value: {!r}", aep_value)
             original_text: str = match.group(0).strip("_+")
             return RunCodeComponent(raw_value=aep_value, component_type="AEP", original_text=original_text)
         logger.debug("No AEP component found")
@@ -351,9 +348,9 @@ class TuflowStringParser:
             if component and component.original_text:
                 components_to_remove.add(component.original_text.lower())
 
-        logger.debug(f"Components to remove: {components_to_remove}")
+        logger.debug("Components to remove: {}", components_to_remove)
         trimmed_runcode: str = "_".join(
             part for part in self.clean_run_code.split("_") if part.lower() not in components_to_remove
         )
-        logger.debug(f"Trimmed run code: {trimmed_runcode}")
+        logger.debug("Trimmed run code: {}", trimmed_runcode)
         return trimmed_runcode

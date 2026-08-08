@@ -255,8 +255,9 @@ class ProcessorCollection:
 
         if removed_processors:
             logger.info(
-                "Removed {removed} processors with no remaining rows after location filtering.",
-                removed=removed_processors,
+                "Removed {removed} processors with no remaining rows after location filtering.".format(
+                    removed=removed_processors
+                ),
             )
 
         return normalized_locations

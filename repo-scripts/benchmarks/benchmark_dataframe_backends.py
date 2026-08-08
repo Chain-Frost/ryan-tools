@@ -1,23 +1,25 @@
-from __future__ import annotations
-
 """Benchmark DataFrame concatenation/grouping across backends (pandas, optional polars/pyarrow).
 
 Usage examples (from repo root):
-  python bench_df_backends.py --num-frames 200 --rows-per-frame 1000
-  python bench_df_backends.py --num-frames 4000 --rows-per-frame 3000 --num-columns 20 --repeats 3
+  python repo-scripts/benchmarks/benchmark_dataframe_backends.py --num-frames 200 --rows-per-frame 1000
+  python repo-scripts/benchmarks/benchmark_dataframe_backends.py --num-frames 4000 --rows-per-frame 3000 --num-columns 20
 
 By default only pandas runs. Polars/pyarrow are attempted if installed; force tries with
 --try-polars/--try-pyarrow or disable with --no-polars/--no-pyarrow.
 """
 
+from __future__ import annotations
+
 import argparse
 import glob
+import importlib
+import importlib.util
 import math
 import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -37,8 +39,7 @@ class BenchmarkResult:
 
     def format(self) -> str:
         return (
-            f"{self.backend:10s} {self.action:12s} "
-            f"{self.seconds*1000:8.1f} ms  rows={self.rows:,} cols={self.cols}"
+            f"{self.backend:10s} {self.action:12s} " f"{self.seconds*1000:8.1f} ms  rows={self.rows:,} cols={self.cols}"
         )
 
 
@@ -61,10 +62,12 @@ def make_frames(
     chan_values = [f"chan_{i}" for i in range(max(10, int(math.sqrt(num_frames))))]
 
     def random_string_array(size: int) -> np.ndarray:
-        words = ["".join(rng.choice(list("abcdefghijklmnopqrstuvwxyz"), size=cat_length)) for _ in range(cat_cardinality)]
+        words = [
+            "".join(rng.choice(list("abcdefghijklmnopqrstuvwxyz"), size=cat_length)) for _ in range(cat_cardinality)
+        ]
         return rng.choice(words, size=size)
 
-    for idx in range(num_frames):
+    for _ in range(num_frames):
         data = {
             "internalName": rng.choice(group_values, size=rows),
             "Chan ID": rng.choice(chan_values, size=rows),
@@ -104,13 +107,13 @@ def load_frames_from_paths(paths: list[Path], limit: int | None = None, fmt: str
 
 def bench_pandas_concat(frames: list[pd.DataFrame]) -> BenchmarkResult:
     start = _now()
-    combined = pd.concat(frames, ignore_index=True, copy=False, sort=False)
+    combined = pd.concat(frames, ignore_index=True, sort=False)
     elapsed = _now() - start
     return BenchmarkResult("pandas", "concat", elapsed, len(combined), combined.shape[1])
 
 
 def bench_pandas_group(frames: list[pd.DataFrame]) -> BenchmarkResult:
-    combined = pd.concat(frames, ignore_index=True, copy=False, sort=False)
+    combined = pd.concat(frames, ignore_index=True, sort=False)
     start = _now()
     grouped = combined.groupby(["internalName", "Chan ID"], observed=True).agg("max").reset_index()
     elapsed = _now() - start
@@ -119,7 +122,7 @@ def bench_pandas_group(frames: list[pd.DataFrame]) -> BenchmarkResult:
 
 def bench_polars(frames: list[pd.DataFrame]) -> list[BenchmarkResult]:
     try:
-        import polars as pl
+        pl: Any = importlib.import_module("polars")
     except Exception:
         return []
 
@@ -148,7 +151,7 @@ def bench_pyarrow(frames: list[pd.DataFrame]) -> list[BenchmarkResult]:
     tables = [pa.Table.from_pandas(df, preserve_index=False) for df in frames]
 
     start = _now()
-    combined = pa.concat_tables(tables, promote=True)
+    combined = pa.concat_tables(tables, promote_options="default")
     elapsed = _now() - start
     results.append(BenchmarkResult("pyarrow", "concat", elapsed, combined.num_rows, combined.num_columns))
 
@@ -156,9 +159,7 @@ def bench_pyarrow(frames: list[pd.DataFrame]) -> list[BenchmarkResult]:
         start = _now()
         pandas_df = combined.to_pandas()
         elapsed = _now() - start
-        results.append(
-            BenchmarkResult("pyarrow->pd", "to_pandas", elapsed, len(pandas_df), pandas_df.shape[1])
-        )
+        results.append(BenchmarkResult("pyarrow->pd", "to_pandas", elapsed, len(pandas_df), pandas_df.shape[1]))
     except Exception:
         pass
 
@@ -177,7 +178,7 @@ def run_once(frames: list[pd.DataFrame], include_polars: bool, include_pyarrow: 
     return results
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Benchmark DataFrame concat/group across backends.")
     parser.add_argument("--num-frames", type=int, default=200, help="Number of DataFrames to generate.")
     parser.add_argument("--rows-per-frame", type=int, default=1000, help="Rows per synthetic DataFrame.")
@@ -185,7 +186,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repeats", type=int, default=3, help="Benchmark repetitions.")
     parser.add_argument("--seed", type=int, default=42, help="Random seed.")
     parser.add_argument("--categorical-cols", type=int, default=0, help="Number of synthetic categorical columns.")
-    parser.add_argument("--categorical-cardinality", type=int, default=50, help="Distinct values per categorical column.")
+    parser.add_argument(
+        "--categorical-cardinality", type=int, default=50, help="Distinct values per categorical column."
+    )
     parser.add_argument("--categorical-length", type=int, default=200, help="Length of synthetic categorical strings.")
     parser.add_argument("--try-polars", action="store_true", help="Attempt polars benchmarks if installed.")
     parser.add_argument("--try-pyarrow", action="store_true", help="Attempt pyarrow benchmarks if installed.")
@@ -208,11 +211,14 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Maximum number of frames to load from --input-glob (useful for sampling).",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
-def main() -> None:
-    args = parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args: argparse.Namespace = parse_args(argv)
+
+    if args.num_frames < 1 or args.rows_per_frame < 1 or args.num_columns < 3 or args.repeats < 1:
+        raise ValueError("Frame count, row count and repeats must be positive; --num-columns must be at least 3.")
 
     include_polars = False
     include_pyarrow = False
@@ -221,21 +227,13 @@ def main() -> None:
         if args.try_polars:
             include_polars = True
         else:
-            try:
-                import polars as _  # noqa: F401
-                include_polars = True
-            except Exception:
-                include_polars = False
+            include_polars = importlib.util.find_spec("polars") is not None
 
     if not args.no_pyarrow:
         if args.try_pyarrow:
             include_pyarrow = True
         else:
-            try:
-                import pyarrow as _  # noqa: F401
-                include_pyarrow = True
-            except Exception:
-                include_pyarrow = False
+            include_pyarrow = importlib.util.find_spec("pyarrow") is not None
 
     frames: list[pd.DataFrame]
     if args.input_glob:
@@ -246,7 +244,7 @@ def main() -> None:
         frames = load_frames_from_paths(paths=paths, limit=args.limit_frames, fmt=args.input_format)
         if not frames:
             print("No frames loaded from --input-glob patterns; exiting.", file=sys.stderr)
-            return
+            return 1
         print(
             f"Loaded {len(frames)} frame(s) from input globs "
             f"(mean rows {int(sum(len(f) for f in frames)/len(frames)):,}). Repeats: {args.repeats}"
@@ -296,7 +294,8 @@ def main() -> None:
             mean_ms = 1000 * sum(r.seconds for r in items) / len(items)
             sample = items[0]
             print(f"  {key[0]:10s} {key[1]:12s} {mean_ms:8.1f} ms  rows={sample.rows:,} cols={sample.cols}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

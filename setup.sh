@@ -6,17 +6,13 @@ set -e
 # git clone https://github.com/Chain-Frost/ryan-tools.git /workspace
 # cd /workspace
 
-# 1. Create your Python venv:
-python3 -m venv .venv
-source .venv/bin/activate
+# Install into the user's Python library. This repository does not use a
+# repository-local virtual environment.
+python3 -m pip install --user --upgrade pip
+python3 -m pip install --user -r requirements.txt
 
-# 2. Install your dependencies:
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# 3. (If you use extra system tools or npm libs, install them here)
+# If you use extra system tools or npm libs, install them here.
 #    e.g. apt-get update && apt-get install -y libpq-dev
 #          npm install -g typescript
 
-deactivate
 echo "📦  Setup complete!"

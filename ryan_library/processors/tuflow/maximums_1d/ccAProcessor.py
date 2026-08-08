@@ -270,11 +270,9 @@ class ccAProcessor(BaseProcessor):
             missing: list[str] = [c for c in required_cols if c not in cca_data.columns]
             if missing:
                 logger.error(
-                    "process_gpkg: CCA table {!r} in file {!r} is missing required columns: {!r}. "
-                    "Treating datasource as malformed.",
-                    layer_name,
-                    str(path),
-                    missing,
+                    "process_gpkg: CCA table {!r} in file {!r} is missing required columns: {!r}. Treating datasource as malformed.".format(
+                        layer_name, str(path), missing
+                    ),
                 )
                 return pd.DataFrame()
 

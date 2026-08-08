@@ -117,7 +117,10 @@ def add_execution_cli_arguments(parser: ArgumentParser) -> None:
     parser.add_argument(
         "--console-log-level",
         dest="console_log_level",
-        help="Set log verbosity (e.g., INFO or DEBUG). Defaults to the script value.",
+        help=(
+            "Set log verbosity (e.g., DEBUG, INFO, or SUCCESS). SUCCESS keeps completions, warnings, and errors "
+            "while suppressing routine progress. Defaults to the script value."
+        ),
     )
     parser.add_argument(
         "--working-directory",

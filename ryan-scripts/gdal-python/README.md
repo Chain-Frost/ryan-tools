@@ -36,6 +36,9 @@ the complete current CLI reference is needed.
 
 Run any wrapper with `--help` for its supported options and examples.
 
+Flags such as `--overwrite` permit replacement of existing outputs. Use them only after confirming that replacement is
+intended; the catalogue's `mutation` field identifies tools that create, replace or modify files.
+
 ## Usage recipes
 
 ### Raster conversion and compression
@@ -91,7 +94,19 @@ python gdal_merge.py "D:\XYZ" "*.xyz" Higginsville_DTM_1m_EPSG7851 --output-srs 
 python gdal_merge_by_extent.py "D:\XYZ" "D:\Extent\site.gpkg" --pattern "*.xyz" --nodata -9999
 ```
 
+### Grouped TUFLOW result mosaics
+
+`build_VRT.py` groups TUFLOW result TIFFs by filename fields, creates one GeoTIFF mosaic per group and builds external
+overviews. Review representative filenames and the one-based field-removal rule before processing a full result set.
+
+```powershell
+python build_VRT.py "D:\Model\Results" --remove-field 2 --suffixes d_HR_Max h_HR_Max V_Max DEM_Z_HR
+```
+
 ### Metadata, footprints, and point clouds
+
+`gdal_set_nodata.py` edits NoData metadata in the source rasters in place. It does not recalculate or replace pixel
+values; use copied inputs when the original metadata must be preserved.
 
 ```powershell
 python gdal_set_nodata.py "D:\Terrain" --pattern "*.tif" --nodata -9999

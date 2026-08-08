@@ -105,13 +105,13 @@ def filter_new_log_files(
         filename_key: str | None = _normalise_path_filename_key(logfile)
 
         if runcode_key and runcode_key in existing_rows.runcodes:
-            logger.debug(f"Skipping existing run code {logfile}")
+            logger.debug("Skipping existing run code {}", logfile)
             continue
         if path_key and path_key in existing_rows.log_paths:
-            logger.debug(f"Skipping existing log path {logfile}")
+            logger.debug("Skipping existing log path {}", logfile)
             continue
         if filename_key and filename_key in existing_rows.log_filenames:
-            logger.debug(f"Skipping existing log filename {logfile}")
+            logger.debug("Skipping existing log filename {}", logfile)
             continue
 
         new_files.append(logfile)
@@ -307,7 +307,7 @@ def _runcode_key_from_logfile(*, logfile: Path) -> str | None:
     try:
         return _normalise_text_key(TuflowStringParser(file_path=logfile).clean_run_code)
     except Exception as exc:
-        logger.debug(f"Unable to parse run code from {logfile}: {exc}")
+        logger.debug("Unable to parse run code from {}: {}", logfile, exc)
         return _normalise_text_key(logfile.stem)
 
 

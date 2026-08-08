@@ -10,9 +10,9 @@ from __future__ import annotations
 import multiprocessing as mp
 import os
 import sys
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from collections.abc import Iterator
 
 from loguru import logger
 
@@ -37,7 +37,7 @@ from ryan_library.processors.tuflow.maximums_1d.NmxProcessor import NmxProcessor
 
 
 @contextmanager
-def pushd(path: Path) -> Iterator[None]:
+def pushd(path: Path) -> Generator[None]:
     """Temporarily change working directory."""
 
     original: Path = Path.cwd()
@@ -144,6 +144,8 @@ def main(use_parallel: bool = True, use_threaded: bool = False, level: str = "IN
         if use_parallel:
             run_parallel(sample_files, level=level)
         if use_threaded:
+            if use_parallel:
+                configure_logging(level=level)
             run_threaded(sample_files, level=level)
 
 

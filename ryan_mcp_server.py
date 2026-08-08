@@ -14,7 +14,7 @@ except ImportError:
         FastMCP = None  # type: ignore[assignment, misc]
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
-from ryan_library.functions.parse_tlf import TLFProcessor
+from ryan_library.processors.tuflow.other_processors.TLFProcessor import TLFProcessor
 
 REPOSITORY_ROOT: Path = Path(__file__).resolve().parent
 GDAL_CATALOGUE_PATH: Path = REPOSITORY_ROOT / "ryan-scripts" / "gdal-python" / "gdal_cli_tools.json"

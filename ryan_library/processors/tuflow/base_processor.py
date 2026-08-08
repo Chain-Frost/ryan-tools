@@ -2,7 +2,7 @@
 
 import importlib
 from abc import ABC, abstractmethod
-from collections.abc import Collection, Sized
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
@@ -264,9 +264,13 @@ class BaseProcessor(ABC):
             )
 
         def has_section_content(section: str) -> bool:
-            value: Any | None = processing_parts_payload.get(section)
-            if isinstance(value, (dict, list, str)):
-                return len(cast(Sized, value)) > 0
+            value: object = processing_parts_payload.get(section)
+            if isinstance(value, dict):
+                return value != {}
+            if isinstance(value, list):
+                return value != []
+            if isinstance(value, str):
+                return value != ""
             return value is not None
 
         required_sections: dict[str, tuple[str, ...]] = {
@@ -494,19 +498,15 @@ class BaseProcessor(ABC):
     def additional_attributes_to_df(self) -> None:
         """Extract and add TP, Duration, and AEP using the parser."""
         # Build the attributes dictionary conditionally
-        attributes: dict[str, str | Any] = {
-            "trim_runcode": self.name_parser.trim_run_code,
-            **{
-                f"{attr}_text": getattr(self.name_parser, attr).text_repr
-                for attr in ["tp", "duration", "aep"]
-                if getattr(self.name_parser, attr) is not None
-            },
-            **{
-                f"{attr}_numeric": getattr(self.name_parser, attr).numeric_value
-                for attr in ["tp", "duration", "aep"]
-                if getattr(self.name_parser, attr) is not None
-            },
-        }
+        attributes: dict[str, str | int | float | None] = {"trim_runcode": self.name_parser.trim_run_code}
+        for attribute_name, component in (
+            ("tp", self.name_parser.tp),
+            ("duration", self.name_parser.duration),
+            ("aep", self.name_parser.aep),
+        ):
+            if component is not None:
+                attributes[f"{attribute_name}_text"] = component.text_repr
+                attributes[f"{attribute_name}_numeric"] = component.numeric_value
         logger.debug("{}: Additional attributes to add: {}", self.file_name, attributes)
 
         # Assign attributes to DataFrame

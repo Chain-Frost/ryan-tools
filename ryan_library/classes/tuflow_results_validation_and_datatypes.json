@@ -308,7 +308,7 @@
     "output_columns": {},
     "processingParts": {
       "dataformat": "TLF",
-      "module": "ryan_library.functions.parse_tlf",
+      "module": "other_processors",
       "columns_to_use": {},
       "expected_in_header": []
     }
@@ -316,7 +316,9 @@
   "d_HR_Max": {
     "processor": "",
     "suffixes": [
-      "_d_HR_Max.tif"
+      "_d_HR_Max.tif",
+      "_d_HR_Max.asc",
+      "_d_HR_Max.flt"
     ],
     "output_columns": {},
     "processingParts": {
@@ -326,7 +328,9 @@
   "d_Max": {
     "processor": "",
     "suffixes": [
-      "_d_Max.tif"
+      "_d_Max.tif",
+      "_d_Max.asc",
+      "_d_Max.flt"
     ],
     "output_columns": {},
     "processingParts": {
@@ -336,7 +340,9 @@
   "h_HR_Max": {
     "processor": "",
     "suffixes": [
-      "_h_HR_Max.tif"
+      "_h_HR_Max.tif",
+      "_h_HR_Max.asc",
+      "_h_HR_Max.flt"
     ],
     "output_columns": {},
     "processingParts": {
@@ -346,7 +352,9 @@
   "h_Max": {
     "processor": "",
     "suffixes": [
-      "_h_Max.tif"
+      "_h_Max.tif",
+      "_h_Max.asc",
+      "_h_Max.flt"
     ],
     "output_columns": {},
     "processingParts": {
@@ -356,7 +364,9 @@
   "V_Max": {
     "processor": "",
     "suffixes": [
-      "_V_Max.tif"
+      "_V_Max.tif",
+      "_V_Max.asc",
+      "_V_Max.flt"
     ],
     "output_columns": {},
     "processingParts": {
@@ -366,7 +376,9 @@
   "Z0_Max": {
     "processor": "",
     "suffixes": [
-      "_Z0_Max.tif"
+      "_Z0_Max.tif",
+      "_Z0_Max.asc",
+      "_Z0_Max.flt"
     ],
     "output_columns": {},
     "processingParts": {

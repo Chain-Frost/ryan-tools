@@ -195,7 +195,7 @@ class Catchment:
         path: Path = folder / f"{self.name}_rffe.txt"
         try:
             path.write_text(data=html, encoding="utf-8")
-            logger.debug(f"[{self.name}] Saved raw HTML to {path.name}")
+            logger.debug("[{}] Saved raw HTML to {}", self.name, path.name)
         except OSError as ex:
             logger.error(f"[{self.name}] Could not save HTML: {ex}")
 

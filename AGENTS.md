@@ -1,107 +1,113 @@
 # AGENTS.md
 
-This file guides AI agents (e.g., ChatGPT Codex) on how to interact with and contribute to the **ryan-tools** repository.
+This file contains mandatory working instructions for automated agents contributing to `ryan-tools`. Before making an
+architectural change or deciding where code belongs, read [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md).
+That guide defines the repository's code categories, environments, dependency direction, lifecycle terms and validation
+matrix.
 
----
+## Repository boundaries
 
-## 1. Repository Overview
+- `ryan_library/functions`: reusable algorithms, transformations and focused I/O helpers.
+- `ryan_library/processors`: stateful handlers for supported file and result formats.
+- `ryan_library/orchestrators`: complete workflow coordination, including discovery, processing, logging and export.
+- `ryan-scripts`: human-facing maintained wrappers, project-specific entry points and older standalone utilities.
+- `ryan_library/scripts` and `ryan_functions`: deprecated import-compatibility namespaces; do not add new behaviour.
+- `vendor`, `tests/test_data`, `excel-resources`, `qgis-resources` and `unsorted`: vendored content or submodules; preserve
+  their independent state.
 
-* **Purpose**: A collection of Python utilities and scripts for geospatial and data processing (`ryan-tools`).
-* **Root Structure**:
+Classify the target before changing it. Do not automatically modernise a standalone, project-specific or legacy script
+into library code. Reuse must be demonstrated, not inferred solely because code could technically be shared.
 
-  ``` text
-  ryan-tools/
-  ├── ryan_library/           # Main Python package
-  │   ├── functions/          # Reusable workflow logic
-  │   ├── orchestrators/      # Active workflow controllers
-  │   └── scripts/            # Deprecated import-compatibility wrappers
-  ├── ryan-scripts/           # Human-facing wrappers and standalone entry points
-  ├── ryan_functions/         # Deprecated import-compatibility package
-  ├── tests/                  # Unit and integration tests
-  │   └── test_data/          # Required test-data submodule
-  ├── vendor/                 # Vendored PyHMA code and the run_hy8 submodule
-  ├── unsorted/               # Separate holding-area submodule
-  ├── excel-resources/        # Excel workbook resources submodule
-  ├── qgis-resources/         # QGIS resources and supporting workbook submodule
-  ├── repo-scripts/           # Repository build and maintenance scripts
-  ├── requirements.txt        # Editable development-install entry point
-  ├── pyproject.toml          # Black and Pyright configuration
-  ├── AGENTS.md               # This guidance file
-  └── README.md               # Getting started and repository overview
-  ```
+## Coding conventions
 
----
+- Target Python 3.14 and use current Python 3.14+ annotation syntax.
+- Use absolute imports from `ryan_library` or vendored packages.
+- Format Python with Black using the configured 120-character line length.
+- Run Pyright in strict mode only on modified Python files.
+- Add type annotations to public functions and methods.
+- Preserve unrelated worktree and submodule changes. Do not stage or commit unless explicitly asked.
 
-### 2. Coding Conventions
+### Logging
 
-* **Language**: Python 3.14
-* **Import Style**: Absolute imports from `ryan_library` or vendored packages only.
-* **Formatting**: Format with [Black](https://github.com/psf/black) using a 120 character line length. A
-  `pyproject.toml` is provided with this configuration.
-* **Type Hints**: All public functions and methods should include type annotations. Always use Python 3.14+ style.
-* **Linting**: Use `pyright` for static analysis in `strict` mode (configured via `pyproject.toml`). Only run Pyright on files you have modified (e.g., `pyright ryan_library/path/to_file.py`).
+- Prefer Loguru parameterized formatting for dynamic values at every level, including `SUCCESS`, for example
+  `logger.success("Exported {} rows to {}", row_count, output_path)`. Use a plain string for a static message.
+- Do not use eager f-strings, percent formatting or `str.format()` in `DEBUG` or `TRACE` calls. If computing a diagnostic
+  value is expensive, use `logger.opt(lazy=True)` with a callable; ordinary function arguments are evaluated by Python
+  before Loguru receives them.
+- Log visibility is controlled by sink levels, not by eager versus parameterized message formatting. Do not treat
+  `SUCCESS` as a formatting exception.
+- Wrappers and top-level orchestrators own configuration; reusable functions and processors only emit records.
+- Use console level `SUCCESS` for concise AI/MCP output while retaining detailed records in a `DEBUG` file sink.
+- Notebook logging must be safe to reconfigure when cells are rerun and must not require multiprocessing.
+- Do not expose internal helper names in user-facing output.
+- Run `python repo-scripts/check_loguru_formatting.py` after changing Loguru calls. See `docs/LOGGING.md` for the full
+  contract.
 
----
+## Architecture rules
 
-### 3. Dependency Management
+- Keep project paths, filename prefixes, input globs, output templates and frequently edited settings in wrappers.
+- Keep reusable processing and validation in `ryan_library/functions` or processors.
+- Keep end-to-end workflow coordination in `ryan_library/orchestrators`.
+- Keep pausing, banners, CLI parsing, working-directory selection and `SystemExit` at the wrapper process boundary.
+- Library helpers and orchestrators must not pause the console or terminate the interpreter.
+- Follow [`ryan-scripts/WRAPPER_STANDARD.md`](ryan-scripts/WRAPPER_STANDARD.md) for maintained library-backed wrappers.
+- Do not add repository-root `sys.path` manipulation to copied wrappers; require the matching package installation.
 
-* **requirements.txt**: Installs the project and its development extra in editable mode.
-* **Vendoring**: Third‑party modules like `PyHMA` are placed under `vendor/` and must have an `__init__.py`.
-* **pyproject.toml**: black and pyright settings
+## Testing and validation
 
----
+Use the change-type matrix in [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md#validation-by-change-type).
 
-### 4. Testing & Validation
+- Do not create tests unless the user requests them or tests are necessary to express the requested behaviour.
+- Run focused tests when changing covered behaviour, when adding or modifying tests, or when the user requests them.
+- Do not run an unrelated full suite by default.
+- Test active `ryan_library` functions, processors and orchestrators. Deprecated compatibility APIs normally need only
+  forwarding or warning checks.
+- Use synthetic fixtures where proprietary project data cannot be shared.
+- For documentation-only changes, verify links, commands, paths and behavioural claims against the current repository.
 
-* Tests are generally outdated and give errors.
-* Do not create tests unless specifically requested.
-* Do not run tests unless you are creating them or requested by the user to run them. Generally you should only run a subset related to your work items.
+## Build workflow
 
----
+When modifying `ryan_library` or package metadata, run from the repository root:
 
-### 5. Pull Request & Commit Guidelines
+```powershell
+python repo-scripts/build_library.py
+```
 
-* **Commit Messages**: Use present-tense, imperative mood (e.g., `Add new rainfall utility`).
-* **PR Title**: Should start with a scope: e.g., `[core] Add data validation`.
-* **Description**: Summarize what, why, and any next steps or manual verification.
-* **Labels**: Tag PRs with `enhancement`, `bug`, or `docs` appropriately.
+The build increments the date-based package version and rebuilds the wheel in `dist`. Use `--skip-pip` when the build
+dependency is already installed. In an environment that cannot save binary artifacts, use `--skip-artifacts` if
+supported and state that a maintainer must rebuild the wheel locally.
 
----
+After a local build, inspect Git status for version, wheel and index changes. Preserve working-tree changes and do not
+leave files staged unless the user asked for staging or a commit.
 
-### 6. How to Interact as an Agent
+## Environment notes
 
-1. **Analyze requests**: Read user prompts and test failures to identify required changes.
-2. **Follow conventions**: Generate code adhering to the project standards (sections 2–5).
-3. **Produce PR diffs**: Only modify relevant files; include clear commit messages.
-4. **Structure**: Keep heavy logic/parsing in `ryan_library/functions`; use `ryan_library/orchestrators` as controllers that wire functions together and handle I/O/logging; wrappers in `ryan-scripts` should call into these orchestrators. Do not add new code to the deprecated `ryan_library/scripts` compatibility namespace.
+- Use the user's normal Python 3.14 installation. This repository does not use a virtual environment by default; do not
+  instruct users to create or activate one unless they explicitly request an isolated environment.
+- Install through `requirements.txt` for development, or use the bundled wheel for the normal installed-package
+  workflow.
+- Some QGIS, OSGeo4W and GDAL workflows require their application environment; ordinary Python validation is not a
+  substitute for an environment-specific smoke check.
+- On machines joined to `bge-resources.com` or the `BGER` domain, PowerShell may fail to stream file contents reliably.
+  Prefer `cmd.exe /C type <path>` when this occurs.
+- Headless validation must use non-interactive options such as `--no-pause` or `--dry-run` where available.
 
-#### Logging (loguru) guidance
+## Pull requests and commits
 
-* Success/error/exception logs shown to users must use f-strings (or equivalent eager formatting) for clarity.
+- Use present-tense imperative commit messages, for example `Add raster validation`.
+- Prefix PR titles with a scope, for example `[core] Add data validation`.
+- Summarise what changed, why it changed, validation performed and any follow-up work.
+- Use `enhancement`, `bug` or `docs` labels as appropriate.
+- Update documentation when user-facing behaviour, architecture or validation expectations change.
 
-* Info logs are also user-facing; prefer f-strings or explicit formatting so rendered messages are readable as-is.
-* Debug logs should remain lazily formatted (loguru parameter style) to avoid unnecessary work when debug is disabled.
-* TODO: Sweep the codebase and align existing log statements with these conventions; ensure logging helpers do not leak internal helper names into user-facing output.
+## Documentation routing
 
----
+- Human introduction and setup: [`README.md`](README.md)
+- Repository architecture and development decisions: [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md)
+- Documentation index and dated plans: [`docs/README.md`](docs/README.md)
+- Script selection and safety: [`ryan-scripts/README.md`](ryan-scripts/README.md)
+- Maintained wrapper rules: [`ryan-scripts/WRAPPER_STANDARD.md`](ryan-scripts/WRAPPER_STANDARD.md)
+- Area-specific contracts: the nearest README or workflow document in that subtree
 
-### 7. Build Workflow
-
-* When modifying anything inside `ryan_library/` or other package metadata, run `python repo-scripts/build_library.py` from the repository root.
-* The script bumps the `pyproject.toml` version using today's date plus a daily counter and rebuilds the wheel artefact under `dist/`.
-* Binary artifacts in Codex Web Viewer:
-  * `.whl` files and other binary artifacts cannot be saved/committed when using the Codex web viewer. This is a platform limitation.
-  * When working in the web viewer or any read‑only environment, do not attempt to commit wheel artifacts. Submit the version bump and source changes only, and add a PR note requesting a maintainer to run the build locally and commit the wheel.
-  * If supported, you may run `python repo-scripts/build_library.py --skip-artifacts` to skip artifact creation; otherwise just skip committing artifacts.
-* Local builds:
-  * When running locally (with write access), commit the regenerated wheel under `dist/` so the published package matches the source.
-  * Use `--skip-pip` if the environment already has the `build` module installed.
-
----
-
-### 8. Environment Notes
-
-* On machines joined to the `bge-resources.com` domain (e.g., where `USERDNSDOMAIN=bge-resources.com` or `USERDOMAIN=BGER`), PowerShell sometimes fails to stream file contents reliably. When working on these systems, prefer running commands through `cmd.exe` (e.g., `cmd.exe /C type path\to\file`) so files load correctly in the Codex CLI.
-* The package and bundled `run_hy8` component require Python 3.14. Prefer a persistent virtual environment over modifying an externally managed system Python. If you need repo dependencies, install the bundled wheel under `dist/` or install the project in editable mode with its `dev` extra.
-
-End of AGENTS.md
+Plans, audits and roadmaps describe proposed or unfinished work. Do not treat them as current architectural policy when
+they conflict with the canonical sources above.

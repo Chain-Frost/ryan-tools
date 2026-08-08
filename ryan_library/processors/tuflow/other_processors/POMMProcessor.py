@@ -116,10 +116,7 @@ class POMMProcessor(BaseProcessor):
             self.processed = True
             logger.info(f"{self.log_path}: POMM processed successfully.")
 
-        except Exception as e:
-            logger.error(
-                f"{self.log_path}: Failed in POMMProcessor.process(): {e}",
-                exc_info=True,
-            )
+        except Exception:
+            logger.exception(f"{self.log_path}: Failed in POMMProcessor.process()")
             self.df = pd.DataFrame()
             return

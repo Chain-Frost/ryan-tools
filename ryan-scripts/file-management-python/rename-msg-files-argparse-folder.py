@@ -85,7 +85,7 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
     try:
         with open_msg(file_path) as msg:
             msg_sender: str = msg.sender if msg.sender else "UnknownSender"
-            msg_date: datetime | Literal['1970-01-01 00:00:00'] = msg.date if msg.date else "1970-01-01 00:00:00"
+            msg_date: datetime = msg.date if msg.date else "1970-01-01 00:00:00"
             msg_subject: str = msg.subject if msg.subject else "NoSubject"
 
             # Determine if msg_date is a string or datetime object
@@ -99,13 +99,13 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
                     iso_date = "UnknownDate"
                 else:
                     iso_date = parsed_date.strftime("%Y-%m-%d_%H-%M-%S")
-            elif isinstance(msg_date, datetime): # pyright: ignore[reportUnnecessaryIsInstance]
+            elif isinstance(msg_date, datetime):  # pyright: ignore[reportUnnecessaryIsInstance]
                 # Convert to local timezone if timezone aware
                 if msg_date.tzinfo is not None:
                     local_tz = datetime.now().astimezone().tzinfo
                     msg_date = msg_date.astimezone(local_tz)
                 iso_date = msg_date.strftime("%Y-%m-%d_%H-%M-%S")
-                logger.debug(f"msg.date is a datetime object: {iso_date}")
+                logger.debug("msg.date is a datetime object: {}", iso_date)
             else:
                 logger.warning(f"Unsupported date type in {file_path}: {type(msg_date)}")
                 iso_date = "UnknownDate"

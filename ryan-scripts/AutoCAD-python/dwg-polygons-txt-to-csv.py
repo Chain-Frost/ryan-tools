@@ -12,6 +12,7 @@ or unexpected record is reported with its source line number.
 
 from __future__ import annotations
 
+from _csv import Writer
 import csv
 import logging
 from collections.abc import Iterable
@@ -59,10 +60,10 @@ def parse_tin_file(
     points_in_block = 0
     line_no = 0
 
-    with path.open("r", encoding="utf-8", errors="replace") as f:
+    with path.open(mode="r", encoding="utf-8", errors="replace") as f:
         for raw_line in f:
             line_no += 1
-            line = raw_line.strip()
+            line: str = raw_line.strip()
 
             # Ignore blank lines anywhere
             if not line:
@@ -83,7 +84,7 @@ def parse_tin_file(
 
             if state == "EXPECT_POINT":
                 # Expect a coordinate line: x,y,z
-                parts = [p.strip() for p in line.split(",")]
+                parts: list[str] = [p.strip() for p in line.split(",")]
                 if len(parts) != 3:
                     raise ParseError(
                         f"Line {line_no}: expected 'x,y,z' with three comma-separated " f"values, got {line!r}"
@@ -123,8 +124,8 @@ def write_points_to_csv(
     """
     Write (x, y, z) points to a CSV with header: X,Y,Z.
     """
-    with output_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
+    with output_path.open(mode="w", newline="", encoding="utf-8") as f:
+        writer: Writer = csv.writer(f)
         writer.writerow(["X", "Y", "Z"])
         for x, y, z in points:
             # Use high precision to avoid rounding issues
@@ -136,11 +137,11 @@ def main() -> None:
         level=logging.INFO,
         format="%(levelname)s: %(message)s",
     )
-    logger = logging.getLogger(__name__)
+    logger: logging.Logger = logging.getLogger(__name__)
 
     logger.info("Parsing %s", INPUT_PATH)
     try:
-        points = parse_tin_file(INPUT_PATH, logger=logger)
+        points: set[tuple[float, float, float]] = parse_tin_file(INPUT_PATH, logger=logger)
     except ParseError as e:
         logger.error("Parse error: %s", e)
         raise SystemExit(1)

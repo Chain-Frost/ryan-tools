@@ -1,132 +1,136 @@
-"""Additional coverage tests for loguru_helpers."""
+"""Focused unit coverage for the Loguru configuration helpers."""
+
+from __future__ import annotations
+
+import pickle
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import MagicMock, patch, ANY
-import pickle
+
 from ryan_library.functions import loguru_helpers
 
 
-class TestLoguruHelpersCoverage:
-    @patch("ryan_library.functions.loguru_helpers.logger")
-    def test_reset_logging(self, mock_logger):
-        """Test reset_logging calls logger.remove()."""
-        loguru_helpers.reset_logging()
-        mock_logger.remove.assert_called_once()
+def test_normalize_log_level() -> None:
+    assert loguru_helpers.normalize_log_level(" info ") == "INFO"
+    with pytest.raises(ValueError, match="Unknown Loguru level"):
+        loguru_helpers.normalize_log_level("verbose")
+    with pytest.raises(ValueError, match="must not be empty"):
+        loguru_helpers.normalize_log_level("  ")
 
-    @patch("ryan_library.functions.loguru_helpers.logger")
-    def test_configure_serial_logging_console_only(self, mock_logger):
-        """Test configure_serial_logging with console only."""
-        loguru_helpers.configure_serial_logging(console_log_level="DEBUG")
 
-        # Should call remove once
-        mock_logger.remove.assert_called_once()
-        # Should call add once for console
-        mock_logger.add.assert_called_once()
-        args, kwargs = mock_logger.add.call_args
-        assert kwargs["level"] == "DEBUG"
-        assert kwargs["sink"] == loguru_helpers.sys.stdout
+def test_minimum_log_level() -> None:
+    assert loguru_helpers.minimum_log_level("WARNING", "DEBUG", "INFO") == "DEBUG"
+    with pytest.raises(ValueError, match="At least one"):
+        loguru_helpers.minimum_log_level()
 
-    @patch("ryan_library.functions.loguru_helpers.logger")
-    @patch("ryan_library.functions.loguru_helpers.add_file_sink")
-    def test_configure_serial_logging_with_file(self, mock_add_file, mock_logger):
-        """Test configure_serial_logging with file."""
-        loguru_helpers.configure_serial_logging(log_file="test.log")
 
-        mock_logger.remove.assert_called_once()
-        mock_logger.add.assert_called_once()  # Console
-        mock_add_file.assert_called_once_with(log_file="test.log")
+def test_configure_serial_logging_with_independent_levels() -> None:
+    with (
+        patch.object(loguru_helpers, "reset_logging") as mock_reset,
+        patch.object(loguru_helpers, "_add_console_sink") as mock_console,
+        patch.object(loguru_helpers, "add_file_sink") as mock_file,
+    ):
+        loguru_helpers.configure_serial_logging(
+            console_log_level="INFO",
+            log_file="test.log",
+            file_log_level="DEBUG",
+        )
 
-    @patch("ryan_library.functions.loguru_helpers.logger")
-    def test_add_file_sink(self, mock_logger):
-        """Test add_file_sink."""
-        with patch("os.getcwd", return_value="/tmp"):
-            loguru_helpers.add_file_sink("test.log")
+    mock_reset.assert_called_once_with()
+    mock_console.assert_called_once_with(level="INFO", forwarded=False)
+    mock_file.assert_called_once_with(log_file="test.log", file_log_level="DEBUG")
 
-            mock_logger.add.assert_called_once()
-            args, kwargs = mock_logger.add.call_args
-            # Check if path is absolute
-            assert "test.log" in str(kwargs["sink"])
 
-    @patch("ryan_library.functions.loguru_helpers.logger")
-    def test_log_exception(self, mock_logger):
-        """Test log_exception."""
-        loguru_helpers.log_exception("Error details")
-        mock_logger.exception.assert_called_once()
-        assert "Error details" in mock_logger.exception.call_args[0][0]
+def test_configure_notebook_logging_is_reconfigurable() -> None:
+    with (
+        patch.object(loguru_helpers, "reset_logging") as mock_reset,
+        patch.object(loguru_helpers, "_add_console_sink") as mock_console,
+    ):
+        loguru_helpers.configure_notebook_logging(console_log_level="SUCCESS")
+        loguru_helpers.configure_notebook_logging(console_log_level="DEBUG")
 
-    @patch("ryan_library.functions.loguru_helpers.worker_configurer")
-    def test_worker_initializer(self, mock_configurer):
-        """Test worker_initializer."""
-        mock_queue = MagicMock()
+    assert mock_reset.call_count == 2
+    assert mock_console.call_count == 2
+    assert mock_console.call_args.kwargs["sink"] is loguru_helpers.sys.stderr
+    assert mock_console.call_args.kwargs["format_string"] == loguru_helpers.NOTEBOOK_FORMAT
+
+
+def test_worker_initializer_uses_queue_capture_level_by_default() -> None:
+    mock_queue = MagicMock()
+    with patch.object(loguru_helpers, "worker_configurer") as mock_configurer:
         loguru_helpers.worker_initializer(mock_queue)
-        mock_configurer.assert_called_once_with(queue=mock_queue, level="DEBUG")
+    mock_configurer.assert_called_once_with(queue=mock_queue, level=None)
 
-    @patch("ryan_library.functions.loguru_helpers.logger")
-    def test_worker_configurer(self, mock_logger):
-        """Test worker_configurer."""
-        mock_queue = MagicMock()
+
+def test_worker_configurer_serializes_minimal_real_record_shape() -> None:
+    mock_queue = MagicMock()
+    mock_queue.capture_log_level = "DEBUG"
+    with patch.object(loguru_helpers, "logger") as mock_logger:
+        mock_logger.level.side_effect = lambda name: SimpleNamespace(name=name, no={"DEBUG": 10}[name])
         loguru_helpers.worker_configurer(mock_queue)
 
-        mock_logger.remove.assert_called_once()
-        mock_logger.add.assert_called_once()
-        # Check if sink is passed
-        args, kwargs = mock_logger.add.call_args
-        sink = kwargs.get("sink") or args[0]
-        # Just verify it's an object with a write method, which QueueSink has
-        assert hasattr(sink, "write")
-
-    def test_setup_logger_factory(self):
-        """Test setup_logger factory function."""
-        with patch("ryan_library.functions.loguru_helpers.LoguruMultiprocessingLogger") as MockLogger:
-            loguru_helpers.setup_logger(console_log_level="DEBUG", log_file="test.log")
-            MockLogger.assert_called_once()
-            _, kwargs = MockLogger.call_args
-            assert kwargs["console_log_level"] == "DEBUG"
-            assert "test.log" in str(kwargs["log_file"])
-
-    @patch("ryan_library.functions.loguru_helpers.logger")
-    @patch("ryan_library.functions.loguru_helpers.pickle")
-    def test_listener_process_loop(self, mock_pickle, mock_logger):
-        """Test listener_process loop processing."""
-        mock_queue = MagicMock()
-
-        # Simulate queue items: 1 record (any object), then None to exit
-        mock_queue.get.side_effect = [b"somebytes", None]
-
-        # Mock pickle.loads to return a dict-like object
-        record_dict = {
-            "level": MagicMock(name="INFO"),
-            "message": "Test Message",
-            "module": "mod",
-            "function": "func",
-            "line": 10,
+    sink = mock_logger.add.call_args.kwargs["sink"]
+    message = SimpleNamespace(
+        record={
+            "level": SimpleNamespace(name="INFO"),
+            "message": "worker message",
+            "module": "worker_module",
+            "function": "worker_function",
+            "line": 42,
             "exception": None,
-            "file": "other.py",
         }
-        record_dict["level"].name = "INFO"
+    )
+    sink.write(message)
 
-        mock_pickle.loads.return_value = record_dict
+    payload = pickle.loads(mock_queue.put.call_args.args[0])
+    assert payload == {
+        "level": "INFO",
+        "message": "worker message",
+        "module": "worker_module",
+        "function": "worker_function",
+        "line": 42,
+        "exception": None,
+    }
 
+
+def test_listener_reconstructs_origin_once() -> None:
+    mock_queue = MagicMock()
+    payload: loguru_helpers.SerializedLogRecord = {
+        "level": "INFO",
+        "message": "Test Message",
+        "module": "mod",
+        "function": "func",
+        "line": 10,
+        "exception": None,
+    }
+    mock_queue.get.side_effect = [pickle.dumps(payload), None]
+
+    with (
+        patch.object(loguru_helpers, "reset_logging"),
+        patch.object(loguru_helpers, "_add_console_sink"),
+        patch.object(loguru_helpers, "logger") as mock_logger,
+    ):
         loguru_helpers.listener_process(mock_queue)
 
-        # Verify logger.log was called
-        mock_logger.log.assert_called()
-        args, _ = mock_logger.log.call_args
-        assert args[0] == "INFO"
-        assert "mod:func:10 - Test Message" in args[1]
+    mock_logger.log.assert_called_once_with("INFO", "mod:func:10 - Test Message")
 
-    @patch("ryan_library.functions.loguru_helpers.logger")
-    @patch("ryan_library.functions.loguru_helpers.pickle")
-    def test_listener_process_filter_self(self, mock_pickle, mock_logger):
-        """Test listener_process filters logs from loguru_helpers.py."""
-        mock_queue = MagicMock()
-        mock_queue.get.side_effect = [b"bytes", None]
 
-        record_dict = {"file": "loguru_helpers.py"}
-        mock_pickle.loads.return_value = record_dict
+def test_setup_logger_passes_both_sink_levels() -> None:
+    with patch.object(loguru_helpers, "LoguruMultiprocessingLogger") as mock_context:
+        loguru_helpers.setup_logger(
+            console_log_level="INFO",
+            log_file="test.log",
+            file_log_level="TRACE",
+        )
 
-        loguru_helpers.listener_process(mock_queue)
+    kwargs = mock_context.call_args.kwargs
+    assert kwargs["console_log_level"] == "INFO"
+    assert kwargs["file_log_level"] == "TRACE"
+    assert str(kwargs["log_file"]).endswith("test.log")
 
-        # Should NOT log
-        mock_logger.log.assert_not_called()
-        mock_logger.opt.assert_not_called()
+
+def test_log_exception_uses_rendered_message() -> None:
+    with patch.object(loguru_helpers, "logger") as mock_logger:
+        loguru_helpers.log_exception(": details")
+    mock_logger.exception.assert_called_once_with("An exception occurred: details")

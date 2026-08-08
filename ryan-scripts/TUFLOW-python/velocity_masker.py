@@ -65,7 +65,7 @@ def extract_aep_label(path: Path) -> str:
         if parser.aep:
             return parser.aep.text_repr
     except Exception:
-        logger.warning("Unable to parse AEP token from {}", path.name)
+        logger.warning("Unable to parse AEP token from {}".format(path.name))
     return "Unknown"
 
 
@@ -75,12 +75,12 @@ def ensure_original_backup(velocity_path: Path) -> Path | None:
         return original_path
     if not velocity_path.exists():
         logger.error(
-            "Neither {velocity} nor {backup} exists; cannot obtain a velocity source.",
-            velocity=velocity_path.name,
-            backup=original_path.name,
+            "Neither {velocity} nor {backup} exists; cannot obtain a velocity source.".format(
+                velocity=velocity_path.name, backup=original_path.name
+            ),
         )
         return None
-    logger.info("Backing up {} -> {}", velocity_path.name, original_path.name)
+    logger.info("Backing up {} -> {}".format(velocity_path.name, original_path.name))
     velocity_path.rename(target=original_path)
     return original_path
 
@@ -129,14 +129,11 @@ def process_velocity_file(velocity_path: Path, depth_path: Path, threshold: floa
     if original_path is None:
         return False
     if not depth_path.exists():
-        logger.error("Missing depth raster for {} ({}).", velocity_path.name, depth_path.name)
+        logger.error("Missing depth raster for {} ({}).".format(velocity_path.name, depth_path.name))
         return False
 
     logger.info(
-        "[{}] Processing {} with mask {}",
-        aep_label,
-        velocity_path.name,
-        depth_path.name,
+        "[{}] Processing {} with mask {}".format(aep_label, velocity_path.name, depth_path.name),
     )
     try:
         with rasterio.open(original_path) as vel_ds:
@@ -151,31 +148,32 @@ def process_velocity_file(velocity_path: Path, depth_path: Path, threshold: floa
             dst.write(masked_data)
 
         logger.success(
-            "[{aep}] Updated {file} (kept {kept}/{total} cells, {pct:.1f}%).",
-            aep=aep_label,
-            file=velocity_path.name,
-            kept=kept_cells,
-            total=total_cells,
-            pct=100 * kept_cells / total_cells if total_cells else 0.0,
+            "[{aep}] Updated {file} (kept {kept}/{total} cells, {pct:.1f}%).".format(
+                aep=aep_label,
+                file=velocity_path.name,
+                kept=kept_cells,
+                total=total_cells,
+                pct=100 * kept_cells / total_cells if total_cells else 0.0,
+            ),
         )
         return True
     except Exception:
-        logger.exception("Failed to process %s", velocity_path.name)
+        logger.exception(f"Failed to process {velocity_path.name}")
         return False
 
 
 def process_root(root: Path, threshold: float) -> None:
     resolved: Path = root.expanduser().resolve()
     if not resolved.exists():
-        logger.error("Skipping {} because it does not exist.", resolved)
+        logger.error("Skipping {} because it does not exist.".format(resolved))
         return
 
     velocity_files: list[Path] = sorted(resolved.glob(pattern="*_V_Max.tif"))
     if not velocity_files:
-        logger.warning("No *_V_Max.tif rasters found under {}", resolved)
+        logger.warning("No *_V_Max.tif rasters found under {}".format(resolved))
         return
 
-    logger.info("Found {} velocity rasters in {}", len(velocity_files), resolved)
+    logger.info("Found {} velocity rasters in {}".format(len(velocity_files), resolved))
     success_count = 0
     for velocity_path in velocity_files:
         depth_path: Path = derive_depth_path(velocity_path=velocity_path)
@@ -189,20 +187,19 @@ def process_root(root: Path, threshold: float) -> None:
             success_count += 1
 
     if success_count == len(velocity_files):
-        logger.success("Completed masking for all {} rasters in {}.", success_count, resolved)
+        logger.success("Completed masking for all {} rasters in {}.".format(success_count, resolved))
     else:
         logger.error(
-            "Masked {kept} of {total} rasters in {root}; please review the log for failures.",
-            kept=success_count,
-            total=len(velocity_files),
-            root=resolved,
+            "Masked {kept} of {total} rasters in {root}; please review the log for failures.".format(
+                kept=success_count, total=len(velocity_files), root=resolved
+            ),
         )
 
 
 def main() -> None:
     log_file_str: str | None = str(LOG_FILE) if LOG_FILE else None
     with setup_logger(console_log_level=LOG_LEVEL.upper(), log_file=log_file_str):
-        logger.info("Velocity masker starting for {} folder(s).", len(TARGET_DIRECTORIES))
+        logger.info("Velocity masker starting for {} folder(s).".format(len(TARGET_DIRECTORIES)))
         for target in TARGET_DIRECTORIES:
             process_root(root=target, threshold=DEPTH_THRESHOLD)
 

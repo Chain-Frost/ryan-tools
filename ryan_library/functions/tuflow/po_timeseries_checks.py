@@ -126,7 +126,7 @@ def parse_run_meta_from_filename(path: Path) -> dict[str, str]:
 
 
 def _normalize_value(value: str, case_sensitive: bool) -> str:
-    cleaned = value.strip()
+    cleaned: str = value.strip()
     return cleaned if case_sensitive else cleaned.lower()
 
 
@@ -139,16 +139,16 @@ def _datatype_allowed(dtype_name: str, include_set: set[str], case_sensitive: bo
         return False
     if not include_set:
         return False
-    key = _normalize_value(value=dtype_name, case_sensitive=case_sensitive)
+    key: str = _normalize_value(value=dtype_name, case_sensitive=case_sensitive)
     return key in include_set
 
 
 def _location_allowed(loc_name: str, include_set: set[str], exclude_set: set[str], case_sensitive: bool) -> bool:
     if not loc_name:
         return False
-    key = _normalize_value(value=loc_name, case_sensitive=case_sensitive)
-    inc_ok = (not include_set) or (key in include_set)
-    exc_hit = key in exclude_set if exclude_set else False
+    key: str = _normalize_value(value=loc_name, case_sensitive=case_sensitive)
+    inc_ok: bool = (not include_set) or (key in include_set)
+    exc_hit: bool = key in exclude_set if exclude_set else False
     return inc_ok and not exc_hit
 
 
@@ -160,7 +160,7 @@ def _parse_po_csv(path: Path) -> tuple[PoCsvData | None, str | None, bool]:
         pass
 
     try:
-        df: DataFrame = pd.read_csv(  # type: ignore
+        df: DataFrame = pd.read_csv(
             filepath_or_buffer=path,
             header=[0, 1],
             low_memory=False,
@@ -187,8 +187,8 @@ def _parse_po_csv(path: Path) -> tuple[PoCsvData | None, str | None, bool]:
     if df.shape[1] < 1:
         return None, None, False
 
-    time_hours = pd.to_numeric(df.iloc[:, 0], errors="coerce")  # type: ignore
-    time_valid = time_hours.dropna()
+    time_hours: Series = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+    time_valid: Series = time_hours.dropna()
     if time_valid.empty:
         return None, "TIME_PARSE_FAIL", True
 
@@ -205,7 +205,7 @@ def _parse_q_csv(path: Path) -> tuple[QCsvData | None, str | None, bool]:
         pass
 
     try:
-        df: DataFrame = pd.read_csv(  # type: ignore
+        df: DataFrame = pd.read_csv(
             filepath_or_buffer=path,
             header=0,
             low_memory=False,
@@ -229,7 +229,7 @@ def _parse_q_csv(path: Path) -> tuple[QCsvData | None, str | None, bool]:
     if df.shape[1] == 0:
         return None, "NO_COLUMNS", True
 
-    first_column = str(df.columns[0]).strip()
+    first_column: str = str(df.columns[0]).strip()
     time_aliases: set[str] = {"Time", "Time (h)", "Time(h)"}
     if first_column not in time_aliases and df.shape[1] > 1:
         df = df.iloc[:, 1:].copy()
@@ -245,7 +245,7 @@ def _parse_q_csv(path: Path) -> tuple[QCsvData | None, str | None, bool]:
 
     cleaned_columns: list[str] = []
     for column in df.columns:
-        column_text = str(column).strip()
+        column_text: str = str(column).strip()
         if column_text == "Time":
             cleaned_columns.append("Time")
             continue
@@ -256,11 +256,11 @@ def _parse_q_csv(path: Path) -> tuple[QCsvData | None, str | None, bool]:
         cleaned_columns.append(column_text)
     df.columns = cleaned_columns
 
-    time_hours = pd.to_numeric(df["Time"], errors="coerce")  # type: ignore
+    time_hours: Series = pd.to_numeric(df["Time"], errors="coerce")
     if time_hours.dropna().empty:
         return None, "TIME_PARSE_FAIL", True
 
-    value_columns = [column for column in df.columns if column != "Time"]
+    value_columns: list[str] = [column for column in df.columns if column != "Time"]
     if not value_columns:
         return None, None, False
 
@@ -312,7 +312,7 @@ def _evaluate_stability_series(
     time_hours: Series,
     config: StabilityCheckConfig,
 ) -> StabilityCheckResult:
-    valid_mask = values_raw.notna() & time_hours.notna()
+    valid_mask: Series = values_raw.notna() & time_hours.notna()
     points = int(valid_mask.sum())
 
     if points == 0:
@@ -326,8 +326,8 @@ def _evaluate_stability_series(
             points=0,
         )
 
-    values_valid = values_raw.loc[valid_mask].astype("float64")
-    time_valid = time_hours.loc[valid_mask].astype("float64")
+    values_valid: Series = values_raw.loc[valid_mask].astype(dtype="float64")
+    time_valid: Series = time_hours.loc[valid_mask].astype(dtype="float64")
     start_time = float(time_valid.iloc[0])
     end_time = float(time_valid.iloc[-1])
     start_value = float(values_valid.iloc[0])
@@ -435,9 +435,9 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
     run_meta: dict[str, str] = parse_run_meta_from_filename(path)
     run_code: str = run_meta.get("trim_run_code", path.stem)
 
-    parsed, status, emit_row = _parse_po_csv(path=path)
+    parsed, parse_status, emit_row = _parse_po_csv(path=path)
     if parsed is None:
-        if status and emit_row:
+        if parse_status is not None and emit_row:
             results.append(
                 PeakCheckResult(
                     file=str(path),
@@ -455,34 +455,41 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
                     end_minus_start=None,
                     peak_above_start=None,
                     end_pct_of_peak=None,
-                    status=status,
+                    status=parse_status,
                 )
             )
         return results
 
-    dtype_include = _normalize_filter(config.datatype_include, config.datatype_case_sensitive)
-    loc_include = _normalize_filter(config.location_include, config.location_case_sensitive)
-    loc_exclude = _normalize_filter(config.location_exclude, config.location_case_sensitive)
+    dtype_include: set[str] = _normalize_filter(config.datatype_include, config.datatype_case_sensitive)
+    loc_include: set[str] = _normalize_filter(config.location_include, config.location_case_sensitive)
+    loc_exclude: set[str] = _normalize_filter(config.location_exclude, config.location_case_sensitive)
 
-    df = parsed.df
-    time_hours = parsed.time_hours
-    end_row_idx = parsed.end_row_idx
-    end_hours = parsed.end_hours
+    df: DataFrame = parsed.df
+    time_hours: Series = parsed.time_hours
+    end_row_idx: int = parsed.end_row_idx
+    end_hours: float = parsed.end_hours
 
     time_col_idx = 0
     for j, (dtype_name, loc_name) in enumerate(df.columns):
         if j == time_col_idx:
             continue
 
-        dtype_str = "" if pd.isna(dtype_name) else str(dtype_name).strip()
-        loc_str = "" if pd.isna(loc_name) else str(loc_name).strip()
+        dtype_str: str = "" if pd.isna(dtype_name) else str(dtype_name).strip()
+        loc_str: str = "" if pd.isna(loc_name) else str(loc_name).strip()
 
-        if not _datatype_allowed(dtype_str, dtype_include, config.datatype_case_sensitive):
+        if not _datatype_allowed(
+            dtype_name=dtype_str, include_set=dtype_include, case_sensitive=config.datatype_case_sensitive
+        ):
             continue
-        if not _location_allowed(loc_str, loc_include, loc_exclude, config.location_case_sensitive):
+        if not _location_allowed(
+            loc_name=loc_str,
+            include_set=loc_include,
+            exclude_set=loc_exclude,
+            case_sensitive=config.location_case_sensitive,
+        ):
             continue
 
-        values_raw = pd.to_numeric(df.iloc[:, j], errors="coerce")  # type: ignore
+        values_raw: Series = pd.to_numeric(df.iloc[:, j], errors="coerce")
         if values_raw.notna().sum() == 0:
             results.append(
                 PeakCheckResult(
@@ -506,19 +513,19 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
             )
             continue
 
-        first_valid = values_raw.dropna()
+        first_valid: Series = values_raw.dropna()
         start_value = float(first_valid.iloc[0])
 
         end_cell = values_raw.iloc[end_row_idx]
         end_value: float | None = float(end_cell) if pd.notna(end_cell) else None
         end_minus_start: float | None = (end_value - start_value) if end_value is not None else None
 
-        values_rel = values_raw - start_value
-        abs_rel = values_rel.abs()
+        values_rel: Series = values_raw - start_value
+        abs_rel: Series = values_rel.abs()
         try:
             peak_idx = int(abs_rel.idxmax(skipna=True))
         except Exception:
-            peak_idx = int(np.nanargmax(abs_rel.to_numpy()))  # type: ignore
+            peak_idx = int(np.nanargmax(abs_rel.to_numpy()))
 
         peak_rel = values_rel.iloc[peak_idx]
         peak_value = values_raw.iloc[peak_idx]
@@ -529,7 +536,7 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
         peak_hours_f: float | None = float(peak_time_val) if pd.notna(peak_time_val) else None
 
         if peak_rel_f is None or abs(peak_rel_f) <= config.flat_tol:
-            peak_kind = "flat"
+            peak_kind: str = "flat"
         else:
             peak_kind = "max" if peak_rel_f > 0.0 else "min"
 
@@ -545,11 +552,11 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
         peak_above_start: float | None = (peak_value_f - start_value) if (peak_value_f is not None) else None
 
         if peak_hours_f is None:
-            status = "TIME_PARSE_FAIL"
+            peak_status: str = "TIME_PARSE_FAIL"
             hours_from_end: float | None = None
         else:
             hours_from_end = end_hours - peak_hours_f
-            status = (
+            peak_status = (
                 "WARN_1H"
                 if hours_from_end < config.warn_1hour
                 else ("WARN_2H" if hours_from_end < config.warn_2hours else "OK")
@@ -572,7 +579,7 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
                 end_minus_start=end_minus_start,
                 peak_above_start=peak_above_start,
                 end_pct_of_peak=end_pct_of_peak,
-                status=status,
+                status=peak_status,
             )
         )
 
@@ -585,15 +592,15 @@ def analyze_stability_csv(path: Path, config: StabilityCheckConfig) -> list[Stab
     run_meta: dict[str, str] = parse_run_meta_from_filename(path)
     run_code: str = run_meta.get("trim_run_code", path.stem)
 
-    parsed, status, emit_row = _parse_po_csv(path=path)
+    parsed, parse_status, emit_row = _parse_po_csv(path=path)
     if parsed is None:
-        if status and emit_row:
+        if parse_status is not None and emit_row:
             results.append(
                 _build_empty_stability_result(
                     path=path,
                     run_code=run_code,
                     run_meta=run_meta,
-                    status=status,
+                    status=parse_status,
                 )
             )
         return results
@@ -610,15 +617,15 @@ def analyze_stability_csv(path: Path, config: StabilityCheckConfig) -> list[Stab
         if j == time_col_idx:
             continue
 
-        dtype_str = "" if pd.isna(dtype_name) else str(dtype_name).strip()
-        loc_str = "" if pd.isna(loc_name) else str(loc_name).strip()
+        dtype_str: str = "" if pd.isna(dtype_name) else str(dtype_name).strip()
+        loc_str: str = "" if pd.isna(loc_name) else str(loc_name).strip()
 
         if not _datatype_allowed(dtype_str, dtype_include, config.datatype_case_sensitive):
             continue
         if not _location_allowed(loc_str, loc_include, loc_exclude, config.location_case_sensitive):
             continue
 
-        values_raw = pd.to_numeric(df.iloc[:, j], errors="coerce")  # type: ignore
+        values_raw: Series = pd.to_numeric(df.iloc[:, j], errors="coerce")
         results.append(
             _evaluate_stability_series(
                 path=path,
@@ -641,36 +648,47 @@ def analyze_stability_q_csv(path: Path, config: StabilityCheckConfig) -> list[St
     run_meta: dict[str, str] = parse_run_meta_from_filename(path)
     run_code: str = run_meta.get("trim_run_code", path.stem)
 
-    parsed, status, emit_row = _parse_q_csv(path=path)
+    parsed, parse_status, emit_row = _parse_q_csv(path=path)
     if parsed is None:
-        if status and emit_row:
+        if parse_status is not None and emit_row:
             results.append(
                 _build_empty_stability_result(
                     path=path,
                     run_code=run_code,
                     run_meta=run_meta,
-                    status=status,
+                    status=parse_status,
                     datatype="Q",
                 )
             )
         return results
 
-    dtype_include: set[str] = _normalize_filter(config.datatype_include, config.datatype_case_sensitive)
-    loc_include: set[str] = _normalize_filter(config.location_include, config.location_case_sensitive)
-    loc_exclude: set[str] = _normalize_filter(config.location_exclude, config.location_case_sensitive)
+    dtype_include: set[str] = _normalize_filter(
+        values=config.datatype_include, case_sensitive=config.datatype_case_sensitive
+    )
+    loc_include: set[str] = _normalize_filter(
+        values=config.location_include, case_sensitive=config.location_case_sensitive
+    )
+    loc_exclude: set[str] = _normalize_filter(
+        values=config.location_exclude, case_sensitive=config.location_case_sensitive
+    )
 
-    if not _datatype_allowed("Q", dtype_include, config.datatype_case_sensitive):
+    if not _datatype_allowed(dtype_name="Q", include_set=dtype_include, case_sensitive=config.datatype_case_sensitive):
         return results
 
     for column in parsed.df.columns:
         if column == "Time":
             continue
 
-        loc_str = str(column).strip()
-        if not _location_allowed(loc_str, loc_include, loc_exclude, config.location_case_sensitive):
+        loc_str: str = str(column).strip()
+        if not _location_allowed(
+            loc_name=loc_str,
+            include_set=loc_include,
+            exclude_set=loc_exclude,
+            case_sensitive=config.location_case_sensitive,
+        ):
             continue
 
-        values_raw = pd.to_numeric(parsed.df[column], errors="coerce")  # type: ignore
+        values_raw: Series = pd.to_numeric(arg=parsed.df[column], errors="coerce")
         results.append(
             _evaluate_stability_series(
                 path=path,

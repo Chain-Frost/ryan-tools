@@ -328,9 +328,9 @@ class ExcelExporter:
                         # Check for unique column names
                         if not df.columns.is_unique:
                             logger.error(
-                                "Duplicate column names in DataFrame for sheet '{}'. "
-                                "Ensure all column names are unique.",
-                                sheet,
+                                "Duplicate column names in DataFrame for sheet '{}'. Ensure all column names are unique.".format(
+                                    sheet
+                                ),
                             )
                             raise ValueError(f"Duplicate column names found in sheet '{sheet}'.")
 
@@ -651,7 +651,9 @@ class ExcelExporter:
                 )
                 col_letter: str = get_column_letter(col_idx + 1)
                 worksheet.column_dimensions[col_letter].width = width
-                logger.debug(f"Set width for column '{col_name}' ({col_letter}) in sheet '{sheet_name}' to {width}.")
+                logger.debug(
+                    "Set width for column '{}' ({}) in sheet '{}' to {}.", col_name, col_letter, sheet_name, width
+                )
             except TypeError as e:
                 logger.exception(f"TypeError when setting width for column '{col_name}' in sheet '{sheet_name}': {e}")
             except AssertionError as e:
@@ -670,7 +672,7 @@ class ExcelExporter:
             current_width: float = worksheet.column_dimensions[col_letter].width
             if width > current_width:
                 worksheet.column_dimensions[col_letter].width = width
-                logger.debug(f"Auto-adjusted width for column '{col_letter}' to {width}.")
+                logger.debug("Auto-adjusted width for column '{}' to {}.", col_letter, width)
 
     def _apply_default_column_widths(self, worksheet: Worksheet, df: pd.DataFrame, sheet_name: str) -> None:
         """Apply hard-coded default widths to known columns after auto-sizing has run."""

@@ -41,16 +41,21 @@ def test_is_notebook_true() -> None:
 
 
 def test_init_notebook_logging() -> None:
-    with patch("ryan_library.functions.tuflow.notebook_helpers.logger") as mock_logger:
-        import ryan_library.functions.tuflow.notebook_helpers as nh
+    with patch("ryan_library.functions.tuflow.notebook_helpers.configure_notebook_logging") as mock_configure:
+        init_notebook_logging("SUCCESS", log_file="notebook.log", file_log_level="DEBUG")
+        init_notebook_logging("INFO")
 
-        nh._notebook_logging_configured = False  # pyright: ignore[reportPrivateUsage]
-
-        init_notebook_logging("DEBUG")
-        mock_logger.remove.assert_called_once()
-        mock_logger.add.assert_called_once()
-        init_notebook_logging("DEBUG")
-        assert mock_logger.remove.call_count == 1
+    assert mock_configure.call_count == 2
+    mock_configure.assert_any_call(
+        console_log_level="SUCCESS",
+        log_file="notebook.log",
+        file_log_level="DEBUG",
+    )
+    mock_configure.assert_any_call(
+        console_log_level="INFO",
+        log_file=None,
+        file_log_level="DEBUG",
+    )
 
 
 def test_resolve_parallel() -> None:

@@ -1,9 +1,38 @@
 # ryan_library/functions/process_12D_culverts.py
-from typing import Type
-import pandas as pd
 import re
 from pathlib import Path
+from typing import TypedDict, overload
+
+import pandas as pd
 from loguru import logger
+
+
+class RptCulvertRecord(TypedDict):
+    """Culvert fields extracted from a 12d RPT file."""
+
+    Name: str
+    Angle: str
+    Angle_Degrees: float
+
+
+TxtCulvertRecord = TypedDict(
+    "TxtCulvertRecord",
+    {
+        "Name": str | None,
+        "US_X": float,
+        "US_Y": float,
+        "DS_X": float,
+        "DS_Y": float,
+        "Invert US": float,
+        "Invert DS": float,
+        "Diameter": float,
+        "Width": float,
+        "Number of Pipes": int,
+        "Separation": float,
+        "Pipe Type": str,
+        "Direction": str,
+    },
+)
 
 
 def get_encoding(file_path: Path) -> str:
@@ -26,7 +55,7 @@ def get_encoding(file_path: Path) -> str:
         return "utf-8"
 
 
-def dms_to_decimal(dms_str: str) -> float:
+def dms_to_decimal(dms_str: object) -> float:
     """
     Converts a DMS (Degrees, Minutes, Seconds) string to decimal degrees.
 
@@ -36,6 +65,10 @@ def dms_to_decimal(dms_str: str) -> float:
     Returns:
         float: Angle in decimal degrees.
     """
+    if not isinstance(dms_str, str):
+        logger.error(f"DMS value must be text, received {type(dms_str).__name__}. Setting angle_degrees to 0.0.")
+        return 0.0
+
     try:
         dms_clean = re.sub(r'[°\'"]', " ", dms_str).strip()
         parts = dms_clean.split()
@@ -50,7 +83,15 @@ def dms_to_decimal(dms_str: str) -> float:
         return 0.0
 
 
-def get_field(upstream_val: str, downstream_val: str, default=None) -> str:
+@overload
+def get_field(upstream_val: object, downstream_val: object, default: str) -> str: ...
+
+
+@overload
+def get_field(upstream_val: object, downstream_val: object, default: None = None) -> str | None: ...
+
+
+def get_field(upstream_val: object, downstream_val: object, default: str | None = None) -> str | None:
     """
     Helper function to get the field value from upstream or downstream.
     Prefers upstream value; if not available, uses downstream value.
@@ -71,7 +112,9 @@ def get_field(upstream_val: str, downstream_val: str, default=None) -> str:
         return default
 
 
-def extract_numeric(value: str, field_name: str, culvert_name: str, dtype: type, default: float | int):
+def extract_numeric[T: (int, float)](
+    value: str, field_name: str, culvert_name: str | None, dtype: type[T], default: T
+) -> T:
     """
     Converts a string value to a numeric type with error handling.
 
@@ -87,12 +130,12 @@ def extract_numeric(value: str, field_name: str, culvert_name: str, dtype: type,
     """
     try:
         return dtype(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         logger.warning(f"Invalid {field_name} value '{value}' for culvert '{culvert_name}'. Setting to {default}.")
         return default
 
 
-def parse_rpt_file(rpt_file_path: Path) -> list[dict[str, any]]:
+def parse_rpt_file(rpt_file_path: Path) -> list[RptCulvertRecord]:
     """
     Parses a .rpt file to extract culvert names and angles.
 
@@ -100,9 +143,9 @@ def parse_rpt_file(rpt_file_path: Path) -> list[dict[str, any]]:
         rpt_file_path (Path): Path to the .rpt file.
 
     Returns:
-        list[dict[str, any]]: A list of dictionaries with 'Name', 'Angle', and 'Angle_Degrees'.
+        list[RptCulvertRecord]: Culvert names and angles extracted from the report.
     """
-    culverts = []
+    culverts: list[RptCulvertRecord] = []
     line_pattern = re.compile(
         r'^\s*\d+\.\d+\s+\d+\.\d+\s+(\d+°\s*\d+\'\s*\d+")\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+[-+]?\d+\.\d+\s+"([^"]+)"$'
     )
@@ -121,14 +164,14 @@ def parse_rpt_file(rpt_file_path: Path) -> list[dict[str, any]]:
                     angle = angle if angle else "0°0'0\""
                     angle_degrees = dms_to_decimal(angle)
                     culverts.append({"Name": name, "Angle": angle, "Angle_Degrees": angle_degrees})
-                    logger.debug(f"Parsed Culvert - Name: {name}, Angle: {angle}, Angle_Degrees: {angle_degrees}")
+                    logger.debug("Parsed Culvert - Name: {}, Angle: {}, Angle_Degrees: {}", name, angle, angle_degrees)
     except Exception as e:
         logger.error(f"Error processing {rpt_file_path.relative_to(rpt_file_path.parent)}: {e}")
 
     return culverts
 
 
-def parse_txt_file(txt_file_path: Path) -> list[dict[str, any]]:
+def parse_txt_file(txt_file_path: Path) -> list[TxtCulvertRecord]:
     """
     Parses a .txt file to extract detailed culvert information.
 
@@ -136,9 +179,9 @@ def parse_txt_file(txt_file_path: Path) -> list[dict[str, any]]:
         txt_file_path (Path): Path to the .txt file.
 
     Returns:
-        list[dict[str, any]]: A list of dictionaries with culvert details.
+        list[TxtCulvertRecord]: Culvert details extracted from the text export.
     """
-    culverts = []
+    culverts: list[TxtCulvertRecord] = []
     encoding = get_encoding(txt_file_path)
     logger.info(f"Detected encoding for {txt_file_path.relative_to(txt_file_path.parent)}: {encoding}")
 
@@ -220,7 +263,7 @@ def parse_txt_file(txt_file_path: Path) -> list[dict[str, any]]:
             number_of_pipes = extract_numeric(number_of_pipes, "Number of Pipes", name, int, 0)
             separation = extract_numeric(separation, "Separation", name, float, 0.0)
 
-            culvert = {
+            culvert: TxtCulvertRecord = {
                 "Name": name,
                 "US_X": us_x,
                 "US_Y": us_y,
@@ -237,7 +280,7 @@ def parse_txt_file(txt_file_path: Path) -> list[dict[str, any]]:
             }
 
             culverts.append(culvert)
-            logger.debug(f"Parsed TXT Culvert - {culvert}")
+            logger.debug("Parsed TXT Culvert - {}", culvert)
 
     except Exception as e:
         logger.error(f"Error processing {txt_file_path.relative_to(txt_file_path.parent)}: {e}")
@@ -245,13 +288,13 @@ def parse_txt_file(txt_file_path: Path) -> list[dict[str, any]]:
     return culverts
 
 
-def combine_data(rpt_data: list[dict[str, any]], txt_data: list[dict[str, any]]) -> pd.DataFrame:
+def combine_data(rpt_data: list[RptCulvertRecord], txt_data: list[TxtCulvertRecord]) -> pd.DataFrame:
     """
     Combines .rpt and .txt data based on the 'Name' field.
 
     Args:
-        rpt_data (list[dict[str, any]]): Data from .rpt files.
-        txt_data (list[dict[str, any]]): Data from .txt files.
+        rpt_data: Data from .rpt files.
+        txt_data: Data from .txt files.
 
     Returns:
         pd.DataFrame: Combined DataFrame with culvert information.
@@ -265,10 +308,19 @@ def combine_data(rpt_data: list[dict[str, any]], txt_data: list[dict[str, any]])
     combined_df = pd.merge(rpt_df, txt_df, on="Name", how="outer", suffixes=("_rpt", "_txt"))
 
     combined_df["Angle"] = combined_df["Angle"].fillna("0°0'0\"")
-    combined_df["Angle_Degrees"] = combined_df.apply(
-        lambda row: (row["Angle_Degrees"] if pd.notna(row["Angle_Degrees"]) else dms_to_decimal(row["Angle"])),
-        axis=1,
-    )
+
+    def resolve_angle_degrees(row: pd.Series) -> float:
+        angle_degrees: object = row.get("Angle_Degrees")
+        if isinstance(angle_degrees, (str, int, float)):
+            try:
+                numeric_angle = float(angle_degrees)
+                if not pd.isna(numeric_angle):
+                    return numeric_angle
+            except ValueError:
+                pass
+        return dms_to_decimal(row.get("Angle"))
+
+    combined_df["Angle_Degrees"] = combined_df.apply(resolve_angle_degrees, axis=1)
 
     return combined_df
 
@@ -284,8 +336,8 @@ def process_culvert_files(rpt_files: list[Path], txt_files: list[Path]) -> pd.Da
     Returns:
         pd.DataFrame: Combined DataFrame with all culverts.
     """
-    all_rpt_data = []
-    all_txt_data = []
+    all_rpt_data: list[RptCulvertRecord] = []
+    all_txt_data: list[TxtCulvertRecord] = []
 
     for rpt_file in rpt_files:
         logger.info(f"Processing RPT file: {rpt_file.name}")

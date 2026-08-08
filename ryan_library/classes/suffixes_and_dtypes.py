@@ -99,8 +99,9 @@ class ProcessingParts:
                     if processor_module is None:
                         processor_module = module_value.strip()
                     logger.warning(
-                        "'dataformat.module' in '{}' is deprecated; move it to 'processingParts.module'.",
-                        data_type_name,
+                        "'dataformat.module' in '{}' is deprecated; move it to 'processingParts.module'.".format(
+                            data_type_name
+                        ),
                     )
                 else:
                     message: str = (

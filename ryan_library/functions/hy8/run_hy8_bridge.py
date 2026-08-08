@@ -18,6 +18,10 @@ from run_hy8 import (
     FlowDefinition,
     FlowMethod,
     Hy8Project,
+    ImprovedInletEdgeType,
+    InletEdgeType,
+    InletEdgeType71,
+    InletType,
     RoadwaySurface,
     TailwaterDefinition,
     UnitSystem,
@@ -46,7 +50,7 @@ def _coerce_float(value: Any) -> float | None:
         return None
     try:
         number = float(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     if math.isnan(number):
         return None
@@ -156,7 +160,7 @@ class CulvertMaximumRecord:
         if height is None or height <= 0:
             missing.append("Height")
         if missing:
-            logger.warning("Skipping %s because %s are missing.", label, ", ".join(missing))
+            logger.warning(f"Skipping {label} because {', '.join(missing)} are missing.")
             return None
 
         assert q is not None
@@ -230,7 +234,7 @@ def maximums_dataframe_to_crossings(
             continue
         crossing: CulvertCrossing = build_crossing_from_record(record, options=cfg)
         crossings.append(crossing)
-    logger.info("Built %d HY-8 crossings from %d rows.", len(crossings), len(raw_rows))
+    logger.info(f"Built {len(crossings)} HY-8 crossings from {len(raw_rows)} rows.")
     return crossings
 
 
@@ -275,7 +279,7 @@ def _resolve_crossing_name(record: CulvertMaximumRecord, options: Hy8CulvertOpti
     template: str = options.crossing_name_template or "{internal}_{chan}"
     try:
         raw_name = template.format(internal=internal_slug, chan=chan_slug, record=record)
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         raw_name = f"{internal_slug}_{chan_slug}"
     return _slugify(raw_name, fallback=internal_slug)
 
@@ -360,10 +364,10 @@ def _build_barrel(record: CulvertMaximumRecord, options: Hy8CulvertOptions) -> C
     if record.mannings_n and record.mannings_n > 0:
         barrel.manning_n_top = record.mannings_n
         barrel.manning_n_bottom = record.mannings_n
-    barrel.inlet_type = options.default_inlet_type
-    barrel.inlet_edge_type = options.default_inlet_edge_type
-    barrel.inlet_edge_type71 = options.default_inlet_edge_type71
-    barrel.improved_inlet_edge_type = options.default_improved_inlet_edge_type
+    barrel.inlet_type = InletType(options.default_inlet_type)
+    barrel.inlet_edge_type = InletEdgeType(options.default_inlet_edge_type)
+    barrel.inlet_edge_type71 = InletEdgeType71(options.default_inlet_edge_type71)
+    barrel.improved_inlet_edge_type = ImprovedInletEdgeType(options.default_improved_inlet_edge_type)
     return barrel
 
 

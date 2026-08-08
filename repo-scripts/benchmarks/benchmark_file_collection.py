@@ -1,3 +1,5 @@
+"""Compare installed and working-tree TUFLOW file-collection performance."""
+
 from __future__ import annotations
 
 import argparse
@@ -5,8 +7,8 @@ import statistics
 import sys
 import time
 from pathlib import Path
-from typing import Iterable, Tuple
-
+from collections.abc import Callable, Iterable
+from typing import Any
 
 PATTERNS: str = "*.tlf"
 EXCLUDES: list[str] = ["*.hpc.tlf", "*.gpu.tlf"]
@@ -20,7 +22,7 @@ def purge_module_cache(prefix: str) -> None:
             sys.modules.pop(name, None)
 
 
-def load_apis(mode: str, repo_root: Path):
+def load_apis(mode: str, repo_root: Path) -> tuple[Callable[..., Any], Callable[..., Any], Any]:
     """Load the functions from either the installed package or the working tree."""
     if mode == "installed":
         repo_resolved: Path = repo_root.resolve()
@@ -43,10 +45,10 @@ def load_apis(mode: str, repo_root: Path):
     from ryan_library.functions.tuflow.tuflow_common import collect_files
     from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 
-    return find_files_parallel, collect_files, SuffixesConfig.get_instance(), logger
+    return find_files_parallel, collect_files, SuffixesConfig.get_instance()
 
 
-def benchmark_find(find_files_parallel, root: Path, runs: int) -> tuple[list[float], list[int]]:
+def benchmark_find(find_files_parallel: Callable[..., Any], root: Path, runs: int) -> tuple[list[float], list[int]]:
     durations: list[float] = []
     counts: list[int] = []
     for _ in range(runs):
@@ -58,8 +60,8 @@ def benchmark_find(find_files_parallel, root: Path, runs: int) -> tuple[list[flo
 
 
 def benchmark_collect(
-    collect_files,
-    suffixes_config,
+    collect_files: Callable[..., Any],
+    suffixes_config: Any,
     root: Path,
     runs: int,
 ) -> tuple[list[float], list[int]]:
@@ -81,33 +83,33 @@ def summarize(name: str, root: Path, durations: Iterable[float], counts: Iterabl
     def fmt(ns: float) -> str:
         return f"{ns * 1000:.1f} ms"
 
-    counts = list(counts)
-    durations = list(durations)
+    counts_list: list[int] = list(counts)
+    durations_list: list[float] = list(durations)
     print(f"\n{name} @ {root}")
-    print(f"  runs : {len(durations)}")
-    print(f"  count: min={min(counts)}, max={max(counts)}, mean={statistics.mean(counts):.1f}")
+    print(f"  runs : {len(durations_list)}")
+    print(f"  count: min={min(counts_list)}, max={max(counts_list)}, mean={statistics.mean(counts_list):.1f}")
     print(
         "  time : min={}, max={}, mean={}, median={}".format(
-            fmt(min(durations)),
-            fmt(max(durations)),
-            fmt(statistics.mean(durations)),
-            fmt(statistics.median(durations)),
+            fmt(min(durations_list)),
+            fmt(max(durations_list)),
+            fmt(statistics.mean(durations_list)),
+            fmt(statistics.median(durations_list)),
         )
     )
 
 
 def run_for_root(label: str, root: Path, runs: int) -> None:
-    repo_root: Path = Path(__file__).resolve().parent
-    modes: Tuple[str, ...] = ("installed", "local")
+    repo_root: Path = Path(__file__).resolve().parents[2]
+    modes: tuple[str, ...] = ("installed", "local")
 
     print(f"\n=== {label} @ {root} ===")
     if not root.exists():
-        print(f"Path not found; skipping.")
+        print("Path not found; skipping.")
         return
 
     for mode in modes:
         try:
-            find_files_parallel, collect_files, suffixes_config, _logger = load_apis(mode=mode, repo_root=repo_root)
+            find_files_parallel, collect_files, suffixes_config = load_apis(mode=mode, repo_root=repo_root)
         except Exception as exc:
             print(f"\n{mode}: unable to import ryan_library ({exc})")
             continue
@@ -121,7 +123,7 @@ def run_for_root(label: str, root: Path, runs: int) -> None:
         summarize("collect_files", root, collect_durs, collect_counts)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Compare installed vs working-tree performance.")
     parser.add_argument(
         "--local-root",
@@ -134,11 +136,15 @@ def main() -> None:
         help="Network data root to benchmark.",
     )
     parser.add_argument("--runs", type=int, default=5, help="Number of iterations per mode.")
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args(argv)
+
+    if args.runs < 1:
+        parser.error("--runs must be at least 1")
 
     run_for_root("local", Path(args.local_root), runs=args.runs)
     run_for_root("network", Path(args.network_root), runs=args.runs)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -18,9 +18,9 @@ configurations.
 
 from __future__ import annotations
 
+import importlib
 import multiprocessing
-import sys
-from collections.abc import Collection, Sequence
+from collections.abc import Callable, Collection, Sequence
 from pathlib import Path
 from typing import cast
 
@@ -28,12 +28,14 @@ import pandas as pd
 from loguru import logger
 
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
-from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.loguru_helpers import configure_notebook_logging, setup_logger
+from ryan_library.functions.tuflow.po_timeseries_checks import StabilityCheckResult
 from ryan_library.functions.tuflow.tuflow_common import (
     collect_files,
     process_file,
     process_files_in_parallel,
 )
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 # Default console log level for notebooks
@@ -57,13 +59,13 @@ def is_notebook() -> bool:
     Jupyter, JupyterLab, VS Code notebooks, and Google Colab.
     """
     try:
-        from IPython import get_ipython  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
-
-        shell: object | None = cast(object | None, get_ipython())
+        ipython_module = importlib.import_module("IPython")
+        get_ipython = cast(Callable[[], object | None], getattr(ipython_module, "get_ipython"))
+        shell: object | None = get_ipython()
         if shell is None:
             return False
         return type(shell).__name__ == "ZMQInteractiveShell"
-    except ImportError:
+    except AttributeError, ImportError:
         return False
 
 
@@ -72,31 +74,24 @@ def is_notebook() -> bool:
 # ---------------------------------------------------------------------------
 
 
-_notebook_logging_configured: bool = False
-
-
-def init_notebook_logging(level: str = DEFAULT_NOTEBOOK_LOG_LEVEL) -> None:
+def init_notebook_logging(
+    level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
+    *,
+    log_file: str | None = None,
+    file_log_level: str = "DEBUG",
+) -> None:
     """Configure loguru for clean notebook output.
 
-    Removes all existing sinks and adds a single ``sys.stderr`` sink with the
-    requested level.  This avoids the duplicate-output problem that occurs when
-    cells are re-run and loguru accumulates sinks.
-
-    Safe to call multiple times — subsequent calls are no-ops unless the module
-    is reloaded.
+    Existing sinks are replaced on every call, making it safe to rerun after
+    changing levels without accumulating duplicate output. Use
+    ``level="SUCCESS"`` for low-volume AI/MCP consumption while retaining
+    detailed records in an optional ``log_file``.
     """
-    global _notebook_logging_configured  # noqa: PLW0603
-    if _notebook_logging_configured:
-        return
-
-    logger.remove()
-    logger.add(
-        sink=sys.stderr,
-        level=level,
-        format="<level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan> - <level>{message}</level>",
-        colorize=True,
+    configure_notebook_logging(
+        console_log_level=level,
+        log_file=log_file,
+        file_log_level=file_log_level,
     )
-    _notebook_logging_configured = True
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +158,7 @@ def load_tuflow_data(
     path_objects: list[Path] = [Path(p) for p in paths]
 
     # Initialize SuffixesConfig (idempotent Singleton)
-    suffixes_config = SuffixesConfig.get_instance()
+    suffixes_config: SuffixesConfig = SuffixesConfig.get_instance()
 
     # Collect files first
     files: list[Path] = collect_files(
@@ -183,14 +178,14 @@ def load_tuflow_data(
 
     if use_parallel:
         with setup_logger(console_log_level=log_level) as log_queue:
-            collection = process_files_in_parallel(
+            collection: ProcessorCollection = process_files_in_parallel(
                 file_list=files,
                 log_queue=log_queue,
                 log_level=log_level,
             )
     else:
         for file_path in files:
-            proc = process_file(file_path=file_path)
+            proc: BaseProcessor | None = process_file(file_path=file_path)
             if proc:
                 collection.add_processor(proc)
 
@@ -414,8 +409,8 @@ def run_culvert_mean_peaks(
         print("No maximums data found for mean peak calculation.")
         return pd.DataFrame(), pd.DataFrame()
 
-    aep_dur_mean: pd.DataFrame = find_culvert_aep_dur_mean(maximums_df)
-    aep_mean_max: pd.DataFrame = find_culvert_aep_mean_max(maximums_df)
+    aep_dur_mean: pd.DataFrame = find_culvert_aep_dur_mean(aggregated_df=maximums_df)
+    aep_mean_max: pd.DataFrame = find_culvert_aep_mean_max(aep_dur_mean=maximums_df)
     return aep_dur_mean, aep_mean_max
 
 
@@ -635,7 +630,7 @@ def run_timeseries_stability(
             continue
         for rt in effective_result_types:
             for match in root.rglob(result_type_globs[rt]):
-                key = (match, rt)
+                key: tuple[Path, str] = (match, rt)
                 if key not in seen:
                     seen.add(key)
                     files.append(key)
@@ -647,7 +642,7 @@ def run_timeseries_stability(
     all_rows: list[dict[str, object]] = []
     for csv_path, rt in files:
         if rt == "Q":
-            results = analyze_stability_q_csv(path=csv_path, config=config)
+            results: list[StabilityCheckResult] = analyze_stability_q_csv(path=csv_path, config=config)
         else:
             results = analyze_stability_csv(path=csv_path, config=config)
         all_rows.extend(flatten_stability_results(results=results))

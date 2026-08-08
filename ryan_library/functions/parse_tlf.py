@@ -113,7 +113,7 @@ def extract_float(match: re.Match[str]) -> float | None:
         try:
             return float(match.group(1))
         except ValueError:
-            logger.warning(f"Failed to convert '{match.group(1)}' to float.")
+            logger.warning("Failed to convert '{}' to float.", match.group(1))
     return None
 
 
@@ -145,7 +145,7 @@ def search_for_completion(
         filename: str = normalized_path.name
         data_dict["TCF"] = filename
         data_dict["orig_TCF_path"] = full_path
-        logger.debug(f"Extracted TCF: {filename}")
+        logger.debug("Extracted TCF: {}", filename)
     elif match := REGEX_PATTERNS["log_path"].match(string=line):
         orig_log_path: str = match.group(1).strip()
         data_dict["orig_log_path"] = orig_log_path
@@ -224,7 +224,7 @@ def search_from_top(
             data_dict["StartDate"] = datetime.strptime(dt_str, "%Y-%b-%d %H:%M")
             success += 1
         except ValueError:
-            logger.warning(f"Failed to parse StartDate from line: {line}")
+            logger.warning("Failed to parse StartDate from line: {}", line)
     elif match := REGEX_PATTERNS["gpu_device_ids"].search(string=line):
         ids_str = match.group("ids").strip()
         data_dict["GPU_Device_IDs"] = ids_str
@@ -241,7 +241,7 @@ def search_from_top(
                 key, value = parts
                 data_dict[key] = value.strip()
             else:
-                logger.warning(f"Unexpected event format: {line}")
+                logger.warning("Unexpected event format: {}", line)
     elif "Specified Events:" in line:
         spec_events = True
     elif spec_scen:
@@ -254,7 +254,7 @@ def search_from_top(
                 key, value = parts
                 data_dict[key] = value.strip()
             else:
-                logger.warning(f"Unexpected scenario format: {line}")
+                logger.warning("Unexpected scenario format: {}", line)
     elif "Specified Scenarios:" in line:
         spec_scen = True
     elif "No Specified Scenarios." in line or "No Specified Events." in line:
@@ -291,7 +291,7 @@ def search_from_top(
                 else:
                     data_dict[key] = value
             else:
-                logger.warning(f"Unexpected variable format: {line}")
+                logger.warning("Unexpected variable format: {}", line)
     elif "Output Files to be Pre-fixed by:" in line:
         data_dict["orig_results_path"] = line.split(sep=":", maxsplit=1)[1].strip()
 
@@ -306,33 +306,55 @@ def remove_e_s_from_runcode(runcode: str, data_dict: dict[str, Any], delimiters:
     patterns_to_remove: set[str] = {
         str(value).lower() for key, value in data_dict.items() if key.startswith("-e") or key.startswith("-s")
     }
-    logger.debug(f"Patterns to remove: {patterns_to_remove}")
+    logger.debug("Patterns to remove: {}", patterns_to_remove)
 
     filtered_parts: list[str] = [
         part for part in parts if part.lower() not in patterns_to_remove and part.strip() != ""
     ]
     cleaned_runcode: str = "_".join(filtered_parts)
-    logger.debug(f"Original RunCode: {runcode}, Cleaned RunCode: {cleaned_runcode}")
+    logger.debug("Original RunCode: {}, Cleaned RunCode: {}", runcode, cleaned_runcode)
     return cleaned_runcode
 
 
-def read_log_file(logfile_path: Path, is_large_file: bool) -> list[str]:
+def get_log_lines(logfile_path: Path, is_large_file: bool) -> tuple[list[str], list[str]]:
     """
-    Reads the log file based on its size.
+    Reads the log file efficiently based on its size.
 
     Args:
         logfile_path (Path): Path to the log file.
         is_large_file (bool): Flag indicating if the file is large.
 
     Returns:
-        list[str]: List of lines from the log file.
+        tuple[list[str], list[str]]: A tuple of (all_lines, last_100_lines).
+        For large files, all_lines is empty to save memory.
     """
     try:
-        lines: list[str] = logfile_path.read_text(encoding="utf-8").splitlines()
-        return lines
+        if is_large_file:
+            # Efficiently read only the tail of the file over the network using seek
+            chunk_size = 30000  # 30KB is more than enough for 100 lines
+
+            with logfile_path.open("rb") as f:
+                f.seek(0, 2)  # Seek to end
+                file_size: int = f.tell()
+
+                if file_size > chunk_size:
+                    f.seek(file_size - chunk_size)
+                else:
+                    f.seek(0)
+
+                tail_data: bytes = f.read()
+
+            # Decode, ignoring multi-byte characters that might get split at the chunk boundary
+            tail_lines: list[str] = tail_data.decode("utf-8", errors="replace").splitlines()
+            last_lines: list[str] = tail_lines[-100:] if tail_lines else []
+            return [], last_lines
+        else:
+            lines: list[str] = logfile_path.read_text(encoding="utf-8").splitlines()
+            last_lines = lines[-100:] if lines else []
+            return lines, last_lines
     except Exception as e:
-        logger.error(f"Error reading {logfile_path}: {e}")
-        return []
+        logger.error("Error reading {}: {}", logfile_path, e)
+        return [], []
 
 
 def process_top_lines(
@@ -379,7 +401,7 @@ def process_top_lines(
                     )
                     data_dict, success, spec_events, spec_scen, spec_var = result
                     if success == 4 and counter > 4000:
-                        logger.debug(f"Early termination after {counter} lines for {runcode}")
+                        logger.debug("Early termination after {} lines for {}", counter, runcode)
                         break
         else:
             for counter, line in enumerate(lines, 1):
@@ -393,11 +415,11 @@ def process_top_lines(
                 )
                 data_dict, success, spec_events, spec_scen, spec_var = result
                 if success == 4 and counter > 4000:
-                    logger.debug(f"Early termination after {counter} lines for {runcode}")
+                    logger.debug("Early termination after {} lines for {}", counter, runcode)
                     break
         return data_dict, success, spec_events, spec_scen, spec_var
     except Exception as e:
-        logger.error(f"Error processing top lines in {relative_logfile_path}: {e}")
+        logger.error("Error processing top lines in {}: {}", relative_logfile_path, e)
         return data_dict, success, spec_events, spec_scen, spec_var
 
 
@@ -437,73 +459,5 @@ def finalise_data(runcode: str, data_dict: dict[str, Any], logfile_path: Path | 
         df: pd.DataFrame = pd.DataFrame([data_dict])
         return df
     except Exception as e:
-        logger.error(f"Error finalizing data for {runcode}: {e}")
+        logger.error("Error finalizing data for {}: {}", runcode, e)
         return pd.DataFrame()
-
-
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
-from ryan_library.functions.path_stuff import convert_to_relative_path
-
-
-class TLFProcessor(BaseProcessor):
-    """Processor for TUFLOW Log Files (.tlf)."""
-
-    def process(self) -> None:
-        """Process the TLF file and populate self.df."""
-        sim_complete = 0
-        success = 0
-        spec_events = False
-        spec_scen = False
-        spec_var = False
-        data_dict: dict[str, Any] = {}
-        current_section = None
-
-        file_size: int = self.file_path.stat().st_size
-        is_large_file: bool = file_size > 10 * 1024 * 1024  # 10 MB
-
-        lines: list[str] = read_log_file(
-            logfile_path=self.file_path,
-            is_large_file=is_large_file,
-        )
-
-        if not lines:
-            self.processed = False
-            return
-
-        runcode: str = self.file_path.stem
-        relative_logfile_path: Path = convert_to_relative_path(user_path=self.file_path)
-
-        # Search for completion in the last 100 lines
-        for line in lines[-100:]:
-            data_dict, sim_complete, current_section = search_for_completion(
-                line=line,
-                data_dict=data_dict,
-                sim_complete=sim_complete,
-                current_section=current_section,
-            )
-            if sim_complete == 2:
-                data_dict["Runcode"] = runcode
-                break
-
-        if is_complete_tlf(data_dict=data_dict, sim_complete=sim_complete):
-            data_dict, success, spec_events, spec_scen, spec_var = process_top_lines(
-                logfile_path=self.file_path,
-                lines=lines,
-                data_dict=data_dict,
-                success=success,
-                spec_events=spec_events,
-                spec_scen=spec_scen,
-                spec_var=spec_var,
-                is_large_file=is_large_file,
-                runcode=runcode,
-                relative_logfile_path=relative_logfile_path,
-            )
-
-            if success == 4:
-                self.df = finalise_data(
-                    runcode=runcode,
-                    data_dict=data_dict,
-                    logfile_path=self.file_path,
-                )
-                if not self.df.empty:
-                    self.processed = True

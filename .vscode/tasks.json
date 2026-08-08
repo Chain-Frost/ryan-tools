@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "python:ensure-venv",
+      "label": "python:install-requirements",
       "type": "shell",
       "command": "powershell",
       "args": [
         "-NoProfile",
         "-Command",
-        "$python = if (Test-Path '${workspaceFolder}\\.venv\\Scripts\\python.exe') { '${workspaceFolder}\\.venv\\Scripts\\python.exe' } elseif ($env:RYAN_TOOLS_PYTHON) { $env:RYAN_TOOLS_PYTHON } else { 'python' }; & $python '${workspaceFolder}\\repo-scripts\\ensure_venv.py'"
+        "if ($env:RYAN_TOOLS_PYTHON) { & $env:RYAN_TOOLS_PYTHON -m pip install -r '${workspaceFolder}\\requirements.txt' } else { py -3.14 -m pip install -r '${workspaceFolder}\\requirements.txt' }"
       ],
       "problemMatcher": []
     },
@@ -19,7 +19,7 @@
       "args": [
         "-NoProfile",
         "-Command",
-        "$python = if (Test-Path '${workspaceFolder}\\.venv\\Scripts\\python.exe') { '${workspaceFolder}\\.venv\\Scripts\\python.exe' } elseif ($env:RYAN_TOOLS_PYTHON) { $env:RYAN_TOOLS_PYTHON } else { 'python' }; $snippet = if ($env:RYAN_TOOLS_SNIPPET) { $env:RYAN_TOOLS_SNIPPET } else { '${workspaceFolder}\\repo-scripts\\run_snippet.py' }; Get-Content -Raw - | & $python $snippet"
+        "$snippet = if ($env:RYAN_TOOLS_SNIPPET) { $env:RYAN_TOOLS_SNIPPET } else { '${workspaceFolder}\\repo-scripts\\run_snippet.py' }; if ($env:RYAN_TOOLS_PYTHON) { Get-Content -Raw - | & $env:RYAN_TOOLS_PYTHON $snippet } else { Get-Content -Raw - | py -3.14 $snippet }"
       ],
       "problemMatcher": []
     },

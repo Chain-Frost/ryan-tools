@@ -1,8 +1,8 @@
 {
-  // Update this path if you prefer a different interpreter than the recommended .venv
-  // (expect more approval prompts when the path changes between sessions).
+  // Select the user's normal Python 3.14 installation. This repository does not
+  // expect users to create or activate a virtual environment.
   "python.defaultInterpreterPath": "",
-  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvironment": false,
   "python.analysis.indexing": true,
   "terminal.integrated.defaultProfile.windows": "PowerShell",
   "terminal.integrated.profiles.windows": {

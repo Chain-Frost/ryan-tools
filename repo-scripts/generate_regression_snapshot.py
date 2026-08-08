@@ -67,7 +67,7 @@ def generate_snapshot() -> None:
 
         logger.info(f"Found {len(csv_files)} files to process.")
         for f in csv_files:
-            logger.debug(f"Collected file: {f}")
+            logger.debug("Collected file: {}", f)
 
         # 2. Process files
         results: ProcessorCollection = process_files_in_parallel(file_list=csv_files, log_queue=log_queue)

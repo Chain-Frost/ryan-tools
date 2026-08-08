@@ -144,7 +144,7 @@ def find_files_parallel(
                                     display_path: Path = subpath.relative_to(current_dir)
                                 except ValueError:
                                     display_path = subpath.absolute()
-                                logger.debug(f"Searching (depth {depth}): {display_path}")
+                                logger.debug("Searching (depth {}): {}", depth, display_path)
 
                         if recursive_search:
                             try:
@@ -186,7 +186,7 @@ def find_files_parallel(
                             display_path = matched_file.relative_to(current_dir)
                         except ValueError:
                             pass
-                        logger.debug(f"Matched file: {display_path}")
+                        logger.debug("Matched file: {}", display_path)
                         if not matched_file.exists():
                             raise FileNotFoundError
                         local_matched.append(matched_file)
@@ -208,7 +208,7 @@ def find_files_parallel(
                         folders_with_matches.update(local_folders_with_matches)
 
                 if local_matched:
-                    logger.debug(f"Found {len(local_matched)} files in {current_path}")
+                    logger.debug("Found {} files in {}", len(local_matched), current_path)
             except Exception as exc:
                 logger.error(f"Unexpected error processing {current_path}: {exc}")
             finally:
@@ -284,6 +284,7 @@ def is_non_zero_file(fpath: Path | str) -> bool:
         return False
 
     return True  # All checks passed
+
 
 def ensure_output_directory(output_dir: Path) -> None:
     """Ensure that the specified output directory exists; create it if it does not.

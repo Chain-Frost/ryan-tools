@@ -1,98 +1,181 @@
 # TUFLOW processor development notes
 
-This document summarises how the processor infrastructure within `ryan_library.processors.tuflow` fits
-together and how to extend it safely.
+This document describes the maintained processor infrastructure under `ryan_library.processors.tuflow`. Use it when
+loading supported TUFLOW result formats, combining processed outputs or adding a processor-backed data type.
 
-## Combining processed outputs
+For copyable direct-use snippets, see the repository's [TUFLOW API examples](../../../examples/tuflow/README.md).
 
-### Building a collection
+The authoritative data-type and suffix configuration is
+[`../../classes/tuflow_results_validation_and_datatypes.json`](../../classes/tuflow_results_validation_and_datatypes.json).
+That registry also contains raster classifications used for discovery; a configured suffix is processor-backed only
+when its entry names a processor class.
 
-Use `ProcessorCollection` when you need to collate multiple processed objects into a single DataFrame. The
-collection only accepts processors whose `processed` flag is `True`, so call the appropriate `process()`
-method before adding an instance:
+## Processor lifecycle
+
+Create processors through `BaseProcessor.from_file()` so the filename parser, suffix registry and configured module
+hint select the concrete class:
 
 ```python
-collection = ProcessorCollection()
-processor = BaseProcessor.from_file(file_path)
+from pathlib import Path
+
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
+
+processor = BaseProcessor.from_file(Path("M11_01p_00120m_TP01_1d_Q.csv"))
 processor.process()
-collection.add_processor(processor)
+
+if processor.processed:
+    print(processor.df.head())
 ```
 
-`get_processors_by_data_type()` can subset a larger collection for downstream grouping, and
-`check_duplicates()` reports files that share the same run-code (`internalName`) and data type. Both helpers
-return a new `ProcessorCollection`, allowing you to chain additional combine calls.
+A successful processor must expose its processed rows through `processor.df` and set `processor.processed = True`.
+`processor.raw_df` may retain an intermediate input table for diagnostics; call `discard_raw_dataframe()` after it is
+no longer needed.
 
-### Combination helpers and column ordering
+`ProcessorCollection.add_processor()` adds a processor only when it is marked processed **and** its processed
+DataFrame is non-empty. A processed-but-empty result is logged and skipped, as is an unprocessed object.
 
-Each combination method targets a specific `dataformat` (or `data_type` in the case of PO files). Choose the
-method that matches the format recorded in `processingParts.dataformat` in the configuration:
+## Build and inspect a collection
 
-| Format selector | Combination helper | Purpose |
+```python
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
+collection = ProcessorCollection()
+collection.add_processor(processor)
+
+timeseries_collection = collection.get_processors_by_data_type(["Q", "H", "V", "CF"])
+duplicates = collection.check_duplicates()
+```
+
+These inspection methods have different return types:
+
+- `get_processors_by_data_type(...)` returns a new `ProcessorCollection` containing the matching processor objects.
+- `check_duplicates()` returns `dict[tuple[str, str], list[BaseProcessor]]`, keyed by
+  `(raw_run_code, data_type)`. Only keys with more than one processor are included.
+- `copy()` returns a deep copy of the collection and its processors.
+
+For example:
+
+```python
+for (run_code, data_type), processors in collection.check_duplicates().items():
+    files = [item.file_name for item in processors]
+    print(run_code, data_type, files)
+```
+
+## Combine processed outputs
+
+Choose a combination method that matches the configured `processingParts.dataformat`:
+
+| Format selector | Combination helper | Behavior |
 | --- | --- | --- |
-| `Timeseries` | `combine_1d_timeseries()` | Groups by `internalName`, `Chan ID`, and `Time`, then aggregates values. |
-| `Timeseries` (PO exports) | `po_combine()` | Concatenates and sorts PO long-form data with no extra grouping. |
-| `Maximums`, `ccA` | `combine_1d_maximums()` | Drops timing metadata and groups by `internalName` and `Chan ID`. |
-| `POMM` | `pomm_combine()` | Concatenates already tidy POMM tables. |
-| Any | `combine_raw()` | Concatenates everything without grouping. |
+| `Timeseries` | `combine_1d_timeseries()` | Enriches time-series rows with matching `Chan`/`EOF` data, then groups by `internalName`, `Chan ID` and `Time` using maximum aggregation. |
+| `Maximums`, `ccA` | `combine_1d_maximums()` | Merges matching EOF attributes, drops timing/path metadata and groups by `internalName` and `Chan ID`. |
+| `PO` | `po_combine()` | Concatenates PO long-form rows and sorts by available run, location, type and time columns. |
+| `POMM` | `pomm_combine()` | Concatenates processed POMM tables without additional grouping. |
+| Any | `combine_raw()` | Concatenates every non-empty processed DataFrame without specialist grouping. |
 
-All combination helpers delegate to the shared dataframe reordering utilities so downstream scripts see a
-consistent schema:
+`combine_1d_timeseries()` and `combine_1d_maximums()` automatically align truncated channel labels found in EOF
+reports with full IDs from matching non-EOF results before combining. Call `align_eof_channel_ids()` explicitly when
+the aligned IDs are also required in a raw export prepared before those combination methods.
 
-* `reorder_long_columns()` pushes file path metadata columns (`file`, `rel_path`, etc.) to the right-hand
-  side so key metrics remain visible.
-* `reorder_columns()` (used by `combine_1d_maximums`) keeps scenario metadata and primary measurements at
-  the front, then alphabetically appends derived columns.
-* `reset_categorical_ordering()` alphabetises categorical columns and replaces missing values with `pd.NA`
-  to avoid stale category states when multiple runs are combined.
+The combination helpers use the shared DataFrame utilities to keep output schemas predictable:
 
-After merging, expect the resulting DataFrame to retain the column order dictated by these helpers; custom
-post-processing should preserve that order to avoid confusing downstream tooling.
+- `reorder_long_columns()` moves file/path metadata to the right.
+- `reorder_columns()` applies the domain-specific priority order used by grouped maximum and time-series outputs.
+- `reset_categorical_ordering()` sorts category values and normalises missing values to `pd.NA`.
 
-## Validation checklist for new or updated processors
+## Filter locations
 
-Before checking in a new processor, confirm the following:
+`filter_locations(locations)` normalises the supplied identifiers, applies them to every processor and removes
+processors whose DataFrames become empty. It returns the normalised `frozenset[str]` that was applied:
 
-* The processor sets `self.processed = True` when successful so `ProcessorCollection.add_processor()`
-  accepts the instance.
-* `self.df` is non-empty for successful runs; log and return an empty DataFrame when validation fails.
-* The columns defined in the configuration are present in `self.df` before calling
-  `apply_output_transformations()` so dtype coercion succeeds.
-* `add_common_columns()` has been called (unless deliberately skipped) to append run metadata required by
-  the grouping helpers.
-* Any subclass-specific validation (for example header checks or NaN pruning) happens before the DataFrame
-  is exposed to calling code.
+```python
+applied_locations = collection.filter_locations(["Culvert_01", "Culvert_02"])
+```
 
-## Adding a new data type
+Repeated application of the same normalised filter is skipped by processors that already record it.
 
-1. **Pick a base class.**
-   * Extend `TimeSeriesProcessor` when the raw export is a time series that needs the shared read → clean →
-     melt pipeline. Implement `process_timeseries_raw_dataframe()` to reshape the long-form frame produced
-     by the base class.
-   * Extend `MaxDataProcessor` for 1D maximums/ccA style tables. Call `read_maximums_csv()` inside your
-     `process()` implementation, reshape the DataFrame, then finish with `add_common_columns()` and
-     `apply_output_transformations()`.
-   * Extend `BaseProcessor` directly for specialised formats (for example the POMM transpose workflow).
+## Compact repeated path metadata
 
-2. **Register configuration.** Add a new entry to
-   `ryan_library/classes/tuflow_results_validation_and_datatypes.json` containing:
-   * `processor`: the class name.
-   * `suffixes`: every filename suffix that should instantiate the processor.
-   * `output_columns`: the final column → dtype mapping expected after processing.
-   * `processingParts`: include `dataformat` (used by `ProcessorCollection` helpers), and set `module` if the
-     class lives in a subpackage (for example `"1d_timeseries"`). Supply `columns_to_use` or
-     `expected_in_header` when the reader needs to validate or trim inputs.
-   Re-run the tool or script that loads the file to confirm the JSON remains valid.
+Large collections repeat file and path columns on every row. `compact_basic_info_columns()` replaces those columns in
+each processor DataFrame with an integer `processor_id` and stores the corresponding lookup table on the collection:
 
-3. **Implement subclass hooks.**
-   * Timeseries processors must return a `ProcessorStatus` from
-     `process_timeseries_raw_dataframe()` and update `self.df` in place. Use helpers like
-     `_normalise_value_dataframe()` to keep the dataset tidy.
-   * Maximum/ccA processors should keep `self.raw_df` for debugging, reshape into the final schema, and
-     remove malformed rows before calling `add_common_columns()`.
-   * Custom processors should log clearly when required columns are missing and ensure `validate_data()`
-     still runs before marking the instance as processed.
+```python
+lookup = collection.compact_basic_info_columns()
+combined = collection.combine_raw()
+combined_with_paths = collection.attach_basic_info(df=combined, drop_id=True)
+```
 
-4. **Mark success consistently.** After any subclass-specific work, call `add_common_columns()`, apply the
-   configured dtype mappings, run `validate_data()`, then set `self.processed = True`. This keeps the
-   behaviour consistent with existing processors and allows collections to merge the outputs without
-   special cases.
+Use `build_basic_info_lookup()` when a lookup is needed without mutating processor DataFrames. `attach_basic_info()`
+returns its input unchanged when no lookup or ID column is available.
+
+To release retained raw input tables across the collection, call:
+
+```python
+discarded_count = collection.discard_raw_dataframes()
+```
+
+## Cache a collection with HDF5
+
+`to_hdf()` writes each processed DataFrame and enough processor metadata to one HDF5 cache. `from_hdf()` reconstructs
+the concrete processor classes and can apply an optional location filter while loading:
+
+```python
+from pathlib import Path
+
+cache_path = Path("cache/tuflow-results.h5")
+collection.to_hdf(cache_path)
+
+restored = ProcessorCollection.from_hdf(cache_path, locations=["Culvert_01"])
+```
+
+Treat this as a processing cache rather than a stable interchange format. Rehydration depends on the configured
+processor classes remaining importable and compatible with the stored metadata.
+
+## Add a processor-backed data type
+
+### 1. Choose the appropriate base class
+
+- Extend `TimeSeriesProcessor` for a time series that uses the shared read, clean and melt pipeline. Implement
+  `process_timeseries_raw_dataframe()`, update `self.df` in place and return the appropriate `ProcessorStatus`. For a
+  simple time series with one numeric value column, reuse `_normalise_value_dataframe()` where applicable.
+- Extend `MaxDataProcessor` for maximums or ccA-style tables. Use the shared maximums reader, reshape the data and add
+  common run metadata before applying configured output transformations.
+- Extend `BaseProcessor` directly for a specialised layout that does not fit either shared pipeline.
+
+Keep processor modules focused on one supported format. Reusable parsing and transformation logic belongs in
+`ryan_library.functions` when it is not specific to processor state.
+
+### 2. Register the type
+
+Add an entry to `ryan_library/classes/tuflow_results_validation_and_datatypes.json` with:
+
+- `processor`: concrete processor class name;
+- `suffixes`: every filename suffix that identifies the type;
+- `output_columns`: final column-to-dtype mapping;
+- `processingParts.dataformat`: selector used by collection combination helpers;
+- `processingParts.module`: optional relative subpackage or absolute module hint used to find the processor class;
+- `processingParts.columns_to_use` or `expected_in_header`: input selection and validation where required.
+
+Do not duplicate the suffix list in a wrapper. Load it through `SuffixesConfig` so filename parsing, discovery and the
+processor factory use one source of truth.
+
+### 3. Implement and validate the lifecycle
+
+Before marking processing successful:
+
+- validate required headers and columns;
+- reshape into the configured output schema;
+- remove or report malformed rows deliberately;
+- add common filename/run metadata unless the format intentionally omits it;
+- apply configured output transformations;
+- run the processor's data validation;
+- set `self.processed = True` only when the processed result is valid.
+
+Failure paths should log enough file and column context to diagnose the input, clear `self.df` to an empty DataFrame
+and leave `self.processed = False`. This prevents invalid or partial results from being added to a collection.
+
+### 4. Validate a processor change
+
+Follow the repository [development guide](../../../docs/DEVELOPMENT_GUIDE.md#validation-by-change-type). For a
+processor change this normally includes Black, strict Pyright on modified files, focused tests or a representative
+smoke check, and a package build. Use synthetic fixtures when project result files cannot be shared.
