@@ -1,10 +1,8 @@
 """Coverage tests for tlf_missing_runs.py."""
 
-import pytest
 import pandas as pd
-from unittest.mock import patch
 
-from ryan_library.functions.tlf_missing_runs import summarize_for_cli, main, EXPECTED_TPS
+from ryan_library.functions.tlf_missing_runs import summarize_for_cli, EXPECTED_TPS
 
 
 class TestTLFMissingRunsCoverage:
@@ -62,26 +60,3 @@ class TestTLFMissingRunsCoverage:
         assert "AEP 2%, Duration 2h: missing all TP" in text
         assert "missing 6 TP (not listed)" in text
         assert "missing TP10" in text
-
-    @patch("ryan_library.functions.tlf_missing_runs.pd.read_csv")
-    @patch("ryan_library.functions.tlf_missing_runs.summarize_for_cli")
-    @patch("ryan_library.functions.tlf_missing_runs.pd.DataFrame.to_csv")
-    def test_main_cli_csv(self, mock_to_csv, mock_summarize, mock_read_csv):
-        mock_summarize.return_value = ("Summary", pd.DataFrame())
-        main("test.csv")
-        assert mock_read_csv.called
-        assert mock_summarize.called
-
-    @patch("ryan_library.functions.tlf_missing_runs.pd.read_excel")
-    @patch("ryan_library.functions.tlf_missing_runs.summarize_for_cli")
-    @patch("ryan_library.functions.tlf_missing_runs.pd.DataFrame.to_csv")
-    def test_main_cli_excel(self, mock_to_csv, mock_summarize, mock_read_excel):
-        mock_summarize.return_value = ("Summary", pd.DataFrame())
-        main("test.xlsx")
-        assert mock_read_excel.called
-        assert mock_summarize.called
-
-    def test_main_no_args(self, capsys):
-        main()
-        captured = capsys.readouterr()
-        assert "No input provided" in captured.out

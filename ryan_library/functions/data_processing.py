@@ -1,4 +1,12 @@
 # ryan_library.functions.data_processing.py
+import warnings
+
+warnings.warn(
+    message="ryan_library.functions.data_processing is deprecated because it is an unfinished and mostly unused API. "
+    "Backwards compatibility is supported until 31 December 2026.",
+    category=DeprecationWarning,
+    stacklevel=2,
+)
 import re  # Unlicensed regex
 from collections.abc import Callable
 

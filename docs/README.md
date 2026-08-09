@@ -24,6 +24,7 @@ remain in the root [`README.md`](../README.md).
 
 ## Maintenance documents
 
+- [Compatibility policy & inventory](COMPATIBILITY_POLICY.md)
 - [Repository improvement roadmap](REPOSITORY_IMPROVEMENT_ROADMAP.md)
 
 Maintenance documents describe planned or unfinished work. They are not sources of current architectural policy unless

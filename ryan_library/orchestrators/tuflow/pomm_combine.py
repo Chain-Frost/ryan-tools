@@ -12,16 +12,8 @@ from pathlib import Path
 from typing import Literal, Protocol, runtime_checkable
 
 import pandas as pd
-from loguru import logger
 
-from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
-from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-from ryan_library.functions.file_utils import ensure_output_directory
-from ryan_library.functions.misc_functions import ExcelExporter
-from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
+from ._combination_workflow import execute_combination_workflow
 
 DEFAULT_DATA_TYPES: tuple[str, ...] = ("POMM", "RLL_Qmx")
 ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
@@ -29,21 +21,24 @@ ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
 
 class PommCombinationResults(Protocol):
     """Minimum result-collection interface needed for POMM export."""
-
     @property
     def processors(self) -> Sequence[object]: ...
-
     def pomm_combine(self) -> pd.DataFrame: ...
 
 
 @runtime_checkable
 class RawCombinationResults(Protocol):
     """Result collection that supports the preferred generic combination path."""
-
     @property
     def processors(self) -> Sequence[object]: ...
-
     def combine_raw(self) -> pd.DataFrame: ...
+
+
+def _combine_pomm_results(results: RawCombinationResults | PommCombinationResults) -> pd.DataFrame:
+    """Helper to dispatch combination logic based on supported protocols."""
+    if isinstance(results, RawCombinationResults):
+        return results.combine_raw()
+    return results.pomm_combine()
 
 
 def main_processing(
@@ -69,84 +64,17 @@ def main_processing(
         locations_to_include: Specific location strings to filter for.
         export_mode: Output format ("excel", "parquet", "both").
     """
-
-    requested_types, invalid_types = normalize_data_types(
-        requested=include_data_types,
-        default=DEFAULT_DATA_TYPES,
-        accepted=ACCEPTED_DATA_TYPES,
-    )
-    normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=locations_to_include)
-
-    with setup_logger(console_log_level=console_log_level) as log_queue:
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context="POMM combination",
-        )
-
-        csv_file_list: list[Path] = collect_files(
-            paths_to_process=paths_to_process,
-            include_data_types=requested_types,
-            suffixes_config=SuffixesConfig.get_instance(),
-        )
-        if not csv_file_list:
-            warn_on_invalid_types(
-                invalid_types=invalid_types,
-                accepted_types=ACCEPTED_DATA_TYPES,
-                context="POMM combination completed",
-            )
-            logger.info("No valid files found to process.")
-            return
-
-        # Process the file list in parallel
-        results_set: ProcessorCollection = process_files_in_parallel(
-            file_list=csv_file_list,
-            log_queue=log_queue,
-            log_level=console_log_level,
-            entity_filters=normalized_locations if normalized_locations else None,
-        )
-
-        export_results(results=results_set, export_mode=export_mode)
-        logger.info("End of POMM results combination processing")
-
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context="POMM combination completed",
-        )
-
-
-def export_results(
-    *,
-    results: RawCombinationResults | PommCombinationResults,
-    export_mode: Literal["excel", "parquet", "both"] = "excel",
-) -> None:
-    """
-    Export combined DataFrames according to the requested mode.
-
-    Prefer the generic raw-data combination when available, while retaining the
-    POMM-specific collection protocol used by compatibility callers.
-    """
-    if not results.processors:
-        logger.warning("No results to export.")
-        return
-    combined_df: pd.DataFrame = (
-        results.combine_raw() if isinstance(results, RawCombinationResults) else results.pomm_combine()
-    )
-
-    if combined_df.empty:
-        logger.warning("No combined data found. Skipping export.")
-        return
-
-    ensure_output_directory(output_dir=Path.cwd())
-    exporter = ExcelExporter()
-    exporter.save_to_excel(
-        data_frame=combined_df,
-        file_name_prefix="combined_POMM",
-        sheet_name="combined_POMM",
-        output_directory=Path.cwd(),
+    execute_combination_workflow(
+        paths_to_process=paths_to_process,
+        include_data_types=include_data_types,
+        default_data_types=DEFAULT_DATA_TYPES,
+        accepted_data_types=ACCEPTED_DATA_TYPES,
+        context_name="POMM combination",
+        export_prefix="combined_POMM",
+        export_sheet_name="combined_POMM",
+        export_metadata={"Workflow": "POMM combine"},
+        combine_callable=_combine_pomm_results,
+        console_log_level=console_log_level,
+        locations_to_include=locations_to_include,
         export_mode=export_mode,
-        parquet_compression="gzip",
-        include_data_dictionary=True,
-        data_dictionary_metadata={"Workflow": "POMM combine"},
     )

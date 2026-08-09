@@ -188,7 +188,7 @@ Suggested commit: `Document compatibility module lifecycle`
    failure handling explicit; otherwise remove it with the module.
 4. Replace private `_collections_abc.Callable` imports with `collections.abc.Callable` if any code is retained.
 
-Decision gate: remove the module unless a supported external caller is identified.
+Decision gate: **Retained for compatibility until 31 December 2026** per explicit requirement.
 
 #### `functions/tkinter_utils.py`
 
@@ -230,10 +230,10 @@ Actions:
 4. If it remains experimental, add an owner and review date and avoid importing it from unrelated package paths.
 5. If no intended workflow remains, remove the bridge and its tests.
 
-Acceptance criteria:
-
-- The bridge is either reachable and documented, explicitly time-bounded as experimental, or removed.
+- The bridge is productized and fully documented with a maintained wrapper (`tuflow_to_hy8.py`).
 - Importing unrelated compatibility packages never requires `run_hy8`.
+
+Decision gate: **Productize (Option A).** The workflow is active and has been formalized with a maintained CLI wrapper, robust documentation noting limitations (only circular/rectangular culverts natively mapped), and verified wheel support.
 
 Suggested commit: `Clarify HY-8 bridge lifecycle`
 
@@ -261,6 +261,8 @@ Acceptance criteria:
 - PO and POMM share one workflow implementation without reducing domain clarity.
 - Existing wrappers retain their arguments, data-type defaults, output names, and exit behaviour.
 - Focused PO/POMM tests cover empty input, invalid types, location filters, combination, and export metadata.
+
+Decision gate: **Complete**. Extracted logic to `_combination_workflow.py`. `po_combine.py` and `pomm_combine.py` now act as thin domain-specific wrappers that inherit the exact same parallel-processing, filtering, and export lifecycle.
 
 Suggested commit: `Share PO and POMM combination workflow`
 

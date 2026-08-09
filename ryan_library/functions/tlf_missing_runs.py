@@ -1,3 +1,9 @@
+"""Analyze TUFLOW run tables (AEP, Duration, TP) for missing sets or runs.
+
+This module provides pure data transformations to determine which expected
+model runs have not yet completed, based on a tracking table.
+"""
+
 from __future__ import annotations
 __lazy_modules__ = ['pandas']
 
@@ -104,7 +110,7 @@ def _unique_sorted(series: pd.Series) -> list[DimensionValue]:
         nums: list[float] = [float(str(value)) for value in vals]
         order: list[tuple[float, str | int | float]] = sorted(zip(nums, vals))
         return [v for _, v in order]
-    except Exception:
+    except ValueError:
         return sorted(vals, key=lambda x: str(x))
 
 
@@ -266,34 +272,3 @@ def summarize_for_cli(df: pd.DataFrame) -> tuple[str, pd.DataFrame]:
     return "\n".join(lines).rstrip(), table
 
 
-# ---------- Optional CLI (no argparse) ----------
-
-
-def main(input_path: str | None = None, sheet_name: str | int = 0) -> None:
-    if input_path is None:
-        print("No input provided. Import this module and call analyze_missing_runs(df) or summarize_for_cli(df).")
-        return
-    if str(input_path).lower().endswith((".xlsx", ".xls")):
-        df: pd.DataFrame = pd.read_excel(input_path, sheet_name=sheet_name)  # pyright: ignore[reportUnknownMemberType]
-    else:
-        df = pd.read_csv(input_path)
-
-    text, table = summarize_for_cli(df)
-    print(text)
-    base: str = str(input_path).rsplit(".", 1)[0]
-    out_csv = f"{base}__missing_runs_summary.csv"
-    table.to_csv(path_or_buf=out_csv, index=False)
-    print(f"\nWrote: {out_csv}")
-
-
-if __name__ == "__main__":
-    import sys
-
-    path: str | None = sys.argv[1] if len(sys.argv) > 1 else None
-    sheet = sys.argv[2] if len(sys.argv) > 2 else 0
-    try:
-        if isinstance(sheet, str) and sheet.isdigit():
-            sheet = int(sheet)
-    except Exception:
-        sheet = 0
-    main(input_path=path, sheet_name=sheet)

@@ -6,7 +6,7 @@ from pandas import DataFrame
 import pytest
 
 import ryan_library.functions.misc_functions as misc_functions
-from ryan_library.orchestrators.tuflow import pomm_combine as pomm_module
+from ryan_library.orchestrators.tuflow._combination_workflow import _export_results
 
 
 class _FixedDateTime(datetime):
@@ -20,7 +20,7 @@ class _DummyResults:
         self._df: DataFrame = df
         self.processors: list[object] = processors if processors is not None else [object()]
 
-    def pomm_combine(self) -> pd.DataFrame:
+    def combine_results(self) -> pd.DataFrame:
         return self._df
 
 
@@ -52,7 +52,15 @@ def _list_outputs(directory: Path) -> list[Path]:
 
 def test_export_results_excel_only(temp_cwd: Path) -> None:
     df = pd.DataFrame({"A": [1]})
-    pomm_module.export_results(results=_DummyResults(df), export_mode="excel")
+    results = _DummyResults(df)
+    _export_results(
+        results=results, 
+        export_mode="excel", 
+        export_prefix="combined_POMM", 
+        export_sheet_name="combined_POMM", 
+        export_metadata={}, 
+        combine_callable=lambda r: r.combine_results()
+    )
 
     outputs: list[Path] = _list_outputs(temp_cwd)
     assert len(outputs) == 1
@@ -62,7 +70,15 @@ def test_export_results_excel_only(temp_cwd: Path) -> None:
 
 def test_export_results_parquet_only(temp_cwd: Path) -> None:
     df = pd.DataFrame({"A": [1]})
-    pomm_module.export_results(results=_DummyResults(df), export_mode="parquet")
+    results = _DummyResults(df)
+    _export_results(
+        results=results, 
+        export_mode="parquet", 
+        export_prefix="combined_POMM", 
+        export_sheet_name="combined_POMM", 
+        export_metadata={}, 
+        combine_callable=lambda r: r.combine_results()
+    )
 
     outputs: list[Path] = _list_outputs(temp_cwd)
     assert len(outputs) == 1
@@ -72,7 +88,15 @@ def test_export_results_parquet_only(temp_cwd: Path) -> None:
 
 def test_export_results_both_formats(temp_cwd: Path) -> None:
     df = pd.DataFrame({"B": [1]})
-    pomm_module.export_results(results=_DummyResults(df), export_mode="both")
+    results = _DummyResults(df)
+    _export_results(
+        results=results, 
+        export_mode="both", 
+        export_prefix="combined_POMM", 
+        export_sheet_name="combined_POMM", 
+        export_metadata={}, 
+        combine_callable=lambda r: r.combine_results()
+    )
 
     outputs = _list_outputs(temp_cwd)
     assert len(outputs) == 2
@@ -82,6 +106,13 @@ def test_export_results_both_formats(temp_cwd: Path) -> None:
 def test_export_results_no_processors_produces_no_files(temp_cwd: Path) -> None:
     df = pd.DataFrame({"B": [1]})
     results = _DummyResults(df, processors=[])
-    pomm_module.export_results(results=results, export_mode="excel")
+    _export_results(
+        results=results, 
+        export_mode="excel", 
+        export_prefix="combined_POMM", 
+        export_sheet_name="combined_POMM", 
+        export_metadata={}, 
+        combine_callable=lambda r: r.combine_results()
+    )
 
     assert list(temp_cwd.iterdir()) == []

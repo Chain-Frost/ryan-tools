@@ -75,7 +75,12 @@ repositories; no parent-repository history rewrite is planned.
 - `docs/ENVIRONMENTS.md` documents repository, installed-wheel, VS Code, QGIS/OSGeo4W, interactive, and headless
   execution environments.
 - MCP setup and dated implementation plans live under `docs/` and are indexed by `docs/README.md`.
-- Detailed wrapper and processor guidance remains beside the code it governs.
+
+### Submodule boundaries and upstream syncs
+
+1. **Clean up `run-hy8` upstream**: The external `run-hy8` repository contains scripts that violate the domain boundary by parsing TUFLOW exports directly (e.g., `culvert_demo-from-tuflow.py`). Since this mapping responsibility officially belongs to `ryan-tools` (via `ryan-scripts/tuflow/tuflow_to_hy8.py` and `ryan_library.functions.hy8`), the TUFLOW/12D-specific demo scripts in the upstream `run-hy8` repo should be removed or deprecated.
+
+- Detailed wrapper guidance remains beside the code it governs.
 
 ## Current priorities
 

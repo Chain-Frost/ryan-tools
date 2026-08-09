@@ -7,12 +7,19 @@ from loguru import logger
 # if str(ROOT) not in sys.path:
 #     sys.path.insert(0, str(ROOT))
 
-from ryan_library.functions.data_processing import (
-    check_string_TP,
-    check_string_duration,
-    check_string_aep,
-    safe_apply,
-)
+import pytest
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
+
+import warnings
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", DeprecationWarning)
+    from ryan_library.functions.data_processing import (
+        check_string_TP,
+        check_string_duration,
+        check_string_aep,
+        safe_apply,
+    )
 
 # python -m unittest test_check_functions.py
 
