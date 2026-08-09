@@ -50,7 +50,7 @@ def build_data_dictionary(
         )
 
     for sheet_name, frame in sheet_frames.items():
-        columns: list[str] = [column for column in frame.columns]
+        columns: list[str] = [str(column) for column in frame.columns]
         if not columns:
             rows.append(
                 {
@@ -527,12 +527,12 @@ class ExcelExporter:
         """
         column_widths: dict[str, float] = {
             get_column_letter(idx + 1): max(
-                self._calculate_max_cell_length(series=df[col]),
-                # Consider the column name length as well
-                len(col),
+                self._calculate_max_cell_length(series=df.iloc[:, idx]),
+                # Consider the normalized column label length as well.
+                len(str(column_label)),
             )
             + 2  # Adding extra space
-            for idx, col in enumerate(df.columns)
+            for idx, column_label in enumerate(df.columns)
         }
         logger.debug("Calculated dynamic column widths: {}", column_widths)
         return column_widths

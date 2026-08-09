@@ -13,10 +13,32 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import Literal
 
-from ._combination_workflow import execute_combination_workflow
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
+from ._combination_workflow import (
+    combine_and_export_results as _combine_and_export_results,
+    execute_combination_workflow,
+)
 
 DEFAULT_DATA_TYPES: tuple[str, ...] = ("PO",)
 ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
+
+
+def export_results(
+    *,
+    results: ProcessorCollection,
+    export_mode: Literal["excel", "parquet", "both"] = "excel",
+) -> None:
+    """Export combined PO results through the shared combination exporter."""
+
+    _combine_and_export_results(
+        results=results,
+        export_mode=export_mode,
+        export_prefix="combined_PO",
+        export_sheet_name="combined_PO",
+        export_metadata={"Workflow": "PO combine"},
+        combine_callable=lambda collection: collection.po_combine(),
+    )
 
 
 def main_processing(
@@ -46,10 +68,7 @@ def main_processing(
         default_data_types=DEFAULT_DATA_TYPES,
         accepted_data_types=ACCEPTED_DATA_TYPES,
         context_name="PO combination",
-        export_prefix="combined_PO",
-        export_sheet_name="combined_PO",
-        export_metadata={"Workflow": "PO combine"},
-        combine_callable=lambda results: results.po_combine(),
+        export_results=export_results,
         console_log_level=console_log_level,
         locations_to_include=locations_to_include,
         export_mode=export_mode,

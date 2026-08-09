@@ -8,9 +8,9 @@ and exporting combined datasets to keep the public orchestrator entry points foc
 
 __lazy_modules__: list[str] = ["pandas"]
 
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from pathlib import Path
-from typing import Literal, Callable
+from typing import Literal, Callable, Protocol
 
 import pandas as pd
 from loguru import logger
@@ -25,6 +25,24 @@ from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 
 
+class CombinationResults(Protocol):
+    """Minimum result-collection interface required by the shared exporter."""
+
+    @property
+    def processors(self) -> Sequence[object]: ...
+
+
+class CombinationExporter(Protocol):
+    """Callable interface used to route processed results to a public exporter."""
+
+    def __call__(
+        self,
+        *,
+        results: ProcessorCollection,
+        export_mode: Literal["excel", "parquet", "both"] = "excel",
+    ) -> None: ...
+
+
 def execute_combination_workflow(
     *,
     paths_to_process: list[Path],
@@ -32,10 +50,7 @@ def execute_combination_workflow(
     default_data_types: tuple[str, ...],
     accepted_data_types: frozenset[str],
     context_name: str,
-    export_prefix: str,
-    export_sheet_name: str,
-    export_metadata: dict[str, str],
-    combine_callable: Callable[[ProcessorCollection], pd.DataFrame],
+    export_results: CombinationExporter,
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
@@ -49,10 +64,7 @@ def execute_combination_workflow(
         default_data_types: Default types if none requested.
         accepted_data_types: Types supported by this workflow.
         context_name: Name of workflow for logging (e.g. "PO combination").
-        export_prefix: Output file prefix.
-        export_sheet_name: Output excel sheet name.
-        export_metadata: Metadata dictionary for data dictionary tab.
-        combine_callable: A callable that accepts a ProcessorCollection and returns a combined DataFrame.
+        export_results: Public domain-specific exporter for the processed results.
         console_log_level: Logging verbosity.
         locations_to_include: Specific location strings to filter for.
         export_mode: Output format.
@@ -93,14 +105,7 @@ def execute_combination_workflow(
             entity_filters=normalized_locations if normalized_locations else None,
         )
 
-        _export_results(
-            results=results_set,
-            export_mode=export_mode,
-            export_prefix=export_prefix,
-            export_sheet_name=export_sheet_name,
-            export_metadata=export_metadata,
-            combine_callable=combine_callable,
-        )
+        export_results(results=results_set, export_mode=export_mode)
         logger.info(f"End of {context_name} processing")
 
         warn_on_invalid_types(
@@ -110,14 +115,14 @@ def execute_combination_workflow(
         )
 
 
-def _export_results(
+def combine_and_export_results[T: CombinationResults](
     *,
-    results: ProcessorCollection,
+    results: T,
     export_mode: Literal["excel", "parquet", "both"],
     export_prefix: str,
     export_sheet_name: str,
     export_metadata: dict[str, str],
-    combine_callable: Callable[[ProcessorCollection], pd.DataFrame],
+    combine_callable: Callable[[T], pd.DataFrame],
 ) -> None:
     """Export combined DataFrames according to the requested mode."""
     if not results.processors:

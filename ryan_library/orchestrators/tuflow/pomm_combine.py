@@ -15,7 +15,10 @@ from typing import Literal, Protocol, runtime_checkable
 
 import pandas as pd
 
-from ._combination_workflow import execute_combination_workflow
+from ._combination_workflow import (
+    combine_and_export_results as _combine_and_export_results,
+    execute_combination_workflow,
+)
 
 DEFAULT_DATA_TYPES: tuple[str, ...] = ("POMM", "RLL_Qmx")
 ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
@@ -43,6 +46,23 @@ def _combine_pomm_results(results: RawCombinationResults | PommCombinationResult
     if isinstance(results, RawCombinationResults):
         return results.combine_raw()
     return results.pomm_combine()
+
+
+def export_results(
+    *,
+    results: RawCombinationResults | PommCombinationResults,
+    export_mode: Literal["excel", "parquet", "both"] = "excel",
+) -> None:
+    """Export combined POMM results through the shared combination exporter."""
+
+    _combine_and_export_results(
+        results=results,
+        export_mode=export_mode,
+        export_prefix="combined_POMM",
+        export_sheet_name="combined_POMM",
+        export_metadata={"Workflow": "POMM combine"},
+        combine_callable=_combine_pomm_results,
+    )
 
 
 def main_processing(
@@ -74,10 +94,7 @@ def main_processing(
         default_data_types=DEFAULT_DATA_TYPES,
         accepted_data_types=ACCEPTED_DATA_TYPES,
         context_name="POMM combination",
-        export_prefix="combined_POMM",
-        export_sheet_name="combined_POMM",
-        export_metadata={"Workflow": "POMM combine"},
-        combine_callable=_combine_pomm_results,
+        export_results=export_results,
         console_log_level=console_log_level,
         locations_to_include=locations_to_include,
         export_mode=export_mode,

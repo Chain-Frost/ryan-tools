@@ -1,11 +1,11 @@
-import pytest
 from pathlib import Path
-from unittest.mock import patch
-from ryan_library.orchestrators.tuflow.pomm_combine import main_processing
+from unittest.mock import MagicMock, patch
+
+from ryan_library.orchestrators.tuflow.pomm_combine import export_results, main_processing
 
 
 @patch("ryan_library.orchestrators.tuflow.pomm_combine.execute_combination_workflow")
-def test_pomm_combine_with_rllqmx(mock_execute):
+def test_pomm_combine_with_rllqmx(mock_execute: MagicMock) -> None:
     # Run main_processing with multiple data types
     main_processing(paths_to_process=[Path(".")], include_data_types=["POMM", "RLL_Qmx"])
 
@@ -15,11 +15,11 @@ def test_pomm_combine_with_rllqmx(mock_execute):
     assert kwargs["paths_to_process"] == [Path(".")]
     assert set(kwargs["include_data_types"]) == {"POMM", "RLL_Qmx"}
     assert kwargs["context_name"] == "POMM combination"
-    assert kwargs["export_prefix"] == "combined_POMM"
+    assert kwargs["export_results"] is export_results
 
 
 @patch("ryan_library.orchestrators.tuflow.pomm_combine.execute_combination_workflow")
-def test_pomm_combine_default(mock_execute):
+def test_pomm_combine_default(mock_execute: MagicMock) -> None:
     # Run main_processing with default (None)
     main_processing(paths_to_process=[Path(".")])
 
