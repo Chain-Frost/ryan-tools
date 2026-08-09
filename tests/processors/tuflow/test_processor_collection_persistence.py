@@ -56,7 +56,11 @@ class TestProcessorCollectionPersistence:
         import sys
 
         with pytest.MonkeyPatch.context() as m:
-            m.setitem(sys.modules, "tables", MagicMock())
+            mock_tables = MagicMock()
+            mock_tables.__name__ = "tables"
+            mock_tables.__version__ = "4.0.0"
+            mock_tables.filters.all_complibs = ["blosc:zstd"]
+            m.setitem(sys.modules, "tables", mock_tables)
 
             coll = ProcessorCollection()
             p1 = MagicMock(spec=BaseProcessor)
@@ -97,16 +101,18 @@ class TestProcessorCollectionPersistence:
 
             # Mock HDFStore constructor
             with m.context() as m_pd:
-                m_pd.setattr(pd, "HDFStore", MagicMock(return_value=mock_store))
-
+                from ryan_library.processors.tuflow import processor_collection
+                mock_hdf_store_cls = MagicMock(return_value=mock_store)
+                m_pd.setattr(processor_collection, "HDFStore", mock_hdf_store_cls)
+    
                 # 1. Test to_hdf
                 coll.to_hdf(hdf_path)
-
+    
                 assert "metadata" in store_data
                 assert "proc_0000" in store_data
-
+    
                 # Check compression kwargs were passed
-                pd.HDFStore.assert_called_with(str(hdf_path), mode="w", complevel=9, complib="blosc:zstd")
+                mock_hdf_store_cls.assert_any_call(str(hdf_path), mode="w", complevel=9, complib="blosc:zstd")
 
                 # 2. Test from_hdf
                 class MockProcessorClass:

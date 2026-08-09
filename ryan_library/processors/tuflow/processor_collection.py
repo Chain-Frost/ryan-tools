@@ -1,5 +1,5 @@
 # ryan_library/processors/tuflow/processor_collection.py
-
+__lazy_modules__: list[str] = ["pandas"]
 from collections.abc import Collection
 import copy
 import json
@@ -7,8 +7,7 @@ from pathlib import Path
 import re
 from typing import Any
 from loguru import logger
-import pandas as pd
-from pandas import DataFrame, Series
+from pandas import DataFrame, Series, NA, concat, to_numeric, HDFStore
 from ryan_library.functions.dataframe_helpers import (
     reorder_columns,
     reorder_long_columns,
@@ -73,7 +72,7 @@ class ProcessorCollection:
                     row[column] = payload[column]
             rows.append(row)
 
-        lookup_df = pd.DataFrame(data=rows)
+        lookup_df = DataFrame(data=rows)
         if not lookup_df.empty and id_column in lookup_df.columns:
             lookup_df[id_column] = lookup_df[id_column].astype("Int32")
         return lookup_df
@@ -98,7 +97,7 @@ class ProcessorCollection:
                     f"{processor.file_name}: '{id_column}' already present; skipping compaction for this processor."
                 )
                 continue
-            processor.df[id_column] = pd.Series(idx, index=processor.df.index, dtype="Int32")
+            processor.df[id_column] = Series(idx, index=processor.df.index, dtype="Int32")
             drop_columns: list[str] = [column for column in columns_to_drop if column in processor.df.columns]
             if drop_columns:
                 processor.df = processor.df.drop(columns=drop_columns)
@@ -134,7 +133,7 @@ class ProcessorCollection:
 
             seen_values: set[str] = set()
             for raw_value in processor.df["Chan ID"].to_numpy(dtype=object):
-                if raw_value is None or raw_value is pd.NA:
+                if raw_value is None or raw_value is NA:
                     continue
                 value = str(raw_value).strip()
                 if not value or value in seen_values:
@@ -167,8 +166,8 @@ class ProcessorCollection:
             aligned_values: list[object] = []
             processor_changed_count = 0
             for value in processor.df["Chan ID"].astype("string").to_numpy(dtype=object):
-                if value is None or value is pd.NA:
-                    aligned_values.append(pd.NA)
+                if value is None or value is NA:
+                    aligned_values.append(NA)
                     continue
 
                 text_value = str(value).strip()
@@ -179,7 +178,7 @@ class ProcessorCollection:
                 aligned_values.append(aligned_value)
 
             if processor_changed_count:
-                processor.df["Chan ID"] = pd.Series(data=aligned_values, index=processor.df.index, dtype="string")
+                processor.df["Chan ID"] = Series(data=aligned_values, index=processor.df.index, dtype="string")
                 changed_count += processor_changed_count
                 logger.info(
                     f"{processor.file_name}: Aligned {processor_changed_count} EOF channel IDs to full result IDs."
@@ -269,12 +268,12 @@ class ProcessorCollection:
         batches: list[DataFrame] = []
         for i in range(0, len(frames), self._BATCH_SIZE):
             batch: list[DataFrame] = frames[i : i + self._BATCH_SIZE]
-            batches.append(pd.concat(batch, ignore_index=True, sort=False))
+            batches.append(concat(batch, ignore_index=True, sort=False))
         if len(batches) == 1:
             return batches[0]
-        return pd.concat(batches, ignore_index=True, sort=False)
+        return concat(batches, ignore_index=True, sort=False)
 
-    def combine_1d_timeseries(self, reset_categoricals: bool = True) -> pd.DataFrame:
+    def combine_1d_timeseries(self, reset_categoricals: bool = True) -> DataFrame:
         """Combine DataFrames where dataformat is 'Timeseries'.
         Group data based on 'internalName', 'Chan ID', and 'Time'.
 
@@ -282,7 +281,7 @@ class ProcessorCollection:
             reset_categoricals: Whether to normalize categorical ordering before grouping.
 
         Returns:
-            pd.DataFrame: Combined and grouped DataFrame."""
+            DataFrame: Combined and grouped DataFrame."""
         logger.debug("Combining 1D Timeseries data.")
         self.align_eof_channel_ids()
 
@@ -293,7 +292,7 @@ class ProcessorCollection:
 
         if not timeseries_processors:
             logger.warning("No processors with dataformat 'Timeseries' found.")
-            return pd.DataFrame()
+            return DataFrame()
 
         # Concatenate DataFrames
         # Prepare static data (EOF + Chan)
@@ -335,9 +334,9 @@ class ProcessorCollection:
 
         if not dfs_to_concat:
             logger.warning("No Timeseries data to concatenate.")
-            return pd.DataFrame()
+            return DataFrame()
 
-        combined_df: pd.DataFrame = self._concat_in_batches(frames=dfs_to_concat)
+        combined_df: DataFrame = self._concat_in_batches(frames=dfs_to_concat)
         logger.debug("Combined Timeseries DataFrame with {} rows.", len(combined_df))
 
         # Columns to drop
@@ -364,7 +363,7 @@ class ProcessorCollection:
         missing_keys: list[str] = [key for key in group_keys if key not in combined_df.columns]
         if missing_keys:
             logger.error(f"Missing group keys {missing_keys} in Timeseries data.")
-            return pd.DataFrame()
+            return DataFrame()
 
         combined_df = reorder_long_columns(df=combined_df)
 
@@ -417,7 +416,7 @@ class ProcessorCollection:
 
         return grouped_df
 
-    def combine_1d_maximums(self, reset_categoricals: bool = True) -> pd.DataFrame:
+    def combine_1d_maximums(self, reset_categoricals: bool = True) -> DataFrame:
         """Combine DataFrames where dataformat is 'Maximums' or 'ccA'.
         Drop the 'Time' column.
         Group data based on 'internalName' and 'Chan ID'.
@@ -426,7 +425,7 @@ class ProcessorCollection:
             reset_categoricals: Whether to normalize categorical ordering before grouping.
 
         Returns:
-            pd.DataFrame: Combined and grouped DataFrame."""
+            DataFrame: Combined and grouped DataFrame."""
         logger.debug("Combining 1D Maximums/ccA data.")
         self.align_eof_channel_ids()
 
@@ -437,7 +436,7 @@ class ProcessorCollection:
 
         if not maximums_processors:
             logger.warning("No processors with dataformat 'Maximums' or 'ccA' found.")
-            return pd.DataFrame()
+            return DataFrame()
 
         # Identify EOF processors for merging
         eof_processors: list[BaseProcessor] = [p for p in self.processors if p.dataformat.lower() == "eof"]
@@ -488,7 +487,7 @@ class ProcessorCollection:
 
         if not dfs_to_concat:
             logger.warning("No data to concatenate after filtering.")
-            return pd.DataFrame()
+            return DataFrame()
 
         # Concatenate DataFrames (with EOF geometry merged in above when available)
         # TODO - there is no geometry? there should only be data columns from the attributes
@@ -506,7 +505,7 @@ class ProcessorCollection:
         missing_keys: list[str] = [key for key in group_keys if key not in combined_df.columns]
         if missing_keys:
             logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
-            return pd.DataFrame()
+            return DataFrame()
 
         grouped_df: DataFrame = (
             combined_df.groupby(by=group_keys, observed=True)  # pyright: ignore[reportUnknownMemberType]
@@ -570,7 +569,7 @@ class ProcessorCollection:
         otherwise named roads with the same numeric suffix do not collide.
         """
 
-        if value is None or value is pd.NA:
+        if value is None or value is NA:
             return None
 
         text_value: str = str(value).strip()
@@ -615,16 +614,16 @@ class ProcessorCollection:
             return df
 
         if df.empty:
-            df["HW_D"] = pd.Series(dtype="Float64")
+            df["HW_D"] = Series(dtype="Float64")
             return df
 
-        us_h_series: Series[float] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+        us_h_series: Series[float] = to_numeric(  # pyright: ignore[reportUnknownMemberType]
             arg=df[us_h_col], errors="coerce"
         )
-        us_invert_series: Series = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+        us_invert_series: Series = to_numeric(  # pyright: ignore[reportUnknownMemberType]
             arg=df["US Invert"], errors="coerce"
         )
-        height_series: Series = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+        height_series: Series = to_numeric(  # pyright: ignore[reportUnknownMemberType]
             arg=df["Height"], errors="coerce"
         )
 
@@ -632,7 +631,7 @@ class ProcessorCollection:
             us_h_series.notna() & us_invert_series.notna() & height_series.notna() & (height_series != 0)
         )
 
-        hw_d_series: Series = pd.Series(data=pd.NA, index=df.index, dtype="Float64")
+        hw_d_series: Series = Series(data=NA, index=df.index, dtype="Float64")
         valid_count: int = int(valid_mask.sum())
 
         if not valid_mask.any():
@@ -648,14 +647,14 @@ class ProcessorCollection:
         logger.debug("Calculated HW_D ratio for {} of {} rows.", valid_count, df["Chan ID"].count())
         return df
 
-    def combine_raw(self, reset_categoricals: bool = True) -> pd.DataFrame:
+    def combine_raw(self, reset_categoricals: bool = True) -> DataFrame:
         """Concatenate all DataFrames together without any grouping.
 
         Args:
             reset_categoricals: Whether to normalize categorical ordering after concatenation.
 
         Returns:
-            pd.DataFrame: Concatenated DataFrame."""
+            DataFrame: Concatenated DataFrame."""
         logger.debug("Combining raw data without grouping.")
 
         # Concatenate all DataFrames
@@ -670,7 +669,7 @@ class ProcessorCollection:
 
         return combined_df
 
-    def pomm_combine(self, reset_categoricals: bool = True) -> pd.DataFrame:
+    def pomm_combine(self, reset_categoricals: bool = True) -> DataFrame:
         """Combine DataFrames where dataformat is 'POMM'.
         No grouping required as DataFrames are already in the correct format.
 
@@ -678,7 +677,7 @@ class ProcessorCollection:
             reset_categoricals: Whether to normalize categorical ordering after concatenation.
 
         Returns:
-            pd.DataFrame: Combined DataFrame."""
+            DataFrame: Combined DataFrame."""
         logger.debug("Combining POMM data.")
 
         # Filter processors with dataformat 'POMM'
@@ -686,7 +685,7 @@ class ProcessorCollection:
 
         if not pomm_processors:
             logger.warning("No processors with dataformat 'POMM' found.")
-            return pd.DataFrame()
+            return DataFrame()
 
         # Concatenate DataFrames
         combined_df: DataFrame = self._concat_in_batches(frames=[p.df for p in pomm_processors if not p.df.empty])
@@ -700,7 +699,7 @@ class ProcessorCollection:
 
         return combined_df
 
-    def po_combine(self, reset_categoricals: bool = True) -> pd.DataFrame:
+    def po_combine(self, reset_categoricals: bool = True) -> DataFrame:
         """Combine processed PO timeseries files into a single tidy DataFrame.
 
         Args:
@@ -713,7 +712,7 @@ class ProcessorCollection:
 
         if not po_processors:
             logger.warning("No PO processors available for combination.")
-            return pd.DataFrame()
+            return DataFrame()
 
         # Concatenate DataFrames
         combined_df: DataFrame = self._concat_in_batches(frames=[p.df for p in po_processors if not p.df.empty])
@@ -777,7 +776,7 @@ class ProcessorCollection:
 
         # User requested blosc:zstd level 9
         # complib type hint in pandas can be strict, but 'blosc:zstd' is valid at runtime.
-        with pd.HDFStore(
+        with HDFStore(
             str(file_path), mode="w", complevel=9, complib="blosc:zstd"  # pyright: ignore[reportArgumentType]
         ) as store:
             for idx, proc in enumerate(self.processors):
@@ -803,7 +802,7 @@ class ProcessorCollection:
                     # If querying is needed, 'table' is better but slower/larger.
                     store.put(key, proc.df, format="fixed")
 
-            meta_df = pd.DataFrame({"json": [json.dumps(metadata)]})
+            meta_df = DataFrame({"json": [json.dumps(metadata)]})
             store.put("metadata", meta_df)
 
         logger.info(f"Saved {len(self.processors)} processors to {file_path}")
@@ -826,7 +825,7 @@ class ProcessorCollection:
 
         collection = ProcessorCollection()
 
-        with pd.HDFStore(str(file_path), mode="r") as store:
+        with HDFStore(str(file_path), mode="r") as store:
             if "metadata" not in store:
                 raise KeyError("HDF5 file missing 'metadata' key.")
 
@@ -851,12 +850,12 @@ class ProcessorCollection:
 
                     if hdf_key in store:
                         stored_frame = store.get(hdf_key)
-                        if not isinstance(stored_frame, pd.DataFrame):
+                        if not isinstance(stored_frame, DataFrame):
                             raise TypeError(f"HDF5 key {hdf_key!r} did not contain a DataFrame.")
                         proc.df = stored_frame
                         proc.processed = True
                     else:
-                        proc.df = pd.DataFrame()
+                        proc.df = DataFrame()
                         proc.processed = True
 
                     if item.get("applied_location_filter"):
@@ -915,8 +914,8 @@ class ProcessorCollection:
         return duplicates
 
     def _merge_with_eof_data(
-        self, source_df: pd.DataFrame, eof_df: pd.DataFrame, *, source_label: str, run_code: str
-    ) -> pd.DataFrame:
+        self, source_df: DataFrame, eof_df: DataFrame, *, source_label: str, run_code: str
+    ) -> DataFrame:
         """Merge EOF geometry/metadata into another maximum dataset.
 
         EOF files often contain authoritative culvert geometry that should be
@@ -940,23 +939,23 @@ class ProcessorCollection:
             logger.warning(f"EOF dataset for run code {run_code} missing 'Chan ID'; cannot merge.")
             return source_df
 
-        merged_df: pd.DataFrame = self._merge_chan_and_eof(chan_df=source_df, eof_df=eof_df)
+        merged_df: DataFrame = self._merge_chan_and_eof(chan_df=source_df, eof_df=eof_df)
         logger.debug(
             "Merged EOF data into {} dataset for run code {}; row count now {}.", source_label, run_code, len(merged_df)
         )
         return merged_df
 
     @staticmethod
-    def _merge_chan_and_eof(chan_df: pd.DataFrame, eof_df: pd.DataFrame) -> pd.DataFrame:
+    def _merge_chan_and_eof(chan_df: DataFrame, eof_df: DataFrame) -> DataFrame:
         """
         Merge a maximum dataset with EOF data keyed by ``Chan ID`` (EOF wins).
 
         Args:
-            chan_df (pd.DataFrame): DataFrame from a maximums-style processor.
-            eof_df (pd.DataFrame): DataFrame from EofProcessor.
+            chan_df (DataFrame): DataFrame from a maximums-style processor.
+            eof_df (DataFrame): DataFrame from EofProcessor.
 
         Returns:
-            pd.DataFrame: Merged DataFrame.
+            DataFrame: Merged DataFrame.
         """
         if chan_df.empty:
             return eof_df

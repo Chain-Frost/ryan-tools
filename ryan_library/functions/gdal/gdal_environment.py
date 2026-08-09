@@ -11,7 +11,7 @@ from loguru import logger
 
 warnings.warn(
     "ryan_library.functions.gdal.gdal_environment is deprecated because the maintained workflows use installed "
-    "Python GDAL directly. Backwards compatibility is supported until 30 June 2027.",
+    "Python GDAL directly. Backwards compatibility is supported until 31 December 2026.",
     DeprecationWarning,
     stacklevel=2,
 )

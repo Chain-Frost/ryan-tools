@@ -1,3 +1,4 @@
+__lazy_modules__ = ['pandas']
 # ryan_library/processors/tuflow/ChanProcessor.py
 
 from ..base_processor import ProcessorStatus

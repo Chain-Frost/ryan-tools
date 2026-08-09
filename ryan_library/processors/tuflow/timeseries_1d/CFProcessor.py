@@ -1,6 +1,7 @@
 """Processor for TUFLOW culvert flow (``_CF``) timeseries data."""
 
 from __future__ import annotations
+__lazy_modules__ = ['pandas']
 
 import pandas as pd
 from typing import override

@@ -1,3 +1,4 @@
+__lazy_modules__ = ['pandas']
 # ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py
 import os
 import sqlite3

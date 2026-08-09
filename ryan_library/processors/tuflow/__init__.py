@@ -1,21 +1,54 @@
 """TUFLOW processor package."""
 
 from importlib import import_module
-from types import ModuleType
-from typing import cast
+from typing import TYPE_CHECKING
 
-__all__: list[str] = []
+if TYPE_CHECKING:
+    from .maximums_1d import ccAProcessor, CmxProcessor, NmxProcessor
+    from .timeseries_1d import CFProcessor, HProcessor, QProcessor, VProcessor
+    from .other_processors import (
+        ChanProcessor,
+        EOFProcessor,
+        POMMProcessor,
+        POProcessor,
+        RLLQmxProcessor,
+    )
+
+_PROCESSORS = {
+    "ccAProcessor": ".maximums_1d",
+    "CmxProcessor": ".maximums_1d",
+    "NmxProcessor": ".maximums_1d",
+    "CFProcessor": ".timeseries_1d",
+    "HProcessor": ".timeseries_1d",
+    "QProcessor": ".timeseries_1d",
+    "VProcessor": ".timeseries_1d",
+    "ChanProcessor": ".other_processors",
+    "EOFProcessor": ".other_processors",
+    "POMMProcessor": ".other_processors",
+    "POProcessor": ".other_processors",
+    "RLLQmxProcessor": ".other_processors",
+}
+
+__all__ = [
+    "ccAProcessor",
+    "CmxProcessor",
+    "NmxProcessor",
+    "CFProcessor",
+    "HProcessor",
+    "QProcessor",
+    "VProcessor",
+    "ChanProcessor",
+    "EOFProcessor",
+    "POMMProcessor",
+    "POProcessor",
+    "RLLQmxProcessor",
+]
 
 
-def _expose(module_name: str, *processor_names: str) -> None:
-    """Expose processors from ``module_name`` on the package namespace."""
-
-    module: ModuleType = import_module(f".{module_name}", __name__)
-    for name in processor_names:
-        globals()[name] = cast(object, getattr(module, name))
-        __all__.append(name)
-
-
-_expose("maximums_1d", "ccAProcessor", "CmxProcessor", "NmxProcessor")
-_expose("timeseries_1d", "CFProcessor", "HProcessor", "QProcessor", "VProcessor")
-_expose("other_processors", "ChanProcessor", "EOFProcessor", "POMMProcessor", "POProcessor", "RLLQmxProcessor")
+def __getattr__(name: str) -> object:
+    if name in _PROCESSORS:
+        module = import_module(_PROCESSORS[name], __name__)
+        obj = getattr(module, name)
+        globals()[name] = obj
+        return obj
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

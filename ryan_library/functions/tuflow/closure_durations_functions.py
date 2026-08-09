@@ -5,6 +5,7 @@ These helpers operate on processed PO DataFrames produced by the TUFLOW
 processors. They are intentionally logic-only (no I/O) so they can be reused and
 unit-tested independently of the orchestration layer.
 """
+__lazy_modules__ = ['pandas']
 
 import pandas as pd
 from loguru import logger

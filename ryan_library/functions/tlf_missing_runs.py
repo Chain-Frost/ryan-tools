@@ -1,4 +1,5 @@
 from __future__ import annotations
+__lazy_modules__ = ['pandas']
 
 from dataclasses import dataclass, asdict
 from typing import Literal

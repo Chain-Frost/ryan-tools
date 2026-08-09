@@ -1,5 +1,5 @@
 # ryan_library/processors/tuflow/base_processor.py
-
+__lazy_modules__: list[str] = ["pandas"]
 import importlib
 from abc import ABC, abstractmethod
 from collections.abc import Collection

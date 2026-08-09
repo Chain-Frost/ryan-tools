@@ -1,4 +1,5 @@
 """Append TUFLOW log-summary rows to an existing master workbook."""
+__lazy_modules__ = ['pandas']
 
 from pathlib import Path
 

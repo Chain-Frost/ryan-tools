@@ -226,8 +226,6 @@ Ongoing work should:
 - Remove the expired compatibility namespace and package-level aliases that exist only to support it.
 - Update documentation, focused compatibility tests, release notes, and built-wheel contents.
 
-### After 30 June 2027
-
 - Confirm that no supported caller uses `ryan_library.functions.gdal.gdal_environment` or
   `ryan_library.functions.gdal.gdal_runners`.
 - Remove those modules and direct users to installed Python GDAL and `gdal.raster_processing`.
@@ -256,3 +254,7 @@ This roadmap can be replaced by a smaller maintenance backlog when:
 - expired compatibility layers have been removed on schedule;
 - remaining root planning documents have been integrated, archived, or deleted deliberately;
 - focused and full-suite validation paths are documented and reproducible on the supported Windows environment.
+
+### Python 3.15 Lazy Loading
+
+Currently, the repository relies on PEP 562 (**getattr**) for lazy loading modules like pandas and numpy. When Python 3.15 becomes the common environment, scripts and library entry points should be updated to utilize native Python 3.15 lazy loading mechanisms (e.g. **lazy_modules** or standard module-level lazy imports) for better performance and simpler syntax.

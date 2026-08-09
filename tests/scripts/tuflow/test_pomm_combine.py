@@ -24,9 +24,11 @@ class _DummyResults:
         return self._df
 
 
+import ryan_library.functions.excel_export as excel_export
+
 @pytest.fixture(autouse=True)
 def _fixed_time(monkeypatch: pytest.MonkeyPatch) -> str:
-    monkeypatch.setattr(misc_functions, "datetime", _FixedDateTime)
+    monkeypatch.setattr(excel_export, "datetime", _FixedDateTime)
     return "20240102-0304"
 
 

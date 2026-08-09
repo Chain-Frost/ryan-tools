@@ -1,5 +1,6 @@
 # ryan_library\processors\tuflow\timeseries_helpers.py
 """Utility helpers shared by TUFLOW timeseries processors."""
+__lazy_modules__ = ['pandas']
 
 import pandas as pd
 from loguru import logger

@@ -19,7 +19,7 @@ from ryan_library.functions.gdal.raster_processing import (
 warnings.warn(
     "ryan_library.functions.gdal.gdal_runners is deprecated; import calculate_flood_extent and "
     "polygonize_flood_extent from ryan_library.functions.gdal.raster_processing instead. Backwards compatibility "
-    "is supported until 30 June 2027.",
+    "is supported until 31 December 2026.",
     DeprecationWarning,
     stacklevel=2,
 )

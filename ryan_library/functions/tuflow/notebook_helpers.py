@@ -16,8 +16,8 @@ passing ``parallel=True``, but be aware this may not work reliably in all notebo
 configurations.
 """
 
-from __future__ import annotations
-
+__lazy_modules__: list[str] = ["pandas"]
+from types import ModuleType
 import importlib
 import multiprocessing
 from collections.abc import Callable, Collection, Sequence
@@ -59,8 +59,10 @@ def is_notebook() -> bool:
     Jupyter, JupyterLab, VS Code notebooks, and Google Colab.
     """
     try:
-        ipython_module = importlib.import_module("IPython")
-        get_ipython = cast(Callable[[], object | None], getattr(ipython_module, "get_ipython"))
+        ipython_module: ModuleType = importlib.import_module(name="IPython")
+        get_ipython: Callable[[], object | None] = cast(
+            Callable[[], object | None], getattr(ipython_module, "get_ipython")
+        )
         shell: object | None = get_ipython()
         if shell is None:
             return False

@@ -6,6 +6,7 @@ This module combines "1d_maximums" style CSV data (culvert results) into a singl
 It supports multiple data types (Nmx, Cmx, Chan, etc.) and exports the raw concatenated data
 as well as the specific `combine_1d_maximums` processed view.
 """
+__lazy_modules__ = ['pandas']
 
 from collections.abc import Collection
 from pathlib import Path

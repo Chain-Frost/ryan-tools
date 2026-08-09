@@ -1,3 +1,4 @@
+__lazy_modules__ = ['pandas']
 # ryan_library/processors/tuflow/rll_qmx_processor.py
 
 import pandas as pd

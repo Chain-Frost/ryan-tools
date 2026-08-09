@@ -1,6 +1,7 @@
 """Processor for TUFLOW point output (``*_PO.csv``) timeseries files."""
 
 from __future__ import annotations
+__lazy_modules__ = ['pandas']
 
 import pandas as pd
 from loguru import logger

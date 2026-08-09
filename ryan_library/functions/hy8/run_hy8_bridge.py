@@ -1,6 +1,7 @@
 """Convert TUFLOW culvert maximum exports into run_hy8 models."""
 
 from __future__ import annotations
+__lazy_modules__ = ['pandas']
 
 import math
 import re

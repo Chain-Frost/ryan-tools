@@ -36,7 +36,7 @@ def test_process_log_file_for_dashboard(mock_process, tmp_path: Path) -> None:
     assert "test error" in res.detail
 
 
-@patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.read_log_file")
+@patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.get_log_lines")
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.search_for_completion")
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.is_complete_tlf")
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.process_top_lines")
@@ -48,11 +48,11 @@ def test_process_log_file_dataframe(
     log_path.write_text("dummy")
 
     # Empty log file -> return empty df
-    mock_read.return_value = []
+    mock_read.return_value = ([], [])
     assert _process_log_file_dataframe(log_path).empty
 
     # Has lines, incomplete run
-    mock_read.return_value = ["line"]
+    mock_read.return_value = (["line"], ["line"])
     mock_search.return_value = ({}, 0, None)
     mock_is_complete.return_value = False
     assert _process_log_file_dataframe(log_path).empty

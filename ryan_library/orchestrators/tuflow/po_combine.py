@@ -5,6 +5,7 @@ This module provides the core logic for combining "PO" (Plot Output) CSV files g
 It leverages the `ProcessorCollection` to process files in parallel, normalize locations, and filter data types.
 The combined results can be exported to Excel or Parquet formats.
 """
+__lazy_modules__ = ['pandas']
 
 from collections.abc import Collection
 from pathlib import Path

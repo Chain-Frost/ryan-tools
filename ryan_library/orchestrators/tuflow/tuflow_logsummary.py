@@ -6,6 +6,7 @@ This module parses TUFLOW log files (*.tlf) in parallel to extract simulation me
 (timestamps, errors, warnings, durations).
 It aggregates this information into a summary Excel report.
 """
+__lazy_modules__ = ['pandas']
 
 from pathlib import Path
 from dataclasses import dataclass

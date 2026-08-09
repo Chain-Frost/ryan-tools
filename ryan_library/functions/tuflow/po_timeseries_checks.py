@@ -2,6 +2,7 @@
 """Helpers for analyzing PO timeseries CSV outputs."""
 
 from __future__ import annotations
+__lazy_modules__ = ['numpy', 'pandas']
 
 from dataclasses import asdict, dataclass
 from pathlib import Path

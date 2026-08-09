@@ -7,6 +7,7 @@ corresponding values for other columns from the simulation that matches the targ
 """
 
 from __future__ import annotations
+__lazy_modules__ = ["pandas"]
 
 from collections.abc import Collection, Sequence
 from datetime import datetime
@@ -301,7 +302,7 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
             closest_row: pd.Series | None = None
             if q_series is not None and bool(q_series.notna().any()):
                 if statistic == "mean":
-                    target_q = float(q_series.mean())
+                    target_q = q_series.mean()
                     # Find index of value closest to the statistic.
                     idx: Any = (q_series - target_q).abs().idxmin()
                     closest_row = cast(pd.Series, group.loc[idx])

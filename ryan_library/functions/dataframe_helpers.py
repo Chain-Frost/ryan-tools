@@ -1,3 +1,4 @@
+__lazy_modules__ = ['pandas']
 # ryan_library/functions/dataframe_helpers.py
 
 import pandas as pd

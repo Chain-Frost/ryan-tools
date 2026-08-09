@@ -1,5 +1,4 @@
-from .functions import *
-from .processors import *
+
 
 from importlib import import_module
 from types import ModuleType
@@ -21,6 +20,6 @@ def __getattr__(name: str) -> ModuleType:
     if name not in _SCRIPT_MODULES:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-    module: ModuleType = import_module(f"{__name__}.scripts.{name}")
+    module: ModuleType = import_module(f"{__name__}.scripts.tuflow.{name}")
     globals()[name] = module
     return module

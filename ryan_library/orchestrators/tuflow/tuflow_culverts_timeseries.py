@@ -6,6 +6,7 @@ This module combines "1d_timeseries" style CSV data (e.g., flow over time for cu
 It leverages `combine_1d_timeseries` from `ProcessorCollection` to produce a consolidated
 timeseries dataset.
 """
+__lazy_modules__ = ['pandas']
 
 from collections.abc import Collection
 from pathlib import Path

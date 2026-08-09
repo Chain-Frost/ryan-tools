@@ -5,6 +5,7 @@ This module provides the logic for combining "POMM" (Plot Output Maximums/Minimu
 It handles finding files, processing them in parallel via `ProcessorCollection`, filtering by data types (POMM, RLL_Qmx),
 and exporting the consolidated results to Excel or Parquet.
 """
+__lazy_modules__ = ['pandas']
 
 from collections.abc import Collection, Sequence
 from pathlib import Path

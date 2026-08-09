@@ -10,6 +10,7 @@ This script:
 Heavy lifting lives in ``ryan_library.functions.tuflow.closure_durations_functions``;
 this module wires the pieces together and handles I/O/logging.
 """
+__lazy_modules__ = ['pandas']
 
 from datetime import datetime
 from pathlib import Path

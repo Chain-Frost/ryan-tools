@@ -1,9 +1,6 @@
 """Helpers for appending TUFLOW log-summary rows to an existing Excel table."""
+__lazy_modules__ = ["pandas"]
 
-__lazy_modules__ = {
-    "pathlib",
-    "collections.abc",
-}
 
 from pathlib import Path
 from collections.abc import Iterable

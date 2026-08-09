@@ -7,6 +7,7 @@ and exports a summary table.
 """
 
 from __future__ import annotations
+__lazy_modules__ = ['pandas']
 
 import concurrent.futures as cf
 from pathlib import Path

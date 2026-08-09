@@ -1,4 +1,5 @@
 """Shared GeoTIFF-to-tabular terrain processing helpers."""
+__lazy_modules__ = ['numpy', 'pandas', 'rasterio']
 
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager

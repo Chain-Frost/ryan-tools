@@ -9,6 +9,7 @@ before returning them to an orchestrator.
 lossless. ``tuflow`` prioritises broad TUFLOW/GeoTIFF compatibility, while
 ``efficient`` opts into tiled ZSTD compression and sparse blocks.
 """
+__lazy_modules__ = ['numpy']
 
 # pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false

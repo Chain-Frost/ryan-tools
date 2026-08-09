@@ -3,6 +3,7 @@
 
 # pyright: reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
 from __future__ import annotations
+__lazy_modules__ = ['pandas']
 
 from pathlib import Path
 from multiprocessing import Queue
