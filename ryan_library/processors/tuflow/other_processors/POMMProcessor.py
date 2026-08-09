@@ -1,5 +1,6 @@
-__lazy_modules__ = ['pandas']
-# ryan_library/processors/tuflow/POMMProcessor.py
+# ryan_library/processors/tuflow/other_processors/POMMProcessor.py
+
+__lazy_modules__ = ["pandas"]
 
 import pandas as pd
 from loguru import logger

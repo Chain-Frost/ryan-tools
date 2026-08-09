@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from loguru import logger
 
-from ryan_library.functions.loguru_helpers import LoggerManager, configure_notebook_logging, setup_logger
+from ryan_library.functions.loguru_helpers import configure_notebook_logging, setup_logger
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HARNESS = REPO_ROOT / "tests" / "support" / "loguru_multiprocessing_harness.py"
@@ -110,16 +110,6 @@ def test_invalid_level_fails_before_starting_listener() -> None:
         setup_logger(console_log_level="VERBOSE")
 
 
-def test_logger_manager_singleton_can_reinitialize(tmp_path: Path) -> None:
-    LoggerManager._instance = None
-    manager = LoggerManager(log_level="WARNING", log_file="manager.log", log_dir=tmp_path)
-    assert manager is LoggerManager()
-    manager.shutdown()
-    manager.shutdown()
-
-    reinitialized = LoggerManager(log_level="WARNING", log_file="manager-2.log", log_dir=tmp_path)
-    assert reinitialized is manager
-    reinitialized.shutdown()
 
 
 def test_notebook_reconfiguration_is_concise_and_not_duplicated(

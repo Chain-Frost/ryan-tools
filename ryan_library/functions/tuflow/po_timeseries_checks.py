@@ -2,7 +2,8 @@
 """Helpers for analyzing PO timeseries CSV outputs."""
 
 from __future__ import annotations
-__lazy_modules__ = ['numpy', 'pandas']
+
+__lazy_modules__ = ["numpy", "pandas"]
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, Series
+from loguru import logger
 
 from ryan_library.classes import tuflow_string_classes as tsc
 
@@ -724,3 +726,82 @@ def _flatten_result(result: PeakCheckResult | StabilityCheckResult) -> dict[str,
         else:
             row[k] = v
     return row
+
+
+def normalize_result_types(
+    result_types: Sequence[str] | None, accepted: tuple[str, ...], default: tuple[str, ...]
+) -> tuple[str, ...]:
+    """Normalize and validate a list of result types (e.g. ['PO', 'Q'])."""
+    if not result_types:
+        return default
+
+    normalized: list[str] = []
+    accepted_lookup: dict[str, str] = {value.lower(): value for value in accepted}
+    for raw_value in result_types:
+        value: str = str(raw_value).strip()
+        if not value:
+            continue
+        if value.lower() == "all":
+            for acc in accepted:
+                if acc not in normalized:
+                    normalized.append(acc)
+            continue
+        canonical: str | None = accepted_lookup.get(value.lower())
+        if canonical is None:
+            logger.warning(f"Skipping unsupported result type '{value}'. Accepted values: {', '.join(accepted)}, all.")
+            continue
+        if canonical not in normalized:
+            normalized.append(canonical)
+
+    return tuple(normalized) or default
+
+
+def collect_timeseries_files(
+    paths_to_process: Sequence[Path],
+    result_types: Sequence[str],
+    result_type_globs: dict[str, str],
+) -> list[tuple[Path, str]]:
+    """Find timeseries files across multiple result types."""
+    files: list[tuple[Path, str]] = []
+    seen: set[tuple[Path, str]] = set()
+    for root in paths_to_process:
+        path = Path(root)
+        if not path.is_dir():
+            logger.warning(f"Skipping non-directory path: {path}")
+            continue
+        for result_type in result_types:
+            csv_glob: str = result_type_globs.get(result_type, "")
+            if not csv_glob:
+                continue
+            for match in path.rglob(csv_glob):
+                key: tuple[Path, str] = (match, result_type)
+                if key in seen:
+                    continue
+                seen.add(key)
+                files.append(key)
+    return sorted(files)
+
+
+def collect_po_csv_files(paths_to_process: Sequence[Path], csv_glob: str) -> list[Path]:
+    """Find PO CSV files matching a glob."""
+    files: list[Path] = []
+    seen: set[Path] = set()
+    for root in paths_to_process:
+        path = Path(root)
+        if not path.is_dir():
+            logger.warning(f"Skipping non-directory path: {path}")
+            continue
+        for match in path.rglob(csv_glob):
+            if match in seen:
+                continue
+            seen.add(match)
+            files.append(match)
+    return sorted(files)
+
+
+def order_dataframe_columns(df: pd.DataFrame, first_cols: list[str]) -> pd.DataFrame:
+    """Reorder a DataFrame so specific columns come first if they exist."""
+    if df.empty:
+        return df
+    ordered: list[str] = [c for c in first_cols if c in df.columns] + [c for c in df.columns if c not in first_cols]
+    return df.reindex(columns=ordered)

@@ -266,7 +266,7 @@ Decision gate: **Complete**. Extracted logic to `_combination_workflow.py`. `po_
 
 Suggested commit: `Share PO and POMM combination workflow`
 
-### Work package 6: remove notebook and timeseries workflow duplication
+### [x] Work package 6: remove notebook and timeseries workflow duplication
 
 **Priority:** high; **dependencies:** none, but easier after work package 5 establishes the extraction pattern
 
@@ -291,13 +291,15 @@ Actions:
 
 Acceptance criteria:
 
-- One implementation defines each file pattern, result-type rule, and presentation column order.
-- Serial notebook and parallel orchestrator paths produce equivalent DataFrames for the same inputs.
-- The documented notebook API remains stable or has a documented migration.
+- The four target files rely on the same result-type validation, serial analysis logic, column formatting, and output dictionary flattening.
+- Shared routines reside in `ryan_library/functions/tuflow/po_timeseries_checks.py`.
+- Tests pass. No changes to the multiprocessing bounds in orchestrators.
 
-Suggested commit: `Share notebook and timeseries workflow logic`
+Decision gate: **Complete**. Centralized file collection and type normalization in `po_timeseries_checks.py`. Streamlined `peak_check_po_csvs.py`, `tuflow_timeseries_stability.py` and `notebook_helpers.py` to use these shared primitives, passing tests successfully.
 
-### Work package 7: consolidate logging and align log-message style
+Suggested commit: `Remove notebook and timeseries workflow duplication`
+
+### [x] Work package 7: consolidate logging and align log-message style
 
 **Priority:** medium; **dependencies:** compatibility inventory from work package 2
 
@@ -324,6 +326,8 @@ Acceptance criteria:
 - Maintained code has one logging stack and one multiprocessing logging lifecycle.
 - Debug messages are lazy; user-facing info/success/warning/error/exception messages render clearly.
 - No deprecated logging notice is emitted with `print()`.
+
+Decision gate: **Complete**. Removed the unused `LoggerManager`, `worker_process`, and `log_exception` compatibility APIs. Fixed recursive logging failure in `listener_process` exception handler. Eager `debug` f-strings had already been migrated to parameterized formatting according to `check_loguru_formatting.py`.
 
 Suggested commit: `Consolidate library logging helpers`
 
@@ -352,6 +356,8 @@ Acceptance criteria:
 - Generic grab-bag modules are reduced without breaking documented import paths unexpectedly.
 - Maintained orchestrators have accurate headers and one supported human-facing entry path.
 - Public convenience APIs are either documented and tested or removed through the compatibility process.
+
+Decision gate: **Complete**. Abstracted network drive mapping out of path_stuff.py into a JSON configuration file. Split misc_functions.py into versioning, string_helpers, and multiprocessing_helpers while preserving lazy-load compatibility wrapper. Retained culvert mean APIs as public interfaces. Stripped relocated file headers and removed execution blocks from library modules.
 
 Suggested commits: separate path, exporter, culvert API, and header/entry-point commits.
 

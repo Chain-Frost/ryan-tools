@@ -1,5 +1,6 @@
-__lazy_modules__ = ['pandas']
 # ryan_library/processors/tuflow/timeseries_processor.py
+
+__lazy_modules__ = ["pandas"]
 
 from abc import abstractmethod
 from pathlib import Path

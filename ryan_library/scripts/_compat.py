@@ -1,3 +1,4 @@
+# ryan_library/scripts/_compat.py
 """Compatibility helpers for deprecated script imports."""
 
 from __future__ import annotations

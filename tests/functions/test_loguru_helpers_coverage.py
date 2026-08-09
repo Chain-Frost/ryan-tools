@@ -130,7 +130,3 @@ def test_setup_logger_passes_both_sink_levels() -> None:
     assert str(kwargs["log_file"]).endswith("test.log")
 
 
-def test_log_exception_uses_rendered_message() -> None:
-    with patch.object(loguru_helpers, "logger") as mock_logger:
-        loguru_helpers.log_exception(": details")
-    mock_logger.exception.assert_called_once_with("An exception occurred: details")

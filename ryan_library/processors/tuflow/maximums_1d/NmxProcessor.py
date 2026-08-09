@@ -1,7 +1,8 @@
-# ryan_library/processors/tuflow/nmx_processor.py
+# ryan_library/processors/tuflow/maximums_1d/NmxProcessor.py
 
 from __future__ import annotations
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__ = ["pandas"]
 
 import pandas as pd
 from loguru import logger

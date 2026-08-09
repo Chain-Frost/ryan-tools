@@ -1,3 +1,4 @@
+# ryan_library/orchestrators/tuflow/_combination_workflow.py
 """
 Internal helper for orchestrating TUFLOW combination workflows (PO, POMM, etc.).
 
@@ -5,11 +6,11 @@ This module extracts the shared workflow of parsing directories, executing proce
 and exporting combined datasets to keep the public orchestrator entry points focused.
 """
 
-__lazy_modules__ = ["pandas"]
+__lazy_modules__: list[str] = ["pandas"]
 
-from collections.abc import Collection, Sequence
+from collections.abc import Collection
 from pathlib import Path
-from typing import Literal, Protocol, Callable
+from typing import Literal, Callable
 
 import pandas as pd
 from loguru import logger
@@ -24,13 +25,6 @@ from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 
 
-class CombinationResults(Protocol):
-    """Interface for results that can be combined and exported."""
-
-    @property
-    def processors(self) -> Sequence[object]: ...
-
-
 def execute_combination_workflow(
     *,
     paths_to_process: list[Path],
@@ -41,7 +35,7 @@ def execute_combination_workflow(
     export_prefix: str,
     export_sheet_name: str,
     export_metadata: dict[str, str],
-    combine_callable: Callable[[CombinationResults], pd.DataFrame],
+    combine_callable: Callable[[ProcessorCollection], pd.DataFrame],
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
@@ -118,12 +112,12 @@ def execute_combination_workflow(
 
 def _export_results(
     *,
-    results: CombinationResults,
+    results: ProcessorCollection,
     export_mode: Literal["excel", "parquet", "both"],
     export_prefix: str,
     export_sheet_name: str,
     export_metadata: dict[str, str],
-    combine_callable: Callable[[CombinationResults], pd.DataFrame],
+    combine_callable: Callable[[ProcessorCollection], pd.DataFrame],
 ) -> None:
     """Export combined DataFrames according to the requested mode."""
     if not results.processors:

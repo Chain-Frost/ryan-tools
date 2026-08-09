@@ -48,7 +48,7 @@ def test_peak_check_po_csvs_smoke(tmp_path: Path) -> None:
     out_file = tmp_path / "out.xlsx"
 
     with (
-        patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs._collect_files") as mock_collect,
+        patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.collect_po_csv_files") as mock_collect,
         patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.cf.ProcessPoolExecutor") as mock_pool,
         patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.ExcelExporter") as mock_export,
     ):

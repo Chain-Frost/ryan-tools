@@ -11,7 +11,7 @@ from ryan_library.functions.file_utils import (
     find_files_parallel,
     is_non_zero_file,
 )
-from ryan_library.functions.misc_functions import calculate_pool_size
+from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
 from ryan_library.functions.loguru_helpers import LogQueue, worker_initializer
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection

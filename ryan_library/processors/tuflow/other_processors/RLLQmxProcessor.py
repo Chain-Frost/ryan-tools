@@ -1,6 +1,6 @@
-__lazy_modules__ = ['pandas']
-# ryan_library/processors/tuflow/rll_qmx_processor.py
+# ryan_library/processors/tuflow/other_processors/RLLQmxProcessor.py
 
+__lazy_modules__: list[str] = ["pandas"]
 import pandas as pd
 from loguru import logger
 

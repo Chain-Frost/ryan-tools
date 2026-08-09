@@ -1,5 +1,7 @@
+# ryan_library/orchestrators/rorb/closure_durations.py
 """Coordinate RORB threshold-exceedance processing and exports."""
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__ = ["pandas"]
 
 from collections.abc import Iterable
 from dataclasses import dataclass

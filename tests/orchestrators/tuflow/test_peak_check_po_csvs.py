@@ -4,11 +4,11 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from ryan_library.orchestrators.tuflow.peak_check_po_csvs import (
-    _collect_files,
     _analyze_peak_worker,
     main_processing,
     PeakCheckConfig,
 )
+from ryan_library.functions.tuflow.po_timeseries_checks import collect_po_csv_files
 
 
 def test_collect_files(tmp_path: Path) -> None:
@@ -24,7 +24,7 @@ def test_collect_files(tmp_path: Path) -> None:
     file3 = tmp_path / "not_a_dir"
     file3.touch()
 
-    res = _collect_files(paths_to_process=[dir1, dir1, file3], csv_glob="*_PO.csv")
+    res = collect_po_csv_files(paths_to_process=[dir1, dir1, file3], csv_glob="*_PO.csv")
 
     # Should only return file1, no duplicates, skips file3
     assert res == [file1]
@@ -44,7 +44,7 @@ def test_analyze_peak_worker(mock_analyze, mock_flatten) -> None:
     assert res == [{"col": "val"}]
 
 
-@patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs._collect_files")
+@patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.collect_po_csv_files")
 def test_main_processing_no_files(mock_collect, tmp_path: Path) -> None:
     mock_collect.return_value = []
 
@@ -55,7 +55,7 @@ def test_main_processing_no_files(mock_collect, tmp_path: Path) -> None:
 
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.ExcelExporter")
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.cf.ProcessPoolExecutor")
-@patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs._collect_files")
+@patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.collect_po_csv_files")
 def test_main_processing_no_rows(mock_collect, mock_pool, mock_export, tmp_path: Path) -> None:
     mock_collect.return_value = [Path("test_PO.csv")]
 
@@ -72,7 +72,7 @@ def test_main_processing_no_rows(mock_collect, mock_pool, mock_export, tmp_path:
 
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.ExcelExporter")
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.cf.ProcessPoolExecutor")
-@patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs._collect_files")
+@patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.collect_po_csv_files")
 def test_main_processing_with_rows(mock_collect, mock_pool, mock_export, tmp_path: Path) -> None:
     mock_collect.return_value = [Path("test_PO.csv")]
 

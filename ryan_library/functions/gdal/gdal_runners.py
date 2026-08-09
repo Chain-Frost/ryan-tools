@@ -1,3 +1,4 @@
+# ryan_library/functions/gdal/gdal_runners.py
 """Stable runner names for the Python-native flood-extent operations.
 
 Older orchestrators imported ``run_gdal_calc`` and ``run_gdal_polygonize``
@@ -17,10 +18,10 @@ from ryan_library.functions.gdal.raster_processing import (
 )
 
 warnings.warn(
-    "ryan_library.functions.gdal.gdal_runners is deprecated; import calculate_flood_extent and "
+    message="ryan_library.functions.gdal.gdal_runners is deprecated; import calculate_flood_extent and "
     "polygonize_flood_extent from ryan_library.functions.gdal.raster_processing instead. Backwards compatibility "
     "is supported until 31 December 2026.",
-    DeprecationWarning,
+    category=DeprecationWarning,
     stacklevel=2,
 )
 

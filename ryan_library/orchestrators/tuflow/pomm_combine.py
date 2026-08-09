@@ -1,3 +1,4 @@
+# ryan_library/orchestrators/tuflow/pomm_combine.py
 """
 Modern POMM Combination Utilities.
 
@@ -5,7 +6,8 @@ This module provides the logic for combining "POMM" (Plot Output Maximums/Minimu
 It handles finding files, processing them in parallel via `ProcessorCollection`, filtering by data types (POMM, RLL_Qmx),
 and exporting the consolidated results to Excel or Parquet.
 """
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__: list[str] = ["pandas"]
 
 from collections.abc import Collection, Sequence
 from pathlib import Path
@@ -21,6 +23,7 @@ ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
 
 class PommCombinationResults(Protocol):
     """Minimum result-collection interface needed for POMM export."""
+
     @property
     def processors(self) -> Sequence[object]: ...
     def pomm_combine(self) -> pd.DataFrame: ...
@@ -29,6 +32,7 @@ class PommCombinationResults(Protocol):
 @runtime_checkable
 class RawCombinationResults(Protocol):
     """Result collection that supports the preferred generic combination path."""
+
     @property
     def processors(self) -> Sequence[object]: ...
     def combine_raw(self) -> pd.DataFrame: ...

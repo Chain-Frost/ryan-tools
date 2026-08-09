@@ -1,5 +1,6 @@
-__lazy_modules__ = ['pandas']
 # ryan_library/functions/process_12D_culverts.py
+
+__lazy_modules__ = ["pandas"]
 import re
 from pathlib import Path
 from typing import TypedDict, overload

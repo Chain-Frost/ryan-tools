@@ -1,4 +1,4 @@
-# ryan_library/scripts/tuflow/peak_check_po_csvs.py
+# ryan_library/orchestrators/tuflow/peak_check_po_csvs.py
 """
 Peak checks for TUFLOW PO timeseries CSVs.
 
@@ -7,43 +7,31 @@ and exports a summary table.
 """
 
 from __future__ import annotations
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__: list[str] = ["pandas"]
 
 import concurrent.futures as cf
 from pathlib import Path
 from collections.abc import Sequence
 from typing import Literal
 
-import pandas as pd
+from pandas import DataFrame
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.misc_functions import ExcelExporter
+from ryan_library.functions.excel_export import ExcelExporter
 from ryan_library.functions.tuflow.po_timeseries_checks import (
     PeakCheckConfig,
+    PeakCheckResult,
     analyze_peak_csv,
     flatten_peak_results,
+    collect_po_csv_files,
+    order_dataframe_columns,
 )
 
 
-def _collect_files(paths_to_process: Sequence[Path], csv_glob: str) -> list[Path]:
-    files: list[Path] = []
-    seen: set[Path] = set()
-    for root in paths_to_process:
-        path = Path(root)
-        if not path.is_dir():
-            logger.warning(f"Skipping non-directory path: {path}")
-            continue
-        for match in path.rglob(csv_glob):
-            if match in seen:
-                continue
-            seen.add(match)
-            files.append(match)
-    return sorted(files)
-
-
 def _analyze_peak_worker(path_str: str, config: PeakCheckConfig) -> list[dict[str, object]]:
-    results = analyze_peak_csv(path=Path(path_str), config=config)
+    results: list[PeakCheckResult] = analyze_peak_csv(path=Path(path_str), config=config)
     return flatten_peak_results(results=results)
 
 
@@ -97,7 +85,7 @@ def main_processing(
     )
 
     with setup_logger(console_log_level=console_log_level):
-        files = _collect_files(paths_to_process=paths_to_process, csv_glob=csv_glob)
+        files: list[Path] = collect_po_csv_files(paths_to_process=paths_to_process, csv_glob=csv_glob)
         if not files:
             logger.info(f"No files matched '{csv_glob}' in the provided directories.")
             return
@@ -118,7 +106,7 @@ def main_processing(
             logger.info("No matching data columns after filters. Skipping export.")
             return
 
-        out_df = pd.DataFrame(data=all_rows)
+        out_df = DataFrame(data=all_rows)
         first_cols: list[str] = [
             "run_code",
             "status",
@@ -145,10 +133,7 @@ def main_processing(
             "AEP_value",
             "file",
         ]
-        ordered: list[str] = [c for c in first_cols if c in out_df.columns] + [
-            c for c in out_df.columns if c not in first_cols
-        ]
-        out_df = out_df.reindex(columns=ordered)
+        out_df: DataFrame = order_dataframe_columns(df=out_df, first_cols=first_cols)
 
         ExcelExporter().save_to_excel(
             data_frame=out_df,

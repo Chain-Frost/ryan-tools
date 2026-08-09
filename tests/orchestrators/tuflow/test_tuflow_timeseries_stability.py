@@ -6,27 +6,29 @@ import pandas as pd
 from unittest.mock import patch, MagicMock
 
 from ryan_library.orchestrators.tuflow.tuflow_timeseries_stability import (
-    _normalize_result_types,
-    _collect_files,
     _analyze_stability_worker,
     main_processing,
     DEFAULT_RESULT_TYPES,
+)
+from ryan_library.functions.tuflow.po_timeseries_checks import (
+    normalize_result_types,
+    collect_timeseries_files,
 )
 
 
 class TestNormalizeResultTypes:
     def test_normalize_empty(self):
-        assert _normalize_result_types(None) == DEFAULT_RESULT_TYPES
-        assert _normalize_result_types([]) == DEFAULT_RESULT_TYPES
+        assert normalize_result_types(None, ("PO", "Q"), DEFAULT_RESULT_TYPES) == DEFAULT_RESULT_TYPES
+        assert normalize_result_types([], ("PO", "Q"), DEFAULT_RESULT_TYPES) == DEFAULT_RESULT_TYPES
 
     def test_normalize_valid(self):
-        assert _normalize_result_types(["po", "q"]) == ("PO", "Q")
+        assert normalize_result_types(["po", "q"], ("PO", "Q"), DEFAULT_RESULT_TYPES) == ("PO", "Q")
 
     def test_normalize_invalid(self):
-        assert _normalize_result_types(["po", "invalid"]) == ("PO",)
+        assert normalize_result_types(["po", "invalid"], ("PO", "Q"), DEFAULT_RESULT_TYPES) == ("PO",)
 
     def test_normalize_all(self):
-        assert _normalize_result_types(["all"]) == ("PO", "Q")
+        assert normalize_result_types(["all"], ("PO", "Q"), DEFAULT_RESULT_TYPES) == ("PO", "Q")
 
 
 class TestCollectFiles:
@@ -41,7 +43,7 @@ class TestCollectFiles:
         f1.touch()
 
         globs = {"PO": "**/*_PO.csv", "Q": "**/*_1d_Q.csv"}
-        files = _collect_files([d1, f1], ["PO", "Q"], globs)
+        files = collect_timeseries_files([d1, f1], ["PO", "Q"], globs)
 
         assert len(files) == 2
         types = {t for _, t in files}
@@ -73,13 +75,13 @@ class TestAnalyzeWorker:
 
 
 class TestMainProcessing:
-    @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability._collect_files")
+    @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.collect_timeseries_files")
     def test_main_no_files(self, mock_collect, tmp_path):
         mock_collect.return_value = []
         main_processing(paths_to_process=[tmp_path], result_types=["PO"])
         # Should return without exception
 
-    @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability._collect_files")
+    @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.collect_timeseries_files")
     @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.ExcelExporter")
     def test_main_no_rows_returned(self, mock_exporter, mock_collect, tmp_path):
         mock_collect.return_value = [(tmp_path / "a.csv", "PO")]
@@ -92,7 +94,7 @@ class TestMainProcessing:
             main_processing(paths_to_process=[tmp_path], result_types=["PO"])
             assert not mock_exporter.called
 
-    @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability._collect_files")
+    @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.collect_timeseries_files")
     @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.ExcelExporter")
     def test_main_success(self, mock_exporter, mock_collect, tmp_path):
         mock_collect.return_value = [(tmp_path / "a.csv", "PO")]

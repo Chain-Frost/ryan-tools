@@ -1,7 +1,9 @@
+# ryan_library/processors/tuflow/timeseries_1d/CFProcessor.py
 """Processor for TUFLOW culvert flow (``_CF``) timeseries data."""
 
 from __future__ import annotations
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__: list[str] = ["pandas"]
 
 import pandas as pd
 from typing import override

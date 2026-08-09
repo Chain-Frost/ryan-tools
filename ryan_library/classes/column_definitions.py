@@ -1,3 +1,4 @@
+# ryan_library/classes/column_definitions.py
 """Central registry for column descriptions used across exports."""
 
 from __future__ import annotations

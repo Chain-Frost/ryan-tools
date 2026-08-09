@@ -1,5 +1,7 @@
+# ryan_library/orchestrators/tuflow/tuflow_logsummary_append.py
 """Append TUFLOW log-summary rows to an existing master workbook."""
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__ = ["pandas"]
 
 from pathlib import Path
 

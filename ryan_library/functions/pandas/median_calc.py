@@ -1,6 +1,7 @@
 # ryan_library\functions\pandas\median_calc.py
 """Utilities for summarising grouped statistics for POMM reports."""
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__ = ["pandas"]
 
 from collections.abc import Callable
 from typing import TypedDict

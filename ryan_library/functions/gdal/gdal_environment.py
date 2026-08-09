@@ -1,3 +1,4 @@
+# ryan_library/functions/gdal/gdal_environment.py
 """Legacy QGIS/OSGeo4W environment discovery retained for old callers.
 
 Modern ryan-tools GDAL workflows use the installed Python ``osgeo`` bindings
@@ -10,9 +11,9 @@ import warnings
 from loguru import logger
 
 warnings.warn(
-    "ryan_library.functions.gdal.gdal_environment is deprecated because the maintained workflows use installed "
+    message="ryan_library.functions.gdal.gdal_environment is deprecated because the maintained workflows use installed "
     "Python GDAL directly. Backwards compatibility is supported until 31 December 2026.",
-    DeprecationWarning,
+    category=DeprecationWarning,
     stacklevel=2,
 )
 
@@ -35,10 +36,10 @@ def find_qgis_install_path() -> Path:
 
     # Search for the latest QGIS directory in "C:/Program Files"
     program_files = Path("C:/Program Files")
-    qgis_dirs = sorted(program_files.glob("QGIS*"), reverse=True)  # Latest first
+    qgis_dirs: list[Path] = sorted(program_files.glob("QGIS*"), reverse=True)  # Latest first
 
     for qgis_dir in qgis_dirs:
-        env_script = qgis_dir / "bin" / "o4w_env.bat"
+        env_script: Path = qgis_dir / "bin" / "o4w_env.bat"
         if env_script.exists():
             logger.info(f"Found QGIS environment setup script at: {env_script}")
             return qgis_dir
@@ -61,13 +62,13 @@ def find_python_installation(qgis_path: Path) -> Path:
         FileNotFoundError: If the Python installation directory cannot be found.
     """
     python_pattern = "Python3*"
-    python_dirs = sorted(qgis_path.glob(f"apps/{python_pattern}"), reverse=True)  # Latest first
+    python_dirs: list[Path] = sorted(qgis_path.glob(f"apps/{python_pattern}"), reverse=True)  # Latest first
 
     if not python_dirs:
         logger.error("Python installation not found within QGIS/OSGeo4W apps directory.")
         raise FileNotFoundError("Python installation not found within QGIS/OSGeo4W apps directory.")
 
-    python_dir = python_dirs[0]  # Choose the latest Python version
+    python_dir: Path = python_dirs[0]  # Choose the latest Python version
     logger.info(f"Detected Python installation at: {python_dir}")
     return python_dir
 
@@ -88,7 +89,7 @@ def setup_environment(qgis_path: Path | None = None) -> None:
     logger.info(f"Using QGIS/OSGeo4W installation at: {qgis_path}")
 
     # Find the Python installation directory dynamically
-    python_dir = find_python_installation(qgis_path)
+    python_dir: Path = find_python_installation(qgis_path)
 
     # Set environment variables
     os.environ["OSGEO4W_ROOT"] = str(qgis_path)
@@ -108,9 +109,9 @@ def setup_environment(qgis_path: Path | None = None) -> None:
     logger.debug("Environment variables set successfully.")
 
     # Define GDAL tool paths
-    gdal_calc_path = python_dir / "Scripts" / "gdal_calc.py"
-    gdal_polygonize_path = python_dir / "Scripts" / "gdal_polygonize.py"
-    gdal_translate_path = qgis_path / "bin" / "gdal_translate.exe"
+    gdal_calc_path: Path = python_dir / "Scripts" / "gdal_calc.py"
+    gdal_polygonize_path: Path = python_dir / "Scripts" / "gdal_polygonize.py"
+    gdal_translate_path: Path = qgis_path / "bin" / "gdal_translate.exe"
 
     # Check executables
     check_executable(str(gdal_translate_path), "gdal_translate")

@@ -1,5 +1,6 @@
-__lazy_modules__ = ['pandas']
-# ryan_library/processors/tuflow/ChanProcessor.py
+# ryan_library/processors/tuflow/other_processors/ChanProcessor.py
+
+__lazy_modules__ = ["pandas"]
 
 from ..base_processor import ProcessorStatus
 from ..max_data_processor import MaxDataProcessor

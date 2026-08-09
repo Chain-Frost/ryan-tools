@@ -1,3 +1,5 @@
+# ryan_library/processors/tuflow/other_processors/TLFProcessor.py
+
 from pathlib import Path
 from typing import Any
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
@@ -14,19 +16,19 @@ from ryan_library.functions.parse_tlf import (
 class TLFProcessor(BaseProcessor):
     """
     Processor for TUFLOW Log Files (.tlf).
-    
-    This processor parses TUFLOW simulation log files to extract 
-    timing, configuration, and completion metadata. It leverages 
+
+    This processor parses TUFLOW simulation log files to extract
+    timing, configuration, and completion metadata. It leverages
     efficient tail-reading for large files to minimise network transfer.
     """
 
     def process(self) -> None:
         """
         Process the TLF file and populate the internal DataFrame (self.df).
-        
+
         Reads the log file (using efficient tail-reading for files > 10MB).
-        If the file has successfully finished computing, it scans the header 
-        to extract build info, start time, variables, and scenario/event 
+        If the file has successfully finished computing, it scans the header
+        to extract build info, start time, variables, and scenario/event
         combinations.
         """
         sim_complete: int = 0

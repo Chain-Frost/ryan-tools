@@ -1,3 +1,4 @@
+# ryan_library/functions/dashboard_workflow.py
 """Execution helper that feeds work progress into :mod:`live_dashboard`.
 
 ``live_dashboard.py`` renders task state. This module owns the generic execution

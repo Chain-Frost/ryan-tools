@@ -1,4 +1,4 @@
-# ryan_library/processors/tuflow/QProcessor.py
+# ryan_library/processors/tuflow/timeseries_1d/QProcessor.py
 
 from __future__ import annotations
 

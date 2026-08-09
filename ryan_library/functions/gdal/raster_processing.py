@@ -1,3 +1,4 @@
+# ryan_library/functions/gdal/raster_processing.py
 """Low-level, Python-native GDAL operations used by the raster workflows.
 
 The helpers in this module deliberately avoid QGIS/OSGeo4W executable paths
@@ -9,7 +10,8 @@ before returning them to an orchestrator.
 lossless. ``tuflow`` prioritises broad TUFLOW/GeoTIFF compatibility, while
 ``efficient`` opts into tiled ZSTD compression and sparse blocks.
 """
-__lazy_modules__ = ['numpy']
+
+__lazy_modules__ = ["numpy"]
 
 # pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false

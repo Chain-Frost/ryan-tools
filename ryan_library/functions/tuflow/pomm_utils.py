@@ -1,12 +1,12 @@
-# ryan_library/scripts/pomm_utils.py
+# ryan_library/functions/tuflow/pomm_utils.py
 """Utility helpers for processing POMM CSV files."""
 
 # pyright: reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownVariableType=false
 from __future__ import annotations
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__: list[str] = ["pandas"]
 
 from pathlib import Path
-from multiprocessing import Queue
 from collections.abc import Collection, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Callable, cast
@@ -17,12 +17,12 @@ from pandas import DataFrame, Index, Series
 
 from ryan_library.classes.column_definitions import ColumnMetadataRegistry
 from ryan_library.functions.pandas.median_calc import median_calc
-from ryan_library.functions.misc_functions import (
+from ryan_library.functions.excel_export import (
     DATA_DICTIONARY_SHEET_NAME,
     ExcelExporter,
     build_data_dictionary,
-    get_tools_version,
 )
+from ryan_library.functions.versioning import get_tools_version
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
@@ -34,10 +34,10 @@ NAType = type(pd.NA)
 DataFrameAny = DataFrame
 if TYPE_CHECKING:
     SeriesAny = Series[Any]
-    QueueType = Queue[Any]
+    from ryan_library.functions.loguru_helpers import LogQueue
 else:
     SeriesAny = Series
-    QueueType = Queue
+    LogQueue = Any
 
 
 def _ordered_columns(
@@ -83,10 +83,10 @@ def _select_internal_names_for_group(group: DataFrameAny) -> tuple[object, objec
 
 def combine_processors_from_paths(
     paths_to_process: list[Path],
-    include_data_types: list[str] | None = None,
+    include_data_types: Collection[str] | None = None,
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
-    log_queue: QueueType | None = None,
+    log_queue: LogQueue | None = None,
 ) -> ProcessorCollection:
     """Return a :class:`ProcessorCollection` for the provided directories."""
     if include_data_types is None:
@@ -94,7 +94,7 @@ def combine_processors_from_paths(
 
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
 
-    def _run_with_queue(queue: QueueType) -> ProcessorCollection:
+    def _run_with_queue(queue: LogQueue) -> ProcessorCollection:
         logger.info(
             f"Starting POMM processing for combine_processors_from_paths. Data types: {include_data_types}; "
             f"searching in {len(paths_to_process)} folder(s)."
@@ -124,8 +124,8 @@ def combine_processors_from_paths(
         return results_set_local
 
     if log_queue is None:
-        with setup_logger(console_log_level=console_log_level) as queue:
-            results_set: ProcessorCollection = _run_with_queue(queue)
+        with setup_logger(console_log_level=console_log_level) as new_queue:
+            results_set: ProcessorCollection = _run_with_queue(queue=new_queue)
     else:
         results_set = _run_with_queue(log_queue)
 
@@ -134,10 +134,10 @@ def combine_processors_from_paths(
 
 def combine_df_from_paths(
     paths_to_process: list[Path],
-    include_data_types: list[str] | None = None,
+    include_data_types: Collection[str] | None = None,
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
-    log_queue: QueueType | None = None,
+    log_queue: LogQueue | None = None,
 ) -> DataFrameAny:
     """Return an aggregated DataFrame for the given directories."""
     results_set: ProcessorCollection = combine_processors_from_paths(
@@ -158,9 +158,9 @@ def combine_df_from_paths(
 
 def aggregated_from_paths(
     paths: list[Path],
-    locations_to_include: Collection[str] | None = None,
-    include_data_types: list[str] | None = None,
-    log_queue: QueueType | None = None,
+    locations_to_include: frozenset[str] | None = None,
+    include_data_types: Collection[str] | None = None,
+    log_queue: LogQueue | None = None,
 ) -> DataFrameAny:
     """Process directories and return a combined POMM DataFrame."""
     df: DataFrameAny = combine_df_from_paths(
@@ -176,19 +176,19 @@ def aggregated_from_paths(
 
     # Normalize columns for RLLQmx support
     if "Location" in df.columns and "Chan ID" in df.columns:
-        df["Location"] = df["Location"].fillna(df["Chan ID"])
+        df["Location"] = df["Location"].fillna(value=df["Chan ID"])
     elif "Location" not in df.columns and "Chan ID" in df.columns:
         df["Location"] = df["Chan ID"]
 
     if "AbsMax" in df.columns and "Q" in df.columns:
-        df["AbsMax"] = df["AbsMax"].fillna(df["Q"])
+        df["AbsMax"] = df["AbsMax"].fillna(value=df["Q"])
     elif "AbsMax" not in df.columns and "Q" in df.columns:
         df["AbsMax"] = df["Q"]
 
     if "Type" not in df.columns:
         df["Type"] = "Q"
     else:
-        df["Type"] = df["Type"].fillna("Q")
+        df["Type"] = df["Type"].fillna(value="Q")
 
     return df
 
@@ -207,22 +207,22 @@ def find_aep_dur_max(aggregated_df: DataFrameAny) -> DataFrameAny:
         # copy so we don’t clobber the caller’s DataFrame
         df: DataFrameAny = aggregated_df.copy()
         # compute size of each group
-        df["count_TP"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
+        df["count_TP"] = df.groupby(by=group_cols, observed=True)["AbsMax"].transform("size")
         count_group_cols: list[str] = [
             col for col in ("aep_text", "Location", "Type", "trim_runcode") if col in df.columns
         ]
         if count_group_cols:
-            count_numeric: Series = pd.to_numeric(df["count_TP"], errors="coerce")
-            df["count_TP"] = count_numeric.astype("Int64")
-            df["_count_numeric"] = count_numeric.fillna(0)
+            count_numeric: Series = pd.to_numeric(arg=df["count_TP"], errors="coerce")
+            df["count_TP"] = count_numeric.astype(dtype="Int64")
+            df["_count_numeric"] = count_numeric.fillna(value=0)
             df["count_TP_aep"] = (
-                df.groupby(count_group_cols, observed=True)["_count_numeric"].transform("sum").astype("Int64")
+                df.groupby(by=count_group_cols, observed=True)["_count_numeric"].transform("sum").astype("Int64")
             )
             df["count_duration"] = (
-                df.groupby(count_group_cols, observed=True)["duration_text"].transform("count").astype("Int64")
+                df.groupby(by=count_group_cols, observed=True)["duration_text"].transform("count").astype("Int64")
             )
         # find index of the max in each group
-        idx = df.groupby(group_cols, observed=True)["AbsMax"].idxmax()
+        idx: Series = df.groupby(by=group_cols, observed=True)["AbsMax"].idxmax()
         # select those rows (they already carry a group_count column)
         aep_dur_max: DataFrameAny = df.loc[idx].reset_index(drop=True).drop(columns=["_count_numeric"], errors="ignore")
         logger.info(
@@ -240,8 +240,8 @@ def find_aep_max(aep_dur_max: DataFrameAny) -> DataFrameAny:
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
         df: DataFrameAny = aep_dur_max.copy()
-        df["count_TP_aep"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
-        idx = df.groupby(group_cols, observed=True)["AbsMax"].idxmax()
+        df["count_TP_aep"] = df.groupby(by=group_cols, observed=True)["AbsMax"].transform("size")
+        idx: Series = df.groupby(by=group_cols, observed=True)["AbsMax"].idxmax()
         aep_max: DataFrameAny = df.loc[idx].reset_index(drop=True)
         logger.info(
             "Created 'aep_max' DataFrame with peak records and group_count for each AEP-Location-Type-RunCode group."
@@ -397,8 +397,8 @@ def find_aep_dur_median(aggregated_df: DataFrameAny) -> DataFrameAny:
     median_df: DataFrameAny = DataFrame()
     try:
         df: DataFrameAny = aggregated_df.copy()
-        df["count_TP"] = df.groupby(group_cols, observed=True)["AbsMax"].transform("size")
-        for _, grp in df.groupby(group_cols, observed=True):
+        df["count_TP"] = df.groupby(by=group_cols, observed=True)["AbsMax"].transform("size")
+        for _, grp in df.groupby(by=group_cols, observed=True):
             stats_dict, _ = median_calc(
                 thinned_df=grp,
                 statcol="AbsMax",
@@ -425,7 +425,7 @@ def find_aep_dur_median(aggregated_df: DataFrameAny) -> DataFrameAny:
             def _normalize_tp(value: object) -> object:
                 if pd.isna(cast(Any, value)):
                     return pd.NA
-                normalized = TuflowStringParser.normalize_tp_label(value)
+                normalized: str | None = TuflowStringParser.normalize_tp_label(value)
                 return pd.NA if normalized is None else normalized
 
             for column in ("median_TP", "mean_TP"):
@@ -441,32 +441,32 @@ def find_aep_dur_median(aggregated_df: DataFrameAny) -> DataFrameAny:
             }
             if required_cols.issubset(median_df.columns):
                 median_duration_norm: Series[float] = median_df["median_duration"].map(
-                    TuflowStringParser.normalize_duration_value
+                    func=TuflowStringParser.normalize_duration_value
                 )
                 mean_duration_norm: Series[float] = median_df["mean_Duration"].map(
-                    TuflowStringParser.normalize_duration_value
+                    func=TuflowStringParser.normalize_duration_value
                 )
-                duration_match: Series[bool] = median_duration_norm.eq(mean_duration_norm)
-                tp_match: Series[bool] = median_df["median_TP"].eq(median_df["mean_TP"])
-                mean_storm_matches = (duration_match & tp_match).fillna(False)
+                duration_match: Series[bool] = median_duration_norm.eq(other=mean_duration_norm)
+                tp_match: Series[bool] = median_df["median_TP"].eq(other=median_df["mean_TP"])
+                mean_storm_matches = (duration_match & tp_match).fillna(value=False)
 
             median_df["mean_storm_is_median_storm"] = mean_storm_matches
             count_group_cols: list[str] = [
                 col for col in ("aep_text", "Location", "Type", "trim_runcode") if col in median_df.columns
             ]
             if count_group_cols and "count_TP" in median_df.columns:
-                count_numeric: Series = pd.to_numeric(median_df["count_TP"], errors="coerce")
-                median_df["count_TP"] = count_numeric.astype("Int64")
-                median_df["_count_numeric"] = count_numeric.fillna(0)
+                count_numeric: Series = pd.to_numeric(arg=median_df["count_TP"], errors="coerce")
+                median_df["count_TP"] = count_numeric.astype(dtype="Int64")
+                median_df["_count_numeric"] = count_numeric.fillna(value=0)
                 median_df["count_TP_aep"] = (
-                    median_df.groupby(count_group_cols, observed=True)["_count_numeric"]
-                    .transform("sum")
-                    .astype("Int64")
+                    median_df.groupby(by=count_group_cols, observed=True)["_count_numeric"]
+                    .transform(func="sum")
+                    .astype(dtype="Int64")
                 )
                 median_df["count_duration"] = (
-                    median_df.groupby(count_group_cols, observed=True)["duration_text"]
-                    .transform("count")
-                    .astype("Int64")
+                    median_df.groupby(by=count_group_cols, observed=True)["duration_text"]
+                    .transform(func="count")
+                    .astype(dtype="Int64")
                 )
                 median_df = median_df.drop(columns=["_count_numeric"])
 
@@ -514,8 +514,8 @@ def find_aep_median_max(aep_dur_median: DataFrameAny) -> DataFrameAny:
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
         df: DataFrameAny = aep_dur_median.copy()
-        df["count_TP_aep"] = df.groupby(group_cols, observed=True)["MedianAbsMax"].transform("size")
-        idx = df.groupby(group_cols, observed=True)["MedianAbsMax"].idxmax()
+        df["count_TP_aep"] = df.groupby(by=group_cols, observed=True)["MedianAbsMax"].transform("size")
+        idx: Series = df.groupby(by=group_cols, observed=True)["MedianAbsMax"].idxmax()
         aep_med_max: DataFrameAny = df.loc[idx].reset_index(drop=True)
         mean_value_columns: list[str] = [
             column
@@ -532,13 +532,13 @@ def find_aep_median_max(aep_dur_median: DataFrameAny) -> DataFrameAny:
             mean_df: DataFrameAny = aep_dur_median.copy()
             if "mean_PeakFlow" not in mean_df.columns:
                 return DataFrame()
-            mean_df["_mean_peakflow_numeric"] = pd.to_numeric(mean_df["mean_PeakFlow"], errors="coerce")
+            mean_df["_mean_peakflow_numeric"] = pd.to_numeric(arg=mean_df["mean_PeakFlow"], errors="coerce")
             if mean_df["_mean_peakflow_numeric"].notna().any():
                 # When the mean columns are present we track the rows that best represent
                 # the maximum mean independently from the median selection above.
-                idx_mean = (
+                idx_mean: Series = (
                     mean_df[mean_df["_mean_peakflow_numeric"].notna()]
-                    .groupby(group_cols, observed=True)["_mean_peakflow_numeric"]
+                    .groupby(by=group_cols, observed=True)["_mean_peakflow_numeric"]
                     .idxmax()
                 )
                 merge_columns: list[str] = mean_value_columns.copy()
@@ -546,7 +546,7 @@ def find_aep_median_max(aep_dur_median: DataFrameAny) -> DataFrameAny:
                     merge_columns.append("mean_storm_is_median_storm")
                 mean_subset: DataFrameAny = mean_df.loc[idx_mean, group_cols + merge_columns]
                 aep_med_max = aep_med_max.drop(columns=merge_columns, errors="ignore")
-                aep_med_max = aep_med_max.merge(mean_subset, on=group_cols, how="left")
+                aep_med_max = aep_med_max.merge(right=mean_subset, on=group_cols, how="left")
             mean_df = mean_df.drop(columns=["_mean_peakflow_numeric"], errors="ignore")
         if not aep_med_max.empty:
             id_columns: list[str] = [
@@ -644,16 +644,18 @@ def find_aep_mean_max(aep_dur_mean: DataFrameAny) -> DataFrameAny:
             logger.error("'mean_PeakFlow' column not present for mean analysis. Returning empty DataFrame.")
             return DataFrame()
 
-        df["_mean_peakflow_numeric"] = pd.to_numeric(df["mean_PeakFlow"], errors="coerce")
+        df["_mean_peakflow_numeric"] = pd.to_numeric(arg=df["mean_PeakFlow"], errors="coerce")
         if "count_TP" in df.columns:
-            df["_count_numeric"] = pd.to_numeric(df["count_TP"], errors="coerce").fillna(0)
+            df["_count_numeric"] = pd.to_numeric(arg=df["count_TP"], errors="coerce").fillna(value=0)
         else:
-            df["_count_numeric"] = pd.Series(0, index=df.index, dtype="Int64")
-        df["count_TP_aep"] = df.groupby(group_cols, observed=True)["_count_numeric"].transform("sum").astype("Int64")
+            df["_count_numeric"] = pd.Series(data=0, index=df.index, dtype="Int64")
+        df["count_TP_aep"] = (
+            df.groupby(by=group_cols, observed=True)["_count_numeric"].transform(func="sum").astype(dtype="Int64")
+        )
         df["count_duration"] = (
-            df.groupby(group_cols, observed=True)["duration_text"].transform("count").astype("Int64")
+            df.groupby(by=group_cols, observed=True)["duration_text"].transform(func="count").astype(dtype="Int64")
             if "duration_text" in df.columns
-            else pd.Series(0, index=df.index, dtype="Int64")
+            else pd.Series(data=0, index=df.index, dtype="Int64")
         )
 
         valid_df: DataFrameAny = df[df["_mean_peakflow_numeric"].notna()]
@@ -661,7 +663,7 @@ def find_aep_mean_max(aep_dur_mean: DataFrameAny) -> DataFrameAny:
             logger.warning("No valid mean peak flow values found. Returning empty DataFrame.")
             return DataFrame()
 
-        idx = valid_df.groupby(group_cols, observed=True)["_mean_peakflow_numeric"].idxmax()
+        idx: Series = valid_df.groupby(by=group_cols, observed=True)["_mean_peakflow_numeric"].idxmax()
         aep_mean_max: DataFrameAny = df.loc[idx].drop(columns=["_mean_peakflow_numeric", "_count_numeric"])
         aep_mean_max = aep_mean_max.reset_index(drop=True)
 

@@ -1,3 +1,4 @@
+# ryan_library/scripts/__init__.py
 """Lazy compatibility imports for script entry points."""
 
 from importlib import import_module

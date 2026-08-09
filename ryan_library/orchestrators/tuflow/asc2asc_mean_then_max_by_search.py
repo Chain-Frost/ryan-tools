@@ -1,3 +1,4 @@
+# ryan_library/orchestrators/tuflow/asc2asc_mean_then_max_by_search.py
 """Create temporal-pattern means and then maximum means across durations."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# ryan_library/functions/tuflow/notebook_helpers.py
 """
 Helper functions to enable easy usage of TUFLOW workflows in Jupyter Notebooks.
 
@@ -29,7 +30,7 @@ from loguru import logger
 
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.functions.loguru_helpers import configure_notebook_logging, setup_logger
-from ryan_library.functions.tuflow.po_timeseries_checks import StabilityCheckResult
+from ryan_library.functions.tuflow.po_timeseries_checks import PeakCheckResult, StabilityCheckResult
 from ryan_library.functions.tuflow.tuflow_common import (
     collect_files,
     process_file,
@@ -593,6 +594,8 @@ def run_timeseries_stability(
         analyze_stability_csv,
         analyze_stability_q_csv,
         flatten_stability_results,
+        normalize_result_types,
+        collect_timeseries_files,
     )
 
     path_objects: list[Path] = [Path(p) for p in paths]
@@ -610,32 +613,17 @@ def run_timeseries_stability(
         min_points=min_points,
     )
 
-    # Map result types to glob patterns (inlined to avoid private imports)
+    effective_result_types: tuple[str, ...] = normalize_result_types(
+        result_types=result_types,
+        accepted=("PO", "Q"),
+        default=("PO",),
+    )
     result_type_globs: dict[str, str] = {"PO": "**/*_PO.csv", "Q": "**/*_1d_Q.csv"}
-    effective_result_types: list[str] = []
-    for rt in result_types:
-        canonical: str = rt.strip().upper()
-        if canonical == "ALL":
-            effective_result_types = list(result_type_globs.keys())
-            break
-        if canonical in result_type_globs:
-            effective_result_types.append(canonical)
-    if not effective_result_types:
-        effective_result_types = ["PO"]
-
-    # Collect files matching the glob patterns
-    files: list[tuple[Path, str]] = []
-    seen: set[tuple[Path, str]] = set()
-    for root in path_objects:
-        if not root.is_dir():
-            logger.warning(f"Skipping non-directory path: {root}")
-            continue
-        for rt in effective_result_types:
-            for match in root.rglob(result_type_globs[rt]):
-                key: tuple[Path, str] = (match, rt)
-                if key not in seen:
-                    seen.add(key)
-                    files.append(key)
+    files: list[tuple[Path, str]] = collect_timeseries_files(
+        paths_to_process=path_objects,
+        result_types=effective_result_types,
+        result_type_globs=result_type_globs,
+    )
     if not files:
         print("No timeseries CSV files found for stability checking.")
         return pd.DataFrame()
@@ -697,6 +685,8 @@ def run_timeseries_peaks_check(
         PeakCheckConfig,
         analyze_peak_csv,
         flatten_peak_results,
+        collect_po_csv_files,
+        order_dataframe_columns,
     )
 
     path_objects: list[Path] = [Path(p) for p in paths]
@@ -712,18 +702,7 @@ def run_timeseries_peaks_check(
         flat_tol=flat_tol,
     )
 
-    # Collect PO CSV files (inlined to avoid private imports)
-    files: list[Path] = []
-    seen: set[Path] = set()
-    for root in path_objects:
-        if not root.is_dir():
-            logger.warning(f"Skipping non-directory path: {root}")
-            continue
-        for match in root.rglob(csv_glob):
-            if match not in seen:
-                seen.add(match)
-                files.append(match)
-    files.sort()
+    files: list[Path] = collect_po_csv_files(paths_to_process=path_objects, csv_glob=csv_glob)
     if not files:
         print(f"No files matched '{csv_glob}' in the provided directories.")
         return pd.DataFrame()
@@ -731,7 +710,7 @@ def run_timeseries_peaks_check(
     print(f"Running peak checks on {len(files)} PO CSV file(s) serially...")
     all_rows: list[dict[str, object]] = []
     for csv_path in files:
-        results = analyze_peak_csv(path=csv_path, config=config)
+        results: list[PeakCheckResult] = analyze_peak_csv(path=csv_path, config=config)
         all_rows.extend(flatten_peak_results(results=results))
 
     if not all_rows:
@@ -739,7 +718,6 @@ def run_timeseries_peaks_check(
         return pd.DataFrame()
 
     out_df = pd.DataFrame(data=all_rows)
-    # Apply standard column ordering
     first_cols: list[str] = [
         "run_code",
         "status",
@@ -751,10 +729,7 @@ def run_timeseries_peaks_check(
         "end_time",
         "hours_from_end",
     ]
-    ordered: list[str] = [c for c in first_cols if c in out_df.columns] + [
-        c for c in out_df.columns if c not in first_cols
-    ]
-    return out_df.reindex(columns=ordered)
+    return order_dataframe_columns(df=out_df, first_cols=first_cols)
 
 
 # ---------------------------------------------------------------------------
@@ -799,18 +774,18 @@ def plot_hydrographs(
 
     if group_col in df.columns:
         for label, group in df.groupby(group_col, observed=True):
-            group_sorted = group.sort_values(time_col)
+            group_sorted: pd.DataFrame = group.sort_values(time_col)
             ax.plot(  # pyright: ignore[reportUnknownMemberType]
                 group_sorted[time_col], group_sorted[value_col], label=str(label)
             )
         ax.legend(loc="best", fontsize=8)  # pyright: ignore[reportUnknownMemberType]
     else:
-        sorted_df = df.sort_values(time_col)
+        sorted_df: pd.DataFrame = df.sort_values(time_col)
         ax.plot(sorted_df[time_col], sorted_df[value_col])  # pyright: ignore[reportUnknownMemberType]
 
     ax.set_xlabel(xlabel)  # pyright: ignore[reportUnknownMemberType]
     ax.set_ylabel(ylabel)  # pyright: ignore[reportUnknownMemberType]
-    ax.set_title(title)  # pyright: ignore[reportUnknownMemberType]
-    ax.grid(True, alpha=0.3)  # pyright: ignore[reportUnknownMemberType]
+    ax.set_title(label=title)  # pyright: ignore[reportUnknownMemberType]
+    ax.grid(visible=True, alpha=0.3)  # pyright: ignore[reportUnknownMemberType]
     plt.tight_layout()  # pyright: ignore[reportUnknownMemberType]
     plt.show()  # pyright: ignore[reportUnknownMemberType]

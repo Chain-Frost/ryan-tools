@@ -1,4 +1,4 @@
-# ryan_library/scripts/tuflow/tuflow_logsummary.py
+# ryan_library/orchestrators/tuflow/tuflow_logsummary.py
 """
 TUFLOW Log Summary.
 
@@ -6,7 +6,8 @@ This module parses TUFLOW log files (*.tlf) in parallel to extract simulation me
 (timestamps, errors, warnings, durations).
 It aggregates this information into a summary Excel report.
 """
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__ = ["pandas"]
 
 from pathlib import Path
 from dataclasses import dataclass
@@ -15,7 +16,8 @@ import pandas as pd
 from loguru import logger
 from ryan_library.functions.dashboard_workflow import run_dashboard_workflow
 from ryan_library.functions.file_utils import find_files_parallel
-from ryan_library.functions.misc_functions import ExcelExporter, calculate_pool_size
+from ryan_library.functions.excel_export import ExcelExporter
+from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
 from ryan_library.functions.path_stuff import convert_to_relative_path
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowStatus
 from ryan_library.functions.loguru_helpers import LogQueue, setup_logger

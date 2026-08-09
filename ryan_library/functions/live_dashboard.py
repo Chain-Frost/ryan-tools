@@ -1,3 +1,4 @@
+# ryan_library/functions/live_dashboard.py
 """Stateful Rich renderer for long-running workflow dashboards.
 
 This module owns display concerns only: task state, summary counts, table

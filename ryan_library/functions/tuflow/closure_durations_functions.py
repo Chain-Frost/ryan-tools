@@ -1,3 +1,5 @@
+# ryan_library/functions/tuflow/closure_durations_functions.py
+
 # ryan_library\functions\tuflow\closure_durations_functions.py
 """Shared closure-duration helpers used by the TUFLOW orchestrator.
 
@@ -5,7 +7,8 @@ These helpers operate on processed PO DataFrames produced by the TUFLOW
 processors. They are intentionally logic-only (no I/O) so they can be reused and
 unit-tested independently of the orchestration layer.
 """
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__ = ["pandas"]
 
 import pandas as pd
 from loguru import logger

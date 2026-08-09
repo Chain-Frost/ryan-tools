@@ -1,4 +1,5 @@
-# ryan_library\classes\tuflow_string_classes.py
+# ryan_library/classes/tuflow_string_classes.py
+
 import math
 import re
 from pathlib import Path

@@ -7,7 +7,7 @@ from pathlib import Path
 # import sys
 # sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from ryan_library.functions.misc_functions import split_strings, split_strings_in_dict
+from ryan_library.functions.string_helpers import split_strings, split_strings_in_dict
 
 
 def test_split_strings_with_single_string() -> None:
@@ -93,37 +93,34 @@ if PROJECT_ROOT not in sys.path:
 
 import pytest
 
-from ryan_library.functions import misc_functions
+from ryan_library.functions import multiprocessing_helpers
 
 
 def test_calculate_pool_size_single_core(monkeypatch: pytest.MonkeyPatch) -> None:
     """Ensure a single CPU core always yields one worker."""
 
-    monkeypatch.setattr(misc_functions.multiprocessing, "cpu_count", lambda: 1)
-
-    assert misc_functions.calculate_pool_size(num_files=100) == 1
-
-
-def test_calculate_pool_size_respects_available_minus_one(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pool size should be limited by available cores minus one when splits are larger."""
-
-    monkeypatch.setattr(misc_functions.multiprocessing, "cpu_count", lambda: 4)
-
-    assert misc_functions.calculate_pool_size(num_files=30) == 3
-    assert misc_functions.calculate_pool_size(num_files=6) == 2
+    monkeypatch.setattr(multiprocessing_helpers.multiprocessing, "cpu_count", lambda: 1)
+    # Even if files are 100, capped by cores
+    assert multiprocessing_helpers.calculate_pool_size(num_files=100) == 1
 
 
-def test_calculate_pool_size_caps_high_cpu_counts(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The helper should cap CPU counts at twenty before subtracting one."""
+def test_calculate_pool_size_multi_core(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Set to 4 cores, max threads should be cores - 1 = 3
+    monkeypatch.setattr(multiprocessing_helpers.multiprocessing, "cpu_count", lambda: 4)
+    # splits = 30 // 3 = 10, cap is 3
+    assert multiprocessing_helpers.calculate_pool_size(num_files=30) == 3
+    assert multiprocessing_helpers.calculate_pool_size(num_files=6) == 2
 
-    monkeypatch.setattr(misc_functions.multiprocessing, "cpu_count", lambda: 32)
 
-    assert misc_functions.calculate_pool_size(num_files=120) == 19
+def test_calculate_pool_size_large_core_cap(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Even with 32 cores, our code caps at 20 cores (19 threads)
+    monkeypatch.setattr(multiprocessing_helpers.multiprocessing, "cpu_count", lambda: 32)
+    # splits = 120 // 3 = 40, cap is min(20-1, 40) = 19
+    assert multiprocessing_helpers.calculate_pool_size(num_files=120) == 19
 
 
-def test_calculate_pool_size_never_returns_zero(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure the minimum split logic never returns zero workers."""
-
-    monkeypatch.setattr(misc_functions.multiprocessing, "cpu_count", lambda: 4)
-
-    assert misc_functions.calculate_pool_size(num_files=2) == 1
+def test_calculate_pool_size_small_files(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 2 files // 3 = 0, but max(..., 1) ensures at least 1 split
+    monkeypatch.setattr(multiprocessing_helpers.multiprocessing, "cpu_count", lambda: 4)
+    # cap is min(3, 1) = 1
+    assert multiprocessing_helpers.calculate_pool_size(num_files=2) == 1

@@ -1,3 +1,4 @@
+# ryan_library/orchestrators/gdal/raster_maintenance.py
 """Batch orchestration for raster metadata edits and vector footprints."""
 
 from concurrent.futures import ThreadPoolExecutor
@@ -6,6 +7,7 @@ from pathlib import Path
 from loguru import logger
 
 from ryan_library.functions.gdal.raster_processing import (
+    GdalConcurrency,
     VectorFormat,
     create_raster_footprint,
     plan_gdal_concurrency,
@@ -23,11 +25,11 @@ def set_nodata_in_directory(
     workers: int | None = None,
 ) -> list[Path]:
     """Set NoData metadata in place for all rasters matching a glob."""
-    rasters = _find_files(directory, pattern, recursive)
+    rasters: list[Path] = _find_files(directory, pattern, recursive)
     if not rasters:
         logger.warning(f"No files matching {pattern!r} found in: {directory}")
         return []
-    concurrency = plan_gdal_concurrency(len(rasters), workers)
+    concurrency: GdalConcurrency = plan_gdal_concurrency(file_count=len(rasters), requested_workers=workers)
 
     def process(raster: Path) -> Path:
         return set_raster_nodata(raster, nodata, bands=bands)
@@ -49,21 +51,21 @@ def create_footprints_in_directory(
     overwrite: bool = False,
 ) -> list[Path]:
     """Create one valid-data footprint beside every matching raster."""
-    rasters = [path for path in _find_files(directory, pattern, recursive) if "_footprint" not in path.stem]
+    rasters: list[Path] = [path for path in _find_files(directory, pattern, recursive) if "_footprint" not in path.stem]
     if not rasters:
         logger.warning(f"No files matching {pattern!r} found in: {directory}")
         return []
-    concurrency = plan_gdal_concurrency(len(rasters), workers)
-    extension = ".gpkg" if vector_format == "gpkg" else ".shp"
+    concurrency: GdalConcurrency = plan_gdal_concurrency(len(rasters), workers)
+    extension: str = ".gpkg" if vector_format == "gpkg" else ".shp"
 
     def process(raster: Path) -> Path:
-        output = raster.with_name(f"{raster.stem}_footprint{extension}")
+        output: Path = raster.with_name(f"{raster.stem}_footprint{extension}")
         if output.exists() and not overwrite and output.stat().st_mtime >= raster.stat().st_mtime:
             logger.info(f"Raster footprint is current: {output}")
             return output
         return create_raster_footprint(
-            raster,
-            output,
+            input_raster=raster,
+            output_vector=output,
             vector_format=vector_format,
             layer_name=layer_name,
             overwrite=output.exists(),
@@ -78,5 +80,5 @@ def create_footprints_in_directory(
 def _find_files(directory: Path, pattern: str, recursive: bool) -> list[Path]:
     """Return sorted matching files using recursive or direct globbing."""
     directory = directory.resolve()
-    glob_pattern = f"**/{pattern}" if recursive else pattern
+    glob_pattern: str = f"**/{pattern}" if recursive else pattern
     return sorted(path for path in directory.glob(glob_pattern) if path.is_file())

@@ -1,3 +1,4 @@
+# ryan_library/orchestrators/gdal/gdal_flood_extent.py
 """Discover rasters and generate flood extents from a selectable source band.
 
 The default discovery pattern targets TUFLOW maximum-depth rasters. Callers may
@@ -168,8 +169,8 @@ def process_file(
                 )
                 if sieve_pixels is not None:
                     sieve_raster(
-                        calculation_output,
-                        output_raster,
+                        input_raster=calculation_output,
+                        output_raster=output_raster,
                         threshold_pixels=sieve_pixels,
                         connectedness=connectedness,
                         profile=profile,

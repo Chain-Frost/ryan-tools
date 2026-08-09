@@ -1,5 +1,6 @@
-__lazy_modules__ = ['pandas']
 # ryan_library/processors/tuflow/other_processors/EOFProcessor.py
+
+__lazy_modules__ = ["pandas"]
 
 from ..base_processor import BaseProcessor
 import pandas as pd

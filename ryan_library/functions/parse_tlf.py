@@ -1,5 +1,6 @@
-__lazy_modules__ = ['pandas']
 # ryan_library/functions/parse_tlf.py
+
+__lazy_modules__ = ["pandas"]
 
 from pathlib import Path
 from typing import Any

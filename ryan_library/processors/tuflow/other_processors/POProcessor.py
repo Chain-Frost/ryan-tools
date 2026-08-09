@@ -1,7 +1,9 @@
+# ryan_library/processors/tuflow/other_processors/POProcessor.py
 """Processor for TUFLOW point output (``*_PO.csv``) timeseries files."""
 
 from __future__ import annotations
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__: list[str] = ["pandas"]
 
 import pandas as pd
 from loguru import logger

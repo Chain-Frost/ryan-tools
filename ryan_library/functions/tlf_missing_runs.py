@@ -1,3 +1,4 @@
+# ryan_library/functions/tlf_missing_runs.py
 """Analyze TUFLOW run tables (AEP, Duration, TP) for missing sets or runs.
 
 This module provides pure data transformations to determine which expected
@@ -5,7 +6,8 @@ model runs have not yet completed, based on a tracking table.
 """
 
 from __future__ import annotations
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__ = ["pandas"]
 
 from dataclasses import dataclass, asdict
 from typing import Literal
@@ -270,5 +272,3 @@ def summarize_for_cli(df: pd.DataFrame) -> tuple[str, pd.DataFrame]:
         drop=True
     )
     return "\n".join(lines).rstrip(), table
-
-

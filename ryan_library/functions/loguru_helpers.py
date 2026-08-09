@@ -1,3 +1,4 @@
+# ryan_library/functions/loguru_helpers.py
 """Central Loguru configuration for serial and multiprocessing workflows.
 
 Top-level wrappers and orchestrators own configuration. Reusable functions and
@@ -7,14 +8,12 @@ processors should only emit records through :data:`loguru.logger`.
 from __future__ import annotations
 
 import atexit
-import multiprocessing
 import os
 import pickle
 import sys
 import threading
 import traceback
 from multiprocessing import Process, Queue
-from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, ClassVar, TypedDict, cast
 
@@ -235,7 +234,8 @@ def listener_process(
                 formatted_message = f"{formatted_message}\n{exception_text.rstrip()}"
             logger.log(record["level"], formatted_message)
         except Exception:
-            logger.opt(exception=True).error("Error in logging listener")
+            print("Error in logging listener:", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
 
 
 def _format_exception(exception: Any) -> str | None:
@@ -413,63 +413,3 @@ def add_file_sink(log_file: str, file_log_level: str = "DEBUG") -> None:
     if not os.path.isabs(log_file):
         log_file = os.path.join(os.getcwd(), log_file)
     _add_file_sink(log_file=log_file, level=file_log_level, forwarded=False)
-
-
-def log_exception(err: str | None) -> None:
-    """Log the current exception with a stack trace."""
-
-    message: str = "An exception occurred" + (err or "")
-    logger.exception(message)
-
-
-class LoggerManager:
-    """Backward-compatible singleton around :class:`LoguruMultiprocessingLogger`."""
-
-    _instance: ClassVar[LoggerManager | None] = None
-    _lock: ClassVar[Any] = multiprocessing.Lock()
-
-    def __new__(cls, *args: Any, **kwargs: Any) -> LoggerManager:
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __init__(
-        self,
-        log_level: str = "INFO",
-        log_file: str | None = "app.log",
-        log_dir: Path | None = None,
-        max_bytes: int = 10**6,
-        backup_count: int = 5,
-        enable_color: bool = True,
-        additional_sinks: list[Any] | None = None,
-    ) -> None:
-        del max_bytes, backup_count, enable_color, additional_sinks
-        if getattr(self, "_initialized", False):
-            return
-
-        resolved_log_path: str | None = None
-        if log_file:
-            resolved_log_path = str(Path(log_dir or os.getcwd()) / log_file)
-        self._logger_context: LoguruMultiprocessingLogger | None = setup_logger(
-            console_log_level=log_level,
-            log_file=resolved_log_path,
-        )
-        self._log_queue: LogQueue = self._logger_context.__enter__()
-        self._listener: Process | None = self._logger_context.listener
-        self._initialized: bool = True
-
-    def shutdown(self) -> None:
-        """Shut down the owned context and permit later reinitialization."""
-
-        if self._logger_context is not None:
-            self._logger_context.shutdown()
-            self._logger_context = None
-        self._listener = None
-        self._initialized = False
-
-
-def worker_process(log_queue: LogQueue) -> None:
-    """Compatibility wrapper that configures logging in a worker process."""
-
-    worker_configurer(log_queue)

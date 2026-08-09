@@ -1,5 +1,7 @@
+# ryan_library/functions/RORB/read_rorb_files.py
 """Read RORB batch summaries and calculate hydrograph exceedance durations."""
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__ = ["pandas"]
 
 from collections.abc import Iterable
 from pathlib import Path

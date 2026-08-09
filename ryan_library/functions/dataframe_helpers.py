@@ -1,5 +1,6 @@
-__lazy_modules__ = ['pandas']
 # ryan_library/functions/dataframe_helpers.py
+
+__lazy_modules__ = ["pandas"]
 
 import pandas as pd
 from loguru import logger

@@ -1,3 +1,4 @@
+# ryan_library/functions/excel_export.py
 """Excel export utility functions."""
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils.exceptions import InvalidFileException
 from ryan_library.classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
-from ryan_library.functions.misc_functions import get_tools_version
+from ryan_library.functions.versioning import get_tools_version
 
 DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
 ParquetCompression = Literal["snappy", "gzip", "brotli", "lz4", "zstd"] | None

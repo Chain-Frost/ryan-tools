@@ -1,4 +1,4 @@
-# ryan_library/scripts/pomm_max_items.py
+# ryan_library/orchestrators/tuflow/pomm_max_items.py
 """
 POMM Peak Reporting Utilities.
 
@@ -6,7 +6,8 @@ This module provides functions to generate "Peak Reports" from POMM (Plot Output
 It allows extracting Mean or Median peak values across multiple events/durations for specific locations.
 It includes both modern workflow functions and deprecated wrappers for backward compatibility.
 """
-__lazy_modules__ = ['pandas']
+
+__lazy_modules__: list[str] = ["pandas"]
 
 from collections.abc import Callable, Collection, Sequence
 from datetime import datetime

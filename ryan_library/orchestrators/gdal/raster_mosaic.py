@@ -1,3 +1,4 @@
+# ryan_library/orchestrators/gdal/raster_mosaic.py
 """Group similarly named raster tiles and create persistent GeoTIFF mosaics.
 
 The grouping rule supports established TUFLOW result names where one delimited

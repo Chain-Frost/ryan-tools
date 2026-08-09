@@ -1,5 +1,7 @@
+# ryan_library/functions/terrain_processing.py
 """Shared GeoTIFF-to-tabular terrain processing helpers."""
-__lazy_modules__ = ['numpy', 'pandas', 'rasterio']
+
+__lazy_modules__ = ["numpy", "pandas", "rasterio"]
 
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager

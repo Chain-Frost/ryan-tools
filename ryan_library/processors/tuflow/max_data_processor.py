@@ -1,5 +1,6 @@
-__lazy_modules__ = ['pandas']
 # ryan_library/processors/tuflow/max_data_processor.py
+
+__lazy_modules__ = ["pandas"]
 
 from typing import Any, cast
 

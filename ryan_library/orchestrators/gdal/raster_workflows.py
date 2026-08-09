@@ -1,3 +1,4 @@
+# ryan_library/orchestrators/gdal/raster_workflows.py
 """Discover raster files and coordinate concurrent GDAL batch operations.
 
 This module owns directory traversal, timestamp-based skip decisions, and CPU
