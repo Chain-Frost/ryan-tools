@@ -12,6 +12,7 @@ COMPRESS_INDIVIDUAL_SCRIPT = SCRIPT_DIR / "archive_compress_individual.py"
 
 def _find_7z() -> Path | None:
     import shutil
+
     if which_7z := shutil.which("7z"):
         return Path(which_7z)
     paths = [
@@ -32,26 +33,26 @@ def mock_project(tmp_path: Path) -> Path:
     """Sets up a mock folder structure with valid and excluded files."""
     project_dir = tmp_path / "project_a"
     project_dir.mkdir()
-    
+
     # Valid files
     (project_dir / "valid_data.csv").write_text("1,2,3")
     (project_dir / "valid_image.tif").write_text("fake tif")
-    
+
     # Files to be excluded by extension
     (project_dir / "excluded_file.dat").write_text("skip this")
     (project_dir / "excluded_model.xmdf").write_text("skip this too")
-    
+
     # Subfolder that should be excluded
     xf_dir = project_dir / "xf"
     xf_dir.mkdir()
     (xf_dir / "hidden.csv").write_text("skip because of folder")
     (xf_dir / "valid_image.tif").write_text("skip this one too")
-    
+
     # Valid subfolder
     sub_dir = project_dir / "subfolder"
     sub_dir.mkdir()
     (sub_dir / "sub_data.dbf").write_text("fake dbf")
-    
+
     return project_dir
 
 
@@ -61,41 +62,46 @@ def test_compress_folder_with_exclusions(mock_project: Path):
     # Run the script via CLI
     env = os.environ.copy()
     env["PYTHONPATH"] = str(repo_root)
-    
+
     result = subprocess.run(
         [
-            sys.executable, str(COMPRESS_FOLDER_SCRIPT),
-            "-i", str(mock_project),
-            "--exclude_folders", "xf",
-            "--exclude_extensions", ".dat", ".xmdf",
-            "--no-pause"
+            sys.executable,
+            str(COMPRESS_FOLDER_SCRIPT),
+            "-i",
+            str(mock_project),
+            "--exclude_folders",
+            "xf",
+            "--exclude_extensions",
+            ".dat",
+            ".xmdf",
+            "--no-pause",
         ],
-        capture_output=True, text=True, env=env
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=mock_project.parent,
     )
-        
+
     assert result.returncode == 0, f"Script failed with output:\n{result.stderr}\n{result.stdout}"
-    
+
     expected_archive = mock_project.with_suffix(".7z")
     assert expected_archive.exists(), f"Expected archive {expected_archive} was not created"
-    
+
     # Verify contents using 7z.exe list command
     result = subprocess.run(
-        [str(SEVEN_ZIP_EXE), "l", str(expected_archive)],
-        capture_output=True, 
-        text=True, 
-        check=True
+        [str(SEVEN_ZIP_EXE), "l", str(expected_archive)], capture_output=True, text=True, check=True
     )
-    
+
     stdout = result.stdout
     # Should contain valid files
     assert "valid_data.csv" in stdout
     assert "valid_image.tif" in stdout
     assert "sub_data.dbf" in stdout
-    
+
     # Should NOT contain excluded extensions
     assert "excluded_file.dat" not in stdout
     assert "excluded_model.xmdf" not in stdout
-    
+
     # Should NOT contain excluded folder contents
     assert "hidden.csv" not in stdout
     assert "xf" not in stdout
@@ -107,25 +113,33 @@ def test_compress_individual_with_exclusions(mock_project: Path):
     # Run the script via CLI
     env = os.environ.copy()
     env["PYTHONPATH"] = str(repo_root)
-    
+
     result = subprocess.run(
         [
-            sys.executable, str(COMPRESS_INDIVIDUAL_SCRIPT),
-            "-i", str(mock_project),
-            "--exclude_folders", "xf",
-            "--exclude_extensions", ".dat", ".xmdf",
-            "--no-pause"
+            sys.executable,
+            str(COMPRESS_INDIVIDUAL_SCRIPT),
+            "-i",
+            str(mock_project),
+            "--exclude_folders",
+            "xf",
+            "--exclude_extensions",
+            ".dat",
+            ".xmdf",
+            "--no-pause",
         ],
-        capture_output=True, text=True, env=env
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=mock_project.parent,
     )
-        
+
     assert result.returncode == 0, f"Script failed with output:\n{result.stderr}\n{result.stdout}"
-    
+
     # Valid files should be compressed
     assert (mock_project / "valid_data.csv.7z").exists()
     assert (mock_project / "valid_image.tif.7z").exists()
     assert (mock_project / "subfolder" / "sub_data.dbf.7z").exists()
-    
+
     # Excluded files/folders should NOT have .7z equivalents
     assert not (mock_project / "excluded_file.dat.7z").exists()
     assert not (mock_project / "excluded_model.xmdf.7z").exists()

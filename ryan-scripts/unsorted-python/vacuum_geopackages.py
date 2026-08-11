@@ -28,10 +28,14 @@ from ryan_library.functions.wrapper_utils import change_working_directory, pause
 
 def main(*, input_directories: PathOrList | None = None) -> int:
     if input_directories is None:
-        targets = [Path(DEFAULT_INPUT_DIR).resolve()]
+        targets: list[Path] = [Path(DEFAULT_INPUT_DIR).resolve()]
     else:
         targets = [p.resolve() for p in to_path_list(input_directories)]
 
+    targets = list(dict.fromkeys(targets))
+    if any(not target.is_dir() for target in targets):
+        logger.error("Every input must be an existing directory.")
+        return 1
     if targets and not change_working_directory(target_dir=targets[0]):
         return 1
 
@@ -49,19 +53,19 @@ def main(*, input_directories: PathOrList | None = None) -> int:
 
         for gpkg_path in gpkg_files:
             try:
-                original_size = gpkg_path.stat().st_size
-                with sqlite3.connect(gpkg_path) as conn:
+                original_size: int = gpkg_path.stat().st_size
+                with sqlite3.connect(database=gpkg_path) as conn:
                     conn.execute("VACUUM")
-                new_size = gpkg_path.stat().st_size
-                
-                saved_bytes = original_size - new_size
-                saved_mb = saved_bytes / (1024 * 1024)
-                
+                new_size: int = gpkg_path.stat().st_size
+
+                saved_bytes: int = original_size - new_size
+                saved_mb: float = saved_bytes / (1024 * 1024)
+
                 if saved_bytes > 0:
                     logger.debug("Vacuumed {} (Saved {:.2f} MB)", gpkg_path.name, saved_mb)
                 else:
                     logger.debug("Vacuumed {} (No space saved)", gpkg_path.name)
-                
+
                 total_success += 1
             except sqlite3.Error:
                 logger.exception("SQLite error while vacuuming {}", gpkg_path.name)
@@ -70,7 +74,7 @@ def main(*, input_directories: PathOrList | None = None) -> int:
 
     if total_files > 0:
         logger.success("Successfully vacuumed {}/{} GeoPackages total.", total_success, total_files)
-    
+
     return 0 if total_success == total_files else 1
 
 
@@ -89,11 +93,11 @@ def _parse_cli_arguments() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    args = _parse_cli_arguments()
+    args: argparse.Namespace = _parse_cli_arguments()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
     with setup_logger(console_log_level="SUCCESS", log_file="vacuum_geopackages.log", file_log_level="DEBUG"):
-        result = main(input_directories=args.input_directories)
+        result: int = main(input_directories=args.input_directories)
 
     print_wrapper_banner(
         wrapper_file=Path(__file__),

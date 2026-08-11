@@ -28,7 +28,10 @@ from ryan_library.functions.wrapper_utils import change_working_directory, pause
 
 
 def _find_7z() -> Path | None:
-    paths = [
+    if which_7z := shutil.which("7z"):
+        return Path(which_7z)
+
+    paths: list[Path] = [
         Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "7-Zip" / "7z.exe",
         Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "7-Zip" / "7z.exe",
     ]
@@ -43,47 +46,57 @@ SEVEN_ZIP_EXE = _find_7z()
 
 def _extract_archive(archive_path: Path) -> tuple[Path, bool, str]:
     """Worker function to extract a single archive."""
-    extract_dir = archive_path.parent / archive_path.stem
+    extract_dir: Path = archive_path.parent / archive_path.stem
+    temporary_extract_dir = archive_path.parent / f".{archive_path.stem}.extracting"
     try:
-        extract_dir.mkdir(parents=True, exist_ok=True)
-        
+        if extract_dir.exists():
+            return archive_path, True, f"Output {extract_dir.name} already exists"
+
+        if temporary_extract_dir.exists():
+            shutil.rmtree(temporary_extract_dir)
+        temporary_extract_dir.mkdir(parents=True)
+
         if SEVEN_ZIP_EXE:
             # -y = yes to all prompts, -o = output directory
-            result = subprocess.run(
-                [str(SEVEN_ZIP_EXE), "x", "-y", f"-o{extract_dir}", str(archive_path)],
+            result: subprocess.CompletedProcess[str] = subprocess.run(
+                args=[str(object=SEVEN_ZIP_EXE), "x", "-y", f"-o{temporary_extract_dir}", str(object=archive_path)],
                 capture_output=True,
                 text=True,
                 check=False,
             )
             if result.returncode != 0:
-                raise RuntimeError(f"7z exit code {result.returncode}: {result.stderr.strip() or result.stdout.strip()}")
+                raise RuntimeError(
+                    f"7z exit code {result.returncode}: {result.stderr.strip() or result.stdout.strip()}"
+                )
         else:
             # Fallback to shutil if 7-Zip isn't installed (won't work for .7z or .rar)
-            shutil.unpack_archive(str(archive_path), str(extract_dir))
-            
+            shutil.unpack_archive(filename=str(archive_path), extract_dir=str(temporary_extract_dir))
+
+        temporary_extract_dir.replace(extract_dir)
         return archive_path, True, ""
     except Exception as e:
+        shutil.rmtree(temporary_extract_dir, ignore_errors=True)
         return archive_path, False, str(e)
 
 
 def main(*, input_paths: PathOrList | None = None) -> int:
     if input_paths is None:
-        targets = [Path(DEFAULT_INPUT).resolve()]
+        targets: list[Path] = [Path(DEFAULT_INPUT).resolve()]
     else:
         targets = [p.resolve() for p in to_path_list(input_paths)]
 
     if targets:
-        first_target = targets[0]
-        working_dir = first_target.parent if first_target.is_file() else first_target
+        first_target: Path = targets[0]
+        working_dir: Path = first_target.parent if first_target.is_file() else first_target
         if not change_working_directory(target_dir=working_dir):
             return 1
 
     # shutil formats don't have leading dots (e.g. 'zip', 'tar', 'gztar')
     # basic extensions:
-    supported_extensions = {".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar"}
+    supported_extensions: set[str] = {".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar"}
 
     all_archives: list[Path] = []
-    
+
     for target in targets:
         if target.is_file():
             if target.suffix.lower() in supported_extensions:
@@ -96,6 +109,8 @@ def main(*, input_paths: PathOrList | None = None) -> int:
         else:
             logger.warning("Target {} does not exist", target)
 
+    all_archives = list(dict.fromkeys(all_archives))
+
     if not all_archives:
         logger.warning("No supported archives found across targets.")
         return 0
@@ -103,9 +118,10 @@ def main(*, input_paths: PathOrList | None = None) -> int:
     logger.info("Found {} archives to extract. Starting multiprocessing pool...", len(all_archives))
 
     total_success = 0
-    total_files = len(all_archives)
+    total_files: int = len(all_archives)
 
-    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+    workers = min(multiprocessing.cpu_count(), len(all_archives))
+    with multiprocessing.Pool(processes=workers) as pool:
         for file_path, success, error_msg in pool.imap_unordered(_extract_archive, all_archives):
             if success:
                 logger.debug("Extracted {}", file_path.name)

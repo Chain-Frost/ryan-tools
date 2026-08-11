@@ -57,3 +57,33 @@ def test_is_relative_to_current_directory(cwd: Path) -> None:
 
     assert path_stuff.is_relative_to_current_directory(inside_path) is True
     assert path_stuff.is_relative_to_current_directory(outside_path) is False
+
+
+def test_to_path_list_accepts_single_and_iterable_inputs() -> None:
+    assert path_stuff.to_path_list("one.txt") == [Path("one.txt")]
+    assert path_stuff.to_path_list(Path("two.txt")) == [Path("two.txt")]
+    assert path_stuff.to_path_list(item for item in ("three.txt", Path("four.txt"))) == [
+        Path("three.txt"),
+        Path("four.txt"),
+    ]
+
+
+def test_to_single_path_rejects_collections() -> None:
+    assert path_stuff.to_single_path("one.txt") == Path("one.txt")
+    assert path_stuff.to_single_path(Path("two.txt")) == Path("two.txt")
+
+    with pytest.raises(TypeError, match="Expected a single path"):
+        path_stuff.to_single_path(["one.txt"])
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("layer:one?", "layer_one_"),
+        ("CON", "_CON"),
+        ("name. ", "name"),
+        ("", "fallback"),
+    ],
+)
+def test_sanitize_windows_filename(value: str, expected: str) -> None:
+    assert path_stuff.sanitize_windows_filename(value, fallback="fallback") == expected

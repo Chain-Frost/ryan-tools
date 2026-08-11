@@ -11,7 +11,7 @@ lossless. ``tuflow`` prioritises broad TUFLOW/GeoTIFF compatibility, while
 ``efficient`` opts into tiled ZSTD compression and sparse blocks.
 """
 
-__lazy_modules__ = ["numpy"]
+__lazy_modules__: list[str] = ["numpy", "osgeo"]
 
 # pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
@@ -26,9 +26,10 @@ from loguru import logger
 import numpy as np
 from osgeo import gdal, ogr
 
+from ryan_library.functions.gdal.vector_conversion import VectorFormat, resolve_vector_format
+
 RasterProfile = Literal["tuflow", "efficient"]
 OverviewResampling = Literal["nearest", "average", "bilinear", "cubic", "mode"]
-VectorFormat = Literal["gpkg", "shp"]
 
 DEFAULT_OVERVIEW_LEVELS: tuple[int, ...] = (2, 4, 8, 16, 32)
 
@@ -52,7 +53,7 @@ def read_raster_band(
     if band < 1:
         raise ValueError("band must be one or greater.")
 
-    raster_path = Path(raster).resolve()
+    raster_path: Path = Path(raster).resolve()
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster_path), gdal.GA_ReadOnly)
         if dataset is None:
@@ -87,7 +88,7 @@ def read_masked_raster_band(
     if band < 1:
         raise ValueError("band must be one or greater.")
 
-    raster_path = Path(raster).resolve()
+    raster_path: Path = Path(raster).resolve()
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster_path), gdal.GA_ReadOnly)
         if dataset is None:
@@ -112,7 +113,7 @@ def read_masked_raster_band(
 
     if values is None or validity is None:
         raise RuntimeError(f"GDAL could not read band {band} and its validity mask from {raster_path}")
-    return np.ma.array(np.asarray(values), mask=np.asarray(validity) == 0, copy=False)
+    return np.ma.array(data=np.asarray(values), mask=np.asarray(validity) == 0, copy=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,13 +148,13 @@ def plan_gdal_concurrency(file_count: int, requested_workers: int | None = None)
     if file_count < 1:
         return GdalConcurrency(workers=0, threads_per_dataset="1", cpu_count=max(1, os.cpu_count() or 1))
 
-    cpu_count = max(1, os.cpu_count() or 1)
+    cpu_count: int = max(1, os.cpu_count() or 1)
     if file_count == 1:
         # Avoid an outer worker pool when GDAL itself can parallelise the one dataset.
         return GdalConcurrency(workers=1, threads_per_dataset="ALL_CPUS", cpu_count=cpu_count)
 
-    worker_limit = cpu_count if requested_workers is None else max(1, requested_workers)
-    workers = min(file_count, worker_limit)
+    worker_limit: int = cpu_count if requested_workers is None else max(1, requested_workers)
+    workers: int = min(file_count, worker_limit)
     threads_per_dataset = str(max(1, cpu_count // workers))
     return GdalConcurrency(workers=workers, threads_per_dataset=threads_per_dataset, cpu_count=cpu_count)
 
@@ -170,7 +171,7 @@ def geotiff_creation_options(profile: RasterProfile, threads: str) -> list[str]:
     Raises:
         ValueError: If an unknown profile is supplied.
     """
-    common = ["BIGTIFF=IF_SAFER", f"NUM_THREADS={threads}"]
+    common: list[str] = ["BIGTIFF=IF_SAFER", f"NUM_THREADS={threads}"]
     if profile == "tuflow":
         # Conservative GeoTIFF: widely supported DEFLATE, normal strips, and allocated zero blocks.
         return ["COMPRESS=DEFLATE", "PREDICTOR=2", *common]
@@ -271,14 +272,14 @@ def build_external_overviews(
     """
     raster = raster.resolve()
     overview = Path(f"{raster}.ovr")
-    requested_levels = tuple(level for level in levels if level > 1)
+    requested_levels: tuple[int, ...] = tuple(level for level in levels if level > 1)
     if not requested_levels:
         raise ValueError("At least one overview level greater than 1 is required.")
     if not refresh and _external_overviews_are_current(raster, overview, len(requested_levels)):
         logger.info(f"External overviews are current: {overview}")
         return overview
 
-    config = {
+    config: dict[str, str] = {
         "COMPRESS_OVERVIEW": "DEFLATE" if profile == "tuflow" else "ZSTD",
         "PREDICTOR_OVERVIEW": "2",
         "BIGTIFF_OVERVIEW": "IF_SAFER",
@@ -536,9 +537,8 @@ def create_raster_footprint(
     """Create a valid-data footprint excluding source NoData pixels."""
     input_raster = input_raster.resolve()
     output_vector = output_vector.resolve()
-    driver_name = {"gpkg": "GPKG", "shp": "ESRI Shapefile"}.get(vector_format)
-    if driver_name is None:
-        raise ValueError(f"Unsupported vector format: {vector_format}")
+    _normalized_format, format_spec = resolve_vector_format(vector_format)
+    driver_name = format_spec.driver
     driver = ogr.GetDriverByName(driver_name)
     if driver is None:
         raise RuntimeError(f"The GDAL {driver_name} driver is unavailable.")
@@ -611,13 +611,13 @@ def polygonize_flood_extent(
 
     The raster mask band excludes the NoData value 0, so only flooded cells
     become polygons. The integer ``value`` field records the source cell value.
-    GeoPackage is the default; ESRI Shapefile remains available for systems
-    that require it.
+    GeoPackage is the default; other formats from the shared vector-format
+    registry remain available for systems that require them.
 
     Args:
         input_raster: Flood mask created by :func:`calculate_flood_extent`.
-        output_vector: Destination ``.gpkg`` or ``.shp`` path.
-        vector_format: ``gpkg`` for GeoPackage or ``shp`` for ESRI Shapefile.
+        output_vector: Destination vector dataset path.
+        vector_format: A format from the shared GDAL vector-format registry.
         overwrite: Permit deletion and recreation of an existing dataset.
 
     Returns:
@@ -625,9 +625,8 @@ def polygonize_flood_extent(
     """
     input_raster = input_raster.resolve()
     output_vector = output_vector.resolve()
-    driver_name = {"gpkg": "GPKG", "shp": "ESRI Shapefile"}.get(vector_format)
-    if driver_name is None:
-        raise ValueError(f"Unsupported vector format: {vector_format}")
+    _normalized_format, format_spec = resolve_vector_format(vector_format)
+    driver_name = format_spec.driver
     driver = ogr.GetDriverByName(driver_name)
     if driver is None:
         raise RuntimeError(f"The GDAL {driver_name} driver is unavailable.")

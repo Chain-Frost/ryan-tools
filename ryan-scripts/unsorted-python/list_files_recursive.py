@@ -29,19 +29,22 @@ from ryan_library.functions.wrapper_utils import change_working_directory, pause
 
 def main(*, input_directories: PathOrList | None = None) -> int:
     if input_directories is None:
-        targets = [Path(DEFAULT_INPUT_DIR).resolve()]
+        targets: list[Path] = [Path(DEFAULT_INPUT_DIR).resolve()]
     else:
         targets = [p.resolve() for p in to_path_list(input_directories)]
 
-    # We just change to the first directory to satisfy the standard, but we'll scan all of them.
+    targets = list(dict.fromkeys(targets))
+    if any(not target.is_dir() for target in targets):
+        logger.error("Every input must be an existing directory.")
+        return 1
     if targets and not change_working_directory(target_dir=targets[0]):
         return 1
 
-    output_file = Path(DEFAULT_OUTPUT_FILE).resolve()
+    output_file: Path = Path(DEFAULT_OUTPUT_FILE).resolve()
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     all_files: list[Path] = []
-    
+
     for target_dir in targets:
         logger.info("Scanning {} recursively...", target_dir.name)
         # rglob("*") gets all files and directories, we filter for is_file()
@@ -51,11 +54,13 @@ def main(*, input_directories: PathOrList | None = None) -> int:
         logger.warning("No files found across {} input directories.", len(targets))
         return 0
 
+    all_files = list(dict.fromkeys(all_files))
+
     # Sort files by extension then by name to mimic `dir /o:en`
     all_files.sort(key=lambda f: (f.suffix.lower(), f.stem.lower()))
 
     try:
-        with open(output_file, "w", encoding="utf-8") as f_out:
+        with open(file=output_file, mode="w", encoding="utf-8") as f_out:
             for file_path in all_files:
                 f_out.write(f"{file_path}\n")
         logger.success("Wrote {} file paths to {}", len(all_files), output_file.name)
@@ -76,11 +81,11 @@ def _parse_cli_arguments() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    args = _parse_cli_arguments()
+    args: argparse.Namespace = _parse_cli_arguments()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
     with setup_logger(console_log_level="SUCCESS", log_file="list_files_recursive.log", file_log_level="DEBUG"):
-        result = main(input_directories=args.input_directories)
+        result: int = main(input_directories=args.input_directories)
 
     print_wrapper_banner(
         wrapper_file=Path(__file__),

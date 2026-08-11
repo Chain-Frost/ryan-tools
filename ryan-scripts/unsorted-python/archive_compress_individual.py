@@ -20,8 +20,8 @@ WRAPPER_VERSION = "2026-08-10.1"
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path(".")
 DEFAULT_EXTENSION = "*"
-DEFAULT_EXCLUDE_FOLDERS = ["xf"]
-DEFAULT_EXCLUDE_EXTENSIONS = [".xf4", ".xmdf", ".2dm", ".dat", ".7z"]
+DEFAULT_EXCLUDE_FOLDERS: list[str] = ["xf"]
+DEFAULT_EXCLUDE_EXTENSIONS: list[str] = [".xf4", ".xmdf", ".2dm", ".dat", ".7z"]
 # ==============================================================================
 
 from loguru import logger
@@ -35,7 +35,7 @@ def _find_7z() -> Path | None:
     if which_7z := shutil.which("7z"):
         return Path(which_7z)
 
-    paths = [
+    paths: list[Path] = [
         Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "7-Zip" / "7z.exe",
         Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "7-Zip" / "7z.exe",
     ]
@@ -45,7 +45,7 @@ def _find_7z() -> Path | None:
     return None
 
 
-SEVEN_ZIP_EXE = _find_7z()
+SEVEN_ZIP_EXE: Path | None = _find_7z()
 
 
 def _compress_file(file_path: Path) -> tuple[Path, str, str]:
@@ -53,15 +53,15 @@ def _compress_file(file_path: Path) -> tuple[Path, str, str]:
     if not SEVEN_ZIP_EXE:
         return file_path, "ERROR", "7-Zip executable not found on system."
 
-    output_archive = file_path.with_suffix(f"{file_path.suffix}.7z")
+    output_archive: Path = file_path.with_suffix(f"{file_path.suffix}.7z")
     try:
         if output_archive.exists():
             return file_path, "SKIPPED", f"Output {output_archive.name} already exists"
 
         # -mx=5 is normal compression. -mmt=1 restricts 7z to 1 thread per process
         # to prevent thrashing when running inside a multiprocessing pool.
-        result = subprocess.run(
-            [str(SEVEN_ZIP_EXE), "a", "-mx=5", "-mmt=1", str(output_archive), str(file_path)],
+        result: subprocess.CompletedProcess[str] = subprocess.run(
+            args=[str(SEVEN_ZIP_EXE), "a", "-mx=5", "-mmt=1", str(output_archive), str(file_path)],
             capture_output=True,
             text=True,
             check=False,
@@ -96,29 +96,29 @@ def main(
     exclude_extensions: list[str] | None = None,
 ) -> int:
     if input_paths is None:
-        targets = [Path(DEFAULT_INPUT).resolve()]
+        targets: list[Path] = [Path(DEFAULT_INPUT).resolve()]
     else:
         targets = [p.resolve() for p in to_path_list(input_paths)]
 
     if targets:
-        first_target = targets[0]
-        working_dir = first_target.parent if first_target.is_file() else first_target
+        first_target: Path = targets[0]
+        working_dir: Path = first_target.parent if first_target.is_file() else first_target
         if not change_working_directory(target_dir=working_dir):
             return 1
 
     all_files_to_compress: list[Path] = []
 
-    _ex_folders = exclude_folders if exclude_folders is not None else DEFAULT_EXCLUDE_FOLDERS
-    _ex_extensions = exclude_extensions if exclude_extensions is not None else DEFAULT_EXCLUDE_EXTENSIONS
+    _ex_folders: list[str] = exclude_folders if exclude_folders is not None else DEFAULT_EXCLUDE_FOLDERS
+    _ex_extensions: list[str] = exclude_extensions if exclude_extensions is not None else DEFAULT_EXCLUDE_EXTENSIONS
 
-    active_exclude_folders = [f.lower() for f in _ex_folders]
-    active_exclude_extensions = [e.lower() for e in _ex_extensions]
+    active_exclude_folders: list[str] = [f.lower() for f in _ex_folders]
+    active_exclude_extensions: list[str] = [e.lower() for e in _ex_extensions]
 
     for target in targets:
         if target.is_file():
             all_files_to_compress.append(target)
         elif target.is_dir():
-            for f in target.rglob(DEFAULT_EXTENSION):
+            for f in target.rglob(pattern=DEFAULT_EXTENSION):
                 if not f.is_file():
                     continue
                 # Skip if any part of the path matches an excluded folder
@@ -148,7 +148,8 @@ def main(
     total_skipped = 0
     total_errors = 0
 
-    with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+    workers = min(multiprocessing.cpu_count(), len(all_files_to_compress))
+    with multiprocessing.Pool(processes=workers) as pool:
         for file_path, status, msg in pool.imap_unordered(_compress_file, all_files_to_compress):
             if status == "SUCCESS":
                 logger.debug("Compressed {}", file_path.name)
@@ -198,11 +199,11 @@ def _parse_cli_arguments() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    args = _parse_cli_arguments()
+    args: argparse.Namespace = _parse_cli_arguments()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
     with setup_logger(console_log_level="SUCCESS", log_file="archive_compress.log", file_log_level="DEBUG"):
-        result = main(
+        result: int = main(
             input_paths=args.input_paths,
             exclude_folders=args.exclude_folders,
             exclude_extensions=args.exclude_extensions,

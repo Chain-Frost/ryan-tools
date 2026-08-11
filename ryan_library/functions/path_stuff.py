@@ -1,19 +1,46 @@
 # ryan_library/functions/path_stuff.py
 
 import json
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Union, Sequence, Iterable
+import re
+
 from loguru import logger
 
-PathLike = Union[str, Path]
-PathOrList = Union[PathLike, Sequence[PathLike], Iterable[PathLike]]
+PathLike = str | Path
+PathOrList = PathLike | Iterable[PathLike]
+
+_WINDOWS_RESERVED_NAMES: set[str] = {
+    "AUX",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "CON",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9",
+    "NUL",
+    "PRN",
+}
 
 
 def _load_network_mappings() -> dict[str, str]:
     config_path: Path = Path(__file__).resolve().parents[1] / "classes" / "path_mappings.json"
     if config_path.exists():
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(file=config_path, mode="r", encoding="utf-8") as f:
                 mapping: dict[str, str] | None = json.load(f)
                 if isinstance(mapping, dict):
                     return mapping
@@ -104,16 +131,25 @@ def to_path_list(paths: PathOrList) -> list[Path]:
     """
     if isinstance(paths, (str, Path)):
         return [Path(paths)]
-    
+
     return [Path(p) for p in paths]
 
 
-def to_single_path(path: PathLike) -> Path:
+def to_single_path(path: object) -> Path:
     """
     Sanitises a single string or Path input into a Path object.
     Raises TypeError if a list or other iterable is provided.
     """
-    if isinstance(path, (str, Path)):  # type: ignore
+    if isinstance(path, (str, Path)):
         return Path(path)
     raise TypeError(f"Expected a single path string or Path object, got {type(path).__name__}")
 
+
+def sanitize_windows_filename(value: str, *, fallback: str = "unnamed") -> str:
+    """Return a Windows-safe filename component without altering directory structure."""
+    sanitized: str = re.sub(pattern=r'[<>:"/\\|?*\x00-\x1f]', repl="_", string=value).rstrip(" .")
+    if not sanitized:
+        sanitized = fallback
+    if sanitized.upper() in _WINDOWS_RESERVED_NAMES:
+        sanitized = f"_{sanitized}"
+    return sanitized

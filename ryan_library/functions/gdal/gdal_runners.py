@@ -77,8 +77,8 @@ def run_gdal_polygonize(
         The resolved vector dataset path.
     """
     return polygonize_flood_extent(
-        Path(input_file),
-        Path(output_vector),
+        input_raster=Path(input_file),
+        output_vector=Path(output_vector),
         vector_format=vector_format,
         overwrite=overwrite,
     )

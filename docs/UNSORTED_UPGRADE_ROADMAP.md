@@ -203,7 +203,7 @@ These are too small to warrant a formal upgrade or are reference/parameter files
 | `txt_to_shp*.bat` (2 files) | Text → SHP conversion. |
 | `shp-to-DXF-LAYER.bat` | SHP → DXF with layer mapping. |
 | `TIF-to-TIF-for-GM.bat` | TIF re-encoding for Global Mapper. |
-| `convert_gdb.bat` | GDB → GPKG conversion. |
+| `convert_gdb.bat` | Retained reference; superseded by `ryan-scripts/unsorted-python/convert_gdb_to_gpkg.py`, which supports selectable vector formats and per-layer or combined-database output. |
 | `Convert_to_brkline.bat` | Feature → breakline conversion. |
 | `VACUUM.BAT` | GeoPackage VACUUM. |
 | `unsetNodata.bat` | Unset raster nodata. |
