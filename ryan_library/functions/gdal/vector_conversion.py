@@ -9,7 +9,7 @@ from typing import Any, Literal, NamedTuple
 
 from osgeo import gdal  # type: ignore
 
-VectorFormat = Literal["fgb", "geojson", "gpkg", "shp", "sqlite"]
+VectorFormat = Literal["fgb", "geojson", "gpkg", "shp", "sqlite", "dxf", "kml"]
 
 
 class VectorFormatSpec(NamedTuple):
@@ -26,6 +26,8 @@ VECTOR_FORMATS: dict[VectorFormat, VectorFormatSpec] = {
     "gpkg": VectorFormatSpec(driver="GPKG", extension=".gpkg", supports_multiple_layers=True),
     "shp": VectorFormatSpec(driver="ESRI Shapefile", extension=".shp", supports_multiple_layers=False),
     "sqlite": VectorFormatSpec(driver="SQLite", extension=".sqlite", supports_multiple_layers=True),
+    "dxf": VectorFormatSpec(driver="DXF", extension=".dxf", supports_multiple_layers=True),
+    "kml": VectorFormatSpec(driver="KML", extension=".kml", supports_multiple_layers=True),
 }
 
 
@@ -66,12 +68,46 @@ def get_vector_layer_names(source: str | Path) -> list[str]:
             source_dataset = None
 
 
+def get_unique_attribute_values(source: str | Path, layer_name: str, attribute_name: str) -> list[str]:
+    """Return a list of unique values for an attribute in a vector layer."""
+    source_path = Path(source).resolve()
+    with gdal.ExceptionMgr():  # type: ignore
+        source_dataset = gdal.OpenEx(str(source_path), gdal.OF_VECTOR)  # type: ignore
+        if source_dataset is None:
+            raise RuntimeError(f"GDAL could not open vector dataset {source_path}")
+        try:
+            layer = source_dataset.GetLayerByName(layer_name)  # type: ignore
+            if layer is None:
+                raise RuntimeError(f"GDAL could not read layer '{layer_name}' from {source_path}")
+            
+            # Use executeSQL to get distinct values
+            sql = f'SELECT DISTINCT "{attribute_name}" FROM "{layer_name}"'
+            result_layer = source_dataset.ExecuteSQL(sql) # type: ignore
+            
+            if result_layer is None:
+                raise RuntimeError(f"Failed to execute SQL or attribute '{attribute_name}' does not exist.")
+            
+            values: list[str] = []
+            for feature in result_layer:  # type: ignore
+                val = feature.GetFieldAsString(0) # type: ignore
+                if val:
+                    values.append(val)
+                    
+            source_dataset.ReleaseResultSet(result_layer) # type: ignore
+            return sorted(values)
+        finally:
+            source_dataset = None
+
+
 def translate_vector_dataset(
     source: str | Path,
     output: str | Path,
     *,
     vector_format: str,
     layer_name: str | None = None,
+    src_srs: str | None = None,
+    dst_srs: str | None = None,
+    where: str | None = None,
 ) -> tuple[Path, ...]:
     """Translate one vector layer or a complete dataset and atomically publish its files.
 
@@ -96,6 +132,9 @@ def translate_vector_dataset(
         options: Any = gdal.VectorTranslateOptions(  # type: ignore
             format=spec.driver,
             layers=[layer_name] if layer_name is not None else None,
+            srcSRS=src_srs,
+            dstSRS=dst_srs,
+            where=where,
         )
         with gdal.ExceptionMgr():  # type: ignore
             output_dataset = gdal.VectorTranslate(  # type: ignore
