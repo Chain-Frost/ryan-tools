@@ -2,8 +2,11 @@
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Union, Sequence, Iterable
 from loguru import logger
+
+PathLike = Union[str, Path]
+PathOrList = Union[PathLike, Sequence[PathLike], Iterable[PathLike]]
 
 
 def _load_network_mappings() -> dict[str, str]:
@@ -92,3 +95,25 @@ def convert_to_relative_path(user_path: Path, network_mapping: dict[str, str] | 
         abs_path = user_path.resolve()
         logger.debug("Returning absolute path: {}", abs_path)
         return abs_path
+
+
+def to_path_list(paths: PathOrList) -> list[Path]:
+    """
+    Sanitises a single path or collection of paths into a flat list of Path objects.
+    Accepts a single string, a single Path, or any iterable of strings/Paths.
+    """
+    if isinstance(paths, (str, Path)):
+        return [Path(paths)]
+    
+    return [Path(p) for p in paths]
+
+
+def to_single_path(path: PathLike) -> Path:
+    """
+    Sanitises a single string or Path input into a Path object.
+    Raises TypeError if a list or other iterable is provided.
+    """
+    if isinstance(path, (str, Path)):  # type: ignore
+        return Path(path)
+    raise TypeError(f"Expected a single path string or Path object, got {type(path).__name__}")
+
