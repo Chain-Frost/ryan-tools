@@ -18,7 +18,8 @@ Start with:
 - [Environment guide](docs/ENVIRONMENTS.md) for Python, VS Code, installed-wheel and QGIS/OSGeo4W setup.
 - [Ryan Scripts guide](ryan-scripts/README.md) for choosing and safely running scripts.
 - [Maintained wrapper standard](ryan-scripts/WRAPPER_STANDARD.md) when changing a library-backed wrapper.
-- [Project documentation index](docs/README.md) for setup guides, roadmaps and dated audits.
+- [Project documentation index](docs/README.md) for the complete topic map, including specialised guides kept beside
+  scripts, processors, examples and maintenance tools.
 - [Examples](examples/README.md) for direct library use when an existing wrapper is not the right fit.
 
 ## Repository map
