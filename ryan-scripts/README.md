@@ -55,7 +55,7 @@ log messages, prompts, and failures remain visible.
 | Folder | Typical purpose |
 | --- | --- |
 | `12D-python` | Convert or thin terrain data and generate 12d culvert geometry. |
-| `AutoCAD-python`, `cad-python` | Extract, group, dissolve, and convert CAD/DXF geometry. |
+| `AutoCAD-python`, `cad-python` | Extract, group, dissolve, and convert CAD/DXF and Surpac geometry. See the observed binary Surpac [STR](../docs/SURPAC_BINARY_STR_FORMAT.md) and [DTM](../docs/SURPAC_BINARY_DTM_FORMAT.md) formats. |
 | `file-management-python` | Copy files or folders and rename Outlook MSG files. |
 | `gdal-python` | Current library-backed GDAL raster and point-cloud workflows; see its own README. |
 | `gdal-bat`, `TUFLOW-bat`, `misc-bat` | Legacy drag-and-drop or command-shell workflows. Prefer maintained Python replacements and review local paths before use. |

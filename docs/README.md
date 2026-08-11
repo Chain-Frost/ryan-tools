@@ -22,6 +22,13 @@ remain in the root [`README.md`](../README.md).
 - [MCP server setup](MCP_SETUP.md): configure the repository's filename, log, raster-health and GDAL-discovery tools
   in supported AI clients.
 
+## File-format references
+
+- [Observed binary Surpac STR format](SURPAC_BINARY_STR_FORMAT.md): empirically derived record layout, validation rules,
+  known limits, converter behavior and guidance for documenting additional variants.
+- [Observed binary Surpac DTM format](SURPAC_BINARY_DTM_FORMAT.md): empirically derived mesh-block and triangle layout,
+  neighbour topology, DXF validation evidence and known limits.
+
 ## Maintenance documents
 
 - [Compatibility policy & inventory](COMPATIBILITY_POLICY.md)
