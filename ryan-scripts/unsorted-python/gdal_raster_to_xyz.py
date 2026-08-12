@@ -80,7 +80,7 @@ def process_file(input_file: Path, output_file: Path, is_csv: bool, skip_nodata:
         
     cmd.extend([str(input_file), str(output_file)])
     
-    logger.debug(f"Running: {' '.join(cmd)}")
+    logger.debug("Running: {}", " ".join(cmd))
     
     try:
         # Run gdal2xyz directly through the current python environment
@@ -92,12 +92,13 @@ def process_file(input_file: Path, output_file: Path, is_csv: bool, skip_nodata:
         )
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to process {input_file.name}: {e.stderr}")
+        logger.error("Failed to process {}: {}", input_file.name, e.stderr)
         return False
 
 
-def main(*, args: argparse.Namespace) -> int:
-    target_directory = args.input_directory.resolve()
+def main(*, working_directory: Path | None = None) -> int:
+    args = _parse_cli_arguments()
+    target_directory = (working_directory or args.input_directory).resolve()
     if not change_working_directory(target_dir=target_directory):
         return 1
 
@@ -111,13 +112,13 @@ def main(*, args: argparse.Namespace) -> int:
             input_files.extend(list(target_directory.glob(pattern)))
 
     if not input_files:
-        logger.warning(f"No files matching {args.patterns} found in {target_directory}")
+        logger.warning("No files matching {} found in {}", args.patterns, target_directory)
         return 0
         
     # Deduplicate in case patterns overlap
     input_files = list(set(input_files))
 
-    logger.info(f"Found {len(input_files)} raster files to convert.")
+    logger.info("Found {} raster files to convert.", len(input_files))
     
     # User requested skip by default, so --keep-nodata toggles it off
     skip_nodata = not args.keep_nodata
@@ -136,12 +137,12 @@ def main(*, args: argparse.Namespace) -> int:
             input_file = futures[future]
             try:
                 if future.result():
-                    logger.success(f"Successfully exported {input_file.name}")
+                    logger.success("Successfully exported {}", input_file.name)
                     success_count += 1
             except Exception as e:
-                logger.error(f"Error converting {input_file.name}: {e}")
+                logger.error("Error converting {}: {}", input_file.name, e)
 
-    logger.info(f"Successfully converted {success_count} out of {len(input_files)} files.")
+    logger.info("Successfully converted {} out of {} files.", success_count, len(input_files))
     return 0 if success_count == len(input_files) else 1
 
 
@@ -153,7 +154,7 @@ if __name__ == "__main__":
         logger.remove()
         logger.add(sys.stderr, level=args.console_log_level.upper())
         
-    result = main(args=args)
+    result = main()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
     
     if not getattr(args, "no_pause", False):

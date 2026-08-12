@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import rasterio
 from rasterio.windows import Window
@@ -99,24 +101,24 @@ def compute_diff(file1: str, file2: str, output_file: str, change: bool = False,
                 
                 dst.write(diff, 1, window=window)
                 
-        # If not change and not nowetdry, typical asc_to_asc creates a _wd (wet/dry) grid
-        if not change and not nowetdry:
-            wd_file = str(Path(output_file).with_suffix("")) + "_wd.tif"
-            with rasterio.open(wd_file, 'w', **meta) as wd_dst:
-                for _, window in src1.block_windows(1):
-                    d1 = src1.read(1, window=window)
-                    d2 = src2.read(1, window=window)
-                    
-                    mask1 = (d1 != nodata1) if nodata1 is not None else np.ones_like(d1, dtype=bool)
-                    mask2 = (d2 != nodata2) if nodata2 is not None else np.ones_like(d2, dtype=bool)
-                    
-                    wd = np.full(d1.shape, out_nodata, dtype=d1.dtype)
-                    # Was Wet, Now Dry (-99) -> Developed (f1) is dry, Existing (f2) is wet
-                    wd[(~mask1) & mask2] = -99
-                    # Was Dry, Now Wet (+99) -> Developed (f1) is wet, Existing (f2) is dry
-                    wd[mask1 & (~mask2)] = 99
-                    
-                    wd_dst.write(wd, 1, window=window)
+            # If not change and not nowetdry, typical asc_to_asc creates a _wd (wet/dry) grid
+            if not change and not nowetdry:
+                wd_file = str(Path(output_file).with_suffix("")) + "_wd.tif"
+                with rasterio.open(wd_file, 'w', **meta) as wd_dst:
+                    for _, window in src1.block_windows(1):
+                        d1 = src1.read(1, window=window)
+                        d2 = src2.read(1, window=window)
+                        
+                        mask1 = (d1 != nodata1) if nodata1 is not None else np.ones_like(d1, dtype=bool)
+                        mask2 = (d2 != nodata2) if nodata2 is not None else np.ones_like(d2, dtype=bool)
+                        
+                        wd = np.full(d1.shape, out_nodata, dtype=d1.dtype)
+                        # Was Wet, Now Dry (-99) -> Developed (f1) is dry, Existing (f2) is wet
+                        wd[(~mask1) & mask2] = -99
+                        # Was Dry, Now Wet (+99) -> Developed (f1) is wet, Existing (f2) is dry
+                        wd[mask1 & (~mask2)] = 99
+                        
+                        wd_dst.write(wd, 1, window=window)
 
 def compute_stat(stat_type: str, input_files: list[str], output_file: str, extra_args: list[str] | None = None) -> None:
     """Computes basic statistics across multiple rasters using chunked processing."""
@@ -152,7 +154,7 @@ def compute_stat(stat_type: str, input_files: list[str], output_file: str, extra
             elif stat_type == 'max':
                 res = np.max(stack, axis=0)
             else:
-                logger.error(f"Unsupported stat_type: {stat_type}")
+                logger.error("Unsupported stat_type: {}", stat_type)
                 raise ValueError(f"Unsupported stat_type: {stat_type}")
             
             out_nodata = meta.get('nodata', -9999.0)

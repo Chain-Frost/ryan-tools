@@ -73,8 +73,8 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 
 ### Hydrology Utilities
 
-- [x] **`Library.py`** (12 lines) → `ryan-scripts/unsorted-python/aep_ari_conversions.py`
-  - Simple AEP/ARI conversion functions migrated from the legacy folder for reference.
+- [x] **`Library.py`** (12 lines) → `ryan_library/functions/aep_ari_conversions.py`
+  - Simple AEP/ARI mathematical conversion functions. Moved to the library with standard Python styling and type hints.
 - [x] **`refactored_calculate_volumes_and_plot.py`** (3.7 KB) → `ryan-scripts/unsorted-python/gdal_stage_storage.py`
   - Migrated legacy stage-storage calculator to a high-performance, memory-safe chunked histogram algorithm.
 

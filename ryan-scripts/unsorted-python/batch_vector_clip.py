@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-WRAPPER_VERSION = "2.0.0"
+WRAPPER_VERSION = "2026-08-11.1"
 
 import argparse
 import sys
@@ -13,6 +13,7 @@ from osgeo import gdal, ogr
 
 from ryan_library.functions.path_stuff import to_single_path, to_path_list
 from ryan_library.functions.gdal.vector_conversion import resolve_vector_format
+from ryan_library.functions.wrapper_utils import print_wrapper_banner, pause_console
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
@@ -93,19 +94,19 @@ def process_via_ogr(input_file: Path, extent_file: Path, out_path: Path, mode: s
         format_name, spec = resolve_vector_format(out_path.suffix)
         driver = ogr.GetDriverByName(spec.driver)
         if driver is None:
-            logger.error(f"GDAL driver {spec.driver} not available.")
+            logger.error("GDAL driver {} not available.", spec.driver)
             return False
 
         extent_geom = _get_extent_geometry(extent_file)
 
         in_ds = ogr.Open(str(input_file), 0)
         if in_ds is None:
-            logger.error(f"Could not open input: {input_file}")
+            logger.error("Could not open input: {}", input_file)
             return False
 
         out_ds = driver.CreateDataSource(str(out_path))
         if out_ds is None:
-            logger.error(f"Could not create output: {out_path}")
+            logger.error("Could not create output: {}", out_path)
             return False
 
         layer_count = in_ds.GetLayerCount()
@@ -155,7 +156,7 @@ def process_via_ogr(input_file: Path, extent_file: Path, out_path: Path, mode: s
         in_ds = None
         return True
     except Exception as e:
-        logger.error(f"OGR processing failed: {e}")
+        logger.error("OGR processing failed: {}", e)
         return False
 
 
@@ -164,7 +165,7 @@ def process_single(input_file: Path, extent_file: Path, out_dir: Path, mode: str
     out_path = out_dir / out_name
     
     if dry_run:
-        logger.info(f"[DRY-RUN] Would create {out_name} using mode '{mode}'")
+        logger.info("[DRY-RUN] Would create {} using mode '{}'", out_name, mode)
         return True
 
     if mode == "clip":
@@ -178,18 +179,18 @@ def process_single(input_file: Path, extent_file: Path, out_dir: Path, mode: str
         try:
             result = subprocess.run(cmd, check=False, text=True, capture_output=True)
             if result.returncode != 0:
-                logger.error(f"ogr2ogr clip failed for {input_file.name}")
+                logger.error("ogr2ogr clip failed for {}", input_file.name)
                 logger.error(result.stderr)
                 return False
             return True
         except Exception as exc:
-            logger.error(f"Execution failed: {exc}")
+            logger.error("Execution failed: {}", exc)
             return False
     else:
         return process_via_ogr(input_file, extent_file, out_path, mode)
 
 
-def main() -> None:
+def main(*, working_directory: Path | None = None) -> int:
     args = _parse_cli_arguments()
 
     input_paths = to_path_list(args.inputs)
@@ -197,18 +198,18 @@ def main() -> None:
     
     if not input_paths:
         logger.error("No input files provided.")
-        sys.exit(1)
+        return 1
         
     for p in extent_paths:
         if not p.exists():
-            logger.error(f"Extent file not found: {p}")
-            sys.exit(1)
+            logger.error("Extent file not found: {}", p)
+            return 1
 
     out_dir = to_single_path(args.output_dir) if args.output_dir else input_paths[0].parent
     if not args.dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
     
-    logger.info(f"Found {len(input_paths)} inputs and {len(extent_paths)} extents. Will generate {len(input_paths) * len(extent_paths)} outputs using mode '{args.mode}'.")
+    logger.info("Found {} inputs and {} extents. Will generate {} outputs using mode '{}'.", len(input_paths), len(extent_paths), len(input_paths) * len(extent_paths), args.mode)
     
     success_count = 0
     total = len(input_paths) * len(extent_paths)
@@ -217,7 +218,7 @@ def main() -> None:
         futures = []
         for input_file in input_paths:
             if not input_file.exists():
-                logger.warning(f"Input file not found, skipping: {input_file}")
+                logger.warning("Input file not found, skipping: {}", input_file)
                 continue
             for extent_file in extent_paths:
                 futures.append(executor.submit(process_single, input_file, extent_file, out_dir, args.mode, args.dry_run))
@@ -229,8 +230,19 @@ def main() -> None:
     if args.dry_run:
         logger.info("Dry run complete.")
     else:
-        logger.success(f"Processing complete: {success_count}/{total} successful.")
+        logger.success("Processing complete: {}/{} successful.", success_count, total)
+        
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    try:
+        result = main()
+    except Exception as e:
+        logger.exception("Wrapper failed: {}", e)
+        result = 1
+    finally:
+        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        pause_console(collect_before_pause=True)
+    sys.exit(result)

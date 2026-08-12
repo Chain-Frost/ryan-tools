@@ -87,11 +87,12 @@ def plot_curve(csv_path: Path, df: pd.DataFrame) -> None:
     png_path = csv_path.with_suffix('.png')
     plt.savefig(png_path, dpi=300)
     plt.close()
-    logger.info(f"Saved plot to {png_path.name}")
+    logger.info("Saved plot to {}", png_path.name)
 
 
-def main(*, args: argparse.Namespace) -> int:
-    target_directory = args.input_directory.resolve()
+def main(*, working_directory: Path | None = None) -> int:
+    args = _parse_cli_arguments()
+    target_directory = (working_directory or args.input_directory).resolve()
     if not change_working_directory(target_dir=target_directory):
         return 1
 
@@ -102,11 +103,11 @@ def main(*, args: argparse.Namespace) -> int:
         input_files.extend(list(target_directory.glob(pattern)))
 
     if not input_files:
-        logger.warning(f"No files matching {args.patterns} found in {target_directory}")
+        logger.warning("No files matching {} found in {}", args.patterns, target_directory)
         return 0
         
     input_files = list(set(input_files))
-    logger.info(f"Found {len(input_files)} DEM files to process.")
+    logger.info("Found {} DEM files to process.", len(input_files))
     
     success_count = 0
     
@@ -117,7 +118,7 @@ def main(*, args: argparse.Namespace) -> int:
             max_lvl = args.max_level
             
             if min_lvl is None or max_lvl is None:
-                logger.info(f"Scanning {dem_path.name} to determine elevation bounds...")
+                logger.info("Scanning {} to determine elevation bounds...", dem_path.name)
                 with rasterio.open(dem_path) as src:
                     # Request statistics. force=True ensures we get it even if not in metadata.
                     # approx=True will use overviews or a subsample for speed.
@@ -127,7 +128,7 @@ def main(*, args: argparse.Namespace) -> int:
                     if max_lvl is None:
                         max_lvl = np.ceil(stats.max)
             
-            logger.info(f"Calculating volumes from {min_lvl} to {max_lvl} (step: {args.step})...")
+            logger.info("Calculating volumes from {} to {} (step: {})...", min_lvl, max_lvl, args.step)
             
             # Generate levels array
             # Add a small epsilon to max_lvl to ensure it's included due to floating point math
@@ -141,7 +142,7 @@ def main(*, args: argparse.Namespace) -> int:
             
             df = pd.DataFrame(list(volumes_dict.items()), columns=['Level (m)', 'Volume (m3)'])
             df.to_csv(csv_path, index=False)
-            logger.success(f"Saved volumes to {csv_name}")
+            logger.success("Saved volumes to {}", csv_name)
             
             # Plot
             if not args.no_plot:
@@ -150,9 +151,9 @@ def main(*, args: argparse.Namespace) -> int:
             success_count += 1
             
         except Exception as e:
-            logger.error(f"Failed to process {dem_path.name}: {e}")
+            logger.error("Failed to process {}: {}", dem_path.name, e)
 
-    logger.info(f"Successfully processed {success_count} out of {len(input_files)} files.")
+    logger.info("Successfully processed {} out of {} files.", success_count, len(input_files))
     return 0 if success_count == len(input_files) else 1
 
 
@@ -163,7 +164,7 @@ if __name__ == "__main__":
         logger.remove()
         logger.add(sys.stderr, level=args.console_log_level.upper())
         
-    result = main(args=args)
+    result = main()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
     
     if not getattr(args, "no_pause", False):

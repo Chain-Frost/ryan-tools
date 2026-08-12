@@ -28,41 +28,36 @@ from ryan_library.functions.wrapper_utils import change_working_directory, pause
 from ryan_library.orchestrators.plotting.plot_ensemble_results import orchestrate_ensemble_plotting
 
 
-def main(
-    *,
-    input_path: PathLike | None = None,
-    output_dir: PathLike | None = None,
-    locations: list[str] | None = None,
-    capacity_threshold: float | None = None,
-    source: str | None = None,
-) -> int:
-    # Resolve parameters defensively
-    target_input = to_single_path(input_path) if input_path is not None else Path(DEFAULT_INPUT).resolve()
-    target_output = to_single_path(output_dir) if output_dir is not None else Path(DEFAULT_OUTPUT_DIR).resolve()
+def main(*, working_directory: Path | None = None) -> int:
+    args = _parse_cli_arguments()
     
-    target_capacity = capacity_threshold if capacity_threshold is not None else DEFAULT_CAPACITY_THRESHOLD
-    target_source = source if source is not None else DEFAULT_SOURCE
+    # Resolve parameters defensively
+    target_input = to_single_path(args.input) if args.input is not None else Path(DEFAULT_INPUT).resolve()
+    target_output = to_single_path(args.output_dir) if args.output_dir is not None else Path(DEFAULT_OUTPUT_DIR).resolve()
+    
+    target_capacity = args.capacity if args.capacity is not None else DEFAULT_CAPACITY_THRESHOLD
+    target_source = args.source if args.source is not None else DEFAULT_SOURCE
 
     if not target_input.exists() or not target_input.is_file():
-        logger.error(f"Input file does not exist or is not a file: {target_input}")
+        logger.error("Input file does not exist or is not a file: {}", target_input)
         return 1
 
     target_output.mkdir(parents=True, exist_ok=True)
 
-    print_wrapper_banner("Ensemble Results Plotting", WRAPPER_VERSION)
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
     try:
         orchestrate_ensemble_plotting(
             input_path=target_input,
             output_dir=target_output,
-            locations=locations,
+            locations=args.locations,
             capacity_threshold=target_capacity,
             source=target_source,
         )
         logger.success("All plotting operations completed.")
         return 0
     except Exception as e:
-        logger.exception(f"An error occurred during plotting: {e}")
+        logger.exception("An error occurred during plotting: {}", e)
         return 1
 
 
@@ -114,16 +109,8 @@ def _parse_cli_arguments() -> argparse.Namespace:
 if __name__ == "__main__":
     setup_logger(file_prefix="plot_ensemble_results")
     change_working_directory()
-    args = _parse_cli_arguments()
     
-    return_code = main(
-        input_path=args.input,
-        output_dir=args.output_dir,
-        locations=args.locations,
-        capacity_threshold=args.capacity,
-        source=args.source,
-    )
+    return_code = main()
 
-    if not args.no_pause:
-        pause_console()
+    pause_console(collect_before_pause=True)
     sys.exit(return_code)

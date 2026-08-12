@@ -52,14 +52,12 @@ def _parse_cli_arguments() -> argparse.Namespace:
             
     return parser.parse_known_args(processed_argv)[0]
 
-def main(*, working_directory: Path | None = None) -> int:
+def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> int:
     target_directory = (working_directory or DEFAULT_WORKING_DIR).resolve()
     if not change_working_directory(target_dir=target_directory):
         return 1
         
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    
-    args = _parse_cli_arguments()
     
     try:
         extra_args = []
@@ -83,7 +81,7 @@ def main(*, working_directory: Path | None = None) -> int:
                 extra_args=extra_args
             )
         elif args.stat:
-            logger.info(f"Running compute_stat ({args.stat})")
+            logger.info("Running compute_stat ({})", args.stat)
             compute_stat(args.stat, args.input_files, args.out, extra_args=extra_args)
         else:
             logger.error("No operation specified (-max, -diff, or -stat)")
@@ -97,7 +95,7 @@ def main(*, working_directory: Path | None = None) -> int:
 
 if __name__ == "__main__":
     args = _parse_cli_arguments()
-    result = main()
+    result = main(args)
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
     if not args.b:
         pause_console(collect_before_pause=True)

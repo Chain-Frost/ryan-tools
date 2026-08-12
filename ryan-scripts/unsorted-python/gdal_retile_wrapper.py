@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-WRAPPER_VERSION = "1.0.0"
+WRAPPER_VERSION = "2026-08-11.1"
 
 import argparse
 import sys
 import subprocess
 import shutil
+from pathlib import Path
 
 from loguru import logger
 
 from ryan_library.functions.path_stuff import to_single_path, to_path_list
+from ryan_library.functions.wrapper_utils import print_wrapper_banner, pause_console
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
@@ -53,7 +55,7 @@ def _parse_cli_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
+def main(*, working_directory: Path | None = None) -> int:
     args = _parse_cli_arguments()
 
     input_paths = to_path_list(args.inputs)
@@ -61,8 +63,8 @@ def main() -> None:
 
     for p in input_paths:
         if not p.exists():
-            logger.error(f"Input file not found: {p}")
-            sys.exit(1)
+            logger.error("Input file not found: {}", p)
+            return 1
 
     output_dir.mkdir(parents=True, exist_ok=True)
     
@@ -103,12 +105,12 @@ def main() -> None:
         cmd.append(str(p))
 
     logger.info("Executing gdal_retile...")
-    logger.debug(f"Command: {' '.join(cmd)}")
+    logger.debug("Command: {}", " ".join(cmd))
     
     try:
         result = subprocess.run(cmd, check=False, text=True, capture_output=True)
         if result.returncode != 0:
-            logger.error(f"gdal_retile failed with return code {result.returncode}")
+            logger.error("gdal_retile failed with return code {}", result.returncode)
             logger.error(result.stderr)
             
             # Fallback if osgeo_utils is not available, try calling gdal_retile.py directly
@@ -118,14 +120,25 @@ def main() -> None:
                 cmd[1:3] = [gdal_retile_script] # Replace '-m osgeo_utils.gdal_retile' with script path
                 result2 = subprocess.run(cmd, check=True, text=True)
             else:
-                sys.exit(1)
+                return 1
         else:
             logger.success("Retiling complete.")
             logger.debug(result.stdout)
     except Exception as e:
-        logger.error(f"Failed to execute gdal_retile: {e}")
-        sys.exit(1)
+        logger.error("Failed to execute gdal_retile: {}", e)
+        return 1
+        
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    try:
+        result = main()
+    except Exception as e:
+        logger.exception("Wrapper failed: {}", e)
+        result = 1
+    finally:
+        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        pause_console(collect_before_pause=True)
+    sys.exit(result)

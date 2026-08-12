@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-WRAPPER_VERSION = "1.0.0"
+WRAPPER_VERSION = "2026-08-11.1"
 
 import argparse
 import sys
@@ -14,6 +14,8 @@ from loguru import logger
 import pandas as pd
 
 from ryan_library.functions.path_stuff import to_single_path, to_path_list
+from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+from ryan_library.functions.wrapper_utils import print_wrapper_banner, pause_console
 
 
 class TUFLOWRaster(NamedTuple):
@@ -25,19 +27,7 @@ class TUFLOWRaster(NamedTuple):
     suffix: str
 
 
-def check_string_TP(string: str) -> str | None:
-    match = re.search(r"TP(\d{2})", string, re.IGNORECASE)
-    return f"TP{match.group(1)}" if match else None
 
-
-def check_string_duration(string: str) -> str | None:
-    match = re.search(r"(?:[_+]|^)(\d{3,5}[mM])(?:[_+]|$)", string, re.IGNORECASE)
-    return match.group(1).replace("_", "").replace("m", "").replace("M", "") + "m" if match else None
-
-
-def check_string_aep(string: str) -> str | None:
-    match = re.search(r"(?:[_+]|^)(\d{2}\.\d{1,2}p)(?:[_+]|$)", string, re.IGNORECASE)
-    return match.group(1).replace("_", "") if match else None
 
 
 def trim_filename(filename: str, parts_to_remove: list[str]) -> str:
@@ -50,29 +40,30 @@ def trim_filename(filename: str, parts_to_remove: list[str]) -> str:
 def parse_tuflow_raster(file_path: Path, suffix: str) -> TUFLOWRaster:
     filename = file_path.name
     base_filename = file_path.stem
+    parser = TuflowStringParser(file_path)
     return TUFLOWRaster(
         full_path=file_path,
         filename=base_filename,
-        tp=check_string_TP(filename),
-        duration=check_string_duration(filename),
-        aep=check_string_aep(filename),
+        tp=parser.tp.text_repr if parser.tp else None,
+        duration=parser.duration.text_repr if parser.duration else None,
+        aep=parser.aep.text_repr if parser.aep else None,
         suffix=suffix,
     )
 
 
 def execute_asc_to_asc(cmd: list[str], dry_run: bool) -> bool:
-    logger.debug(f"Command: {' '.join(cmd)}")
+    logger.debug("Command: {}", " ".join(cmd))
     if dry_run:
         return True
     try:
         result = subprocess.run(cmd, check=False, text=True, capture_output=True)
         if result.returncode != 0:
-            logger.error(f"Command failed: {' '.join(cmd)}")
+            logger.error("Command failed: {}", " ".join(cmd))
             logger.error(result.stderr)
             return False
         return True
     except Exception as e:
-        logger.error(f"Execution failed: {e}")
+        logger.error("Execution failed: {}", e)
         return False
 
 
@@ -85,10 +76,10 @@ def cmd_max_median(args: argparse.Namespace) -> None:
     file_paths = list(input_dir.rglob(f"*{suffix}.tif"))
     
     if not file_paths:
-        logger.warning(f"No files found matching *{suffix}.tif in {input_dir}")
+        logger.warning("No files found matching *{}.tif in {}", suffix, input_dir)
         return
         
-    logger.info(f"Found {len(file_paths)} files matching *{suffix}.tif")
+    logger.info("Found {} files matching *{}.tif", len(file_paths), suffix)
     
     rasters = []
     for p in file_paths:
@@ -96,7 +87,7 @@ def cmd_max_median(args: argparse.Namespace) -> None:
         if r.tp and r.duration and r.aep:
             rasters.append(r)
         else:
-            logger.warning(f"Skipping {p.name}: Missing TP, Duration, or AEP pattern.")
+            logger.warning("Skipping {}: Missing TP, Duration, or AEP pattern.", p.name)
 
     df = pd.DataFrame(rasters)
     if df.empty:
@@ -126,7 +117,7 @@ def cmd_max_median(args: argparse.Namespace) -> None:
         ]
         commands_step1.append(cmd)
 
-    logger.info(f"Generating {len(commands_step1)} median commands (across TPs)...")
+    logger.info("Generating {} median commands (across TPs)...", len(commands_step1))
     success_count = 0
     if args.dry_run:
         logger.info("Dry run enabled. Skipping execution.")
@@ -137,7 +128,7 @@ def cmd_max_median(args: argparse.Namespace) -> None:
             futures = [executor.submit(execute_asc_to_asc, cmd, False) for cmd in commands_step1]
             for f in concurrent.futures.as_completed(futures):
                 if f.result(): success_count += 1
-        logger.success(f"Step 1 Complete: {success_count}/{len(commands_step1)} successful.")
+        logger.success("Step 1 Complete: {}/{} successful.", success_count, len(commands_step1))
     
     # Step 2: Max across durations
     # Group by AEP only
@@ -162,7 +153,7 @@ def cmd_max_median(args: argparse.Namespace) -> None:
         ]
         commands_step2.append(cmd)
 
-    logger.info(f"Generating {len(commands_step2)} max commands (across durations)...")
+    logger.info("Generating {} max commands (across durations)...", len(commands_step2))
     success_count = 0
     if args.dry_run:
         for c in commands_step2:
@@ -172,7 +163,7 @@ def cmd_max_median(args: argparse.Namespace) -> None:
             futures = [executor.submit(execute_asc_to_asc, cmd, False) for cmd in commands_step2]
             for f in concurrent.futures.as_completed(futures):
                 if f.result(): success_count += 1
-        logger.success(f"Step 2 Complete: {success_count}/{len(commands_step2)} successful.")
+        logger.success("Step 2 Complete: {}/{} successful.", success_count, len(commands_step2))
 
 
 def cmd_diff(args: argparse.Namespace) -> None:
@@ -189,7 +180,7 @@ def cmd_diff(args: argparse.Namespace) -> None:
     current_files = list(current_dir.rglob(f"*{suffix}.tif"))
     existing_files = list(existing_dir.rglob(f"*{suffix}.tif"))
     
-    logger.info(f"Found {len(current_files)} files in current, {len(existing_files)} in existing.")
+    logger.info("Found {} files in current, {} in existing.", len(current_files), len(existing_files))
     
     current_rasters = [parse_tuflow_raster(p, suffix) for p in current_files]
     existing_rasters = [parse_tuflow_raster(p, suffix) for p in existing_files]
@@ -206,7 +197,7 @@ def cmd_diff(args: argparse.Namespace) -> None:
     for col in ["tp", "aep", "duration"]:
         parts_to_remove.update(current_df[col].dropna().unique())
         
-    logger.debug(f"Trimming parts to find matching scenarios: {parts_to_remove}")
+    logger.debug("Trimming parts to find matching scenarios: {}", parts_to_remove)
     
     current_df["trimmed"] = current_df["filename"].apply(lambda x: trim_filename(str(x), list(parts_to_remove)))  # type: ignore
     existing_df["trimmed"] = existing_df["filename"].apply(lambda x: trim_filename(str(x), list(parts_to_remove)))  # type: ignore
@@ -218,7 +209,7 @@ def cmd_diff(args: argparse.Namespace) -> None:
             existing_row = matches.iloc[0]  # type: ignore
             pairs.append((current_row["full_path"], existing_row["full_path"]))  # type: ignore
 
-    logger.info(f"Paired {len(pairs)} matching scenarios.")
+    logger.info("Paired {} matching scenarios.", len(pairs))
     
     commands = []
     for current, existing in pairs:
@@ -239,7 +230,7 @@ def cmd_diff(args: argparse.Namespace) -> None:
             futures = [executor.submit(execute_asc_to_asc, cmd, False) for cmd in commands]
             for f in concurrent.futures.as_completed(futures):
                 if f.result(): success_count += 1
-        logger.success(f"Diff Complete: {success_count}/{len(commands)} successful.")
+        logger.success("Diff Complete: {}/{} successful.", success_count, len(commands))
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
@@ -285,14 +276,25 @@ def _parse_cli_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
+def main(*, working_directory: Path | None = None) -> int:
     args = _parse_cli_arguments()
 
     if args.mode == "max-median":
         cmd_max_median(args)
     elif args.mode == "diff":
         cmd_diff(args)
+        
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    try:
+        result = main()
+    except Exception as e:
+        logger.exception("Wrapper failed: {}", e)
+        result = 1
+    finally:
+        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        pause_console(collect_before_pause=True)
+    sys.exit(result)
