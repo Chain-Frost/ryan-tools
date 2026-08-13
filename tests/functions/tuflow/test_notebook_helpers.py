@@ -168,11 +168,12 @@ def test_run_culvert_maximums(mock_load: MagicMock) -> None:
     mock_collection.combine_raw.return_value = pd.DataFrame({"B": [2]})
     mock_load.return_value = mock_collection
 
-    df, raw = run_culvert_maximums(["path"])
+    result = run_culvert_maximums(["path"])
     mock_load.assert_called_once()
     mock_collection.combine_1d_maximums.assert_called_once()
     mock_collection.combine_raw.assert_called_once()
-    assert not df.empty and not raw.empty
+    assert not result.maximums.empty and not result.raw_data.empty
+    assert result.processor_collection is mock_collection
 
 
 @patch("ryan_library.functions.tuflow.notebook_helpers.load_tuflow_data")
