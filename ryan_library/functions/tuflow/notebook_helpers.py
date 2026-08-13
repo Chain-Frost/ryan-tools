@@ -22,6 +22,7 @@ from types import ModuleType
 import importlib
 import multiprocessing
 from collections.abc import Callable, Collection, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -41,6 +42,16 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 
 # Default console log level for notebooks
 DEFAULT_NOTEBOOK_LOG_LEVEL = "INFO"
+
+
+@dataclass(slots=True)
+class CulvertMaximumsResult:
+    """Processed culvert maximums plus the live processor collection."""
+
+    processor_collection: ProcessorCollection
+    maximums: pd.DataFrame
+    raw_data: pd.DataFrame
+
 
 # ---------------------------------------------------------------------------
 # Windows multiprocessing safety
@@ -290,7 +301,7 @@ def run_culvert_maximums(
     locations: Collection[str] | None = None,
     parallel: bool | None = None,
     log_level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> CulvertMaximumsResult:
     """Load and combine culvert maximum data.
 
     Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Culvert_Maximums.py``.
@@ -303,8 +314,8 @@ def run_culvert_maximums(
         log_level: Console log level.
 
     Returns:
-        A tuple of ``(maximums_df, raw_df)``.  ``maximums_df`` is the grouped
-        1D maximums result; ``raw_df`` is the raw concatenation of all files.
+        A :class:`CulvertMaximumsResult` containing the live processor
+        collection, grouped 1D maximums, and raw concatenated data.
     """
     collection: ProcessorCollection = load_tuflow_data(
         paths=list(paths),
@@ -314,12 +325,20 @@ def run_culvert_maximums(
         locations=locations,
     )
     if not collection.processors:
-        return pd.DataFrame(), pd.DataFrame()
+        return CulvertMaximumsResult(
+            processor_collection=collection,
+            maximums=pd.DataFrame(),
+            raw_data=pd.DataFrame(),
+        )
 
     collection.align_eof_channel_ids()
     maximums_df: pd.DataFrame = collection.combine_1d_maximums()
     raw_df: pd.DataFrame = collection.combine_raw()
-    return maximums_df, raw_df
+    return CulvertMaximumsResult(
+        processor_collection=collection,
+        maximums=maximums_df,
+        raw_data=raw_df,
+    )
 
 
 # ---------------------------------------------------------------------------
