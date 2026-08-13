@@ -35,6 +35,57 @@ Use `[x]` only after the replacement is tracked, its focused validation is compl
 
 ---
 
+## Active review plan — 12 August 2026
+
+This plan covers the experimental candidates currently parked in `ryan-scripts/unsorted-python/`. Passing these gates
+means a candidate is internally reviewable; it does not by itself promote the script into a maintained category or
+justify moving its implementation into `ryan_library`.
+
+### Review gates
+
+- [x] **ASC-to-ASC raster operations and grouping**
+  - Validate non-empty inputs, matching raster dimensions/transforms/CRS, nodata and output dtype behaviour.
+  - Avoid partially written final outputs, repeated dataset opening and silently ignored CLI arguments.
+  - Cover maximum, statistics, difference and grouping behaviour with synthetic tests; pass strict Pyright and Black.
+- [x] **Vector clipping**
+  - Bound concurrency, propagate partial failures, validate input/extents and protect existing or partial outputs.
+  - Check layer creation, feature-write return codes, CRS assumptions and GDAL diagnostics; pass strict Pyright.
+- [x] **Raster-to-XYZ conversion**
+  - Bound child processes, deduplicate deterministic discovery, validate output collisions and remove partial outputs.
+  - Confirm useful failure diagnostics and non-interactive execution; pass strict Pyright.
+- [x] **Stage-storage calculation**
+  - Validate levels, raster geometry and finite/nodata handling; preserve exact cell-area volume calculations.
+  - Validate output bounds and step size, close plots explicitly and cover known synthetic volumes; pass strict Pyright.
+- [x] **RORB ensemble plotting**
+  - Preserve legacy first-to-last exceedance duration without mutating caller data.
+  - Validate required columns, empty filters and plot resource cleanup; cover reader/calculation/plot smoke tests.
+- [x] **Candidate-set completion checks**
+  - Run focused tests from a pre-created repository-local pytest temp directory.
+  - Run Black, strict Pyright on every changed Python file, compilation, wrapper `--help`, Loguru formatting,
+    documentation checks and `git diff --check`.
+  - Record remaining environment-specific checks rather than marking an untested GDAL/QGIS workflow complete.
+
+### Review outcome
+
+The normal Python review passed with 19 focused synthetic tests, strict Pyright with zero diagnostics across the entire
+`unsorted-python` candidate set, Black, compilation, Loguru formatting, documentation checks, `git diff --check`, and
+`--help` smoke checks for ten candidate wrappers. The implementations now use bounded concurrency, checked exit codes,
+temporary outputs, deterministic discovery and explicit validation where applicable.
+
+The candidates remain `[/]` in the migration lists below. Before promotion, run application-specific parity checks with
+real `asc_to_asc`, `ogr2ogr`, `gdal2xyz`, representative QGIS provider strings and a representative RORB Parquet file.
+The plotting tests currently expose an upstream Seaborn call to Matplotlib's deprecated `vert` parameter; this is a
+dependency compatibility warning rather than a deprecated call made directly by these candidates.
+
+### Source and promotion policy
+
+The `unsorted` and `tests/test_data` submodules remain at the commits intentionally recorded by this branch. Source
+deletions in the `unsorted` submodule are not reversed by this plan. Candidate tests live beside the experimental code
+under `ryan-scripts/unsorted-python/tests/` so they do not imply a maintained `ryan_library` API. Promotion into a
+maintained script category remains a separate decision after the gates above pass.
+
+---
+
 ## Tier 1 — Strong Candidates
 
 These have clear reuse value, are substantial, and fit naturally into existing `ryan-scripts` categories.
@@ -47,10 +98,10 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 - [ ] **`close_filenames_v1.py`** (9 KB) → `ryan_library/functions/`
   - Fuzzy filename matcher that strips AEP/duration/scenario tokens to pair rasters.
   - Reusable logic — should be a library function that other scripts can import.
-- [/] **`raster_difference_manual_list_v2.py`** (7.6 KB) → `ryan_library/functions/gdal/` and `ryan_mcp_server.py`
+- [/] **`raster_difference_manual_list_v2.py`** (7.6 KB) → `ryan-scripts/unsorted-python/asc2asc_py.py`
   - Manual file-pair version of raster differencing using `rasterio`.
-  - An unstaged library implementation and MCP integration are present, providing a native-Python alternative to
-    calling the `asc_to_asc` executable. Complete focused validation and track the changes before marking this done.
+  - Experimental local helpers are parked beside the wrapper. The maintained library and read-only MCP surface remain
+    unchanged until raster alignment, nodata, creation-option and output-safety behaviour has focused validation.
 
 ### Excel protection removal
 
@@ -67,16 +118,16 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 
 ### QGIS project audit
 
-- [x] **`qgz_parser_v7.py`** (4.9 KB) → `ryan-scripts/unsorted-python/audit_qgis_projects.py`
+- [/] **`qgz_parser_v7.py`** (4.9 KB) → `ryan-scripts/unsorted-python/audit_qgis_projects.py`
   - Parses QGZ/QGS XML to list layers and data sources.
-  - Useful for finding broken paths. No equivalent exists.
+  - Useful for finding broken paths. The candidate still needs representative QGIS provider and URI validation.
 
 ### Hydrology Utilities
 
-- [x] **`Library.py`** (12 lines) → `ryan_library/functions/aep_ari_conversions.py`
-  - Simple AEP/ARI mathematical conversion functions. Moved to the library with standard Python styling and type hints.
-- [x] **`refactored_calculate_volumes_and_plot.py`** (3.7 KB) → `ryan-scripts/unsorted-python/gdal_stage_storage.py`
-  - Migrated legacy stage-storage calculator to a high-performance, memory-safe chunked histogram algorithm.
+- [/] **`Library.py`** (12 lines) → `ryan-scripts/unsorted-python/aep_ari_conversions.py`
+  - Simple AEP/ARI mathematical conversion functions are parked locally until reuse and behavioural parity are shown.
+- [/] **`refactored_calculate_volumes_and_plot.py`** (3.7 KB) → `ryan-scripts/unsorted-python/gdal_stage_storage.py`
+  - An experimental chunked stage-storage implementation is present but still needs numerical and raster-edge-case review.
 
 ### GDAL clip/VRT
 
@@ -84,8 +135,8 @@ These have clear reuse value, are substantial, and fit naturally into existing `
   - Clips TIFs to a polygon shapefile using `osgeo.gdal.Warp()`. Modernised to remove `os.system()` and use `argparse`.
 - [ ] **`make_vrt_list_v1.py`** (6.5 KB) → `ryan-scripts/gdal-python/`
   - Builds VRT with filtering. Extends/complements existing `build_VRT.py`.
-- [x] **`ogr2ogr_clipper.bat`** → `ryan-scripts/unsorted-python/batch_vector_clip.py`
-  - Clips a set of vector files against multiple extent polygons in parallel.
+- [/] **`ogr2ogr_clipper.bat`** → `ryan-scripts/unsorted-python/batch_vector_clip.py`
+  - Experimental parallel clipping candidate; source coverage and process/error semantics are not yet validated.
 
 ### File audit
 
@@ -102,8 +153,8 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
 
 - [x] **`flt-tif-check_v2.py`** (3.2 KB) → `ryan-scripts/unsorted-python/check_flt_tif.py`
   - Finds `.flt` files with no matching `.tif`. Modernised with `pathlib` and `argparse`.
-- [x] **`tif-to-csv-valid-only_v3.py`** (2.2 KB) → `ryan-scripts/unsorted-python/gdal_raster_to_xyz.py`
-  - Replaced the memory-heavy Pandas CSV script with a memory-safe `gdal2xyz` wrapper.
+- [/] **`tif-to-csv-valid-only_v3.py`** (2.2 KB) → `ryan-scripts/unsorted-python/gdal_raster_to_xyz.py`
+  - A `gdal2xyz` wrapper candidate is present; executable discovery, streaming, output cleanup and parity remain unreviewed.
 - [ ] **`dario_thinning-tif_v4.py`** (4.4 KB) → `ryan-scripts/12D-python/` or `gdal-python/`
   - GeoTIFF → thinned XYZ CSV for 12D import.
 - [ ] **`make_VRT_for_matching_v1.py`** (2.9 KB) → merge into `make_vrt_list_v1.py`
@@ -132,12 +183,10 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
 - [ ] **`esdat_to_water.py`** (2.8 KB) → `ryan-scripts/other/`
   - ESDat environmental chemistry CSV → cleaned Excel. Domain-specific.
 
-### Rejected / Deleted
+### Project-specific candidates
 
-Scripts that were audited and safely deleted because they were redundant, overly project-specific, or entirely superseded.
-
-- [x] **`ptu_data_processing_script_with_main.py`** 
-  - Highly project-specific data logging script parsing PTU files. No reusable logic. Deleted to declutter.
+- [-] **`ptu_data_processing_script_with_main.py`**
+  - Highly project-specific data logging script parsing PTU files; no parent-repository replacement is planned.
 
 ### TUFLOW tools
 
@@ -155,25 +204,25 @@ Scripts that were audited and safely deleted because they were redundant, overly
 
 ### Volume calculation
 
-- [ ] **`calculate_volumes_and_plot.py`** / **`refactored_calculate_volumes_and_plot.py`** → `ryan-scripts/gdal-python/`
-  - Stage-storage volume curve from DEM rasters. The refactored version (3.8 KB) is cleaner.
+- [/] **`calculate_volumes_and_plot.py`** / **`refactored_calculate_volumes_and_plot.py`** → `ryan-scripts/unsorted-python/gdal_stage_storage.py`
+  - Stage-storage volume curve candidate; keep the source and replacement together until numerical parity is established.
 
 ### asc_to_asc batch grouping
 
-- [/] **`asc2asc_groups_v5.py`** (21.8 KB) → `ryan-scripts/unsorted-python/asc2asc_groups.py` plus reusable `ryan_library` logic
+- [/] **`asc2asc_groups_v5.py`** (21.8 KB) → `ryan-scripts/unsorted-python/asc2asc_groups.py` plus local candidate helpers
   - Groups rasters by model/AEP/duration, generates asc_to_asc max/median commands.
 - [/] **`asc2asc_groups_diff_v5.py`** (18.8 KB) → merge with above
   - Same logic but for `-dif` (differencing) mode.
-  - Current replacement files are untracked and the two source deletions are unstaged. Keep the wrapper in
-    `unsorted-python/` until wrapper-standard, logging, strict-Pyright and focused behavioural review is complete.
+  - Keep the source scripts and local candidates until wrapper-standard, logging, strict-Pyright and focused behavioural
+    review is complete.
 
 ### RORB analysis
 
-- [/] **`RORB_KTP4_v2.py`** + **`RORB_boxes_*.py`** + **`boxes_from_single_v11.py`** → RORB processor, plotting function/orchestrator and maintained wrapper
+- [/] **`RORB_KTP4_v2.py`** + **`RORB_boxes_*.py`** + **`boxes_from_single_v11.py`** → local reader, plotting and wrapper candidates
   - Suite of RORB ensemble analysis and box-and-whisker plotting scripts.
   - `boxes_from_single_v11.py` (21.5 KB) is the most advanced version.
-  - An untracked processor, plotting function, orchestrator, wrapper and focused tests are present. Reconcile coverage
-    of the source scripts, validate the workflow, and track the replacement before marking it done.
+  - Experimental files are parked in `unsorted-python`. Reconcile source coverage and validate the full workflow before
+    deciding whether reusable library components are justified.
 
 ---
 
@@ -189,7 +238,7 @@ These are too small to warrant a formal upgrade or are reference/parameter files
 | `dxf-to-csv_v2.py` / `GMdxf-to-csv_v2.py` | DXF text extraction. Simple, `cad-python/` has related tools. |
 | `AddLayersToTheme_v3.py` / `DEV` | QGIS theme automation. Hardcoded paths, useful as reference. |
 | `TUFLOW_Circular_Velocity_v4.py - Shortcut.lnk` | Just a shortcut file. |
-| `postprocess/` (20 files) | Pending disposition: all files are currently staged for deletion in the `unsorted` submodule. Confirm they are superseded before committing that deletion. |
+| `postprocess/` (20 files) | Removed by approved `unsorted` cleanup commit `c7ef077`; recover from submodule history if needed. |
 | `rorb/` subdirectory (8 files) | Older RORB scripts, superseded by root-level versions. Reference. |
 | `matplotlib/` (2 files) | Cross-section plotting references. |
 | `oversize_text_file/` (2 files) | Log file readers for huge TUFLOW logs. Tiny. |
@@ -207,21 +256,18 @@ These are too small to warrant a formal upgrade or are reference/parameter files
 ### Worth converting to Python
 
 - [ ] **`gdal_contour_v13.bat`** → `ryan-scripts/gdal-python/`
-  - Contour generation. No Python equivalent exists. The source is currently marked for deletion; retain or restore it
-    until a validated replacement exists.
+  - Contour generation. Deleted in `c7ef077`; recover from submodule history when implementing a replacement.
 - [-] **`reclass_clip_v3.bat`** → `ryan-scripts/gdal-python/`
   - Not present in the current `unsorted` checkout and no replacement was found. Recover it from history and reassess
     if this workflow is still wanted.
 - [/] **`asc_to_asc_median.bat`** → merge with `asc2asc_groups_v5.py`
   - Comprehensive asc_to_asc median envelope. 5.4 KB of batch logic.
-  - The source deletion is staged and the combined replacement is untracked; finalise both repositories only after
-    focused parity validation.
+  - Source disposition was finalised in `c7ef077`; use submodule history for the remaining executable parity check.
 - [/] **`gdal_retile_v4_asc.bat`** + **`gdal_retile_v4_tif.bat`** → `ryan-scripts/unsorted-python/gdal_retile_wrapper.py`
-  - The replacement is untracked and both source deletions are unstaged.
+  - Both sources were deleted in `c7ef077`; use submodule history during environment-specific parity validation.
 - [/] **Five `ogr2ogr_*` conversion templates** → unreviewed GDAL vector candidates in `ryan-scripts/unsorted-python/`
-  - Untracked `gdal_vector_translate.py` and `split_vector_by_attribute.py` candidates are present; all five source
-    deletions are unstaged. Confirm that the replacements cover every retained conversion mode before moving them into
-    `gdal-python/`.
+  - `gdal_vector_translate.py` and `split_vector_by_attribute.py` candidates are present. The sources were deleted in
+    `c7ef077`; confirm every historical conversion mode before moving replacements into `gdal-python/`.
 
 ### Keep as bat (templates / too simple to convert)
 
@@ -235,14 +281,11 @@ These are too small to warrant a formal upgrade or are reference/parameter files
 ### Pending BAT source disposition
 
 - [/] **`convert_gdb.bat`** → `ryan-scripts/unsorted-python/convert_gdb_to_gpkg.py`
-  - The replacement is tracked and supports selectable vector formats and per-layer or combined-database output. The
-    source deletion is staged in the `unsorted` submodule and still needs to be committed there.
+  - The replacement is tracked and supports selectable vector formats and per-layer or combined-database output. Source
+    disposition was finalised in `c7ef077`.
 - [ ] **`gdal_calc_simple.bat`**
-  - Currently marked for deletion with no direct replacement identified. Retain or restore it until its disposition is
-    agreed.
+  - No direct replacement is identified. It was deleted in `c7ef077` and remains recoverable from submodule history.
 - [/] **`asc2asc_diff_for_multiple_aeps_2.bat`** and **`asc2asc_max_median_for_multiple_durations.bat`**
-  - Both sources are marked for deletion and appear related to the active ASC-to-ASC consolidation. Include their
-    behaviour in the parity review before finalising the deletion.
+  - Both sources were deleted in `c7ef077`. Include their historical behaviour in the remaining executable parity review.
 
-Other BAT names previously listed here are not present in the current `unsorted` checkout. They should be recovered
-from history and added back as explicit candidates only if their workflows are still required.
+Review source inventory against the current `unsorted` checkout before changing a BAT file's disposition.

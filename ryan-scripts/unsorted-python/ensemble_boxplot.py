@@ -7,6 +7,12 @@ import seaborn as sns
 from loguru import logger
 
 
+def _require_columns(df: pd.DataFrame, columns: list[str]) -> None:
+    missing = [column for column in columns if column not in df.columns]
+    if missing:
+        raise ValueError(f"Missing plotting columns: {missing}")
+
+
 def plot_peak_flow_distribution(
     df: pd.DataFrame,
     output_path: Path,
@@ -19,8 +25,9 @@ def plot_peak_flow_distribution(
     Plots the distribution of Peak Flows across different AEPs and Durations.
     """
     if df.empty:
-        logger.warning(f"No data to plot for location {location}")
+        logger.warning("No data to plot for location {}", location)
         return
+    _require_columns(df, [aep_col, peak_flow_col, duration_col])
 
     plt.clf()
     sns.set_context("paper")
@@ -53,26 +60,17 @@ def plot_peak_flow_distribution(
 
     # Shrink current axis's height by 10% on the bottom to fit legend
     box = ax.get_position()
-    ax.set_position([box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8])
+    ax.set_position((box.x0, box.y0 + box.height * 0.2, box.width, box.height * 0.8))
 
     # Put a legend below current axis
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=5, title="Duration (hours)")
-
-    # Adjust boxplot and whisker line properties (legacy specific formatting)
-    for p, artist in enumerate(ax.artists):
-        chgcol = artist.get_facecolor()
-        artist.set_edgecolor(chgcol)
-        for q in range(p * 6, p * 6 + 6):
-            try:
-                line = ax.lines[q]
-                line.set_color(chgcol)
-            except IndexError:
-                pass
-        artist.set_facecolor("white")
+    ax.legend(  # pyright: ignore[reportUnknownMemberType]
+        loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=5, title="Duration (hours)"
+    )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(output_path, dpi=400, bbox_inches="tight")
-    logger.info(f"Saved plot: {output_path}")
+    fig.savefig(output_path, dpi=400, bbox_inches="tight")  # pyright: ignore[reportUnknownMemberType]
+    plt.close(fig)
+    logger.info("Saved plot: {}", output_path)
 
 
 def plot_exceedance_duration(
@@ -87,8 +85,9 @@ def plot_exceedance_duration(
     Plots the distribution of exceedance durations (closure times) across AEPs.
     """
     if df.empty:
-        logger.warning(f"No data to plot for location {location}")
+        logger.warning("No data to plot for location {}", location)
         return
+    _require_columns(df, [aep_col, duration_col])
 
     plt.clf()
     sns.set_theme(rc={"figure.figsize": (12, 10)})
@@ -96,21 +95,29 @@ def plot_exceedance_duration(
 
     fig, ax = plt.subplots()
 
-    kwargs = {}
     if hue_col in df.columns and df[hue_col].nunique() > 1:
-        kwargs["hue"] = hue_col
-
-    box_plot = sns.boxplot(
-        data=df,
-        x=aep_col,
-        y=duration_col,
-        palette="Set1",
-        linewidth=0.8,
-        whis=1000.0,
-        orient="v",
-        ax=ax,
-        **kwargs,
-    )
+        box_plot = sns.boxplot(
+            data=df,
+            x=aep_col,
+            y=duration_col,
+            hue=hue_col,
+            palette="Set1",
+            linewidth=0.8,
+            whis=1000.0,
+            orient="v",
+            ax=ax,
+        )
+    else:
+        box_plot = sns.boxplot(
+            data=df,
+            x=aep_col,
+            y=duration_col,
+            color="steelblue",
+            linewidth=0.8,
+            whis=1000.0,
+            orient="v",
+            ax=ax,
+        )
 
     box_plot.set(
         xlabel="AEP (1 in X years)",
@@ -119,5 +126,6 @@ def plot_exceedance_duration(
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    plt.savefig(output_path, dpi=400, bbox_inches="tight")
-    logger.info(f"Saved plot: {output_path}")
+    fig.savefig(output_path, dpi=400, bbox_inches="tight")  # pyright: ignore[reportUnknownMemberType]
+    plt.close(fig)
+    logger.info("Saved plot: {}", output_path)

@@ -2,6 +2,13 @@ from __future__ import annotations
 from pathlib import Path
 
 WRAPPER_VERSION = "2026-08-11.1"
+DEFAULT_INPUT = Path("input.gpkg")
+DEFAULT_OUTPUT_DIR = Path("split_output")
+DEFAULT_ATTRIBUTE = "Layer"
+DEFAULT_FORMAT = "shp"
+DEFAULT_LAYER: str | None = None
+DEFAULT_PARALLEL = False
+DEFAULT_WORKERS = 4
 
 import argparse
 import sys
@@ -9,7 +16,7 @@ import concurrent.futures
 
 from loguru import logger
 
-from ryan_library.functions.gdal.vector_conversion import (
+from vector_conversion_candidate import (
     translate_vector_dataset,
     resolve_vector_format,
     get_unique_attribute_values,
@@ -19,33 +26,25 @@ from ryan_library.functions.path_stuff import to_single_path, sanitize_windows_f
 from ryan_library.functions.wrapper_utils import print_wrapper_banner, pause_console
 
 
-def _parse_cli_arguments() -> argparse.Namespace:
+def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=f"Split a vector file by a specified attribute into multiple files (v{WRAPPER_VERSION})."
     )
-    parser.add_argument(
-        "input",
-        type=str,
-        help="Input vector file.",
-    )
-    parser.add_argument(
-        "output_dir",
-        type=str,
-        help="Output directory to place the split files.",
-    )
+    parser.add_argument("input", nargs="?", type=Path, help="Override DEFAULT_INPUT.")
+    parser.add_argument("output_dir", nargs="?", type=Path, help="Override DEFAULT_OUTPUT_DIR.")
     parser.add_argument(
         "--attribute",
         "-a",
         type=str,
-        default="Layer",
-        help="Attribute to split by (default: 'Layer').",
+        default=None,
+        help="Override DEFAULT_ATTRIBUTE.",
     )
     parser.add_argument(
         "--format",
         "-f",
         type=str,
-        default="shp",
-        help="Output vector format (default: 'shp').",
+        default=None,
+        help="Override DEFAULT_FORMAT.",
     )
     parser.add_argument(
         "--layer",
@@ -56,10 +55,13 @@ def _parse_cli_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--parallel",
-        action="store_true",
-        help="Run translations in parallel.",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Override DEFAULT_PARALLEL.",
     )
-    return parser.parse_args()
+    parser.add_argument("--workers", type=int, default=None, help="Override DEFAULT_WORKERS.")
+    parser.add_argument("--no-pause", action="store_true")
+    return parser.parse_args(argv)
 
 
 def process_single_value(
@@ -73,8 +75,8 @@ def process_single_value(
 ) -> bool:
     safe_name = sanitize_windows_filename(val)
     out_file = out_dir / f"{input_path.stem}_{safe_name}{ext}"
-    where_clause = f'"{attribute}" = \'{val}\''
-    
+    where_clause = f"\"{attribute}\" = '{val}'"
+
     try:
         translate_vector_dataset(
             source=input_path,
@@ -89,25 +91,27 @@ def process_single_value(
         return False
 
 
-def main(*, working_directory: Path | None = None) -> int:
-    args = _parse_cli_arguments()
-
-    input_path = to_single_path(args.input)
-    out_dir = to_single_path(args.output_dir)
+def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> int:
+    input_path = to_single_path(args.input if args.input is not None else DEFAULT_INPUT)
+    out_dir = to_single_path(args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR)
+    attribute = args.attribute if args.attribute is not None else DEFAULT_ATTRIBUTE
+    output_format = args.format if args.format is not None else DEFAULT_FORMAT
+    layer_name = args.layer if args.layer is not None else DEFAULT_LAYER
+    parallel = args.parallel if args.parallel is not None else DEFAULT_PARALLEL
+    workers = args.workers if args.workers is not None else DEFAULT_WORKERS
 
     if not input_path.exists():
         logger.error("Input file not found: {}", input_path)
         return 1
 
     try:
-        format_name, spec = resolve_vector_format(args.format)
+        format_name, spec = resolve_vector_format(output_format)
     except ValueError as e:
         logger.error(e)
         return 1
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    layer_name = args.layer
     if layer_name is None:
         try:
             layers = get_vector_layer_names(input_path)
@@ -116,28 +120,33 @@ def main(*, working_directory: Path | None = None) -> int:
                 return 1
             layer_name = layers[0]
             if len(layers) > 1:
-                logger.warning("Multiple layers found. Defaulting to first layer: '{}'. Use --layer to specify.", layer_name)
+                logger.warning(
+                    "Multiple layers found. Defaulting to first layer: '{}'. Use --layer to specify.", layer_name
+                )
         except Exception as e:
             logger.error("Could not read layer names: {}", e)
             return 1
 
-    logger.info("Extracting unique values for attribute '{}' from layer '{}'...", args.attribute, layer_name)
+    logger.info("Extracting unique values for attribute '{}' from layer '{}'...", attribute, layer_name)
     try:
-        unique_values = get_unique_attribute_values(input_path, layer_name, args.attribute)
+        unique_values = get_unique_attribute_values(input_path, layer_name, attribute)
     except Exception as e:
         logger.error("Failed to query attribute values: {}", e)
         return 1
 
     if not unique_values:
-        logger.warning("No values found for attribute '{}'. Exiting.", args.attribute)
+        logger.warning("No values found for attribute '{}'. Exiting.", attribute)
         return 0
 
     logger.info("Found {} unique values. Beginning translation...", len(unique_values))
-    
+
     success_count = 0
-    
-    if args.parallel:
-        with concurrent.futures.ProcessPoolExecutor() as executor:
+
+    if parallel:
+        if workers < 1:
+            logger.error("--workers must be at least 1.")
+            return 2
+        with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
             futures = [
                 executor.submit(
                     process_single_value,
@@ -146,7 +155,7 @@ def main(*, working_directory: Path | None = None) -> int:
                     out_dir,
                     format_name,
                     spec.extension,
-                    args.attribute,
+                    attribute,
                     layer_name,
                 )
                 for val in unique_values
@@ -157,20 +166,23 @@ def main(*, working_directory: Path | None = None) -> int:
     else:
         for val in unique_values:
             logger.info("Translating {}...", val)
-            if process_single_value(val, input_path, out_dir, format_name, spec.extension, args.attribute, layer_name):
+            if process_single_value(val, input_path, out_dir, format_name, spec.extension, attribute, layer_name):
                 success_count += 1
 
     logger.success("Successfully processed {}/{} values.", success_count, len(unique_values))
-    return 0
+    return 0 if success_count == len(unique_values) else 1
+
 
 if __name__ == "__main__":
+    args = _parse_cli_arguments()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
-        result = main()
+        result = main(args)
     except Exception as e:
         logger.exception("Wrapper failed: {}", e)
         result = 1
     finally:
         print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    if not args.no_pause:
         pause_console(collect_before_pause=True)
     sys.exit(result)

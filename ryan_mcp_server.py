@@ -15,11 +15,6 @@ except ImportError:
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.processors.tuflow.other_processors.TLFProcessor import TLFProcessor
-from ryan_library.functions.gdal.asc2asc_logic import (
-    compute_max as run_asc_to_asc_max,
-    compute_diff as run_asc_to_asc_diff,
-    compute_stat as run_asc_to_asc_stat,
-)
 
 REPOSITORY_ROOT: Path = Path(__file__).resolve().parent
 GDAL_CATALOGUE_PATH: Path = REPOSITORY_ROOT / "ryan-scripts" / "gdal-python" / "gdal_cli_tools.json"
@@ -214,72 +209,6 @@ def check_repo_health() -> dict[str, str]:
     }
 
 
-def tuflow_asc_to_asc_max(
-    input_files: list[str],
-    output_file: str,
-    extra_args: list[str] | None = None,
-) -> dict[str, Any]:
-    """
-    Run TUFLOW asc_to_asc natively in Python to find the maximum across multiple grids.
-    
-    Args:
-        input_files: List of input grids to process.
-        output_file: The path to save the output grid.
-        extra_args: Any additional arguments to pass (e.g. ["-co", "COMPRESS=DEFLATE"]).
-                    See https://wiki.tuflow.com/ASC_to_ASC for all options.
-    """
-    run_asc_to_asc_max(input_files=input_files, output_file=output_file, extra_args=extra_args)
-    return {"status": "success", "output_file": output_file}
-
-
-def tuflow_asc_to_asc_diff(
-    file1: str,
-    file2: str,
-    output_file: str,
-    change: bool = False,
-    nowetdry: bool = False,
-    extra_args: list[str] | None = None,
-) -> dict[str, Any]:
-    """
-    Run TUFLOW asc_to_asc natively in Python to subtract file2 from file1 (file1 - file2).
-    
-    Args:
-        file1: The first input grid (the "after" or "developed" case).
-        file2: The second input grid (the "before" or "existing" case) which is subtracted from file1.
-        output_file: The path to save the output grid.
-        change: Optional flag to treat nodata as 0 and compute difference everywhere.
-        nowetdry: Optional flag to skip generating the _wd (wet/dry) output grid.
-        extra_args: Any additional arguments to pass (e.g. ["-co", "COMPRESS=DEFLATE"]).
-                    See https://wiki.tuflow.com/ASC_to_ASC for all options.
-    """
-    run_asc_to_asc_diff(
-        file1=file1, file2=file2, output_file=output_file, change=change, nowetdry=nowetdry, extra_args=extra_args
-    )
-    return {"status": "success", "output_file": output_file}
-
-
-def tuflow_asc_to_asc_stat(
-    stat_type: str,
-    input_files: list[str],
-    output_file: str,
-    extra_args: list[str] | None = None,
-) -> dict[str, Any]:
-    """
-    Run TUFLOW asc_to_asc natively in Python to compute statistics across grids.
-    
-    Args:
-        stat_type: The statistic to calculate (e.g. "Median", "Mean", "Min", "Max").
-        input_files: List of input grids to process.
-        output_file: The path to save the output grid.
-        extra_args: Any additional arguments to pass (e.g. ["-co", "COMPRESS=DEFLATE"]).
-                    See https://wiki.tuflow.com/ASC_to_ASC for all options.
-    """
-    run_asc_to_asc_stat(
-        stat_type=stat_type, input_files=input_files, output_file=output_file, extra_args=extra_args
-    )
-    return {"status": "success", "output_file": output_file}
-
-
 if mcp is not None:
     mcp.tool()(parse_tuflow_filename)
     mcp.tool()(inspect_tlf_log)
@@ -287,9 +216,6 @@ if mcp is not None:
     mcp.tool()(check_repo_health)
     mcp.tool()(list_gdal_cli_tools)
     mcp.tool()(get_gdal_cli_tool)
-    mcp.tool()(tuflow_asc_to_asc_max)
-    mcp.tool()(tuflow_asc_to_asc_diff)
-    mcp.tool()(tuflow_asc_to_asc_stat)
     mcp.resource(
         "ryan-tools://gdal/cli-catalogue",
         name="gdal_cli_catalogue",

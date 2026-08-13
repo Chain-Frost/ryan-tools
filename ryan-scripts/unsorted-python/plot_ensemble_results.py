@@ -8,33 +8,37 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-11.1"
+WRAPPER_VERSION = "2026-08-12.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path(".")
 DEFAULT_OUTPUT_DIR = Path(".")
+DEFAULT_LOCATIONS: list[str] | None = None
 DEFAULT_CAPACITY_THRESHOLD: float | None = None
 DEFAULT_SOURCE = "rorb"
 # ==============================================================================
 
 import argparse
-import sys
 
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.path_stuff import PathLike, to_single_path
+from ryan_library.functions.path_stuff import to_single_path
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
-from ryan_library.orchestrators.plotting.plot_ensemble_results import orchestrate_ensemble_plotting
+from plot_ensemble_orchestrator import orchestrate_ensemble_plotting
 
 
-def main(*, working_directory: Path | None = None) -> int:
-    args = _parse_cli_arguments()
-    
+def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> int:
+    target_directory = (working_directory or Path.cwd()).resolve()
+    if not change_working_directory(target_dir=target_directory):
+        return 1
+
     # Resolve parameters defensively
     target_input = to_single_path(args.input) if args.input is not None else Path(DEFAULT_INPUT).resolve()
-    target_output = to_single_path(args.output_dir) if args.output_dir is not None else Path(DEFAULT_OUTPUT_DIR).resolve()
-    
+    target_output = (
+        to_single_path(args.output_dir) if args.output_dir is not None else Path(DEFAULT_OUTPUT_DIR).resolve()
+    )
+
     target_capacity = args.capacity if args.capacity is not None else DEFAULT_CAPACITY_THRESHOLD
     target_source = args.source if args.source is not None else DEFAULT_SOURCE
 
@@ -50,7 +54,7 @@ def main(*, working_directory: Path | None = None) -> int:
         orchestrate_ensemble_plotting(
             input_path=target_input,
             output_dir=target_output,
-            locations=args.locations,
+            locations=args.locations if args.locations is not None else DEFAULT_LOCATIONS,
             capacity_threshold=target_capacity,
             source=target_source,
         )
@@ -61,7 +65,7 @@ def main(*, working_directory: Path | None = None) -> int:
         return 1
 
 
-def _parse_cli_arguments() -> argparse.Namespace:
+def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generates box-and-whisker plots for ensemble model outputs (e.g. RORB).",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -95,7 +99,7 @@ def _parse_cli_arguments() -> argparse.Namespace:
         "--source",
         type=str,
         choices=["rorb"],
-        default="rorb",
+        default=None,
         help="The data source format.",
     )
     parser.add_argument(
@@ -103,14 +107,14 @@ def _parse_cli_arguments() -> argparse.Namespace:
         action="store_true",
         help="Do not pause the console when finishing (useful for batch running).",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
-    setup_logger(file_prefix="plot_ensemble_results")
-    change_working_directory()
-    
-    return_code = main()
+    cli_args = _parse_cli_arguments()
+    with setup_logger(log_file="plot_ensemble_results.log"):
+        return_code = main(cli_args)
 
-    pause_console(collect_before_pause=True)
-    sys.exit(return_code)
+    if not cli_args.no_pause:
+        pause_console(collect_before_pause=True)
+    raise SystemExit(return_code)

@@ -1,85 +1,54 @@
+"""Retile raster files with editable defaults and optional CLI overrides."""
+
 from __future__ import annotations
 
-WRAPPER_VERSION = "2026-08-11.1"
+from pathlib import Path
+
+WRAPPER_VERSION = "2026-08-13.1"
+DEFAULT_INPUTS = [Path("input.tif")]
+DEFAULT_OUTPUT_DIR = Path("tiles")
+DEFAULT_TILE_SIZE = (5000, 5000)
+DEFAULT_OVERLAP = 10
+DEFAULT_FORMAT = "GTiff"
+DEFAULT_RESAMPLING = "near"
 
 import argparse
-import sys
-import subprocess
 import shutil
-from pathlib import Path
+import subprocess
+import sys
 
 from loguru import logger
 
-from ryan_library.functions.path_stuff import to_single_path, to_path_list
-from ryan_library.functions.wrapper_utils import print_wrapper_banner, pause_console
+from ryan_library.functions.path_stuff import to_path_list, to_single_path
+from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 
 
-def _parse_cli_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=f"GDAL retile wrapper (v{WRAPPER_VERSION})."
-    )
-    parser.add_argument(
-        "inputs",
-        nargs="+",
-        type=str,
-        help="Input raster files to retile.",
-    )
-    parser.add_argument(
-        "--output-dir",
-        "-o",
-        type=str,
-        required=True,
-        help="Output directory for tiles.",
-    )
-    parser.add_argument(
-        "--tile-size",
-        "-ps",
-        nargs=2,
-        type=int,
-        default=[5000, 5000],
-        help="Tile size in pixels (X Y). Default: 5000 5000",
-    )
-    parser.add_argument(
-        "--overlap",
-        type=int,
-        default=10,
-        help="Overlap in pixels. Default: 10",
-    )
-    parser.add_argument(
-        "--format",
-        "-of",
-        type=str,
-        default="GTiff",
-        help="Output format. Default: GTiff",
-    )
-    return parser.parse_args()
+def main(args: argparse.Namespace) -> int:
+    input_values = args.inputs if args.inputs else DEFAULT_INPUTS
+    output_value = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
+    tile_size = tuple(args.tile_size) if args.tile_size is not None else DEFAULT_TILE_SIZE
+    overlap = args.overlap if args.overlap is not None else DEFAULT_OVERLAP
+    output_format = args.format if args.format is not None else DEFAULT_FORMAT
+    resampling = args.resampling if args.resampling is not None else DEFAULT_RESAMPLING
+    input_paths = to_path_list(input_values)
+    output_dir = to_single_path(output_value)
 
-
-def main(*, working_directory: Path | None = None) -> int:
-    args = _parse_cli_arguments()
-
-    input_paths = to_path_list(args.inputs)
-    output_dir = to_single_path(args.output_dir)
-
-    for p in input_paths:
-        if not p.exists():
-            logger.error("Input file not found: {}", p)
-            return 1
-
+    missing = [path for path in input_paths if not path.is_file()]
+    if missing:
+        logger.error("Input file not found: {}", missing[0])
+        return 1
+    if tile_size[0] < 1 or tile_size[1] < 1 or overlap < 0:
+        logger.error("Tile dimensions must be positive and overlap cannot be negative.")
+        return 2
     output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Try to find python in current environment
-    python_exe = sys.executable
 
-    # Build the gdal_retile command
-    # osgeo_utils.gdal_retile is the standard module path for gdal scripts in recent GDAL python bindings
-    cmd = [
-        python_exe,
+    command = [
+        sys.executable,
         "-m",
         "osgeo_utils.gdal_retile",
         "-v",
         "-of",
-        args.format,
+        output_format,
         "-co",
         "COMPRESS=DEFLATE",
         "-co",
@@ -91,54 +60,61 @@ def main(*, working_directory: Path | None = None) -> int:
         "-co",
         "BIGTIFF=IF_SAFER",
         "-ps",
-        str(args.tile_size[0]),
-        str(args.tile_size[1]),
+        str(tile_size[0]),
+        str(tile_size[1]),
         "-overlap",
-        str(args.overlap),
+        str(overlap),
         "-r",
-        "near",
+        resampling,
         "-targetDir",
         str(output_dir),
+        *(str(path) for path in input_paths),
     ]
-
-    for p in input_paths:
-        cmd.append(str(p))
-
-    logger.info("Executing gdal_retile...")
-    logger.debug("Command: {}", " ".join(cmd))
-    
+    logger.debug("Command: {}", subprocess.list2cmdline(command))
     try:
-        result = subprocess.run(cmd, check=False, text=True, capture_output=True)
-        if result.returncode != 0:
-            logger.error("gdal_retile failed with return code {}", result.returncode)
-            logger.error(result.stderr)
-            
-            # Fallback if osgeo_utils is not available, try calling gdal_retile.py directly
-            gdal_retile_script = shutil.which("gdal_retile.py")
-            if gdal_retile_script:
-                logger.info("Falling back to gdal_retile.py direct call...")
-                cmd[1:3] = [gdal_retile_script] # Replace '-m osgeo_utils.gdal_retile' with script path
-                result2 = subprocess.run(cmd, check=True, text=True)
-            else:
-                return 1
-        else:
+        result = subprocess.run(command, check=False, text=True, capture_output=True)
+        if result.returncode == 0:
             logger.success("Retiling complete.")
-            logger.debug(result.stdout)
-    except Exception as e:
-        logger.error("Failed to execute gdal_retile: {}", e)
+            return 0
+        logger.error("gdal_retile failed with code {}: {}", result.returncode, result.stderr.strip())
+        fallback = shutil.which("gdal_retile.py")
+        if fallback is None:
+            return 1
+        fallback_command = [fallback, *command[3:]]
+        fallback_result = subprocess.run(fallback_command, check=False, text=True, capture_output=True)
+        if fallback_result.returncode != 0:
+            logger.error(
+                "gdal_retile.py failed with code {}: {}", fallback_result.returncode, fallback_result.stderr.strip()
+            )
+            return 1
+        logger.success("Retiling complete using gdal_retile.py.")
+        return 0
+    except OSError as error:
+        logger.error("Failed to execute gdal_retile: {}", error)
         return 1
-        
-    return 0
+
+
+def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=f"GDAL retile wrapper (v{WRAPPER_VERSION}).")
+    parser.add_argument("inputs", nargs="*", type=Path, help="Override DEFAULT_INPUTS.")
+    parser.add_argument("--output-dir", "-o", type=Path, help="Override DEFAULT_OUTPUT_DIR.")
+    parser.add_argument("--tile-size", "-ps", nargs=2, type=int, default=None, help="Override DEFAULT_TILE_SIZE.")
+    parser.add_argument("--overlap", type=int, default=None, help="Override DEFAULT_OVERLAP.")
+    parser.add_argument("--format", "-of", default=None, help="Override DEFAULT_FORMAT.")
+    parser.add_argument("--resampling", default=None, help="Override DEFAULT_RESAMPLING.")
+    parser.add_argument("--no-pause", action="store_true")
+    return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
+    cli_args = _parse_cli_arguments()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
-        result = main()
-    except Exception as e:
-        logger.exception("Wrapper failed: {}", e)
+        result = main(cli_args)
+    except Exception:
+        logger.exception("Wrapper failed.")
         result = 1
-    finally:
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    if not cli_args.no_pause:
         pause_console(collect_before_pause=True)
-    sys.exit(result)
+    raise SystemExit(result)

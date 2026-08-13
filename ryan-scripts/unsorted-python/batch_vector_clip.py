@@ -1,248 +1,210 @@
+"""Experimentally replace ``ogr2ogr_clipper.bat`` with bounded, checked clipping jobs."""
+
 from __future__ import annotations
+
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-11.1"
+WRAPPER_VERSION = "2026-08-12.1"
+DEFAULT_INPUTS = [Path("input.shp")]
+DEFAULT_EXTENTS = [Path("extent.shp")]
+DEFAULT_OUTPUT_DIR: Path | None = None
+DEFAULT_WORKERS = 4
+DEFAULT_EXECUTABLE = "ogr2ogr"
+DEFAULT_OVERWRITE = False
+DEFAULT_DRY_RUN = False
 
 import argparse
-import sys
-import subprocess
 import concurrent.futures
+import shutil
+import subprocess
+from uuid import uuid4
 
 from loguru import logger
-from osgeo import gdal, ogr
 
-from ryan_library.functions.path_stuff import to_single_path, to_path_list
-from ryan_library.functions.gdal.vector_conversion import resolve_vector_format
-from ryan_library.functions.wrapper_utils import print_wrapper_banner, pause_console
+from ryan_library.functions.path_stuff import to_path_list, to_single_path
+from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 
 
-def _parse_cli_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=f"Batch spatial filter/clip vector files by multiple extent polygons (v{WRAPPER_VERSION})."
-    )
-    parser.add_argument(
-        "inputs",
-        nargs="+",
-        type=str,
-        help="Input vector files to process.",
-    )
-    parser.add_argument(
-        "--extents",
-        "-e",
-        nargs="+",
-        type=str,
-        required=True,
-        help="One or more extent shapefiles/polygons to use as boundaries.",
-    )
-    parser.add_argument(
-        "--mode",
-        "-m",
-        choices=["clip", "intersect", "within", "centroid-within"],
-        default="clip",
-        help=(
-            "clip: Strict geometric cut at the boundary (splits features). "
-            "intersect: Keeps intact features that touch/overlap the boundary. "
-            "within: Keeps intact features entirely contained within the boundary. "
-            "centroid-within: Keeps intact features whose centroid is inside the boundary."
-        )
-    )
-    parser.add_argument(
-        "--output-dir",
-        "-o",
-        type=str,
-        default=None,
-        help="Output directory (defaults to input directory).",
-    )
-    parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Print actions without modifying files.",
-    )
-    return parser.parse_args()
+def _dataset_members(path: Path) -> list[Path]:
+    """Return files belonging to an output dataset, including Shapefile sidecars."""
+    if path.suffix.casefold() == ".shp":
+        return sorted(candidate for candidate in path.parent.glob(f"{path.stem}.*") if candidate.is_file())
+    return [path] if path.exists() else []
 
 
-def _get_extent_geometry(extent_file: Path) -> ogr.Geometry:
-    with gdal.ExceptionMgr():
-        ds = ogr.Open(str(extent_file), 0)
-        if ds is None:
-            raise RuntimeError(f"Could not open extent dataset: {extent_file}")
-        
-        layer = ds.GetLayer()
-        if layer is None:
-            raise RuntimeError(f"No layers found in {extent_file}")
-            
-        # Union all features into a single geometry
-        union_geom = ogr.Geometry(ogr.wkbGeometryCollection)
-        for feat in layer:
-            geom = feat.GetGeometryRef()
-            if geom:
-                union_geom.AddGeometry(geom.Clone())
-        
-        # Merge if multiple
-        if union_geom.GetGeometryCount() > 1:
-            union_geom = union_geom.UnionCascaded()
-        elif union_geom.GetGeometryCount() == 1:
-            union_geom = union_geom.GetGeometryRef(0).Clone()
-        else:
-            raise RuntimeError(f"No valid geometry found in {extent_file}")
-            
-        return union_geom
+def _remove_dataset(path: Path) -> None:
+    for member in _dataset_members(path):
+        member.unlink(missing_ok=True)
 
 
-def process_via_ogr(input_file: Path, extent_file: Path, out_path: Path, mode: str) -> bool:
+def _promote_dataset(temporary_path: Path, output_path: Path, *, overwrite: bool) -> None:
+    existing = _dataset_members(output_path)
+    if existing and not overwrite:
+        raise FileExistsError(f"Output already exists: {output_path}")
+    if overwrite:
+        _remove_dataset(output_path)
+
+    temporary_members = _dataset_members(temporary_path)
+    if not temporary_members:
+        raise RuntimeError(f"ogr2ogr did not create an output dataset: {temporary_path}")
+    moved: list[Path] = []
     try:
-        format_name, spec = resolve_vector_format(out_path.suffix)
-        driver = ogr.GetDriverByName(spec.driver)
-        if driver is None:
-            logger.error("GDAL driver {} not available.", spec.driver)
-            return False
+        for member in temporary_members:
+            suffix_text = member.name[len(temporary_path.stem) :]
+            destination = output_path.with_name(f"{output_path.stem}{suffix_text}")
+            member.replace(destination)
+            moved.append(destination)
+    except Exception:
+        for member in moved:
+            member.unlink(missing_ok=True)
+        raise
 
-        extent_geom = _get_extent_geometry(extent_file)
 
-        in_ds = ogr.Open(str(input_file), 0)
-        if in_ds is None:
-            logger.error("Could not open input: {}", input_file)
-            return False
+def _temporary_dataset(output_path: Path) -> Path:
+    return output_path.with_name(f".{output_path.stem}.{uuid4().hex}.tmp{output_path.suffix}")
 
-        out_ds = driver.CreateDataSource(str(out_path))
-        if out_ds is None:
-            logger.error("Could not create output: {}", out_path)
-            return False
 
-        layer_count = in_ds.GetLayerCount()
-        for i in range(layer_count):
-            in_layer = in_ds.GetLayer(i)
-            layer_name = in_layer.GetName()
-            srs = in_layer.GetSpatialRef()
-            geom_type = in_layer.GetGeomType()
-
-            out_layer = out_ds.CreateLayer(layer_name, srs, geom_type)
-            in_layer_defn = in_layer.GetLayerDefn()
-
-            for fld_idx in range(in_layer_defn.GetFieldCount()):
-                fld_defn = in_layer_defn.GetFieldDefn(fld_idx)
-                out_layer.CreateField(fld_defn)
-
-            # Apply spatial filter to massively speed up iteration
-            in_layer.SetSpatialFilter(extent_geom)
-
-            out_layer_defn = out_layer.GetLayerDefn()
-
-            for in_feat in in_layer:
-                geom = in_feat.GetGeometryRef()
-                if geom is None:
-                    continue
-
-                keep = False
-                if mode == "intersect":
-                    if geom.Intersects(extent_geom):
-                        keep = True
-                elif mode == "within":
-                    if geom.Within(extent_geom):
-                        keep = True
-                elif mode == "centroid-within":
-                    centroid = geom.Centroid()
-                    if centroid.Within(extent_geom):
-                        keep = True
-
-                if keep:
-                    out_feat = ogr.Feature(out_layer_defn)
-                    for fld_idx in range(out_layer_defn.GetFieldCount()):
-                        out_feat.SetField(fld_idx, in_feat.GetField(fld_idx))
-                    out_feat.SetGeometry(geom.Clone())
-                    out_layer.CreateFeature(out_feat)
-
-        out_ds = None
-        in_ds = None
+def clip_vector(
+    input_path: Path,
+    extent_path: Path,
+    output_path: Path,
+    *,
+    executable: str,
+    overwrite: bool,
+    dry_run: bool,
+) -> bool:
+    """Run one ogr2ogr clip through a temporary dataset and promote it on success."""
+    if _dataset_members(output_path) and not overwrite:
+        logger.warning("Output exists; skipping without --overwrite: {}", output_path)
         return True
-    except Exception as e:
-        logger.error("OGR processing failed: {}", e)
-        return False
 
-
-def process_single(input_file: Path, extent_file: Path, out_dir: Path, mode: str, dry_run: bool) -> bool:
-    out_name = f"{input_file.stem}_{mode}_{extent_file.stem}{input_file.suffix}"
-    out_path = out_dir / out_name
-    
+    temporary_path = _temporary_dataset(output_path)
+    command = [executable, str(temporary_path), str(input_path), "-clipsrc", str(extent_path)]
     if dry_run:
-        logger.info("[DRY-RUN] Would create {} using mode '{}'", out_name, mode)
+        logger.info("[DRY-RUN] {}", subprocess.list2cmdline(command))
         return True
 
-    if mode == "clip":
-        cmd = [
-            "ogr2ogr",
-            str(out_path),
-            "-clipsrc",
-            str(extent_file),
-            str(input_file)
-        ]
-        try:
-            result = subprocess.run(cmd, check=False, text=True, capture_output=True)
-            if result.returncode != 0:
-                logger.error("ogr2ogr clip failed for {}", input_file.name)
-                logger.error(result.stderr)
-                return False
-            return True
-        except Exception as exc:
-            logger.error("Execution failed: {}", exc)
+    try:
+        result = subprocess.run(command, check=False, text=True, capture_output=True)
+        if result.returncode != 0:
+            logger.error(
+                "ogr2ogr failed for {} with {} using code {}: {}",
+                input_path,
+                extent_path,
+                result.returncode,
+                result.stderr.strip(),
+            )
             return False
-    else:
-        return process_via_ogr(input_file, extent_file, out_path, mode)
+        _promote_dataset(temporary_path, output_path, overwrite=overwrite)
+        logger.success("Created {}", output_path)
+        return True
+    except OSError as error:
+        logger.error("Could not execute ogr2ogr for {}: {}", input_path, error)
+        return False
+    except Exception:
+        logger.exception("Could not finalise clipped output {}", output_path)
+        return False
+    finally:
+        _remove_dataset(temporary_path)
 
 
-def main(*, working_directory: Path | None = None) -> int:
-    args = _parse_cli_arguments()
+def _resolve_executable(value: str, *, dry_run: bool) -> str:
+    candidate = Path(value)
+    if candidate.parent != Path(".") or candidate.is_absolute():
+        if not dry_run and not candidate.is_file():
+            raise FileNotFoundError(f"ogr2ogr executable does not exist: {candidate}")
+        return str(candidate)
+    discovered = shutil.which(value)
+    if discovered is None and not dry_run:
+        raise FileNotFoundError(f"ogr2ogr was not found on PATH: {value}")
+    return discovered or value
 
-    input_paths = to_path_list(args.inputs)
-    extent_paths = to_path_list(args.extents)
-    
-    if not input_paths:
-        logger.error("No input files provided.")
+
+def build_output_jobs(inputs: list[Path], extents: list[Path], output_dir: Path) -> list[tuple[Path, Path, Path]]:
+    jobs = [
+        (input_path, extent_path, output_dir / f"{input_path.stem}_clip_{extent_path.stem}{input_path.suffix}")
+        for input_path in inputs
+        for extent_path in extents
+    ]
+    outputs = [output_path.resolve() for _, _, output_path in jobs]
+    if len(outputs) != len(set(outputs)):
+        raise ValueError("Input or extent names would create duplicate output paths")
+    return jobs
+
+
+def main(args: argparse.Namespace) -> int:
+    """Validate inputs, execute bounded clipping jobs and report partial failure."""
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    input_values = args.inputs if args.inputs else DEFAULT_INPUTS
+    extent_values = args.extents if args.extents else DEFAULT_EXTENTS
+    output_value = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
+    executable_value = args.executable if args.executable is not None else DEFAULT_EXECUTABLE
+    workers = args.workers if args.workers is not None else DEFAULT_WORKERS
+    overwrite = args.overwrite if args.overwrite is not None else DEFAULT_OVERWRITE
+    dry_run = args.dry_run if args.dry_run is not None else DEFAULT_DRY_RUN
+    if workers < 1:
+        logger.error("--workers must be at least 1.")
+        return 2
+
+    inputs = to_path_list(input_values)
+    extents = to_path_list(extent_values)
+    invalid = [path for path in [*inputs, *extents] if not path.is_file()]
+    if invalid:
+        logger.error("Input dataset does not exist: {}", invalid[0])
         return 1
-        
-    for p in extent_paths:
-        if not p.exists():
-            logger.error("Extent file not found: {}", p)
-            return 1
 
-    out_dir = to_single_path(args.output_dir) if args.output_dir else input_paths[0].parent
-    if not args.dry_run:
-        out_dir.mkdir(parents=True, exist_ok=True)
-    
-    logger.info("Found {} inputs and {} extents. Will generate {} outputs using mode '{}'.", len(input_paths), len(extent_paths), len(input_paths) * len(extent_paths), args.mode)
-    
-    success_count = 0
-    total = len(input_paths) * len(extent_paths)
-    
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for input_file in input_paths:
-            if not input_file.exists():
-                logger.warning("Input file not found, skipping: {}", input_file)
-                continue
-            for extent_file in extent_paths:
-                futures.append(executor.submit(process_single, input_file, extent_file, out_dir, args.mode, args.dry_run))
-        
-        for future in concurrent.futures.as_completed(futures):
-            if future.result():
-                success_count += 1
-                
-    if args.dry_run:
-        logger.info("Dry run complete.")
-    else:
-        logger.success("Processing complete: {}/{} successful.", success_count, total)
-        
-    return 0
+    output_dir = to_single_path(output_value) if output_value is not None else inputs[0].parent
+    if not dry_run:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    executable = _resolve_executable(executable_value, dry_run=dry_run)
+    jobs = build_output_jobs(inputs, extents, output_dir)
+    logger.info("Prepared {} clipping jobs with at most {} workers.", len(jobs), workers)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [
+            executor.submit(
+                clip_vector,
+                input_path,
+                extent_path,
+                output_path,
+                executable=executable,
+                overwrite=overwrite,
+                dry_run=dry_run,
+            )
+            for input_path, extent_path, output_path in jobs
+        ]
+        results = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+    successes = sum(results)
+    logger.success("Clipping completed: {}/{} jobs successful.", successes, len(jobs))
+    return 0 if successes == len(jobs) else 1
+
+
+def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=f"Clip vector datasets by multiple extent datasets (v{WRAPPER_VERSION})."
+    )
+    parser.add_argument("inputs", nargs="*", type=Path, help="Override DEFAULT_INPUTS.")
+    parser.add_argument("--extents", "-e", nargs="+", type=Path, default=None, help="Override DEFAULT_EXTENTS.")
+    parser.add_argument("--output-dir", "-o", help="Output directory; defaults to the first input directory.")
+    parser.add_argument("--executable", default=None, help="Override DEFAULT_EXECUTABLE.")
+    parser.add_argument("--workers", type=int, default=None, help="Override DEFAULT_WORKERS.")
+    parser.add_argument(
+        "--overwrite", action="store_const", const=True, default=None, help="Override DEFAULT_OVERWRITE."
+    )
+    parser.add_argument("--dry-run", action="store_const", const=True, default=None, help="Override DEFAULT_DRY_RUN.")
+    parser.add_argument("--no-pause", action="store_true", help="Do not pause when the wrapper finishes.")
+    return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    cli_args = _parse_cli_arguments()
     try:
-        result = main()
-    except Exception as e:
-        logger.exception("Wrapper failed: {}", e)
+        result = main(cli_args)
+    except Exception:
+        logger.exception("Wrapper failed.")
         result = 1
-    finally:
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    if not cli_args.no_pause:
         pause_console(collect_before_pause=True)
-    sys.exit(result)
+    raise SystemExit(result)
