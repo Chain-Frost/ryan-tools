@@ -13,6 +13,7 @@ from loguru import logger
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.tuflow.asc_to_asc_statistics import (
     DashboardOptions,
+    StageExecutionSummary,
     StatisticJob,
     replace_filename_component,
     require_component_text,
@@ -61,7 +62,8 @@ def _parse_raster(
     if result_type is None:
         return None
     if parser.aep is None or parser.duration is None or parser.tp is None:
-        raise ValueError(f"Could not parse AEP, duration, and TP from {input_file.name}")
+        logger.info(f"Could not parse AEP, duration, and TP from {input_file.name}")
+        return None
 
     aep: str = require_component_text(value=parser.aep.original_text, component="AEP", filename=input_file.name)
     duration: str = require_component_text(
@@ -286,7 +288,7 @@ def run_mean_then_max_workflow(
         refresh_per_second=live_refresh_per_second,
         max_rows=live_max_rows,
     )
-    mean_summary = run_statistic_stage(
+    mean_summary: StageExecutionSummary = run_statistic_stage(
         executable=executable,
         jobs=[details.job for details in mean_jobs],
         stage_name="temporal-pattern mean",
@@ -300,7 +302,7 @@ def run_mean_then_max_workflow(
         print("ERROR: mean stage failed; maximum stage was not started.")
         return 1
 
-    max_summary = run_statistic_stage(
+    max_summary: StageExecutionSummary = run_statistic_stage(
         executable=executable,
         jobs=max_jobs,
         stage_name="maximum-of-means",
