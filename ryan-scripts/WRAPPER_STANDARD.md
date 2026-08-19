@@ -99,6 +99,8 @@ reasonable editable wrapper settings. A required CLI argument is appropriate
 only when there is no safe or meaningful hard-coded default, such as a secret,
 a one-off destructive confirmation or input that must be chosen for every run.
 
+Keep cosmetic or highly specific terminal preferences (such as dashboard alternate-screen rendering options) as editable wrapper constants rather than shared CLI arguments. This prevents cluttering the ``--help`` menu across multiple unrelated scripts with rendering flags that users rarely change per execution.
+
 Do not add repository-root `sys.path` changes. Copied wrappers require the
 matching `ryan-tools` wheel or editable package to be installed.
 

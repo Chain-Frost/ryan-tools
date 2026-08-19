@@ -23,6 +23,7 @@ class DashboardOptions:
     enabled: bool = True
     refresh_per_second: float = 2.0
     max_rows: int = 25
+    use_alternate_screen: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -221,6 +222,7 @@ def run_statistic_stage(
         enabled=dashboard_options.enabled,
         refresh_per_second=dashboard_options.refresh_per_second,
         max_rows=dashboard_options.max_rows,
+        screen=dashboard_options.use_alternate_screen,
     )
     dashboard.set_tasks(labels=[job.label for job in jobs])
     dashboard.set_extra_metrics(metrics={"stage": stage_name, "workers": worker_count, "PID": os.getpid()})

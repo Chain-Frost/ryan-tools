@@ -13,7 +13,7 @@ render concrete filenames and must not rediscover generated outputs.
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.1"
+WRAPPER_VERSION = "2026-08-20.1"
 
 ASC_TO_ASC_EXE = Path(r"C:\TUFLOW\asc_to_asc.2024-06-AB\asc_to_asc_w64.exe")
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -27,6 +27,7 @@ STRICT_INCOMPLETE_GROUPS = False
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
 LIVE_MAX_ROWS = 25
+LIVE_USE_ALTERNATE_SCREEN = False
 
 import argparse
 from dataclasses import dataclass
@@ -59,6 +60,7 @@ def main(
     use_live_dashboard: bool | None = None,
     live_refresh_per_second: float | None = None,
     live_max_rows: int | None = None,
+    live_use_alternate_screen: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and run the mean-then-maximum orchestrator."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
@@ -82,6 +84,7 @@ def main(
             LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
         ),
         live_max_rows=LIVE_MAX_ROWS if live_max_rows is None else live_max_rows,
+        live_use_alternate_screen=LIVE_USE_ALTERNATE_SCREEN if live_use_alternate_screen is None else live_use_alternate_screen,
     )
     return exit_code
 

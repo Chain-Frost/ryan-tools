@@ -111,6 +111,7 @@ def run_max_workflow(
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
     live_max_rows: int = 25,
+    live_use_alternate_screen: bool = False,
 ) -> int:
     """Validate, report, and optionally run configured raster-maximum jobs."""
     if workers is not None and workers < 1:
@@ -146,6 +147,7 @@ def run_max_workflow(
             enabled=use_live_dashboard,
             refresh_per_second=live_refresh_per_second,
             max_rows=live_max_rows,
+            use_alternate_screen=live_use_alternate_screen,
         ),
     )
     print(f"Finished maximum stage: {summary.succeeded} succeeded; {summary.failed} failed.")

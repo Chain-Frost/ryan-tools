@@ -99,7 +99,7 @@ class LiveWorkflowDashboard:
         max_rows: int = 25,
         columns: Sequence[WorkflowColumn] | None = None,
         transient: bool = True,
-        screen: bool = True,
+        screen: bool = False,
     ) -> None:
         if enabled:
             # Rich inspects console capabilities when Console is constructed.
