@@ -116,17 +116,30 @@ def validate_output_filename(filename: str) -> str:
 def run_statistic_job(*, executable: Path, job: StatisticJob) -> Path:
     """Execute one ASC_to_ASC job while capturing console output for diagnostics."""
     job.output_file.parent.mkdir(parents=True, exist_ok=True)
-    completed_process: subprocess.CompletedProcess[str] = subprocess.run(
+    command: list[str] = [str(executable), "-b"]
+    # The -src switch outputs an auxiliary raster indicating which input file contributed each value.
+    # Note: asc_to_asc strictly rejects the -src switch for -statMean, -statMax, and other -stat* commands.
+    # It is ONLY permitted for the simpler -min and -max commands.
+    if job.operation.casefold() in {"-min", "-max"}:
+        command.append("-src")
+    command.extend(
         [
-            str(executable),
-            "-b",
-            "-src",
             "-out",
             str(job.output_file),
             job.operation,
             *(str(input_file) for input_file in job.input_files),
-        ],
+        ]
+    )
+    
+    completed_process: subprocess.CompletedProcess[str] = subprocess.run(
+        command,
         check=False,
+        # Note: We pass "-b" to run asc_to_asc in batch mode, which normally suppresses prompts. 
+        # However, when asc_to_asc encounters a fatal error (e.g. invalid arguments), the Fortran 
+        # runtime often ignores "-b" and falls back to a "PAUSE (Press Enter to Close)" instruction.
+        # Passing a newline directly ensures it immediately reads the input and exits during a crash,
+        # preventing deadlocks or older Fortran runtimes from entering 100% CPU loops on EOF.
+        input="\n",
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -137,6 +150,30 @@ def run_statistic_job(*, executable: Path, job: StatisticJob) -> Path:
         raise RuntimeError(
             f"ASC_to_ASC exited with code {completed_process.returncode}" + (f": {output_tail}" if output_tail else "")
         )
+    # Handle output renaming.
+    # When using -stat* commands (e.g. -statMean, -statMax), asc_to_asc ignores the exact filename 
+    # requested in `-out`, and instead automatically appends a suffix like `_Mean_Val` or `_Max_Val`
+    # before the extension. We must locate this suffixed file and rename it back to the originally
+    # requested output name so that downstream jobs can locate it.
+    if not job.output_file.is_file():
+        expected_suffix: str = ""
+        op: str = job.operation.casefold()
+        if op == "-statmean":
+            expected_suffix = "_Mean_Val"
+        elif op == "-statmax":
+            expected_suffix = "_Max_Val"
+        elif op == "-statmin":
+            expected_suffix = "_Min_Val"
+        elif op == "-statmedian":
+            expected_suffix = "_Median_Val"
+        
+        if expected_suffix:
+            actual_val_file: Path = job.output_file.with_name(
+                f"{job.output_file.stem}{expected_suffix}{job.output_file.suffix}"
+            )
+            if actual_val_file.is_file():
+                actual_val_file.rename(job.output_file)
+
     if not job.output_file.is_file():
         raise FileNotFoundError(f"Expected output was not created: {job.output_file}")
     return job.output_file
