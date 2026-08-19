@@ -300,6 +300,8 @@ def run_mean_then_max_workflow(
     print(f"Finished mean stage: {mean_summary.succeeded} succeeded; {mean_summary.failed} failed.")
     if not mean_summary.ok:
         print("ERROR: mean stage failed; maximum stage was not started.")
+        for label, error in mean_summary.failed_jobs:
+            print(f"  - {label} failed: {error}")
         return 1
 
     max_summary: StageExecutionSummary = run_statistic_stage(
@@ -312,7 +314,11 @@ def run_mean_then_max_workflow(
         dashboard_options=dashboard_options,
     )
     print(f"Finished maximum stage: {max_summary.succeeded} succeeded; {max_summary.failed} failed.")
-    if max_summary.ok:
-        print(f"Finished. Outputs are under {output_root}")
-        return 0
-    return 1
+    if not max_summary.ok:
+        print("ERROR: maximum stage completed with failures.")
+        for label, error in max_summary.failed_jobs:
+            print(f"  - {label} failed: {error}")
+        return 1
+        
+    print(f"Finished. Outputs are under {output_root}")
+    return 0
