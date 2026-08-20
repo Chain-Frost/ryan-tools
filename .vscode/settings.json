@@ -17,5 +17,32 @@
       ]
     }
   },
-  "python-envs.defaultEnvManager": "ms-python.python:system"
+  "python-envs.defaultEnvManager": "ms-python.python:system",
+  "python.analysis.exclude": [
+    "excel-resources/**",
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "examples/**",
+    "build/**",
+    "dist/**",
+    "docs/**",
+    "qgis-resources/**",
+    "pytest-cache-files-*/**",
+    "ryan_functions.egg-info/**",
+    "tests/test_data/**",
+    "unsorted/**",
+    ".git/**"
+  ],
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/dist/**": true,
+    "**/excel-resources/**": true,
+    "**/qgis-resources/**": true,
+    "**/tests/test_data/**": true,
+    "**/unsorted/**": true,
+    "**/pytest-cache-files-*/**": true,
+    "**/ryan_functions.egg-info/**": true,
+    "**/__pycache__/**": true
+  }
 }
