@@ -134,6 +134,7 @@ for proportional validation expectations.
 | Extend the TUFLOW processor framework | [`ryan_library/processors/tuflow/README.md`](ryan_library/processors/tuflow/README.md) |
 | Use reusable Python APIs directly | [`examples/README.md`](examples/README.md) |
 | Run maintained GDAL workflows | [`ryan-scripts/gdal-python/README.md`](ryan-scripts/gdal-python/README.md) |
+| Convert geospatial, point-cloud, CAD or model files | [Supported file converters and formats](#supported-file-converters-and-formats) |
 | Map a remaining legacy GDAL BAT file to its replacement | [`ryan-scripts/gdal-bat/README.md`](ryan-scripts/gdal-bat/README.md) |
 | Connect the repository MCP server | [`docs/MCP_SETUP.md`](docs/MCP_SETUP.md) |
 
@@ -230,6 +231,23 @@ culverts = get_combined_df_from_files(Path("12d_exports"))
 For GDAL raster conversion, mosaics, flood extents, footprints, metadata and point-cloud conversion, use the
 [maintained GDAL Python wrappers](ryan-scripts/gdal-python/README.md). The BAT files that remain under
 `ryan-scripts/gdal-bat` are legacy migration references and should not be selected for new work.
+
+### Supported file converters and formats
+
+The library provides Python-native and GDAL-backed conversion functions, batch orchestrators, and maintained wrappers across geospatial, point-cloud, CAD, hydrologic, and tabular formats:
+
+| Domain | Source formats | Destination formats | Key library APIs and entry points | Notes |
+| --- | --- | --- | --- | --- |
+| **Raster translation & compression** | Any GDAL raster (`.flt`, `.asc`, `.rst`, `.xyz`, `.tif`, `.ecw`, etc.) | `.tif` (GeoTIFF), `.ovr` (pyramid overviews) | [`translate_to_geotiff()`](ryan_library/functions/gdal/raster_processing.py), [`convert_rasters()`](ryan_library/orchestrators/gdal/raster_workflows.py), [`gdal_translate_TIF_ovr.py`](ryan-scripts/gdal-python/README.md#raster-conversion-and-compression) | Lossless conversion with choice of `tuflow` (DEFLATE) or `efficient` (tiled ZSTD) profiles. |
+| **Raster mosaics & virtual datasets** | Multiple raster tiles (`.tif`, `.xyz`, `.asc`, `.flt`) | `.tif` (GeoTIFF mosaic), `.vrt` (VRT dataset) | [`merge_directory()`](ryan_library/orchestrators/gdal/raster_merge.py), [`create_grouped_mosaics()`](ryan_library/orchestrators/gdal/raster_mosaic.py), [`gdal_merge.py`](ryan-scripts/gdal-python/README.md#mosaics), [`build_VRT.py`](ryan-scripts/gdal-python/README.md#grouped-tuflow-result-mosaics) | Supports vector extent clipping, assigned CRS/NoData, and grouped TUFLOW result sets. |
+| **Vector dataset translation** | `.gpkg`, `.shp`, `.fgb`, `.geojson`, `.sqlite` | `.gpkg` (GeoPackage), `.shp` (ESRI Shapefile), `.fgb` (FlatGeobuf), `.geojson` (GeoJSON), `.sqlite` (SQLite) | [`translate_vector_dataset()`](ryan_library/functions/gdal/vector_conversion.py), [`require_vector_driver()`](ryan_library/functions/gdal/vector_conversion.py) | Atomic vector translation via GDAL; multi-layer support for GPKG and SQLite. |
+| **File Geodatabase export** | `.gdb` (ESRI File Geodatabase directories) | `.gpkg`, `.shp`, `.fgb`, `.geojson`, `.sqlite` | [`export_file_geodatabase()`](ryan_library/orchestrators/gdal/file_geodatabase_export.py), [`discover_file_geodatabases()`](ryan_library/orchestrators/gdal/file_geodatabase_export.py) | Batch GDB discovery; exports each layer to separate files or one multi-layer database. |
+| **Raster to vector classification** | Depth, water level, or DEM rasters (`.tif`, `.ecw`, etc.) | `.gpkg`, `.shp`, `.geojson`, `.fgb`, `.sqlite` (flood extent polygons, raster footprints) | [`main_processing()`](ryan_library/orchestrators/gdal/gdal_flood_extent.py), [`polygonize_flood_extent()`](ryan_library/functions/gdal/raster_processing.py), [`gdal_flood_extent.py`](ryan-scripts/gdal-python/README.md#flood-extents), [`gdal_raster_footprint.py`](ryan-scripts/gdal-python/README.md#metadata-footprints-and-point-clouds) | Thresholding, band selection, optional GDAL sieve filtering, and boundary vectorization. |
+| **LiDAR & point clouds** | `.laz` (compressed LiDAR) | `.las` (uncompressed ASPRS LAS point clouds) | [`convert_laz_to_las()`](ryan_library/functions/lidar_processing.py), [`convert_laz_directory()`](ryan_library/functions/lidar_processing.py), [`laz_to_las.py`](ryan-scripts/gdal-python/README.md#metadata-footprints-and-point-clouds) | Memory-efficient chunked streaming preserving headers, point formats, scales, offsets, and VLRs. |
+| **Elevation rasters to tables/points** | `.tif` (GeoTIFF DEMs) | Tabular `X, Y, Z` DataFrames, `.csv`, `.xyz`, `.las` | [`read_geotiff()`](ryan_library/functions/terrain_processing.py), [`tile_data()`](ryan_library/functions/terrain_processing.py), [`thin-raster-terrain-for-12D_v5.py`](ryan-scripts/12D-python/thin-raster-terrain-for-12D_v5.py), [`tif-to-LAS-valid-only_v6.py`](ryan-scripts/12D-python/tif-to-LAS-valid-only_v6.py) | Spatial tiling, NoData masking, and point thinning for 12D Model or tabular workflows. |
+| **CAD, mining & 12D geometry** | `.str` (Surpac binary/text strings), `.dtm` (Surpac binary/text DTM meshes), `.dxf` (polyface meshes), 12D culvert export text | `.gpkg` (3D lines & polygon meshes), `.parquet` (geometry tables), DataFrames | [`get_combined_df_from_files()`](ryan_library/functions/process_12D_culverts.py), [`dtm_str_converter_to_gpkg.py`](ryan-scripts/cad-python/dtm_str_converter_to_gpkg.py), [`extract_dxf_polyface.py`](ryan-scripts/cad-python/extract_dxf_polyface.py), [`polyface_parquet_to_gpkg.py`](ryan-scripts/cad-python/polyface_parquet_to_gpkg.py) | Translates mining CAD and 12D export formats into modern GIS/Parquet geometries. |
+| **Hydrologic & model results** | TUFLOW 1D/2D CSVs (`_POMM`, `_PO`, `_Cmx`, `_Nmx`, `_Chan`, `_ccA`, `_RLL_Qmx`, `_Q`, `_H`, etc.), `.tlf` logs, RORB `.out` files | `.xlsx` (multi-sheet styled workbooks), `.parquet`, `.csv`, DataFrames | [`load_tuflow_data()`](ryan_library/functions/tuflow/notebook_helpers.py), [`parse_batch_output()`](ryan_library/functions/RORB/read_rorb_files.py), [`ExcelExporter`](ryan_library/functions/excel_export.py), [`save_to_excel()`](ryan_library/functions/excel_export.py) | Ingests simulation outputs into consolidated tabular datasets, summary reports, and Excel exports. |
+
 
 ## Excel and QGIS resources
 

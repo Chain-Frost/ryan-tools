@@ -13,6 +13,15 @@ the top of each file. This includes the log-summary, POMM/PO combination,
 culvert reporting, time-series checking, result styling and ASC_to_ASC search
 wrappers.
 
+[`plot_water_level_profiles.py`](plot_water_level_profiles.py) creates terrain
+and TUFLOW water-level profile PNGs along GeoPackage lines.  CLI arguments can override paths and profile settings. The workflow validates CRS metadata and
+requires exactly one result raster for every requested AEP. Missing CRS metadata
+is inferred from any tagged profile or raster input; when every input is
+untagged, their source coordinates are assumed to already align.
+The default masked-bilinear sampler returns NoData only when the profile
+station's containing raster cell is NoData; adjacent NoData cells are excluded
+and the remaining interpolation weights are renormalised.
+
 Only imports needed to construct or annotate those editable values, such as
 `Path` and `Literal`, appear before the settings. Operational third-party and
 `ryan_library` imports follow the editable block so users see configuration
