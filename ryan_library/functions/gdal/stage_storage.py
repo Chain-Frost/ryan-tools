@@ -21,12 +21,20 @@ class _AffineTransform(Protocol):
     e: float
 
 
+class _RasterCRS(Protocol):
+    is_projected: bool
+    linear_units: str
+
+    def to_string(self) -> str: ...
+
+
 class _RasterDataset(Protocol):
     count: int
     width: int
     height: int
     nodata: float | int | None
     transform: _AffineTransform
+    crs: _RasterCRS | None
 
     def block_windows(self, band_index: int) -> Iterable[tuple[tuple[int, int], object]]: ...
 
@@ -48,6 +56,21 @@ def _valid_values(data: npt.NDArray[np.generic], nodata_value: float | int | Non
     if nodata_value is not None and np.isfinite(nodata_value):
         valid &= values != float(nodata_value)
     return values[valid]
+
+
+def _validate_volume_crs(source: _RasterDataset, path: Path) -> None:
+    """Require horizontal coordinates measured in metres before calculating m3."""
+    crs = source.crs
+    if crs is None:
+        raise ValueError(f"Stage-storage volume in cubic metres requires DEM CRS metadata: {path}")
+    if not crs.is_projected:
+        raise ValueError(f"Stage-storage requires a projected metre-based DEM CRS, received {crs.to_string()}: {path}")
+    linear_units = crs.linear_units.casefold().strip()
+    if linear_units not in {"metre", "meter", "metres", "meters"}:
+        raise ValueError(
+            f"Stage-storage volume in cubic metres requires metre-based DEM coordinates, "
+            f"received {crs.linear_units!r}: {path}"
+        )
 
 
 def find_elevation_bounds(dem_path: Path, nodata_value: float | None = None) -> tuple[float, float]:
@@ -92,6 +115,7 @@ def compute_stage_storage(
     with closing(_open_raster(path)) as source:
         if source.count != 1:
             raise ValueError(f"Stage-storage requires a single-band DEM: {path}")
+        _validate_volume_crs(source, path)
         determinant = source.transform.a * source.transform.e - source.transform.b * source.transform.d
         cell_area = abs(float(determinant))
         if not np.isfinite(cell_area) or cell_area <= 0:

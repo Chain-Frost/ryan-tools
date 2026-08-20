@@ -27,6 +27,9 @@ outputs before relying on them for a project. The promoted set covers vector cli
 Geodatabase export, raster-to-XYZ conversion, retiling, stage-storage, raster counterpart checks, cutline clipping,
 NoData removal and GeoPackage vacuuming.
 
+Stage-storage volumes are reported in cubic metres. The input DEM must have CRS metadata for a projected,
+metre-based coordinate system; geographic and non-metre projected CRSs are rejected.
+
 ## AI and automation discovery
 
 [`gdal_cli_tools.json`](gdal_cli_tools.json) is the machine-readable catalogue

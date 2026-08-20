@@ -17,7 +17,7 @@ from urllib.parse import unquote, urlparse
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-08-20.2"
 DEFAULT_WORKING_DIR = Path(".")
 
 from loguru import logger
@@ -43,7 +43,7 @@ def find_qgis_projects(start_dir: Path) -> list[Path]:
     for root, _, files in os.walk(start_dir):
         for f in files:
             lower_f = f.lower()
-            if (lower_f.endswith(".qgz") or lower_f.endswith(".qgs")) and "ss" not in lower_f:
+            if lower_f.endswith((".qgz", ".qgs")):
                 qgis_files.append(Path(root) / f)
     return qgis_files
 

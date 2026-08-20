@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-08-20.2"
 DEFAULT_WORKING_DIR = Path(".")
 DEFAULT_INPUT_DIRECTORY = Path(".")
 DEFAULT_PATTERNS = ["*.tif"]
@@ -118,8 +118,8 @@ def main(args: argparse.Namespace) -> int:
         csv_path = input_directory / f"volumes_{dem_path.stem}.csv"
         png_path = csv_path.with_suffix(".png")
         expected_outputs = [csv_path, png_path] if create_plot else [csv_path]
-        if not overwrite and any(path.exists() for path in expected_outputs):
-            logger.warning("Output exists; skipping {} without --overwrite.", dem_path)
+        if not overwrite and all(path.exists() for path in expected_outputs):
+            logger.warning("All requested outputs exist; skipping {} without --overwrite.", dem_path)
             successes += 1
             continue
         try:

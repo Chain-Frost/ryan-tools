@@ -17,7 +17,7 @@
     "convert_gdb_to_gpkg.py": "2026-08-20.1",
     "gdal_raster_to_xyz.py": "2026-08-20.1",
     "gdal_retile_wrapper.py": "2026-08-20.1",
-    "gdal_stage_storage.py": "2026-08-20.1",
+    "gdal_stage_storage.py": "2026-08-20.2",
     "gdal_unset_nodata.py": "2026-08-20.1",
     "gdal_vector_translate.py": "2026-08-20.1",
     "gdalwarp_clip_to_polygon.py": "2026-08-20.1",
@@ -511,7 +511,7 @@
     {
       "id": "calculate_stage_storage",
       "script": "gdal_stage_storage.py",
-      "purpose": "Calculate stage-storage CSV files and optional plots from single-band DEMs.",
+      "purpose": "Calculate stage-storage CSV files and optional plots from single-band DEMs with a projected metre-based CRS.",
       "mutation": "creates_outputs",
       "defaults": {"patterns": ["*.tif"], "step": 0.01, "create_plot": true},
       "help_arguments": ["gdal_stage_storage.py", "--help"]
