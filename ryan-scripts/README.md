@@ -60,6 +60,7 @@ log messages, prompts, and failures remain visible.
 | `gdal-python` | Current library-backed GDAL raster and point-cloud workflows; see its own README. |
 | `gdal-bat`, `TUFLOW-bat`, `misc-bat` | Legacy drag-and-drop or command-shell workflows. Prefer maintained Python replacements and review local paths before use. |
 | `hydrology-python` | ARF, IFD, RFFE, and related hydrology calculations. |
+| `misc-python` | Small maintained utilities that do not belong to a domain-specific workflow. |
 | `pdf-python`, `docx-python` | PDF and Word document utilities. |
 | `point-cloud-python`, `raster-python` | XYZ/LAS and raster conversion or cleanup. |
 | `RORB-python` | RORB rainfall, hydrograph, peak, and closure-period processing. |

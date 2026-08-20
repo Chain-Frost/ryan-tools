@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from ryan_library.functions.gdal.vector_conversion import (
+    get_unique_attribute_values,
     get_vector_layer_names,
     resolve_vector_format,
     translate_vector_dataset,
@@ -63,3 +64,33 @@ def test_translate_vector_dataset_publishes_completed_output(tmp_path: Path) -> 
 
     with pytest.raises(FileExistsError):
         translate_vector_dataset(source, output, vector_format="fgb", layer_name="roads")
+
+
+def test_unique_values_and_filtered_translation(tmp_path: Path) -> None:
+    source = tmp_path / "source.gpkg"
+    driver = ogr.GetDriverByName("GPKG")
+    dataset = driver.CreateDataSource(str(source))
+    layer = dataset.CreateLayer("assets", geom_type=ogr.wkbPoint)
+    layer.CreateField(ogr.FieldDefn("Owner", ogr.OFTString))
+    for index, owner in enumerate(("Alpha", "O'Brien", "Alpha")):
+        feature = ogr.Feature(layer.GetLayerDefn())
+        feature.SetField("Owner", owner)
+        geometry = ogr.Geometry(ogr.wkbPoint)
+        geometry.AddPoint_2D(float(index), float(index))
+        feature.SetGeometry(geometry)
+        assert layer.CreateFeature(feature) == 0
+    dataset = None
+
+    assert get_unique_attribute_values(source, "assets", "Owner") == ["Alpha", "O'Brien"]
+
+    output = tmp_path / "obrien.gpkg"
+    translate_vector_dataset(
+        source,
+        output,
+        vector_format="gpkg",
+        layer_name="assets",
+        where="\"Owner\" = 'O''Brien'",
+    )
+    output_dataset = ogr.Open(str(output))
+    assert output_dataset.GetLayer(0).GetFeatureCount() == 1
+    output_dataset = None

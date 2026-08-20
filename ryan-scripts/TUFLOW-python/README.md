@@ -13,6 +13,11 @@ the top of each file. This includes the log-summary, POMM/PO combination,
 culvert reporting, time-series checking, result styling and ASC_to_ASC search
 wrappers.
 
+`asc2asc_groups.py` and `asc2asc_py.py` were promoted from `unsorted-python` on 20 August 2026. They retain an explicit
+source warning because they have focused automated coverage but have not yet been used on a production project. The
+native-Python wrapper uses the shared raster-calculation implementation; the grouped wrapper coordinates the external
+TUFLOW `asc_to_asc` executable.
+
 [`plot_water_level_profiles.py`](plot_water_level_profiles.py) creates terrain
 and TUFLOW water-level profile PNGs along GeoPackage lines.  CLI arguments can override paths and profile settings. The workflow validates CRS metadata and
 requires exactly one result raster for every requested AEP. Missing CRS metadata

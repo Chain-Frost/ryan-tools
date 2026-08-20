@@ -51,6 +51,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Examples | [Examples index](../examples/README.md) | Choosing direct library examples instead of wrappers |
 | TUFLOW examples | [TUFLOW API examples](../examples/tuflow/README.md) | Filename parsing, processors, batch loading, PO checks and POMM summaries |
 | DataFrame examples | [DataFrame and export examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
+| Rock-protection lookup data | [Outlet rock-protection data](../ryan_library/functions/data/README.md) | Source, interpretation and limits of the bundled multi-pipe lookup tables |
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
 
 ## Integrations

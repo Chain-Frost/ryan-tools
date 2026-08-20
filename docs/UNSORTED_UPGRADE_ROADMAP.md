@@ -72,17 +72,47 @@ The normal Python review passed with 19 focused synthetic tests, strict Pyright 
 `--help` smoke checks for ten candidate wrappers. The implementations now use bounded concurrency, checked exit codes,
 temporary outputs, deterministic discovery and explicit validation where applicable.
 
-The candidates remain `[/]` in the migration lists below. Before promotion, run application-specific parity checks with
-real `asc_to_asc`, `ogr2ogr`, `gdal2xyz`, representative QGIS provider strings and a representative RORB Parquet file.
-The plotting tests currently expose an upstream Seaborn call to Matplotlib's deprecated `vert` parameter; this is a
-dependency compatibility warning rather than a deprecated call made directly by these candidates.
+The candidates remained `[/]` after this review. Their later disposition is recorded in the 20 August promotion review
+below. The promoted plotting helper now calls Matplotlib's `orientation` API directly, avoiding the deprecated `vert`
+parameter used by Seaborn 0.13.2 with Matplotlib 3.11.
 
 ### Source and promotion policy
 
 The `unsorted` and `tests/test_data` submodules remain at the commits intentionally recorded by this branch. Source
 deletions in the `unsorted` submodule are not reversed by this plan. Candidate tests live beside the experimental code
-under `ryan-scripts/unsorted-python/tests/` so they do not imply a maintained `ryan_library` API. Promotion into a
-maintained script category remains a separate decision after the gates above pass.
+under `ryan-scripts/unsorted-python/tests/` so they did not imply a maintained `ryan_library` API. Promotion into a
+maintained script category remained a separate decision after the gates above passed.
+
+---
+
+## Promotion review — 20 August 2026
+
+The complete `ryan-scripts/unsorted-python/` set was reviewed and promoted into its domain folders. Every relocated
+production Python file carries `# moved from unsorted, not tested in production yet - 2026-08-20` immediately after its
+module docstring. This distinguishes focused automated validation from use on a real project.
+
+Shared behavior was consolidated during promotion:
+
+- native ASC-to-ASC raster operations now use `ryan_library/functions/tuflow/local_raster_calc.py`; the duplicate local
+  candidate was removed;
+- vector format metadata, layer inspection, filtering, reprojection and atomic translation now use
+  `ryan_library/functions/gdal/vector_conversion.py`; the duplicate candidate module was removed;
+- stage-storage calculations live in `ryan_library/functions/gdal/stage_storage.py` behind a thin GDAL wrapper;
+- RORB ensemble reading, calculation and plotting live under `ryan_library/functions/RORB/` and
+  `ryan_library/orchestrators/rorb/` behind a thin RORB wrapper;
+- repeated 7-Zip discovery and checked execution live in `ryan_library/functions/archive_utils.py`; and
+- clearing raster NoData metadata now uses the shared GDAL raster-processing API.
+
+The wrappers moved to `TUFLOW-python/`, `gdal-python/`, `RORB-python/`, `hydrology-python/`,
+`file-management-python/`, `misc-python/` and `other/` according to their operational domain. Focused tests moved to
+`tests/scripts/promoted_scripts/`. Real-project checks with the external TUFLOW/GDAL/QGIS/RORB workflows remain useful;
+the source warning is intentionally retained until those occur.
+
+Promotion validation passed 58 focused tests, strict Pyright for all changed production files and the promoted-test
+configuration, Black, compilation, Loguru formatting, documentation and JSON checks, and `git diff --check`. All 20
+promoted CLI wrappers passed `--help`; seven shared-library consumers also passed after being copied outside the
+checkout and run against the rebuilt and installed `ryan_functions-26.8.20.11-py3-none-any.whl`. The focused plotting
+plotting tests run with deprecation warnings treated as errors after replacing the Seaborn boxplot compatibility path.
 
 ---
 
@@ -98,14 +128,13 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 - [ ] **`close_filenames_v1.py`** (9 KB) → `ryan_library/functions/`
   - Fuzzy filename matcher that strips AEP/duration/scenario tokens to pair rasters.
   - Reusable logic — should be a library function that other scripts can import.
-- [/] **`raster_difference_manual_list_v2.py`** (7.6 KB) → `ryan-scripts/unsorted-python/asc2asc_py.py`
+- [x] **`raster_difference_manual_list_v2.py`** (7.6 KB) → `ryan-scripts/TUFLOW-python/asc2asc_py.py`
   - Manual file-pair version of raster differencing using `rasterio`.
-  - Experimental local helpers are parked beside the wrapper. The maintained library and read-only MCP surface remain
-    unchanged until raster alignment, nodata, creation-option and output-safety behaviour has focused validation.
+  - Uses the maintained local raster-calculation API after focused alignment, NoData and output-safety validation.
 
 ### Excel protection removal
 
-- [x] **`excel_remove_protection_v3.py`** (2.8 KB) → `ryan-scripts/unsorted-python/remove_excel_protection.py`
+- [x] **`excel_remove_protection_v3.py`** (2.8 KB) → `ryan-scripts/misc-python/remove_excel_protection.py`
 - [x] **`excel_remove_protection_v3_xlsm.py`** (2.8 KB) → merged with above
   - Removes sheet protection by modifying XML inside xlsx/xlsm zip.
   - Merged into a single script that handles both extensions.
@@ -118,25 +147,25 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 
 ### QGIS project audit
 
-- [/] **`qgz_parser_v7.py`** (4.9 KB) → `ryan-scripts/unsorted-python/audit_qgis_projects.py`
+- [x] **`qgz_parser_v7.py`** (4.9 KB) → `ryan-scripts/other/audit_qgis_projects.py`
   - Parses QGZ/QGS XML to list layers and data sources.
-  - Useful for finding broken paths. The candidate still needs representative QGIS provider and URI validation.
+  - Useful for finding broken paths. Representative project-provider validation remains a production check.
 
 ### Hydrology Utilities
 
-- [/] **`Library.py`** (12 lines) → `ryan-scripts/unsorted-python/aep_ari_conversions.py`
-  - Simple AEP/ARI mathematical conversion functions are parked locally until reuse and behavioural parity are shown.
-- [/] **`refactored_calculate_volumes_and_plot.py`** (3.7 KB) → `ryan-scripts/unsorted-python/gdal_stage_storage.py`
-  - An experimental chunked stage-storage implementation is present but still needs numerical and raster-edge-case review.
+- [x] **`Library.py`** (12 lines) → `ryan-scripts/hydrology-python/aep_ari_conversions.py`
+  - Simple validated AEP/ARI mathematical conversion functions.
+- [x] **`refactored_calculate_volumes_and_plot.py`** (3.7 KB) → `ryan-scripts/gdal-python/gdal_stage_storage.py`
+  - Uses shared block-streamed calculations with known-volume and invalid-level coverage.
 
 ### GDAL clip/VRT
 
-- [x] **`gdalwarp_clip_to_polygon.py`** (2 KB) → `ryan-scripts/unsorted-python/gdalwarp_clip_to_polygon.py`
+- [x] **`gdalwarp_clip_to_polygon.py`** (2 KB) → `ryan-scripts/gdal-python/gdalwarp_clip_to_polygon.py`
   - Clips TIFs to a polygon shapefile using `osgeo.gdal.Warp()`. Modernised to remove `os.system()` and use `argparse`.
 - [ ] **`make_vrt_list_v1.py`** (6.5 KB) → `ryan-scripts/gdal-python/`
   - Builds VRT with filtering. Extends/complements existing `build_VRT.py`.
-- [/] **`ogr2ogr_clipper.bat`** → `ryan-scripts/unsorted-python/batch_vector_clip.py`
-  - Experimental parallel clipping candidate; source coverage and process/error semantics are not yet validated.
+- [x] **`ogr2ogr_clipper.bat`** → `ryan-scripts/gdal-python/batch_vector_clip.py`
+  - Bounded parallel clipping with checked failures, temporary outputs and collision validation.
 
 ### File audit
 
@@ -151,10 +180,10 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
 
 ### Raster QA / conversion
 
-- [x] **`flt-tif-check_v2.py`** (3.2 KB) → `ryan-scripts/unsorted-python/check_flt_tif.py`
+- [x] **`flt-tif-check_v2.py`** (3.2 KB) → `ryan-scripts/gdal-python/check_flt_tif.py`
   - Finds `.flt` files with no matching `.tif`. Modernised with `pathlib` and `argparse`.
-- [/] **`tif-to-csv-valid-only_v3.py`** (2.2 KB) → `ryan-scripts/unsorted-python/gdal_raster_to_xyz.py`
-  - A `gdal2xyz` wrapper candidate is present; executable discovery, streaming, output cleanup and parity remain unreviewed.
+- [x] **`tif-to-csv-valid-only_v3.py`** (2.2 KB) → `ryan-scripts/gdal-python/gdal_raster_to_xyz.py`
+  - Uses bounded `gdal2xyz` workers, deterministic discovery and partial-output cleanup.
 - [ ] **`dario_thinning-tif_v4.py`** (4.4 KB) → `ryan-scripts/12D-python/` or `gdal-python/`
   - GeoTIFF → thinned XYZ CSV for 12D import.
 - [ ] **`make_VRT_for_matching_v1.py`** (2.9 KB) → merge into `make_vrt_list_v1.py`
@@ -204,25 +233,22 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
 
 ### Volume calculation
 
-- [/] **`calculate_volumes_and_plot.py`** / **`refactored_calculate_volumes_and_plot.py`** → `ryan-scripts/unsorted-python/gdal_stage_storage.py`
-  - Stage-storage volume curve candidate; keep the source and replacement together until numerical parity is established.
+- [x] **`calculate_volumes_and_plot.py`** / **`refactored_calculate_volumes_and_plot.py`** → `ryan-scripts/gdal-python/gdal_stage_storage.py`
+  - Shared stage-storage calculation with a thin CSV/plot wrapper.
 
 ### asc_to_asc batch grouping
 
-- [/] **`asc2asc_groups_v5.py`** (21.8 KB) → `ryan-scripts/unsorted-python/asc2asc_groups.py` plus local candidate helpers
+- [x] **`asc2asc_groups_v5.py`** (21.8 KB) → `ryan-scripts/TUFLOW-python/asc2asc_groups.py`
   - Groups rasters by model/AEP/duration, generates asc_to_asc max/median commands.
-- [/] **`asc2asc_groups_diff_v5.py`** (18.8 KB) → merge with above
+- [x] **`asc2asc_groups_diff_v5.py`** (18.8 KB) → merged with above
   - Same logic but for `-dif` (differencing) mode.
-  - Keep the source scripts and local candidates until wrapper-standard, logging, strict-Pyright and focused behavioural
-    review is complete.
 
 ### RORB analysis
 
-- [/] **`RORB_KTP4_v2.py`** + **`RORB_boxes_*.py`** + **`boxes_from_single_v11.py`** → local reader, plotting and wrapper candidates
+- [x] **`RORB_KTP4_v2.py`** + **`RORB_boxes_*.py`** + **`boxes_from_single_v11.py`** → shared RORB analysis and plotting plus `ryan-scripts/RORB-python/plot_ensemble_results.py`
   - Suite of RORB ensemble analysis and box-and-whisker plotting scripts.
   - `boxes_from_single_v11.py` (21.5 KB) is the most advanced version.
-  - Experimental files are parked in `unsorted-python`. Reconcile source coverage and validate the full workflow before
-    deciding whether reusable library components are justified.
+  - Shared analysis, plotting and orchestration modules now sit behind the promoted wrapper.
 
 ---
 
@@ -260,14 +286,14 @@ These are too small to warrant a formal upgrade or are reference/parameter files
 - [-] **`reclass_clip_v3.bat`** → `ryan-scripts/gdal-python/`
   - Not present in the current `unsorted` checkout and no replacement was found. Recover it from history and reassess
     if this workflow is still wanted.
-- [/] **`asc_to_asc_median.bat`** → merge with `asc2asc_groups_v5.py`
+- [x] **`asc_to_asc_median.bat`** → merged with `asc2asc_groups_v5.py`
   - Comprehensive asc_to_asc median envelope. 5.4 KB of batch logic.
   - Source disposition was finalised in `c7ef077`; use submodule history for the remaining executable parity check.
-- [/] **`gdal_retile_v4_asc.bat`** + **`gdal_retile_v4_tif.bat`** → `ryan-scripts/unsorted-python/gdal_retile_wrapper.py`
+- [x] **`gdal_retile_v4_asc.bat`** + **`gdal_retile_v4_tif.bat`** → `ryan-scripts/gdal-python/gdal_retile_wrapper.py`
   - Both sources were deleted in `c7ef077`; use submodule history during environment-specific parity validation.
-- [/] **Five `ogr2ogr_*` conversion templates** → unreviewed GDAL vector candidates in `ryan-scripts/unsorted-python/`
-  - `gdal_vector_translate.py` and `split_vector_by_attribute.py` candidates are present. The sources were deleted in
-    `c7ef077`; confirm every historical conversion mode before moving replacements into `gdal-python/`.
+- [x] **Five `ogr2ogr_*` conversion templates** → maintained GDAL vector wrappers in `ryan-scripts/gdal-python/`
+  - `gdal_vector_translate.py` and `split_vector_by_attribute.py` use the shared vector-conversion API. The sources were
+    deleted in `c7ef077`; real-project checks remain flagged in the promoted files.
 
 ### Keep as bat (templates / too simple to convert)
 
@@ -280,7 +306,7 @@ These are too small to warrant a formal upgrade or are reference/parameter files
 
 ### Pending BAT source disposition
 
-- [/] **`convert_gdb.bat`** → `ryan-scripts/unsorted-python/convert_gdb_to_gpkg.py`
+- [x] **`convert_gdb.bat`** → `ryan-scripts/gdal-python/convert_gdb_to_gpkg.py`
   - The replacement is tracked and supports selectable vector formats and per-layer or combined-database output. Source
     disposition was finalised in `c7ef077`.
 - [ ] **`gdal_calc_simple.bat`**

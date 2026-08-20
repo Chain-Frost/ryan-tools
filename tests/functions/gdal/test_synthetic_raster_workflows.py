@@ -13,6 +13,7 @@ import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from ryan_library.functions.gdal.raster_processing import (
     build_external_overviews,
     calculate_flood_extent,
+    clear_raster_nodata,
     create_raster_footprint,
     get_vector_extent,
     read_masked_raster_band,
@@ -38,6 +39,19 @@ def test_conversion_sources_describe_the_same_surface(raster_test_data: Path) ->
 
     np.testing.assert_array_equal(arrays[0], arrays[1])
     np.testing.assert_array_equal(arrays[0], arrays[2])
+
+
+def test_clear_raster_nodata_preserves_pixels(raster_test_data: Path, tmp_path: Path) -> None:
+    source = raster_test_data / "maintenance" / "nodata_regions.tif"
+    target = tmp_path / source.name
+    shutil.copy2(source, target)
+    before = read_raster_band(target)
+
+    clear_raster_nodata(target)
+
+    with rasterio.open(target) as dataset:
+        assert dataset.nodata is None
+    np.testing.assert_array_equal(read_raster_band(target), before)
 
 
 def test_merge_directory_builds_expected_adjacent_mosaic(raster_test_data: Path, tmp_path: Path) -> None:
