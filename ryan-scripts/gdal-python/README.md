@@ -21,6 +21,15 @@ details remain visible after lengthy output and beside the interactive pause.
 New and updated wrappers follow the repository-wide
 [`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md).
 
+The wrappers promoted from `unsorted-python` on 20 August 2026 retain a source comment stating that they have not yet
+been tested in production. Focused automated validation has passed, but use copied data and verify representative
+outputs before relying on them for a project. The promoted set covers vector clipping/translation/splitting, File
+Geodatabase export, raster-to-XYZ conversion, retiling, stage-storage, raster counterpart checks, cutline clipping,
+NoData removal and GeoPackage vacuuming.
+
+Stage-storage volumes are reported in cubic metres. The input DEM must have CRS metadata for a projected,
+metre-based coordinate system; geographic and non-metre projected CRSs are rejected.
+
 ## AI and automation discovery
 
 [`gdal_cli_tools.json`](gdal_cli_tools.json) is the machine-readable catalogue

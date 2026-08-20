@@ -14,14 +14,20 @@ from typing import Any
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRIPT_DIR = REPO_ROOT / "ryan-scripts" / "unsorted-python"
+SCRIPT_PATHS = {
+    "check_flt_tif": REPO_ROOT / "ryan-scripts" / "gdal-python" / "check_flt_tif.py",
+    "gdalwarp_clip_to_polygon": REPO_ROOT / "ryan-scripts" / "gdal-python" / "gdalwarp_clip_to_polygon.py",
+    "remove_excel_protection": REPO_ROOT / "ryan-scripts" / "misc-python" / "remove_excel_protection.py",
+    "archive_extract": REPO_ROOT / "ryan-scripts" / "file-management-python" / "archive_extract.py",
+    "convert_gdb_to_gpkg": REPO_ROOT / "ryan-scripts" / "gdal-python" / "convert_gdb_to_gpkg.py",
+}
 gdal: Any = importlib.import_module("osgeo.gdal")
 ogr: Any = importlib.import_module("osgeo.ogr")
 gdal.UseExceptions()
 
 
 def _load_script(name: str) -> ModuleType:
-    script_path = SCRIPT_DIR / f"{name}.py"
+    script_path = SCRIPT_PATHS[name]
     spec = importlib.util.spec_from_file_location(f"test_{name}", script_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load {script_path}")
@@ -185,7 +191,7 @@ def test_convert_gdb_cli_accepts_input_output_format_and_database_mode(tmp_path:
     result = subprocess.run(
         [
             sys.executable,
-            str(SCRIPT_DIR / "convert_gdb_to_gpkg.py"),
+            str(SCRIPT_PATHS["convert_gdb_to_gpkg"]),
             "--input-paths",
             str(source),
             "--output-directory",

@@ -3,13 +3,15 @@ Removes the NoData metadata flag from all TIF files in the target directories.
 This prevents software like QGIS from treating those pixel values as transparent.
 """
 
+# moved from unsorted, not tested in production yet - 2026-08-20
+
 from __future__ import annotations
 
 from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-10.1"
+WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path(".")
@@ -18,10 +20,8 @@ DEFAULT_INPUT = Path(".")
 import argparse
 
 from loguru import logger
-from osgeo import gdal  # type: ignore
 
-gdal.UseExceptions()  # type: ignore
-
+from ryan_library.functions.gdal.raster_processing import clear_raster_nodata
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.path_stuff import PathOrList, to_path_list
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
@@ -71,25 +71,7 @@ def main(*, input_paths: PathOrList | None = None) -> int:
 
         for tif_path in tif_files:
             try:
-                ds = gdal.Open(str(tif_path), gdal.GA_Update)  # type: ignore
-                if not ds:
-                    logger.error("Failed to open {} with GDAL", tif_path.name)
-                    continue
-
-                raster_count = int(ds.RasterCount)  # type: ignore
-                modified = False
-
-                for i in range(1, raster_count + 1):
-                    band = ds.GetRasterBand(i)  # type: ignore
-                    if band.GetNoDataValue() is not None:  # type: ignore
-                        band.DeleteNoDataValue()  # type: ignore
-                        modified = True
-
-                ds = None  # Close and save the dataset
-
-                if modified:
-                    logger.debug("Unset NoData for {}", tif_path.name)
-
+                clear_raster_nodata(tif_path)
                 total_success += 1
             except Exception:
                 logger.exception("Failed to process {}", tif_path.name)

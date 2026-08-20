@@ -102,9 +102,16 @@ leave files staged unless the user asked for staging or a commit.
 
 ## Documentation routing
 
+- Use [`docs/README.md`](docs/README.md) as the complete index of repository-owned Markdown. When working in a subtree,
+  read the nearest `README.md` from the target path first, then use the central index to find related policy, examples,
+  format references and historical context.
+- Keep script-, processor-, example- and tool-specific documentation beside the files it describes. Add it to the
+  central index rather than relocating it solely for discoverability.
+- Treat roadmaps, audits and implementation plans as historical or proposed work, not current policy, unless a
+  canonical guide explicitly adopts their decisions.
 - Human introduction and setup: [`README.md`](README.md)
 - Repository architecture and development decisions: [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUIDE.md)
-- Documentation index and dated plans: [`docs/README.md`](docs/README.md)
+- Documentation index and discovery routes: [`docs/README.md`](docs/README.md)
 - Script selection and safety: [`ryan-scripts/README.md`](ryan-scripts/README.md)
 - Maintained wrapper rules: [`ryan-scripts/WRAPPER_STANDARD.md`](ryan-scripts/WRAPPER_STANDARD.md)
 - Area-specific contracts: the nearest README or workflow document in that subtree

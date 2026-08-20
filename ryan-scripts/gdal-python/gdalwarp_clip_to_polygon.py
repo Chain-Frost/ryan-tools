@@ -3,13 +3,15 @@ Clips all .tif rasters in a directory to a specified polygon vector datasource.
 Uses osgeo.gdal.Warp() via the Python GDAL API to perform the clipping.
 """
 
+# moved from unsorted, not tested in production yet - 2026-08-20
+
 from __future__ import annotations
 
 from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-11.2"
+WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT_DIR = Path(".")

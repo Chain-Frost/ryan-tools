@@ -3,18 +3,18 @@ Extracts standard archives (like .zip, .tar, .gz) found in target directories
 into subfolders. Uses multiprocessing to unpack multiple archives concurrently.
 """
 
+# moved from unsorted, not tested in production yet - 2026-08-20
+
 from __future__ import annotations
 
 import argparse
 import multiprocessing
-import os
 import shutil
-import subprocess
 from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-10.1"
+WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path(".")
@@ -22,26 +22,12 @@ DEFAULT_INPUT = Path(".")
 
 from loguru import logger
 
+from ryan_library.functions.archive_utils import extract_archive, find_7zip
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.path_stuff import PathOrList, to_path_list
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
 
-
-def _find_7z() -> Path | None:
-    if which_7z := shutil.which("7z"):
-        return Path(which_7z)
-
-    paths: list[Path] = [
-        Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "7-Zip" / "7z.exe",
-        Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "7-Zip" / "7z.exe",
-    ]
-    for p in paths:
-        if p.exists():
-            return p
-    return None
-
-
-SEVEN_ZIP_EXE = _find_7z()
+SEVEN_ZIP_EXE = find_7zip()
 
 
 def _extract_archive(archive_path: Path) -> tuple[Path, bool, str]:
@@ -56,21 +42,11 @@ def _extract_archive(archive_path: Path) -> tuple[Path, bool, str]:
             shutil.rmtree(temporary_extract_dir)
         temporary_extract_dir.mkdir(parents=True)
 
-        if SEVEN_ZIP_EXE:
-            # -y = yes to all prompts, -o = output directory
-            result: subprocess.CompletedProcess[str] = subprocess.run(
-                args=[str(object=SEVEN_ZIP_EXE), "x", "-y", f"-o{temporary_extract_dir}", str(object=archive_path)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(
-                    f"7z exit code {result.returncode}: {result.stderr.strip() or result.stdout.strip()}"
-                )
-        else:
-            # Fallback to shutil if 7-Zip isn't installed (won't work for .7z or .rar)
-            shutil.unpack_archive(filename=str(archive_path), extract_dir=str(temporary_extract_dir))
+        extract_archive(
+            archive_path=archive_path,
+            output_directory=temporary_extract_dir,
+            executable=SEVEN_ZIP_EXE,
+        )
 
         temporary_extract_dir.replace(extract_dir)
         return archive_path, True, ""

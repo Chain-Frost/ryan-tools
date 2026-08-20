@@ -6,13 +6,15 @@ multi-layer formats such as GeoPackage and SQLite, ``--single-database`` writes
 one output database per input GDB and retains all source layers together.
 """
 
+# moved from unsorted, not tested in production yet - 2026-08-20
+
 from __future__ import annotations
 
 from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-11.2"
+WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path(".")

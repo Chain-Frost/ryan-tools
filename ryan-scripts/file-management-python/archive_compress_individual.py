@@ -4,18 +4,17 @@ the external 7-Zip executable. Uses multiprocessing to process multiple files
 concurrently.
 """
 
+# moved from unsorted, not tested in production yet - 2026-08-20
+
 from __future__ import annotations
 
 import argparse
 import multiprocessing
-import os
-import shutil
-import subprocess
 from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-10.1"
+WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path(".")
@@ -26,26 +25,12 @@ DEFAULT_EXCLUDE_EXTENSIONS: list[str] = [".xf4", ".xmdf", ".2dm", ".dat", ".7z"]
 
 from loguru import logger
 
+from ryan_library.functions.archive_utils import create_7zip_archive, find_7zip
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.path_stuff import PathOrList, to_path_list
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
 
-
-def _find_7z() -> Path | None:
-    if which_7z := shutil.which("7z"):
-        return Path(which_7z)
-
-    paths: list[Path] = [
-        Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "7-Zip" / "7z.exe",
-        Path(os.environ.get("ProgramFiles(x86)", "C:\\Program Files (x86)")) / "7-Zip" / "7z.exe",
-    ]
-    for p in paths:
-        if p.exists():
-            return p
-    return None
-
-
-SEVEN_ZIP_EXE: Path | None = _find_7z()
+SEVEN_ZIP_EXE: Path | None = find_7zip()
 
 
 def _compress_file(file_path: Path) -> tuple[Path, str, str]:
@@ -58,34 +43,13 @@ def _compress_file(file_path: Path) -> tuple[Path, str, str]:
         if output_archive.exists():
             return file_path, "SKIPPED", f"Output {output_archive.name} already exists"
 
-        # -mx=5 is normal compression. -mmt=1 restricts 7z to 1 thread per process
-        # to prevent thrashing when running inside a multiprocessing pool.
-        result: subprocess.CompletedProcess[str] = subprocess.run(
-            args=[str(SEVEN_ZIP_EXE), "a", "-mx=5", "-mmt=1", str(output_archive), str(file_path)],
-            capture_output=True,
-            text=True,
-            check=False,
+        create_7zip_archive(
+            executable=SEVEN_ZIP_EXE,
+            output_archive=output_archive,
+            inputs=[file_path],
         )
-
-        if result.returncode == 0:
-            return file_path, "SUCCESS", ""
-        else:
-            if output_archive.exists():
-                try:
-                    output_archive.unlink()
-                except OSError:
-                    pass
-            return (
-                file_path,
-                "ERROR",
-                f"7z exit code {result.returncode}: {result.stderr.strip() or result.stdout.strip()}",
-            )
+        return file_path, "SUCCESS", ""
     except Exception as e:
-        if output_archive.exists():
-            try:
-                output_archive.unlink()
-            except OSError:
-                pass
         return file_path, "ERROR", str(e)
 
 

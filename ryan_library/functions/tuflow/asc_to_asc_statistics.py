@@ -4,8 +4,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from dataclasses import dataclass
+from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
+from dataclasses import dataclass, field
 import os
 from pathlib import Path
 import re
@@ -13,6 +13,7 @@ import subprocess
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
+from ryan_library.functions.tuflow.local_raster_calc import compute_stat
 
 
 @dataclass(slots=True, frozen=True)
@@ -22,6 +23,7 @@ class DashboardOptions:
     enabled: bool = True
     refresh_per_second: float = 2.0
     max_rows: int = 25
+    use_alternate_screen: bool = False
 
 
 @dataclass(slots=True, frozen=True)
@@ -41,6 +43,7 @@ class StageExecutionSummary:
     total: int
     succeeded: int
     failed: int
+    failed_jobs: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -116,6 +119,22 @@ def validate_output_filename(filename: str) -> str:
 def run_statistic_job(*, executable: Path, job: StatisticJob) -> Path:
     """Execute one ASC_to_ASC job while capturing console output for diagnostics."""
     job.output_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    op: str = job.operation.casefold()
+    
+    # Bypass asc_to_asc.exe for -stat* commands due to a 32-bit integer overflow bug in
+    # TUFLOW's executable when processing large rasters (e.g. >2GB total uncompressed).
+    if op.startswith("-stat"):
+        try:
+            compute_stat(
+                stat_type=job.operation,
+                input_files=[str(p) for p in job.input_files],
+                output_file=str(job.output_file),
+            )
+            return job.output_file
+        except Exception as e:
+            raise RuntimeError(f"Python {job.operation} computation failed: {e}") from e
+
     command: list[str] = [str(executable), "-b"]
     # The -src switch outputs an auxiliary raster indicating which input file contributed each value.
     # Note: asc_to_asc strictly rejects the -src switch for -statMean, -statMax, and other -stat* commands.
@@ -192,7 +211,7 @@ def run_statistic_stage(
     """Run a bounded thread queue and report each external process in a dashboard."""
     if not jobs:
         return StageExecutionSummary(total=0, succeeded=0, failed=0)
-    requested_workers: int = workers if workers is not None else 24
+    requested_workers: int = workers if workers is not None else 6
     if requested_workers < 1:
         raise ValueError("Worker count must be at least 1")
     worker_count: int = min(requested_workers, len(jobs))
@@ -203,13 +222,15 @@ def run_statistic_stage(
         enabled=dashboard_options.enabled,
         refresh_per_second=dashboard_options.refresh_per_second,
         max_rows=dashboard_options.max_rows,
+        screen=dashboard_options.use_alternate_screen,
     )
     dashboard.set_tasks(labels=[job.label for job in jobs])
     dashboard.set_extra_metrics(metrics={"stage": stage_name, "workers": worker_count, "PID": os.getpid()})
 
     failed_count: int = 0
+    failed_jobs: list[tuple[str, str]] = []
     indexed_jobs: enumerate[StatisticJob] = iter(enumerate(jobs, start=1))
-    with dashboard, ThreadPoolExecutor(max_workers=worker_count) as executor:
+    with dashboard, ProcessPoolExecutor(max_workers=worker_count) as executor:
         future_jobs: dict[Future[Path], tuple[int, StatisticJob]] = {}
 
         def submit_next() -> bool:
@@ -239,10 +260,17 @@ def run_statistic_stage(
                     dashboard.mark_finished(index=index, status="OK", detail=output_file.name, refresh=False)
                 except Exception as error:
                     failed_count += 1
-                    dashboard.mark_finished(index=index, status="FAIL", detail=str(error), refresh=False)
-                    dashboard.print(f"ERROR: {job.label} failed: {error}")
+                    error_msg = str(error)
+                    failed_jobs.append((job.label, error_msg))
+                    dashboard.mark_finished(index=index, status="FAIL", detail=error_msg, refresh=False)
+                    dashboard.print(f"ERROR: {job.label} failed: {error_msg}")
                 submit_next()
             dashboard.set_active_count(count=len(future_jobs), refresh=False)
             dashboard.refresh(force=True)
 
-    return StageExecutionSummary(total=len(jobs), succeeded=len(jobs) - failed_count, failed=failed_count)
+    return StageExecutionSummary(
+        total=len(jobs), 
+        succeeded=len(jobs) - failed_count, 
+        failed=failed_count,
+        failed_jobs=failed_jobs,
+    )

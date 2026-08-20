@@ -4,18 +4,17 @@ executable. Respects exclusion lists directly using 7-Zip's native -xr! flags.
 Uses multiprocessing to process multiple folders concurrently.
 """
 
+# moved from unsorted, not tested in production yet - 2026-08-20
+
 from __future__ import annotations
 
 import argparse
 import multiprocessing
-import os
-import shutil
-import subprocess
 from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-10.1"
+WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path(".")
@@ -25,26 +24,12 @@ DEFAULT_EXCLUDE_EXTENSIONS: list[str] = [".xf4", ".xmdf", ".2dm", ".dat", ".7z"]
 
 from loguru import logger
 
+from ryan_library.functions.archive_utils import create_7zip_archive, find_7zip
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.path_stuff import PathOrList, to_path_list
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
 
-
-def _find_7z() -> Path | None:
-    if which_7z := shutil.which(cmd="7z"):
-        return Path(which_7z)
-
-    paths: list[Path] = [
-        Path(os.environ.get(key="ProgramFiles", default="C:\\Program Files")) / "7-Zip" / "7z.exe",
-        Path(os.environ.get(key="ProgramFiles(x86)", default="C:\\Program Files (x86)")) / "7-Zip" / "7z.exe",
-    ]
-    for p in paths:
-        if p.exists():
-            return p
-    return None
-
-
-SEVEN_ZIP_EXE: Path | None = _find_7z()
+SEVEN_ZIP_EXE: Path | None = find_7zip()
 
 
 def _compress_folder(args: tuple[Path, list[str], list[str]]) -> tuple[Path, str, str]:
@@ -59,49 +44,20 @@ def _compress_folder(args: tuple[Path, list[str], list[str]]) -> tuple[Path, str
         if output_archive.exists():
             return folder_path, "SKIPPED", f"Output {output_archive.name} already exists"
 
-        cmd: list[str] = [
-            str(SEVEN_ZIP_EXE),
-            "a",
-            "-mx=5",
-            "-mmt=1",
-            str(output_archive),
-            f"{folder_path}\\*",
-        ]
-
-        # Add native 7z exclusions
+        exclusions: list[str] = []
         for folder in ex_folders:
-            cmd.append(f"-xr!{folder}")
+            exclusions.append(f"-xr!{folder}")
         for ext in ex_extensions:
-            # ensure extension has a leading dot
             ext_str: str = ext if ext.startswith(".") else f".{ext}"
-            cmd.append(f"-xr!*{ext_str}")
-
-        result: subprocess.CompletedProcess[str] = subprocess.run(
-            args=cmd,
-            capture_output=True,
-            text=True,
-            check=False,
+            exclusions.append(f"-xr!*{ext_str}")
+        create_7zip_archive(
+            executable=SEVEN_ZIP_EXE,
+            output_archive=output_archive,
+            inputs=[f"{folder_path}\\*"],
+            exclusions=exclusions,
         )
-
-        if result.returncode == 0:
-            return folder_path, "SUCCESS", ""
-        else:
-            if output_archive.exists():
-                try:
-                    output_archive.unlink()
-                except OSError:
-                    pass
-            return (
-                folder_path,
-                "ERROR",
-                f"7z exit code {result.returncode}: {result.stderr.strip() or result.stdout.strip()}",
-            )
+        return folder_path, "SUCCESS", ""
     except Exception as e:
-        if output_archive.exists():
-            try:
-                output_archive.unlink()
-            except OSError:
-                pass
         return folder_path, "ERROR", str(e)
 
 

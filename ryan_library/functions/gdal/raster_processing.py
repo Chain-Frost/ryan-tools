@@ -526,6 +526,26 @@ def set_raster_nodata(raster: Path, nodata: float, *, bands: Sequence[int] | Non
     return raster
 
 
+def clear_raster_nodata(raster: Path, *, bands: Sequence[int] | None = None) -> Path:
+    """Remove NoData metadata from selected bands without changing pixel values."""
+    raster = raster.resolve()
+    with gdal.ExceptionMgr():
+        dataset = gdal.Open(str(raster), gdal.GA_Update)
+        if dataset is None:
+            raise RuntimeError(f"GDAL could not open {raster} for update")
+        selected_bands = tuple(bands) if bands is not None else tuple(range(1, dataset.RasterCount + 1))
+        for band_number in selected_bands:
+            if band_number < 1 or band_number > dataset.RasterCount:
+                raise ValueError(f"Band {band_number} does not exist in {raster}")
+            band = dataset.GetRasterBand(band_number)
+            if band.GetNoDataValue() is not None:
+                band.DeleteNoDataValue()
+        dataset.FlushCache()
+        dataset = None
+    logger.info("Cleared NoData metadata on {}", raster)
+    return raster
+
+
 def create_raster_footprint(
     input_raster: Path,
     output_vector: Path,

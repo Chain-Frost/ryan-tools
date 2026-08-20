@@ -4,13 +4,15 @@ Uses Python's native sqlite3 library to run the VACUUM command without needing
 QGIS, GDAL, or OSGeo4W environments.
 """
 
+# moved from unsorted, not tested in production yet - 2026-08-20
+
 from __future__ import annotations
 
 from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-10.1"
+WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT_DIR = Path(".")

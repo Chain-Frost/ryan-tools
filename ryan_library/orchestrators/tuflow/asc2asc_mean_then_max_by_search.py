@@ -183,7 +183,7 @@ def discover_mean_jobs(
     return jobs, sorted(incomplete_groups)
 
 
-def discover_max_jobs(*, mean_jobs: Sequence[MeanJobDetails], output_root: Path) -> list[StatisticJob]:
+def discover_max_jobs(*, mean_jobs: Sequence[MeanJobDetails], output_root: Path) -> list[tuple[StatisticJob, list[str]]]:
     """Group duration means by model, scenario, AEP, and result type."""
     groups: dict[tuple[Path, str, str, str], list[MeanJobDetails]] = defaultdict(list)
     for details in mean_jobs:
@@ -196,7 +196,7 @@ def discover_max_jobs(*, mean_jobs: Sequence[MeanJobDetails], output_root: Path)
             )
         ].append(details)
 
-    jobs: list[StatisticJob] = []
+    jobs: list[tuple[StatisticJob, list[str]]] = []
     for group in groups.values():
         group.sort(key=lambda details: details.duration_minutes)
         representative: MeanJobDetails = group[0]
@@ -207,20 +207,23 @@ def discover_max_jobs(*, mean_jobs: Sequence[MeanJobDetails], output_root: Path)
                 f"{representative.result_type}: {durations}"
             )
         jobs.append(
-            StatisticJob(
-                label=f"maximum mean {representative.scenario} {representative.aep} {representative.result_type}",
-                operation="-statMax",
-                input_files=tuple(details.job.output_file for details in group),
-                output_file=(
-                    output_root
-                    / "max_of_means"
-                    / representative.scenario
-                    / representative.aep
-                    / representative.max_name
+            (
+                StatisticJob(
+                    label=f"maximum mean {representative.scenario} {representative.aep} {representative.result_type}",
+                    operation="-statMax",
+                    input_files=tuple(details.job.output_file for details in group),
+                    output_file=(
+                        output_root
+                        / "max_of_means"
+                        / representative.scenario
+                        / representative.aep
+                        / representative.max_name
+                    ),
                 ),
+                durations,
             )
         )
-    return sorted(jobs, key=lambda job: job.label)
+    return sorted(jobs, key=lambda item: item[0].label)
 
 
 def run_mean_then_max_workflow(
@@ -238,6 +241,7 @@ def run_mean_then_max_workflow(
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
     live_max_rows: int = 25,
+    live_use_alternate_screen: bool = False,
 ) -> int:
     """Validate and run the ensemble mean-then-maximum workflow."""
     if workers is not None and workers < 1:
@@ -261,25 +265,27 @@ def run_mean_then_max_workflow(
         mean_jobs, incomplete_groups = discover_mean_jobs(
             rasters=rasters, output_root=output_root, expected_tps=expected_tps
         )
-        max_jobs: list[StatisticJob] = discover_max_jobs(mean_jobs=mean_jobs, output_root=output_root)
+        max_job_data: list[tuple[StatisticJob, list[str]]] = discover_max_jobs(mean_jobs=mean_jobs, output_root=output_root)
     except (FileNotFoundError, ValueError) as error:
         print(f"ERROR: {error}")
         return 1
 
+    incomplete_count = len(incomplete_groups)
+    incomplete_text = f" (excluded {incomplete_count} incomplete groups)" if incomplete_count else ""
     print(f"Found {len(rasters)} supported input rasters.")
-    print(f"Validated {len(mean_jobs)} complete TP mean groups.")
-    print(f"Prepared {len(max_jobs)} maximum-of-means groups.")
-    for job in max_jobs:
-        print(f"  {job.label}: {len(job.input_files)} duration means")
+    print(f"Validated {len(mean_jobs)} complete TP mean groups{incomplete_text}.")
+    print(f"Prepared {len(max_job_data)} maximum-of-means groups.")
+    for job, durations in max_job_data:
+        print(f"  {job.label}: {len(job.input_files)} duration means ({', '.join(durations)})")
     for incomplete in incomplete_groups:
         print(f"WARNING: excluded incomplete group: {incomplete}")
     if incomplete_groups and strict:
-        print(f"ERROR: {len(incomplete_groups)} incomplete groups found in strict mode.")
+        print(f"ERROR: {incomplete_count} incomplete groups found in strict mode.")
         return 1
     if dry_run:
         print("Dry run complete; no rasters were created.")
         return 0
-    if not mean_jobs or not max_jobs:
+    if not mean_jobs or not max_job_data:
         print("ERROR: no complete statistic jobs were prepared")
         return 1
 
@@ -287,6 +293,7 @@ def run_mean_then_max_workflow(
         enabled=use_live_dashboard,
         refresh_per_second=live_refresh_per_second,
         max_rows=live_max_rows,
+        use_alternate_screen=live_use_alternate_screen,
     )
     mean_summary: StageExecutionSummary = run_statistic_stage(
         executable=executable,
@@ -300,19 +307,25 @@ def run_mean_then_max_workflow(
     print(f"Finished mean stage: {mean_summary.succeeded} succeeded; {mean_summary.failed} failed.")
     if not mean_summary.ok:
         print("ERROR: mean stage failed; maximum stage was not started.")
+        for label, error in mean_summary.failed_jobs:
+            print(f"  - {label} failed: {error}")
         return 1
 
     max_summary: StageExecutionSummary = run_statistic_stage(
         executable=executable,
-        jobs=max_jobs,
-        stage_name="maximum-of-means",
+        jobs=[job for job, _ in max_job_data],
+        stage_name="maximum of means",
         dashboard_title="ASC_to_ASC Ensemble Statistics",
         dashboard_subtitle=str(search_root),
         workers=workers,
         dashboard_options=dashboard_options,
     )
     print(f"Finished maximum stage: {max_summary.succeeded} succeeded; {max_summary.failed} failed.")
-    if max_summary.ok:
-        print(f"Finished. Outputs are under {output_root}")
-        return 0
-    return 1
+    if not max_summary.ok:
+        print("ERROR: maximum stage completed with failures.")
+        for label, error in max_summary.failed_jobs:
+            print(f"  - {label} failed: {error}")
+        return 1
+        
+    print(f"Finished. Outputs are under {output_root}")
+    return 0

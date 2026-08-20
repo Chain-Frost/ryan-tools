@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 repo_root = Path(__file__).resolve().parents[2]
-SCRIPT_DIR = repo_root / "ryan-scripts" / "unsorted-python"
+SCRIPT_DIR = repo_root / "ryan-scripts" / "file-management-python"
 COMPRESS_FOLDER_SCRIPT = SCRIPT_DIR / "archive_compress_folder.py"
 COMPRESS_INDIVIDUAL_SCRIPT = SCRIPT_DIR / "archive_compress_individual.py"
 

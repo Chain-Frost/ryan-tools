@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "catalogue": "ryan-tools GDAL command-line wrappers",
-  "catalogue_updated": "2026-08-02",
+  "catalogue_updated": "2026-08-20",
   "wrapper_versions": {
     "gdal_translate_TIF_ovr.py": "2026-08-02.4",
     "gdaladdo_tif_pyramids.py": "2026-08-02.4",
@@ -11,7 +11,18 @@
     "gdal_set_nodata.py": "2026-08-02.3",
     "gdal_raster_footprint.py": "2026-08-02.3",
     "laz_to_las.py": "2026-08-02.3",
-    "build_VRT.py": "2026-08-02.4"
+    "build_VRT.py": "2026-08-02.4",
+    "batch_vector_clip.py": "2026-08-20.1",
+    "check_flt_tif.py": "2026-08-20.1",
+    "convert_gdb_to_gpkg.py": "2026-08-20.1",
+    "gdal_raster_to_xyz.py": "2026-08-20.1",
+    "gdal_retile_wrapper.py": "2026-08-20.1",
+    "gdal_stage_storage.py": "2026-08-20.2",
+    "gdal_unset_nodata.py": "2026-08-20.1",
+    "gdal_vector_translate.py": "2026-08-20.1",
+    "gdalwarp_clip_to_polygon.py": "2026-08-20.1",
+    "split_vector_by_attribute.py": "2026-08-20.1",
+    "vacuum_geopackages.py": "2026-08-20.1"
   },
   "resolve_scripts_relative_to": "directory containing this manifest",
   "command_prefix": [
@@ -456,6 +467,96 @@
           "note": "Review representative filenames and the field-removal rule before execution."
         }
       ]
+    },
+    {
+      "id": "batch_vector_clip",
+      "script": "batch_vector_clip.py",
+      "purpose": "Clip multiple vector datasets to one or more extent datasets with bounded ogr2ogr workers.",
+      "mutation": "creates_outputs",
+      "defaults": {"workers": 4, "overwrite": false, "dry_run": false},
+      "help_arguments": ["batch_vector_clip.py", "--help"]
+    },
+    {
+      "id": "check_raster_counterparts",
+      "script": "check_flt_tif.py",
+      "purpose": "Report FLT rasters whose matching TIFF is missing or older.",
+      "mutation": "creates_outputs",
+      "defaults": {"primary_extension": ".flt", "secondary_extension": ".tif"},
+      "help_arguments": ["check_flt_tif.py", "--help"]
+    },
+    {
+      "id": "convert_file_geodatabases",
+      "script": "convert_gdb_to_gpkg.py",
+      "purpose": "Export File Geodatabase layers to supported GDAL vector formats.",
+      "mutation": "creates_outputs",
+      "defaults": {"output_format": "gpkg", "single_database": false},
+      "help_arguments": ["convert_gdb_to_gpkg.py", "--help"]
+    },
+    {
+      "id": "convert_rasters_to_xyz",
+      "script": "gdal_raster_to_xyz.py",
+      "purpose": "Stream raster cells to XYZ or CSV through gdal2xyz.",
+      "mutation": "creates_outputs",
+      "defaults": {"format": "csv", "recursive": false, "workers": 2},
+      "help_arguments": ["gdal_raster_to_xyz.py", "--help"]
+    },
+    {
+      "id": "retile_rasters",
+      "script": "gdal_retile_wrapper.py",
+      "purpose": "Retile one or more rasters through gdal_retile with editable tile settings.",
+      "mutation": "creates_outputs",
+      "defaults": {"tile_size": [5000, 5000], "overlap": 10, "format": "GTiff"},
+      "help_arguments": ["gdal_retile_wrapper.py", "--help"]
+    },
+    {
+      "id": "calculate_stage_storage",
+      "script": "gdal_stage_storage.py",
+      "purpose": "Calculate stage-storage CSV files and optional plots from single-band DEMs with a projected metre-based CRS.",
+      "mutation": "creates_outputs",
+      "defaults": {"patterns": ["*.tif"], "step": 0.01, "create_plot": true},
+      "help_arguments": ["gdal_stage_storage.py", "--help"]
+    },
+    {
+      "id": "unset_raster_nodata",
+      "script": "gdal_unset_nodata.py",
+      "purpose": "Remove NoData metadata from TIFF bands without changing pixel values.",
+      "mutation": "in_place",
+      "requires_explicit_approval": true,
+      "defaults": {"recursive": false},
+      "help_arguments": ["gdal_unset_nodata.py", "--help"]
+    },
+    {
+      "id": "translate_vector_dataset",
+      "script": "gdal_vector_translate.py",
+      "purpose": "Translate a vector dataset with optional source and target CRS overrides.",
+      "mutation": "creates_outputs",
+      "defaults": {"output_format_from_extension": true},
+      "help_arguments": ["gdal_vector_translate.py", "--help"]
+    },
+    {
+      "id": "clip_rasters_to_polygon",
+      "script": "gdalwarp_clip_to_polygon.py",
+      "purpose": "Clip TIFF rasters to an unambiguous vector cutline layer.",
+      "mutation": "creates_outputs",
+      "defaults": {"output_directory": "clipped"},
+      "help_arguments": ["gdalwarp_clip_to_polygon.py", "--help"]
+    },
+    {
+      "id": "split_vector_by_attribute",
+      "script": "split_vector_by_attribute.py",
+      "purpose": "Write one vector dataset per distinct attribute value.",
+      "mutation": "creates_outputs",
+      "defaults": {"format": "shp", "parallel": false, "workers": 4},
+      "help_arguments": ["split_vector_by_attribute.py", "--help"]
+    },
+    {
+      "id": "vacuum_geopackages",
+      "script": "vacuum_geopackages.py",
+      "purpose": "Reclaim unused space in GeoPackage SQLite databases.",
+      "mutation": "in_place",
+      "requires_explicit_approval": true,
+      "defaults": {"recursive": false},
+      "help_arguments": ["vacuum_geopackages.py", "--help"]
     }
   ]
 }

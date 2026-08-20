@@ -73,7 +73,33 @@ contents are unchanged; the embedded revision is stable and reviewable.
 
 Keep project paths, search patterns, output templates and frequently adjusted
 settings together near the top of the file. Use uppercase names and explicit
-types where useful. Resolve CLI values first, then fall back to these defaults.
+types where useful. A user must be able to configure an ordinary wrapper run by
+editing these constants instead of supplying command-line arguments. CLI values
+are optional overrides: resolve an explicitly supplied CLI value first, then
+fall back to the corresponding editable default.
+
+Do not put the editable value only in `argparse`'s `default=` parameter. Keep
+the visible `DEFAULT_*` constant as the source of the wrapper configuration and
+normally let the CLI option default to `None`, preserving the distinction
+between "not supplied" and an explicit false, zero or empty value:
+
+```python
+DEFAULT_INPUT = Path(".")
+DEFAULT_RECURSIVE = False
+
+parser.add_argument("--input", type=Path)
+parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=None)
+
+input_path = Path(args.input if args.input is not None else DEFAULT_INPUT).resolve()
+recursive = args.recursive if args.recursive is not None else DEFAULT_RECURSIVE
+```
+
+Avoid required positional or optional CLI arguments for values that are
+reasonable editable wrapper settings. A required CLI argument is appropriate
+only when there is no safe or meaningful hard-coded default, such as a secret,
+a one-off destructive confirmation or input that must be chosen for every run.
+
+Keep cosmetic or highly specific terminal preferences (such as dashboard alternate-screen rendering options) as editable wrapper constants rather than shared CLI arguments. This prevents cluttering the ``--help`` menu across multiple unrelated scripts with rendering flags that users rarely change per execution.
 
 Do not add repository-root `sys.path` changes. Copied wrappers require the
 matching `ryan-tools` wheel or editable package to be installed.
