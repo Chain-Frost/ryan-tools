@@ -1,0 +1,9 @@
+rock_class,thickness_m,d50_rounded_mm,d50_mm
+150 Rock Pitching,0.15,,
+Facing,0.5,300,300
+Light,0.75,400,400
+1/4 Tonne,1.0,500,550
+1/2 Tonne,1.25,700,700
+1 Tonne,1.6,900,900
+2 Tonne,2.0,1100,1150
+4 Tonne,2.5,1400,1450
