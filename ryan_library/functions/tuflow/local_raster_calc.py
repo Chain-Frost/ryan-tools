@@ -5,13 +5,15 @@ from __future__ import annotations
 from contextlib import ExitStack, closing
 from pathlib import Path
 import time
-from typing import Iterable, Protocol, cast
+from typing import Iterable, Literal, Protocol, cast
 from uuid import uuid4
 
 import numpy as np
 import numpy.typing as npt
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from rasterio.windows import Window  # pyright: ignore[reportMissingTypeStubs]
+
+type NodataPolicy = Literal["require_all", "zero", "exclude"]
 
 
 class _RasterDataset(Protocol):
@@ -135,23 +137,23 @@ def _chunk_windows(
     dataset: _RasterDataset, num_datasets: int = 1, memory_limit_mb: int = 2048
 ) -> Iterable[tuple[tuple[int, int], object]]:
     """Yield rectangular windows of rows to optimize I/O, safely bounded by a memory limit.
-    
+
     The peak memory for a statistical operation on N aligned chunks of float64 data is
     conservatively around 200 bytes per pixel per dataset (factoring in float64 arrays,
     valid masks, np.stack allocations, and output arrays).
     """
     bytes_per_pixel_per_dataset = 200
     max_pixels = (memory_limit_mb * 1024 * 1024) // (bytes_per_pixel_per_dataset * num_datasets)
-    
+
     height = dataset.height
     width = dataset.width
     # Ensure we always read at least 1 row, even if memory limit is tiny
     chunk_rows = max(1, max_pixels // width)
-    
+
     for row_off in range(0, height, chunk_rows):
         row_count = min(chunk_rows, height - row_off)
         # Yield a dummy index (0, row_off) to match the signature of block_windows
-        yield ((0, row_off), Window(0, row_off, width, row_count))
+        yield ((0, row_off), Window(0, row_off, width, row_count))  # pyright: ignore[reportCallIssue]
 
 
 def compute_max(input_files: list[str], output_file: str, extra_args: list[str] | None = None) -> None:
@@ -237,8 +239,19 @@ def compute_diff(
         temporary_wet_dry.unlink(missing_ok=True)
 
 
-def compute_stat(stat_type: str, input_files: list[str], output_file: str, extra_args: list[str] | None = None) -> None:
-    """Write a cell-wise statistic for aligned rasters, requiring every input cell to be valid."""
+def compute_stat(
+    stat_type: str,
+    input_files: list[str],
+    output_file: str,
+    extra_args: list[str] | None = None,
+    nodata_policy: NodataPolicy = "require_all",
+) -> None:
+    """Write a cell-wise statistic for aligned rasters using the requested NoData policy.
+
+    ``require_all`` writes NoData unless every input is valid. ``zero`` includes
+    invalid inputs as zeroes. ``exclude`` calculates from the valid inputs and
+    writes NoData only where every input is invalid.
+    """
     normalized_stat = stat_type.lower().removeprefix("-stat")
     operations = {
         "mean": np.mean,
@@ -249,6 +262,8 @@ def compute_stat(stat_type: str, input_files: list[str], output_file: str, extra
     operation = operations.get(normalized_stat)
     if operation is None:
         raise ValueError(f"Unsupported stat_type: {stat_type}")
+    if nodata_policy not in {"require_all", "zero", "exclude"}:
+        raise ValueError(f"Unsupported nodata_policy: {nodata_policy}")
 
     output_path = Path(output_file).resolve()
     temporary_path = _temporary_output(output_path)
@@ -264,9 +279,33 @@ def compute_stat(stat_type: str, input_files: list[str], output_file: str, extra
                     _valid_mask(data, dataset.nodata) for data, dataset in zip(arrays, datasets, strict=True)
                 ]
                 stack_data = np.stack(arrays, axis=0)
-                all_valid = np.all(np.stack(valid_arrays, axis=0), axis=0)
-                statistic = operation(stack_data, axis=0)
-                result = np.where(all_valid, statistic, output_nodata)
+                stack_valid = np.stack(valid_arrays, axis=0)
+                if nodata_policy == "require_all":
+                    statistic = operation(stack_data, axis=0)
+                    result: npt.NDArray[np.float64] = np.asarray(
+                        np.where(np.all(stack_valid, axis=0), statistic, output_nodata), dtype=np.float64
+                    )
+                elif nodata_policy == "zero":
+                    result = np.asarray(operation(np.where(stack_valid, stack_data, 0.0), axis=0), dtype=np.float64)
+                else:
+                    valid_count = np.sum(stack_valid, axis=0, dtype=np.intp)
+                    any_valid = valid_count > 0
+                    if normalized_stat == "mean":
+                        valid_sum = np.sum(np.where(stack_valid, stack_data, 0.0), axis=0)
+                        statistic = np.zeros(valid_sum.shape, dtype=np.float64)
+                        np.divide(valid_sum, valid_count, out=statistic, where=any_valid)
+                    elif normalized_stat == "max":
+                        statistic = np.max(np.where(stack_valid, stack_data, -np.inf), axis=0)
+                    elif normalized_stat == "min":
+                        statistic = np.min(np.where(stack_valid, stack_data, np.inf), axis=0)
+                    else:
+                        sorted_values = np.sort(np.where(stack_valid, stack_data, np.inf), axis=0)
+                        lower_indexes = np.maximum(valid_count - 1, 0) // 2
+                        upper_indexes = valid_count // 2
+                        lower_values = np.take_along_axis(sorted_values, lower_indexes[np.newaxis, ...], axis=0)[0]
+                        upper_values = np.take_along_axis(sorted_values, upper_indexes[np.newaxis, ...], axis=0)[0]
+                        statistic = (lower_values + upper_values) / 2.0
+                    result = np.asarray(np.where(any_valid, statistic, output_nodata), dtype=np.float64)
                 destination.write(result, 1, window=window)
         _replace_output(temporary_path, output_path)
     finally:

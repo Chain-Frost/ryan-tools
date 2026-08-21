@@ -20,6 +20,7 @@ from ryan_library.functions.tuflow.asc_to_asc_statistics import (
     result_type_from_parser,
     run_statistic_stage,
 )
+from ryan_library.functions.tuflow.local_raster_calc import NodataPolicy
 
 
 @dataclass(slots=True, frozen=True)
@@ -52,6 +53,16 @@ class MeanJobDetails:
     result_type: str
     trim_run_code: str
     max_name: str
+
+
+def _nodata_policy_for_result_type(result_type: str) -> NodataPolicy:
+    """Return the hydraulic interpretation of NoData for an ensemble result."""
+    normalized_result_type: str = result_type.casefold()
+    if normalized_result_type in {"d_hr_max", "v_max"}:
+        return "zero"
+    if normalized_result_type in {"h_max", "h_hr_max"}:
+        return "exclude"
+    return "require_all"
 
 
 def _parse_raster(
@@ -168,6 +179,7 @@ def discover_mean_jobs(
                     output_file=(
                         output_root / "means" / representative.scenario / representative.aep / representative.mean_name
                     ),
+                    nodata_policy=_nodata_policy_for_result_type(representative.result_type),
                 ),
                 grid_directory=representative.grid_directory,
                 scenario=representative.scenario,
@@ -183,7 +195,9 @@ def discover_mean_jobs(
     return jobs, sorted(incomplete_groups)
 
 
-def discover_max_jobs(*, mean_jobs: Sequence[MeanJobDetails], output_root: Path) -> list[tuple[StatisticJob, list[str]]]:
+def discover_max_jobs(
+    *, mean_jobs: Sequence[MeanJobDetails], output_root: Path
+) -> list[tuple[StatisticJob, list[str]]]:
     """Group duration means by model, scenario, AEP, and result type."""
     groups: dict[tuple[Path, str, str, str], list[MeanJobDetails]] = defaultdict(list)
     for details in mean_jobs:
@@ -219,6 +233,7 @@ def discover_max_jobs(*, mean_jobs: Sequence[MeanJobDetails], output_root: Path)
                         / representative.aep
                         / representative.max_name
                     ),
+                    nodata_policy=_nodata_policy_for_result_type(representative.result_type),
                 ),
                 durations,
             )
@@ -265,7 +280,9 @@ def run_mean_then_max_workflow(
         mean_jobs, incomplete_groups = discover_mean_jobs(
             rasters=rasters, output_root=output_root, expected_tps=expected_tps
         )
-        max_job_data: list[tuple[StatisticJob, list[str]]] = discover_max_jobs(mean_jobs=mean_jobs, output_root=output_root)
+        max_job_data: list[tuple[StatisticJob, list[str]]] = discover_max_jobs(
+            mean_jobs=mean_jobs, output_root=output_root
+        )
     except (FileNotFoundError, ValueError) as error:
         print(f"ERROR: {error}")
         return 1
@@ -326,6 +343,6 @@ def run_mean_then_max_workflow(
         for label, error in max_summary.failed_jobs:
             print(f"  - {label} failed: {error}")
         return 1
-        
+
     print(f"Finished. Outputs are under {output_root}")
     return 0

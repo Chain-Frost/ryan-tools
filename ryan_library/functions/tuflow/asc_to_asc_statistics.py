@@ -13,7 +13,7 @@ import subprocess
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
-from ryan_library.functions.tuflow.local_raster_calc import compute_stat
+from ryan_library.functions.tuflow.local_raster_calc import NodataPolicy, compute_stat
 
 
 @dataclass(slots=True, frozen=True)
@@ -34,6 +34,7 @@ class StatisticJob:
     operation: str
     input_files: tuple[Path, ...]
     output_file: Path
+    nodata_policy: NodataPolicy = "require_all"
 
 
 @dataclass(slots=True, frozen=True)
@@ -43,7 +44,7 @@ class StageExecutionSummary:
     total: int
     succeeded: int
     failed: int
-    failed_jobs: list[tuple[str, str]] = field(default_factory=list)
+    failed_jobs: list[tuple[str, str]] = field(default_factory=lambda: list[tuple[str, str]]())
 
     @property
     def ok(self) -> bool:
@@ -119,9 +120,9 @@ def validate_output_filename(filename: str) -> str:
 def run_statistic_job(*, executable: Path, job: StatisticJob) -> Path:
     """Execute one ASC_to_ASC job while capturing console output for diagnostics."""
     job.output_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     op: str = job.operation.casefold()
-    
+
     # Bypass asc_to_asc.exe for -stat* commands due to a 32-bit integer overflow bug in
     # TUFLOW's executable when processing large rasters (e.g. >2GB total uncompressed).
     if op.startswith("-stat"):
@@ -130,6 +131,7 @@ def run_statistic_job(*, executable: Path, job: StatisticJob) -> Path:
                 stat_type=job.operation,
                 input_files=[str(p) for p in job.input_files],
                 output_file=str(job.output_file),
+                nodata_policy=job.nodata_policy,
             )
             return job.output_file
         except Exception as e:
@@ -149,12 +151,12 @@ def run_statistic_job(*, executable: Path, job: StatisticJob) -> Path:
             *(str(input_file) for input_file in job.input_files),
         ]
     )
-    
+
     completed_process: subprocess.CompletedProcess[str] = subprocess.run(
         command,
         check=False,
-        # Note: We pass "-b" to run asc_to_asc in batch mode, which normally suppresses prompts. 
-        # However, when asc_to_asc encounters a fatal error (e.g. invalid arguments), the Fortran 
+        # Note: We pass "-b" to run asc_to_asc in batch mode, which normally suppresses prompts.
+        # However, when asc_to_asc encounters a fatal error (e.g. invalid arguments), the Fortran
         # runtime often ignores "-b" and falls back to a "PAUSE (Press Enter to Close)" instruction.
         # Passing a newline directly ensures it immediately reads the input and exits during a crash,
         # preventing deadlocks or older Fortran runtimes from entering 100% CPU loops on EOF.
@@ -170,7 +172,7 @@ def run_statistic_job(*, executable: Path, job: StatisticJob) -> Path:
             f"ASC_to_ASC exited with code {completed_process.returncode}" + (f": {output_tail}" if output_tail else "")
         )
     # Handle output renaming.
-    # When using -stat* commands (e.g. -statMean, -statMax), asc_to_asc ignores the exact filename 
+    # When using -stat* commands (e.g. -statMean, -statMax), asc_to_asc ignores the exact filename
     # requested in `-out`, and instead automatically appends a suffix like `_Mean_Val` or `_Max_Val`
     # before the extension. We must locate this suffixed file and rename it back to the originally
     # requested output name so that downstream jobs can locate it.
@@ -185,7 +187,7 @@ def run_statistic_job(*, executable: Path, job: StatisticJob) -> Path:
             expected_suffix = "_Min_Val"
         elif op == "-statmedian":
             expected_suffix = "_Median_Val"
-        
+
         if expected_suffix:
             actual_val_file: Path = job.output_file.with_name(
                 f"{job.output_file.stem}{expected_suffix}{job.output_file.suffix}"
@@ -269,8 +271,8 @@ def run_statistic_stage(
             dashboard.refresh(force=True)
 
     return StageExecutionSummary(
-        total=len(jobs), 
-        succeeded=len(jobs) - failed_count, 
+        total=len(jobs),
+        succeeded=len(jobs) - failed_count,
         failed=failed_count,
         failed_jobs=failed_jobs,
     )

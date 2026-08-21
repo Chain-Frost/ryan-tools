@@ -9,11 +9,15 @@ groups without creating rasters; use ``--help`` for worker and strictness option
 The workflow completes all per-duration means before calculating maxima across
 durations. Input globs may contain wildcards, but output naming templates must
 render concrete filenames and must not rediscover generated outputs.
+
+For ``d_HR_Max`` and ``V_Max``, NoData contributes zero to both statistics.
+For elevation results ``h_Max`` and ``h_HR_Max``, NoData is excluded and an
+output cell remains NoData only when every contributing cell is NoData.
 """
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-08-21.1"
 
 ASC_TO_ASC_EXE = Path(r"C:\TUFLOW\asc_to_asc.2024-06-AB\asc_to_asc_w64.exe")
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -84,7 +88,9 @@ def main(
             LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
         ),
         live_max_rows=LIVE_MAX_ROWS if live_max_rows is None else live_max_rows,
-        live_use_alternate_screen=LIVE_USE_ALTERNATE_SCREEN if live_use_alternate_screen is None else live_use_alternate_screen,
+        live_use_alternate_screen=(
+            LIVE_USE_ALTERNATE_SCREEN if live_use_alternate_screen is None else live_use_alternate_screen
+        ),
     )
     return exit_code
 
