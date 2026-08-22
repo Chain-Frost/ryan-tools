@@ -59,6 +59,20 @@ The maintained wrapper exposes the opt-in as `--source`. Explicit
 default differs from ASC_to_ASC, whose counter-intuitive `-src` switch
 suppresses source output rather than enabling it.
 
+For the mean-then-maximum workflow, `--source` is propagated through both
+stages. Per-duration mean source rasters identify the original temporal-pattern
+rasters. The maximum stage composes its intermediate mean selection with those
+mean source rasters, so the final source IDs and CSV legend also point directly
+to the original temporal-pattern rasters rather than the generated mean files.
+
+## GeoTIFF compression
+
+Native GeoTIFF value rasters and auxiliary rasters always use the repository's
+shared TUFLOW creation profile by default: `COMPRESS=DEFLATE`, `PREDICTOR=2`,
+`BIGTIFF=IF_SAFER`, and `NUM_THREADS=ALL_CPUS`. This does not depend on whether
+the input GeoTIFF is compressed. Explicit `-co NAME=VALUE` creation options
+override the corresponding defaults when another lossless profile is required.
+
 ## NoData policies
 
 These policies are explicit Python workflow behaviour and do not universally

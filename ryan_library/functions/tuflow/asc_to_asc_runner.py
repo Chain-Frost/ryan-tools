@@ -18,6 +18,8 @@ from ryan_library.functions.tuflow.asc_to_asc_raster_operations import (
     NodataPolicy,
     compute_max,
     compute_stat,
+    flatten_nested_source_provenance,
+    source_output_paths,
 )
 
 
@@ -32,6 +34,7 @@ class RasterOperationJob:
     nodata_policy: NodataPolicy = "require_all"
     mean_value_method: MeanValueMethod = "closest_source"
     write_source: bool = False
+    original_input_groups: tuple[tuple[Path, ...], ...] | None = None
 
 
 def run_python_raster_job(*, job: RasterOperationJob) -> Path:
@@ -58,6 +61,15 @@ def run_python_raster_job(*, job: RasterOperationJob) -> Path:
                 mean_value_method=job.mean_value_method,
                 write_source=job.write_source,
             )
+            if job.write_source and job.original_input_groups is not None:
+                nested_source_files = [str(source_output_paths(str(input_file))[0]) for input_file in job.input_files]
+                flatten_nested_source_provenance(
+                    output_file=str(job.output_file),
+                    nested_source_files=nested_source_files,
+                    original_input_groups=[
+                        [str(original_input) for original_input in group] for group in job.original_input_groups
+                    ],
+                )
         else:
             raise ValueError(f"Unsupported native ASC_to_ASC operation: {job.operation}")
     except Exception as error:

@@ -133,7 +133,11 @@ def discover_rasters(
 
 
 def discover_mean_jobs(
-    *, rasters: Sequence[ParsedRaster], output_root: Path, expected_tps: frozenset[int]
+    *,
+    rasters: Sequence[ParsedRaster],
+    output_root: Path,
+    expected_tps: frozenset[int],
+    write_source: bool = False,
 ) -> tuple[list[MeanJobDetails], list[str]]:
     """Group exactly the expected temporal patterns for every duration."""
     groups: dict[tuple[Path, str, str, str, str], list[ParsedRaster]] = defaultdict(list)
@@ -182,6 +186,7 @@ def discover_mean_jobs(
                         output_root / "means" / representative.scenario / representative.aep / representative.mean_name
                     ),
                     nodata_policy=_nodata_policy_for_result_type(representative.result_type),
+                    write_source=write_source,
                 ),
                 grid_directory=representative.grid_directory,
                 scenario=representative.scenario,
@@ -198,7 +203,7 @@ def discover_mean_jobs(
 
 
 def discover_max_jobs(
-    *, mean_jobs: Sequence[MeanJobDetails], output_root: Path
+    *, mean_jobs: Sequence[MeanJobDetails], output_root: Path, write_source: bool = False
 ) -> list[tuple[RasterOperationJob, list[str]]]:
     """Group duration means by model, scenario, AEP, and result type."""
     groups: dict[tuple[Path, str, str, str], list[MeanJobDetails]] = defaultdict(list)
@@ -236,6 +241,10 @@ def discover_max_jobs(
                         / representative.max_name
                     ),
                     nodata_policy=_nodata_policy_for_result_type(representative.result_type),
+                    write_source=write_source,
+                    original_input_groups=(
+                        tuple(details.job.input_files for details in group) if write_source else None
+                    ),
                 ),
                 durations,
             )
@@ -254,6 +263,7 @@ def run_mean_then_max_workflow(
     workers: int | None = None,
     dry_run: bool = False,
     strict: bool = False,
+    write_source: bool = False,
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
     live_max_rows: int = 25,
@@ -275,10 +285,15 @@ def run_mean_then_max_workflow(
             result_types=result_types,
         )
         mean_jobs, incomplete_groups = discover_mean_jobs(
-            rasters=rasters, output_root=output_root, expected_tps=expected_tps
+            rasters=rasters,
+            output_root=output_root,
+            expected_tps=expected_tps,
+            write_source=write_source,
         )
         max_job_data: list[tuple[RasterOperationJob, list[str]]] = discover_max_jobs(
-            mean_jobs=mean_jobs, output_root=output_root
+            mean_jobs=mean_jobs,
+            output_root=output_root,
+            write_source=write_source,
         )
     except (FileNotFoundError, ValueError) as error:
         print(f"ERROR: {error}")
@@ -289,6 +304,7 @@ def run_mean_then_max_workflow(
     print(f"Found {len(rasters)} supported input rasters.")
     print(f"Validated {len(mean_jobs)} complete TP mean groups{incomplete_text}.")
     print(f"Prepared {len(max_job_data)} maximum-of-means groups.")
+    print(f"Source rasters and original-input legends: {'enabled' if write_source else 'disabled'}.")
     for job, durations in max_job_data:
         print(f"  {job.label}: {len(job.input_files)} duration means ({', '.join(durations)})")
     for incomplete in incomplete_groups:

@@ -55,6 +55,7 @@ def test_mean_then_max_wrapper_dry_run_supports_nested_plus_names(
         workers=1,
         dry_run=True,
         strict=True,
+        write_source=True,
         use_live_dashboard=False,
     )
 

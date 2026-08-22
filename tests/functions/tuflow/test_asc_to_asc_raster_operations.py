@@ -9,6 +9,7 @@ import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs]
 
 from ryan_library.functions.tuflow.asc_to_asc_raster_operations import compute_stat
+from ryan_library.functions.tuflow.asc_to_asc_raster_operations import flatten_nested_source_provenance
 from ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search import (
     ParsedRaster,
     discover_max_jobs,
@@ -37,6 +38,11 @@ def _write_raster(path: Path, values: list[float]) -> None:
 def _read_raster(path: Path) -> np.ndarray:
     with rasterio.open(path) as source:
         return source.read(1)
+
+
+def _compression(path: Path) -> str | None:
+    with rasterio.open(path) as source:
+        return None if source.compression is None else source.compression.name
 
 
 @pytest.mark.parametrize(
@@ -165,6 +171,63 @@ def test_compute_stat_does_not_write_source_outputs_by_default(tmp_path: Path) -
     assert output.is_file()
     assert not (tmp_path / "minimum_src.tif").exists()
     assert not (tmp_path / "minimum_src_legend.csv").exists()
+
+
+def test_native_geotiff_outputs_use_tuflow_compression_by_default(tmp_path: Path) -> None:
+    first = tmp_path / "first.tif"
+    second = tmp_path / "second.tif"
+    output = tmp_path / "maximum.tif"
+    _write_raster(first, [1.0, 4.0])
+    _write_raster(second, [3.0, 2.0])
+    assert _compression(first) is None
+
+    compute_stat("max", [str(first), str(second)], str(output), write_source=True)
+
+    assert _compression(output) == "deflate"
+    assert _compression(tmp_path / "maximum_src.tif") == "deflate"
+
+
+def test_explicit_creation_options_override_tuflow_compression_defaults(tmp_path: Path) -> None:
+    input_path = tmp_path / "input.tif"
+    output = tmp_path / "minimum.tif"
+    _write_raster(input_path, [3.0])
+
+    compute_stat("min", [str(input_path)], str(output), extra_args=["-co", "COMPRESS=LZW"])
+
+    assert _compression(output) == "lzw"
+
+
+def test_flatten_nested_source_provenance_links_to_original_rasters(tmp_path: Path) -> None:
+    originals = [
+        tmp_path / name for name in ("duration1_tp1.tif", "duration1_tp2.tif", "duration2_tp1.tif", "duration2_tp2.tif")
+    ]
+    for index, original in enumerate(originals, start=1):
+        _write_raster(original, [float(index)])
+
+    final_output = tmp_path / "maximum.tif"
+    final_source = tmp_path / "maximum_src.tif"
+    first_mean_source = tmp_path / "mean_duration1_src.tif"
+    second_mean_source = tmp_path / "mean_duration2_src.tif"
+    _write_raster(final_source, [1.0, 2.0, 2.0, 0.0])
+    _write_raster(first_mean_source, [2.0, 1.0, 1.0, 0.0])
+    _write_raster(second_mean_source, [1.0, 2.0, 0.0, 0.0])
+
+    flatten_nested_source_provenance(
+        output_file=str(final_output),
+        nested_source_files=[str(first_mean_source), str(second_mean_source)],
+        original_input_groups=[
+            [str(originals[0]), str(originals[1])],
+            [str(originals[2]), str(originals[3])],
+        ],
+    )
+
+    np.testing.assert_array_equal(_read_raster(final_source), np.asarray([[2, 4, 0, 0]], dtype=np.int32))
+    with (tmp_path / "maximum_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.reader(stream))
+    assert rows == [
+        ["source_id", "source_file"],
+        *[[str(index), str(path.resolve())] for index, path in enumerate(originals, start=1)],
+    ]
 
 
 def _parsed_raster(*, tmp_path: Path, result_type: str) -> ParsedRaster:

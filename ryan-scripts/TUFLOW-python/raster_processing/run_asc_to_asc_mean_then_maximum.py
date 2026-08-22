@@ -10,6 +10,10 @@ The workflow completes all per-duration means before calculating maxima across
 durations. Input globs may contain wildcards, but output naming templates must
 render concrete filenames and must not rediscover generated outputs.
 
+Source rasters are disabled by default. Set ``WRITE_SOURCE_RASTERS`` or use
+``--source`` to create per-duration source outputs and final source outputs
+whose CSV IDs link directly to the original temporal-pattern rasters.
+
 For ``d_HR_Max`` and ``V_Max``, NoData contributes zero to both statistics.
 For elevation results ``h_Max`` and ``h_HR_Max``, NoData is excluded and an
 output cell remains NoData only when every contributing cell is NoData.
@@ -27,6 +31,7 @@ SCENARIOS = ("EXG", "DEV")
 RESULT_TYPES = ("d_HR_Max", "h_HR_Max", "V_Max")
 WORKERS: int | None = None
 STRICT_INCOMPLETE_GROUPS = False
+WRITE_SOURCE_RASTERS = False
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
 LIVE_MAX_ROWS = 25
@@ -52,6 +57,7 @@ class CliOptions:
     workers: int | None
     dry_run: bool
     strict: bool | None
+    write_source: bool | None
 
 
 def main(
@@ -60,6 +66,7 @@ def main(
     workers: int | None = None,
     dry_run: bool = False,
     strict: bool | None = None,
+    write_source: bool | None = None,
     use_live_dashboard: bool | None = None,
     live_refresh_per_second: float | None = None,
     live_max_rows: int | None = None,
@@ -81,6 +88,7 @@ def main(
         workers=workers if workers is not None else WORKERS,
         dry_run=dry_run,
         strict=STRICT_INCOMPLETE_GROUPS if strict is None else strict,
+        write_source=WRITE_SOURCE_RASTERS if write_source is None else write_source,
         use_live_dashboard=USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard,
         live_refresh_per_second=(
             LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
@@ -103,12 +111,20 @@ def _parse_cli_arguments() -> CliOptions:
     strict_group = parser.add_mutually_exclusive_group()
     strict_group.add_argument("--strict", dest="strict", action="store_true", default=None)
     strict_group.add_argument("--no-strict", dest="strict", action="store_false")
+    parser.add_argument(
+        "--source",
+        dest="write_source",
+        action="store_true",
+        default=None,
+        help="Write source rasters and CSV legends linked to the original input rasters.",
+    )
     args: argparse.Namespace = parser.parse_args()
     return CliOptions(
         common=parse_common_cli_arguments(args=args),
         workers=args.workers,
         dry_run=args.dry_run,
         strict=args.strict,
+        write_source=args.write_source,
     )
 
 
@@ -119,6 +135,7 @@ if __name__ == "__main__":
         workers=cli_options.workers,
         dry_run=cli_options.dry_run,
         strict=cli_options.strict,
+        write_source=cli_options.write_source,
         use_live_dashboard=cli_options.common.use_live_dashboard,
         live_refresh_per_second=cli_options.common.live_refresh_per_second,
         live_max_rows=cli_options.common.live_max_rows,

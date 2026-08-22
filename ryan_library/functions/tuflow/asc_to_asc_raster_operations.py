@@ -30,6 +30,8 @@ import numpy.typing as npt
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from rasterio.windows import Window  # pyright: ignore[reportMissingTypeStubs]
 
+from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
+
 type NodataPolicy = Literal["require_all", "zero", "exclude"]
 type MeanValueMethod = Literal["closest_source", "arithmetic"]
 type StatisticType = Literal["mean", "median", "min", "max"]
@@ -115,8 +117,19 @@ def _validate_inputs(datasets: list[_RasterDataset], paths: list[Path]) -> None:
             raise ValueError(f"Raster CRS does not match the first input: {path}")
 
 
+def _creation_option_arguments(options: list[str]) -> list[str]:
+    """Convert GDAL ``NAME=VALUE`` options to repeated ``-co`` arguments."""
+    return [item for option in options for item in ("-co", option)]
+
+
 def _output_profile(reference: _RasterDataset, extra_args: list[str] | None) -> tuple[dict[str, object], float]:
     profile: dict[str, object] = reference.meta.copy()
+    if str(profile.get("driver", "")).casefold() == "gtiff":
+        profile.update(
+            _parse_creation_options(
+                _creation_option_arguments(geotiff_creation_options(profile="tuflow", threads="ALL_CPUS"))
+            )
+        )
     profile.update(_parse_creation_options(extra_args))
     profile["count"] = 1
     profile["dtype"] = "float64" if reference.dtypes[0].lower() == "float64" else "float32"
@@ -173,6 +186,15 @@ def _source_output_paths(
     return source_path, legend_path
 
 
+def source_output_paths(
+    output_file: str,
+    source_output_file: str | None = None,
+    source_legend_file: str | None = None,
+) -> tuple[Path, Path]:
+    """Return the source raster and legend paths for a value raster."""
+    return _source_output_paths(Path(output_file).resolve(), source_output_file, source_legend_file)
+
+
 def _write_source_legend(legend_path: Path, input_paths: list[Path]) -> None:
     """Atomically write the 1-based source IDs used by the source raster."""
     temporary_path = _temporary_output(legend_path)
@@ -185,6 +207,77 @@ def _write_source_legend(legend_path: Path, input_paths: list[Path]) -> None:
         _replace_output(temporary_path, legend_path)
     finally:
         temporary_path.unlink(missing_ok=True)
+
+
+def flatten_nested_source_provenance(
+    *,
+    output_file: str,
+    nested_source_files: list[str],
+    original_input_groups: list[list[str]],
+    source_output_file: str | None = None,
+    source_legend_file: str | None = None,
+) -> None:
+    """Replace an intermediate source mapping with original-input source IDs.
+
+    ``compute_stat`` initially records which intermediate input supplied each
+    output cell. Each intermediate input has its own source raster whose local
+    IDs identify the original rasters in the corresponding input group. This
+    function composes those two mappings into one 1-based source raster and a
+    legend that points directly to the original rasters.
+    """
+    if not nested_source_files:
+        raise ValueError("At least one nested source raster is required")
+    if len(nested_source_files) != len(original_input_groups):
+        raise ValueError("Nested source rasters and original input groups must have equal lengths")
+    if any(not group for group in original_input_groups):
+        raise ValueError("Every nested source raster must have at least one original input")
+
+    source_path, legend_path = source_output_paths(output_file, source_output_file, source_legend_file)
+    temporary_source_path: Path = _temporary_output(source_path)
+    original_paths: list[Path] = [Path(value).resolve() for group in original_input_groups for value in group]
+    missing_originals: list[Path] = [path for path in original_paths if not path.is_file()]
+    if missing_originals:
+        raise FileNotFoundError(f"Original source raster does not exist: {missing_originals[0]}")
+    if len(original_paths) > np.iinfo(np.int32).max:
+        raise ValueError("Too many original rasters for a 32-bit source-ID raster")
+
+    try:
+        with ExitStack() as stack:
+            stack.enter_context(rasterio.Env(GDAL_CACHEMAX=512, VSI_CACHE=True))
+            _, datasets = _open_inputs(stack, [str(source_path), *nested_source_files])
+            selector, *nested_sources = datasets
+            profile = selector.meta.copy()
+            profile["count"] = 1
+            profile["dtype"] = "int32"
+            profile["nodata"] = 0
+            destination = stack.enter_context(closing(_open_raster(temporary_source_path, "w", profile)))
+
+            group_offsets: list[int] = []
+            running_offset = 0
+            for group in original_input_groups:
+                group_offsets.append(running_offset)
+                running_offset += len(group)
+
+            for _, window in _chunk_windows(selector, num_datasets=len(datasets)):
+                selected_groups = np.asarray(selector.read(1, window=window), dtype=np.int64)
+                flattened_ids = np.zeros(selected_groups.shape, dtype=np.int32)
+                for group_index, (nested_source, originals, offset) in enumerate(
+                    zip(nested_sources, original_input_groups, group_offsets, strict=True),
+                    start=1,
+                ):
+                    group_cells = selected_groups == group_index
+                    if not np.any(group_cells):
+                        continue
+                    local_ids = np.asarray(nested_source.read(1, window=window), dtype=np.int64)
+                    valid_local_ids = (local_ids >= 1) & (local_ids <= len(originals))
+                    selected_cells = group_cells & valid_local_ids
+                    flattened_ids[selected_cells] = np.asarray(offset + local_ids[selected_cells], dtype=np.int32)
+                destination.write(flattened_ids, 1, window=window)
+
+        _replace_output(temporary_source_path, source_path)
+        _write_source_legend(legend_path, original_paths)
+    finally:
+        temporary_source_path.unlink(missing_ok=True)
 
 
 def _chunk_windows(

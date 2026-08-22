@@ -105,7 +105,7 @@ def test_run_asc_to_asc_job(mock_run, tmp_path: Path) -> None:
     res = run_asc_to_asc_job(executable=exe, job=job)
     assert res == out_file
     mock_run.assert_called_once()
-    assert "-src" in mock_run.call_args.args[0]
+    assert "-src" in mock_run.call_args.kwargs["args"]
 
     # Test failure from returncode
     mock_cp.returncode = 1
@@ -161,7 +161,7 @@ def test_run_asc_to_asc_stat_job_normalizes_suffixed_comparison_output(mock_run,
     assert run_asc_to_asc_job(executable=executable, job=job, output_file=requested_output) == requested_output
     assert requested_output.is_file()
     assert not suffixed_output.exists()
-    assert "-src" not in mock_run.call_args.args[0]
+    assert "-src" not in mock_run.call_args.kwargs["args"]
 
 
 def test_run_raster_operation_stage_empty_without_executable() -> None:
