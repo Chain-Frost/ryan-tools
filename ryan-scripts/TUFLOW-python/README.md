@@ -13,12 +13,15 @@ the top of each file. This includes the log-summary, POMM/PO combination,
 culvert reporting, time-series checking, result styling and ASC_to_ASC search
 wrappers.
 
-`asc2asc_groups.py` and `asc2asc_py.py` were promoted from `unsorted-python` on 20 August 2026. They retain an explicit
+`raster_processing/run_grouped_asc_to_asc_statistics.py` and
+`raster_processing/run_python_raster_calculations.py` were promoted from `unsorted-python` on 20 August 2026. They retain an explicit
 source warning because they have focused automated coverage but have not yet been used on a production project. The
 native-Python wrapper uses the shared raster-calculation implementation; the grouped wrapper coordinates the external
-TUFLOW `asc_to_asc` executable.
+TUFLOW `asc_to_asc` executable. The native implementation's supported command mapping, NoData policies, closest-source
+mean, upper median and optional executable-comparison boundary are documented in
+[`../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md`](../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md).
 
-[`plot_water_level_profiles.py`](plot_water_level_profiles.py) creates terrain
+[`plot_water_level_profiles.py`](po_and_timeseries/plot_water_level_profiles.py) creates terrain
 and TUFLOW water-level profile PNGs along GeoPackage lines.  CLI arguments can override paths and profile settings. The workflow validates CRS metadata and
 requires exactly one result raster for every requested AEP. Missing CRS metadata
 is inferred from any tagged profile or raster input; when every input is
@@ -26,6 +29,17 @@ untagged, their source coordinates are assumed to already align.
 The default masked-bilinear sampler returns NoData only when the profile
 station's containing raster cell is NoData; adjacent NoData cells are excluded
 and the remaining interpolation weights are renormalised.
+
+## Wrapper folders
+
+| Folder | Purpose |
+| --- | --- |
+| `culvert_results` | Combine and summarise TUFLOW culvert maximum and time-series results. |
+| `gis_processing` | Process GeoPackage layers, network layers and QGIS result styles. |
+| `log_processing` | Parse TUFLOW logs and maintain log-summary workbooks. |
+| `model_management` | Launch simulations and collect or clean model result files. |
+| `po_and_timeseries` | Process PO and POMM outputs, check time series and plot profiles. |
+| `raster_processing` | Run ASC_to_ASC and native-Python raster calculations. |
 
 Only imports needed to construct or annotate those editable values, such as
 `Path` and `Literal`, appear before the settings. Operational third-party and
@@ -73,8 +87,8 @@ Run any maintained wrapper with `--help` for its current arguments. For a
 headless invocation, include `--no-pause`:
 
 ```powershell
-py -3.14 .\LogSummary.py --working-directory "D:\Model\results" --no-pause
-py -3.14 .\POMM_combine.py --export-mode parquet --no-pause
+py -3.14 .\log_processing\create_log_summary_report.py --working-directory "D:\Model\results" --no-pause
+py -3.14 .\po_and_timeseries\combine_pomm_results.py --export-mode parquet --no-pause
 ```
 
 ## POMM peak wrapper migration

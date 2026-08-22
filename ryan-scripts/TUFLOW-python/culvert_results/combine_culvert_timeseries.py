@@ -1,0 +1,108 @@
+# ryan-scripts\TUFLOW-python\culvert_results\combine_culvert_timeseries.py
+"""
+Wrapper Script: Combine TUFLOW Culvert Timeseries.
+
+This script acts as a mutable wrapper for `tuflow_culverts_timeseries.main_processing`.
+It combines culvert timeseries data (e.g., flow vs time) from multiple CSV files.
+Users can edit the hard-coded constants in this file to control data types and export format,
+or use command-line arguments to override these settings.
+"""
+
+from pathlib import Path
+from typing import Literal
+
+WRAPPER_VERSION = "2026-08-02.1"
+
+CONSOLE_LOG_LEVEL = "INFO"
+INCLUDE_DATA_TYPES: tuple[str, ...] = ("Q", "V", "H", "CF", "Chan", "EOF")
+EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
+WORKING_DIR: Path = Path(__file__).absolute().parent
+# Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
+PATHS_TO_PROCESS: tuple[Path, ...] = ()
+# WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
+
+import argparse
+
+from ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries import main_processing
+from ryan_library.functions.wrapper_utils import (
+    CommonWrapperOptions,
+    add_common_cli_arguments,
+    change_working_directory,
+    parse_common_cli_arguments,
+    pause_console,
+    print_wrapper_banner,
+)
+
+
+def main(
+    *,
+    console_log_level: str | None = None,
+    include_data_types: tuple[str, ...] | None = None,
+    locations_to_include: tuple[str, ...] | None = None,
+    paths_to_process: tuple[Path, ...] | None = None,
+    working_directory: Path | None = None,
+) -> int:
+    """
+    Main entry point to combine culvert timeseries; double-clickable.
+
+    This function initializes the environment and calls `main_processing`.
+    It uses constants defined in this file (e.g., INCLUDE_DATA_TYPES) as default values.
+
+    Args:
+        console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
+        include_data_types: Overrides the INCLUDE_DATA_TYPES constant.
+        locations_to_include: Overrides the locations filter.
+        paths_to_process: Explicit folder roots to scan for result files.
+        working_directory: Overrides the default WORKING_DIR.
+    """
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+
+    script_dir: Path = working_directory or WORKING_DIR
+    if not change_working_directory(target_dir=script_dir):
+        return 1
+
+    effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
+    effective_data_types: list[str] = list(include_data_types or INCLUDE_DATA_TYPES)
+    effective_export_mode: Literal["excel", "parquet", "both"] = EXPORT_MODE
+    effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_dir,))
+    main_processing(
+        paths_to_process=effective_paths_to_process,
+        include_data_types=effective_data_types,
+        console_log_level=effective_console_log_level,
+        locations_to_include=locations_to_include,
+        export_mode=effective_export_mode,
+    )
+    return 0
+
+
+def _parse_cli_arguments() -> CommonWrapperOptions:
+    """
+    Parse command-line arguments to override script defaults.
+
+    Returns:
+        CommonWrapperOptions: Parsed and processed common arguments.
+    """
+    parser = argparse.ArgumentParser(
+        description="Combine culvert timeseries exports. Command-line options override the script defaults."
+    )
+    add_common_cli_arguments(parser=parser)
+    args: argparse.Namespace = parser.parse_args()
+    return parse_common_cli_arguments(args=args)
+
+
+if __name__ == "__main__":
+    common_options: CommonWrapperOptions = _parse_cli_arguments()
+    result: int = main(
+        console_log_level=common_options.console_log_level,
+        include_data_types=common_options.data_types,
+        locations_to_include=common_options.locations_to_include,
+        working_directory=common_options.working_directory,
+    )
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
+    if not common_options.no_pause:
+        pause_console()
+    raise SystemExit(result)

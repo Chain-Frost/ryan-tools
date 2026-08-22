@@ -11,7 +11,7 @@ from types import ModuleType
 
 import pytest
 
-SCRIPTS_DIRECTORY = Path(__file__).parents[3] / "ryan-scripts" / "TUFLOW-python"
+SCRIPTS_DIRECTORY = Path(__file__).parents[3] / "ryan-scripts" / "TUFLOW-python" / "raster_processing"
 
 
 def _load_script(filename: str) -> ModuleType:
@@ -30,8 +30,7 @@ def test_max_search_wrapper_dry_run_uses_configured_fixture_layout(
     raster_test_data: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     search_root = raster_test_data / "tuflow_statistics" / "max_search"
-    module = _load_script("asc2asc_max_by_search.py")
-    monkeypatch.setattr(module, "ASC_TO_ASC_EXE", Path(sys.executable))
+    module = _load_script("run_asc_to_asc_maximum_searches.py")
     monkeypatch.chdir(search_root)
 
     result = module.main(
@@ -48,8 +47,7 @@ def test_mean_then_max_wrapper_dry_run_supports_nested_plus_names(
     raster_test_data: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     search_root = raster_test_data / "tuflow_statistics" / "mean_then_max"
-    module = _load_script("asc2asc_mean_then_max_by_search.py")
-    monkeypatch.setattr(module, "ASC_TO_ASC_EXE", Path(sys.executable))
+    module = _load_script("run_asc_to_asc_mean_then_maximum.py")
     monkeypatch.chdir(search_root)
 
     result = module.main(

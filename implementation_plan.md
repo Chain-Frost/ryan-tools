@@ -45,7 +45,7 @@ copied file/API inventories rather than broken Markdown links.
 
 3. **Clarify that root TUFLOW orchestrator and wrapper lists are representative.**
    The other audit correctly identified omitted current entry points such as `tuflow_logsummary_append`,
-   `LogSummaryAppendToMaster.py`, closure-duration reporting, and the mean/median wrappers. Because the existing
+   `log_processing/append_log_summary_to_master_workbook.py`, closure-duration reporting, and the mean/median wrappers. Because the existing
    headings say “Useful” and “Common,” omission does not make the current text false. Expanding another manually
    maintained inventory would create more drift; explicitly label the lists as representative and link to the
    TUFLOW wrapper README or folder instead.

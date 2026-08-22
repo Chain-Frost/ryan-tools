@@ -8,6 +8,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_DIRS = (
     REPO_ROOT / "ryan-scripts" / "TUFLOW-python",
+    REPO_ROOT / "ryan-scripts" / "TUFLOW-python" / "raster_processing",
     REPO_ROOT / "ryan-scripts" / "gdal-python",
     REPO_ROOT / "ryan-scripts" / "RORB-python",
     REPO_ROOT / "ryan-scripts" / "hydrology-python",

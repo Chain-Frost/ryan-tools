@@ -11,16 +11,18 @@ from pathlib import Path
 from loguru import logger
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
-from ryan_library.functions.tuflow.asc_to_asc_statistics import (
-    DashboardOptions,
-    StageExecutionSummary,
-    StatisticJob,
+from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob
+from ryan_library.functions.tuflow.tuflow_result_naming import (
     replace_filename_component,
     require_component_text,
     result_type_from_parser,
-    run_statistic_stage,
 )
-from ryan_library.functions.tuflow.local_raster_calc import NodataPolicy
+from ryan_library.functions.tuflow.asc_to_asc_raster_operations import NodataPolicy
+from ryan_library.orchestrators.tuflow.asc_to_asc_batch import (
+    DashboardOptions,
+    StageExecutionSummary,
+    run_raster_operation_stage,
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -44,7 +46,7 @@ class ParsedRaster:
 class MeanJobDetails:
     """A mean job plus the fields needed for duration grouping."""
 
-    job: StatisticJob
+    job: RasterOperationJob
     grid_directory: Path
     scenario: str
     aep: str
@@ -169,7 +171,7 @@ def discover_mean_jobs(
 
         jobs.append(
             MeanJobDetails(
-                job=StatisticJob(
+                job=RasterOperationJob(
                     label=(
                         f"mean {representative.scenario} {representative.aep} "
                         f"{representative.duration} {representative.result_type}"
@@ -197,7 +199,7 @@ def discover_mean_jobs(
 
 def discover_max_jobs(
     *, mean_jobs: Sequence[MeanJobDetails], output_root: Path
-) -> list[tuple[StatisticJob, list[str]]]:
+) -> list[tuple[RasterOperationJob, list[str]]]:
     """Group duration means by model, scenario, AEP, and result type."""
     groups: dict[tuple[Path, str, str, str], list[MeanJobDetails]] = defaultdict(list)
     for details in mean_jobs:
@@ -210,7 +212,7 @@ def discover_max_jobs(
             )
         ].append(details)
 
-    jobs: list[tuple[StatisticJob, list[str]]] = []
+    jobs: list[tuple[RasterOperationJob, list[str]]] = []
     for group in groups.values():
         group.sort(key=lambda details: details.duration_minutes)
         representative: MeanJobDetails = group[0]
@@ -222,7 +224,7 @@ def discover_max_jobs(
             )
         jobs.append(
             (
-                StatisticJob(
+                RasterOperationJob(
                     label=f"maximum mean {representative.scenario} {representative.aep} {representative.result_type}",
                     operation="-statMax",
                     input_files=tuple(details.job.output_file for details in group),
@@ -243,7 +245,6 @@ def discover_max_jobs(
 
 def run_mean_then_max_workflow(
     *,
-    executable: Path,
     search_root: Path,
     output_root: Path,
     input_glob: str,
@@ -265,10 +266,6 @@ def run_mean_then_max_workflow(
     if live_refresh_per_second <= 0 or live_max_rows < 1:
         print("ERROR: dashboard refresh and row values must be greater than zero")
         return 1
-    if not executable.is_file():
-        print(f"ERROR: ASC_to_ASC was not found at: {executable}")
-        return 1
-
     logger.disable("ryan_library")
     try:
         rasters: list[ParsedRaster] = discover_rasters(
@@ -280,7 +277,7 @@ def run_mean_then_max_workflow(
         mean_jobs, incomplete_groups = discover_mean_jobs(
             rasters=rasters, output_root=output_root, expected_tps=expected_tps
         )
-        max_job_data: list[tuple[StatisticJob, list[str]]] = discover_max_jobs(
+        max_job_data: list[tuple[RasterOperationJob, list[str]]] = discover_max_jobs(
             mean_jobs=mean_jobs, output_root=output_root
         )
     except (FileNotFoundError, ValueError) as error:
@@ -312,11 +309,10 @@ def run_mean_then_max_workflow(
         max_rows=live_max_rows,
         use_alternate_screen=live_use_alternate_screen,
     )
-    mean_summary: StageExecutionSummary = run_statistic_stage(
-        executable=executable,
+    mean_summary: StageExecutionSummary = run_raster_operation_stage(
         jobs=[details.job for details in mean_jobs],
         stage_name="temporal-pattern mean",
-        dashboard_title="ASC_to_ASC Ensemble Statistics",
+        dashboard_title="Native Ensemble Raster Statistics",
         dashboard_subtitle=str(search_root),
         workers=workers,
         dashboard_options=dashboard_options,
@@ -328,11 +324,10 @@ def run_mean_then_max_workflow(
             print(f"  - {label} failed: {error}")
         return 1
 
-    max_summary: StageExecutionSummary = run_statistic_stage(
-        executable=executable,
+    max_summary: StageExecutionSummary = run_raster_operation_stage(
         jobs=[job for job, _ in max_job_data],
         stage_name="maximum of means",
-        dashboard_title="ASC_to_ASC Ensemble Statistics",
+        dashboard_title="Native Ensemble Raster Statistics",
         dashboard_subtitle=str(search_root),
         workers=workers,
         dashboard_options=dashboard_options,

@@ -13,7 +13,8 @@ from ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search import (
     ParsedRaster,
     MeanJobDetails,
 )
-from ryan_library.functions.tuflow.asc_to_asc_statistics import StatisticJob, StageExecutionSummary
+from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob
+from ryan_library.orchestrators.tuflow.asc_to_asc_batch import StageExecutionSummary
 
 
 class TestParseRaster:
@@ -66,8 +67,15 @@ class TestParseRaster:
                 "ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.result_type_from_parser",
                 return_value="d",
             ):
-                with pytest.raises(ValueError, match="Could not parse AEP, duration, and TP"):
-                    _parse_raster(input_file=file_path, grid_directory=tmp_path, scenarios=["EXG"], result_types=["d"])
+                assert (
+                    _parse_raster(
+                        input_file=file_path,
+                        grid_directory=tmp_path,
+                        scenarios=["EXG"],
+                        result_types=["d"],
+                    )
+                    is None
+                )
 
     def test_parse_raster_multiple_scenarios(self, tmp_path: Path):
         file_path = tmp_path / "model_EXG_DEV_1%AEP_2hr_001_d_Max.asc"
@@ -125,7 +133,7 @@ class TestDiscoverMeanJobs:
 
 class TestDiscoverMaxJobs:
     def test_duplicate_duration(self, tmp_path: Path):
-        job = StatisticJob("lbl", "op", (), Path("out"))
+        job = RasterOperationJob("lbl", "op", (), Path("out"))
         m1 = MeanJobDetails(job, tmp_path, "EXG", "1%", "2hr", 120.0, "d", "model", "max.asc")
         m2 = MeanJobDetails(job, tmp_path, "EXG", "1%", "2hr", 120.0, "d", "model", "max.asc")
 
@@ -137,7 +145,6 @@ class TestWorkflow:
     def test_workflow_validation_errors(self, tmp_path: Path):
         # Invalid workers
         res = run_mean_then_max_workflow(
-            executable=Path("dummy"),
             search_root=tmp_path,
             output_root=tmp_path,
             input_glob="*.asc",
@@ -150,7 +157,6 @@ class TestWorkflow:
 
         # Invalid refresh
         res = run_mean_then_max_workflow(
-            executable=Path("dummy"),
             search_root=tmp_path,
             output_root=tmp_path,
             input_glob="*.asc",
@@ -161,26 +167,11 @@ class TestWorkflow:
         )
         assert res == 1
 
-        # Missing executable
-        res = run_mean_then_max_workflow(
-            executable=tmp_path / "nonexistent.exe",
-            search_root=tmp_path,
-            output_root=tmp_path,
-            input_glob="*.asc",
-            expected_tps=frozenset([1]),
-            scenarios=["EXG"],
-            result_types=["d"],
-        )
-        assert res == 1
-
     @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_rasters")
     def test_workflow_discovery_error(self, mock_discover, tmp_path: Path):
-        exe = tmp_path / "asc2asc.exe"
-        exe.touch()
         mock_discover.side_effect = FileNotFoundError("No files")
 
         res = run_mean_then_max_workflow(
-            executable=exe,
             search_root=tmp_path,
             output_root=tmp_path,
             input_glob="*.asc",
@@ -194,14 +185,11 @@ class TestWorkflow:
     @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_mean_jobs")
     @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_max_jobs")
     def test_workflow_incomplete_strict(self, mock_max, mock_mean, mock_discover, tmp_path: Path):
-        exe = tmp_path / "asc2asc.exe"
-        exe.touch()
         mock_discover.return_value = []
         mock_mean.return_value = ([], ["incomplete group"])
         mock_max.return_value = []
 
         res = run_mean_then_max_workflow(
-            executable=exe,
             search_root=tmp_path,
             output_root=tmp_path,
             input_glob="*.asc",
@@ -215,11 +203,8 @@ class TestWorkflow:
     @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_rasters")
     @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_mean_jobs")
     @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_max_jobs")
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.run_statistic_stage")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.run_raster_operation_stage")
     def test_workflow_success(self, mock_stage, mock_max, mock_mean, mock_discover, tmp_path: Path):
-        exe = tmp_path / "asc2asc.exe"
-        exe.touch()
-
         dummy_job = MagicMock()
         dummy_job.label = "lbl"
         dummy_job.input_files = []
@@ -229,13 +214,12 @@ class TestWorkflow:
 
         mock_discover.return_value = ["dummy_raster"]
         mock_mean.return_value = ([dummy_mean], [])
-        mock_max.return_value = [dummy_job]
+        mock_max.return_value = [(dummy_job, ["2hr"])]
 
         # Mean stage ok, max stage ok
         mock_stage.side_effect = [StageExecutionSummary(1, 1, 0), StageExecutionSummary(1, 1, 0)]
 
         res = run_mean_then_max_workflow(
-            executable=exe,
             search_root=tmp_path,
             output_root=tmp_path,
             input_glob="*.asc",
@@ -249,11 +233,8 @@ class TestWorkflow:
     @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_rasters")
     @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_mean_jobs")
     @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_max_jobs")
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.run_statistic_stage")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.run_raster_operation_stage")
     def test_workflow_mean_failure(self, mock_stage, mock_max, mock_mean, mock_discover, tmp_path: Path):
-        exe = tmp_path / "asc2asc.exe"
-        exe.touch()
-
         dummy_job = MagicMock()
         dummy_job.label = "lbl"
         dummy_job.input_files = []
@@ -263,13 +244,12 @@ class TestWorkflow:
 
         mock_discover.return_value = ["dummy_raster"]
         mock_mean.return_value = ([dummy_mean], [])
-        mock_max.return_value = [dummy_job]
+        mock_max.return_value = [(dummy_job, ["2hr"])]
 
         # Mean stage fails
         mock_stage.return_value = StageExecutionSummary(1, 0, 1)
 
         res = run_mean_then_max_workflow(
-            executable=exe,
             search_root=tmp_path,
             output_root=tmp_path,
             input_glob="*.asc",

@@ -13,7 +13,7 @@ import pytest
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.gdal.raster_processing import read_raster_band
-from ryan_library.functions.tuflow.asc_to_asc_statistics import replace_filename_component
+from ryan_library.functions.tuflow.tuflow_result_naming import replace_filename_component
 from ryan_library.orchestrators.tuflow.asc2asc_max_by_search import (
     build_max_searches,
     discover_max_jobs as discover_search_max_jobs,
@@ -84,9 +84,9 @@ def test_mean_then_max_discovery_uses_nested_mixed_separator_fixtures(raster_tes
     assert len(max_jobs) == 6
     assert incomplete == []
     assert all(len(details.job.input_files) == 10 for details in mean_jobs)
-    assert all(len(job.input_files) == 2 for job in max_jobs)
+    assert all(len(job.input_files) == 2 for job, _ in max_jobs)
     assert any("+TPMean+" in details.job.output_file.name for details in mean_jobs)
-    assert any("+TPMean-DurMax+" in job.output_file.name for job in max_jobs)
+    assert any("+TPMean-DurMax+" in job.output_file.name for job, _ in max_jobs)
 
 
 def test_discovered_mean_inputs_match_expected_pixel_values(raster_test_data: Path) -> None:
