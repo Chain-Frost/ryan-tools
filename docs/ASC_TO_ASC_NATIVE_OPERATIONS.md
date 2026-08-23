@@ -22,7 +22,7 @@ Operation names and source-output terminology follow the
 | --- | --- | --- |
 | `-max` | `compute_max()` | Writes the value raster only; no `_src` raster or legend |
 | `-dif` / `-diff` | `compute_diff()` | Supports `-change` and `-nowetdry`; `combine_wd` is a Python-only extension |
-| `-statMean` | `compute_stat("mean", ...)` | Closest-source value is the Python default; arithmetic mean remains selectable |
+| `-statMean` | `compute_stat("mean", ...)` | Closest-source value is the Python default; arithmetic and ASC_to_ASC-compatible selection remain selectable |
 | `-statMedian` | `compute_stat("median", ...)` | Uses ASC_to_ASC's upper median for even contributor counts |
 | `-statMin` | `compute_stat("min", ...)` | Writes value and source outputs |
 | `-statMax` | `compute_stat("max", ...)` | Writes value and source outputs |
@@ -37,6 +37,11 @@ written. Equal-distance ties select the higher value. With the `zero` NoData
 policy, substituted zeroes are eligible values.
 
 `arithmetic` writes the numeric arithmetic mean directly.
+
+`asc_to_asc` writes the numeric arithmetic mean and selects the lowest
+contributing source value at or above it, matching the executable's value and
+source outputs. Use it with the executable-compatible NoData policy when
+running parity comparisons.
 
 ## Source rasters and legends
 
@@ -102,3 +107,22 @@ comparison = run_asc_to_asc_job(
 
 Compare only operations and policies expected to have parity. Project-specific
 NoData policies and closest-source mean selection may intentionally differ.
+
+### Executable parity test
+
+The optional integration test generates a fresh aligned GeoTIFF set in
+pytest's temporary directory, runs `-statMean`, `-statMedian`, `-statMin` and
+`-statMax` through both implementations, and compares values, validity masks,
+alignment metadata and source IDs exactly. It also verifies that both legends
+reference the generated input rasters. No generated comparison rasters are
+stored in the repository.
+
+Select the ASC_to_ASC build explicitly and run the test with:
+
+```powershell
+$env:ASC_TO_ASC_EXE = 'C:\TUFLOW\asc_to_asc.2024-06-AB\asc_to_asc_w64.exe'
+python -m pytest tests/functions/tuflow/test_asc_to_asc_executable_parity.py -m slow
+```
+
+The test skips when `ASC_TO_ASC_EXE` is unset and fails clearly when it points
+to a missing file.

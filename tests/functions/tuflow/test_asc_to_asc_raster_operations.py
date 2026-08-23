@@ -1,12 +1,16 @@
 """Focused tests for native ASC_to_ASC-style raster operations."""
 
+from __future__ import annotations
+
 import csv
 from pathlib import Path
+from typing import Protocol, cast
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
-from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs]
+from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 
 from ryan_library.functions.tuflow.asc_to_asc_raster_operations import compute_stat
 from ryan_library.functions.tuflow.asc_to_asc_raster_operations import flatten_nested_source_provenance
@@ -19,30 +23,60 @@ from ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search import (
 NODATA = -9999.0
 
 
+class _Compression(Protocol):
+    name: str
+
+
+class _RasterWriter(Protocol):
+    def write(self, data: npt.NDArray[np.float32], indexes: int) -> None: ...
+
+    def close(self) -> None: ...
+
+
+class _RasterReader(Protocol):
+    compression: _Compression | None
+
+    def read(self, indexes: int) -> npt.NDArray[np.float32]: ...
+
+    def close(self) -> None: ...
+
+
 def _write_raster(path: Path, values: list[float]) -> None:
     data = np.asarray([values], dtype=np.float32)
-    with rasterio.open(
-        path,
-        "w",
-        driver="GTiff",
-        width=data.shape[1],
-        height=data.shape[0],
-        count=1,
-        dtype="float32",
-        transform=from_origin(0.0, 1.0, 1.0, 1.0),
-        nodata=NODATA,
-    ) as destination:
+    destination = cast(
+        _RasterWriter,
+        rasterio.open(  # pyright: ignore[reportUnknownMemberType]
+            path,
+            "w",
+            driver="GTiff",
+            width=data.shape[1],
+            height=data.shape[0],
+            count=1,
+            dtype="float32",
+            transform=from_origin(0.0, 1.0, 1.0, 1.0),
+            nodata=NODATA,
+        ),
+    )
+    try:
         destination.write(data, 1)
+    finally:
+        destination.close()
 
 
-def _read_raster(path: Path) -> np.ndarray:
-    with rasterio.open(path) as source:
+def _read_raster(path: Path) -> npt.NDArray[np.float32]:
+    source = cast(_RasterReader, rasterio.open(path))  # pyright: ignore[reportUnknownMemberType]
+    try:
         return source.read(1)
+    finally:
+        source.close()
 
 
 def _compression(path: Path) -> str | None:
-    with rasterio.open(path) as source:
+    source = cast(_RasterReader, rasterio.open(path))  # pyright: ignore[reportUnknownMemberType]
+    try:
         return None if source.compression is None else source.compression.name
+    finally:
+        source.close()
 
 
 @pytest.mark.parametrize(
@@ -94,6 +128,29 @@ def test_compute_stat_can_write_arithmetic_mean(tmp_path: Path) -> None:
     )
 
     np.testing.assert_array_equal(_read_raster(output), np.asarray([[3.0, 12.0]], dtype=np.float32))
+
+
+def test_compute_stat_can_use_asc_to_asc_mean_selection(tmp_path: Path) -> None:
+    first = tmp_path / "first.tif"
+    second = tmp_path / "second.tif"
+    third = tmp_path / "third.tif"
+    output = tmp_path / "mean.tif"
+    _write_raster(first, [0.0, 3.0])
+    _write_raster(second, [4.0, 3.0])
+    _write_raster(third, [11.0, 9.0])
+
+    compute_stat(
+        "-statMean",
+        [str(first), str(second), str(third)],
+        str(output),
+        mean_value_method="asc_to_asc",
+        write_source=True,
+    )
+
+    # ASC_to_ASC writes the arithmetic mean while its source raster identifies
+    # the lowest contributing value at or above that mean.
+    np.testing.assert_array_equal(_read_raster(output), np.asarray([[5.0, 5.0]], dtype=np.float32))
+    np.testing.assert_array_equal(_read_raster(tmp_path / "mean_src.tif"), np.asarray([[3, 3]], dtype=np.int32))
 
 
 def test_compute_stat_uses_upper_median_for_even_contributors(tmp_path: Path) -> None:

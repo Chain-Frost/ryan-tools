@@ -57,6 +57,7 @@ class WaterLevelProfileConfig:
     plot_height_cm: float = 11.0
     colors: Mapping[str, str] = field(default_factory=lambda: {"01.00p": "blue", "20.00p": "cyan"})
     alphas: Mapping[str, float] = field(default_factory=lambda: {"01.00p": 0.2, "20.00p": 0.4})
+    scenario_name: str | None = None
 
 
 def _normalized_aep(value: str) -> str:
@@ -154,11 +155,17 @@ def load_profile_lines(
     if lines.crs is None:
         if lines_crs_if_missing is not None:
             source_crs: CRS | None = CRS.from_user_input(lines_crs_if_missing)
-            logger.warning("Profile layer has no CRS metadata; assigning configured CRS {}", source_crs.to_string())
+            logger.warning(
+                "Profile layer has no CRS metadata; assigning configured CRS {}",
+                source_crs.to_string(),
+            )
             lines = lines.set_crs(source_crs)
         elif target_crs is not None:
             source_crs = target_crs
-            logger.warning("Profile layer has no CRS metadata; assuming raster CRS {}", source_crs.to_string())
+            logger.warning(
+                "Profile layer has no CRS metadata; assuming raster CRS {}",
+                source_crs.to_string(),
+            )
             lines = lines.set_crs(source_crs)
         else:
             source_crs = None
@@ -170,7 +177,11 @@ def load_profile_lines(
 
     resolved_crs = target_crs or source_crs
     if source_crs is not None and target_crs is not None and source_crs != target_crs:
-        logger.info("Reprojecting profile lines from {} to {}", source_crs.to_string(), target_crs.to_string())
+        logger.info(
+            "Reprojecting profile lines from {} to {}",
+            source_crs.to_string(),
+            target_crs.to_string(),
+        )
         lines = lines.to_crs(target_crs)
     return lines, resolved_crs
 
@@ -270,20 +281,31 @@ def _log_assumed_raster_crs(
 ) -> None:
     assumption = resolved_crs.to_string() if resolved_crs is not None else "the shared source coordinate system"
     if terrain_crs is None:
-        logger.warning("Terrain raster has no CRS metadata; assuming {} for {}", assumption, terrain_path)
+        logger.warning(
+            "Terrain raster has no CRS metadata; assuming {} for {}",
+            assumption,
+            terrain_path,
+        )
     for aep, crs in water_crs.items():
         if crs is None:
             logger.warning(
-                "Water raster {} has no CRS metadata; assuming {} for {}", aep, assumption, water_rasters[aep]
+                "Water raster {} has no CRS metadata; assuming {} for {}",
+                aep,
+                assumption,
+                water_rasters[aep],
             )
 
 
-def run_water_level_profile_workflow(config: WaterLevelProfileConfig) -> tuple[Path, ...]:
+def run_water_level_profile_workflow(
+    config: WaterLevelProfileConfig,
+) -> tuple[Path, ...]:
     """Create one terrain/water-level profile plot per connected input line."""
     if config.max_interpolation_gap < 0:
         raise ValueError("max_interpolation_gap must be non-negative.")
     if config.plot_width_cm <= 0.0 or config.plot_height_cm <= 0.0:
         raise ValueError("Plot dimensions must be positive.")
+    if config.scenario_name is not None and not config.scenario_name.strip():
+        raise ValueError("scenario_name cannot be blank.")
 
     water_rasters = discover_tuflow_profile_rasters(
         config.tuflow_results_dir,
@@ -308,7 +330,11 @@ def run_water_level_profile_workflow(config: WaterLevelProfileConfig) -> tuple[P
         water_crs=water_crs,
         resolved_crs=resolved_crs,
     )
-    logger.info("Sampling {} profile features every {:.3f} CRS units", len(lines), effective_spacing)
+    logger.info(
+        "Sampling {} profile features every {:.3f} CRS units",
+        len(lines),
+        effective_spacing,
+    )
 
     profile_jobs: list[tuple[str, LineString, Path]] = []
     reserved_names: set[str] = set()
@@ -329,8 +355,12 @@ def run_water_level_profile_workflow(config: WaterLevelProfileConfig) -> tuple[P
         )
 
         for part_number, line in enumerate(parts, start=1):
-            display_name = line_name if len(parts) == 1 else f"{line_name} (part {part_number})"
-            filename_name = sanitize_windows_filename(line_name, fallback="profile")
+            line_display_name = line_name if len(parts) == 1 else f"{line_name} (part {part_number})"
+            display_name = (
+                f"{config.scenario_name} - {line_display_name}" if config.scenario_name else line_display_name
+            )
+            filename_stem = f"{config.scenario_name} - {line_name}" if config.scenario_name else line_name
+            filename_name = sanitize_windows_filename(filename_stem, fallback="profile")
             part_suffix = "" if len(parts) == 1 else f"_part_{part_number}"
             output_path = config.output_dir / f"{filename_name}{part_suffix}_profile.png"
             normalized_output = output_path.name.casefold()
@@ -354,7 +384,13 @@ def run_water_level_profile_workflow(config: WaterLevelProfileConfig) -> tuple[P
                 effective_spacing,
                 method=config.sampling_method,
             )
-            axes.plot(distances, terrain, color="saddlebrown", label="Ground Level", linewidth=1.5)
+            axes.plot(
+                distances,
+                terrain,
+                color="saddlebrown",
+                label="Ground Level",
+                linewidth=1.5,
+            )
 
             for aep, raster_path in water_rasters.items():
                 water_distances, water = sample_raster_along_line(
@@ -374,7 +410,13 @@ def run_water_level_profile_workflow(config: WaterLevelProfileConfig) -> tuple[P
                     water_plot[dry] = np.nan
 
                 color = config.colors.get(aep, "blue")
-                axes.plot(distances, water_plot, color=color, label=f"{_aep_label(aep)} WL", linewidth=1.2)
+                axes.plot(
+                    distances,
+                    water_plot,
+                    color=color,
+                    label=f"{_aep_label(aep)} WL",
+                    linewidth=1.2,
+                )
                 axes.fill_between(
                     distances,
                     terrain,
@@ -383,10 +425,12 @@ def run_water_level_profile_workflow(config: WaterLevelProfileConfig) -> tuple[P
                     alpha=config.alphas.get(aep, 0.3),
                 )
 
-            axes.set_title(f"Profile: {display_name}")
+            axes.set_title(display_name if config.scenario_name else f"Profile: {display_name}")
             axes.set_xlabel("Distance (m)" if resolved_crs is not None else "Distance (source units)")
             axes.set_ylabel("Elevation (mAHD)")
-            axes.grid(True, linestyle="--", alpha=0.6)
+            axes.minorticks_on()
+            axes.grid(True, which="major", linestyle="--", alpha=0.6)
+            axes.grid(True, which="minor", linestyle=":", alpha=0.3)
             axes.legend()
             figure.tight_layout()
             figure.savefig(temporary_output, dpi=300)

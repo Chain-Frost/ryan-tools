@@ -4,9 +4,11 @@
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
 
 from pathlib import Path
+from typing import Any
 
 import geopandas as gpd
 import matplotlib
+from matplotlib.axes import Axes
 import numpy as np
 import pytest
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
@@ -114,7 +116,83 @@ def test_workflow_infers_missing_line_crs_from_rasters(tmp_path: Path) -> None:
     assert not tuple(output.glob(".*.tmp.png"))
 
 
-def test_workflow_assumes_shared_coordinates_when_all_crs_metadata_is_missing(tmp_path: Path) -> None:
+def test_workflow_uses_scenario_in_title_and_filename_and_adds_minor_gridlines(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    lines_path = tmp_path / "profiles.gpkg"
+    lines = gpd.GeoDataFrame(
+        {"Code": ["Bogada West"]},
+        geometry=[LineString(((0.5, 3.5), (3.5, 3.5)))],
+        crs="EPSG:28351",
+    )
+    lines.to_file(lines_path, layer="profiles")
+    terrain = _write_raster(tmp_path / "terrain.tif", 1.0)
+    results = tmp_path / "results"
+    _write_raster(results / "Model_01.00p_h_HR_Max.tif", 2.0)
+    output = tmp_path / "plots"
+
+    titles: list[str] = []
+    grid_modes: list[str] = []
+    minor_ticks_enabled = False
+    original_set_title = Axes.set_title
+    original_grid = Axes.grid
+    original_minorticks_on = Axes.minorticks_on
+
+    def record_title(self: Axes, label: str, *args: Any, **kwargs: Any) -> object:
+        titles.append(label)
+        return original_set_title(self, label, *args, **kwargs)
+
+    def record_grid(self: Axes, *args: Any, **kwargs: Any) -> None:
+        grid_modes.append(str(kwargs.get("which", "major")))
+        original_grid(self, *args, **kwargs)
+
+    def record_minor_ticks(self: Axes) -> None:
+        nonlocal minor_ticks_enabled
+        minor_ticks_enabled = True
+        original_minorticks_on(self)
+
+    monkeypatch.setattr(Axes, "set_title", record_title)
+    monkeypatch.setattr(Axes, "grid", record_grid)
+    monkeypatch.setattr(Axes, "minorticks_on", record_minor_ticks)
+
+    created = run_water_level_profile_workflow(
+        WaterLevelProfileConfig(
+            lines_gpkg=lines_path,
+            lines_layer_name="profiles",
+            name_field="Code",
+            terrain_raster=terrain,
+            tuflow_results_dir=results,
+            output_dir=output,
+            target_aeps=("01.00p",),
+            scenario_name="CIL",
+        )
+    )
+
+    assert created == (output / "CIL - Bogada West_profile.png",)
+    assert titles == ["CIL - Bogada West"]
+    assert minor_ticks_enabled
+    assert "major" in grid_modes
+    assert "minor" in grid_modes
+
+
+def test_workflow_rejects_blank_scenario_name(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="scenario_name cannot be blank"):
+        run_water_level_profile_workflow(
+            WaterLevelProfileConfig(
+                lines_gpkg=tmp_path / "profiles.gpkg",
+                terrain_raster=tmp_path / "terrain.tif",
+                tuflow_results_dir=tmp_path / "results",
+                output_dir=tmp_path / "plots",
+                target_aeps=("01.00p",),
+                scenario_name="  ",
+            )
+        )
+
+
+def test_workflow_assumes_shared_coordinates_when_all_crs_metadata_is_missing(
+    tmp_path: Path,
+) -> None:
     lines_path = tmp_path / "profiles.gpkg"
     gpd.GeoDataFrame(
         {"Code": ["A"]},
@@ -194,7 +272,9 @@ def test_workflow_rejects_conflicting_known_raster_crs(tmp_path: Path) -> None:
         )
 
 
-def test_workflow_rejects_sanitized_filename_collisions_before_plotting(tmp_path: Path) -> None:
+def test_workflow_rejects_sanitized_filename_collisions_before_plotting(
+    tmp_path: Path,
+) -> None:
     lines_path = tmp_path / "profiles.gpkg"
     gpd.GeoDataFrame(
         {"Code": ["A/B", "A\\B"]},

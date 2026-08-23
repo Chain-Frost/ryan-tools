@@ -33,7 +33,7 @@ from rasterio.windows import Window  # pyright: ignore[reportMissingTypeStubs]
 from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
 
 type NodataPolicy = Literal["require_all", "zero", "exclude"]
-type MeanValueMethod = Literal["closest_source", "arithmetic"]
+type MeanValueMethod = Literal["closest_source", "arithmetic", "asc_to_asc"]
 type StatisticType = Literal["mean", "median", "min", "max"]
 
 
@@ -422,8 +422,11 @@ def compute_stat(
     For mean, the default ``closest_source`` method first calculates the
     arithmetic mean under the selected NoData policy, then returns the nearest
     policy-adjusted contributing value. Equal-distance ties select the higher
-    value. Choose ``arithmetic`` to write the numeric mean itself. Under the
-    ``zero`` policy, substituted NoData zeroes are eligible source values.
+    value. Choose ``arithmetic`` to write the numeric mean itself while using
+    the same closest-source rule, or ``asc_to_asc`` to write the numeric mean
+    while selecting the lowest contributing source value at or above it, as
+    ASC_to_ASC does. Under the ``zero`` policy, substituted NoData zeroes are
+    eligible source values.
 
     With ``write_source=True``, a 1-based source-ID raster named
     ``<output_stem>_src`` and a ``<output_stem>_src_legend.csv`` mapping are
@@ -439,7 +442,7 @@ def compute_stat(
         raise ValueError(f"Unsupported stat_type: {stat_type}")
     if nodata_policy not in {"require_all", "zero", "exclude"}:
         raise ValueError(f"Unsupported nodata_policy: {nodata_policy}")
-    if mean_value_method not in {"closest_source", "arithmetic"}:
+    if mean_value_method not in {"closest_source", "arithmetic", "asc_to_asc"}:
         raise ValueError(f"Unsupported mean_value_method: {mean_value_method}")
     if not write_source and (source_output_file is not None or source_legend_file is not None):
         raise ValueError("Source output paths cannot be supplied when write_source is False")
@@ -492,13 +495,18 @@ def compute_stat(
                     valid_sum = np.sum(np.where(eligible, adjusted_data, 0.0), axis=0, dtype=np.float64)
                     arithmetic_mean = np.zeros(valid_sum.shape, dtype=np.float64)
                     np.divide(valid_sum, valid_count, out=arithmetic_mean, where=output_valid)
-                    distances = np.where(eligible, np.abs(adjusted_data - arithmetic_mean), np.inf)
-                    minimum_distance = np.min(distances, axis=0)
-                    closest = eligible & np.isclose(distances, minimum_distance, rtol=0.0, atol=0.0)
-                    closest_value = np.max(np.where(closest, adjusted_data, -np.inf), axis=0)
-                    selected = closest & (adjusted_data == closest_value)
-                    source_indexes = np.argmax(selected, axis=0)
-                    statistic = arithmetic_mean if mean_value_method == "arithmetic" else closest_value
+                    if mean_value_method == "asc_to_asc":
+                        at_or_above = np.where(eligible & (adjusted_data >= arithmetic_mean), adjusted_data, np.inf)
+                        source_indexes = np.argmin(at_or_above, axis=0)
+                        statistic = arithmetic_mean
+                    else:
+                        distances = np.where(eligible, np.abs(adjusted_data - arithmetic_mean), np.inf)
+                        minimum_distance = np.min(distances, axis=0)
+                        closest = eligible & np.isclose(distances, minimum_distance, rtol=0.0, atol=0.0)
+                        closest_value = np.max(np.where(closest, adjusted_data, -np.inf), axis=0)
+                        selected = closest & (adjusted_data == closest_value)
+                        source_indexes = np.argmax(selected, axis=0)
+                        statistic = arithmetic_mean if mean_value_method == "arithmetic" else closest_value
                 elif normalized_stat == "max":
                     selectable = np.where(eligible, adjusted_data, -np.inf)
                     source_indexes = np.argmax(selectable, axis=0)

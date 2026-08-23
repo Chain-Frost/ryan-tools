@@ -19,7 +19,7 @@ DEFAULT_INPUT_FILES: list[Path] = [Path("after.tif"), Path("before.tif")]
 DEFAULT_OUTPUT_FILE = Path("difference.tif")
 DEFAULT_CHANGE = False
 DEFAULT_NO_WET_DRY = False
-DEFAULT_MEAN_VALUE_METHOD: Literal["closest_source", "arithmetic"] = "closest_source"
+DEFAULT_MEAN_VALUE_METHOD: Literal["closest_source", "arithmetic", "asc_to_asc"] = "closest_source"
 DEFAULT_WRITE_SOURCE = False
 DEFAULT_CREATION_OPTIONS: list[str] = []
 DEFAULT_PAUSE = True
@@ -143,8 +143,11 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--wet-dry", dest="no_wet_dry", action="store_const", const=False)
     parser.add_argument(
         "--mean-value-method",
-        choices=["closest_source", "arithmetic"],
-        help="For mean, return the nearest contributing value (default) or the numeric arithmetic mean.",
+        choices=["closest_source", "arithmetic", "asc_to_asc"],
+        help=(
+            "For mean, return the nearest contributing value (default), the numeric arithmetic mean, "
+            "or the numeric mean with ASC_to_ASC-compatible source selection."
+        ),
     )
     parser.add_argument(
         "--source",
