@@ -84,3 +84,8 @@ exists. Keep project-specific paths, globs, and output names in wrappers; reusab
 
 When changing a wrapper, preserve its editable settings and keep the wrapper thin. Changes to shared behavior should be
 made in `ryan_library/functions` or an appropriate orchestrator instead.
+
+A new or materially changed maintained wrapper should be assessed for MCP workflow discovery when it offers a stable,
+headless workflow that would be useful across projects. If suitable, catalogue the existing wrapper and describe its
+mutation and approval semantics; do not create a duplicate package CLI. Basic utilities, narrow project scripts,
+interactive tools and experimental scripts are not automatically MCP candidates.

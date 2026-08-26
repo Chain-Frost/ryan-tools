@@ -59,7 +59,8 @@ These documents stay near the code they describe so that browsing a target direc
 
 | Document | Relevant work |
 | --- | --- |
-| [MCP server setup](MCP_SETUP.md) | Configuring the repository's MCP tools and GDAL discovery in supported AI clients |
+| [MCP server setup](MCP_SETUP.md) | Configuring focused MCP helpers and repository-backed workflow discovery in supported AI clients |
+| [MCP workflow-target implementation](mcp-handoff/README.md) | Current execution-target design, wrapper-path reconciliation, validation contract and remaining staged migration |
 
 ## File-format references
 

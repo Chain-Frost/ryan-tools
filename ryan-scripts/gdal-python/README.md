@@ -32,14 +32,15 @@ metre-based coordinate system; geographic and non-metre projected CRSs are rejec
 
 ## AI and automation discovery
 
-[`gdal_cli_tools.json`](gdal_cli_tools.json) is the machine-readable catalogue
+[`gdal_cli_tools.json`](../../ryan_library/resources/mcp/gdal_cli_tools.json) is the packaged machine-readable catalogue
 for AI assistants and automation. It lists every wrapper's relative location,
 purpose, defaults, mutation risk, and argument arrays for common processing
 scenarios. It describes only the current Python tools, without migration
 history.
 
-The ryan-tools MCP server reads this catalogue from a configured repository checkout and exposes it through the generic
-`list_workflows` and `get_workflow` discovery tools. An AI should use the resolved command arrays returned by MCP,
+The ryan-tools MCP server reads this catalogue from the installed package and exposes it through the generic
+`list_workflows` and `get_workflow` discovery tools. GDAL entries resolve to their existing maintained repository
+wrappers when `RYAN_TOOLS_REPOSITORY_ROOT` is configured. An AI should use the resolved command arrays returned by MCP,
 replace values such as `{input_directory}`, and include `--no-pause`. The wrapper's help command can be executed
 whenever the complete current CLI reference is needed. The MCP server discovers these commands but does not execute
 the wrappers.

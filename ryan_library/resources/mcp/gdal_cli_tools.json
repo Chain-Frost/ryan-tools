@@ -24,11 +24,7 @@
     "split_vector_by_attribute.py": "2026-08-20.1",
     "vacuum_geopackages.py": "2026-08-20.1"
   },
-  "resolve_scripts_relative_to": "directory containing this manifest",
-  "command_prefix": [
-    "py",
-    "-3.14"
-  ],
+  "repository_scripts_relative_to_root": "ryan-scripts/gdal-python",
   "agent_guidance": {
     "discovery": "Select a tool by its id or scenarios, then run its help command before execution.",
     "non_interactive": "Always include --no-pause when an AI or automation invokes a wrapper.",

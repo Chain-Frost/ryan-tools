@@ -100,6 +100,17 @@ leave files staged unless the user asked for staging or a commit.
 - Use `enhancement`, `bug` or `docs` labels as appropriate.
 - Update documentation when user-facing behaviour, architecture or validation expectations change.
 
+### MCP discovery maintenance
+
+- When adding or materially changing a supported, reusable script, orchestrator, processor or function, assess whether
+  an AI agent would benefit from finding it through the MCP workflow catalogue, a focused MCP tool or a guidance
+  resource. Update the relevant MCP listing, metadata, tests and documentation when it is a suitable candidate.
+- Do not list basic helpers, narrow project scripts, interactive utilities, experimental code or every public function
+  automatically. MCP exposure requires a stable purpose, useful agent-facing inputs, bounded output and clear safety
+  semantics.
+- Prefer cataloguing an existing maintained CLI wrapper over creating a duplicate package CLI. Prefer guidance to the
+  Python API when advanced or open-ended analysis is better composed by the agent than represented as a stable tool.
+
 ## Documentation routing
 
 - Use [`docs/README.md`](docs/README.md) as the complete index of repository-owned Markdown. When working in a subtree,

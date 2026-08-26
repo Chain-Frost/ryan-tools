@@ -12,14 +12,28 @@ The default MCP surface stays deliberately small:
 | Tool | Description |
 | --- | --- |
 | `parse_tuflow_filename` | Parse a TUFLOW output filename into structured components. |
-| `inspect_tlf_log` | Parse one TUFLOW `.tlf` log into available simulation summary fields. |
+| `inspect_tuflow_result` | Process one supported TUFLOW result or log, with optional location and processed-time bounds, and return bounded metadata and sample rows. |
+| `inspect_tuflow_collection` | Process up to 50 supported TUFLOW files and query their `ProcessorCollection` by location, data type and processed-time bounds. |
 | `inspect_raster_metadata` | Inspect raster dimensions, resolution, CRS, transform, bounds, bands and NoData metadata. |
 | `check_repo_health` | Report package versions, configured profile, checkout discovery and catalogue status. |
 | `list_workflows` | Discover CLI workflows enabled by the configured profile, optionally filtered by domain. |
-| `get_workflow` | Resolve one workflow's script path, help command, scenarios and safety metadata. |
+| `get_workflow` | Resolve one workflow's installed module or repository script, help command, scenarios and safety metadata. |
 
 The complete visible catalogue is also available as the read-only resource
-`ryan-tools://workflows/catalogue`.
+`ryan-tools://workflows/catalogue`. The read-only `ryan-tools://guidance/tuflow-processors` resource tells an agent
+which Python processor factory, collection methods, registry and source files to use for queries beyond the bounded MCP
+tools.
+
+### TUFLOW result queries
+
+Use `locations` for exact entity identifiers such as channel IDs or PO locations. On collections, use `data_types` for
+case-insensitive selection such as `Q`, `H`, `POMM` or `TLF`. `minimum_time` and `maximum_time` filter the numeric `Time`
+column produced by the processor, normally simulation hours; they do not filter the duration token embedded in a
+filename. Use `parse_tuflow_filename` for filename duration, AEP and temporal-pattern metadata.
+
+Samples are capped at 20 rows and collection calls at 50 files. For richer grouping, joins, specialised collection
+combines or domain-specific queries, the agent should read the processor guidance resource and compose the maintained
+`BaseProcessor.from_file` and `ProcessorCollection` APIs in Python. The inspection tools themselves do not write files.
 
 ## Capability profiles
 
@@ -36,19 +50,20 @@ Set the maximum profile with `RYAN_MCP_PROFILE`. A tool call cannot request a pr
 Workflows declare their lifecycle and mutation class, and privileged workflows also declare that explicit approval is
 required.
 
-The generic workflow catalogue is packaged with `ryan_functions`. GDAL workflows are extended from the repository's
-authoritative `ryan-scripts/gdal-python/gdal_cli_tools.json` when a checkout is available.
+The generic workflow catalogue and authoritative GDAL metadata are packaged with `ryan_functions`. Catalogued workflows
+resolve through their existing maintained repository wrappers so their CLI behavior has one source of truth.
 
-## Repository checkout discovery
+## Repository workflow resolution
 
-The installed MCP server needs a checkout to expose human-facing scripts. It resolves the checkout in this order:
+Catalogued workflows target human-facing repository scripts. The server resolves a checkout in this order:
 
 1. The explicit `RYAN_TOOLS_REPOSITORY_ROOT` environment variable.
 2. The source tree containing the imported package during repository development.
 3. The current directory or one of its parents.
 
-When no checkout is found, the MCP server still starts and its focused direct helpers remain available. Health and
-workflow-list responses explain how to configure the missing root.
+When no checkout is found, the MCP server still starts and its focused direct helpers remain available. Catalogued
+workflows are reported as unavailable, while their packaged discovery metadata remains inspectable. Health and
+workflow-list responses explain how to configure the root.
 
 ## Prerequisites
 
@@ -77,17 +92,22 @@ Both forms use MCP's stdio transport.
 
 ## Codex configuration
 
-Add this to the user's `~/.codex/config.toml`, adjusting the repository path if needed:
+Add this to the user's `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.ryan-tools]
-command = 'C:\Program Files\Python314\python.exe'
+command = 'python'
 args = ['-m', 'ryan_library.mcp.server']
 
 [mcp_servers.ryan-tools.env]
 PYTHONUTF8 = '1'
-RYAN_TOOLS_REPOSITORY_ROOT = 'Q:\BGER\PER\RPRT\ryan-tools'
 RYAN_MCP_PROFILE = 'create'
+```
+
+During the staged migration, add `RYAN_TOOLS_REPOSITORY_ROOT` when repository-only workflows are needed:
+
+```toml
+RYAN_TOOLS_REPOSITORY_ROOT = 'E:\Library\Automation\ryan-tools'
 ```
 
 Restart Codex after changing MCP configuration.
@@ -97,8 +117,8 @@ On systems where Python bytecode files are prohibited, add `-B` before `-m` and 
 
 ## VS Code
 
-The repository ships `.vscode/mcp.json`. Opening the workspace registers the server with the workspace path as
-`RYAN_TOOLS_REPOSITORY_ROOT` and the `create` profile.
+The repository ships `.vscode/mcp.json`. Opening the workspace registers the server with the workspace path as the
+development `RYAN_TOOLS_REPOSITORY_ROOT` fallback and uses the `create` profile.
 
 ## Agent workflow
 
@@ -106,7 +126,7 @@ An agent should:
 
 1. Call `list_workflows`, optionally filtering by domain.
 2. Call `get_workflow` with the selected id.
-3. Check `available`, `lifecycle`, `mutation`, `requires_explicit_approval` and the resolved paths.
+3. Check `available`, `execution_kind`, `lifecycle`, `mutation`, `requires_explicit_approval` and the resolved target.
 4. Run the returned `help_command` through the client shell when it is present.
 5. Construct the final CLI call from the current help and returned scenarios.
 6. Include the returned `required_headless_arguments` for non-interactive execution.
@@ -120,8 +140,8 @@ The MCP server never invokes the returned command itself.
 | Symptom | Fix |
 | --- | --- |
 | `mcp package is not installed` | Install the project with the `mcp` extra. |
-| Server starts but scripts are unavailable | Set `RYAN_TOOLS_REPOSITORY_ROOT` to a checkout containing `pyproject.toml` and `ryan-scripts`. |
+| A repository workflow is unavailable | Set `RYAN_TOOLS_REPOSITORY_ROOT` to a checkout containing `pyproject.toml` and `ryan-scripts`. Installed-module workflows do not need it. |
 | A workflow is unknown under `create` | It may be privileged; inspect the packaged catalogue and explicitly opt into `privileged` if appropriate. |
-| GDAL workflows do not appear | Check the repository root and `ryan-scripts/gdal-python/gdal_cli_tools.json`. |
+| A GDAL repository wrapper is unavailable | Configure the repository root. The packaged GDAL catalogue remains discoverable, but its existing wrappers require the checkout. |
 | Script imports fail | Install the matching `ryan_functions` package version used by the checkout. |
 | Changes do not appear in the client | Restart the MCP client so it reloads tool definitions and environment variables. |

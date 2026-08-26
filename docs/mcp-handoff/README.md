@@ -1,64 +1,93 @@
-# ryan-tools MCP handoff
+# ryan-tools MCP workflow-target implementation
 
-## Purpose
+## Status
 
-This document hands the ryan-tools MCP work to another agent. It records what has been implemented, how the current
-server behaves, what has been validated, and the next architectural task: resolving CLI workflows from the installed
-Python package instead of depending on a repository checkout on `Q:`.
+The workflow-target work described by the original MCP handoff was reviewed on 26 August 2026. The registry now uses
+explicit execution targets, and all current catalogue workflows resolve through their existing maintained wrappers.
+This avoids duplicating CLI parsing in package modules. Focused MCP helpers continue using maintained processors and
+functions directly without a repository workflow command.
 
-Read the repository instructions before making changes:
-
-- `AGENTS.md`
-- `docs/DEVELOPMENT_GUIDE.md`
-- `docs/README.md`
-- `docs/MCP_SETUP.md`
-- `ryan-scripts/README.md`
-- `ryan-scripts/WRAPPER_STANDARD.md`
-- The relevant domain README, especially `ryan-scripts/TUFLOW-python/README.md` or
-  `ryan-scripts/gdal-python/README.md`
-
-The repository is at `Q:\BGER\PER\RPRT\ryan-tools`. Use a nested approved Q: working directory, prefer `cmd.exe` for
-network-drive commands, and do not run repository code from `C:\Temp\Codex-local`.
+Canonical repository policy remains in [`AGENTS.md`](../../AGENTS.md) and
+[`docs/DEVELOPMENT_GUIDE.md`](../DEVELOPMENT_GUIDE.md). MCP setup and user configuration are documented in
+[`docs/MCP_SETUP.md`](../MCP_SETUP.md).
 
 ## User intent
 
-The MCP server is primarily a discovery layer. It should help an agent find an appropriate existing CLI workflow and
-return the information needed to run it through the agent's shell. It must not expose every script as an MCP tool and
-must not execute catalogued workflows itself.
+The MCP server is a discovery layer. It helps an agent select an existing workflow and returns the command needed to
+run that workflow through the agent's shell. It does not expose every script as an MCP tool and does not execute
+catalogued workflows itself.
 
-Requirements confirmed by the user:
+- Keep the MCP endpoint surface small and expose workflows through cumulative capability profiles.
+- Use `create` as the default profile.
+- Prefer one maintained CLI entry point for each workflow. Do not duplicate a functional wrapper under the package
+  merely to avoid repository discovery.
+- Retain explicit execution-target support for a future package module or console script with a distinct justified use.
+- Do not restore compatibility endpoints or the deleted `ryan_mcp_server` module.
+- Keep privileged workflows hidden unless the server is explicitly configured with the `privileged` profile.
 
-- Keep the MCP endpoint surface small and expose scripts in stages through capability profiles.
-- The default profile is `create`.
-- Agents run the scripts through their CLI interfaces, not through the MCP server.
-- Do not retain compatibility endpoints or compatibility entry modules.
-- Python bytecode is acceptable generally. `-B` and `PYTHONDONTWRITEBYTECODE=1` are optional corporate-environment
-  controls, not package requirements.
-- Installed Python modules are preferred over a mapped-drive checkout where a supported packaged wrapper exists.
+## Implemented architecture
 
-## Implemented MCP architecture
+The MCP implementation is under `ryan_library/mcp`:
 
-The package-native MCP implementation is under `ryan_library/mcp`:
+- `models.py` defines capability profiles, mutation classes, execution kinds and catalogue models.
+- `registry.py` loads packaged workflow metadata, resolves execution targets and constructs command arrays without
+  executing them.
+- `server.py` registers the focused MCP tools and the read-only catalogue resource.
+- `ryan_library/resources/mcp/workflows.json` contains generic workflow records.
+- `ryan_library/resources/mcp/gdal_cli_tools.json` is the packaged authoritative GDAL catalogue.
 
-- `models.py` defines workflow profiles, mutation classes and catalogue models.
-- `registry.py` loads the packaged workflow catalogue, applies profile visibility, resolves CLI scripts and constructs
-  command arrays without executing them.
-- `server.py` registers the focused MCP tools and catalogue resource.
-- `ryan_library/resources/mcp/workflows.json` contains the generic staged workflow catalogue.
+### Explicit execution targets
 
-The default MCP tools are:
+Every workflow defines exactly one target:
 
-1. `parse_tuflow_filename`
-2. `inspect_tlf_log`
-3. `inspect_raster_metadata`
-4. `check_repo_health`
-5. `list_workflows`
-6. `get_workflow`
+| Field | Command prefix | Availability |
+| --- | --- | --- |
+| `module` | `[sys.executable, "-m", module_name]` | The module is import-discoverable. |
+| `script` | `[sys.executable, resolved_checkout_path]` | The configured checkout contains the script. |
+| `console_script` | `[resolved_executable]` | The executable is available on `PATH`. |
 
-The visible catalogue is also available as the read-only MCP resource
-`ryan-tools://workflows/catalogue`.
+The registry does not guess target type from a path-like string. `get_workflow` reports `execution_kind`,
+`execution_target`, resolved command arrays and target-specific availability information.
 
-Profiles are cumulative:
+### Existing wrappers remain authoritative
+
+`tuflow_log_summary` resolves to
+`ryan-scripts/TUFLOW-python/log_processing/create_log_summary_report.py`. The wrapper already owns the full headless
+CLI, while `inspect_tuflow_result` and `inspect_tuflow_collection` provide generic processor-backed inspection through
+the focused MCP surface. A second `ryan_library.cli.tuflow_log_summary` entry point would therefore duplicate behavior
+without adding a capability.
+
+The same policy applies to `create_flood_extents`, which continues to resolve to the maintained
+`ryan-scripts/gdal-python/gdal_flood_extent.py` wrapper.
+
+### Repository fallback and relocated scripts
+
+Unmigrated workflows retain explicit `script` targets. Repository discovery is optional and checks:
+
+1. An explicit root supplied to `WorkflowRegistry`.
+2. `RYAN_TOOLS_REPOSITORY_ROOT`.
+3. The source checkout containing the imported package.
+4. The current directory and its parents.
+
+The TUFLOW catalogue paths were updated after commit `bb1ac6c` grouped maintained wrappers into
+`culvert_results`, `gis_processing`, `log_processing`, `model_management`, `po_and_timeseries` and
+`raster_processing`. Catalogue paths must use these maintained locations rather than the former flat filenames.
+
+Without a checkout, focused MCP helpers remain usable. Catalogue metadata remains visible with
+`include_unavailable=true`, while workflow commands are reported unavailable with an actionable error from
+`get_workflow`.
+
+## Packaged GDAL metadata
+
+The authoritative GDAL catalogue moved from `ryan-scripts/gdal-python` into package resources so discovery does not
+depend on a mapped drive or checkout. Each GDAL record continues to preserve defaults, scenarios, mutation metadata,
+explicit-approval requirements and wrapper versions. GDAL commands resolve to their maintained repository wrappers.
+Do not add duplicate package CLI modules solely to avoid repository discovery; migrate a GDAL target only when there is
+a clear single-entry-point design that does not duplicate its existing wrapper.
+
+## Profiles and safety
+
+Profiles remain cumulative:
 
 | Profile | Purpose |
 | --- | --- |
@@ -67,206 +96,81 @@ Profiles are cumulative:
 | `create` | Workflows that create outputs; this is the default. |
 | `privileged` | In-place changes, deletion or external execution requiring explicit configuration. |
 
-A tool input cannot elevate beyond the server's configured `RYAN_MCP_PROFILE`. Under the current repository-backed
-`create` configuration, the catalogue has 44 workflows in total, 36 visible workflows and 8 hidden privileged
-workflows.
+A tool input cannot elevate beyond `RYAN_MCP_PROFILE`. Module and script targets use the same profile filtering.
+Installing a module does not make a privileged workflow visible under `create`.
 
-GDAL workflow records are currently extended dynamically from the authoritative
-`ryan-scripts/gdal-python/gdal_cli_tools.json` when a checkout is available.
+## Configuration
 
-## Packaging and entry point changes
-
-`pyproject.toml` now provides:
-
-```toml
-[project.optional-dependencies]
-mcp = ["mcp[cli]>=2.1,<3"]
-
-[project.scripts]
-ryan-mcp = "ryan_library.mcp.server:main"
-
-[tool.setuptools.package-data]
-"ryan_library.resources.mcp" = ["*.json"]
-```
-
-The former top-level `ryan_mcp_server.py` has been deleted. The former `list_gdal_cli_tools` and
-`get_gdal_cli_tool` compatibility tools and their environment switch have also been removed. Do not restore them.
-
-`.vscode/mcp.json` invokes the package module:
-
-```json
-"args": ["-m", "ryan_library.mcp.server"]
-```
-
-Documentation was updated in:
-
-- `README.md`
-- `docs/MCP_SETUP.md`
-- `ryan-scripts/gdal-python/README.md`
-
-Focused tests were added under `tests/mcp`.
-
-## Current installed configuration
-
-The package was rebuilt and installed into the user's Python as version `26.8.26.4`. The wheel is:
-
-```text
-dist/ryan_functions-26.8.26.4-py3-none-any.whl
-```
-
-Python executable:
-
-```text
-C:\Program Files\Python314\python.exe
-```
-
-Installed package base:
-
-```text
-C:\Users\Ryan.Brook\AppData\Roaming\Python\Python314\site-packages
-```
-
-The user-level Codex configuration is `C:\Users\Ryan.Brook\.codex\config.toml`. Its current ryan-tools entry uses
-the package-native module and the repository checkout:
+The normal installed configuration does not require a repository root:
 
 ```toml
 [mcp_servers.ryan-tools]
-command = 'C:\Program Files\Python314\python.exe'
+command = "python"
 args = ["-B", "-m", "ryan_library.mcp.server"]
 
 [mcp_servers.ryan-tools.env]
 PYTHONDONTWRITEBYTECODE = "1"
 PYTHONUTF8 = "1"
-RYAN_TOOLS_REPOSITORY_ROOT = 'Q:\BGER\PER\RPRT\ryan-tools'
 RYAN_MCP_PROFILE = "create"
 ```
 
-The bytecode controls are retained for this machine's corporate constraints. They should remain optional in project
-documentation and code.
+`-B` and `PYTHONDONTWRITEBYTECODE` are optional environment controls. Add `RYAN_TOOLS_REPOSITORY_ROOT` only when
+repository-backed workflows are needed during migration or source-checkout development.
 
-## Outstanding design problem
+## TUFLOW processor query surface
 
-The installed wheel contains the `ryan_library.scripts` package, currently about 19 Python files, but the separate
-repository `ryan-scripts` tree contains roughly 103 Python scripts and is not installed as a package.
+`inspect_tuflow_result` selects the concrete processor with `BaseProcessor.from_file`; it is not a TLF-only adapter.
+It accepts exact locations/entities and optional numeric bounds on the processed `Time` column. The collection tool
+adds successfully processed, non-empty results to `ProcessorCollection`, supports case-insensitive data-type selection,
+reports duplicates and per-file failures, and can return a capped combined sample. Calls are limited to 50 files and 20
+sample rows.
 
-Although the workflow catalogue itself is packaged, every `WorkflowSpec` currently stores a repository-relative
-`script` path. `WorkflowRegistry._script_path()` therefore requires `RYAN_TOOLS_REPOSITORY_ROOT`. Without a checkout,
-the catalogue loads but its workflows are unavailable. A neutral installed-package smoke test without the repository
-root returned zero available workflows.
+The `ryan-tools://guidance/tuflow-processors` resource directs agents to the processor factory,
+`ProcessorCollection`, the suffix/data-type registry and relevant source paths. Advanced grouping, joins, specialised
+combines and domain-specific queries should be composed with those maintained Python APIs instead of expanding the MCP
+server into an unrestricted dataframe interface. Processing remains read-only until an export or write API is called.
 
-This makes the mapped Q: checkout a runtime dependency and can also allow the installed library version and checked-out
-wrapper version to drift apart.
+## Validation contract
 
-Do not solve this by constructing physical paths into `site-packages`. Use Python module invocation or installed console
-entry points instead:
+Focused automated coverage includes:
 
-```text
-C:\Program Files\Python314\python.exe -m ryan_library.scripts.tuflow.tuflow_logsummary --help
-```
+- repository workflows being unavailable without repository discovery;
+- `sys.executable` repository-script command and help prefixes;
+- current relocated repository-script fallback paths;
+- unavailable fallback scripts not hiding packaged discovery metadata;
+- profile filtering for repository targets;
+- privileged TUFLOW and GDAL workflows remaining hidden under `create`;
+- packaged GDAL metadata discovery without a checkout;
+- exact-one-target catalogue validation.
+- generic TUFLOW processor selection, location/time filtering, collection data-type filtering, bounded samples and
+  processor guidance-resource validity.
 
-## Recommended next implementation
+After modifying the MCP library, CLI entry points or package metadata, run Black, strict Pyright on modified Python
+files, focused MCP tests, both installed CLI `--help` checks, the documentation checker and
+`python repo-scripts/build_library.py`. Validate the built wheel from a neutral directory so the checkout cannot satisfy
+imports accidentally. Confirm that packaged catalogue metadata loads, repository workflows remain unavailable, and
+`importlib.util.find_spec("ryan_mcp_server")` returns `None`.
 
-Implement installed-module workflow resolution in stages.
+### Validation completed on 26 August 2026
 
-1. Extend `WorkflowSpec` with an explicit execution target. A discriminated model such as `module`, `script`, or
-   `console_script` is preferable to guessing from a string.
-2. For packaged modules, generate command prefixes as `[sys.executable, "-m", module_name]`.
-3. Continue supporting repository-relative script targets temporarily for workflows that have not been migrated.
-   This is staged migration support, not an old MCP compatibility endpoint.
-4. Audit every existing `ryan_library.scripts` wrapper for a functional headless CLI and map suitable catalogue
-   workflows to those modules first.
-5. Move or wrap additional supported `ryan-scripts` CLIs under `ryan_library.scripts` in small domain-based batches.
-   Preserve the wrapper standard: presentation and CLI handling belong in wrappers; reusable work belongs in
-   orchestrators/functions.
-6. Package the authoritative GDAL workflow metadata, or generate the packaged catalogue from it during the build, so
-   installed GDAL discovery does not require Q:.
-7. Make repository discovery an optional development/fallback facility. Do not remove
-   `RYAN_TOOLS_REPOSITORY_ROOT` from user or workspace configuration until all default `create` workflows intended for
-   installed use have package-native targets.
-8. Once the installed catalogue is self-sufficient, remove `RYAN_TOOLS_REPOSITORY_ROOT` from the normal user
-   configuration and retain it only for source-checkout development or unmigrated workflows.
+- Black check: passed for all modified Python files.
+- Strict Pyright: 0 errors and 0 warnings.
+- Focused MCP tests: 22 passed; pytest retained the existing unknown `cache_dir` configuration warning.
+- Documentation index/link checker: passed.
+- Loguru formatting policy checker: passed.
+- Both source and neutral installed-wheel `--help` checks: passed.
+- `python repo-scripts/build_library.py`: passed and produced version `26.8.26.10`.
+- Neutral wheel install with repository discovery disabled: catalogue metadata loaded and zero workflow commands were
+  available, while generic Q-processor location/time filtering and the processor guidance resource worked as expected.
+- Neutral `find_spec("ryan_mcp_server")`: returned `None`.
 
-Important considerations:
+## Remaining staged migration
 
-- Do not mechanically package all 103 scripts. Some may be interactive, experimental, privileged, dependent on
-  adjacent files, or unsuitable for import/module execution.
-- Keep lifecycle, mutation, headless-argument and explicit-approval metadata in the catalogue.
-- Preserve profile gating. Package installation must not make privileged workflows visible under `create`.
-- The MCP server must continue returning commands rather than running them.
-- Prefer `python -m ...` over direct `site-packages` paths because module invocation is portable across user installs,
-  virtual environments and Python patch versions.
-
-## Tests to add for installed-module migration
-
-At minimum, add coverage for:
-
-- A module-backed workflow being available with no repository checkout.
-- Its `command_prefix` and `help_command` using `sys.executable`, `-m` and the declared module.
-- A repository-backed fallback workflow still resolving when an explicit checkout is supplied.
-- A missing fallback script being reported unavailable without hiding working module workflows.
-- Profile filtering behaving identically for module and repository targets.
-- Privileged workflows remaining hidden under `create`.
-- Packaged GDAL discovery working from an installed wheel in a neutral directory.
-- An installed-wheel smoke test confirming the deleted `ryan_mcp_server` module remains absent.
-
-Build and test the wheel from a neutral working directory such as `Q:\BGER\PER\RPRT\temp`, not from the repository,
-so the source checkout cannot accidentally satisfy imports or script discovery.
-
-## Validation already completed
-
-The current changes were checked with:
-
-- Black: passed.
-- Strict Pyright on `ryan_library/mcp` and `tests/mcp`: 0 errors and 0 warnings.
-- Focused pytest suite: 9 passed.
-- Documentation checker: passed.
-- `python repo-scripts/build_library.py`: passed and produced version `26.8.26.4`.
-- Forced user installation of the built wheel: passed.
-- Neutral installed-package import: passed.
-- `importlib.util.find_spec("ryan_mcp_server")`: returned `None`, confirming the compatibility module is absent.
-- Repository-backed installed smoke test: `create` profile with 36 visible workflows.
-
-Known warning:
-
-```text
-PytestConfigWarning: Unknown config option: cache_dir
-```
-
-On Q:, pytest's cache provider also encountered a network-drive permission error during one parallel run. Rerunning
-the focused suite with `-p no:cacheprovider` passed all tests. This was a cache infrastructure issue, not a test
-failure.
-
-After modifying library code or package metadata, run:
-
-```bat
-python repo-scripts\build_library.py
-```
-
-Report command exit codes, generated outputs, warnings and errors.
-
-## Worktree safety
-
-The worktree was already dirty before the MCP implementation. Preserve unrelated user changes. In particular, do not
-overwrite or revert:
-
-- `ryan-scripts/misc-python/remove_excel_protection.py`
-- `ryan_library/orchestrators/tuflow/water_level_profiles.py`
-- `ryan-scripts/unsorted-python/plot_water_level_profiles.py`
-- Changes in the `tests/test_data` and `unsorted` submodules
-- The pre-existing deletion of the older wheel in `dist`
-
-MCP-related changes are primarily:
-
-- `.vscode/mcp.json`
-- `README.md`
-- `docs/MCP_SETUP.md`
-- `docs/mcp-handoff/README.md`
-- `pyproject.toml`
-- `ryan-scripts/gdal-python/README.md`
-- deleted `ryan_mcp_server.py`
-- `ryan_library/mcp/`
-- `ryan_library/resources/mcp/`
-- `tests/mcp/`
-- `dist/ryan_functions-26.8.26.4-py3-none-any.whl`
-
-No commit or staging operation has been performed.
+- Review additional maintained wrappers in small domain batches before changing execution targets.
+- Do not mechanically package every repository script; exclude interactive, project-specific, experimental or unsafe
+  candidates until their contracts are reviewed.
+- Assess new supported reusable scripts and functions for workflow-catalogue, focused-tool or guidance-resource value,
+  but do not list basic helpers or every public API automatically.
+- Keep project paths, globs and editable output templates in repository wrappers.
+- Continue moving reusable processing into orchestrators/functions rather than duplicating it in installed CLIs.
+- Retain `RYAN_TOOLS_REPOSITORY_ROOT` for repository-backed workflow discovery.

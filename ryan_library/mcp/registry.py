@@ -3,21 +3,31 @@
 from __future__ import annotations
 
 from importlib.resources.abc import Traversable
+from importlib.util import find_spec
 import json
 import os
 import re
+import shutil
 import sys
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Mapping, cast
 
-from ryan_library.mcp.models import CapabilityProfile, MutationKind, WorkflowSpec, profile_allows
+from ryan_library.mcp.models import (
+    CapabilityProfile,
+    ExecutionKind,
+    ExecutionTarget,
+    MutationKind,
+    WorkflowSpec,
+    profile_allows,
+)
 
-DEFAULT_PROFILE:CapabilityProfile = CapabilityProfile.CREATE
+DEFAULT_PROFILE: CapabilityProfile = CapabilityProfile.CREATE
 PROFILE_ENVIRONMENT_VARIABLE = "RYAN_MCP_PROFILE"
 REPOSITORY_ROOT_ENVIRONMENT_VARIABLE = "RYAN_TOOLS_REPOSITORY_ROOT"
-GDAL_CATALOGUE_RELATIVE_PATH = Path("ryan-scripts/gdal-python/gdal_cli_tools.json")
-_WRAPPER_VERSION_PATTERN: re.Pattern[str] = re.compile(pattern=r'^WRAPPER_VERSION\s*=\s*["\']([^"\']+)["\']', flags=re.MULTILINE)
+_WRAPPER_VERSION_PATTERN: re.Pattern[str] = re.compile(
+    pattern=r'^WRAPPER_VERSION\s*=\s*["\']([^"\']+)["\']', flags=re.MULTILINE
+)
 
 
 class WorkflowRegistryError(RuntimeError):
@@ -28,21 +38,22 @@ def _looks_like_repository(path: Path) -> bool:
     return (path / "pyproject.toml").is_file() and (path / "ryan-scripts").is_dir()
 
 
-def resolve_repository_root(explicit_root: Path | None = None) -> Path | None:
+def resolve_repository_root(explicit_root: Path | None = None, *, discover: bool = True) -> Path | None:
     """Resolve the checkout containing CLI wrappers, if one is available."""
     candidates: list[Path] = []
     if explicit_root is not None:
         candidates.append(explicit_root)
 
-    configured_root: str | None = os.environ.get(REPOSITORY_ROOT_ENVIRONMENT_VARIABLE)
-    if configured_root:
-        candidates.append(Path(configured_root))
+    if discover:
+        configured_root: str | None = os.environ.get(REPOSITORY_ROOT_ENVIRONMENT_VARIABLE)
+        if configured_root:
+            candidates.append(Path(configured_root))
 
-    source_candidate: Path = Path(__file__).resolve().parents[2]
-    candidates.append(source_candidate)
+        source_candidate: Path = Path(__file__).resolve().parents[2]
+        candidates.append(source_candidate)
 
-    current_directory: Path = Path.cwd()
-    candidates.extend((current_directory, *current_directory.parents))
+        current_directory: Path = Path.cwd()
+        candidates.extend((current_directory, *current_directory.parents))
 
     checked: set[Path] = set()
     for candidate in candidates:
@@ -96,22 +107,16 @@ def _gdal_mutation(raw_mutation: str, *, requires_explicit_approval: bool) -> tu
     return CapabilityProfile.CREATE, MutationKind.CREATES_OUTPUTS
 
 
-def _load_gdal_workflows(repository_root: Path) -> tuple[list[WorkflowSpec], str | None]:
-    catalogue_path: Path = repository_root / GDAL_CATALOGUE_RELATIVE_PATH
-    if not catalogue_path.is_file():
-        return [], f"GDAL catalogue not found: {catalogue_path}"
-
-    try:
-        raw_catalogue: dict[str, Any] = _load_json_object(
-            text=catalogue_path.read_text(encoding="utf-8"),
-            source=str(catalogue_path),
-        )
-    except OSError as exc:
-        return [], f"Unable to read GDAL catalogue at {catalogue_path}: {exc}"
+def _load_gdal_workflows() -> list[WorkflowSpec]:
+    resource: Traversable = files("ryan_library.resources.mcp").joinpath("gdal_cli_tools.json")
+    raw_catalogue: dict[str, Any] = _load_json_object(
+        text=resource.read_text(encoding="utf-8"),
+        source="packaged gdal_cli_tools.json",
+    )
 
     raw_tools_value: Any = raw_catalogue.get("tools")
     if not isinstance(raw_tools_value, list):
-        return [], f"GDAL catalogue has no valid tools list: {catalogue_path}"
+        raise WorkflowRegistryError("Packaged GDAL catalogue has no valid tools list.")
     raw_tools: list[object] = cast(list[object], raw_tools_value)
 
     workflows: list[WorkflowSpec] = []
@@ -135,10 +140,21 @@ def _load_gdal_workflows(repository_root: Path) -> tuple[list[WorkflowSpec], str
             "help_arguments": raw_tool.get("help_arguments", [script_name, "--help"]),
             "scenarios": raw_tool.get("scenarios", []),
             "agent_guidance": agent_guidance,
+            "scenario_program": script_name,
         }
         if isinstance(wrapper_versions, Mapping):
             typed_wrapper_versions: Mapping[str, Any] = cast(Mapping[str, Any], wrapper_versions)
             metadata["catalogue_wrapper_version"] = typed_wrapper_versions.get(script_name)
+
+        module_name: Any = raw_tool.get("module")
+        execution: ExecutionTarget
+        if isinstance(module_name, str) and module_name:
+            execution = ExecutionTarget(kind=ExecutionKind.MODULE, value=module_name)
+        else:
+            execution = ExecutionTarget(
+                kind=ExecutionKind.SCRIPT,
+                value=f"ryan-scripts/gdal-python/{script_name}",
+            )
 
         workflows.append(
             WorkflowSpec(
@@ -146,7 +162,7 @@ def _load_gdal_workflows(repository_root: Path) -> tuple[list[WorkflowSpec], str
                 title=tool_id.replace("_", " ").title(),
                 domain="gdal",
                 purpose=purpose,
-                script=f"ryan-scripts/gdal-python/{script_name}",
+                execution=execution,
                 profile=profile,
                 mutation=mutation,
                 requires_explicit_approval=requires_approval,
@@ -154,7 +170,7 @@ def _load_gdal_workflows(repository_root: Path) -> tuple[list[WorkflowSpec], str
                 metadata=metadata,
             )
         )
-    return workflows, None
+    return workflows
 
 
 class WorkflowRegistry:
@@ -165,6 +181,7 @@ class WorkflowRegistry:
         *,
         configured_profile: CapabilityProfile | str | None = None,
         repository_root: Path | None = None,
+        discover_repository: bool = True,
     ) -> None:
         raw_profile: CapabilityProfile | str = configured_profile or os.environ.get(
             PROFILE_ENVIRONMENT_VARIABLE,
@@ -178,20 +195,16 @@ class WorkflowRegistry:
                 f"Unknown MCP profile {raw_profile!r}; expected one of: {valid_profiles}"
             ) from exc
 
-        self.repository_root: Path | None = resolve_repository_root(repository_root)
+        self.repository_root: Path | None = resolve_repository_root(repository_root, discover=discover_repository)
         self.schema_version, self.catalogue_updated, packaged_workflows = _load_packaged_workflows()
         self.warnings: list[str] = []
 
-        workflows: list[WorkflowSpec] = list(packaged_workflows)
+        workflows: list[WorkflowSpec] = [*packaged_workflows, *_load_gdal_workflows()]
         if self.repository_root is None:
             self.warnings.append(
-                f"No ryan-tools checkout found. Set {REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to expose CLI scripts."
+                f"No ryan-tools checkout found. Set {REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to expose repository-only "
+                "CLI scripts; installed module workflows remain available."
             )
-        else:
-            gdal_workflows, gdal_warning = _load_gdal_workflows(self.repository_root)
-            workflows.extend(gdal_workflows)
-            if gdal_warning:
-                self.warnings.append(gdal_warning)
 
         self._workflows: dict[str, WorkflowSpec] = {}
         for workflow in workflows:
@@ -200,13 +213,27 @@ class WorkflowRegistry:
             self._workflows[workflow.workflow_id] = workflow
 
     def _script_path(self, workflow: WorkflowSpec) -> Path | None:
-        if self.repository_root is None:
+        if workflow.execution.kind is not ExecutionKind.SCRIPT or self.repository_root is None:
             return None
-        return (self.repository_root / Path(workflow.script)).absolute()
+        return (self.repository_root / Path(workflow.execution.value)).absolute()
+
+    def _command_prefix(self, workflow: WorkflowSpec) -> list[str] | None:
+        match workflow.execution.kind:
+            case ExecutionKind.MODULE:
+                try:
+                    available: bool = find_spec(workflow.execution.value) is not None
+                except ImportError, ModuleNotFoundError, AttributeError, ValueError:
+                    available = False
+                return [sys.executable, "-m", workflow.execution.value] if available else None
+            case ExecutionKind.SCRIPT:
+                script_path: Path | None = self._script_path(workflow)
+                return [sys.executable, str(script_path)] if script_path is not None and script_path.is_file() else None
+            case ExecutionKind.CONSOLE_SCRIPT:
+                executable: str | None = shutil.which(workflow.execution.value)
+                return [executable] if executable is not None else None
 
     def _available(self, workflow: WorkflowSpec) -> bool:
-        script_path: Path | None = self._script_path(workflow)
-        return script_path is not None and script_path.is_file()
+        return self._command_prefix(workflow) is not None
 
     def _maximum_profile(self, requested_profile: CapabilityProfile | str | None) -> CapabilityProfile:
         if requested_profile is None:
@@ -261,27 +288,39 @@ class WorkflowRegistry:
             }
 
         script_path: Path | None = self._script_path(workflow)
-        available: bool = self._available(workflow)
+        command_prefix: list[str] | None = self._command_prefix(workflow)
+        available: bool = command_prefix is not None
         details: dict[str, Any] = workflow.summary(available=available)
         details.update(
             {
-                "script_relative_path": workflow.script,
+                "module_name": workflow.execution.value if workflow.execution.kind is ExecutionKind.MODULE else None,
+                "script_relative_path": (
+                    workflow.execution.value if workflow.execution.kind is ExecutionKind.SCRIPT else None
+                ),
                 "script_path": str(script_path) if script_path else None,
+                "console_script": (
+                    workflow.execution.value if workflow.execution.kind is ExecutionKind.CONSOLE_SCRIPT else None
+                ),
                 "required_headless_arguments": list(workflow.headless_arguments),
                 "metadata": dict(workflow.metadata),
             }
         )
-        if not available or script_path is None:
-            details["error"] = (
-                f"CLI script is unavailable. Set {REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to a ryan-tools checkout."
-            )
+        if command_prefix is None:
+            if workflow.execution.kind is ExecutionKind.SCRIPT:
+                details["error"] = (
+                    f"Repository CLI script is unavailable. Set {REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to a "
+                    "ryan-tools checkout."
+                )
+            else:
+                details["error"] = (
+                    f"Installed {workflow.execution.kind.value} target is unavailable: {workflow.execution.value}"
+                )
             return details
 
         help_safe: bool = bool(workflow.metadata.get("help_safe", True))
-        command_prefix: list[str] = [sys.executable, str(script_path)]
         details["command_prefix"] = command_prefix
         details["help_command"] = [*command_prefix, "--help"] if help_safe else None
-        details["wrapper_version"] = self._read_wrapper_version(script_path)
+        details["wrapper_version"] = self._read_wrapper_version(script_path) if script_path is not None else None
         details["resolved_scenarios"] = self._resolved_scenarios(workflow, command_prefix)
         details["execution_note"] = (
             "The MCP server does not execute this workflow. Run the CLI through the client shell after reviewing help, "
@@ -304,7 +343,7 @@ class WorkflowRegistry:
         if not isinstance(raw_scenarios, list):
             return []
 
-        script_name: str = Path(workflow.script).name
+        scenario_program: Any = workflow.metadata.get("scenario_program")
         scenarios: list[dict[str, Any]] = []
         typed_scenarios: list[object] = cast(list[object], raw_scenarios)
         for raw_scenario_value in typed_scenarios:
@@ -318,7 +357,7 @@ class WorkflowRegistry:
             if not all(isinstance(item, str) for item in typed_arguments):
                 continue
             arguments: list[str] = [cast(str, item) for item in typed_arguments]
-            if arguments and arguments[0] == script_name:
+            if arguments and isinstance(scenario_program, str) and arguments[0] == scenario_program:
                 arguments = arguments[1:]
             scenarios.append(
                 {

@@ -131,6 +131,19 @@ restored = ProcessorCollection.from_hdf(cache_path, locations=["Culvert_01"])
 Treat this as a processing cache rather than a stable interchange format. Rehydration depends on the configured
 processor classes remaining importable and compatible with the stored metadata.
 
+## MCP inspection and advanced queries
+
+The MCP server exposes bounded, read-only processor queries through `inspect_tuflow_result` and
+`inspect_tuflow_collection`. They support location/entity selection, collection data-type selection, numeric bounds on
+the processed `Time` column and capped samples. `Time` normally represents simulation hours; filename duration remains
+separate metadata from `parse_tuflow_filename`.
+
+Agents that need richer grouping, joins, specialised collection combinations or domain-specific query logic should
+read the `ryan-tools://guidance/tuflow-processors` MCP resource and use `BaseProcessor.from_file` and
+`ProcessorCollection` directly in Python. This keeps the MCP tool surface stable while exposing the authoritative
+processor factory, collection methods, registry and source locations. Processing is read-only until an export or write
+method is explicitly called.
+
 ## Add a processor-backed data type
 
 ### 1. Choose the appropriate base class
@@ -179,3 +192,6 @@ and leave `self.processed = False`. This prevents invalid or partial results fro
 Follow the repository [development guide](../../../docs/DEVELOPMENT_GUIDE.md#validation-by-change-type). For a
 processor change this normally includes Black, strict Pyright on modified files, focused tests or a representative
 smoke check, and a package build. Use synthetic fixtures when project result files cannot be shared.
+
+If the new processor type has recurring agent-facing value, verify that the generic MCP inspection tools handle it and
+update their guidance or focused coverage as needed. Do not add a separate MCP endpoint for each basic processor.
