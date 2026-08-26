@@ -93,7 +93,7 @@ module docstring. This distinguishes focused automated validation from use on a 
 
 Shared behavior was consolidated during promotion:
 
-- native ASC-to-ASC raster operations now use `ryan_library/functions/tuflow/local_raster_calc.py`; the duplicate local
+- native ASC-to-ASC raster operations now use `ryan_library/functions/tuflow/asc_to_asc_raster_operations.py`; the duplicate local
   candidate was removed;
 - vector format metadata, layer inspection, filtering, reprojection and atomic translation now use
   `ryan_library/functions/gdal/vector_conversion.py`; the duplicate candidate module was removed;
@@ -128,9 +128,9 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 - [ ] **`close_filenames_v1.py`** (9 KB) → `ryan_library/functions/`
   - Fuzzy filename matcher that strips AEP/duration/scenario tokens to pair rasters.
   - Reusable logic — should be a library function that other scripts can import.
-- [x] **`raster_difference_manual_list_v2.py`** (7.6 KB) → `ryan-scripts/TUFLOW-python/asc2asc_py.py`
+- [x] **`raster_difference_manual_list_v2.py`** (7.6 KB) → `ryan-scripts/TUFLOW-python/raster_processing/run_python_raster_calculations.py`
   - Manual file-pair version of raster differencing using `rasterio`.
-  - Uses the maintained local raster-calculation API after focused alignment, NoData and output-safety validation.
+  - Uses the maintained native ASC_to_ASC-style API after focused alignment, NoData and output-safety validation.
 
 ### Excel protection removal
 
@@ -238,7 +238,7 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
 
 ### asc_to_asc batch grouping
 
-- [x] **`asc2asc_groups_v5.py`** (21.8 KB) → `ryan-scripts/TUFLOW-python/asc2asc_groups.py`
+- [x] **`asc2asc_groups_v5.py`** (21.8 KB) → `ryan-scripts/TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py`
   - Groups rasters by model/AEP/duration, generates asc_to_asc max/median commands.
 - [x] **`asc2asc_groups_diff_v5.py`** (18.8 KB) → merged with above
   - Same logic but for `-dif` (differencing) mode.

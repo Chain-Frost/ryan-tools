@@ -42,36 +42,36 @@ def restore_working_directory():
 
 @pytest.fixture
 def pomm_combine_script():
-    return import_script(SCRIPTS_DIR / "POMM_combine.py")
+    return import_script(SCRIPTS_DIR / "po_and_timeseries" / "combine_pomm_results.py")
 
 
 @pytest.fixture
 def culvert_maximums_script():
-    return import_script(SCRIPTS_DIR / "TUFLOW_Culvert_Maximums.py")
+    return import_script(SCRIPTS_DIR / "culvert_results" / "combine_culvert_maximums.py")
 
 
 @pytest.fixture
 def log_summary_script():
-    return import_script(SCRIPTS_DIR / "LogSummary.py")
+    return import_script(SCRIPTS_DIR / "log_processing" / "create_log_summary_report.py")
 
 
 @pytest.fixture
 def closure_durations_script():
-    return import_script(SCRIPTS_DIR / "TUFLOW-find-closure-durations.py")
+    return import_script(SCRIPTS_DIR / "po_and_timeseries" / "calculate_po_closure_durations.py")
 
 
 @pytest.fixture
 def culvert_timeseries_script():
-    return import_script(SCRIPTS_DIR / "TUFLOW_Culvert_Timeseries.py")
+    return import_script(SCRIPTS_DIR / "culvert_results" / "combine_culvert_timeseries.py")
 
 
 # @pytest.fixture
 # def results_styling_script():
-#     return import_script(SCRIPTS_DIR / "TUFLOW_Results_Styling.py")
+#     return import_script(SCRIPTS_DIR / "gis_processing" / "apply_qgis_styles_to_results.py")
 
 
 def test_pomm_combine_wrapper(pomm_combine_script, tmp_path):
-    """Test POMM_combine.py wrapper calls main_processing correctly."""
+    """Test combine_pomm_results.py calls main_processing correctly."""
     with patch.object(pomm_combine_script, "main_processing") as mock_main_processing:
         # Call main with specific arguments
         pomm_combine_script.main(
@@ -87,7 +87,7 @@ def test_pomm_combine_wrapper(pomm_combine_script, tmp_path):
 
 
 def test_culvert_maximums_wrapper(culvert_maximums_script, tmp_path):
-    """Test TUFLOW_Culvert_Maximums.py wrapper calls main_processing correctly."""
+    """Test combine_culvert_maximums.py calls main_processing correctly."""
     with patch.object(culvert_maximums_script, "main_processing") as mock_main_processing:
         culvert_maximums_script.main(console_log_level="INFO", working_directory=tmp_path)
 
@@ -101,7 +101,7 @@ def test_culvert_maximums_wrapper(culvert_maximums_script, tmp_path):
 
 
 def test_log_summary_wrapper(log_summary_script, tmp_path):
-    """Test LogSummary.py wrapper calls main_processing correctly."""
+    """Test create_log_summary_report.py calls main_processing correctly."""
     with patch.object(log_summary_script, "main_processing") as mock_main_processing:
         log_summary_script.main(console_log_level="DEBUG", working_directory=tmp_path)
 
@@ -111,7 +111,7 @@ def test_log_summary_wrapper(log_summary_script, tmp_path):
 
 
 def test_closure_durations_wrapper(closure_durations_script, tmp_path):
-    """Test TUFLOW-find-closure-durations.py wrapper calls run_closure_durations correctly."""
+    """Test calculate_po_closure_durations.py calls run_closure_durations correctly."""
     with patch.object(closure_durations_script, "run_closure_durations") as mock_run:
         closure_durations_script.main(
             console_log_level="INFO", locations_to_include=("Loc1", "Loc2"), working_directory=tmp_path
@@ -125,7 +125,7 @@ def test_closure_durations_wrapper(closure_durations_script, tmp_path):
 
 
 def test_culvert_timeseries_wrapper(culvert_timeseries_script, tmp_path):
-    """Test TUFLOW_Culvert_Timeseries.py wrapper calls main_processing correctly."""
+    """Test combine_culvert_timeseries.py calls main_processing correctly."""
     with patch.object(culvert_timeseries_script, "main_processing") as mock_main_processing:
         culvert_timeseries_script.main(console_log_level="DEBUG", working_directory=tmp_path)
 
@@ -135,9 +135,9 @@ def test_culvert_timeseries_wrapper(culvert_timeseries_script, tmp_path):
         assert call_args.kwargs["paths_to_process"] == [tmp_path]
 
 
-# Functional Test for POMM_combine
+# Functional test for combine_pomm_results
 def test_pomm_combine_functional(pomm_combine_script, tmp_path):
-    """Functional test for POMM_combine.py using real data."""
+    """Functionally test combine_pomm_results.py using real data."""
     # Setup: Copy test data to tmp_path
     import shutil
 

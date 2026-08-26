@@ -8,12 +8,14 @@ from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
 
-from ryan_library.functions.tuflow.asc_to_asc_statistics import (
-    DashboardOptions,
-    StatisticJob,
+from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob
+from ryan_library.functions.tuflow.tuflow_result_naming import (
     format_user_template,
-    run_statistic_stage,
     validate_output_filename,
+)
+from ryan_library.orchestrators.tuflow.asc_to_asc_batch import (
+    DashboardOptions,
+    run_raster_operation_stage,
 )
 
 
@@ -62,14 +64,14 @@ def build_max_searches(
     return tuple(searches)
 
 
-def discover_max_jobs(*, search_root: Path, searches: Sequence[MaxSearch]) -> list[StatisticJob]:
+def discover_max_jobs(*, search_root: Path, searches: Sequence[MaxSearch]) -> list[RasterOperationJob]:
     """Resolve each configured glob into an independent maximum job."""
     if not search_root.is_dir():
         raise FileNotFoundError(f"Search root was not found: {search_root}")
     if not searches:
         raise ValueError("No maximum searches were configured")
 
-    jobs: list[StatisticJob] = []
+    jobs: list[RasterOperationJob] = []
     seen_outputs: set[Path] = set()
     for search in searches:
         if Path(search.input_glob).is_absolute():
@@ -91,7 +93,7 @@ def discover_max_jobs(*, search_root: Path, searches: Sequence[MaxSearch]) -> li
         if not input_files:
             raise FileNotFoundError(f"No rasters matched {search_root / search.input_glob}")
         jobs.append(
-            StatisticJob(
+            RasterOperationJob(
                 label=search.label,
                 operation="-statMax",
                 input_files=input_files,
@@ -103,7 +105,6 @@ def discover_max_jobs(*, search_root: Path, searches: Sequence[MaxSearch]) -> li
 
 def run_max_workflow(
     *,
-    executable: Path,
     search_root: Path,
     searches: Sequence[MaxSearch],
     workers: int | None = None,
@@ -120,12 +121,8 @@ def run_max_workflow(
     if live_refresh_per_second <= 0 or live_max_rows < 1:
         print("ERROR: dashboard refresh and row values must be greater than zero")
         return 1
-    if not executable.is_file():
-        print(f"ERROR: ASC_to_ASC was not found at: {executable}")
-        return 1
-
     try:
-        jobs: list[StatisticJob] = discover_max_jobs(search_root=search_root, searches=searches)
+        jobs: list[RasterOperationJob] = discover_max_jobs(search_root=search_root, searches=searches)
     except (FileNotFoundError, ValueError) as error:
         print(f"ERROR: {error}")
         return 1
@@ -136,11 +133,10 @@ def run_max_workflow(
         print(f"Dry run complete: {len(jobs)} maximum jobs resolved.")
         return 0
 
-    summary = run_statistic_stage(
-        executable=executable,
+    summary = run_raster_operation_stage(
         jobs=jobs,
         stage_name="raster maximum",
-        dashboard_title="ASC_to_ASC Raster Maximums",
+        dashboard_title="Native Raster Maximums",
         dashboard_subtitle=str(search_root),
         workers=workers,
         dashboard_options=DashboardOptions(

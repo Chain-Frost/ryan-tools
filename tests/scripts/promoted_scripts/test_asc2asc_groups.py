@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from asc2asc_groups import TUFLOWRaster, build_diff_commands, build_max_median_commands
+from run_grouped_asc_to_asc_statistics import TUFLOWRaster, build_diff_commands, build_max_median_commands
 
 
 def _raster(path: str, *, tp: str, duration: str, aep: str) -> TUFLOWRaster:

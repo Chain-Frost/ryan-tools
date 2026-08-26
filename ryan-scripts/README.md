@@ -36,7 +36,7 @@ Scripts use one of these patterns:
 2. **Editable wrapper**: open the script, review the user-editable constants near the top or in `main()`, then run it.
 
    ```powershell
-   python .\ryan-scripts\TUFLOW-python\asc2asc_max_by_search.py --dry-run
+   python .\ryan-scripts\TUFLOW-python\raster_processing\run_asc_to_asc_maximum_searches.py --dry-run
    ```
 
 3. **Folder-driven utility**: place the script with the input files, or change to the intended working directory before
@@ -44,7 +44,7 @@ Scripts use one of these patterns:
 
    ```powershell
    Set-Location C:\path\to\model\results
-   python E:\Library\Automation\ryan-tools\ryan-scripts\TUFLOW-python\copy_tuflow_files_to_folder.py
+   python E:\Library\Automation\ryan-tools\ryan-scripts\TUFLOW-python\model_management\collect_result_and_check_files.py
    ```
 
 Use quoted paths when a folder or filename contains spaces. Run Python scripts from a terminal when possible so that

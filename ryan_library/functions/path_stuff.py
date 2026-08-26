@@ -7,8 +7,8 @@ import re
 
 from loguru import logger
 
-PathLike = str | Path
-PathOrList = PathLike | Iterable[PathLike]
+type PathLike = str | Path
+type PathOrList = PathLike | Iterable[PathLike]
 
 _WINDOWS_RESERVED_NAMES: set[str] = {
     "AUX",

@@ -226,7 +226,7 @@ def run_pomm_combine(
 ) -> pd.DataFrame:
     """Combine POMM (Plot Output Maximums/Minimums) files into a single DataFrame.
 
-    Notebook equivalent of ``ryan-scripts/TUFLOW-python/POMM_combine.py``.
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/po_and_timeseries/combine_pomm_results.py``.
 
     Args:
         paths: Directories to scan for POMM CSV files.
@@ -265,7 +265,7 @@ def run_po_combine(
 ) -> pd.DataFrame:
     """Combine PO (Plot Output) timeseries CSV files into a single DataFrame.
 
-    Notebook equivalent of ``ryan-scripts/TUFLOW-python/PO_combine.py``.
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/po_and_timeseries/combine_po_results.py``.
 
     Args:
         paths: Directories to scan for PO CSV files.
@@ -304,7 +304,7 @@ def run_culvert_maximums(
 ) -> CulvertMaximumsResult:
     """Load and combine culvert maximum data.
 
-    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Culvert_Maximums.py``.
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/culvert_results/combine_culvert_maximums.py``.
 
     Args:
         paths: Directories to scan.
@@ -356,7 +356,7 @@ def run_culvert_timeseries(
 ) -> pd.DataFrame:
     """Load and combine culvert timeseries data.
 
-    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Culvert_Timeseries.py``.
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/culvert_results/combine_culvert_timeseries.py``.
 
     Args:
         paths: Directories to scan.
@@ -395,7 +395,7 @@ def run_culvert_mean_peaks(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Calculate mean peak values per AEP/duration for culvert maximums.
 
-    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Culvert-mean-max-aep-dur.py``.
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/culvert_results/create_mean_culvert_peak_report.py``.
 
     This first loads and combines the culvert maximums, then calculates the
     AEP/duration mean using :func:`find_culvert_aep_dur_mean` and the
@@ -448,7 +448,7 @@ def run_log_summary(
 ) -> pd.DataFrame:
     """Parse TUFLOW log files (.tlf) and return a summary DataFrame.
 
-    Notebook equivalent of ``ryan-scripts/TUFLOW-python/LogSummary.py``.
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/log_processing/create_log_summary_report.py``.
 
     Unlike the wrapper script, this function does **not** use a live dashboard
     and processes files serially to avoid multiprocessing issues in notebooks.
@@ -511,7 +511,7 @@ def run_closure_durations(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Compute closure (exceedance) durations from PO timeseries files.
 
-    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW-find-closure-durations.py``.
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py``.
 
     Args:
         paths: Directories to scan for PO CSV files.
@@ -588,7 +588,7 @@ def run_timeseries_stability(
 ) -> pd.DataFrame:
     """Run stability checks on PO and/or 1D Q timeseries CSVs.
 
-    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Stability.py``.
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/po_and_timeseries/check_timeseries_stability.py``.
 
     Runs serially in the notebook process to avoid multiprocessing issues.
 
@@ -682,7 +682,7 @@ def run_timeseries_peaks_check(
 ) -> pd.DataFrame:
     """Check peak timing relative to end of simulation in PO CSVs.
 
-    Notebook equivalent of ``ryan-scripts/TUFLOW-python/TUFLOW_Timeseries_Peaks_Check.py``.
+    Notebook equivalent of ``ryan-scripts/TUFLOW-python/po_and_timeseries/check_po_timeseries_peaks.py``.
 
     Runs serially to avoid multiprocessing issues in notebooks.
 

@@ -6,8 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from asc2asc_groups import _parse_cli_arguments as parse_asc_groups
-from asc2asc_py import _parse_cli_arguments as parse_asc_native
+from run_grouped_asc_to_asc_statistics import _parse_cli_arguments as parse_asc_groups
+from run_python_raster_calculations import _parse_cli_arguments as parse_asc_native
 from audit_qgis_projects import _parse_cli_arguments as parse_qgis_audit
 from audit_qgis_projects import find_qgis_projects
 from batch_vector_clip import _parse_cli_arguments as parse_vector_clip

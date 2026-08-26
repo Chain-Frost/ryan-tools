@@ -1,7 +1,7 @@
 """Starter example for embedding the TUFLOW-results-to-HY-8 workflow.
 
 The script first runs the same result-discovery and combination workflow as
-``TUFLOW_Culvert_Maximums.py``. It then retains both the typed maximums record
+``culvert_results/combine_culvert_maximums.py``. It then retains both the typed maximums record
 and the generated HY-8 crossing so project-specific filtering and modification
 can happen before the final project is written.
 

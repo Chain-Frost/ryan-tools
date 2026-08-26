@@ -9,13 +9,13 @@ import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 import pytest
 
-from asc2asc_py import (
+from run_python_raster_calculations import (
     DEFAULT_INPUT_FILES,
     DEFAULT_OUTPUT_FILE,
     _parse_cli_arguments,  # pyright: ignore[reportPrivateUsage]
     resolve_configuration,
 )
-from ryan_library.functions.tuflow.local_raster_calc import compute_diff, compute_max, compute_stat
+from ryan_library.functions.tuflow.asc_to_asc_raster_operations import compute_diff, compute_max, compute_stat
 
 
 class _RasterWriter(Protocol):
@@ -72,7 +72,7 @@ def test_compute_max_and_mean(tmp_path: Path) -> None:
     compute_stat("mean", [str(first), str(second)], str(mean))
 
     np.testing.assert_array_equal(_read_raster(maximum), np.array([[3.0, 4.0], [5.0, 8.0]], dtype=np.float32))
-    np.testing.assert_array_equal(_read_raster(mean), np.array([[2.0, 3.0], [-9999.0, -9999.0]], dtype=np.float32))
+    np.testing.assert_array_equal(_read_raster(mean), np.array([[3.0, 4.0], [-9999.0, -9999.0]], dtype=np.float32))
 
 
 def test_compute_diff_preserves_shared_valid_cells(tmp_path: Path) -> None:
@@ -103,13 +103,15 @@ def test_compute_diff_rejects_misaligned_rasters_without_final_output(tmp_path: 
 def test_wrapper_defaults_are_used_and_cli_values_override_them() -> None:
     defaults = resolve_configuration(_parse_cli_arguments([]))
     overrides = resolve_configuration(
-        _parse_cli_arguments(["-max", "-out", "maximum.tif", "one.tif", "two.tif", "--no-pause"])
+        _parse_cli_arguments(["-max", "-out", "maximum.tif", "one.tif", "two.tif", "--source", "--no-pause"])
     )
 
     assert defaults.input_files == [str(path) for path in DEFAULT_INPUT_FILES]
     assert defaults.output_file == str(DEFAULT_OUTPUT_FILE)
     assert defaults.operation == "diff"
+    assert not defaults.write_source
     assert overrides.input_files == ["one.tif", "two.tif"]
     assert overrides.output_file == "maximum.tif"
     assert overrides.operation == "max"
+    assert overrides.write_source
     assert not overrides.pause

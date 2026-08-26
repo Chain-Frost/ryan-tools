@@ -265,9 +265,17 @@ def load_profile_lines(
                 "Profile layer has no CRS metadata; assigning configured CRS {}",
                 source_crs.to_string(),
             )
+            logger.warning(
+                "Profile layer has no CRS metadata; assigning configured CRS {}",
+                source_crs.to_string(),
+            )
             lines = lines.set_crs(source_crs)
         elif target_crs is not None:
             source_crs = target_crs
+            logger.warning(
+                "Profile layer has no CRS metadata; assuming raster CRS {}",
+                source_crs.to_string(),
+            )
             logger.warning(
                 "Profile layer has no CRS metadata; assuming raster CRS {}",
                 source_crs.to_string(),
@@ -553,6 +561,8 @@ def run_water_level_profile_workflow(
 
     if config.plot_width_cm <= 0.0 or config.plot_height_cm <= 0.0:
         raise ValueError("Plot dimensions must be positive.")
+    if config.scenario_name is not None and not config.scenario_name.strip():
+        raise ValueError("scenario_name cannot be blank.")
 
     if not np.isfinite(config.chainage_start_km):
         raise ValueError("chainage_start_km must be finite.")
