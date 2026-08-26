@@ -1,120 +1,127 @@
 # MCP Server Setup — ryan-tools
 
-The **ryan-tools** repository includes a lightweight [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that exposes geospatial and TUFLOW utilities as tools for AI agents (Antigravity, VS Code Copilot, Claude Desktop, etc.).
+The **ryan-tools** MCP server gives AI agents a small set of focused inspection tools and a staged catalogue of
+repository CLI workflows. The MCP server discovers scripts and returns safe command arrays; it does not execute the
+catalogued scripts. The agent runs a selected script through its normal shell after reviewing the script's current
+`--help`, input and output paths, mutation metadata and approval requirements.
 
----
+## Default tools
 
-## Available Tools
+The default MCP surface stays deliberately small:
 
 | Tool | Description |
 | --- | --- |
-| `parse_tuflow_filename` | Parse a TUFLOW output filename into structured components (AEP, duration, temporal pattern, data type). |
-| `inspect_tlf_log` | Analyze a TUFLOW `.tlf` log file for simulation status, warnings, errors, and missing runs. |
-| `inspect_raster_metadata` | Inspect spatial metadata (CRS, bounds, resolution) for a GeoTIFF or DEM raster file. |
-| `check_repo_health` | Check the ryan-tools environment: Python version, library version, and root directory. |
-| `list_gdal_cli_tools` | Discover supported GDAL processing jobs without loading the full catalogue. |
-| `get_gdal_cli_tool` | Retrieve one GDAL job's wrapper path, defaults, safety metadata, and command scenarios. |
+| `parse_tuflow_filename` | Parse a TUFLOW output filename into structured components. |
+| `inspect_tlf_log` | Parse one TUFLOW `.tlf` log into available simulation summary fields. |
+| `inspect_raster_metadata` | Inspect raster dimensions, resolution, CRS, transform, bounds, bands and NoData metadata. |
+| `check_repo_health` | Report package versions, configured profile, checkout discovery and catalogue status. |
+| `list_workflows` | Discover CLI workflows enabled by the configured profile, optionally filtered by domain. |
+| `get_workflow` | Resolve one workflow's script path, help command, scenarios and safety metadata. |
 
-## GDAL discovery
+The complete visible catalogue is also available as the read-only resource
+`ryan-tools://workflows/catalogue`.
 
-The server exposes the full JSON catalogue as the read-only resource
-`ryan-tools://gdal/cli-catalogue`. It also exposes the two discovery tools above
-because tool descriptions are more consistently visible to AI models than MCP
-resources alone.
+## Capability profiles
 
-An AI should call `list_gdal_cli_tools`, choose the matching job, and then call
-`get_gdal_cli_tool` with its `id`. The result contains an absolute `script_path`
-plus ready-to-run `help_command` and `resolved_scenarios` arrays derived from
-`gdal_cli_tools.json`. The AI can run one of those arrays through its normal
-shell capability; catalogue scenarios already include `--no-pause`. The MCP
-server discovers commands but does not execute or silently approve
-file-changing GDAL operations.
+Profiles are cumulative and control catalogue visibility rather than creating one MCP endpoint for every script:
 
----
+| Profile | Visible workflows |
+| --- | --- |
+| `core` | Focused direct MCP helpers only. |
+| `analysis` | Adds read-only CLI audits and inspections. |
+| `create` | Adds workflows that create report, plot, archive, raster or vector outputs. This is the default. |
+| `privileged` | Adds in-place, deleting or external-execution workflows. Requires explicit configuration. |
+
+Set the maximum profile with `RYAN_MCP_PROFILE`. A tool call cannot request a profile above the configured value.
+Workflows declare their lifecycle and mutation class, and privileged workflows also declare that explicit approval is
+required.
+
+The generic workflow catalogue is packaged with `ryan_functions`. GDAL workflows are extended from the repository's
+authoritative `ryan-scripts/gdal-python/gdal_cli_tools.json` when a checkout is available.
+
+## Repository checkout discovery
+
+The installed MCP server needs a checkout to expose human-facing scripts. It resolves the checkout in this order:
+
+1. The explicit `RYAN_TOOLS_REPOSITORY_ROOT` environment variable.
+2. The source tree containing the imported package during repository development.
+3. The current directory or one of its parents.
+
+When no checkout is found, the MCP server still starts and its focused direct helpers remain available. Health and
+workflow-list responses explain how to configure the missing root.
 
 ## Prerequisites
 
-1. **Python 3.14+** with the `ryan_functions` package installed (editable or wheel).
+1. Python 3.14+ with the `ryan_functions` package installed.
 2. Install the MCP extra:
 
-   ```bash
-   pip install .[mcp]
+   ```bat
+   python -m pip install ".[mcp]"
    ```
 
-   This pulls in the `mcp[cli]` package, which includes the FastMCP SDK and `stdio` transport.
+## Running the server
 
----
+After installation:
 
-## Running the Server
-
-### Option A: Console entrypoint (after `pip install`)
-
-```bash
+```bat
 ryan-mcp
 ```
 
-### Option B: Direct invocation
+Or invoke the packaged module directly:
 
-```bash
-python ryan_mcp_server.py
+```bat
+python -m ryan_library.mcp.server
 ```
 
-Both start the server using MCP's default **stdio** transport.
+Both forms use MCP's stdio transport.
 
----
+## Codex configuration
 
-## Client Configuration
+Add this to the user's `~/.codex/config.toml`, adjusting the repository path if needed:
 
-### VS Code (Antigravity / Copilot)
+```toml
+[mcp_servers.ryan-tools]
+command = 'C:\Program Files\Python314\python.exe'
+args = ['-m', 'ryan_library.mcp.server']
 
-The repo ships a `.vscode/mcp.json` that auto-registers the server when you open the workspace:
-
-```jsonc
-// .vscode/mcp.json
-{
-  "servers": {
-    "ryan-tools": {
-      "command": "python",
-      "args": ["${workspaceFolder}/ryan_mcp_server.py"],
-      "env": {
-        "PYTHONPATH": "${workspaceFolder}",
-        "PYTHONUTF8": "1"
-      }
-    }
-  }
-}
+[mcp_servers.ryan-tools.env]
+PYTHONUTF8 = '1'
+RYAN_TOOLS_REPOSITORY_ROOT = 'Q:\BGER\PER\RPRT\ryan-tools'
+RYAN_MCP_PROFILE = 'create'
 ```
 
-No additional setup needed — the server appears in the MCP panel automatically.
+Restart Codex after changing MCP configuration.
 
-### Claude Desktop
+On systems where Python bytecode files are prohibited, add `-B` before `-m` and set
+`PYTHONDONTWRITEBYTECODE = '1'`. This is an environment-specific restriction, not the default ryan-tools behavior.
 
-Add this to your `claude_desktop_config.json` (adjust paths as needed):
+## VS Code
 
-```jsonc
-{
-  "mcpServers": {
-    "ryan-tools": {
-      "command": "python",
-      "args": ["E:/Library/Automation/ryan-tools/ryan_mcp_server.py"],
-      "env": {
-        "PYTHONPATH": "E:/Library/Automation/ryan-tools",
-        "PYTHONUTF8": "1"
-      }
-    }
-  }
-}
-```
+The repository ships `.vscode/mcp.json`. Opening the workspace registers the server with the workspace path as
+`RYAN_TOOLS_REPOSITORY_ROOT` and the `create` profile.
 
-> **Note:** Claude Desktop uses `mcpServers` (camelCase), while VS Code uses `servers`.
+## Agent workflow
 
----
+An agent should:
+
+1. Call `list_workflows`, optionally filtering by domain.
+2. Call `get_workflow` with the selected id.
+3. Check `available`, `lifecycle`, `mutation`, `requires_explicit_approval` and the resolved paths.
+4. Run the returned `help_command` through the client shell when it is present.
+5. Construct the final CLI call from the current help and returned scenarios.
+6. Include the returned `required_headless_arguments` for non-interactive execution.
+7. Obtain explicit user approval before privileged or replacement behavior.
+8. Report the process exit code, generated outputs, warnings and errors.
+
+The MCP server never invokes the returned command itself.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
-| `mcp package is not installed` | Run `pip install .[mcp]` from the repo root. |
-| Server starts but no tools appear | Check that `ryan_library` is importable (`python -c "import ryan_library"`). |
-| `Property mcpServers is not allowed` in VS Code | Use `"servers"` as the top-level key in `.vscode/mcp.json`, not `"mcpServers"`. |
-| Tools fail with `ModuleNotFoundError` | Ensure `PYTHONPATH` includes the repo root, or install the package in editable mode. |
+| `mcp package is not installed` | Install the project with the `mcp` extra. |
+| Server starts but scripts are unavailable | Set `RYAN_TOOLS_REPOSITORY_ROOT` to a checkout containing `pyproject.toml` and `ryan-scripts`. |
+| A workflow is unknown under `create` | It may be privileged; inspect the packaged catalogue and explicitly opt into `privileged` if appropriate. |
+| GDAL workflows do not appear | Check the repository root and `ryan-scripts/gdal-python/gdal_cli_tools.json`. |
+| Script imports fail | Install the matching `ryan_functions` package version used by the checkout. |
+| Changes do not appear in the client | Restart the MCP client so it reloads tool definitions and environment variables. |

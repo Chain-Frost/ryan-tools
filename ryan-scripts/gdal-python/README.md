@@ -38,10 +38,11 @@ purpose, defaults, mutation risk, and argument arrays for common processing
 scenarios. It describes only the current Python tools, without migration
 history.
 
-An AI should resolve each `script` path relative to the JSON file, prepend the
-catalogue's `command_prefix`, replace values such as `{input_directory}`, and
-include `--no-pause`. The wrapper's `help_arguments` can be executed whenever
-the complete current CLI reference is needed.
+The ryan-tools MCP server reads this catalogue from a configured repository checkout and exposes it through the generic
+`list_workflows` and `get_workflow` discovery tools. An AI should use the resolved command arrays returned by MCP,
+replace values such as `{input_directory}`, and include `--no-pause`. The wrapper's help command can be executed
+whenever the complete current CLI reference is needed. The MCP server discovers these commands but does not execute
+the wrappers.
 
 Run any wrapper with `--help` for its supported options and examples.
 
