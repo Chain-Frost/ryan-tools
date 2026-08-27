@@ -23,6 +23,6 @@ replacements are [`gdal_translate_TIF_ovr.py`](../gdal-python/gdal_translate_TIF
 [`gdaladdo_tif_pyramids.py`](../gdal-python/gdaladdo_tif_pyramids.py) and
 [`gdal_flood_extent.py`](../gdal-python/gdal_flood_extent.py) respectively.
 
-See [`../gdal-python/README.md`](../gdal-python/README.md) for human-facing recipes and
-[`../gdal-python/gdal_cli_tools.json`](../gdal-python/gdal_cli_tools.json) for the authoritative automation catalogue,
-including defaults, mutation classifications and argument arrays.
+See [`../gdal-python/README.md`](../gdal-python/README.md) for human-facing recipes and the packaged
+[`gdal_cli_tools.json`](../../ryan_library/resources/mcp/gdal_cli_tools.json) automation catalogue for defaults,
+mutation classifications and argument arrays.

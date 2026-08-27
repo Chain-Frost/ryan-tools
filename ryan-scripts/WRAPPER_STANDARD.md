@@ -183,4 +183,7 @@ their reserved memory to Windows.
 - Verify a missing working directory returns process code `1` without pausing.
 - If `ryan_library` changed, rebuild and install the wheel before testing a
   copied wrapper outside the repository.
+- For a supported reusable automation workflow, assess whether the existing
+  wrapper belongs in the MCP catalogue. Do not catalogue basic, project-specific,
+  interactive or experimental scripts merely because they have a CLI.
 - Preserve unrelated worktree changes.

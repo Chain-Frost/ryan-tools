@@ -1,0 +1,222 @@
+{
+  "schema_version": "1.0",
+  "catalogue_updated": "2026-08-27",
+  "workflows": [
+    {
+      "id": "audit_qgis_projects",
+      "title": "Audit QGIS project sources",
+      "domain": "qgis",
+      "purpose": "Scan QGIS project files and report missing local data sources.",
+      "script": "ryan-scripts/other/audit_qgis_projects.py",
+      "profile": "analysis",
+      "mutation": "read_only",
+      "lifecycle": "experimental",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_log_summary",
+      "title": "TUFLOW log summary",
+      "domain": "tuflow",
+      "purpose": "Recursively parse TUFLOW log files and create a simulation summary workbook.",
+      "script": "ryan-scripts/TUFLOW-python/log_processing/create_log_summary_report.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-live-dashboard", "--no-pause"]
+    },
+    {
+      "id": "tuflow_pomm_combine",
+      "title": "Combine TUFLOW POMM results",
+      "domain": "tuflow",
+      "purpose": "Combine TUFLOW POMM result files into report outputs.",
+      "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/combine_pomm_results.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_po_combine",
+      "title": "Combine TUFLOW PO results",
+      "domain": "tuflow",
+      "purpose": "Combine TUFLOW PO result files into report outputs.",
+      "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/combine_po_results.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_pomm_mean_peaks",
+      "title": "TUFLOW POMM mean peak report",
+      "domain": "tuflow",
+      "purpose": "Create mean POMM peak reports by AEP and duration.",
+      "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_pomm_median_peaks",
+      "title": "TUFLOW POMM median peak report",
+      "domain": "tuflow",
+      "purpose": "Create median POMM peak reports by AEP and duration.",
+      "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/create_pomm_median_peak_report.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_closure_durations",
+      "title": "TUFLOW closure durations",
+      "domain": "tuflow",
+      "purpose": "Calculate closure durations from TUFLOW time-series results.",
+      "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_culvert_mean_peaks",
+      "title": "TUFLOW culvert mean peak report",
+      "domain": "tuflow",
+      "purpose": "Create mean culvert peak reports by AEP and duration.",
+      "script": "ryan-scripts/TUFLOW-python/culvert_results/create_mean_culvert_peak_report.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_culvert_median_peaks",
+      "title": "TUFLOW culvert median peak report",
+      "domain": "tuflow",
+      "purpose": "Create median culvert peak reports by AEP and duration.",
+      "script": "ryan-scripts/TUFLOW-python/culvert_results/create_median_culvert_peak_report.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_culvert_maximums",
+      "title": "TUFLOW culvert maximums",
+      "domain": "tuflow",
+      "purpose": "Merge TUFLOW culvert maximum results into report outputs.",
+      "script": "ryan-scripts/TUFLOW-python/culvert_results/combine_culvert_maximums.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_culvert_timeseries",
+      "title": "TUFLOW culvert time series",
+      "domain": "tuflow",
+      "purpose": "Combine TUFLOW culvert time-series results.",
+      "script": "ryan-scripts/TUFLOW-python/culvert_results/combine_culvert_timeseries.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_timeseries_peak_check",
+      "title": "TUFLOW time-series peak check",
+      "domain": "tuflow",
+      "purpose": "Check TUFLOW time-series peak results and create review outputs.",
+      "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/check_po_timeseries_peaks.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_timeseries_stability",
+      "title": "TUFLOW time-series stability",
+      "domain": "tuflow",
+      "purpose": "Analyse TUFLOW time-series stability and create review outputs.",
+      "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/check_timeseries_stability.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_water_level_profiles",
+      "title": "Plot TUFLOW water-level profiles",
+      "domain": "tuflow",
+      "purpose": "Create terrain and water-level profile plots along configured lines.",
+      "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/plot_water_level_profiles.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "rorb_closure_durations",
+      "title": "RORB closure durations",
+      "domain": "rorb",
+      "purpose": "Calculate closure durations from RORB results.",
+      "script": "ryan-scripts/RORB-python/RORB-find-closure-durations.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "rorb_ensemble_plots",
+      "title": "Plot RORB ensemble results",
+      "domain": "rorb",
+      "purpose": "Create plots from RORB ensemble results.",
+      "script": "ryan-scripts/RORB-python/plot_ensemble_results.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_log_summary_append_master",
+      "title": "Append TUFLOW log summary to master",
+      "domain": "tuflow",
+      "purpose": "Append generated TUFLOW log summary data to an existing master workbook.",
+      "script": "ryan-scripts/TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py",
+      "profile": "privileged",
+      "mutation": "in_place",
+      "requires_explicit_approval": true,
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "tuflow_asc2asc_groups",
+      "title": "Run grouped TUFLOW ASC_to_ASC processing",
+      "domain": "tuflow",
+      "purpose": "Coordinate grouped raster processing through the external TUFLOW ASC_to_ASC executable.",
+      "script": "ryan-scripts/TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py",
+      "profile": "privileged",
+      "mutation": "executes_external",
+      "requires_explicit_approval": true,
+      "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "run_tuflow_batch",
+      "title": "Run TUFLOW batch",
+      "domain": "tuflow",
+      "purpose": "Launch configured TUFLOW simulations.",
+      "script": "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py",
+      "profile": "privileged",
+      "mutation": "executes_external",
+      "requires_explicit_approval": true,
+      "help_safe": false
+    },
+    {
+      "id": "delete_duplicate_tuflow_files",
+      "title": "Delete duplicate TUFLOW check files",
+      "domain": "tuflow",
+      "purpose": "Delete duplicate files identified in TUFLOW check folders.",
+      "script": "ryan-scripts/TUFLOW-python/model_management/delete_duplicate_check_files.py",
+      "profile": "privileged",
+      "mutation": "deletes",
+      "requires_explicit_approval": true,
+      "help_safe": false
+    },
+    {
+      "id": "remove_excel_protection",
+      "title": "Remove Excel workbook protection",
+      "domain": "documents",
+      "purpose": "Remove workbook or worksheet protection from Excel files.",
+      "script": "ryan-scripts/misc-python/remove_excel_protection.py",
+      "profile": "privileged",
+      "mutation": "creates_or_replaces",
+      "requires_explicit_approval": true,
+      "headless_arguments": ["--no-pause"]
+    }
+  ]
+}

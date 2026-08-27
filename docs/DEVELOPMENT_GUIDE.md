@@ -85,6 +85,24 @@ Use these questions in order:
 For example, a TUFLOW output filename pattern or project prefix belongs in a wrapper; generic discovery and validation
 belong in the library; coordinating discovery, aggregation and workbook export belongs in an orchestrator.
 
+### MCP discovery assessment
+
+When adding or materially changing supported reusable automation, consider whether an AI agent should discover it
+through the MCP integration. This is an assessment, not a requirement to expose every script or function.
+
+- Add a maintained CLI workflow to the packaged MCP catalogue when it is useful across projects, has a stable headless
+  interface and has explicit lifecycle, mutation and approval semantics. Point the catalogue at the authoritative
+  wrapper instead of duplicating its CLI under `ryan_library`.
+- Add a focused MCP tool when a bounded, read-only or otherwise clearly controlled function provides recurring
+  agent-facing value. Keep inputs typed and outputs small enough for an agent to inspect reliably.
+- Add an MCP guidance resource when agents benefit more from knowing the supported Python import, processor,
+  collection or source-of-truth registry than from another fixed endpoint.
+- Do not automatically catalogue basic helpers, one-off scripts, project-specific wrappers, interactive utilities,
+  experimental code or every public library function.
+
+When MCP discovery changes, update the relevant packaged listing or resource, focused tests and
+[`MCP_SETUP.md`](MCP_SETUP.md).
+
 ## Common execution environments
 
 The sections below define the important boundaries. See [`ENVIRONMENTS.md`](ENVIRONMENTS.md) for setup commands, VS Code

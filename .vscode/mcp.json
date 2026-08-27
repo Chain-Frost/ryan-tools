@@ -3,11 +3,14 @@
     "ryan-tools": {
       "command": "python",
       "args": [
-        "${workspaceFolder}/ryan_mcp_server.py"
+        "-m",
+        "ryan_library.mcp.server"
       ],
       "env": {
         "PYTHONPATH": "${workspaceFolder}",
-        "PYTHONUTF8": "1"
+        "PYTHONUTF8": "1",
+        "RYAN_TOOLS_REPOSITORY_ROOT": "${workspaceFolder}",
+        "RYAN_MCP_PROFILE": "create"
       }
     }
   }

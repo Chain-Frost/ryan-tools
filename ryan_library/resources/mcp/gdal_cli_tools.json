@@ -1,0 +1,216 @@
+{
+  "schema_version": "1.0",
+  "catalogue": "Curated ryan-tools GDAL command-line wrappers",
+  "catalogue_updated": "2026-08-27",
+  "selection_policy": "Stable, reusable workflows with recurring agent-facing value; basic and narrowly scoped wrappers remain available through normal script discovery.",
+  "wrapper_versions": {
+    "gdal_translate_TIF_ovr.py": "2026-08-02.4",
+    "gdaladdo_tif_pyramids.py": "2026-08-02.4",
+    "gdal_raster_footprint.py": "2026-08-02.3",
+    "batch_vector_clip.py": "2026-08-20.1",
+    "gdal_stage_storage.py": "2026-08-20.2",
+    "gdalwarp_clip_to_polygon.py": "2026-08-20.1",
+    "split_vector_by_attribute.py": "2026-08-20.1"
+  },
+  "repository_scripts_relative_to_root": "ryan-scripts/gdal-python",
+  "agent_guidance": {
+    "discovery": "Select a tool by its id or scenarios, then run its help command before execution.",
+    "non_interactive": "Always include --no-pause when an AI or automation invokes a wrapper.",
+    "default_raster_profile": "tuflow",
+    "efficient_raster_profile": "Use --profile efficient only when the user prefers storage efficiency over the conservative TUFLOW default.",
+    "default_vector_format": "gpkg",
+    "overviews": "Raster pyramids are external .ovr sidecars.",
+    "overwrite": "Do not add --overwrite unless replacement of existing outputs has been explicitly requested.",
+    "in_place_changes": "Obtain explicit approval before invoking a tool whose mutation is in_place.",
+    "placeholders": "Values enclosed in braces must be replaced with real paths or values. Do not pass the braces literally."
+  },
+  "tools": [
+    {
+      "id": "translate_rasters_to_geotiff",
+      "script": "gdal_translate_TIF_ovr.py",
+      "purpose": "Convert GDAL-readable terrain rasters to GeoTIFF and optionally create external overviews.",
+      "mutation": "creates_outputs",
+      "defaults": {
+        "input_extensions": [
+          "flt",
+          "asc",
+          "rst",
+          "xyz"
+        ],
+        "recursive": true,
+        "profile": "tuflow",
+        "external_overviews": true
+      },
+      "help_arguments": [
+        "gdal_translate_TIF_ovr.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "convert_flt_asc_rst_beside_sources",
+          "arguments": [
+            "gdal_translate_TIF_ovr.py",
+            "{input_directory}",
+            "--extensions",
+            "flt",
+            "asc",
+            "rst",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "rewrite_supported_rasters_with_compress_suffix",
+          "arguments": [
+            "gdal_translate_TIF_ovr.py",
+            "{input_directory}",
+            "--extensions",
+            "flt",
+            "asc",
+            "rst",
+            "tif",
+            "tiff",
+            "--output-suffix",
+            "_compress",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "import_xyz_and_create_geotiffs",
+          "arguments": [
+            "gdal_translate_TIF_ovr.py",
+            "{input_directory}",
+            "--extensions",
+            "xyz",
+            "--output-directory",
+            "{output_directory}",
+            "--no-pause"
+          ],
+          "note": "XYZ is the input format. The output is GeoTIFF, not XYZ. Source subdirectories are preserved below the output directory."
+        },
+        {
+          "name": "efficient_geotiff_output",
+          "arguments": [
+            "gdal_translate_TIF_ovr.py",
+            "{input_directory}",
+            "--profile",
+            "efficient",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "build_external_overviews",
+      "script": "gdaladdo_tif_pyramids.py",
+      "purpose": "Create or refresh external overview sidecars for existing GeoTIFFs.",
+      "mutation": "creates_or_replaces_sidecars",
+      "defaults": {
+        "recursive": true,
+        "levels": [
+          2,
+          4,
+          8,
+          16,
+          32
+        ],
+        "resampling": "nearest",
+        "profile": "tuflow"
+      },
+      "help_arguments": [
+        "gdaladdo_tif_pyramids.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "create_missing_external_overviews",
+          "arguments": [
+            "gdaladdo_tif_pyramids.py",
+            "{input_directory}",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "refresh_external_overviews",
+          "arguments": [
+            "gdaladdo_tif_pyramids.py",
+            "{input_directory}",
+            "--refresh",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "create_raster_footprints",
+      "script": "gdal_raster_footprint.py",
+      "purpose": "Create valid-data vector footprints for matching rasters.",
+      "mutation": "creates_outputs",
+      "defaults": {
+        "pattern": "*.tif",
+        "vector_format": "gpkg",
+        "recursive": true
+      },
+      "help_arguments": [
+        "gdal_raster_footprint.py",
+        "--help"
+      ],
+      "scenarios": [
+        {
+          "name": "recursive_geopackage_footprints",
+          "arguments": [
+            "gdal_raster_footprint.py",
+            "{input_directory}",
+            "--pattern",
+            "*.tif",
+            "--vector-format",
+            "gpkg",
+            "--recursive",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "shapefile_footprints",
+          "arguments": [
+            "gdal_raster_footprint.py",
+            "{input_directory}",
+            "--vector-format",
+            "shp",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "batch_vector_clip",
+      "script": "batch_vector_clip.py",
+      "purpose": "Clip multiple vector datasets to one or more extent datasets with bounded ogr2ogr workers.",
+      "mutation": "creates_outputs",
+      "defaults": {"workers": 4, "overwrite": false, "dry_run": false},
+      "help_arguments": ["batch_vector_clip.py", "--help"]
+    },
+    {
+      "id": "calculate_stage_storage",
+      "script": "gdal_stage_storage.py",
+      "purpose": "Calculate stage-storage CSV files and optional plots from single-band DEMs with a projected metre-based CRS.",
+      "mutation": "creates_outputs",
+      "defaults": {"patterns": ["*.tif"], "step": 0.01, "create_plot": true},
+      "help_arguments": ["gdal_stage_storage.py", "--help"]
+    },
+    {
+      "id": "clip_rasters_to_polygon",
+      "script": "gdalwarp_clip_to_polygon.py",
+      "purpose": "Clip TIFF rasters to an unambiguous vector cutline layer.",
+      "mutation": "creates_outputs",
+      "defaults": {"output_directory": "clipped"},
+      "help_arguments": ["gdalwarp_clip_to_polygon.py", "--help"]
+    },
+    {
+      "id": "split_vector_by_attribute",
+      "script": "split_vector_by_attribute.py",
+      "purpose": "Write one vector dataset per distinct attribute value.",
+      "mutation": "creates_outputs",
+      "defaults": {"format": "shp", "parallel": false, "workers": 4},
+      "help_arguments": ["split_vector_by_attribute.py", "--help"]
+    }
+  ]
+}
