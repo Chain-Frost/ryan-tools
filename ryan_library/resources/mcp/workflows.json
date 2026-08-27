@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "catalogue_updated": "2026-08-26",
+  "catalogue_updated": "2026-08-27",
   "workflows": [
     {
       "id": "audit_qgis_projects",
@@ -159,37 +159,6 @@
       "domain": "rorb",
       "purpose": "Create plots from RORB ensemble results.",
       "script": "ryan-scripts/RORB-python/plot_ensemble_results.py",
-      "profile": "create",
-      "mutation": "creates_outputs",
-      "headless_arguments": ["--no-pause"]
-    },
-    {
-      "id": "list_files_recursive",
-      "title": "List files recursively",
-      "domain": "file_management",
-      "purpose": "Write a sorted recursive file inventory to a text file.",
-      "script": "ryan-scripts/file-management-python/list_files_recursive.py",
-      "profile": "create",
-      "mutation": "creates_or_replaces",
-      "lifecycle": "experimental",
-      "headless_arguments": ["--no-pause"]
-    },
-    {
-      "id": "archive_compress_folder",
-      "title": "Compress a folder archive",
-      "domain": "file_management",
-      "purpose": "Create a compressed archive for a selected folder.",
-      "script": "ryan-scripts/file-management-python/archive_compress_folder.py",
-      "profile": "create",
-      "mutation": "creates_outputs",
-      "headless_arguments": ["--no-pause"]
-    },
-    {
-      "id": "archive_compress_individual",
-      "title": "Compress files individually",
-      "domain": "file_management",
-      "purpose": "Create separate compressed archives for selected files.",
-      "script": "ryan-scripts/file-management-python/archive_compress_individual.py",
       "profile": "create",
       "mutation": "creates_outputs",
       "headless_arguments": ["--no-pause"]

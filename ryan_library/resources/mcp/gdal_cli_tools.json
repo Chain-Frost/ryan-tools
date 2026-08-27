@@ -1,28 +1,16 @@
 {
   "schema_version": "1.0",
-  "catalogue": "ryan-tools GDAL command-line wrappers",
-  "catalogue_updated": "2026-08-20",
+  "catalogue": "Curated ryan-tools GDAL command-line wrappers",
+  "catalogue_updated": "2026-08-27",
+  "selection_policy": "Stable, reusable workflows with recurring agent-facing value; basic and narrowly scoped wrappers remain available through normal script discovery.",
   "wrapper_versions": {
     "gdal_translate_TIF_ovr.py": "2026-08-02.4",
     "gdaladdo_tif_pyramids.py": "2026-08-02.4",
-    "gdal_flood_extent.py": "2026-08-02.4",
-    "gdal_merge.py": "2026-08-02.3",
-    "gdal_merge_by_extent.py": "2026-08-02.3",
-    "gdal_set_nodata.py": "2026-08-02.3",
     "gdal_raster_footprint.py": "2026-08-02.3",
-    "laz_to_las.py": "2026-08-02.3",
-    "build_VRT.py": "2026-08-02.4",
     "batch_vector_clip.py": "2026-08-20.1",
-    "check_flt_tif.py": "2026-08-20.1",
-    "convert_gdb_to_gpkg.py": "2026-08-20.1",
-    "gdal_raster_to_xyz.py": "2026-08-20.1",
-    "gdal_retile_wrapper.py": "2026-08-20.1",
     "gdal_stage_storage.py": "2026-08-20.2",
-    "gdal_unset_nodata.py": "2026-08-20.1",
-    "gdal_vector_translate.py": "2026-08-20.1",
     "gdalwarp_clip_to_polygon.py": "2026-08-20.1",
-    "split_vector_by_attribute.py": "2026-08-20.1",
-    "vacuum_geopackages.py": "2026-08-20.1"
+    "split_vector_by_attribute.py": "2026-08-20.1"
   },
   "repository_scripts_relative_to_root": "ryan-scripts/gdal-python",
   "agent_guidance": {
@@ -153,206 +141,6 @@
       ]
     },
     {
-      "id": "create_flood_extents",
-      "script": "gdal_flood_extent.py",
-      "purpose": "Threshold a selected raster band into a Byte flood mask and polygonize it to GPKG or SHP.",
-      "mutation": "creates_outputs",
-      "defaults": {
-        "patterns": [
-          "*_d_HR_Max.tif"
-        ],
-        "recursive": false,
-        "input_band": 1,
-        "cutoff": 0.0,
-        "vector_format": "gpkg",
-        "profile": "tuflow"
-      },
-      "help_arguments": [
-        "gdal_flood_extent.py",
-        "--help"
-      ],
-      "scenarios": [
-        {
-          "name": "recursive_band_1_tiff_flood_extent",
-          "arguments": [
-            "gdal_flood_extent.py",
-            "{input_directory}",
-            "--patterns",
-            "*.tif",
-            "--recursive",
-            "--cutoff",
-            "0.1",
-            "--no-pause"
-          ]
-        },
-        {
-          "name": "band_4_ecw_to_shapefile",
-          "arguments": [
-            "gdal_flood_extent.py",
-            "{input_directory}",
-            "--patterns",
-            "*.ecw",
-            "--recursive",
-            "--input-band",
-            "4",
-            "--cutoff",
-            "50",
-            "--vector-format",
-            "shp",
-            "--no-pause"
-          ]
-        },
-        {
-          "name": "sieved_flood_extent",
-          "arguments": [
-            "gdal_flood_extent.py",
-            "{input_directory}",
-            "--patterns",
-            "*.tif",
-            "--recursive",
-            "--cutoff",
-            "0.1",
-            "--sieve-pixels",
-            "8",
-            "--connectedness",
-            "8",
-            "--keep-intermediate-masks",
-            "--no-pause"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "merge_rasters",
-      "script": "gdal_merge.py",
-      "purpose": "Merge matching rasters into a persistent VRT and GeoTIFF.",
-      "mutation": "creates_outputs",
-      "defaults": {
-        "pattern": "*.tif",
-        "profile": "tuflow",
-        "external_overviews": false
-      },
-      "help_arguments": [
-        "gdal_merge.py",
-        "--help"
-      ],
-      "scenarios": [
-        {
-          "name": "merge_tiffs_with_output_basename",
-          "arguments": [
-            "gdal_merge.py",
-            "{input_directory}",
-            "*.tif",
-            "{output_basename}",
-            "--no-pause"
-          ]
-        },
-        {
-          "name": "merge_xyz_with_assigned_crs_and_nodata",
-          "arguments": [
-            "gdal_merge.py",
-            "{input_directory}",
-            "*.xyz",
-            "{output_basename}",
-            "--output-srs",
-            "{crs}",
-            "--nodata",
-            "-9999",
-            "--no-pause"
-          ],
-          "example_crs": "EPSG:7851"
-        }
-      ]
-    },
-    {
-      "id": "merge_rasters_by_vector_extent",
-      "script": "gdal_merge_by_extent.py",
-      "purpose": "Select raster tiles intersecting a GPKG or SHP bounding box and optionally merge them.",
-      "mutation": "creates_outputs_unless_list_only",
-      "defaults": {
-        "pattern": "*.xyz",
-        "nodata": -9999.0,
-        "profile": "tuflow"
-      },
-      "help_arguments": [
-        "gdal_merge_by_extent.py",
-        "--help"
-      ],
-      "scenarios": [
-        {
-          "name": "preview_intersecting_tiles",
-          "arguments": [
-            "gdal_merge_by_extent.py",
-            "{input_directory}",
-            "{extent_vector}",
-            "--pattern",
-            "*.xyz",
-            "--list-only",
-            "--no-pause"
-          ]
-        },
-        {
-          "name": "merge_intersecting_xyz_tiles",
-          "arguments": [
-            "gdal_merge_by_extent.py",
-            "{input_directory}",
-            "{extent_vector}",
-            "--pattern",
-            "*.xyz",
-            "--nodata",
-            "-9999",
-            "--no-pause"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "set_raster_nodata",
-      "script": "gdal_set_nodata.py",
-      "purpose": "Set NoData metadata on selected bands without changing pixel values.",
-      "mutation": "in_place",
-      "requires_explicit_approval": true,
-      "defaults": {
-        "pattern": "*.tif",
-        "nodata": -9999.0,
-        "recursive": false,
-        "bands": "all"
-      },
-      "help_arguments": [
-        "gdal_set_nodata.py",
-        "--help"
-      ],
-      "scenarios": [
-        {
-          "name": "set_nodata_on_tiffs_in_one_directory",
-          "arguments": [
-            "gdal_set_nodata.py",
-            "{input_directory}",
-            "--pattern",
-            "*.tif",
-            "--nodata",
-            "-9999",
-            "--no-pause"
-          ]
-        },
-        {
-          "name": "set_nodata_on_band_1_recursively",
-          "arguments": [
-            "gdal_set_nodata.py",
-            "{input_directory}",
-            "--pattern",
-            "*.tif",
-            "--nodata",
-            "-9999",
-            "--bands",
-            "1",
-            "--recursive",
-            "--no-pause"
-          ]
-        }
-      ]
-    },
-    {
       "id": "create_raster_footprints",
       "script": "gdal_raster_footprint.py",
       "purpose": "Create valid-data vector footprints for matching rasters.",
@@ -393,78 +181,6 @@
       ]
     },
     {
-      "id": "convert_laz_to_las",
-      "script": "laz_to_las.py",
-      "purpose": "Stream compressed LAZ point clouds to uncompressed LAS files.",
-      "mutation": "creates_outputs",
-      "defaults": {
-        "output_directory": "LAS subdirectory below input",
-        "recursive": false,
-        "workers": 1,
-        "chunk_size": 1000000
-      },
-      "help_arguments": [
-        "laz_to_las.py",
-        "--help"
-      ],
-      "scenarios": [
-        {
-          "name": "convert_one_laz_directory_to_separate_las_directory",
-          "arguments": [
-            "laz_to_las.py",
-            "{input_directory}",
-            "--output-directory",
-            "{output_directory}",
-            "--no-pause"
-          ]
-        },
-        {
-          "name": "recursive_laz_conversion",
-          "arguments": [
-            "laz_to_las.py",
-            "{input_directory}",
-            "--output-directory",
-            "{output_directory}",
-            "--recursive",
-            "--no-pause"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "build_grouped_tuflow_mosaics",
-      "script": "build_VRT.py",
-      "purpose": "Group TUFLOW result TIFFs by filename fields, create one GeoTIFF mosaic per group, and build external overviews.",
-      "mutation": "creates_outputs",
-      "defaults": {
-        "remove_field": 2,
-        "suffixes": [
-          "d_HR_Max",
-          "h_HR_Max",
-          "V_Max",
-          "DEM_Z_HR"
-        ],
-        "profile": "tuflow"
-      },
-      "help_arguments": [
-        "build_VRT.py",
-        "--help"
-      ],
-      "scenarios": [
-        {
-          "name": "group_tuflow_results_using_default_suffixes",
-          "arguments": [
-            "build_VRT.py",
-            "{input_directory}",
-            "--remove-field",
-            "2",
-            "--no-pause"
-          ],
-          "note": "Review representative filenames and the field-removal rule before execution."
-        }
-      ]
-    },
-    {
       "id": "batch_vector_clip",
       "script": "batch_vector_clip.py",
       "purpose": "Clip multiple vector datasets to one or more extent datasets with bounded ogr2ogr workers.",
@@ -473,61 +189,12 @@
       "help_arguments": ["batch_vector_clip.py", "--help"]
     },
     {
-      "id": "check_raster_counterparts",
-      "script": "check_flt_tif.py",
-      "purpose": "Report FLT rasters whose matching TIFF is missing or older.",
-      "mutation": "creates_outputs",
-      "defaults": {"primary_extension": ".flt", "secondary_extension": ".tif"},
-      "help_arguments": ["check_flt_tif.py", "--help"]
-    },
-    {
-      "id": "convert_file_geodatabases",
-      "script": "convert_gdb_to_gpkg.py",
-      "purpose": "Export File Geodatabase layers to supported GDAL vector formats.",
-      "mutation": "creates_outputs",
-      "defaults": {"output_format": "gpkg", "single_database": false},
-      "help_arguments": ["convert_gdb_to_gpkg.py", "--help"]
-    },
-    {
-      "id": "convert_rasters_to_xyz",
-      "script": "gdal_raster_to_xyz.py",
-      "purpose": "Stream raster cells to XYZ or CSV through gdal2xyz.",
-      "mutation": "creates_outputs",
-      "defaults": {"format": "csv", "recursive": false, "workers": 2},
-      "help_arguments": ["gdal_raster_to_xyz.py", "--help"]
-    },
-    {
-      "id": "retile_rasters",
-      "script": "gdal_retile_wrapper.py",
-      "purpose": "Retile one or more rasters through gdal_retile with editable tile settings.",
-      "mutation": "creates_outputs",
-      "defaults": {"tile_size": [5000, 5000], "overlap": 10, "format": "GTiff"},
-      "help_arguments": ["gdal_retile_wrapper.py", "--help"]
-    },
-    {
       "id": "calculate_stage_storage",
       "script": "gdal_stage_storage.py",
       "purpose": "Calculate stage-storage CSV files and optional plots from single-band DEMs with a projected metre-based CRS.",
       "mutation": "creates_outputs",
       "defaults": {"patterns": ["*.tif"], "step": 0.01, "create_plot": true},
       "help_arguments": ["gdal_stage_storage.py", "--help"]
-    },
-    {
-      "id": "unset_raster_nodata",
-      "script": "gdal_unset_nodata.py",
-      "purpose": "Remove NoData metadata from TIFF bands without changing pixel values.",
-      "mutation": "in_place",
-      "requires_explicit_approval": true,
-      "defaults": {"recursive": false},
-      "help_arguments": ["gdal_unset_nodata.py", "--help"]
-    },
-    {
-      "id": "translate_vector_dataset",
-      "script": "gdal_vector_translate.py",
-      "purpose": "Translate a vector dataset with optional source and target CRS overrides.",
-      "mutation": "creates_outputs",
-      "defaults": {"output_format_from_extension": true},
-      "help_arguments": ["gdal_vector_translate.py", "--help"]
     },
     {
       "id": "clip_rasters_to_polygon",
@@ -544,15 +211,6 @@
       "mutation": "creates_outputs",
       "defaults": {"format": "shp", "parallel": false, "workers": 4},
       "help_arguments": ["split_vector_by_attribute.py", "--help"]
-    },
-    {
-      "id": "vacuum_geopackages",
-      "script": "vacuum_geopackages.py",
-      "purpose": "Reclaim unused space in GeoPackage SQLite databases.",
-      "mutation": "in_place",
-      "requires_explicit_approval": true,
-      "defaults": {"recursive": false},
-      "help_arguments": ["vacuum_geopackages.py", "--help"]
     }
   ]
 }

@@ -33,10 +33,9 @@ metre-based coordinate system; geographic and non-metre projected CRSs are rejec
 ## AI and automation discovery
 
 [`gdal_cli_tools.json`](../../ryan_library/resources/mcp/gdal_cli_tools.json) is the packaged machine-readable catalogue
-for AI assistants and automation. It lists every wrapper's relative location,
-purpose, defaults, mutation risk, and argument arrays for common processing
-scenarios. It describes only the current Python tools, without migration
-history.
+for AI assistants and automation. It lists a curated set of stable, reusable workflows with recurring agent-facing
+value, including their relative locations, purposes, defaults, mutation risks and common argument arrays. Basic or
+narrowly scoped wrappers remain available in this directory but are not automatically MCP catalogue items.
 
 The ryan-tools MCP server reads this catalogue from the installed package and exposes it through the generic
 `list_workflows` and `get_workflow` discovery tools. GDAL entries resolve to their existing maintained repository

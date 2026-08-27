@@ -54,6 +54,7 @@ These documents stay near the code they describe so that browsing a target direc
 | DataFrame examples | [DataFrame and export examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
 | Rock-protection lookup data | [Outlet rock-protection data](../ryan_library/functions/data/README.md) | Source, interpretation and limits of the bundled multi-pipe lookup tables |
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
+| Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Source algorithm, usage and licence for the vendored similarity-transform implementation |
 
 ## Integrations
 

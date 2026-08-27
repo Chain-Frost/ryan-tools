@@ -11,6 +11,15 @@ from ryan_library.mcp.models import CapabilityProfile, WorkflowSpec
 from ryan_library.mcp.registry import WorkflowRegistry, WorkflowRegistryError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+EXPECTED_GDAL_WORKFLOWS = {
+    "batch_vector_clip",
+    "build_external_overviews",
+    "calculate_stage_storage",
+    "clip_rasters_to_polygon",
+    "create_raster_footprints",
+    "split_vector_by_attribute",
+    "translate_rasters_to_geotiff",
+}
 
 
 def test_default_profile_is_create(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -29,11 +38,10 @@ def test_gdal_catalogue_is_folded_into_generic_workflows() -> None:
 
     listing = registry.list_workflows(domain="gdal")
     workflow_ids = {workflow["id"] for workflow in listing["workflows"]}
-    assert "translate_rasters_to_geotiff" in workflow_ids
-    assert "set_raster_nodata" not in workflow_ids
+    assert workflow_ids == EXPECTED_GDAL_WORKFLOWS
 
 
-def test_privileged_profile_exposes_in_place_gdal_workflows() -> None:
+def test_privileged_profile_does_not_add_uncatalogued_gdal_wrappers() -> None:
     registry = WorkflowRegistry(
         configured_profile=CapabilityProfile.PRIVILEGED,
         repository_root=PROJECT_ROOT,
@@ -41,7 +49,7 @@ def test_privileged_profile_exposes_in_place_gdal_workflows() -> None:
 
     listing = registry.list_workflows(domain="gdal")
     workflow_ids = {workflow["id"] for workflow in listing["workflows"]}
-    assert "set_raster_nodata" in workflow_ids
+    assert workflow_ids == EXPECTED_GDAL_WORKFLOWS
 
 
 def test_repository_workflow_is_unavailable_without_repository_checkout() -> None:
@@ -105,9 +113,9 @@ def test_packaged_gdal_catalogue_is_available_without_repository_checkout() -> N
     listing = registry.list_workflows(domain="gdal", include_unavailable=True)
     workflows = {workflow["id"]: workflow for workflow in listing["workflows"]}
 
-    assert workflows["create_flood_extents"]["available"] is False
-    assert workflows["create_flood_extents"]["execution_kind"] == "script"
+    assert set(workflows) == EXPECTED_GDAL_WORKFLOWS
     assert workflows["translate_rasters_to_geotiff"]["available"] is False
+    assert workflows["translate_rasters_to_geotiff"]["execution_kind"] == "script"
 
 
 def test_profile_filtering_is_identical_for_module_and_script_targets() -> None:

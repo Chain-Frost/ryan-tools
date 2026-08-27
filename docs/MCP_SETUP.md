@@ -50,8 +50,8 @@ Set the maximum profile with `RYAN_MCP_PROFILE`. A tool call cannot request a pr
 Workflows declare their lifecycle and mutation class, and privileged workflows also declare that explicit approval is
 required.
 
-The generic workflow catalogue and authoritative GDAL metadata are packaged with `ryan_functions`. Catalogued workflows
-resolve through their existing maintained repository wrappers so their CLI behavior has one source of truth.
+The generic workflow catalogue and authoritative curated GDAL metadata are packaged with `ryan_functions`. Catalogued
+workflows resolve through their existing maintained repository wrappers so their CLI behavior has one source of truth.
 
 ## Repository workflow resolution
 

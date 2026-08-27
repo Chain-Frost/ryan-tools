@@ -57,8 +57,8 @@ CLI, while `inspect_tuflow_result` and `inspect_tuflow_collection` provide gener
 the focused MCP surface. A second `ryan_library.cli.tuflow_log_summary` entry point would therefore duplicate behavior
 without adding a capability.
 
-The same policy applies to `create_flood_extents`, which continues to resolve to the maintained
-`ryan-scripts/gdal-python/gdal_flood_extent.py` wrapper.
+The same policy applies to catalogued GDAL workflows: their existing wrappers remain authoritative. A wrapper does not
+need a duplicate package CLI, and basic or narrowly scoped wrappers do not need an MCP catalogue record.
 
 ### Repository fallback and relocated scripts
 
@@ -79,11 +79,12 @@ Without a checkout, focused MCP helpers remain usable. Catalogue metadata remain
 
 ## Packaged GDAL metadata
 
-The authoritative GDAL catalogue moved from `ryan-scripts/gdal-python` into package resources so discovery does not
-depend on a mapped drive or checkout. Each GDAL record continues to preserve defaults, scenarios, mutation metadata,
-explicit-approval requirements and wrapper versions. GDAL commands resolve to their maintained repository wrappers.
-Do not add duplicate package CLI modules solely to avoid repository discovery; migrate a GDAL target only when there is
-a clear single-entry-point design that does not duplicate its existing wrapper.
+The authoritative curated GDAL catalogue moved from `ryan-scripts/gdal-python` into package resources so discovery does
+not depend on a mapped drive or checkout. It includes stable, reusable workflows with recurring agent-facing value;
+basic and narrowly scoped wrappers remain available through normal script discovery. Each included record preserves
+its defaults, scenarios, mutation metadata, explicit-approval requirements and wrapper version. GDAL commands resolve
+to their maintained repository wrappers. Do not add duplicate package CLI modules solely to avoid repository discovery;
+migrate a GDAL target only when there is a clear single-entry-point design that does not duplicate its existing wrapper.
 
 ## Profiles and safety
 
@@ -139,7 +140,8 @@ Focused automated coverage includes:
 - current relocated repository-script fallback paths;
 - unavailable fallback scripts not hiding packaged discovery metadata;
 - profile filtering for repository targets;
-- privileged TUFLOW and GDAL workflows remaining hidden under `create`;
+- privileged TUFLOW workflows remaining hidden under `create` and uncatalogued GDAL wrappers staying absent at every
+  profile;
 - packaged GDAL metadata discovery without a checkout;
 - exact-one-target catalogue validation.
 - generic TUFLOW processor selection, location/time filtering, collection data-type filtering, bounded samples and
@@ -151,7 +153,7 @@ files, focused MCP tests, both installed CLI `--help` checks, the documentation 
 imports accidentally. Confirm that packaged catalogue metadata loads, repository workflows remain unavailable, and
 `importlib.util.find_spec("ryan_mcp_server")` returns `None`.
 
-### Validation completed on 26 August 2026
+### Validation completed on 27 August 2026
 
 - Black check: passed for all modified Python files.
 - Strict Pyright: 0 errors and 0 warnings.
@@ -159,7 +161,7 @@ imports accidentally. Confirm that packaged catalogue metadata loads, repository
 - Documentation index/link checker: passed.
 - Loguru formatting policy checker: passed.
 - Both source and neutral installed-wheel `--help` checks: passed.
-- `python repo-scripts/build_library.py`: passed and produced version `26.8.26.10`.
+- `python repo-scripts/build_library.py`: passed and produced version `26.8.27.1`.
 - Neutral wheel install with repository discovery disabled: catalogue metadata loaded and zero workflow commands were
   available, while generic Q-processor location/time filtering and the processor guidance resource worked as expected.
 - Neutral `find_spec("ryan_mcp_server")`: returned `None`.
