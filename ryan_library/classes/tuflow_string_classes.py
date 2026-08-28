@@ -83,7 +83,10 @@ class TuflowStringParser:
     # ``GENERIC_TP_PATTERN`` handles free-form strings such as "tp 3".
     GENERIC_TP_PATTERN: re.Pattern[str] = re.compile(pattern=r"TP?\s*(\d{1,2})", flags=re.IGNORECASE)
     HUMAN_DURATION_PATTERN: re.Pattern[str] = re.compile(
-        pattern=r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>hours?|hrs?|hr|h|minutes?|mins?|min|m)(?=$|[^A-Za-z0-9])",
+        pattern=(
+            r"(?<![A-Za-z0-9])(?P<value>\d+(?:\.\d+)?)\s*"
+            r"(?P<unit>hours?|hrs?|hr|h|minutes?|mins?|min|m)(?=$|[^A-Za-z0-9])"
+        ),
         flags=re.IGNORECASE,
     )
 

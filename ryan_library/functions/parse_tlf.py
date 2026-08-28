@@ -2,7 +2,7 @@
 
 __lazy_modules__ = ["pandas"]
 
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 from datetime import datetime
 import re
@@ -14,8 +14,8 @@ from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 REGEX_PATTERNS: dict[str, re.Pattern[str]] = {
     # Looks for the literal heading ``Initialisation Times`` anywhere in the log.
     "initialisation_times": re.compile(r"Initialisation Times"),
-    # Matches ``Final Times`` so the parser knows the log has moved to the summary section.
-    "final_times": re.compile(r"Final Times"),
+    # Modern logs use ``Final Times``; 2016-era logs use ``SIMULATION SUMMARY``.
+    "final_times": re.compile(r"(?:Final Times|SIMULATION SUMMARY)"),
     # Capture Final Cumulative ME Percentage with optional minus sign and decimals.
     # Example: ``Final Cumulative ME:   -0.45%`` -> stores ``-0.45``.
     "final_me": re.compile(r"Final Cumulative ME:\s*(-?[\d.]+)%"),
@@ -24,8 +24,8 @@ REGEX_PATTERNS: dict[str, re.Pattern[str]] = {
     # Captures a number (integer or decimal) before ``h`` inside square brackets.
     # Example: ``Clock Time: [1.25 h]`` -> ``1.25``.
     "clock_time": re.compile(r"Clock Time:.*\[(?P<time>[-+]?\d*\.\d+|\d+)\s*h\]"),
-    # Same structure as ``clock_time`` but for CPU usage.
-    "processor_time": re.compile(r"Processor Time:.*\[(?P<time>[-+]?\d*\.\d+|\d+)\s*h\]"),
+    # Modern logs use ``Processor Time``; 2016-era logs use ``CPU Time``.
+    "processor_time": re.compile(r"(?:Processor|CPU) Time:.*\[(?P<time>[-+]?\d*\.\d+|\d+)\s*h\]"),
     # Grabs the numeric end time after ``End Time (h):`` such as ``End Time (h): 24``.
     "model_end_time": re.compile(r"End Time \(h\):\s*(\d+\.?\d*)"),
     # Grabs the numeric start time after ``Start Time (h):``.
@@ -36,6 +36,10 @@ REGEX_PATTERNS: dict[str, re.Pattern[str]] = {
     "log_path": re.compile(r"Log File:\s*(.+)"),
     # Collects comma-separated GPU identifiers, e.g. ``GPU Device IDs == 0, 1``.
     "gpu_device_ids": re.compile(r"GPU Device IDs\s*==\s*(?P<ids>[\d,\s]+)"),
+    # The path before the explanatory comment may end at ``log`` for legacy global folders or contain a username.
+    "simulations_log_folder": re.compile(r"^Simulations Log Folder\s*==\s*(?P<path>.*?)(?:\s+!\s+|$)"),
+    # In 2016 GPU logs, the unlabelled timing pair immediately before this line is the initialisation duration.
+    "legacy_solver_start": re.compile(r"^Writing GPU Output at:\s*0:00:00\b"),
     # Extracts the variable/value pair described on ``BC Event Source == variable | value`` lines, ignoring case.
     # Example: ``BC Event Source == ~E1~ | rainfall.tsf``.
     "bc_event_source": re.compile(
@@ -99,6 +103,52 @@ def _extract_bcdbase_pair(line: str) -> tuple[str, str] | None:
         key: str = f"bcdbase: {variable}"
         return key, value
     return None
+
+
+def _uses_legacy_tuflow_format(data_dict: dict[str, Any]) -> bool:
+    """Return whether the parsed build identifies a TUFLOW release from 2016 or earlier."""
+    version: Any = data_dict.get("TUFLOW_version")
+    if not isinstance(version, str):
+        return False
+    match: re.Match[str] | None = re.match(pattern=r"(?P<year>\d{4})-", string=version)
+    return bool(match and int(match.group("year")) <= 2016)
+
+
+def _extract_log_username(line: str) -> str | None:
+    """Extract a username only when it is a child folder of the TUFLOW log directory."""
+    match: re.Match[str] | None = REGEX_PATTERNS["simulations_log_folder"].match(string=line)
+    if not match:
+        return None
+
+    folder_text: str = match.group("path").strip().strip('"').rstrip("\\/")
+    parts: tuple[str, ...] = PureWindowsPath(folder_text).parts
+    for index, part in enumerate(parts):
+        if part.casefold() == "log" and index + 1 < len(parts):
+            return parts[index + 1]
+    return None
+
+
+def _capture_legacy_initialisation_times(
+    line: str,
+    data_dict: dict[str, Any],
+    candidate_cpu_time: float | None,
+    candidate_clock_time: float | None,
+) -> tuple[float | None, float | None]:
+    """Capture the unlabelled pre-solver timing pair used by 2016-era GPU logs."""
+    if not _uses_legacy_tuflow_format(data_dict=data_dict) or "Initialise_RunTime" in data_dict:
+        return candidate_cpu_time, candidate_clock_time
+
+    if match := REGEX_PATTERNS["processor_time"].search(string=line):
+        candidate_cpu_time = float(match.group("time"))
+    elif match := REGEX_PATTERNS["clock_time"].search(string=line):
+        candidate_clock_time = float(match.group("time"))
+    elif REGEX_PATTERNS["legacy_solver_start"].search(string=line):
+        if candidate_cpu_time is not None:
+            data_dict["Initialise_CPU_Time"] = candidate_cpu_time
+        if candidate_clock_time is not None:
+            data_dict["Initialise_RunTime"] = candidate_clock_time
+
+    return candidate_cpu_time, candidate_clock_time
 
 
 def extract_float(match: re.Match[str]) -> float | None:
@@ -213,8 +263,8 @@ def search_from_top(
     # or ``Computer Name:`` so we can capture the descriptive text that follows each label.
     if match := re.match(pattern=r"Build:\s*(.*)", string=line):
         data_dict["TUFLOW_version"] = match.group(1).strip()
-    elif match := re.match(pattern=r"Simulations Log Folder == .*\\([^\\]+)$", string=line):
-        data_dict["username"] = match.group(1).strip()
+    elif username := _extract_log_username(line=line):
+        data_dict["username"] = username
     elif match := re.match(pattern=r"Computer Name:\s*(.*)", string=line):
         data_dict["ComputerName"] = match.group(1).strip()
         success += 1
@@ -346,12 +396,19 @@ def get_log_lines(logfile_path: Path, is_large_file: bool) -> tuple[list[str], l
 
                 tail_data: bytes = f.read()
 
-            # Decode, ignoring multi-byte characters that might get split at the chunk boundary
+            # Completion markers are ASCII, so replacement is safe if the chunk starts within a multi-byte character
+            # or the legacy log contains Windows-1252 text.
             tail_lines: list[str] = tail_data.decode("utf-8", errors="replace").splitlines()
             last_lines: list[str] = tail_lines[-100:] if tail_lines else []
             return [], last_lines
         else:
-            lines: list[str] = logfile_path.read_text(encoding="utf-8").splitlines()
+            raw_log: bytes = logfile_path.read_bytes()
+            try:
+                log_text: str = raw_log.decode("utf-8")
+            except UnicodeDecodeError:
+                logger.debug("Reading legacy Windows-1252 TLF: {}", logfile_path)
+                log_text = raw_log.decode("cp1252", errors="replace")
+            lines: list[str] = log_text.splitlines()
             last_lines = lines[-100:] if lines else []
             return lines, last_lines
     except Exception as e:
@@ -389,9 +446,13 @@ def process_top_lines(
     Returns:
         tuple[dict[str, Any], int, bool, bool, bool]: Updated data dictionary and status flags.
     """
+    legacy_cpu_time: float | None = None
+    legacy_clock_time: float | None = None
     try:
         if is_large_file:
-            with logfile_path.open("r", encoding="utf-8") as lfile:
+            # Parsing relies on ASCII labels. Replacement keeps those labels readable in large legacy Windows-1252
+            # logs without loading the complete file into memory for encoding detection.
+            with logfile_path.open("r", encoding="utf-8", errors="replace") as lfile:
                 for counter, line in enumerate(lfile, 1):
                     result: tuple[dict[str, Any], int, bool, bool, bool] = search_from_top(
                         line=line,
@@ -402,6 +463,12 @@ def process_top_lines(
                         spec_var=spec_var,
                     )
                     data_dict, success, spec_events, spec_scen, spec_var = result
+                    legacy_cpu_time, legacy_clock_time = _capture_legacy_initialisation_times(
+                        line=line,
+                        data_dict=data_dict,
+                        candidate_cpu_time=legacy_cpu_time,
+                        candidate_clock_time=legacy_clock_time,
+                    )
                     if success == 4 and counter > 4000:
                         logger.debug("Early termination after {} lines for {}", counter, runcode)
                         break
@@ -416,6 +483,12 @@ def process_top_lines(
                     spec_var=spec_var,
                 )
                 data_dict, success, spec_events, spec_scen, spec_var = result
+                legacy_cpu_time, legacy_clock_time = _capture_legacy_initialisation_times(
+                    line=line,
+                    data_dict=data_dict,
+                    candidate_cpu_time=legacy_cpu_time,
+                    candidate_clock_time=legacy_clock_time,
+                )
                 if success == 4 and counter > 4000:
                     logger.debug("Early termination after {} lines for {}", counter, runcode)
                     break

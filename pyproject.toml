@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.08.27.1"
+version = "26.08.28.4"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 requires-python = ">=3.14"
