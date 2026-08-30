@@ -1,0 +1,215 @@
+! EVENTS_01.tef
+! Event File for <<PROJECT_NAME>>
+
+! Rainfall method/source events used by the TCF loss and BC Database block.
+Define Event ==  Nested
+    BC Event Source == ~ROC~ | 1.0
+End Define
+
+Define Event == EnsembleILCL
+    BC BC Event Source == ~CC~ | Near-term_SSP3-7.0 ! tpv-ignore
+End Define
+
+Define Event ==  PMF
+    BC Event Source == ~ROC~ | 1.0
+End Define
+
+Define Event ==  PMP
+    BC Event Source == ~PMP~ | PMP
+End Define
+
+Define Event == ILCL 
+    BC Event Source == ~ROC~ | 1.0
+End Define
+
+Define Event == NestedILCL 
+    BC Event Source == ~ROC~ | 1.0
+End Define
+
+Define Event == NestedNL
+    BC Event Source == ~ROC~ | 1.0
+End Define
+
+Define Event == Model
+    BC Event Source == ~StormDuration~ | Model
+End Define
+
+Define Event == Dummy
+    BC Event Source == ~TP~ | Dummy
+End Define
+
+! AEP events. Add any aliases required by the selected BC databases.
+Define Event == 01.0p
+	BC Event Source == ~AEP~ | 01.0p
+End Define
+
+Define Event == 02.0p
+	BC Event Source == ~AEP~ | 02.0p
+End Define
+
+Define Event == 05.0p
+	BC Event Source == ~AEP~ | 05.0p
+End Define
+
+Define Event == 10.0p
+	BC Event Source == ~AEP~ | 10.0p
+End Define
+
+Define Event == 20.0p
+	BC Event Source == ~AEP~ | 20.0p
+End Define
+
+Define Event == 50.0p
+	BC Event Source == ~AEP~ | 50.0p
+End Define
+
+Define Event == 63.2p
+	BC Event Source == ~AEP~ | 63.2p
+End Define
+
+! Duration events drive run_times_01.trd and provide both common BC database aliases.
+Define Event == 00015m
+	BC Event Source == ~StormDuration~ | 00015m
+	BC Event Source == ~DUR~ | 00015m
+End Define
+
+Define Event == 00030m
+	BC Event Source == ~StormDuration~ | 00030m
+	BC Event Source == ~DUR~ | 00030m
+End Define
+
+Define Event == 00045m
+	BC Event Source == ~StormDuration~ | 00045m
+	BC Event Source == ~DUR~ | 00045m
+End Define
+
+Define Event == 00060m
+	BC Event Source == ~StormDuration~ | 00060m
+	BC Event Source == ~DUR~ | 00060m
+End Define
+
+Define Event == 00090m
+	BC Event Source == ~StormDuration~ | 00090m
+	BC Event Source == ~DUR~ | 00090m
+End Define
+
+Define Event == 00120m
+	BC Event Source == ~StormDuration~ | 00120m
+	BC Event Source == ~DUR~ | 00120m
+End Define
+
+Define Event == 00150m
+	BC Event Source == ~StormDuration~ | 00150m
+	BC Event Source == ~DUR~ | 00150m
+End Define
+
+Define Event == 00180m
+	BC Event Source == ~StormDuration~ | 00180m
+	BC Event Source == ~DUR~ | 00180m
+End Define
+
+Define Event == 00240m
+	BC Event Source == ~StormDuration~ | 00240m
+	BC Event Source == ~DUR~ | 00240m
+End Define
+
+Define Event == 00270m
+	BC Event Source == ~StormDuration~ | 00270m
+	BC Event Source == ~DUR~ | 00270m
+End Define
+
+Define Event == 00300m
+	BC Event Source == ~StormDuration~ | 00300m
+	BC Event Source == ~DUR~ | 00300m
+End Define
+
+Define Event == 00360m
+	BC Event Source == ~StormDuration~ | 00360m
+	BC Event Source == ~DUR~ | 00360m
+End Define
+
+Define Event == 00720m
+	BC Event Source == ~StormDuration~ | 00720m
+	BC Event Source == ~DUR~ | 00720m
+End Define
+
+Define Event == 01080m
+	BC Event Source == ~StormDuration~ | 01080m
+	BC Event Source == ~DUR~ | 01080m
+End Define
+
+Define Event == 01440m
+	BC Event Source == ~StormDuration~ | 01440m
+	BC Event Source == ~DUR~ | 01440m
+End Define
+
+Define Event == 01800m
+	BC Event Source == ~StormDuration~ | 01800m
+	BC Event Source == ~DUR~ | 01800m
+End Define
+
+Define Event == 02160m
+	BC Event Source == ~StormDuration~ | 02160m
+	BC Event Source == ~DUR~ | 02160m
+End Define
+
+Define Event == 02880m
+	BC Event Source == ~StormDuration~ | 02880m
+	BC Event Source == ~DUR~ | 02880m
+End Define
+
+Define Event == 04320m
+	BC Event Source == ~StormDuration~ | 04320m
+	BC Event Source == ~DUR~ | 04320m
+End Define
+
+Define Event == 05760m
+	BC Event Source == ~StormDuration~ | 05760m
+	BC Event Source == ~DUR~ | 05760m
+End Define
+
+Define Event == 07200m
+	BC Event Source == ~StormDuration~ | 07200m
+	BC Event Source == ~DUR~ | 07200m
+End Define
+
+! Temporal-pattern events. Extend this list if the project uses more than ten patterns.
+Define Event == TP01
+	BC Event Source == ~TP~ | tp01
+End Define
+
+Define Event == TP02
+	BC Event Source == ~TP~ | tp02
+End Define
+
+Define Event == TP03
+	BC Event Source == ~TP~ | tp03
+End Define
+
+Define Event == TP04
+	BC Event Source == ~TP~ | tp04
+End Define
+
+Define Event == TP05
+	BC Event Source == ~TP~ | tp05
+End Define
+
+Define Event == TP06
+	BC Event Source == ~TP~ | tp06
+End Define
+
+Define Event == TP07
+	BC Event Source == ~TP~ | tp07
+End Define
+
+Define Event == TP08
+	BC Event Source == ~TP~ | tp08
+End Define
+
+Define Event == TP09
+	BC Event Source == ~TP~ | tp09
+End Define
+
+Define Event == TP10
+	BC Event Source == ~TP~ | tp10
+End Define

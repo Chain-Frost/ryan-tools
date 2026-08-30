@@ -2,22 +2,27 @@
 Thumbs.db
 
 # Exclude specific directories
+terrain/
 model/DEM/
 model/terrain/
-terrain/
 results/
-run/log/
+runs/log/
+check/
 checks/
 working/
 empty/
 
 # Exclude any directory named "xf" at any level
-xf/
+**/xf/
 
 # Exclude all .xf4 files
 *.xf4
 
-/*.xlsx
-/*.tif
+*.xlsx
+*.tif
+!model/gis/*.tif
 
 *.CSV.bak
+fort.902
+**/ss/
+*.bak

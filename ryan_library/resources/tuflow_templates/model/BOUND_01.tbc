@@ -1,0 +1,10 @@
+! BOUND_01.tbc
+! Boundary Conditions Control File for <<PROJECT_NAME>>
+
+if scenario == <<SCENARIO_NAME>>
+    Read GIS BC ==         gis\<<SCENARIO_NAME>>\2d_bc_<<SCENARIO_NAME>>_01_L.gpkg
+    Read GIS RF ==         gis\<<SCENARIO_NAME>>\2d_rf_<<SCENARIO_NAME>>_01_R.gpkg
+End if
+
+! Culverts
+! Read GIS BC == gis/culvert/2d_bc_culverts_01_P.gpkg

@@ -1,0 +1,29 @@
+! GEOM_01.tgc
+! Geometry Control File for <<PROJECT_NAME>>
+
+Cell Size == <<VarCellSize>> ! cell size in meters 
+
+Set Code == 0  
+Set Zpts == 2000
+
+if scenario == <<SCENARIO_NAME>>
+    Read GIS Code ==        gis\<<SCENARIO_NAME>>\2d_code_<<SCENARIO_NAME>>_01_R.gpkg
+    Read GIS Location ==    gis\<<SCENARIO_NAME>>\2d_loc_<<SCENARIO_NAME>>_01_R.gpkg
+end if
+
+! Read DEM
+! TODO: Add terrain file path
+! Read GRID Zpts == ..\terrain\YOUR_DEM.tif
+
+Set Mat == 1
+
+! Read GIS Mat == gis\2d_mat\2d_mat_Channel_001_R.gpkg
+! Read GIS Soil == gis\2d_mat\2d_soil_001_R.gpkg
+! 
+if event == NestedILCL | NestedNL | PMP
+    Set Soil == 99 !99 is none    
+else if Event == EnsembleILCL
+    Set Soil == 100 !100 is ILCL
+else
+    Pause    == Soils not set
+End If

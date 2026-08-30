@@ -1,0 +1,3 @@
+GPKG Projection == ..\model\gis\<<PROJECTION_NAME>>.gpkg
+GIS Format == GPKG
+Write Empty GIS Files == ..\empty

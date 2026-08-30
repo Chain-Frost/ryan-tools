@@ -1,0 +1,46 @@
+! Select the simulation end time from the duration event flag.
+If Event == 00015m
+	End Time == 12 ! hours
+Else If Event == 00030m
+	End Time == 12 ! hours
+Else If Event == 00045m
+	End Time == 12 ! hours
+Else If Event == 00060m
+	End Time == 12 ! hours
+Else If Event == 00090m
+	End Time == 12 ! hours
+Else If Event == 00120m
+	End Time == 12 ! hours
+Else If Event == 00150m ! PMP
+	End Time == 12 ! hours
+Else If Event == 00180m
+	End Time == 12 ! hours
+Else If Event == 00240m ! PMP
+	End Time == 12 ! hours
+Else If Event == 00270m
+	End Time == 12 ! hours
+Else If Event == 00300m
+	End Time == 12 ! hours
+Else If Event == 00360m
+	End Time == 12 ! hours
+Else If Event == 00720m
+	End Time == 18 ! hours
+Else If Event == 01080m
+	End Time == 24 ! hours
+Else If Event == 01440m
+	End Time == 30 ! hours
+Else If Event == 01800m
+	End Time == 36 ! hours
+Else If Event == 02160m
+	End Time == 42 ! hours
+Else If Event == 02880m
+	End Time == 56 ! hours
+Else If Event == 04320m
+	End Time == 78 ! hours
+Else If Event == 05760m
+	End Time == 102 ! hours
+Else If Event == 07200m
+	End Time == 126 ! hours
+Else
+	Pause == Invalid duration event flag: no end time was selected.
+End If

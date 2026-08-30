@@ -1,5 +1,5 @@
 # ryan-scripts\TUFLOW-python\model_management\run_tuflow_simulations.py
-# 2026-06-28 version
+# 2026-08-30 version
 # Non-native libraries used by this script: python -m pip install rich colorama psutil
 """Single-file TUFLOW launcher for Windows.
 USAGE
@@ -28,8 +28,8 @@ def get_parameters() -> "Parameters":
 
     # ---- Core TUFLOW settings ----
     core_params = CoreParameters(
-        tcf=Path(r".\runs\Cataby_v01_~s2~_~s1~_~e4~_~e1~_~e2~_~e3~_~s4~.tcf"),
-        tuflowexe=Path(r"C:\TUFLOW\2025.2.1\TUFLOW_iSP_w64.exe"),
+        tcf=Path(r".\runs\PROJECT_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf"),
+        tuflowexe=Path(r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe"),
         batch_commands="-b",  # e.g. "-x", "-b", "-t". Avoid -puN here unless gpu_devices is None/[]
         priority_order="e3 e2 e1",  # Optional custom ordering of flags; e.g. "s1 s2 e1 e2". If None, uses insertion/first-seen order.
         # GPU slots (round-robin). Set to None/[] to pass no -pu flags at all.

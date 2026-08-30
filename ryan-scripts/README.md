@@ -65,6 +65,7 @@ log messages, prompts, and failures remain visible.
 | `point-cloud-python`, `raster-python` | XYZ/LAS and raster conversion or cleanup. |
 | `RORB-python` | RORB rainfall, hydrograph, peak, and closure-period processing. |
 | `TUFLOW-python` | TUFLOW result processing, GIS preparation, copying, and model checks; see its README for maintained-wrapper and shared-CLI conventions. |
+| `tuflow` | Standard TUFLOW project initialization; see the [project setup guide](tuflow/PROJECT_SETUP.md). |
 | `powershell`, `GlobalMapper` | PowerShell helpers and Global Mapper scripts. |
 | `other` | Narrow utilities that do not fit a maintained workflow category; review each module docstring and implementation. |
 | `python-not-polished` | Experimental or project-specific scripts; treat these as examples, not stable tools. |

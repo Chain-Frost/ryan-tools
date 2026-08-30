@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.08.28.4"
+version = "26.08.31.6"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 requires-python = ">=3.14"
@@ -66,10 +66,33 @@ include-package-data = true
 [tool.setuptools.package-data]
 "ryan_library.classes" = ["*.json"]
 "ryan_library.resources.mcp" = ["*.json"]
-
+"ryan_library.resources.qgis.tuflow" = ["*.qml"]
+"ryan_library.resources.tuflow_templates" = [
+    ".gitignore",
+    "model/*.csv",
+    "model/*.tbc",
+    "model/*.tef",
+    "model/*.tgc",
+    "model/*.tsoilf",
+    "runs/*.bat",
+    "runs/*.tcf",
+    "runs/*.trd",
+]
 [tool.setuptools.packages.find]
-where = [".", "vendor/run_hy8/src"]
+where = [".", "vendor/run_hy8/src", "ryan-scripts/TUFLOW-python"]
 include = [
+    "culvert_results",
+    "culvert_results.*",
+    "gis_processing",
+    "gis_processing.*",
+    "log_processing",
+    "log_processing.*",
+    "model_management",
+    "model_management.*",
+    "po_and_timeseries",
+    "po_and_timeseries.*",
+    "raster_processing",
+    "raster_processing.*",
     "ryan_functions",
     "ryan_functions.*",
     "ryan_library",

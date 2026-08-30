@@ -1,0 +1,89 @@
+! <<PROJECT_NAME>>
+! Date: <<DATE>>
+! File assumed to be in TUFLOW/runs
+
+! Scenario         s1      Baseline scenarios - DEV or EXG generally
+! Extent           s2      Model extent
+! AEP              e1      Boundary-condition AEP
+! StormDuration    e2      Storm duration
+! TP               e3      Temporal pattern
+! Method           e4      Method/source, such as PMP, Nested, or EnsembleILCL
+! GridSize         s4      Base grid size
+
+!**** Control Files ****
+	Set Variable Version ==		01
+	Set Variable OutputRoot ==	..\results\<<Version>>\<<~s4~>>_<<~e4~>>\<<~s2~>>_<<~s1~>>\<<~e1~>>
+	Log Folder ==				<<OutputRoot>>\Log
+	Output Folder ==			<<OutputRoot>>
+	Set Variable OutInterval ==	60 ! seconds
+
+	Read File ==				..\runs\model_cell_sizes_01.trd ! Cell sizes
+	Geometry Control File ==	..\model\GEOM_01.tgc
+	BC Control File ==			..\model\BOUND_01.tbc
+	BC Event File ==			..\model\EVENTS_01.tef
+
+	! ESTRY Control File ==		..\model\ECF_001.ecf
+
+	GPKG Projection ==			..\model\gis\<<PROJECTION_NAME>>.gpkg
+	TIF Projection ==			..\model\gis\<<PROJECTION_NAME>>.tif
+
+	Read Materials File ==		..\model\Materials_01.csv
+	Read Soils File ==			..\model\Soil_01.tsoilf ! Soil 99 has no losses
+
+	! Project-specific rainfall database paths and loss values: edit before running.
+	If Event == PMP
+		BC Database ==				..\bc_dbase\bc_dbase_PMP_01.csv
+		Set Variable InitialLoss ==	0
+		Set Variable ContLoss ==	0
+	Else If Event == NestedILCL | NestedNL ! Nested
+		BC Database ==				..\bc_dbase\bc_dbase_nested_01.csv
+		Set Variable InitialLoss ==	0
+		Set Variable ContLoss ==	0
+	Else If Event == EnsembleILCL
+		Set Variable InitialLoss ==	21
+		Set Variable ContLoss ==	3.21
+		BC Database ==				..\bc_dbase\ARR19\bc_dbase_CC.csv
+	End If
+
+	Set Variable IL_MAT ==	0
+	Set Variable CL_MAT ==	0
+
+!*** PO Lines ***
+	! Read GIS PO ==	..\model\gis\2d_po_<<PROJECT_NAME>>_01_L.gpkg
+	! Read GIS PO ==	..\model\gis\2d_po_<<PROJECT_NAME>>_01_P.gpkg
+
+
+!**** Time & Output Control ****
+	Start Time ==	0
+	Read File ==	..\runs\run_times_01.trd ! End times
+
+	Timestep ==						1
+	Time Series Output Interval ==	<<OutInterval>>
+
+!**** Output ****
+	Map Output Format ==			TIF HRTIF
+	TIF Map Output Data Types ==	d dt v h Z0
+	HRTIF Map Output Data Types == 	 h
+	TIF Start Map Output ==			0
+	TIF Map Output Interval ==		0
+	HRTIF Start Map Output ==		0
+	HRTIF Map Output Interval ==	0
+	Map Output Interval ==			60 ! seconds
+
+	XF Files Include in Filename ==	<<~s1~>>_<<~s2~>>
+
+	Write Check Files INCLUDE ==	dem_Z
+	Write Check Files == 			OutputRoot>>\check\
+
+!**** Solver & Miscellaneous ****
+	Solution Scheme ==				HPC
+	Hardware ==						GPU
+	SGS ==							ON
+	SGS Max Sample Frequency ==		11
+	Cell Wet/Dry Depth ==			0.0002
+	Screen/Log Display Interval ==	200
+	Check Inside Grid ==			WARNING
+	GIS Projection Check ==			ERROR
+	Use GDAL ==						ON
+	Grid Format ==					COG
+	GIS Format ==					GPKG

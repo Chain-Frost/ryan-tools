@@ -1,0 +1,13 @@
+Material ID, Manning's n          , Rainfall Loss Parameters, Land Use Hazard ID, ! Description
+          1, 0.03                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Barren earth disturbed area
+          2, 0.04                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Pilbara grassland light vegetation
+          3, 0.05                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Sparse vegetation
+          4, 0.06                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Riparian vegetation
+          5, 0.001                , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Water
+           
+         10, 0.035                , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Default material
+        101, 0.02                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Sealed Surfaces                                         , 
+        102, 0.03                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Barren earth (NDVI < 0.075)                             , 
+        103, "0.1, 0.1, 0.2, 0.04", "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Pilbara grasslands; light vegetation (0 <= NDVI <= 0.18), 
+        104, "0.1, 0.1, 0.2, 0.05", "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Sparse vegetation
+        105, 0.06                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Riparian vegetation (0.18 < NDVI)                       , 
