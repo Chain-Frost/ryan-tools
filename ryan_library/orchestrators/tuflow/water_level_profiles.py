@@ -15,6 +15,7 @@ import geopandas as gpd
 from geopandas import GeoDataFrame
 from loguru import logger
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 from matplotlib.ticker import AutoMinorLocator
 import numpy as np
 from numpy.typing import NDArray
@@ -54,6 +55,7 @@ class WaterLevelProfileConfig:
     output_dir: Path
     target_aeps: tuple[str, ...]
 
+    scenario_name: str | None = None
     target_result_type: str = "h_HR_Max"
     lines_layer_name: str | None = None
     name_field: str = "Code"
@@ -528,11 +530,12 @@ def sample_line_z(
 
 
 def _configure_profile_grid(
-    axes: object,
+    axes: Axes,
     *,
     minor_subdivisions: int,
 ) -> None:
     """Configure major and minor horizontal and vertical plot grids."""
+    axes.minorticks_on()
     axes.xaxis.set_minor_locator(AutoMinorLocator(minor_subdivisions))
     axes.yaxis.set_minor_locator(AutoMinorLocator(minor_subdivisions))
 
@@ -642,14 +645,24 @@ def run_water_level_profile_workflow(
         )
 
         for part_number, line in enumerate(parts, start=1):
-            display_name = (
+            profile_display_name = (
                 line_name
                 if len(parts) == 1
                 else f"{line_name} (part {part_number})"
             )
+            display_name = (
+                profile_display_name
+                if config.scenario_name is None
+                else f"{config.scenario_name} - {profile_display_name}"
+            )
 
+            filename_base_name = (
+                line_name
+                if config.scenario_name is None
+                else f"{config.scenario_name} - {line_name}"
+            )
             filename_name = sanitize_windows_filename(
-                line_name,
+                filename_base_name,
                 fallback="profile",
             )
             part_suffix = (
@@ -767,7 +780,7 @@ def run_water_level_profile_workflow(
                     zorder=2,
                 )
 
-            axes.set_title(f"Profile: {display_name}")
+            axes.set_title(display_name)
             axes.set_xlabel("Chainage (km)")
             axes.set_ylabel("Elevation (mAHD)")
 

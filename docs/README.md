@@ -33,6 +33,7 @@ rg -n -i "search terms" -g "*.md" -g "!unsorted/**" -g "!vendor/run_hy8/**"
 | [Repository README](../README.md) | Setting up the checkout, choosing a workflow or understanding the repository map | User-facing entry point |
 | [Agent instructions](../AGENTS.md) | Making any automated change in this repository | Mandatory contributor instructions |
 | [Development guide](DEVELOPMENT_GUIDE.md) | Deciding where code belongs, interpreting lifecycle labels or selecting validation | Canonical architecture and development policy |
+| [Work tracking](WORK_TRACKING.md) | Recording concurrent projects, resumable handoffs and review dates | Canonical status and handoff convention |
 | [Development and execution environments](ENVIRONMENTS.md) | Selecting Python, VS Code, installed-wheel, QGIS/OSGeo4W or headless execution | Canonical environment guide |
 | [Logging guide](LOGGING.md) | Changing Loguru configuration, message formatting, multiprocessing or notebook logging | Canonical logging contract |
 | [Ryan Scripts guide](../ryan-scripts/README.md) | Choosing and safely running human-facing wrappers or standalone scripts | Canonical script-selection guide |
@@ -76,11 +77,15 @@ Keep additional empirical format notes discoverable here even when their impleme
 
 ## Maintenance, migration and historical plans
 
+Start with the [work register](work/README.md) to find ongoing projects and due reviews. Each work front has one
+authoritative status record; the roadmap summarizes priorities rather than duplicating session histories.
+
 These documents describe inventories, completed work, proposed work or unfinished migrations. They are useful context,
 but they are not current architectural policy when they conflict with the canonical guides above.
 
 | Document | Scope and status |
 | --- | --- |
+| [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
 | [Compatibility policy and inventory](COMPATIBILITY_POLICY.md) | Compatibility namespaces, migration state and deprecation checklist |
 | [Repository improvement roadmap](REPOSITORY_IMPROVEMENT_ROADMAP.md) | Repository-wide improvement milestones and remaining opportunities |
 | [Unsorted upgrade roadmap](UNSORTED_UPGRADE_ROADMAP.md) | Disposition and review status of scripts migrating from the `unsorted` submodule |
@@ -102,6 +107,8 @@ but they are not current architectural policy when they conflict with the canoni
   README into `docs/` merely to centralise it.
 - Put dated audits and implementation plans under `docs/audits/`. Clearly label their date and whether the work is
   proposed, active, complete or superseded.
+- Put new living project status records under `docs/work/`, following [work tracking](WORK_TRACKING.md). Register each
+  work front and add a direct link to its record in this index; reuse an existing suitable local record where possible.
 - Keep the root README concise and user-facing. Keep mandatory automation rules in `AGENTS.md`.
 - Add every new repository-owned Markdown document to the appropriate table in this index and link it from the nearest
   parent README when that improves local navigation.

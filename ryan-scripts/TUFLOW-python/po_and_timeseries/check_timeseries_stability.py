@@ -15,13 +15,12 @@ from pathlib import Path
 from typing import Literal
 import os
 
-WRAPPER_VERSION = "2026-08-02.1"
+WRAPPER_VERSION = "2026-08-31.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
 PATHS_TO_PROCESS: tuple[Path, ...] = ()
-CSV_GLOB: str = "**/*_PO.csv"
 RESULT_TYPES: tuple[str, ...] = ("PO", "Q")
 
 DATATYPE_INCLUDE: tuple[str, ...] = ("Flow", "Q")
@@ -96,7 +95,6 @@ def main(
 
     main_processing(
         paths_to_process=effective_paths_to_process,
-        csv_glob=CSV_GLOB,
         result_types=effective_result_types,
         datatype_include=effective_data_types,
         datatype_case_sensitive=DATATYPE_CASE_SENSITIVE,

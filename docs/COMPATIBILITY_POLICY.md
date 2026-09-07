@@ -2,6 +2,22 @@
 
 This document serves as the authoritative inventory for all compatibility-only modules and legacy imports in `ryan-tools`. It defines explicit replacements, support deadlines, and the required checklist for their eventual removal.
 
+## Scheduled removal handoff — 2026-09-06
+
+| Field | Value |
+| --- | --- |
+| Status | Deferred |
+| Owner | Unassigned |
+| Updated | 2026-09-06 |
+| Next review | 2027-01-04 |
+| Baseline for registration | `main` / `f7118e2` |
+
+Tracked in the [work register](work/README.md). Removal waits until support through 2026-12-31 ends. At review, verify
+current callers and inventory accuracy, then select removals using the checklist below. The checklist defines completion;
+unknown external use must be resolved rather than inferred from static absence. Other namespaces need their own explicit
+support decision. Registration did not run compatibility tests or change API deadlines. This handoff is uncommitted
+documentation only; no implementation or publishing work is claimed.
+
 ## Compatibility Inventory
 
 | Legacy Module / Import Path | Supported Replacement | Warning Category | Support Deadline | Known Callers |

@@ -1,5 +1,22 @@
 # Unsorted → ryan-tools Upgrade Roadmap
 
+## Current handoff — 2026-09-06
+
+| Field | Value |
+| --- | --- |
+| Status | Needs review |
+| Owner | Unassigned |
+| Updated | 2026-09-06 |
+| Next review | 2026-09-20 |
+| Baseline for registration | `main` / `f7118e2`; detailed migration evidence below predates this registration |
+
+Registered in the [work register](work/README.md) under the [work-tracking convention](WORK_TRACKING.md).
+The next action is to reconcile unchecked/in-progress items below with current parent/submodule source and validation,
+then select a bounded migration. No migration statuses or historical results were revalidated during registration.
+Blockers: none established by this documentation review; runtime/environment dependencies need checking per candidate.
+Completion criteria remain the tracked replacement, focused validation and finalized source disposition defined below.
+This handoff is a documentation edit only, uncommitted; preserve pre-existing staged code and independent submodule state.
+
 ## Conversion Standards
 
 When upgrading and moving a script from `unsorted/` to `ryan-scripts/`, apply the following rules in addition to the repository guidelines in `docs/DEVELOPMENT_GUIDE.md` and `ryan-scripts/WRAPPER_STANDARD.md`:

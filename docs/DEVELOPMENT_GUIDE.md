@@ -194,6 +194,14 @@ submodule content. Pass explicit repository-relative Markdown paths to check a d
 - Configuration registries and schemas are sources of truth. Update the registry and its consumers together rather
   than hard-coding a second list in a wrapper.
 
+## Ongoing work and status records
+
+Use [work tracking](WORK_TRACKING.md) as the canonical convention for concurrent projects, resumable handoffs and
+review dates. Read the [work register](work/README.md) before starting repository work. Substantial work has one linked
+status record with an actionable next step, validation evidence and delivery state; update it before handing work back.
+The register exposes due reviews without authorizing unrelated implementation. Keep architectural policy here and
+project progress in its status record; a proposed design is not adopted policy merely because it is registered.
+
 ## Sources of truth
 
 | Subject | Canonical source |

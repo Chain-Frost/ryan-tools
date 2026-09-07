@@ -111,6 +111,18 @@ leave files staged unless the user asked for staging or a commit.
 - Prefer cataloguing an existing maintained CLI wrapper over creating a duplicate package CLI. Prefer guidance to the
   Python API when advanced or open-ended analysis is better composed by the agent than represented as a stable tool.
 
+## Ongoing work and handoffs
+
+- At the start of repository work, read [`docs/work/README.md`](docs/work/README.md) and the relevant linked status
+  record. Check due review dates; report neglected work without starting unrelated tasks.
+- Follow [`docs/WORK_TRACKING.md`](docs/WORK_TRACKING.md) for substantial work spanning sessions, phases or dependencies.
+  Keep one authoritative status record per work front, normally a dated file under `docs/work/`, and register it.
+- Before handing back unfinished work, and at milestones, blockers or completion, update the record and register row
+  with current status, next action, validation evidence, Git delivery state and next review date. Preserve unrelated
+  records and staged changes. Do not stage or commit just to save a handoff.
+- Link new records directly from [`docs/README.md`](docs/README.md). Local READMEs and the repository roadmap should
+  point to the record where useful, rather than duplicate its session history. Small completed fixes need no new file.
+
 ## Documentation routing
 
 - Use [`docs/README.md`](docs/README.md) as the complete index of repository-owned Markdown. When working in a subtree,
