@@ -107,6 +107,15 @@ Windows convenience entry points are:
 
 The first builds and installs the package; the second installs the newest existing wheel.
 
+## License
+
+This project is licensed under the [Sustainable Use License v1.0](LICENSE) (`SUL-1.0`).
+
+The software may be used and modified for personal, non-commercial and internal business purposes, including
+commercial professional and consulting work where the software itself is not provided as a commercial product or
+service. Commercial distribution, incorporation into software supplied commercially to third parties, or provision of
+the software or its functionality as a paid hosted service, SaaS or API is not permitted under the licence.
+
 ## Test changes
 
 Use focused pytest commands for a bounded change. Keep temporary files under the repository on this Windows checkout:
