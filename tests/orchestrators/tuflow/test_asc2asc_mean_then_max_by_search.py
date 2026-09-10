@@ -1,5 +1,7 @@
 """Tests for ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search."""
 
+# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false
+
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -13,6 +15,7 @@ from ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search import (
     ParsedRaster,
     MeanJobDetails,
 )
+from ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search import FirstStageJobDetails
 from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob
 from ryan_library.orchestrators.tuflow.asc_to_asc_batch import StageExecutionSummary
 
@@ -23,7 +26,7 @@ class TestParseRaster:
         file_path.touch()
 
         with patch(
-            "ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.TuflowStringParser"
+            "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.TuflowStringParser"
         ) as MockParser:
             parser_instance = MockParser.return_value
             parser_instance.data_type = "d"
@@ -34,7 +37,7 @@ class TestParseRaster:
             parser_instance.trim_run_code = "model_EXG"
 
             with patch(
-                "ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.result_type_from_parser",
+                "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.result_type_from_parser",
                 return_value="d",
             ):
                 parsed = _parse_raster(
@@ -55,7 +58,7 @@ class TestParseRaster:
         file_path.touch()
 
         with patch(
-            "ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.TuflowStringParser"
+            "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.TuflowStringParser"
         ) as MockParser:
             parser_instance = MockParser.return_value
             parser_instance.data_type = "d"
@@ -64,7 +67,7 @@ class TestParseRaster:
             parser_instance.tp = None
 
             with patch(
-                "ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.result_type_from_parser",
+                "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.result_type_from_parser",
                 return_value="d",
             ):
                 assert (
@@ -81,7 +84,7 @@ class TestParseRaster:
         file_path = tmp_path / "model_EXG_DEV_1%AEP_2hr_001_d_Max.asc"
 
         with patch(
-            "ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.TuflowStringParser"
+            "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.TuflowStringParser"
         ) as MockParser:
             parser_instance = MockParser.return_value
             parser_instance.data_type = "d"
@@ -91,7 +94,7 @@ class TestParseRaster:
             parser_instance.run_code_parts = {"scen1": "EXG", "scen2": "DEV"}
 
             with patch(
-                "ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.result_type_from_parser",
+                "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.result_type_from_parser",
                 return_value="d",
             ):
                 with pytest.raises(ValueError, match="Expected one scenario"):
@@ -108,7 +111,7 @@ class TestDiscoverRasters:
     def test_discover_rasters_no_supported_rasters(self, tmp_path: Path):
         (tmp_path / "grids").mkdir()
         with patch(
-            "ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search._parse_raster", return_value=None
+            "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search._parse_raster", return_value=None
         ):
             with pytest.raises(FileNotFoundError, match="No supported ensemble result rasters"):
                 discover_rasters(search_root=tmp_path, input_glob="*.asc", scenarios=["EXG"], result_types=["d"])
@@ -141,6 +144,10 @@ class TestDiscoverMaxJobs:
             discover_max_jobs(mean_jobs=[m1, m2], output_root=tmp_path)
 
 
+def test_mean_job_details_alias_preserves_compatibility() -> None:
+    assert MeanJobDetails is FirstStageJobDetails
+
+
 class TestWorkflow:
     def test_workflow_validation_errors(self, tmp_path: Path):
         # Invalid workers
@@ -167,7 +174,7 @@ class TestWorkflow:
         )
         assert res == 1
 
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_rasters")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.discover_rasters")
     def test_workflow_discovery_error(self, mock_discover, tmp_path: Path):
         mock_discover.side_effect = FileNotFoundError("No files")
 
@@ -181,9 +188,9 @@ class TestWorkflow:
         )
         assert res == 1
 
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_rasters")
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_mean_jobs")
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_max_jobs")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.discover_rasters")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.discover_stat_jobs")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.discover_max_jobs")
     def test_workflow_incomplete_strict(self, mock_max, mock_mean, mock_discover, tmp_path: Path):
         mock_discover.return_value = []
         mock_mean.return_value = ([], ["incomplete group"])
@@ -200,10 +207,10 @@ class TestWorkflow:
         )
         assert res == 1
 
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_rasters")
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_mean_jobs")
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_max_jobs")
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.run_raster_operation_stage")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.discover_rasters")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.discover_stat_jobs")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.discover_max_jobs")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.run_raster_operation_stage")
     def test_workflow_success(self, mock_stage, mock_max, mock_mean, mock_discover, tmp_path: Path):
         dummy_job = MagicMock()
         dummy_job.label = "lbl"
@@ -230,10 +237,10 @@ class TestWorkflow:
         assert res == 0
         assert mock_stage.call_count == 2
 
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_rasters")
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_mean_jobs")
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.discover_max_jobs")
-    @patch("ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search.run_raster_operation_stage")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.discover_rasters")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.discover_stat_jobs")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.discover_max_jobs")
+    @patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.run_raster_operation_stage")
     def test_workflow_mean_failure(self, mock_stage, mock_max, mock_mean, mock_discover, tmp_path: Path):
         dummy_job = MagicMock()
         dummy_job.label = "lbl"

@@ -43,6 +43,13 @@ contributing source value at or above it, matching the executable's value and
 source outputs. Use it with the executable-compatible NoData policy when
 running parity comparisons.
 
+The generic `compute_stat()` and `RasterOperationJob` APIs retain
+`closest_source` as their general-purpose default. The maintained
+mean-then-maximum workflow defaults to `asc_to_asc` and exposes
+`--mean-value-method {asc_to_asc,closest_source,arithmetic}`. Its editable
+`MEAN_VALUE_METHOD` wrapper setting provides the same choice without CLI
+arguments.
+
 ## Source rasters and legends
 
 Every supported `compute_stat()` operation can write a source raster by passing
@@ -64,11 +71,16 @@ The maintained wrapper exposes the opt-in as `--source`. Explicit
 default differs from ASC_to_ASC, whose counter-intuitive `-src` switch
 suppresses source output rather than enabling it.
 
-For the mean-then-maximum workflow, `--source` is propagated through both
-stages. Per-duration mean source rasters identify the original temporal-pattern
-rasters. The maximum stage composes its intermediate mean selection with those
-mean source rasters, so the final source IDs and CSV legend also point directly
-to the original temporal-pattern rasters rather than the generated mean files.
+For the mean-then-maximum and median-then-maximum workflows, `--source` is
+propagated through both stages. Per-duration statistic source rasters identify
+the original temporal-pattern rasters. The maximum stage composes its
+intermediate selection with those source rasters, so the final source IDs and
+CSV legend point directly to the original temporal-pattern rasters rather than
+the generated mean or median files.
+
+Both workflows currently recalculate their prepared outputs when run; they do
+not yet expose a force/rebuild switch or validate existing outputs for an
+incremental skip.
 
 ## GeoTIFF compression
 

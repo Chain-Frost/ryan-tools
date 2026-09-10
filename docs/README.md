@@ -86,6 +86,7 @@ but they are not current architectural policy when they conflict with the canoni
 | Document | Scope and status |
 | --- | --- |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
+| [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |
 | [Compatibility policy and inventory](COMPATIBILITY_POLICY.md) | Compatibility namespaces, migration state and deprecation checklist |
 | [Repository improvement roadmap](REPOSITORY_IMPROVEMENT_ROADMAP.md) | Repository-wide improvement milestones and remaining opportunities |
 | [Unsorted upgrade roadmap](UNSORTED_UPGRADE_ROADMAP.md) | Disposition and review status of scripts migrating from the `unsorted` submodule |

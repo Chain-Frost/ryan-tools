@@ -50,6 +50,27 @@ def test_mean_then_max_wrapper_dry_run_supports_nested_plus_names(
     module = _load_script("run_asc_to_asc_mean_then_maximum.py")
     monkeypatch.chdir(search_root)
 
+    assert module.MEAN_VALUE_METHOD == "asc_to_asc"
+
+    result = module.main(
+        working_directory=search_root,
+        workers=1,
+        dry_run=True,
+        strict=True,
+        write_source=True,
+        use_live_dashboard=False,
+    )
+
+    assert result == 0
+
+
+def test_median_then_max_wrapper_dry_run_supports_nested_plus_names(
+    raster_test_data: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    search_root = raster_test_data / "tuflow_statistics" / "mean_then_max"
+    module = _load_script("run_asc_to_asc_median_then_maximum.py")
+    monkeypatch.chdir(search_root)
+
     result = module.main(
         working_directory=search_root,
         workers=1,

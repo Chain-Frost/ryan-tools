@@ -17,6 +17,10 @@ of every migration. Existing staged code changes are not inferred to be separate
 
 ## Closed work
 
-No projects closed through this register yet. Completed historical milestones remain in the
-[repository roadmap](../REPOSITORY_IMPROVEMENT_ROADMAP.md); add future complete/cancelled rows here with their final
-status, updated date and linked evidence. Keep detailed records discoverable through the documentation index.
+| Work front / status record | Status | Owner | Updated | Next review | Outcome |
+| --- | --- | --- | --- | --- | --- |
+| [TUFLOW statistic-then-maximum raster workflow](2026-09-09-tuflow-stat-then-maximum.md) | Complete | Unassigned | 2026-09-10 | — | Shared mean/median orchestration, configurable ASC_to_ASC-default mean selection, flattened TP provenance and compatibility shims completed. |
+
+Completed historical milestones remain in the
+[repository roadmap](../REPOSITORY_IMPROVEMENT_ROADMAP.md). Keep detailed records discoverable through the
+documentation index.

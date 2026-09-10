@@ -1,18 +1,14 @@
-"""Build temporal-pattern means and duration maxima with native raster operations.
+"""Build temporal-pattern medians and duration maxima with native raster operations.
 
 Edit the wrapper constants for the working directory, input glob, expected
 temporal patterns, scenarios, result types, output folder, and dashboard
 settings. Start with
-``python run_asc_to_asc_mean_then_maximum.py --dry-run`` to inspect discovered
+``python run_asc_to_asc_median_then_maximum.py --dry-run`` to inspect discovered
 groups without creating rasters; use ``--help`` for worker and strictness options.
 
-The workflow completes all per-duration means before calculating maxima across
-durations. By default, the value raster contains the arithmetic mean and its
-source identifies the lowest contributing value at or above that mean, matching
-ASC_to_ASC. Choose another ``MEAN_VALUE_METHOD`` or use
-``--mean-value-method`` when different value/source selection is required.
-Input globs may contain wildcards, but output naming templates must render
-concrete filenames and must not rediscover generated outputs.
+The workflow completes all per-duration upper medians before calculating maxima across
+durations. Input globs may contain wildcards, but output naming templates must
+render concrete filenames and must not rediscover generated outputs.
 
 Source rasters are disabled by default. Set ``WRITE_SOURCE_RASTERS`` or use
 ``--source`` to create per-duration source outputs and final source outputs
@@ -24,9 +20,8 @@ output cell remains NoData only when every contributing cell is NoData.
 """
 
 from pathlib import Path
-from typing import Literal
 
-WRAPPER_VERSION = "2026-09-10.1"
+WRAPPER_VERSION = "2026-09-09.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 OUTPUT_DIRECTORY_NAME = "ensemble_statistics"
@@ -34,7 +29,6 @@ INPUT_GLOB = "*.tif"
 EXPECTED_TPS: frozenset[int] = frozenset(range(1, 11))
 SCENARIOS = ("EXG", "DEV")
 RESULT_TYPES = ("d_HR_Max", "h_HR_Max", "V_Max")
-MEAN_VALUE_METHOD: Literal["asc_to_asc", "closest_source", "arithmetic"] = "asc_to_asc"
 WORKERS: int | None = None
 STRICT_INCOMPLETE_GROUPS = False
 WRITE_SOURCE_RASTERS = False
@@ -46,7 +40,6 @@ LIVE_USE_ALTERNATE_SCREEN = False
 import argparse
 from dataclasses import dataclass
 
-from ryan_library.functions.tuflow.asc_to_asc_raster_operations import MeanValueMethod
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
@@ -61,7 +54,6 @@ from ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search import ru
 @dataclass(slots=True, frozen=True)
 class CliOptions:
     common: CommonWrapperOptions
-    mean_value_method: MeanValueMethod | None
     workers: int | None
     dry_run: bool
     strict: bool | None
@@ -71,7 +63,6 @@ class CliOptions:
 def main(
     *,
     working_directory: Path | None = None,
-    mean_value_method: MeanValueMethod | None = None,
     workers: int | None = None,
     dry_run: bool = False,
     strict: bool | None = None,
@@ -81,21 +72,20 @@ def main(
     live_max_rows: int | None = None,
     live_use_alternate_screen: bool | None = None,
 ) -> int:
-    """Resolve wrapper settings and run the mean-then-maximum orchestrator."""
+    """Resolve wrapper settings and run the median-then-maximum orchestrator."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     search_root: Path = working_directory or WORKING_DIR
     if not change_working_directory(target_dir=search_root):
         return 1
 
     exit_code: int = run_stat_then_max_workflow(
-        first_stage_statistic="mean",
+        first_stage_statistic="median",
         search_root=search_root,
         output_root=search_root / OUTPUT_DIRECTORY_NAME,
         input_glob=INPUT_GLOB,
         expected_tps=EXPECTED_TPS,
         scenarios=SCENARIOS,
         result_types=RESULT_TYPES,
-        mean_value_method=mean_value_method or MEAN_VALUE_METHOD,
         workers=workers if workers is not None else WORKERS,
         dry_run=dry_run,
         strict=STRICT_INCOMPLETE_GROUPS if strict is None else strict,
@@ -114,18 +104,9 @@ def main(
 
 def _parse_cli_arguments() -> CliOptions:
     parser = argparse.ArgumentParser(
-        description="Create TP means and maximums across durations. CLI options override wrapper defaults."
+        description="Create TP medians and maximums across durations. CLI options override wrapper defaults."
     )
     add_common_cli_arguments(parser=parser)
-    parser.add_argument(
-        "--mean-value-method",
-        choices=("asc_to_asc", "closest_source", "arithmetic"),
-        help=(
-            "Mean value/source rule. asc_to_asc writes the arithmetic mean and selects the lowest source at or above "
-            "it; closest_source writes the nearest contributing value; arithmetic writes the mean and selects the "
-            "nearest source."
-        ),
-    )
     parser.add_argument("--workers", type=int, help="Parallel native raster processes.")
     parser.add_argument("--dry-run", action="store_true", help="Validate groups without creating rasters.")
     strict_group = parser.add_mutually_exclusive_group()
@@ -141,7 +122,6 @@ def _parse_cli_arguments() -> CliOptions:
     args: argparse.Namespace = parser.parse_args()
     return CliOptions(
         common=parse_common_cli_arguments(args=args),
-        mean_value_method=args.mean_value_method,
         workers=args.workers,
         dry_run=args.dry_run,
         strict=args.strict,
@@ -153,7 +133,6 @@ if __name__ == "__main__":
     cli_options: CliOptions = _parse_cli_arguments()
     result: int = main(
         working_directory=cli_options.common.working_directory,
-        mean_value_method=cli_options.mean_value_method,
         workers=cli_options.workers,
         dry_run=cli_options.dry_run,
         strict=cli_options.strict,

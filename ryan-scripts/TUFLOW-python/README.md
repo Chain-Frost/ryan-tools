@@ -21,6 +21,18 @@ TUFLOW `asc_to_asc` executable. The native implementation's supported command ma
 mean, upper median and optional executable-comparison boundary are documented in
 [`../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md`](../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md).
 
+`raster_processing/run_asc_to_asc_mean_then_maximum.py` and
+`raster_processing/run_asc_to_asc_median_then_maximum.py` share one generic
+statistic-then-maximum orchestrator. They aggregate temporal patterns for each
+duration, then take the maximum across durations. With `--source`, the final
+source legend resolves directly to the original temporal-pattern rasters.
+The mean wrapper defaults to ASC_to_ASC selection: its value raster contains
+the arithmetic mean and its source identifies the lowest contributing TP value
+at or above the mean. `MEAN_VALUE_METHOD` or `--mean-value-method` can instead
+select the closest contributing value or retain the arithmetic mean with
+closest-source provenance. Median uses the upper middle contributing value
+when the TP count is even.
+
 [`plot_water_level_profiles.py`](po_and_timeseries/plot_water_level_profiles.py) creates terrain
 and TUFLOW water-level profile PNGs along GeoPackage lines.  CLI arguments can override paths and profile settings. The workflow validates CRS metadata and
 requires exactly one result raster for every requested AEP. Missing CRS metadata
