@@ -1,9 +1,9 @@
 # ryan_library/functions/path_stuff.py
 
 import json
+import re
 from collections.abc import Iterable
 from pathlib import Path
-import re
 
 from loguru import logger
 
@@ -40,7 +40,7 @@ def _load_network_mappings() -> dict[str, str]:
     config_path: Path = Path(__file__).resolve().parents[1] / "classes" / "path_mappings.json"
     if config_path.exists():
         try:
-            with open(file=config_path, mode="r", encoding="utf-8") as f:
+            with open(file=config_path, encoding="utf-8") as f:
                 mapping: dict[str, str] | None = json.load(f)
                 if isinstance(mapping, dict):
                     return mapping
@@ -53,8 +53,7 @@ network_drive_mapping: dict[str, str] = _load_network_mappings()
 
 
 def is_relative_to_current_directory(user_path: Path) -> bool:
-    """
-    Check if the user_path is relative to the current working directory.
+    """Check if the user_path is relative to the current working directory.
 
     Args:
         user_path (Path): The path to check.
@@ -74,8 +73,7 @@ def is_relative_to_current_directory(user_path: Path) -> bool:
 
 
 def convert_network_path_to_drive_letter(user_path: Path, mapping: dict[str, str] | None = None) -> Path:
-    """
-    Convert a network path to a drive letter if applicable.
+    """Convert a network path to a drive letter if applicable.
 
     Args:
         user_path (Path): The path to convert.
@@ -92,8 +90,7 @@ def convert_network_path_to_drive_letter(user_path: Path, mapping: dict[str, str
 
 
 def convert_to_relative_path(user_path: Path, network_mapping: dict[str, str] | None = None) -> Path:
-    """
-    Convert the user path to a relative path if possible, else return absolute path.
+    """Convert the user path to a relative path if possible, else return absolute path.
 
     Args:
         user_path (Path): The path to convert.
@@ -125,8 +122,7 @@ def convert_to_relative_path(user_path: Path, network_mapping: dict[str, str] | 
 
 
 def to_path_list(paths: PathOrList) -> list[Path]:
-    """
-    Sanitises a single path or collection of paths into a flat list of Path objects.
+    """Sanitises a single path or collection of paths into a flat list of Path objects.
     Accepts a single string, a single Path, or any iterable of strings/Paths.
     """
     if isinstance(paths, (str, Path)):
@@ -136,8 +132,7 @@ def to_path_list(paths: PathOrList) -> list[Path]:
 
 
 def to_single_path(path: object) -> Path:
-    """
-    Sanitises a single string or Path input into a Path object.
+    """Sanitises a single string or Path input into a Path object.
     Raises TypeError if a list or other iterable is provided.
     """
     if isinstance(path, (str, Path)):

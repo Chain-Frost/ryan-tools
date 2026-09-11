@@ -6,16 +6,16 @@ repository root. It recursively replaces ``Dict[``, ``List[``, ``Tuple[``, and
 cleanup.
 
 Files are rewritten in place with no dry-run or automatic import cleanup.
-Review the Git diff afterwards and run Black and Pyright on intended changes.
+Review the Git diff afterwards and run Ruff formatting and Pyright on intended changes.
 """
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 
 def fix_type_hints(file_path: Path) -> None:
     """Fix type hints in the Python file and log changes."""
-    with open(file=file_path, mode="r", encoding="utf-8") as file:
+    with open(file=file_path, encoding="utf-8") as file:
         lines: list[str] = file.readlines()
 
     modified = False

@@ -1,26 +1,28 @@
 # ryan_library/functions/tuflow/tuflow_common.py
 from __future__ import annotations
-from pathlib import Path
-from multiprocessing import Pool
+
 import multiprocessing.pool as multiprocessing_pool
-from collections.abc import Iterable, Mapping, Collection
+from collections.abc import Collection, Iterable, Mapping
+from multiprocessing import Pool
+from pathlib import Path
 from typing import cast
+
 from loguru import logger
 
+from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
+from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.file_utils import (
     find_files_parallel,
     is_non_zero_file,
 )
-from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
 from ryan_library.functions.loguru_helpers import LogQueue, worker_initializer
+from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
-from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 MaybeEncodingError: type[Exception] = cast(
-    type[Exception],
-    getattr(multiprocessing_pool, "MaybeEncodingError"),
+    "type[Exception]",
+    multiprocessing_pool.MaybeEncodingError,
 )
 
 
@@ -30,7 +32,6 @@ def collect_files(
     suffixes_config: SuffixesConfig,
 ) -> list[Path]:
     """Return all non-empty files matching ``include_data_types`` underneath ``paths_to_process``."""
-
     normalized_roots: list[Path] = []
     seen_roots: set[Path] = set()
     for candidate in paths_to_process:
@@ -134,7 +135,7 @@ def _resolve_entity_filter_for_file(
         return None
 
     if isinstance(entity_filters, Mapping):
-        mapped_filters: Mapping[str, Collection[str]] = cast(Mapping[str, Collection[str]], entity_filters)
+        mapped_filters: Mapping[str, Collection[str]] = cast("Mapping[str, Collection[str]]", entity_filters)
         parser = TuflowStringParser(file_path=file_path)
         data_type: str | None = parser.data_type
         if not data_type:
@@ -193,9 +194,7 @@ def process_files_in_parallel(
     file_count, total_bytes, largest_file, largest_bytes = _summarize_file_batch(file_list=file_list)
     largest_desc: str = f"{largest_file.name} ({_format_bytes(largest_bytes)})" if largest_file else "n/a"
     logger.info(
-        "Preparing to process {count} files (~{total} on disk; largest {largest}).".format(
-            count=file_count, total=_format_bytes(total_bytes), largest=largest_desc
-        ),
+        f"Preparing to process {file_count} files (~{_format_bytes(total_bytes)} on disk; largest {largest_desc}).",
     )
     dataset_summary: str = f"{file_count} files (~{_format_bytes(total_bytes)} on disk; largest {largest_desc})"
     if size <= 1:
@@ -218,15 +217,11 @@ def process_files_in_parallel(
             return coll
     except MaybeEncodingError as exc:
         logger.warning(
-            "Multiprocessing failed to return processor results ({}). Falling back to sequential execution. Dataset footprint: {}".format(
-                str(exc), dataset_summary
-            ),
+            f"Multiprocessing failed to return processor results ({exc!s}). Falling back to sequential execution. Dataset footprint: {dataset_summary}",
         )
     except OSError as exc:
         logger.warning(
-            "Multiprocessing encountered an OSError ({}). Falling back to sequential execution. Dataset footprint: {}".format(
-                exc, dataset_summary
-            ),
+            f"Multiprocessing encountered an OSError ({exc}). Falling back to sequential execution. Dataset footprint: {dataset_summary}",
         )
     return _process_files_serially(
         file_list=file_list,
@@ -241,7 +236,7 @@ def _process_files_serially(
     *,
     include_path_columns: bool = True,
 ) -> ProcessorCollection:
-    logger.info("Processing {} files sequentially.".format(len(file_list)))
+    logger.info("Processing {} files sequentially.", len(file_list))
     coll = ProcessorCollection()
     for file_path in file_list:
         proc: BaseProcessor | None = process_file(

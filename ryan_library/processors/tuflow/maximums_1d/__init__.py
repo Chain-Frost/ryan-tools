@@ -5,4 +5,4 @@ from .ccAProcessor import ccAProcessor
 from .CmxProcessor import CmxProcessor
 from .NmxProcessor import NmxProcessor
 
-__all__ = ["ccAProcessor", "CmxProcessor", "NmxProcessor"]
+__all__ = ["CmxProcessor", "NmxProcessor", "ccAProcessor"]

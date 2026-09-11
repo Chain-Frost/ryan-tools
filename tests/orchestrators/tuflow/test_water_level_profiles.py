@@ -8,16 +8,16 @@ from typing import Any
 
 import geopandas as gpd
 import matplotlib
-from matplotlib.axes import Axes
 import numpy as np
 import pytest
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
+from matplotlib.axes import Axes
 from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs]
 from shapely.geometry import LineString, MultiLineString
 
 matplotlib.use("Agg")
 
-from ryan_library.orchestrators.tuflow.water_level_profiles import (  # noqa: E402
+from ryan_library.orchestrators.tuflow.water_level_profiles import (
     WaterLevelProfileConfig,
     discover_tuflow_profile_rasters,
     run_water_level_profile_workflow,

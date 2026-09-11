@@ -1,7 +1,6 @@
 # ryan-scripts\misc-python\ocg_clean_file.py
 
-"""
-Remove the smaller-numbered OCG marked-content block per page, drop XForm /OC
+"""Remove the smaller-numbered OCG marked-content block per page, drop XForm /OC
 objects, strip JavaScript actions, and remove /Widget annotations.
 
 Usage:
@@ -36,7 +35,7 @@ class _PageLike(Protocol):
 
 
 def _writer_add_object(writer: PdfWriter, obj: Any) -> Any:
-    return cast(Any, writer)._add_object(obj)
+    return cast("Any", writer)._add_object(obj)
 
 
 def _name_to_key(value: Any) -> str | None:
@@ -51,7 +50,7 @@ def _name_to_key(value: Any) -> str | None:
         text = str(value)
     except Exception:
         return None
-    return text if text else None
+    return text or None
 
 
 def _resolve_dict(value: Any) -> dict[Any, Any]:
@@ -63,7 +62,7 @@ def _resolve_dict(value: Any) -> dict[Any, Any]:
         except Exception:
             return {}
     if isinstance(value, dict):
-        return cast(dict[Any, Any], value)
+        return cast("dict[Any, Any]", value)
     return {}
 
 
@@ -71,9 +70,8 @@ def _normalize_ocg_label(label: str | None) -> str | None:
     if label is None:
         return None
     text = label.strip()
-    if text.startswith("/"):
-        text = text[1:]
-    return text if text else None
+    text = text.removeprefix("/")
+    return text or None
 
 
 def _ocg_numeric_suffix(label: str | None) -> int | None:
@@ -100,7 +98,7 @@ def _resolve_ocg_name(ocg_obj: Any) -> str | None:
         except Exception:
             return None
     if isinstance(ocg_obj, dict):
-        ocg_dict = cast(dict[Any, Any], ocg_obj)
+        ocg_dict = cast("dict[Any, Any]", ocg_obj)
         if "/Name" in ocg_dict:
             return _name_to_key(ocg_dict.get("/Name"))
         if "/OCGs" in ocg_dict:
@@ -108,7 +106,7 @@ def _resolve_ocg_name(ocg_obj: Any) -> str | None:
             ocg_list_obj = ocg_dict.get("/OCGs", [])
             ocg_list: list[Any]
             if isinstance(ocg_list_obj, list):
-                ocg_list = list(cast(list[Any], ocg_list_obj))
+                ocg_list = list(cast("list[Any]", ocg_list_obj))
             else:
                 ocg_list = []
             for item in ocg_list:
@@ -119,7 +117,7 @@ def _resolve_ocg_name(ocg_obj: Any) -> str | None:
                     except Exception:
                         continue
                 if isinstance(entry, dict):
-                    entry_dict = cast(dict[Any, Any], entry)
+                    entry_dict = cast("dict[Any, Any]", entry)
                     if "/Name" in entry_dict:
                         name = _name_to_key(entry_dict.get("/Name"))
                         if name:
@@ -170,7 +168,7 @@ def _remove_ocg_xobjects(resources: dict[Any, Any]) -> tuple[set[str], int]:
                 continue
         if not isinstance(xobj, dict):
             continue
-        xobj_dict = cast(dict[Any, Any], xobj)
+        xobj_dict = cast("dict[Any, Any]", xobj)
         subtype = _name_to_key(xobj_dict.get("/Subtype"))
         if subtype == "/Form" and "/OC" in xobj_dict:
             key = _name_to_key(name)
@@ -284,7 +282,7 @@ def _strip_js_from_action(action: Any) -> bool:
         next_obj = action_dict.get("/Next")
         next_list: list[Any]
         if isinstance(next_obj, list):
-            next_list = list(cast(list[Any], next_obj))
+            next_list = list(cast("list[Any]", next_obj))
         elif next_obj is not None:
             next_list = [next_obj]
         else:
@@ -318,7 +316,7 @@ def _remove_js_from_annotations(page: _PageLike) -> int:
             return 0
     if not isinstance(annots_obj, list):
         return 0
-    annots_list = cast(list[Any], annots_obj)
+    annots_list = cast("list[Any]", annots_obj)
     for annot_ref in annots_list:
         annot = annot_ref
         if hasattr(annot, "get_object"):
@@ -328,7 +326,7 @@ def _remove_js_from_annotations(page: _PageLike) -> int:
                 continue
         if not isinstance(annot, dict):
             continue
-        annot_dict = cast(dict[Any, Any], annot)
+        annot_dict = cast("dict[Any, Any]", annot)
         action = annot_dict.get("/A")
         if action and _strip_js_from_action(action):
             try:
@@ -369,7 +367,7 @@ def _remove_widget_annotations(page: _PageLike) -> int:
         return 0
     kept: list[Any] = []
     removed = 0
-    annots_list = cast(list[Any], annots_obj)
+    annots_list = cast("list[Any]", annots_obj)
     for annot_ref in annots_list:
         annot = annot_ref
         if hasattr(annot, "get_object"):
@@ -381,7 +379,7 @@ def _remove_widget_annotations(page: _PageLike) -> int:
         if not isinstance(annot, dict):
             kept.append(annot_ref)
             continue
-        annot_dict = cast(dict[Any, Any], annot)
+        annot_dict = cast("dict[Any, Any]", annot)
         subtype = annot_dict.get("/Subtype")
         if str(subtype) == "/Widget":
             removed += 1
@@ -399,12 +397,12 @@ def _remove_widget_annotations(page: _PageLike) -> int:
 
 def _remove_doc_level_js(writer: PdfWriter) -> bool:
     # Run after cloning so we can safely mutate writer's root object.
-    root_obj = cast(Any, writer)._root_object
+    root_obj = cast("Any", writer)._root_object
     if not root_obj:
         return False
     if not isinstance(root_obj, dict):
         return False
-    root = cast(dict[Any, Any], root_obj)
+    root = cast("dict[Any, Any]", root_obj)
     removed = False
     names = root.get("/Names")
     if names:

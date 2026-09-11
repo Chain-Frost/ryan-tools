@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-
 from run_grouped_asc_to_asc_statistics import TUFLOWRaster, build_diff_commands, build_max_median_commands
 
 

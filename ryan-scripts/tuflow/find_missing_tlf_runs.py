@@ -1,5 +1,4 @@
-"""
-Wrapper Script: Find Missing TUFLOW Runs.
+"""Wrapper Script: Find Missing TUFLOW Runs.
 
 This script acts as a mutable wrapper for `orchestrate_missing_runs_check`.
 It analyzes a TUFLOW run tracking table to find missing AEP/Duration/TP sets.
@@ -18,8 +17,10 @@ CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
 
 import argparse
+
 from loguru import logger
 
+from ryan_library.functions.loguru_helpers import configure_serial_logging
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
@@ -28,7 +29,6 @@ from ryan_library.functions.wrapper_utils import (
     pause_console,
     print_wrapper_banner,
 )
-from ryan_library.functions.loguru_helpers import configure_serial_logging
 from ryan_library.orchestrators.tuflow.tlf_missing_runs import orchestrate_missing_runs_check
 
 
@@ -39,8 +39,7 @@ def main(
     console_log_level: str | None = None,
     working_directory: Path | None = None,
 ) -> int:
-    """
-    Main entry point for missing TUFLOW runs analysis.
+    """Main entry point for missing TUFLOW runs analysis.
 
     Args:
         input_table: Path to the tracking table (CSV or Excel).
@@ -71,8 +70,7 @@ def main(
 
 
 def _parse_cli_arguments() -> tuple[argparse.Namespace, CommonWrapperOptions]:
-    """
-    Parse command-line arguments to override script defaults.
+    """Parse command-line arguments to override script defaults.
 
     Returns:
         tuple containing specific args and parsed common arguments.

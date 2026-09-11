@@ -1,9 +1,11 @@
 """Tests for ExcelExporter class in misc_functions."""
 
-import pytest
-import pandas as pd
 from pathlib import Path
 from unittest.mock import patch
+
+import pandas as pd
+import pytest
+
 from ryan_library.functions.excel_export import ExcelExporter
 
 

@@ -1,5 +1,4 @@
-"""
-Removes worksheet and workbook protection from Excel files (.xlsx, .xlsm) by
+"""Removes worksheet and workbook protection from Excel files (.xlsx, .xlsm) by
 parsing and modifying the internal XML within the ZIP archive. Does not require
 the password and is safer than rewriting through pandas/openpyxl, preserving
 macros and styling.
@@ -16,7 +15,7 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT_DIR: PathLike = Path(".")
+DEFAULT_INPUT_DIR: PathLike = Path()
 DEFAULT_OUTPUT_DIR: PathLike = Path(r".\unprotected")
 # ==============================================================================
 
@@ -34,7 +33,7 @@ from ryan_library.functions.wrapper_utils import change_working_directory, pause
 
 def del_xml_element(file_path: Path, del_string: str, separator: str) -> None:
     """Removes XML elements containing a specific string by parsing text."""
-    with open(file=file_path, mode="r", encoding="utf-8") as xf:
+    with open(file=file_path, encoding="utf-8") as xf:
         rl: list[str] = xf.readlines()
 
     splitxf: list[list[str]] = [a.split(separator) for a in rl]
@@ -46,8 +45,7 @@ def del_xml_element(file_path: Path, del_string: str, separator: str) -> None:
     fixedxf: list[str] = [separator.join(a) for a in splitxf]
 
     with open(file=file_path, mode="w", encoding="utf-8") as xf:
-        for lines in fixedxf:
-            xf.write(lines)
+        xf.writelines(fixedxf)
 
 
 def process_excel_file(file_path: Path, output_dir: Path) -> bool:

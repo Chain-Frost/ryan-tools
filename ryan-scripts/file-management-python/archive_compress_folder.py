@@ -1,5 +1,4 @@
-"""
-Compresses entire directories into single .7z archives using the external 7-Zip
+"""Compresses entire directories into single .7z archives using the external 7-Zip
 executable. Respects exclusion lists directly using 7-Zip's native -xr! flags.
 Uses multiprocessing to process multiple folders concurrently.
 """
@@ -17,7 +16,7 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT = Path(".")
+DEFAULT_INPUT = Path()
 DEFAULT_EXCLUDE_FOLDERS: list[str] = ["xf"]
 DEFAULT_EXCLUDE_EXTENSIONS: list[str] = [".xf4", ".xmdf", ".2dm", ".dat", ".7z"]
 # ==============================================================================

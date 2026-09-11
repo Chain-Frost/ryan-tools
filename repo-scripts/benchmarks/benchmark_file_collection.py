@@ -6,8 +6,8 @@ import argparse
 import statistics
 import sys
 import time
-from pathlib import Path
 from collections.abc import Callable, Iterable
+from pathlib import Path
 from typing import Any
 
 PATTERNS: str = "*.tlf"
@@ -41,9 +41,9 @@ def load_apis(mode: str, repo_root: Path) -> tuple[Callable[..., Any], Callable[
     logger.remove()
     logger.add(sys.stdout, level="WARNING")
 
+    from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
     from ryan_library.functions.file_utils import find_files_parallel
     from ryan_library.functions.tuflow.tuflow_common import collect_files
-    from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 
     return find_files_parallel, collect_files, SuffixesConfig.get_instance()
 
@@ -89,12 +89,7 @@ def summarize(name: str, root: Path, durations: Iterable[float], counts: Iterabl
     print(f"  runs : {len(durations_list)}")
     print(f"  count: min={min(counts_list)}, max={max(counts_list)}, mean={statistics.mean(counts_list):.1f}")
     print(
-        "  time : min={}, max={}, mean={}, median={}".format(
-            fmt(min(durations_list)),
-            fmt(max(durations_list)),
-            fmt(statistics.mean(durations_list)),
-            fmt(statistics.median(durations_list)),
-        )
+        f"  time : min={fmt(min(durations_list))}, max={fmt(max(durations_list))}, mean={fmt(statistics.mean(durations_list))}, median={fmt(statistics.median(durations_list))}"
     )
 
 

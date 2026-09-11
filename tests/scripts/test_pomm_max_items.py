@@ -1,8 +1,10 @@
 """Tests for the active TUFLOW POMM peak-report orchestrator."""
 
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
+
 from ryan_library.orchestrators.tuflow import pomm_max_items
 
 
@@ -16,7 +18,7 @@ class TestPommMaxItems:
 
         mock_exporter = MagicMock()
 
-        pomm_max_items.run_peak_report_workflow(script_directory=Path("."), exporter=mock_exporter)
+        pomm_max_items.run_peak_report_workflow(script_directory=Path(), exporter=mock_exporter)
 
         mock_agg.assert_called_once()
         mock_exporter.assert_called_once()
@@ -34,7 +36,7 @@ class TestPommMaxItems:
 
         mock_exporter = MagicMock()
 
-        pomm_max_items.run_peak_report_workflow(script_directory=Path("."), exporter=mock_exporter)
+        pomm_max_items.run_peak_report_workflow(script_directory=Path(), exporter=mock_exporter)
 
         mock_exporter.assert_not_called()
         mock_logger.warning.assert_called()
@@ -48,7 +50,7 @@ class TestPommMaxItems:
         mock_exporter = MagicMock()
 
         pomm_max_items.run_peak_report_workflow(
-            script_directory=Path("."), locations_to_include=["Loc1"], exporter=mock_exporter
+            script_directory=Path(), locations_to_include=["Loc1"], exporter=mock_exporter
         )
 
         mock_exporter.assert_not_called()
@@ -59,7 +61,7 @@ class TestPommMaxItems:
     @patch("ryan_library.orchestrators.tuflow.pomm_max_items.run_peak_report_workflow")
     def test_export_median_peak_report(self, mock_workflow):
         """Test export_median_peak_report wrapper."""
-        pomm_max_items.export_median_peak_report(script_directory=Path("."), log_level="DEBUG")
+        pomm_max_items.export_median_peak_report(script_directory=Path(), log_level="DEBUG")
 
         mock_workflow.assert_called_once()
         _, kwargs = mock_workflow.call_args
@@ -69,7 +71,7 @@ class TestPommMaxItems:
     @patch("ryan_library.orchestrators.tuflow.pomm_max_items.run_peak_report_workflow")
     def test_export_mean_peak_report(self, mock_workflow):
         """Test export_mean_peak_report wrapper."""
-        pomm_max_items.export_mean_peak_report(script_directory=Path("."), log_level="DEBUG")
+        pomm_max_items.export_mean_peak_report(script_directory=Path(), log_level="DEBUG")
 
         mock_workflow.assert_called_once()
         _, kwargs = mock_workflow.call_args

@@ -6,8 +6,9 @@ and do not require this environment mutation module.
 """
 
 import os
-from pathlib import Path
 import warnings
+from pathlib import Path
+
 from loguru import logger
 
 warnings.warn(
@@ -19,8 +20,7 @@ warnings.warn(
 
 
 def find_qgis_install_path() -> Path:
-    """
-    Find the QGIS or OSGeo4W installation path.
+    """Find the QGIS or OSGeo4W installation path.
 
     Returns:
         Path: The root path of the QGIS/OSGeo4W installation.
@@ -49,8 +49,7 @@ def find_qgis_install_path() -> Path:
 
 
 def find_python_installation(qgis_path: Path) -> Path:
-    """
-    Find the Python installation directory within the QGIS/OSGeo4W installation.
+    """Find the Python installation directory within the QGIS/OSGeo4W installation.
 
     Args:
         qgis_path (Path): The root path of the QGIS/OSGeo4W installation.
@@ -74,8 +73,7 @@ def find_python_installation(qgis_path: Path) -> Path:
 
 
 def setup_environment(qgis_path: Path | None = None) -> None:
-    """
-    Set up the environment variables needed for GDAL processing based on the QGIS/OSGeo4W installation path.
+    """Set up the environment variables needed for GDAL processing based on the QGIS/OSGeo4W installation path.
 
     Args:
         qgis_path (Path, optional): Custom QGIS/OSGeo4W installation path. Defaults to None.
@@ -104,7 +102,7 @@ def setup_environment(qgis_path: Path | None = None) -> None:
     os.environ["PYTHONHOME"] = str(python_dir)
     os.environ["PYTHONUTF8"] = "1"
     os.environ["QT_PLUGIN_PATH"] = str(qgis_path / "apps" / "Qt5" / "plugins")
-    os.environ["PATH"] = f"{python_dir / 'Scripts'};" f"{qgis_path / 'bin'};" f"{os.environ['PATH']}"
+    os.environ["PATH"] = f"{python_dir / 'Scripts'};{qgis_path / 'bin'};{os.environ['PATH']}"
 
     logger.debug("Environment variables set successfully.")
 
@@ -127,8 +125,7 @@ def setup_environment(qgis_path: Path | None = None) -> None:
 
 
 def check_executable(path: str, name: str) -> None:
-    """
-    Check if the specified executable or script exists.
+    """Check if the specified executable or script exists.
 
     Args:
         path (str): Path to the executable or script.
@@ -143,8 +140,7 @@ def check_executable(path: str, name: str) -> None:
 
 
 def check_required_components() -> None:
-    """
-    Check that all required GDAL components are available.
+    """Check that all required GDAL components are available.
 
     Raises:
         FileNotFoundError: If any required GDAL component is not found.

@@ -1,5 +1,4 @@
-"""
-Removes the NoData metadata flag from all TIF files in the target directories.
+"""Removes the NoData metadata flag from all TIF files in the target directories.
 This prevents software like QGIS from treating those pixel values as transparent.
 """
 
@@ -14,7 +13,7 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT = Path(".")
+DEFAULT_INPUT = Path()
 # ==============================================================================
 
 import argparse

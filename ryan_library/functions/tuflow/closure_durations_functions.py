@@ -10,10 +10,11 @@ unit-tested independently of the orchestration layer.
 
 __lazy_modules__ = ["pandas"]
 
+from typing import cast
+
 import pandas as pd
 from loguru import logger
 from pandas import DataFrame
-from typing import cast
 
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
@@ -49,7 +50,6 @@ def calculate_threshold_durations(
     measurement_type: str,
 ) -> DataFrame:
     """Return a DataFrame of duration exceedances for the requested measurement type."""
-
     if po_df.empty:
         return DataFrame()
 
@@ -140,13 +140,13 @@ def summarise_results(df: DataFrame) -> DataFrame:
     combo_columns: list[str] = ["out_path", "Location", "AEP", *scenario_keys]
     combo_lookup: dict[tuple[str, str, str], DataFrame] = {}
     for key, combo_group in df.loc[:, combo_columns].drop_duplicates().groupby(["out_path", "Location", "AEP"]):
-        combo_key: tuple[str, str, str] = cast(tuple[str, str, str], key)
+        combo_key: tuple[str, str, str] = cast("tuple[str, str, str]", key)
         combo_lookup[combo_key] = combo_group.loc[:, scenario_keys].drop_duplicates().reset_index(drop=True)
 
     grouped = df.groupby(["out_path", "Location", "ThresholdFlow", "AEP"])
     records: list[dict[str, object]] = []
     for name, group in grouped:
-        path, location, threshold, aep = cast(tuple[str, str, float, str], name)
+        path, location, threshold, aep = cast("tuple[str, str, float, str]", name)
         combos: DataFrame | None = combo_lookup.get((path, location, aep))
         if combos is not None:
             group = combos.merge(right=group, on=scenario_keys, how="left")

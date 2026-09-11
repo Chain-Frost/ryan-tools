@@ -2,21 +2,22 @@
 
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownMemberType=false
 
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
+
+from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob
 from ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search import (
-    _parse_raster,
-    discover_rasters,
-    discover_mean_jobs,
-    discover_max_jobs,
-    run_mean_then_max_workflow,
-    ParsedRaster,
     MeanJobDetails,
+    ParsedRaster,
+    _parse_raster,
+    discover_max_jobs,
+    discover_mean_jobs,
+    discover_rasters,
+    run_mean_then_max_workflow,
 )
 from ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search import FirstStageJobDetails
-from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob
 from ryan_library.orchestrators.tuflow.asc_to_asc_batch import StageExecutionSummary
 
 
@@ -96,11 +97,10 @@ class TestParseRaster:
             with patch(
                 "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.result_type_from_parser",
                 return_value="d",
-            ):
-                with pytest.raises(ValueError, match="Expected one scenario"):
-                    _parse_raster(
-                        input_file=file_path, grid_directory=tmp_path, scenarios=["EXG", "DEV"], result_types=["d"]
-                    )
+            ), pytest.raises(ValueError, match="Expected one scenario"):
+                _parse_raster(
+                    input_file=file_path, grid_directory=tmp_path, scenarios=["EXG", "DEV"], result_types=["d"]
+                )
 
 
 class TestDiscoverRasters:
@@ -112,9 +112,8 @@ class TestDiscoverRasters:
         (tmp_path / "grids").mkdir()
         with patch(
             "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search._parse_raster", return_value=None
-        ):
-            with pytest.raises(FileNotFoundError, match="No supported ensemble result rasters"):
-                discover_rasters(search_root=tmp_path, input_glob="*.asc", scenarios=["EXG"], result_types=["d"])
+        ), pytest.raises(FileNotFoundError, match="No supported ensemble result rasters"):
+            discover_rasters(search_root=tmp_path, input_glob="*.asc", scenarios=["EXG"], result_types=["d"])
 
 
 class TestDiscoverMeanJobs:

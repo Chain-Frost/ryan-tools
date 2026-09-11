@@ -1,17 +1,16 @@
-import sys
 import json
+import sys
 from pathlib import Path
-import pandas as pd
 
 # Add project root to sys.path
 project_root: Path = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from ryan_library.functions.parse_tlf import (
-    search_for_completion,
+    finalise_data,
     get_log_lines,
     process_top_lines,
-    finalise_data,
+    search_for_completion,
 )
 from ryan_library.functions.path_stuff import convert_to_relative_path
 

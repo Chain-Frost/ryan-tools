@@ -1,11 +1,10 @@
 """Tests for raster_maintenance orchestration."""
 
-import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
-from concurrent.futures import Future
+from unittest.mock import patch
 
-from ryan_library.orchestrators.gdal.raster_maintenance import set_nodata_in_directory, create_footprints_in_directory
+import pytest
+
+from ryan_library.orchestrators.gdal.raster_maintenance import create_footprints_in_directory, set_nodata_in_directory
 
 
 @pytest.fixture

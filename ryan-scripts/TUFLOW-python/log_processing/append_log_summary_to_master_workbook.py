@@ -1,6 +1,5 @@
 # ryan-scripts\TUFLOW-python\log_processing\append_log_summary_to_master_workbook.py
-"""
-Wrapper Script: Append TUFLOW Log Summary rows to an existing master workbook.
+"""Wrapper Script: Append TUFLOW Log Summary rows to an existing master workbook.
 
 This wrapper searches the configured results folder for TUFLOW log files, skips
 rows already present in the master workbook table, and appends only new rows.
@@ -12,7 +11,7 @@ WRAPPER_VERSION = "2026-08-02.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(
-    r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO" r"\TUFLOW_MLGD\results\v05"
+    r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v05"
 )
 MASTER_WORKBOOK: Path = WORKING_DIR / "Master_modelling_log.xlsx"
 SHEET_NAME = "Log Summary"

@@ -11,8 +11,7 @@ def merge_and_sort_data(
     sort_column: str | None = None,
     ascending: bool = False,
 ) -> pd.DataFrame:
-    """
-    Merges a list of DataFrames and optionally sorts them by a given column.
+    """Merges a list of DataFrames and optionally sorts them by a given column.
 
     Parameters:
         frames (list[pd.DataFrame]): List of DataFrames to merge.
@@ -57,8 +56,10 @@ def reorder_columns(
             Columns not in the DataFrame will be ignored.
         columns_to_end (Optional[list[str]]): A list of columns to move to the end in order.
             Columns not in the DataFrame will be ignored.
+
     Returns:
-        pd.DataFrame: A new DataFrame with reordered columns."""
+        pd.DataFrame: A new DataFrame with reordered columns.
+    """
     # Ensure all parameters are lists
     if prioritized_columns is None:
         prioritized_columns = []
@@ -105,7 +106,8 @@ def reorder_long_columns(df: pd.DataFrame) -> pd.DataFrame:
         df (pd.DataFrame): The DataFrame to reorder.
 
     Returns:
-        pd.DataFrame: The reordered DataFrame."""
+        pd.DataFrame: The reordered DataFrame.
+    """
     columns_to_move: list[str] = [
         "file",
         "rel_directory",
@@ -129,7 +131,8 @@ def reset_categorical_ordering(df: pd.DataFrame) -> pd.DataFrame:
         df (pd.DataFrame): The DataFrame to reset categorical ordering.
 
     Returns:
-        pd.DataFrame: DataFrame with reset categorical ordering."""
+        pd.DataFrame: DataFrame with reset categorical ordering.
+    """
     for col in df.select_dtypes(include="category").columns:
         sorted_categories: list[str] = sorted(df[col].cat.categories)
         df[col] = df[col].cat.set_categories(new_categories=sorted_categories, ordered=True)

@@ -1,6 +1,5 @@
 # ryan-scripts\TUFLOW-python\culvert_results\combine_culvert_maximums.py
-"""
-Wrapper Script: Merge TUFLOW Culvert Maximums.
+"""Wrapper Script: Merge TUFLOW Culvert Maximums.
 
 This script acts as a mutable wrapper for `tuflow_culverts_merge.main_processing`.
 It combines culvert maximums (and raw data) from multiple CSV files.
@@ -23,7 +22,6 @@ PATHS_TO_PROCESS: tuple[Path, ...] = ()
 
 import argparse
 
-from ryan_library.orchestrators.tuflow.tuflow_culverts_merge import main_processing
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
@@ -32,6 +30,7 @@ from ryan_library.functions.wrapper_utils import (
     pause_console,
     print_wrapper_banner,
 )
+from ryan_library.orchestrators.tuflow.tuflow_culverts_merge import main_processing
 
 
 def main(
@@ -42,8 +41,7 @@ def main(
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> int:
-    """
-    Main entry point to merge culvert maximums; double-clickable.
+    """Main entry point to merge culvert maximums; double-clickable.
 
     This function sets up the environment and calls 'main_processing'.
     It allows users to default settings via constants while retaining CLI capabilities.
@@ -77,8 +75,7 @@ def main(
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
-    """
-    Parse command-line arguments to override script defaults.
+    """Parse command-line arguments to override script defaults.
 
     Returns:
         CommonWrapperOptions: Parsed and processed common arguments.

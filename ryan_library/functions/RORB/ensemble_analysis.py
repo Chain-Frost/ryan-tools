@@ -2,17 +2,16 @@
 
 # moved from unsorted, not tested in production yet - 2026-08-20
 
-from pathlib import Path
-from typing import Sequence
 import math
+from collections.abc import Sequence
+from pathlib import Path
 
 import pandas as pd
 from loguru import logger
 
 
 def read_rorb_parquet(parquet_path: Path, columns: Sequence[str] | None = None) -> pd.DataFrame:
-    """
-    Reads a RORB ensemble results Parquet file into a Pandas DataFrame.
+    """Reads a RORB ensemble results Parquet file into a Pandas DataFrame.
     """
     if not parquet_path.exists():
         raise FileNotFoundError(f"Parquet file not found: {parquet_path}")
@@ -32,8 +31,7 @@ def calculate_peak_flows(
     flow_col: str = "Flow",
     peak_flow_col_name: str = "PeakFlow",
 ) -> pd.DataFrame:
-    """
-    Calculates the maximum flow (peak flow) for each group.
+    """Calculates the maximum flow (peak flow) for each group.
     Typically grouped by Location, AEP, Duration, TP, etc.
     """
     logger.info("Calculating peak flows grouped by {}", group_cols)
@@ -61,8 +59,7 @@ def calculate_closure_times(
     flow_col: str = "Flow",
     closure_col_name: str = "ClosureTime",
 ) -> pd.DataFrame:
-    """
-    Calculates the elapsed time from the first to last threshold exceedance in each group.
+    """Calculates the elapsed time from the first to last threshold exceedance in each group.
 
     This preserves the legacy script's definition of closure duration. It does not infer
     separate closure intervals when flows dip below the threshold between exceedances.

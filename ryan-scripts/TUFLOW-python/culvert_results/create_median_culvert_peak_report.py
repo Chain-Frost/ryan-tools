@@ -1,6 +1,5 @@
 # ryan-scripts\TUFLOW-python\culvert_results\create_median_culvert_peak_report.py
-"""
-Wrapper Script: Culvert Median Peak Reports.
+"""Wrapper Script: Culvert Median Peak Reports.
 
 This script acts as a mutable wrapper for `run_culvert_median_report`.
 It generates a summary report calculating MEDIAN peak values across multiple durations for culverts.
@@ -25,7 +24,6 @@ PATHS_TO_PROCESS: tuple[Path, ...] = ()
 
 import argparse
 
-from ryan_library.orchestrators.tuflow.tuflow_culverts_mean import run_culvert_median_report
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
@@ -34,6 +32,7 @@ from ryan_library.functions.wrapper_utils import (
     pause_console,
     print_wrapper_banner,
 )
+from ryan_library.orchestrators.tuflow.tuflow_culverts_mean import run_culvert_median_report
 
 
 def main(
@@ -44,8 +43,7 @@ def main(
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> int:
-    """
-    Main entry point for culvert median peak reporting.
+    """Main entry point for culvert median peak reporting.
 
     This function initializes the environment and calls `run_culvert_median_report`.
     It resolves configuration by prioritizing CLI arguments, then falling back to the
@@ -58,7 +56,6 @@ def main(
         paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides the default WORKING_DIR.
     """
-
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     script_directory: Path = working_directory or WORKING_DIR
 
@@ -83,8 +80,7 @@ def main(
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
-    """
-    Parse command-line arguments to override script defaults.
+    """Parse command-line arguments to override script defaults.
 
     Returns:
         CommonWrapperOptions: Parsed and processed common arguments.

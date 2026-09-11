@@ -3,6 +3,7 @@
 # moved from unsorted, not tested in production yet - 2026-08-20
 
 from __future__ import annotations
+
 from pathlib import Path
 
 WRAPPER_VERSION = "2026-08-20.1"
@@ -15,19 +16,19 @@ DEFAULT_PARALLEL = False
 DEFAULT_WORKERS = 4
 
 import argparse
-import sys
 import concurrent.futures
+import sys
 
 from loguru import logger
 
 from ryan_library.functions.gdal.vector_conversion import (
-    translate_vector_dataset,
-    resolve_vector_format,
     get_unique_attribute_values,
     get_vector_layer_names,
+    resolve_vector_format,
+    translate_vector_dataset,
 )
-from ryan_library.functions.path_stuff import to_single_path, sanitize_windows_filename
-from ryan_library.functions.wrapper_utils import print_wrapper_banner, pause_console
+from ryan_library.functions.path_stuff import sanitize_windows_filename, to_single_path
+from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 
 
 def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:

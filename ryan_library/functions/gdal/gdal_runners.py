@@ -7,8 +7,8 @@ adapters preserves the public names while delegating all work to the shared
 ``osgeo`` implementation.
 """
 
-from pathlib import Path
 import warnings
+from pathlib import Path
 
 from ryan_library.functions.gdal.raster_processing import (
     RasterProfile,

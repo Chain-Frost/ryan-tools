@@ -24,8 +24,7 @@ DEFAULT_OUTPUT_DIRECTORY: str | None = SCRIPT_DIRECTORY + r"\rainfall"  # Overri
 
 
 def parse_time_increment(lines: Sequence[str]) -> float:
-    """
-    Read the simulation time increment (in hours) from the raw .out file text.
+    """Read the simulation time increment (in hours) from the raw .out file text.
 
     The RORB outputs list the increment near the top of the file using the text
     "Time increment (hours)= ...".  Capturing it once avoids supplying an
@@ -39,8 +38,7 @@ def parse_time_increment(lines: Sequence[str]) -> float:
 
 
 def collect_header_lines(lines: Sequence[str], start_row: int, line_count: int = HEADER_LINE_COUNT) -> list[str]:
-    """
-    Grab the header block immediately above the rainfall table.
+    """Grab the header block immediately above the rainfall table.
 
     Parameters
     ----------
@@ -67,8 +65,7 @@ def collect_header_lines(lines: Sequence[str], start_row: int, line_count: int =
 
 
 def _column_ranges(header_lines: Sequence[str], sample_data_line: str) -> list[tuple[int, int]]:
-    """
-    Determine the column start/end positions by aligning the header block with a
+    """Determine the column start/end positions by aligning the header block with a
     sample data row.  This keeps the parser tolerant to variable spacing that
     occurs in the RORB exports.
     """
@@ -117,8 +114,7 @@ def _normalize_column_label(label: str) -> str:
 
 
 def build_column_names(header_lines: Sequence[str], sample_data_line: str) -> list[str]:
-    """
-    Build meaningful column names by combining the multi-line header text.
+    """Build meaningful column names by combining the multi-line header text.
 
     Sub-area rainfall columns only show the sub-area letter in the final header
     line, so each of those columns is labelled explicitly as "Sub-area X" to
@@ -144,8 +140,7 @@ def build_column_names(header_lines: Sequence[str], sample_data_line: str) -> li
 
 
 def _adjust_initial_increment(df: DataFrame, rainfall_columns: Sequence[str]) -> None:
-    """
-    Ensure the first increment reports zero rainfall by shifting any rainfall
+    """Ensure the first increment reports zero rainfall by shifting any rainfall
     depth down to the second increment.
     """
     if df.empty or len(df) < 2 or not rainfall_columns:
@@ -162,7 +157,7 @@ def _append_zero_rainfall_row(df: DataFrame, increment_column: str, time_increme
     last_increment = float(df[increment_column].iloc[-1])
     new_increment: float = last_increment + 1.0
 
-    new_row: dict[str, float] = {column: 0.0 for column in df.columns}
+    new_row: dict[str, float] = dict.fromkeys(df.columns, 0.0)
     new_row[increment_column] = new_increment
     new_row["Time (hour)"] = new_increment * time_increment
 
@@ -175,8 +170,7 @@ def fix_and_extract(
     end_row: int,
     header_line_count: int = HEADER_LINE_COUNT,
 ) -> tuple[DataFrame, int, int]:
-    """
-    Extract a rainfall table from a RORB .out file.
+    """Extract a rainfall table from a RORB .out file.
 
     Parameters
     ----------
@@ -186,12 +180,13 @@ def fix_and_extract(
         1-based row numbers that define the rainfall table extents.
     header_line_count:
         Number of header lines to consider directly above the table.
-    Returns
+
+    Returns:
     -------
     tuple (DataFrame, first_row, last_row)
         The rainfall data plus the actual first/last line numbers captured.
     """
-    with open(file=file_path, mode="r", encoding="utf-8", errors="ignore") as raw_file:
+    with open(file=file_path, encoding="utf-8", errors="ignore") as raw_file:
         lines: list[str] = raw_file.readlines()
 
     time_increment: float = parse_time_increment(lines=lines)
@@ -230,8 +225,7 @@ def process_out_files(
     header_line_count: int = HEADER_LINE_COUNT,
     output_directory: str | None = None,
 ) -> None:
-    """
-    Iterate every .out file in *directory* and export rainfall CSVs.
+    """Iterate every .out file in *directory* and export rainfall CSVs.
 
     Parameters
     ----------

@@ -27,12 +27,10 @@ class TimeSeriesProcessor(BaseProcessor):
 
     def process(self) -> None:
         """Execute the standard timeseries processing pipeline."""
-
         return self._process_timeseries_pipeline(data_type=self.data_type)
 
     def _process_timeseries_pipeline(self, data_type: str) -> None:
         """Run the shared processing pipeline for a timeseries dataset."""
-
         logger.info(f"Starting processing of {data_type} file: {self.log_path}")
 
         try:
@@ -293,7 +291,6 @@ class TimeSeriesProcessor(BaseProcessor):
             ProcessorStatus: ``ProcessorStatus.SUCCESS`` when normalisation
             succeeds, otherwise a status code describing the failure.
         """
-
         try:
             logger.debug("Normalising melted DataFrame for value column '{}'.", value_column)
 

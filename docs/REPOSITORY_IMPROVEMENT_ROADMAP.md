@@ -24,7 +24,7 @@ backlog; a selected implementation project should have its own linked status rec
 
 | Area | Evidence and remaining qualification |
 | --- | --- |
-| Repository hygiene and packaging | Python 3.14, Black and strict Pyright configuration; authoritative package metadata in `pyproject.toml`; maintained build/install utilities; generated coverage ignored. |
+| Repository hygiene and packaging | Python 3.14, Ruff formatting and strict Pyright configuration; authoritative package metadata in `pyproject.toml`; maintained build/install utilities; generated coverage ignored. |
 | Resource extraction | QGIS and Excel resources are separate pinned submodules; `setup.py` stages required QML resources into the package. No history rewrite is planned. |
 | Maintained wrappers | [Wrapper standard](../ryan-scripts/WRAPPER_STANDARD.md) and shared wrapper utilities establish CLI, editable defaults, logging and process-boundary behavior. This does not certify every legacy script. |
 | Documentation foundation | Architecture, environments, logging and the central documentation index are established. |

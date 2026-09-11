@@ -1,8 +1,9 @@
 """Tests for ryan_library.functions.tuflow.po_timeseries_checks."""
 
-import pytest
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 from ryan_library.functions.tuflow import po_timeseries_checks as ptc
 
 
@@ -41,7 +42,7 @@ class TestCsvParsing:
         csv_file = tmp_path / "valid.csv"
         # TUFLOW PO CSVs often have an empty first column or a column that is skipped,
         # then Time, then the data.
-        csv_content_po = "Dummy,Time,Q,V\n" ", (h),loc1,loc2\n" "0, 0.0,1.0,2.0\n" "1, 0.1,1.1,2.1\n" "2, 0.2,1.2,2.2\n"
+        csv_content_po = "Dummy,Time,Q,V\n, (h),loc1,loc2\n0, 0.0,1.0,2.0\n1, 0.1,1.1,2.1\n2, 0.2,1.2,2.2\n"
         csv_file.write_text(csv_content_po)
         data, status, should_emit = ptc._parse_po_csv(csv_file)
         assert data is not None
@@ -53,7 +54,7 @@ class TestCsvParsing:
 
     def test_parse_q_csv_valid(self, tmp_path: Path) -> None:
         csv_file = tmp_path / "q_valid.csv"
-        csv_content_q = "Time, Q_loc1, Q_loc2\n" "0.0, 1.0, 2.0\n" "0.1, 1.1, 2.1\n"
+        csv_content_q = "Time, Q_loc1, Q_loc2\n0.0, 1.0, 2.0\n0.1, 1.1, 2.1\n"
         csv_file.write_text(csv_content_q)
         data, status, should_emit = ptc._parse_q_csv(csv_file)
         assert data is not None
@@ -138,7 +139,7 @@ class TestAnalysis:
 
     def test_analyze_peak_csv_valid(self, tmp_path: Path) -> None:
         csv_file = tmp_path / "valid_PO.csv"
-        csv_content_po = "Dummy,Time,Q,V\n" ", (h),loc1,loc2\n" "0, 0.0,1.0,2.0\n" "1, 0.1,5.0,2.1\n" "2, 5.0,1.2,2.2\n"
+        csv_content_po = "Dummy,Time,Q,V\n, (h),loc1,loc2\n0, 0.0,1.0,2.0\n1, 0.1,5.0,2.1\n2, 5.0,1.2,2.2\n"
         csv_file.write_text(csv_content_po)
         config = ptc.PeakCheckConfig(
             datatype_include=["Q", "V"],
@@ -217,7 +218,6 @@ class TestAnalysis:
             assert meta["Event"] == "Q100"
 
     def test_parse_po_csv_errors(self, tmp_path: Path) -> None:
-        import pandas as pd
 
         # Test NO_COLUMNS
         csv_file = tmp_path / "no_cols.csv"
@@ -321,7 +321,7 @@ class TestAnalysis:
 
     def test_analyze_stability_q_csv(self, tmp_path: Path) -> None:
         csv_file = tmp_path / "valid_Q.csv"
-        csv_content = "Time, Q_loc1, Q_loc2\n" "0.0, 1.0, 2.0\n" "0.1, 1.1, 2.1\n" "0.2, 1.2, 2.2\n" "0.3, 1.3, 2.3\n"
+        csv_content = "Time, Q_loc1, Q_loc2\n0.0, 1.0, 2.0\n0.1, 1.1, 2.1\n0.2, 1.2, 2.2\n0.3, 1.3, 2.3\n"
         csv_file.write_text(csv_content)
         config = ptc.StabilityCheckConfig(
             datatype_include=["Q"],

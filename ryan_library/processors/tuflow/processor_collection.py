@@ -1,18 +1,21 @@
 # ryan_library/processors/tuflow/processor_collection.py
 __lazy_modules__: list[str] = ["pandas"]
-from collections.abc import Collection
 import copy
 import json
-from pathlib import Path
 import re
+from collections.abc import Collection
+from pathlib import Path
 from typing import Any
+
 from loguru import logger
-from pandas import DataFrame, Series, NA, concat, to_numeric, HDFStore
+from pandas import NA, DataFrame, HDFStore, Series, concat, to_numeric
+
 from ryan_library.functions.dataframe_helpers import (
     reorder_columns,
     reorder_long_columns,
     reset_categorical_ordering,
 )
+
 from .base_processor import BaseProcessor
 
 
@@ -20,7 +23,8 @@ class ProcessorCollection:
     """A collection of BaseProcessor instances, allowing combined operations based on different scenarios.
 
     This class holds one or more processed BaseProcessor instances and provides methods to combine their DataFrames
-    according to specific merging strategies."""
+    according to specific merging strategies.
+    """
 
     _BATCH_SIZE: int = 500
     BASIC_INFO_COLUMNS: tuple[str, ...] = ("file", "rel_path", "path", "directory_path", "rel_directory")
@@ -30,7 +34,7 @@ class ProcessorCollection:
         self.processors: list[BaseProcessor] = []
         self.basic_info_lookup: DataFrame | None = None
 
-    def copy(self) -> "ProcessorCollection":
+    def copy(self) -> ProcessorCollection:
         """Return a deep copy of the collection."""
         new_collection = ProcessorCollection()
         # Deep copy processors to ensure isolation
@@ -43,7 +47,8 @@ class ProcessorCollection:
         """Add a processed BaseProcessor instance to the collection.
 
         Args:
-            processor (BaseProcessor): A processed BaseProcessor instance."""
+            processor (BaseProcessor): A processed BaseProcessor instance.
+        """
         if processor.processed and not processor.df.empty:
             self.processors.append(processor)
             logger.debug("Added processor: {}", processor.file_name)
@@ -115,7 +120,6 @@ class ProcessorCollection:
         authoritative labels and only use the truncated EOF label as a lookup
         key. This prevents duplicate short-ID rows in combined culvert summaries.
         """
-
         source_maps: dict[str, dict[str, str]] = {}
         ambiguous_keys: dict[str, set[str]] = {}
 
@@ -224,7 +228,6 @@ class ProcessorCollection:
         Returns:
             frozenset[str]: Normalized location identifiers that were applied.
         """
-
         normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations)
         if not normalized_locations:
             return normalized_locations
@@ -254,9 +257,7 @@ class ProcessorCollection:
 
         if removed_processors:
             logger.info(
-                "Removed {removed} processors with no remaining rows after location filtering.".format(
-                    removed=removed_processors
-                ),
+                f"Removed {removed_processors} processors with no remaining rows after location filtering.",
             )
 
         return normalized_locations
@@ -281,7 +282,8 @@ class ProcessorCollection:
             reset_categoricals: Whether to normalize categorical ordering before grouping.
 
         Returns:
-            DataFrame: Combined and grouped DataFrame."""
+            DataFrame: Combined and grouped DataFrame.
+        """
         logger.debug("Combining 1D Timeseries data.")
         self.align_eof_channel_ids()
 
@@ -425,7 +427,8 @@ class ProcessorCollection:
             reset_categoricals: Whether to normalize categorical ordering before grouping.
 
         Returns:
-            DataFrame: Combined and grouped DataFrame."""
+            DataFrame: Combined and grouped DataFrame.
+        """
         logger.debug("Combining 1D Maximums/ccA data.")
         self.align_eof_channel_ids()
 
@@ -568,7 +571,6 @@ class ProcessorCollection:
         of the numeric suffix are printed. The prefix is retained so east/west or
         otherwise named roads with the same numeric suffix do not collide.
         """
-
         if value is None or value is NA:
             return None
 
@@ -595,7 +597,6 @@ class ProcessorCollection:
         ``Decimal``. Examples from the EOF output are mirrored directly:
         ``159.975`` becomes ``159.97`` and ``202.231`` becomes ``202.23``.
         """
-
         integer_part, separator, fractional_part = value.partition(".")
         if not separator:
             return f"{integer_part}.{'0' * decimal_places}"
@@ -654,7 +655,8 @@ class ProcessorCollection:
             reset_categoricals: Whether to normalize categorical ordering after concatenation.
 
         Returns:
-            DataFrame: Concatenated DataFrame."""
+            DataFrame: Concatenated DataFrame.
+        """
         logger.debug("Combining raw data without grouping.")
 
         # Concatenate all DataFrames
@@ -677,7 +679,8 @@ class ProcessorCollection:
             reset_categoricals: Whether to normalize categorical ordering after concatenation.
 
         Returns:
-            DataFrame: Combined DataFrame."""
+            DataFrame: Combined DataFrame.
+        """
         logger.debug("Combining POMM data.")
 
         # Filter processors with dataformat 'POMM'
@@ -735,7 +738,7 @@ class ProcessorCollection:
 
         return combined_df
 
-    def get_processors_by_data_type(self, data_types: list[str] | str) -> "ProcessorCollection":
+    def get_processors_by_data_type(self, data_types: list[str] | str) -> ProcessorCollection:
         """Retrieve processors matching a specific data_type or list of data_types.
 
         Args:
@@ -744,7 +747,6 @@ class ProcessorCollection:
         Returns:
             ProcessorCollection: A new collection of processors with matching data_type(s).
         """
-
         # Ensure it's always a list for uniform processing
         if isinstance(data_types, str):
             data_types = [data_types]
@@ -767,7 +769,6 @@ class ProcessorCollection:
         Args:
             file_path: Destination HDF5 file path.
         """
-
         file_path = Path(file_path)
         # Ensure parent exists
         file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -808,7 +809,7 @@ class ProcessorCollection:
         logger.info(f"Saved {len(self.processors)} processors to {file_path}")
 
     @staticmethod
-    def from_hdf(file_path: Path | str, locations: Collection[str] | None = None) -> "ProcessorCollection":
+    def from_hdf(file_path: Path | str, locations: Collection[str] | None = None) -> ProcessorCollection:
         """Load a collection from a single HDF5 file.
 
         Args:
@@ -818,7 +819,6 @@ class ProcessorCollection:
         Returns:
             ProcessorCollection: Rehydrated collection.
         """
-
         file_path = Path(file_path)
         if not file_path.exists():
             raise FileNotFoundError(f"HDF5 file not found: {file_path}")
@@ -888,7 +888,8 @@ class ProcessorCollection:
 
         # dupes = coll.check_duplicates()
         # if dupes:
-        #     # maybe raise, or filter them out, or alert the user"""
+        #     # maybe raise, or filter them out, or alert the user
+        """
         from collections import defaultdict
 
         groups: dict[tuple[str, str], list[BaseProcessor]] = defaultdict(list)
@@ -947,8 +948,7 @@ class ProcessorCollection:
 
     @staticmethod
     def _merge_chan_and_eof(chan_df: DataFrame, eof_df: DataFrame) -> DataFrame:
-        """
-        Merge a maximum dataset with EOF data keyed by ``Chan ID`` (EOF wins).
+        """Merge a maximum dataset with EOF data keyed by ``Chan ID`` (EOF wins).
 
         Args:
             chan_df (DataFrame): DataFrame from a maximums-style processor.

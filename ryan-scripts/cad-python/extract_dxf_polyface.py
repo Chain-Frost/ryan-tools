@@ -10,8 +10,9 @@ import argparse
 import json
 import time
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, TextIO
+from typing import TextIO
 
 import pyarrow as pa
 import pyarrow.parquet as pq

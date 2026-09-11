@@ -1,14 +1,14 @@
 """Focused tests for the TUFLOW project setup workflow."""
 
+import sqlite3
 from collections.abc import Mapping
 from io import StringIO
 from pathlib import Path
-import sqlite3
 from typing import cast
 
 import fiona  # pyright: ignore[reportMissingTypeStubs]
-from loguru import logger
 import pytest
+from loguru import logger
 from rasterio.crs import CRS  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 
 from ryan_library.orchestrators.tuflow import project_setup
@@ -69,9 +69,9 @@ def _fake_tuflow_generation(*, control_file: Path, expected_empty_dir: Path, **_
 
 
 def test_default_utility_source_root_is_relative_to_orchestrator() -> None:
-    assert DEFAULT_UTILITY_SOURCE_ROOT == (
+    assert (
         Path(project_setup.__file__).resolve().parents[3] / "ryan-scripts" / "TUFLOW-python"
-    )
+    ) == DEFAULT_UTILITY_SOURCE_ROOT
 
 
 def test_utility_source_folders_are_python_packages() -> None:
@@ -114,7 +114,7 @@ def test_project_layers_are_empty_derivatives_of_tuflow_empties(
 ) -> None:
     templates_dir = Path(project_setup.__file__).parents[2] / "resources" / "tuflow_templates"
     prj_file = tmp_path / "MGA94_Zone_51.prj"
-    projection_wkt = cast(str, CRS.from_epsg(28351).to_wkt())  # pyright: ignore[reportUnknownMemberType]
+    projection_wkt = cast("str", CRS.from_epsg(28351).to_wkt())  # pyright: ignore[reportUnknownMemberType]
     prj_file.write_text(projection_wkt, encoding="utf-8")
     tuflow_executable = tmp_path / "TUFLOW_iSP_w64.exe"
     tuflow_executable.touch()

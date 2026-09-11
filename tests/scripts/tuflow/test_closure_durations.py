@@ -51,7 +51,7 @@ def test_run_closure_durations_success(
     mock_calc.return_value = result_df
     mock_summary.return_value = summary_df
 
-    closure_durations.run_closure_durations(paths=[Path(".")], thresholds=[1.0], data_type="Flow")
+    closure_durations.run_closure_durations(paths=[Path()], thresholds=[1.0], data_type="Flow")
 
     mock_bulk.assert_called_once()
     mock_collect.assert_called_once()
@@ -68,6 +68,6 @@ def test_run_closure_durations_no_processors(mock_bulk, mock_logger) -> None:
     collection.processors = []
     mock_bulk.return_value = collection
 
-    closure_durations.run_closure_durations(paths=[Path(".")], thresholds=[1.0], data_type="Flow")
+    closure_durations.run_closure_durations(paths=[Path()], thresholds=[1.0], data_type="Flow")
 
     mock_bulk.assert_called_once()

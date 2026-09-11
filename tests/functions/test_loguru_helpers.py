@@ -98,9 +98,8 @@ def test_context_shutdown_is_idempotent_and_sequential(tmp_path: Path) -> None:
 
 def test_nested_context_is_rejected() -> None:
     with setup_logger(console_log_level="WARNING"):
-        with pytest.raises(RuntimeError, match="already active"):
-            with setup_logger(console_log_level="WARNING"):
-                pass
+        with pytest.raises(RuntimeError, match="already active"), setup_logger(console_log_level="WARNING"):
+            pass
         with pytest.raises(RuntimeError, match="Cannot replace notebook sinks"):
             configure_notebook_logging(console_log_level="WARNING")
 

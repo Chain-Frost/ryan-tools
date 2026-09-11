@@ -76,16 +76,16 @@ class BaseProcessor(ABC):
     entity_filter: frozenset[str] | None = field(default=None, repr=False)
 
     # Define _processor_cache as a ClassVar to make it a class variable
-    _processor_cache: ClassVar[dict[tuple[str, str], type["BaseProcessor"]]] = {}
+    _processor_cache: ClassVar[dict[tuple[str, str], type[BaseProcessor]]] = {}
     ENTITY_ID_COLUMNS: ClassVar[tuple[str, ...]] = ("Chan ID", "Location", "Node ID", "ID")
     PATH_INFO_COLUMNS: ClassVar[tuple[str, ...]] = ("file", "rel_path", "path", "directory_path", "rel_directory")
 
     # Attributes to hold configuration
-    output_columns: dict[str, str] = field(init=False, default_factory=lambda: cast(dict[str, str], {}))
+    output_columns: dict[str, str] = field(init=False, default_factory=lambda: cast("dict[str, str]", {}))
     dataformat: str = field(init=False, default="")
     processor_module: str | None = field(init=False, default=None)
-    columns_to_use: dict[str, str] = field(init=False, default_factory=lambda: cast(dict[str, str], {}))
-    expected_in_header: list[str] = field(init=False, default_factory=lambda: cast(list[str], []))
+    columns_to_use: dict[str, str] = field(init=False, default_factory=lambda: cast("dict[str, str]", {}))
+    expected_in_header: list[str] = field(init=False, default_factory=lambda: cast("list[str]", []))
 
     def __post_init__(self) -> None:
         self.file_name = self.file_path.name
@@ -113,7 +113,7 @@ class BaseProcessor(ABC):
         entity_filter: Collection[str] | None = None,
         *,
         include_path_columns: bool = True,
-    ) -> "BaseProcessor":
+    ) -> BaseProcessor:
         """Factory method to create the appropriate processor instance based on the file suffix."""
         logger.debug("Attempting to process file: {}", file_path)
 
@@ -168,9 +168,8 @@ class BaseProcessor(ABC):
     @staticmethod
     def get_processor_class(
         class_name: str, processor_module: str | None = None, dataformat: str | None = None
-    ) -> type["BaseProcessor"]:
+    ) -> type[BaseProcessor]:
         """Dynamically import and return a processor class by name with caching."""
-
         cache_namespace: str = processor_module or dataformat or ""
         cache_key: tuple[str, str] = (cache_namespace, class_name)
         if cache_key in BaseProcessor._processor_cache:
@@ -214,7 +213,7 @@ class BaseProcessor(ABC):
             attempted_paths.append(module_path)
             try:
                 module = importlib.import_module(module_path)
-                processor_cls: type[BaseProcessor] = cast(type["BaseProcessor"], getattr(module, class_name))
+                processor_cls: type[BaseProcessor] = cast("type[BaseProcessor]", getattr(module, class_name))
                 BaseProcessor._processor_cache[cache_key] = processor_cls
                 logger.debug("Imported processor class '{}' from '{}'.", class_name, module_path)
                 return processor_cls
@@ -321,8 +320,6 @@ class BaseProcessor(ABC):
         apply any bespoke transformations.
         """
 
-        pass
-
     def reorder_long_text_columns(self) -> None:
         """Move large width column names to the right side."""
         self.df = reorder_long_columns(df=self.df)
@@ -330,7 +327,6 @@ class BaseProcessor(ABC):
     @staticmethod
     def normalize_locations(locations: Collection[str] | None) -> frozenset[str]:
         """Return a normalized frozenset of non-empty locations."""
-
         if not locations:
             return frozenset()
 
@@ -346,7 +342,6 @@ class BaseProcessor(ABC):
 
     def apply_entity_filter(self) -> frozenset[str] | None:
         """Filter rows by the configured entity identifiers (Chan ID / Location, etc.)."""
-
         normalized_filter: frozenset[str] = self.normalize_locations(self.entity_filter)
         if not normalized_filter:
             return None
@@ -402,7 +397,6 @@ class BaseProcessor(ABC):
         Returns:
             frozenset[str]: The normalized set of locations that were applied.
         """
-
         normalized_locations: frozenset[str] = self.normalize_locations(locations=locations)
         if not normalized_locations:
             return normalized_locations
@@ -477,7 +471,7 @@ class BaseProcessor(ABC):
             }
         logger.debug("{}: Adding basic info columns: {}", self.file_name, data)
         # Assign basic info columns as strings
-        self.df = self.df.assign(**data).astype({key: "string" for key in data})  # pyright: ignore[reportArgumentType]
+        self.df = self.df.assign(**data).astype(dict.fromkeys(data, "string"))  # pyright: ignore[reportArgumentType]
         # Convert columns to 'category' dtype before ordering
         basic_info_columns = list(data.keys())
         self.df[basic_info_columns] = self.df[basic_info_columns].astype(dtype="category")
@@ -547,7 +541,8 @@ class BaseProcessor(ABC):
     def apply_output_transformations(self) -> None:
         """Apply output column transformations:
         - Checks if DataFrame is empty or if no output_columns are defined.
-        - Applies data types as specified in output_columns."""
+        - Applies data types as specified in output_columns.
+        """
         if self.df.empty:
             logger.warning(f"{self.file_name}: DataFrame is empty, skipping datatype transformations.")
             return
@@ -584,7 +579,8 @@ class BaseProcessor(ABC):
         By default, just checks if DataFrame is non-empty, but can be overridden by subclasses.
 
         Returns:
-            bool: True if data is valid, False otherwise."""
+            bool: True if data is valid, False otherwise.
+        """
         if self.df.empty:
             logger.warning(f"{self.file_name}: DataFrame is empty for file: {self.log_path}")
             return False
@@ -592,10 +588,13 @@ class BaseProcessor(ABC):
 
     def check_headers_match(self, test_headers: list[str]) -> bool:
         """Check if the CSV headers match the expected headers.
+
         Args:
             test_headers (list[str]): The headers from the CSV file.
+
         Returns:
-            bool: True if headers match, False otherwise."""
+            bool: True if headers match, False otherwise.
+        """
         if self.columns_to_use:
             expected = list(self.columns_to_use.keys())
             got_set = set(test_headers)
@@ -618,7 +617,7 @@ class BaseProcessor(ABC):
             else:
                 logger.debug("Test headers matched expected columns_to_use in order.")
             return True
-        elif self.expected_in_header:
+        if self.expected_in_header:
             if test_headers != self.expected_in_header:
                 header_error: str = (
                     f"Error reading {self.file_name}, headers did not match expected_in_header format "
@@ -628,9 +627,8 @@ class BaseProcessor(ABC):
                 return False
             logger.debug("Test headers matched expected_in_header.")
             return True
-        else:
-            logger.warning(f"{self.file_name}: No headers to validate against.")
-            return True
+        logger.warning(f"{self.file_name}: No headers to validate against.")
+        return True
 
     def read_maximums_csv(self) -> ProcessorStatus:
         """Read a ``Maximums`` or ``ccA`` CSV into :attr:`self.df`.
@@ -699,7 +697,8 @@ class BaseProcessor(ABC):
             new_columns (dict[str, Any]): Additional columns to add with default values.
 
         Returns:
-            pd.DataFrame: Reshaped DataFrame."""
+            pd.DataFrame: Reshaped DataFrame.
+        """
         reshaped_dfs: list[pd.DataFrame] = []
         for original, new in metric_columns.items():
             temp_df: pd.DataFrame = self.df[[original]].copy()
@@ -715,7 +714,8 @@ class BaseProcessor(ABC):
 
         Args:
             df (pd.DataFrame): The DataFrame containing the columns.
-            columns (list[str]): List of column names to convert."""
+            columns (list[str]): List of column names to convert.
+        """
         for col in columns:
             if df[col].dtype.name == "category" and not df[col].cat.ordered:
                 sorted_categories: list[str] = sorted(df[col].cat.categories)

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from pathlib import Path
 import re
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import unquote
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[1]

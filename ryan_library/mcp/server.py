@@ -77,7 +77,7 @@ def _validate_time_bounds(minimum_time: float | None, maximum_time: float | None
 
 def _dataframe_summary(data_frame: DataFrame, *, sample_rows: int) -> dict[str, Any]:
     sample_json: str = data_frame.head(sample_rows).to_json(orient="records", date_format="iso")
-    sample = cast(list[dict[str, Any]], json.loads(sample_json))
+    sample = cast("list[dict[str, Any]]", json.loads(sample_json))
     return {
         "row_count": len(data_frame),
         "columns": [str(column) for column in data_frame.columns],

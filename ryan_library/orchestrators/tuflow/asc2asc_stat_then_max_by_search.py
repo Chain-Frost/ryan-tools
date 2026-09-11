@@ -19,13 +19,13 @@ from typing import Literal
 from loguru import logger
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+from ryan_library.functions.tuflow.asc_to_asc_raster_operations import MeanValueMethod, NodataPolicy
 from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob
 from ryan_library.functions.tuflow.tuflow_result_naming import (
     replace_filename_component,
     require_component_text,
     result_type_from_parser,
 )
-from ryan_library.functions.tuflow.asc_to_asc_raster_operations import MeanValueMethod, NodataPolicy
 from ryan_library.orchestrators.tuflow.asc_to_asc_batch import (
     DashboardOptions,
     StageExecutionSummary,

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.09.10.1"
+version = "26.09.10.2"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 license = "SUL-1.0"
@@ -44,12 +44,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "black",
     "build",
     "pandas-stubs",
     "pyright",
     "pytest",
     "pytest-cov",
+    "ruff==0.16.6",
 ]
 mcp = [
     "mcp[cli]>=2.1,<3",
@@ -79,6 +79,7 @@ include-package-data = true
     "runs/*.tcf",
     "runs/*.trd",
 ]
+
 [tool.setuptools.packages.find]
 where = [".", "vendor/run_hy8/src", "ryan-scripts/TUFLOW-python"]
 include = [
@@ -109,11 +110,6 @@ exclude = [
     "tests.*",
 ]
 namespaces = true
-
-[tool.black]
-line-length = 120
-target-version = ['py314']
-include = '\.pyi?$'
 
 [tool.pyright]
 pythonVersion = "3.14"

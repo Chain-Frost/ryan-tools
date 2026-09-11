@@ -1,13 +1,14 @@
 # ryan_library/functions/file_utils.py
 
-from collections.abc import Generator
-from pathlib import Path
 import fnmatch
 import re
 import stat
-from loguru import logger
 import threading
+from collections.abc import Generator
+from pathlib import Path
 from queue import Empty, Queue
+
+from loguru import logger
 
 
 def find_files_parallel(
@@ -18,8 +19,7 @@ def find_files_parallel(
     print_found_folder: bool = True,
     recursive_search: bool = True,
 ) -> list[Path]:
-    """
-    Search for files matching specific patterns across multiple directories in parallel.
+    """Search for files matching specific patterns across multiple directories in parallel.
 
     This function traverses through the provided root directories, searching for files
     that match the given patterns while excluding any files that match the exclusion patterns.
@@ -122,7 +122,7 @@ def find_files_parallel(
                 local_folders_with_matches: set[Path] = set()
 
                 try:
-                    iterator: Generator[Path, None, None] = current_path.iterdir()
+                    iterator: Generator[Path] = current_path.iterdir()
                 except PermissionError:
                     logger.error(f"Permission denied accessing directory: {current_path}")
                     continue
@@ -257,7 +257,6 @@ def is_non_zero_file(fpath: Path | str) -> bool:
         bool: True if the file exists, is a regular file, and is non-empty.
               False otherwise.
     """
-
     # force fpath to a Path. Some legacy scripts passed them as strings.
     fpath = Path(fpath)
 
@@ -296,7 +295,6 @@ def ensure_output_directory(output_dir: Path) -> None:
     Args:
         output_dir (Path): The path to the output directory to be ensured.
     """
-
     if not output_dir.exists():
         # Create the directory and any necessary parent directories
         output_dir.mkdir(parents=True, exist_ok=True)

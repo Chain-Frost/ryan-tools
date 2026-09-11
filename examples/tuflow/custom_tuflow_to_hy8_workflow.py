@@ -20,8 +20,8 @@ is the culvert name::
 
 from __future__ import annotations
 
-from collections.abc import Collection, Mapping, Sequence
 import csv
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -72,10 +72,9 @@ def convert_culverts(
     options: Hy8CulvertOptions | None = None,
 ) -> list[ConvertedCulvert]:
     """Convert valid rows while retaining their typed source records."""
-
     conversion_options: Hy8CulvertOptions = options or Hy8CulvertOptions()
     rows = cast(
-        list[dict[str, Any]],
+        "list[dict[str, Any]]",
         maximums.to_dict(orient="records"),  # pyright: ignore[reportUnknownMemberType]
     )
     converted: list[ConvertedCulvert] = []
@@ -94,13 +93,11 @@ def convert_culverts(
 
 def _normalise_names(values: Collection[str]) -> frozenset[str]:
     """Return stripped, case-insensitive values for exact comparisons."""
-
     return frozenset(value.strip().casefold() for value in values if value.strip())
 
 
 def load_culverts_by_model(csv_path: Path) -> dict[str, frozenset[str]]:
     """Load permitted ``R03``/``Chan ID`` pairs from a CSV file."""
-
     culverts_by_model: dict[str, set[str]] = {}
     with csv_path.open(mode="r", encoding="utf-8-sig", newline="") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -128,7 +125,6 @@ def _normalise_model_culverts(
     culverts_by_model: Mapping[str, Collection[str]],
 ) -> dict[str, frozenset[str]]:
     """Normalise model names and culvert names for exact comparisons."""
-
     return {
         model_name.strip().casefold(): _normalise_names(culvert_names)
         for model_name, culvert_names in culverts_by_model.items()
@@ -142,7 +138,6 @@ def keep_culvert(
     culverts_by_model: Mapping[str, Collection[str]],
 ) -> bool:
     """Apply the parsed ``R03`` model's permitted ``Chan ID`` selection."""
-
     source: CulvertMaximumRecord = culvert.source
     crossing: CulvertCrossing = culvert.crossing
     allowed_by_model: dict[str, frozenset[str]] = _normalise_model_culverts(culverts_by_model)
@@ -166,7 +161,6 @@ def build_filtered_project(
     culverts_by_model: Mapping[str, Collection[str]],
 ) -> tuple[Hy8Project, list[ConvertedCulvert], list[ConvertedCulvert]]:
     """Return the project plus retained and rejected culvert objects."""
-
     if "R03" not in maximums.columns:
         raise ValueError("Cannot filter by model name because the combined maximums data has no 'R03' column.")
 
@@ -200,7 +194,6 @@ def run_workflow(
     parallel: bool | None = None,
 ) -> CulvertWorkflowResult:
     """Discover TUFLOW results, combine, filter, and write an HY-8 project."""
-
     maximums_result: CulvertMaximumsResult = run_culvert_maximums(
         paths=result_paths,
         data_types=TUFLOW_DATA_TYPES,

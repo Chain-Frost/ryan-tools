@@ -39,7 +39,7 @@ class BenchmarkResult:
 
     def format(self) -> str:
         return (
-            f"{self.backend:10s} {self.action:12s} " f"{self.seconds*1000:8.1f} ms  rows={self.rows:,} cols={self.cols}"
+            f"{self.backend:10s} {self.action:12s} {self.seconds*1000:8.1f} ms  rows={self.rows:,} cols={self.cols}"
         )
 
 

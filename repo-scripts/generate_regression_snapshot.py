@@ -1,15 +1,16 @@
 """Generate a golden snapshot of processed EG02 data for regression testing."""
 
 from pathlib import Path
+
 import pandas as pd
 from loguru import logger
 from pandas import DataFrame
 
-from ryan_library.functions.tuflow.tuflow_common import collect_files
-from ryan_library.functions.tuflow.pomm_utils import process_files_in_parallel
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
-from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.file_utils import ensure_output_directory
+from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.tuflow.pomm_utils import process_files_in_parallel
+from ryan_library.functions.tuflow.tuflow_common import collect_files
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 # Constants
@@ -19,7 +20,6 @@ SNAPSHOT_DIR = Path("tests/regression/data/snapshot")
 
 def generate_snapshot() -> None:
     """Process EG02 data and save aggregated Parquet files."""
-
     source_path: Path = Path.cwd() / SOURCE_DIR
     output_path: Path = Path.cwd() / SNAPSHOT_DIR
 

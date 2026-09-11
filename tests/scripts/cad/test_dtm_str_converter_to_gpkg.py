@@ -219,7 +219,7 @@ def test_ascii_and_binary_dtm_produce_equivalent_triangles(
 ) -> None:
     ascii_path = tmp_path / "equivalent_ascii.dtm"
     ascii_path.write_text(
-        "synthetic.str,1;algorithm=standard;fields=x,y\n" "TRISOLATION\n" "1 1 2 3 -1 2 -1\n" "2 2 4 3 -1 -1 1\n",
+        "synthetic.str,1;algorithm=standard;fields=x,y\nTRISOLATION\n1 1 2 3 -1 2 -1\n2 2 4 3 -1 -1 1\n",
         encoding="ascii",
     )
     binary_path = tmp_path / "equivalent_binary.dtm"

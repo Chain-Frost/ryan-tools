@@ -1,7 +1,6 @@
 # ryan-scripts\misc-python\pypdf_decrypt.py
 
-"""
-Decrypt a PDF (remove permission flags) using pypdf.
+"""Decrypt a PDF (remove permission flags) using pypdf.
 
 Usage:
   python3 pypdf_decrypt.py input.pdf [output.pdf]

@@ -69,7 +69,6 @@ class TuflowParseResult(TypedDict):
 
 def _json_numeric(value: float | int | None) -> float | int | None:
     """Convert non-finite floats to ``None`` for standards-compliant JSON."""
-
     if isinstance(value, float) and not math.isfinite(value):
         return None
     return value
@@ -77,7 +76,6 @@ def _json_numeric(value: float | int | None) -> float | int | None:
 
 def _component_result(component: RunCodeComponent | None) -> ComponentResult | None:
     """Serialize a parsed component without exposing implementation details."""
-
     if component is None:
         return None
     return ComponentResult(
@@ -91,7 +89,6 @@ def _component_result(component: RunCodeComponent | None) -> ComponentResult | N
 
 def parse_tuflow_path(file_path: str | Path) -> TuflowParseResult:
     """Parse a TUFLOW result path into a stable, JSON-safe web payload."""
-
     parser = TuflowStringParser(file_path=file_path)
     return TuflowParseResult(
         file_path=str(parser.file_path),
@@ -109,7 +106,6 @@ def parse_tuflow_path(file_path: str | Path) -> TuflowParseResult:
 
 def main() -> None:
     """Print one parsed path as JSON for a direct integration smoke test."""
-
     argument_parser = argparse.ArgumentParser(description="Parse a TUFLOW filename into JSON.")
     argument_parser.add_argument("file_path", type=Path, help="TUFLOW result path or filename")
     args = argument_parser.parse_args()

@@ -24,8 +24,6 @@ PATHS_TO_PROCESS: tuple[Path, ...] = ()
 
 import argparse
 
-
-from ryan_library.orchestrators.tuflow.closure_durations import run_closure_durations
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
@@ -35,6 +33,7 @@ from ryan_library.functions.wrapper_utils import (
     pause_console,
     print_wrapper_banner,
 )
+from ryan_library.orchestrators.tuflow.closure_durations import run_closure_durations
 
 
 def main(
@@ -52,7 +51,7 @@ def main(
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_locations: tuple[str, ...] | None = (
-        locations_to_include if locations_to_include else (LOCATIONS_TO_INCLUDE or None)
+        locations_to_include or (LOCATIONS_TO_INCLUDE or None)
     )
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
     effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_directory,))

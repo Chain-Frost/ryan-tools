@@ -1,6 +1,5 @@
 # ryan_library/functions/tuflow/notebook_helpers.py
-"""
-Helper functions to enable easy usage of TUFLOW workflows in Jupyter Notebooks.
+"""Helper functions to enable easy usage of TUFLOW workflows in Jupyter Notebooks.
 
 This module provides notebook-friendly wrappers around the TUFLOW orchestrators in
 ``ryan_library.orchestrators.tuflow``.  Each helper returns a ``pandas.DataFrame``
@@ -18,12 +17,12 @@ configurations.
 """
 
 __lazy_modules__: list[str] = ["pandas"]
-from types import ModuleType
 import importlib
 import multiprocessing
 from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 from typing import cast
 
 import pandas as pd
@@ -73,7 +72,7 @@ def is_notebook() -> bool:
     try:
         ipython_module: ModuleType = importlib.import_module(name="IPython")
         get_ipython: Callable[[], object | None] = cast(
-            Callable[[], object | None], getattr(ipython_module, "get_ipython")
+            "Callable[[], object | None]", ipython_module.get_ipython
         )
         shell: object | None = get_ipython()
         if shell is None:
@@ -612,9 +611,9 @@ def run_timeseries_stability(
         StabilityCheckConfig,
         analyze_stability_csv,
         analyze_stability_q_csv,
+        collect_timeseries_files,
         flatten_stability_results,
         normalize_result_types,
-        collect_timeseries_files,
     )
 
     path_objects: list[Path] = [Path(p) for p in paths]
@@ -703,8 +702,8 @@ def run_timeseries_peaks_check(
     from ryan_library.functions.tuflow.po_timeseries_checks import (
         PeakCheckConfig,
         analyze_peak_csv,
-        flatten_peak_results,
         collect_po_csv_files,
+        flatten_peak_results,
         order_dataframe_columns,
     )
 

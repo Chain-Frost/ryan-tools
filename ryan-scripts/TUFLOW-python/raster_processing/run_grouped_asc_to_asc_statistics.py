@@ -7,9 +7,9 @@ from __future__ import annotations
 from pathlib import Path
 
 WRAPPER_VERSION = "2026-08-20.1"
-DEFAULT_WORKING_DIR = Path(".")
+DEFAULT_WORKING_DIR = Path()
 DEFAULT_MODE = "max-median"
-DEFAULT_INPUT_DIRECTORIES = [Path(".")]
+DEFAULT_INPUT_DIRECTORIES = [Path()]
 DEFAULT_OUTPUT_DIR: Path | None = None
 DEFAULT_SUFFIX = "d_Max"
 DEFAULT_EXECUTABLE = "asc_to_asc_w64.exe"
@@ -181,7 +181,7 @@ def _run_commands(commands: list[list[str]], *, dry_run: bool, workers: int) -> 
 
 def _resolve_executable(value: str, *, dry_run: bool) -> str:
     candidate = Path(value)
-    if candidate.parent != Path(".") or candidate.is_absolute():
+    if candidate.parent != Path() or candidate.is_absolute():
         if not dry_run and not candidate.is_file():
             raise FileNotFoundError(f"ASC-to-ASC executable does not exist: {candidate}")
         return str(candidate)
@@ -199,7 +199,7 @@ def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> 
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
     mode = args.mode if args.mode is not None else DEFAULT_MODE
-    input_values = args.input if args.input else DEFAULT_INPUT_DIRECTORIES
+    input_values = args.input or DEFAULT_INPUT_DIRECTORIES
     output_value = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
     suffix = args.suffix if args.suffix is not None else DEFAULT_SUFFIX
     executable_value = args.executable if args.executable is not None else DEFAULT_EXECUTABLE

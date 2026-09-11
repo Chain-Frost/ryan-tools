@@ -176,7 +176,7 @@ their reserved memory to Windows.
 
 ## Validation checklist
 
-- Format modified Python files with Black.
+- Format modified Python files with `ruff format`.
 - Run strict Pyright on modified files.
 - Compile modified wrapper folders.
 - Run `--help` for changed CLI wrappers.

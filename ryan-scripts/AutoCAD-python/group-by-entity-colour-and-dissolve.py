@@ -1,5 +1,4 @@
-"""
-group_by_color_and_dissolve.py
+"""group_by_color_and_dissolve.py
 
 Scan a DXF for index- and true-colour values, regroup entities so that each unique
 colour lives on its own layer (with a name that encodes the colour), dissolve
@@ -8,9 +7,9 @@ still carrying its original colour.
 """
 
 import os
+
 import ezdxf
 from ezdxf.document import Drawing
-from ezdxf.entities.dxfgfx import DXFGraphic
 from ezdxf.layouts.layout import Modelspace
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
@@ -39,16 +38,14 @@ def rgb_from_int(color: int) -> tuple[int, int, int]:
 
 
 def make_layer_name(true_color: int | None, index_color: int) -> str:
-    """
-    Return a deconstructable layer name:
-      - If true_color is given: T_RRR_GGG_BBB
-      - Else:                   I_n
+    """Return a deconstructable layer name:
+    - If true_color is given: T_RRR_GGG_BBB
+    - Else:                   I_n
     """
     if true_color is not None:
         r, g, b = rgb_from_int(true_color)
         return f"T_{r:03d}_{g:03d}_{b:03d}"
-    else:
-        return f"I_{index_color}"
+    return f"I_{index_color}"
 
 
 def group_and_dissolve_by_color(input_file: str, output_file: str, progress_interval: int = 1000) -> None:

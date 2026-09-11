@@ -7,6 +7,6 @@
 - [ ] Note any tests that are intentionally not run and why.
 
 ## Checklist
-- [ ] I have run `black` on any Python files I touched (120 line length).
+- [ ] I have run `ruff format` on any Python files I touched (120 line length).
 - [ ] I have added or updated documentation as needed.
 - [ ] I have verified that automated PR generation guidelines in `AGENTS.md` are still accurate.

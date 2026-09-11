@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 # pyright: reportMissingTypeStubs=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false
-
 import csv
 from pathlib import Path
 

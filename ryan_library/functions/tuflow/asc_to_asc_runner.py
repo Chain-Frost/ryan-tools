@@ -9,9 +9,9 @@ NoData policies intentionally differ from ASC_to_ASC.
 
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-import subprocess
 
 from ryan_library.functions.tuflow.asc_to_asc_raster_operations import (
     MeanValueMethod,

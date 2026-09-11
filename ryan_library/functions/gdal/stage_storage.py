@@ -4,9 +4,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from contextlib import closing
 from pathlib import Path
-from typing import Iterable, Protocol, Sequence, cast
+from typing import Protocol, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -45,7 +46,7 @@ class _RasterDataset(Protocol):
 
 def _open_raster(path: Path) -> _RasterDataset:
     return cast(
-        _RasterDataset,
+        "_RasterDataset",
         rasterio.open(path),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
     )
 

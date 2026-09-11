@@ -1,14 +1,15 @@
 """Regression tests for EG02 dataset."""
 
 from pathlib import Path
+
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
-from ryan_library.functions.dataframe_helpers import reset_categorical_ordering
-from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
+from ryan_library.functions.dataframe_helpers import reset_categorical_ordering
 from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 # Constants

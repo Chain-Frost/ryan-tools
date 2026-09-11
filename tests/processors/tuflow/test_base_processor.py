@@ -1,18 +1,20 @@
 """Unit tests for ryan_library.processors.tuflow.base_processor."""
 
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import patch
+
 import pandas as pd
-from ryan_library.processors.tuflow.base_processor import (
-    BaseProcessor,
-    ProcessorStatus,
-    ConfigurationError,
-    ImportProcessorError,
-)
+import pytest
+
 from ryan_library.classes.suffixes_and_dtypes import (
     DataTypeDefinition,
     ProcessingParts,
+)
+from ryan_library.processors.tuflow.base_processor import (
+    BaseProcessor,
+    ConfigurationError,
+    ImportProcessorError,
+    ProcessorStatus,
 )
 
 

@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 # pyright: reportPrivateUsage=false
-
 from pathlib import Path
 from typing import Protocol, cast
 
+import gdal_stage_storage
 import numpy as np
 import numpy.typing as npt
+import pytest
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
-import pytest
 
-import gdal_stage_storage
 from ryan_library.functions.gdal.stage_storage import compute_stage_storage
 
 
@@ -28,7 +27,7 @@ def _change_working_directory_succeeds(*, target_dir: Path) -> bool:
 
 def _write_dem(dem_path: Path, data: npt.NDArray[np.float32], crs: str | None = "EPSG:32750") -> None:
     destination = cast(
-        _RasterWriter,
+        "_RasterWriter",
         rasterio.open(  # pyright: ignore[reportUnknownMemberType]
             dem_path,
             "w",

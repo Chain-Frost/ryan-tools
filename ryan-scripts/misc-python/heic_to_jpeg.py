@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import os
 import shutil
-import sys
 import uuid
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass

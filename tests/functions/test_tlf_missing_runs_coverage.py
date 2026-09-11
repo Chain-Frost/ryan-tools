@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from ryan_library.functions.tlf_missing_runs import summarize_for_cli, EXPECTED_TPS
+from ryan_library.functions.tlf_missing_runs import EXPECTED_TPS, summarize_for_cli
 
 
 class TestTLFMissingRunsCoverage:

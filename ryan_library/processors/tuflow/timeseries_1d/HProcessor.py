@@ -3,6 +3,7 @@
 """Processor for TUFLOW ``_H`` timeseries outputs."""
 
 from loguru import logger
+
 from ..base_processor import ProcessorStatus
 from ..timeseries_processor import TimeSeriesProcessor
 
@@ -17,12 +18,10 @@ class HProcessor(TimeSeriesProcessor):
 
     def process(self) -> None:
         """Process a ``_H`` CSV using the shared timeseries pipeline."""
-
         self._process_timeseries_pipeline(data_type="H")
 
     def process_timeseries_raw_dataframe(self) -> ProcessorStatus:
         """Normalise the dual-value timeseries DataFrame produced by the shared pipeline."""
-
         try:
             logger.debug("{}: Normalising reshaped 'H' DataFrame.", self.file_name)
 

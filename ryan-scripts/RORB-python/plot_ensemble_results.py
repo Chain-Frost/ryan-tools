@@ -1,5 +1,4 @@
-"""
-Plots peak flows and exceedance durations for ensemble model results (like RORB).
+"""Plots peak flows and exceedance durations for ensemble model results (like RORB).
 """
 
 # moved from unsorted, not tested in production yet - 2026-08-20
@@ -13,8 +12,8 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT = Path(".")
-DEFAULT_OUTPUT_DIR = Path(".")
+DEFAULT_INPUT = Path()
+DEFAULT_OUTPUT_DIR = Path()
 DEFAULT_LOCATIONS: list[str] | None = None
 DEFAULT_CAPACITY_THRESHOLD: float | None = None
 DEFAULT_SOURCE = "rorb"

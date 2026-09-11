@@ -15,11 +15,12 @@ from __future__ import annotations
 
 # GeoPandas, NumPy, Rasterio, and Shapely expose incomplete third-party typing.
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownVariableType=false
-
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal, cast
 
+import numpy as np
+import pandas as pd
 from docx import Document
 from docx.document import Document as DocumentObject
 from docx.enum.style import WD_STYLE_TYPE
@@ -28,12 +29,12 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Pt
-from docx.styles.style import ParagraphStyle
-from docx.styles.style import _TableStyle  # pyright: ignore[reportPrivateUsage]
+from docx.styles.style import (
+    ParagraphStyle,
+    _TableStyle,  # pyright: ignore[reportPrivateUsage]
+)
 from loguru import logger
-import numpy as np
 from numpy.typing import NDArray
-import pandas as pd
 from shapely.geometry import LineString
 from shapely.geometry.base import BaseGeometry
 
@@ -146,11 +147,11 @@ def _configure_word_document(document: DocumentObject) -> None:
     section.right_margin = Cm(2.00)
     section.bottom_margin = Cm(1.50)
     section.left_margin = Cm(2.40)
-    normal_style = cast(ParagraphStyle, document.styles["Normal"])
+    normal_style = cast("ParagraphStyle", document.styles["Normal"])
     normal_style.font.name = "Calibri"
     normal_style.font.size = Pt(10)
     appendix_style = cast(
-        _TableStyle,
+        "_TableStyle",
         document.styles.add_style(
             APPENDIX_TABLE_STYLE,
             WD_STYLE_TYPE.TABLE,
@@ -182,7 +183,7 @@ def _write_word_tables(
         caption.paragraph_format.space_before = Pt(12)
         caption.paragraph_format.space_after = Pt(4)
         caption_run = caption.add_run(
-            f"Table {order}: Water Level Profile Data - " f"Profile: {profile_name}; Scenario: {scenario}"
+            f"Table {order}: Water Level Profile Data - Profile: {profile_name}; Scenario: {scenario}"
         )
         caption_run.bold = True
 
@@ -423,7 +424,7 @@ def _collect_profile_tables() -> tuple[tuple[tuple[int, str, pd.DataFrame], ...]
             if raw_name is None or bool(pd.isna(raw_name)) or not str(raw_name).strip():
                 raise ValueError(f"Profile has an empty {NAME_FIELD!r} value.")
             line_name = str(raw_name)
-            geometry = cast(BaseGeometry | None, row.geometry)
+            geometry = cast("BaseGeometry | None", row.geometry)
             if geometry is None:
                 raise ValueError(f"Profile {line_name!r} has null geometry.")
             parts = profiles.split_profile_line(
@@ -525,7 +526,6 @@ def _format_worksheet(
         content_width = int(values.str.len().max()) if not values.empty else 0
         width = min(28, max(12, len(str(header)) + 2, content_width + 2))
         if header in {
-            "Scenario",
             "Scenario",
             "Profile",
             "AEP",

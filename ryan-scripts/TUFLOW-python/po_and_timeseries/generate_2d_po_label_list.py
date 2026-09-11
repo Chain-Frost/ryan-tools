@@ -8,8 +8,8 @@ Example:
 
 import argparse
 import sqlite3
-from dataclasses import dataclass
 from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -33,10 +33,9 @@ class RuntimeOptions:
 
 def parse_and_resolve_options(argv: Sequence[str] | None = None) -> RuntimeOptions:
     """Parse CLI arguments (if provided) and merge them with the hardcoded defaults."""
-
     parser = argparse.ArgumentParser(
         description=(
-            "Read a 2d_po GeoPackage and emit a Python list of PO labels, " "including inline comments when provided."
+            "Read a 2d_po GeoPackage and emit a Python list of PO labels, including inline comments when provided."
         )
     )
     parser.add_argument(
@@ -69,7 +68,6 @@ def parse_and_resolve_options(argv: Sequence[str] | None = None) -> RuntimeOptio
 
 def main() -> None:
     """Entry point used by both CLI execution and IDE run configurations."""
-
     options: RuntimeOptions = parse_and_resolve_options()
     if not options.gpkg_path.exists():
         raise SystemExit(f"GeoPackage not found: {options.gpkg_path}")
@@ -90,7 +88,6 @@ def main() -> None:
 
 def load_label_entries(gpkg_path: Path, preferred_layer: str | None = None) -> list[tuple[str, str | None]]:
     """Open the GeoPackage, determine the relevant layer, and read label/comment pairs."""
-
     # Connect directly to the GeoPackage; it's just a SQLite database under the hood.
     with sqlite3.connect(database=gpkg_path.as_posix()) as connection:
         cursor: sqlite3.Cursor = connection.cursor()
@@ -140,7 +137,6 @@ def load_label_entries(gpkg_path: Path, preferred_layer: str | None = None) -> l
 
 def resolve_table_and_columns(cursor: sqlite3.Cursor, preferred_layer: str | None) -> tuple[str, dict[str, str]]:
     """Pick a layer that exposes a Label column and collect its schema metadata."""
-
     tables_to_check: list[str] = build_table_priority_list(cursor=cursor, preferred_layer=preferred_layer)
     for table in tables_to_check:
         column_lookup: dict[str, str] = get_column_lookup(cursor=cursor, table_name=table)
@@ -151,7 +147,6 @@ def resolve_table_and_columns(cursor: sqlite3.Cursor, preferred_layer: str | Non
 
 def build_table_priority_list(cursor: sqlite3.Cursor, preferred_layer: str | None) -> list[str]:
     """Return candidate layers, prioritizing those that look like 2d_po layers."""
-
     layer_rows: list[Any] = cursor.execute(
         "SELECT table_name FROM gpkg_contents WHERE data_type = 'features';"
     ).fetchall()
@@ -169,7 +164,6 @@ def build_table_priority_list(cursor: sqlite3.Cursor, preferred_layer: str | Non
 
 def get_column_lookup(cursor: sqlite3.Cursor, table_name: str) -> dict[str, str]:
     """Fetch column names for the table and normalize them for case-insensitive use."""
-
     quoted_table: str = quote_identifier(table_name)
     pragma_rows: list[Any] = cursor.execute(f"PRAGMA table_info({quoted_table});").fetchall()
     return {row[1].lower(): row[1] for row in pragma_rows}
@@ -177,18 +171,16 @@ def get_column_lookup(cursor: sqlite3.Cursor, table_name: str) -> dict[str, str]
 
 def sanitize_comment(comment: str) -> str | None:
     """Normalize whitespace so comments become single-line Python-friendly strings."""
-
     normalized: str = comment.replace("\r\n", "\n").replace("\r", " ").replace("\n", " ").strip()
     return normalized or None
 
 
 def format_as_python_list(entries: Iterable[tuple[str, str | None]]) -> str:
     """Format the label/comment pairs as a copy/paste-friendly Python list literal."""
-
     lines: list[str] = ["["]
     for label, comment in entries:
         # Represent labels with repr() so any embedded quotes are automatically escaped.
-        line: str = f"    {repr(label)},"
+        line: str = f"    {label!r},"
         if comment:
             line += f"  # {comment}"
         lines.append(line)
@@ -198,14 +190,12 @@ def format_as_python_list(entries: Iterable[tuple[str, str | None]]) -> str:
 
 def quote_identifier(identifier: str) -> str:
     """Quote SQLite identifiers to avoid syntax errors or SQL injection surprises."""
-
     escaped = identifier.replace('"', '""')
     return f'"{escaped}"'
 
 
 def write_output_file(*, output_path: Path, contents: str) -> None:
     """Persist the rendered list next to the source GeoPackage for reuse."""
-
     output_path.write_text(f"{contents}\n", encoding="utf-8")
 
 

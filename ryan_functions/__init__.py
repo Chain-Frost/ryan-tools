@@ -1,13 +1,13 @@
 # ryan_functions/__init__.py
 
 import importlib
+import pkgutil
+import sys
+import warnings
+from collections.abc import Sequence
 from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from importlib.util import find_spec, spec_from_loader
-import pkgutil
-from collections.abc import Sequence
-import sys
-import warnings
 from types import ModuleType
 
 import ryan_library.functions

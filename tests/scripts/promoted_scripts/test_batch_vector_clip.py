@@ -4,7 +4,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from batch_vector_clip import build_output_jobs, clip_vector
 from split_vector_by_attribute import process_single_value
 

@@ -1,4 +1,3 @@
-import json
 import shutil
 import tempfile
 from pathlib import Path
@@ -7,8 +6,8 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 
 class DummyProcessor(BaseProcessor):

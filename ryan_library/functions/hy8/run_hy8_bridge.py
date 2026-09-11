@@ -7,12 +7,12 @@ __lazy_modules__ = ["pandas"]
 
 import math
 import re
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping, Sequence, cast
+from typing import Any, cast
 
 from loguru import logger
 from pandas import DataFrame
-
 from run_hy8 import (
     CulvertBarrel,
     CulvertCrossing,
@@ -102,10 +102,10 @@ class Hy8CulvertOptions:
     flow_maximum_factor: float = 1.1
     minimum_flow_cms: float = 0.005
     crossing_name_template: str = "{internal}_{chan}"
-    flow_builder: Callable[["CulvertMaximumRecord", "Hy8CulvertOptions"], FlowDefinition] | None = None
-    roadway_width_builder: Callable[["CulvertMaximumRecord", "Hy8CulvertOptions"], float] | None = None
-    roadway_crest_builder: Callable[["CulvertMaximumRecord", "Hy8CulvertOptions"], float] | None = None
-    barrel_count_builder: Callable[["CulvertMaximumRecord", "Hy8CulvertOptions"], int] | None = None
+    flow_builder: Callable[[CulvertMaximumRecord, Hy8CulvertOptions], FlowDefinition] | None = None
+    roadway_width_builder: Callable[[CulvertMaximumRecord, Hy8CulvertOptions], float] | None = None
+    roadway_crest_builder: Callable[[CulvertMaximumRecord, Hy8CulvertOptions], float] | None = None
+    barrel_count_builder: Callable[[CulvertMaximumRecord, Hy8CulvertOptions], int] | None = None
     default_inlet_type: int = 1
     default_inlet_edge_type: int = 0
     default_inlet_edge_type71: int = 0
@@ -138,7 +138,7 @@ class CulvertMaximumRecord:
     raw: Mapping[str, Any] = field(default_factory=_empty_raw_mapping)
 
     @classmethod
-    def from_mapping(cls, row: Mapping[str, Any], *, row_index: int | str | None) -> "CulvertMaximumRecord | None":
+    def from_mapping(cls, row: Mapping[str, Any], *, row_index: int | str | None) -> CulvertMaximumRecord | None:
         trim_runcode: str = _coerce_string(row.get("trim_runcode"))
         internal_name: str = _coerce_string(row.get("internalName"))
         chan_id: str = _coerce_string(row.get("Chan ID"))
@@ -220,13 +220,12 @@ def maximums_dataframe_to_crossings(
     options: Hy8CulvertOptions | None = None,
 ) -> list[CulvertCrossing]:
     """Convert the Maximums sheet into HY-8 crossings."""
-
     cfg: Hy8CulvertOptions = options or Hy8CulvertOptions()
     if maximums.empty:
         return []
 
     raw_rows = cast(
-        list[dict[str, Any]],
+        "list[dict[str, Any]]",
         maximums.to_dict(orient="records"),  # pyright: ignore[reportUnknownMemberType]
     )
     indexes: Sequence[int | str] = list(maximums.index)
@@ -250,7 +249,6 @@ def maximums_dataframe_to_project(
     options: Hy8CulvertOptions | None = None,
 ) -> Hy8Project:
     """Create a Hy8Project populated with crossings from the provided DataFrame."""
-
     cfg: Hy8CulvertOptions = options or Hy8CulvertOptions()
     project = Hy8Project(title=project_title, designer=designer, units=cfg.units, notes=project_notes or "")
     for crossing in maximums_dataframe_to_crossings(maximums, options=cfg):
@@ -264,7 +262,6 @@ def build_crossing_from_record(
     options: Hy8CulvertOptions | None = None,
 ) -> CulvertCrossing:
     """Generate a single CulvertCrossing from one culvert maximum row."""
-
     cfg: Hy8CulvertOptions = options or Hy8CulvertOptions()
     name: str = _resolve_crossing_name(record, cfg)
     crossing = CulvertCrossing(name=name)

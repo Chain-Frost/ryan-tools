@@ -7,7 +7,6 @@ from typing import Any
 
 def __getattr__(name: str) -> Any:
     """Lazily load functionalities from their new purpose-built modules to preserve compatibility."""
-
     if name == "get_tools_version":
         import ryan_library.functions.versioning as versioning
 

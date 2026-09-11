@@ -2,9 +2,11 @@
 
 import math
 import re
-from pathlib import Path
-from loguru import logger
 from dataclasses import dataclass, field
+from pathlib import Path
+
+from loguru import logger
+
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 
 
@@ -25,7 +27,8 @@ class RunCodeComponent:
 
     def _parse_numeric_value(self, raw_value: str) -> float | int | None:
         """Parse the raw_value into a numeric type. If there is a decimal point,
-        round to exactly the number of decimals that appeared in raw_value."""
+        round to exactly the number of decimals that appeared in raw_value.
+        """
         if self.component_type == "aep" and raw_value.upper() in {"PMP", "PMPF"}:
             return float("nan")
 
@@ -37,16 +40,17 @@ class RunCodeComponent:
                     decimals = len(raw_value.split(".")[1])
                     return round(val, decimals)
                 return val
-            else:
-                return int(raw_value)
+            return int(raw_value)
         except ValueError:
             logger.error(f"Invalid numeric value for {self.component_type}: {raw_value}")
             return None
 
     def _generate_text_repr(self) -> str:
         """Generate a textual representation based on the component type.
+
         Returns:
-            str: Textual representation of the component."""
+            str: Textual representation of the component.
+        """
         if self.component_type == "tp":
             return f"TP{self.raw_value}"
         if self.component_type == "duration":
@@ -92,8 +96,10 @@ class TuflowStringParser:
 
     def __init__(self, file_path: Path | str) -> None:
         """Initialize the TuflowStringParser with the given file path.
+
         Args:
-            file_path (Path | str): Path to the file to be processed."""
+            file_path (Path | str): Path to the file to be processed.
+        """
         self.file_path = Path(file_path)
         self.file_name: str = self.file_path.name
         self.suffixes: dict[str, str] = self.load_suffixes()
@@ -109,7 +115,6 @@ class TuflowStringParser:
     @staticmethod
     def _coerce_text(value: object) -> str | None:
         """Convert ``value`` into a cleaned string or ``None`` if it is effectively empty."""
-
         if value is None:
             return None
         if isinstance(value, float) and math.isnan(value):
@@ -125,7 +130,6 @@ class TuflowStringParser:
     @classmethod
     def normalize_tp_label(cls, value: object) -> str | None:
         """Return a canonical ``TP##`` label extracted from ``value`` when possible."""
-
         text: str | None = cls._coerce_text(value)
         if text is None:
             return None
@@ -154,7 +158,6 @@ class TuflowStringParser:
     @classmethod
     def normalize_duration_value(cls, value: object) -> float:
         """Return the numeric component of a duration string or ``nan`` when parsing fails."""
-
         text: str | None = cls._coerce_text(value)
         if text is None:
             return float("nan")
@@ -180,7 +183,6 @@ class TuflowStringParser:
     @staticmethod
     def _minutes_from_human_match(match: re.Match[str]) -> float | None:
         """Convert a ``HUMAN_DURATION_PATTERN`` match into minutes."""
-
         value_str: str = match.group("value")
         unit: str = match.group("unit").lower()
         digits_only: str = value_str.replace(".", "")
@@ -203,18 +205,23 @@ class TuflowStringParser:
     @staticmethod
     def clean_runcode(run_code: str) -> str:
         """Replace '+' with '_' to standardize delimiters.
+
         Args:
             run_code (str): The raw run code string.
+
         Returns:
-            str: Cleaned run code string."""
+            str: Cleaned run code string.
+        """
         return run_code.replace("+", "_")
 
     # remake this function to use suffixes_and_dtypes.py
     @staticmethod
     def load_suffixes() -> dict[str, str]:
         """Load suffixes using the SuffixesConfig class.
+
         Returns:
-            dict[str, str]: Suffix to type mapping."""
+            dict[str, str]: Suffix to type mapping.
+        """
         try:
             suffixes: dict[str, str] = SuffixesConfig.get_instance().suffix_to_type
             logger.debug("Loaded suffixes: {}", suffixes)
@@ -227,7 +234,8 @@ class TuflowStringParser:
         """Determine the data type based on the file suffix.
 
         Returns:
-            str | None: Data type if a matching suffix is found, otherwise None."""
+            str | None: Data type if a matching suffix is found, otherwise None.
+        """
         for suffix, data_type in self.suffixes.items():
             if self.file_name.lower().endswith(suffix.lower()):
                 logger.debug("Determined data type '{}' for suffix '{}'", data_type, suffix)
@@ -236,8 +244,7 @@ class TuflowStringParser:
         return None
 
     def extract_raw_run_code(self) -> str:
-        """
-        Extract the raw run code from the file name.
+        """Extract the raw run code from the file name.
 
         Returns:
             str: Extracted run code.
@@ -252,8 +259,7 @@ class TuflowStringParser:
 
     @staticmethod
     def extract_run_code_parts(clean_run_code: str) -> dict[str, str]:
-        """
-        Extract additional RunCode parts from the filename and insert as new columns.
+        """Extract additional RunCode parts from the filename and insert as new columns.
 
         Args:
             clean_run_code (str): The cleaned run code string.
@@ -267,8 +273,7 @@ class TuflowStringParser:
         return r_dict
 
     def parse_tp(self, string: str) -> RunCodeComponent | None:
-        """
-        Parse the TP component from the run code.
+        """Parse the TP component from the run code.
 
         Args:
             string (str): The run code string.
@@ -286,8 +291,7 @@ class TuflowStringParser:
         return None
 
     def parse_duration(self, string: str) -> RunCodeComponent | None:
-        """
-        Parse the Duration component from the run code.
+        """Parse the Duration component from the run code.
 
         Args:
             string (str): The run code string.
@@ -317,8 +321,7 @@ class TuflowStringParser:
         return None
 
     def parse_aep(self, string: str) -> RunCodeComponent | None:
-        """
-        Parse the AEP component from the run code.
+        """Parse the AEP component from the run code.
 
         Args:
             string (str): The run code string.
@@ -339,8 +342,7 @@ class TuflowStringParser:
         return None
 
     def trim_the_run_code(self) -> str:
-        """
-        Clean the run code by removing AEP, Duration, and TP components.
+        """Clean the run code by removing AEP, Duration, and TP components.
 
         Returns:
             str: Cleaned run code.

@@ -10,14 +10,15 @@ keypress when complete.
 """
 
 # 250913
+import shutil
+import sys
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
+
 import geopandas as gpd
 import pyogrio
-import shutil
-import uuid
-from colorama import init, Fore, Style
-import sys
+from colorama import Fore, Style, init
 
 # === Configuration ===
 # Toggle to search subfolders recursively underneath the Python file.
@@ -31,8 +32,7 @@ def print_colored(message: str, color: str) -> None:
 
 
 def press_any_key(prompt: str = "Press any key to exit...") -> None:
-    """
-    Windows: uses msvcrt (stdlib) to wait for a single keypress.
+    """Windows: uses msvcrt (stdlib) to wait for a single keypress.
     Elsewhere: falls back to input().
     """
     if sys.platform == "win32":
@@ -54,8 +54,7 @@ def press_any_key(prompt: str = "Press any key to exit...") -> None:
 
 # Initialization function to set up environment and return colors
 def initialize(target_dir: str | None = None) -> tuple[Path, str, str]:
-    """
-    Returns the base directory to process, plus colours.
+    """Returns the base directory to process, plus colours.
     - If target_dir is provided, use it (must be a drive-letter path if you plan to chdir).
     - Else use the script's folder, keeping the Q: form by using .absolute(), not .resolve().
     """
@@ -111,7 +110,7 @@ def rename_layer_in_geopackage(
         )
     except Exception as e:
         # Error message with failure color and exception details
-        print_colored(message=f"Failed to process {gpkg}: {str(e)}", color=fail_colour)
+        print_colored(message=f"Failed to process {gpkg}: {e!s}", color=fail_colour)
 
 
 # Function to process all GeoPackage files in the directory

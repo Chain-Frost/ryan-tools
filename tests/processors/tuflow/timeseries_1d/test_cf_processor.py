@@ -1,11 +1,13 @@
 """Unit tests for ryan_library.processors.tuflow.timeseries_1d.CFProcessor."""
 
-import pytest
-from unittest.mock import MagicMock, patch
-import pandas as pd
 from pathlib import Path
-from ryan_library.processors.tuflow.timeseries_1d.CFProcessor import CFProcessor
+from unittest.mock import patch
+
+import pandas as pd
+import pytest
+
 from ryan_library.processors.tuflow.base_processor import ProcessorStatus
+from ryan_library.processors.tuflow.timeseries_1d.CFProcessor import CFProcessor
 
 
 class TestCFProcessor:

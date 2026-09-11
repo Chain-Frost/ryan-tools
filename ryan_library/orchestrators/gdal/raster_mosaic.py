@@ -7,12 +7,12 @@ Temporary VRTs provide the mosaic view without leaving intermediate files in
 the results directory.
 """
 
+import re
+import tempfile
 from collections import defaultdict
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-import re
-import tempfile
 
 from loguru import logger
 

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-The cleaner removes page-local /Xi full-page junk XForms, matching /Xi optional
+"""The cleaner removes page-local /Xi full-page junk XForms, matching /Xi optional
 content blocks, JavaScript actions, protected-cover pages, and protected form
 fields used by the digital editions.
 
@@ -75,13 +74,13 @@ class CleanSummary:
     doc_level_ocproperties_removed: bool = False
     protected_cover_page_removed: bool = False
     decrypt_status: str = "not encrypted"
-    warnings: list[str] = field(default_factory=lambda: [])
-    errors: list[str] = field(default_factory=lambda: [])
-    page_notes: list[str] = field(default_factory=lambda: [])
+    warnings: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    page_notes: list[str] = field(default_factory=list)
 
 
 def _writer_add_object(writer: PdfWriter, obj: Any) -> Any:
-    return cast(Any, writer)._add_object(obj)
+    return cast("Any", writer)._add_object(obj)
 
 
 def _name_to_key(value: Any) -> str | None:
@@ -96,7 +95,7 @@ def _name_to_key(value: Any) -> str | None:
         text = str(value)
     except Exception:
         return None
-    return text if text else None
+    return text or None
 
 
 def _resolve_dict(value: Any) -> dict[Any, Any]:
@@ -108,7 +107,7 @@ def _resolve_dict(value: Any) -> dict[Any, Any]:
         except Exception:
             return {}
     if isinstance(value, dict):
-        return cast(dict[Any, Any], value)
+        return cast("dict[Any, Any]", value)
     return {}
 
 
@@ -120,9 +119,8 @@ def _normalize_ocg_label(label: str | None) -> str | None:
     if label is None:
         return None
     text = label.strip()
-    if text.startswith("/"):
-        text = text[1:]
-    return text if text else None
+    text = text.removeprefix("/")
+    return text or None
 
 
 def _xi_number(value: Any) -> int | None:
@@ -172,7 +170,7 @@ def _clean_bad_xobjects(resources: dict[Any, Any]) -> tuple[set[str], set[str], 
                 continue
         if not isinstance(xobj, dict):
             continue
-        xobj_dict = cast(dict[Any, Any], xobj)
+        xobj_dict = cast("dict[Any, Any]", xobj)
         key = _name_to_key(name)
         if not _is_full_page_form_xobject(name, xobj_dict):
             continue
@@ -331,7 +329,7 @@ def _strip_js_from_action(action: Any) -> bool:
     if "/Next" in action_dict:
         next_obj = action_dict.get("/Next")
         if isinstance(next_obj, list):
-            next_list = list(cast(list[Any], next_obj))
+            next_list = list(cast("list[Any]", next_obj))
         elif next_obj is not None:
             next_list = [next_obj]
         else:
@@ -395,7 +393,7 @@ def _remove_js_from_annotations(page: _PageLike) -> int:
         return 0
 
     removed = 0
-    for annot_ref in cast(list[Any], annots_obj):
+    for annot_ref in cast("list[Any]", annots_obj):
         annot = annot_ref
         if hasattr(annot, "get_object"):
             try:
@@ -403,7 +401,7 @@ def _remove_js_from_annotations(page: _PageLike) -> int:
             except Exception:
                 continue
         if isinstance(annot, dict):
-            removed += _remove_js_entries(cast(dict[Any, Any], annot))
+            removed += _remove_js_entries(cast("dict[Any, Any]", annot))
     return removed
 
 
@@ -463,7 +461,7 @@ def _remove_target_annotations(page: _PageLike) -> tuple[int, int]:
     kept: list[Any] = []
     boom_removed = 0
     protected_info_removed = 0
-    for annot_ref in cast(list[Any], annots_obj):
+    for annot_ref in cast("list[Any]", annots_obj):
         if _is_boom_field(annot_ref):
             boom_removed += 1
             continue
@@ -490,23 +488,23 @@ def _remove_js_from_field(field_ref: Any) -> int:
     removed = _remove_js_entries(field)
     kids_obj = field.get("/Kids", [])
     if isinstance(kids_obj, list):
-        for kid in cast(list[Any], kids_obj):
+        for kid in cast("list[Any]", kids_obj):
             removed += _remove_js_from_field(kid)
     return removed
 
 
 def _remove_js_from_acroform(writer: PdfWriter) -> int:
-    root_obj = cast(Any, writer)._root_object
+    root_obj = cast("Any", writer)._root_object
     if not isinstance(root_obj, dict):
         return 0
-    acroform = _resolve_dict(cast(dict[Any, Any], root_obj).get("/AcroForm"))
+    acroform = _resolve_dict(cast("dict[Any, Any]", root_obj).get("/AcroForm"))
     if not acroform:
         return 0
 
     removed = _remove_js_entries(acroform)
     fields_obj = acroform.get("/Fields", [])
     if isinstance(fields_obj, list):
-        for field_ref in cast(list[Any], fields_obj):
+        for field_ref in cast("list[Any]", fields_obj):
             removed += _remove_js_from_field(field_ref)
     return removed
 
@@ -520,10 +518,10 @@ def _remove_protected_info_acroform_fields(writer: PdfWriter) -> int:
 
 
 def _remove_acroform_fields(writer: PdfWriter, predicate: Any) -> int:
-    root_obj = cast(Any, writer)._root_object
+    root_obj = cast("Any", writer)._root_object
     if not isinstance(root_obj, dict):
         return 0
-    acroform = _resolve_dict(cast(dict[Any, Any], root_obj).get("/AcroForm"))
+    acroform = _resolve_dict(cast("dict[Any, Any]", root_obj).get("/AcroForm"))
     if not acroform:
         return 0
 
@@ -533,7 +531,7 @@ def _remove_acroform_fields(writer: PdfWriter, predicate: Any) -> int:
 
     kept: list[Any] = []
     removed = 0
-    for field_ref in cast(list[Any], fields_obj):
+    for field_ref in cast("list[Any]", fields_obj):
         if predicate(field_ref):
             removed += 1
             continue
@@ -544,10 +542,10 @@ def _remove_acroform_fields(writer: PdfWriter, predicate: Any) -> int:
 
 
 def _remove_doc_ocproperties(writer: PdfWriter) -> bool:
-    root_obj = cast(Any, writer)._root_object
+    root_obj = cast("Any", writer)._root_object
     if not isinstance(root_obj, dict):
         return False
-    root = cast(dict[Any, Any], root_obj)
+    root = cast("dict[Any, Any]", root_obj)
     if "/OCProperties" not in root:
         return False
     try:
@@ -558,10 +556,10 @@ def _remove_doc_ocproperties(writer: PdfWriter) -> bool:
 
 
 def _remove_doc_level_js(writer: PdfWriter) -> int:
-    root_obj = cast(Any, writer)._root_object
+    root_obj = cast("Any", writer)._root_object
     if not isinstance(root_obj, dict):
         return 0
-    root = cast(dict[Any, Any], root_obj)
+    root = cast("dict[Any, Any]", root_obj)
     removed = 0
     names_dict = _resolve_dict(root.get("/Names"))
     if names_dict and "/JavaScript" in names_dict:
@@ -817,7 +815,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    inputs = args.input_pdfs if args.input_pdfs else DEFAULT_INPUT_PDFS
+    inputs = args.input_pdfs or DEFAULT_INPUT_PDFS
     output = args.output if args.output is not None else DEFAULT_OUTPUT
     output_dir = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
     recursive = args.recursive or DEFAULT_RECURSIVE

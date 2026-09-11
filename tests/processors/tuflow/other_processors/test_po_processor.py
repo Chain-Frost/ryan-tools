@@ -1,9 +1,11 @@
 """Unit tests for ryan_library.processors.tuflow.other_processors.PoProcessor."""
 
-import pytest
-from unittest.mock import MagicMock, patch
-import pandas as pd
 from pathlib import Path
+from unittest.mock import patch
+
+import pandas as pd
+import pytest
+
 from ryan_library.processors.tuflow.other_processors.POProcessor import POProcessor
 
 

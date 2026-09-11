@@ -7,19 +7,19 @@ layers from those schemas.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import datetime as dt
-from pathlib import Path
 import re
 import shutil
 import sqlite3
 import subprocess
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Final, Literal, cast
 
 import fiona  # pyright: ignore[reportMissingTypeStubs]
-from loguru import logger
 import numpy as np
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
+from loguru import logger
 from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 
 GeometrySuffix = Literal["P", "L", "R"]
@@ -365,7 +365,7 @@ def _create_working_layer_from_empty(
         fp=source_path,
         layer=source_layer,
     ) as source:
-        crs_wkt: str | None = cast(str | None, source.crs_wkt)  # pyright: ignore[reportUnknownMemberType]
+        crs_wkt: str | None = cast("str | None", source.crs_wkt)  # pyright: ignore[reportUnknownMemberType]
 
     with fiona.open(  # pyright: ignore[reportUnknownMemberType]
         fp=target_path,

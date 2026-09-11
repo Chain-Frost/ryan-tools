@@ -1,14 +1,16 @@
 """Additional coverage tests for ryan_library.classes.suffixes_and_dtypes."""
 
-import pytest
-from unittest.mock import MagicMock, patch
 import json
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from ryan_library.classes.suffixes_and_dtypes import (
-    ConfigLoader,
-    ProcessingParts,
-    DataTypeDefinition,
-    SuffixesConfig,
     Config,
+    ConfigLoader,
+    DataTypeDefinition,
+    ProcessingParts,
+    SuffixesConfig,
 )
 
 

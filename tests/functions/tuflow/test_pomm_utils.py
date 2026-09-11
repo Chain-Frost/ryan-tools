@@ -1,10 +1,12 @@
 """Tests for ryan_library.functions.tuflow.pomm_utils."""
 
-import pandas as pd
-from pandas import DataFrame
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pandas as pd
+import pytest
+from pandas import DataFrame
+
 from ryan_library.functions.tuflow import pomm_utils
 
 
@@ -236,7 +238,7 @@ class TestRLLQmxNormalization:
             }
         )
 
-        res: DataFrame = pomm_utils.aggregated_from_paths(paths=[Path(".")])
+        res: DataFrame = pomm_utils.aggregated_from_paths(paths=[Path()])
 
         assert "Location" in res.columns
         assert res["Location"].tolist() == ["Loc1", "Loc2"]
@@ -259,7 +261,7 @@ class TestRLLQmxNormalization:
             }
         )
 
-        res: DataFrame = pomm_utils.aggregated_from_paths(paths=[Path(".")])
+        res: DataFrame = pomm_utils.aggregated_from_paths(paths=[Path()])
 
         assert res["Location"].tolist() == ["Loc1", "Loc2"]
         assert res["AbsMax"].tolist() == [10.0, 20.0]

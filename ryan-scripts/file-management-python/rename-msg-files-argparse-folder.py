@@ -9,17 +9,19 @@ This changes filenames in place and has no dry-run mode. Work on a backed-up
 folder first and review the configured filename length limits.
 """
 
-from _hashlib import HASH
-import os
-import sys
-from typing import Any, Generator, Literal
-import extract_msg
 import hashlib
+import os
 import re
+import sys
+from _hashlib import HASH
+from collections.abc import Generator
+from contextlib import contextmanager
 from datetime import datetime
+from typing import Any
+
+import extract_msg
 from loguru import logger
 from tabulate import tabulate
-from contextlib import contextmanager
 
 # Constants for filename length limits
 MAX_SENDER_LENGTH = 50
@@ -56,7 +58,7 @@ def compute_file_hash(file_path: str, hash_algo: str = "sha256") -> str | None:
 
 
 @contextmanager
-def open_msg(file_path: str) -> Generator[extract_msg.Message, Any, None]:
+def open_msg(file_path: str) -> Generator[extract_msg.Message, Any]:
     """Context manager to open and close a .msg file.
 
     Args:
@@ -84,9 +86,9 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
     """
     try:
         with open_msg(file_path) as msg:
-            msg_sender: str = msg.sender if msg.sender else "UnknownSender"
-            msg_date: datetime = msg.date if msg.date else "1970-01-01 00:00:00"
-            msg_subject: str = msg.subject if msg.subject else "NoSubject"
+            msg_sender: str = msg.sender or "UnknownSender"
+            msg_date: datetime = msg.date or "1970-01-01 00:00:00"
+            msg_subject: str = msg.subject or "NoSubject"
 
             # Determine if msg_date is a string or datetime object
             if isinstance(msg_date, str):
@@ -131,25 +133,24 @@ def limit_filename_length(new_filename: str) -> str:
     """
     if len(new_filename) <= MAX_FILENAME_LENGTH:
         return new_filename
-    else:
-        # Calculate how much to trim
-        excess_length = len(new_filename) - MAX_FILENAME_LENGTH
-        # Trim the subject part to reduce the length
-        parts = new_filename.split("_", 2)  # Split into date, sender, subject
-        if len(parts) < 3:
-            return new_filename[:MAX_FILENAME_LENGTH]  # Fallback: trim entire string
+    # Calculate how much to trim
+    excess_length = len(new_filename) - MAX_FILENAME_LENGTH
+    # Trim the subject part to reduce the length
+    parts = new_filename.split("_", 2)  # Split into date, sender, subject
+    if len(parts) < 3:
+        return new_filename[:MAX_FILENAME_LENGTH]  # Fallback: trim entire string
 
-        date_part, sender_part, subject_part = parts
-        # Further split the subject to separate '.msg'
-        if subject_part.lower().endswith(".msg"):
-            subject_part = subject_part[:-4]  # Remove '.msg'
+    date_part, sender_part, subject_part = parts
+    # Further split the subject to separate '.msg'
+    if subject_part.lower().endswith(".msg"):
+        subject_part = subject_part[:-4]  # Remove '.msg'
 
-        # Trim the subject
-        subject_trimmed = subject_part[:-excess_length] if excess_length < len(subject_part) else "TrimmedSubject"
+    # Trim the subject
+    subject_trimmed = subject_part[:-excess_length] if excess_length < len(subject_part) else "TrimmedSubject"
 
-        # Reconstruct the filename
-        new_filename = f"{date_part}_{sender_part}_{subject_trimmed}.msg"
-        return new_filename[:MAX_FILENAME_LENGTH]
+    # Reconstruct the filename
+    new_filename = f"{date_part}_{sender_part}_{subject_trimmed}.msg"
+    return new_filename[:MAX_FILENAME_LENGTH]
 
 
 def rename_msg_files(directory: str) -> None:
@@ -199,8 +200,7 @@ def rename_msg_files(directory: str) -> None:
                     }
                 )
                 continue  # Skip renaming identical files
-            else:
-                hash_dict[file_hash] = filename  # Add hash to dictionary
+            hash_dict[file_hash] = filename  # Add hash to dictionary
 
             # Extract email properties
             sent_on, sender, subject = get_email_properties(original_path)

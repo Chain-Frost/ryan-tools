@@ -13,7 +13,7 @@ from typing import Literal, NamedTuple
 
 WRAPPER_VERSION = "2026-08-20.1"
 
-DEFAULT_WORKING_DIR = Path(".")
+DEFAULT_WORKING_DIR = Path()
 DEFAULT_OPERATION: Literal["max", "diff", "mean", "median", "min"] = "diff"
 DEFAULT_INPUT_FILES: list[Path] = [Path("after.tif"), Path("before.tif")]
 DEFAULT_OUTPUT_FILE = Path("difference.tif")
@@ -61,7 +61,7 @@ def resolve_configuration(args: argparse.Namespace) -> WrapperConfiguration:
     else:
         operation = DEFAULT_OPERATION
 
-    input_values: list[Path] = args.input_files if args.input_files else DEFAULT_INPUT_FILES
+    input_values: list[Path] = args.input_files or DEFAULT_INPUT_FILES
     output_value: Path = args.output if args.output is not None else DEFAULT_OUTPUT_FILE
     change: bool = args.change if args.change is not None else DEFAULT_CHANGE
     no_wet_dry: bool = args.no_wet_dry if args.no_wet_dry is not None else DEFAULT_NO_WET_DRY

@@ -1,17 +1,16 @@
 # tests/functions/test_file_utils.py
 
-import pytest
-import logging
 import json
+import logging
 from pathlib import Path
 from pprint import pprint
+
+import pytest
 from loguru import logger
-import sys
 
 # PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # if str(PROJECT_ROOT) not in sys.path:
 #     sys.path.insert(0, str(PROJECT_ROOT))
-
 # Import the function to be tested
 from ryan_library.functions.file_utils import ensure_output_directory, find_files_parallel, is_non_zero_file
 
@@ -32,7 +31,7 @@ def load_expected_files():
     """
     Fixture to load expected files from the JSON file.
     """
-    with open(EXPECTED_FILES_JSON, "r") as f:
+    with open(EXPECTED_FILES_JSON) as f:
         data = json.load(f)
     return data
 

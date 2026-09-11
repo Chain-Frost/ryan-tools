@@ -6,11 +6,12 @@ USAGE
 1. Copy this file into a job folder.
 2. Edit `get_parameters()` ONLY - nowhere else.
 3. Run:  python run_tuflow_simulations.py
-4. Demo dashboard without TUFLOW: python run_tuflow_simulations.py --demo-dashboard"""
+4. Demo dashboard without TUFLOW: python run_tuflow_simulations.py --demo-dashboard
+"""
 
 
 # ========= USER PARAMETERS ====== ***** EDIT ONLY THIS FUNCTION *****
-def get_parameters() -> "Parameters":
+def get_parameters() -> Parameters:
     from pathlib import Path
 
     # ---- Parameter-product inputs (for 'parameter_product' or 'both') ----
@@ -73,8 +74,8 @@ def get_parameters() -> "Parameters":
 
 # ============================= IMPORTS (internal) ========================== #
 # imports placed here so that they do not obstruct user editing of the parameters at the top.
-import datetime
 import csv
+import datetime
 import itertools
 import logging
 import os
@@ -84,9 +85,10 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
-from types import FrameType
-from typing import Any, Final, ClassVar
 from pathlib import Path
+from types import FrameType
+from typing import Any, ClassVar, Final
+
 import colorama
 import psutil
 from rich import box
@@ -239,7 +241,8 @@ class Parameters:
     Attributes:
         core_params:   An instance of CoreParameters.
         run_variables: A dict mapping two-character flags (e.g. "e1" or "s1")
-                       to a list of values (e.g. ["01.00p","pmp"])."""
+                       to a list of values (e.g. ["01.00p","pmp"]).
+    """
 
     core_params: CoreParameters
     run_variables: dict[str, list[str]]
@@ -260,7 +263,8 @@ class Simulation:
         index:             1-based index of this run.
         start_time:        datetime when the process was launched (or None).
         process:           subprocess.Popen once launched (or None).
-        end_time:          datetime when the process finished (or None)."""
+        end_time:          datetime when the process finished (or None).
+    """
 
     args_for_python: list[str]
     command_for_batch: str
@@ -323,12 +327,14 @@ RESULT_FAIL: Final[str] = "FAIL"
 # ====================== PARAMETER-BUILDING & VALIDATION ==================== #
 def build_parameters(core_params: CoreParameters, run_variables_raw: dict[str, str]) -> Parameters:
     """Split raw run-variable strings, assemble a Parameters, validate.
+
     Args:
         core_params:       A CoreParameters instance (paths, flags, GPUs, etc.).
         run_variables_raw: A dict mapping two-char flags (e.g. "e1") -> raw str (e.g. "01.00p pmp").
 
     Returns:
-        Parameters: Fully constructed and validated."""
+        Parameters: Fully constructed and validated.
+    """
     # 1) Convert each raw string into list[str] by splitting on whitespace:
     run_variables: dict[str, list[str]] = {
         key: split_input_strings(input_val=val) for key, val in run_variables_raw.items()
@@ -347,7 +353,8 @@ def split_input_strings(input_val: str | list[str]) -> list[str]:
     Accept either
         "01.00p pmp"
         ["01.00p", " pmp"]
-    and return ['01.00p', 'pmp']."""
+    and return ['01.00p', 'pmp'].
+    """
     if isinstance(input_val, str):
         parts: list[str] = input_val.strip().split()
     else:
@@ -358,7 +365,8 @@ def split_input_strings(input_val: str | list[str]) -> list[str]:
 def check_and_set_defaults(params: Parameters) -> None:
     """Ensure core_params.tcf and core_params.tuflowexe are set.
     Raises ValueError if missing or empty.
-    Also check gpu flags and computational priority."""
+    Also check gpu flags and computational priority.
+    """
     c: CoreParameters = params.core_params
     if not c.tcf.is_file():
         raise FileNotFoundError(f"TCF file not found: {c.tcf}")
@@ -366,7 +374,7 @@ def check_and_set_defaults(params: Parameters) -> None:
         raise FileNotFoundError(f"TUFLOW exe not found: {c.tuflowexe}")
     if c.computational_priority.upper() not in _PRIORITY_SET:
         raise ValueError(
-            f"Invalid priority: {c.computational_priority}. " f"Must be one of: {', '.join(sorted(_PRIORITY_SET))}"
+            f"Invalid priority: {c.computational_priority}. Must be one of: {', '.join(sorted(_PRIORITY_SET))}"
         )
 
     # Validate gpu_devices if provided
@@ -495,20 +503,23 @@ def filter_parameters(params: dict[str, list[str]], tcf: Path) -> dict[str, list
       1) Drop any flags whose first list-element is blank/whitespace.
       2) Require all ~e?~/~s?~ placeholders from the TCF filename.
       3) Preserve extra -e*/-s* flags not present in the TCF filename.
+
     Args:
         parameters: dict mapping flags ("e1") -> list[str] of values.
         tcf: Path to the TCF template (whose filename has "~e1~", "~e2~", ...).
+
     Returns:
-        A new dict containing only non-empty flags."""
+        A new dict containing only non-empty flags.
+    """
     non_empty: dict[str, list[str]] = {k: v for k, v in params.items() if v and v[0].strip()}
     placeholders: set[str] = set(re.findall(pattern=r"~([es][1-9])~", string=tcf.name, flags=re.IGNORECASE))
-    missing: set[str] = {placeholder.lower() for placeholder in placeholders} - {k.lower() for k in non_empty.keys()}
+    missing: set[str] = {placeholder.lower() for placeholder in placeholders} - {k.lower() for k in non_empty}
     if missing:
         raise ValueError(
             "TCF filename expects placeholders "
             f"{sorted(placeholders)}, but run_variables is missing {sorted(missing)}."
         )
-    extra: set[str] = {k.lower() for k in non_empty.keys()} - {placeholder.lower() for placeholder in placeholders}
+    extra: set[str] = {k.lower() for k in non_empty} - {placeholder.lower() for placeholder in placeholders}
     if extra:
         logging.debug(
             "Passing through run_variables not present in TCF filename: %s.",
@@ -519,7 +530,8 @@ def filter_parameters(params: dict[str, list[str]], tcf: Path) -> dict[str, list
 
 def format_duration(seconds: float) -> str:
     """Convert a duration in seconds into "HH:MM:SS" format.
-    Always zero-pads hours, minutes, and seconds to two digits."""
+    Always zero-pads hours, minutes, and seconds to two digits.
+    """
     total_secs = int(seconds)
     hours, rem = divmod(total_secs, 3600)
     minutes, secs = divmod(rem, 60)
@@ -578,6 +590,7 @@ def export_commands(cmds: list[str], tuflowexe: Path, tcf: Path) -> None:
     - TCF is set once at top
     - Each simulation line uses %TUFLOW_EXE% and %TCF%
     - Finally, append 'Pause' at the end.
+
     Example:
       @echo off
       set "TUFLOW_EXE=C:\\TUFLOW\2025.0.3\\TUFLOW_iSP_w64.exe"
@@ -585,7 +598,8 @@ def export_commands(cmds: list[str], tuflowexe: Path, tcf: Path) -> None:
 
       START /LOW /WAIT "" "%TUFLOW_EXE%" -b -e1 01.00p ... "%TCF%"
       ...
-      Pause"""
+      Pause
+    """
     fn: str = f"{Path(__file__).stem}_commands.txt"
     with open(file=fn, mode="w", encoding="utf-8") as f:
         # 1) Header
@@ -594,8 +608,7 @@ def export_commands(cmds: list[str], tuflowexe: Path, tcf: Path) -> None:
         f.write(f'set "TCF={tcf}"\n\n')
 
         # 2) Each command line, replacing full paths with variables
-        for c in cmds:
-            f.write(c.replace(str(tuflowexe), "%TUFLOW_EXE%").replace(str(tcf), "%TCF%") + "\n")
+        f.writelines(c.replace(str(tuflowexe), "%TUFLOW_EXE%").replace(str(tcf), "%TCF%") + "\n" for c in cmds)
 
         # 3) Pause at the end so user can see the model runs
         f.write("\nPause\n")
@@ -609,7 +622,8 @@ def compute_simulations(params: Parameters) -> list[Simulation]:
     2) Determine key order.
     3) Build all combinations (itertools.product).
     4) Compute max_lengths for padding.
-    5) Call generate_all_args()."""
+    5) Call generate_all_args().
+    """
     core: CoreParameters = params.core_params
     filtered_vars: dict[str, list[str]] = filter_parameters(params=params.run_variables, tcf=core.tcf)
 
@@ -705,7 +719,7 @@ def parse_input_files(files: list[Path]) -> tuple[list[Combo], list[str]]:
         try:
             content: list[str] = f.read_text(encoding="utf-8", errors="ignore").splitlines()
         except Exception as exc:
-            logging.error("Failed to read %s: %s", f, exc)
+            logging.exception("Failed to read %s: %s", f, exc)
             continue
 
         for idx, raw in enumerate(iterable=content, start=1):
@@ -1351,8 +1365,7 @@ def launch_simulations(
 
 
 def run_post_script(script_path: str | Path) -> None:
-    """
-    Launch a follow-up Python script in a separate console, capture its output,
+    """Launch a follow-up Python script in a separate console, capture its output,
     and report success or failure.
 
     * Windows -> new console window (`CREATE_NEW_CONSOLE`)
@@ -1525,7 +1538,7 @@ def main() -> None:
         dump_run_variables(run_vars=params.run_variables)
 
     # De-duplicate at Simulation level (identity ignores GPU placement)
-    sims = list({s: None for s in sims}.keys())
+    sims = list(dict.fromkeys(sims).keys())
     sims.sort(key=lambda s: s.index)  # keep stable order within each builder
     for idx, sim in enumerate(sims, start=1):
         sim.index = idx

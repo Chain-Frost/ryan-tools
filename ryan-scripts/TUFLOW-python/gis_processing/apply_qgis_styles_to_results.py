@@ -1,6 +1,5 @@
 # ryan-scripts\TUFLOW-python\gis_processing\apply_qgis_styles_to_results.py
-"""
-Wrapper Script: TUFLOW Results Styling.
+"""Wrapper Script: TUFLOW Results Styling.
 
 This script acts as a mutable wrapper for `ryan_library.orchestrators.tuflow.tuflow_results_styling`.
 It applies QGIS styles (.qml) to TUFLOW results (rasters/vectors) found in the target directory.
@@ -38,8 +37,7 @@ from ryan_library.orchestrators.tuflow.tuflow_results_styling import TUFLOWResul
 
 
 def main(*, console_log_level: str | None = None, working_directory: Path | None = None) -> int:
-    """
-    Main entry point for the TUFLOW Results Styling script.
+    """Main entry point for the TUFLOW Results Styling script.
 
     This function sets the working directory to the script's location (or CWD),
     initializes the logger, and applies the configured styles using `TUFLOWResultsStyler`.

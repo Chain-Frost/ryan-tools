@@ -1,6 +1,5 @@
 # ryan-scripts\misc-python\clip_las_to_polygon.py
-"""
-Clip all LAS/LAZ files in the target folder to the polygon(s) stored in clip.shp.
+"""Clip all LAS/LAZ files in the target folder to the polygon(s) stored in clip.shp.
 
 Dependencies (install via pip if needed):
     pip install laspy numpy shapely fiona
@@ -9,18 +8,17 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Optional
 
+import fiona
 import laspy
 import numpy as np
-import fiona
+from shapely import vectorized as shapely_vectorized
 from shapely.geometry import shape
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from shapely.prepared import prep
-from shapely.geometry.base import BaseGeometry
-from shapely import vectorized as shapely_vectorized
-
 
 
 def parse_args() -> argparse.Namespace:
@@ -154,7 +152,7 @@ def clip_las_file(
     clipper: PolygonClipper,
     output_dir: Path,
     chunk_size: int,
-) -> Optional[Path]:
+) -> Path | None:
     output_dir.mkdir(parents=True, exist_ok=True)
     target = output_dir / f"{las_path.stem}-CLIP{las_path.suffix}"
     temp = target.with_suffix(target.suffix + ".tmp")

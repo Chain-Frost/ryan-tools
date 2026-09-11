@@ -1,6 +1,5 @@
 # ryan_library/orchestrators/tuflow/tuflow_logsummary.py
-"""
-TUFLOW Log Summary.
+"""TUFLOW Log Summary.
 
 This module parses TUFLOW log files (*.tlf) in parallel to extract simulation metadata and key performance metrics
 (timestamps, errors, warnings, durations).
@@ -9,29 +8,31 @@ It aggregates this information into a summary Excel report.
 
 __lazy_modules__ = ["pandas"]
 
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
+
 import pandas as pd
 from loguru import logger
+
 from ryan_library.functions.dashboard_workflow import run_dashboard_workflow
-from ryan_library.functions.file_utils import find_files_parallel
-from ryan_library.functions.excel_export import ExcelExporter
-from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
-from ryan_library.functions.path_stuff import convert_to_relative_path
-from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowStatus
-from ryan_library.functions.loguru_helpers import LogQueue, setup_logger
-from ryan_library.functions.parse_tlf import (
-    search_for_completion,
-    get_log_lines,
-    process_top_lines,
-    finalise_data,
-    is_complete_tlf,
-)
 from ryan_library.functions.dataframe_helpers import (
     merge_and_sort_data,
     reorder_columns,
 )
+from ryan_library.functions.excel_export import ExcelExporter
+from ryan_library.functions.file_utils import find_files_parallel
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowStatus
+from ryan_library.functions.loguru_helpers import LogQueue, setup_logger
+from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
+from ryan_library.functions.parse_tlf import (
+    finalise_data,
+    get_log_lines,
+    is_complete_tlf,
+    process_top_lines,
+    search_for_completion,
+)
+from ryan_library.functions.path_stuff import convert_to_relative_path
 
 LogSummaryStatus = Literal["OK", "SKIP", "FAIL"]
 
@@ -83,8 +84,7 @@ class LogFileProcessingResult:
 
 
 def process_log_file(logfile: Path) -> pd.DataFrame:
-    """
-    Processes a single log file and returns a DataFrame with the extracted data.
+    """Processes a single log file and returns a DataFrame with the extracted data.
 
     This function attempts to:
       1. Read the log file.
@@ -195,15 +195,12 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
             if not df.empty:
                 logger.debug(df.head())
                 return df
-            else:
-                logger.warning("Finalization failed for {}, skipping", runcode)
-                return pd.DataFrame()
-        else:
-            logger.warning("{} ({}) did not complete, skipping", runcode, success)
+            logger.warning("Finalization failed for {}, skipping", runcode)
             return pd.DataFrame()
-    else:
-        logger.warning("{} did not complete, skipping", runcode)
+        logger.warning("{} ({}) did not complete, skipping", runcode, success)
         return pd.DataFrame()
+    logger.warning("{} did not complete, skipping", runcode)
+    return pd.DataFrame()
 
 
 def main_processing(
@@ -213,8 +210,7 @@ def main_processing(
     live_refresh_per_second: float = 2.0,
     live_max_rows: int = 25,
 ) -> None:
-    """
-    Main function to process log files using multiprocessing.
+    """Main function to process log files using multiprocessing.
 
     Finds all *.tlf files in the current working directory (excluding hpc/gpu logs recursively),
     distributes processing across a process pool, and aggregates the results into an Excel report.

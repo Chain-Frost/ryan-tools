@@ -7,8 +7,8 @@ from __future__ import annotations
 from pathlib import Path
 
 WRAPPER_VERSION = "2026-08-20.2"
-DEFAULT_WORKING_DIR = Path(".")
-DEFAULT_INPUT_DIRECTORY = Path(".")
+DEFAULT_WORKING_DIR = Path()
+DEFAULT_INPUT_DIRECTORY = Path()
 DEFAULT_PATTERNS = ["*.tif"]
 DEFAULT_MIN_LEVEL: float | None = None
 DEFAULT_MAX_LEVEL: float | None = None
@@ -25,13 +25,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 from loguru import logger
 
+from ryan_library.functions.gdal.stage_storage import compute_stage_storage, find_elevation_bounds
 from ryan_library.functions.wrapper_utils import (
     add_execution_cli_arguments,
     change_working_directory,
     pause_console,
     print_wrapper_banner,
 )
-from ryan_library.functions.gdal.stage_storage import compute_stage_storage, find_elevation_bounds
 
 
 def _temporary_output(output_path: Path) -> Path:

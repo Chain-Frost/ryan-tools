@@ -5,8 +5,7 @@ from importlib import import_module
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .maximums_1d import ccAProcessor, CmxProcessor, NmxProcessor
-    from .timeseries_1d import CFProcessor, HProcessor, QProcessor, VProcessor
+    from .maximums_1d import CmxProcessor, NmxProcessor, ccAProcessor
     from .other_processors import (
         ChanProcessor,
         EOFProcessor,
@@ -14,6 +13,7 @@ if TYPE_CHECKING:
         POProcessor,
         RLLQmxProcessor,
     )
+    from .timeseries_1d import CFProcessor, HProcessor, QProcessor, VProcessor
 
 _PROCESSORS = {
     "ccAProcessor": ".maximums_1d",
@@ -31,18 +31,18 @@ _PROCESSORS = {
 }
 
 __all__ = [
-    "ccAProcessor",
-    "CmxProcessor",
-    "NmxProcessor",
     "CFProcessor",
-    "HProcessor",
-    "QProcessor",
-    "VProcessor",
     "ChanProcessor",
+    "CmxProcessor",
     "EOFProcessor",
+    "HProcessor",
+    "NmxProcessor",
     "POMMProcessor",
     "POProcessor",
+    "QProcessor",
     "RLLQmxProcessor",
+    "VProcessor",
+    "ccAProcessor",
 ]
 
 

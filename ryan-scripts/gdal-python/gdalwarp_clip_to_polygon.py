@@ -1,5 +1,4 @@
-"""
-Clips all .tif rasters in a directory to a specified polygon vector datasource.
+"""Clips all .tif rasters in a directory to a specified polygon vector datasource.
 Uses osgeo.gdal.Warp() via the Python GDAL API to perform the clipping.
 """
 
@@ -14,7 +13,7 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT_DIR = Path(".")
+DEFAULT_INPUT_DIR = Path()
 DEFAULT_OUTPUT_DIR = Path(r".\clipped")
 DEFAULT_SHAPEFILE = Path(r".\Result_Trim_Polygon.shp")
 DEFAULT_CRS = "EPSG:28350"
@@ -73,8 +72,7 @@ def select_cutline_layer(cutline_path: Path) -> str | None:
 
 
 def run_gdalwarp(input_file: Path, output_file: Path, cutline_path: Path, cutline_layer: str, crs: str) -> bool:
-    """
-    Run gdal.Warp to clip a raster based on a vector cutline via the GDAL Python API.
+    """Run gdal.Warp to clip a raster based on a vector cutline via the GDAL Python API.
     """
     logger.debug("Running gdalwarp on {}...", input_file.name)
 

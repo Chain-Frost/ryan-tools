@@ -1,12 +1,14 @@
 
 """Unit tests for ryan_library.processors.tuflow.other_processors.RLLQmxProcessor."""
 
-import pytest
-from unittest.mock import MagicMock, patch
-import pandas as pd
 from pathlib import Path
-from ryan_library.processors.tuflow.other_processors.RLLQmxProcessor import RLLQmxProcessor
+from unittest.mock import patch
+
+import pandas as pd
+import pytest
+
 from ryan_library.processors.tuflow.base_processor import ProcessorStatus
+from ryan_library.processors.tuflow.other_processors.RLLQmxProcessor import RLLQmxProcessor
 
 
 class TestRLLQmxProcessor:

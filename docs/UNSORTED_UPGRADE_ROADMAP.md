@@ -63,7 +63,8 @@ justify moving its implementation into `ryan_library`.
 - [x] **ASC-to-ASC raster operations and grouping**
   - Validate non-empty inputs, matching raster dimensions/transforms/CRS, nodata and output dtype behaviour.
   - Avoid partially written final outputs, repeated dataset opening and silently ignored CLI arguments.
-  - Cover maximum, statistics, difference and grouping behaviour with synthetic tests; pass strict Pyright and Black.
+  - Cover maximum, statistics, difference and grouping behaviour with synthetic tests; pass strict Pyright and Ruff
+    formatting.
 - [x] **Vector clipping**
   - Bound concurrency, propagate partial failures, validate input/extents and protect existing or partial outputs.
   - Check layer creation, feature-write return codes, CRS assumptions and GDAL diagnostics; pass strict Pyright.
@@ -78,7 +79,7 @@ justify moving its implementation into `ryan_library`.
   - Validate required columns, empty filters and plot resource cleanup; cover reader/calculation/plot smoke tests.
 - [x] **Candidate-set completion checks**
   - Run focused tests from a pre-created repository-local pytest temp directory.
-  - Run Black, strict Pyright on every changed Python file, compilation, wrapper `--help`, Loguru formatting,
+  - Run Ruff formatting, strict Pyright on every changed Python file, compilation, wrapper `--help`, Loguru formatting,
     documentation checks and `git diff --check`.
   - Record remaining environment-specific checks rather than marking an untested GDAL/QGIS workflow complete.
 

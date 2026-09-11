@@ -1,9 +1,10 @@
 """Tests for ryan_library.functions.lidar_processing."""
 
-import pytest
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-import time
+
+import pytest
 
 from ryan_library.functions import lidar_processing as lp
 

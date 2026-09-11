@@ -53,7 +53,7 @@ def asc_to_asc_executable() -> Path:
     return executable
 
 
-@pytest.fixture()
+@pytest.fixture
 def parity_inputs(tmp_path: Path) -> tuple[Path, ...]:
     """Create clean, aligned, all-valid inputs with deterministic selections."""
     input_directory: Path = tmp_path / "inputs"
@@ -67,7 +67,7 @@ def parity_inputs(tmp_path: Path) -> tuple[Path, ...]:
     for index, array in enumerate(arrays, start=1):
         path: Path = input_directory / f"source_{index}.tif"
         destination = cast(
-            _RasterWriter,
+            "_RasterWriter",
             rasterio.open(  # pyright: ignore[reportUnknownMemberType]
                 fp=path,
                 mode="w",
@@ -92,7 +92,7 @@ def parity_inputs(tmp_path: Path) -> tuple[Path, ...]:
 
 
 def _read_raster_contract(path: Path) -> tuple[np.ndarray, np.ndarray, object, object, float | int | None]:
-    source = cast(_RasterReader, rasterio.open(path))  # pyright: ignore[reportUnknownMemberType]
+    source = cast("_RasterReader", rasterio.open(path))  # pyright: ignore[reportUnknownMemberType]
     try:
         values = source.read(1)
         mask = source.read_masks(1)

@@ -2,16 +2,16 @@
 """Orchestrator for checking missing TUFLOW runs."""
 
 __lazy_modules__: list[str] = ["pandas"]
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 from loguru import logger
 
 from ryan_library.functions.tlf_missing_runs import summarize_for_cli
 
 
 def orchestrate_missing_runs_check(input_path: Path, sheet_name: str | int = 0) -> Path:
-    """
-    Read run-tracking data, check for missing sets, log a summary, and export a CSV.
+    """Read run-tracking data, check for missing sets, log a summary, and export a CSV.
 
     Args:
         input_path: Path to the tracking table (CSV or Excel).

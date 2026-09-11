@@ -147,8 +147,8 @@ Focused automated coverage includes:
 - generic TUFLOW processor selection, location/time filtering, collection data-type filtering, bounded samples and
   processor guidance-resource validity.
 
-After modifying the MCP library, CLI entry points or package metadata, run Black, strict Pyright on modified Python
-files, focused MCP tests, both installed CLI `--help` checks, the documentation checker and
+After modifying the MCP library, CLI entry points or package metadata, run `ruff format`, strict Pyright on modified
+Python files, focused MCP tests, both installed CLI `--help` checks, the documentation checker and
 `python repo-scripts/build_library.py`. Validate the built wheel from a neutral directory so the checkout cannot satisfy
 imports accidentally. Confirm that packaged catalogue metadata loads, repository workflows remain unavailable, and
 `importlib.util.find_spec("ryan_mcp_server")` returns `None`.

@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 import numpy as np
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
@@ -20,11 +20,11 @@ from ryan_library.functions.gdal.raster_processing import (
     read_raster_band,
     sieve_raster,
 )
-from ryan_library.orchestrators.gdal.raster_mosaic import create_grouped_mosaics
 from ryan_library.orchestrators.gdal.raster_merge import (
     merge_directory,
     merge_directory_by_vector_extent,
 )
+from ryan_library.orchestrators.gdal.raster_mosaic import create_grouped_mosaics
 
 
 def test_conversion_sources_describe_the_same_surface(raster_test_data: Path) -> None:

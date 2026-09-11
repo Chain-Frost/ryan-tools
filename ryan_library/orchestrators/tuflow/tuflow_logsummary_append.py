@@ -32,8 +32,7 @@ def append_to_master_log_summary(
     live_refresh_per_second: float = 2.0,
     live_max_rows: int = 25,
 ) -> None:
-    """
-    Append newly completed TUFLOW log rows to an existing master log-summary workbook.
+    """Append newly completed TUFLOW log rows to an existing master log-summary workbook.
 
     The current working directory is searched recursively for ``*.tlf`` files. Files whose parsed
     run code or log path is already present in the workbook table are skipped before the expensive

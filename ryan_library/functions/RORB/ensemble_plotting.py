@@ -86,8 +86,7 @@ def plot_peak_flow_distribution(
     peak_flow_col: str = "PeakFlow",
     duration_col: str = "Duration",
 ) -> None:
-    """
-    Plots the distribution of Peak Flows across different AEPs and Durations.
+    """Plots the distribution of Peak Flows across different AEPs and Durations.
     """
     if df.empty:
         logger.warning("No data to plot for location {}", location)
@@ -138,8 +137,7 @@ def plot_exceedance_duration(
     duration_col: str = "ClosureTime",
     hue_col: str = "CC",
 ) -> None:
-    """
-    Plots the distribution of exceedance durations (closure times) across AEPs.
+    """Plots the distribution of exceedance durations (closure times) across AEPs.
     """
     if df.empty:
         logger.warning("No data to plot for location {}", location)

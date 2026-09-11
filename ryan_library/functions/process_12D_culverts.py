@@ -38,8 +38,7 @@ TxtCulvertRecord = TypedDict(
 
 
 def get_encoding(file_path: Path) -> str:
-    """
-    Determines the encoding of the file based on BOM.
+    """Determines the encoding of the file based on BOM.
 
     Args:
         file_path (Path): Path to the file.
@@ -51,15 +50,13 @@ def get_encoding(file_path: Path) -> str:
         first_bytes = f.read(4)
     if first_bytes.startswith(b"\xff\xfe") or first_bytes.startswith(b"\xfe\xff"):
         return "utf-16"
-    elif first_bytes.startswith(b"\xef\xbb\xbf"):
+    if first_bytes.startswith(b"\xef\xbb\xbf"):
         return "utf-8-sig"
-    else:
-        return "utf-8"
+    return "utf-8"
 
 
 def dms_to_decimal(dms_str: object) -> float:
-    """
-    Converts a DMS (Degrees, Minutes, Seconds) string to decimal degrees.
+    """Converts a DMS (Degrees, Minutes, Seconds) string to decimal degrees.
 
     Args:
         dms_str (str): Angle in DMS format, e.g., "52°10'14"".
@@ -94,8 +91,7 @@ def get_field(upstream_val: object, downstream_val: object, default: None = None
 
 
 def get_field(upstream_val: object, downstream_val: object, default: str | None = None) -> str | None:
-    """
-    Helper function to get the field value from upstream or downstream.
+    """Helper function to get the field value from upstream or downstream.
     Prefers upstream value; if not available, uses downstream value.
 
     Args:
@@ -108,17 +104,15 @@ def get_field(upstream_val: object, downstream_val: object, default: str | None 
     """
     if isinstance(upstream_val, str) and upstream_val.strip():
         return upstream_val.strip()
-    elif isinstance(downstream_val, str) and downstream_val.strip():
+    if isinstance(downstream_val, str) and downstream_val.strip():
         return downstream_val.strip()
-    else:
-        return default
+    return default
 
 
 def extract_numeric[T: (int, float)](
     value: str, field_name: str, culvert_name: str | None, dtype: type[T], default: T
 ) -> T:
-    """
-    Converts a string value to a numeric type with error handling.
+    """Converts a string value to a numeric type with error handling.
 
     Args:
         value (str): The string value to convert.
@@ -138,8 +132,7 @@ def extract_numeric[T: (int, float)](
 
 
 def parse_rpt_file(rpt_file_path: Path) -> list[RptCulvertRecord]:
-    """
-    Parses a .rpt file to extract culvert names and angles.
+    """Parses a .rpt file to extract culvert names and angles.
 
     Args:
         rpt_file_path (Path): Path to the .rpt file.
@@ -163,7 +156,7 @@ def parse_rpt_file(rpt_file_path: Path) -> list[RptCulvertRecord]:
                     full_name = match.group(2).strip()
                     name = full_name.split("->")[-1].strip() if "->" in full_name else full_name
                     name = name.replace("\x00", "").strip()
-                    angle = angle if angle else "0°0'0\""
+                    angle = angle or "0°0'0\""
                     angle_degrees = dms_to_decimal(angle)
                     culverts.append({"Name": name, "Angle": angle, "Angle_Degrees": angle_degrees})
                     logger.debug("Parsed Culvert - Name: {}, Angle: {}, Angle_Degrees: {}", name, angle, angle_degrees)
@@ -174,8 +167,7 @@ def parse_rpt_file(rpt_file_path: Path) -> list[RptCulvertRecord]:
 
 
 def parse_txt_file(txt_file_path: Path) -> list[TxtCulvertRecord]:
-    """
-    Parses a .txt file to extract detailed culvert information.
+    """Parses a .txt file to extract detailed culvert information.
 
     Args:
         txt_file_path (Path): Path to the .txt file.
@@ -291,8 +283,7 @@ def parse_txt_file(txt_file_path: Path) -> list[TxtCulvertRecord]:
 
 
 def combine_data(rpt_data: list[RptCulvertRecord], txt_data: list[TxtCulvertRecord]) -> pd.DataFrame:
-    """
-    Combines .rpt and .txt data based on the 'Name' field.
+    """Combines .rpt and .txt data based on the 'Name' field.
 
     Args:
         rpt_data: Data from .rpt files.
@@ -328,8 +319,7 @@ def combine_data(rpt_data: list[RptCulvertRecord], txt_data: list[TxtCulvertReco
 
 
 def process_culvert_files(rpt_files: list[Path], txt_files: list[Path]) -> pd.DataFrame:
-    """
-    Processes all .rpt and .txt files and combines their data.
+    """Processes all .rpt and .txt files and combines their data.
 
     Args:
         rpt_files (list[Path]): List of paths to .rpt files.
@@ -362,8 +352,7 @@ def process_culvert_files(rpt_files: list[Path], txt_files: list[Path]) -> pd.Da
 
 
 def process_multiple_files(directory: Path) -> pd.DataFrame:
-    """
-    Processes all .rpt and .txt files in the specified directory.
+    """Processes all .rpt and .txt files in the specified directory.
 
     Args:
         directory (Path): Path to the directory containing the files.
@@ -383,8 +372,7 @@ def process_multiple_files(directory: Path) -> pd.DataFrame:
 
 
 def report_missing_culverts(combined_df: pd.DataFrame) -> None:
-    """
-    Reports culverts that are missing in either .rpt or .txt data.
+    """Reports culverts that are missing in either .rpt or .txt data.
 
     Args:
         combined_df (pd.DataFrame): Combined DataFrame.
@@ -409,8 +397,7 @@ def report_missing_culverts(combined_df: pd.DataFrame) -> None:
 
 
 def clean_and_convert(combined_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Cleans and converts numerical columns to appropriate data types.
+    """Cleans and converts numerical columns to appropriate data types.
 
     Args:
         combined_df (pd.DataFrame): Combined DataFrame.
@@ -447,8 +434,7 @@ def clean_and_convert(combined_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_combined_df_from_files(directory: Path) -> pd.DataFrame:
-    """
-    Public function to process .rpt and .txt files and obtain combined_df.
+    """Public function to process .rpt and .txt files and obtain combined_df.
 
     Args:
         directory (Path): Path to the directory containing the files.
@@ -469,8 +455,7 @@ def get_combined_df_from_files(directory: Path) -> pd.DataFrame:
 
 
 def get_combined_df_from_csv(csv_path: Path) -> pd.DataFrame:
-    """
-    Public function to load combined_df from a CSV file.
+    """Public function to load combined_df from a CSV file.
 
     Args:
         csv_path (Path): Path to the combined_culverts.csv file.

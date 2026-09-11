@@ -1,12 +1,9 @@
 """Tests for ryan_library.functions.dashboard_workflow."""
 
-import pytest
-from multiprocessing.pool import ApplyResult
 import queue
-from collections.abc import Callable
 
-from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowStatus
 from ryan_library.functions import dashboard_workflow as dw
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowStatus
 
 
 def dummy_process_item(item: int) -> str:

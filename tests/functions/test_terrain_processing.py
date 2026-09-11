@@ -1,10 +1,12 @@
 """Tests for ryan_library.functions.terrain_processing."""
 
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pandas as pd
-import pytest
-from unittest.mock import MagicMock, patch, call
+
 from ryan_library.functions import terrain_processing
+
 
 class TestTileData:
     def test_tile_data_exact_fit(self):

@@ -1,5 +1,4 @@
-"""
-Audit QGIS Project (.qgz) files to find broken data source paths.
+"""Audit QGIS Project (.qgz) files to find broken data source paths.
 
 This script scans a directory for .qgz files, extracts the layer data sources,
 and checks if they exist on disk. It reports any missing or broken paths.
@@ -18,9 +17,10 @@ from xml.etree import ElementTree
 from zipfile import ZipFile
 
 WRAPPER_VERSION = "2026-08-20.2"
-DEFAULT_WORKING_DIR = Path(".")
+DEFAULT_WORKING_DIR = Path()
 
 from loguru import logger
+
 from ryan_library.functions.wrapper_utils import (
     add_execution_cli_arguments,
     change_working_directory,

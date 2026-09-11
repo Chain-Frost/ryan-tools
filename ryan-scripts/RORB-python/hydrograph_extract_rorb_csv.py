@@ -11,13 +11,14 @@ adapting it to a different RORB naming convention.
 """
 
 import os
-from pathlib import Path
-import pandas as pd
-from datetime import datetime
 import re
 import sys
+from datetime import datetime
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import pandas as pd
 
 # --- User Configuration ---
 # Specify the hydrograph to process. Set to None to trigger dynamic selection.
@@ -26,8 +27,7 @@ selected_hydrograph = "Calculated hydrograph:  Outlet"  # Example: "Calculated h
 
 
 def extract_metadata_from_filename(file_name):
-    """
-    Extract Creek Name, AEP, Duration, and TP from the filename.
+    """Extract Creek Name, AEP, Duration, and TP from the filename.
     Expected filename patterns:
       - PinarraCreek_01_ aep1_du12hourtp2.csv
       - Boolgeeda_03_ aep1_du12hourtp10.csv
@@ -57,13 +57,11 @@ def extract_metadata_from_filename(file_name):
         duration = f"du{match.group('duration')}hour"
         tp = f"tp{match.group('tp')}"
         return creek_name, aep, duration, tp
-    else:
-        return None, None, None, None
+    return None, None, None, None
 
 
 def import_data(script_directory, selected_combinations, selected_hydrograph):
-    """
-    Import and aggregate hydrograph data from CSV files.
+    """Import and aggregate hydrograph data from CSV files.
 
     Parameters:
         script_directory (str): Path to the script directory.
@@ -133,7 +131,7 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
             print(f"No hydrograph columns found in {file_name}. Skipping.")
             continue  # Skip files without hydrograph data
 
-        elif len(hydrograph_columns) == 1:
+        if len(hydrograph_columns) == 1:
             # Only one hydrograph present; proceed to process it
             selected_column = hydrograph_columns[0]
 
@@ -233,8 +231,7 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
 
 
 def create_plot(combined_df, aep_mapping, creek_name, script_directory):
-    """
-    Create and save a hydrograph plot based on the combined DataFrame.
+    """Create and save a hydrograph plot based on the combined DataFrame.
 
     Parameters:
         combined_df (pd.DataFrame): Combined hydrograph data.

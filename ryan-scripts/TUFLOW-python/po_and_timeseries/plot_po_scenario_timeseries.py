@@ -14,15 +14,16 @@ the comparison.
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-from matplotlib.cm import ScalarMappable
-from matplotlib.colors import Normalize
+import matplotlib.pyplot as plt
 import pandas as pd
 from loguru import logger
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 from pandas import DataFrame, Series
 
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
@@ -53,7 +54,7 @@ def find_po_files(root: Path) -> list[Path]:
     if not root.is_dir():
         raise FileNotFoundError(f"TUFLOW root does not exist: {root}")
     files: list[Path] = sorted({path for path in root.rglob(FILE_PATTERN) if path.is_file()})
-    logger.info("Found {} PO files matching pattern {}".format(len(files), FILE_PATTERN))
+    logger.info("Found {} PO files matching pattern {}", len(files), FILE_PATTERN)
     return files
 
 
@@ -69,11 +70,11 @@ def process_files_sequentially(files: list[Path]) -> ProcessorCollection:
                 processor.filter_locations(locations=normalized_locations)
             if processor.processed:
                 collection.add_processor(processor=processor)
-                logger.success("({}/{}) Processed {}".format(index, total, processor.log_path))
+                logger.success("({}/{}) Processed {}", index, total, processor.log_path)
             else:
-                logger.warning("({}/{}) Processor finished without data: {}".format(index, total, processor.log_path))
+                logger.warning("({}/{}) Processor finished without data: {}", index, total, processor.log_path)
         except Exception:
-            logger.exception("({}/{}) Failed to process {}".format(index, total, file_path))
+            logger.exception("({}/{}) Failed to process {}", index, total, file_path)
     return collection
 
 
@@ -87,7 +88,7 @@ def filter_internal_name(df: pd.DataFrame) -> pd.DataFrame:
     )
     filtered: DataFrame = df.loc[mask].copy()
     if filtered.empty:
-        logger.warning("Substring '{}' removed all rows; returning original frame.".format(INTERNAL_NAME_FILTER))
+        logger.warning("Substring '{}' removed all rows; returning original frame.", INTERNAL_NAME_FILTER)
         return df
     return filtered
 
@@ -96,7 +97,7 @@ def load_po_dataframe() -> pd.DataFrame:
     if LOAD_FROM_PARQUET:
         if not PARQUET_PATH.is_file():
             raise FileNotFoundError(f"Parquet file not found at {PARQUET_PATH}")
-        logger.info("Loading cached parquet {}".format(PARQUET_PATH))
+        logger.info("Loading cached parquet {}", PARQUET_PATH)
         df: DataFrame = pd.read_parquet(path=PARQUET_PATH)
         return filter_internal_name(df=df)
 
@@ -104,7 +105,7 @@ def load_po_dataframe() -> pd.DataFrame:
     if not files:
         raise RuntimeError("No PO files matched the specified pattern.")
 
-    logger.info("Sequentially processing {} file(s)...".format(len(files)))
+    logger.info("Sequentially processing {} file(s)...", len(files))
     collection: ProcessorCollection = process_files_sequentially(files)
     if not collection.processors:
         raise RuntimeError("Processing finished but produced no data.")
@@ -116,7 +117,7 @@ def load_po_dataframe() -> pd.DataFrame:
     filtered: DataFrame = filter_internal_name(combined)
     PARQUET_PATH.parent.mkdir(parents=True, exist_ok=True)
     filtered.to_parquet(PARQUET_PATH, index=False)
-    logger.success("Saved {:,} filtered rows to {}".format(len(filtered), PARQUET_PATH))
+    logger.success("Saved {:,} filtered rows to {}", len(filtered), PARQUET_PATH)
     return filtered
 
 
@@ -248,7 +249,7 @@ def plot_timeseries(df: pd.DataFrame) -> None:
     for location in available:
         location_subset = subset[subset["Location"] == location]
         if location_subset.empty:
-            logger.warning("Location '{}' configured for plotting but has no available data.".format(location))
+            logger.warning("Location '{}' configured for plotting but has no available data.", location)
             continue
 
         fig, ax = plt.subplots(figsize=(12, 5))
@@ -311,7 +312,7 @@ def main() -> None:
         common_root: Path = repo_root
     os.chdir(common_root)
     df: DataFrame = load_po_dataframe()
-    logger.info("DataFrame ready with {:,} rows and {} columns.".format(len(df), len(df.columns)))
+    logger.info("DataFrame ready with {:,} rows and {} columns.", len(df), len(df.columns))
     plot_timeseries(df)
 
 

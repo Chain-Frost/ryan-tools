@@ -12,9 +12,9 @@ or unexpected record is reported with its source line number.
 
 from __future__ import annotations
 
-from _csv import Writer
 import csv
 import logging
+from _csv import Writer
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -36,8 +36,7 @@ def parse_tin_file(
     path: Path,
     logger: logging.Logger | None = None,
 ) -> set[tuple[float, float, float]]:
-    """
-    Parse a TIN text file and return a set of unique (x, y, z) points.
+    """Parse a TIN text file and return a set of unique (x, y, z) points.
 
     Expected repeating structure:
 
@@ -87,7 +86,7 @@ def parse_tin_file(
                 parts: list[str] = [p.strip() for p in line.split(",")]
                 if len(parts) != 3:
                     raise ParseError(
-                        f"Line {line_no}: expected 'x,y,z' with three comma-separated " f"values, got {line!r}"
+                        f"Line {line_no}: expected 'x,y,z' with three comma-separated values, got {line!r}"
                     )
 
                 try:
@@ -121,8 +120,7 @@ def write_points_to_csv(
     points: Iterable[tuple[float, float, float]],
     output_path: Path,
 ) -> None:
-    """
-    Write (x, y, z) points to a CSV with header: X,Y,Z.
+    """Write (x, y, z) points to a CSV with header: X,Y,Z.
     """
     with output_path.open(mode="w", newline="", encoding="utf-8") as f:
         writer: Writer = csv.writer(f)

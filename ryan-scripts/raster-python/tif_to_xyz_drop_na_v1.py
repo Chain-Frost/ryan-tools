@@ -10,15 +10,16 @@ the chunked v2 script for large rasters, and test coordinate ordering on a small
 input first.
 """
 
-from concurrent.futures._base import Future
 import os
 import subprocess
-import pandas as pd
-import numpy as np
-import rasterio  # type: ignore
-from glob import iglob
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures._base import Future
 from datetime import datetime
+from glob import iglob
+
+import numpy as np
+import pandas as pd
+import rasterio  # type: ignore
 
 # Set this flag to True if you want to drop rows with missing z values
 DROP_NA = True  # Change to True to drop rows with missing z's instead of filling them
@@ -88,7 +89,7 @@ def process_tif_file(file: str) -> None:
         print(f"Finished processing {file} and saved as {output_file}")
 
     except Exception as e:
-        print(f"Error processing {file}: {str(e)}")
+        print(f"Error processing {file}: {e!s}")
 
 
 if __name__ == "__main__":

@@ -1,13 +1,12 @@
 """Additional coverage tests for pomm_utils."""
 
-import pytest
-import pandas as pd
-from pandas import DataFrame
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
-from ryan_library.functions.tuflow import pomm_utils
+import pandas as pd
+
 from ryan_library.classes.column_definitions import ColumnMetadataRegistry
+from ryan_library.functions.tuflow import pomm_utils
 
 
 class TestSelectInternalNames:
@@ -38,7 +37,7 @@ class TestCombineDFFromPaths:
         mock_pc.processors = []
         mock_combine.return_value = mock_pc
 
-        df = pomm_utils.combine_df_from_paths([Path(".")])
+        df = pomm_utils.combine_df_from_paths([Path()])
         assert df.empty
 
 

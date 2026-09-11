@@ -1,5 +1,4 @@
-"""
-Finds primary raster files (e.g., .flt) that are missing their secondary counterpart
+"""Finds primary raster files (e.g., .flt) that are missing their secondary counterpart
 (e.g., .tif) or where the primary file is newer than the secondary file.
 
 Outputs a text file listing all missing/older secondary files. Useful for QA
@@ -17,7 +16,7 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT_DIR = Path(".")
+DEFAULT_INPUT_DIR = Path()
 DEFAULT_OUTPUT_FILE = Path("missing_tifs.txt")
 DEFAULT_PRIMARY_EXT = ".flt"
 DEFAULT_SECONDARY_EXT = ".tif"
@@ -122,8 +121,7 @@ def main(*, input_directories: PathOrList | None = None) -> int:
 
     try:
         with open(file=output_file, mode="w") as file:
-            for item in all_missing_files:
-                file.write(f"{item}\n")
+            file.writelines(f"{item}\n" for item in all_missing_files)
         logger.success("Output written to {} with {} entries.", output_file.name, len(all_missing_files))
     except OSError:
         logger.exception("Error writing to file {}", output_file.name)

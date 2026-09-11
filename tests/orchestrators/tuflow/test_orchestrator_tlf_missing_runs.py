@@ -1,8 +1,9 @@
 """Tests for tlf_missing_runs orchestrator."""
 
-import pandas as pd
 from pathlib import Path
 from unittest.mock import patch
+
+import pandas as pd
 
 from ryan_library.orchestrators.tuflow.tlf_missing_runs import orchestrate_missing_runs_check
 

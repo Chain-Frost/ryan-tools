@@ -1,17 +1,18 @@
 """Unit tests for ryan_library.functions.parse_tlf."""
 
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
-from pathlib import Path
-from datetime import datetime
+
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.parse_tlf import (
+    finalise_data,
     get_log_lines,
     is_complete_tlf,
     process_top_lines,
-    search_from_top,
     search_for_completion,
-    finalise_data,
+    search_from_top,
 )
 
 

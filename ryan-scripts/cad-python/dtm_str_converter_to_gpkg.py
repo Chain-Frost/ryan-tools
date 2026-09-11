@@ -47,7 +47,7 @@ SCRIPT_DIR: Path = Path(__file__).resolve().parent
 DEFAULT_BASE_DIR: Path = SCRIPT_DIR
 DEFAULT_DTM_FILE: Path | None = None
 DEFAULT_STR_FILE: Path = Path("bhsite2403.str")
-DEFAULT_OUTPUT_DIR: Path = Path(".")
+DEFAULT_OUTPUT_DIR: Path = Path()
 DEFAULT_CRS: str = "EPSG:28351"
 DEFAULT_EXPORT_GEOPACKAGE: bool = True
 DEFAULT_EXPORT_EXCEL: bool = False
@@ -234,7 +234,6 @@ def read_input_bytes(file_path: Path, file_description: str) -> bytes:
 
 def decode_ascii_lines(raw_data: bytes, file_path: Path, file_description: str) -> list[str]:
     """Validate and decode an already-read ASCII Surpac input."""
-
     unsupported_control_bytes: list[int] = [byte for byte in raw_data if byte < 32 and byte not in ASCII_CONTROL_BYTES]
     if unsupported_control_bytes:
         raise ConverterInputError(f"{file_description} file appears to be binary, not ASCII text: {file_path}")
@@ -757,7 +756,7 @@ def create_polygons(
     progress_interval: int = DEFAULT_PROGRESS_INTERVAL,
 ) -> gpd.GeoDataFrame:
     point_geom_map: dict[int, Point] = {
-        int(point_number): cast(Point, geometry)
+        int(point_number): cast("Point", geometry)
         for point_number, geometry in zip(gdf_points["point_number"], gdf_points.geometry)
     }
 
@@ -801,7 +800,7 @@ def export_to_excel(df: pd.DataFrame, output_path: Path) -> None:
 def print_preview(title: str, df: pd.DataFrame) -> None:
     print(f"{title}:")
     print(df.head())
-    print("")
+    print()
 
 
 def run_conversion(config: ConverterConfig) -> None:
@@ -817,7 +816,7 @@ def run_conversion(config: ConverterConfig) -> None:
         print(f"DTM input: {dtm_file_path if dtm_file_path is not None else 'none'}")
         print(f"STR input: {str_file_path}")
         print(f"Output directory: {output_dir}")
-        print("")
+        print()
 
     df_str, str_format = read_str_file_with_format(str_file_path)
     if config.verbose:
@@ -825,7 +824,7 @@ def run_conversion(config: ConverterConfig) -> None:
         print_preview("Processed STR DataFrame", df_str)
         print("STR groups:")
         print(df_str["group"].unique())
-        print("")
+        print()
 
     gdf_points: gpd.GeoDataFrame = create_points_gdf(df_str, crs_definition)
     if config.verbose:

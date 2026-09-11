@@ -36,7 +36,7 @@ assume every script is intended to become maintained library code.
   checks are listed, and encourage focused tests or reproduction steps when behaviour changes.
 - **Documentation**: Confirm that user-facing behaviour changes include README or script docstring
   updates so that automation and humans can follow the workflow.
-- **Standards**: Watch for style issues (Black formatting with 120 character lines, type hints on
+- **Standards**: Watch for style issues (Ruff formatting with 120 character lines, type hints on
   public functions, absolute imports) and mention them when missing.
 - **Scope**: Preserve project-specific settings in wrappers, avoid expanding deprecated APIs, and distinguish a focused
   repair from an unsolicited architectural migration.

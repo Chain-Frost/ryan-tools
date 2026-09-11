@@ -1,6 +1,5 @@
 # ryan_library/orchestrators/tuflow/_combination_workflow.py
-"""
-Internal helper for orchestrating TUFLOW combination workflows (PO, POMM, etc.).
+"""Internal helper for orchestrating TUFLOW combination workflows (PO, POMM, etc.).
 
 This module extracts the shared workflow of parsing directories, executing processors in parallel,
 and exporting combined datasets to keep the public orchestrator entry points focused.
@@ -8,21 +7,21 @@ and exporting combined datasets to keep the public orchestrator entry points foc
 
 __lazy_modules__: list[str] = ["pandas"]
 
-from collections.abc import Collection, Sequence
+from collections.abc import Callable, Collection, Sequence
 from pathlib import Path
-from typing import Literal, Callable, Protocol
+from typing import Literal, Protocol
 
 import pandas as pd
 from loguru import logger
 
+from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
+from ryan_library.functions.excel_export import ExcelExporter
+from ryan_library.functions.file_utils import ensure_output_directory
+from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
+from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-from ryan_library.functions.file_utils import ensure_output_directory
-from ryan_library.functions.excel_export import ExcelExporter
-from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 
 
 class CombinationResults(Protocol):
@@ -55,8 +54,7 @@ def execute_combination_workflow(
     locations_to_include: Collection[str] | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
-    """
-    Generate merged data and export the results.
+    """Generate merged data and export the results.
 
     Args:
         paths_to_process: Directories to search for files.
@@ -102,7 +100,7 @@ def execute_combination_workflow(
             file_list=csv_file_list,
             log_queue=log_queue,
             log_level=console_log_level,
-            entity_filters=normalized_locations if normalized_locations else None,
+            entity_filters=normalized_locations or None,
         )
 
         export_results(results=results_set, export_mode=export_mode)

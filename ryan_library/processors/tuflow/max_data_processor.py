@@ -15,7 +15,6 @@ class MaxDataProcessor(BaseProcessor):
 
     def read_maximums_csv(self) -> ProcessorStatus:
         """Read a ``Maximums``/``ccA`` CSV into :attr:`df` using configuration metadata."""
-
         usecols: list[str] = list(self.columns_to_use.keys())
         dtype_mapping: dict[str, str] = {column: dtype for column, dtype in self.columns_to_use.items() if dtype}
 
@@ -30,7 +29,7 @@ class MaxDataProcessor(BaseProcessor):
             read_csv_kwargs["dtype"] = dtype_mapping
 
         try:
-            df = cast(pd.DataFrame, pd.read_csv(**read_csv_kwargs))
+            df = cast("pd.DataFrame", pd.read_csv(**read_csv_kwargs))
             logger.debug("CSV file '{}' read successfully with {} rows.", self.file_name, len(df))
         except Exception as exc:
             logger.exception(f"{self.file_name}: Failed to read CSV file '{self.log_path}': {exc}")

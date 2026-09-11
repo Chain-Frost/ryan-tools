@@ -10,10 +10,11 @@ running it as a script. Treat the plots and printed result as calculation aids;
 confirm inputs and applicability against the governing ARR guidance.
 """
 
-import pandas as pd
-import matplotlib.pyplot as plt
 import math
 import warnings
+
+import matplotlib.pyplot as plt
+import pandas as pd
 
 # Parameters ---------------------------------------------------------------
 
@@ -91,9 +92,8 @@ params = pd.DataFrame(params_data, index=list("abcdefghi"))
 # Functions ---------------------------------------------------------------
 
 
-def ARF_long(area, duration, aep, region, params_df) -> None | int:
-    """
-    Calculate the long-duration ARF.
+def ARF_long(area, duration, aep, region, params_df) -> int | None:
+    """Calculate the long-duration ARF.
 
     Parameters:
     - area (float): Area in km-squared
@@ -136,8 +136,7 @@ def ARF_long(area, duration, aep, region, params_df) -> None | int:
 
 
 def ARF_short(area, duration, aep) -> int | None:
-    """
-    Calculate the short-duration ARF.
+    """Calculate the short-duration ARF.
 
     Parameters:
     - area (float): Area in km-squared
@@ -174,8 +173,7 @@ def ARF_short(area, duration, aep) -> int | None:
 
 
 def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
-    """
-    Calculate the Areal Reduction Factor (ARF).
+    """Calculate the Areal Reduction Factor (ARF).
 
     Parameters:
     - area (float): Area in km-squared
@@ -225,16 +223,15 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
             arf_long = ARF_long(area, duration, aep_frac, region, params_df)
             return arf_long
 
-        else:
-            # area < 10: interpolate between ARF_long for 10 km² and 1
-            if region is None or params_df is None:
-                warnings.warn("Region and params must be provided for interpolation.")
-                return None
-            arf_long_10 = ARF_long(10, duration, aep_frac, region, params_df)
-            if arf_long_10 is None:
-                return None
-            arf = 1 - 0.6614 * (1 - arf_long_10) * (area**0.4 - 1)
-            return arf
+        # area < 10: interpolate between ARF_long for 10 km² and 1
+        if region is None or params_df is None:
+            warnings.warn("Region and params must be provided for interpolation.")
+            return None
+        arf_long_10 = ARF_long(10, duration, aep_frac, region, params_df)
+        if arf_long_10 is None:
+            return None
+        arf = 1 - 0.6614 * (1 - arf_long_10) * (area**0.4 - 1)
+        return arf
 
     # Short Duration: duration <= 720 minutes (12 hours)
     if duration <= 720:
@@ -251,13 +248,12 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
                 arf_short = max(0, arf_short)
             return arf_short
 
-        else:
-            # area < 10: interpolate between ARF_short for 10 km² and 1
-            arf_short_10 = ARF_short(10, duration, aep_frac)
-            if arf_short_10 is None:
-                return None
-            arf = 1 - 0.6614 * (1 - arf_short_10) * (area**0.4 - 1)
-            return arf
+        # area < 10: interpolate between ARF_short for 10 km² and 1
+        arf_short_10 = ARF_short(10, duration, aep_frac)
+        if arf_short_10 is None:
+            return None
+        arf = 1 - 0.6614 * (1 - arf_short_10) * (area**0.4 - 1)
+        return arf
 
     # Duration between 720 and 1440 minutes
     if 720 < duration < 1440:
@@ -270,7 +266,7 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
             arf_interp_10 = arf_short_12 + (arf_long_24 - arf_short_12) * (duration - 720) / 720
             arf = 1 - 0.6614 * (1 - arf_interp_10) * (area**0.4 - 1)
             return arf
-        elif area >= 10:
+        if area >= 10:
             # Interpolate ARF for duration between 720 and 1440 for area >= 10
             arf_long_24 = ARF_long(area, 1440, aep_frac, region, params_df)
             arf_short_12 = ARF_short(area, 720, aep_frac)
@@ -285,8 +281,7 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
 
 
 def plot_arf_for_northern_coastal(params_df: pd.DataFrame) -> None:
-    """
-    Plot ARF (Areal Reduction Factor) against area for varying AEPs and discrete durations for 'Northern Coastal' region.
+    """Plot ARF (Areal Reduction Factor) against area for varying AEPs and discrete durations for 'Northern Coastal' region.
 
     Parameters:
     - params_df (pd.DataFrame): DataFrame containing parameters a-i for all regions
@@ -314,15 +309,14 @@ def plot_arf_for_northern_coastal(params_df: pd.DataFrame) -> None:
     # Label plot
     plt.xlabel("Area (km²)")
     plt.ylabel("ARF")
-    plt.title(f"ARF vs Area for 'Northern Coastal' Region (Varying AEP, Discrete Durations)")
+    plt.title("ARF vs Area for 'Northern Coastal' Region (Varying AEP, Discrete Durations)")
     plt.legend(title="AEP (%)")
     plt.grid(True)
     plt.show()
 
 
 def plot_arf_for_northern_coastal_by_duration(params_df: pd.DataFrame) -> None:
-    """
-    Plot ARF (Areal Reduction Factor) against area for varying durations and a fixed AEP for 'Northern Coastal' region.
+    """Plot ARF (Areal Reduction Factor) against area for varying durations and a fixed AEP for 'Northern Coastal' region.
 
     Parameters:
     - params_df (pd.DataFrame): DataFrame containing parameters a-i for all regions
@@ -347,7 +341,7 @@ def plot_arf_for_northern_coastal_by_duration(params_df: pd.DataFrame) -> None:
     # Label plot
     plt.xlabel("Area (km²)")
     plt.ylabel("ARF")
-    plt.title(f"ARF vs Area for 'Northern Coastal' Region (Fixed AEP = 5%, Varying Durations)")
+    plt.title("ARF vs Area for 'Northern Coastal' Region (Fixed AEP = 5%, Varying Durations)")
     plt.legend(title="Duration (mins)")
     plt.grid(True)
     plt.show()

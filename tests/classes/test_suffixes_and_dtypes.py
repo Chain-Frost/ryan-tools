@@ -1,14 +1,13 @@
 """Unit tests for ryan_library.classes.suffixes_and_dtypes."""
 
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 from ryan_library.classes.suffixes_and_dtypes import (
-    ProcessingParts,
-    DataTypeDefinition,
     Config,
+    DataTypeDefinition,
+    ProcessingParts,
     SuffixesConfig,
-    ConfigLoader,
 )
 
 

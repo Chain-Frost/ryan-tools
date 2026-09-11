@@ -1,5 +1,4 @@
-"""
-Rebuilds and shrinks all GeoPackage (.gpkg) databases in the target directories.
+"""Rebuilds and shrinks all GeoPackage (.gpkg) databases in the target directories.
 Uses Python's native sqlite3 library to run the VACUUM command without needing
 QGIS, GDAL, or OSGeo4W environments.
 """
@@ -15,7 +14,7 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT_DIR = Path(".")
+DEFAULT_INPUT_DIR = Path()
 # ==============================================================================
 
 import argparse

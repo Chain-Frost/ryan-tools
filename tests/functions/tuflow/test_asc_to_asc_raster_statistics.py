@@ -16,6 +16,8 @@ from ryan_library.functions.gdal.raster_processing import read_raster_band
 from ryan_library.functions.tuflow.tuflow_result_naming import replace_filename_component
 from ryan_library.orchestrators.tuflow.asc2asc_max_by_search import (
     build_max_searches,
+)
+from ryan_library.orchestrators.tuflow.asc2asc_max_by_search import (
     discover_max_jobs as discover_search_max_jobs,
 )
 from ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search import (
@@ -118,9 +120,9 @@ def test_discovered_mean_inputs_match_expected_pixel_values(raster_test_data: Pa
     calculated = np.mean(np.stack(arrays), axis=0)
 
     expected_document = cast(
-        dict[str, object], json.loads((raster_test_data / "expected.json").read_text(encoding="utf-8"))
+        "dict[str, object]", json.loads((raster_test_data / "expected.json").read_text(encoding="utf-8"))
     )
-    statistics = cast(dict[str, dict[str, dict[str, dict[str, float]]]], expected_document["tuflow_statistics"])
+    statistics = cast("dict[str, dict[str, dict[str, dict[str, float]]]]", expected_document["tuflow_statistics"])
     expected = statistics["DEV/V_Max"]["00060m"]
     assert calculated[0, 0] == pytest.approx(expected["cell_0_0_mean"])
     assert calculated[3, 3] == pytest.approx(expected["cell_3_3_mean"])

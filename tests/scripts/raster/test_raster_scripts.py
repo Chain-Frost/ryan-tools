@@ -5,8 +5,8 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import shutil
+from pathlib import Path
 from types import ModuleType
 
 import pytest

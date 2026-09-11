@@ -1,9 +1,9 @@
 """Coverage tests for POProcessor."""
 
-import pytest
-import pandas as pd
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import patch
+
+import pandas as pd
 
 from ryan_library.processors.tuflow.other_processors.POProcessor import POProcessor
 

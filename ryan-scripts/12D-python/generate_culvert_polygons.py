@@ -10,18 +10,20 @@ Review the generated placement and dimensions in GIS before use; the script's
 geometry placement is explicitly not considered fully polished.
 """
 
-import pandas as pd
-import geopandas as gpd
-from shapely.geometry import Polygon, LineString
-from loguru import logger
-from ryan_library.functions.process_12D_culverts import get_combined_df_from_csv
 import os
-from shapely import affinity
 from math import atan2, degrees
 from pathlib import Path
+
+import geopandas as gpd
+import pandas as pd
+from loguru import logger
+from shapely import affinity
+from shapely.geometry import LineString, Polygon
+
 from ryan_library.functions.loguru_helpers import (
     setup_logger,
 )
+from ryan_library.functions.process_12D_culverts import get_combined_df_from_csv
 
 """In progress, it works but not properly polished.
 Need to adjust the placement, and also make some more of 
@@ -67,8 +69,7 @@ def main():
 
 
 def create_rectangle(width, length):
-    """
-    Creates a rectangle centered at (0,0).
+    """Creates a rectangle centered at (0,0).
 
     Args:
         width (float): Width of the rectangle.
@@ -90,8 +91,7 @@ def create_rectangle(width, length):
 
 
 def rotate_and_translate(polygon, rotation_angle, x, y):
-    """
-    Rotates and translates a polygon.
+    """Rotates and translates a polygon.
 
     Args:
         polygon (Polygon): The shapely Polygon to transform.
@@ -110,8 +110,7 @@ def rotate_and_translate(polygon, rotation_angle, x, y):
 
 
 def create_linestring(us_x, us_y, ds_x, ds_y):
-    """
-    Creates a LineString from upstream to downstream coordinates.
+    """Creates a LineString from upstream to downstream coordinates.
 
     Args:
         us_x (float): Upstream X-coordinate.
@@ -126,8 +125,7 @@ def create_linestring(us_x, us_y, ds_x, ds_y):
 
 
 def generate_geometries(combined_df):
-    """
-    Generates inlet and outlet polygons and culvert lines based on combined_df.
+    """Generates inlet and outlet polygons and culvert lines based on combined_df.
 
     Args:
         combined_df (pd.DataFrame): Combined DataFrame with culvert information.

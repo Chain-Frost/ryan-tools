@@ -1,24 +1,19 @@
 """Tests for ryan_library.orchestrators.tuflow.tuflow_culverts_mean."""
 
-import pytest
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
-from pathlib import Path
-from unittest.mock import patch, MagicMock
+import pytest
 
 from ryan_library.orchestrators.tuflow.tuflow_culverts_mean import (
-    run_culvert_mean_report,
-    run_culvert_median_report,
+    _find_culvert_aep_dur_statistic,
+    _find_culvert_aep_statistic_max,
+    _group_key_values,
+    _preferred_metric_column,
     _run_culvert_statistic_report,
     find_culvert_aep_dur_mean,
     find_culvert_aep_dur_median,
     find_culvert_aep_mean_max,
-    find_culvert_aep_median_max,
-    _find_culvert_aep_dur_statistic,
-    _find_culvert_aep_statistic_max,
-    _preferred_metric_column,
-    _group_columns,
-    _ordered_columns,
-    _group_key_values,
 )
 
 

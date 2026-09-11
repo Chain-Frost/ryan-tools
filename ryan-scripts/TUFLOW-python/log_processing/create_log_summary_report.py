@@ -1,6 +1,5 @@
 # ryan-scripts\TUFLOW-python\log_processing\create_log_summary_report.py
-"""
-Wrapper Script: TUFLOW Log Summary.
+"""Wrapper Script: TUFLOW Log Summary.
 
 This script acts as a mutable wrapper for `tuflow_logsummary.main_processing`.
 It finds and parses TUFLOW log files in the directory tree to generate a simulation summary report.
@@ -39,8 +38,7 @@ def main(
     live_refresh_per_second: float | None = None,
     use_live_dashboard: bool | None = None,
 ) -> int:
-    """
-    Main entry point for log summary analysis.
+    """Main entry point for log summary analysis.
 
     This function sets up the environment and initiates the log processing logic.
     By default, it processes files in the script's directory recursively.
@@ -74,8 +72,7 @@ def main(
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
-    """
-    Parse command-line arguments to override script defaults.
+    """Parse command-line arguments to override script defaults.
 
     Returns:
         CommonWrapperOptions: Parsed and processed common arguments.

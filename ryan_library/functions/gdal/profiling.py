@@ -4,16 +4,15 @@ from __future__ import annotations
 
 # Rasterio does not currently provide complete type information.
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownVariableType=false
-
 from math import ceil, isfinite
 from pathlib import Path
 from typing import Literal
 
-from loguru import logger
 import numpy as np
-from numpy.typing import NDArray
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
 import rasterio.windows  # pyright: ignore[reportMissingTypeStubs]
+from loguru import logger
+from numpy.typing import NDArray
 from shapely.geometry import LineString
 
 type FloatArray = NDArray[np.float64]

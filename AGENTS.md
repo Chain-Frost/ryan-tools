@@ -22,7 +22,7 @@ into library code. Reuse must be demonstrated, not inferred solely because code 
 
 - Target Python 3.14 and use current Python 3.14+ annotation syntax.
 - Use absolute imports from `ryan_library` or vendored packages.
-- Format Python with Black using the configured 120-character line length.
+- Format Python with `ruff format` using the 120-character line length configured in `ruff.toml`.
 - Run Pyright in strict mode only on modified Python files.
 - Add type annotations to public functions and methods.
 - Preserve unrelated worktree and submodule changes. Do not stage or commit unless explicitly asked.

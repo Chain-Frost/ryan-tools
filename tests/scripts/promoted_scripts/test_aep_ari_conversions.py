@@ -5,7 +5,6 @@ from __future__ import annotations
 import math
 
 import pytest
-
 from aep_ari_conversions import aep_1_in_x_from_ari, aep_from_ari, ari_from_aep
 
 

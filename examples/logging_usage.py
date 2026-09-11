@@ -1,5 +1,4 @@
-"""
-Logging Usage Example
+"""Logging Usage Example
 =====================
 
 This example demonstrates how to correctly configure and use logging within the
@@ -12,11 +11,12 @@ Usage:
     python examples/logging_usage.py
 """
 
-from multiprocessing.context import SpawnContext
-import sys
 import multiprocessing as mp
-from loguru import logger
+import sys
+from multiprocessing.context import SpawnContext
 from pathlib import Path
+
+from loguru import logger
 
 # Ensure the library is in the path for this example
 REPO_ROOT: Path = Path(__file__).resolve().parents[1]

@@ -1,12 +1,13 @@
-import pytest
-from pathlib import Path
-from typing import Generator
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
+from pathlib import Path
+
+import pytest
 
 
 @pytest.fixture
-def mock_csv_file(tmp_path: Path) -> Generator[Path, None, None]:
+def mock_csv_file(tmp_path: Path) -> Generator[Path]:
     """
     Creates a temporary CSV file with specified content.
     Usage:

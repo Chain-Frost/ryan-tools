@@ -17,9 +17,9 @@ import argparse
 
 from loguru import logger
 
+from ryan_library.functions.gdal.vector_conversion import resolve_vector_format, translate_vector_dataset
 from ryan_library.functions.path_stuff import to_single_path
 from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
-from ryan_library.functions.gdal.vector_conversion import resolve_vector_format, translate_vector_dataset
 
 
 def main(args: argparse.Namespace) -> int:

@@ -1,8 +1,8 @@
 # ryan_library/orchestrators/gdal/raster_merge.py
 """General raster mosaicking, including clipping to a vector extent."""
 
-from pathlib import Path
 import tempfile
+from pathlib import Path
 
 from loguru import logger
 

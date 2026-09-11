@@ -1,9 +1,11 @@
 """Additional coverage tests for ProcessorCollection."""
 
-import pytest
 from unittest.mock import MagicMock, patch
+
 import pandas as pd
+
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
 
 class TestProcessorCollectionCoverage:
     @patch("ryan_library.processors.tuflow.processor_collection.logger")

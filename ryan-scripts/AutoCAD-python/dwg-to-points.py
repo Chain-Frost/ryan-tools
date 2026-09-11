@@ -12,13 +12,13 @@ not binary DWG; export or convert a DWG before running the tool.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Iterable, Iterator
 
 import ezdxf
-from ezdxf.entities import DXFGraphic
 import pyarrow as pa
 import pyarrow.parquet as pq
+from ezdxf.entities import DXFGraphic
 
 Vec3 = tuple[float, float, float]
 Triangle = tuple[Vec3, Vec3, Vec3]
@@ -59,7 +59,7 @@ TRIANGLE_SCHEMA = pa.schema(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Read a DXF (or a DWG that has been exported to DXF) and collect every " "mesh vertex and triangle face."
+            "Read a DXF (or a DWG that has been exported to DXF) and collect every mesh vertex and triangle face."
         )
     )
     parser.add_argument("source", type=Path, help="DXF file that contains the mesh geometry.")
@@ -207,7 +207,7 @@ class ParquetBatchWriter:
         self.schema = schema
         self.writer: pq.ParquetWriter | None = None
 
-    def __enter__(self) -> "ParquetBatchWriter":
+    def __enter__(self) -> ParquetBatchWriter:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         return self
 

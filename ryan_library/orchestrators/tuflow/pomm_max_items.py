@@ -1,6 +1,5 @@
 # ryan_library/orchestrators/tuflow/pomm_max_items.py
-"""
-POMM Peak Reporting Utilities.
+"""POMM Peak Reporting Utilities.
 
 This module provides functions to generate "Peak Reports" from POMM (Plot Output Maximums/Minimums) data.
 It allows extracting Mean or Median peak values across multiple events/durations for specific locations.
@@ -9,35 +8,33 @@ It includes both modern workflow functions and deprecated wrappers for backward 
 
 __lazy_modules__: list[str] = ["pandas"]
 
+import warnings
 from collections.abc import Callable, Collection, Sequence
 from datetime import datetime
 from pathlib import Path
-import warnings
 
 import pandas as pd
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.functions.tuflow.pomm_utils import (
     aggregated_from_paths,
     save_peak_report_mean,
     save_peak_report_median,
 )
 from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
 
 DEFAULT_DATA_TYPES: tuple[str, ...] = ("POMM", "RLL_Qmx")
 ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
 
 
 def run_peak_report(script_directory: Path | None = None) -> None:
-    """
-    Legacy entry point retained for backwards compatibility.
+    """Legacy entry point retained for backwards compatibility.
 
     .. deprecated::
        Use `export_median_peak_report` instead.
     """
-
     print()
     print("You are using an old wrapper")
     print()
@@ -54,8 +51,7 @@ def run_peak_report_workflow(
     include_data_types: Collection[str] | None = None,
     exporter: Callable[..., None],
 ) -> None:
-    """
-    Coordinate loading peak data and exporting via a provided `exporter` function.
+    """Coordinate loading peak data and exporting via a provided `exporter` function.
 
     This is the core workflow function that:
       1. Normalizes input arguments.
@@ -71,7 +67,6 @@ def run_peak_report_workflow(
         include_data_types: List of data types to include (e.g. "POMM").
         exporter: A callback function that takes the aggregated DataFrame and handles the export logic.
     """
-
     script_directory = script_directory or Path.cwd()
     effective_paths_to_process: list[Path] = list(paths_to_process or (script_directory,))
     resolved_data_types, invalid_types = normalize_data_types(
@@ -80,7 +75,7 @@ def run_peak_report_workflow(
         accepted=ACCEPTED_DATA_TYPES,
     )
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=locations_to_include)
-    location_filter: frozenset[str] | None = normalized_locations if normalized_locations else None
+    location_filter: frozenset[str] | None = normalized_locations or None
 
     with setup_logger(console_log_level=log_level) as log_queue:
         logger.info(f"Current Working Directory: {Path.cwd()}")
@@ -140,12 +135,10 @@ def export_median_peak_report(
     locations_to_include: Collection[str] | None = None,
     include_data_types: Collection[str] | None = None,
 ) -> None:
-    """
-    Locate and process POMM files and export **median-based** peak values.
+    """Locate and process POMM files and export **median-based** peak values.
 
     This function is a wrapper around `run_peak_report_workflow` injecting the `save_peak_report_median` exporter.
     """
-
     run_peak_report_workflow(
         script_directory=script_directory,
         paths_to_process=paths_to_process,
@@ -166,12 +159,10 @@ def export_mean_peak_report(
     locations_to_include: Collection[str] | None = None,
     include_data_types: Collection[str] | None = None,
 ) -> None:
-    """
-    Locate and process POMM files and export **mean-based** peak values.
+    """Locate and process POMM files and export **mean-based** peak values.
 
     This function is a wrapper around `run_peak_report_workflow` injecting the `save_peak_report_mean` exporter.
     """
-
     run_peak_report_workflow(
         script_directory=script_directory,
         paths_to_process=paths_to_process,
@@ -189,13 +180,11 @@ def run_median_peak_report(
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
 ) -> None:
-    """
-    Deprecated wrapper around :func:`export_median_peak_report`.
+    """Deprecated wrapper around :func:`export_median_peak_report`.
 
     .. deprecated::
        Use `export_median_peak_report` instead.
     """
-
     warnings.warn(
         message="run_median_peak_report is deprecated; use export_median_peak_report instead.",
         category=DeprecationWarning,
@@ -215,13 +204,11 @@ def run_mean_peak_report(
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
 ) -> None:
-    """
-    Deprecated wrapper around :func:`export_mean_peak_report`.
+    """Deprecated wrapper around :func:`export_mean_peak_report`.
 
     .. deprecated::
        Use `export_mean_peak_report` instead.
     """
-
     warnings.warn(
         message="run_mean_peak_report is deprecated; use export_mean_peak_report instead.",
         category=DeprecationWarning,

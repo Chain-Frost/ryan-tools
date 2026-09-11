@@ -3,12 +3,12 @@
 
 __lazy_modules__ = ["pandas"]
 
+import re
 from collections.abc import Iterable
 from pathlib import Path
-import re
 
-from loguru import logger
 import pandas as pd
+from loguru import logger
 from pandas import DataFrame
 
 _NUMBER_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?"
@@ -16,7 +16,6 @@ _NUMBER_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?"
 
 def find_batch_files(paths: Iterable[Path]) -> list[Path]:
     """Return ``batch.out`` files found recursively under ``paths``."""
-
     files: list[Path] = []
     for root in paths:
         files.extend(path for path in root.rglob("*batch.out") if path.is_file())
@@ -25,7 +24,6 @@ def find_batch_files(paths: Iterable[Path]) -> list[Path]:
 
 def _numeric_prefix(value: str) -> float | str:
     """Return the leading RORB numeric value, or the original text."""
-
     match: re.Match[str] | None = re.match(
         pattern=_NUMBER_PATTERN,
         string=value,
@@ -35,7 +33,6 @@ def _numeric_prefix(value: str) -> float | str:
 
 def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] | None:
     """Parse one run-table row from a RORB ``batch.out`` file."""
-
     raw: list[str] = line.split()
     if len(raw) < 8:
         logger.warning("Invalid RORB run row skipped: {}", line.strip())
@@ -116,7 +113,6 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
 
 def _construct_csv_path(batchout: Path, aep_part: str, duration_part: str, tpat: int) -> Path:
     """Construct the hydrograph CSV path referenced by a batch run row."""
-
     aep: str = aep_part.replace(".", "p")
     duration: str = duration_part.replace(".", "_")
     base_name: str = batchout.name.removesuffix("batch.out")
@@ -129,7 +125,6 @@ def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
     Durations are reported in hours. AEP labels such as ``0.2EY`` are retained
     as text so their meaning and associated hydrograph filenames are preserved.
     """
-
     runs: list[list[float | int | str]] = []
     headers: list[str] = []
     reading_runs = False
@@ -201,7 +196,6 @@ def read_hydrograph_csv(filepath: Path) -> pd.DataFrame:
     The RORB sample counter (``Inc``) is metadata rather than a hydrograph and
     is removed when present. Column whitespace is also normalized.
     """
-
     try:
         result: DataFrame = pd.read_csv(filepath_or_buffer=filepath, skiprows=2)
     except OSError, pd.errors.ParserError, UnicodeError:
@@ -216,7 +210,6 @@ def read_hydrograph_csv(filepath: Path) -> pd.DataFrame:
 
 def _location_name(column: str) -> str:
     """Return a concise, non-empty location label from a RORB header."""
-
     prefix = "Calculated hydrograph:"
     label = column.strip()
     if label.startswith(prefix):
@@ -239,7 +232,6 @@ def analyze_hydrograph(
     of zero when the threshold is never exceeded. This retains the full
     temporal-pattern population needed by the summary statistics.
     """
-
     hydrograph: DataFrame = read_hydrograph_csv(filepath=csv_path)
     if hydrograph.empty:
         return pd.DataFrame()

@@ -1,13 +1,14 @@
 """Unit tests for ryan_library.orchestrators.tuflow.closure_durations."""
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pandas as pd
 import pytest
 
 from ryan_library.orchestrators.tuflow.closure_durations import (
-    run_closure_durations,
     _export_closure_duration_artifacts,
+    run_closure_durations,
 )
 
 

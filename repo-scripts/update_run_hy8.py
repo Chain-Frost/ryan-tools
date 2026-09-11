@@ -1,5 +1,4 @@
-"""
-Utilities for synchronizing the run-hy8 vendored submodule.
+"""Utilities for synchronizing the run-hy8 vendored submodule.
 
 Running this script will pull the latest upstream commit for vendor/run_hy8 and
 refresh vendor/run_hy8.UPSTREAM with the new commit hash and retrieval date.

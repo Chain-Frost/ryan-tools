@@ -4,10 +4,8 @@
 from __future__ import annotations
 
 import sqlite3
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
-import pandas as pd
+from unittest.mock import patch
 
 from ryan_library.processors.tuflow.maximums_1d.ccAProcessor import ccAProcessor
 

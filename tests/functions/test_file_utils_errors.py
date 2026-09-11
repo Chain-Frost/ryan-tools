@@ -1,9 +1,10 @@
 """Tests for error handling in file_utils.py."""
 
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 from ryan_library.functions import file_utils
+
 
 class TestFindFilesParallelErrors:
     @patch("ryan_library.functions.file_utils.logger")

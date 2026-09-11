@@ -46,6 +46,7 @@ from dataclasses import dataclass
 
 from loguru import logger
 
+from ryan_library.functions.gdal.profiling import RasterSamplingError, SamplingMethod
 from ryan_library.functions.loguru_helpers import configure_serial_logging
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
@@ -61,7 +62,6 @@ from ryan_library.orchestrators.tuflow.water_level_profiles import (
     WaterLevelProfileConfig,
     run_water_level_profile_workflow,
 )
-from ryan_library.functions.gdal.profiling import RasterSamplingError, SamplingMethod
 
 
 @dataclass(slots=True, frozen=True)

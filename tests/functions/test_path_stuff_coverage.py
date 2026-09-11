@@ -1,14 +1,12 @@
 """Tests for path_stuff.py."""
 
-import pytest
 from pathlib import Path
 from unittest.mock import patch
 
 from ryan_library.functions.path_stuff import (
-    is_relative_to_current_directory,
     convert_network_path_to_drive_letter,
     convert_to_relative_path,
-    network_drive_mapping,
+    is_relative_to_current_directory,
 )
 
 

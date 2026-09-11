@@ -1,5 +1,4 @@
-"""
-Extracts standard archives (like .zip, .tar, .gz) found in target directories
+"""Extracts standard archives (like .zip, .tar, .gz) found in target directories
 into subfolders. Uses multiprocessing to unpack multiple archives concurrently.
 """
 
@@ -17,7 +16,7 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT = Path(".")
+DEFAULT_INPUT = Path()
 # ==============================================================================
 
 from loguru import logger

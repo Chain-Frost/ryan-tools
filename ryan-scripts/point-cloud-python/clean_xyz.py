@@ -13,10 +13,11 @@ checking a new file format.
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 from concurrent.futures import Future, ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Literal
 
 MatchMode = Literal["numeric", "string"]
 
@@ -121,8 +122,7 @@ def z_matches(
     value: float,
     value_str: str,
 ) -> tuple[bool, bool]:
-    """
-    Returns (match_hit, malformed).
+    """Returns (match_hit, malformed).
 
     malformed means:
       - fewer than 3 fields, OR

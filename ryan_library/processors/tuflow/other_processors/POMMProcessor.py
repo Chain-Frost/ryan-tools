@@ -26,7 +26,6 @@ class POMMProcessor(BaseProcessor):
 
     def _derive_abs_metrics(self) -> None:
         """Populate AbsMax and SignedAbsMax from the Max/Min columns."""
-
         if not {"Max", "Min"}.issubset(self.df.columns):
             return
 
@@ -39,8 +38,8 @@ class POMMProcessor(BaseProcessor):
     def process(self) -> None:
         """Read the raw POMM CSV, transpose + promote row 1 to header,
         rename the key columns, calculate AbsMax and SignedAbsMax,
-        extract TP, Duration, AEP, and finally add all 'common' columns."""
-
+        extract TP, Duration, AEP, and finally add all 'common' columns.
+        """
         try:
             # 1) Load the CSV without headers (header=None)
             raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)

@@ -1,16 +1,15 @@
 """Unit tests for ryan_library.functions.tuflow.tuflow_common."""
 
-import pytest
-from unittest.mock import MagicMock, patch
-import pandas as pd
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.functions.tuflow.tuflow_common import (
+    bulk_read_and_merge_tuflow_csv,
     collect_files,
     process_file,
     process_files_in_parallel,
-    bulk_read_and_merge_tuflow_csv,
 )
-from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 

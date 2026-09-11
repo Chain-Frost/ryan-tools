@@ -35,7 +35,6 @@ class Violation:
 
 def _python_files() -> Iterable[Path]:
     """Yield active repository-owned Python files in deterministic order."""
-
     for root in SCAN_ROOTS:
         for path in sorted(root.rglob("*.py")):
             relative_path = path.relative_to(REPO_ROOT)
@@ -46,7 +45,6 @@ def _python_files() -> Iterable[Path]:
 
 def _is_rooted_in_logger(node: ast.expr) -> bool:
     """Return whether an attribute/call chain begins at the Loguru ``logger``."""
-
     if isinstance(node, ast.Name):
         return node.id == "logger"
     if isinstance(node, ast.Attribute):
@@ -58,7 +56,6 @@ def _is_rooted_in_logger(node: ast.expr) -> bool:
 
 def _is_eager_expression(node: ast.expr) -> bool:
     """Return whether a debug expression is visibly rendered before Loguru filters it."""
-
     if isinstance(node, ast.JoinedStr):
         return True
     if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Mod, ast.Add)):
@@ -68,7 +65,6 @@ def _is_eager_expression(node: ast.expr) -> bool:
 
 def check_file(path: Path) -> list[Violation]:
     """Return all Loguru formatting violations in ``path``."""
-
     source: str = path.read_text(encoding="utf-8-sig")
     tree: ast.AST = ast.parse(source, filename=str(path))
     if not _imports_loguru_logger(tree):
@@ -111,7 +107,6 @@ def check_file(path: Path) -> list[Violation]:
 
 def _imports_loguru_logger(tree: ast.AST) -> bool:
     """Return whether ``logger`` is imported directly from Loguru."""
-
     return any(
         isinstance(node, ast.ImportFrom)
         and node.module == "loguru"
@@ -122,7 +117,6 @@ def _imports_loguru_logger(tree: ast.AST) -> bool:
 
 def main() -> int:
     """Check active code and return a process-friendly status code."""
-
     violations: list[Violation] = []
     for path in _python_files():
         violations.extend(check_file(path))

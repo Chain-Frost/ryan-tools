@@ -12,13 +12,14 @@ Inspect the new DXF in CAD before replacing any production data.
 """
 
 import os
+from datetime import datetime
+
 import ezdxf
 from ezdxf.document import Drawing
 from ezdxf.entities.dxfgfx import DXFGraphic
 from ezdxf.layouts.layout import Modelspace
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
-from datetime import datetime
 
 # tolerance for merging “point-touchers” (in drawing units)
 TOLERANCE = 0.05

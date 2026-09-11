@@ -3,20 +3,20 @@
 
 __lazy_modules__ = ["pandas"]
 
+import os
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from multiprocessing import Pool
-import os
 from pathlib import Path
 
-from loguru import logger
 import pandas as pd
+from loguru import logger
 from pandas import DataFrame
 
-from ryan_library.functions.RORB.read_rorb_files import analyze_hydrograph, find_batch_files, parse_batch_output
 from ryan_library.functions.loguru_helpers import LogQueue, setup_logger, worker_initializer
 from ryan_library.functions.pandas.median_calc import median_stats as median_stats_func
+from ryan_library.functions.RORB.read_rorb_files import analyze_hydrograph, find_batch_files, parse_batch_output
 
 
 @dataclass(slots=True, frozen=True)
@@ -33,7 +33,6 @@ class HydrographJob:
 
 def _analyze_job(job: HydrographJob) -> pd.DataFrame:
     """Analyze one hydrograph job in either the parent or a pool worker."""
-
     return analyze_hydrograph(
         aep=job.aep,
         duration=job.duration,
@@ -46,7 +45,6 @@ def _analyze_job(job: HydrographJob) -> pd.DataFrame:
 
 def _collect_batch_data(paths: Iterable[Path]) -> pd.DataFrame:
     """Collect parsed run tables from all discovered batch outputs."""
-
     batch_files: list[Path] = find_batch_files(paths=paths)
     tables: list[DataFrame] = [parse_batch_output(batchout_file=path) for path in batch_files]
     populated_tables = [table for table in tables if not table.empty]
@@ -55,7 +53,6 @@ def _collect_batch_data(paths: Iterable[Path]) -> pd.DataFrame:
 
 def _build_jobs(batch_df: pd.DataFrame, thresholds: list[float]) -> list[HydrographJob]:
     """Convert parsed batch rows into typed worker jobs."""
-
     threshold_values = tuple(float(value) for value in thresholds)
     return [
         HydrographJob(
@@ -72,7 +69,6 @@ def _build_jobs(batch_df: pd.DataFrame, thresholds: list[float]) -> list[Hydrogr
 
 def _worker_count(job_count: int, pool_size: int | None) -> int:
     """Return a safe worker count for the available jobs and CPUs."""
-
     if job_count < 1:
         return 1
     if pool_size is not None:
@@ -91,7 +87,6 @@ def _process_hydrographs(
     pool_size: int | None = None,
 ) -> pd.DataFrame:
     """Analyze all hydrographs, using a process pool when beneficial."""
-
     jobs: list[HydrographJob] = _build_jobs(batch_df=batch_df, thresholds=thresholds)
     worker_count: int = _worker_count(job_count=len(jobs), pool_size=pool_size)
     logger.info("Processing {} RORB hydrographs with {} worker(s)", len(jobs), worker_count)
@@ -121,7 +116,6 @@ def _summarise_results(df: pd.DataFrame) -> pd.DataFrame:
     high are the extrema across all durations; the critical-duration average
     includes zeroes.
     """
-
     final_columns: list[str] = [
         "Path",
         "Location",
@@ -158,7 +152,6 @@ def _summarise_results(df: pd.DataFrame) -> pd.DataFrame:
 
 def _default_thresholds() -> list[float]:
     """Return the maintained, ascending default flow thresholds."""
-
     values: list[int] = [*range(1, 10), *range(10, 100, 2), *range(100, 2100, 10)]
     return [float(value) for value in values]
 
@@ -177,7 +170,6 @@ def run_closure_durations(
         log_level: Minimum console log level.
         pool_size: Worker count, or ``None`` to select one automatically.
     """
-
     search_paths: list[Path] = list(paths) if paths is not None else [Path.cwd()]
     threshold_values: list[float] = (
         _default_thresholds() if thresholds is None else [float(value) for value in thresholds]

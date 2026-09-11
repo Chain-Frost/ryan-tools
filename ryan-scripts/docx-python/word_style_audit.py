@@ -1,6 +1,5 @@
 # word_style_audit.py
-"""
-Word style audit (DOCX)
+"""Word style audit (DOCX)
 
 Produces:
 1) A list of ALL styles defined in the document, with their explicit parameters.

@@ -2,26 +2,26 @@
 
 from __future__ import annotations
 
+import re
+
 # Rasterio, GeoPandas, PyProj, and Matplotlib expose incomplete third-party typing.
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownVariableType=false
-
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 from typing import Literal, cast
 
 import geopandas as gpd
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from geopandas import GeoDataFrame
 from loguru import logger
-import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.ticker import AutoMinorLocator
-import numpy as np
 from numpy.typing import NDArray
-import pandas as pd
 from pyproj import CRS
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from shapely.geometry import LineString, MultiLineString
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import linemerge
@@ -631,7 +631,7 @@ def run_water_level_profile_workflow(
                 f"Profile has a blank {config.name_field!r} value."
             )
 
-        geometry = cast(BaseGeometry | None, row.geometry)
+        geometry = cast("BaseGeometry | None", row.geometry)
 
         if geometry is None:
             raise ValueError(

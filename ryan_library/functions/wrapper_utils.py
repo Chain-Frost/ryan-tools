@@ -1,16 +1,16 @@
 # ryan_library/functions/wrapper_utils.py
 """Utility functions shared by wrapper scripts."""
 
-from argparse import ArgumentParser, Namespace
-from collections.abc import Collection
-from dataclasses import dataclass
-from importlib.metadata import PackageNotFoundError, version
 import os
-from pathlib import Path
 import subprocess
 import sys
-from typing import Protocol, Sequence
 import warnings
+from argparse import ArgumentParser, Namespace
+from collections.abc import Collection, Sequence
+from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
+from typing import Protocol
 
 
 @dataclass(slots=True)
@@ -301,8 +301,8 @@ def run_pomm_peak_report_wrapper(
 
     effective_console_log_level: str = overrides.console_log_level or defaults.console_log_level
     effective_data_types: tuple[str, ...] | None = overrides.data_types or defaults.include_data_types or None
-    effective_locations: tuple[str, ...] | None = (
-        overrides.locations_to_include if overrides.locations_to_include else (defaults.locations_to_include or None)
+    effective_locations: tuple[str, ...] | None = overrides.locations_to_include or (
+        defaults.locations_to_include or None
     )
     effective_paths_to_process: tuple[Path, ...] | None = (
         overrides.paths_to_process or defaults.paths_to_process or None

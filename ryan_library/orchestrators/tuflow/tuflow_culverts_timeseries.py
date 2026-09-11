@@ -1,6 +1,5 @@
 # ryan_library/orchestrators/tuflow/tuflow_culverts_timeseries.py
-"""
-Merge TUFLOW Culvert Timeseries.
+"""Merge TUFLOW Culvert Timeseries.
 
 This module combines "1d_timeseries" style CSV data (e.g., flow over time for culverts).
 It leverages `combine_1d_timeseries` from `ProcessorCollection` to produce a consolidated
@@ -16,8 +15,8 @@ from typing import Literal
 import pandas as pd
 from loguru import logger
 
-from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.excel_export import ExcelExporter, ExportContent
+from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
 from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
@@ -35,8 +34,7 @@ def main_processing(
     output_dir: Path | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
-    """
-    Driver for culvert-timeseries exports.
+    """Driver for culvert-timeseries exports.
 
     Orchestrates the finding, reading, merging, and exporting of culvert timeseries data.
 

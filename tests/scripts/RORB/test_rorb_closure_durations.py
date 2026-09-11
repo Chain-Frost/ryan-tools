@@ -1,9 +1,11 @@
 """Tests for the active RORB closure-duration orchestrator."""
 
-import pytest
-import pandas as pd
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
+import pandas as pd
+import pytest
+
 from ryan_library.orchestrators.rorb import closure_durations
 
 
@@ -35,7 +37,7 @@ def test_collect_batch_data_success(mock_batch_data):
             mock_find.return_value = [Path("batch.out")]
             mock_parse.return_value = mock_batch_data
 
-            df = closure_durations._collect_batch_data([Path(".")])
+            df = closure_durations._collect_batch_data([Path()])
 
             assert not df.empty
             assert len(df) == 1
@@ -47,7 +49,7 @@ def test_collect_batch_data_empty():
     with patch("ryan_library.orchestrators.rorb.closure_durations.find_batch_files") as mock_find:
         mock_find.return_value = []
 
-        df = closure_durations._collect_batch_data([Path(".")])
+        df = closure_durations._collect_batch_data([Path()])
 
         assert df.empty
 

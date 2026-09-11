@@ -4,7 +4,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from gdal_raster_to_xyz import convert_raster, discover_rasters
 
 

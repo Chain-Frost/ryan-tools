@@ -1,6 +1,5 @@
 # ryan-scripts\TUFLOW-python\po_and_timeseries\combine_pomm_results.py
-"""
-Wrapper Script: Combine TUFLOW POMM Results.
+"""Wrapper Script: Combine TUFLOW POMM Results.
 
 This script acts as a mutable wrapper for `ryan_library.orchestrators.tuflow.pomm_combine`.
 It manages the combination of "POMM" (Plot Output Maximums/Minimums) data, primarily used for culvert peak analysis.
@@ -33,7 +32,6 @@ PATHS_TO_PROCESS: tuple[Path, ...] = ()
 
 import argparse
 
-from ryan_library.orchestrators.tuflow.pomm_combine import main_processing
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
@@ -43,6 +41,7 @@ from ryan_library.functions.wrapper_utils import (
     pause_console,
     print_wrapper_banner,
 )
+from ryan_library.orchestrators.tuflow.pomm_combine import main_processing
 
 
 def main(
@@ -54,8 +53,7 @@ def main(
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> int:
-    """
-    Main entry point for combining POMM results.
+    """Main entry point for combining POMM results.
 
     This function initializes the environment and calls `main_processing` to merge data.
     It determines the effective configuration by checking for CLI argument overrides first,
@@ -79,7 +77,7 @@ def main(
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_data_types: list[str] = list(include_data_types or INCLUDE_DATA_TYPES)
     effective_locations: tuple[str, ...] | None = (
-        locations_to_include if locations_to_include else (LOCATIONS_TO_INCLUDE or None)
+        locations_to_include or (LOCATIONS_TO_INCLUDE or None)
     )
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
     effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_directory,))
@@ -95,8 +93,7 @@ def main(
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
-    """
-    Parse command-line arguments to override script defaults.
+    """Parse command-line arguments to override script defaults.
 
     Returns:
         argparse.Namespace: Filtered command-line arguments.

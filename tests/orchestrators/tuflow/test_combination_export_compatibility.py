@@ -54,7 +54,7 @@ def test_shared_workflow_routes_results_to_supplied_public_exporter() -> None:
             default_data_types=("PO",),
             accepted_data_types=frozenset({"PO"}),
             context_name="PO combination",
-            export_results=cast(CombinationExporter, exporter),
+            export_results=cast("CombinationExporter", exporter),
             export_mode="both",
         )
 
@@ -66,7 +66,7 @@ def test_po_export_results_delegates_to_shared_exporter() -> None:
 
     results = _PoResults()
     with patch("ryan_library.orchestrators.tuflow.po_combine._combine_and_export_results") as shared_export:
-        export_po_results(results=cast(ProcessorCollection, results))
+        export_po_results(results=cast("ProcessorCollection", results))
 
     delegated: Mock = shared_export
     delegated.assert_called_once()

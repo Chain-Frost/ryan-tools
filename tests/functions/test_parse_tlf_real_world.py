@@ -1,17 +1,18 @@
-import sys
 import json
-import pytest
+import sys
 from pathlib import Path
+
+import pytest
 
 # Add project root to sys.path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from ryan_library.functions.parse_tlf import (
-    search_for_completion,
+    finalise_data,
     get_log_lines,
     process_top_lines,
-    finalise_data,
+    search_for_completion,
 )
 
 
@@ -89,7 +90,7 @@ def regression_snapshot():
     if not snapshot_path.exists():
         pytest.fail(f"Snapshot file not found: {snapshot_path}. Run tests/generate_tlf_snapshot.py to generate it.")
 
-    with open(snapshot_path, "r", encoding="utf-8") as f:
+    with open(snapshot_path, encoding="utf-8") as f:
         return json.load(f)
 
 

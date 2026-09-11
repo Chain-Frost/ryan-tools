@@ -1,6 +1,5 @@
 # ryan_library/orchestrators/tuflow/tuflow_culverts_merge.py
-"""
-Merge TUFLOW Culvert Maximums.
+"""Merge TUFLOW Culvert Maximums.
 
 This module combines "1d_maximums" style CSV data (culvert results) into a single summary.
 It supports multiple data types (Nmx, Cmx, Chan, etc.) and exports the raw concatenated data
@@ -16,8 +15,8 @@ from typing import Literal
 import pandas as pd
 from loguru import logger
 
-from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.excel_export import ExcelExporter, ExportContent
+from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
 from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
@@ -35,8 +34,7 @@ def main_processing(
     output_dir: Path | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
-    """
-    Driver for culvert-merge exports.
+    """Driver for culvert-merge exports.
 
     Orchestrates the finding, reading, merging, and exporting of culvert maximums data.
     Exports two sheets/tables:
@@ -51,7 +49,6 @@ def main_processing(
         output_dir: Destination directory for the export.
         export_mode: "excel", "parquet", or "both".
     """
-
     requested_types, invalid_types = normalize_data_types(
         requested=include_data_types,
         default=DEFAULT_DATA_TYPES,

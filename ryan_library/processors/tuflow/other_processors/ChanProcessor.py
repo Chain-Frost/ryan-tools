@@ -2,10 +2,11 @@
 
 __lazy_modules__ = ["pandas"]
 
-from ..base_processor import ProcessorStatus
-from ..max_data_processor import MaxDataProcessor
 import pandas as pd
 from loguru import logger
+
+from ..base_processor import ProcessorStatus
+from ..max_data_processor import MaxDataProcessor
 
 
 class ChanProcessor(MaxDataProcessor):
@@ -13,8 +14,10 @@ class ChanProcessor(MaxDataProcessor):
 
     def process(self) -> None:
         """Process the '_1d_Chan.csv' file and return a cleaned DataFrame.
+
         Returns:
-            pd.DataFrame: Processed Chan data."""
+            pd.DataFrame: Processed Chan data.
+        """
         logger.info(f"Starting processing of Chan file: {self.log_path}")
 
         try:

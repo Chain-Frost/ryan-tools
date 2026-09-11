@@ -1,14 +1,14 @@
 """Unit tests for ryan_library.orchestrators.tuflow.peak_check_po_csvs."""
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+from ryan_library.functions.tuflow.po_timeseries_checks import collect_po_csv_files
 from ryan_library.orchestrators.tuflow.peak_check_po_csvs import (
+    PeakCheckConfig,
     _analyze_peak_worker,
     main_processing,
-    PeakCheckConfig,
 )
-from ryan_library.functions.tuflow.po_timeseries_checks import collect_po_csv_files
 
 
 def test_collect_files(tmp_path: Path) -> None:

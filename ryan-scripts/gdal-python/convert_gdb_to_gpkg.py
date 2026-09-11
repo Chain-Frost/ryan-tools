@@ -1,5 +1,4 @@
-"""
-Convert Esri File Geodatabases into a selected GDAL vector format.
+"""Convert Esri File Geodatabases into a selected GDAL vector format.
 
 By default, each source layer is written to a separate output file. For
 multi-layer formats such as GeoPackage and SQLite, ``--single-database`` writes
@@ -17,8 +16,8 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT = Path(".")
-DEFAULT_OUTPUT_DIR = Path(".")
+DEFAULT_INPUT = Path()
+DEFAULT_OUTPUT_DIR = Path()
 DEFAULT_OUTPUT_FORMAT = "gpkg"
 DEFAULT_SINGLE_DATABASE = False
 DEFAULT_WORKERS: int | None = None

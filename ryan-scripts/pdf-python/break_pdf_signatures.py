@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-break_pdf_signatures.py
+"""break_pdf_signatures.py
 updated 2026-03-31 to be more aggressive
 
 Aggressively rebuilds a PDF using pypdf, invalidates all digital signatures,

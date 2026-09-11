@@ -4,21 +4,21 @@
 __lazy_modules__ = ["pandas"]
 
 
-from pathlib import Path
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-import math
+from pathlib import Path
 from typing import cast
 
+import pandas as pd
 from loguru import logger
 from openpyxl import load_workbook
 from openpyxl.utils.cell import get_column_letter, range_boundaries
 from openpyxl.workbook.workbook import Workbook
 from openpyxl.worksheet.table import Table, TableColumn
 from openpyxl.worksheet.worksheet import Worksheet
-import pandas as pd
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
@@ -193,7 +193,7 @@ def _resolve_table(*, worksheet: Worksheet, table_name: str | None) -> Table | N
     resolved_table_name: str = table_name or table_names[0]
     if resolved_table_name not in worksheet.tables:
         raise ValueError(
-            f"Table '{resolved_table_name}' not found on sheet '{worksheet.title}'. " f"Available tables: {table_names}"
+            f"Table '{resolved_table_name}' not found on sheet '{worksheet.title}'. Available tables: {table_names}"
         )
     table = worksheet.tables[resolved_table_name]
     if not isinstance(table, Table):
@@ -206,7 +206,7 @@ def _table_or_sheet_bounds(*, worksheet: Worksheet, table: Table | None) -> tupl
         bounds = range_boundaries(table.ref)
         if any(bound is None for bound in bounds):
             raise ValueError(f"Invalid table range: {table.ref}")
-        return cast(tuple[int, int, int, int], bounds)
+        return cast("tuple[int, int, int, int]", bounds)
     return 1, 1, worksheet.max_column, worksheet.max_row
 
 

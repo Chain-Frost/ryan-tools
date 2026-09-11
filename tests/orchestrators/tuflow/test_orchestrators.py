@@ -1,11 +1,10 @@
 """Smoke tests for TUFLOW orchestrators."""
 
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from ryan_library.orchestrators.tuflow.tuflow_logsummary_append import append_to_master_log_summary
 from ryan_library.orchestrators.tuflow.peak_check_po_csvs import main_processing as peak_check_main
+from ryan_library.orchestrators.tuflow.tuflow_logsummary_append import append_to_master_log_summary
 from ryan_library.orchestrators.tuflow.tuflow_timeseries_stability import main_processing as stability_main
 
 

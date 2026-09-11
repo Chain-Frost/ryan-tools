@@ -11,26 +11,26 @@ multiprocessed and can create many files, so test the settings on one raster
 before running a large terrain set.
 """
 
-from collections.abc import Generator
-from typing import Any
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
-from pathlib import Path
 import os
-import pandas as pd
+from collections.abc import Generator
 from glob import glob
-from multiprocessing import Pool
-import numpy as np
 from math import ceil
+from multiprocessing import Pool
+from pathlib import Path
+from typing import Any
 
+import numpy as np
+import pandas as pd
+import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from loguru import logger
-from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
+
 from ryan_library.functions.file_utils import ensure_output_directory
+from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
 from ryan_library.functions.wrapper_utils import print_library_version
 
 
 def thin_data_by_global_selection(df: pd.DataFrame, thinning_factor: int) -> pd.DataFrame:
-    """
-    Thins the data by keeping only the rows where global row and column indices
+    """Thins the data by keeping only the rows where global row and column indices
     are multiples of the thinning factor.
 
     Parameters:
@@ -51,8 +51,7 @@ def thin_data_by_global_selection(df: pd.DataFrame, thinning_factor: int) -> pd.
 
 
 def save_thinned_data(thinned_data, output_path, tile_id, factor) -> None:
-    """
-    Saves the thinned data to a CSV file and logs the action.
+    """Saves the thinned data to a CSV file and logs the action.
     Expects thinned_data to have columns: 'X', 'Y', and 'Z'.
     """
     try:
@@ -62,9 +61,8 @@ def save_thinned_data(thinned_data, output_path, tile_id, factor) -> None:
         logger.error(f"{tile_id}: Failed to save thinned data (factor={factor}) to {output_path}. Error: {e}")
 
 
-def assign_tiles(bounds, tile_size) -> Generator[tuple[int, int, Any, Any, Any, Any], Any, None]:
-    """
-    Generates tile boundaries based on the raster bounds and tile size.
+def assign_tiles(bounds, tile_size) -> Generator[tuple[int, int, Any, Any, Any, Any], Any]:
+    """Generates tile boundaries based on the raster bounds and tile size.
 
     Parameters:
     - bounds: tuple, (left, bottom, right, top) in the raster's coordinate system.
@@ -92,8 +90,7 @@ def assign_tiles(bounds, tile_size) -> Generator[tuple[int, int, Any, Any, Any, 
 
 
 def determine_global_selection(input_file: str, thinning_factors: list[int]) -> list[int]:
-    """
-    Determines the thinning factors. Since we're shifting to row/col thinning,
+    """Determines the thinning factors. Since we're shifting to row/col thinning,
     this function might not be necessary. But keeping it for flexibility.
 
     Parameters:
@@ -107,15 +104,13 @@ def determine_global_selection(input_file: str, thinning_factors: list[int]) -> 
 
 
 def init_worker(queue) -> None:
-    """
-    Initializer for worker processes. Sets up logging to use the provided queue.
+    """Initializer for worker processes. Sets up logging to use the provided queue.
     """
     worker_initializer(queue)
 
 
 def process_tile(window, tile_id, input_file, thinning_factors, output_dir, transform):
-    """
-    Processes a single tile: reads data, thins it for each thinning factor, and saves to the output directory.
+    """Processes a single tile: reads data, thins it for each thinning factor, and saves to the output directory.
     Skips saving if the tile contains only nodata values or has no data after thinning.
 
     Parameters:
@@ -212,8 +207,7 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
 
 
 def process_terrain_data(input_file, output_dir, thinning_factors=[10, 5, 2], tile_size=5000, log_queue=None):
-    """
-    Processes the terrain data from a GeoTIFF file: assigns tiles, thins data for multiple
+    """Processes the terrain data from a GeoTIFF file: assigns tiles, thins data for multiple
     thinning factors, and saves to CSV.
 
     Parameters:

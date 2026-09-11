@@ -1,10 +1,10 @@
-"""
-Mathematical conversions between Annual Exceedance Probability (AEP) and Average Recurrence Interval (ARI).
+"""Mathematical conversions between Annual Exceedance Probability (AEP) and Average Recurrence Interval (ARI).
 """
 
 # moved from unsorted, not tested in production yet - 2026-08-20
 
 from __future__ import annotations
+
 import math
 
 

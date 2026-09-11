@@ -70,19 +70,20 @@ service and its HTML/JavaScript response format.
 # ─────────────────────────────────────────────────────────────────────────────
 import argparse
 import ast
-from collections.abc import Hashable, Mapping, Sequence
 import json
 import re
 import sys
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
 import pandas as pd
 import requests
-from pandas import DataFrame
-from ryan_library.functions.loguru_helpers import setup_logger
 from loguru import logger
+from pandas import DataFrame
+
+from ryan_library.functions.loguru_helpers import setup_logger
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 DEFAULT_INPUT_DIR: Final[Path] = Path(__file__).absolute().parent
@@ -107,7 +108,7 @@ class Catchment:
     centroid_y: float
 
     @classmethod
-    def from_record(cls, rec: Record, idx: int) -> "Catchment":
+    def from_record(cls, rec: Record, idx: int) -> Catchment:
         raw: str | None = rec.get("Catchment", "")
         name: str = raw.strip() if isinstance(raw, str) and raw.strip() else f"Catchment_{idx}"
         return cls(
@@ -132,7 +133,8 @@ class Catchment:
     @staticmethod
     def _extract_js_array(html: str, var_name: str) -> Sequence[Record]:
         """Locate `var_name = [ ... ]` in the HTML, use bracket counting to extract the complete
-        array (handles nested braces), sanitize trailing commas, and parse to Python."""
+        array (handles nested braces), sanitize trailing commas, and parse to Python.
+        """
         start_idx: int = html.find(f"{var_name} =")
         if start_idx < 0:
             logger.warning(f"'{var_name}' not found")

@@ -12,13 +12,14 @@ configured tolerance.
 """
 
 import os
+from datetime import datetime
+
 import ezdxf
 from ezdxf.document import Drawing
 from ezdxf.entities.dxfgfx import DXFGraphic
 from ezdxf.layouts.layout import Modelspace
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
-from datetime import datetime
 
 # tolerance for merging “point-touchers” (in drawing units)
 TOLERANCE = 0.05
@@ -95,13 +96,11 @@ def make_layer_name(tc: int | None, ic: int) -> str:
     if tc is not None:
         r, g, b = rgb_from_int(tc)
         return f"T_{r:03d}_{g:03d}_{b:03d}"
-    else:
-        return f"I_{ic:03d}"
+    return f"I_{ic:03d}"
 
 
 def extract_polygons(e: DXFGraphic) -> list[Polygon]:
-    """
-    Return a list of 2D Shapely Polygons from a DXFGraphic.
+    """Return a list of 2D Shapely Polygons from a DXFGraphic.
     Supports:
       - Closed LWPOLYLINE
       - SOLID       (vtx0 → vtx1 → vtx3 → vtx2)
@@ -144,8 +143,7 @@ def extract_polygons(e: DXFGraphic) -> list[Polygon]:
 
 
 def dissolve_layer(msp: Modelspace, layer_name: str, colour_map: dict[str, int]) -> None:
-    """
-    Collect all polygons on 'layer_name', buffer & union to dissolve,
+    """Collect all polygons on 'layer_name', buffer & union to dissolve,
     delete originals, and re-add as single or multiple LWPOLYLINEs.
     """
     raws: list[Polygon] = []

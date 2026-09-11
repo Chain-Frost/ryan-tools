@@ -1,7 +1,8 @@
 """Tests for basic info operations in ProcessorCollection."""
 
-import pandas as pd
 from unittest.mock import MagicMock
+
+import pandas as pd
 
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 

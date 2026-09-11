@@ -9,8 +9,9 @@ from __future__ import annotations
 
 __lazy_modules__ = ["pandas"]
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Literal
+
 import pandas as pd
 
 # ---------- Core expectations ----------
@@ -64,8 +65,7 @@ def _standardize_tp(val: object) -> str:
     if val is None:
         return ""
     s: str = str(val).strip().upper()
-    if s.startswith("TP"):
-        s = s[2:]
+    s = s.removeprefix("TP")
     try:
         n = int(s)
     except ValueError:
@@ -100,7 +100,6 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def _coerce_dimension(value: object) -> DimensionValue:
     """Convert a pandas grouping key into a stable display and record value."""
-
     if isinstance(value, (str, int, float)):
         return value
     return str(value)
@@ -193,8 +192,7 @@ def to_summary_frames(result: AnalysisResult) -> dict[str, pd.DataFrame]:
 
 
 def summarize_for_cli(df: pd.DataFrame) -> tuple[str, pd.DataFrame]:
-    """
-    Concise CLI summary + flattened DataFrame.
+    """Concise CLI summary + flattened DataFrame.
     - Lists AEPs and Durations per trim_run_code up front.
     - Rollups:
         * "AEP X: missing all durations"

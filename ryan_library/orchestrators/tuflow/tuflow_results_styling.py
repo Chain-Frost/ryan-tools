@@ -1,14 +1,13 @@
 # ryan_library/orchestrators/tuflow/tuflow_results_styling.py
-"""
-TUFLOW Results Styling.
+"""TUFLOW Results Styling.
 
 This module automates the application of QGIS layer styles (.qml) to TUFLOW result files (e.g., raster .flt/.tif,
 vector .shp/.gpkg). It recursively scans a directory and copies the appropriate .qml file next to the result file
 based on filename matching (e.g. *_d_Max.flt gets depth_for_legend_max2m.qml).
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -16,8 +15,7 @@ from loguru import logger
 
 
 class BaseMappingEntry(TypedDict):
-    """
-    Base type for style mapping configuration.
+    """Base type for style mapping configuration.
 
     Attributes:
         exts: List of file extensions to apply this style to (e.g. ["flt", "tif"]).
@@ -29,17 +27,13 @@ class BaseMappingEntry(TypedDict):
 
 
 class MappingEntry(BaseMappingEntry, total=False):
-    """
-    Extended mapping type allowing for optional layer name (for GPKG/database styles).
-    """
+    """Extended mapping type allowing for optional layer name (for GPKG/database styles)."""
 
     layer_name: str
 
 
 class TUFLOWResultsStyler:
-    """
-    Handles the recursive scanning and application of QML styles to TUFLOW results.
-    """
+    """Handles the recursive scanning and application of QML styles to TUFLOW results."""
 
     def __init__(
         self,
@@ -64,7 +58,8 @@ class TUFLOWResultsStyler:
 
     def get_file_mappings(self) -> dict[str, MappingEntry]:
         """Returns a mapping of file keys to their extensions and QML paths.
-        Allows user to override default QML paths."""
+        Allows user to override default QML paths.
+        """
         raster_exts: list[str] = ["flt", "tif"]
         vector_exts: list[str] = ["shp", "gpkg"]
 
@@ -151,8 +146,7 @@ class TUFLOWResultsStyler:
             logger.error(f"Error processing data for {filename}: {e}")
 
     def process_gpkg(self, filename: str, layer_name: str, current_path: Path, qml_path: Path) -> None:
-        """
-        Processes GeoPackage files by applying styles to specific layers.
+        """Processes GeoPackage files by applying styles to specific layers.
 
         Currently a placeholder implementation pending future development (SQL logic).
         """

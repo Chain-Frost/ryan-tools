@@ -1,6 +1,5 @@
 # ryan_library/orchestrators/tuflow/tuflow_culverts_mean.py
-"""
-Generate AEP/Duration Mean and Median Summaries for Culvert Results.
+"""Generate AEP/Duration Mean and Median Summaries for Culvert Results.
 
 This module processes culvert result data to calculate mean or upper-middle median statistics across differing durations
 for each AEP event. It identifies the "critical" duration based on the highest flow metric and can "adopt"
@@ -20,8 +19,8 @@ import pandas as pd
 from loguru import logger
 from pandas.api.types import is_numeric_dtype
 
-from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.excel_export import ExcelExporter
+from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.pandas.median_calc import upper_middle_row, upper_middle_value
 from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
 from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
@@ -40,8 +39,7 @@ def run_culvert_mean_report(
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
 ) -> None:
-    """
-    Generate AEP/Duration mean statistics for culvert results and export them to Excel.
+    """Generate AEP/Duration mean statistics for culvert results and export them to Excel.
 
     Args:
         script_directory: Output directory for exported files.
@@ -51,7 +49,6 @@ def run_culvert_mean_report(
         locations_to_include: Filter for specific culvert IDs/locations.
         export_raw: If True, includes the raw combined maximums in a separate Excel sheet.
     """
-
     _run_culvert_statistic_report(
         statistic="mean",
         output_suffix="mean",
@@ -72,8 +69,7 @@ def run_culvert_median_report(
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
 ) -> None:
-    """
-    Generate AEP/Duration median statistics for culvert results and export them to Excel.
+    """Generate AEP/Duration median statistics for culvert results and export them to Excel.
 
     Args:
         script_directory: Output directory for exported files.
@@ -83,7 +79,6 @@ def run_culvert_median_report(
         locations_to_include: Filter for specific culvert IDs/locations.
         export_raw: If True, includes the raw combined maximums in a separate Excel sheet.
     """
-
     _run_culvert_statistic_report(
         statistic="median",
         output_suffix="med",
@@ -108,7 +103,6 @@ def _run_culvert_statistic_report(
     export_raw: bool = True,
 ) -> None:
     """Generate AEP/Duration culvert statistics and export them to Excel."""
-
     if script_directory is None:
         script_directory = Path.cwd()
     effective_paths_to_process: list[Path] = list(paths_to_process or (script_directory,))
@@ -215,34 +209,29 @@ EXCLUDED_MEAN_NUMERIC_COLUMNS: frozenset[str] = frozenset({"tp_numeric"})
 
 
 def find_culvert_aep_dur_mean(aggregated_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Return mean statistics grouped by AEP, Duration, run variant and Culvert.
+    """Return mean statistics grouped by AEP, Duration, run variant and Culvert.
 
     Temporal patterns are intentionally collapsed here so each duration row represents
     the mean response across contributing TPs. Also determines "adopted" values: for
     each group, it finds the simulation run closest to the mean Flow (Q) and adopts
     its values for select columns (Q, V, DS_h, US_h).
     """
-
     return _find_culvert_aep_dur_statistic(aggregated_df=aggregated_df, statistic="mean")
 
 
 def find_culvert_aep_dur_median(aggregated_df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Return upper-middle median statistics grouped by AEP, Duration, run variant and Culvert.
+    """Return upper-middle median statistics grouped by AEP, Duration, run variant and Culvert.
 
     Temporal patterns are intentionally collapsed here so each duration row represents
     the upper-middle median response across contributing TPs. Also determines "adopted"
     values: for each group, it uses the simulation run at the upper-middle median Flow
     (Q) and adopts its values for select columns (Q, V, DS_h, US_h).
     """
-
     return _find_culvert_aep_dur_statistic(aggregated_df=aggregated_df, statistic="median")
 
 
 def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: StatisticName) -> pd.DataFrame:
     """Return grouped culvert statistics for each AEP/Duration/run/Culvert group."""
-
     if aggregated_df.empty:
         return pd.DataFrame()
 
@@ -297,7 +286,7 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
             group: pd.DataFrame = raw_group
             adopted_entry: dict[str, object] = _group_key_values(
                 group_columns=group_columns,
-                key=cast(object, key),
+                key=cast("object", key),
             )
 
             q_series: pd.Series | None = pd.to_numeric(group["Q"], errors="coerce") if "Q" in group.columns else None
@@ -307,7 +296,7 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
                     target_q = q_series.mean()
                     # Find index of value closest to the statistic.
                     idx: Any = (q_series - target_q).abs().idxmin()
-                    closest_row = cast(pd.Series, group.loc[idx])
+                    closest_row = cast("pd.Series", group.loc[idx])
                 else:
                     closest_row = upper_middle_row(group=group, value_column="Q")
 
@@ -346,28 +335,23 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
 
 
 def find_culvert_aep_mean_max(aep_dur_mean: pd.DataFrame) -> pd.DataFrame:
-    """
-    Return the duration row containing the highest mean discharge (or specified metric) for each AEP/culvert group.
+    """Return the duration row containing the highest mean discharge (or specified metric) for each AEP/culvert group.
 
     This finds the "Critical Duration" based on the mean-across-TP results calculated previously.
     """
-
     return _find_culvert_aep_statistic_max(aep_dur_stat=aep_dur_mean, statistic="mean")
 
 
 def find_culvert_aep_median_max(aep_dur_median: pd.DataFrame) -> pd.DataFrame:
-    """
-    Return the duration row containing the highest median discharge for each AEP/culvert group.
+    """Return the duration row containing the highest median discharge for each AEP/culvert group.
 
     This finds the "Critical Duration" based on the median-across-TP results calculated previously.
     """
-
     return _find_culvert_aep_statistic_max(aep_dur_stat=aep_dur_median, statistic="median")
 
 
 def _find_culvert_aep_statistic_max(aep_dur_stat: pd.DataFrame, statistic: StatisticName) -> pd.DataFrame:
     """Return the duration row containing the highest statistic for each AEP/culvert group."""
-
     if aep_dur_stat.empty:
         return pd.DataFrame()
 
@@ -412,16 +396,14 @@ def _find_culvert_aep_statistic_max(aep_dur_stat: pd.DataFrame, statistic: Stati
 
 def _group_key_values(group_columns: list[str], key: object) -> dict[str, object]:
     """Return grouping column values for a pandas groupby key."""
-
     if isinstance(key, tuple):
-        key_values: tuple[object, ...] = cast(tuple[object, ...], key)
+        key_values: tuple[object, ...] = cast("tuple[object, ...]", key)
         return dict(zip(group_columns, key_values, strict=False))
     return {group_columns[0]: key}
 
 
 def _preferred_metric_column(aep_dur_stat: pd.DataFrame, statistic: StatisticName) -> str | None:
     """Return the preferred statistic column used to identify maximum durations (e.g. mean_Q)."""
-
     prefix: str = f"{statistic}_"
     candidate_columns: list[str] = [column for column in aep_dur_stat.columns if column.startswith(prefix)]
     if not candidate_columns:
@@ -441,7 +423,6 @@ def _preferred_metric_column(aep_dur_stat: pd.DataFrame, statistic: StatisticNam
 
 def _group_columns(df: pd.DataFrame, include_duration: bool) -> list[str]:
     """Return the ordered list of grouping columns present in ``df``."""
-
     base_order: list[str] = ["aep_text"]
     if include_duration:
         base_order.append("duration_text")
@@ -461,7 +442,6 @@ def _ordered_columns(
     value_prefixes: Sequence[str],
 ) -> list[str]:
     """Return an ordered list of columns for presentation."""
-
     ordered: list[str] = []
     for column in lead + secondary:
         if column in df.columns and column not in ordered:

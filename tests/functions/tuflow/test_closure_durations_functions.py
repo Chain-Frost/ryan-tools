@@ -1,6 +1,7 @@
 """Unit tests for ryan_library.functions.tuflow.closure_durations_functions."""
 
 from unittest.mock import MagicMock, patch
+
 import pandas as pd
 from pandas import DataFrame
 

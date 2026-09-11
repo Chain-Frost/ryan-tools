@@ -1,12 +1,13 @@
 
-import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-import pandas as pd
-from io import StringIO
 
-from ryan_library.processors.tuflow.max_data_processor import MaxDataProcessor
+import pandas as pd
+import pytest
+
 from ryan_library.processors.tuflow.base_processor import ProcessorStatus
+from ryan_library.processors.tuflow.max_data_processor import MaxDataProcessor
+
 
 # Create a concrete subclass for testing since MaxDataProcessor is abstract
 class ConcreteMaxDataProcessor(MaxDataProcessor):

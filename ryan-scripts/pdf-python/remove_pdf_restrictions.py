@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Remove PDF permission restrictions by rewriting PDFs with pypdf.
+"""Remove PDF permission restrictions by rewriting PDFs with pypdf.
 
 This script is intentionally narrow. It opens each input PDF, decrypts it when
 possible, then writes a fresh unencrypted copy. That removes common PDF
@@ -164,7 +163,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args: argparse.Namespace = parse_args()
-    inputs = args.input_pdfs if args.input_pdfs else DEFAULT_INPUT_PDFS
+    inputs = args.input_pdfs or DEFAULT_INPUT_PDFS
     output = args.output if args.output is not None else DEFAULT_OUTPUT
     output_dir = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
 

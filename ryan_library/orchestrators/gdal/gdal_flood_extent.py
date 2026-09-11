@@ -7,10 +7,10 @@ different raster band, and remove small connected regions with GDAL's sieve
 filter. Polygon output defaults to GeoPackage.
 """
 
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from pathlib import Path
-import tempfile
 from typing import Literal
 
 from loguru import logger

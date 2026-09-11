@@ -1,7 +1,9 @@
 """Tests for ryan_library.functions.process_12D_culverts."""
 
-import pandas as pd
 from unittest.mock import patch
+
+import pandas as pd
+
 from ryan_library.functions import process_12D_culverts
 
 

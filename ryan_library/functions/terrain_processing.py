@@ -44,13 +44,12 @@ type RasterContext = AbstractContextManager[RasterReader]
 
 
 def read_geotiff(filename: str | Path, nodata_values: NodataValues = None) -> pd.DataFrame:
-    """
-    Reads a GeoTIFF file and returns a DataFrame with X, Y, Z coordinates.
+    """Reads a GeoTIFF file and returns a DataFrame with X, Y, Z coordinates.
     """
     logger.info(f"Loading file: {filename}")
     try:
         open_raster = cast(
-            Callable[[str | Path], RasterContext],
+            "Callable[[str | Path], RasterContext]",
             rasterio.open,  # pyright: ignore[reportUnknownMemberType]
         )
         with open_raster(filename) as f:
@@ -84,8 +83,7 @@ def read_geotiff(filename: str | Path, nodata_values: NodataValues = None) -> pd
 
 
 def tile_data(df: pd.DataFrame, tile_size: float) -> list[TerrainTile]:
-    """
-    Splits the DataFrame into tiles based on the specified tile size.
+    """Splits the DataFrame into tiles based on the specified tile size.
     Returns a list of tuples containing tile indices and the corresponding tile DataFrame.
     """
     if df.empty:
@@ -126,8 +124,7 @@ def tile_data(df: pd.DataFrame, tile_size: float) -> list[TerrainTile]:
 
 
 def process_terrain_file(args_save_function: TerrainTask) -> None:
-    """
-    Worker function to process a single terrain file.
+    """Worker function to process a single terrain file.
 
     Parameters:
     - args_save_function: Tuple containing (args, save_function)
@@ -143,8 +140,7 @@ def process_terrain_file_inner(
     tile_size: float | None,
     save_function: SaveFunction,
 ) -> None:
-    """
-    Processes a single terrain file: reads, tiles, and saves using the provided save_function.
+    """Processes a single terrain file: reads, tiles, and saves using the provided save_function.
 
     Parameters:
     - filename: Path to the GeoTIFF file
@@ -175,10 +171,10 @@ def process_terrain_file_inner(
         # Tile the data
         tiles: list[TerrainTile] = tile_data(df, tile_size)
         for (i, j), tile_df in tiles:
-            cast(TileSaveFunction, save_function)(tile_df, output_dir, base_filename, i, j)
+            cast("TileSaveFunction", save_function)(tile_df, output_dir, base_filename, i, j)
     else:
         # Export without tiling
-        cast(FullSaveFunction, save_function)(df, output_dir, base_filename)
+        cast("FullSaveFunction", save_function)(df, output_dir, base_filename)
 
 
 def parallel_process_multiple_terrain(
@@ -189,8 +185,7 @@ def parallel_process_multiple_terrain(
     save_function: SaveFunction,
     log_queue: LogQueue | None = None,
 ) -> None:
-    """
-    Orchestrates the processing of multiple terrain files in parallel.
+    """Orchestrates the processing of multiple terrain files in parallel.
 
     Parameters:
     - files: List of file paths to process

@@ -18,16 +18,17 @@ not a claim of exact ASC_to_ASC NoData parity.
 from __future__ import annotations
 
 import csv
+import time
+from collections.abc import Iterable
 from contextlib import ExitStack, closing
 from pathlib import Path
-import time
-from typing import Iterable, Literal, Protocol, cast
+from typing import Literal, Protocol, cast
 from uuid import uuid4
 
 import numpy as np
-from numpy._typing._array_like import NDArray
 import numpy.typing as npt
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
+from numpy._typing._array_like import NDArray
 from rasterio.windows import Window  # pyright: ignore[reportMissingTypeStubs]
 
 from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
@@ -59,11 +60,11 @@ class _RasterDataset(Protocol):
 def _open_raster(path: Path, mode: str = "r", profile: dict[str, object] | None = None) -> _RasterDataset:
     if profile is None:
         return cast(
-            _RasterDataset,
+            "_RasterDataset",
             rasterio.open(path, mode),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
         )
     return cast(
-        _RasterDataset,
+        "_RasterDataset",
         rasterio.open(  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportArgumentType]
             path, mode, **profile  # pyright: ignore[reportArgumentType]
         ),
@@ -359,7 +360,7 @@ def compute_diff(
             first, second = datasets
             profile, output_nodata = _output_profile(first, extra_args)
             destination: _RasterDataset = stack.enter_context(closing(_open_raster(temporary_output, "w", profile)))
-            wet_dry_destination: None | _RasterDataset = (
+            wet_dry_destination: _RasterDataset | None = (
                 None
                 if change or nowetdry or combine_wd
                 else stack.enter_context(closing(_open_raster(temporary_wet_dry, "w", profile)))

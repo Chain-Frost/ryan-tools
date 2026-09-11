@@ -1,7 +1,7 @@
 """Unit tests for ryan_library.functions.dataframe_helpers."""
 
 import pandas as pd
-import pytest
+
 from ryan_library.functions.dataframe_helpers import (
     merge_and_sort_data,
     reorder_columns,

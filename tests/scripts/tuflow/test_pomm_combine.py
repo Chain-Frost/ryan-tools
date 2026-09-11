@@ -2,8 +2,8 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-from pandas import DataFrame
 import pytest
+from pandas import DataFrame
 
 from ryan_library.orchestrators.tuflow.pomm_combine import export_results
 
@@ -26,7 +26,7 @@ class _DummyResults:
 import ryan_library.functions.excel_export as excel_export
 
 
-@pytest.fixture()
+@pytest.fixture
 def temp_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     def _fake_to_parquet(
         self: pd.DataFrame,

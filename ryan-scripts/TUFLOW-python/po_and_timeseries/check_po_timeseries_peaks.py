@@ -1,14 +1,13 @@
 # ryan-scripts\TUFLOW-python\po_and_timeseries\check_po_timeseries_peaks.py
-"""
-Wrapper Script: Peak checks for TUFLOW PO CSV files.
+"""Wrapper Script: Peak checks for TUFLOW PO CSV files.
 
 This wrapper exposes hard-coded defaults for quick edits while delegating the heavy
 lifting to ``ryan_library.orchestrators.tuflow.peak_check_po_csvs``.
 """
 
+import os
 from pathlib import Path
 from typing import Literal
-import os
 
 WRAPPER_VERSION = "2026-08-02.1"
 
@@ -66,8 +65,7 @@ def main(
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> int:
-    """
-    Run peak checks on PO CSVs using wrapper defaults and optional CLI overrides.
+    """Run peak checks on PO CSVs using wrapper defaults and optional CLI overrides.
 
     Args:
         console_log_level: Overrides CONSOLE_LOG_LEVEL.
@@ -86,7 +84,7 @@ def main(
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_data_types: tuple[str, ...] = include_data_types or DATATYPE_INCLUDE
     effective_locations: tuple[str, ...] | tuple[()] = (
-        locations_to_include if locations_to_include else (LOCATION_INCLUDE or ())
+        locations_to_include or (LOCATION_INCLUDE or ())
     )
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
     effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_directory,))

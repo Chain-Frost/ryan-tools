@@ -4,6 +4,7 @@
 """Helpers shared by TUFLOW wrapper/orchestrator scripts."""
 
 from collections.abc import Collection, Sequence
+
 from loguru import logger
 
 
@@ -19,7 +20,6 @@ def normalize_data_types(
         default: Fallback list if ``requested`` is falsy.
         accepted: Types considered valid for the workflow.
     """
-
     resolved: list[str] = list(dict.fromkeys(requested or default))
     accepted_set: set[str] = set(accepted)
     invalid: list[str] = [data_type for data_type in resolved if data_type not in accepted_set]
@@ -33,7 +33,6 @@ def warn_on_invalid_types(
     context: str,
 ) -> None:
     """Log a warning about unexpected types while continuing execution."""
-
     if not invalid_types:
         return
 

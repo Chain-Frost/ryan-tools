@@ -8,11 +8,11 @@ read queues, or decide how work items are processed. Use
 serial/multiprocessing execution wired into this dashboard.
 """
 
+import datetime
+import time
 from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-import datetime
-import time
 from types import TracebackType
 from typing import Literal
 
@@ -122,7 +122,7 @@ class LiveWorkflowDashboard:
         self._active_count: int = 0
         self._extra_metrics: dict[str, str] = {}
 
-    def __enter__(self) -> "LiveWorkflowDashboard":
+    def __enter__(self) -> LiveWorkflowDashboard:
         if self.enabled:
             self._live = Live(
                 self._render(),

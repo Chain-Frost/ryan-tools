@@ -1,5 +1,4 @@
-"""
-Compresses files matching a specific pattern into individual .7z archives using
+"""Compresses files matching a specific pattern into individual .7z archives using
 the external 7-Zip executable. Uses multiprocessing to process multiple files
 concurrently.
 """
@@ -17,7 +16,7 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT = Path(".")
+DEFAULT_INPUT = Path()
 DEFAULT_EXTENSION = "*"
 DEFAULT_EXCLUDE_FOLDERS: list[str] = ["xf"]
 DEFAULT_EXCLUDE_EXTENSIONS: list[str] = [".xf4", ".xmdf", ".2dm", ".dat", ".7z"]

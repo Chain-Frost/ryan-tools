@@ -1,13 +1,12 @@
 # ryan-scripts\AutoCAD-python.py
-"""
-group_by_color.py
+"""group_by_color.py
 Scan a DXF for true-color (RGB) values and regroup entities so
 that each unique color lives on its own layer, with progress reports.
 """
 
-import ezdxf
 import os
 
+import ezdxf
 from ezdxf.document import Drawing
 from ezdxf.layouts.layout import Modelspace
 

@@ -1,19 +1,20 @@
 """Coverage tests for tuflow_common.py."""
 
+from collections.abc import Collection
 from pathlib import Path
-from typing import Collection
 from unittest.mock import MagicMock, patch
+
 import pandas as pd
 
+from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.functions.tuflow import tuflow_common
 from ryan_library.processors.tuflow.processor_collection import BaseProcessor, ProcessorCollection
-from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 
 
 class TestCollectFiles:
     def test_collect_files_no_types(self) -> None:
         res: list[Path] = tuflow_common.collect_files(
-            paths_to_process=[Path(".")], include_data_types=[], suffixes_config=SuffixesConfig.get_instance()
+            paths_to_process=[Path()], include_data_types=[], suffixes_config=SuffixesConfig.get_instance()
         )
         assert res == []
 
@@ -109,5 +110,5 @@ class TestBulkMerge:
     @patch("ryan_library.functions.tuflow.tuflow_common.collect_files")
     def test_bulk_merge_no_files(self, mock_collect) -> None:
         mock_collect.return_value = []
-        res: ProcessorCollection = tuflow_common.bulk_read_and_merge_tuflow_csv([Path(".")], ["POMM"], MagicMock())
+        res: ProcessorCollection = tuflow_common.bulk_read_and_merge_tuflow_csv([Path()], ["POMM"], MagicMock())
         assert len(res.processors) == 0

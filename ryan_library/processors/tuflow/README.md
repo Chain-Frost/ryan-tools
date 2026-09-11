@@ -190,8 +190,8 @@ and leave `self.processed = False`. This prevents invalid or partial results fro
 ### 4. Validate a processor change
 
 Follow the repository [development guide](../../../docs/DEVELOPMENT_GUIDE.md#validation-by-change-type). For a
-processor change this normally includes Black, strict Pyright on modified files, focused tests or a representative
-smoke check, and a package build. Use synthetic fixtures when project result files cannot be shared.
+processor change this normally includes Ruff formatting, strict Pyright on modified files, focused tests or a
+representative smoke check, and a package build. Use synthetic fixtures when project result files cannot be shared.
 
 If the new processor type has recurring agent-facing value, verify that the generic MCP inspection tools handle it and
 update their guidance or focused coverage as needed. Do not add a separate MCP endpoint for each basic processor.

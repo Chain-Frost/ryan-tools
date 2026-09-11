@@ -1,10 +1,11 @@
 """Tests for ryan_library.functions.tuflow.logsummary_excel_append."""
 
-import pytest
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
+
 from ryan_library.functions.tuflow import logsummary_excel_append as lsea
 
 

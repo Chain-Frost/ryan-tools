@@ -16,9 +16,9 @@ import argparse
 import sqlite3
 import struct
 import time
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 import numpy as np
 import numpy.typing as npt

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-import pytest
-import pandas as pd
 
+import pytest
+
+from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 
 
 @pytest.fixture(scope="module")

@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
+
 import pytest
 
 # import sys
 # REPO_ROOT = Path(__file__).resolve().parents[2]
 # if str(REPO_ROOT) not in sys.path:
 #     sys.path.insert(0, str(REPO_ROOT))
-
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.classes.tuflow_string_classes import RunCodeComponent, TuflowStringParser
 
@@ -22,7 +22,7 @@ def locate_file(name: str) -> Path:
 
 @pytest.fixture(scope="module")
 def run_code_examples() -> list[dict]:
-    with open(DATA_DIR / "pomm_run_codes.json", "r", encoding="utf-8") as f:
+    with open(DATA_DIR / "pomm_run_codes.json", encoding="utf-8") as f:
         return json.load(f)
 
 

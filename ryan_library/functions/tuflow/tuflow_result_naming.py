@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-import re
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 

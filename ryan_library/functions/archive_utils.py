@@ -5,10 +5,10 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import shutil
 import subprocess
 from collections.abc import Sequence
+from pathlib import Path
 
 
 def find_7zip() -> Path | None:

@@ -16,14 +16,14 @@ __lazy_modules__: list[str] = ["numpy", "osgeo"]
 # pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
 
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass
-import os
 from pathlib import Path
 from typing import Literal
 
-from loguru import logger
 import numpy as np
+from loguru import logger
 from osgeo import gdal, ogr
 
 from ryan_library.functions.gdal.vector_conversion import VectorFormat, resolve_vector_format

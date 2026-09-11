@@ -1,11 +1,12 @@
 """Tests for raster_workflows orchestration."""
 
-import pytest
-from unittest.mock import patch
-from pathlib import Path
 import time
+from pathlib import Path
+from unittest.mock import patch
 
-from ryan_library.orchestrators.gdal.raster_workflows import convert_rasters, add_overviews, _run_batch
+import pytest
+
+from ryan_library.orchestrators.gdal.raster_workflows import _run_batch, add_overviews, convert_rasters
 
 
 @pytest.fixture

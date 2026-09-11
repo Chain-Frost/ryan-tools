@@ -1,6 +1,5 @@
 """Unit tests for ryan_library.classes.column_definitions."""
 
-import pytest
 from ryan_library.classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
 
 

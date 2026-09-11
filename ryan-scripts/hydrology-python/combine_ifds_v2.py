@@ -12,9 +12,10 @@ naming or table layout are reported and may be skipped.
 
 # is this made obsolete by just downloading the all data csv from BOM?
 import os
-from pathlib import Path
-import pandas as pd
 import re
+from pathlib import Path
+
+import pandas as pd
 
 # Define the lookup data
 lookup_data: list[dict[str, str | float] | dict[str, str | float | int]] = [
@@ -90,8 +91,7 @@ lookup_df: pd.DataFrame = lookup_df.drop_duplicates(subset=["raw"])
 
 
 def process_coordinate(coord: str, coord_type: str) -> float:
-    """
-    Process coordinate strings by removing directional indicators and converting to float.
+    """Process coordinate strings by removing directional indicators and converting to float.
 
     Parameters:
     - coord: The coordinate string (e.g., "33.5(S)", "120.2(E)").
@@ -123,7 +123,7 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
     print(f"Starting extraction for file: {file_path}")
     try:
         # Read the file into a list of lines
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             lines: list[str] = f.readlines()
         print(f"File read successfully. Total lines: {len(lines)}")
 

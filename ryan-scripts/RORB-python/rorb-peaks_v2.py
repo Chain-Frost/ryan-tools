@@ -10,11 +10,12 @@ are found. It uses fixed text markers and filename assumptions, so compare a
 representative extracted record with the source RORB output before bulk use.
 """
 
-import pandas as pd
-import re
 import os
-from pathlib import Path
+import re
 from functools import reduce
+from pathlib import Path
+
+import pandas as pd
 
 # Set script to run in the folder it is saved in
 script_dir: Path = Path(__file__).absolute().parent
@@ -38,7 +39,7 @@ skipped_count = 0
 for file_path in out_files:
     # Read the file content
     try:
-        with open(file=file_path, mode="r", encoding="latin1") as file:
+        with open(file=file_path, encoding="latin1") as file:
             lines: list[str] = file.readlines()
     except Exception:
         # If there's an error reading the file, skip it
@@ -97,8 +98,7 @@ for file_path in out_files:
 
     # Define a function to extract the higher median and corresponding TPat
     def get_higher_median_tpat(group, peak_col) -> pd.Series:
-        """
-        For a given group and Peak column:
+        """For a given group and Peak column:
         - Sort the group by the Peak column in ascending order.
         - Determine the higher median index.
         - Retrieve the Peak value and corresponding TPat at that index.

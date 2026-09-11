@@ -9,10 +9,11 @@ The script writes per-ID shapefiles plus ``1d_nwk_data.trd`` and
 group counts and inspect unmatched network/boundary-condition groups in GIS.
 """
 
-from typing import Any, Union
 import os
-import geopandas as gpd
+from typing import Any
+
 import fiona
+import geopandas as gpd
 from geopandas import GeoDataFrame
 
 
@@ -88,7 +89,7 @@ def load_shapefiles(nwk_path: str, bc_path: str) -> tuple[GeoDataFrame, GeoDataF
 
 def save_subset_files(
     gdf: GeoDataFrame,
-    unique_ids: list[Union[str, int]],
+    unique_ids: list[str | int],
     prefix: str,
     filter_condition: Any,
     output_dir: str,

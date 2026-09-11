@@ -2,20 +2,20 @@
 
 from pathlib import Path
 from typing import Any
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
-from ryan_library.functions.path_stuff import convert_to_relative_path
+
 from ryan_library.functions.parse_tlf import (
-    search_for_completion,
-    is_complete_tlf,
-    process_top_lines,
     finalise_data,
     get_log_lines,
+    is_complete_tlf,
+    process_top_lines,
+    search_for_completion,
 )
+from ryan_library.functions.path_stuff import convert_to_relative_path
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
 
 
 class TLFProcessor(BaseProcessor):
-    """
-    Processor for TUFLOW Log Files (.tlf).
+    """Processor for TUFLOW Log Files (.tlf).
 
     This processor parses TUFLOW simulation log files to extract
     timing, configuration, and completion metadata. It leverages
@@ -23,8 +23,7 @@ class TLFProcessor(BaseProcessor):
     """
 
     def process(self) -> None:
-        """
-        Process the TLF file and populate the internal DataFrame (self.df).
+        """Process the TLF file and populate the internal DataFrame (self.df).
 
         Reads the log file (using efficient tail-reading for files > 10MB).
         If the file has successfully finished computing, it scans the header

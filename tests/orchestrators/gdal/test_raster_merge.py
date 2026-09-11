@@ -2,13 +2,14 @@
 
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
 from ryan_library.orchestrators.gdal.raster_merge import (
+    _extents_intersect,
     merge_directory,
     merge_directory_by_vector_extent,
     merge_rasters_to_temporary_vrt,
-    _extents_intersect,
 )
 
 

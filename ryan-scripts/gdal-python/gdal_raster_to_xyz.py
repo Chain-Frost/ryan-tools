@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 
 WRAPPER_VERSION = "2026-08-20.1"
-DEFAULT_INPUT_DIRECTORY = Path(".")
+DEFAULT_INPUT_DIRECTORY = Path()
 DEFAULT_PATTERNS = ["*.tif"]
 DEFAULT_RECURSIVE = False
 DEFAULT_FORMAT = "csv"

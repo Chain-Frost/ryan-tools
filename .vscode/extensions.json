@@ -3,7 +3,7 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "lmillard79.tuflow-helper",
-        "ms-python.black-formatter",
+        "charliermarsh.ruff",
         "usernamehw.errorlens",
         "nilssoderman.batch-runner",
         "fr43nk.seito-openfile",

@@ -24,7 +24,7 @@ from pathlib import Path
 # Hard-coded constants
 # ---------------------------------------------------------------------------
 
-ROOT_DIR = Path(".")
+ROOT_DIR = Path()
 CHECK_FOLDER_NAME = "check"
 
 REPORT_FILE = Path("duplicate_files_to_delete.txt")
@@ -96,8 +96,7 @@ class PlaceholderAction:
 
 
 def absolute_path(path: Path) -> Path:
-    """
-    Return an absolute path without requiring the path to exist.
+    """Return an absolute path without requiring the path to exist.
 
     Works for normal drives and UNC paths.
     """
@@ -105,8 +104,7 @@ def absolute_path(path: Path) -> Path:
 
 
 def safe_display_path(path: Path) -> str:
-    """
-    Return a readable path string.
+    """Return a readable path string.
 
     Do not use Path.as_posix() because it can make Windows and UNC paths less clear.
     """
@@ -117,8 +115,7 @@ def relative_or_absolute_path_from_placeholder_to_kept_file(
     placeholder_file: Path,
     keep_file: Path,
 ) -> str:
-    """
-    Return the kept file path relative to the placeholder file's folder where possible.
+    """Return the kept file path relative to the placeholder file's folder where possible.
 
     Handles:
     - normal local drives
@@ -204,8 +201,7 @@ def file_hash(path: Path) -> str:
 
 
 def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
-    """
-    Hash only files that have at least one same-suffix, same-size candidate.
+    """Hash only files that have at least one same-suffix, same-size candidate.
 
     This avoids hashing files that cannot be duplicates.
     """
@@ -241,8 +237,7 @@ def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
 
 
 def find_duplicate_groups(records: list[FileRecord]) -> list[DuplicateGroup]:
-    """
-    Find duplicate files by suffix, file size, then content hash.
+    """Find duplicate files by suffix, file size, then content hash.
 
     The first file alphabetically is kept.
     """
@@ -316,8 +311,7 @@ def should_write_placeholder(
     action: DeleteAction,
     check_folder_by_file: dict[Path, Path],
 ) -> bool:
-    """
-    Return True when the deleted file and kept file are in different check folders.
+    """Return True when the deleted file and kept file are in different check folders.
 
     Placeholder files are only required when the remaining source file is elsewhere.
     """
@@ -331,8 +325,7 @@ def should_write_placeholder(
 
 
 def placeholder_path_for_representative_deleted_file(delete_file: Path) -> Path:
-    """
-    Return the placeholder path based on a representative deleted file.
+    """Return the placeholder path based on a representative deleted file.
 
     Example:
         result_001.tif -> result_001.tif.DUPLICATE_REMOVED.txt
@@ -347,8 +340,7 @@ def build_placeholder_actions(
     actions: list[DeleteAction],
     records: list[FileRecord],
 ) -> list[PlaceholderAction]:
-    """
-    Build one placeholder action per unique deleted content per check folder.
+    """Build one placeholder action per unique deleted content per check folder.
 
     This prevents writing one placeholder per deleted filename.
 
@@ -452,8 +444,7 @@ def placeholder_text(action: PlaceholderAction) -> str:
 
 
 def write_placeholder_file(action: PlaceholderAction) -> bool:
-    """
-    Write one placeholder file.
+    """Write one placeholder file.
 
     Returns True if written successfully.
     """
@@ -599,8 +590,7 @@ def confirm_deletion() -> bool:
 
 
 def delete_duplicate_file(action: DeleteAction) -> bool:
-    """
-    Delete one duplicate file.
+    """Delete one duplicate file.
 
     Returns True only if the file was deleted or was already missing.
     """
@@ -626,8 +616,7 @@ def delete_duplicate_file(action: DeleteAction) -> bool:
 
 
 def delete_duplicate_files(actions: list[DeleteAction]) -> list[DeleteAction]:
-    """
-    Delete duplicate files.
+    """Delete duplicate files.
 
     Returns the actions that successfully deleted or skipped already-missing files.
     """

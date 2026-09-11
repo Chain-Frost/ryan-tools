@@ -17,8 +17,7 @@ from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 
 def safe_apply[T, R](func: Callable[[T], R], value: T) -> R | None:
-    """
-    Safely applies a function to a given value, ignoring any exceptions that occur.
+    """Safely applies a function to a given value, ignoring any exceptions that occur.
 
     This function attempts to execute `func(value)`. If `func` raises an exception,
     the exception is caught, an error is logged, and `None` is returned instead.
@@ -57,8 +56,7 @@ def safe_apply[T, R](func: Callable[[T], R], value: T) -> R | None:
 
 
 def check_string_TP(string: str) -> str:
-    """
-    Searches for a 'TP' pattern followed by exactly two digits in the provided string.
+    """Searches for a 'TP' pattern followed by exactly two digits in the provided string.
     Considers the context to ensure 'TP' is either at the start/end of the string
     or surrounded by underscores or pluses.
 
@@ -76,13 +74,11 @@ def check_string_TP(string: str) -> str:
 
     if match:
         return match.group(1)
-    else:
-        raise ValueError(f"TP pattern not found in the string: {string}")
+    raise ValueError(f"TP pattern not found in the string: {string}")
 
 
 def check_string_duration(string: str) -> str:
-    """
-    Searches for a duration pattern within a given string. The pattern is defined to capture
+    """Searches for a duration pattern within a given string. The pattern is defined to capture
     a duration formatted as three to five digits followed by 'm' or 'M', which is either at the start/end of the string
     or surrounded by underscores or pluses.
     June 2024
@@ -101,13 +97,11 @@ def check_string_duration(string: str) -> str:
     match: re.Match[str] | None = TuflowStringParser.DURATION_PATTERN.search(string)
     if match:
         return match.group(1)
-    else:
-        raise ValueError(f"Duration pattern not found in the string: {string}")
+    raise ValueError(f"Duration pattern not found in the string: {string}")
 
 
 def check_string_aep(string: str) -> str:
-    """
-    Searches for an Annual Exceedance Probability (AEP) pattern within a given string. The pattern is defined to capture
+    """Searches for an Annual Exceedance Probability (AEP) pattern within a given string. The pattern is defined to capture
     an AEP formatted as two digits followed by a decimal and one or two more digits, ending with 'p', which is either at the start/end of the string
     or surrounded by underscores or pluses.
     June 2024
@@ -130,5 +124,4 @@ def check_string_aep(string: str) -> str:
         if matched_aep is None:
             raise ValueError(f"AEP pattern did not capture a value in: {string}")
         return matched_aep
-    else:
-        raise ValueError(f"AEP pattern not found in the string: {string}")
+    raise ValueError(f"AEP pattern not found in the string: {string}")

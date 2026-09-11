@@ -14,15 +14,16 @@ centre coordinates and the CSV-style output expected by the consumer.
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
 # pyright: reportUnnecessaryComparison=false
 
-from concurrent.futures._base import Future
 import math
 import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures._base import Future
+from datetime import datetime
+from glob import iglob
+
 import numpy as np
 import rasterio  # type: ignore
-from glob import iglob
-from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
 from affine import Affine
 
 from ryan_library.functions.gdal.raster_processing import read_raster_band
@@ -42,8 +43,7 @@ def _is_north_up(transform: Affine) -> bool:
 def _coordinate_vectors_for_chunk(
     transform: Affine, width: int, row_start: int, chunk_rows: int
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Build flattened x/y coordinate arrays for a chunk. Keeps memory bounded by only generating
+    """Build flattened x/y coordinate arrays for a chunk. Keeps memory bounded by only generating
     coordinates for the portion being processed.
     """
     north_up = _is_north_up(transform)
@@ -66,8 +66,7 @@ def _coordinate_vectors_for_chunk(
 
 
 def _rows_per_chunk(height: int, width: int) -> int:
-    """
-    Choose the number of raster rows per chunk so that the number of cells (and therefore memory)
+    """Choose the number of raster rows per chunk so that the number of cells (and therefore memory)
     stays close to TARGET_CELLS_PER_CHUNK. Always returns at least 1.
     """
     if width <= 0:
@@ -146,7 +145,7 @@ def process_tif_file(file: str) -> None:
         print(f"Finished processing {file} and saved as {output_file}")
 
     except Exception as e:
-        print(f"Error processing {file}: {str(e)}")
+        print(f"Error processing {file}: {e!s}")
 
 
 if __name__ == "__main__":

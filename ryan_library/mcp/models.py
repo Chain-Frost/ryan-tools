@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Mapping, cast
+from typing import Any, cast
 
 
 class CapabilityProfile(StrEnum):
@@ -88,7 +89,7 @@ class WorkflowSpec:
     lifecycle: str = "maintained"
     requires_explicit_approval: bool = False
     headless_arguments: tuple[str, ...] = ()
-    metadata: dict[str, Any] = field(default_factory=lambda: {})
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object]) -> WorkflowSpec:
@@ -103,10 +104,10 @@ class WorkflowSpec:
         raw_headless_value: object = raw.get("headless_arguments", [])
         if not isinstance(raw_headless_value, list):
             raise ValueError("Workflow field 'headless_arguments' must be a list of strings.")
-        raw_headless: list[object] = cast(list[object], raw_headless_value)
+        raw_headless: list[object] = cast("list[object]", raw_headless_value)
         if not all(isinstance(item, str) for item in raw_headless):
             raise ValueError("Workflow field 'headless_arguments' must be a list of strings.")
-        headless_arguments: tuple[str, ...] = tuple(cast(str, item) for item in raw_headless)
+        headless_arguments: tuple[str, ...] = tuple(cast("str", item) for item in raw_headless)
 
         known_keys: set[str] = {
             "id",

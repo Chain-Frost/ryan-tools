@@ -5,16 +5,16 @@ from typing import Protocol, cast
 
 import numpy as np
 import numpy.typing as npt
+import pytest
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
-import pytest
-
 from run_python_raster_calculations import (
     DEFAULT_INPUT_FILES,
     DEFAULT_OUTPUT_FILE,
     _parse_cli_arguments,  # pyright: ignore[reportPrivateUsage]
     resolve_configuration,
 )
+
 from ryan_library.functions.tuflow.asc_to_asc_raster_operations import compute_diff, compute_max, compute_stat
 
 
@@ -32,7 +32,7 @@ class _RasterReader(Protocol):
 
 def _write_raster(path: Path, data: npt.NDArray[np.float32]) -> None:
     destination = cast(
-        _RasterWriter,
+        "_RasterWriter",
         rasterio.open(  # pyright: ignore[reportUnknownMemberType]
             path,
             "w",
@@ -53,7 +53,7 @@ def _write_raster(path: Path, data: npt.NDArray[np.float32]) -> None:
 
 
 def _read_raster(path: Path) -> npt.NDArray[np.float32]:
-    source = cast(_RasterReader, rasterio.open(path))  # pyright: ignore[reportUnknownMemberType]
+    source = cast("_RasterReader", rasterio.open(path))  # pyright: ignore[reportUnknownMemberType]
     try:
         return source.read(1).astype(np.float32)
     finally:

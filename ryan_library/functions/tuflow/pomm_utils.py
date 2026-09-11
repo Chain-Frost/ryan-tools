@@ -6,29 +6,29 @@ from __future__ import annotations
 
 __lazy_modules__: list[str] = ["pandas"]
 
+from collections.abc import Callable, Collection, Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
-from collections.abc import Collection, Mapping, Sequence
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 from loguru import logger
 from pandas import DataFrame, Index, Series
 
 from ryan_library.classes.column_definitions import ColumnMetadataRegistry
-from ryan_library.functions.pandas.median_calc import median_calc
+from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
+from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.excel_export import (
     DATA_DICTIONARY_SHEET_NAME,
     ExcelExporter,
     build_data_dictionary,
 )
+from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.pandas.median_calc import median_calc
+from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
 from ryan_library.functions.versioning import get_tools_version
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
-from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 if TYPE_CHECKING:
     from ryan_library.functions.loguru_helpers import LogQueue
@@ -40,7 +40,6 @@ def _ordered_columns(
     info_columns: Sequence[str],
 ) -> list[str]:
     """Return a column order keeping identifiers first and meta-data last."""
-
     ordered: list[str] = []
     for group in column_groups:
         ordered.extend([column for column in group if column in df.columns])
@@ -53,7 +52,6 @@ def _ordered_columns(
 
 def _select_internal_names_for_group(group: DataFrame) -> tuple[object, object]:
     """Return (median_internal_name, mean_internal_name) for a grouped DataFrame."""
-
     if "internalName" not in group.columns or "AbsMax" not in group.columns:
         return pd.NA, pd.NA
 
@@ -90,7 +88,7 @@ def combine_processors_from_paths(
 
     def _run_with_queue(queue: LogQueue) -> ProcessorCollection:  # type: ignore[name-defined]
         logger.info(
-            "Starting POMM processing for combine_processors_from_paths. Data types: {}; " "searching in {} folder(s).",
+            "Starting POMM processing for combine_processors_from_paths. Data types: {}; searching in {} folder(s).",
             include_data_types,
             len(paths_to_process),
         )
@@ -111,7 +109,7 @@ def combine_processors_from_paths(
             file_list=csv_file_list,
             log_queue=queue,
             log_level=console_log_level,
-            entity_filters=normalized_locations if normalized_locations else None,
+            entity_filters=normalized_locations or None,
         )
         processed_count: int = len(results_set_local.processors)
         combined_rows: int = sum(len(processor.df) for processor in results_set_local.processors)
@@ -190,7 +188,8 @@ def aggregated_from_paths(
 
 def find_aep_dur_max(aggregated_df: DataFrame) -> DataFrame:
     """Return peak rows for each AEP/Duration/Location/Type/RunCode group,
-    with a column giving the size of each original group."""
+    with a column giving the size of each original group.
+    """
     group_cols: list[str] = [
         "aep_text",
         "duration_text",
@@ -231,7 +230,8 @@ def find_aep_dur_max(aggregated_df: DataFrame) -> DataFrame:
 
 def find_aep_max(aep_dur_max: DataFrame) -> DataFrame:
     """Return peak rows for each AEP/Location/Type/RunCode group,
-    with a column giving the size of each original AEP group."""
+    with a column giving the size of each original AEP group.
+    """
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
         df: DataFrame = aep_dur_max.copy()
@@ -315,11 +315,10 @@ def _build_metadata_rows(
     aep_sheet_name: str,
 ) -> Mapping[str, str]:
     """Return ordered metadata rows for the data dictionary sheet."""
-
-    generated_at: str = datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+    generated_at: str = datetime.now(UTC).astimezone().isoformat(timespec="seconds")
     metadata: dict[str, str] = {
         "Generated at": generated_at,
-        "Filename timestamp": timestamp if timestamp else "not supplied",
+        "Filename timestamp": timestamp or "not supplied",
         "Generator module": __name__,
         "ryan_functions version": get_tools_version(package="ryan_functions"),
         "Include POMM sheet": "Yes" if include_pomm else "No",
@@ -418,14 +417,14 @@ def find_aep_dur_median(aggregated_df: DataFrame) -> DataFrame:
         if not median_df.empty:
             # Normalise TP / duration text so the "mean storm equals median storm" flag is stable.
             def _normalize_tp(value: object) -> object:
-                if pd.isna(cast(Any, value)):
+                if pd.isna(cast("Any", value)):
                     return pd.NA
                 normalized: str | None = TuflowStringParser.normalize_tp_label(value)
                 return pd.NA if normalized is None else normalized
 
             for column in ("median_TP", "mean_TP"):
                 if column in median_df.columns:
-                    median_df[column] = median_df[column].apply(cast(Callable[[object], Any], _normalize_tp))
+                    median_df[column] = median_df[column].apply(cast("Callable[[object], Any]", _normalize_tp))
 
             mean_storm_matches: Series[bool] = pd.Series(False, index=median_df.index)
             required_cols: set[str] = {
@@ -585,7 +584,6 @@ def find_aep_median_max(aep_dur_median: DataFrame) -> DataFrame:
 
 def find_aep_dur_mean(aggregated_df: DataFrame) -> DataFrame:
     """Return mean stats for each AEP/Duration/Location/Type/RunCode group."""
-
     aep_dur_median: DataFrame = find_aep_dur_median(aggregated_df=aggregated_df)
     if aep_dur_median.empty:
         return aep_dur_median
@@ -631,7 +629,6 @@ def find_aep_dur_mean(aggregated_df: DataFrame) -> DataFrame:
 
 def find_aep_mean_max(aep_dur_mean: DataFrame) -> DataFrame:
     """Return rows representing the maximum mean for each AEP/Location/Type/RunCode group."""
-
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
         df: DataFrame = aep_dur_mean.copy()
@@ -704,7 +701,6 @@ def find_aep_mean_max(aep_dur_mean: DataFrame) -> DataFrame:
 
 def _remove_columns_containing(df: DataFrame, substrings: tuple[str, ...]) -> DataFrame:
     """Return ``df`` without columns that include any ``substrings``."""
-
     filtered_df: DataFrame = df.copy()
     if filtered_df.empty:
         return filtered_df
@@ -719,13 +715,11 @@ def _remove_columns_containing(df: DataFrame, substrings: tuple[str, ...]) -> Da
 
 def _median_only_columns(df: DataFrame) -> DataFrame:
     """Return a DataFrame containing only median-focused columns."""
-
     return _remove_columns_containing(df=df, substrings=("mean",))
 
 
 def _mean_only_columns(df: DataFrame) -> DataFrame:
     """Return a DataFrame containing only mean-focused columns."""
-
     return _remove_columns_containing(df=df, substrings=("median",))
 
 
@@ -763,11 +757,10 @@ def save_peak_report_mean(
     include_pomm: bool = True,
 ) -> None:
     """Save mean-based peak data tables to an Excel file."""
-
     aep_dur_mean: DataFrame = find_aep_dur_mean(aggregated_df=aggregated_df)
     aep_mean_max: DataFrame = find_aep_mean_max(aep_dur_mean=aep_dur_mean)
     logger.info(
-        "Preparing mean peak report. POMM rows: {}, " "AEP-duration mean rows: {}, AEP mean-max rows: {}.",
+        "Preparing mean peak report. POMM rows: {}, AEP-duration mean rows: {}, AEP mean-max rows: {}.",
         len(aggregated_df),
         len(aep_dur_mean),
         len(aep_mean_max),

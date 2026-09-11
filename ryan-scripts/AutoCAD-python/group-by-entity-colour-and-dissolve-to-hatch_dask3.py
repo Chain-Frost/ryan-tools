@@ -12,17 +12,14 @@ machine and drawing. Validate colour assignment and dissolved boundaries in CAD.
 
 import os
 from datetime import datetime
-from collections import defaultdict
 
 import ezdxf
+from dask.distributed import Client
 from ezdxf.document import Drawing
-from ezdxf.layouts.layout import Modelspace
 from ezdxf.entities.dxfgfx import DXFGraphic
-
+from ezdxf.layouts.layout import Modelspace
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
-
-from dask.distributed import Client
 
 # ── CONFIG ────────────────────────────────────────────────────────────────
 TOLERANCE = 0.05  # buffer tolerance
@@ -194,8 +191,7 @@ def make_layer_name(tc: int | None, ic: int) -> str:
 
 
 def extract_polygons(e: DXFGraphic) -> list[Polygon]:
-    """
-    Return 2D Shapely polygons for closed LWPOLYLINE, SOLID, 3DFACE entities.
+    """Return 2D Shapely polygons for closed LWPOLYLINE, SOLID, 3DFACE entities.
     """
     et = e.dxftype()
     pts: list[tuple[float, float]] = []

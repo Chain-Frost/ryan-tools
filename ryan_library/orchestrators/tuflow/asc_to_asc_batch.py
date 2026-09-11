@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor, wait
 from dataclasses import dataclass, field
-import os
 from pathlib import Path
 
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard

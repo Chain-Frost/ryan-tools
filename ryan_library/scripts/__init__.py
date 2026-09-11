@@ -1,9 +1,9 @@
 # ryan_library/scripts/__init__.py
 """Lazy compatibility imports for script entry points."""
 
+import sys
 from importlib import import_module
 from types import ModuleType
-import sys
 
 _TUFLOW_MODULES: frozenset[str] = frozenset(
     {

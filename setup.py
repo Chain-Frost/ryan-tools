@@ -1,7 +1,7 @@
 """Setuptools entry point and wheel resource staging."""
 
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 from setuptools import setup  # pyright: ignore[reportMissingModuleSource]
 from setuptools.command.build_py import build_py  # pyright: ignore[reportMissingModuleSource]

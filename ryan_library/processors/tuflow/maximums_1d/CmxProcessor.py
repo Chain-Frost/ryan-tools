@@ -46,7 +46,7 @@ class CmxProcessor(MaxDataProcessor):
             self.processed = True
             logger.info(f"Completed processing of CMX file: {self.log_path}")
 
-            return None
+            return
 
         except Exception as e:
             logger.error(f"Failed to process CMX file {self.log_path}: {e}")

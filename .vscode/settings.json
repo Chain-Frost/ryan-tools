@@ -4,6 +4,9 @@
   "python.defaultInterpreterPath": "",
   "python.terminal.activateEnvironment": false,
   "python.analysis.indexing": true,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff"
+  },
   "terminal.integrated.defaultProfile.windows": "PowerShell",
   "terminal.integrated.profiles.windows": {
     "PowerShell": {

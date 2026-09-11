@@ -10,12 +10,14 @@ Run ``python generate_culvert_lines.py``. The script writes the
 Rows without complete upstream/downstream coordinates are skipped.
 """
 
-import pandas as pd
-import geopandas as gpd
-from shapely.geometry import LineString
-from loguru import logger
-from ryan_library.functions.process_12D_culverts import get_combined_df_from_csv
 from pathlib import Path
+
+import geopandas as gpd
+import pandas as pd
+from loguru import logger
+from shapely.geometry import LineString
+
+from ryan_library.functions.process_12D_culverts import get_combined_df_from_csv
 
 
 def main() -> None:
@@ -53,8 +55,7 @@ def main() -> None:
 
 
 def create_linestring(us_x: float, us_y: float, ds_x: float, ds_y: float) -> LineString:
-    """
-    Creates a LineString from upstream to downstream coordinates.
+    """Creates a LineString from upstream to downstream coordinates.
 
     Args:
         us_x (float): Upstream X-coordinate.
@@ -69,8 +70,7 @@ def create_linestring(us_x: float, us_y: float, ds_x: float, ds_y: float) -> Lin
 
 
 def generate_lines(combined_df: pd.DataFrame) -> gpd.GeoDataFrame:
-    """
-    Generates culvert LineStrings based on combined_df.
+    """Generates culvert LineStrings based on combined_df.
 
     Args:
         combined_df (pd.DataFrame): Combined DataFrame with culvert information.

@@ -2,10 +2,12 @@
 
 __lazy_modules__ = ["pandas"]
 
-from ..base_processor import BaseProcessor
+import re
+
 import pandas as pd
 from loguru import logger
-import re
+
+from ..base_processor import BaseProcessor
 
 
 class EOFProcessor(BaseProcessor):
@@ -16,7 +18,7 @@ class EOFProcessor(BaseProcessor):
         logger.info(f"Starting processing of EOF file: {self.log_path}")
 
         try:
-            with open(self.file_path, "r", encoding="utf-8", errors="replace") as f:
+            with open(self.file_path, encoding="utf-8", errors="replace") as f:
                 lines: list[str] = f.readlines()
 
             start_line_idx = -1

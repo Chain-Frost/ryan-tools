@@ -1,5 +1,4 @@
-"""
-Lists all files in a directory recursively and saves their paths to a text file.
+"""Lists all files in a directory recursively and saves their paths to a text file.
 Provides the same functionality as `dir /s /b /o:en > filenames.txt`, but allows
 running from a different permitted location (a common requirement in restricted
 corporate environments).
@@ -16,7 +15,7 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-08-20.1"
 
 # EDITABLE DEFAULTS
-DEFAULT_INPUT_DIR = Path(".")
+DEFAULT_INPUT_DIR = Path()
 DEFAULT_OUTPUT_FILE = Path("filenames.txt")
 # ==============================================================================
 
@@ -63,8 +62,7 @@ def main(*, input_directories: PathOrList | None = None) -> int:
 
     try:
         with open(file=output_file, mode="w", encoding="utf-8") as f_out:
-            for file_path in all_files:
-                f_out.write(f"{file_path}\n")
+            f_out.writelines(f"{file_path}\n" for file_path in all_files)
         logger.success("Wrote {} file paths to {}", len(all_files), output_file.name)
     except OSError:
         logger.exception("Failed to write to {}", output_file.name)

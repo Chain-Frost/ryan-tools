@@ -1,6 +1,5 @@
 # ryan_library/orchestrators/tuflow/pomm_combine.py
-"""
-Modern POMM Combination Utilities.
+"""Modern POMM Combination Utilities.
 
 This module provides the logic for combining "POMM" (Plot Output Maximums/Minimums) CSV files.
 It handles finding files, processing them in parallel via `ProcessorCollection`, filtering by data types (POMM, RLL_Qmx),
@@ -17,6 +16,8 @@ import pandas as pd
 
 from ._combination_workflow import (
     combine_and_export_results as _combine_and_export_results,
+)
+from ._combination_workflow import (
     execute_combination_workflow,
 )
 
@@ -54,7 +55,6 @@ def export_results(
     export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
     """Export combined POMM results through the shared combination exporter."""
-
     _combine_and_export_results(
         results=results,
         export_mode=export_mode,
@@ -72,8 +72,7 @@ def main_processing(
     locations_to_include: Collection[str] | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
-    """
-    Generate merged culvert data and export the results.
+    """Generate merged culvert data and export the results.
 
     Orchestrates the workflow:
       1. Normalize and validate input arguments (data types, locations).

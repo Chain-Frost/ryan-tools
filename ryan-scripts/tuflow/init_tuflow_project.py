@@ -22,7 +22,7 @@ CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
 
 # Editable defaults. CLI arguments override these values.
-DEFAULT_OUTPUT_DIR = Path(".")
+DEFAULT_OUTPUT_DIR = Path()
 DEFAULT_PROJECT_NAME = "New_Project"
 DEFAULT_SCENARIO_NAME = "bigModel"
 DEFAULT_TUFLOW_EXE = Path(r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe")
@@ -31,6 +31,7 @@ DEFAULT_COPY_UTILITIES = True
 
 from loguru import logger
 
+import ryan_library.resources
 from ryan_library.functions.loguru_helpers import configure_serial_logging
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
@@ -45,7 +46,6 @@ from ryan_library.orchestrators.tuflow.project_setup import (
     TuflowProjectConfig,
     initialize_tuflow_project,
 )
-import ryan_library.resources
 
 
 def _find_templates_dir() -> Path:

@@ -7,11 +7,11 @@ override those defaults when supplied.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import NamedTuple, Any, cast
+from typing import Any, NamedTuple, cast
 
 WRAPPER_VERSION = "2026-08-22.1"
 
-DEFAULT_WORKING_DIR = Path(".")
+DEFAULT_WORKING_DIR = Path()
 DEFAULT_CURRENT_RASTERS: list[Path] = [Path("MDHR_01.0p_0360m_TP10_Post_v03_d_HR_Max.tif")]
 DEFAULT_SUBTRACT_RASTER: Path = Path("MDHR_01.0p_0360m_TP07_Pre_v03_d_HR_Max.tif")
 DEFAULT_CHANGE = True
@@ -47,7 +47,7 @@ class WrapperConfiguration(NamedTuple):
 
 def resolve_configuration(args: argparse.Namespace) -> WrapperConfiguration:
     """Apply explicit CLI overrides to the editable wrapper defaults."""
-    current_rasters = args.current_rasters if args.current_rasters else DEFAULT_CURRENT_RASTERS
+    current_rasters = args.current_rasters or DEFAULT_CURRENT_RASTERS
     subtract_raster = args.subtract_raster if args.subtract_raster is not None else DEFAULT_SUBTRACT_RASTER
     change = args.change if args.change is not None else DEFAULT_CHANGE
     no_wet_dry = args.no_wet_dry if args.no_wet_dry is not None else DEFAULT_NO_WET_DRY
@@ -73,8 +73,8 @@ def compare_rasters(raster1_path: Path, raster2_path: Path) -> bool:
         rasterio.open(raster1_path) as _src1,  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
         rasterio.open(raster2_path) as _src2,  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
     ):
-        src1 = cast(Any, _src1)
-        src2 = cast(Any, _src2)
+        src1 = cast("Any", _src1)
+        src2 = cast("Any", _src2)
         data1 = np.asarray(src1.read(1), dtype=np.float64)
         data2 = np.asarray(src2.read(1), dtype=np.float64)
 

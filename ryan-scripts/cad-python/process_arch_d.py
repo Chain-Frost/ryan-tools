@@ -1,5 +1,4 @@
-"""
-Process .arch_d files into:
+"""Process .arch_d files into:
 1) CSV (all points with attributes)
 2) GPKG (3D LineStrings per object, with attributes)
 3) DXF (3D polylines, metres, no closure)
@@ -9,8 +8,8 @@ Requires:
 """
 
 # ---------- USER SETTINGS ----------
-from pathlib import Path
 import os
+from pathlib import Path
 
 # Path to the .arch_d file
 INPUT_FILE = Path(
@@ -24,13 +23,13 @@ OUTPUT_EPSG = 28351
 GPKG_LAYER = "arch_d_lines"
 # -----------------------------------
 
-import re
 import csv
+import re
 from typing import Any
+
+import ezdxf
 import fiona
 from fiona.crs import CRS
-import ezdxf
-
 
 # ---------- Helpers ----------
 
@@ -46,18 +45,17 @@ def clean_layer_name(name: str) -> str:
     """Sanitise DXF layer name."""
     name = re.sub(r'[<>/":;?*|=]', "_", name)
     name = name.strip()[:50]
-    return name if name else "DEFAULT"
+    return name or "DEFAULT"
 
 
 # ---------- Main Parsing ----------
 
 
 def process_file(input_path: Path) -> tuple[list[list[Any]], list[dict[str, Any]]]:
-    """
-    Parse .arch_d into:
-      - cleaned_data: rows for CSV
-      - line_features: list of features carrying geometry + attributes
-        geometry is a GeoJSON dict with 3D coordinates.
+    """Parse .arch_d into:
+    - cleaned_data: rows for CSV
+    - line_features: list of features carrying geometry + attributes
+      geometry is a GeoJSON dict with 3D coordinates.
     """
     with input_path.open("r", encoding="utf-8", errors="replace") as file:
         lines = list(file)
@@ -155,8 +153,7 @@ def save_to_csv(data: list[list[Any]], output_path: Path) -> None:
 
 
 def save_to_gpkg(features: list[dict[str, Any]], output_path: Path, layer_name: str, epsg: int) -> None:
-    """
-    Write 3D LineString features to GeoPackage.
+    """Write 3D LineString features to GeoPackage.
     Use schema geometry "LineString" and pass 3D coords; GPKG will store Z.
     """
     schema = {

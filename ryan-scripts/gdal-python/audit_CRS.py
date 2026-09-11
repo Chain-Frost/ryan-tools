@@ -6,7 +6,6 @@ from pathlib import Path
 
 from osgeo import gdal, ogr, osr
 
-
 ROOTS: list[Path] = [
     Path(r"Q:\path\path]"),
     
@@ -253,7 +252,7 @@ def main() -> None:
         print(f"{count:>6}  {crs}")
 
     print()
-    print(f"Audit written to:")
+    print("Audit written to:")
     print(OUTPUT_CSV)
 
 

@@ -10,12 +10,12 @@ adapters that turn each result into a dashboard status and detail string.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from multiprocessing import Pool, Queue
 from multiprocessing.pool import ApplyResult
 from queue import Empty
-import time
 from typing import Protocol, cast
 
 from loguru import logger
@@ -138,7 +138,7 @@ def _run_parallel_dashboard_workflow[TItem, TResult](
 ) -> None:
     """Run work in a process pool and poll async results for dashboard updates."""
     completed_indexes: set[int] = set()
-    start_queue: ProgressQueue = cast(ProgressQueue, Queue())
+    start_queue: ProgressQueue = cast("ProgressQueue", Queue())
     event_limit: int = max_start_events if max_start_events is not None else max(pool_size * 2, dashboard.max_rows)
 
     with Pool(
@@ -148,14 +148,14 @@ def _run_parallel_dashboard_workflow[TItem, TResult](
             log_queue,
             start_queue,
             worker_log_level,
-            cast(Callable[[object], object], process_item),
+            cast("Callable[[object], object]", process_item),
         ),
     ) as pool:
         pending_results: dict[int, ApplyResult[TResult]] = {}
         for index, item in enumerate(items, start=1):
             request: IndexedWorkflowItem[object] = IndexedWorkflowItem(index=index, item=item)
             pending_results[index] = cast(
-                ApplyResult[TResult],
+                "ApplyResult[TResult]",
                 pool.apply_async(_process_indexed_workflow_item, args=(request,)),
             )
 

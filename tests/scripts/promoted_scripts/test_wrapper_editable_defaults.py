@@ -6,8 +6,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from run_grouped_asc_to_asc_statistics import _parse_cli_arguments as parse_asc_groups
-from run_python_raster_calculations import _parse_cli_arguments as parse_asc_native
 from audit_qgis_projects import _parse_cli_arguments as parse_qgis_audit
 from audit_qgis_projects import find_qgis_projects
 from batch_vector_clip import _parse_cli_arguments as parse_vector_clip
@@ -16,6 +14,8 @@ from gdal_retile_wrapper import _parse_cli_arguments as parse_retile
 from gdal_stage_storage import _parse_cli_arguments as parse_stage_storage
 from gdal_vector_translate import _parse_cli_arguments as parse_vector_translate
 from plot_ensemble_results import _parse_cli_arguments as parse_ensemble_plot
+from run_grouped_asc_to_asc_statistics import _parse_cli_arguments as parse_asc_groups
+from run_python_raster_calculations import _parse_cli_arguments as parse_asc_native
 from split_vector_by_attribute import _parse_cli_arguments as parse_vector_split
 
 

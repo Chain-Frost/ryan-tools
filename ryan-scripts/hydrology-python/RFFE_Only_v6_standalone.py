@@ -8,8 +8,7 @@
 #   python RFFE_Only_v6_standalone.py
 #   python RFFE_Only_v6_standalone.py --input-dir DIR --output-dir DIR
 
-"""
-Expected input file: input_catchments.csv
+"""Expected input file: input_catchments.csv
 
 A comma-separated values file with a header row and the following columns:
 
@@ -27,18 +26,18 @@ Example row:
 
 import argparse
 import ast
-from collections.abc import Hashable, Mapping, Sequence
 import json
 import re
 import sys
+from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
-from loguru import logger
 import pandas as pd
-from pandas import DataFrame
 import requests
+from loguru import logger
+from pandas import DataFrame
 
 # Constants
 DEFAULT_INPUT_DIR: Final[Path] = Path(__file__).absolute().parent
@@ -84,7 +83,7 @@ class Catchment:
     centroid_y: float
 
     @classmethod
-    def from_record(cls, rec: Record, idx: int) -> "Catchment":
+    def from_record(cls, rec: Record, idx: int) -> Catchment:
         raw: str | None = rec.get("Catchment", "")
         name: str = raw.strip() if isinstance(raw, str) and raw.strip() else f"Catchment_{idx}"
         return cls(

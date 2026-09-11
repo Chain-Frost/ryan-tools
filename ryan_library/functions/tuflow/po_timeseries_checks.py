@@ -5,15 +5,15 @@ from __future__ import annotations
 
 __lazy_modules__ = ["numpy", "pandas"]
 
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
 import pandas as pd
-from pandas import DataFrame, Series
 from loguru import logger
+from pandas import DataFrame, Series
 
 from ryan_library.classes import tuflow_string_classes as tsc
 

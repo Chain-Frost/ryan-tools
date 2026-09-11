@@ -103,7 +103,7 @@ DEFAULT_BASE_DEFINITIONS, DEFAULT_SHEET_SPECIFIC_DEFINITIONS, DEFAULT_PREFIX_DEF
 class ColumnMetadataRegistry:
     """Registry providing consistent column descriptions across exports."""
 
-    _INSTANCE: ClassVar["ColumnMetadataRegistry"] | None = None
+    _INSTANCE: ClassVar[ColumnMetadataRegistry] | None = None
 
     def __init__(
         self,
@@ -132,7 +132,6 @@ class ColumnMetadataRegistry:
         exists a placeholder entry is returned so that missing descriptions are
         easy to spot in the exported workbook.
         """
-
         if sheet_name is not None and sheet_name in self._sheet_specific:
             sheet_def: BaseDefinitions = self._sheet_specific[sheet_name]
             if column_name in sheet_def:
@@ -174,13 +173,11 @@ class ColumnMetadataRegistry:
 
     def iter_definitions(self, column_names: Iterable[str], sheet_name: str | None = None) -> list[ColumnDefinition]:
         """Return definitions for ``column_names`` preserving order."""
-
         return [self.definition_for(column_name=col, sheet_name=sheet_name) for col in column_names]
 
     @classmethod
-    def default(cls) -> "ColumnMetadataRegistry":
+    def default(cls) -> ColumnMetadataRegistry:
         """Return the default registry instance."""
-
         if cls._INSTANCE is None:
             cls._INSTANCE = cls(
                 base_definitions=DEFAULT_BASE_DEFINITIONS,

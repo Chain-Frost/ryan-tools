@@ -1,6 +1,5 @@
 # ryan_library/orchestrators/tuflow/tuflow_timeseries_stability.py
-"""
-Timeseries stability checks for TUFLOW outputs.
+"""Timeseries stability checks for TUFLOW outputs.
 
 Supports PO CSV files and 1D Q CSV timeseries files.
 """
@@ -10,23 +9,23 @@ from __future__ import annotations
 __lazy_modules__: list[str] = ["pandas"]
 
 import concurrent.futures as cf
-from pathlib import Path
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Literal
 
 from loguru import logger
 from pandas import DataFrame
 
-from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.excel_export import ExcelExporter
+from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.po_timeseries_checks import (
     StabilityCheckConfig,
     StabilityCheckResult,
-    analyze_stability_q_csv,
     analyze_stability_csv,
+    analyze_stability_q_csv,
+    collect_timeseries_files,
     flatten_stability_results,
     normalize_result_types,
-    collect_timeseries_files,
 )
 
 DEFAULT_RESULT_TYPES: tuple[str, ...] = ("PO",)
@@ -67,8 +66,7 @@ def main_processing(
     output_dir: Path | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
-    """
-    Run stability checks for selected TUFLOW timeseries CSV files and export a summary.
+    """Run stability checks for selected TUFLOW timeseries CSV files and export a summary.
 
     Args:
         paths_to_process: Directories to scan for timeseries CSVs.

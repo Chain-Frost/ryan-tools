@@ -112,7 +112,7 @@ def clip_vector(
 
 def _resolve_executable(value: str, *, dry_run: bool) -> str:
     candidate = Path(value)
-    if candidate.parent != Path(".") or candidate.is_absolute():
+    if candidate.parent != Path() or candidate.is_absolute():
         if not dry_run and not candidate.is_file():
             raise FileNotFoundError(f"ogr2ogr executable does not exist: {candidate}")
         return str(candidate)
@@ -137,8 +137,8 @@ def build_output_jobs(inputs: list[Path], extents: list[Path], output_dir: Path)
 def main(args: argparse.Namespace) -> int:
     """Validate inputs, execute bounded clipping jobs and report partial failure."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    input_values = args.inputs if args.inputs else DEFAULT_INPUTS
-    extent_values = args.extents if args.extents else DEFAULT_EXTENTS
+    input_values = args.inputs or DEFAULT_INPUTS
+    extent_values = args.extents or DEFAULT_EXTENTS
     output_value = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
     executable_value = args.executable if args.executable is not None else DEFAULT_EXECUTABLE
     workers = args.workers if args.workers is not None else DEFAULT_WORKERS

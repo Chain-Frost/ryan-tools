@@ -1,18 +1,18 @@
 """Unit tests for ryan_library.orchestrators.tuflow.tuflow_logsummary."""
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 import pandas as pd
-import pytest
 
 from ryan_library.orchestrators.tuflow.tuflow_logsummary import (
-    process_log_file_for_dashboard,
-    _process_log_file_dataframe,
-    main_processing,
-    discover_log_files,
-    build_log_summary_dataframe,
     LogFileProcessingResult,
     _format_bytes,
+    _process_log_file_dataframe,
+    build_log_summary_dataframe,
+    discover_log_files,
+    main_processing,
+    process_log_file_for_dashboard,
 )
 
 
@@ -153,7 +153,7 @@ def test_process_log_files(mock_log, mock_run, tmp_path: Path) -> None:
 
 
 def test_build_log_summary_dataframe() -> None:
-    from ryan_library.orchestrators.tuflow.tuflow_logsummary import build_log_summary_dataframe, LogFileProcessingResult
+    from ryan_library.orchestrators.tuflow.tuflow_logsummary import LogFileProcessingResult
 
     f1 = Path("1.tlf")
     f2 = Path("2.tlf")
@@ -171,11 +171,11 @@ def test_build_log_summary_dataframe() -> None:
 
 def test_dashboard_helpers() -> None:
     from ryan_library.orchestrators.tuflow.tuflow_logsummary import (
+        LogFileProcessingResult,
+        _dashboard_detail,
+        _dashboard_status,
         _format_dashboard_label,
         _log_processing_results,
-        _dashboard_status,
-        _dashboard_detail,
-        LogFileProcessingResult,
     )
 
     p = Path.cwd() / "test.tlf"

@@ -7,13 +7,13 @@ from pathlib import Path
 import pandas as pd
 from loguru import logger
 
+from ryan_library.functions.path_stuff import sanitize_windows_filename
 from ryan_library.functions.RORB.ensemble_analysis import (
     calculate_closure_times,
     calculate_peak_flows,
     read_rorb_parquet,
 )
 from ryan_library.functions.RORB.ensemble_plotting import plot_exceedance_duration, plot_peak_flow_distribution
-from ryan_library.functions.path_stuff import sanitize_windows_filename
 
 
 def orchestrate_ensemble_plotting(
@@ -23,8 +23,7 @@ def orchestrate_ensemble_plotting(
     capacity_threshold: float | None = None,
     source: str = "rorb",
 ) -> None:
-    """
-    Coordinates reading ensemble model results and plotting peak flows and closure times.
+    """Coordinates reading ensemble model results and plotting peak flows and closure times.
     """
     logger.info("Starting ensemble plotting orchestration for source: {}", source)
 

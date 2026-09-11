@@ -11,9 +11,9 @@ exports the configured reports. Validate tolerances against the model timestep
 and expected signal scale before treating flagged periods as instability.
 """
 
+import os
 from pathlib import Path
 from typing import Literal
-import os
 
 WRAPPER_VERSION = "2026-08-31.1"
 
@@ -66,8 +66,7 @@ def main(
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> int:
-    """
-    Run stability checks on PO CSVs using wrapper defaults and optional CLI overrides.
+    """Run stability checks on PO CSVs using wrapper defaults and optional CLI overrides.
 
     Args:
         console_log_level: Overrides CONSOLE_LOG_LEVEL.
@@ -88,7 +87,7 @@ def main(
     effective_data_types: tuple[str, ...] = include_data_types or DATATYPE_INCLUDE
     effective_result_types: tuple[str, ...] = result_types or RESULT_TYPES
     effective_locations: tuple[str, ...] | tuple[()] = (
-        locations_to_include if locations_to_include else (LOCATION_INCLUDE or ())
+        locations_to_include or (LOCATION_INCLUDE or ())
     )
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
     effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_directory,))

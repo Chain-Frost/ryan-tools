@@ -57,28 +57,23 @@ class LogQueue:
 
     def put(self, item: bytes | None) -> None:
         """Put a serialized record or shutdown sentinel on the queue."""
-
         self._queue.put(item)
 
     def get(self) -> bytes | None:
         """Return the next serialized record or shutdown sentinel."""
-
         return self._queue.get()
 
     def close(self) -> None:
         """Close the producer side of the queue."""
-
         self._queue.close()
 
     def join_thread(self) -> None:
         """Wait for the queue feeder thread to flush pending records."""
-
         self._queue.join_thread()
 
 
 def normalize_log_level(level: str) -> str:
     """Return a canonical Loguru level name or raise a clear ``ValueError``."""
-
     normalized_level: str = level.strip().upper()
     if not normalized_level:
         raise ValueError("Log level must not be empty.")
@@ -90,7 +85,6 @@ def normalize_log_level(level: str) -> str:
 
 def minimum_log_level(*levels: str) -> str:
     """Return the least restrictive of the supplied Loguru levels."""
-
     normalized_levels: list[str] = [normalize_log_level(level) for level in levels]
     if not normalized_levels:
         raise ValueError("At least one log level is required.")
@@ -105,7 +99,6 @@ def _add_console_sink(
     format_string: str | None = None,
 ) -> None:
     """Install the standard stdout sink."""
-
     logger.add(
         sink=sys.stdout if sink is None else sink,
         level=normalize_log_level(level),
@@ -119,7 +112,6 @@ def _add_console_sink(
 
 def _add_file_sink(*, log_file: str, level: str, forwarded: bool) -> None:
     """Install the standard rotating file sink."""
-
     logger.add(
         sink=log_file,
         level=normalize_log_level(level),
@@ -141,19 +133,16 @@ def worker_initializer(queue: LogQueue, level: str | None = None) -> None:
         level: Optional producer capture-level override. By default, use the
             lowest level required by the configured listener sinks.
     """
-
     worker_configurer(queue=queue, level=level)
 
 
 def reset_logging() -> None:
     """Reset Loguru configuration by removing all sinks."""
-
     logger.remove()
 
 
 def is_loguru_configured() -> bool:
     """Return whether Loguru has at least one sink configured."""
-
     handlers = getattr(getattr(logger, "_core", None), "handlers", {})
     return bool(handlers)
 
@@ -170,7 +159,6 @@ def configure_serial_logging(
         log_file: Optional file-sink path.
         file_log_level: Minimum file level when ``log_file`` is supplied.
     """
-
     if LoguruMultiprocessingLogger.has_active_context():
         raise RuntimeError("Cannot replace serial sinks while a multiprocessing logging context is active.")
     normalized_console_level: str = normalize_log_level(console_log_level)
@@ -192,7 +180,6 @@ def configure_notebook_logging(
     duplicated. Use ``console_log_level="SUCCESS"`` for low-volume AI/MCP
     consumption while retaining detailed records in ``log_file``.
     """
-
     if LoguruMultiprocessingLogger.has_active_context():
         raise RuntimeError("Cannot replace notebook sinks while a multiprocessing logging context is active.")
     normalized_console_level: str = normalize_log_level(console_log_level)
@@ -215,7 +202,6 @@ def listener_process(
     file_log_level: str = "DEBUG",
 ) -> None:
     """Receive trusted worker records and render them through listener sinks."""
-
     reset_logging()
     if log_file:
         _add_file_sink(log_file=log_file, level=file_log_level, forwarded=True)
@@ -227,7 +213,7 @@ def listener_process(
             if queue_item is None:
                 break
 
-            record: SerializedLogRecord = cast(SerializedLogRecord, pickle.loads(queue_item))
+            record: SerializedLogRecord = cast("SerializedLogRecord", pickle.loads(queue_item))
             formatted_message: str = f"{record['module']}:{record['function']}:{record['line']} - {record['message']}"
             exception_text: str | None = record["exception"]
             if exception_text:
@@ -240,7 +226,6 @@ def listener_process(
 
 def _format_exception(exception: Any) -> str | None:
     """Render a Loguru record exception into a picklable traceback string."""
-
     if exception is None:
         return None
     exception_type = getattr(exception, "type", None)
@@ -253,7 +238,6 @@ def _format_exception(exception: Any) -> str | None:
 
 def worker_configurer(queue: LogQueue, level: str | None = None) -> None:
     """Configure the current process to serialize records to ``queue``."""
-
     capture_level: str = normalize_log_level(level or queue.capture_log_level)
 
     class QueueSink:
@@ -264,7 +248,7 @@ def worker_configurer(queue: LogQueue, level: str | None = None) -> None:
 
         def write(self, message: Any) -> None:
             try:
-                record: dict[str, Any] = cast(dict[str, Any], message.record)
+                record: dict[str, Any] = cast("dict[str, Any]", message.record)
                 level_object: Any = record["level"]
                 payload: SerializedLogRecord = {
                     "level": str(level_object.name),
@@ -300,7 +284,6 @@ class LoguruMultiprocessingLogger:
     @classmethod
     def has_active_context(cls) -> bool:
         """Return whether this process currently owns a listener context."""
-
         with cls._context_lock:
             return cls._active_context is not None
 
@@ -369,7 +352,6 @@ class LoguruMultiprocessingLogger:
 
     def shutdown(self) -> None:
         """Drain and close logging resources; repeated calls are harmless."""
-
         if self._shutdown:
             return
         self._shutdown = True
@@ -397,7 +379,6 @@ def setup_logger(
     file_log_level: str = "DEBUG",
 ) -> LoguruMultiprocessingLogger:
     """Return a multiprocessing logging context with independent sink levels."""
-
     if log_file and not os.path.isabs(log_file):
         log_file = os.path.join(os.getcwd(), log_file)
     return LoguruMultiprocessingLogger(
@@ -409,7 +390,6 @@ def setup_logger(
 
 def add_file_sink(log_file: str, file_log_level: str = "DEBUG") -> None:
     """Add a standard rotating file sink outside a multiprocessing context."""
-
     if not os.path.isabs(log_file):
         log_file = os.path.join(os.getcwd(), log_file)
     _add_file_sink(log_file=log_file, level=file_log_level, forwarded=False)

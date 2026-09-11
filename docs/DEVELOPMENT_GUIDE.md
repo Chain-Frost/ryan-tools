@@ -162,9 +162,9 @@ ask for more or less than this baseline.
 
 | Change | Baseline validation |
 | --- | --- |
-| Library function, class or processor | Black, strict Pyright on modified files, focused tests or a representative smoke check, then package build. |
-| Orchestrator | Black, strict Pyright, focused workflow validation, then package build. |
-| Maintained wrapper | Black, strict Pyright, compilation, `--help`, and relevant success/failure or dry-run behaviour; use the wrapper checklist. |
+| Library function, class or processor | Ruff format, strict Pyright on modified files, focused tests or a representative smoke check, then package build. |
+| Orchestrator | Ruff format, strict Pyright, focused workflow validation, then package build. |
+| Maintained wrapper | Ruff format, strict Pyright, compilation, `--help`, and relevant success/failure or dry-run behaviour; use the wrapper checklist. |
 | Standalone or project-specific script | Compilation and a focused smoke check proportional to its risks and environment. |
 | Documentation-only change | Check links, commands, filenames and claims against current code; no Python test run is normally required. |
 | Compatibility layer | Verify forwarding and deprecation behaviour without treating the legacy API as the main behavioural contract. |
@@ -210,7 +210,8 @@ project progress in its status record; a proposed design is not adopted policy m
 | Mandatory agent behaviour | [`../AGENTS.md`](../AGENTS.md) |
 | Architecture, code categories and validation policy | This guide |
 | Environment setup, VS Code tasks and specialised runtimes | [`ENVIRONMENTS.md`](ENVIRONMENTS.md) |
-| Package metadata, Python and tool configuration | [`../pyproject.toml`](../pyproject.toml) |
+| Package metadata, Python and Pyright configuration | [`../pyproject.toml`](../pyproject.toml) |
+| Ruff lint and format configuration | [`../ruff.toml`](../ruff.toml) |
 | Maintained wrapper contract | [`../ryan-scripts/WRAPPER_STANDARD.md`](../ryan-scripts/WRAPPER_STANDARD.md) |
 | Script selection and operational safety | [`../ryan-scripts/README.md`](../ryan-scripts/README.md) |
 | TUFLOW processor implementation | [`../ryan_library/processors/tuflow/README.md`](../ryan_library/processors/tuflow/README.md) and local workflow documentation |

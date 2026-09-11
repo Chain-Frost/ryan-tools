@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from importlib.resources.abc import Traversable
-from importlib.util import find_spec
 import json
 import os
 import re
 import shutil
 import sys
+from collections.abc import Mapping
 from importlib.resources import files
+from importlib.resources.abc import Traversable
+from importlib.util import find_spec
 from pathlib import Path
-from typing import Any, Mapping, cast
+from typing import Any, cast
 
 from ryan_library.mcp.models import (
     CapabilityProfile,
@@ -73,7 +74,7 @@ def _load_json_object(text: str, *, source: str) -> dict[str, Any]:
         raise WorkflowRegistryError(f"Invalid JSON in {source}: {exc}") from exc
     if not isinstance(raw, dict):
         raise WorkflowRegistryError(f"Workflow catalogue must contain a JSON object: {source}")
-    return cast(dict[str, Any], raw)
+    return cast("dict[str, Any]", raw)
 
 
 def _load_packaged_workflows() -> tuple[str, str | None, list[WorkflowSpec]]:
@@ -89,12 +90,12 @@ def _load_packaged_workflows() -> tuple[str, str | None, list[WorkflowSpec]]:
     raw_workflows_value: Any = raw_catalogue.get("workflows")
     if not isinstance(raw_workflows_value, list):
         raise WorkflowRegistryError("Packaged workflow catalogue has no valid workflows list.")
-    raw_workflows: list[object] = cast(list[object], raw_workflows_value)
+    raw_workflows: list[object] = cast("list[object]", raw_workflows_value)
     workflows: list[WorkflowSpec] = []
     for raw_workflow in raw_workflows:
         if not isinstance(raw_workflow, Mapping):
             raise WorkflowRegistryError("Every packaged workflow entry must be a JSON object.")
-        workflows.append(WorkflowSpec.from_mapping(cast(Mapping[str, object], raw_workflow)))
+        workflows.append(WorkflowSpec.from_mapping(cast("Mapping[str, object]", raw_workflow)))
     catalogue_updated: Any = raw_catalogue.get("catalogue_updated")
     return str(schema_version), str(catalogue_updated) if catalogue_updated is not None else None, workflows
 
@@ -117,7 +118,7 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
     raw_tools_value: Any = raw_catalogue.get("tools")
     if not isinstance(raw_tools_value, list):
         raise WorkflowRegistryError("Packaged GDAL catalogue has no valid tools list.")
-    raw_tools: list[object] = cast(list[object], raw_tools_value)
+    raw_tools: list[object] = cast("list[object]", raw_tools_value)
 
     workflows: list[WorkflowSpec] = []
     wrapper_versions: Any = raw_catalogue.get("wrapper_versions", {})
@@ -125,7 +126,7 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
     for raw_tool_value in raw_tools:
         if not isinstance(raw_tool_value, Mapping):
             continue
-        raw_tool: Mapping[str, Any] = cast(Mapping[str, Any], raw_tool_value)
+        raw_tool: Mapping[str, Any] = cast("Mapping[str, Any]", raw_tool_value)
         tool_id: Any = raw_tool.get("id")
         script_name: Any = raw_tool.get("script")
         purpose: Any = raw_tool.get("purpose")
@@ -143,7 +144,7 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
             "scenario_program": script_name,
         }
         if isinstance(wrapper_versions, Mapping):
-            typed_wrapper_versions: Mapping[str, Any] = cast(Mapping[str, Any], wrapper_versions)
+            typed_wrapper_versions: Mapping[str, Any] = cast("Mapping[str, Any]", wrapper_versions)
             metadata["catalogue_wrapper_version"] = typed_wrapper_versions.get(script_name)
 
         module_name: Any = raw_tool.get("module")
@@ -345,18 +346,18 @@ class WorkflowRegistry:
 
         scenario_program: Any = workflow.metadata.get("scenario_program")
         scenarios: list[dict[str, Any]] = []
-        typed_scenarios: list[object] = cast(list[object], raw_scenarios)
+        typed_scenarios: list[object] = cast("list[object]", raw_scenarios)
         for raw_scenario_value in typed_scenarios:
             if not isinstance(raw_scenario_value, Mapping):
                 continue
-            raw_scenario: Mapping[str, Any] = cast(Mapping[str, Any], raw_scenario_value)
+            raw_scenario: Mapping[str, Any] = cast("Mapping[str, Any]", raw_scenario_value)
             raw_arguments: Any = raw_scenario.get("arguments")
             if not isinstance(raw_arguments, list):
                 continue
-            typed_arguments: list[object] = cast(list[object], raw_arguments)
+            typed_arguments: list[object] = cast("list[object]", raw_arguments)
             if not all(isinstance(item, str) for item in typed_arguments):
                 continue
-            arguments: list[str] = [cast(str, item) for item in typed_arguments]
+            arguments: list[str] = [cast("str", item) for item in typed_arguments]
             if arguments and isinstance(scenario_program, str) and arguments[0] == scenario_program:
                 arguments = arguments[1:]
             scenarios.append(

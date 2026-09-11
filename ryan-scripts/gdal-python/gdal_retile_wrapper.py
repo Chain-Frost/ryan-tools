@@ -26,7 +26,7 @@ from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_ba
 
 
 def main(args: argparse.Namespace) -> int:
-    input_values = args.inputs if args.inputs else DEFAULT_INPUTS
+    input_values = args.inputs or DEFAULT_INPUTS
     output_value = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
     tile_size = tuple(args.tile_size) if args.tile_size is not None else DEFAULT_TILE_SIZE
     overlap = args.overlap if args.overlap is not None else DEFAULT_OVERLAP

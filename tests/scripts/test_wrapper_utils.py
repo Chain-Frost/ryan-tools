@@ -1,10 +1,10 @@
 """Tests for the active wrapper utility functions."""
 
-import pytest
 import os
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 from ryan_library.functions import wrapper_utils
 
 
@@ -49,16 +49,16 @@ def test_add_common_cli_arguments():
     args = parser.parse_args(["--console-log-level", "DEBUG", "--locations", "L1", "L2", "--working-directory", "."])
     assert args.console_log_level == "DEBUG"
     assert args.locations == ["L1", "L2"]
-    assert args.working_directory == Path(".")
+    assert args.working_directory == Path()
 
 
 def test_parse_common_cli_arguments():
-    args = Namespace(console_log_level="INFO", locations=[" L1 ", "L2"], working_directory=Path("."))
+    args = Namespace(console_log_level="INFO", locations=[" L1 ", "L2"], working_directory=Path())
     options = wrapper_utils.parse_common_cli_arguments(args)
 
     assert options.console_log_level == "INFO"
     assert options.locations_to_include == ("L1", "L2")
-    assert options.working_directory == Path(".")
+    assert options.working_directory == Path()
 
 
 def test_coerce_locations_argument():

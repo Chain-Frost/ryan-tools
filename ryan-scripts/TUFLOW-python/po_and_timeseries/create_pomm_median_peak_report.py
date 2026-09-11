@@ -1,6 +1,5 @@
 # ryan-scripts\TUFLOW-python\po_and_timeseries\create_pomm_median_peak_report.py
-r"""
-Wrapper Script: POMM Median Peak Reports.
+r"""Wrapper Script: POMM Median Peak Reports.
 
 This script locates TUFLOW POMM/RLL_Qmx CSV outputs in the working directory and produces a
 timestamped Excel workbook summarizing median peak values across AEPs and durations.
@@ -38,7 +37,6 @@ import argparse
 
 from loguru import logger
 
-from ryan_library.orchestrators.tuflow.pomm_max_items import export_median_peak_report
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
@@ -47,6 +45,7 @@ from ryan_library.functions.wrapper_utils import (
     pause_console,
     print_wrapper_banner,
 )
+from ryan_library.orchestrators.tuflow.pomm_max_items import export_median_peak_report
 
 
 def main(
@@ -57,8 +56,7 @@ def main(
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> int:
-    """
-    Main entry point for median peak reporting.
+    """Main entry point for median peak reporting.
 
     This function resolves overrides and calls `export_median_peak_report`.
     It prioritizes CLI arguments over the hard-coded defaults in this file.
@@ -70,7 +68,6 @@ def main(
         paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides the default WORKING_DIR.
     """
-
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     target_directory: Path = (working_directory or WORKING_DIR).resolve()
     if not change_working_directory(target_dir=target_directory):
@@ -98,8 +95,7 @@ def main(
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
-    """
-    Parse command-line arguments to override script defaults.
+    """Parse command-line arguments to override script defaults.
 
     Returns:
         CommonWrapperOptions: Parsed and processed common arguments.

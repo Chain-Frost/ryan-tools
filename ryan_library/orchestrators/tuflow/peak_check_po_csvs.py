@@ -1,6 +1,5 @@
 # ryan_library/orchestrators/tuflow/peak_check_po_csvs.py
-"""
-Peak checks for TUFLOW PO timeseries CSVs.
+"""Peak checks for TUFLOW PO timeseries CSVs.
 
 This module scans PO CSVs, identifies peak timing relative to the end of the series,
 and exports a summary table.
@@ -11,21 +10,21 @@ from __future__ import annotations
 __lazy_modules__: list[str] = ["pandas"]
 
 import concurrent.futures as cf
-from pathlib import Path
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Literal
 
-from pandas import DataFrame
 from loguru import logger
+from pandas import DataFrame
 
-from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.excel_export import ExcelExporter
+from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.po_timeseries_checks import (
     PeakCheckConfig,
     PeakCheckResult,
     analyze_peak_csv,
-    flatten_peak_results,
     collect_po_csv_files,
+    flatten_peak_results,
     order_dataframe_columns,
 )
 
@@ -53,8 +52,7 @@ def main_processing(
     output_dir: Path | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
 ) -> None:
-    """
-    Run peak checks for PO timeseries CSV files and export a summary.
+    """Run peak checks for PO timeseries CSV files and export a summary.
 
     Args:
         paths_to_process: Directories to scan for PO CSVs.

@@ -1,8 +1,7 @@
 # https://tonyladson.wordpress.com/2017/03/04/on-the-calculation-of-equal-area-slope/
 # https://gist.github.com/TonyLadson/bf787b9c3d4851b1caef778ee3d1a59f
 
-"""
-calc_slope_ea.py
+"""calc_slope_ea.py
 
 Description:
     This script calculates the equal area slope (slope_ea) for a given stream profile.
@@ -21,18 +20,18 @@ Dependencies:
     - shapely
 """
 
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from shapely.geometry import Polygon
-from pathlib import Path
 
 
 def calc_slope_ea(x: np.ndarray, y: np.ndarray) -> float:
-    """
-    Calculate the equal area slope.
+    """Calculate the equal area slope.
 
     Parameters:
         x (np.ndarray): Distance along the stream in km
@@ -56,8 +55,7 @@ def calc_slope_ea(x: np.ndarray, y: np.ndarray) -> float:
 
 
 def generate_random_profile(seed: int = 11, num_points: int = 100) -> pd.DataFrame:
-    """
-    Generate a random stream profile for testing.
+    """Generate a random stream profile for testing.
 
     Parameters:
         seed (int): Seed for random number generator
@@ -95,8 +93,7 @@ def generate_random_profile(seed: int = 11, num_points: int = 100) -> pd.DataFra
 
 
 def plot_stream_profile(profile_df: pd.DataFrame, save_path: Path):
-    """
-    Plot the stream profile and save the plot.
+    """Plot the stream profile and save the plot.
 
     Parameters:
         profile_df (pd.DataFrame): DataFrame containing 'x' and 'y' columns
@@ -115,8 +112,7 @@ def plot_stream_profile(profile_df: pd.DataFrame, save_path: Path):
 
 
 def plot_stream_profile_with_slope(profile_df: pd.DataFrame, h: float, save_path: Path):
-    """
-    Plot the stream profile with the equal area slope and save the plot.
+    """Plot the stream profile with the equal area slope and save the plot.
 
     Parameters:
         profile_df (pd.DataFrame): DataFrame containing 'x' and 'y' columns
@@ -155,8 +151,7 @@ def plot_stream_profile_with_polygons(
     poly2_df: pd.DataFrame,
     save_path: Path,
 ):
-    """
-    Plot the stream profile with equal area slope, intersection, and polygons, then save the plot.
+    """Plot the stream profile with equal area slope, intersection, and polygons, then save the plot.
 
     Parameters:
         profile_df (pd.DataFrame): DataFrame containing 'x' and 'y' columns
@@ -212,8 +207,7 @@ def plot_stream_profile_with_polygons(
 
 
 def find_intersection(profile_df: pd.DataFrame, h: float) -> tuple:
-    """
-    Find the intersection point between the stream profile and the equal area slope line.
+    """Find the intersection point between the stream profile and the equal area slope line.
 
     Parameters:
         profile_df (pd.DataFrame): DataFrame containing 'x' and 'y' columns
@@ -249,8 +243,7 @@ def find_intersection(profile_df: pd.DataFrame, h: float) -> tuple:
 
 
 def define_polygons(profile_df: pd.DataFrame, intersection: tuple, h: float) -> tuple:
-    """
-    Define the two polygons based on the intersection point.
+    """Define the two polygons based on the intersection point.
 
     Parameters:
         profile_df (pd.DataFrame): DataFrame containing 'x' and 'y' columns
@@ -288,8 +281,7 @@ def define_polygons(profile_df: pd.DataFrame, intersection: tuple, h: float) -> 
 
 
 def calculate_polygon_areas(poly1_df: pd.DataFrame, poly2_df: pd.DataFrame) -> tuple:
-    """
-    Calculate the areas of the two polygons.
+    """Calculate the areas of the two polygons.
 
     Parameters:
         poly1_df (pd.DataFrame): DataFrame for Polygon A1

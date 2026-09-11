@@ -2,12 +2,14 @@
 
 __lazy_modules__ = ["pandas"]
 
+import re
+from datetime import datetime
 from pathlib import Path, PureWindowsPath
 from typing import Any
-from datetime import datetime
-import re
-from loguru import logger
+
 import pandas as pd
+from loguru import logger
+
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 
 # Precompile regex patterns at the module level for efficiency and thread safety
@@ -82,7 +84,6 @@ SET_VARIABLE_PATTERN: re.Pattern[str] = re.compile(
 
 def _normalise_bcdbase_variable(variable: str) -> str:
     """Normalise the BC Database variable name for consistent column naming."""
-
     cleaned_variable: str = variable.strip()
     if cleaned_variable.startswith("~") and cleaned_variable.endswith("~"):
         cleaned_variable = cleaned_variable[1:-1]
@@ -96,7 +97,6 @@ def _normalise_bcdbase_variable(variable: str) -> str:
 
 def _extract_bcdbase_pair(line: str) -> tuple[str, str] | None:
     """Extract key-value pairs from BC Database event source lines."""
-
     if match := REGEX_PATTERNS["bc_event_source"].search(string=line):
         variable: str = _normalise_bcdbase_variable(variable=match.group("variable"))
         value: str = match.group("value").strip()
@@ -152,8 +152,7 @@ def _capture_legacy_initialisation_times(
 
 
 def extract_float(match: re.Match[str]) -> float | None:
-    """
-    Extracts and converts the first captured group of a regex match to a float.
+    """Extracts and converts the first captured group of a regex match to a float.
 
     Args:
         match (re.Match): The regex match object.
@@ -175,8 +174,7 @@ def search_for_completion(
     sim_complete: int,
     current_section: str | None = None,
 ) -> tuple[dict[str, str | float], int, str | None]:
-    """
-    Parses a line to extract simulation completion status, timing information,
+    """Parses a line to extract simulation completion status, timing information,
     and additional file path details from the log file.
 
     Args:
@@ -188,7 +186,6 @@ def search_for_completion(
     Returns:
         tuple[dict[str, str | float], int, str | None]: Updated data_dict, sim_complete flag, and current_section.
     """
-
     # logger.debug(f"Processing line: {line.strip()}")  # Added for tracing
 
     if match := REGEX_PATTERNS["input_file"].match(string=line):
@@ -319,12 +316,10 @@ def search_from_top(
         data_dict["TBC"] = match.group(1).strip()
     elif match := re.search(pattern=r"ESTRY Control File == .*\\([^\\.]+)", string=line):
         data_dict["ECF"] = match.group(1).strip()
-    elif match := re.search(pattern=r"BC Event File == .*\\([^\\.]+)", string=line):
-        data_dict["TEF"] = match.group(1).strip()
-    elif match := re.search(
+    elif (match := re.search(pattern=r"BC Event File == .*\\([^\\.]+)", string=line)) or (match := re.search(
         pattern=r"Trying to open \(I\) file .*\\([^\\]+\.tef)\.\.\.OK\.  File Unit:",
         string=line,
-    ):
+    )):
         data_dict["TEF"] = match.group(1).strip()
     elif "Number of defined variables:" in line:
         spec_var = True
@@ -369,8 +364,7 @@ def remove_e_s_from_runcode(runcode: str, data_dict: dict[str, Any], delimiters:
 
 
 def get_log_lines(logfile_path: Path, is_large_file: bool) -> tuple[list[str], list[str]]:
-    """
-    Reads the log file efficiently based on its size.
+    """Reads the log file efficiently based on its size.
 
     Args:
         logfile_path (Path): Path to the log file.
@@ -401,16 +395,15 @@ def get_log_lines(logfile_path: Path, is_large_file: bool) -> tuple[list[str], l
             tail_lines: list[str] = tail_data.decode("utf-8", errors="replace").splitlines()
             last_lines: list[str] = tail_lines[-100:] if tail_lines else []
             return [], last_lines
-        else:
-            raw_log: bytes = logfile_path.read_bytes()
-            try:
-                log_text: str = raw_log.decode("utf-8")
-            except UnicodeDecodeError:
-                logger.debug("Reading legacy Windows-1252 TLF: {}", logfile_path)
-                log_text = raw_log.decode("cp1252", errors="replace")
-            lines: list[str] = log_text.splitlines()
-            last_lines = lines[-100:] if lines else []
-            return lines, last_lines
+        raw_log: bytes = logfile_path.read_bytes()
+        try:
+            log_text: str = raw_log.decode("utf-8")
+        except UnicodeDecodeError:
+            logger.debug("Reading legacy Windows-1252 TLF: {}", logfile_path)
+            log_text = raw_log.decode("cp1252", errors="replace")
+        lines: list[str] = log_text.splitlines()
+        last_lines = lines[-100:] if lines else []
+        return lines, last_lines
     except Exception as e:
         logger.error("Error reading {}: {}", logfile_path, e)
         return [], []
@@ -428,8 +421,7 @@ def process_top_lines(
     runcode: str,
     relative_logfile_path: Path,
 ) -> tuple[dict[str, Any], int, bool, bool, bool]:
-    """
-    Processes the top lines of the log file to extract relevant data.
+    """Processes the top lines of the log file to extract relevant data.
 
     Args:
         logfile_path (Path): Path to the log file.
@@ -499,8 +491,7 @@ def process_top_lines(
 
 
 def finalise_data(runcode: str, data_dict: dict[str, Any], logfile_path: Path | str | None = None) -> pd.DataFrame:
-    """
-    Finalizes the data dictionary and creates a DataFrame.
+    """Finalizes the data dictionary and creates a DataFrame.
 
     Args:
         runcode (str): Run code identifier.
