@@ -13,13 +13,14 @@ tiling when a single output would be too large for the intended 12d workflow.
 # Note that this will round outputs to nearest 0.001
 from pathlib import Path
 
+import pandas as pd
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.terrain_processing import parallel_process_multiple_terrain
 
 
-def save_tile_csv(tile_df, output_dir, base_filename, i, j) -> None:
+def save_tile_csv(tile_df: pd.DataFrame, output_dir: Path, base_filename: str, i: int, j: int) -> None:
     """Saves a tile DataFrame as a CSV file with precision rounded to 0.001."""
     tile_filename = f"{base_filename}_tile_{i}_{j}.csv"
     tile_path = output_dir / tile_filename
@@ -30,12 +31,12 @@ def save_tile_csv(tile_df, output_dir, base_filename, i, j) -> None:
 
         # Save the tile DataFrame to CSV
         tile_df.to_csv(tile_path, index=False)
-        logger.info(f"Saved tile: {tile_filename}")
-    except Exception as e:
-        logger.error(f"Failed to save CSV tile {tile_filename}: {e}")
+        logger.info("Saved tile: {}", tile_filename)
+    except (OSError, TypeError, UnicodeError, ValueError) as error:
+        logger.error("Failed to save CSV tile {}: {}", tile_filename, error)
 
 
-def save_full_csv(df, output_dir, base_filename) -> None:
+def save_full_csv(df: pd.DataFrame, output_dir: Path, base_filename: str) -> None:
     """Saves the full DataFrame as a single CSV file without tiling, with precision rounded to 0.001."""
     csv_filename = f"{base_filename}.csv"
     output_path = output_dir / csv_filename
@@ -46,9 +47,9 @@ def save_full_csv(df, output_dir, base_filename) -> None:
 
         # Save the full DataFrame to CSV
         df.to_csv(output_path, index=False)
-        logger.info(f"Saved file without tiling: {csv_filename}")
-    except Exception as e:
-        logger.error(f"Failed to save CSV file {csv_filename}: {e}")
+        logger.info("Saved file without tiling: {}", csv_filename)
+    except (OSError, TypeError, UnicodeError, ValueError) as error:
+        logger.error("Failed to save CSV file {}: {}", csv_filename, error)
 
 
 def main() -> None:
@@ -62,24 +63,24 @@ def main() -> None:
 
         # Set script_dir to a specific path
         script_dir: Path = Path(__file__).absolute().parent
-        logger.info(f"Script directory: {script_dir}")
+        logger.info("Script directory: {}", script_dir)
 
         # Verify that script_dir exists
         if not script_dir.exists():
-            logger.error(f"The specified script directory does not exist: {script_dir}")
+            logger.error("The specified script directory does not exist: {}", script_dir)
             return
 
         # Define the output directory
         output_dir: Path = script_dir / "output_csv_files"  # Using Path objects
         output_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Output directory: {output_dir}")
+        logger.info("Output directory: {}", output_dir)
 
         # Find all .tif files in the script_dir
         tif_files = list(script_dir.glob("*.tif"))
         if not tif_files:
             logger.warning("No .tif files found in the script directory.")
             return
-        logger.info(f"Found {len(tif_files)} .tif files to process.")
+        logger.info("Found {} .tif files to process.", len(tif_files))
 
         # Define the saving function based on tiling
         if use_tiling:

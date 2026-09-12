@@ -33,7 +33,7 @@ from ryan_library.functions.wrapper_utils import change_working_directory, pause
 
 def del_xml_element(file_path: Path, del_string: str, separator: str) -> None:
     """Removes XML elements containing a specific string by parsing text."""
-    with open(file=file_path, encoding="utf-8") as xf:
+    with file_path.open(encoding="utf-8") as xf:
         rl: list[str] = xf.readlines()
 
     splitxf: list[list[str]] = [a.split(separator) for a in rl]
@@ -44,7 +44,7 @@ def del_xml_element(file_path: Path, del_string: str, separator: str) -> None:
 
     fixedxf: list[str] = [separator.join(a) for a in splitxf]
 
-    with open(file=file_path, mode="w", encoding="utf-8") as xf:
+    with file_path.open(mode="w", encoding="utf-8") as xf:
         xf.writelines(fixedxf)
 
 

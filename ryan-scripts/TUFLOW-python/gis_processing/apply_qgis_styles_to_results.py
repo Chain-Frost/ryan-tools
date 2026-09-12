@@ -54,7 +54,7 @@ def main(*, console_log_level: str | None = None, working_directory: Path | None
             styler = TUFLOWResultsStyler(user_qml_overrides=user_qml_overrides)
             styler.apply_styles()
 
-            logger.error(f"Styles were sourced from: {styler.default_styles_path}")
+            logger.info("Styles were sourced from: {}", styler.default_styles_path)
             return 0
 
     except Exception:

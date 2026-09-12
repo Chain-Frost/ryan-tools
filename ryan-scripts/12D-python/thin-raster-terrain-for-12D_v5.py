@@ -11,9 +11,11 @@ multiprocessed and can create many files, so test the settings on one raster
 before running a large terrain set.
 """
 
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false, reportAttributeAccessIssue=false
+
 import os
 from collections.abc import Generator
-from glob import glob
 from math import ceil
 from multiprocessing import Pool
 from pathlib import Path
@@ -25,7 +27,7 @@ import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from loguru import logger
 
 from ryan_library.functions.file_utils import ensure_output_directory
-from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
+from ryan_library.functions.loguru_helpers import LogQueue, setup_logger, worker_initializer
 from ryan_library.functions.wrapper_utils import print_library_version
 
 
@@ -50,18 +52,20 @@ def thin_data_by_global_selection(df: pd.DataFrame, thinning_factor: int) -> pd.
     return thinned_data
 
 
-def save_thinned_data(thinned_data, output_path, tile_id, factor) -> None:
+def save_thinned_data(thinned_data: pd.DataFrame, output_path: Path, tile_id: str, factor: int) -> None:
     """Saves the thinned data to a CSV file and logs the action.
     Expects thinned_data to have columns: 'X', 'Y', and 'Z'.
     """
     try:
         thinned_data.to_csv(output_path, index=False)
-        logger.info(f"{tile_id}: Successfully saved thinned data (factor={factor}) to {output_path}.")
-    except Exception as e:
-        logger.error(f"{tile_id}: Failed to save thinned data (factor={factor}) to {output_path}. Error: {e}")
+        logger.info("{}: Successfully saved thinned data (factor={}) to {}.", tile_id, factor, output_path)
+    except (OSError, TypeError, UnicodeError, ValueError) as e:
+        logger.error("{}: Failed to save thinned data (factor={}) to {}. Error: {}", tile_id, factor, output_path, e)
 
 
-def assign_tiles(bounds, tile_size) -> Generator[tuple[int, int, Any, Any, Any, Any], Any]:
+def assign_tiles(
+    bounds: tuple[float, float, float, float], tile_size: float
+) -> Generator[tuple[int, int, float, float, float, float]]:
     """Generates tile boundaries based on the raster bounds and tile size.
 
     Parameters:
@@ -89,7 +93,7 @@ def assign_tiles(bounds, tile_size) -> Generator[tuple[int, int, Any, Any, Any, 
             yield (i, j, tile_left, tile_bottom, tile_right, tile_top)
 
 
-def determine_global_selection(input_file: str, thinning_factors: list[int]) -> list[int]:
+def determine_global_selection(input_file: str | Path, thinning_factors: list[int]) -> list[int]:
     """Determines the thinning factors. Since we're shifting to row/col thinning,
     this function might not be necessary. But keeping it for flexibility.
 
@@ -103,12 +107,19 @@ def determine_global_selection(input_file: str, thinning_factors: list[int]) -> 
     return thinning_factors
 
 
-def init_worker(queue) -> None:
+def init_worker(queue: LogQueue) -> None:
     """Initializer for worker processes. Sets up logging to use the provided queue."""
     worker_initializer(queue)
 
 
-def process_tile(window, tile_id, input_file, thinning_factors, output_dir, transform):
+def process_tile(
+    window: Any,
+    tile_id: str,
+    input_file: str | Path,
+    thinning_factors: list[int],
+    output_dir: Path,
+    transform: Any,
+) -> None:
     """Processes a single tile: reads data, thins it for each thinning factor, and saves to the output directory.
     Skips saving if the tile contains only nodata values or has no data after thinning.
 
@@ -120,25 +131,25 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
     - output_dir: str, directory to save output CSV files.
     - transform: Affine transformation from raster coordinate space to CRS coordinate space.
     """
-    logger.info(f"Processing {tile_id}...")
+    logger.info("Processing {}...", tile_id)
 
     try:
         with rasterio.open(input_file) as src:
             # Read the data within the window as a masked array
             data = src.read(1, window=window, masked=True)
-            logger.info(f"{tile_id}: Data read successfully.")
+            logger.info("{}: Data read successfully.", tile_id)
 
             # If the data is masked, replace masked values with NaN
             data = data.filled(np.nan)
 
             # Retrieve nodata value from the file
             nodata = src.nodata
-            logger.info(f"{tile_id}: Nodata value is {nodata}.")
+            logger.info("{}: Nodata value is {}.", tile_id, nodata)
 
             # Replace specified nodata values with NaN if needed
             if nodata is not None:
                 data = np.where(data == nodata, np.nan, data)
-                logger.info(f"{tile_id}: Nodata values replaced with NaN.")
+                logger.info("{}: Nodata values replaced with NaN.", tile_id)
 
         # Get global row and column offsets
         global_row_off = int(window.row_off)
@@ -164,10 +175,10 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
         # Drop rows with NaN in 'Z' column (Nodata or masked values)
         df = df.dropna(subset=["Z"])
 
-        logger.info(f"{tile_id}: DataFrame created with {len(df)} rows after removing nodata.")
+        logger.info("{}: DataFrame created with {} rows after removing nodata.", tile_id, len(df))
 
         if df.empty:
-            logger.warning(f"{tile_id} has no valid data after removing nodata. Skipping.")
+            logger.warning("{} has no valid data after removing nodata. Skipping.", tile_id)
             return  # Skip saving if there's no data
 
         # Data for thinning is based on row/col
@@ -176,13 +187,13 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
 
         # Apply thinning for each factor
         for factor in thinning_factors:
-            logger.info(f"{tile_id}: Applying thinning with factor {factor}.")
+            logger.info("{}: Applying thinning with factor {}.", tile_id, factor)
             thinned_data = thin_data_by_global_selection(df_thin, factor)
             retained_rows = len(thinned_data)
-            logger.info(f"{tile_id}: Thinning with factor {factor} completed. {retained_rows} rows retained.")
+            logger.info("{}: Thinning with factor {} completed. {} rows retained.", tile_id, factor, retained_rows)
 
             if retained_rows == 0:
-                logger.warning(f"{tile_id} has no valid data after thinning with factor {factor}. Skipping save.")
+                logger.warning("{} has no valid data after thinning with factor {}. Skipping save.", tile_id, factor)
                 continue  # Skip saving if there's no data
 
             # Convert thinned row/col back to real-world coordinates for saving
@@ -194,18 +205,24 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
 
             # Define output filename
             output_filename = f"{tile_id}_GRID_DTM_thinned_{factor}m.csv"
-            output_path = os.path.join(output_dir, output_filename)
+            output_path = output_dir / output_filename
 
             # Save the thinned data
             save_thinned_data(output_df, output_path, tile_id, factor)
 
     except rasterio.errors.RasterioIOError as rio_err:
-        logger.error(f"RasterIO error processing {tile_id}: {rio_err}")
+        logger.error("RasterIO error processing {}: {}", tile_id, rio_err)
     except Exception as e:
-        logger.error(f"Unexpected error processing {tile_id}: {e}")
+        logger.error("Unexpected error processing {}: {}", tile_id, e)
 
 
-def process_terrain_data(input_file, output_dir, thinning_factors=None, tile_size=5000, log_queue=None):
+def process_terrain_data(
+    input_file: str | Path,
+    output_dir: Path,
+    thinning_factors: list[int] | None = None,
+    tile_size: float = 5000,
+    log_queue: LogQueue | None = None,
+) -> None:
     """Processes the terrain data from a GeoTIFF file: assigns tiles, thins data for multiple
     thinning factors, and saves to CSV.
 
@@ -217,7 +234,7 @@ def process_terrain_data(input_file, output_dir, thinning_factors=None, tile_siz
     """
     if thinning_factors is None:
         thinning_factors = [10, 5, 2]
-    logger.info(f"Processing terrain data from file: {input_file}")
+    logger.info("Processing terrain data from file: {}", input_file)
 
     # Determine the thinning factors (no global selection needed)
     thinning_factors = determine_global_selection(input_file, thinning_factors)
@@ -226,13 +243,13 @@ def process_terrain_data(input_file, output_dir, thinning_factors=None, tile_siz
         bounds = src.bounds
         transform = src.transform  # The affine transform for the raster
         crs = src.crs
-        logger.info(f"Raster bounds: {bounds}")
-        logger.info(f"Raster CRS: {crs}")
+        logger.info("Raster bounds: {}", bounds)
+        logger.info("Raster CRS: {}", crs)
 
     # Generate tile boundaries
     tiles = list(assign_tiles(bounds, tile_size))
     total_tiles = len(tiles)
-    logger.info(f"Total number of tiles to process: {total_tiles}")
+    logger.info("Total number of tiles to process: {}", total_tiles)
 
     initializer = worker_initializer if log_queue is not None else None
     initargs = (log_queue,) if log_queue is not None else ()
@@ -266,23 +283,23 @@ def process_terrain_data(input_file, output_dir, thinning_factors=None, tile_siz
     logger.info("All processing complete.")
 
 
-def main():
+def main() -> None:
     with setup_logger(console_log_level="INFO") as log_queue:
         # Get the directory of the script
         script_dir = Path(__file__).absolute().parent
 
         # Define the output directory path
-        output_dir = os.path.join(script_dir, "thinned-data4")
+        output_dir = script_dir / "thinned-data4"
 
         # Ensure the output directory exists
         ensure_output_directory(output_dir)
 
         # For testing purposes, process a single .tif file
         # If you want to process all .tif files in the directory, uncomment:
-        # tif_files = glob(os.path.join(script_dir, "*.tif"))
+        # tif_files = list(script_dir.glob("*.tif"))
 
         # Test with a specific .tif file (like "main-section-clip.tif")
-        tif_files = glob(os.path.join(script_dir, "main-section-clip.tif"))
+        tif_files = list(script_dir.glob("main-section-clip.tif"))
 
         if not tif_files:
             logger.info("No .tif files found in the script directory.")

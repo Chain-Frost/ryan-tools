@@ -39,51 +39,6 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
         return None
 
     try:
-        # raw[3] = raw[3].strip("%")
-        # unit_value: str = raw[2]
-        # duration_part: str = raw[1] + unit_value
-        # aep_part: str = f"aep{raw[3]}"
-        # raw[6] = "1" if raw[6].upper() == "Y" else "0"
-        # if unit_value.lower() != "hour":
-        #     raw[1] = str(float(raw[1]) / 60)
-        #     unit_value = "hour"
-        # raw.pop(2)
-        # tp_value: int | None = None
-        # processed_line: list[float | int | str] = []
-        # for i, el in enumerate(iterable=raw):
-        #     if i in (0, 3):
-        #         # run-number and TP should be ints
-        #         val = int(el)
-        #         processed_line.append(val)
-        #         if i == 3:
-        #             tp_value = val
-        #     elif i == 2:
-        #         # AEP comes in as something like '0.2EY'—keep it as a string
-        #         processed_line.append(el)
-        #     else:
-        #         # everything else should be numeric; strip any trailing letters
-        #         # The pattern matches an optional sign, decimal number, and optional scientific exponent.
-        #         # Example matches include ``-12.5`` and ``3.1E-03``.
-        #         m: re.Match[str] | None = re.match(
-        #             pattern=r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?",
-        #             string=el,
-        #         )
-        #         if m:
-        #             processed_line.append(float(m.group()))
-        #         else:
-        #             # fallback to raw in case it really isn't numeric
-        #             processed_line.append(el)
-
-        #     # A few notes:
-        #     # Index 0 is your “Run” column (int),
-        #     # Index 2 is the AEP label (e.g. "0.2EY") that you probably want to preserve in your
-        #     # file-naming logic, Index 3 (after the pop(2)) is TP, which stays an int, and all
-        #     # other columns you now attempt to parse to float, but first use a regex to pull off a
-        #     # clean numeric prefix. With that change you'll never try to do float("0.2EY") again,
-        #     # so the ValueError goes away and you keep the original “EY” suffix in your CSV-naming
-        #     # logic.
-
-        # tp_value = tp_value if tp_value is not None else int(processed_line[3])
         run = int(raw[0])
         duration_value = float(raw[1])
         duration_unit = raw[2]

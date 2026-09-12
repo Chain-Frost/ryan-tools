@@ -80,11 +80,7 @@ class TUFLOWResultsStyler:
                 "exts": raster_exts,
                 "qml": self.default_styles_path / "hillshade.qml",
             },
-            # "1d_ccA_L": {
-            #     "exts": vector_exts,
-            #     "qml": self.default_styles_path / "_1d_ccA.qml",
-            # },
-            # appears tuflow has a default now
+            # No standalone 1d_ccA_L mapping is needed because TUFLOW now supplies a default style via the tuflow plugin.
             "DIFF_P2-P1": {
                 "exts": raster_exts,
                 "qml": self.default_styles_path / "Depth Diff GOOOD.qml",

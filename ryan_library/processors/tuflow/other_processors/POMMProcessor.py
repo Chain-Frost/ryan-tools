@@ -45,11 +45,16 @@ class POMMProcessor(BaseProcessor):
             raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)
             self.raw_df = raw_df
 
-            # # 2) Extract run_code from top-left cell
-            # raw_run_code = raw_df.iat[0, 0]
-            # # Overwrite the parser's raw_run_code in case
-            # # the file name didn't exactly match. But typically:
-            # self.name_parser.raw_run_code = raw_run_code
+            # 2) Extract run_code from top-left cell
+            file_run_code: str = str(raw_df.iloc[0, 0]).strip()
+            filename_run_code: str = self.name_parser.raw_run_code
+            if file_run_code != filename_run_code:
+                logger.warning(
+                    "{}: POMM run code '{}' in the file does not match filename-derived run code '{}'.",
+                    self.file_name,
+                    file_run_code,
+                    filename_run_code,
+                )
 
             # 3) Drop the first column and transpose
             transposed: pd.DataFrame = raw_df.drop(columns=0).T

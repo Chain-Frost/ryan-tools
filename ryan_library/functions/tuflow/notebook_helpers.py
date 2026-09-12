@@ -452,7 +452,8 @@ def run_log_summary(
 
     Args:
         paths: Directories to scan for ``.tlf`` files.
-        log_level: Console log level.
+        log_level: Retained for API compatibility. Configure notebook sinks with
+            :func:`init_notebook_logging` before calling this helper.
 
     Returns:
         A DataFrame with one row per completed simulation log.
@@ -600,7 +601,8 @@ def run_timeseries_stability(
         diff_abs_tol: Absolute tolerance for ignoring step noise.
         max_sign_changes: Maximum sign changes before flagging instability.
         min_points: Minimum points for stability evaluation.
-        log_level: Console log level.
+        log_level: Retained for API compatibility. Configure notebook sinks with
+            :func:`init_notebook_logging` before calling this helper.
 
     Returns:
         DataFrame of stability check results.
@@ -692,7 +694,8 @@ def run_timeseries_peaks_check(
         warn_2hours: Threshold (hours from end) for WARN_2H.
         warn_1hour: Threshold (hours from end) for WARN_1H.
         flat_tol: Tolerance for treating peak deviations as flat.
-        log_level: Console log level.
+        log_level: Retained for API compatibility. Configure notebook sinks with
+            :func:`init_notebook_logging` before calling this helper.
 
     Returns:
         DataFrame of peak check results.

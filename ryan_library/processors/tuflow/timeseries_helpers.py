@@ -45,21 +45,14 @@ def reshape_h_timeseries(df: pd.DataFrame, category_type: str, file_label: str) 
     type_map: dict[str, str] = {".1": "US_H", ".2": "DS_H"}
     df_long["col_type"] = df_long["suffix_type"].map(type_map)
 
-    # Drop rows where col_type is NaN (unknown suffix)
-    # df_long = df_long.dropna(subset=["col_type"])
-    # Actually, let's keep them but maybe warn?
-    # For robustness, let's just filter for now as we expect .1/.2
+    # Only .1/.2 columns participate in the upstream/downstream reshape.
     df_long = df_long[df_long["col_type"].notna()]
 
     if df_long.empty:
         msg = "No columns with valid '.1' (US) or '.2' (DS) suffixes found."
         raise ValueError(msg)
 
-    # Pivot to get US_H and DS_H as columns
-    # index: Time, category_type
-    # columns: col_type
-    # values: H_val
-
+    # Pivot H_val by col_type, indexed by Time and the configured category.
     reshaped: pd.DataFrame = df_long.pivot_table(
         index=["Time", category_type],
         columns="col_type",

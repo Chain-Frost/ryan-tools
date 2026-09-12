@@ -69,10 +69,10 @@ def find_files_parallel(
     compiled_includes: list[re.Pattern[str]] = _compile_patterns(include_patterns)
     compiled_excludes: list[re.Pattern[str]] = _compile_patterns(exclude_patterns)
 
-    logger.info(f"Root directories: {root_dirs}")
-    logger.info(f"Search patterns: {include_patterns}")
+    logger.info("Root directories: {}", root_dirs)
+    logger.info("Search patterns: {}", include_patterns)
     if exclude_patterns:
-        logger.info(f"Exclude patterns: {exclude_patterns}")
+        logger.info("Exclude patterns: {}", exclude_patterns)
 
     # Obtain the current working directory to calculate relative paths later
     # ``absolute`` preserves drive-letter vs UNC style while ensuring an
@@ -105,9 +105,9 @@ def find_files_parallel(
                     visited_dirs.add(abs_root)
                     dir_queue.put((abs_root, abs_root))  # (current_path, root_dir)
         except FileNotFoundError:
-            logger.error(f"Root directory does not exist: {root_dir}")
+            logger.error("Root directory does not exist: {}", root_dir)
         except Exception as exc:
-            logger.error(f"Error resolving root directory {root_dir}: {exc}")
+            logger.error("Error resolving root directory {}: {}", root_dir, exc)
 
     def worker() -> None:
         """Continuously pull directories off the queue, scanning files and enqueueing child folders."""
@@ -124,10 +124,10 @@ def find_files_parallel(
                 try:
                     iterator: Generator[Path] = current_path.iterdir()
                 except PermissionError:
-                    logger.error(f"Permission denied accessing directory: {current_path}")
+                    logger.error("Permission denied accessing directory: {}", current_path)
                     continue
                 except Exception as exc:
-                    logger.error(f"Error accessing directory {current_path}: {exc}")
+                    logger.error("Error accessing directory {}: {}", current_path, exc)
                     continue
 
                 for subpath in iterator:
@@ -151,14 +151,14 @@ def find_files_parallel(
                                 resolved_subpath: Path = subpath.absolute()
                                 if not resolved_subpath.exists():
                                     logger.warning(
-                                        f"Subdirectory does not exist (might be a broken symlink): {subpath}"
+                                        "Subdirectory does not exist (might be a broken symlink): {}", subpath
                                     )
                                     continue
                             except PermissionError:
-                                logger.error(f"Permission denied accessing subdirectory: {subpath}")
+                                logger.error("Permission denied accessing subdirectory: {}", subpath)
                                 continue
                             except Exception as exc:
-                                logger.error(f"Error resolving subdirectory {subpath}: {exc}")
+                                logger.error("Error resolving subdirectory {}: {}", subpath, exc)
                                 continue
 
                             # Record directories we've seen so we do not process the same path twice
@@ -192,11 +192,11 @@ def find_files_parallel(
                         local_matched.append(matched_file)
                         local_folders_with_matches.add(matched_file.parent)
                     except FileNotFoundError:
-                        logger.warning(f"File does not exist (might have been moved): {subpath}")
+                        logger.warning("File does not exist (might have been moved): {}", subpath)
                     except PermissionError:
-                        logger.error(f"Permission denied accessing file: {subpath}")
+                        logger.error("Permission denied accessing file: {}", subpath)
                     except Exception as exc:
-                        logger.error(f"Error resolving file {subpath}: {exc}")
+                        logger.error("Error resolving file {}: {}", subpath, exc)
 
                 # Safely update the global matched_files list
                 if local_matched:
@@ -210,11 +210,11 @@ def find_files_parallel(
                 if local_matched:
                     logger.debug("Found {} files in {}", len(local_matched), current_path)
             except Exception as exc:
-                logger.error(f"Unexpected error processing {current_path}: {exc}")
+                logger.error("Unexpected error processing {}: {}", current_path, exc)
             finally:
                 dir_queue.task_done()
 
-    logger.info(f"Starting search in {len(root_dirs)} root directory(ies).")
+    logger.info("Starting search in {} root directory(ies).", len(root_dirs))
     num_workers: int = min(32, max(len(root_dirs) * 4, 4))
     threads: list[threading.Thread] = [
         threading.Thread(target=worker, name=f"find-files-worker-{i}", daemon=True) for i in range(num_workers)
@@ -236,9 +236,9 @@ def find_files_parallel(
                 display_path: Path = folder.relative_to(current_dir)
             except ValueError:
                 display_path = folder.absolute()
-            logger.info(f"Folder with matched files: {display_path}")
+            logger.info("Folder with matched files: {}", display_path)
 
-    logger.info(f"Total files matched: {len(matched_files)}")
+    logger.info("Total files matched: {}", len(matched_files))
 
     return matched_files
 
@@ -263,23 +263,23 @@ def is_non_zero_file(fpath: Path | str) -> bool:
     try:
         stat_result = fpath.stat()
     except FileNotFoundError:
-        logger.error(f"File does not exist: {fpath}")
+        logger.error("File does not exist: {}", fpath)
         return False
     except PermissionError:
         # Handle cases where the file cannot be accessed due to permission issues
-        logger.error(f"Permission denied when accessing file: {fpath}")
+        logger.error("Permission denied when accessing file: {}", fpath)
         return False
     except Exception as e:
         # Catch-all for any other unexpected errors
-        logger.error(f"An unexpected error occurred while accessing file '{fpath}': {e}")
+        logger.error("An unexpected error occurred while accessing file '{}': {}", fpath, e)
         return False
 
     if not stat.S_ISREG(stat_result.st_mode):
-        logger.error(f"Path is not a file: {fpath}")
+        logger.error("Path is not a file: {}", fpath)
         return False
 
     if stat_result.st_size == 0:
-        logger.warning(f"File is empty: {fpath}")
+        logger.warning("File is empty: {}", fpath)
         return False
 
     return True  # All checks passed
@@ -298,6 +298,6 @@ def ensure_output_directory(output_dir: Path) -> None:
     if not output_dir.exists():
         # Create the directory and any necessary parent directories
         output_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created output directory: {output_dir}")
+        logger.info("Created output directory: {}", output_dir)
     else:
-        logger.info(f"Output directory already exists: {output_dir}")
+        logger.info("Output directory already exists: {}", output_dir)

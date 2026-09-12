@@ -10,6 +10,8 @@ Run ``python generate_culvert_lines.py``. The script writes the
 Rows without complete upstream/downstream coordinates are skipped.
 """
 
+# pyright: reportUnknownMemberType=false
+
 from pathlib import Path
 
 import geopandas as gpd
@@ -49,9 +51,9 @@ def main() -> None:
     try:
         # Write lines to GeoPackage
         lines_gdf.to_file(output_gpkg, layer="culvert_lines", driver="GPKG")
-        logger.info(f"Lines GeoDataFrame saved to '{output_gpkg}' in layer 'culvert_lines'.")
+        logger.info("Lines GeoDataFrame saved to '{}' in layer 'culvert_lines'.", output_gpkg)
     except Exception as e:
-        logger.error(f"Error saving to GeoPackage: {e}")
+        logger.error("Error saving to GeoPackage: {}", e)
 
 
 def create_linestring(us_x: float, us_y: float, ds_x: float, ds_y: float) -> LineString:
@@ -112,7 +114,7 @@ def generate_lines(combined_df: pd.DataFrame) -> gpd.GeoDataFrame:
     # Assign geometry
     lines_gdf = gpd.GeoDataFrame(attributes, geometry=geometry, crs="EPSG:28350")
 
-    logger.info(f"Generated {len(lines_gdf)} LineStrings for culverts.")
+    logger.info("Generated {} LineStrings for culverts.", len(lines_gdf))
 
     return lines_gdf
 

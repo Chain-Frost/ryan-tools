@@ -16,7 +16,7 @@ import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from loguru import logger
 from tqdm import tqdm
 
-from ryan_library.functions.loguru_helpers import LogQueue, worker_initializer
+from .loguru_helpers import LogQueue, worker_initializer
 
 type NodataValue = int | float
 type NodataValues = NodataValue | Sequence[NodataValue] | None
@@ -45,7 +45,7 @@ type RasterContext = AbstractContextManager[RasterReader]
 
 def read_geotiff(filename: str | Path, nodata_values: NodataValues = None) -> pd.DataFrame:
     """Reads a GeoTIFF file and returns a DataFrame with X, Y, Z coordinates."""
-    logger.info(f"Loading file: {filename}")
+    logger.info("Loading file: {}", filename)
     try:
         open_raster = cast(
             "Callable[[str | Path], RasterContext]",
@@ -77,7 +77,7 @@ def read_geotiff(filename: str | Path, nodata_values: NodataValues = None) -> pd
         return df
 
     except Exception as e:
-        logger.error(f"Error reading file {filename}: {e}")
+        logger.error("Error reading file {}: {}", filename, e)
         return pd.DataFrame(columns=["X", "Y", "Z"])
 
 
@@ -101,7 +101,7 @@ def tile_data(df: pd.DataFrame, tile_size: float) -> list[TerrainTile]:
     x_tiles: int = max(1, x_tiles)
     y_tiles: int = max(1, y_tiles)
 
-    logger.info(f"Tiling data into {x_tiles} x {y_tiles} tiles.")
+    logger.info("Tiling data into {} x {} tiles.", x_tiles, y_tiles)
 
     tiles: list[TerrainTile] = []
     for i in tqdm(range(x_tiles), desc="Processing tiles (X-axis)"):
@@ -118,7 +118,7 @@ def tile_data(df: pd.DataFrame, tile_size: float) -> list[TerrainTile]:
                 tiles.append(((i, j), tile_df))
             else:
                 logger.debug("Tile ({}, {}) is empty. Skipping.", i, j)
-    logger.info(f"Completed tiling. Generated {len(tiles)} non-empty tiles.")
+    logger.info("Completed tiling. Generated {} non-empty tiles.", len(tiles))
     return tiles
 
 
@@ -148,7 +148,7 @@ def process_terrain_file_inner(
     - tile_size: Size of each tile
     - save_function: Function to save the data
     """
-    logger.info(f"Processing file: {filename}")
+    logger.info("Processing file: {}", filename)
 
     filename = Path(filename)
 
@@ -163,7 +163,7 @@ def process_terrain_file_inner(
     base_filename: str = filename.stem
 
     if df.empty:
-        logger.warning(f"No valid data found in {filename}. Skipping file.")
+        logger.warning("No valid data found in {}. Skipping file.", filename)
         return
 
     if tile_size:

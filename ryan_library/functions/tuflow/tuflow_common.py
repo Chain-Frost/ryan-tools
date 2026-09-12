@@ -22,7 +22,7 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 
 MaybeEncodingError: type[Exception] = cast(
     "type[Exception]",
-    multiprocessing_pool.MaybeEncodingError,
+    multiprocessing_pool.MaybeEncodingError,  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
 )
 
 

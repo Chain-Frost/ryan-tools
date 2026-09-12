@@ -10,10 +10,13 @@ default uses tiling and may create many LAS files; validate coordinate units,
 offsets, and a representative output before bulk processing.
 """
 
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+
 from pathlib import Path
 
 import laspy  # pyright: ignore[reportMissingTypeStubs]
 import numpy as np
+import pandas as pd
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
@@ -21,7 +24,7 @@ from ryan_library.functions.terrain_processing import parallel_process_multiple_
 from ryan_library.functions.wrapper_utils import print_library_version
 
 
-def save_tile_las(tile_df, output_dir, base_filename, i, j) -> None:
+def save_tile_las(tile_df: pd.DataFrame, output_dir: Path, base_filename: str, i: int, j: int) -> None:
     """Saves a tile DataFrame as a LAS file."""
     tile_filename = f"{base_filename}_tile_{i}_{j}.las"
     tile_path = output_dir / tile_filename
@@ -38,18 +41,18 @@ def save_tile_las(tile_df, output_dir, base_filename, i, j) -> None:
         las = laspy.LasData(header)
 
         # Assign point data
-        las.x = tile_df["X"].values
-        las.y = tile_df["Y"].values
-        las.z = tile_df["Z"].values
+        las.x = tile_df["X"].to_numpy()
+        las.y = tile_df["Y"].to_numpy()
+        las.z = tile_df["Z"].to_numpy()
 
         # Write to LAS file
         las.write(str(tile_path))
-        logger.info(f"Saved tile: {tile_filename}")
-    except Exception as e:
-        logger.error(f"Failed to save LAS tile {tile_filename}: {e}")
+        logger.info("Saved tile: {}", tile_filename)
+    except Exception as error:
+        logger.error("Failed to save LAS tile {}: {}", tile_filename, error)
 
 
-def save_full_las(df, output_dir, base_filename):
+def save_full_las(df: pd.DataFrame, output_dir: Path, base_filename: str) -> None:
     """Saves the full DataFrame as a single LAS file without tiling."""
     las_filename = f"{base_filename}.las"
     output_path = output_dir / las_filename
@@ -66,15 +69,15 @@ def save_full_las(df, output_dir, base_filename):
         las = laspy.LasData(header)
 
         # Assign point data
-        las.x = df["X"].values
-        las.y = df["Y"].values
-        las.z = df["Z"].values
+        las.x = df["X"].to_numpy()
+        las.y = df["Y"].to_numpy()
+        las.z = df["Z"].to_numpy()
 
         # Write to LAS file
         las.write(str(output_path))
-        logger.info(f"Saved file without tiling: {las_filename}")
-    except Exception as e:
-        logger.error(f"Failed to save LAS file {las_filename}: {e}")
+        logger.info("Saved file without tiling: {}", las_filename)
+    except Exception as error:
+        logger.error("Failed to save LAS file {}: {}", las_filename, error)
 
 
 def main() -> None:
@@ -92,24 +95,24 @@ def main() -> None:
             r"P:\BGER\PER\RP20180.365 BLACKSMITH SCOPING STUDY - FMG\5 CADD\1 MOD\2 CI"
             r"\12D\Input\2025.06.20_ClippedGIS\h_hr_max"
         )
-        logger.info(f"Script directory: {script_dir}")
+        logger.info("Script directory: {}", script_dir)
 
         # Verify that script_dir exists
         if not script_dir.exists():
-            logger.error(f"The specified script directory does not exist: {script_dir}")
+            logger.error("The specified script directory does not exist: {}", script_dir)
             return
 
         # Define the output directory
         output_dir = script_dir / "output_las_files"  # Using Path objects
         output_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Output directory: {output_dir}")
+        logger.info("Output directory: {}", output_dir)
 
         # Find all .tif files in the script_dir
         tif_files = list(script_dir.glob("*.tif"))
         if not tif_files:
             logger.warning("No .tif files found in the script directory.")
             return
-        logger.info(f"Found {len(tif_files)} .tif files to process.")
+        logger.info("Found {} .tif files to process.", len(tif_files))
 
         # Define the saving function based on tiling
         if use_tiling:

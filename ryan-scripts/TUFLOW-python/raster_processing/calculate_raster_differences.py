@@ -117,7 +117,7 @@ def run_asc2asc(current_raster: Path, subtract_raster: Path, output_file: Path, 
         check=False,
     )
     if result.returncode != 0:
-        logger.error(f"asc_to_asc failed with return code {result.returncode}:\n{result.stdout}")
+        logger.error("asc_to_asc failed with return code {}:\n{}", result.returncode, result.stdout)
         msg = "asc_to_asc execution failed."
         raise RuntimeError(msg)
 
@@ -178,13 +178,13 @@ def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> 
     configuration = resolve_configuration(args)
 
     if not Path(configuration.subtract_raster).is_file():
-        logger.error(f"Subtract raster does not exist: {configuration.subtract_raster}")
+        logger.error("Subtract raster does not exist: {}", configuration.subtract_raster)
         return 1
 
     try:
         for current_raster in configuration.current_rasters:
             if not Path(current_raster).is_file():
-                logger.error(f"Current raster does not exist: {current_raster}")
+                logger.error("Current raster does not exist: {}", current_raster)
                 continue
             process_raster(current_raster, configuration)
     except Exception:

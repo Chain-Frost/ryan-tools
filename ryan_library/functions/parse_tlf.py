@@ -1,6 +1,6 @@
 # ryan_library/functions/parse_tlf.py
 
-__lazy_modules__ = ["pandas"]
+__lazy_modules__: list[str] = ["pandas"]
 
 import re
 from datetime import datetime
@@ -10,7 +10,7 @@ from typing import Any
 import pandas as pd
 from loguru import logger
 
-from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+from ..classes.tuflow_string_classes import TuflowStringParser
 
 # Precompile regex patterns at the module level for efficiency and thread safety
 REGEX_PATTERNS: dict[str, re.Pattern[str]] = {
@@ -186,8 +186,6 @@ def search_for_completion(
     Returns:
         tuple[dict[str, str | float], int, str | None]: Updated data_dict, sim_complete flag, and current_section.
     """
-    # logger.debug(f"Processing line: {line.strip()}")  # Added for tracing
-
     if match := REGEX_PATTERNS["input_file"].match(string=line):
         full_path: str = match.group(1).strip()
         normalized_path = Path(full_path.replace("\\", "/"))
@@ -334,10 +332,7 @@ def search_from_top(
                 key: str = m.group("var").strip()
                 value: str = m.group("val").strip()
                 # Exclude redundant variables
-                if key in EXCLUDED_VARIABLES or re.match(pattern=r"^~[ES]\d*~$", string=key):
-                    # logger.debug(f"Excluded redundant variable: {key}")
-                    pass
-                else:
+                if key not in EXCLUDED_VARIABLES and not re.match(pattern=r"^~[ES]\d*~$", string=key):
                     data_dict[key] = value
             else:
                 logger.warning("Unexpected variable format: {}", line)

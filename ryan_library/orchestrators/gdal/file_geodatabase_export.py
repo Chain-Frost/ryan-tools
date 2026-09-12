@@ -8,13 +8,13 @@ from pathlib import Path
 
 from loguru import logger
 
-from ryan_library.functions.gdal.vector_conversion import (
+from ...functions.gdal.vector_conversion import (
     VectorFormat,
     get_vector_layer_names,
     require_vector_driver,
     translate_vector_dataset,
 )
-from ryan_library.functions.path_stuff import PathOrList, sanitize_windows_filename, to_path_list
+from ...functions.path_stuff import PathOrList, sanitize_windows_filename, to_path_list
 
 
 @dataclass(frozen=True, slots=True)

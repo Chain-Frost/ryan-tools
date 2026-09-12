@@ -149,7 +149,7 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
     )
     # large file currently does nothing - can be a problem if there are lots of errors logged in the file
 
-    # lines_reversed = list(reversed(lines))
+    # Preserve file order when scanning for completion markers.
 
     if not lines and not last_lines:
         return pd.DataFrame()
@@ -215,9 +215,6 @@ def main_processing(
     Finds all *.tlf files in the current working directory (excluding hpc/gpu logs recursively),
     distributes processing across a process pool, and aggregates the results into an Excel report.
     """
-    # log_dir = Path.home() / "Documents" / "MyAppLogs"
-    # log_file = "tuflow_logsummary.log"
-
     processing_results: list[LogFileProcessingResult] = []
     successful_runs: int = 0
     if not console_log_level:

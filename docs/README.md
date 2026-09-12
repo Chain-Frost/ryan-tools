@@ -23,7 +23,7 @@ Useful discovery commands from the repository root are:
 
 ```powershell
 git ls-files "*.md"
-rg -n -i "search terms" -g "*.md" -g "!unsorted/**" -g "!vendor/run_hy8/**"
+rg -n -i "search terms" -g "*.md" -g "!unsorted/**" -g "!vendor/run_hy8/**" -g "!vendor/ryan_culverts/**"
 ```
 
 ## Canonical policy and starting points

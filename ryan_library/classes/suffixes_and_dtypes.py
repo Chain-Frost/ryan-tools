@@ -46,7 +46,7 @@ class ConfigLoader:
                 logger.debug("Loaded configuration from {}: {}", self.config_path, typed_config)
                 return typed_config
         except FileNotFoundError:
-            logger.error(f"Configuration file not found at {self.config_path}")
+            logger.error("Configuration file not found at {}", self.config_path)
             raise
         except json.JSONDecodeError as e:
             message = f"Error decoding JSON from {self.config_path}: {e}"
@@ -103,7 +103,8 @@ class ProcessingParts:
                     if processor_module is None:
                         processor_module = module_value.strip()
                     logger.warning(
-                        f"'dataformat.module' in '{data_type_name}' is deprecated; move it to 'processingParts.module'.",
+                        "'dataformat.module' in '{}' is deprecated; move it to 'processingParts.module'.",
+                        data_type_name,
                     )
                 else:
                     message: str = (
@@ -383,7 +384,7 @@ class SuffixesConfig:
         """Retrieve the processor class name associated with a specific data type."""
         data_type_def: DataTypeDefinition | None = self.config.data_types.get(data_type)
         if not data_type_def:
-            logger.error(f"Data type '{data_type}' not found in configuration.")
+            logger.error("Data type '{}' not found in configuration.", data_type)
             return None
         return data_type_def.processor
 
@@ -391,7 +392,7 @@ class SuffixesConfig:
         """Return the configuration block for ``data_type`` if it exists."""
         definition: DataTypeDefinition | None = self.config.data_types.get(data_type)
         if definition is None:
-            logger.error(f"Data type '{data_type}' not found in configuration.")
+            logger.error("Data type '{}' not found in configuration.", data_type)
         return definition
 
     def invert_suffix_to_type(self) -> dict[str, list[str]]:

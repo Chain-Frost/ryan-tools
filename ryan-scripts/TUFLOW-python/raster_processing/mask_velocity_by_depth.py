@@ -76,7 +76,9 @@ def ensure_original_backup(velocity_path: Path) -> Path | None:
         return original_path
     if not velocity_path.exists():
         logger.error(
-            f"Neither {velocity_path.name} nor {original_path.name} exists; cannot obtain a velocity source.",
+            "Neither {} nor {} exists; cannot obtain a velocity source.",
+            velocity_path.name,
+            original_path.name,
         )
         return None
     logger.info("Backing up {} -> {}", velocity_path.name, original_path.name)
@@ -132,7 +134,10 @@ def process_velocity_file(velocity_path: Path, depth_path: Path, threshold: floa
         return False
 
     logger.info(
-        f"[{aep_label}] Processing {velocity_path.name} with mask {depth_path.name}",
+        "[{}] Processing {} with mask {}",
+        aep_label,
+        velocity_path.name,
+        depth_path.name,
     )
     try:
         with rasterio.open(original_path) as vel_ds:
@@ -147,11 +152,16 @@ def process_velocity_file(velocity_path: Path, depth_path: Path, threshold: floa
             dst.write(masked_data)
 
         logger.success(
-            f"[{aep_label}] Updated {velocity_path.name} (kept {kept_cells}/{total_cells} cells, {100 * kept_cells / total_cells if total_cells else 0.0:.1f}%).",
+            "[{}] Updated {} (kept {}/{} cells, {:.1f}%).",
+            aep_label,
+            velocity_path.name,
+            kept_cells,
+            total_cells,
+            100 * kept_cells / total_cells if total_cells else 0.0,
         )
         return True
     except Exception:
-        logger.exception(f"Failed to process {velocity_path.name}")
+        logger.exception("Failed to process {}", velocity_path.name)
         return False
 
 
@@ -183,7 +193,10 @@ def process_root(root: Path, threshold: float) -> None:
         logger.success("Completed masking for all {} rasters in {}.", success_count, resolved)
     else:
         logger.error(
-            f"Masked {success_count} of {len(velocity_files)} rasters in {resolved}; please review the log for failures.",
+            "Masked {} of {} rasters in {}; please review the log for failures.",
+            success_count,
+            len(velocity_files),
+            resolved,
         )
 
 

@@ -15,13 +15,14 @@ from pathlib import Path
 
 import pandas as pd
 from loguru import logger
+from run_hy8 import Hy8FileWriter, Hy8Project
 
 WRAPPER_VERSION = "2026-08-09.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
 
-from ryan_library.functions.hy8.run_hy8_bridge import Hy8Project, maximums_dataframe_to_project
+from ryan_library.functions.hy8 import maximums_dataframe_to_project
 from ryan_library.functions.loguru_helpers import configure_serial_logging
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
@@ -64,7 +65,7 @@ def main(
     )
 
     try:
-        logger.info(f"Reading TUFLOW culvert maximums from {input_csv}...")
+        logger.info("Reading TUFLOW culvert maximums from {}...", input_csv)
         df = pd.read_csv(input_csv)
 
         logger.info("Converting DataFrame to HY-8 project...")
@@ -73,9 +74,9 @@ def main(
             project_title=project_title,
         )
 
-        logger.info(f"Saving HY-8 project to {output_hy8}...")
-        hy8_project.save(output_hy8)
-        logger.success(f"Successfully generated {output_hy8}")
+        logger.info("Saving HY-8 project to {}...", output_hy8)
+        written_path: Path = Hy8FileWriter(hy8_project).write(output_hy8)
+        logger.success("Successfully generated {}", written_path)
 
     except Exception:
         logger.exception("Failed to convert TUFLOW culverts to HY-8.")

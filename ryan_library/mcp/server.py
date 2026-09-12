@@ -17,10 +17,10 @@ try:
 except ImportError:
     MCPServer = None  # type: ignore[assignment, misc]
 
-from ryan_library.classes.tuflow_string_classes import TuflowStringParser
-from ryan_library.mcp.registry import WorkflowRegistry
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
-from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+from ..classes.tuflow_string_classes import TuflowStringParser
+from ..processors.tuflow.base_processor import BaseProcessor
+from ..processors.tuflow.processor_collection import ProcessorCollection
+from .registry import WorkflowRegistry, WorkflowRegistryError
 
 REGISTRY = WorkflowRegistry()
 MAX_SAMPLE_ROWS = 20
@@ -326,7 +326,7 @@ def list_workflows(
             maximum_profile=profile,
             include_unavailable=include_unavailable,
         )
-    except Exception as error:
+    except WorkflowRegistryError as error:
         return {"error": str(error)}
 
 
@@ -337,11 +337,9 @@ def get_workflow(workflow_id: str) -> dict[str, Any]:
 
 def check_repo_health() -> dict[str, Any]:
     """Check package versions, workflow profile, checkout discovery, and catalogue availability."""
-    import ryan_library
-
     visible: dict[str, Any] = REGISTRY.list_workflows(include_unavailable=True)
     available: dict[str, Any] = REGISTRY.list_workflows(include_unavailable=False)
-    package_directory: Path = Path(ryan_library.__file__).resolve().parent
+    package_directory: Path = Path(__file__).resolve().parent.parent
     return {
         "python_version": sys.version,
         "python_executable": sys.executable,

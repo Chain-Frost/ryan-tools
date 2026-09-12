@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.09.12.1"
+version = "26.09.12.2"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 license = "SUL-1.0"
@@ -81,7 +81,7 @@ include-package-data = true
 ]
 
 [tool.setuptools.packages.find]
-where = [".", "vendor/run_hy8/src", "ryan-scripts/TUFLOW-python"]
+where = [".", "vendor/run_hy8/src", "vendor/ryan_culverts/src", "ryan-scripts/TUFLOW-python"]
 include = [
     "culvert_results",
     "culvert_results.*",
@@ -104,6 +104,8 @@ include = [
     "vendor.PyHMA.*",
     "run_hy8",
     "run_hy8.*",
+    "culvert_solver",
+    "culvert_solver.*",
 ]
 exclude = [
     "tests",
@@ -115,4 +117,4 @@ namespaces = true
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
 include = ["ryan_library", "ryan-scripts"]
-extraPaths = ["vendor", "vendor/run_hy8/src"]
+extraPaths = ["vendor", "vendor/run_hy8/src", "vendor/ryan_culverts/src"]

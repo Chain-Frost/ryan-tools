@@ -185,8 +185,9 @@ submodule content. Pass explicit repository-relative Markdown paths to check a d
   unnecessary full datasets into memory and preserve multiprocessing or streaming behaviour where it matters.
 - Use synthetic fixtures for tests when proprietary project results cannot be committed. Do not turn one observed
   project folder hierarchy into a general contract without evidence.
-- `tests/test_data`, `excel-resources`, `qgis-resources`, `unsorted` and parts of `vendor` are submodules. Preserve their
-  independent worktrees and do not assume that a parent-repository change includes their contents.
+- `tests/test_data`, `excel-resources`, `qgis-resources`, `unsorted`, `vendor/run_hy8` and `vendor/ryan_culverts` are
+  submodules. Preserve their independent worktrees and do not assume that a parent-repository change includes their
+  contents.
 - File-management, raster and GIS scripts may overwrite, rename, delete or modify inputs. Prefer dry runs and temporary
   copies, and make destructive scope explicit.
 - Windows paths, long paths, spaces, UNC paths and network locations are normal. Examples should be copy-ready for the

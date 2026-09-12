@@ -9,6 +9,9 @@ original. Keep a backup and test on copied data first; the script pauses for a
 keypress when complete.
 """
 
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false, reportUnknownArgumentType=false
+
 # 250913
 import shutil
 import sys

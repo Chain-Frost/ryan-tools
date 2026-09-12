@@ -198,7 +198,7 @@ class CoreParameters:
 
         logging.info("%s==== CORE PARAMETERS ====%s", cyan, reset)
         # Ensure we compute effective batch flags (may raise on conflicts; that's fine)
-        effective_batch: list[str] = get_batch_flags(core=self, for_dump=True)
+        effective_batch: list[str] = get_batch_flags(core=self)
         items: list[tuple[str, Any]] = [
             ("tcf", self.tcf),
             ("tuflowexe", self.tuflowexe),
@@ -560,7 +560,7 @@ def get_psutil_priority(priority: str) -> int:
     return mapping.get(priority.upper(), priority_constant(name="NORMAL_PRIORITY_CLASS", default=32))
 
 
-def get_batch_flags(core: CoreParameters, *, for_dump: bool = False) -> list[str]:
+def get_batch_flags(core: CoreParameters) -> list[str]:
     """Return effective batch flags, enforcing GPU flag rules.
 
     Rules:
@@ -606,8 +606,8 @@ def export_commands(cmds: list[str], tuflowexe: Path, tcf: Path) -> None:
       ...
       Pause
     """
-    fn: str = f"{Path(__file__).stem}_commands.txt"
-    with open(file=fn, mode="w", encoding="utf-8") as f:
+    fn = Path(f"{Path(__file__).stem}_commands.txt")
+    with fn.open(mode="w", encoding="utf-8") as f:
         # 1) Header
         # f.write("@echo off\n")
         f.write(f'set "TUFLOW_EXE={tuflowexe}"\n')
@@ -859,9 +859,7 @@ def build_simulations_from_combos(
 
 
 # ========================= LAUNCH / MONITOR LOOP ========================== #
-def _log_simulation_parameters(
-    sim: Simulation, core: CoreParameters, total: int, console: Console | None = None
-) -> None:
+def _log_simulation_parameters(sim: Simulation, console: Console | None = None) -> None:
     """For each sim, only print the full arg string (no timestamp)."""
     tokens: list[str] = sim.args_for_python
     if not tokens:
@@ -887,7 +885,7 @@ def _append_session_log(session_log: Path, text: str) -> None:
             f.write(text)
             if not text.endswith("\n"):
                 f.write("\n")
-    except Exception as exc:
+    except (OSError, UnicodeError) as exc:
         logging.warning("Failed writing session log %s: %s", session_log, exc)
 
 
@@ -1182,7 +1180,7 @@ def launch_simulations(
                 return idx
         return None
 
-    def sigint_handler(signum: int, frame: FrameType | None) -> None:
+    def sigint_handler(_signum: int, _frame: FrameType | None) -> None:
         console.print("[yellow]Ctrl+C detected - terminating all child processes.[/yellow]")
         for s in running:
             if s.process and s.process.poll() is None:
@@ -1277,7 +1275,7 @@ def launch_simulations(
 
         console.print()
         console.print(_launch_line(sim=sim, total=total))
-        _log_simulation_parameters(sim=sim, core=core, total=total, console=console)
+        _log_simulation_parameters(sim=sim, console=console)
 
         # On Windows, open in a new console window; elsewhere, use the same session.
         # ---- session command log (exact START line used) ----

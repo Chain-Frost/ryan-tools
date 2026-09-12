@@ -10,7 +10,8 @@ Review the generated placement and dimensions in GIS before use; the script's
 geometry placement is explicitly not considered fully polished.
 """
 
-import os
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+
 from math import atan2, degrees
 from pathlib import Path
 
@@ -34,10 +35,13 @@ it a library for use in TUFLOW element generation"""
 setup_logger(console_log_level="DEBUG")
 
 
-def main():
+def main() -> None:
     # Path to the combined_culverts.csv file
-    # csv_path = os.path.join(os.getcwd(), "combined_culverts.csv")  # Adjust if necessary
-    csv_path = Path(r"Q:\BGER\PER\RP20180.317 WYLOO CREEK CROSSING PFS - FMG\TUFLOW_Wyloo\model\gis\culverts\241219")
+    # csv_path = Path.cwd() / "combined_culverts.csv"  # Adjust if necessary
+    csv_path = (
+        Path(r"Q:\BGER\PER\RP20180.317 WYLOO CREEK CROSSING PFS - FMG\TUFLOW_Wyloo\model\gis\culverts\241219")
+        / "combined_culverts.csv"
+    )
     # Load combined_df
     combined_df = get_combined_df_from_csv(csv_path)
 
@@ -49,26 +53,26 @@ def main():
     polygons_gdf, lines_gdf = generate_geometries(combined_df)
 
     # Define output Shapefile paths
-    output_polygons_shp = os.path.join(os.getcwd(), "culvert_polygons2.shp")
-    output_lines_shp = os.path.join(os.getcwd(), "culvert_lines2.shp")
+    output_polygons_shp = Path.cwd() / "culvert_polygons2.shp"
+    output_lines_shp = Path.cwd() / "culvert_lines2.shp"
 
     # Export to Shapefiles
     try:
         # Write polygons to Shapefile
         polygons_gdf.to_file(output_polygons_shp, driver="ESRI Shapefile")
-        logger.info(f"Polygons GeoDataFrame saved to '{output_polygons_shp}'.")
+        logger.info("Polygons GeoDataFrame saved to '{}'.", output_polygons_shp)
     except Exception as e:
-        logger.error(f"Error saving polygons Shapefile: {e}")
+        logger.error("Error saving polygons Shapefile: {}", e)
 
     try:
         # Write lines to Shapefile
         lines_gdf.to_file(output_lines_shp, driver="ESRI Shapefile")
-        logger.info(f"Lines GeoDataFrame saved to '{output_lines_shp}'.")
+        logger.info("Lines GeoDataFrame saved to '{}'.", output_lines_shp)
     except Exception as e:
-        logger.error(f"Error saving lines Shapefile: {e}")
+        logger.error("Error saving lines Shapefile: {}", e)
 
 
-def create_rectangle(width, length):
+def create_rectangle(width: float, length: float) -> Polygon:
     """Creates a rectangle centered at (0,0).
 
     Args:
@@ -90,7 +94,7 @@ def create_rectangle(width, length):
     )
 
 
-def rotate_and_translate(polygon, rotation_angle, x, y):
+def rotate_and_translate(polygon: Polygon, rotation_angle: float, x: float, y: float) -> Polygon:
     """Rotates and translates a polygon.
 
     Args:
@@ -109,7 +113,7 @@ def rotate_and_translate(polygon, rotation_angle, x, y):
     return translated
 
 
-def create_linestring(us_x, us_y, ds_x, ds_y):
+def create_linestring(us_x: float, us_y: float, ds_x: float, ds_y: float) -> LineString:
     """Creates a LineString from upstream to downstream coordinates.
 
     Args:
@@ -124,7 +128,7 @@ def create_linestring(us_x, us_y, ds_x, ds_y):
     return LineString([(us_x, us_y), (ds_x, ds_y)])
 
 
-def generate_geometries(combined_df):
+def generate_geometries(combined_df: pd.DataFrame) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
     """Generates inlet and outlet polygons and culvert lines based on combined_df.
 
     Args:
@@ -148,7 +152,7 @@ def generate_geometries(combined_df):
 
         # Validate coordinates
         if pd.isna(us_x) or pd.isna(us_y) or pd.isna(ds_x) or pd.isna(ds_y):
-            logger.warning(f"Missing coordinates for culvert '{name}'. Skipping geometry creation.")
+            logger.warning("Missing coordinates for culvert '{}'. Skipping geometry creation.", name)
             continue
 
         # Compute delta_x and delta_y
@@ -244,7 +248,7 @@ def generate_geometries(combined_df):
             }
         )
 
-        logger.info(f"Generated geometries for culvert '{name}'.")
+        logger.info("Generated geometries for culvert '{}'.", name)
 
     # Create GeoDataFrames
     polygons_gdf = gpd.GeoDataFrame(polygon_attributes, geometry=polygons, crs="EPSG:28350")

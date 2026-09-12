@@ -9,8 +9,13 @@ The script writes per-ID shapefiles plus ``1d_nwk_data.trd`` and
 group counts and inspect unmatched network/boundary-condition groups in GIS.
 """
 
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false, reportUnknownArgumentType=false
+
 import os
-from typing import Any
+from collections.abc import Callable, Iterable
+from pathlib import Path
+from typing import Any, cast
 
 import fiona
 import geopandas as gpd
@@ -25,8 +30,7 @@ def main() -> None:
     bc_path = "2d_bc_multi_241209_001_L.shp"
     output_dir = "splits"
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     gdf_1d_nwk, gdf_2d_bc = load_shapefiles(nwk_path, bc_path)
     nwk_schema: dict[str, Any] = get_schemas(nwk_path)
@@ -47,33 +51,34 @@ def main() -> None:
 
 def get_schemas(shapefile_path: str) -> dict[str, Any]:
     with fiona.open(fp=shapefile_path, mode="r") as src:
-        return src.schema or {}
+        return cast("dict[str, Any]", src.schema or {})
 
 
 def generate_trd_files(output_dir: str, gdf_1d_nwk: GeoDataFrame, gdf_2d_bc: GeoDataFrame) -> None:
     base_string_1d_nwk = "Read GIS Network ==  "
     base_string_2d_bc = "Read GIS BC ==  "
-    path_string: str = os.path.join(output_dir, "splits")
+    output_path = Path(output_dir)
+    path_string: Path = output_path / "splits"
 
     # Generating 1d_nwk.trd file
-    output_file_path = os.path.join(output_dir, "1d_nwk_data.trd")
-    with open(output_file_path, "w") as file_1d_nwk:
+    output_file_path: Path = output_path / "1d_nwk_data.trd"
+    with output_file_path.open("w", encoding="utf-8") as file_1d_nwk:
         unique_ids = gdf_1d_nwk["ID"].unique()
         for unique_id in unique_ids:
             file_name: str = f"1d_nwk_{unique_id}.shp"
-            full_path: str = os.path.join(path_string, file_name)
-            file_1d_nwk.write(base_string_1d_nwk + full_path + "\n")
+            full_path = path_string / file_name
+            file_1d_nwk.write(f"{base_string_1d_nwk}{full_path}\n")
     print("1d_nwk_data.trd generated!")
 
     # Generating 2d_bc.trd file
     trimmed_unique_ids = {uid[:-2] if uid.endswith(("_U", "_D")) else uid for uid in gdf_2d_bc["Name"].unique()}
 
-    output_file_path = os.path.join(output_dir, "2d_bc_data.trd")
-    with open(output_file_path, "w") as file_2d_bc:
+    output_file_path = output_path / "2d_bc_data.trd"
+    with output_file_path.open("w", encoding="utf-8") as file_2d_bc:
         for unique_id in trimmed_unique_ids:
             file_name = f"2d_bc_{unique_id}.shp"
-            full_path = os.path.join(path_string, file_name)
-            file_2d_bc.write(base_string_2d_bc + full_path + "\n")
+            full_path = path_string / file_name
+            file_2d_bc.write(f"{base_string_2d_bc}{full_path}\n")
     print("2d_bc_data.trd generated!")
     print("TRD files exported!")
 
@@ -87,20 +92,21 @@ def load_shapefiles(nwk_path: str, bc_path: str) -> tuple[GeoDataFrame, GeoDataF
 
 def save_subset_files(
     gdf: GeoDataFrame,
-    unique_ids: list[str | int],
+    unique_ids: Iterable[str | int],
     prefix: str,
-    filter_condition: Any,
+    filter_condition: Callable[[GeoDataFrame, str | int], GeoDataFrame],
     output_dir: str,
     schema: dict[str, Any],
 ) -> int:
     matched_groups = 0
+    output_path = Path(output_dir)
     print(f"Splitting {prefix} file and saving subsets...")
 
     for unique_id in unique_ids:
         subset: GeoDataFrame = filter_condition(gdf, unique_id)
         if not subset.empty:
             file_name: str = f"{prefix}_{unique_id}.shp"
-            full_path: str = os.path.join(output_dir, file_name)
+            full_path = output_path / file_name
             subset.to_file(
                 filename=full_path,
                 schema=schema,
@@ -113,11 +119,11 @@ def save_subset_files(
     return matched_groups
 
 
-def filter_condition_1d_nwk(gdf, unique_id):
+def filter_condition_1d_nwk(gdf: GeoDataFrame, unique_id: str | int) -> GeoDataFrame:
     return gdf[gdf["ID"] == unique_id]
 
 
-def filter_condition_2d_bc(gdf, unique_id):
+def filter_condition_2d_bc(gdf: GeoDataFrame, unique_id: str | int) -> GeoDataFrame:
     return gdf[gdf["Name"].str.contains(f"{unique_id}_U|{unique_id}_D", na=False)]
 
 
@@ -133,12 +139,12 @@ def save_subsets(
     total_2d_bc_groups = len(trimmed_unique_ids)
 
     nwk_groups_count = save_subset_files(
-        gdf_1d_nwk,
-        unique_ids,
-        "1d_nwk",
-        filter_condition_1d_nwk,
-        output_dir,
-        nwk_schema,
+        gdf=gdf_1d_nwk,
+        unique_ids=unique_ids,
+        prefix="1d_nwk",
+        filter_condition=filter_condition_1d_nwk,
+        output_dir=output_dir,
+        schema=nwk_schema,
     )
     matched_2d_bc_groups = save_subset_files(
         gdf_2d_bc, unique_ids, "2d_bc", filter_condition_2d_bc, output_dir, bc_schema

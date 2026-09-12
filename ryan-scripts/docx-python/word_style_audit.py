@@ -26,6 +26,7 @@ import zipfile
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 from xml.etree import ElementTree as ET
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -101,9 +102,16 @@ class StyleId:
     style_type: str  # paragraph, character, table, numbering, etc.
 
 
-def _bool_prop_present(el: ET.Element | None, tag: str) -> bool:
-    """Some boolean properties are represented by tag presence."""
-    return first(el, f"./w:{tag}") is not None
+def _extract_onoff_properties(rpr: ET.Element) -> dict[str, bool]:
+    """Return explicitly configured boolean run properties."""
+    properties: dict[str, bool] = {}
+    for tag in ["b", "bCs", "i", "iCs", "caps", "smallCaps", "strike", "dstrike"]:
+        element = first(rpr, f"./w:{tag}")
+        if element is None:
+            continue
+        value = element.get(qn("w:val"))
+        properties[tag] = value not in {"0", "false", "off"} if value is not None else True
+    return properties
 
 
 def _extract_rpr(rpr: ET.Element | None) -> dict[str, object]:
@@ -139,20 +147,8 @@ def _extract_rpr(rpr: ET.Element | None) -> dict[str, object]:
     if szcs is not None:
         out["szCs_half_points"] = int_or_none(szcs)
 
-    # Bold/italic/underline/etc (presence means "on" unless w:val="0"/"false")
-    def onoff(tag: str) -> bool | None:
-        e = first(rpr, f"./w:{tag}")
-        if e is None:
-            return None
-        v = e.get(qn("w:val"))
-        if v is None:
-            return True
-        return v not in {"0", "false", "off"}
-
-    for k in ["b", "bCs", "i", "iCs", "caps", "smallCaps", "strike", "dstrike"]:
-        v = onoff(k)
-        if v is not None:
-            out[k] = v
+    # Presence means "on" unless w:val is explicitly 0/false/off.
+    out.update(_extract_onoff_properties(rpr))
 
     u = first(rpr, "./w:u")
     if u is not None:
@@ -432,8 +428,9 @@ def write_outputs(
 
     # Flatten applied styles into CSV
     rows: list[dict[str, object]] = []
+    applied_by_kind = cast("dict[str, list[dict[str, object]]]", applied["applied"])
     for kind in ["paragraph", "character", "table"]:
-        for item in applied["applied"][kind]:
+        for item in applied_by_kind[kind]:
             rows.append({"kind": kind, "styleId": item["styleId"], "count": item["count"]})
 
     csv_path = out_dir / "styles_applied.csv"

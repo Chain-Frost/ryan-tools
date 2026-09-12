@@ -13,7 +13,7 @@ from collections.abc import Callable
 
 from loguru import logger
 
-from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+from ..classes.tuflow_string_classes import TuflowStringParser
 
 
 def safe_apply[T, R](func: Callable[[T], R], value: T) -> R | None:

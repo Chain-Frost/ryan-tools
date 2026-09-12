@@ -10,12 +10,16 @@ the chunked v2 script for large rasters, and test coordinate ordering on a small
 input first.
 """
 
+# pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+# pyright: reportAttributeAccessIssue=false, reportUnnecessaryComparison=false
+
 import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures._base import Future
 from datetime import datetime
-from glob import iglob
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -23,8 +27,8 @@ import rasterio  # type: ignore
 
 # Set this flag to True if you want to drop rows with missing z values
 DROP_NA = True  # Change to True to drop rows with missing z's instead of filling them
-WORKING_DIR = None
-WORKING_DIR = (
+# WORKING_DIR = None
+WORKING_DIR: str | None = (
     r"P:\BGER\PER\RP20181.364 YANDI MGD5 DRAIN FS - RTIO\4 ENGINEERING\11 HYDROLOGY\Calcs\20250219 v13 Water Depths"
 )
 OUT_FOLDER = r"converted_and_trimmed"
@@ -50,7 +54,7 @@ def fill_missing_coordinates(df: pd.DataFrame, drop_missing: bool, nodata_value:
     return merged_df
 
 
-def process_tif_file(file: str) -> None:
+def process_tif_file(file: Path) -> None:
     try:
         print(f"Processing {file}")
         with rasterio.open(file) as src:
@@ -80,7 +84,7 @@ def process_tif_file(file: str) -> None:
         df = df.sort_values(["y", "x"], ascending=[True, True])
 
         # Define the output file path (adjust the directory as needed)
-        output_file = f"{OUT_FOLDER}/{os.path.basename(file)[:-4]}_mod.xyz"
+        output_file = Path(OUT_FOLDER) / f"{file.stem}_mod.xyz"
 
         # Fill missing coordinates and either fill or drop missing z-values based on DROP_NA flag.
         # Use the source nodata value if available; otherwise, fallback to -9999.
@@ -99,16 +103,16 @@ if __name__ == "__main__":
         os.chdir(WORKING_DIR)
 
     # List all TIFF files in the current directory
-    tifFiles: list[str] = [f for f in iglob("*.tif", recursive=False) if os.path.isfile(f)]
-    print("TIFF Files Found:", tifFiles)
+    tif_files = [path for path in Path.cwd().glob("*.tif") if path.is_file()]
+    print("TIFF Files Found:", tif_files)
 
     # Create the output directory if it doesn't exist
-    os.makedirs(OUT_FOLDER, exist_ok=True)
+    Path(OUT_FOLDER).mkdir(parents=True, exist_ok=True)
 
     # Process files concurrently using ThreadPoolExecutor
     num_threads = 16  # Adjust as needed
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures: list[Future[None]] = [executor.submit(process_tif_file, file) for file in tifFiles]
+        futures: list[Future[None]] = [executor.submit(process_tif_file, file) for file in tif_files]
         for future in futures:
             future.result()
 

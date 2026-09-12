@@ -138,7 +138,7 @@ def z_matches(
     if match == "string":
         return (ztok == value_str, False)
 
-    # match == "numeric"
+    # Numeric comparison mode.
     try:
         z: float = float(ztok)
     except ValueError:

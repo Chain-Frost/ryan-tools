@@ -45,7 +45,7 @@ def _load_network_mappings() -> dict[str, str]:
                 if isinstance(mapping, dict):
                     return mapping
         except Exception as e:
-            logger.warning(f"Failed to load path_mappings.json: {e}")
+            logger.warning("Failed to load path_mappings.json: {}", e)
     return {}
 
 

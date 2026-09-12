@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 from xml.etree import ElementTree as ET
-from zipfile import ZipFile
+from zipfile import BadZipFile, LargeZipFile, ZipFile
 
 WRAPPER_VERSION = "2026-08-20.2"
 DEFAULT_WORKING_DIR = Path()
@@ -108,7 +108,7 @@ def main(*, working_directory: Path | None = None) -> int:
     for project_path in qgis_files:
         try:
             sources = get_data_sources(project_path)
-        except Exception as error:
+        except (BadZipFile, ET.ParseError, LargeZipFile, OSError, ValueError) as error:
             logger.error("Could not inspect {}: {}", project_path, error)
             parse_failures += 1
             continue

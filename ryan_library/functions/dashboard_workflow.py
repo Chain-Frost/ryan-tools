@@ -20,8 +20,8 @@ from typing import Protocol, cast
 
 from loguru import logger
 
-from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowStatus
-from ryan_library.functions.loguru_helpers import LogQueue, worker_initializer
+from .live_dashboard import LiveWorkflowDashboard, WorkflowStatus
+from .loguru_helpers import LogQueue, worker_initializer
 
 
 class ProgressQueue(Protocol):
@@ -111,7 +111,7 @@ def _run_serial_dashboard_workflow[TItem, TResult](
         try:
             result: TResult = process_item(item)
         except Exception as exc:
-            logger.exception(f"Error processing workflow item index {index}")
+            logger.exception("Error processing workflow item index {}", index)
             dashboard.mark_finished(index=index, status="FAIL", detail=str(exc))
             continue
         indexed_results[index] = result
@@ -247,7 +247,7 @@ def _collect_finished_dashboard_results[TResult](
         try:
             result: TResult = async_result.get()
         except Exception as exc:
-            logger.exception(f"Error processing workflow item index {index}")
+            logger.exception("Error processing workflow item index {}", index)
             completed_indexes.add(index)
             dashboard.mark_finished(index=index, status="FAIL", detail=str(exc), refresh=False)
         else:

@@ -97,6 +97,9 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
+"ryan-scripts/TUFLOW-python/**/*.py" = [
+    "ERA001", # mutable wrappers intentionally keep commented configuration examples for users
+]
 "tests/**/*.py" = [
     "A",      # test doubles may need signatures that mirror APIs using built-in-like names
     "E402",   # tests may import after monkeypatching modules or environment state
@@ -116,6 +119,7 @@ ignore = [
     "E402",   # compatibility wrappers must emit deprecation warnings before forwarding imports
 ]
 "ryan_library/functions/data_processing.py" = [
+    "BLE001", # deprecated safe_apply intentionally converts arbitrary callable failures to None
     "E402",   # deprecated module emits its warning before loading the compatibility implementation
     "N802",   # deprecated public name remains available until the documented removal date
 ]
@@ -123,13 +127,252 @@ ignore = [
     "N806",   # TP and AEP are established hydrology abbreviations in calculation variables
 ]
 "ryan_library/functions/dashboard_workflow.py" = [
+    "BLE001", # serial, multiprocessing, and async-result boundaries isolate failed work items
     "PLW0603", # process-worker state is deliberately installed through a multiprocessing initializer
 ]
 "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py" = [
+    "BLE001", # DBF and GeoPackage parser boundaries return an empty frame for any backend failure
     "N801",   # class name matches TUFLOW's ccA result name and dynamic processor lookup contract
+]
+"ryan_library/processors/tuflow/base_processor.py" = [
+    "BLE001", # the CSV boundary converts pandas and filesystem failures into processor status
+    "C901",   # dynamic discovery and configuration validation remain cohesive contracts
+]
+"ryan_library/processors/tuflow/max_data_processor.py" = [
+    "BLE001", # the CSV boundary converts pandas and filesystem failures into processor status
+]
+"ryan_library/processors/tuflow/maximums_1d/CmxProcessor.py" = [
+    "BLE001", # top-level processor boundaries fail closed to an empty frame
+]
+"ryan_library/processors/tuflow/maximums_1d/NmxProcessor.py" = [
+    "BLE001", # processor and reshape boundaries fail closed to an empty frame
+]
+"ryan_library/processors/tuflow/other_processors/ChanProcessor.py" = [
+    "BLE001", # the top-level processor boundary fails closed to an empty frame
+]
+"ryan_library/processors/tuflow/other_processors/EOFProcessor.py" = [
+    "BLE001", # the top-level parser boundary fails closed to an empty frame
+    "C901",   # ordered EOF section parsing is kept as one auditable transaction
+    "PTH123", # builtins.open is an intentional seam used by processor tests
+]
+"ryan_library/processors/tuflow/other_processors/POMMProcessor.py" = [
+    "BLE001", # the top-level processor boundary fails closed to an empty frame
+]
+"ryan_library/processors/tuflow/other_processors/POProcessor.py" = [
+    "BLE001", # the CSV boundary converts pandas and filesystem failures into an empty frame
+    "C901",   # header discovery and long-form reshaping are one format-specific parse
+]
+"ryan_library/processors/tuflow/other_processors/RLLQmxProcessor.py" = [
+    "BLE001", # the top-level processor boundary fails closed to an empty frame
+]
+"ryan_library/processors/tuflow/processor_collection.py" = [
+    "BLE001", # cache rehydration skips individual corrupt processor records
+    "C901",   # collection joins preserve explicit staged domain transformations
+]
+"ryan_library/processors/tuflow/timeseries_1d/HProcessor.py" = [
+    "BLE001", # the format normalizer returns failure status for unexpected pandas errors
+]
+"ryan_library/processors/tuflow/timeseries_processor.py" = [
+    "BLE001", # pipeline boundaries convert unexpected parser errors into processor status
+]
+"ryan_library/orchestrators/tuflow/asc2asc_stat_then_max_by_search.py" = [
+    "C901",   # validation, two-stage job planning, and execution form one workflow transaction
+]
+"ryan_library/orchestrators/tuflow/asc_to_asc_batch.py" = [
+    "BLE001", # each worker result is isolated so later raster jobs can continue
+]
+"ryan_library/orchestrators/tuflow/tuflow_culverts_mean.py" = [
+    "C901",   # grouped statistics and adopted-row provenance remain one auditable calculation
+]
+"ryan_library/orchestrators/tuflow/tuflow_logsummary.py" = [
+    "BLE001", # per-log and export boundaries preserve batch progress after isolated failures
+]
+"ryan_library/orchestrators/tuflow/tuflow_results_styling.py" = [
+    "ARG002", # qml_path is reserved by the public GeoPackage styling interface
+    "BLE001", # file, database, thread, and top-level workflow boundaries report and isolate failures
+]
+"ryan_library/orchestrators/tuflow/water_level_profiles.py" = [
+    "C901",   # raster discovery and profile generation remain explicit end-to-end domain workflows
+]
+"ryan_library/orchestrators/gdal/file_geodatabase_export.py" = [
+    "BLE001", # GDAL driver failures become structured per-source and per-layer results
+    "C901",   # single-database and per-layer export policy remain one transaction
+]
+"ryan_library/functions/gdal/profiling.py" = [
+    "C901",   # sampling geometry, raster windows, interpolation, and error translation form one operation
+]
+"ryan_library/functions/gdal/vector_conversion.py" = [
+    "C901",   # atomic GDAL translation and partial-output rollback remain one transaction
+]
+"ryan_library/functions/RORB/read_rorb_files.py" = [
+    "C901",   # sequential batch.out section parsing remains one explicit state machine
+]
+"ryan_library/functions/excel_export.py" = [
+    "BLE001", # backend and per-column failures are isolated at explicit export boundaries
+    "C901",   # multi-format export validation and workbook generation form one public transaction
+]
+"ryan_library/functions/file_utils.py" = [
+    "BLE001", # filesystem races and worker failures are isolated so traversal can continue
+    "C901",   # threaded traversal and its worker retain one shared queue and locking contract
+]
+"ryan_library/functions/path_stuff.py" = [
+    "BLE001", # optional mapping configuration must never prevent importing path helpers
+]
+"ryan_library/functions/loguru_helpers.py" = [
+    "BLE001", # logging transport failures must fall back to stderr without crashing listeners or workers
+]
+"ryan_library/functions/parse_tlf.py" = [
+    "BLE001", # file and parser boundaries return empty or partial records so one damaged log does not stop a batch
+    "C901",   # line-oriented TLF parsing remains explicit to preserve ordered legacy and current format precedence
+]
+"ryan_library/functions/process_12D_culverts.py" = [
+    "BLE001", # pandas parsing failures are isolated per 12d text export so other source files remain usable
+]
+"ryan_library/functions/terrain_processing.py" = [
+    "BLE001", # raster drivers and array conversion failures become an empty per-file result for batch processing
+]
+"ryan_library/functions/tlf_missing_runs.py" = [
+    "C901", # CLI rollups and matching table rows share one ordered presentation contract
+]
+"ryan_library/classes/suffixes_and_dtypes.py" = [
+    "C901", # strict configuration decoding keeps field precedence and validation in one constructor
+]
+"ryan_library/mcp/server.py" = [
+    "BLE001", # MCP inspection boundaries return structured tool errors and isolate individual collection inputs
+]
+"ryan-scripts/TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py" = [
+    "BLE001", # maintained wrapper converts unexpected workflow failures into a nonzero process result
+]
+"ryan-scripts/TUFLOW-python/po_and_timeseries/create_pomm_median_peak_report.py" = [
+    "BLE001", # maintained wrapper converts unexpected workflow failures into a nonzero process result
+]
+"ryan-scripts/TUFLOW-python/po_and_timeseries/plot_po_scenario_timeseries.py" = [
+    "BLE001", # each result file is isolated so one processor failure does not stop the collection
+]
+"ryan-scripts/TUFLOW-python/po_and_timeseries/plot_water_level_profiles.py" = [
+    "BLE001", # maintained wrapper logs unexpected workflow failures with traceback and returns a nonzero result
+]
+"ryan-scripts/TUFLOW-python/raster_processing/calculate_raster_differences.py" = [
+    "BLE001", # maintained wrapper logs unexpected workflow failures and returns a nonzero process result
+]
+"ryan-scripts/TUFLOW-python/raster_processing/mask_velocity_by_depth.py" = [
+    "BLE001", # filename parsing falls back to Unknown and each raster edit is isolated with traceback logging
+]
+"ryan-scripts/TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py" = [
+    "BLE001", # maintained wrapper logs unexpected workflow failures and returns a nonzero process result
+]
+"ryan-scripts/TUFLOW-python/raster_processing/run_python_raster_calculations.py" = [
+    "BLE001", # maintained wrapper logs unexpected workflow failures and returns a nonzero process result
+]
+"ryan-scripts/TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py" = [
+    "BLE001", # maintained wrapper logs unexpected styling failures and returns a nonzero process result
+]
+"ryan-scripts/TUFLOW-python/gis_processing/rename_geopackage_layer_to_filename.py" = [
+    "BLE001", # console fallback and each transactional GeoPackage replacement must isolate backend failures
+]
+"ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py" = [
+    "C901", # validation, command parsing, launch monitoring, and main remain explicit standalone launcher workflows
+]
+"ryan-scripts/12D-python/generate_culvert_lines.py" = [
+    "BLE001", # GeoPackage backend failures are reported at the single output boundary
+    "ERA001", # commented working-directory alternative documents editable script syntax
+]
+"ryan-scripts/12D-python/generate_culvert_polygons.py" = [
+    "BLE001", # each independent Shapefile backend write reports its own failure
+    "ERA001", # commented input-path alternative documents editable script syntax
+]
+"ryan-scripts/12D-python/thin-raster-terrain-for-12D_v5.py" = [
+    "ARG001", # input_file is retained by the public thinning-selection extension hook
+    "BLE001", # each raster tile catches backend and array failures so the worker pool can continue
+    "ERA001", # commented all-raster glob documents the editable alternative to the single-file default
+]
+"ryan-scripts/12D-python/tif-to-LAS-valid-only_v6.py" = [
+    "BLE001", # each independent LAS write reports its own backend or data-conversion failure
+]
+"ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py" = [
+    "BLE001", # standalone workflow boundary logs unexpected library and document-export failures
+]
+"ryan-scripts/unsorted-python/plot_water_level_profiles.py" = [
+    "BLE001", # standalone workflow boundary logs unexpected GIS and plotting failures
+]
+"ryan-scripts/misc-python/heic_to_jpeg.py" = [
+    "BLE001", # process-pool workers must return a failure result for any image backend or filesystem failure
+    "C901", # source validation, collision handling, worker dispatch, and the final summary remain one readable CLI flow
+]
+"ryan-scripts/misc-python/remove_excel_protection.py" = [
+    "BLE001", # each workbook is an isolation boundary so one archive or filesystem failure does not stop the batch
+]
+"ryan-scripts/cad-python/dtm_str_converter_to_gpkg.py" = [
+    "C901", # binary format parsers and the paired-file conversion transaction retain explicit validation branches
+]
+"ryan-scripts/cad-python/extract_dxf_polyface.py" = [
+    "C901", # the streaming DXF section and entity state machine is clearer as one sequential parser
+]
+"ryan-scripts/cad-python/process_arch_d.py" = [
+    "ERA001", # the commented sample is input-record documentation, not disabled Python code
+]
+"ryan-scripts/AutoCAD-python/dwg-polygons-txt-to-csv.py" = [
+    "C901", # the text TIN parser keeps record recognition and validation in one sequential pass
+]
+"ryan-scripts/AutoCAD-python/dwg-to-points.py" = [
+    "C901", # one entity dispatcher makes the supported DXF geometry variants explicit
+]
+"ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch.py" = [
+    "C901", # the project script keeps its staged geometry workflow together for direct user editing
+]
+"ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py" = [
+    "C901", # the experimental batch geometry workflow is intentionally kept as one project script
+    "ERA001", # commented sample filenames document the editable small-run alternative
+]
+"ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve.py" = [
+    "C901", # color grouping and geometry repair branches form one cohesive DXF operation
+    "ERA001", # commented production filenames document the editable alternative to sample inputs
+]
+"ryan-scripts/point-cloud-python/clip_las_to_polygon.py" = [
+    "BLE001", # each LAS file is an isolation boundary so one backend failure does not stop the batch
+]
+"ryan-scripts/point-cloud-python/parallel-reorder-xyz-updated.py" = [
+    "BLE001", # each pool job reports its own parsing or output failure so other XYZ files can complete
+]
+"ryan-scripts/raster-python/tif_to_xyz_drop_na_v1.py" = [
+    "BLE001", # each thread reports its own raster or output failure so other TIFF files can complete
+    "ERA001", # commented None working-directory value documents the editable local-directory alternative
+]
+"ryan-scripts/raster-python/tif_to_xyz_drop_na_v2.py" = [
+    "BLE001", # each thread reports its own raster or output failure so other TIFF files can complete
+    "ERA001", # commented None working-directory value documents the editable local-directory alternative
+]
+"ryan-scripts/tuflow/find_missing_tlf_runs.py" = [
+    "BLE001", # maintained wrapper logs unexpected workflow failures and returns a nonzero process result
+]
+"ryan-scripts/tuflow/init_tuflow_project.py" = [
+    "BLE001", # maintained wrapper logs unexpected workflow failures and returns a nonzero process result
+]
+"ryan-scripts/tuflow/tuflow_to_hy8.py" = [
+    "BLE001", # maintained wrapper logs unexpected conversion failures and returns a nonzero process result
 ]
 "ryan_library/functions/hy8/run_hy8_bridge.py" = [
     "S101",   # assertions narrow values immediately after explicit missing-value validation
+]
+"ryan_library/functions/tuflow/asc_to_asc_raster_operations.py" = [
+    "C901",   # statistic dispatch keeps validation and output policy in one transaction
+]
+"ryan_library/functions/tuflow/logsummary_excel_append.py" = [
+    "BLE001", # filename parsing failures deliberately fall back to the logfile stem
+]
+"ryan_library/functions/tuflow/notebook_helpers.py" = [
+    "ARG001", # compatibility-only log_level options retain the public notebook API
+]
+"ryan_library/functions/tuflow/po_timeseries_checks.py" = [
+    "BLE001", # per-file parser failures are returned as structured status records
+    "C901",   # staged CSV validation and peak classification are cohesive passes
+]
+"ryan_library/functions/tuflow/pomm_utils.py" = [
+    "C901",   # grouped median calculation is kept as one auditable operation
+]
+"ryan_library/functions/tuflow/tuflow_common.py" = [
+    "BLE001", # the file boundary converts processor failures into absent results
+    "C901",   # path normalization, deduplication, and matching form one discovery contract
 ]
 "ryan-scripts/pdf-python/ocg_clean_file.py" = [
     "S110",   # PDF object probing and cleanup deliberately skip unsupported optional structures

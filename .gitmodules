@@ -13,3 +13,6 @@
 [submodule "excel-resources"]
 	path = excel-resources
 	url = https://github.com/Chain-Frost/excel-resources.git
+[submodule "vendor/ryan_culverts"]
+	path = vendor/ryan_culverts
+	url = https://github.com/Chain-Frost/ryan-culverts.git

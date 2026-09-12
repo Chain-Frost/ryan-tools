@@ -65,20 +65,23 @@ def dms_to_decimal(dms_str: object) -> float:
         float: Angle in decimal degrees.
     """
     if not isinstance(dms_str, str):
-        logger.error(f"DMS value must be text, received {type(dms_str).__name__}. Setting angle_degrees to 0.0.")
+        logger.error(
+            "DMS value must be text, received {}. Setting angle_degrees to 0.0.",
+            type(dms_str).__name__,
+        )
         return 0.0
 
     try:
         dms_clean = re.sub(r'[°\'"]', " ", dms_str).strip()
         parts = dms_clean.split()
         if len(parts) != 3:
-            logger.warning(f"Unexpected DMS format '{dms_str}'. Setting angle_degrees to 0.0.")
+            logger.warning("Unexpected DMS format '{}'. Setting angle_degrees to 0.0.", dms_str)
             return 0.0
         degrees, minutes, seconds = map(float, parts)
         decimal_degrees = degrees + minutes / 60 + seconds / 3600
         return decimal_degrees
-    except Exception as e:
-        logger.error(f"Error converting DMS to decimal for '{dms_str}': {e}. Setting angle_degrees to 0.0.")
+    except ValueError as e:
+        logger.error("Error converting DMS to decimal for '{}': {}. Setting angle_degrees to 0.0.", dms_str, e)
         return 0.0
 
 
@@ -127,7 +130,13 @@ def extract_numeric[T: (int, float)](
     try:
         return dtype(value)
     except ValueError, TypeError:
-        logger.warning(f"Invalid {field_name} value '{value}' for culvert '{culvert_name}'. Setting to {default}.")
+        logger.warning(
+            "Invalid {} value '{}' for culvert '{}'. Setting to {}.",
+            field_name,
+            value,
+            culvert_name,
+            default,
+        )
         return default
 
 
@@ -145,7 +154,8 @@ def parse_rpt_file(rpt_file_path: Path) -> list[RptCulvertRecord]:
         r'^\s*\d+\.\d+\s+\d+\.\d+\s+(\d+°\s*\d+\'\s*\d+")\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+\d+\.\d+\s+[-+]?\d+\.\d+\s+"([^"]+)"$'
     )
     encoding = get_encoding(rpt_file_path)
-    logger.info(f"Detected encoding for {rpt_file_path.relative_to(rpt_file_path.parent)}: {encoding}")
+    relative_rpt_path = rpt_file_path.relative_to(rpt_file_path.parent)
+    logger.info("Detected encoding for {}: {}", relative_rpt_path, encoding)
 
     try:
         with rpt_file_path.open("r", encoding=encoding, errors="ignore") as file:
@@ -160,8 +170,8 @@ def parse_rpt_file(rpt_file_path: Path) -> list[RptCulvertRecord]:
                     angle_degrees = dms_to_decimal(angle)
                     culverts.append({"Name": name, "Angle": angle, "Angle_Degrees": angle_degrees})
                     logger.debug("Parsed Culvert - Name: {}, Angle: {}, Angle_Degrees: {}", name, angle, angle_degrees)
-    except Exception as e:
-        logger.error(f"Error processing {rpt_file_path.relative_to(rpt_file_path.parent)}: {e}")
+    except OSError as e:
+        logger.error("Error processing {}: {}", relative_rpt_path, e)
 
     return culverts
 
@@ -176,8 +186,9 @@ def parse_txt_file(txt_file_path: Path) -> list[TxtCulvertRecord]:
         list[TxtCulvertRecord]: Culvert details extracted from the text export.
     """
     culverts: list[TxtCulvertRecord] = []
-    encoding = get_encoding(txt_file_path)
-    logger.info(f"Detected encoding for {txt_file_path.relative_to(txt_file_path.parent)}: {encoding}")
+    encoding: str = get_encoding(txt_file_path)
+    relative_txt_path: Path = txt_file_path.relative_to(txt_file_path.parent)
+    logger.info("Detected encoding for {}: {}", relative_txt_path, encoding)
 
     try:
         # Read the file, skip the first and third rows
@@ -202,9 +213,7 @@ def parse_txt_file(txt_file_path: Path) -> list[TxtCulvertRecord]:
 
         missing_columns = [col for col in required_columns if col not in df.columns]
         if missing_columns:
-            logger.warning(
-                f"Missing columns {missing_columns} in {txt_file_path.relative_to(txt_file_path.parent)}. Skipping this file."
-            )
+            logger.warning("Missing columns {} in {}. Skipping this file.", missing_columns, relative_txt_path)
             return culverts
 
         # Reset index for proper iteration
@@ -212,9 +221,11 @@ def parse_txt_file(txt_file_path: Path) -> list[TxtCulvertRecord]:
         num_rows = len(df)
         if num_rows % 2 != 0:
             logger.warning(
-                f"Odd number of culvert entries in {txt_file_path.relative_to(txt_file_path.parent)}. The last entry will be skipped."
+                "Odd number of culvert entries in {}. The last entry will be skipped.",
+                relative_txt_path,
             )
             df = df.iloc[:-1]
+            num_rows -= 1
 
         for i in range(0, num_rows, 2):
             upstream = df.iloc[i]
@@ -226,7 +237,10 @@ def parse_txt_file(txt_file_path: Path) -> list[TxtCulvertRecord]:
             # Validate that both lines belong to the same culvert
             if name_upstream != name_downstream:
                 logger.warning(
-                    f"Mismatched culvert names at lines {i + 1} and {i + 2} in {txt_file_path.relative_to(txt_file_path.parent)}. Skipping these entries."
+                    "Mismatched culvert names at lines {} and {} in {}. Skipping these entries.",
+                    i + 1,
+                    i + 2,
+                    relative_txt_path,
                 )
                 continue
 
@@ -277,7 +291,7 @@ def parse_txt_file(txt_file_path: Path) -> list[TxtCulvertRecord]:
             logger.debug("Parsed TXT Culvert - {}", culvert)
 
     except Exception as e:
-        logger.error(f"Error processing {txt_file_path.relative_to(txt_file_path.parent)}: {e}")
+        logger.error("Error processing {}: {}", relative_txt_path, e)
 
     return culverts
 
@@ -295,8 +309,8 @@ def combine_data(rpt_data: list[RptCulvertRecord], txt_data: list[TxtCulvertReco
     rpt_df = pd.DataFrame(rpt_data).drop_duplicates(subset=["Name"])
     txt_df = pd.DataFrame(txt_data).drop_duplicates(subset=["Name"])
 
-    logger.info(f"Unique RPT Culverts: {len(rpt_df)}")
-    logger.info(f"Unique TXT Culverts: {len(txt_df)}")
+    logger.info("Unique RPT Culverts: {}", len(rpt_df))
+    logger.info("Unique TXT Culverts: {}", len(txt_df))
 
     combined_df = rpt_df.merge(txt_df, on="Name", how="outer", suffixes=("_rpt", "_txt"))
 
@@ -332,20 +346,20 @@ def process_culvert_files(rpt_files: list[Path], txt_files: list[Path]) -> pd.Da
     all_txt_data: list[TxtCulvertRecord] = []
 
     for rpt_file in rpt_files:
-        logger.info(f"Processing RPT file: {rpt_file.name}")
+        logger.info("Processing RPT file: {}", rpt_file.name)
         rpt_data = parse_rpt_file(rpt_file)
         if rpt_data:
             all_rpt_data.extend(rpt_data)
         else:
-            logger.warning(f"No culvert data found in {rpt_file.name}.")
+            logger.warning("No culvert data found in {}.", rpt_file.name)
 
     for txt_file in txt_files:
-        logger.info(f"Processing TXT file: {txt_file.name}")
+        logger.info("Processing TXT file: {}", txt_file.name)
         txt_data = parse_txt_file(txt_file)
         if txt_data:
             all_txt_data.extend(txt_data)
         else:
-            logger.warning(f"No culvert data found in {txt_file.name}.")
+            logger.warning("No culvert data found in {}.", txt_file.name)
 
     combined_df = combine_data(all_rpt_data, all_txt_data)
     return combined_df
@@ -425,10 +439,10 @@ def clean_and_convert(combined_df: pd.DataFrame) -> pd.DataFrame:
                     combined_df[col] = pd.to_numeric(combined_df[col], errors="coerce").fillna(0.0)
                 elif dtype == "Int64":
                     combined_df[col] = pd.to_numeric(combined_df[col], errors="coerce").astype("Int64")
-            except Exception as e:
-                logger.error(f"Error converting column '{col}' to {dtype}: {e}")
+            except (TypeError, ValueError) as e:
+                logger.error("Error converting column '{}' to {}: {}", col, dtype, e)
         else:
-            logger.warning(f"Column '{col}' not found in the combined DataFrame.")
+            logger.warning("Column '{}' not found in the combined DataFrame.", col)
 
     return combined_df
 
@@ -465,9 +479,9 @@ def get_combined_df_from_csv(csv_path: Path) -> pd.DataFrame:
     """
     try:
         combined_df = pd.read_csv(csv_path)
-        logger.info(f"Loaded combined DataFrame from {csv_path}")
+        logger.info("Loaded combined DataFrame from {}", csv_path)
         combined_df = clean_and_convert(combined_df)
         return combined_df
-    except Exception as e:
-        logger.error(f"Error loading combined DataFrame from {csv_path}: {e}")
+    except (OSError, UnicodeError, pd.errors.ParserError, pd.errors.EmptyDataError) as e:
+        logger.error("Error loading combined DataFrame from {}: {}", csv_path, e)
         return pd.DataFrame()

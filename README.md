@@ -39,7 +39,8 @@ ryan-tools/
 |-- tests/                     # Unit, integration and regression tests
 |   `-- test_data/             # Required synthetic test-data submodule
 |-- vendor/
-|   `-- run_hy8/               # HY-8 submodule
+|   |-- run_hy8/               # HY-8 submodule
+|   `-- ryan_culverts/         # Culvert hydraulics submodule
 |-- excel-resources/           # Excel workbook resources submodule
 |-- qgis-resources/            # QGIS resources submodule
 |-- unsorted/                  # Separate holding-area submodule
@@ -69,7 +70,9 @@ git -C qgis-resources lfs pull
 git -C excel-resources lfs pull
 ```
 
-The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically.
+The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
+`run_hy8` and `culvert_solver` are not PyPI dependencies, their `vendor/run_hy8` and `vendor/ryan_culverts` submodules
+are bundled in `ryan_functions` wheels and installed automatically as normal top-level packages.
 
 Install the repository requirements into the user's normal Python 3.14 installation. `ryan-tools` does not require or
 assume that users know how to create or activate a virtual environment:

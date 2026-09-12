@@ -10,6 +10,8 @@ directory's ``mod`` folder. Check coordinate spacing and a sample output before
 processing a large point-cloud collection.
 """
 
+# pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownArgumentType=false
+
 
 # Updated 2025-11-18 to suit gdal_buildvrt point order, mulitprocessing instead of multithreading (much faster)
 def fill_missing_coordinates(df) -> pd.DataFrame:
@@ -34,9 +36,8 @@ def fill_missing_coordinates(df) -> pd.DataFrame:
     return merged_df
 
 
-import os
-from glob import iglob
 from multiprocessing import Pool
+from pathlib import Path
 
 import pandas as pd
 
@@ -45,31 +46,31 @@ from ryan_library.functions.wrapper_utils import pause_console
 
 
 def main() -> None:
-    os.chdir(
-        path=r"P:\25\RP25177.001 UNITY POA - HR\7 DOCUMENT CONTROL\2 RECEIVED DATA\1 CLIENT\20251111 - Previous LiDAR\2019 Unity - AAM - LiDAR - Jan\04_DSM"
+    working_dir = Path(
+        r"P:\25\RP25177.001 UNITY POA - HR\7 DOCUMENT CONTROL\2 RECEIVED DATA\1 CLIENT\20251111 - Previous LiDAR\2019 Unity - AAM - LiDAR - Jan\04_DSM"
     )
     # Mirror the source folder layout by dropping finished files into a local "mod" directory.
-    output_dir: str = os.path.join(os.getcwd(), "mod")
-    os.makedirs(output_dir, exist_ok=True)
-    xyzFiles: list[str] = [f for f in iglob("*.xyz", recursive=False) if os.path.isfile(f)]
-    print(xyzFiles)
+    output_dir = working_dir / "mod"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    xyz_files = [path for path in working_dir.glob("*.xyz") if path.is_file()]
+    print(xyz_files)
 
-    if not xyzFiles:
+    if not xyz_files:
         print("No XYZ files found to process.")
         pause_console()
         return
 
     # Scale the worker count relative to available CPUs and job count (see misc_functions.calculate_pool_size).
-    pool_size: int = calculate_pool_size(num_files=len(xyzFiles))
+    pool_size: int = calculate_pool_size(num_files=len(xyz_files))
     print(f"Using {pool_size} worker processes")
     with Pool(processes=pool_size) as pool:
-        pool.starmap(process_xyz_file, ((file, output_dir) for file in xyzFiles))
+        pool.starmap(process_xyz_file, ((file, output_dir) for file in xyz_files))
 
     print("end")
     pause_console()
 
 
-def process_xyz_file(file: str, output_dir: str) -> None:
+def process_xyz_file(file: Path, output_dir: Path) -> None:
     try:
         print(f"Processing {file}")
         # Input XYZ files are whitespace-delimited without headers, so read them explicitly as such.
@@ -82,8 +83,7 @@ def process_xyz_file(file: str, output_dir: str) -> None:
         print("--sorting")
         # GDAL expects rows ordered from max->min Y to avoid "positive NS resolution" warnings.
         df = df.sort_values(["y", "x"], ascending=[False, True])
-        base_name: str = os.path.splitext(os.path.basename(file))[0]
-        output_file: str = os.path.join(output_dir, f"{base_name}_mod.xyz")
+        output_file = output_dir / f"{file.stem}_mod.xyz"
         # Fill missing coordinates with NoData value
         df = fill_missing_coordinates(df)
         # Preserve XYZ formatting by writing space-delimited rows with no header.

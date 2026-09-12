@@ -19,7 +19,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures._base import Future
 from datetime import datetime
-from glob import iglob
+from pathlib import Path
 
 import numpy as np
 import rasterio  # type: ignore
@@ -78,7 +78,7 @@ def _rows_per_chunk(height: int, width: int) -> int:
     return min(height, target_rows)
 
 
-def process_tif_file(file: str) -> None:
+def process_tif_file(file: Path) -> None:
     try:
         print(f"Processing {file}")
         with rasterio.open(file) as src:
@@ -91,13 +91,13 @@ def process_tif_file(file: str) -> None:
             # Determine the nodata value: if the source has a nodata, use it; otherwise, use -9999
             nodata_value = src.nodata if src.nodata is not None and not np.isnan(src.nodata) else -9999.0
 
-            output_file = f"{OUT_FOLDER}/{os.path.basename(file)[:-4]}_mod.xyz"
+            output_file = Path(OUT_FOLDER) / f"{file.stem}_mod.xyz"
             print(
                 f"-- raster shape {rows}x{cols}, chunk rows {rows_per_chunk}, "
                 f"{total_chunks} chunk{'s' if total_chunks != 1 else ''}"
             )
 
-            with open(output_file, "w", encoding="utf-8", newline="") as out_file:
+            with output_file.open("w", encoding="utf-8", newline="") as out_file:
                 out_file.write("x,y,z\n")
                 total_points = 0
 
@@ -155,16 +155,16 @@ if __name__ == "__main__":
         os.chdir(WORKING_DIR)
 
     # List all TIFF files in the current directory
-    tifFiles: list[str] = [f for f in iglob("*.tif", recursive=False) if os.path.isfile(f)]
-    print("TIFF Files Found:", tifFiles)
+    tif_files = [path for path in Path.cwd().glob("*.tif") if path.is_file()]
+    print("TIFF Files Found:", tif_files)
 
     # Create the output directory if it doesn't exist
-    os.makedirs(OUT_FOLDER, exist_ok=True)
+    Path(OUT_FOLDER).mkdir(parents=True, exist_ok=True)
 
     # Process files concurrently using ThreadPoolExecutor
     num_threads = 16  # Adjust as needed
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        futures: list[Future[None]] = [executor.submit(process_tif_file, file) for file in tifFiles]
+        futures: list[Future[None]] = [executor.submit(process_tif_file, file) for file in tif_files]
         for future in futures:
             future.result()
 

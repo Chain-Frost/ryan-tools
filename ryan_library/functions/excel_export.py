@@ -17,8 +17,8 @@ from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.worksheet.worksheet import Worksheet
 
-from ryan_library.classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
-from ryan_library.functions.versioning import get_tools_version
+from ..classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
+from .versioning import get_tools_version
 
 DATA_DICTIONARY_SHEET_NAME: str = "data-dictionary"
 ParquetCompression = Literal["snappy", "gzip", "brotli", "lz4", "zstd"] | None
@@ -216,7 +216,7 @@ class ExcelExporter:
 
             if self._exceeds_excel_limits(dataframes=dataframes):
                 logger.warning(
-                    f"Data for '{export_stem}' exceeds Excel size limits. Exporting to Parquet and CSV instead."
+                    "Data for '{}' exceeds Excel size limits. Exporting to Parquet and CSV instead.", export_stem
                 )
                 self._export_as_parquet_and_csv(
                     export_stem=export_stem,
@@ -240,7 +240,7 @@ class ExcelExporter:
             if output_directory:
                 export_path.parent.mkdir(parents=True, exist_ok=True)
 
-            logger.info(f"Exporting to {export_path}")
+            logger.info("Exporting to {}", export_path)
 
             try:
                 excel_dataframes: list[pd.DataFrame] = list(dataframes)
@@ -264,7 +264,8 @@ class ExcelExporter:
                         # Check for unique column names
                         if not df.columns.is_unique:
                             logger.error(
-                                f"Duplicate column names in DataFrame for sheet '{sheet}'. Ensure all column names are unique.",
+                                "Duplicate column names in DataFrame for sheet '{}'. Ensure all column names are unique.",
+                                sheet,
                             )
                             msg = f"Duplicate column names found in sheet '{sheet}'."
                             raise ValueError(msg)
@@ -294,9 +295,9 @@ class ExcelExporter:
                                 column_widths=column_widths[sheet],
                             )
 
-                logger.success(f"Finished exporting '{export_filename}' to '{export_path}'")
+                logger.success("Finished exporting '{}' to '{}'", export_filename, export_path)
             except InvalidFileException as e:
-                logger.error(f"Failed to write to '{export_path}': {e}")
+                logger.error("Failed to write to '{}': {}", export_path, e)
                 raise
 
             if normalized_mode == "both":
@@ -358,7 +359,7 @@ class ExcelExporter:
         """Write a DataFrame to Parquet with consistent logging and error handling."""
         try:
             df.to_parquet(path=parquet_path, index=False, compression=compression)
-            logger.info(f"Exported Parquet to {parquet_path}")
+            logger.info("Exported Parquet to {}", parquet_path)
         except (ImportError, ValueError) as exc:
             message: str = (
                 f"Unable to export Parquet for '{export_label}' sheet '{sheet}': {exc}. Install pyarrow or fastparquet."
@@ -366,7 +367,7 @@ class ExcelExporter:
             logger.error(message)
             print(message)
         except Exception as exc:  # pragma: no cover - unforeseen errors should be logged
-            logger.exception(f"Unexpected error during Parquet export for '{export_label}' sheet '{sheet}': {exc}")
+            logger.exception("Unexpected error during Parquet export for '{}' sheet '{}': {}", export_label, sheet, exc)
 
     def _export_as_parquet_only(
         self,
@@ -436,7 +437,7 @@ class ExcelExporter:
 
         for df, _sheet, _, csv_path in export_targets:
             df.to_csv(path_or_buf=csv_path, index=False)
-            logger.info(f"Exported CSV to {csv_path}")
+            logger.info("Exported CSV to {}", csv_path)
 
     def _build_output_path(self, base_filename: str, output_directory: Path | None) -> Path:
         """Create the full output path for a file name."""
@@ -569,7 +570,7 @@ class ExcelExporter:
         """
         for col_name, width in column_widths.items():
             if col_name not in df.columns:
-                logger.warning(f"Column '{col_name}' not found in sheet '{sheet_name}'. Skipping width setting.")
+                logger.warning("Column '{}' not found in sheet '{}'. Skipping width setting.", col_name, sheet_name)
                 continue
 
             try:
@@ -586,12 +587,14 @@ class ExcelExporter:
                     "Set width for column '{}' ({}) in sheet '{}' to {}.", col_name, col_letter, sheet_name, width
                 )
             except TypeError as e:
-                logger.exception(f"TypeError when setting width for column '{col_name}' in sheet '{sheet_name}': {e}")
+                logger.exception(
+                    "TypeError when setting width for column '{}' in sheet '{}': {}", col_name, sheet_name, e
+                )
             except AssertionError as e:
-                logger.exception(str(e))
+                logger.exception("{}", e)
             except Exception as e:
                 logger.exception(
-                    f"Unexpected error when setting width for column '{col_name}' in sheet '{sheet_name}': {e}"
+                    "Unexpected error when setting width for column '{}' in sheet '{}': {}", col_name, sheet_name, e
                 )
 
     def auto_adjust_column_widths(self, worksheet: Worksheet, dynamic_widths: dict[str, float]) -> None:
