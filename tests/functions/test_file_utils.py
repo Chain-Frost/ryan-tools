@@ -375,7 +375,8 @@ def test_is_non_zero_file_scenarios(tmp_path: Path, scenario, expected_result, e
         target_path = tmp_path / "data.txt"
         target_path.write_text("content", encoding="utf-8")
     else:
-        raise ValueError(f"Unknown scenario: {scenario}")
+        msg = f"Unknown scenario: {scenario}"
+        raise ValueError(msg)
 
     captured_messages: list[str] = []
     handler_id = logger.add(captured_messages.append, level="WARNING", format="{message}")
@@ -387,8 +388,8 @@ def test_is_non_zero_file_scenarios(tmp_path: Path, scenario, expected_result, e
     assert result is expected_result
 
     if expected_log_fragment:
-        assert any(
-            expected_log_fragment in message for message in captured_messages
-        ), f"Expected log fragment '{expected_log_fragment}' not found in {captured_messages}"
+        assert any(expected_log_fragment in message for message in captured_messages), (
+            f"Expected log fragment '{expected_log_fragment}' not found in {captured_messages}"
+        )
     else:
         assert not captured_messages

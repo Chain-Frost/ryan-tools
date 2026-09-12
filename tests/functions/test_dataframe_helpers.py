@@ -76,11 +76,7 @@ class TestReorderLongColumns:
 
     def test_reorder_long(self):
         """Test that specific columns are moved to the end."""
-        df = pd.DataFrame({
-            "path": [1],
-            "Value": [1],
-            "file": [1]
-        })
+        df = pd.DataFrame({"path": [1], "Value": [1], "file": [1]})
         result = reorder_long_columns(df)
         # file and path should be at the end
         assert result.columns.tolist()[-2:] == ["file", "path"]
@@ -96,6 +92,6 @@ class TestResetCategoricalOrdering:
         # Initially b < a is False if order is [b, a]? No, index 0 is b.
         # Let's check the categories order.
         assert df["cat"].cat.categories.tolist() == ["b", "a"]
-        
+
         result = reset_categorical_ordering(df)
         assert result["cat"].cat.categories.tolist() == ["a", "b"]

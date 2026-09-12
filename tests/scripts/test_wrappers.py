@@ -22,7 +22,8 @@ import importlib.util
 def import_script(path: Path):
     spec = importlib.util.spec_from_file_location(path.stem, path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Could not import {path}")
+        msg = f"Could not import {path}"
+        raise ImportError(msg)
     module = importlib.util.module_from_spec(spec)
     sys.modules[path.stem] = module
     spec.loader.exec_module(module)

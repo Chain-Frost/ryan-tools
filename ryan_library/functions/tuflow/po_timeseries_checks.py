@@ -159,7 +159,7 @@ def _parse_po_csv(path: Path) -> tuple[PoCsvData | None, str | None, bool]:
     try:
         if path.stat().st_size == 0:
             return None, "EMPTY_FILE", True
-    except Exception:
+    except OSError:
         pass
 
     try:
@@ -204,7 +204,7 @@ def _parse_q_csv(path: Path) -> tuple[QCsvData | None, str | None, bool]:
     try:
         if path.stat().st_size == 0:
             return None, "EMPTY_FILE", True
-    except Exception:
+    except OSError:
         pass
 
     try:
@@ -241,7 +241,7 @@ def _parse_q_csv(path: Path) -> tuple[QCsvData | None, str | None, bool]:
         column: "Time" for column in df.columns if str(column).strip() in {"Time (h)", "Time(h)"}
     }
     if rename_columns:
-        df.rename(columns=rename_columns, inplace=True)
+        df = df.rename(columns=rename_columns)
 
     if "Time" not in df.columns:
         return None, "TIME_PARSE_FAIL", True

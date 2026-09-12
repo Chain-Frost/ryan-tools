@@ -5,7 +5,7 @@ import os
 import sqlite3
 import urllib.parse
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 import shapefile  # pyright: ignore[reportMissingTypeStubs]
@@ -19,9 +19,9 @@ class ccAProcessor(BaseProcessor):
     """Processor for CCA files ('_1d_ccA_L.dbf' and '_Results1D.gpkg')."""
 
     # Common renames across both DBF and GPKG sources
-    _COLUMN_RENAMES: dict[str, str] = {"Channel": "Chan ID"}
+    _COLUMN_RENAMES: ClassVar[dict[str, str]] = {"Channel": "Chan ID"}
     # Mapping of shapefile-safe field names (max 10 chars) to canonical names
-    _SHAPEFILE_COLUMN_RENAMES: dict[str, str] = {"Dur_10pFul": "Dur_10pFull"}
+    _SHAPEFILE_COLUMN_RENAMES: ClassVar[dict[str, str]] = {"Dur_10pFul": "Dur_10pFull"}
 
     def process(self) -> None:
         """Process the CCA file (DBF or GPKG) and return a cleaned DataFrame.
@@ -231,7 +231,7 @@ class ccAProcessor(BaseProcessor):
                         return pd.DataFrame()
 
                     col_list_sql: str = ", ".join(f'"{c}"' for c in value_cols)
-                    select_sql: str = f'SELECT {col_list_sql} FROM "{layer_name}"'
+                    select_sql: str = f'SELECT {col_list_sql} FROM "{layer_name}"'  # noqa: S608
                     logger.debug("process_gpkg: Running attribute SELECT on table {!r}: {}", layer_name, select_sql)
 
                     # 3. Load attributes into DataFrame

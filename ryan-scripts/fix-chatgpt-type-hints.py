@@ -34,16 +34,16 @@ def fix_type_hints(file_path: Path) -> None:
             # Replace incorrect type hints using regex. Each pattern looks for the capitalised typing alias
             # (e.g. ``Dict[``) and swaps it for the modern ``dict[`` form.
             # Example: ``Tuple[int, str]`` becomes ``tuple[int, str]``.
-            line: str = re.sub(pattern=r"\bDict\[", repl="dict[", string=line)
-            line = re.sub(pattern=r"\bList\[", repl="list[", string=line)
-            line = re.sub(pattern=r"\bTuple\[", repl="tuple[", string=line)
-            line = re.sub(pattern=r"\bSet\[", repl="set[", string=line)
+            transformed_line = re.sub(pattern=r"\bDict\[", repl="dict[", string=line)
+            transformed_line = re.sub(pattern=r"\bList\[", repl="list[", string=transformed_line)
+            transformed_line = re.sub(pattern=r"\bTuple\[", repl="tuple[", string=transformed_line)
+            transformed_line = re.sub(pattern=r"\bSet\[", repl="set[", string=transformed_line)
 
-            if line != original_line:
+            if transformed_line != original_line:
                 modified = True
                 print(f"Modified: {file_path} (Line {line_number})")
 
-            file.write(line)
+            file.write(transformed_line)
 
     if not modified and not found_bad_imports:
         print(f"    No changes: {file_path}")

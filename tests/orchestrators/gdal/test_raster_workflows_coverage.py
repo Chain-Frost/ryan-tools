@@ -76,7 +76,8 @@ def test_add_overviews_parallel(mock_build, tmp_path):
 
 def test_run_batch_exception():
     def failing_op(p):
-        raise ValueError("Simulated GDAL failure")
+        msg = "Simulated GDAL failure"
+        raise ValueError(msg)
 
     with pytest.raises(ValueError, match="Simulated GDAL failure"):
         _run_batch([Path("x.tif")], 2, failing_op)

@@ -1,4 +1,4 @@
-﻿# used to convert heic to jpeg to allow qgis geotagger to load the data.
+# used to convert heic to jpeg to allow qgis geotagger to load the data.
 from __future__ import annotations
 
 import argparse
@@ -13,7 +13,8 @@ try:
     from PIL import Image, ImageOps
     from pillow_heif import register_heif_opener
 except ImportError as exc:
-    raise SystemExit("The selected Python environment needs Pillow and pillow-heif.") from exc
+    msg = "The selected Python environment needs Pillow and pillow-heif."
+    raise SystemExit(msg) from exc
 
 
 DEFAULT_SOURCE = Path(r"P:\path\path")
@@ -42,7 +43,7 @@ def gps_position(path: Path) -> tuple[float, float] | None:
         longitude_values = gps[4]
         latitude_ref = str(gps[1]).upper()
         longitude_ref = str(gps[3]).upper()
-    except (KeyError, TypeError):
+    except KeyError, TypeError:
         return None
 
     latitude = sum(float(value) / (60**index) for index, value in enumerate(latitude_values))
@@ -79,9 +80,11 @@ def convert_heic(source: Path, destination: Path, quality: int) -> None:
         output_gps = gps_position(temporary)
         if source_gps is not None:
             if output_gps is None:
-                raise RuntimeError("source GPS metadata was not written to the JPEG")
-            if any(abs(before - after) > 0.0000001 for before, after in zip(source_gps, output_gps)):
-                raise RuntimeError(f"GPS changed from {source_gps} to {output_gps}")
+                msg = "source GPS metadata was not written to the JPEG"
+                raise RuntimeError(msg)
+            if any(abs(before - after) > 0.0000001 for before, after in zip(source_gps, output_gps, strict=True)):
+                msg = f"GPS changed from {source_gps} to {output_gps}"
+                raise RuntimeError(msg)
 
         temporary.replace(destination)
     finally:
@@ -102,9 +105,10 @@ def process_photo(job: tuple[Path, Path, Path, int]) -> PhotoResult:
         if source_gps is not None:
             output_gps = gps_position(output)
             if output_gps is None or any(
-                abs(before - after) > 0.0000001 for before, after in zip(source_gps, output_gps)
+                abs(before - after) > 0.0000001 for before, after in zip(source_gps, output_gps, strict=True)
             ):
-                raise RuntimeError("output GPS verification failed")
+                msg = "output GPS verification failed"
+                raise RuntimeError(msg)
 
         return PhotoResult(action=action, relative=relative, gps=source_gps)
     except Exception as exc:
@@ -129,12 +133,14 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if args.workers is not None and args.workers < 1:
-        raise SystemExit("--workers must be at least 1.")
+        msg = "--workers must be at least 1."
+        raise SystemExit(msg)
 
     source = args.source.resolve(strict=True)
     destination = args.destination.resolve(strict=False)
     if source == destination:
-        raise SystemExit("Source and destination directories must be different.")
+        msg = "Source and destination directories must be different."
+        raise SystemExit(msg)
     destination.mkdir(parents=True, exist_ok=True)
 
     photos = sorted(
@@ -193,8 +199,7 @@ def main() -> int:
                 else:
                     gps_verified += 1
                     print(
-                        f"{result.action:<7} {result.relative} "
-                        f"(GPS verified: {result.gps[0]:.8f}, {result.gps[1]:.8f})"
+                        f"{result.action:<7} {result.relative} (GPS verified: {result.gps[0]:.8f}, {result.gps[1]:.8f})"
                     )
 
     print()

@@ -139,7 +139,7 @@ def generate_geometries(combined_df):
     lines = []
     line_attributes = []
 
-    for idx, row in combined_df.iterrows():
+    for _idx, row in combined_df.iterrows():
         name = row["Name"]
         us_x = row["US_X"]
         us_y = row["US_Y"]

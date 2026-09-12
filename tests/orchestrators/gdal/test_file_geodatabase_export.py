@@ -21,7 +21,8 @@ def _create_gdb(path: Path, layer_names: tuple[str, ...]) -> None:
     driver = ogr.GetDriverByName("OpenFileGDB")
     dataset = driver.CreateDataSource(str(path))
     if dataset is None:
-        raise RuntimeError("Could not create synthetic File Geodatabase")
+        msg = "Could not create synthetic File Geodatabase"
+        raise RuntimeError(msg)
     for index, layer_name in enumerate(layer_names):
         layer = dataset.CreateLayer(layer_name, geom_type=ogr.wkbPoint)
         feature = ogr.Feature(layer.GetLayerDefn())
@@ -29,7 +30,8 @@ def _create_gdb(path: Path, layer_names: tuple[str, ...]) -> None:
         geometry.AddPoint_2D(float(index), float(index))
         feature.SetGeometry(geometry)
         if layer.CreateFeature(feature) != 0:
-            raise RuntimeError(f"Could not add a feature to {layer_name}")
+            msg = f"Could not add a feature to {layer_name}"
+            raise RuntimeError(msg)
     dataset = None
 
 

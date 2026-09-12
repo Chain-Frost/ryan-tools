@@ -32,7 +32,8 @@ def load_apis(mode: str, repo_root: Path) -> tuple[Callable[..., Any], Callable[
         if repo_str not in sys.path:
             sys.path.insert(0, repo_str)
     else:
-        raise ValueError(f"Unknown mode '{mode}'")
+        msg = f"Unknown mode '{mode}'"
+        raise ValueError(msg)
 
     purge_module_cache("ryan_library")
 

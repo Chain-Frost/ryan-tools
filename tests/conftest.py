@@ -27,8 +27,9 @@ def pytest_sessionstart(session: pytest.Session) -> None:
         return
 
     missing_text: str = "\n".join(f"- {path}" for path in missing_paths)
-    raise pytest.UsageError(
+    msg = (
         "Required test data is missing or incomplete at tests/test_data.\n"
         "Run: git submodule update --init --recursive\n"
         f"Missing paths:\n{missing_text}"
     )
+    raise pytest.UsageError(msg)

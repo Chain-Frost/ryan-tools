@@ -78,7 +78,8 @@ def process_excel_file(file_path: Path, output_dir: Path) -> bool:
 
         with zipfile.ZipFile(file=temporary_output, mode="r") as archive:
             if archive.testzip() is not None:
-                raise zipfile.BadZipFile("Generated workbook failed its ZIP integrity check")
+                msg = "Generated workbook failed its ZIP integrity check"
+                raise zipfile.BadZipFile(msg)
 
         temporary_output.replace(target=output_file)
 

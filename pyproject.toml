@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ryan_functions"
-version = "26.09.10.2"
+version = "26.09.12.1"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 license = "SUL-1.0"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 authors = [
     { name = "Chain Frost", email = "chainfrost@outlook.com" },
 ]

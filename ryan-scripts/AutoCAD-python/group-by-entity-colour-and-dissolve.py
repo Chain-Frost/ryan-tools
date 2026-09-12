@@ -56,11 +56,8 @@ def group_and_dissolve_by_color(input_file: str, output_file: str, progress_inte
     total = len(msp)
     print(f"Found {total} entities in modelspace.")
     layer_map: dict[str, dict[str, int]] = {}
-    processed = 0
-
-    # 1) Reassign every entity to its colour‐encoded layer
-    for e in msp:
-        processed += 1
+    # 1) Reassign every entity to its colour-encoded layer
+    for processed, e in enumerate(msp, start=1):
         if processed % progress_interval == 0:
             print(f"  → Processed {processed}/{total} entities...")
 
@@ -127,7 +124,7 @@ def group_and_dissolve_by_color(input_file: str, output_file: str, progress_inte
         for h in handles_to_delete:
             msp.delete_entity(msp.entitydb[h])
 
-        # 7) re‐draw and restore colours
+        # 7) re-draw and restore colours
         for poly in final_polys:
             coords = list(poly.exterior.coords)
             new_pl = msp.add_lwpolyline(coords, close=True, dxfattribs={"layer": layer_name})

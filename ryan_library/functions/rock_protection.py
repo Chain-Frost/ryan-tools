@@ -2,7 +2,6 @@
 
 # started, not tested or finished
 
-
 from csv import DictReader
 from dataclasses import dataclass
 from functools import cache
@@ -50,7 +49,8 @@ def _data_file(filename: str) -> Traversable:
 def _required(row: dict[str, str | None], column: str, filename: str) -> str:
     value = row.get(column)
     if value is None or not value.strip():
-        raise ValueError(f"Missing {column!r} in {filename}")
+        msg = f"Missing {column!r} in {filename}"
+        raise ValueError(msg)
     return value
 
 
@@ -114,7 +114,8 @@ def multi_pipe_outlet_rock_protection(
         ValueError: If an input is non-finite or has no tabulated result.
     """
     if not isfinite(culvert_diameter_m) or not isfinite(outlet_velocity_m_per_s):
-        raise ValueError("Culvert diameter and outlet velocity must be finite")
+        msg = "Culvert diameter and outlet velocity must be finite"
+        raise ValueError(msg)
 
     matching_band = next(
         (
@@ -127,17 +128,19 @@ def multi_pipe_outlet_rock_protection(
     )
     if matching_band is None:
         supported_diameters = sorted({band.culvert_diameter_m for band in _velocity_bands()})
-        raise ValueError(
+        msg = (
             f"No outlet rock-protection band for diameter {culvert_diameter_m:g} m and "
             f"velocity {outlet_velocity_m_per_s:g} m/s; supported diameters are {supported_diameters}"
         )
+        raise ValueError(msg)
 
     rock_class = next(
         (candidate for candidate in _rock_classes() if candidate.rounded_d50_mm >= matching_band.nominal_d50_mm),
         None,
     )
     if rock_class is None:
-        raise ValueError(f"No rock class for nominal d50 {matching_band.nominal_d50_mm} mm")
+        msg = f"No rock class for nominal d50 {matching_band.nominal_d50_mm} mm"
+        raise ValueError(msg)
 
     return MultiPipeOutletRockProtection(
         rock_class=rock_class.name,

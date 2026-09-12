@@ -1,4 +1,3 @@
-
 """Unit tests for ryan_library.processors.tuflow.other_processors.ChanProcessor."""
 
 from pathlib import Path
@@ -35,24 +34,20 @@ class TestChanProcessor:
         """Test successful processing with all required columns."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
-        
+
         # Setup df with required columns
-        mock_processor.df = pd.DataFrame({
-            "Channel": ["C1"],
-            "LBUS Obvert": [10.0],
-            "US Invert": [5.0]
-        })
+        mock_processor.df = pd.DataFrame({"Channel": ["C1"], "LBUS Obvert": [10.0], "US Invert": [5.0]})
 
         mock_processor.process()
-        
+
         assert mock_processor.processed is True
-        
+
         # Check renaming
         assert "Chan ID" in mock_processor.df.columns
         assert "US Obvert" in mock_processor.df.columns
         assert "Channel" not in mock_processor.df.columns
         assert "LBUS Obvert" not in mock_processor.df.columns
-        
+
         # Check calculation
         assert "Height" in mock_processor.df.columns
         assert mock_processor.df.iloc[0]["Height"] == 5.0  # 10.0 - 5.0
@@ -61,9 +56,9 @@ class TestChanProcessor:
     def test_process_read_failure(self, mock_read, mock_processor):
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
-        
+
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
@@ -71,15 +66,17 @@ class TestChanProcessor:
     def test_process_missing_height_columns(self, mock_read, mock_processor):
         """Test failure when columns for Height calculation are missing."""
         mock_read.return_value = ProcessorStatus.SUCCESS
-        
-        mock_processor.df = pd.DataFrame({
-            "Channel": ["C1"],
-            "LBUS Obvert": [10.0]
-            # Missing US Invert
-        })
+
+        mock_processor.df = pd.DataFrame(
+            {
+                "Channel": ["C1"],
+                "LBUS Obvert": [10.0],
+                # Missing US Invert
+            }
+        )
 
         mock_processor.process()
-        
+
         assert mock_processor.df.empty
         assert mock_processor.processed is False
 
@@ -87,15 +84,17 @@ class TestChanProcessor:
     def test_process_missing_channel_column(self, mock_read, mock_processor):
         """Test failure when Channel column is missing."""
         mock_read.return_value = ProcessorStatus.SUCCESS
-        
-        mock_processor.df = pd.DataFrame({
-            "LBUS Obvert": [10.0],
-            "US Invert": [5.0]
-            # Missing Channel
-        })
+
+        mock_processor.df = pd.DataFrame(
+            {
+                "LBUS Obvert": [10.0],
+                "US Invert": [5.0],
+                # Missing Channel
+            }
+        )
 
         mock_processor.process()
-        
+
         assert mock_processor.df.empty
         assert mock_processor.processed is False
 
@@ -107,15 +106,11 @@ class TestChanProcessor:
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
-        
-        mock_processor.df = pd.DataFrame({
-            "Channel": ["C1"],
-            "LBUS Obvert": [10.0],
-            "US Invert": [5.0]
-        })
+
+        mock_processor.df = pd.DataFrame({"Channel": ["C1"], "LBUS Obvert": [10.0], "US Invert": [5.0]})
 
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
@@ -123,8 +118,8 @@ class TestChanProcessor:
     def test_process_exception(self, mock_read, mock_processor):
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
-        
+
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty

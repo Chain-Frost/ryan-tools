@@ -22,7 +22,8 @@ __all__: list[str] = []
 def __getattr__(name: str) -> ModuleType:
     """Load relocated script modules only when a legacy alias is requested."""
     if name not in _TUFLOW_MODULES:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+        msg = f"module {__name__!r} has no attribute {name!r}"
+        raise AttributeError(msg)
 
     module: ModuleType = import_module(f"{__name__}.tuflow.{name}")
     sys.modules[f"{__name__}.{name}"] = module

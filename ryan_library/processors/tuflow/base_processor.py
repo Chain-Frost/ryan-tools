@@ -92,7 +92,8 @@ class BaseProcessor(ABC):
         self.resolved_file_path = self.file_path.resolve()
         self.name_parser = TuflowStringParser(file_path=self.file_path)
         if self.name_parser.data_type is None:
-            raise ValueError("data_type was not set in TuflowStringParser for self.file_path.name")
+            msg = "data_type was not set in TuflowStringParser for self.file_path.name"
+            raise ValueError(msg)
         self.data_type = self.name_parser.data_type
         logger.debug("{}: Data type identified as '{}'", self.file_name, self.data_type)
         self._load_configuration()
@@ -234,11 +235,13 @@ class BaseProcessor(ABC):
     def _load_configuration(self) -> None:
         """Load configuration for expected headers and output columns from the config."""
         if not self.data_type:
-            raise ValueError("data_type was not set in TuflowStringParser.")
+            msg = "data_type was not set in TuflowStringParser."
+            raise ValueError(msg)
 
         data_type_def: DataTypeDefinition | None = Config.get_instance().data_types.get(self.data_type)
         if data_type_def is None:
-            raise KeyError(f"Data type '{self.data_type}' is not defined in the config.")
+            msg = f"Data type '{self.data_type}' is not defined in the config."
+            raise KeyError(msg)
 
         # Load output_columns
         self.output_columns: dict[str, str] = data_type_def.output_columns
@@ -258,9 +261,8 @@ class BaseProcessor(ABC):
         )
         processing_parts_payload: dict[str, Any] = processing_parts.to_dict()
         if not self.dataformat:
-            raise ConfigurationError(
-                f"{self.file_name}: '{self.data_type}' is missing 'processingParts.dataformat' in the configuration."
-            )
+            msg = f"{self.file_name}: '{self.data_type}' is missing 'processingParts.dataformat' in the configuration."
+            raise ConfigurationError(msg)
 
         def has_section_content(section: str) -> bool:
             value: object = processing_parts_payload.get(section)
@@ -283,9 +285,8 @@ class BaseProcessor(ABC):
 
         if missing_sections:
             missing_str: str = ", ".join(missing_sections)
-            raise ConfigurationError(
-                f"{self.file_name}: '{self.data_type}' configuration is missing {missing_str} in processingParts for '{self.dataformat}' files."
-            )
+            msg = f"{self.file_name}: '{self.data_type}' configuration is missing {missing_str} in processingParts for '{self.dataformat}' files."
+            raise ConfigurationError(msg)
 
         # Depending on dataformat, load columns_to_use or expected_in_header
         handled_formats: set[str] = {"Maximums", "ccA", "Timeseries", "POMM", "EOF", "TLF"}
@@ -687,7 +688,7 @@ class BaseProcessor(ABC):
         except (KeyError, ValueError, TypeError) as e:
             msg: str = f"{self.file_name}: Error applying dtype mapping in {context}: {e}"
             logger.error(msg)
-            raise ProcessorError(msg)
+            raise ProcessorError(msg) from e
 
     def separate_metrics(self, metric_columns: dict[str, str], new_columns: dict[str, Any]) -> pd.DataFrame:
         """Separate metrics into distinct rows based on provided column mappings.
@@ -702,7 +703,7 @@ class BaseProcessor(ABC):
         reshaped_dfs: list[pd.DataFrame] = []
         for original, new in metric_columns.items():
             temp_df: pd.DataFrame = self.df[[original]].copy()
-            temp_df.rename(columns={original: new}, inplace=True)
+            temp_df = temp_df.rename(columns={original: new})
             for col, val in new_columns.items():
                 temp_df[col] = val
             reshaped_dfs.append(temp_df)

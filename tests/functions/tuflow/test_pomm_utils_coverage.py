@@ -13,12 +13,14 @@ class TestSelectInternalNames:
     def test_missing_columns(self):
         df = pd.DataFrame({"A": [1]})
         med, mean = pomm_utils._select_internal_names_for_group(df)
-        assert pd.isna(med) and pd.isna(mean)
+        assert pd.isna(med)
+        assert pd.isna(mean)
 
     def test_no_valid_absmax(self):
         df = pd.DataFrame({"internalName": ["A"], "AbsMax": [pd.NA]})
         med, mean = pomm_utils._select_internal_names_for_group(df)
-        assert pd.isna(med) and pd.isna(mean)
+        assert pd.isna(med)
+        assert pd.isna(mean)
 
     def test_select_names(self):
         # 3 values: 10, 20, 30. Mean=20, Median=20
@@ -113,7 +115,7 @@ class TestFindAepDurMedianEdgeCases:
         assert "MedianAbsMax" in res.columns
         assert res["MedianAbsMax"].iloc[0] == 10.0
         assert "mean_storm_is_median_storm" in res.columns
-        assert res["mean_storm_is_median_storm"].iloc[0] == True
+        assert res["mean_storm_is_median_storm"].iloc[0]
         assert res["internalName"].iloc[0] == "Int1"
 
 

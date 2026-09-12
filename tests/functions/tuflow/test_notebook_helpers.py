@@ -172,7 +172,8 @@ def test_run_culvert_maximums(mock_load: MagicMock) -> None:
     mock_load.assert_called_once()
     mock_collection.combine_1d_maximums.assert_called_once()
     mock_collection.combine_raw.assert_called_once()
-    assert not result.maximums.empty and not result.raw_data.empty
+    assert not result.maximums.empty
+    assert not result.raw_data.empty
     assert result.processor_collection is mock_collection
 
 
@@ -204,7 +205,8 @@ def test_run_culvert_mean_peaks(mock_find_mean: MagicMock, mock_find_max: MagicM
     mock_load.assert_called_once()
     mock_find_mean.assert_called_once()
     mock_find_max.assert_called_once()
-    assert not df1.empty and not df2.empty
+    assert not df1.empty
+    assert not df2.empty
 
 
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.build_log_summary_dataframe")
@@ -244,7 +246,8 @@ def test_run_closure_durations(
     mock_collect.assert_called_once_with(collection=mock_collection)
     mock_calc.assert_called_once()
     mock_summarise.assert_called_once()
-    assert not df1.empty and not df2.empty
+    assert not df1.empty
+    assert not df2.empty
 
 
 @patch("ryan_library.functions.tuflow.po_timeseries_checks.analyze_stability_csv")

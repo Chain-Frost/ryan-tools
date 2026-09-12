@@ -39,7 +39,7 @@ def test_result_type_from_parser() -> None:
 def test_require_component_text() -> None:
     assert require_component_text(value="val", component="comp", filename="file.asc") == "val"
 
-    with pytest.raises(ValueError, match="Parsed comp text was empty in file.asc"):
+    with pytest.raises(ValueError, match=r"Parsed comp text was empty in file\.asc"):
         require_component_text(value="", component="comp", filename="file.asc")
 
     with pytest.raises(ValueError):

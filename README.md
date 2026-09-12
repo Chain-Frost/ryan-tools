@@ -257,7 +257,6 @@ The library provides Python-native and GDAL-backed conversion functions, batch o
 | **CAD, mining & 12D geometry** | `.str` (Surpac binary/text strings), `.dtm` (Surpac binary/text DTM meshes), `.dxf` (polyface meshes), 12D culvert export text | `.gpkg` (3D lines & polygon meshes), `.parquet` (geometry tables), DataFrames | [`get_combined_df_from_files()`](ryan_library/functions/process_12D_culverts.py), [`dtm_str_converter_to_gpkg.py`](ryan-scripts/cad-python/dtm_str_converter_to_gpkg.py), [`extract_dxf_polyface.py`](ryan-scripts/cad-python/extract_dxf_polyface.py), [`polyface_parquet_to_gpkg.py`](ryan-scripts/cad-python/polyface_parquet_to_gpkg.py) | Translates mining CAD and 12D export formats into modern GIS/Parquet geometries. |
 | **Hydrologic & model results** | TUFLOW 1D/2D CSVs (`_POMM`, `_PO`, `_Cmx`, `_Nmx`, `_Chan`, `_ccA`, `_RLL_Qmx`, `_Q`, `_H`, etc.), `.tlf` logs, RORB `.out` files | `.xlsx` (multi-sheet styled workbooks), `.parquet`, `.csv`, DataFrames | [`load_tuflow_data()`](ryan_library/functions/tuflow/notebook_helpers.py), [`parse_batch_output()`](ryan_library/functions/RORB/read_rorb_files.py), [`ExcelExporter`](ryan_library/functions/excel_export.py), [`save_to_excel()`](ryan_library/functions/excel_export.py) | Ingests simulation outputs into consolidated tabular datasets, summary reports, and Excel exports. |
 
-
 ## Excel and QGIS resources
 
 The resource submodules contain project templates and application assets:

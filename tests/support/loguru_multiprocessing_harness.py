@@ -21,7 +21,8 @@ def emit_worker_logs(log_queue: LogQueue, raise_exception: bool) -> None:
     logger.warning("WORKER_WARNING")
     if raise_exception:
         try:
-            raise ValueError("synthetic worker failure")
+            msg = "synthetic worker failure"
+            raise ValueError(msg)
         except ValueError:
             logger.exception("WORKER_EXCEPTION")
 
@@ -51,9 +52,11 @@ def main() -> None:
         if worker.is_alive():
             worker.terminate()
             worker.join(timeout=5)
-            raise RuntimeError("Logging harness worker did not stop.")
+            msg = "Logging harness worker did not stop."
+            raise RuntimeError(msg)
         if worker.exitcode != 0:
-            raise RuntimeError(f"Logging harness worker exited with code {worker.exitcode}.")
+            msg = f"Logging harness worker exited with code {worker.exitcode}."
+            raise RuntimeError(msg)
 
 
 if __name__ == "__main__":

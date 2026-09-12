@@ -45,16 +45,16 @@ class POMMProcessor(BaseProcessor):
             raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)
             self.raw_df = raw_df
 
-            # # 2) Extract run_code from top‐left cell
+            # # 2) Extract run_code from top-left cell
             # raw_run_code = raw_df.iat[0, 0]
             # # Overwrite the parser's raw_run_code in case
-            # # the file name didn’t exactly match. But typically:
+            # # the file name didn't exactly match. But typically:
             # self.name_parser.raw_run_code = raw_run_code
 
             # 3) Drop the first column and transpose
             transposed: pd.DataFrame = raw_df.drop(columns=0).T
 
-            # 4) Promote row‐0 (of transposed) to headers
+            # 4) Promote row-0 (of transposed) to headers
             transposed.columns = pd.Index(transposed.iloc[0], dtype=str)
             transposed = transposed.drop(index=transposed.index[0])
 
@@ -73,19 +73,18 @@ class POMMProcessor(BaseProcessor):
             #        Velocity → 'Velocity'
             # Define new column names and their data types
             headers: list[str] = transposed.columns.tolist()
-            if self.expected_in_header:
-                if not self.check_headers_match(headers):
-                    raise DataValidationError(f"{self.log_path}: Header mismatch for POMM data. Got {headers}")
+            if self.expected_in_header and not self.check_headers_match(headers):
+                msg = f"{self.log_path}: Header mismatch for POMM data. Got {headers}"
+                raise DataValidationError(msg)
 
             rename_map: dict[str, str] = POMM_RENAME_COLUMNS
 
             missing_sources: list[str] = [col for col in rename_map if col not in headers]
             if missing_sources:
-                raise DataValidationError(
-                    f"{self.log_path}: Missing expected columns {missing_sources} after transpose."
-                )
+                msg = f"{self.log_path}: Missing expected columns {missing_sources} after transpose."
+                raise DataValidationError(msg)
 
-            transposed.rename(columns=rename_map, inplace=True)
+            transposed = transposed.rename(columns=rename_map)
             ordered_columns = list(rename_map.values())
             transposed = transposed.loc[:, ordered_columns]
 
@@ -99,12 +98,11 @@ class POMMProcessor(BaseProcessor):
                 self.apply_dtype_mapping(dtype_mapping=base_dtype_map, context="pomm_base_columns")
 
             if not {"Max", "Min"}.issubset(self.df.columns):
-                raise DataValidationError(
-                    f"{self.log_path}: Required columns 'Max' and 'Min' not available after renaming."
-                )
+                msg = f"{self.log_path}: Required columns 'Max' and 'Min' not available after renaming."
+                raise DataValidationError(msg)
 
             # 10) Finally, apply the dtype mapping from output_columns (so that everything
-            #     matches your JSON’s "output_columns" keys & dtypes).  This is the call that
+            #     matches your JSON's "output_columns" keys & dtypes).  This is the call that
             #     looks at Config.get_instance().data_types["POMM"].output_columns and does .astype(...)
 
             # 7) Derive AbsMax and SignedAbsMax once the Max/Min columns exist.

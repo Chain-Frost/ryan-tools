@@ -8,7 +8,6 @@ from osgeo import gdal, ogr, osr
 
 ROOTS: list[Path] = [
     Path(r"Q:\path\path]"),
-    
 ]
 
 OUTPUT_CSV: Path = Path(__file__).resolve().parent / "higginsville_crs_audit.csv"
@@ -45,8 +44,8 @@ def describe_srs(srs: osr.SpatialReference | None) -> dict[str, str]:
         crs_type = "Other"
         authority_node = None
 
-    authority:str|None = ""
-    epsg:str |None= ""
+    authority: str | None = ""
+    epsg: str | None = ""
 
     if authority_node is not None:
         authority = srs.GetAuthorityName(authority_node) or ""
@@ -59,12 +58,7 @@ def describe_srs(srs: osr.SpatialReference | None) -> dict[str, str]:
     if not epsg:
         epsg = srs.GetAuthorityCode(None) or ""
 
-    crs_name:str|None = (
-        srs.GetName()
-        or srs.GetAttrValue("PROJCS")
-        or srs.GetAttrValue("GEOGCS")
-        or ""
-    )
+    crs_name: str | None = srs.GetName() or srs.GetAttrValue("PROJCS") or srs.GetAttrValue("GEOGCS") or ""
 
     return {
         "crs_name": crs_name,
@@ -80,17 +74,19 @@ def audit_raster(path: Path) -> list[dict[str, str]]:
     ds = gdal.Open(str(path), gdal.GA_ReadOnly)
 
     if ds is None:
-        return [{
-            "file": str(path),
-            "file_type": path.suffix.lower(),
-            "layer": "",
-            "crs_name": "",
-            "authority": "",
-            "epsg": "",
-            "crs_type": "",
-            "wkt": "",
-            "status": "FAILED TO OPEN",
-        }]
+        return [
+            {
+                "file": str(path),
+                "file_type": path.suffix.lower(),
+                "layer": "",
+                "crs_name": "",
+                "authority": "",
+                "epsg": "",
+                "crs_type": "",
+                "wkt": "",
+                "status": "FAILED TO OPEN",
+            }
+        ]
 
     projection = ds.GetProjectionRef()
 
@@ -115,17 +111,19 @@ def audit_gpkg(path: Path) -> list[dict[str, str]]:
     ds = ogr.Open(str(path), 0)
 
     if ds is None:
-        return [{
-            "file": str(path),
-            "file_type": ".gpkg",
-            "layer": "",
-            "crs_name": "",
-            "authority": "",
-            "epsg": "",
-            "crs_type": "",
-            "wkt": "",
-            "status": "FAILED TO OPEN",
-        }]
+        return [
+            {
+                "file": str(path),
+                "file_type": ".gpkg",
+                "layer": "",
+                "crs_name": "",
+                "authority": "",
+                "epsg": "",
+                "crs_type": "",
+                "wkt": "",
+                "status": "FAILED TO OPEN",
+            }
+        ]
 
     rows: list[dict[str, str]] = []
 
@@ -137,26 +135,30 @@ def audit_gpkg(path: Path) -> list[dict[str, str]]:
 
         srs = layer.GetSpatialRef()
 
-        rows.append({
-            "file": str(path),
-            "file_type": ".gpkg",
-            "layer": layer.GetName(),
-            **describe_srs(srs),
-        })
+        rows.append(
+            {
+                "file": str(path),
+                "file_type": ".gpkg",
+                "layer": layer.GetName(),
+                **describe_srs(srs),
+            }
+        )
 
     # An empty GeoPackage is still worth reporting.
     if not rows:
-        rows.append({
-            "file": str(path),
-            "file_type": ".gpkg",
-            "layer": "",
-            "crs_name": "",
-            "authority": "",
-            "epsg": "",
-            "crs_type": "",
-            "wkt": "",
-            "status": "NO LAYERS",
-        })
+        rows.append(
+            {
+                "file": str(path),
+                "file_type": ".gpkg",
+                "layer": "",
+                "crs_name": "",
+                "authority": "",
+                "epsg": "",
+                "crs_type": "",
+                "wkt": "",
+                "status": "NO LAYERS",
+            }
+        )
 
     ds = None
     return rows
@@ -170,11 +172,7 @@ def find_files() -> list[Path]:
             print(f"WARNING: folder does not exist: {root}")
             continue
 
-        files.extend(
-            path
-            for path in root.rglob("*")
-            if path.is_file() and path.suffix.lower() in EXTENSIONS
-        )
+        files.extend(path for path in root.rglob("*") if path.is_file() and path.suffix.lower() in EXTENSIONS)
 
     return sorted(files)
 
@@ -198,17 +196,19 @@ def main() -> None:
                 rows.extend(audit_raster(path))
 
         except Exception as exc:
-            rows.append({
-                "file": str(path),
-                "file_type": path.suffix.lower(),
-                "layer": "",
-                "crs_name": "",
-                "authority": "",
-                "epsg": "",
-                "crs_type": "",
-                "wkt": "",
-                "status": f"ERROR: {exc}",
-            })
+            rows.append(
+                {
+                    "file": str(path),
+                    "file_type": path.suffix.lower(),
+                    "layer": "",
+                    "crs_name": "",
+                    "authority": "",
+                    "epsg": "",
+                    "crs_type": "",
+                    "wkt": "",
+                    "status": f"ERROR: {exc}",
+                }
+            )
 
     OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
 

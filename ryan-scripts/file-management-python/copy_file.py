@@ -20,10 +20,11 @@ source = Path(r"C:\path\file.zip")
 share = r"\\ipv4\folder"
 destination = Path(share) / source.name
 username = r"user"
-password = "pass"
+password = "pass"  # noqa: S105 - editable placeholder, not a repository credential
 
 if not source.is_file():
-    raise FileNotFoundError(f"Source file not found: {source}")
+    msg = f"Source file not found: {source}"
+    raise FileNotFoundError(msg)
 
 RESOURCETYPE_DISK = 0x00000001
 NO_ERROR = 0

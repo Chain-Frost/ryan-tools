@@ -11,10 +11,10 @@ from loguru import logger
 
 
 def read_rorb_parquet(parquet_path: Path, columns: Sequence[str] | None = None) -> pd.DataFrame:
-    """Reads a RORB ensemble results Parquet file into a Pandas DataFrame.
-    """
+    """Reads a RORB ensemble results Parquet file into a Pandas DataFrame."""
     if not parquet_path.exists():
-        raise FileNotFoundError(f"Parquet file not found: {parquet_path}")
+        msg = f"Parquet file not found: {parquet_path}"
+        raise FileNotFoundError(msg)
 
     logger.info("Reading RORB parquet data from {}", parquet_path)
     try:
@@ -37,15 +37,19 @@ def calculate_peak_flows(
     logger.info("Calculating peak flows grouped by {}", group_cols)
 
     if not group_cols:
-        raise ValueError("At least one grouping column is required")
+        msg = "At least one grouping column is required"
+        raise ValueError(msg)
     missing_cols = [col for col in group_cols if col not in df.columns]
     if missing_cols:
-        raise ValueError(f"Missing grouping columns in dataframe: {missing_cols}")
+        msg = f"Missing grouping columns in dataframe: {missing_cols}"
+        raise ValueError(msg)
 
     if flow_col not in df.columns:
-        raise ValueError(f"Missing flow column in dataframe: {flow_col}")
+        msg = f"Missing flow column in dataframe: {flow_col}"
+        raise ValueError(msg)
     if not pd.api.types.is_numeric_dtype(df[flow_col]):
-        raise ValueError(f"Flow column must be numeric: {flow_col}")
+        msg = f"Flow column must be numeric: {flow_col}"
+        raise ValueError(msg)
 
     peak_flows: pd.DataFrame = df.groupby(group_cols, sort=False, as_index=False)[[flow_col]].max()
     return peak_flows.rename(columns={flow_col: peak_flow_col_name})
@@ -71,18 +75,23 @@ def calculate_closure_times(
     )
 
     if not group_cols:
-        raise ValueError("At least one grouping column is required")
+        msg = "At least one grouping column is required"
+        raise ValueError(msg)
     if not math.isfinite(threshold):
-        raise ValueError("Closure threshold must be finite")
+        msg = "Closure threshold must be finite"
+        raise ValueError(msg)
 
     # Ensure required columns exist
-    missing_cols = [col for col in group_cols + [time_col, flow_col] if col not in df.columns]
+    missing_cols = [col for col in [*group_cols, time_col, flow_col] if col not in df.columns]
     if missing_cols:
-        raise ValueError(f"Missing required columns in dataframe: {missing_cols}")
+        msg = f"Missing required columns in dataframe: {missing_cols}"
+        raise ValueError(msg)
     if not pd.api.types.is_numeric_dtype(df[time_col]):
-        raise ValueError(f"Time column must be numeric: {time_col}")
+        msg = f"Time column must be numeric: {time_col}"
+        raise ValueError(msg)
     if not pd.api.types.is_numeric_dtype(df[flow_col]):
-        raise ValueError(f"Flow column must be numeric: {flow_col}")
+        msg = f"Flow column must be numeric: {flow_col}"
+        raise ValueError(msg)
 
     records: list[dict[str, object]] = []
     grouper: str | list[str] = group_cols[0] if len(group_cols) == 1 else group_cols
@@ -91,7 +100,8 @@ def calculate_closure_times(
             key_values = (group_key,)
         else:
             if not isinstance(group_key, tuple):
-                raise TypeError("Expected a tuple key when grouping by multiple columns")
+                msg = "Expected a tuple key when grouping by multiple columns"
+                raise TypeError(msg)
             key_values = group_key
         exceeded_times = pd.to_numeric(group_df.loc[group_df[flow_col] > threshold, time_col], errors="coerce").dropna()
         closure_time = 0.0 if exceeded_times.empty else float(exceeded_times.max() - exceeded_times.min())

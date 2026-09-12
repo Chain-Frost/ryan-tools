@@ -22,18 +22,16 @@ class TestTuflowCommon:
         """Test file collection logic."""
         mock_find.return_value = [Path("test_1d_H.csv")]
         mock_is_non_zero.return_value = True
-        
+
         mock_suffixes = MagicMock(spec=SuffixesConfig)
         mock_suffixes.invert_suffix_to_type.return_value = {"H": ["_1d_H.csv"]}
-        
+
         files = []
         with patch.object(Path, "is_dir", return_value=True):
             files = collect_files(
-                paths_to_process=[Path("root")],
-                include_data_types=["H"],
-                suffixes_config=mock_suffixes
+                paths_to_process=[Path("root")], include_data_types=["H"], suffixes_config=mock_suffixes
             )
-        
+
         assert len(files) == 1
         assert files[0] == Path("test_1d_H.csv")
 
@@ -43,9 +41,9 @@ class TestTuflowCommon:
         mock_proc = MagicMock()
         mock_proc.validate_data.return_value = True
         mock_from_file.return_value = mock_proc
-        
+
         result = process_file(Path("test.csv"))
-        
+
         assert result == mock_proc
         mock_proc.process.assert_called_once()
 
@@ -56,17 +54,17 @@ class TestTuflowCommon:
         mock_calc_size.return_value = 1
         mock_pool = MagicMock()
         mock_pool_cls.return_value.__enter__.return_value = mock_pool
-        
+
         # Mock pool.map return
         mock_proc = MagicMock()
         mock_proc.processed = True
         mock_pool.map.return_value = [mock_proc]
-        
+
         coll = process_files_in_parallel([Path("test.csv")], log_queue=MagicMock())
-        
+
         assert isinstance(coll, ProcessorCollection)
         # Verify processor was added (ProcessorCollection internals might need inspection or mocking add_processor)
-        # Assuming add_processor works if coll is not empty/has items. 
+        # Assuming add_processor works if coll is not empty/has items.
         # Since ProcessorCollection is complex, we trust it was called if logic flows.
 
     @patch("ryan_library.functions.tuflow.tuflow_common.collect_files")
@@ -75,13 +73,11 @@ class TestTuflowCommon:
         """Test bulk processing orchestration."""
         mock_collect.return_value = [Path("test.csv")]
         mock_process.return_value = ProcessorCollection()
-        
+
         result = bulk_read_and_merge_tuflow_csv(
-            paths_to_process=[Path("root")],
-            include_data_types=["H"],
-            log_queue=MagicMock()
+            paths_to_process=[Path("root")], include_data_types=["H"], log_queue=MagicMock()
         )
-        
+
         assert isinstance(result, ProcessorCollection)
         mock_collect.assert_called_once()
         mock_process.assert_called_once()

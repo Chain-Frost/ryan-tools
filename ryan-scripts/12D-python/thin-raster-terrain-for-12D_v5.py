@@ -45,7 +45,7 @@ def thin_data_by_global_selection(df: pd.DataFrame, thinning_factor: int) -> pd.
     thinned_data: pd.DataFrame = df[mask].copy()
 
     # Drop rows with NaN in 'Z' column
-    thinned_data.dropna(subset=["Z"], inplace=True)
+    thinned_data = thinned_data.dropna(subset=["Z"])
 
     return thinned_data
 
@@ -104,8 +104,7 @@ def determine_global_selection(input_file: str, thinning_factors: list[int]) -> 
 
 
 def init_worker(queue) -> None:
-    """Initializer for worker processes. Sets up logging to use the provided queue.
-    """
+    """Initializer for worker processes. Sets up logging to use the provided queue."""
     worker_initializer(queue)
 
 
@@ -163,7 +162,7 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
         df = pd.DataFrame({"X": x_coords, "Y": y_coords, "Z": z_flat})
 
         # Drop rows with NaN in 'Z' column (Nodata or masked values)
-        df.dropna(subset=["Z"], inplace=True)
+        df = df.dropna(subset=["Z"])
 
         logger.info(f"{tile_id}: DataFrame created with {len(df)} rows after removing nodata.")
 
@@ -173,7 +172,7 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
 
         # Data for thinning is based on row/col
         df_thin = pd.DataFrame({"row": row_flat, "col": col_flat, "Z": z_flat})
-        df_thin.dropna(subset=["Z"], inplace=True)
+        df_thin = df_thin.dropna(subset=["Z"])
 
         # Apply thinning for each factor
         for factor in thinning_factors:
@@ -206,7 +205,7 @@ def process_tile(window, tile_id, input_file, thinning_factors, output_dir, tran
         logger.error(f"Unexpected error processing {tile_id}: {e}")
 
 
-def process_terrain_data(input_file, output_dir, thinning_factors=[10, 5, 2], tile_size=5000, log_queue=None):
+def process_terrain_data(input_file, output_dir, thinning_factors=None, tile_size=5000, log_queue=None):
     """Processes the terrain data from a GeoTIFF file: assigns tiles, thins data for multiple
     thinning factors, and saves to CSV.
 
@@ -216,6 +215,8 @@ def process_terrain_data(input_file, output_dir, thinning_factors=[10, 5, 2], ti
     - thinning_factors: list of int, thinning factors to apply.
     - tile_size: int, size of the tile in meters (default is 5000 for 5km).
     """
+    if thinning_factors is None:
+        thinning_factors = [10, 5, 2]
     logger.info(f"Processing terrain data from file: {input_file}")
 
     # Determine the thinning factors (no global selection needed)

@@ -61,9 +61,7 @@ def main() -> None:
     dissolved_map: dict[str, list[Polygon]] = {}
     for layer in colour_map:
         raws: list[Polygon] = []
-        count = 0
-        for e in msp.query(f'*[layer=="{layer}"]'):
-            count += 1
+        for count, e in enumerate(msp.query(f'*[layer=="{layer}"]'), start=1):
             for poly in extract_polygons(e):
                 raws.append(poly.buffer(TOLERANCE))
             if count % PROGRESS_INTERVAL == 0:
@@ -103,7 +101,7 @@ def main() -> None:
             for region in regions:
                 coords_ext = list(region.exterior.coords)
 
-                # 1) true solid‐fill hatch
+                # 1) true solid-fill hatch
                 hatch = msp.add_hatch(
                     dxfattribs={
                         "layer": layer,

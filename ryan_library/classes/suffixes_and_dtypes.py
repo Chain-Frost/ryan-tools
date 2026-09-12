@@ -51,7 +51,7 @@ class ConfigLoader:
         except json.JSONDecodeError as e:
             message = f"Error decoding JSON from {self.config_path}: {e}"
             logger.error(message)
-            raise ValueError(message)
+            raise ValueError(message) from e
 
     def get_data_types(self) -> dict[str, Any]:
         """Extract the data types section from the configuration.
@@ -284,7 +284,8 @@ class Config:
 
     def __init__(self, data_types: dict[str, DataTypeDefinition]) -> None:
         if Config._instance is not None:
-            raise RuntimeError("This class is a singleton!")
+            msg = "This class is a singleton!"
+            raise RuntimeError(msg)
         self.data_types: dict[str, DataTypeDefinition] = data_types
 
     @classmethod

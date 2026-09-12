@@ -96,7 +96,8 @@ def parse_args(argv: list[str] | None = None) -> Config:
     drop_malformed: bool = bool(ns.drop_malformed)
 
     if match == "string" and not value_str:
-        raise SystemExit("--match string requires --value-str")
+        msg = "--match string requires --value-str"
+        raise SystemExit(msg)
 
     return Config(
         root=root,

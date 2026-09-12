@@ -29,7 +29,7 @@ class StageExecutionSummary:
     total: int
     succeeded: int
     failed: int
-    failed_jobs: list[tuple[str, str]] = field(default_factory=lambda: list[tuple[str, str]]())
+    failed_jobs: list[tuple[str, str]] = field(default_factory=list[tuple[str, str]])
 
     @property
     def ok(self) -> bool:
@@ -51,7 +51,8 @@ def run_raster_operation_stage(
         return StageExecutionSummary(total=0, succeeded=0, failed=0)
     requested_workers: int = workers if workers is not None else 6
     if requested_workers < 1:
-        raise ValueError("Worker count must be at least 1")
+        msg = "Worker count must be at least 1"
+        raise ValueError(msg)
     worker_count: int = min(requested_workers, len(jobs))
 
     dashboard = LiveWorkflowDashboard(

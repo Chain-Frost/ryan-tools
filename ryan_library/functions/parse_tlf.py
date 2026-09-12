@@ -316,10 +316,12 @@ def search_from_top(
         data_dict["TBC"] = match.group(1).strip()
     elif match := re.search(pattern=r"ESTRY Control File == .*\\([^\\.]+)", string=line):
         data_dict["ECF"] = match.group(1).strip()
-    elif (match := re.search(pattern=r"BC Event File == .*\\([^\\.]+)", string=line)) or (match := re.search(
-        pattern=r"Trying to open \(I\) file .*\\([^\\]+\.tef)\.\.\.OK\.  File Unit:",
-        string=line,
-    )):
+    elif (match := re.search(pattern=r"BC Event File == .*\\([^\\.]+)", string=line)) or (
+        match := re.search(
+            pattern=r"Trying to open \(I\) file .*\\([^\\]+\.tef)\.\.\.OK\.  File Unit:",
+            string=line,
+        )
+    ):
         data_dict["TEF"] = match.group(1).strip()
     elif "Number of defined variables:" in line:
         spec_var = True
@@ -351,7 +353,7 @@ def remove_e_s_from_runcode(runcode: str, data_dict: dict[str, Any], delimiters:
     parts: list[str] = runcode.split(sep="_")
 
     patterns_to_remove: set[str] = {
-        str(value).lower() for key, value in data_dict.items() if key.startswith("-e") or key.startswith("-s")
+        str(value).lower() for key, value in data_dict.items() if key.startswith(("-e", "-s"))
     }
     logger.debug("Patterns to remove: {}", patterns_to_remove)
 

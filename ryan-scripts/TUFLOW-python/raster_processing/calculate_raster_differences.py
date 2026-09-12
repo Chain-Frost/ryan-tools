@@ -114,10 +114,12 @@ def run_asc2asc(current_raster: Path, subtract_raster: Path, output_file: Path, 
         stderr=subprocess.STDOUT,
         text=True,
         errors="replace",
+        check=False,
     )
     if result.returncode != 0:
         logger.error(f"asc_to_asc failed with return code {result.returncode}:\n{result.stdout}")
-        raise RuntimeError("asc_to_asc execution failed.")
+        msg = "asc_to_asc execution failed."
+        raise RuntimeError(msg)
 
 
 def process_raster(current_raster: str, configuration: WrapperConfiguration) -> None:

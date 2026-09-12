@@ -43,7 +43,8 @@ def load_existing_log_summary_rows(
 ) -> ExistingLogSummaryRows:
     """Read existing run-code and log-path keys from a log-summary workbook table."""
     if not workbook_path.exists():
-        raise FileNotFoundError(f"Master workbook does not exist: {workbook_path}")
+        msg = f"Master workbook does not exist: {workbook_path}"
+        raise FileNotFoundError(msg)
 
     workbook: Workbook = load_workbook(filename=workbook_path, read_only=False, data_only=False)
     try:
@@ -69,7 +70,7 @@ def load_existing_log_summary_rows(
             max_col=max_col,
             values_only=True,
         ):
-            if runcode_index is not None and runcode_index < len(row):
+            if runcode_index is not None and runcode_index < len(row):  # noqa: SIM102 - keeps walrus scoped clearly
                 if runcode_key := _normalise_text_key(row[runcode_index]):
                     runcodes.add(runcode_key)
 
@@ -180,7 +181,8 @@ def append_dataframe_to_workbook_table(
 
 def _resolve_worksheet(*, workbook: Workbook, sheet_name: str) -> Worksheet:
     if sheet_name not in workbook.sheetnames:
-        raise ValueError(f"Sheet '{sheet_name}' not found. Available sheets: {workbook.sheetnames}")
+        msg = f"Sheet '{sheet_name}' not found. Available sheets: {workbook.sheetnames}"
+        raise ValueError(msg)
     return workbook[sheet_name]
 
 
@@ -192,12 +194,12 @@ def _resolve_table(*, worksheet: Worksheet, table_name: str | None) -> Table | N
 
     resolved_table_name: str = table_name or table_names[0]
     if resolved_table_name not in worksheet.tables:
-        raise ValueError(
-            f"Table '{resolved_table_name}' not found on sheet '{worksheet.title}'. Available tables: {table_names}"
-        )
+        msg = f"Table '{resolved_table_name}' not found on sheet '{worksheet.title}'. Available tables: {table_names}"
+        raise ValueError(msg)
     table = worksheet.tables[resolved_table_name]
     if not isinstance(table, Table):
-        raise TypeError(f"Expected openpyxl Table for '{resolved_table_name}', got {type(table).__name__}")
+        msg = f"Expected openpyxl Table for '{resolved_table_name}', got {type(table).__name__}"
+        raise TypeError(msg)
     return table
 
 
@@ -205,7 +207,8 @@ def _table_or_sheet_bounds(*, worksheet: Worksheet, table: Table | None) -> tupl
     if table is not None:
         bounds = range_boundaries(table.ref)
         if any(bound is None for bound in bounds):
-            raise ValueError(f"Invalid table range: {table.ref}")
+            msg = f"Invalid table range: {table.ref}"
+            raise ValueError(msg)
         return cast("tuple[int, int, int, int]", bounds)
     return 1, 1, worksheet.max_column, worksheet.max_row
 
@@ -228,7 +231,8 @@ def _read_header_row(
         headers = ["" if value is None else str(value) for value in cell]
         break
     if not headers or all(not header for header in headers):
-        raise ValueError(f"No headers found on worksheet '{worksheet.title}' row {header_row}.")
+        msg = f"No headers found on worksheet '{worksheet.title}' row {header_row}."
+        raise ValueError(msg)
     return tuple(headers)
 
 

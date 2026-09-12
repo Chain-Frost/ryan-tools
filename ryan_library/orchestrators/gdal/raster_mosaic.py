@@ -121,7 +121,8 @@ def create_grouped_mosaics(
 def _group_files(files: Sequence[Path], group_remove_index: int) -> dict[str, list[Path]]:
     """Group paths by stems with one underscore/plus-delimited field removed."""
     if group_remove_index < 1:
-        raise ValueError("group_remove_index must be one or greater.")
+        msg = "group_remove_index must be one or greater."
+        raise ValueError(msg)
     groups: defaultdict[str, list[Path]] = defaultdict(list)
     for path in files:
         parts = re.split(r"[+_]", path.stem)

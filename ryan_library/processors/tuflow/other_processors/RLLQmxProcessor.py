@@ -54,7 +54,7 @@ class RLLQmxProcessor(BaseProcessor):
             "dQmax": "dQ",
             "Time dQmax": "Time dQ",
         }
-        self.df.rename(columns=rename_map, inplace=True)
+        self.df = self.df.rename(columns=rename_map)
 
         ordered_columns: list[str] = ["Chan ID", "Time", "Q", "dQ", "Time dQ", "H"]
         self.df = self.df[ordered_columns]

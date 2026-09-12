@@ -109,15 +109,15 @@ def ARF_long(area, duration, aep, region, params_df) -> int | None:
     all_regions = params_df.columns.tolist()
     if region not in all_regions:
         valid_regions = ", ".join(all_regions)
-        warnings.warn(f'Invalid region. You input "{region}". Valid regions are {valid_regions}')
+        warnings.warn(f'Invalid region. You input "{region}". Valid regions are {valid_regions}', stacklevel=2)
         return None
 
     # Assign parameters a-i
     try:
-        a, b, c, d, e, f, g, h, i = params_df[region].values
+        a, b, c, d, e, f, g, h, i = params_df[region].to_numpy()
         # print(a, b, c, d, e, f, g, h, i)
     except Exception as ex:
-        warnings.warn(f'Error retrieving parameters for region "{region}": {ex}')
+        warnings.warn(f'Error retrieving parameters for region "{region}": {ex}', stacklevel=2)
         return None
 
     # Compute ARF
@@ -128,10 +128,10 @@ def ARF_long(area, duration, aep, region, params_df) -> int | None:
         arf = 1 - term1 + term2 + term3
         return min(1, arf)
     except ValueError as ve:
-        warnings.warn(f"Error in ARF_long calculation: {ve}")
+        warnings.warn(f"Error in ARF_long calculation: {ve}", stacklevel=2)
         return None
     except Exception as ex:
-        warnings.warn(f"Unexpected error in ARF_long calculation: {ex}")
+        warnings.warn(f"Unexpected error in ARF_long calculation: {ex}", stacklevel=2)
         return None
 
 
@@ -165,10 +165,10 @@ def ARF_short(area, duration, aep) -> int | None:
         arf = 1 - term1 + term2 + term3
         return min(1, arf)
     except ValueError as ve:
-        warnings.warn(f"Error in ARF_short calculation: {ve}")
+        warnings.warn(f"Error in ARF_short calculation: {ve}", stacklevel=2)
         return None
     except Exception as ex:
-        warnings.warn(f"Unexpected error in ARF_short calculation: {ex}")
+        warnings.warn(f"Unexpected error in ARF_short calculation: {ex}", stacklevel=2)
         return None
 
 
@@ -191,21 +191,22 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
 
     # Input validation
     if area < 0 or area > 30000:
-        warnings.warn("Area must be between zero and 30,000 km-squared")
+        warnings.warn("Area must be between zero and 30,000 km-squared", stacklevel=2)
         return None
 
     if aep_frac > 0.5 or aep_frac < 0.005:
-        warnings.warn("AEP must be between 0.5% and 50%, returning NA")
+        warnings.warn("AEP must be between 0.5% and 50%, returning NA", stacklevel=2)
         return None
 
     if duration > 7 * 24 * 60 or duration < 0:
-        warnings.warn("Duration must be positive and less than 10080 min (7 days)")
+        warnings.warn("Duration must be positive and less than 10080 min (7 days)", stacklevel=2)
         return None
 
     if duration <= 720 and area > 1000:
         warnings.warn(
             "Generalized equations are not applicable for short durations when catchment areas exceed 1000 km-squared. "
-            "If area > 1000, duration must be greater than 12 hours (720 mins)"
+            "If area > 1000, duration must be greater than 12 hours (720 mins)",
+            stacklevel=2,
         )
         return None
 
@@ -217,7 +218,8 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
         if area >= 10:
             if region is None or params_df is None:
                 warnings.warn(
-                    "Region and params must be provided for long duration calculations with area >= 10 km-squared."
+                    "Region and params must be provided for long duration calculations with area >= 10 km-squared.",
+                    stacklevel=2,
                 )
                 return None
             arf_long = ARF_long(area, duration, aep_frac, region, params_df)
@@ -225,7 +227,7 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
 
         # area < 10: interpolate between ARF_long for 10 km² and 1
         if region is None or params_df is None:
-            warnings.warn("Region and params must be provided for interpolation.")
+            warnings.warn("Region and params must be provided for interpolation.", stacklevel=2)
             return None
         arf_long_10 = ARF_long(10, duration, aep_frac, region, params_df)
         if arf_long_10 is None:
@@ -238,7 +240,8 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
         if area >= 10:
             if area > 1000:
                 warnings.warn(
-                    "Generalised equations are not applicable for short duration events on areas > 1000 km-squared."
+                    "Generalised equations are not applicable for short duration events on areas > 1000 km-squared.",
+                    stacklevel=2,
                 )
                 return None
             arf_short = ARF_short(area, duration, aep_frac)
@@ -276,7 +279,7 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
             return arf
 
     # If none of the above conditions are met
-    warnings.warn("Error in ARF calculations: Undefined case.")
+    warnings.warn("Error in ARF calculations: Undefined case.", stacklevel=2)
     return None
 
 

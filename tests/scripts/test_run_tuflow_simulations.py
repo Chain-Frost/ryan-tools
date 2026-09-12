@@ -75,7 +75,7 @@ def test_check_and_set_defaults_invalid_priority(rtb, core_params):
     """Test validation fails with invalid priority."""
     core_params.computational_priority = "SUPER_HIGH"
     params = rtb.Parameters(core_params=core_params, run_variables={})
-    with pytest.raises(ValueError, match="Invalid priority: SUPER_HIGH. Must be one of:"):
+    with pytest.raises(ValueError, match=r"Invalid priority: SUPER_HIGH\. Must be one of:"):
         rtb.check_and_set_defaults(params)
 
 
@@ -148,7 +148,7 @@ def test_parse_input_files(rtb, tmp_path):
     """
     f.write_text(content, encoding="utf-8")
 
-    combos, first_seen = rtb.parse_input_files([f])
+    combos, _first_seen = rtb.parse_input_files([f])
 
     assert len(combos) == 2  # A-10 and B-20. Duplicate A-10 ignored.
     assert combos[0] == {"s1": "A", "e1": "10"}
@@ -214,7 +214,7 @@ def test_parse_input_files_gpu_stripped(rtb, tmp_path):
     f = tmp_path / "runs.txt"
     f.write_text("-s1 A -pu0 -e1 10 -pu1\n-s1 B -e1 20", encoding="utf-8")
 
-    combos, first_seen = rtb.parse_input_files([f])
+    combos, _first_seen = rtb.parse_input_files([f])
 
     # GPU flags should be stripped, only s1 and e1 remain
     assert len(combos) == 2

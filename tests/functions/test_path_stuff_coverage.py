@@ -45,7 +45,6 @@ def test_convert_to_relative_path_absolute_fallback():
 def test_convert_to_relative_path_value_error_fallback(mock_is_relative):
     # Force is_relative_to_current_directory to return True, but then relative_to raises ValueError
     mock_is_relative.return_value = True
-    cwd = Path.cwd()
     diff_path = Path("C:/non_existent_folder/file.txt")
     # This will raise ValueError when relative_to is called internally
     res = convert_to_relative_path(diff_path)

@@ -91,7 +91,8 @@ class WaterLevelProfileConfig:
 def _normalized_aep(value: str) -> str:
     normalized = value.strip().casefold()
     if not normalized:
-        raise ValueError("Target AEP values cannot be empty.")
+        msg = "Target AEP values cannot be empty."
+        raise ValueError(msg)
     return normalized
 
 
@@ -120,15 +121,16 @@ def discover_tuflow_profile_rasters(
     from the filename.
     """
     if not results_directory.is_dir():
-        raise FileNotFoundError(
-            f"TUFLOW results directory not found: {results_directory}"
-        )
+        msg = f"TUFLOW results directory not found: {results_directory}"
+        raise FileNotFoundError(msg)
     if not target_aeps:
-        raise ValueError("At least one target AEP is required.")
+        msg = "At least one target AEP is required."
+        raise ValueError(msg)
 
     requested = tuple(_normalized_aep(aep) for aep in target_aeps)
     if len(set(requested)) != len(requested):
-        raise ValueError(f"Target AEP values must be unique: {target_aeps!r}")
+        msg = f"Target AEP values must be unique: {target_aeps!r}"
+        raise ValueError(msg)
 
     matches: dict[str, list[Path]] = {aep: [] for aep in requested}
     target_suffix = f"_{target_result_type}".casefold()
@@ -172,9 +174,7 @@ def discover_tuflow_profile_rasters(
             problems.append(f"{aep}: multiple matches ({listed_paths})")
 
     if problems:
-        raise ValueError(
-            "TUFLOW profile raster discovery failed: " + "; ".join(problems)
-        )
+        raise ValueError("TUFLOW profile raster discovery failed: " + "; ".join(problems))
 
     selected = {aep: matches[aep][0] for aep in requested}
     for aep, path in selected.items():
@@ -189,47 +189,36 @@ def resolve_profile_layer_name(
 ) -> str:
     """Resolve a GeoPackage layer using explicit, sole-layer, or stem matching."""
     if not lines_gpkg.is_file():
-        raise FileNotFoundError(
-            f"Profile-line GeoPackage not found: {lines_gpkg}"
-        )
+        msg = f"Profile-line GeoPackage not found: {lines_gpkg}"
+        raise FileNotFoundError(msg)
 
     layer_table = gpd.list_layers(lines_gpkg)
     available = tuple(str(value) for value in layer_table["name"].tolist())
 
     if not available:
-        raise ValueError(
-            f"GeoPackage contains no readable layers: {lines_gpkg}"
-        )
+        msg = f"GeoPackage contains no readable layers: {lines_gpkg}"
+        raise ValueError(msg)
 
     if requested_layer is not None:
-        matches = tuple(
-            name
-            for name in available
-            if name.casefold() == requested_layer.casefold()
-        )
+        matches = tuple(name for name in available if name.casefold() == requested_layer.casefold())
         if len(matches) == 1:
             return matches[0]
-        raise ValueError(
-            f"Layer {requested_layer!r} not found in {lines_gpkg}. "
-            f"Available layers: {available}"
-        )
+        msg = f"Layer {requested_layer!r} not found in {lines_gpkg}. Available layers: {available}"
+        raise ValueError(msg)
 
     if len(available) == 1:
         return available[0]
 
-    stem_matches = tuple(
-        name
-        for name in available
-        if name.casefold() == lines_gpkg.stem.casefold()
-    )
+    stem_matches = tuple(name for name in available if name.casefold() == lines_gpkg.stem.casefold())
     if len(stem_matches) == 1:
         return stem_matches[0]
 
-    raise ValueError(
+    msg = (
         f"Could not choose a unique layer from {lines_gpkg}. "
         f"Available layers: {available}. "
         "Set lines_layer_name explicitly."
     )
+    raise ValueError(msg)
 
 
 def load_profile_lines(
@@ -251,14 +240,11 @@ def load_profile_lines(
     lines = gpd.read_file(lines_gpkg, layer=layer_name)
 
     if lines.empty:
-        raise ValueError(
-            f"Profile layer is empty: {lines_gpkg}:{layer_name}"
-        )
+        msg = f"Profile layer is empty: {lines_gpkg}:{layer_name}"
+        raise ValueError(msg)
     if name_field not in lines.columns:
-        raise ValueError(
-            f"Field {name_field!r} not found. "
-            f"Available fields: {tuple(lines.columns)}"
-        )
+        msg = f"Field {name_field!r} not found. Available fields: {tuple(lines.columns)}"
+        raise ValueError(msg)
 
     if lines.crs is None:
         if lines_crs_if_missing is not None:
@@ -286,19 +272,14 @@ def load_profile_lines(
         else:
             source_crs = None
             logger.warning(
-                "Profile lines and rasters have no CRS metadata; assuming "
-                "their source coordinates are already aligned"
+                "Profile lines and rasters have no CRS metadata; assuming their source coordinates are already aligned"
             )
     else:
         source_crs = CRS.from_user_input(lines.crs)
 
     resolved_crs = target_crs or source_crs
 
-    if (
-        source_crs is not None
-        and target_crs is not None
-        and source_crs != target_crs
-    ):
+    if source_crs is not None and target_crs is not None and source_crs != target_crs:
         logger.info(
             "Reprojecting profile lines from {} to {}",
             source_crs.to_string(),
@@ -315,22 +296,14 @@ def _validate_known_profile_crs(profile_crs: CRS | None) -> None:
         return
 
     if not profile_crs.is_projected:
-        raise ValueError(
-            "Profile sampling requires a projected CRS, received "
-            f"{profile_crs.to_string()}."
-        )
+        msg = f"Profile sampling requires a projected CRS, received {profile_crs.to_string()}."
+        raise ValueError(msg)
 
-    horizontal_units = {
-        axis.unit_name.casefold()
-        for axis in profile_crs.axis_info[:2]
-        if axis.unit_name
-    }
+    horizontal_units = {axis.unit_name.casefold() for axis in profile_crs.axis_info[:2] if axis.unit_name}
 
     if not horizontal_units or not horizontal_units <= {"metre", "meter"}:
-        raise ValueError(
-            "Profile distance labels require a metre-based CRS, "
-            f"received units {sorted(horizontal_units)}."
-        )
+        msg = f"Profile distance labels require a metre-based CRS, received units {sorted(horizontal_units)}."
+        raise ValueError(msg)
 
 
 def split_profile_line(
@@ -341,18 +314,18 @@ def split_profile_line(
 ) -> tuple[LineString, ...]:
     """Return connected LineStrings without silently dropping multipart data."""
     if geometry.is_empty:
-        raise ValueError(f"Profile {line_name!r} has empty geometry.")
+        msg = f"Profile {line_name!r} has empty geometry."
+        raise ValueError(msg)
 
     if isinstance(geometry, LineString):
         if geometry.length <= 0.0:
-            raise ValueError(f"Profile {line_name!r} has zero length.")
+            msg = f"Profile {line_name!r} has zero length."
+            raise ValueError(msg)
         return (geometry,)
 
     if not isinstance(geometry, MultiLineString):
-        raise ValueError(
-            f"Profile {line_name!r} has unsupported geometry type "
-            f"{geometry.geom_type!r}."
-        )
+        msg = f"Profile {line_name!r} has unsupported geometry type {geometry.geom_type!r}."
+        raise ValueError(msg)
 
     merged = linemerge(geometry)
 
@@ -360,11 +333,12 @@ def split_profile_line(
         return (merged,)
 
     if disconnected_handling == "error":
-        raise ValueError(
+        msg = (
             f"Profile {line_name!r} contains {len(merged.geoms)} "
             "disconnected line parts. Use "
             "disconnected_line_handling='separate' to plot every part."
         )
+        raise ValueError(msg)
 
     return tuple(merged.geoms)
 
@@ -392,14 +366,11 @@ def _raster_crs_and_spacing(
     spacing: float | None,
 ) -> tuple[CRS | None, float]:
     if not path.is_file():
-        raise FileNotFoundError(f"Raster not found: {path}")
+        msg = f"Raster not found: {path}"
+        raise FileNotFoundError(msg)
 
     with rasterio.open(path) as source:
-        raster_crs = (
-            CRS.from_user_input(source.crs)
-            if source.crs is not None
-            else None
-        )
+        raster_crs = CRS.from_user_input(source.crs) if source.crs is not None else None
         effective_spacing = (
             spacing
             if spacing is not None
@@ -420,11 +391,7 @@ def _read_water_raster_crs(
 
     for aep, path in water_rasters.items():
         with rasterio.open(path) as source:
-            water_crs[aep] = (
-                CRS.from_user_input(source.crs)
-                if source.crs is not None
-                else None
-            )
+            water_crs[aep] = CRS.from_user_input(source.crs) if source.crs is not None else None
 
     return water_crs
 
@@ -438,11 +405,7 @@ def _resolve_known_raster_crs(
     if terrain_crs is not None:
         known.append(("terrain", terrain_crs))
 
-    known.extend(
-        (f"water raster {aep}", crs)
-        for aep, crs in water_crs.items()
-        if crs is not None
-    )
+    known.extend((f"water raster {aep}", crs) for aep, crs in water_crs.items() if crs is not None)
 
     if not known:
         return None
@@ -451,11 +414,8 @@ def _resolve_known_raster_crs(
 
     for name, crs in known[1:]:
         if crs != reference_crs:
-            raise ValueError(
-                f"CRS mismatch: {reference_name} uses "
-                f"{reference_crs.to_string()}, but {name} uses "
-                f"{crs.to_string()}."
-            )
+            msg = f"CRS mismatch: {reference_name} uses {reference_crs.to_string()}, but {name} uses {crs.to_string()}."
+            raise ValueError(msg)
 
     return reference_crs
 
@@ -468,11 +428,7 @@ def _log_assumed_raster_crs(
     water_crs: Mapping[str, CRS | None],
     resolved_crs: CRS | None,
 ) -> None:
-    assumption = (
-        resolved_crs.to_string()
-        if resolved_crs is not None
-        else "the shared source coordinate system"
-    )
+    assumption = resolved_crs.to_string() if resolved_crs is not None else "the shared source coordinate system"
 
     if terrain_crs is None:
         logger.warning(
@@ -499,10 +455,8 @@ def sample_line_z(
     coordinates = np.asarray(line.coords, dtype=np.float64)
 
     if coordinates.ndim != 2 or coordinates.shape[1] < 3:
-        raise ValueError(
-            "Formation plotting was requested but the profile line does "
-            "not contain Z coordinates."
-        )
+        msg = "Formation plotting was requested but the profile line does not contain Z coordinates."
+        raise ValueError(msg)
 
     xy = coordinates[:, :2]
     z = coordinates[:, 2]
@@ -519,9 +473,8 @@ def sample_line_z(
     )
 
     if cumulative_distance[-1] <= 0.0:
-        raise ValueError(
-            "Formation plotting requires a line with positive horizontal length."
-        )
+        msg = "Formation plotting requires a line with positive horizontal length."
+        raise ValueError(msg)
 
     return np.asarray(
         np.interp(distances, cumulative_distance, z),
@@ -560,21 +513,27 @@ def run_water_level_profile_workflow(
 ) -> tuple[Path, ...]:
     """Create one terrain/water-level profile plot per connected input line."""
     if config.max_interpolation_gap < 0:
-        raise ValueError("max_interpolation_gap must be non-negative.")
+        msg = "max_interpolation_gap must be non-negative."
+        raise ValueError(msg)
 
     if config.plot_width_cm <= 0.0 or config.plot_height_cm <= 0.0:
-        raise ValueError("Plot dimensions must be positive.")
+        msg = "Plot dimensions must be positive."
+        raise ValueError(msg)
     if config.scenario_name is not None and not config.scenario_name.strip():
-        raise ValueError("scenario_name cannot be blank.")
+        msg = "scenario_name cannot be blank."
+        raise ValueError(msg)
 
     if not np.isfinite(config.chainage_start_km):
-        raise ValueError("chainage_start_km must be finite.")
+        msg = "chainage_start_km must be finite."
+        raise ValueError(msg)
 
     if config.formation_linewidth <= 0.0:
-        raise ValueError("formation_linewidth must be positive.")
+        msg = "formation_linewidth must be positive."
+        raise ValueError(msg)
 
     if config.minor_grid_subdivisions < 2:
-        raise ValueError("minor_grid_subdivisions must be at least 2.")
+        msg = "minor_grid_subdivisions must be at least 2."
+        raise ValueError(msg)
 
     water_rasters = discover_tuflow_profile_rasters(
         config.tuflow_results_dir,
@@ -620,23 +579,20 @@ def run_water_level_profile_workflow(
         raw_name = row[config.name_field]
 
         if raw_name is None or bool(pd.isna(raw_name)):
-            raise ValueError(
-                f"Profile has an empty {config.name_field!r} value."
-            )
+            msg = f"Profile has an empty {config.name_field!r} value."
+            raise ValueError(msg)
 
         line_name = str(raw_name)
 
         if not line_name.strip():
-            raise ValueError(
-                f"Profile has a blank {config.name_field!r} value."
-            )
+            msg = f"Profile has a blank {config.name_field!r} value."
+            raise ValueError(msg)
 
         geometry = cast("BaseGeometry | None", row.geometry)
 
         if geometry is None:
-            raise ValueError(
-                f"Profile {line_name!r} has null geometry."
-            )
+            msg = f"Profile {line_name!r} has null geometry."
+            raise ValueError(msg)
 
         parts = split_profile_line(
             geometry,
@@ -645,49 +601,32 @@ def run_water_level_profile_workflow(
         )
 
         for part_number, line in enumerate(parts, start=1):
-            profile_display_name = (
-                line_name
-                if len(parts) == 1
-                else f"{line_name} (part {part_number})"
-            )
+            profile_display_name = line_name if len(parts) == 1 else f"{line_name} (part {part_number})"
             display_name = (
                 profile_display_name
                 if config.scenario_name is None
                 else f"{config.scenario_name} - {profile_display_name}"
             )
 
-            filename_base_name = (
-                line_name
-                if config.scenario_name is None
-                else f"{config.scenario_name} - {line_name}"
-            )
+            filename_base_name = line_name if config.scenario_name is None else f"{config.scenario_name} - {line_name}"
             filename_name = sanitize_windows_filename(
                 filename_base_name,
                 fallback="profile",
             )
-            part_suffix = (
-                ""
-                if len(parts) == 1
-                else f"_part_{part_number}"
-            )
-            output_path = (
-                config.output_dir
-                / f"{filename_name}{part_suffix}_profile.png"
-            )
+            part_suffix = "" if len(parts) == 1 else f"_part_{part_number}"
+            output_path = config.output_dir / f"{filename_name}{part_suffix}_profile.png"
 
             normalized_output = output_path.name.casefold()
 
             if normalized_output in reserved_names:
-                raise ValueError(
-                    f"Duplicate profile output filename: {output_path.name}"
-                )
+                msg = f"Duplicate profile output filename: {output_path.name}"
+                raise ValueError(msg)
 
             reserved_names.add(normalized_output)
 
             if output_path.exists() and not config.overwrite_existing:
-                raise FileExistsError(
-                    f"Profile output already exists: {output_path}"
-                )
+                msg = f"Profile output already exists: {output_path}"
+                raise FileExistsError(msg)
 
             profile_jobs.append((display_name, line, output_path))
 
@@ -703,9 +642,7 @@ def run_water_level_profile_workflow(
                 config.plot_height_cm / 2.54,
             )
         )
-        temporary_output = output_path.with_name(
-            f".{output_path.stem}.tmp{output_path.suffix}"
-        )
+        temporary_output = output_path.with_name(f".{output_path.stem}.tmp{output_path.suffix}")
 
         try:
             distances, terrain = sample_raster_along_line(
@@ -747,10 +684,8 @@ def run_water_level_profile_workflow(
                 )
 
                 if not np.array_equal(distances, water_distances):
-                    raise RuntimeError(
-                        "Sampling stations differ between terrain "
-                        f"and {aep} raster."
-                    )
+                    msg = f"Sampling stations differ between terrain and {aep} raster."
+                    raise RuntimeError(msg)
 
                 water = interpolate_short_nan_gaps(
                     water,
@@ -758,11 +693,7 @@ def run_water_level_profile_workflow(
                 )
                 water_plot = water.copy()
 
-                dry = (
-                    np.isnan(water)
-                    | np.isnan(terrain)
-                    | (water <= terrain)
-                )
+                dry = np.isnan(water) | np.isnan(terrain) | (water <= terrain)
 
                 if config.dry_area_handling == "ground_level":
                     water_plot[dry] = terrain[dry]

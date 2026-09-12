@@ -121,7 +121,8 @@ def interpolate_short_nan_gaps(values: FloatArray, *, max_gap: int) -> FloatArra
     Leading, trailing, and over-limit gaps remain entirely unchanged.
     """
     if max_gap < 0:
-        raise ValueError(f"max_gap must be non-negative, received {max_gap}.")
+        msg = f"max_gap must be non-negative, received {max_gap}."
+        raise ValueError(msg)
     result = np.asarray(values, dtype=np.float64).copy()
     if max_gap == 0 or result.size < 3:
         return result
@@ -176,11 +177,14 @@ def sample_raster_along_line(
         RasterSamplingError: If the raster cannot be opened or sampled.
     """
     if line.is_empty or line.length <= 0.0:
-        raise ValueError("The profile line must be non-empty and have positive length.")
+        msg = "The profile line must be non-empty and have positive length."
+        raise ValueError(msg)
     if spacing is not None and (not isfinite(spacing) or spacing <= 0.0):
-        raise ValueError(f"spacing must be a finite positive number, received {spacing!r}.")
+        msg = f"spacing must be a finite positive number, received {spacing!r}."
+        raise ValueError(msg)
     if method not in {"bilinear", "bilinear_valid", "bilinear_masked", "nearest"}:
-        raise ValueError(f"Unsupported sampling method: {method!r}.")
+        msg = f"Unsupported sampling method: {method!r}."
+        raise ValueError(msg)
 
     source_path = Path(raster_path)
     try:
@@ -189,7 +193,8 @@ def sample_raster_along_line(
             cell_y = abs(float(source.res[1]))
             effective_spacing = spacing if spacing is not None else min(cell_x, cell_y) / 2.0
             if not isfinite(effective_spacing) or effective_spacing <= 0.0:
-                raise ValueError(f"Raster resolution produced invalid spacing {effective_spacing!r}.")
+                msg = f"Raster resolution produced invalid spacing {effective_spacing!r}."
+                raise ValueError(msg)
             if spacing is None:
                 logger.debug("Auto-detected spacing {:.3f} for {}", effective_spacing, source_path.name)
 
@@ -246,4 +251,5 @@ def sample_raster_along_line(
     except ValueError, RasterSamplingError:
         raise
     except Exception as exc:
-        raise RasterSamplingError(f"Failed to sample raster {source_path}: {exc}") from exc
+        msg = f"Failed to sample raster {source_path}: {exc}"
+        raise RasterSamplingError(msg) from exc

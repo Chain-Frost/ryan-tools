@@ -36,7 +36,8 @@ def resolve_vector_format(value: str) -> tuple[VectorFormat, VectorFormatSpec]:
     normalized = value.lower().lstrip(".")
     if normalized not in VECTOR_FORMATS:
         supported = ", ".join(VECTOR_FORMATS)
-        raise ValueError(f"Unsupported vector format '{value}'. Choose from: {supported}")
+        msg = f"Unsupported vector format '{value}'. Choose from: {supported}"
+        raise ValueError(msg)
     return normalized, VECTOR_FORMATS[normalized]
 
 
@@ -45,7 +46,8 @@ def require_vector_driver(vector_format: str) -> tuple[VectorFormat, VectorForma
     normalized, spec = resolve_vector_format(vector_format)
     with gdal.ExceptionMgr():  # type: ignore
         if gdal.GetDriverByName(spec.driver) is None:  # type: ignore
-            raise RuntimeError(f"The active GDAL installation does not provide the '{spec.driver}' driver")
+            msg = f"The active GDAL installation does not provide the '{spec.driver}' driver"
+            raise RuntimeError(msg)
     return normalized, spec
 
 
@@ -55,13 +57,15 @@ def get_vector_layer_names(source: str | Path) -> list[str]:
     with gdal.ExceptionMgr():  # type: ignore
         source_dataset = gdal.OpenEx(str(source_path), gdal.OF_VECTOR)  # type: ignore
         if source_dataset is None:
-            raise RuntimeError(f"GDAL could not open vector dataset {source_path}")
+            msg = f"GDAL could not open vector dataset {source_path}"
+            raise RuntimeError(msg)
         try:
             layer_names: list[str] = []
             for index in range(int(source_dataset.GetLayerCount())):  # type: ignore
                 layer = source_dataset.GetLayerByIndex(index)  # type: ignore
                 if layer is None:
-                    raise RuntimeError(f"GDAL could not read layer index {index} from {source_path}")
+                    msg = f"GDAL could not read layer index {index} from {source_path}"
+                    raise RuntimeError(msg)
                 layer_names.append(str(layer.GetName()))  # type: ignore
             return layer_names
         finally:
@@ -74,23 +78,27 @@ def get_unique_attribute_values(source: str | Path, layer_name: str, attribute_n
     with gdal.ExceptionMgr():  # type: ignore
         source_dataset = gdal.OpenEx(str(source_path), gdal.OF_VECTOR | gdal.OF_READONLY)  # type: ignore
         if source_dataset is None:
-            raise RuntimeError(f"GDAL could not open vector dataset {source_path}")
+            msg = f"GDAL could not open vector dataset {source_path}"
+            raise RuntimeError(msg)
         result_layer: Any | None = None
         try:
             layer = source_dataset.GetLayerByName(layer_name)  # type: ignore
             if layer is None:
-                raise RuntimeError(f"GDAL could not read layer '{layer_name}' from {source_path}")
+                msg = f"GDAL could not read layer '{layer_name}' from {source_path}"
+                raise RuntimeError(msg)
             layer_definition = layer.GetLayerDefn()  # type: ignore
             if layer_definition.GetFieldIndex(attribute_name) < 0:  # type: ignore
-                raise ValueError(f"Layer '{layer_name}' has no attribute named '{attribute_name}'")
+                msg = f"Layer '{layer_name}' has no attribute named '{attribute_name}'"
+                raise ValueError(msg)
 
             quoted_attribute = attribute_name.replace('"', '""')
             quoted_layer = layer_name.replace('"', '""')
             result_layer = source_dataset.ExecuteSQL(  # type: ignore
-                f'SELECT DISTINCT "{quoted_attribute}" FROM "{quoted_layer}"'
+                f'SELECT DISTINCT "{quoted_attribute}" FROM "{quoted_layer}"'  # noqa: S608
             )
             if result_layer is None:
-                raise RuntimeError(f"GDAL could not query attribute '{attribute_name}' from layer '{layer_name}'")
+                msg = f"GDAL could not query attribute '{attribute_name}' from layer '{layer_name}'"
+                raise RuntimeError(msg)
 
             values = [str(feature.GetFieldAsString(0)) for feature in result_layer]  # type: ignore
             return sorted(value for value in values if value)
@@ -120,9 +128,11 @@ def translate_vector_dataset(
     output_path = Path(output).resolve()
     _normalized, spec = require_vector_driver(vector_format)
     if not source_path.exists():
-        raise FileNotFoundError(f"Source vector dataset does not exist: {source_path}")
+        msg = f"Source vector dataset does not exist: {source_path}"
+        raise FileNotFoundError(msg)
     if output_path.exists():
-        raise FileExistsError(f"Output already exists: {output_path}")
+        msg = f"Output already exists: {output_path}"
+        raise FileExistsError(msg)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_directory = Path(tempfile.mkdtemp(prefix=f".{output_path.stem}.converting-", dir=output_path.parent))
@@ -144,20 +154,23 @@ def translate_vector_dataset(
                 options=options,
             )
             if output_dataset is None:
-                raise RuntimeError("GDAL did not create an output dataset")
+                msg = "GDAL did not create an output dataset"
+                raise RuntimeError(msg)
             output_dataset.FlushCache()  # type: ignore
             output_dataset = None
 
         generated_files = [path for path in temporary_directory.iterdir() if path.is_file()]
         if not generated_files:
-            raise RuntimeError("GDAL reported success but produced no output files")
+            msg = "GDAL reported success but produced no output files"
+            raise RuntimeError(msg)
 
         for generated_file in generated_files:
             published_file = output_path.parent / generated_file.name
             generated_file.replace(published_file)
             published_files.append(published_file)
         if not output_path.is_file():
-            raise RuntimeError(f"GDAL did not produce the expected primary output {output_path}")
+            msg = f"GDAL did not produce the expected primary output {output_path}"
+            raise RuntimeError(msg)
         return tuple(published_files)
     except Exception as exc:
         cleanup_failures: list[str] = []
@@ -167,7 +180,8 @@ def translate_vector_dataset(
             except OSError:
                 cleanup_failures.append(str(published_file))
         if cleanup_failures:
-            raise RuntimeError(f"{exc}; could not remove partial outputs: {', '.join(cleanup_failures)}") from exc
+            msg = f"{exc}; could not remove partial outputs: {', '.join(cleanup_failures)}"
+            raise RuntimeError(msg) from exc
         raise
     finally:
         shutil.rmtree(temporary_directory, ignore_errors=True)

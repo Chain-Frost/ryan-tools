@@ -66,7 +66,9 @@ def _open_raster(path: Path, mode: str = "r", profile: dict[str, object] | None 
     return cast(
         "_RasterDataset",
         rasterio.open(  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportArgumentType]
-            path, mode, **profile  # pyright: ignore[reportArgumentType]
+            path,
+            mode,
+            **profile,  # pyright: ignore[reportArgumentType]
         ),
     )
 
@@ -76,15 +78,18 @@ def _parse_creation_options(extra_args: list[str] | None) -> dict[str, object]:
     if not extra_args:
         return {}
     if len(extra_args) % 2:
-        raise ValueError("Creation options must use repeated '-co NAME=VALUE' pairs")
+        msg = "Creation options must use repeated '-co NAME=VALUE' pairs"
+        raise ValueError(msg)
 
     options: dict[str, object] = {}
     for flag, expression in zip(extra_args[::2], extra_args[1::2], strict=True):
         if flag.lower() != "-co" or "=" not in expression:
-            raise ValueError(f"Invalid creation option: {flag} {expression}")
+            msg = f"Invalid creation option: {flag} {expression}"
+            raise ValueError(msg)
         key, value = expression.split("=", maxsplit=1)
         if not key or not value:
-            raise ValueError(f"Invalid creation option: {expression}")
+            msg = f"Invalid creation option: {expression}"
+            raise ValueError(msg)
         options[key.lower()] = value
     return options
 
@@ -102,20 +107,26 @@ def _valid_mask(data: npt.NDArray[np.float64], nodata: float | int | None) -> np
 
 def _validate_inputs(datasets: list[_RasterDataset], paths: list[Path]) -> None:
     if not datasets:
-        raise ValueError("At least one input raster is required")
+        msg = "At least one input raster is required"
+        raise ValueError(msg)
     reference: _RasterDataset = datasets[0]
     if reference.count < 1:
-        raise ValueError(f"Input raster has no bands: {paths[0]}")
+        msg = f"Input raster has no bands: {paths[0]}"
+        raise ValueError(msg)
 
     for path, dataset in zip(paths[1:], datasets[1:], strict=True):
         if dataset.count < 1:
-            raise ValueError(f"Input raster has no bands: {path}")
+            msg = f"Input raster has no bands: {path}"
+            raise ValueError(msg)
         if (dataset.width, dataset.height) != (reference.width, reference.height):
-            raise ValueError(f"Raster dimensions do not match the first input: {path}")
+            msg = f"Raster dimensions do not match the first input: {path}"
+            raise ValueError(msg)
         if dataset.transform != reference.transform:
-            raise ValueError(f"Raster transform does not match the first input: {path}")
+            msg = f"Raster transform does not match the first input: {path}"
+            raise ValueError(msg)
         if dataset.crs != reference.crs:
-            raise ValueError(f"Raster CRS does not match the first input: {path}")
+            msg = f"Raster CRS does not match the first input: {path}"
+            raise ValueError(msg)
 
 
 def _creation_option_arguments(options: list[str]) -> list[str]:
@@ -143,10 +154,12 @@ def _output_profile(reference: _RasterDataset, extra_args: list[str] | None) -> 
 def _open_inputs(stack: ExitStack, input_files: list[str]) -> tuple[list[Path], list[_RasterDataset]]:
     paths: list[Path] = [Path(value).resolve() for value in input_files]
     if not paths:
-        raise ValueError("At least one input raster is required")
+        msg = "At least one input raster is required"
+        raise ValueError(msg)
     missing: list[Path] = [path for path in paths if not path.is_file()]
     if missing:
-        raise FileNotFoundError(f"Input raster does not exist: {missing[0]}")
+        msg = f"Input raster does not exist: {missing[0]}"
+        raise FileNotFoundError(msg)
     datasets = [stack.enter_context(closing(_open_raster(path))) for path in paths]
     _validate_inputs(datasets, paths)
     return paths, datasets
@@ -183,7 +196,8 @@ def _source_output_paths(
         else output_path.with_name(f"{output_path.stem}_src_legend.csv")
     )
     if source_path == output_path:
-        raise ValueError("Source raster path must differ from the value raster path")
+        msg = "Source raster path must differ from the value raster path"
+        raise ValueError(msg)
     return source_path, legend_path
 
 
@@ -227,20 +241,25 @@ def flatten_nested_source_provenance(
     legend that points directly to the original rasters.
     """
     if not nested_source_files:
-        raise ValueError("At least one nested source raster is required")
+        msg = "At least one nested source raster is required"
+        raise ValueError(msg)
     if len(nested_source_files) != len(original_input_groups):
-        raise ValueError("Nested source rasters and original input groups must have equal lengths")
+        msg = "Nested source rasters and original input groups must have equal lengths"
+        raise ValueError(msg)
     if any(not group for group in original_input_groups):
-        raise ValueError("Every nested source raster must have at least one original input")
+        msg = "Every nested source raster must have at least one original input"
+        raise ValueError(msg)
 
     source_path, legend_path = source_output_paths(output_file, source_output_file, source_legend_file)
     temporary_source_path: Path = _temporary_output(source_path)
     original_paths: list[Path] = [Path(value).resolve() for group in original_input_groups for value in group]
     missing_originals: list[Path] = [path for path in original_paths if not path.is_file()]
     if missing_originals:
-        raise FileNotFoundError(f"Original source raster does not exist: {missing_originals[0]}")
+        msg = f"Original source raster does not exist: {missing_originals[0]}"
+        raise FileNotFoundError(msg)
     if len(original_paths) > np.iinfo(np.int32).max:
-        raise ValueError("Too many original rasters for a 32-bit source-ID raster")
+        msg = "Too many original rasters for a 32-bit source-ID raster"
+        raise ValueError(msg)
 
     try:
         with ExitStack() as stack:
@@ -324,7 +343,8 @@ def compute_max(input_files: list[str], output_file: str, extra_args: list[str] 
                     maximum = values if maximum is None else np.maximum(maximum, values)
                     any_valid = valid if any_valid is None else any_valid | valid
                 if maximum is None or any_valid is None:
-                    raise RuntimeError("No raster values were read")
+                    msg = "No raster values were read"
+                    raise RuntimeError(msg)
                 result = np.where(any_valid, maximum, output_nodata)
                 destination.write(result, 1, window=window)
         _replace_output(temporary_path, output_path)
@@ -440,13 +460,17 @@ def compute_stat(
     """
     normalized_stat: str = stat_type.lower().removeprefix("-stat")
     if normalized_stat not in {"mean", "median", "min", "max"}:
-        raise ValueError(f"Unsupported stat_type: {stat_type}")
+        msg = f"Unsupported stat_type: {stat_type}"
+        raise ValueError(msg)
     if nodata_policy not in {"require_all", "zero", "exclude"}:
-        raise ValueError(f"Unsupported nodata_policy: {nodata_policy}")
+        msg = f"Unsupported nodata_policy: {nodata_policy}"
+        raise ValueError(msg)
     if mean_value_method not in {"closest_source", "arithmetic", "asc_to_asc"}:
-        raise ValueError(f"Unsupported mean_value_method: {mean_value_method}")
+        msg = f"Unsupported mean_value_method: {mean_value_method}"
+        raise ValueError(msg)
     if not write_source and (source_output_file is not None or source_legend_file is not None):
-        raise ValueError("Source output paths cannot be supplied when write_source is False")
+        msg = "Source output paths cannot be supplied when write_source is False"
+        raise ValueError(msg)
 
     output_path: Path = Path(output_file).resolve()
     temporary_path: Path = _temporary_output(output_path)
@@ -458,7 +482,8 @@ def compute_stat(
             stack.enter_context(rasterio.Env(GDAL_CACHEMAX=512, VSI_CACHE=True))
             input_paths, datasets = _open_inputs(stack, input_files)
             if len(datasets) > np.iinfo(np.int32).max:
-                raise ValueError("Too many input rasters for a 32-bit source-ID raster")
+                msg = "Too many input rasters for a 32-bit source-ID raster"
+                raise ValueError(msg)
             profile, output_nodata = _output_profile(datasets[0], extra_args)
             destination = stack.enter_context(closing(_open_raster(temporary_path, "w", profile)))
             source_destination: _RasterDataset | None = None

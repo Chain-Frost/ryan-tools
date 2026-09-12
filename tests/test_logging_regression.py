@@ -18,7 +18,7 @@ def run_harness(level: str, extra_args: list[str] | None = None) -> str:
     env["PYTHONPATH"] = str(REPO_ROOT)
 
     result: subprocess.CompletedProcess[str] = subprocess.run(
-        cmd, capture_output=True, text=True, cwd=REPO_ROOT, env=env, timeout=60
+        cmd, capture_output=True, text=True, cwd=REPO_ROOT, env=env, timeout=60, check=False
     )
     if result.returncode != 0:
         print(f"Command failed: {cmd}")

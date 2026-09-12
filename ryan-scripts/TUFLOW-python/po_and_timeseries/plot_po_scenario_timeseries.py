@@ -30,7 +30,7 @@ from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 # --------------------------------------------------------------------------------------
-# Configuration – tweak these constants to target different runs or behaviours.
+# Configuration - tweak these constants to target different runs or behaviours.
 # --------------------------------------------------------------------------------------
 TUFLOW_RESULTS_ROOT = Path(r"Q:\25\RP25232 RR BULK EARTHWORKS - MINRES\TUFLOW_AGIL_RR\results\v05\bigModel")
 PARQUET_PATH: Path = TUFLOW_RESULTS_ROOT / "po_timeseries_08M.parquet"
@@ -44,7 +44,7 @@ SCENARIO_DIMENSIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("TP", ("tp_text", "TP", "tp_numeric")),
     ("DUR", ("duration_text", "DUR", "duration_numeric")),
 )
-SCENARIO_DIMENSION_MAP: dict[str, tuple[str, ...]] = {dimension: options for dimension, options in SCENARIO_DIMENSIONS}
+SCENARIO_DIMENSION_MAP: dict[str, tuple[str, ...]] = dict(SCENARIO_DIMENSIONS)
 SCENARIO_VALUE_PLACEHOLDER = "Unknown"
 SCENARIO_LEGEND_TITLE = "Scenario (AEP | TP | DUR)"
 COLORBAR_LABEL = "AEP"
@@ -52,7 +52,8 @@ COLORBAR_LABEL = "AEP"
 
 def find_po_files(root: Path) -> list[Path]:
     if not root.is_dir():
-        raise FileNotFoundError(f"TUFLOW root does not exist: {root}")
+        msg = f"TUFLOW root does not exist: {root}"
+        raise FileNotFoundError(msg)
     files: list[Path] = sorted({path for path in root.rglob(FILE_PATTERN) if path.is_file()})
     logger.info("Found {} PO files matching pattern {}", len(files), FILE_PATTERN)
     return files
@@ -96,23 +97,27 @@ def filter_internal_name(df: pd.DataFrame) -> pd.DataFrame:
 def load_po_dataframe() -> pd.DataFrame:
     if LOAD_FROM_PARQUET:
         if not PARQUET_PATH.is_file():
-            raise FileNotFoundError(f"Parquet file not found at {PARQUET_PATH}")
+            msg = f"Parquet file not found at {PARQUET_PATH}"
+            raise FileNotFoundError(msg)
         logger.info("Loading cached parquet {}", PARQUET_PATH)
         df: DataFrame = pd.read_parquet(path=PARQUET_PATH)
         return filter_internal_name(df=df)
 
     files: list[Path] = find_po_files(root=TUFLOW_RESULTS_ROOT)
     if not files:
-        raise RuntimeError("No PO files matched the specified pattern.")
+        msg = "No PO files matched the specified pattern."
+        raise RuntimeError(msg)
 
     logger.info("Sequentially processing {} file(s)...", len(files))
     collection: ProcessorCollection = process_files_sequentially(files)
     if not collection.processors:
-        raise RuntimeError("Processing finished but produced no data.")
+        msg = "Processing finished but produced no data."
+        raise RuntimeError(msg)
 
     combined: DataFrame = collection.po_combine()
     if combined.empty:
-        raise RuntimeError("Combined DataFrame is empty.")
+        msg = "Combined DataFrame is empty."
+        raise RuntimeError(msg)
 
     filtered: DataFrame = filter_internal_name(combined)
     PARQUET_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -226,25 +231,29 @@ def create_aep_colorizer(
 def plot_timeseries(df: pd.DataFrame) -> None:
     plot_df: DataFrame = prepare_plot_df(df)
     if plot_df.empty:
-        raise RuntimeError("No data to plot after preparation.")
+        msg = "No data to plot after preparation."
+        raise RuntimeError(msg)
 
     if PLOT_LOCATIONS:
         available: list[str] = [loc for loc in PLOT_LOCATIONS if loc in plot_df["Location"].dropna().unique()]
         if not available:
-            raise RuntimeError("Configured plot locations are missing from the dataset.")
+            msg = "Configured plot locations are missing from the dataset."
+            raise RuntimeError(msg)
     else:
         available = list(plot_df["Location"].dropna().unique())
 
     subset: DataFrame = plot_df[plot_df["Location"].isin(values=available)].copy()
     if subset.empty:
-        raise RuntimeError("Plot subset is empty.")
+        msg = "Plot subset is empty."
+        raise RuntimeError(msg)
 
     try:
         dimension_columns = resolve_dimension_columns(subset)
         subset["scenario_label"] = build_scenario_labels(subset, dimension_columns)
         colorize_aep, color_meta = create_aep_colorizer(subset, dimension_columns)
     except KeyError as exc:
-        raise RuntimeError("Unable to build scenario groupings for plotting.") from exc
+        msg = "Unable to build scenario groupings for plotting."
+        raise RuntimeError(msg) from exc
 
     for location in available:
         location_subset = subset[subset["Location"] == location]
@@ -267,7 +276,7 @@ def plot_timeseries(df: pd.DataFrame) -> None:
             )
             scenario_handles.setdefault(scenario_label, line)
 
-        ax.set_title(label=f"PO timeseries – {location}")
+        ax.set_title(label=f"PO timeseries - {location}")
         ax.set_ylabel(ylabel="Q (Value)")
         ax.set_xlabel(xlabel="Time")
         ax.grid(visible=True)

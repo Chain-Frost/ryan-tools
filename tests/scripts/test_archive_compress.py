@@ -81,6 +81,7 @@ def test_compress_folder_with_exclusions(mock_project: Path):
         text=True,
         env=env,
         cwd=mock_project.parent,
+        check=False,
     )
 
     assert result.returncode == 0, f"Script failed with output:\n{result.stderr}\n{result.stdout}"
@@ -132,6 +133,7 @@ def test_compress_individual_with_exclusions(mock_project: Path):
         text=True,
         env=env,
         cwd=mock_project.parent,
+        check=False,
     )
 
     assert result.returncode == 0, f"Script failed with output:\n{result.stderr}\n{result.stdout}"

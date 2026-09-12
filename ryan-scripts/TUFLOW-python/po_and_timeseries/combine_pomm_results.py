@@ -76,9 +76,7 @@ def main(
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     effective_data_types: list[str] = list(include_data_types or INCLUDE_DATA_TYPES)
-    effective_locations: tuple[str, ...] | None = (
-        locations_to_include or (LOCATIONS_TO_INCLUDE or None)
-    )
+    effective_locations: tuple[str, ...] | None = locations_to_include or (LOCATIONS_TO_INCLUDE or None)
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
     effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_directory,))
 

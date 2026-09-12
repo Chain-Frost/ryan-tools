@@ -37,10 +37,12 @@ def build_max_searches(
     """Expand arbitrary template axes into a Cartesian product of searches."""
     axis_names: tuple[str, ...] = tuple(template_axes)
     if not axis_names:
-        raise ValueError("At least one template axis must be configured")
+        msg = "At least one template axis must be configured"
+        raise ValueError(msg)
     empty_axes: list[str] = [name for name in axis_names if not template_axes[name]]
     if empty_axes:
-        raise ValueError(f"Template axes must not be empty: {', '.join(empty_axes)}")
+        msg = f"Template axes must not be empty: {', '.join(empty_axes)}"
+        raise ValueError(msg)
 
     searches: list[MaxSearch] = []
     for combination in product(*(template_axes[name] for name in axis_names)):
@@ -67,20 +69,24 @@ def build_max_searches(
 def discover_max_jobs(*, search_root: Path, searches: Sequence[MaxSearch]) -> list[RasterOperationJob]:
     """Resolve each configured glob into an independent maximum job."""
     if not search_root.is_dir():
-        raise FileNotFoundError(f"Search root was not found: {search_root}")
+        msg = f"Search root was not found: {search_root}"
+        raise FileNotFoundError(msg)
     if not searches:
-        raise ValueError("No maximum searches were configured")
+        msg = "No maximum searches were configured"
+        raise ValueError(msg)
 
     jobs: list[RasterOperationJob] = []
     seen_outputs: set[Path] = set()
     for search in searches:
         if Path(search.input_glob).is_absolute():
-            raise ValueError(f"Input glob must be relative to the search root: {search.input_glob!r}")
+            msg = f"Input glob must be relative to the search root: {search.input_glob!r}"
+            raise ValueError(msg)
         output_filename: str = validate_output_filename(search.output_filename)
         output_file: Path = search_root / output_filename
         normalized_output: Path = output_file.resolve()
         if normalized_output in seen_outputs:
-            raise ValueError(f"Multiple searches produce the same output: {output_file}")
+            msg = f"Multiple searches produce the same output: {output_file}"
+            raise ValueError(msg)
         seen_outputs.add(normalized_output)
 
         input_files: tuple[Path, ...] = tuple(
@@ -91,7 +97,8 @@ def discover_max_jobs(*, search_root: Path, searches: Sequence[MaxSearch]) -> li
             )
         )
         if not input_files:
-            raise FileNotFoundError(f"No rasters matched {search_root / search.input_glob}")
+            msg = f"No rasters matched {search_root / search.input_glob}"
+            raise FileNotFoundError(msg)
         jobs.append(
             RasterOperationJob(
                 label=search.label,

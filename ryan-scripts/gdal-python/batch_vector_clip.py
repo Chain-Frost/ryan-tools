@@ -42,13 +42,15 @@ def _remove_dataset(path: Path) -> None:
 def _promote_dataset(temporary_path: Path, output_path: Path, *, overwrite: bool) -> None:
     existing = _dataset_members(output_path)
     if existing and not overwrite:
-        raise FileExistsError(f"Output already exists: {output_path}")
+        msg = f"Output already exists: {output_path}"
+        raise FileExistsError(msg)
     if overwrite:
         _remove_dataset(output_path)
 
     temporary_members = _dataset_members(temporary_path)
     if not temporary_members:
-        raise RuntimeError(f"ogr2ogr did not create an output dataset: {temporary_path}")
+        msg = f"ogr2ogr did not create an output dataset: {temporary_path}"
+        raise RuntimeError(msg)
     moved: list[Path] = []
     try:
         for member in temporary_members:
@@ -114,11 +116,13 @@ def _resolve_executable(value: str, *, dry_run: bool) -> str:
     candidate = Path(value)
     if candidate.parent != Path() or candidate.is_absolute():
         if not dry_run and not candidate.is_file():
-            raise FileNotFoundError(f"ogr2ogr executable does not exist: {candidate}")
+            msg = f"ogr2ogr executable does not exist: {candidate}"
+            raise FileNotFoundError(msg)
         return str(candidate)
     discovered = shutil.which(value)
     if discovered is None and not dry_run:
-        raise FileNotFoundError(f"ogr2ogr was not found on PATH: {value}")
+        msg = f"ogr2ogr was not found on PATH: {value}"
+        raise FileNotFoundError(msg)
     return discovered or value
 
 
@@ -130,7 +134,8 @@ def build_output_jobs(inputs: list[Path], extents: list[Path], output_dir: Path)
     ]
     outputs = [output_path.resolve() for _, _, output_path in jobs]
     if len(outputs) != len(set(outputs)):
-        raise ValueError("Input or extent names would create duplicate output paths")
+        msg = "Input or extent names would create duplicate output paths"
+        raise ValueError(msg)
     return jobs
 
 

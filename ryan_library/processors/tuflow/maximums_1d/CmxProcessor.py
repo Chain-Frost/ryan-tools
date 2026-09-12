@@ -69,12 +69,12 @@ class CmxProcessor(MaxDataProcessor):
         try:
             # Create QMax DataFrame
             q_df = self.df[["Chan ID", "Time Qmax", "Qmax"]].copy()
-            q_df.rename(columns={"Time Qmax": "Time", "Qmax": "Q"}, inplace=True)
+            q_df = q_df.rename(columns={"Time Qmax": "Time", "Qmax": "Q"})
             q_df["V"] = pd.Series([None] * len(q_df), dtype="float64")  # Add V column with NA
 
             # Create VMax DataFrame
             v_df = self.df[["Chan ID", "Time Vmax", "Vmax"]].copy()
-            v_df.rename(columns={"Time Vmax": "Time", "Vmax": "V"}, inplace=True)
+            v_df = v_df.rename(columns={"Time Vmax": "Time", "Vmax": "V"})
             v_df["Q"] = pd.Series([None] * len(v_df), dtype="float64")  # Add Q column with NA
 
             # Concatenate QMax and VMax DataFrames
@@ -101,7 +101,7 @@ class CmxProcessor(MaxDataProcessor):
         # We use a safer approach to find them if needed, or just log the count
 
         # Drop rows where all specified columns are NaN
-        self.df.dropna(subset=cols_to_check, how="all", inplace=True)
+        self.df = self.df.dropna(subset=cols_to_check, how="all")
 
         dropped_count = initial_count - len(self.df)
         if dropped_count > 0:

@@ -22,8 +22,7 @@ from ryan_library.functions.wrapper_utils import print_library_version
 
 
 def save_tile_las(tile_df, output_dir, base_filename, i, j) -> None:
-    """Saves a tile DataFrame as a LAS file.
-    """
+    """Saves a tile DataFrame as a LAS file."""
     tile_filename = f"{base_filename}_tile_{i}_{j}.las"
     tile_path = output_dir / tile_filename
 
@@ -51,8 +50,7 @@ def save_tile_las(tile_df, output_dir, base_filename, i, j) -> None:
 
 
 def save_full_las(df, output_dir, base_filename):
-    """Saves the full DataFrame as a single LAS file without tiling.
-    """
+    """Saves the full DataFrame as a single LAS file without tiling."""
     las_filename = f"{base_filename}.las"
     output_path = output_dir / las_filename
 

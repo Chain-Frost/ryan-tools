@@ -180,62 +180,27 @@ def main(
         wrapper_version=WRAPPER_VERSION,
     )
 
-    configure_serial_logging(
-        console_log_level=console_log_level or CONSOLE_LOG_LEVEL
-    )
+    configure_serial_logging(console_log_level=console_log_level or CONSOLE_LOG_LEVEL)
 
-    if not change_working_directory(
-        target_dir=working_directory or WORKING_DIR
-    ):
+    if not change_working_directory(target_dir=working_directory or WORKING_DIR):
         return 1
 
     config = WaterLevelProfileConfig(
         lines_gpkg=lines_gpkg or LINES_GPKG,
-        lines_layer_name=(
-            lines_layer
-            if lines_layer is not None
-            else LINES_LAYER_NAME
-        ),
+        lines_layer_name=(lines_layer if lines_layer is not None else LINES_LAYER_NAME),
         name_field=name_field or NAME_FIELD,
-        lines_crs_if_missing=(
-            lines_crs_if_missing
-            if lines_crs_if_missing is not None
-            else LINES_CRS_IF_MISSING
-        ),
+        lines_crs_if_missing=(lines_crs_if_missing if lines_crs_if_missing is not None else LINES_CRS_IF_MISSING),
         terrain_raster=terrain_raster or TERRAIN_TIF,
-        tuflow_results_dir=(
-            results_directory or TUFLOW_RESULTS_DIR
-        ),
+        tuflow_results_dir=(results_directory or TUFLOW_RESULTS_DIR),
         output_dir=output_directory or OUTPUT_DIR,
         target_aeps=target_aeps or TARGET_AEPS,
-        target_result_type=(
-            target_result_type or TARGET_RESULT_TYPE
-        ),
-        spacing=(
-            spacing
-            if spacing is not None
-            else SPACING
-        ),
-        sampling_method=(
-            sampling_method or SAMPLING_METHOD
-        ),
-        dry_area_handling=(
-            dry_area_handling or DRY_AREA_HANDLING
-        ),
-        max_interpolation_gap=(
-            max_interpolation_gap
-            if max_interpolation_gap is not None
-            else MAX_INTERPOLATION_GAP
-        ),
-        disconnected_line_handling=(
-            disconnected_line_handling
-            or DISCONNECTED_LINE_HANDLING
-        ),
-        overwrite_existing=(
-            OVERWRITE_EXISTING
-            if overwrite_existing is None
-            else overwrite_existing
-        ),
+        target_result_type=(target_result_type or TARGET_RESULT_TYPE),
+        spacing=(spacing if spacing is not None else SPACING),
+        sampling_method=(sampling_method or SAMPLING_METHOD),
+        dry_area_handling=(dry_area_handling or DRY_AREA_HANDLING),
+        max_interpolation_gap=(max_interpolation_gap if max_interpolation_gap is not None else MAX_INTERPOLATION_GAP),
+        disconnected_line_handling=(disconnected_line_handling or DISCONNECTED_LINE_HANDLING),
+        overwrite_existing=(OVERWRITE_EXISTING if overwrite_existing is None else overwrite_existing),
         plot_width_cm=PLOT_WIDTH_CM,
         plot_height_cm=PLOT_HEIGHT_CM,
         chainage_start_km=CHAINAGE_START_KM,
@@ -263,9 +228,7 @@ def main(
         return 1
 
     except Exception:
-        logger.exception(
-            "Water-level profile workflow failed"
-        )
+        logger.exception("Water-level profile workflow failed")
         return 1
 
     return 0
@@ -289,9 +252,7 @@ def _parse_cli_arguments() -> CliOptions:
     )
     parser.add_argument(
         "--lines-layer",
-        help=(
-            "GeoPackage layer name; omitted uses safe automatic selection."
-        ),
+        help=("GeoPackage layer name; omitted uses safe automatic selection."),
     )
     parser.add_argument(
         "--name-field",
@@ -299,10 +260,7 @@ def _parse_cli_arguments() -> CliOptions:
     )
     parser.add_argument(
         "--lines-crs-if-missing",
-        help=(
-            "Optional line CRS fallback; otherwise infer from tagged "
-            "rasters or assume shared source coordinates."
-        ),
+        help=("Optional line CRS fallback; otherwise infer from tagged rasters or assume shared source coordinates."),
     )
     parser.add_argument(
         "--terrain-raster",
@@ -312,9 +270,7 @@ def _parse_cli_arguments() -> CliOptions:
     parser.add_argument(
         "--results-directory",
         type=Path,
-        help=(
-            "Directory searched recursively for water-level rasters."
-        ),
+        help=("Directory searched recursively for water-level rasters."),
     )
     parser.add_argument(
         "--output-directory",
@@ -385,19 +341,13 @@ def _parse_cli_arguments() -> CliOptions:
         terrain_raster=args.terrain_raster,
         results_directory=args.results_directory,
         output_directory=args.output_directory,
-        target_aeps=(
-            tuple(args.target_aeps)
-            if args.target_aeps
-            else None
-        ),
+        target_aeps=(tuple(args.target_aeps) if args.target_aeps else None),
         target_result_type=args.target_result_type,
         spacing=args.spacing,
         sampling_method=args.sampling_method,
         dry_area_handling=args.dry_area_handling,
         max_interpolation_gap=args.max_interpolation_gap,
-        disconnected_line_handling=(
-            args.disconnected_line_handling
-        ),
+        disconnected_line_handling=(args.disconnected_line_handling),
         overwrite_existing=args.overwrite_existing,
     )
 
@@ -421,9 +371,7 @@ if __name__ == "__main__":
         sampling_method=options.sampling_method,
         dry_area_handling=options.dry_area_handling,
         max_interpolation_gap=options.max_interpolation_gap,
-        disconnected_line_handling=(
-            options.disconnected_line_handling
-        ),
+        disconnected_line_handling=(options.disconnected_line_handling),
         overwrite_existing=options.overwrite_existing,
     )
 

@@ -44,7 +44,8 @@ def pause_console(message: str = "Press Enter to continue . . .", *, collect_bef
 
         gc.collect()
     if os.name == "nt":
-        subprocess.run(["cmd.exe", "/C", "PAUSE"], check=False)
+        command_interpreter = os.environ.get("COMSPEC", "cmd.exe")
+        subprocess.run([command_interpreter, "/C", "PAUSE"], check=False)
         return
     try:
         input(message)

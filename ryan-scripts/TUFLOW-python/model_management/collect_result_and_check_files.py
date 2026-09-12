@@ -153,10 +153,7 @@ def is_inside_directory(path: Path, directory: Path) -> bool:
 def should_exclude_file(path: Path) -> bool:
     name = path.name.lower()
 
-    if name.endswith(".hpc.tlf"):
-        return True
-
-    return False
+    return name.endswith(".hpc.tlf")
 
 
 def path_matches_any_pattern(path: Path, patterns: tuple[str, ...]) -> bool:

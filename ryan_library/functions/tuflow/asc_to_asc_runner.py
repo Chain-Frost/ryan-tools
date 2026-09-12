@@ -71,9 +71,11 @@ def run_python_raster_job(*, job: RasterOperationJob) -> Path:
                     ],
                 )
         else:
-            raise ValueError(f"Unsupported native ASC_to_ASC operation: {job.operation}")
+            msg = f"Unsupported native ASC_to_ASC operation: {job.operation}"
+            raise ValueError(msg)
     except Exception as error:
-        raise RuntimeError(f"Python {job.operation} computation failed: {error}") from error
+        msg = f"Python {job.operation} computation failed: {error}"
+        raise RuntimeError(msg) from error
 
     return job.output_file
 
@@ -87,7 +89,8 @@ def run_asc_to_asc_job(*, executable: Path, job: RasterOperationJob, output_file
     builds should account for any source rasters and legends they create.
     """
     if not executable.is_file():
-        raise FileNotFoundError(f"ASC_to_ASC executable does not exist: {executable}")
+        msg = f"ASC_to_ASC executable does not exist: {executable}"
+        raise FileNotFoundError(msg)
 
     requested_output: Path = output_file or job.output_file
     requested_output.parent.mkdir(parents=True, exist_ok=True)
@@ -116,13 +119,15 @@ def run_asc_to_asc_job(*, executable: Path, job: RasterOperationJob, output_file
     if completed_process.returncode != 0:
         output_tail: str = " | ".join(completed_process.stdout.strip().splitlines()[-3:])
         detail: str = f": {output_tail}" if output_tail else ""
-        raise RuntimeError(f"ASC_to_ASC exited with code {completed_process.returncode}{detail}")
+        msg = f"ASC_to_ASC exited with code {completed_process.returncode}{detail}"
+        raise RuntimeError(msg)
 
     actual_output = _resolve_asc_to_asc_output(requested_output=requested_output, operation=operation)
     if actual_output != requested_output and actual_output.is_file():
         actual_output.replace(requested_output)
     if not requested_output.is_file():
-        raise FileNotFoundError(f"Expected output was not created: {requested_output}")
+        msg = f"Expected output was not created: {requested_output}"
+        raise FileNotFoundError(msg)
     return requested_output
 
 

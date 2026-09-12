@@ -203,7 +203,8 @@ def _dashboard_worker_initializer(
 def _process_indexed_workflow_item(request: IndexedWorkflowItem[object]) -> object:
     """Worker entry point used by ``Pool.apply_async``."""
     if _workflow_processor is None:
-        raise RuntimeError("Dashboard workflow worker was not initialised")
+        msg = "Dashboard workflow worker was not initialised"
+        raise RuntimeError(msg)
     if _workflow_start_queue is not None:
         _workflow_start_queue.put(request.index)
     return _workflow_processor(request.item)

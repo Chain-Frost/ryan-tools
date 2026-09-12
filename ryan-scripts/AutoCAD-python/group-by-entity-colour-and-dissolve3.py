@@ -66,11 +66,11 @@ def main() -> None:
 
     print(f"[{now()}] Re-layering complete: {idx} entities → {len(colour_map)} layers.")
     zeros = [L for L, c in layer_counts.items() if c == 0]
-    print(f"[{now()}]   • Non-empty layers: {len(layer_counts)-len(zeros)}; Empty layers: {len(zeros)}")
+    print(f"[{now()}]   • Non-empty layers: {len(layer_counts) - len(zeros)}; Empty layers: {len(zeros)}")
     if zeros:
-        print(f"[{now()}]   • Layers with 0 assignments (shouldn’t happen!): {zeros[:10]}…")
+        print(f"[{now()}]   • Layers with 0 assignments (shouldn't happen!): {zeros[:10]}…")
 
-    # 2) Dissolve each color‐grouped layer
+    # 2) Dissolve each color-grouped layer
     for layer in colour_map:
         print(f"[{now()}] Dissolving layer '{layer}'…")
         dissolve_layer(msp, layer, colour_map)
@@ -148,10 +148,7 @@ def dissolve_layer(msp: Modelspace, layer_name: str, colour_map: dict[str, int])
     """
     raws: list[Polygon] = []
     handles_to_delete: list[str] = []
-    count = 0
-
-    for e in msp.query(f'*[layer=="{layer_name}"]'):
-        count += 1
+    for count, e in enumerate(msp.query(f'*[layer=="{layer_name}"]'), start=1):
         for poly in extract_polygons(e):
             raws.append(poly.buffer(distance=TOLERANCE))
             handles_to_delete.append(e.dxf.handle)

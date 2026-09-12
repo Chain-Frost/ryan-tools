@@ -71,7 +71,7 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
         #         if m:
         #             processed_line.append(float(m.group()))
         #         else:
-        #             # fallback to raw in case it really isn’t numeric
+        #             # fallback to raw in case it really isn't numeric
         #             processed_line.append(el)
 
         #     # A few notes:
@@ -79,7 +79,7 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
         #     # Index 2 is the AEP label (e.g. "0.2EY") that you probably want to preserve in your
         #     # file-naming logic, Index 3 (after the pop(2)) is TP, which stays an int, and all
         #     # other columns you now attempt to parse to float, but first use a regex to pull off a
-        #     # clean numeric prefix. With that change you’ll never try to do float("0.2EY") again,
+        #     # clean numeric prefix. With that change you'll never try to do float("0.2EY") again,
         #     # so the ValueError goes away and you keep the original “EY” suffix in your CSV-naming
         #     # logic.
 

@@ -55,7 +55,7 @@ class TestTLFMissingRunsCoverage:
         # (2%, 1h) -> missing >= 6
         # (2%, 2h) -> completely missing! No rows in `df`.
 
-        text, table = summarize_for_cli(df)
+        text, _table = summarize_for_cli(df)
 
         assert "AEP 2%, Duration 2h: missing all TP" in text
         assert "missing 6 TP (not listed)" in text

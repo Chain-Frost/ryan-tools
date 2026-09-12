@@ -162,12 +162,7 @@ class TestAnalysis:
     def test_analyze_stability_csv_valid(self, tmp_path: Path) -> None:
         csv_file = tmp_path / "valid_PO.csv"
         csv_content_po = (
-            "Dummy,Time,Q,V\n"
-            ", (h),loc1,loc2\n"
-            "0, 0.0,1.0,2.0\n"
-            "1, 0.1,1.1,2.1\n"
-            "2, 0.2,1.2,2.2\n"
-            "3, 0.3,1.3,2.3\n"
+            "Dummy,Time,Q,V\n, (h),loc1,loc2\n0, 0.0,1.0,2.0\n1, 0.1,1.1,2.1\n2, 0.2,1.2,2.2\n3, 0.3,1.3,2.3\n"
         )
         csv_file.write_text(csv_content_po)
         config = ptc.StabilityCheckConfig(
@@ -222,34 +217,34 @@ class TestAnalysis:
         # Test NO_COLUMNS
         csv_file = tmp_path / "no_cols.csv"
         csv_file.write_text("\n")
-        data, status, _ = ptc._parse_po_csv(csv_file)
+        _data, status, _ = ptc._parse_po_csv(csv_file)
         assert status in ("NO_COLUMNS", "BAD_HEADER", "CSV_PARSE_FAIL")
 
         # Test BAD_HEADER / TIME_PARSE_FAIL
         csv_file.write_text("A,B,C\n1,2,3")
-        data, status, _ = ptc._parse_po_csv(csv_file)
+        _data, status, _ = ptc._parse_po_csv(csv_file)
         assert status in ("BAD_HEADER", "TIME_PARSE_FAIL")
 
         # Test TIME_PARSE_FAIL
         csv_file.write_text("Dummy,Time\n,(h)\n0,invalid\n1,invalid")
-        data, status, _ = ptc._parse_po_csv(csv_file)
+        _data, status, _ = ptc._parse_po_csv(csv_file)
         assert status == "TIME_PARSE_FAIL"
 
     def test_parse_q_csv_errors(self, tmp_path: Path) -> None:
         # NO_DATA
         csv_file = tmp_path / "no_data.csv"
         csv_file.write_text("Time,Q\n")
-        data, status, _ = ptc._parse_q_csv(csv_file)
+        _data, status, _ = ptc._parse_q_csv(csv_file)
         assert status == "NO_DATA"
 
         # TIME_PARSE_FAIL missing col
         csv_file.write_text("NotTime,Q\n1,2")
-        data, status, _ = ptc._parse_q_csv(csv_file)
+        _data, status, _ = ptc._parse_q_csv(csv_file)
         assert status == "TIME_PARSE_FAIL"
 
         # TIME_PARSE_FAIL bad data
         csv_file.write_text("Time,Q\ninvalid,2")
-        data, status, _ = ptc._parse_q_csv(csv_file)
+        _data, status, _ = ptc._parse_q_csv(csv_file)
         assert status == "TIME_PARSE_FAIL"
 
     def test_evaluate_stability_series_edge_cases(self) -> None:

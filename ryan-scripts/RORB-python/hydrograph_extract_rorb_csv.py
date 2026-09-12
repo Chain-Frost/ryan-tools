@@ -98,17 +98,7 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
             continue  # Skip non-CSV files
 
         # Check if the file matches any of the selected combinations using regex
-        matched = False
-        matched_aep = None
-        matched_tp = None
-        for (aep, tp), pattern in regex_patterns.items():
-            if pattern.search(file_name):
-                matched = True
-                matched_aep = aep
-                matched_tp = tp
-                break  # Found a matching pattern
-
-        if not matched:
+        if not any(pattern.search(file_name) for pattern in regex_patterns.values()):
             continue  # Skip files that do not match any pattern
 
         file_path = os.path.join(script_directory, file_name)
@@ -162,7 +152,7 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
         # Extract relevant data
         try:
             hydrograph_data = df[["Inc", "Time (hrs)", selected_column]].copy()
-            hydrograph_data.rename(columns={selected_column: "Flow"}, inplace=True)
+            hydrograph_data = hydrograph_data.rename(columns={selected_column: "Flow"})
         except KeyError as e:
             print(f"Error processing columns in {file_name}: {e}")
             continue  # Skip to the next file
@@ -177,7 +167,7 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
             continue  # Skip to the next file
 
         # Rename columns for consistency
-        hydrograph_data.rename(columns={"Time (hrs)": "Time"}, inplace=True)
+        hydrograph_data = hydrograph_data.rename(columns={"Time (hrs)": "Time"})
 
         # Extract metadata from filename
         creek_name, aep, duration, tp = extract_metadata_from_filename(file_name)
@@ -246,7 +236,7 @@ def create_plot(combined_df, aep_mapping, creek_name, script_directory):
         sorted_aeps = sorted(
             aep_mapping.keys(),
             # ``r"\d+"`` pulls the first number from labels such as ``aep5`` so the legend appears in numerical order.
-            key=lambda x: (int(re.search(r"\d+", x).group()) if re.search(r"\d+", x) else 0),
+            key=lambda x: int(re.search(r"\d+", x).group()) if re.search(r"\d+", x) else 0,
         )
 
         for aep in sorted_aeps:

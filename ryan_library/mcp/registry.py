@@ -71,9 +71,11 @@ def _load_json_object(text: str, *, source: str) -> dict[str, Any]:
     try:
         raw: object = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise WorkflowRegistryError(f"Invalid JSON in {source}: {exc}") from exc
+        msg = f"Invalid JSON in {source}: {exc}"
+        raise WorkflowRegistryError(msg) from exc
     if not isinstance(raw, dict):
-        raise WorkflowRegistryError(f"Workflow catalogue must contain a JSON object: {source}")
+        msg = f"Workflow catalogue must contain a JSON object: {source}"
+        raise WorkflowRegistryError(msg)
     return cast("dict[str, Any]", raw)
 
 
@@ -85,16 +87,19 @@ def _load_packaged_workflows() -> tuple[str, str | None, list[WorkflowSpec]]:
     )
     schema_version: Any = raw_catalogue.get("schema_version")
     if schema_version != "1.0":
-        raise WorkflowRegistryError(f"Unsupported workflow catalogue schema: {schema_version!r}")
+        msg = f"Unsupported workflow catalogue schema: {schema_version!r}"
+        raise WorkflowRegistryError(msg)
 
     raw_workflows_value: Any = raw_catalogue.get("workflows")
     if not isinstance(raw_workflows_value, list):
-        raise WorkflowRegistryError("Packaged workflow catalogue has no valid workflows list.")
+        msg = "Packaged workflow catalogue has no valid workflows list."
+        raise WorkflowRegistryError(msg)
     raw_workflows: list[object] = cast("list[object]", raw_workflows_value)
     workflows: list[WorkflowSpec] = []
     for raw_workflow in raw_workflows:
         if not isinstance(raw_workflow, Mapping):
-            raise WorkflowRegistryError("Every packaged workflow entry must be a JSON object.")
+            msg = "Every packaged workflow entry must be a JSON object."
+            raise WorkflowRegistryError(msg)
         workflows.append(WorkflowSpec.from_mapping(cast("Mapping[str, object]", raw_workflow)))
     catalogue_updated: Any = raw_catalogue.get("catalogue_updated")
     return str(schema_version), str(catalogue_updated) if catalogue_updated is not None else None, workflows
@@ -117,7 +122,8 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
 
     raw_tools_value: Any = raw_catalogue.get("tools")
     if not isinstance(raw_tools_value, list):
-        raise WorkflowRegistryError("Packaged GDAL catalogue has no valid tools list.")
+        msg = "Packaged GDAL catalogue has no valid tools list."
+        raise WorkflowRegistryError(msg)
     raw_tools: list[object] = cast("list[object]", raw_tools_value)
 
     workflows: list[WorkflowSpec] = []
@@ -192,9 +198,8 @@ class WorkflowRegistry:
             self.configured_profile = CapabilityProfile(raw_profile)
         except ValueError as exc:
             valid_profiles: str = ", ".join(profile.value for profile in CapabilityProfile)
-            raise WorkflowRegistryError(
-                f"Unknown MCP profile {raw_profile!r}; expected one of: {valid_profiles}"
-            ) from exc
+            msg = f"Unknown MCP profile {raw_profile!r}; expected one of: {valid_profiles}"
+            raise WorkflowRegistryError(msg) from exc
 
         self.repository_root: Path | None = resolve_repository_root(repository_root, discover=discover_repository)
         self.schema_version, self.catalogue_updated, packaged_workflows = _load_packaged_workflows()
@@ -210,7 +215,8 @@ class WorkflowRegistry:
         self._workflows: dict[str, WorkflowSpec] = {}
         for workflow in workflows:
             if workflow.workflow_id in self._workflows:
-                raise WorkflowRegistryError(f"Duplicate workflow id: {workflow.workflow_id}")
+                msg = f"Duplicate workflow id: {workflow.workflow_id}"
+                raise WorkflowRegistryError(msg)
             self._workflows[workflow.workflow_id] = workflow
 
     def _script_path(self, workflow: WorkflowSpec) -> Path | None:
@@ -242,11 +248,11 @@ class WorkflowRegistry:
         try:
             requested = CapabilityProfile(requested_profile)
         except ValueError as exc:
-            raise WorkflowRegistryError(f"Unknown workflow profile: {requested_profile!r}") from exc
+            msg = f"Unknown workflow profile: {requested_profile!r}"
+            raise WorkflowRegistryError(msg) from exc
         if not profile_allows(configured=self.configured_profile, required=requested):
-            raise WorkflowRegistryError(
-                f"Profile {requested.value!r} exceeds configured profile {self.configured_profile.value!r}."
-            )
+            msg = f"Profile {requested.value!r} exceeds configured profile {self.configured_profile.value!r}."
+            raise WorkflowRegistryError(msg)
         return requested
 
     def list_workflows(

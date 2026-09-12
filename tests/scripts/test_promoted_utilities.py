@@ -30,7 +30,8 @@ def _load_script(name: str) -> ModuleType:
     script_path = SCRIPT_PATHS[name]
     spec = importlib.util.spec_from_file_location(f"test_{name}", script_path)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Could not load {script_path}")
+        msg = f"Could not load {script_path}"
+        raise RuntimeError(msg)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -66,7 +67,8 @@ def _create_gdb(path: Path, layer_names: tuple[str, ...]) -> None:
     driver = ogr.GetDriverByName("OpenFileGDB")
     dataset = driver.CreateDataSource(str(path))
     if dataset is None:
-        raise RuntimeError("Could not create synthetic File Geodatabase")
+        msg = "Could not create synthetic File Geodatabase"
+        raise RuntimeError(msg)
 
     for index, layer_name in enumerate(layer_names):
         layer = dataset.CreateLayer(layer_name, geom_type=ogr.wkbPoint)
@@ -75,7 +77,8 @@ def _create_gdb(path: Path, layer_names: tuple[str, ...]) -> None:
         geometry.AddPoint_2D(float(index), float(index))
         feature.SetGeometry(geometry)
         if layer.CreateFeature(feature) != 0:
-            raise RuntimeError(f"Could not add a feature to {layer_name}")
+            msg = f"Could not add a feature to {layer_name}"
+            raise RuntimeError(msg)
 
     dataset = None
 

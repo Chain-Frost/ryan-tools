@@ -84,7 +84,7 @@ def test_main_processing_with_rows(mock_collect, mock_pool, mock_export, tmp_pat
     main_processing(paths_to_process=[tmp_path], export_mode="parquet")
 
     mock_export.return_value.save_to_excel.assert_called_once()
-    args, kwargs = mock_export.return_value.save_to_excel.call_args
+    _args, kwargs = mock_export.return_value.save_to_excel.call_args
     assert kwargs["export_mode"] == "parquet"
 
     df = kwargs["data_frame"]
@@ -92,4 +92,4 @@ def test_main_processing_with_rows(mock_collect, mock_pool, mock_export, tmp_pat
     assert "extra_col" in df.columns
 
     # run_code should be first because it's in first_cols
-    assert list(df.columns)[0] == "run_code"
+    assert next(iter(df.columns)) == "run_code"

@@ -63,26 +63,31 @@ def _validate_volume_crs(source: _RasterDataset, path: Path) -> None:
     """Require horizontal coordinates measured in metres before calculating m3."""
     crs = source.crs
     if crs is None:
-        raise ValueError(f"Stage-storage volume in cubic metres requires DEM CRS metadata: {path}")
+        msg = f"Stage-storage volume in cubic metres requires DEM CRS metadata: {path}"
+        raise ValueError(msg)
     if not crs.is_projected:
-        raise ValueError(f"Stage-storage requires a projected metre-based DEM CRS, received {crs.to_string()}: {path}")
+        msg = f"Stage-storage requires a projected metre-based DEM CRS, received {crs.to_string()}: {path}"
+        raise ValueError(msg)
     linear_units = crs.linear_units.casefold().strip()
     if linear_units not in {"metre", "meter", "metres", "meters"}:
-        raise ValueError(
+        msg = (
             f"Stage-storage volume in cubic metres requires metre-based DEM coordinates, "
             f"received {crs.linear_units!r}: {path}"
         )
+        raise ValueError(msg)
 
 
 def find_elevation_bounds(dem_path: Path, nodata_value: float | None = None) -> tuple[float, float]:
     """Return exact finite minimum and maximum elevations using block streaming."""
     if not dem_path.is_file():
-        raise FileNotFoundError(f"DEM does not exist: {dem_path}")
+        msg = f"DEM does not exist: {dem_path}"
+        raise FileNotFoundError(msg)
     minimum = np.inf
     maximum = -np.inf
     with closing(_open_raster(dem_path)) as source:
         if source.count != 1:
-            raise ValueError(f"Stage-storage requires a single-band DEM: {dem_path}")
+            msg = f"Stage-storage requires a single-band DEM: {dem_path}"
+            raise ValueError(msg)
         effective_nodata = source.nodata if nodata_value is None else nodata_value
         for _, window in source.block_windows(1):
             values = _valid_values(source.read(1, window=window), effective_nodata)
@@ -90,7 +95,8 @@ def find_elevation_bounds(dem_path: Path, nodata_value: float | None = None) -> 
                 minimum = min(minimum, float(values.min()))
                 maximum = max(maximum, float(values.max()))
     if not np.isfinite(minimum) or not np.isfinite(maximum):
-        raise ValueError(f"DEM contains no finite data cells: {dem_path}")
+        msg = f"DEM contains no finite data cells: {dem_path}"
+        raise ValueError(msg)
     return float(minimum), float(maximum)
 
 
@@ -100,14 +106,18 @@ def compute_stage_storage(
     """Return cumulative volume below each strictly increasing water level."""
     path = dem_path.resolve()
     if not path.is_file():
-        raise FileNotFoundError(f"DEM does not exist: {path}")
+        msg = f"DEM does not exist: {path}"
+        raise FileNotFoundError(msg)
     level_values = np.asarray(list(levels), dtype=np.float64)
     if level_values.ndim != 1 or level_values.size == 0:
-        raise ValueError("At least one stage level is required")
+        msg = "At least one stage level is required"
+        raise ValueError(msg)
     if not np.all(np.isfinite(level_values)):
-        raise ValueError("Stage levels must be finite")
+        msg = "Stage levels must be finite"
+        raise ValueError(msg)
     if not np.all(np.diff(level_values) > 0):
-        raise ValueError("Stage levels must be unique and strictly increasing")
+        msg = "Stage levels must be unique and strictly increasing"
+        raise ValueError(msg)
 
     bin_edges = np.concatenate(([-np.inf], level_values, [np.inf]))
     global_counts = np.zeros(len(bin_edges) - 1, dtype=np.int64)
@@ -115,12 +125,14 @@ def compute_stage_storage(
 
     with closing(_open_raster(path)) as source:
         if source.count != 1:
-            raise ValueError(f"Stage-storage requires a single-band DEM: {path}")
+            msg = f"Stage-storage requires a single-band DEM: {path}"
+            raise ValueError(msg)
         _validate_volume_crs(source, path)
         determinant = source.transform.a * source.transform.e - source.transform.b * source.transform.d
         cell_area = abs(float(determinant))
         if not np.isfinite(cell_area) or cell_area <= 0:
-            raise ValueError(f"DEM has an invalid cell transform: {path}")
+            msg = f"DEM has an invalid cell transform: {path}"
+            raise ValueError(msg)
         effective_nodata = source.nodata if nodata_value is None else nodata_value
         logger.info(
             "Computing stage-storage for {} ({}x{}) using block streaming.",

@@ -43,7 +43,7 @@ def press_any_key(prompt: str = "Press any key to exit...") -> None:
             msvcrt.getch()
             print()
             return
-        except Exception:
+        except Exception:  # noqa: S110 - fall back to input() if the Windows console API is unavailable
             # Fall through to input() if anything odd happens
             pass
     try:

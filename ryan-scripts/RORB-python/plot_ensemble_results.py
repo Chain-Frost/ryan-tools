@@ -1,5 +1,4 @@
-"""Plots peak flows and exceedance durations for ensemble model results (like RORB).
-"""
+"""Plots peak flows and exceedance durations for ensemble model results (like RORB)."""
 
 # moved from unsorted, not tested in production yet - 2026-08-20
 

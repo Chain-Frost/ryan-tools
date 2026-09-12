@@ -79,14 +79,16 @@ def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
     cols: dict[str, str] = {c.lower(): c for c in df.columns}
     for r in ("aep", "duration", "tp"):
         if r not in cols:
-            raise KeyError(f"Required column '{r.upper()}' not found in DataFrame. Found: {list(df.columns)}")
+            msg = f"Required column '{r.upper()}' not found in DataFrame. Found: {list(df.columns)}"
+            raise KeyError(msg)
     trc_key: str | None = None
     for cand in ("trim_run_code", "trim_runcode", "trim code", "trimcode", "trim"):
         if cand in cols:
             trc_key = cand
             break
     if trc_key is None:
-        raise KeyError("Required column 'trim_run_code' (or alias 'trim_runcode') not found.")
+        msg = "Required column 'trim_run_code' (or alias 'trim_runcode') not found."
+        raise KeyError(msg)
     out = pd.DataFrame(
         data={
             "AEP": df[cols["aep"]],
@@ -109,10 +111,10 @@ def _unique_sorted(series: pd.Series) -> list[DimensionValue]:
     vals: list[DimensionValue] = [_coerce_dimension(value) for value in series.dropna().unique().tolist()]
     try:
         nums: list[float] = [float(str(value)) for value in vals]
-        order: list[tuple[float, str | int | float]] = sorted(zip(nums, vals))
+        order: list[tuple[float, str | int | float]] = sorted(zip(nums, vals, strict=True))
         return [v for _, v in order]
     except ValueError:
-        return sorted(vals, key=lambda x: str(x))
+        return sorted(vals, key=str)
 
 
 # ---------- Analysis ----------

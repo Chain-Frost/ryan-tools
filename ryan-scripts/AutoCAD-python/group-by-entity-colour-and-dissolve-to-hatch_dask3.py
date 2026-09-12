@@ -191,8 +191,7 @@ def make_layer_name(tc: int | None, ic: int) -> str:
 
 
 def extract_polygons(e: DXFGraphic) -> list[Polygon]:
-    """Return 2D Shapely polygons for closed LWPOLYLINE, SOLID, 3DFACE entities.
-    """
+    """Return 2D Shapely polygons for closed LWPOLYLINE, SOLID, 3DFACE entities."""
     et = e.dxftype()
     pts: list[tuple[float, float]] = []
     if et == "LWPOLYLINE" and e.closed:

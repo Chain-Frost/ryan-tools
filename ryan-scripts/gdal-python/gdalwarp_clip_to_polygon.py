@@ -38,13 +38,15 @@ def select_cutline_layer(cutline_path: Path) -> str | None:
     try:
         dataset = gdal.OpenEx(str(cutline_path), gdal.OF_VECTOR | gdal.OF_READONLY)  # type: ignore
         if dataset is None:
-            raise RuntimeError("GDAL could not open the cutline datasource")
+            msg = "GDAL could not open the cutline datasource"
+            raise RuntimeError(msg)
 
         layer_names: list[str] = []
         for layer_index in range(dataset.GetLayerCount()):  # type: ignore
             layer = dataset.GetLayer(layer_index)  # type: ignore
             if layer is None:
-                raise RuntimeError(f"GDAL could not read cutline layer at index {layer_index}")
+                msg = f"GDAL could not read cutline layer at index {layer_index}"
+                raise RuntimeError(msg)
             layer_names.append(layer.GetName())  # type: ignore
         dataset = None
     except Exception:
@@ -72,8 +74,7 @@ def select_cutline_layer(cutline_path: Path) -> str | None:
 
 
 def run_gdalwarp(input_file: Path, output_file: Path, cutline_path: Path, cutline_layer: str, crs: str) -> bool:
-    """Run gdal.Warp to clip a raster based on a vector cutline via the GDAL Python API.
-    """
+    """Run gdal.Warp to clip a raster based on a vector cutline via the GDAL Python API."""
     logger.debug("Running gdalwarp on {}...", input_file.name)
 
     warp_options = gdal.WarpOptions(  # type: ignore
@@ -92,7 +93,8 @@ def run_gdalwarp(input_file: Path, output_file: Path, cutline_path: Path, cutlin
         temporary_output.unlink(missing_ok=True)
         ds = gdal.Warp(str(temporary_output), str(input_file), options=warp_options)  # type: ignore
         if ds is None:
-            raise RuntimeError("GDAL did not create an output dataset")
+            msg = "GDAL did not create an output dataset"
+            raise RuntimeError(msg)
         ds.FlushCache()  # type: ignore
         ds = None
         temporary_output.replace(output_file)

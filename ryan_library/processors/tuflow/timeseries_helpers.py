@@ -16,12 +16,14 @@ def reshape_h_timeseries(df: pd.DataFrame, category_type: str, file_label: str) 
     Example: "ds1.1" (Upstream) and "ds1.2" (Downstream).
     """
     if "Time" not in df.columns:
-        raise ValueError("DataFrame must contain a 'Time' column before reshaping H data.")
+        msg = "DataFrame must contain a 'Time' column before reshaping H data."
+        raise ValueError(msg)
 
     # Identify value columns (exclude Time)
     value_cols: list[str] = [c for c in df.columns if c != "Time"]
     if not value_cols:
-        raise ValueError("No value columns found in the DataFrame.")
+        msg = "No value columns found in the DataFrame."
+        raise ValueError(msg)
 
     # Melt everything except Time
     df_long: pd.DataFrame = df.melt(id_vars=["Time"], value_vars=value_cols, var_name="raw_col", value_name="H_val")
@@ -50,7 +52,8 @@ def reshape_h_timeseries(df: pd.DataFrame, category_type: str, file_label: str) 
     df_long = df_long[df_long["col_type"].notna()]
 
     if df_long.empty:
-        raise ValueError("No columns with valid '.1' (US) or '.2' (DS) suffixes found.")
+        msg = "No columns with valid '.1' (US) or '.2' (DS) suffixes found."
+        raise ValueError(msg)
 
     # Pivot to get US_H and DS_H as columns
     # index: Time, category_type

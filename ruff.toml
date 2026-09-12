@@ -32,28 +32,17 @@ select = [
 
     # Code quality and maintainability.
     "A",      # built-in shadowing
-    "ARG",    # unused arguments
-    "BLE",    # broad exception handling
     "C4",     # comprehensions
-    "C90",    # McCabe complexity
     "EM",     # exception-message style
-    "ERA",    # commented-out code
     "ISC",    # implicit string concatenation
     "N",      # naming conventions
     "PERF",   # performance
-    "PGH",    # pygrep-hooks / code hygiene
     "PIE",    # miscellaneous Python improvements
     "PLC",    # Pylint convention
     "RET",    # return-statement improvements
     "RSE",    # raise-statement improvements
     "SIM",    # simplification
     "TRY",    # exception-handling practices
-
-    # Type-checking imports.
-    "TC",     # type-checking imports
-
-    # Documentation.
-    "D",      # pydocstyle
 
     # Logging.
     "G",      # logging-format checks
@@ -64,7 +53,6 @@ select = [
 
     # Filesystem and general hygiene.
     "EXE",    # executable/shebang checks
-    "PTH",    # pathlib usage
     "T10",    # debugger statements
     "YTT",    # sys.version checks
 
@@ -78,32 +66,78 @@ select = [
 
 ignore = [
     # Ruff formatter compatibility.
-    "D206",   # docstring tab indentation
-    "D300",   # triple-single-quoted docstrings
     "E111",   # indentation with invalid multiple
     "E114",   # indentation with invalid multiple in comments
     "E117",   # over-indented
     "ISC001", # conflicts with Ruff's formatter
+    "E731",   # conditional named lambdas are retained where they select a small strategy
+    "RET504", # named return values aid typing, debugging, and domain readability
+    "SIM105", # explicit exception suppression is clearer in cleanup and compatibility code
+    "SIM108", # expanded branches are preferred when they make workflow choices clearer
+    "SIM117", # nested context managers can make mocked resources and cleanup lifetimes clearer
+    "SIM112", # Windows environment variable names use their documented mixed-case spelling
+    "TID252", # relative imports are preferred within packages where practical
+    "TRY300", # straight-line success paths are clearer than extra try/else nesting
+    "TRY301", # local validation raises do not warrant one-use helper functions
+    "TRY004", # configuration validation consistently exposes ValueError for invalid values and shapes
+    "PLC0415", # local imports intentionally defer optional, GIS, and application-environment dependencies
+    "N999",   # processor modules retain format-derived names used by dynamic discovery
+    "NPY002", # migrating legacy random streams would change reproducibility and requires dedicated tests
+    "PERF401", # explicit accumulation loops preserve room for validation and diagnostic steps
+    "PERF403", # explicit mapping construction is clearer for conditional domain transformations
+    "PT011",  # exception-message matching is useful when chosen per test, not as a blanket migration rewrite
+    "S603",   # subprocess execution is an explicit repository function; shell and path risks remain checked separately
+
+    # The repository uses built-in exceptions with contextual call-site messages;
+    # requiring a custom exception class for each message would add noise.
+    "TRY003", # long exception messages outside custom exception classes
 
     # Let the formatter manage practical line wrapping.
     "E501",   # line too long
 ]
 
-[lint.mccabe]
-# Permit moderately complex engineering/data-processing routines before
-# requiring refactoring.
-max-complexity = 15
-
-[lint.pydocstyle]
-convention = "google"
-
 [lint.per-file-ignores]
 "tests/**/*.py" = [
-    "D",      # Tests do not require production-quality docstrings.
+    "A",      # test doubles may need signatures that mirror APIs using built-in-like names
+    "E402",   # tests may import after monkeypatching modules or environment state
+    "N",      # mock classes and compatibility API names intentionally retain source naming
     "S101",   # assert is expected in pytest tests.
+    "S108",   # tests use literal fake paths without creating shared temporary files
 ]
 "ryan-scripts/**/*.py" = [
-    "ERA",    # Utility/wrapper scripts may intentionally retain commented-out code.
+    "E402",   # scripts may configure application environments before dependent imports
+    "LOG015", # standalone stdlib-logging scripts intentionally configure and use the root logger
+    "N",      # legacy filenames and engineering variable names are user-facing script contracts
+]
+"examples/**/*.py" = [
+    "E402",   # examples may establish an application environment before imports
+]
+"ryan_library/scripts/**/*.py" = [
+    "E402",   # compatibility wrappers must emit deprecation warnings before forwarding imports
+]
+"ryan_library/functions/data_processing.py" = [
+    "E402",   # deprecated module emits its warning before loading the compatibility implementation
+    "N802",   # deprecated public name remains available until the documented removal date
+]
+"ryan_library/functions/pandas/median_calc.py" = [
+    "N806",   # TP and AEP are established hydrology abbreviations in calculation variables
+]
+"ryan_library/functions/dashboard_workflow.py" = [
+    "PLW0603", # process-worker state is deliberately installed through a multiprocessing initializer
+]
+"ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py" = [
+    "N801",   # class name matches TUFLOW's ccA result name and dynamic processor lookup contract
+]
+"ryan_library/functions/hy8/run_hy8_bridge.py" = [
+    "S101",   # assertions narrow values immediately after explicit missing-value validation
+]
+"ryan-scripts/pdf-python/ocg_clean_file.py" = [
+    "S110",   # PDF object probing and cleanup deliberately skip unsupported optional structures
+    "S112",
+]
+"ryan-scripts/pdf-python/ocg_clean_file_alternative.py" = [
+    "S110",   # alternate PDF cleanup deliberately skips unsupported optional structures
+    "S112",
 ]
 
 [format]

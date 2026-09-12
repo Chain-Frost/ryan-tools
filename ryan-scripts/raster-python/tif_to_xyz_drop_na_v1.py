@@ -38,14 +38,14 @@ def fill_missing_coordinates(df: pd.DataFrame, drop_missing: bool, nodata_value:
     complete_grid = pd.DataFrame({"x": np.tile(unique_x, len(unique_y)), "y": np.repeat(unique_y, len(unique_x))})
 
     # Merge with the original data to find missing coordinates
-    merged_df = pd.merge(complete_grid, df, on=["x", "y"], how="left")
+    merged_df = complete_grid.merge(df, on=["x", "y"], how="left")
 
     if drop_missing:
         # Drop rows where z is NaN
-        merged_df.dropna(subset=["z"], inplace=True)
+        merged_df = merged_df.dropna(subset=["z"])
     else:
         # Fill missing z-values with the nodata_value
-        merged_df["z"].fillna(nodata_value, inplace=True)
+        merged_df["z"] = merged_df["z"].fillna(nodata_value)
 
     return merged_df
 
@@ -77,7 +77,7 @@ def process_tif_file(file: str) -> None:
             df = pd.DataFrame({"x": xs.flatten(), "y": ys.flatten(), "z": band1.flatten()})
 
         print("--sorting")
-        df.sort_values(["y", "x"], ascending=[True, True], inplace=True)
+        df = df.sort_values(["y", "x"], ascending=[True, True])
 
         # Define the output file path (adjust the directory as needed)
         output_file = f"{OUT_FOLDER}/{os.path.basename(file)[:-4]}_mod.xyz"
@@ -113,4 +113,5 @@ if __name__ == "__main__":
             future.result()
 
     print("end")
-    subprocess.call("pause", shell=True)  # Wait for exit (Windows only)
+    command_interpreter = os.environ.get("COMSPEC", "cmd.exe")
+    subprocess.run([command_interpreter, "/C", "PAUSE"], check=False)

@@ -71,9 +71,7 @@ def is_notebook() -> bool:
     """
     try:
         ipython_module: ModuleType = importlib.import_module(name="IPython")
-        get_ipython: Callable[[], object | None] = cast(
-            "Callable[[], object | None]", ipython_module.get_ipython
-        )
+        get_ipython: Callable[[], object | None] = cast("Callable[[], object | None]", ipython_module.get_ipython)
         shell: object | None = get_ipython()
         if shell is None:
             return False

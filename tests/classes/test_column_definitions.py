@@ -24,17 +24,13 @@ class TestColumnMetadataRegistry:
 
     def test_initialization(self):
         """Test initialization with custom definitions."""
-        base_defs = {
-            "ColA": ColumnDefinition("ColA", "Description A")
-        }
-        sheet_specific = {
-            "Sheet1": {"ColA": ColumnDefinition("ColA", "Sheet1 Description A")}
-        }
+        base_defs = {"ColA": ColumnDefinition("ColA", "Description A")}
+        sheet_specific = {"Sheet1": {"ColA": ColumnDefinition("ColA", "Sheet1 Description A")}}
         registry = ColumnMetadataRegistry(base_definitions=base_defs, sheet_specific=sheet_specific)
-        
+
         # Check base definition
         assert registry.definition_for("ColA").description == "Description A"
-        
+
         # Check sheet specific override
         assert registry.definition_for("ColA", sheet_name="Sheet1").description == "Sheet1 Description A"
 
@@ -49,9 +45,9 @@ class TestColumnMetadataRegistry:
         """Test that sheet-specific definitions override base ones."""
         registry = ColumnMetadataRegistry(
             base_definitions={"ColA": ColumnDefinition("ColA", "Base Desc")},
-            sheet_specific={"Sheet1": {"ColA": ColumnDefinition("ColA", "Sheet Desc")}}
+            sheet_specific={"Sheet1": {"ColA": ColumnDefinition("ColA", "Sheet Desc")}},
         )
-        
+
         # Base
         assert registry.definition_for("ColA").description == "Base Desc"
         # Override
@@ -69,11 +65,10 @@ class TestColumnMetadataRegistry:
 
     def test_iter_definitions(self):
         """Test retrieving multiple definitions in order."""
-        registry = ColumnMetadataRegistry(base_definitions={
-            "A": ColumnDefinition("A", "Desc A"),
-            "B": ColumnDefinition("B", "Desc B")
-        })
-        
+        registry = ColumnMetadataRegistry(
+            base_definitions={"A": ColumnDefinition("A", "Desc A"), "B": ColumnDefinition("B", "Desc B")}
+        )
+
         defs = registry.iter_definitions(["B", "A", "C"])
         assert len(defs) == 3
         assert defs[0].name == "B"
@@ -86,11 +81,11 @@ class TestColumnMetadataRegistry:
         reg1 = ColumnMetadataRegistry.default()
         reg2 = ColumnMetadataRegistry.default()
         assert reg1 is reg2
-        
+
         # Check for some known standard columns
         assert reg1.definition_for("Time").value_type == "float"
         assert reg1.definition_for("Q").description is not None
-        
+
         # Check for the recently updated H columns
         assert reg1.definition_for("US_H").name == "US_H"
         assert reg1.definition_for("DS_H").name == "DS_H"

@@ -8,12 +8,12 @@ processors should only emit records through :data:`loguru.logger`.
 from __future__ import annotations
 
 import atexit
-import os
 import pickle
 import sys
 import threading
 import traceback
 from multiprocessing import Process, Queue
+from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, ClassVar, TypedDict, cast
 
@@ -76,18 +76,21 @@ def normalize_log_level(level: str) -> str:
     """Return a canonical Loguru level name or raise a clear ``ValueError``."""
     normalized_level: str = level.strip().upper()
     if not normalized_level:
-        raise ValueError("Log level must not be empty.")
+        msg = "Log level must not be empty."
+        raise ValueError(msg)
     try:
         return logger.level(normalized_level).name
     except ValueError as exc:
-        raise ValueError(f"Unknown Loguru level: {level!r}") from exc
+        msg = f"Unknown Loguru level: {level!r}"
+        raise ValueError(msg) from exc
 
 
 def minimum_log_level(*levels: str) -> str:
     """Return the least restrictive of the supplied Loguru levels."""
     normalized_levels: list[str] = [normalize_log_level(level) for level in levels]
     if not normalized_levels:
-        raise ValueError("At least one log level is required.")
+        msg = "At least one log level is required."
+        raise ValueError(msg)
     return min(normalized_levels, key=lambda level: logger.level(level).no)
 
 
@@ -160,7 +163,8 @@ def configure_serial_logging(
         file_log_level: Minimum file level when ``log_file`` is supplied.
     """
     if LoguruMultiprocessingLogger.has_active_context():
-        raise RuntimeError("Cannot replace serial sinks while a multiprocessing logging context is active.")
+        msg = "Cannot replace serial sinks while a multiprocessing logging context is active."
+        raise RuntimeError(msg)
     normalized_console_level: str = normalize_log_level(console_log_level)
     normalized_file_level: str = normalize_log_level(file_log_level)
     reset_logging()
@@ -181,7 +185,8 @@ def configure_notebook_logging(
     consumption while retaining detailed records in ``log_file``.
     """
     if LoguruMultiprocessingLogger.has_active_context():
-        raise RuntimeError("Cannot replace notebook sinks while a multiprocessing logging context is active.")
+        msg = "Cannot replace notebook sinks while a multiprocessing logging context is active."
+        raise RuntimeError(msg)
     normalized_console_level: str = normalize_log_level(console_log_level)
     normalized_file_level: str = normalize_log_level(file_log_level)
     reset_logging()
@@ -213,7 +218,10 @@ def listener_process(
             if queue_item is None:
                 break
 
-            record: SerializedLogRecord = cast("SerializedLogRecord", pickle.loads(queue_item))
+            record: SerializedLogRecord = cast(
+                "SerializedLogRecord",
+                pickle.loads(queue_item),  # noqa: S301 - queue contains records from trusted local workers
+            )
             formatted_message: str = f"{record['module']}:{record['function']}:{record['line']} - {record['message']}"
             exception_text: str | None = record["exception"]
             if exception_text:
@@ -309,9 +317,11 @@ class LoguruMultiprocessingLogger:
     def __enter__(self) -> LogQueue:
         with self._context_lock:
             if self._entered or self._shutdown:
-                raise RuntimeError("This logging context cannot be entered more than once.")
+                msg = "This logging context cannot be entered more than once."
+                raise RuntimeError(msg)
             if type(self)._active_context is not None:
-                raise RuntimeError("A multiprocessing logging context is already active in this process.")
+                msg = "A multiprocessing logging context is already active in this process."
+                raise RuntimeError(msg)
             type(self)._active_context = self
             self._entered = True
 
@@ -379,8 +389,8 @@ def setup_logger(
     file_log_level: str = "DEBUG",
 ) -> LoguruMultiprocessingLogger:
     """Return a multiprocessing logging context with independent sink levels."""
-    if log_file and not os.path.isabs(log_file):
-        log_file = os.path.join(os.getcwd(), log_file)
+    if log_file and not Path(log_file).is_absolute():
+        log_file = str(Path.cwd() / log_file)
     return LoguruMultiprocessingLogger(
         log_file=log_file,
         console_log_level=console_log_level,
@@ -390,6 +400,6 @@ def setup_logger(
 
 def add_file_sink(log_file: str, file_log_level: str = "DEBUG") -> None:
     """Add a standard rotating file sink outside a multiprocessing context."""
-    if not os.path.isabs(log_file):
-        log_file = os.path.join(os.getcwd(), log_file)
+    if not Path(log_file).is_absolute():
+        log_file = str(Path.cwd() / log_file)
     _add_file_sink(log_file=log_file, level=file_log_level, forwarded=False)

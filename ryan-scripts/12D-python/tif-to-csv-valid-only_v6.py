@@ -16,8 +16,7 @@ from ryan_library.functions.terrain_processing import parallel_process_multiple_
 
 
 def save_tile_csv(tile_df, output_dir, base_filename, i, j):
-    """Saves a tile DataFrame as a CSV file.
-    """
+    """Saves a tile DataFrame as a CSV file."""
     logger = logging.getLogger(__name__)
     tile_filename = f"{base_filename}_tile_{i}_{j}.csv"
     tile_path = output_dir / tile_filename
@@ -25,14 +24,13 @@ def save_tile_csv(tile_df, output_dir, base_filename, i, j):
     try:
         # Save the tile DataFrame to CSV
         tile_df.to_csv(tile_path, index=False)
-        logger.info(f"Saved tile: {tile_filename}")
-    except Exception as e:
-        logger.error(f"Failed to save CSV tile {tile_filename}: {e}")
+        logger.info("Saved tile: %s", tile_filename)
+    except Exception:
+        logger.exception("Failed to save CSV tile %s", tile_filename)
 
 
 def save_full_csv(df, output_dir, base_filename):
-    """Saves the full DataFrame as a single CSV file without tiling.
-    """
+    """Saves the full DataFrame as a single CSV file without tiling."""
     logger = logging.getLogger(__name__)
     csv_filename = f"{base_filename}.csv"
     output_path = output_dir / csv_filename
@@ -40,9 +38,9 @@ def save_full_csv(df, output_dir, base_filename):
     try:
         # Save the full DataFrame to CSV
         df.to_csv(output_path, index=False)
-        logger.info(f"Saved file without tiling: {csv_filename}")
-    except Exception as e:
-        logger.error(f"Failed to save CSV file {csv_filename}: {e}")
+        logger.info("Saved file without tiling: %s", csv_filename)
+    except Exception:
+        logger.exception("Failed to save CSV file %s", csv_filename)
 
 
 def main():
@@ -65,24 +63,24 @@ def main():
 
     # Set script_dir to a specific path
     script_dir = Path(__file__).absolute().parent
-    logger.info(f"Script directory: {script_dir}")
+    logger.info("Script directory: %s", script_dir)
 
     # Verify that script_dir exists
     if not script_dir.exists():
-        logger.error(f"The specified script directory does not exist: {script_dir}")
+        logger.error("The specified script directory does not exist: %s", script_dir)
         return
 
     # Define the output directory
     output_dir = script_dir / "output_csv_files"  # Using Path objects
     output_dir.mkdir(parents=True, exist_ok=True)
-    logger.info(f"Output directory: {output_dir}")
+    logger.info("Output directory: %s", output_dir)
 
     # Find all .tif files in the script_dir
     tif_files = list(script_dir.glob("*.tif"))
     if not tif_files:
         logger.warning("No .tif files found in the script directory.")
         return
-    logger.info(f"Found {len(tif_files)} .tif files to process.")
+    logger.info("Found %d .tif files to process.", len(tif_files))
 
     # Define the saving function based on tiling
     if use_tiling:

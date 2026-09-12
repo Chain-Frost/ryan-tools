@@ -65,12 +65,14 @@ class ExecutionTarget:
             if value is None:
                 continue
             if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"Workflow field {kind.value!r} must be a non-empty string.")
+                msg = f"Workflow field {kind.value!r} must be a non-empty string."
+                raise ValueError(msg)
             candidates.append((kind, value))
 
         if len(candidates) != 1:
             target_fields: str = ", ".join(repr(kind.value) for kind in ExecutionKind)
-            raise ValueError(f"Workflow must define exactly one execution target from: {target_fields}.")
+            msg = f"Workflow must define exactly one execution target from: {target_fields}."
+            raise ValueError(msg)
         kind, value = candidates[0]
         return cls(kind=kind, value=value)
 
@@ -98,15 +100,18 @@ class WorkflowSpec:
         def required_string(key: str) -> str:
             value: object | None = raw.get(key)
             if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"Workflow field {key!r} must be a non-empty string.")
+                msg = f"Workflow field {key!r} must be a non-empty string."
+                raise ValueError(msg)
             return value
 
         raw_headless_value: object = raw.get("headless_arguments", [])
         if not isinstance(raw_headless_value, list):
-            raise ValueError("Workflow field 'headless_arguments' must be a list of strings.")
+            msg = "Workflow field 'headless_arguments' must be a list of strings."
+            raise ValueError(msg)
         raw_headless: list[object] = cast("list[object]", raw_headless_value)
         if not all(isinstance(item, str) for item in raw_headless):
-            raise ValueError("Workflow field 'headless_arguments' must be a list of strings.")
+            msg = "Workflow field 'headless_arguments' must be a list of strings."
+            raise ValueError(msg)
         headless_arguments: tuple[str, ...] = tuple(cast("str", item) for item in raw_headless)
 
         known_keys: set[str] = {

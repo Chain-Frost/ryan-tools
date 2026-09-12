@@ -93,7 +93,7 @@ def test_run_closure_durations_success(mock_pipeline) -> None:
     mock_pipeline["summary"].assert_called_once()
     mock_pipeline["export"].assert_called_once()
 
-    args, kwargs = mock_pipeline["export"].call_args
+    _args, kwargs = mock_pipeline["export"].call_args
     # The AEP_sort_key column should have been created and then dropped
     assert "AEP_sort_key" not in kwargs["summary_df"].columns
 
@@ -111,6 +111,6 @@ def test_export_closure_duration_artifacts(mock_exporter) -> None:
     _export_closure_duration_artifacts(durations_df=df, summary_df=df, timestamp="20200101-1200", export_mode="parquet")
 
     mock_exporter.return_value.export_dataframes.assert_called_once()
-    args, kwargs = mock_exporter.return_value.export_dataframes.call_args
+    _args, kwargs = mock_exporter.return_value.export_dataframes.call_args
     assert kwargs["export_mode"] == "parquet"
     assert "20200101-1200_closure_durations" in kwargs["export_dict"]

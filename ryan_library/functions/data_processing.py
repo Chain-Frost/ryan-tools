@@ -74,7 +74,8 @@ def check_string_TP(string: str) -> str:
 
     if match:
         return match.group(1)
-    raise ValueError(f"TP pattern not found in the string: {string}")
+    msg = f"TP pattern not found in the string: {string}"
+    raise ValueError(msg)
 
 
 def check_string_duration(string: str) -> str:
@@ -97,7 +98,8 @@ def check_string_duration(string: str) -> str:
     match: re.Match[str] | None = TuflowStringParser.DURATION_PATTERN.search(string)
     if match:
         return match.group(1)
-    raise ValueError(f"Duration pattern not found in the string: {string}")
+    msg = f"Duration pattern not found in the string: {string}"
+    raise ValueError(msg)
 
 
 def check_string_aep(string: str) -> str:
@@ -122,6 +124,8 @@ def check_string_aep(string: str) -> str:
         # Prefer the numeric capture (e.g. "01.00"); fall back to the text token (e.g. "PMP").
         matched_aep: str | None = match.group("numeric") or match.group("text")
         if matched_aep is None:
-            raise ValueError(f"AEP pattern did not capture a value in: {string}")
+            msg = f"AEP pattern did not capture a value in: {string}"
+            raise ValueError(msg)
         return matched_aep
-    raise ValueError(f"AEP pattern not found in the string: {string}")
+    msg = f"AEP pattern not found in the string: {string}"
+    raise ValueError(msg)

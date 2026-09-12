@@ -84,9 +84,9 @@ def main(
     return 0
 
 
-def _parse_cli_arguments() -> (
-    tuple[CommonWrapperOptions, tuple[Path, ...] | None, tuple[float, ...] | None, int | None]
-):
+def _parse_cli_arguments() -> tuple[
+    CommonWrapperOptions, tuple[Path, ...] | None, tuple[float, ...] | None, int | None
+]:
     """Parse CLI overrides while retaining editable defaults for omitted values."""
     parser = argparse.ArgumentParser(
         description="Calculate threshold exceedance durations from RORB batch.out hydrographs.",

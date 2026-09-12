@@ -231,7 +231,8 @@ def copy_files(files: list[FileCopyItem], total_bytes: int) -> None:
                     overall_task_id=overall_task,
                 )
             except OSError as error:
-                raise OSError(f"Failed while copying {item.source} to {item.destination}: {error}") from error
+                msg = f"Failed while copying {item.source} to {item.destination}: {error}"
+                raise OSError(msg) from error
 
         if total_bytes == 0:
             progress.update(overall_task, completed=1)
@@ -261,7 +262,8 @@ def run_robocopy(source_folder: Path, destination_folder: Path) -> None:
     )
 
     if process.stdout is None:
-        raise RuntimeError("Robocopy did not provide an output stream.")
+        msg = "Robocopy did not provide an output stream."
+        raise RuntimeError(msg)
 
     for output_line in process.stdout:
         line = output_line.rstrip()
@@ -270,7 +272,8 @@ def run_robocopy(source_folder: Path, destination_folder: Path) -> None:
 
     return_code = process.wait()
     if return_code >= 8:
-        raise RuntimeError(f"Robocopy failed with exit code {return_code}.")
+        msg = f"Robocopy failed with exit code {return_code}."
+        raise RuntimeError(msg)
 
     console.print(f"[green]Robocopy completed with exit code {return_code}.[/green]")
 
@@ -282,10 +285,7 @@ nr.lpRemoteName = share
 connected_here = False
 console.print(
     Panel.fit(
-        f"[bold]Copying TUFLOW folder[/bold]\n"
-        f"Source: {source}\n"
-        f"Destination: {destination}\n"
-        f"User: {username}",
+        f"[bold]Copying TUFLOW folder[/bold]\nSource: {source}\nDestination: {destination}\nUser: {username}",
         title="TUFLOW_MLGD",
     )
 )
@@ -301,7 +301,8 @@ else:
 
 try:
     if not source.is_dir():
-        raise FileNotFoundError(f"Source folder not found: {source}")
+        msg = f"Source folder not found: {source}"
+        raise FileNotFoundError(msg)
 
     destination_root.mkdir(parents=True, exist_ok=True)
 

@@ -17,7 +17,8 @@ def _load_script(filename: str) -> ModuleType:
     script = Path(__file__).parents[3] / "ryan-scripts" / "raster-python" / filename
     spec = importlib.util.spec_from_file_location(f"{script.stem}_for_tests", script)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load {script}")
+        msg = f"Unable to load {script}"
+        raise ImportError(msg)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -30,9 +31,7 @@ def test_square_raster_cells_preserves_shape_and_creates_square_resolution(
     output = tmp_path / "square.tif"
     module = _load_script("square_raster_cells.py")
 
-    module.square_raster_cells(
-        source, output, 1.0
-    )  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+    module.square_raster_cells(source, output, 1.0)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
 
     with rasterio.open(source) as source_dataset, rasterio.open(output) as output_dataset:
         assert output_dataset.shape == source_dataset.shape

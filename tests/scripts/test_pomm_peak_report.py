@@ -54,7 +54,7 @@ def test_run_median_peak_report_creates_excel() -> None:
     excel_files: list[Path] = list(src_dir.glob("*_med_peaks.xlsx"))
     assert excel_files
     with pd.ExcelFile(path_or_buffer=excel_files[0]) as xl:
-        assert set(["aep-dur-max", "aep-max", "POMM"]).issubset(set(xl.sheet_names))
+        assert {"aep-dur-max", "aep-max", "POMM"}.issubset(set(xl.sheet_names))
         aep_dur_df = xl.parse(sheet_name="aep-dur-max")
         assert all("mean" not in col.lower() for col in aep_dur_df.columns)
         if not aep_dur_df.empty:

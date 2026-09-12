@@ -22,7 +22,6 @@ def test_tuflow_logsummary_append_smoke(tmp_path: Path) -> None:
             "ryan_library.orchestrators.tuflow.tuflow_logsummary_append.append_dataframe_to_workbook_table"
         ) as mock_append,
     ):
-
         mock_load.return_value = MagicMock()
         mock_discover.return_value = [tmp_path / "1.tlf"]
         mock_filter.return_value = [tmp_path / "1.tlf"]
@@ -44,14 +43,12 @@ def test_tuflow_logsummary_append_smoke(tmp_path: Path) -> None:
 def test_peak_check_po_csvs_smoke(tmp_path: Path) -> None:
     csv_dir = tmp_path / "csvs"
     csv_dir.mkdir()
-    out_file = tmp_path / "out.xlsx"
 
     with (
         patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.collect_po_csv_files") as mock_collect,
         patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.cf.ProcessPoolExecutor") as mock_pool,
         patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.ExcelExporter") as mock_export,
     ):
-
         mock_collect.return_value = [csv_dir / "1_PO.csv"]
 
         # Setup mock for pool so it returns a dummy list of results
@@ -69,14 +66,12 @@ def test_peak_check_po_csvs_smoke(tmp_path: Path) -> None:
 def test_tuflow_timeseries_stability_smoke(tmp_path: Path) -> None:
     csv_dir = tmp_path / "csvs"
     csv_dir.mkdir()
-    out_file = tmp_path / "out.xlsx"
 
     with (
         patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.Path.rglob") as mock_rglob,
         patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.cf.ProcessPoolExecutor") as mock_pool,
         patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.ExcelExporter") as mock_export,
     ):
-
         mock_rglob.return_value = [csv_dir / "1_PO.csv"]
 
         mock_executor = MagicMock()

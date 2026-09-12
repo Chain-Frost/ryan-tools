@@ -5,6 +5,8 @@ from __future__ import annotations
 
 __lazy_modules__: list[str] = ["pandas"]
 
+from typing import ClassVar
+
 import pandas as pd
 from loguru import logger
 from pandas import DataFrame, Series
@@ -15,7 +17,7 @@ from ..base_processor import BaseProcessor
 class POProcessor(BaseProcessor):
     """Load PO timeseries CSV files into a tidy DataFrame."""
 
-    VALUE_COLUMNS: list[str] = ["Time", "Location", "Type", "Value"]
+    VALUE_COLUMNS: ClassVar[list[str]] = ["Time", "Location", "Type", "Value"]
 
     def process(self) -> None:
         """Parse the CSV, reshape it to long format, and add common columns."""
@@ -69,7 +71,7 @@ class POProcessor(BaseProcessor):
             return pd.DataFrame(columns=self.VALUE_COLUMNS)
 
         numeric_data: DataFrame = data_rows.apply(pd.to_numeric, errors="coerce")
-        numeric_data.reset_index(drop=True, inplace=True)
+        numeric_data = numeric_data.reset_index(drop=True)
 
         time_idx: int | None = self._locate_time_column(measurement_row=measurement_row, location_row=location_row)
         if time_idx is None:
@@ -86,7 +88,7 @@ class POProcessor(BaseProcessor):
         time_values = numeric_data.iloc[:, time_idx].astype("float64")
 
         tidy_frames: list[pd.DataFrame] = []
-        for idx, (measurement, location) in enumerate(zip(measurement_row, location_row)):
+        for idx, (measurement, location) in enumerate(zip(measurement_row, location_row, strict=True)):
             measurement_text: str = str(measurement).strip()
             location_text: str = str(location).strip()
 
@@ -129,8 +131,8 @@ class POProcessor(BaseProcessor):
 
         combined: DataFrame = pd.concat(tidy_frames, ignore_index=True)
         combined = combined[self.VALUE_COLUMNS]
-        combined.sort_values(by=["Location", "Type", "Time"], inplace=True)
-        combined.reset_index(drop=True, inplace=True)
+        combined = combined.sort_values(by=["Location", "Type", "Time"])
+        combined = combined.reset_index(drop=True)
         return combined
 
     @staticmethod

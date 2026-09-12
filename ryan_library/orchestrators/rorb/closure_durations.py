@@ -73,7 +73,8 @@ def _worker_count(job_count: int, pool_size: int | None) -> int:
         return 1
     if pool_size is not None:
         if pool_size < 1:
-            raise ValueError("pool_size must be at least 1")
+            msg = "pool_size must be at least 1"
+            raise ValueError(msg)
         return min(pool_size, job_count)
     available_workers: int = max((os.cpu_count() or 1) - 1, 1)
     return min(available_workers, job_count, 20)
@@ -175,7 +176,8 @@ def run_closure_durations(
         _default_thresholds() if thresholds is None else [float(value) for value in thresholds]
     )
     if not threshold_values:
-        raise ValueError("At least one threshold is required")
+        msg = "At least one threshold is required"
+        raise ValueError(msg)
 
     with setup_logger(console_log_level=log_level) as log_queue:
         batch_df: DataFrame = _collect_batch_data(paths=search_paths)
@@ -203,11 +205,10 @@ def run_closure_durations(
             summary_df["AEP"].astype(str).str.extract(r"([0-9]*\.?[0-9]+)")[0],
             errors="coerce",
         )
-        summary_df.sort_values(
+        summary_df = summary_df.sort_values(
             by=["Path", "Location", "ThresholdFlow", "AEP_sort_key", "AEP"],
             ignore_index=True,
-            inplace=True,
         )
-        summary_df.drop(columns="AEP_sort_key", inplace=True)
+        summary_df = summary_df.drop(columns="AEP_sort_key")
         summary_df.to_csv(path_or_buf=f"{timestamp}_QvsTexc.csv", index=False)
         logger.success("RORB closure-duration processing complete")

@@ -161,7 +161,9 @@ class ColumnMetadataRegistry:
                 value_type=(
                     prefix_definition.value_type
                     if prefix_definition.value_type is not None
-                    else base_definition.value_type if base_definition is not None else None
+                    else base_definition.value_type
+                    if base_definition is not None
+                    else None
                 ),
             )
 

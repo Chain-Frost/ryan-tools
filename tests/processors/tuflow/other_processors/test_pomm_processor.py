@@ -1,4 +1,3 @@
-
 import pandas as pd
 import pytest
 
@@ -23,16 +22,6 @@ def test_pomm_processor_synthetic(tmp_path, change_cwd):
         # Let's construct the "Transposed" version first, then transpose it back to write to CSV.
         # Expected Headers after transpose:
         # Location, Time, Maximum (Extracted from Time Series), Time of Maximum, Minimum (Extracted From Time Series), Time of Minimum
-
-        data = {
-            "Location": ["Loc1", "Loc2"],
-            "Time": [10.0, 20.0],  # This becomes 'Location' column in rename
-            "Maximum (Extracted from Time Series)": [5.0, 6.0],  # Becomes 'Max'
-            "Time of Maximum": [1.0, 2.0],  # Becomes 'Tmax'
-            "Minimum (Extracted From Time Series)": [1.0, 2.0],  # Becomes 'Min'
-            "Time of Minimum": [3.0, 4.0],  # Becomes 'Tmin'
-        }
-        df_transposed = pd.DataFrame(data)
 
         # Now we need to invert the logic to create the input file.
         # The input file has headers in the first column?

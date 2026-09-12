@@ -34,7 +34,8 @@ def parse_time_increment(lines: Sequence[str]) -> float:
         match: re.Match[str] | None = TIME_INCREMENT_PATTERN.search(line)
         if match:
             return float(match.group(1))
-    raise ValueError("Unable to find the time increment in the .out file.")
+    msg = "Unable to find the time increment in the .out file."
+    raise ValueError(msg)
 
 
 def collect_header_lines(lines: Sequence[str], start_row: int, line_count: int = HEADER_LINE_COUNT) -> list[str]:
@@ -60,7 +61,8 @@ def collect_header_lines(lines: Sequence[str], start_row: int, line_count: int =
         idx -= 1
 
     if not header_lines:
-        raise ValueError("Could not locate any header lines above the data block.")
+        msg = "Could not locate any header lines above the data block."
+        raise ValueError(msg)
     return header_lines
 
 
@@ -194,7 +196,8 @@ def fix_and_extract(
     numbered_slice = list(enumerate(lines[start_row - 1 : end_row], start=start_row))
     data_lines: list[tuple[int, str]] = [(line_no, line) for line_no, line in numbered_slice if line.strip()]
     if not data_lines:
-        raise ValueError(f"No rainfall data found between rows {start_row} and {end_row}.")
+        msg = f"No rainfall data found between rows {start_row} and {end_row}."
+        raise ValueError(msg)
 
     actual_start_row = data_lines[0][0]
     actual_end_row = data_lines[-1][0]

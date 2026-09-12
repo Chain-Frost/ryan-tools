@@ -39,7 +39,7 @@ class ChanProcessor(MaxDataProcessor):
 
             # Rename 'Channel' to 'Chan ID'
             if "Channel" in self.df.columns:
-                self.df.rename(columns={"Channel": "Chan ID"}, inplace=True)
+                self.df = self.df.rename(columns={"Channel": "Chan ID"})
                 logger.debug("Renamed 'Channel' to 'Chan ID'.")
             else:
                 logger.error(f"'Channel' column is missing in file {self.log_path}.")
@@ -48,7 +48,7 @@ class ChanProcessor(MaxDataProcessor):
 
             # Rename 'LBUS Obvert' to 'US Obvert'
             # We already checked for existence of 'LBUS Obvert' above
-            self.df.rename(columns={"LBUS Obvert": "US Obvert"}, inplace=True)
+            self.df = self.df.rename(columns={"LBUS Obvert": "US Obvert"})
             logger.debug("Renamed 'LBUS Obvert' to 'US Obvert'.")
 
             self.apply_entity_filter()

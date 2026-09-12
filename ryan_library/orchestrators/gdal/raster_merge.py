@@ -45,10 +45,12 @@ def merge_directory(
         if path.is_file() and path.resolve() not in (resolved_tif, resolved_vrt)
     )
     if not inputs:
-        raise FileNotFoundError(f"No files matching {file_pattern!r} found in {input_directory}")
+        msg = f"No files matching {file_pattern!r} found in {input_directory}"
+        raise FileNotFoundError(msg)
     if not overwrite and (resolved_tif.exists() or resolved_vrt.exists()):
         existing = resolved_tif if resolved_tif.exists() else resolved_vrt
-        raise FileExistsError(f"Output already exists: {existing}")
+        msg = f"Output already exists: {existing}"
+        raise FileExistsError(msg)
 
     logger.info(f"Merging {len(inputs)} raster(s) from: {input_directory}")
     build_vrt(
@@ -96,7 +98,8 @@ def merge_directory_by_vector_extent(
     candidates = sorted(path for path in input_directory.glob(file_pattern) if path.is_file())
     selected = [path for path in candidates if _extents_intersect(get_raster_extent(path), bounds)]
     if not selected:
-        raise FileNotFoundError(f"No rasters matching {file_pattern!r} intersect {extent_vector}")
+        msg = f"No rasters matching {file_pattern!r} intersect {extent_vector}"
+        raise FileNotFoundError(msg)
     logger.info(f"Selected {len(selected)} of {len(candidates)} raster(s) intersecting {extent_vector}")
     if list_only:
         for path in selected:
@@ -108,7 +111,8 @@ def merge_directory_by_vector_extent(
     resolved_vrt = (output_vrt or input_directory / f"{base_name}.vrt").resolve()
     if not overwrite and (resolved_tif.exists() or resolved_vrt.exists()):
         existing = resolved_tif if resolved_tif.exists() else resolved_vrt
-        raise FileExistsError(f"Output already exists: {existing}")
+        msg = f"Output already exists: {existing}"
+        raise FileExistsError(msg)
 
     build_vrt(
         selected,

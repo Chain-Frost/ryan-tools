@@ -249,7 +249,7 @@ class TuflowStringParser:
         Returns:
             str: Extracted run code.
         """
-        for suffix in self.suffixes.keys():
+        for suffix in self.suffixes:
             if self.file_name.lower().endswith(suffix.lower()):
                 run_code: str = self.file_name[: -len(suffix)]
                 logger.debug("Extracted raw run code '{}' from file name '{}'", run_code, self.file_name)

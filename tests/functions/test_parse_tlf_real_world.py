@@ -138,6 +138,6 @@ def test_parse_tlf_real_world(regression_snapshot):
         # Check values
         for key, expected_val in expected_data.items():
             actual_val = actual_data[key]
-            assert (
-                actual_val == expected_val
-            ), f"Mismatch in {filename} for key '{key}': expected {expected_val}, got {actual_val}"
+            assert actual_val == expected_val, (
+                f"Mismatch in {filename} for key '{key}': expected {expected_val}, got {actual_val}"
+            )

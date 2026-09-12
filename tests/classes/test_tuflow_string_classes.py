@@ -46,9 +46,9 @@ def test_file_name_parsing(run_code_examples: list[dict]) -> None:
         assert parser.file_name == file_name, f"File name mismatch for {file_name}"
         assert parser.run_code_parts == expected.get("run_code_parts"), f"Run code parts mismatch for {file_name}"
         assert (parser.aep.text_repr if parser.aep else None) == expected.get("aep"), f"AEP mismatch for {file_name}"
-        assert (parser.duration.text_repr if parser.duration else None) == expected.get(
-            "duration"
-        ), f"Duration mismatch for {file_name}"
+        assert (parser.duration.text_repr if parser.duration else None) == expected.get("duration"), (
+            f"Duration mismatch for {file_name}"
+        )
         assert (parser.tp.text_repr if parser.tp else None) == expected.get("tp"), f"TP mismatch for {file_name}"
         assert parser.trim_run_code == expected.get("trim_run_code"), f"Trimmed run code mismatch for {file_name}"
 
@@ -71,7 +71,10 @@ def test_trim_run_code_removes_parsed_components() -> None:
     parser = TuflowStringParser(file_path=Path("R01_TP12_2.0p_120m_POMM.csv"))
 
     assert parser.data_type == "POMM"
-    assert parser.tp and parser.tp.text_repr == "TP12"
-    assert parser.aep and parser.aep.text_repr == "2.0p"
-    assert parser.duration and parser.duration.text_repr == "120m"
+    assert parser.tp
+    assert parser.tp.text_repr == "TP12"
+    assert parser.aep
+    assert parser.aep.text_repr == "2.0p"
+    assert parser.duration
+    assert parser.duration.text_repr == "120m"
     assert parser.trim_run_code == "R01"

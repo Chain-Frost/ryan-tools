@@ -230,7 +230,7 @@ def maximums_dataframe_to_crossings(
     )
     indexes: Sequence[int | str] = list(maximums.index)
     crossings: list[CulvertCrossing] = []
-    for idx, raw_row in zip(indexes, raw_rows):
+    for idx, raw_row in zip(indexes, raw_rows, strict=True):
         record: CulvertMaximumRecord | None = CulvertMaximumRecord.from_mapping(raw_row, row_index=idx)
         if record is None:
             continue

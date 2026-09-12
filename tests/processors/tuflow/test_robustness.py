@@ -33,10 +33,9 @@ def get_processable_files(root_dir: Path) -> list[Path]:
     all_suffixes = [s for suffixes in suffix_map.values() for s in suffixes]
 
     for path in root_dir.rglob("*"):
-        if path.is_file():
-            # Check if file ends with any known suffix
-            if any(path.name.endswith(suffix) for suffix in all_suffixes):
-                processable_files.append(path)
+        # Check if the file ends with any known suffix.
+        if path.is_file() and any(path.name.endswith(suffix) for suffix in all_suffixes):
+            processable_files.append(path)
 
     return processable_files
 

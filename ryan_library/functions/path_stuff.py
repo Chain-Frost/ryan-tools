@@ -40,7 +40,7 @@ def _load_network_mappings() -> dict[str, str]:
     config_path: Path = Path(__file__).resolve().parents[1] / "classes" / "path_mappings.json"
     if config_path.exists():
         try:
-            with open(file=config_path, encoding="utf-8") as f:
+            with config_path.open(encoding="utf-8") as f:
                 mapping: dict[str, str] | None = json.load(f)
                 if isinstance(mapping, dict):
                     return mapping
@@ -137,7 +137,8 @@ def to_single_path(path: object) -> Path:
     """
     if isinstance(path, (str, Path)):
         return Path(path)
-    raise TypeError(f"Expected a single path string or Path object, got {type(path).__name__}")
+    msg = f"Expected a single path string or Path object, got {type(path).__name__}"
+    raise TypeError(msg)
 
 
 def sanitize_windows_filename(value: str, *, fallback: str = "unnamed") -> str:

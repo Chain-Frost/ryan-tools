@@ -41,7 +41,8 @@ def qn(tag: str) -> str:
     """Expand a namespace-prefixed tag like 'w:style' to '{...}style'."""
     prefix, local = tag.split(":")
     if prefix != "w":
-        raise ValueError(f"Unsupported prefix: {prefix}")
+        msg = f"Unsupported prefix: {prefix}"
+        raise ValueError(msg)
     return f"{{{W_NS}}}{local}"
 
 
@@ -91,7 +92,7 @@ def read_docx_part(docx_path: Path, part_name: str) -> bytes:
 
 
 def parse_xml_bytes(xml_bytes: bytes) -> ET.Element:
-    return ET.fromstring(xml_bytes)
+    return ET.fromstring(xml_bytes)  # noqa: S314 - input is a user-selected local DOCX part
 
 
 @dataclass(frozen=True)
@@ -293,7 +294,7 @@ def _extract_tblpr(tblpr: ET.Element | None) -> dict[str, object]:
 
     tbl_look = first(tblpr, "./w:tblLook")
     if tbl_look is not None:
-        out["tblLook"] = {k: v for k, v in tbl_look.attrib.items()}
+        out["tblLook"] = dict(tbl_look.attrib.items())
 
     return out
 

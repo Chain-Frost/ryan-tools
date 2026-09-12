@@ -44,8 +44,7 @@ type RasterContext = AbstractContextManager[RasterReader]
 
 
 def read_geotiff(filename: str | Path, nodata_values: NodataValues = None) -> pd.DataFrame:
-    """Reads a GeoTIFF file and returns a DataFrame with X, Y, Z coordinates.
-    """
+    """Reads a GeoTIFF file and returns a DataFrame with X, Y, Z coordinates."""
     logger.info(f"Loading file: {filename}")
     try:
         open_raster = cast(
@@ -157,7 +156,7 @@ def process_terrain_file_inner(
 
     # Ensure no NaN values are included
     initial_shape: tuple[int, int] = df.shape
-    df.dropna(inplace=True)
+    df = df.dropna()
     logger.debug("Dropped NaN values. DataFrame shape changed from {} to {}", initial_shape, df.shape)
 
     # Base filename without extension

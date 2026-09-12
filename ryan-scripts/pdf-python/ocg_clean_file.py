@@ -226,9 +226,8 @@ def _strip_content(
     if ocg_entries:
         min_num = min(entry["num"] for entry in ocg_entries)
         for entry in ocg_entries:
-            if entry["num"] == min_num:
-                if entry["props_key"]:
-                    remove_props.add(entry["props_key"])
+            if entry["num"] == min_num and entry["props_key"]:
+                remove_props.add(entry["props_key"])
 
     remove_props_norm = {_normalize_ocg_label(name) for name in remove_props if name}
 
@@ -453,7 +452,8 @@ def main() -> int:
         output_path = DEFAULT_OUTPUT_PDF or _default_output_path(pdf_path)
 
     if not pdf_path:
-        raise ValueError("Set DEFAULT_INPUT_PDF or pass a PDF path on the command line.")
+        msg = "Set DEFAULT_INPUT_PDF or pass a PDF path on the command line."
+        raise ValueError(msg)
 
     reader = PdfReader(pdf_path)
     writer = PdfWriter()
@@ -472,9 +472,11 @@ def main() -> int:
         try:
             result = reader.decrypt(DEFAULT_DECRYPT_PASSWORD)
         except Exception as exc:
-            raise RuntimeError(f"Decrypt failed: {type(exc).__name__}: {exc}") from exc
+            msg = f"Decrypt failed: {type(exc).__name__}: {exc}"
+            raise RuntimeError(msg) from exc
         if result == 0:
-            raise RuntimeError("Decrypt failed: invalid or missing password.")
+            msg = "Decrypt failed: invalid or missing password."
+            raise RuntimeError(msg)
         decrypt_status = f"decrypted (result={result})"
         warnings.append("Input was encrypted; permissions removed by decrypt before processing.")
 

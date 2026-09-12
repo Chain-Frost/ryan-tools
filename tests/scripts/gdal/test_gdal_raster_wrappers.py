@@ -21,7 +21,8 @@ def _load_script(filename: str) -> ModuleType:
     module_name = f"{script.stem}_wrapper_test"
     spec = importlib.util.spec_from_file_location(module_name, script)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load {script}")
+        msg = f"Unable to load {script}"
+        raise ImportError(msg)
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
@@ -58,7 +59,8 @@ def test_translate_wrapper_converts_asc_fixture(
     with rasterio.open(output) as dataset:
         assert dataset.shape == (64, 64)
         assert dataset.dtypes == ("float32",)
-        assert dataset.crs is not None and dataset.crs.to_epsg() == 7850
+        assert dataset.crs is not None
+        assert dataset.crs.to_epsg() == 7850
 
 
 def test_overview_wrapper_writes_external_sidecar(

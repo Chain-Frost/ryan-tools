@@ -22,7 +22,6 @@ def test_process_log_file_success(mock_log_file):
         with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.search_for_completion") as mock_search:
             with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.process_top_lines") as mock_process:
                 with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.finalise_data") as mock_finalise:
-
                     mock_read.return_value = (["Line 1", "Line 2"], ["Line 1", "Line 2"])
                     # search_for_completion returns (data_dict, sim_complete, current_section)
                     # We need sim_complete=2 to proceed
@@ -43,7 +42,6 @@ def test_process_log_file_success(mock_log_file):
 def test_process_log_file_incomplete(mock_log_file):
     with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.get_log_lines") as mock_read:
         with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.search_for_completion") as mock_search:
-
             mock_read.return_value = (["Line 1"], ["Line 1"])
             # sim_complete != 2
             mock_search.return_value = ({}, 0, None)
@@ -81,7 +79,6 @@ def test_main_processing_success():
 def test_main_processing_no_files():
     with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.setup_logger"):
         with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.discover_log_files") as mock_discover:
-
             mock_discover.return_value = []
 
             tuflow_logsummary.main_processing()

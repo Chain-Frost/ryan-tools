@@ -20,8 +20,7 @@ from ryan_library.functions.terrain_processing import parallel_process_multiple_
 
 
 def save_tile_csv(tile_df, output_dir, base_filename, i, j) -> None:
-    """Saves a tile DataFrame as a CSV file with precision rounded to 0.001.
-    """
+    """Saves a tile DataFrame as a CSV file with precision rounded to 0.001."""
     tile_filename = f"{base_filename}_tile_{i}_{j}.csv"
     tile_path = output_dir / tile_filename
 
@@ -37,8 +36,7 @@ def save_tile_csv(tile_df, output_dir, base_filename, i, j) -> None:
 
 
 def save_full_csv(df, output_dir, base_filename) -> None:
-    """Saves the full DataFrame as a single CSV file without tiling, with precision rounded to 0.001.
-    """
+    """Saves the full DataFrame as a single CSV file without tiling, with precision rounded to 0.001."""
     csv_filename = f"{base_filename}.csv"
     output_path = output_dir / csv_filename
 

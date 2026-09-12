@@ -66,9 +66,7 @@ def generate_trd_files(output_dir: str, gdf_1d_nwk: GeoDataFrame, gdf_2d_bc: Geo
     print("1d_nwk_data.trd generated!")
 
     # Generating 2d_bc.trd file
-    trimmed_unique_ids = set(
-        uid[:-2] if uid.endswith("_U") or uid.endswith("_D") else uid for uid in gdf_2d_bc["Name"].unique()
-    )
+    trimmed_unique_ids = {uid[:-2] if uid.endswith(("_U", "_D")) else uid for uid in gdf_2d_bc["Name"].unique()}
 
     output_file_path = os.path.join(output_dir, "2d_bc_data.trd")
     with open(output_file_path, "w") as file_2d_bc:
@@ -131,9 +129,7 @@ def save_subsets(
     bc_schema: dict[str, Any],
 ) -> tuple[int, int, int]:
     unique_ids = gdf_1d_nwk["ID"].unique()
-    trimmed_unique_ids = set(
-        uid[:-2] if uid.endswith("_U") or uid.endswith("_D") else uid for uid in gdf_2d_bc["Name"].unique()
-    )
+    trimmed_unique_ids = {uid[:-2] if uid.endswith(("_U", "_D")) else uid for uid in gdf_2d_bc["Name"].unique()}
     total_2d_bc_groups = len(trimmed_unique_ids)
 
     nwk_groups_count = save_subset_files(

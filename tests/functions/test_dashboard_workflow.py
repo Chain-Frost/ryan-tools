@@ -8,7 +8,8 @@ from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, Workflo
 
 def dummy_process_item(item: int) -> str:
     if item == 0:
-        raise ValueError("Item cannot be zero")
+        msg = "Item cannot be zero"
+        raise ValueError(msg)
     return f"processed_{item}"
 
 

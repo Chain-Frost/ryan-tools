@@ -5,7 +5,6 @@ Example:
     python generate_2d_po_label_list.py path/to/2d_po_file.gpkg
 """
 
-
 import argparse
 import sqlite3
 from collections.abc import Iterable, Sequence
@@ -47,17 +46,13 @@ def parse_and_resolve_options(argv: Sequence[str] | None = None) -> RuntimeOptio
     parser.add_argument(
         "--layer",
         help=(
-            "Optional layer/table name inside the GeoPackage. "
-            "If omitted the script auto-detects the first 2d_po layer."
+            "Optional layer/table name inside the GeoPackage. If omitted the script auto-detects the first 2d_po layer."
         ),
     )
     args: argparse.Namespace = parser.parse_args(argv)
 
     gpkg_candidate: Path | str | None
-    if args.gpkg_path is not None:
-        gpkg_candidate = args.gpkg_path
-    else:
-        gpkg_candidate = HARDCODED_GPKG_PATH
+    gpkg_candidate = args.gpkg_path if args.gpkg_path is not None else HARDCODED_GPKG_PATH
 
     if gpkg_candidate is None:
         parser.error("No GeoPackage supplied. Provide a path argument or set HARDCODED_GPKG_PATH.")
@@ -70,7 +65,8 @@ def main() -> None:
     """Entry point used by both CLI execution and IDE run configurations."""
     options: RuntimeOptions = parse_and_resolve_options()
     if not options.gpkg_path.exists():
-        raise SystemExit(f"GeoPackage not found: {options.gpkg_path}")
+        msg = f"GeoPackage not found: {options.gpkg_path}"
+        raise SystemExit(msg)
 
     try:
         entries: list[tuple[str, str | None]] = load_label_entries(
@@ -95,7 +91,8 @@ def load_label_entries(gpkg_path: Path, preferred_layer: str | None = None) -> l
 
         label_column: str | None = column_lookup.get("label")
         if label_column is None:
-            raise ValueError(f'Table "{table_name}" does not contain a "Label" column.')
+            msg = f'Table "{table_name}" does not contain a "Label" column.'
+            raise ValueError(msg)
         comment_column: str | None = column_lookup.get("comment")
         order_column: str = column_lookup.get("fid", label_column)
 
@@ -106,7 +103,7 @@ def load_label_entries(gpkg_path: Path, preferred_layer: str | None = None) -> l
 
         # Build a read-only query that orders the labels by fid (or label fallback).
         sql: str = (
-            f"SELECT {quoted_label} AS label_value, "
+            f"SELECT {quoted_label} AS label_value, "  # noqa: S608 - identifiers are quoted above
             f"{quoted_comment} AS comment_value "
             f"FROM {quoted_table} ORDER BY {quoted_order};"
         )
@@ -131,7 +128,8 @@ def load_label_entries(gpkg_path: Path, preferred_layer: str | None = None) -> l
         entries.append((label_text, comment_text))
 
     if not entries:
-        raise ValueError(f'No label values found in table "{table_name}".')
+        msg = f'No label values found in table "{table_name}".'
+        raise ValueError(msg)
     return entries
 
 
@@ -142,7 +140,8 @@ def resolve_table_and_columns(cursor: sqlite3.Cursor, preferred_layer: str | Non
         column_lookup: dict[str, str] = get_column_lookup(cursor=cursor, table_name=table)
         if column_lookup.get("label"):
             return table, column_lookup
-    raise ValueError("Could not locate a layer with a 'Label' column.")
+    msg = "Could not locate a layer with a 'Label' column."
+    raise ValueError(msg)
 
 
 def build_table_priority_list(cursor: sqlite3.Cursor, preferred_layer: str | None) -> list[str]:

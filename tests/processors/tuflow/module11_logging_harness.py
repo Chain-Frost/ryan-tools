@@ -24,7 +24,8 @@ def _repo_root() -> Path:
     for ancestor in current.parents:
         if (ancestor / "pyproject.toml").exists():
             return ancestor
-    raise RuntimeError("Could not locate repository root from harness location.")
+    msg = "Could not locate repository root from harness location."
+    raise RuntimeError(msg)
 
 
 REPO_ROOT: Path = _repo_root()
@@ -33,7 +34,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 # Imports that rely on the repo being on sys.path
-from ryan_library.processors.tuflow.maximums_1d.NmxProcessor import NmxProcessor  # noqa: E402
+from ryan_library.processors.tuflow.maximums_1d.NmxProcessor import NmxProcessor
 
 
 @contextmanager
@@ -128,7 +129,8 @@ def main(use_parallel: bool = True, use_threaded: bool = False, level: str = "IN
 
     missing: list[Path] = [p for p in sample_files if not p.exists()]
     if missing:
-        raise FileNotFoundError(f"Missing sample CSV(s): {missing}")
+        msg = f"Missing sample CSV(s): {missing}"
+        raise FileNotFoundError(msg)
 
     configure_logging(level=level)
     logger.info(f"Using repository root {REPO_ROOT}")

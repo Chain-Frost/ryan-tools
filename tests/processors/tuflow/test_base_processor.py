@@ -14,6 +14,7 @@ from ryan_library.processors.tuflow.base_processor import (
     BaseProcessor,
     ConfigurationError,
     ImportProcessorError,
+    ProcessorError,
     ProcessorStatus,
 )
 
@@ -279,7 +280,7 @@ class TestBaseProcessor:
         processor.apply_dtype_mapping({"A": "int"})
         assert pd.api.types.is_integer_dtype(processor.df["A"])
 
-        with pytest.raises(Exception):
+        with pytest.raises(ProcessorError):
             processor.apply_dtype_mapping({"A": "invalid_type"})
 
     def test_get_processor_class_error(self):
@@ -297,7 +298,7 @@ class TestBaseProcessor:
         mock_config.data_types.get.return_value = mock_def
 
         with pytest.raises(ConfigurationError, match="is missing columns_to_use"):
-            processor = MockProcessor(file_path=mock_processor_file)
+            MockProcessor(file_path=mock_processor_file)
 
     def test_order_categorical_columns(self, mock_processor_file):
         processor = MockProcessor(file_path=mock_processor_file)

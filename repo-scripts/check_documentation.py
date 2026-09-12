@@ -83,7 +83,7 @@ def _is_submodule_content(reference: str) -> bool:
 def _resolve_markdown_target(document: Path, reference: str) -> Path | None:
     """Resolve a local Markdown target, returning ``None`` for URLs and anchors."""
     decoded: str = unquote(reference.strip())
-    if not decoded or decoded.startswith("#") or decoded.startswith("//"):
+    if not decoded or decoded.startswith(("#", "//")):
         return None
     if URI_SCHEME_RE.match(decoded) or WINDOWS_ABSOLUTE_RE.match(decoded):
         return None
@@ -152,7 +152,7 @@ def check_documentation_index() -> list[DocumentationIssue]:
 
     try:
         result: subprocess.CompletedProcess[str] = subprocess.run(
-            args=["git", "ls-files", "--", "*.md"],
+            args=["git", "ls-files", "--", "*.md"],  # noqa: S607 - repository Git is resolved from PATH
             cwd=REPO_ROOT,
             check=True,
             capture_output=True,

@@ -109,8 +109,6 @@ def test_invalid_level_fails_before_starting_listener() -> None:
         setup_logger(console_log_level="VERBOSE")
 
 
-
-
 def test_notebook_reconfiguration_is_concise_and_not_duplicated(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

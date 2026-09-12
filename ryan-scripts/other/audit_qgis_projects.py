@@ -13,7 +13,7 @@ import os
 import sys
 from pathlib import Path
 from urllib.parse import unquote, urlparse
-from xml.etree import ElementTree
+from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
 WRAPPER_VERSION = "2026-08-20.2"
@@ -55,10 +55,11 @@ def get_data_sources(project_path: Path) -> list[str]:
         with ZipFile(project_path, "r") as in_qgz:
             qgs_members = [member for member in in_qgz.infolist() if member.filename.lower().endswith(".qgs")]
             if not qgs_members:
-                raise ValueError(f"No .qgs document found inside {project_path}")
-            tree = ElementTree.XML(in_qgz.read(qgs_members[0].filename))
+                msg = f"No .qgs document found inside {project_path}"
+                raise ValueError(msg)
+            tree = ET.XML(in_qgz.read(qgs_members[0].filename))
     else:
-        tree = ElementTree.parse(project_path).getroot()
+        tree = ET.parse(project_path).getroot()  # noqa: S314 - input is a user-selected local QGIS project
 
     for element in tree.findall("./projectlayers/maplayer/datasource"):
         if element.text:

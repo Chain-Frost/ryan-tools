@@ -48,7 +48,7 @@ def get_encoding(file_path: Path) -> str:
     """
     with file_path.open("rb") as f:
         first_bytes = f.read(4)
-    if first_bytes.startswith(b"\xff\xfe") or first_bytes.startswith(b"\xfe\xff"):
+    if first_bytes.startswith((b"\xff\xfe", b"\xfe\xff")):
         return "utf-16"
     if first_bytes.startswith(b"\xef\xbb\xbf"):
         return "utf-8-sig"
@@ -226,7 +226,7 @@ def parse_txt_file(txt_file_path: Path) -> list[TxtCulvertRecord]:
             # Validate that both lines belong to the same culvert
             if name_upstream != name_downstream:
                 logger.warning(
-                    f"Mismatched culvert names at lines {i+1} and {i+2} in {txt_file_path.relative_to(txt_file_path.parent)}. Skipping these entries."
+                    f"Mismatched culvert names at lines {i + 1} and {i + 2} in {txt_file_path.relative_to(txt_file_path.parent)}. Skipping these entries."
                 )
                 continue
 
@@ -298,7 +298,7 @@ def combine_data(rpt_data: list[RptCulvertRecord], txt_data: list[TxtCulvertReco
     logger.info(f"Unique RPT Culverts: {len(rpt_df)}")
     logger.info(f"Unique TXT Culverts: {len(txt_df)}")
 
-    combined_df = pd.merge(rpt_df, txt_df, on="Name", how="outer", suffixes=("_rpt", "_txt"))
+    combined_df = rpt_df.merge(txt_df, on="Name", how="outer", suffixes=("_rpt", "_txt"))
 
     combined_df["Angle"] = combined_df["Angle"].fillna("0°0'0\"")
 

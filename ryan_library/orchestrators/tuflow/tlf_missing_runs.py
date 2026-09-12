@@ -22,9 +22,7 @@ def orchestrate_missing_runs_check(input_path: Path, sheet_name: str | int = 0) 
     """
     input_str = str(input_path)
     if input_str.lower().endswith((".xlsx", ".xls")):
-        df: pd.DataFrame = pd.read_excel(
-            io=input_path, sheet_name=sheet_name
-        )  # pyright: ignore[reportUnknownMemberType]
+        df: pd.DataFrame = pd.read_excel(io=input_path, sheet_name=sheet_name)  # pyright: ignore[reportUnknownMemberType]
     else:
         df = pd.read_csv(filepath_or_buffer=input_path)
 

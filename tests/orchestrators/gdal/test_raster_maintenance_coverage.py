@@ -73,6 +73,7 @@ def test_create_footprints_skip_existing(mock_create, dummy_dir):
     # ensure out1 is newer than r1
     time.sleep(0.01)
     out1.touch()
+    assert out1.stat().st_mtime >= r1.stat().st_mtime
 
     mock_create.side_effect = lambda x, out, **kw: out
     res = create_footprints_in_directory(dummy_dir, workers=1, overwrite=False)

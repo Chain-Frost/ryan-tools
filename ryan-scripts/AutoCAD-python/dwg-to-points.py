@@ -103,18 +103,23 @@ def main() -> None:
     args = parse_args()
     source = args.source.expanduser().resolve()
     if not source.exists():
-        raise SystemExit(f"Source '{source}' does not exist.")
+        msg = f"Source '{source}' does not exist."
+        raise SystemExit(msg)
     if source.suffix.lower() == ".dwg":
-        raise SystemExit("DWG files cannot be read directly. Export the drawing to DXF and retry.")
+        msg = "DWG files cannot be read directly. Export the drawing to DXF and retry."
+        raise SystemExit(msg)
     if args.precision < 0:
-        raise SystemExit("Precision must be zero or positive.")
+        msg = "Precision must be zero or positive."
+        raise SystemExit(msg)
     if args.batch_size < 1:
-        raise SystemExit("Batch size must be at least 1.")
+        msg = "Batch size must be at least 1."
+        raise SystemExit(msg)
 
     try:
         doc = ezdxf.readfile(source)
     except (OSError, ezdxf.DXFStructureError) as exc:
-        raise SystemExit(f"Unable to read '{source}': {exc}") from exc
+        msg = f"Unable to read '{source}': {exc}"
+        raise SystemExit(msg) from exc
 
     vertices_path = args.vertices_parquet or source.with_suffix(".vertices.parquet")
     triangles_path = args.triangles_parquet or source.with_suffix(".triangles.parquet")
@@ -123,7 +128,8 @@ def main() -> None:
         output_paths.append(args.xyz_output)
     for output_path in output_paths:
         if output_path.exists() and not args.force:
-            raise SystemExit(f"Output '{output_path}' already exists; use '--force' to overwrite.")
+            msg = f"Output '{output_path}' already exists; use '--force' to overwrite."
+            raise SystemExit(msg)
 
     modelspace = doc.modelspace()
     vertex_count = write_vertices_parquet(vertices_path, modelspace, args.batch_size)

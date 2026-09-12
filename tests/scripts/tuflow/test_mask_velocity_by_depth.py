@@ -20,7 +20,8 @@ def _load_mask_velocity_by_depth() -> ModuleType:
     )
     spec = importlib.util.spec_from_file_location("mask_velocity_by_depth_for_tests", script)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load {script}")
+        msg = f"Unable to load {script}"
+        raise ImportError(msg)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

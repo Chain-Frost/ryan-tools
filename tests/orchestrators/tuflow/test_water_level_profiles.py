@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
-import matplotlib
+import matplotlib as mpl
 import numpy as np
 import pytest
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
@@ -15,7 +15,7 @@ from matplotlib.axes import Axes
 from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs]
 from shapely.geometry import LineString, MultiLineString
 
-matplotlib.use("Agg")
+mpl.use("Agg")
 
 from ryan_library.orchestrators.tuflow.water_level_profiles import (
     WaterLevelProfileConfig,
@@ -64,7 +64,7 @@ def test_discovery_reports_missing_requested_aep(tmp_path: Path) -> None:
     raster = tmp_path / "Model_01.00p_h_HR_Max.tif"
     raster.touch()
 
-    with pytest.raises(ValueError, match="20.00p: no matching"):
+    with pytest.raises(ValueError, match=r"20\.00p: no matching"):
         discover_tuflow_profile_rasters(
             tmp_path,
             target_aeps=("01.00p", "20.00p"),

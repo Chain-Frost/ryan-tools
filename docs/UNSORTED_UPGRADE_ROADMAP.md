@@ -28,7 +28,7 @@ When upgrading and moving a script from `unsorted/` to `ryan-scripts/`, apply th
    - `DEFAULT_*` editable variables (with uppercase naming)
    - Standard library imports (`import os`, `import argparse`, etc.)
    - Third-party imports (`from loguru import logger`, `osgeo`, etc.)
-   - `ryan_library` imports (absolute imports only)
+   - `ryan_library` imports (relative within the package; absolute from wrappers and external callers)
    - `main()` and `_parse_cli_arguments()`
 2. **Defensive Pathing**: Wrap `DEFAULT_*` variables in `Path(...)` inside `main()` rather than typing them strictly, so users can lazily edit defaults as strings without breaking `.resolve()` or `.mkdir()` calls.
 3. **Flexible Inputs**: Use `to_path_list` or `to_single_path` from `ryan_library.functions.path_stuff` at the wrapper/library boundary when a public callable accepts path-like values. Let `argparse` define the CLI's scalar or repeated-input shape explicitly.

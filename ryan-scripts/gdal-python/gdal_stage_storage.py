@@ -127,7 +127,8 @@ def main(args: argparse.Namespace) -> int:
             minimum = observed_minimum if minimum_override is None else minimum_override
             maximum = observed_maximum if maximum_override is None else maximum_override
             if maximum < minimum:
-                raise ValueError(f"Maximum level {maximum} is below minimum level {minimum}")
+                msg = f"Maximum level {maximum} is below minimum level {minimum}"
+                raise ValueError(msg)
             levels = np.arange(minimum, maximum + step / 2.0, step, dtype=np.float64).tolist()
             volumes = compute_stage_storage(dem_path, levels=levels)
             if not dry_run:

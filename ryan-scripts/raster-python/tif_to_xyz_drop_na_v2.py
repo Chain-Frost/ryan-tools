@@ -16,7 +16,6 @@ centre coordinates and the CSV-style output expected by the consumer.
 
 import math
 import os
-import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures._base import Future
 from datetime import datetime
@@ -27,6 +26,7 @@ import rasterio  # type: ignore
 from affine import Affine
 
 from ryan_library.functions.gdal.raster_processing import read_raster_band
+from ryan_library.functions.wrapper_utils import pause_console
 
 # Set this flag to True if you want to drop rows with missing z values
 DROP_NA = True  # Change to True to drop rows with missing z's instead of filling them
@@ -169,4 +169,4 @@ if __name__ == "__main__":
             future.result()
 
     print("end")
-    subprocess.call("pause", shell=True)  # Wait for exit (Windows only)
+    pause_console()

@@ -22,7 +22,6 @@ def mock_gdal_functions():
         patch("ryan_library.orchestrators.gdal.raster_merge.get_vector_extent") as mock_vector_extent,
         patch("ryan_library.orchestrators.gdal.raster_merge.get_raster_extent") as mock_raster_extent,
     ):
-
         yield {
             "vrt": mock_vrt,
             "translate": mock_translate,

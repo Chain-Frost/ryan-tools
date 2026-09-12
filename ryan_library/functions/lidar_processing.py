@@ -27,9 +27,11 @@ def convert_laz_to_las(
     source = source.resolve()
     output = output.resolve()
     if output.exists() and not overwrite:
-        raise FileExistsError(f"Output already exists: {output}")
+        msg = f"Output already exists: {output}"
+        raise FileExistsError(msg)
     if chunk_size < 1:
-        raise ValueError("chunk_size must be one or greater.")
+        msg = "chunk_size must be one or greater."
+        raise ValueError(msg)
     output.parent.mkdir(parents=True, exist_ok=True)
     with laspy.open(source) as reader:
         with laspy.open(output, mode="w", header=reader.header, do_compress=False) as writer:

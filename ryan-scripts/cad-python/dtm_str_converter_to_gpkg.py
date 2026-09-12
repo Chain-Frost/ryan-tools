@@ -164,9 +164,11 @@ def resolve_crs_definition(crs: str, base_dir: Path) -> str:
     try:
         return crs_path.read_text(encoding=DEFAULT_ENCODING)
     except FileNotFoundError as exc:
-        raise ConverterInputError(f"CRS PRJ file not found: {crs_path}") from exc
+        msg = f"CRS PRJ file not found: {crs_path}"
+        raise ConverterInputError(msg) from exc
     except (OSError, UnicodeDecodeError) as exc:
-        raise ConverterInputError(f"Could not read CRS PRJ file: {crs_path}") from exc
+        msg = f"Could not read CRS PRJ file: {crs_path}"
+        raise ConverterInputError(msg) from exc
 
 
 def find_matching_dtm_file(str_file_path: Path) -> Path | None:
@@ -222,12 +224,15 @@ def read_input_bytes(file_path: Path, file_description: str) -> bytes:
     try:
         raw_data: bytes = file_path.read_bytes()
     except FileNotFoundError as exc:
-        raise ConverterInputError(f"{file_description} file not found: {file_path}") from exc
+        msg = f"{file_description} file not found: {file_path}"
+        raise ConverterInputError(msg) from exc
     except OSError as exc:
-        raise ConverterInputError(f"Could not read {file_description} file: {file_path}") from exc
+        msg = f"Could not read {file_description} file: {file_path}"
+        raise ConverterInputError(msg) from exc
 
     if not raw_data:
-        raise ConverterParseError(f"{file_description} file is empty: {file_path}")
+        msg = f"{file_description} file is empty: {file_path}"
+        raise ConverterParseError(msg)
 
     return raw_data
 
@@ -236,12 +241,14 @@ def decode_ascii_lines(raw_data: bytes, file_path: Path, file_description: str) 
     """Validate and decode an already-read ASCII Surpac input."""
     unsupported_control_bytes: list[int] = [byte for byte in raw_data if byte < 32 and byte not in ASCII_CONTROL_BYTES]
     if unsupported_control_bytes:
-        raise ConverterInputError(f"{file_description} file appears to be binary, not ASCII text: {file_path}")
+        msg = f"{file_description} file appears to be binary, not ASCII text: {file_path}"
+        raise ConverterInputError(msg)
 
     try:
         text: str = raw_data.decode(DEFAULT_ENCODING)
     except UnicodeDecodeError as exc:
-        raise ConverterInputError(f"{file_description} file is not supported ASCII text: {file_path}") from exc
+        msg = f"{file_description} file is not supported ASCII text: {file_path}"
+        raise ConverterInputError(msg) from exc
 
     return text.splitlines()
 
@@ -257,7 +264,8 @@ def read_ascii_dtm_data(raw_data: bytes, dtm_file_path: Path) -> pd.DataFrame:
     try:
         start_index = next(i for i, line in enumerate(lines) if "TRISOLATION" in line.upper())
     except StopIteration as exc:
-        raise ConverterParseError(f"No TRISOLATION section found in DTM file: {dtm_file_path}") from exc
+        msg = f"No TRISOLATION section found in DTM file: {dtm_file_path}"
+        raise ConverterParseError(msg) from exc
 
     data: list[list[str]] = []
     for line in lines[start_index + 1 :]:
@@ -266,12 +274,14 @@ def read_ascii_dtm_data(raw_data: bytes, dtm_file_path: Path) -> pd.DataFrame:
             data.append(split_line[: len(DTM_COLUMNS)])
 
     if not data:
-        raise ConverterParseError(f"No triangle rows found in DTM file: {dtm_file_path}")
+        msg = f"No triangle rows found in DTM file: {dtm_file_path}"
+        raise ConverterParseError(msg)
 
     try:
         return pd.DataFrame(data, columns=DTM_COLUMNS).astype(int)
     except (TypeError, ValueError) as exc:
-        raise ConverterParseError(f"Could not parse triangle rows in DTM file: {dtm_file_path}") from exc
+        msg = f"Could not parse triangle rows in DTM file: {dtm_file_path}"
+        raise ConverterParseError(msg) from exc
 
 
 def parse_binary_dtm_metadata(raw_data: bytes, start: int, end: int, dtm_file_path: Path) -> dict[str, str]:
@@ -280,15 +290,15 @@ def parse_binary_dtm_metadata(raw_data: bytes, start: int, end: int, dtm_file_pa
         metadata_text: str = raw_data[start:end].decode(DEFAULT_ENCODING)
     except UnicodeDecodeError as exc:
         invalid_offset: int = start + exc.start
-        raise ConverterParseError(
-            f"Binary DTM metadata is not ASCII at byte offset {invalid_offset}: {dtm_file_path}"
-        ) from exc
+        msg = f"Binary DTM metadata is not ASCII at byte offset {invalid_offset}: {dtm_file_path}"
+        raise ConverterParseError(msg) from exc
 
     metadata: dict[str, str] = {}
     for item in metadata_text.split(","):
         key, separator, value = item.partition("=")
         if not separator or not key or not value:
-            raise ConverterParseError(f"Malformed binary DTM metadata at byte offset {start}: {dtm_file_path}")
+            msg = f"Malformed binary DTM metadata at byte offset {start}: {dtm_file_path}"
+            raise ConverterParseError(msg)
         metadata[key] = value
 
     metadata_keys: set[str] = set(metadata)
@@ -297,7 +307,8 @@ def parse_binary_dtm_metadata(raw_data: bytes, start: int, end: int, dtm_file_pa
         or not metadata_keys.issubset(BINARY_DTM_REQUIRED_METADATA_KEYS | BINARY_DTM_OPTIONAL_METADATA_KEYS)
         or metadata["neighbours"] != "yes"
     ):
-        raise ConverterParseError(f"Unsupported binary DTM metadata at byte offset {start}: {dtm_file_path}")
+        msg = f"Unsupported binary DTM metadata at byte offset {start}: {dtm_file_path}"
+        raise ConverterParseError(msg)
     return metadata
 
 
@@ -319,14 +330,16 @@ def parse_binary_dtm_prefix(raw_data: bytes, header_end: int, dtm_file_path: Pat
         or embedded_payload_size <= 0
         or embedded_payload_size % BINARY_DTM_EMBEDDED_POINT_RECORD.size != 0
     ):
-        raise ConverterParseError(f"Unexpected binary DTM prefix at byte offset {header_end}: {dtm_file_path}")
+        msg = f"Unexpected binary DTM prefix at byte offset {header_end}: {dtm_file_path}"
+        raise ConverterParseError(msg)
 
     position: int = header_end + embedded_start_size
     embedded_end: int = end_marker_position - embedded_end_size
     while position < embedded_end:
         reserved, record_type, x, y, z = BINARY_DTM_EMBEDDED_POINT_RECORD.unpack_from(raw_data, position)
         if reserved != 0 or record_type != 1 or not all(math.isfinite(value) for value in (x, y, z)):
-            raise ConverterParseError(f"Malformed binary DTM embedded point at byte offset {position}: {dtm_file_path}")
+            msg = f"Malformed binary DTM embedded point at byte offset {position}: {dtm_file_path}"
+            raise ConverterParseError(msg)
         position += BINARY_DTM_EMBEDDED_POINT_RECORD.size
 
     return end_marker_position + len(BINARY_STR_END_MARKER)
@@ -347,13 +360,12 @@ def validate_binary_dtm_topology(
         )
         neighbours: tuple[int, int, int] = (record.neighbour1, record.neighbour2, record.neighbour3)
 
-        for edge, neighbour_number in zip(edges, neighbours):
+        for edge, neighbour_number in zip(edges, neighbours, strict=True):
             if neighbour_number in {-1, 0}:
                 continue
             if not 1 <= neighbour_number <= record_count:
-                raise ConverterParseError(
-                    f"Binary DTM neighbour is out of range at byte offset {record_offset}: {dtm_file_path}"
-                )
+                msg = f"Binary DTM neighbour is out of range at byte offset {record_offset}: {dtm_file_path}"
+                raise ConverterParseError(msg)
 
             neighbour: BinaryDtmTriangle = block_records[neighbour_number - 1][1]
             neighbour_vertices: frozenset[int] = frozenset((neighbour.vertex1, neighbour.vertex2, neighbour.vertex3))
@@ -363,9 +375,8 @@ def validate_binary_dtm_topology(
                 neighbour.neighbour3,
             )
             if not edge.issubset(neighbour_vertices) or record.triangle_number not in neighbour_neighbours:
-                raise ConverterParseError(
-                    f"Inconsistent binary DTM neighbour topology at byte offset {record_offset}: {dtm_file_path}"
-                )
+                msg = f"Inconsistent binary DTM neighbour topology at byte offset {record_offset}: {dtm_file_path}"
+                raise ConverterParseError(msg)
 
 
 def parse_binary_dtm_records(raw_data: bytes, dtm_file_path: Path) -> list[BinaryDtmTriangle]:
@@ -373,21 +384,20 @@ def parse_binary_dtm_records(raw_data: bytes, dtm_file_path: Path) -> list[Binar
     try:
         first_line_end: int = raw_data.index(b"\n") + 1
     except ValueError as exc:
-        raise ConverterParseError(f"Binary DTM expected an ASCII header at byte offset 0: {dtm_file_path}") from exc
+        msg = f"Binary DTM expected an ASCII header at byte offset 0: {dtm_file_path}"
+        raise ConverterParseError(msg) from exc
 
     try:
         raw_data[:first_line_end].rstrip(b"\r\n").decode(DEFAULT_ENCODING)
     except UnicodeDecodeError as exc:
-        raise ConverterParseError(
-            f"Binary DTM header is not ASCII at byte offset {exc.start}: {dtm_file_path}"
-        ) from exc
+        msg = f"Binary DTM header is not ASCII at byte offset {exc.start}: {dtm_file_path}"
+        raise ConverterParseError(msg) from exc
 
     position: int = parse_binary_dtm_prefix(raw_data, first_line_end, dtm_file_path)
 
     if not raw_data.endswith(BINARY_DTM_FINAL_MARKER):
-        raise ConverterParseError(
-            f"Binary DTM is missing the final marker at byte offset {len(raw_data)}: {dtm_file_path}"
-        )
+        msg = f"Binary DTM is missing the final marker at byte offset {len(raw_data)}: {dtm_file_path}"
+        raise ConverterParseError(msg)
     payload_end: int = len(raw_data) - len(BINARY_DTM_FINAL_MARKER)
 
     records: list[BinaryDtmTriangle] = []
@@ -396,42 +406,40 @@ def parse_binary_dtm_records(raw_data: bytes, dtm_file_path: Path) -> list[Binar
     while position < payload_end:
         block_start: int = position
         if payload_end - position < BINARY_DTM_SUBMESH_HEADER.size + 1:
-            raise ConverterParseError(f"Truncated binary DTM block at byte offset {block_start}: {dtm_file_path}")
+            msg = f"Truncated binary DTM block at byte offset {block_start}: {dtm_file_path}"
+            raise ConverterParseError(msg)
 
         header_marker: int = struct.unpack_from(">i", raw_data, position)[0]
         if header_marker == 1:
             if payload_end - position < BINARY_DTM_BLOCK_HEADER.size + 1:
-                raise ConverterParseError(f"Truncated binary DTM block at byte offset {block_start}: {dtm_file_path}")
+                msg = f"Truncated binary DTM block at byte offset {block_start}: {dtm_file_path}"
+                raise ConverterParseError(msg)
             block_flag, string_number, reserved, record_type, mesh_number = BINARY_DTM_BLOCK_HEADER.unpack_from(
                 raw_data, position
             )
             if (block_flag, reserved, record_type) != (1, 0, 2) or string_number <= 0 or mesh_number <= 0:
-                raise ConverterParseError(
-                    f"Unsupported binary DTM block header at byte offset {block_start}: {dtm_file_path}"
-                )
+                msg = f"Unsupported binary DTM block header at byte offset {block_start}: {dtm_file_path}"
+                raise ConverterParseError(msg)
             current_string_number = string_number
             previous_mesh_number = mesh_number
             position += BINARY_DTM_BLOCK_HEADER.size
         elif header_marker == 0 and current_string_number is not None:
             reserved, record_type, mesh_number = BINARY_DTM_SUBMESH_HEADER.unpack_from(raw_data, position)
             if reserved != 0 or record_type != 2 or mesh_number <= previous_mesh_number:
-                raise ConverterParseError(
-                    f"Unsupported binary DTM submesh header at byte offset {block_start}: {dtm_file_path}"
-                )
+                msg = f"Unsupported binary DTM submesh header at byte offset {block_start}: {dtm_file_path}"
+                raise ConverterParseError(msg)
             string_number = current_string_number
             previous_mesh_number = mesh_number
             position += BINARY_DTM_SUBMESH_HEADER.size
         else:
-            raise ConverterParseError(
-                f"Unsupported binary DTM block header at byte offset {block_start}: {dtm_file_path}"
-            )
+            msg = f"Unsupported binary DTM block header at byte offset {block_start}: {dtm_file_path}"
+            raise ConverterParseError(msg)
 
         metadata_start: int = position
         metadata_end: int = raw_data.find(b"\0", metadata_start, payload_end)
         if metadata_end < 0:
-            raise ConverterParseError(
-                f"Unterminated binary DTM metadata at byte offset {metadata_start}: {dtm_file_path}"
-            )
+            msg = f"Unterminated binary DTM metadata at byte offset {metadata_start}: {dtm_file_path}"
+            raise ConverterParseError(msg)
         parse_binary_dtm_metadata(raw_data, metadata_start, metadata_end, dtm_file_path)
         position = metadata_end + 1
 
@@ -440,9 +448,8 @@ def parse_binary_dtm_records(raw_data: bytes, dtm_file_path: Path) -> list[Binar
         while position < payload_end and raw_data[position : position + 4] == b"\0\0\0\3":
             record_offset: int = position
             if payload_end - position < BINARY_DTM_TRIANGLE_FIELDS.size:
-                raise ConverterParseError(
-                    f"Truncated binary DTM triangle at byte offset {record_offset}: {dtm_file_path}"
-                )
+                msg = f"Truncated binary DTM triangle at byte offset {record_offset}: {dtm_file_path}"
+                raise ConverterParseError(msg)
             (
                 vertex_count,
                 triangle_number,
@@ -454,13 +461,11 @@ def parse_binary_dtm_records(raw_data: bytes, dtm_file_path: Path) -> list[Binar
                 neighbour3,
             ) = BINARY_DTM_TRIANGLE_FIELDS.unpack_from(raw_data, position)
             if vertex_count != 3 or triangle_number != expected_triangle_number:
-                raise ConverterParseError(
-                    f"Malformed binary DTM triangle at byte offset {record_offset}: {dtm_file_path}"
-                )
+                msg = f"Malformed binary DTM triangle at byte offset {record_offset}: {dtm_file_path}"
+                raise ConverterParseError(msg)
             if min(vertex1, vertex2, vertex3) <= 0 or len({vertex1, vertex2, vertex3}) != 3:
-                raise ConverterParseError(
-                    f"Invalid binary DTM vertices at byte offset {record_offset}: {dtm_file_path}"
-                )
+                msg = f"Invalid binary DTM vertices at byte offset {record_offset}: {dtm_file_path}"
+                raise ConverterParseError(msg)
 
             record = BinaryDtmTriangle(
                 string_number,
@@ -483,17 +488,15 @@ def parse_binary_dtm_records(raw_data: bytes, dtm_file_path: Path) -> list[Binar
             if omitted_terminator_before_submesh:
                 position = fields_end
             elif fields_end >= payload_end or raw_data[fields_end] != 0:
-                raise ConverterParseError(
-                    f"Malformed binary DTM triangle at byte offset {record_offset}: {dtm_file_path}"
-                )
+                msg = f"Malformed binary DTM triangle at byte offset {record_offset}: {dtm_file_path}"
+                raise ConverterParseError(msg)
             else:
                 position = fields_end + 1
             expected_triangle_number += 1
 
         if not block_records:
-            raise ConverterParseError(
-                f"Binary DTM block contains no triangles at byte offset {block_start}: {dtm_file_path}"
-            )
+            msg = f"Binary DTM block contains no triangles at byte offset {block_start}: {dtm_file_path}"
+            raise ConverterParseError(msg)
         validate_binary_dtm_topology(block_records, dtm_file_path)
         records.extend(record for _, record in block_records)
 
@@ -546,7 +549,8 @@ def read_ascii_str_data(raw_data: bytes, str_file_path: Path) -> pd.DataFrame:
 
     lines: list[str] = decode_ascii_lines(raw_data, str_file_path, "STR")
     if len(lines) < 2:
-        raise ConverterParseError(f"STR file does not contain point rows: {str_file_path}")
+        msg = f"STR file does not contain point rows: {str_file_path}"
+        raise ConverterParseError(msg)
 
     for line_number, line in enumerate(lines[1:], start=2):
         parts: list[str] = [part.strip() for part in line.strip().split(",")]
@@ -564,7 +568,8 @@ def read_ascii_str_data(raw_data: bytes, str_file_path: Path) -> pd.DataFrame:
         max_description_columns = max(max_description_columns, len(parts) - 4)
 
     if not data:
-        raise ConverterParseError(f"No valid point rows found in STR file: {str_file_path}")
+        msg = f"No valid point rows found in STR file: {str_file_path}"
+        raise ConverterParseError(msg)
 
     column_names: list[str] = ["point_number", "group", "string", "y", "x", "z"] + [
         f"d{i}" for i in range(1, max_description_columns + 1)
@@ -578,7 +583,8 @@ def read_ascii_str_data(raw_data: bytes, str_file_path: Path) -> pd.DataFrame:
     invalid_numeric_rows: pd.Series = df_str[["string", "x", "y", "z"]].isna().any(axis=1)
     if invalid_numeric_rows.any():
         invalid_lines: list[int] = [data_line_numbers[index] for index in df_str.index[invalid_numeric_rows].tolist()]
-        raise ConverterParseError(f"Could not parse numeric STR values on line(s) {invalid_lines}: {str_file_path}")
+        msg = f"Could not parse numeric STR values on line(s) {invalid_lines}: {str_file_path}"
+        raise ConverterParseError(msg)
 
     return df_str[df_str["string"] != 0]
 
@@ -591,9 +597,8 @@ def parse_binary_str_records(raw_data: bytes, str_file_path: Path) -> tuple[list
         try:
             position = raw_data.index(b"\n", position) + 1
         except ValueError as exc:
-            raise ConverterParseError(
-                f"Binary STR expected two ASCII header lines at byte offset {position}: {str_file_path}"
-            ) from exc
+            msg = f"Binary STR expected two ASCII header lines at byte offset {position}: {str_file_path}"
+            raise ConverterParseError(msg) from exc
         line_ends.append(position)
 
     header_ranges: tuple[tuple[int, int], tuple[int, int]] = (
@@ -606,18 +611,17 @@ def parse_binary_str_records(raw_data: bytes, str_file_path: Path) -> tuple[list
             headers.append(raw_data[header_start:header_end].rstrip(b"\r\n").decode(DEFAULT_ENCODING))
         except UnicodeDecodeError as exc:
             invalid_offset: int = header_start + exc.start
-            raise ConverterParseError(
-                f"Binary STR header is not ASCII at byte offset {invalid_offset}: {str_file_path}"
-            ) from exc
+            msg = f"Binary STR header is not ASCII at byte offset {invalid_offset}: {str_file_path}"
+            raise ConverterParseError(msg) from exc
 
     if raw_data[position : position + len(BINARY_STR_PREFIX)] != BINARY_STR_PREFIX:
-        raise ConverterParseError(f"Unexpected binary STR prefix at byte offset {position}: {str_file_path}")
+        msg = f"Unexpected binary STR prefix at byte offset {position}: {str_file_path}"
+        raise ConverterParseError(msg)
     position += len(BINARY_STR_PREFIX)
 
     if not raw_data.endswith(BINARY_STR_END_MARKER):
-        raise ConverterParseError(
-            f"Binary STR is missing the final END marker at byte offset {len(raw_data)}: {str_file_path}"
-        )
+        msg = f"Binary STR is missing the final END marker at byte offset {len(raw_data)}: {str_file_path}"
+        raise ConverterParseError(msg)
     records_end: int = len(raw_data) - len(BINARY_STR_END_MARKER)
 
     records: list[BinaryStrRecord] = []
@@ -633,7 +637,8 @@ def parse_binary_str_records(raw_data: bytes, str_file_path: Path) -> tuple[list
                 position = records_end
                 continue
         if records_end - position < BINARY_STR_MIN_RECORD_SIZE:
-            raise ConverterParseError(f"Truncated binary STR record at byte offset {record_start}: {str_file_path}")
+            msg = f"Truncated binary STR record at byte offset {record_start}: {str_file_path}"
+            raise ConverterParseError(msg)
 
         string_number: int = struct.unpack_from(">i", raw_data, position)[0]
         position += 4
@@ -643,30 +648,25 @@ def parse_binary_str_records(raw_data: bytes, str_file_path: Path) -> tuple[list
         description_start: int = position
         description_end: int = raw_data.find(b"\0", position, records_end)
         if description_end < 0:
-            raise ConverterParseError(
-                f"Unterminated binary STR description at byte offset {description_start}: {str_file_path}"
-            )
+            msg = f"Unterminated binary STR description at byte offset {description_start}: {str_file_path}"
+            raise ConverterParseError(msg)
         try:
             description: str = raw_data[description_start:description_end].decode(DEFAULT_ENCODING)
         except UnicodeDecodeError as exc:
             invalid_offset = description_start + exc.start
-            raise ConverterParseError(
-                f"Binary STR description is not ASCII at byte offset {invalid_offset}: {str_file_path}"
-            ) from exc
+            msg = f"Binary STR description is not ASCII at byte offset {invalid_offset}: {str_file_path}"
+            raise ConverterParseError(msg) from exc
         position = description_end + 1
 
         if string_number < 0:
-            raise ConverterParseError(
-                f"Negative binary STR string number at byte offset {record_start}: {str_file_path}"
-            )
+            msg = f"Negative binary STR string number at byte offset {record_start}: {str_file_path}"
+            raise ConverterParseError(msg)
         if not all(math.isfinite(value) for value in (y, x, z)):
-            raise ConverterParseError(
-                f"Non-finite binary STR coordinate at byte offset {record_start}: {str_file_path}"
-            )
+            msg = f"Non-finite binary STR coordinate at byte offset {record_start}: {str_file_path}"
+            raise ConverterParseError(msg)
         if string_number == 0 and (y != 0.0 or x != 0.0 or z != 0.0 or description):
-            raise ConverterParseError(
-                f"Malformed binary STR segment break at byte offset {record_start}: {str_file_path}"
-            )
+            msg = f"Malformed binary STR segment break at byte offset {record_start}: {str_file_path}"
+            raise ConverterParseError(msg)
 
         records.append(BinaryStrRecord(string_number, y, x, z, description))
 
@@ -705,7 +705,8 @@ def binary_str_records_to_dataframe(
         max_description_columns = max(max_description_columns, len(descriptions))
 
     if not data:
-        raise ConverterParseError(f"No valid point rows found in STR file: {str_file_path}")
+        msg = f"No valid point rows found in STR file: {str_file_path}"
+        raise ConverterParseError(msg)
 
     column_names: list[str] = ["point_number", "group", "string", "y", "x", "z"] + [
         f"d{i}" for i in range(1, max_description_columns + 1)
@@ -731,7 +732,7 @@ def read_str_file(str_file_path: Path) -> pd.DataFrame:
 
 
 def create_points_gdf(df_str: pd.DataFrame, crs: str) -> gpd.GeoDataFrame:
-    geometry: list[Point] = [Point(x, y, z) for x, y, z in zip(df_str["x"], df_str["y"], df_str["z"])]
+    geometry: list[Point] = [Point(x, y, z) for x, y, z in zip(df_str["x"], df_str["y"], df_str["z"], strict=True)]
     return gpd.GeoDataFrame(df_str, geometry=geometry, crs=crs)
 
 
@@ -757,7 +758,7 @@ def create_polygons(
 ) -> gpd.GeoDataFrame:
     point_geom_map: dict[int, Point] = {
         int(point_number): cast("Point", geometry)
-        for point_number, geometry in zip(gdf_points["point_number"], gdf_points.geometry)
+        for point_number, geometry in zip(gdf_points["point_number"], gdf_points.geometry, strict=True)
     }
 
     polygons: list[Polygon] = []
@@ -772,7 +773,7 @@ def create_polygons(
         vertices: list[Point | None] = [point_geom_map.get(vertex_id) for vertex_id in vertex_ids]
 
         if not all(vertex is not None and vertex.has_z for vertex in vertices):
-            print("Missing 3D point for triangle " f"{row['triangle_number']} with vertices {vertex_ids}")
+            print(f"Missing 3D point for triangle {row['triangle_number']} with vertices {vertex_ids}")
             continue
 
         valid_vertices: list[Point] = [vertex for vertex in vertices if vertex is not None]

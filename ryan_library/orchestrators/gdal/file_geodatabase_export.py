@@ -53,11 +53,13 @@ def discover_file_geodatabases(input_paths: PathOrList) -> list[Path]:
     """Discover unique File Geodatabase directories from explicit paths and search roots."""
     targets = list(dict.fromkeys(path.resolve() for path in to_path_list(input_paths)))
     if not targets:
-        raise ValueError("At least one input path is required")
+        msg = "At least one input path is required"
+        raise ValueError(msg)
 
     invalid_targets = [target for target in targets if not target.is_dir()]
     if invalid_targets:
-        raise FileNotFoundError(f"Input directory does not exist: {invalid_targets[0]}")
+        msg = f"Input directory does not exist: {invalid_targets[0]}"
+        raise FileNotFoundError(msg)
 
     geodatabases: list[Path] = []
     for target in targets:
@@ -92,9 +94,11 @@ def export_file_geodatabase(
     destination_root = Path(output_root).resolve()
     normalized_format, spec = require_vector_driver(output_format)
     if source_path.suffix.lower() != ".gdb" or not source_path.is_dir():
-        raise ValueError(f"Source is not an existing File Geodatabase: {source_path}")
+        msg = f"Source is not an existing File Geodatabase: {source_path}"
+        raise ValueError(msg)
     if single_database and not spec.supports_multiple_layers:
-        raise ValueError(f"Format '{normalized_format}' does not support a multi-layer database")
+        msg = f"Format '{normalized_format}' does not support a multi-layer database"
+        raise ValueError(msg)
 
     if single_database:
         output_stem = sanitize_windows_filename(source_path.stem)
@@ -155,9 +159,11 @@ def export_file_geodatabases(
     """Discover and export a batch of File Geodatabases."""
     normalized_format, spec = require_vector_driver(output_format)
     if single_database and not spec.supports_multiple_layers:
-        raise ValueError(f"Format '{normalized_format}' does not support a multi-layer database")
+        msg = f"Format '{normalized_format}' does not support a multi-layer database"
+        raise ValueError(msg)
     if max_workers is not None and max_workers < 1:
-        raise ValueError("max_workers must be at least 1")
+        msg = "max_workers must be at least 1"
+        raise ValueError(msg)
 
     geodatabases = discover_file_geodatabases(input_paths)
     if not geodatabases:
@@ -165,7 +171,8 @@ def export_file_geodatabases(
 
     output_names = [sanitize_windows_filename(source.stem).casefold() for source in geodatabases]
     if len(output_names) != len(set(output_names)):
-        raise ValueError("Multiple input GDBs share a name and would use the same output location")
+        msg = "Multiple input GDBs share a name and would use the same output location"
+        raise ValueError(msg)
 
     destination_root = Path(output_root).resolve()
     destination_root.mkdir(parents=True, exist_ok=True)

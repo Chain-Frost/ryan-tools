@@ -14,17 +14,19 @@ class TestProcessorCollectionCoverage:
         p1 = MagicMock()
         p1.df = pd.DataFrame({"Location": ["Loc1", "Loc2"]})
         p1.applied_location_filter = None
+
         # Simulate filtering reducing rows
         def side_effect(locs):
             p1.df = pd.DataFrame({"Location": ["Loc1"]})
             p1.applied_location_filter = locs
+
         p1.filter_locations.side_effect = side_effect
-        
+
         collection = ProcessorCollection()
         collection.add_processor(p1)
-        
+
         collection.filter_locations(["Loc1"])
-        
+
         # Should log info because rows were reduced
         assert mock_logger.info.called
         args, kwargs = mock_logger.info.call_args
@@ -38,17 +40,18 @@ class TestProcessorCollectionCoverage:
         p1 = MagicMock()
         p1.df = pd.DataFrame({"Location": ["Loc2"]})
         p1.applied_location_filter = None
-        
+
         def side_effect(locs):
-            p1.df = pd.DataFrame() # Empty
+            p1.df = pd.DataFrame()  # Empty
             p1.applied_location_filter = locs
+
         p1.filter_locations.side_effect = side_effect
-        
+
         collection = ProcessorCollection()
         collection.add_processor(p1)
-        
+
         collection.filter_locations(["Loc1"])
-        
+
         assert len(collection.processors) == 0
         # Check for removal log
         found = any("Removed" in call.args[0] for call in mock_logger.info.call_args_list)
@@ -74,9 +77,9 @@ class TestProcessorCollectionCoverage:
         collection = ProcessorCollection()
         collection.add_processor(p1)
         collection.add_processor(p2)
-        
+
         collection.check_duplicates()
-        
+
         assert mock_logger.warning.called
         assert "Potential duplicate group" in mock_logger.warning.call_args[0][0]
 
@@ -84,23 +87,23 @@ class TestProcessorCollectionCoverage:
     def test_merge_with_eof_data_logging_missing_cols(self, mock_logger):
         """Test logging when columns are missing during EOF merge."""
         collection = ProcessorCollection()
-        
+
         # Case 1: Source missing Chan ID
         source_df = pd.DataFrame({"Val": [1]})
         eof_df = pd.DataFrame({"Chan ID": ["C1"]})
-        
+
         collection._merge_with_eof_data(source_df, eof_df, source_label="Test", run_code="Run1")
-        
+
         assert mock_logger.debug.called
         found = any("Skipping EOF merge" in call.args[0] for call in mock_logger.debug.call_args_list)
         assert found
-        
+
         # Case 2: EOF missing Chan ID
         source_df = pd.DataFrame({"Chan ID": ["C1"]})
         eof_df = pd.DataFrame({"Val": [1]})
-        
+
         collection._merge_with_eof_data(source_df, eof_df, source_label="Test", run_code="Run1")
-        
+
         assert mock_logger.warning.called
         found = any("missing 'Chan ID'" in call.args[0] for call in mock_logger.warning.call_args_list)
         assert found
@@ -111,8 +114,8 @@ class TestProcessorCollectionCoverage:
         # Missing Chan ID in one
         chan_df = pd.DataFrame({"Val": [1]})
         eof_df = pd.DataFrame({"Chan ID": ["C1"]})
-        
+
         ProcessorCollection._merge_chan_and_eof(chan_df, eof_df)
-        
+
         assert mock_logger.warning.called
         assert "Chan ID missing" in mock_logger.warning.call_args[0][0]

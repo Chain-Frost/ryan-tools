@@ -1,4 +1,3 @@
-
 """Unit tests for ryan_library.processors.tuflow.maximums_1d.CmxProcessor."""
 
 from pathlib import Path
@@ -30,20 +29,22 @@ class TestCmxProcessor:
 
     def test_reshape_cmx_data_success(self, mock_processor):
         """Test successful reshaping of CMX data."""
-        mock_processor.df = pd.DataFrame({
-            "Chan ID": ["C1", "C2"],
-            "Time Qmax": [1.0, 2.0],
-            "Qmax": [10.0, 20.0],
-            "Time Vmax": [1.1, 2.1],
-            "Vmax": [1.0, 2.0]
-        })
+        mock_processor.df = pd.DataFrame(
+            {
+                "Chan ID": ["C1", "C2"],
+                "Time Qmax": [1.0, 2.0],
+                "Qmax": [10.0, 20.0],
+                "Time Vmax": [1.1, 2.1],
+                "Vmax": [1.0, 2.0],
+            }
+        )
 
         mock_processor._reshape_cmx_data()
 
         assert len(mock_processor.df) == 4  # 2 rows * 2 (Q and V)
         assert "Q" in mock_processor.df.columns
         assert "V" in mock_processor.df.columns
-        
+
         # Check Q rows
         q_rows = mock_processor.df[mock_processor.df["Q"].notna()]
         assert len(q_rows) == 2
@@ -58,26 +59,25 @@ class TestCmxProcessor:
 
     def test_reshape_cmx_data_missing_columns(self, mock_processor):
         """Test reshaping fails with missing columns."""
-        mock_processor.df = pd.DataFrame({
-            "Chan ID": ["C1"],
-            "Time Qmax": [1.0]
-            # Missing Qmax, Vmax, etc.
-        })
+        mock_processor.df = pd.DataFrame(
+            {
+                "Chan ID": ["C1"],
+                "Time Qmax": [1.0],
+                # Missing Qmax, Vmax, etc.
+            }
+        )
 
         mock_processor._reshape_cmx_data()
         assert mock_processor.df.empty
 
     def test_handle_malformed_data(self, mock_processor):
         """Test handling of malformed data."""
-        mock_processor.df = pd.DataFrame({
-            "Chan ID": ["C1", None],
-            "Time": [1.0, None],
-            "Q": [10.0, None],
-            "V": [None, None]
-        })
-        
+        mock_processor.df = pd.DataFrame(
+            {"Chan ID": ["C1", None], "Time": [1.0, None], "Q": [10.0, None], "V": [None, None]}
+        )
+
         mock_processor._handle_malformed_data()
-        
+
         assert len(mock_processor.df) == 1
         assert mock_processor.df.iloc[0]["Chan ID"] == "C1"
 
@@ -89,24 +89,20 @@ class TestCmxProcessor:
         """Test full process flow success."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
-        
+
         # Setup df for reshaping
-        mock_processor.df = pd.DataFrame({
-            "Chan ID": ["C1"],
-            "Time Qmax": [1.0],
-            "Qmax": [10.0],
-            "Time Vmax": [1.1],
-            "Vmax": [1.0]
-        })
+        mock_processor.df = pd.DataFrame(
+            {"Chan ID": ["C1"], "Time Qmax": [1.0], "Qmax": [10.0], "Time Vmax": [1.1], "Vmax": [1.0]}
+        )
 
         # We need to bind the methods to the mock_processor instance because we are calling them on it
         # But since we patched the class methods, we can just call process on the instance
-        
+
         # However, since we created mock_processor with a patched __post_init__, it's an instance of CmxProcessor.
         # The patches above are on the class, so they should apply.
-        
+
         mock_processor.process()
-        
+
         assert mock_processor.processed is True
         mock_read.assert_called_once()
         mock_add.assert_called_once()
@@ -116,9 +112,9 @@ class TestCmxProcessor:
     def test_process_read_failure(self, mock_read, mock_processor):
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
-        
+
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
@@ -130,18 +126,14 @@ class TestCmxProcessor:
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
-        
+
         # Setup df for reshaping
-        mock_processor.df = pd.DataFrame({
-            "Chan ID": ["C1"],
-            "Time Qmax": [1.0],
-            "Qmax": [10.0],
-            "Time Vmax": [1.1],
-            "Vmax": [1.0]
-        })
+        mock_processor.df = pd.DataFrame(
+            {"Chan ID": ["C1"], "Time Qmax": [1.0], "Qmax": [10.0], "Time Vmax": [1.1], "Vmax": [1.0]}
+        )
 
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
@@ -149,8 +141,8 @@ class TestCmxProcessor:
     def test_process_exception(self, mock_read, mock_processor):
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
-        
+
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty

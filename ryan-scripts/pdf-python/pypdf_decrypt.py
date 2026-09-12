@@ -38,7 +38,8 @@ def main() -> int:
         output_path = DEFAULT_OUTPUT_PDF or _default_output_path(pdf_path)
 
     if not pdf_path:
-        raise ValueError("Set DEFAULT_INPUT_PDF or pass a PDF path on the command line.")
+        msg = "Set DEFAULT_INPUT_PDF or pass a PDF path on the command line."
+        raise ValueError(msg)
 
     reader = PdfReader(pdf_path)
     writer = PdfWriter()
@@ -48,9 +49,11 @@ def main() -> int:
         try:
             result = reader.decrypt(DEFAULT_DECRYPT_PASSWORD)
         except Exception as exc:
-            raise RuntimeError(f"Decrypt failed: {type(exc).__name__}: {exc}") from exc
+            msg = f"Decrypt failed: {type(exc).__name__}: {exc}"
+            raise RuntimeError(msg) from exc
         if result == 0:
-            raise RuntimeError("Decrypt failed: invalid or missing password.")
+            msg = "Decrypt failed: invalid or missing password."
+            raise RuntimeError(msg)
         decrypt_status = f"decrypted (result={result})"
 
     writer.clone_document_from_reader(reader)

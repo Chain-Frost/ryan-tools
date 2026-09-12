@@ -23,8 +23,7 @@ def orchestrate_ensemble_plotting(
     capacity_threshold: float | None = None,
     source: str = "rorb",
 ) -> None:
-    """Coordinates reading ensemble model results and plotting peak flows and closure times.
-    """
+    """Coordinates reading ensemble model results and plotting peak flows and closure times."""
     logger.info("Starting ensemble plotting orchestration for source: {}", source)
 
     if source.lower() == "rorb":
@@ -34,13 +33,15 @@ def orchestrate_ensemble_plotting(
             required_columns.add("Time")
         missing = sorted(required_columns - set(df.columns))
         if missing:
-            raise ValueError(f"RORB data is missing required columns: {missing}")
+            msg = f"RORB data is missing required columns: {missing}"
+            raise ValueError(msg)
 
         # Filter by locations if specified
         if locations:
             df = df.loc[df["Location"].isin(locations)].copy()
         if df.empty:
-            raise ValueError("No ensemble rows remain after applying location filters")
+            msg = "No ensemble rows remain after applying location filters"
+            raise ValueError(msg)
 
         group_cols = ["Model", "Location", "Method", "CC", "AEP", "Duration", "TP"]
 
@@ -48,7 +49,8 @@ def orchestrate_ensemble_plotting(
         group_cols = [col for col in group_cols if col in df.columns]
 
         if not group_cols:
-            raise ValueError("No valid grouping columns found in the data.")
+            msg = "No valid grouping columns found in the data."
+            raise ValueError(msg)
 
         # 1. Plot Peak Flows
         logger.info("Processing Peak Flows")
@@ -99,6 +101,7 @@ def orchestrate_ensemble_plotting(
                     hue_col=hue_col,
                 )
     else:
-        raise NotImplementedError(f"Data source '{source}' is not supported yet.")
+        msg = f"Data source '{source}' is not supported yet."
+        raise NotImplementedError(msg)
 
     logger.info("Ensemble plotting orchestration complete.")

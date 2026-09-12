@@ -97,10 +97,8 @@ def run_closure_durations(
 
         summary_df: DataFrame = summarise_results(df=result_df)
         summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\.?[0-9]+)")[0].astype(dtype=float)
-        summary_df.sort_values(
-            by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True, inplace=True
-        )
-        summary_df.drop(columns="AEP_sort_key", inplace=True)
+        summary_df = summary_df.sort_values(by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True)
+        summary_df = summary_df.drop(columns="AEP_sort_key")
         _export_closure_duration_artifacts(
             durations_df=result_df,
             summary_df=summary_df,

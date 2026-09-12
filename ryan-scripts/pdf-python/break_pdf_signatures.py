@@ -50,10 +50,7 @@ def _is_signature_field(value: Any) -> bool:
         return True
 
     value_dict = _resolve_indirect(field_dict.get("/V"))
-    if isinstance(value_dict, dict) and value_dict.get("/Type") == NameObject("/Sig"):
-        return True
-
-    return False
+    return bool(isinstance(value_dict, dict) and value_dict.get("/Type") == NameObject("/Sig"))
 
 
 def _strip_signature_fields(writer: PdfWriter) -> None:
@@ -166,7 +163,8 @@ def resolve_paths() -> tuple[Path, Path]:
         src: Path = _normalize_path(value=HARD_CODED_INPUT)
     else:
         if len(sys.argv) < 2:
-            raise SystemExit("Usage: python break_pdf_signatures.py <input.pdf> [output.pdf]")
+            msg = "Usage: python break_pdf_signatures.py <input.pdf> [output.pdf]"
+            raise SystemExit(msg)
         src = Path(sys.argv[1])
 
     if HARD_CODED_OUTPUT is not None:
@@ -184,7 +182,8 @@ def main() -> None:
     src, dst = resolve_paths()
 
     if not src.exists():
-        raise SystemExit(f"Input file does not exist: {src}")
+        msg = f"Input file does not exist: {src}"
+        raise SystemExit(msg)
 
     break_and_remove_signature_fields(src=src, dst=dst)
     print(f"Wrote: {dst}")

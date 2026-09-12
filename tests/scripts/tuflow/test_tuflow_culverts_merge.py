@@ -9,10 +9,11 @@ from ryan_library.orchestrators.tuflow import tuflow_culverts_merge
 
 
 def test_main_processing_success():
-    with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.setup_logger"), patch(
-        "ryan_library.orchestrators.tuflow.tuflow_culverts_merge.bulk_read_and_merge_tuflow_csv"
-    ) as mock_bulk, patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.ExcelExporter") as mock_exporter:
-
+    with (
+        patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.setup_logger"),
+        patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.bulk_read_and_merge_tuflow_csv") as mock_bulk,
+        patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.ExcelExporter") as mock_exporter,
+    ):
         # Mock collection
         mock_collection = MagicMock()
         mock_collection.combine_1d_maximums.return_value = pd.DataFrame({"A": [1]})
@@ -30,10 +31,11 @@ def test_main_processing_success():
 
 
 def test_main_processing_parquet():
-    with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.setup_logger"), patch(
-        "ryan_library.orchestrators.tuflow.tuflow_culverts_merge.bulk_read_and_merge_tuflow_csv"
-    ) as mock_bulk, patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.ExcelExporter") as mock_exporter:
-
+    with (
+        patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.setup_logger"),
+        patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.bulk_read_and_merge_tuflow_csv") as mock_bulk,
+        patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.ExcelExporter") as mock_exporter,
+    ):
         mock_collection = MagicMock()
         mock_collection.combine_1d_maximums.return_value = pd.DataFrame({"A": [1]})
         mock_collection.combine_raw.return_value = pd.DataFrame({"B": [2]})

@@ -1,5 +1,5 @@
 # ryan-scripts\TUFLOW-python\model_management\run_tuflow_simulations.py
-# 2026-08-30 version
+# 2026-09-12 version
 # Non-native libraries used by this script: python -m pip install rich colorama psutil
 """Single-file TUFLOW launcher for Windows.
 USAGE
@@ -53,9 +53,9 @@ def get_parameters() -> Parameters:
         minimize_on_launch=True,
         use_live_dashboard=True,
         live_refresh_per_second=1.0,
-        live_max_rows=200,
-        pending_head_rows=25,
-        pending_tail_rows=25,
+        live_max_rows=10,
+        pending_head_rows=10,
+        pending_tail_rows=10,
         write_results_csv=True,
     )
 
@@ -369,29 +369,33 @@ def check_and_set_defaults(params: Parameters) -> None:
     """
     c: CoreParameters = params.core_params
     if not c.tcf.is_file():
-        raise FileNotFoundError(f"TCF file not found: {c.tcf}")
+        msg = f"TCF file not found: {c.tcf}"
+        raise FileNotFoundError(msg)
     if not c.tuflowexe.is_file():
-        raise FileNotFoundError(f"TUFLOW exe not found: {c.tuflowexe}")
+        msg = f"TUFLOW exe not found: {c.tuflowexe}"
+        raise FileNotFoundError(msg)
     if c.computational_priority.upper() not in _PRIORITY_SET:
-        raise ValueError(
-            f"Invalid priority: {c.computational_priority}. Must be one of: {', '.join(sorted(_PRIORITY_SET))}"
-        )
+        msg = f"Invalid priority: {c.computational_priority}. Must be one of: {', '.join(sorted(_PRIORITY_SET))}"
+        raise ValueError(msg)
 
     # Validate gpu_devices if provided
     if c.gpu_devices:
         for slot in c.gpu_devices:
             if isinstance(slot, str):
                 if not _GPU_RE.match(string=slot):
-                    raise ValueError(f"Invalid GPU flag: {slot}")
+                    msg = f"Invalid GPU flag: {slot}"
+                    raise ValueError(msg)
             else:
                 for flag in slot:
                     if not _GPU_RE.match(string=flag):
-                        raise ValueError(f"Invalid GPU flag: {flag}")
+                        msg = f"Invalid GPU flag: {flag}"
+                        raise ValueError(msg)
 
     # Check that run_variables keys are only e1-e9 or s1-s9
-    for key in params.run_variables.keys():
+    for key in params.run_variables:
         if not re.fullmatch(pattern=r"[es][1-9]", string=key):
-            raise ValueError(f"Invalid run variable key: {key}. Must be e1-e9 or s1-s9.")
+            msg = f"Invalid run variable key: {key}. Must be e1-e9 or s1-s9."
+            raise ValueError(msg)
 
 
 # ====================== ARGUMENT-BUILDING HELPERS ========================= #
@@ -400,7 +404,7 @@ def _build_padded_flags(keys: list[str], combo: tuple[str, ...], max_lengths: di
     produce a flattened list: ['-key1', 'value1_padded', '-key2', 'value2_padded', ...].
     """
     parts: list[str] = []
-    for key, value in zip(keys, combo):
+    for key, value in zip(keys, combo, strict=True):
         parts.extend([f"-{key}", value.ljust(max_lengths[key])])
     return parts
 
@@ -493,7 +497,8 @@ def configure_console_ansi() -> None:
 
 def _pause_on_windows() -> None:
     if sys.platform == "win32":
-        subprocess.run(args=["cmd", "/C", "pause"], check=False)
+        command_interpreter = os.environ.get("COMSPEC", "cmd.exe")
+        subprocess.run(args=[command_interpreter, "/C", "pause"], check=False)
 
 
 def filter_parameters(params: dict[str, list[str]], tcf: Path) -> dict[str, list[str]]:
@@ -515,10 +520,10 @@ def filter_parameters(params: dict[str, list[str]], tcf: Path) -> dict[str, list
     placeholders: set[str] = set(re.findall(pattern=r"~([es][1-9])~", string=tcf.name, flags=re.IGNORECASE))
     missing: set[str] = {placeholder.lower() for placeholder in placeholders} - {k.lower() for k in non_empty}
     if missing:
-        raise ValueError(
-            "TCF filename expects placeholders "
-            f"{sorted(placeholders)}, but run_variables is missing {sorted(missing)}."
+        msg = (
+            f"TCF filename expects placeholders {sorted(placeholders)}, but run_variables is missing {sorted(missing)}."
         )
+        raise ValueError(msg)
     extra: set[str] = {k.lower() for k in non_empty} - {placeholder.lower() for placeholder in placeholders}
     if extra:
         logging.debug(
@@ -568,7 +573,7 @@ def get_batch_flags(core: CoreParameters, *, for_dump: bool = False) -> list[str
     has_gpu_devices: bool = bool(core.gpu_devices)
     if batch_gpu and has_gpu_devices:
         # Abort: double-specified GPU location
-        raise ValueError(
+        msg = (
             "GPU flags were specified in BOTH places:\n"
             f"  batch_commands: {flags}\n"
             f"  gpu_devices: {core.gpu_devices}\n\n"
@@ -576,6 +581,7 @@ def get_batch_flags(core: CoreParameters, *, for_dump: bool = False) -> list[str
             "  - Remove all -puN from batch_commands and keep gpu_devices set; OR\n"
             "  - Set gpu_devices=None (or []) and keep -puN only in batch_commands.\n"
         )
+        raise ValueError(msg)
     # Otherwise accept as-is (including -puN in batch_commands when gpu_devices is None/[])
     return flags
 
@@ -584,7 +590,7 @@ def get_batch_flags(core: CoreParameters, *, for_dump: bool = False) -> list[str
 # =============================== I/O HELPERS =============================== #
 ###############################################################################
 def export_commands(cmds: list[str], tuflowexe: Path, tcf: Path) -> None:
-    """Write <script>_commands.txt with one START line per sim and a Pause at the end.
+    r"""Write <script>_commands.txt with one START line per sim and a Pause at the end.
     Create a simplified batch file (commands.txt) so that:
     - TUFLOW_EXE is set once at top
     - TCF is set once at top
@@ -718,8 +724,8 @@ def parse_input_files(files: list[Path]) -> tuple[list[Combo], list[str]]:
     for f in files:
         try:
             content: list[str] = f.read_text(encoding="utf-8", errors="ignore").splitlines()
-        except Exception as exc:
-            logging.exception("Failed to read %s: %s", f, exc)
+        except Exception:
+            logging.exception("Failed to read %s", f)
             continue
 
         for idx, raw in enumerate(iterable=content, start=1):
@@ -1252,7 +1258,9 @@ def launch_simulations(
 
         # Inject GPU flags only now (exact assignment; no prediction earlier) when real TUFLOW commands are launched.
         if gpu_slots:
-            assert slot_idx is not None  # convince type-checker
+            if slot_idx is None:
+                msg = "No free GPU slot was available after the launch readiness check"
+                raise RuntimeError(msg)
             gpu_group: str | list[str] = gpu_slots[slot_idx]
             sim.assigned_gpu, sim.slot_index = gpu_group, slot_idx
             in_use[slot_idx] = True
@@ -1398,8 +1406,8 @@ def run_post_script(script_path: str | Path) -> None:
                 out.rstrip(),
                 err.rstrip(),
             )
-    except Exception as exc:
-        logging.exception("Unexpected error while running %s: %s", script_path, exc)
+    except Exception:
+        logging.exception("Unexpected error while running %s", script_path)
 
 
 def dump_run_variables(run_vars: dict[str, list[str]]) -> None:

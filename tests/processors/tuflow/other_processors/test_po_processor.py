@@ -32,25 +32,25 @@ class TestPOProcessor:
         # Row 0: Measurement (Type)
         # Row 1: Location
         # Row 2+: Data
-        
+
         data = [
-            ["Dummy", "Time", "H", "V"],          # Measurement
-            ["Dummy", "Time", "Loc1", "Loc1"],    # Location
-            ["Dummy", "0.0", "10.0", "1.0"],      # Data 1
-            ["Dummy", "1.0", "10.1", "1.1"]       # Data 2
+            ["Dummy", "Time", "H", "V"],  # Measurement
+            ["Dummy", "Time", "Loc1", "Loc1"],  # Location
+            ["Dummy", "0.0", "10.0", "1.0"],  # Data 1
+            ["Dummy", "1.0", "10.1", "1.1"],  # Data 2
         ]
         raw_df = pd.DataFrame(data)
-        
+
         tidy_df = mock_processor._parse_point_output(raw_df)
-        
+
         assert not tidy_df.empty
         assert list(tidy_df.columns) == ["Time", "Location", "Type", "Value"]
-        
+
         # Check Loc1 H
         h_rows = tidy_df[(tidy_df["Location"] == "Loc1") & (tidy_df["Type"] == "H")]
         assert len(h_rows) == 2
         assert h_rows.iloc[0]["Value"] == 10.0
-        
+
         # Check Loc1 V
         v_rows = tidy_df[(tidy_df["Location"] == "Loc1") & (tidy_df["Type"] == "V")]
         assert len(v_rows) == 2
@@ -58,13 +58,9 @@ class TestPOProcessor:
 
     def test_parse_point_output_missing_time(self, mock_processor):
         """Test parsing fails if Time column is missing."""
-        data = [
-            ["Dummy", "H", "V"],
-            ["Dummy", "Loc1", "Loc1"],
-            ["Dummy", "10.0", "1.0"]
-        ]
+        data = [["Dummy", "H", "V"], ["Dummy", "Loc1", "Loc1"], ["Dummy", "10.0", "1.0"]]
         raw_df = pd.DataFrame(data)
-        
+
         tidy_df = mock_processor._parse_point_output(raw_df)
         assert tidy_df.empty
 
@@ -81,17 +77,13 @@ class TestPOProcessor:
     def test_process_success(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
         """Test full process flow success."""
         mock_validate.return_value = True
-        
+
         # Mock read_csv return
-        data = [
-            ["Dummy", "Time", "H"],
-            ["Dummy", "Time", "Loc1"],
-            ["Dummy", "0.0", "10.0"]
-        ]
+        data = [["Dummy", "Time", "H"], ["Dummy", "Time", "Loc1"], ["Dummy", "0.0", "10.0"]]
         mock_read.return_value = pd.DataFrame(data)
-        
+
         mock_processor.process()
-        
+
         assert mock_processor.processed is True
         mock_add.assert_called_once()
         mock_apply.assert_called_once()

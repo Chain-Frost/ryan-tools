@@ -17,7 +17,8 @@ _SET1_COLORS = ("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33"
 def _require_columns(df: pd.DataFrame, columns: list[str]) -> None:
     missing = [column for column in columns if column not in df.columns]
     if missing:
-        raise ValueError(f"Missing plotting columns: {missing}")
+        msg = f"Missing plotting columns: {missing}"
+        raise ValueError(msg)
 
 
 def _draw_vertical_boxplots(
@@ -39,9 +40,7 @@ def _draw_vertical_boxplots(
         category_mask = df[category_col].eq(category)
         for hue_index, hue in enumerate(hue_order):
             mask = (
-                category_mask
-                if hue_col is None
-                else category_mask & df[hue_col].eq(hue)  # pyright: ignore[reportArgumentType]
+                category_mask if hue_col is None else category_mask & df[hue_col].eq(hue)  # pyright: ignore[reportArgumentType]
             )
             values = pd.to_numeric(df.loc[mask, value_col], errors="coerce").dropna().tolist()
             if not values:
@@ -86,8 +85,7 @@ def plot_peak_flow_distribution(
     peak_flow_col: str = "PeakFlow",
     duration_col: str = "Duration",
 ) -> None:
-    """Plots the distribution of Peak Flows across different AEPs and Durations.
-    """
+    """Plots the distribution of Peak Flows across different AEPs and Durations."""
     if df.empty:
         logger.warning("No data to plot for location {}", location)
         return
@@ -137,8 +135,7 @@ def plot_exceedance_duration(
     duration_col: str = "ClosureTime",
     hue_col: str = "CC",
 ) -> None:
-    """Plots the distribution of exceedance durations (closure times) across AEPs.
-    """
+    """Plots the distribution of exceedance durations (closure times) across AEPs."""
     if df.empty:
         logger.warning("No data to plot for location {}", location)
         return
@@ -147,7 +144,7 @@ def plot_exceedance_duration(
     plt.clf()
     fig, ax = plt.subplots(figsize=(12, 10))
 
-    if hue_col in df.columns and df[hue_col].nunique() > 1:
+    if hue_col in df.columns and df[hue_col].nunique() > 1:  # noqa: PD101 - missing hues are intentionally ignored
         legend_handles, legend_labels = _draw_vertical_boxplots(ax, df, aep_col, duration_col, hue_col)
         ax.legend(legend_handles, legend_labels, title=hue_col)  # pyright: ignore[reportUnknownMemberType]
     else:

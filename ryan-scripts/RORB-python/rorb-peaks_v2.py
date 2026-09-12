@@ -26,7 +26,8 @@ out_files: list[Path] = list(script_dir.rglob(pattern="*.out"))
 
 # Check if any .out files are found
 if not out_files:
-    raise FileNotFoundError("No .out files found in the directory and its subdirectories.")
+    msg = "No .out files found in the directory and its subdirectories."
+    raise FileNotFoundError(msg)
 
 # Initialize a list to collect DataFrames from all files
 all_median_data = []
@@ -139,8 +140,8 @@ for file_path in out_files:
         )
 
         # Rename the columns to include the Peak column name
-        median_df.rename(
-            columns={"Median_Peak": f"Median_{peak_col}", "Median_TPat": f"Median_TPat_{peak_col}"}, inplace=True
+        median_df = median_df.rename(
+            columns={"Median_Peak": f"Median_{peak_col}", "Median_TPat": f"Median_TPat_{peak_col}"}
         )
 
         # Add the Peak column name to the list for merging
@@ -151,7 +152,7 @@ for file_path in out_files:
         final_median_df = median_data[0]
     else:
         final_median_df = reduce(
-            lambda left, right: pd.merge(left, right, on=["Duration", "AEP"], how="outer"), median_data
+            lambda left, right: left.merge(right, on=["Duration", "AEP"], how="outer"), median_data
         )
 
     # Add the extracted parameters as new columns to the median dataframe
@@ -183,9 +184,15 @@ for file_path in out_files:
     median_columns = [col for col in final_median_df.columns if col.startswith("Median_")]
     parameter_columns = list(parameters.keys())
     r_columns = [col for col in final_median_df.columns if col.startswith("r")]
-    final_columns_order = (
-        ["Filename", "Relative_Path", "Duration", "AEP"] + median_columns + parameter_columns + r_columns
-    )
+    final_columns_order = [
+        "Filename",
+        "Relative_Path",
+        "Duration",
+        "AEP",
+        *median_columns,
+        *parameter_columns,
+        *r_columns,
+    ]
     final_median_df = final_median_df[final_columns_order]
 
     # Append the processed DataFrame to the list
@@ -197,7 +204,8 @@ for file_path in out_files:
 
 # Combine all processed DataFrames into a single DataFrame
 if not all_median_data:
-    raise ValueError("No valid data was processed from the .out files.")
+    msg = "No valid data was processed from the .out files."
+    raise ValueError(msg)
 
 combined_median_df = pd.concat(all_median_data, ignore_index=True)
 

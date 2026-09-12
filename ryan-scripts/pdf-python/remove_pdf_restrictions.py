@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Remove PDF permission restrictions by rewriting PDFs with pypdf.
+r"""Remove PDF permission restrictions by rewriting PDFs with pypdf.
 
 This script is intentionally narrow. It opens each input PDF, decrypts it when
 possible, then writes a fresh unencrypted copy. That removes common PDF
@@ -88,7 +88,8 @@ def remove_pdf_restrictions_from_file(
     destination_path: Path = Path(dst) if dst is not None else default_output_path(source_path)
 
     if not source_path.exists():
-        raise FileNotFoundError(f"Input file does not exist: {source_path}")
+        msg = f"Input file does not exist: {source_path}"
+        raise FileNotFoundError(msg)
 
     reader = PdfReader(str(source_path))
     decrypt_status = "not encrypted"
@@ -96,7 +97,8 @@ def remove_pdf_restrictions_from_file(
     if reader.is_encrypted:
         result: PasswordType = reader.decrypt(password)
         if result == 0:
-            raise ValueError("PDF is encrypted and could not be decrypted with the supplied password.")
+            msg = "PDF is encrypted and could not be decrypted with the supplied password."
+            raise ValueError(msg)
         decrypt_status: str = f"decrypted with result {result}"
 
     writer = PdfWriter()
@@ -117,16 +119,19 @@ def remove_pdf_restrictions(
 ) -> list[tuple[Path, str]]:
     input_paths: list[Path] = normalize_inputs(inputs)
     if not input_paths:
-        raise ValueError("No input PDFs were supplied.")
+        msg = "No input PDFs were supplied."
+        raise ValueError(msg)
 
     output_path: Path | None = Path(output) if output is not None else None
     output_dir_path: Path | None = Path(output_dir) if output_dir is not None else None
 
     if output_path is not None and output_dir_path is not None:
-        raise ValueError("Use either output or output_dir, not both.")
+        msg = "Use either output or output_dir, not both."
+        raise ValueError(msg)
 
     if output_path is not None and len(input_paths) > 1 and output_path.suffix:
-        raise ValueError("For multiple inputs, output must be a folder. Use output_dir for clarity.")
+        msg = "For multiple inputs, output must be a folder. Use output_dir for clarity."
+        raise ValueError(msg)
 
     results: list[tuple[Path, str]] = []
     for src in input_paths:
@@ -168,7 +173,8 @@ def main() -> int:
     output_dir = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
 
     if args.output is not None and args.output_dir is not None:
-        raise SystemExit("Use either --output or --output-dir, not both.")
+        msg = "Use either --output or --output-dir, not both."
+        raise SystemExit(msg)
 
     try:
         results: list[tuple[Path, str]] = remove_pdf_restrictions(

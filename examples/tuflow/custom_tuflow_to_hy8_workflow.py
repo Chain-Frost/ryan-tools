@@ -106,17 +106,20 @@ def load_culverts_by_model(csv_path: Path) -> dict[str, frozenset[str]]:
         missing_columns: set[str] = required_columns - available_columns
         if missing_columns:
             missing_text = ", ".join(sorted(missing_columns))
-            raise ValueError(f"{csv_path} is missing required column(s): {missing_text}")
+            msg = f"{csv_path} is missing required column(s): {missing_text}"
+            raise ValueError(msg)
 
         for row_number, row in enumerate(reader, start=2):
             model_name = (row.get("R03") or "").strip()
             culvert_name = (row.get("Chan ID") or "").strip()
             if not model_name or not culvert_name:
-                raise ValueError(f"{csv_path} row {row_number} must contain both R03 and Chan ID values.")
+                msg = f"{csv_path} row {row_number} must contain both R03 and Chan ID values."
+                raise ValueError(msg)
             culverts_by_model.setdefault(model_name, set()).add(culvert_name)
 
     if not culverts_by_model:
-        raise ValueError(f"{csv_path} contains no model/culvert selections.")
+        msg = f"{csv_path} contains no model/culvert selections."
+        raise ValueError(msg)
 
     return {model_name: frozenset(culvert_names) for model_name, culvert_names in culverts_by_model.items()}
 
@@ -147,10 +150,7 @@ def keep_culvert(
         return False
 
     # Generated HY-8 fields remain available for any additional rules.
-    if not crossing.culverts:
-        return False
-
-    return True
+    return bool(crossing.culverts)
 
 
 def build_filtered_project(
@@ -162,7 +162,8 @@ def build_filtered_project(
 ) -> tuple[Hy8Project, list[ConvertedCulvert], list[ConvertedCulvert]]:
     """Return the project plus retained and rejected culvert objects."""
     if "R03" not in maximums.columns:
-        raise ValueError("Cannot filter by model name because the combined maximums data has no 'R03' column.")
+        msg = "Cannot filter by model name because the combined maximums data has no 'R03' column."
+        raise ValueError(msg)
 
     converted: list[ConvertedCulvert] = convert_culverts(maximums, options=options)
     retained: list[ConvertedCulvert] = []
@@ -204,7 +205,8 @@ def run_workflow(
     raw_data: pd.DataFrame = maximums_result.raw_data
     processor_collection: ProcessorCollection = maximums_result.processor_collection
     if maximums.empty:
-        raise ValueError("No combined TUFLOW culvert maximums were produced from the supplied result paths.")
+        msg = "No combined TUFLOW culvert maximums were produced from the supplied result paths."
+        raise ValueError(msg)
 
     culverts_by_model: dict[str, frozenset[str]] = load_culverts_by_model(culvert_selection_csv)
     options = Hy8CulvertOptions()
@@ -215,7 +217,8 @@ def run_workflow(
         culverts_by_model=culverts_by_model,
     )
     if not retained:
-        raise ValueError("No culverts remain after applying the culvert-name and R03 model-name filters.")
+        msg = "No culverts remain after applying the culvert-name and R03 model-name filters."
+        raise ValueError(msg)
 
     # Objects can be changed here before validation and serialization.
     for culvert in retained:

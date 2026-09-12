@@ -28,7 +28,7 @@ class TestProcessorCollectionPersistence:
         # cleanup
         try:
             shutil.rmtree(temp_dir)
-        except:
+        except OSError:
             pass
 
     def test_copy(self):
@@ -101,15 +101,16 @@ class TestProcessorCollectionPersistence:
             # Mock HDFStore constructor
             with m.context() as m_pd:
                 from ryan_library.processors.tuflow import processor_collection
+
                 mock_hdf_store_cls = MagicMock(return_value=mock_store)
                 m_pd.setattr(processor_collection, "HDFStore", mock_hdf_store_cls)
-    
+
                 # 1. Test to_hdf
                 coll.to_hdf(hdf_path)
-    
+
                 assert "metadata" in store_data
                 assert "proc_0000" in store_data
-    
+
                 # Check compression kwargs were passed
                 mock_hdf_store_cls.assert_any_call(str(hdf_path), mode="w", complevel=9, complib="blosc:zstd")
 

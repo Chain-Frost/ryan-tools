@@ -19,7 +19,8 @@ _SCRIPT_MODULES: frozenset[str] = frozenset(
 def __getattr__(name: str) -> ModuleType:
     """Load deprecated script aliases only when legacy package-level access is requested."""
     if name not in _SCRIPT_MODULES:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+        msg = f"module {__name__!r} has no attribute {name!r}"
+        raise AttributeError(msg)
 
     module: ModuleType = import_module(f"{__name__}.scripts.tuflow.{name}")
     globals()[name] = module

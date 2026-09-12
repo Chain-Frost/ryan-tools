@@ -4,6 +4,7 @@
 Dependencies (install via pip if needed):
     pip install laspy numpy shapely fiona
 """
+
 from __future__ import annotations
 
 import argparse
@@ -72,7 +73,8 @@ class PolygonClipper:
     def __init__(self, shapefile_path: Path) -> None:
         self.geometry = self._load_union(shapefile_path)
         if self.geometry.is_empty:
-            raise ValueError(f"Clip geometry in {shapefile_path} is empty.")
+            msg = f"Clip geometry in {shapefile_path} is empty."
+            raise ValueError(msg)
         self.prepared = prep(self.geometry)
         self.bounds = self.geometry.bounds  # (minx, miny, maxx, maxy)
         self._vectorized_func = self._pick_vectorized_func()
@@ -80,7 +82,8 @@ class PolygonClipper:
     @staticmethod
     def _load_union(shapefile_path: Path) -> BaseGeometry:
         if not shapefile_path.exists():
-            raise FileNotFoundError(f"Shapefile not found: {shapefile_path}")
+            msg = f"Shapefile not found: {shapefile_path}"
+            raise FileNotFoundError(msg)
 
         geometries = []
         with fiona.open(shapefile_path) as src:
@@ -92,7 +95,8 @@ class PolygonClipper:
                         geometries.append(g)
 
         if not geometries:
-            raise ValueError(f"No polygon geometries found in {shapefile_path}")
+            msg = f"No polygon geometries found in {shapefile_path}"
+            raise ValueError(msg)
 
         return unary_union(geometries)
 
@@ -141,10 +145,9 @@ def discover_files(input_dir: Path, glob_pattern: str, include_laz: bool) -> Ite
         files.extend(sorted(input_dir.glob("*.laz")))
     seen = set()
     for file_path in files:
-        if file_path.is_file():
-            if file_path not in seen:
-                seen.add(file_path)
-                yield file_path
+        if file_path.is_file() and file_path not in seen:
+            seen.add(file_path)
+            yield file_path
 
 
 def clip_las_file(
@@ -183,10 +186,7 @@ def clip_las_file(
         return None
 
     temp.replace(target)
-    print(
-        f"{las_path.name}: kept {kept_points:,} of "
-        f"{total_points:,} points ({kept_points / total_points:.1%})."
-    )
+    print(f"{las_path.name}: kept {kept_points:,} of {total_points:,} points ({kept_points / total_points:.1%}).")
     return target
 
 

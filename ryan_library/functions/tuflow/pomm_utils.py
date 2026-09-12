@@ -198,7 +198,7 @@ def find_aep_dur_max(aggregated_df: DataFrame) -> DataFrame:
         "trim_runcode",
     ]
     try:
-        # copy so we don’t clobber the caller’s DataFrame
+        # copy so we don't clobber the caller's DataFrame
         df: DataFrame = aggregated_df.copy()
         # compute size of each group
         df["count_TP"] = df.groupby(by=group_cols, observed=True)["AbsMax"].transform("size")

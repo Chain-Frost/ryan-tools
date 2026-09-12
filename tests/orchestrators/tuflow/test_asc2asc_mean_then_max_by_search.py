@@ -94,10 +94,13 @@ class TestParseRaster:
             parser_instance.tp = MagicMock(original_text="001", raw_value="1")
             parser_instance.run_code_parts = {"scen1": "EXG", "scen2": "DEV"}
 
-            with patch(
-                "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.result_type_from_parser",
-                return_value="d",
-            ), pytest.raises(ValueError, match="Expected one scenario"):
+            with (
+                patch(
+                    "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search.result_type_from_parser",
+                    return_value="d",
+                ),
+                pytest.raises(ValueError, match="Expected one scenario"),
+            ):
                 _parse_raster(
                     input_file=file_path, grid_directory=tmp_path, scenarios=["EXG", "DEV"], result_types=["d"]
                 )
@@ -110,9 +113,10 @@ class TestDiscoverRasters:
 
     def test_discover_rasters_no_supported_rasters(self, tmp_path: Path):
         (tmp_path / "grids").mkdir()
-        with patch(
-            "ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search._parse_raster", return_value=None
-        ), pytest.raises(FileNotFoundError, match="No supported ensemble result rasters"):
+        with (
+            patch("ryan_library.orchestrators.tuflow.asc2asc_stat_then_max_by_search._parse_raster", return_value=None),
+            pytest.raises(FileNotFoundError, match="No supported ensemble result rasters"),
+        ):
             discover_rasters(search_root=tmp_path, input_glob="*.asc", scenarios=["EXG"], result_types=["d"])
 
 

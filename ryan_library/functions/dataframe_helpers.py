@@ -139,6 +139,6 @@ def reset_categorical_ordering(df: pd.DataFrame) -> pd.DataFrame:
         logger.debug("Column '{}' ordered alphabetically with categories: {}", col, sorted_categories)
 
     # Reset missing values if necessary
-    df.fillna(value=pd.NA, inplace=True)  # pyright: ignore[reportUnknownMemberType]
+    df = df.fillna(value=pd.NA)  # pyright: ignore[reportUnknownMemberType]
     logger.debug("Filled missing values with pd.NA.")
     return df

@@ -43,7 +43,8 @@ def create_7zip_archive(
         result = subprocess.run(command, capture_output=True, text=True, check=False)
         if result.returncode != 0:
             diagnostic = result.stderr.strip() or result.stdout.strip()
-            raise RuntimeError(f"7z exit code {result.returncode}: {diagnostic}")
+            msg = f"7z exit code {result.returncode}: {diagnostic}"
+            raise RuntimeError(msg)
     except Exception:
         output_archive.unlink(missing_ok=True)
         raise
@@ -62,4 +63,5 @@ def extract_archive(*, archive_path: Path, output_directory: Path, executable: P
     )
     if result.returncode != 0:
         diagnostic = result.stderr.strip() or result.stdout.strip()
-        raise RuntimeError(f"7z exit code {result.returncode}: {diagnostic}")
+        msg = f"7z exit code {result.returncode}: {diagnostic}"
+        raise RuntimeError(msg)

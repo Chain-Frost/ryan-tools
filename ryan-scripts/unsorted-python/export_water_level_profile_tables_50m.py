@@ -172,7 +172,8 @@ def _write_word_tables(
         scenarios = tuple(dataframe["Scenario"].drop_duplicates())
         profile_names = tuple(dataframe["Profile"].drop_duplicates())
         if len(scenarios) != 1 or len(profile_names) != 1:
-            raise ValueError(f"{display_name!r} is not one Profile + Scenario combination.")
+            msg = f"{display_name!r} is not one Profile + Scenario combination."
+            raise ValueError(msg)
         scenario = str(scenarios[0])
         profile_name = str(profile_names[0])
         if table_index:
@@ -252,14 +253,16 @@ def _event_label(aep: str) -> str:
     except ValueError:
         return f"{aep} AEP"
     if percentage <= 0.0:
-        raise ValueError(f"AEP must be positive, received {aep!r}.")
+        msg = f"AEP must be positive, received {aep!r}."
+        raise ValueError(msg)
     return f"{percentage:g}% AEP (1 in {100.0 / percentage:g})"
 
 
 def _exact_chainages(line_length: float) -> FloatArray:
     """Return 0, 50, 100, ... stations that do not exceed the line length."""
     if not np.isfinite(line_length) or line_length <= 0.0:
-        raise ValueError(f"Profile length must be positive and finite, received {line_length!r}.")
+        msg = f"Profile length must be positive and finite, received {line_length!r}."
+        raise ValueError(msg)
     final_section = int(np.floor((line_length + 1e-9) / SECTION_INTERVAL_M))
     return np.arange(final_section + 1, dtype=np.float64) * SECTION_INTERVAL_M
 
@@ -271,7 +274,8 @@ def _interpolate_at_chainages(
 ) -> FloatArray:
     """Interpolate without bridging across NoData values."""
     if source_chainages.shape != source_values.shape:
-        raise ValueError("Source chainage and value arrays must have matching shapes.")
+        msg = "Source chainage and value arrays must have matching shapes."
+        raise ValueError(msg)
     result = np.full(target_chainages.shape, np.nan, dtype=np.float64)
     for target_index, target in enumerate(target_chainages):
         right = int(np.searchsorted(source_chainages, target, side="left"))
@@ -330,7 +334,8 @@ def _sample_profile_table(
             method=SAMPLING_METHOD,
         )
         if not np.array_equal(source_chainages, water_chainages):
-            raise RuntimeError(f"Sampling stations differ between terrain and {aep} raster for {profile_name}.")
+            msg = f"Sampling stations differ between terrain and {aep} raster for {profile_name}."
+            raise RuntimeError(msg)
         water = interpolate_short_nan_gaps(water, max_gap=MAX_INTERPOLATION_GAP)
         dry = np.isnan(water) | np.isnan(terrain) | (water <= terrain)
         if DRY_AREA_HANDLING == "ground_level":
@@ -344,7 +349,8 @@ def _sample_profile_table(
 
     reporting_water = dense_water_by_aep.get(REPORTING_AEP)
     if reporting_water is None:
-        raise ValueError(f"Reporting AEP {REPORTING_AEP!r} is not among the sampled rasters {tuple(water_rasters)}.")
+        msg = f"Reporting AEP {REPORTING_AEP!r} is not among the sampled rasters {tuple(water_rasters)}."
+        raise ValueError(msg)
     reporting_depth = reporting_water - terrain
     valid_reporting = np.isfinite(reporting_depth)
     summary: dict[str, Any] = {
@@ -422,11 +428,13 @@ def _collect_profile_tables() -> tuple[tuple[tuple[int, str, pd.DataFrame], ...]
         for _, row in lines.iterrows():
             raw_name = row[NAME_FIELD]
             if raw_name is None or bool(pd.isna(raw_name)) or not str(raw_name).strip():
-                raise ValueError(f"Profile has an empty {NAME_FIELD!r} value.")
+                msg = f"Profile has an empty {NAME_FIELD!r} value."
+                raise ValueError(msg)
             line_name = str(raw_name)
             geometry = cast("BaseGeometry | None", row.geometry)
             if geometry is None:
-                raise ValueError(f"Profile {line_name!r} has null geometry.")
+                msg = f"Profile {line_name!r} has null geometry."
+                raise ValueError(msg)
             parts = profiles.split_profile_line(
                 geometry,
                 line_name=line_name,
@@ -437,7 +445,8 @@ def _collect_profile_tables() -> tuple[tuple[tuple[int, str, pd.DataFrame], ...]
                 display_name = f"{scenario} - {display_line_name}"
                 order = len(collected) + 1
                 if display_name in collected:
-                    raise ValueError(f"Duplicate profile table name: {display_name!r}")
+                    msg = f"Duplicate profile table name: {display_name!r}"
+                    raise ValueError(msg)
                 table, summary = _sample_profile_table(
                     line=line,
                     order=order,

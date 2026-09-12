@@ -110,9 +110,8 @@ def process_coordinate(coord: str, coord_type: str) -> float:
             if value > 0:
                 value: float = -value
         # For longitude, it's always positive
-        elif coord_type == "long":
-            if value < 0:
-                value = -value
+        elif coord_type == "long" and value < 0:
+            value = -value
         return value
     except Exception as e:
         print(f"Error processing {coord_type} '{coord}': {e}")
@@ -151,7 +150,8 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
                 header_index = idx
                 break
         if header_index is None:
-            raise ValueError("Header line with 'Duration' not found.")
+            msg = "Header line with 'Duration' not found."
+            raise ValueError(msg)
 
         # Extract header and data rows
         header: list[str] = data[header_index]
@@ -205,7 +205,7 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
         )
 
         # Optionally, drop the 'raw' column from lookup if not needed
-        merged_df.drop(columns=["raw"], inplace=True)
+        merged_df = merged_df.drop(columns=["raw"])
 
         # Enforce data types
         # Define columns to convert
@@ -220,7 +220,6 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
             "EY",
             "ARI",
         ]
-        int_columns: list[str] = ["Duration in min"]
         text_columns: list[str] = ["Duration", "AEP", "location_label", "Location", "File_Type"]
 
         # Convert float columns

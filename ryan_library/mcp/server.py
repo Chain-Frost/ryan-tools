@@ -91,7 +91,8 @@ def _dataframe_summary(data_frame: DataFrame, *, sample_rows: int) -> dict[str, 
 def _process_tuflow_file(file_path: str, *, locations: list[str] | None = None) -> BaseProcessor:
     path = Path(file_path)
     if not path.is_file():
-        raise FileNotFoundError(f"File not found: {file_path}")
+        msg = f"File not found: {file_path}"
+        raise FileNotFoundError(msg)
     processor: BaseProcessor = BaseProcessor.from_file(
         file_path=path,
         entity_filter=locations,

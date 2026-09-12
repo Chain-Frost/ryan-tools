@@ -21,7 +21,8 @@ into library code. Reuse must be demonstrated, not inferred solely because code 
 ## Coding conventions
 
 - Target Python 3.14 and use current Python 3.14+ annotation syntax.
-- Use absolute imports from `ryan_library` or vendored packages.
+- Within `ryan_library`, prefer explicit relative imports for intra-package dependencies. Wrappers and other code outside
+  the package should import `ryan_library` absolutely; import vendored packages through their public package paths.
 - Format Python with `ruff format` using the 120-character line length configured in `ruff.toml`.
 - Run Pyright in strict mode only on modified Python files.
 - Add type annotations to public functions and methods.

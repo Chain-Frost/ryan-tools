@@ -127,10 +127,6 @@ def test_regression_against_snapshot(data_type: str, processed_results: dict[str
     expected_df = pd.read_parquet(snapshot_path)
     observed_df = processed_results[data_type]
 
-    # Ensure column order matches for comparison
-    # Align columns to expected
-    common_cols = [c for c in expected_df.columns if c in observed_df.columns]
-
     # Check for missing columns
     missing_cols = set(expected_df.columns) - set(observed_df.columns)
     if missing_cols:

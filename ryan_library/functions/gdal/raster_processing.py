@@ -51,15 +51,18 @@ def read_raster_band(
         A NumPy array containing the requested raster cells.
     """
     if band < 1:
-        raise ValueError("band must be one or greater.")
+        msg = "band must be one or greater."
+        raise ValueError(msg)
 
     raster_path: Path = Path(raster).resolve()
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster_path), gdal.GA_ReadOnly)
         if dataset is None:
-            raise RuntimeError(f"GDAL could not open {raster_path}")
+            msg = f"GDAL could not open {raster_path}"
+            raise RuntimeError(msg)
         if band > dataset.RasterCount:
-            raise ValueError(f"Raster {raster_path} has {dataset.RasterCount} band(s); requested band {band}.")
+            msg = f"Raster {raster_path} has {dataset.RasterCount} band(s); requested band {band}."
+            raise ValueError(msg)
 
         source_band = dataset.GetRasterBand(band)
         if window is None:
@@ -67,14 +70,17 @@ def read_raster_band(
         else:
             x_offset, y_offset, width, height = window
             if x_offset < 0 or y_offset < 0 or width < 1 or height < 1:
-                raise ValueError("Raster window offsets must be non-negative and dimensions must be positive.")
+                msg = "Raster window offsets must be non-negative and dimensions must be positive."
+                raise ValueError(msg)
             if x_offset + width > dataset.RasterXSize or y_offset + height > dataset.RasterYSize:
-                raise ValueError(f"Raster window {window} lies outside {raster_path}.")
+                msg = f"Raster window {window} lies outside {raster_path}."
+                raise ValueError(msg)
             values = source_band.ReadAsArray(x_offset, y_offset, width, height)
         dataset = None
 
     if values is None:
-        raise RuntimeError(f"GDAL could not read band {band} from {raster_path}")
+        msg = f"GDAL could not read band {band} from {raster_path}"
+        raise RuntimeError(msg)
     return np.asarray(values)
 
 
@@ -86,15 +92,18 @@ def read_masked_raster_band(
 ) -> np.ma.MaskedArray:
     """Read one raster band and apply its GDAL validity mask."""
     if band < 1:
-        raise ValueError("band must be one or greater.")
+        msg = "band must be one or greater."
+        raise ValueError(msg)
 
     raster_path: Path = Path(raster).resolve()
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster_path), gdal.GA_ReadOnly)
         if dataset is None:
-            raise RuntimeError(f"GDAL could not open {raster_path}")
+            msg = f"GDAL could not open {raster_path}"
+            raise RuntimeError(msg)
         if band > dataset.RasterCount:
-            raise ValueError(f"Raster {raster_path} has {dataset.RasterCount} band(s); requested band {band}.")
+            msg = f"Raster {raster_path} has {dataset.RasterCount} band(s); requested band {band}."
+            raise ValueError(msg)
 
         source_band = dataset.GetRasterBand(band)
         mask_band = source_band.GetMaskBand()
@@ -104,15 +113,18 @@ def read_masked_raster_band(
         else:
             x_offset, y_offset, width, height = window
             if x_offset < 0 or y_offset < 0 or width < 1 or height < 1:
-                raise ValueError("Raster window offsets must be non-negative and dimensions must be positive.")
+                msg = "Raster window offsets must be non-negative and dimensions must be positive."
+                raise ValueError(msg)
             if x_offset + width > dataset.RasterXSize or y_offset + height > dataset.RasterYSize:
-                raise ValueError(f"Raster window {window} lies outside {raster_path}.")
+                msg = f"Raster window {window} lies outside {raster_path}."
+                raise ValueError(msg)
             values = source_band.ReadAsArray(x_offset, y_offset, width, height)
             validity = mask_band.ReadAsArray(x_offset, y_offset, width, height)
         dataset = None
 
     if values is None or validity is None:
-        raise RuntimeError(f"GDAL could not read band {band} and its validity mask from {raster_path}")
+        msg = f"GDAL could not read band {band} and its validity mask from {raster_path}"
+        raise RuntimeError(msg)
     return np.ma.array(data=np.asarray(values), mask=np.asarray(validity) == 0, copy=False)
 
 
@@ -187,7 +199,8 @@ def geotiff_creation_options(profile: RasterProfile, threads: str) -> list[str]:
             "SPARSE_OK=TRUE",
             *common,
         ]
-    raise ValueError(f"Unsupported raster profile: {profile}")
+    msg = f"Unsupported raster profile: {profile}"
+    raise ValueError(msg)
 
 
 def translate_to_geotiff(
@@ -219,9 +232,11 @@ def translate_to_geotiff(
     source = source.resolve()
     output = output.resolve()
     if source == output:
-        raise ValueError(f"Input and output paths are identical: {source}")
+        msg = f"Input and output paths are identical: {source}"
+        raise ValueError(msg)
     if output.exists() and not overwrite:
-        raise FileExistsError(f"Output already exists: {output}")
+        msg = f"Output already exists: {output}"
+        raise FileExistsError(msg)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     options = gdal.TranslateOptions(
@@ -234,7 +249,8 @@ def translate_to_geotiff(
     with gdal.ExceptionMgr():
         dataset = gdal.Translate(str(output), str(source), options=options)
         if dataset is None:
-            raise RuntimeError(f"GDAL could not translate {source}")
+            msg = f"GDAL could not translate {source}"
+            raise RuntimeError(msg)
         dataset.FlushCache()
         # Releasing the dataset commits and closes the output before verification.
         dataset = None
@@ -274,7 +290,8 @@ def build_external_overviews(
     overview = Path(f"{raster}.ovr")
     requested_levels: tuple[int, ...] = tuple(level for level in levels if level > 1)
     if not requested_levels:
-        raise ValueError("At least one overview level greater than 1 is required.")
+        msg = "At least one overview level greater than 1 is required."
+        raise ValueError(msg)
     if not refresh and _external_overviews_are_current(raster, overview, len(requested_levels)):
         logger.info(f"External overviews are current: {overview}")
         return overview
@@ -291,13 +308,16 @@ def build_external_overviews(
         # Read-only access is intentional: update access can create internal overviews.
         dataset = gdal.Open(str(raster), gdal.GA_ReadOnly)
         if dataset is None:
-            raise RuntimeError(f"GDAL could not open {raster}")
+            msg = f"GDAL could not open {raster}"
+            raise RuntimeError(msg)
         result = dataset.BuildOverviews(resampling.upper(), list(requested_levels))
         dataset = None
         if result != gdal.CE_None:
-            raise RuntimeError(f"GDAL failed to build overviews for {raster} (error {result})")
+            msg = f"GDAL failed to build overviews for {raster} (error {result})"
+            raise RuntimeError(msg)
     if not overview.is_file():
-        raise RuntimeError(f"GDAL did not create the expected external overview: {overview}")
+        msg = f"GDAL did not create the expected external overview: {overview}"
+        raise RuntimeError(msg)
     logger.info(f"Created external overviews: {overview}")
     return overview
 
@@ -328,7 +348,8 @@ def build_vrt(
         The resolved VRT path.
     """
     if not input_files:
-        raise ValueError("At least one input raster is required to build a VRT.")
+        msg = "At least one input raster is required to build a VRT."
+        raise ValueError(msg)
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Building VRT {} from {} inputs", output, len(input_files))
@@ -341,7 +362,8 @@ def build_vrt(
     with gdal.ExceptionMgr():
         dataset = gdal.BuildVRT(str(output), [str(path.resolve()) for path in input_files], options=options)
         if dataset is None:
-            raise RuntimeError(f"GDAL could not build VRT {output}")
+            msg = f"GDAL could not build VRT {output}"
+            raise RuntimeError(msg)
         dataset.FlushCache()
         dataset = None
     logger.info(f"Created VRT: {output}")
@@ -380,19 +402,24 @@ def calculate_flood_extent(
     input_file = input_file.resolve()
     output_raster = output_raster.resolve()
     if input_file == output_raster:
-        raise ValueError(f"Input and output paths are identical: {input_file}")
+        msg = f"Input and output paths are identical: {input_file}"
+        raise ValueError(msg)
     if output_raster.exists() and not overwrite:
-        raise FileExistsError(f"Output already exists: {output_raster}")
+        msg = f"Output already exists: {output_raster}"
+        raise FileExistsError(msg)
     output_raster.parent.mkdir(parents=True, exist_ok=True)
     if input_band < 1:
-        raise ValueError("input_band must be one or greater.")
+        msg = "input_band must be one or greater."
+        raise ValueError(msg)
     logger.debug("Calculating flood extent for {} at cutoff {}", input_file, cutoff)
     with gdal.ExceptionMgr():
         source = gdal.Open(str(input_file), gdal.GA_ReadOnly)
         if source is None:
-            raise RuntimeError(f"GDAL could not open {input_file}")
+            msg = f"GDAL could not open {input_file}"
+            raise RuntimeError(msg)
         if input_band > source.RasterCount:
-            raise ValueError(f"Raster {input_file} has {source.RasterCount} band(s); requested band {input_band}.")
+            msg = f"Raster {input_file} has {source.RasterCount} band(s); requested band {input_band}."
+            raise ValueError(msg)
 
         source_band = source.GetRasterBand(input_band)
         source_mask = source_band.GetMaskBand()
@@ -406,7 +433,8 @@ def calculate_flood_extent(
             options=geotiff_creation_options(profile, threads),
         )
         if destination is None:
-            raise RuntimeError(f"GDAL could not create {output_raster}")
+            msg = f"GDAL could not create {output_raster}"
+            raise RuntimeError(msg)
         destination.SetGeoTransform(source.GetGeoTransform())
         destination.SetProjection(source.GetProjection())
         destination_band = destination.GetRasterBand(1)
@@ -422,7 +450,8 @@ def calculate_flood_extent(
                 values = source_band.ReadAsArray(x_offset, y_offset, width, height)
                 validity = source_mask.ReadAsArray(x_offset, y_offset, width, height)
                 if values is None or validity is None:
-                    raise RuntimeError(f"GDAL could not read flood extent source data from {input_file}")
+                    msg = f"GDAL could not read flood extent source data from {input_file}"
+                    raise RuntimeError(msg)
                 flood_mask = np.where(
                     (np.asarray(validity) != 0) & (np.asarray(values) >= cutoff),
                     1,
@@ -456,18 +485,22 @@ def sieve_raster(
     necessary for small foreground regions to be replaced by that background.
     """
     if threshold_pixels < 1:
-        raise ValueError("threshold_pixels must be one or greater.")
+        msg = "threshold_pixels must be one or greater."
+        raise ValueError(msg)
     if connectedness not in (4, 8):
-        raise ValueError("connectedness must be 4 or 8.")
+        msg = "connectedness must be 4 or 8."
+        raise ValueError(msg)
     input_raster = input_raster.resolve()
     output_raster = output_raster.resolve()
     if output_raster.exists() and not overwrite:
-        raise FileExistsError(f"Output already exists: {output_raster}")
+        msg = f"Output already exists: {output_raster}"
+        raise FileExistsError(msg)
 
     with gdal.ExceptionMgr():
         source = gdal.Open(str(input_raster), gdal.GA_ReadOnly)
         if source is None:
-            raise RuntimeError(f"GDAL could not open {input_raster}")
+            msg = f"GDAL could not open {input_raster}"
+            raise RuntimeError(msg)
         source_band = source.GetRasterBand(1)
         driver = gdal.GetDriverByName("GTiff")
         output_raster.parent.mkdir(parents=True, exist_ok=True)
@@ -480,7 +513,8 @@ def sieve_raster(
             options=geotiff_creation_options(profile, threads),
         )
         if destination is None:
-            raise RuntimeError(f"GDAL could not create {output_raster}")
+            msg = f"GDAL could not create {output_raster}"
+            raise RuntimeError(msg)
         destination.SetGeoTransform(source.GetGeoTransform())
         destination.SetProjection(source.GetProjection())
         destination_band = destination.GetRasterBand(1)
@@ -498,7 +532,8 @@ def sieve_raster(
         destination = None
         source = None
         if result != gdal.CE_None:
-            raise RuntimeError(f"GDAL failed to sieve {input_raster} (error {result})")
+            msg = f"GDAL failed to sieve {input_raster} (error {result})"
+            raise RuntimeError(msg)
         _verify_raster(output_raster)
     logger.info(f"Created sieved raster: {output_raster}")
     return output_raster
@@ -514,11 +549,13 @@ def set_raster_nodata(raster: Path, nodata: float, *, bands: Sequence[int] | Non
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster), gdal.GA_Update)
         if dataset is None:
-            raise RuntimeError(f"GDAL could not open {raster} for update")
+            msg = f"GDAL could not open {raster} for update"
+            raise RuntimeError(msg)
         selected_bands = tuple(bands) if bands is not None else tuple(range(1, dataset.RasterCount + 1))
         for band_number in selected_bands:
             if band_number < 1 or band_number > dataset.RasterCount:
-                raise ValueError(f"Band {band_number} does not exist in {raster}")
+                msg = f"Band {band_number} does not exist in {raster}"
+                raise ValueError(msg)
             dataset.GetRasterBand(band_number).SetNoDataValue(nodata)
         dataset.FlushCache()
         dataset = None
@@ -532,11 +569,13 @@ def clear_raster_nodata(raster: Path, *, bands: Sequence[int] | None = None) -> 
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster), gdal.GA_Update)
         if dataset is None:
-            raise RuntimeError(f"GDAL could not open {raster} for update")
+            msg = f"GDAL could not open {raster} for update"
+            raise RuntimeError(msg)
         selected_bands = tuple(bands) if bands is not None else tuple(range(1, dataset.RasterCount + 1))
         for band_number in selected_bands:
             if band_number < 1 or band_number > dataset.RasterCount:
-                raise ValueError(f"Band {band_number} does not exist in {raster}")
+                msg = f"Band {band_number} does not exist in {raster}"
+                raise ValueError(msg)
             band = dataset.GetRasterBand(band_number)
             if band.GetNoDataValue() is not None:
                 band.DeleteNoDataValue()
@@ -561,17 +600,20 @@ def create_raster_footprint(
     driver_name = format_spec.driver
     driver = ogr.GetDriverByName(driver_name)
     if driver is None:
-        raise RuntimeError(f"The GDAL {driver_name} driver is unavailable.")
+        msg = f"The GDAL {driver_name} driver is unavailable."
+        raise RuntimeError(msg)
     if output_vector.exists():
         if not overwrite:
-            raise FileExistsError(f"Output already exists: {output_vector}")
+            msg = f"Output already exists: {output_vector}"
+            raise FileExistsError(msg)
         driver.DeleteDataSource(str(output_vector))
     output_vector.parent.mkdir(parents=True, exist_ok=True)
     options = gdal.FootprintOptions(format=driver_name, layerName=layer_name, writeAbsolutePath=True)
     with gdal.ExceptionMgr():
         result = gdal.Footprint(str(output_vector), str(input_raster), options=options)
         if result is None:
-            raise RuntimeError(f"GDAL could not create a footprint for {input_raster}")
+            msg = f"GDAL could not create a footprint for {input_raster}"
+            raise RuntimeError(msg)
         result = None
     logger.info(f"Created raster footprint: {output_vector}")
     return output_vector
@@ -583,7 +625,8 @@ def get_vector_extent(vector_path: Path) -> tuple[float, float, float, float]:
     with gdal.ExceptionMgr():
         dataset = gdal.OpenEx(str(vector_path), gdal.OF_VECTOR)
         if dataset is None or dataset.GetLayerCount() < 1:
-            raise RuntimeError(f"GDAL could not open vector layers from {vector_path}")
+            msg = f"GDAL could not open vector layers from {vector_path}"
+            raise RuntimeError(msg)
         extents = [dataset.GetLayerByIndex(index).GetExtent() for index in range(dataset.GetLayerCount())]
         dataset = None
     return (
@@ -600,7 +643,8 @@ def get_raster_extent(raster: Path) -> tuple[float, float, float, float]:
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster), gdal.GA_ReadOnly)
         if dataset is None:
-            raise RuntimeError(f"GDAL could not open {raster}")
+            msg = f"GDAL could not open {raster}"
+            raise RuntimeError(msg)
         transform = dataset.GetGeoTransform()
         corners = [
             gdal.ApplyGeoTransform(transform, pixel, line)
@@ -649,10 +693,12 @@ def polygonize_flood_extent(
     driver_name = format_spec.driver
     driver = ogr.GetDriverByName(driver_name)
     if driver is None:
-        raise RuntimeError(f"The GDAL {driver_name} driver is unavailable.")
+        msg = f"The GDAL {driver_name} driver is unavailable."
+        raise RuntimeError(msg)
     if output_vector.exists():
         if not overwrite:
-            raise FileExistsError(f"Output already exists: {output_vector}")
+            msg = f"Output already exists: {output_vector}"
+            raise FileExistsError(msg)
         driver.DeleteDataSource(str(output_vector))
 
     output_vector.parent.mkdir(parents=True, exist_ok=True)
@@ -660,20 +706,24 @@ def polygonize_flood_extent(
     with gdal.ExceptionMgr():
         source = gdal.Open(str(input_raster), gdal.GA_ReadOnly)
         if source is None:
-            raise RuntimeError(f"GDAL could not open {input_raster}")
+            msg = f"GDAL could not open {input_raster}"
+            raise RuntimeError(msg)
         band = source.GetRasterBand(1)
         destination = driver.CreateDataSource(str(output_vector))
         if destination is None:
-            raise RuntimeError(f"GDAL could not create {output_vector}")
+            msg = f"GDAL could not create {output_vector}"
+            raise RuntimeError(msg)
         layer = destination.CreateLayer(output_vector.stem, srs=source.GetSpatialRef(), geom_type=ogr.wkbPolygon)
         field = ogr.FieldDefn("value", ogr.OFTInteger)
         if layer.CreateField(field) != ogr.OGRERR_NONE:
-            raise RuntimeError(f"GDAL could not create the value field in {output_vector}")
+            msg = f"GDAL could not create the value field in {output_vector}"
+            raise RuntimeError(msg)
         result = gdal.Polygonize(band, band.GetMaskBand(), layer, 0, [], callback=None)
         destination = None
         source = None
         if result != gdal.CE_None:
-            raise RuntimeError(f"GDAL failed to polygonize {input_raster} (error {result})")
+            msg = f"GDAL failed to polygonize {input_raster} (error {result})"
+            raise RuntimeError(msg)
     logger.info(f"Created flood extent polygons: {output_vector}")
     return output_vector
 
@@ -695,5 +745,6 @@ def _verify_raster(path: Path) -> None:
     """Raise when GDAL cannot reopen a raster with at least one non-empty band."""
     dataset = gdal.Open(str(path), gdal.GA_ReadOnly)
     if dataset is None or dataset.RasterCount < 1 or dataset.RasterXSize < 1 or dataset.RasterYSize < 1:
-        raise RuntimeError(f"GDAL created an unreadable or empty raster: {path}")
+        msg = f"GDAL created an unreadable or empty raster: {path}"
+        raise RuntimeError(msg)
     dataset = None

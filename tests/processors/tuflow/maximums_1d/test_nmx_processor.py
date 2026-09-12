@@ -1,4 +1,3 @@
-
 """Unit tests for ryan_library.processors.tuflow.maximums_1d.NmxProcessor."""
 
 from pathlib import Path
@@ -29,18 +28,20 @@ class TestNmxProcessor:
 
     def test_extract_and_transform_nmx_data_success(self, mock_processor):
         """Test successful extraction and transformation of NMX data."""
-        mock_processor.df = pd.DataFrame({
-            "Node ID": ["C1.1", "C1.2", "C2.1", "C2.2"],
-            "Time Hmax": [1.0, 1.0, 2.0, 2.0],
-            "Hmax": [10.0, 9.0, 20.0, 19.0]
-        })
+        mock_processor.df = pd.DataFrame(
+            {
+                "Node ID": ["C1.1", "C1.2", "C2.1", "C2.2"],
+                "Time Hmax": [1.0, 1.0, 2.0, 2.0],
+                "Hmax": [10.0, 9.0, 20.0, 19.0],
+            }
+        )
 
         mock_processor._extract_and_transform_nmx_data()
 
         assert len(mock_processor.df) == 2  # 2 channels
         assert "US_h" in mock_processor.df.columns
         assert "DS_h" in mock_processor.df.columns
-        
+
         # Check C1
         c1 = mock_processor.df[mock_processor.df["Chan ID"] == "C1"].iloc[0]
         assert c1["US_h"] == 10.0
@@ -48,16 +49,18 @@ class TestNmxProcessor:
 
     def test_extract_and_transform_nmx_data_invalid_suffix(self, mock_processor):
         """Test filtering of invalid suffixes."""
-        mock_processor.df = pd.DataFrame({
-            "Node ID": ["C1.1", "C1.2", "C1.3"], # .3 is invalid
-            "Time Hmax": [1.0, 1.0, 1.0],
-            "Hmax": [10.0, 9.0, 10.0]
-        })
+        mock_processor.df = pd.DataFrame(
+            {
+                "Node ID": ["C1.1", "C1.2", "C1.3"],  # .3 is invalid
+                "Time Hmax": [1.0, 1.0, 1.0],
+                "Hmax": [10.0, 9.0, 10.0],
+            }
+        )
 
         mock_processor._extract_and_transform_nmx_data()
-        
+
         # Should have C1 with US_h and DS_h. C1.3 is filtered out.
-        
+
         assert len(mock_processor.df) == 1
         c1 = mock_processor.df.iloc[0]
         assert c1["US_h"] == 10.0
@@ -65,21 +68,25 @@ class TestNmxProcessor:
 
     def test_extract_and_transform_nmx_data_missing_columns(self, mock_processor):
         """Test failure when columns are missing."""
-        mock_processor.df = pd.DataFrame({
-            "Node ID": ["C1.1"],
-            # Missing Time Hmax, Hmax
-        })
+        mock_processor.df = pd.DataFrame(
+            {
+                "Node ID": ["C1.1"],
+                # Missing Time Hmax, Hmax
+            }
+        )
 
         mock_processor._extract_and_transform_nmx_data()
         assert mock_processor.df.empty
 
     def test_extract_and_transform_nmx_data_missing_pivot_columns(self, mock_processor):
         """Test failure when pivot results in missing columns (e.g. only suffix .1 present)."""
-        mock_processor.df = pd.DataFrame({
-            "Node ID": ["C1.1"], # Only .1, so .2 (DS_h) will be missing
-            "Time Hmax": [1.0],
-            "Hmax": [10.0]
-        })
+        mock_processor.df = pd.DataFrame(
+            {
+                "Node ID": ["C1.1"],  # Only .1, so .2 (DS_h) will be missing
+                "Time Hmax": [1.0],
+                "Hmax": [10.0],
+            }
+        )
 
         mock_processor._extract_and_transform_nmx_data()
         assert mock_processor.df.empty
@@ -92,15 +99,11 @@ class TestNmxProcessor:
         """Test full process flow success."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
-        
-        mock_processor.df = pd.DataFrame({
-            "Node ID": ["C1.1", "C1.2"],
-            "Time Hmax": [1.0, 1.0],
-            "Hmax": [10.0, 9.0]
-        })
+
+        mock_processor.df = pd.DataFrame({"Node ID": ["C1.1", "C1.2"], "Time Hmax": [1.0, 1.0], "Hmax": [10.0, 9.0]})
 
         mock_processor.process()
-        
+
         assert mock_processor.processed is True
         mock_read.assert_called_once()
         mock_add.assert_called_once()
@@ -109,9 +112,9 @@ class TestNmxProcessor:
     def test_process_read_failure(self, mock_read, mock_processor):
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
-        
+
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
@@ -123,15 +126,11 @@ class TestNmxProcessor:
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
-        
-        mock_processor.df = pd.DataFrame({
-            "Node ID": ["C1.1", "C1.2"],
-            "Time Hmax": [1.0, 1.0],
-            "Hmax": [10.0, 9.0]
-        })
+
+        mock_processor.df = pd.DataFrame({"Node ID": ["C1.1", "C1.2"], "Time Hmax": [1.0, 1.0], "Hmax": [10.0, 9.0]})
 
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
@@ -139,8 +138,8 @@ class TestNmxProcessor:
     def test_process_exception(self, mock_read, mock_processor):
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
-        
+
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty

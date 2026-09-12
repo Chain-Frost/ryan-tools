@@ -26,7 +26,7 @@ def fill_missing_coordinates(df) -> pd.DataFrame:
     )
 
     # Merge with the original data to find missing coordinates
-    merged_df: pd.DataFrame = pd.merge(left=complete_grid, right=df, on=["x", "y"], how="left")
+    merged_df: pd.DataFrame = complete_grid.merge(right=df, on=["x", "y"], how="left")
 
     # Fill missing z-values with -9999
     merged_df["z"] = merged_df["z"].fillna(value=-9999)
@@ -35,13 +35,13 @@ def fill_missing_coordinates(df) -> pd.DataFrame:
 
 
 import os
-import subprocess
 from glob import iglob
 from multiprocessing import Pool
 
 import pandas as pd
 
 from ryan_library.functions.misc_functions import calculate_pool_size
+from ryan_library.functions.wrapper_utils import pause_console
 
 
 def main() -> None:
@@ -56,7 +56,7 @@ def main() -> None:
 
     if not xyzFiles:
         print("No XYZ files found to process.")
-        subprocess.call("pause", shell=True)  # wait for exit
+        pause_console()
         return
 
     # Scale the worker count relative to available CPUs and job count (see misc_functions.calculate_pool_size).
@@ -66,7 +66,7 @@ def main() -> None:
         pool.starmap(process_xyz_file, ((file, output_dir) for file in xyzFiles))
 
     print("end")
-    subprocess.call("pause", shell=True)  # wait for exit
+    pause_console()
 
 
 def process_xyz_file(file: str, output_dir: str) -> None:
@@ -81,7 +81,7 @@ def process_xyz_file(file: str, output_dir: str) -> None:
         )
         print("--sorting")
         # GDAL expects rows ordered from max->min Y to avoid "positive NS resolution" warnings.
-        df.sort_values(["y", "x"], ascending=[False, True], inplace=True)
+        df = df.sort_values(["y", "x"], ascending=[False, True])
         base_name: str = os.path.splitext(os.path.basename(file))[0]
         output_file: str = os.path.join(output_dir, f"{base_name}_mod.xyz")
         # Fill missing coordinates with NoData value

@@ -280,7 +280,7 @@ def test_binary_dtm_supports_submeshes_and_embedded_coordinate_prefix(
 
     dataframe = converter.read_dtm_file(path)
 
-    assert dataframe[["string", "mesh", "triangle_number"]].values.tolist() == [
+    assert dataframe[["string", "mesh", "triangle_number"]].to_numpy().tolist() == [
         [7, 1, 1],
         [7, 3, 1],
         [9, 4, 1],

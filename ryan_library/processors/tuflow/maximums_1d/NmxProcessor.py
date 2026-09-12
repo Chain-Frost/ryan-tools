@@ -13,12 +13,10 @@ from ..max_data_processor import MaxDataProcessor
 
 # this processor does not understand pits - only index 1 or 2 for standard culverts
 class NmxProcessor(MaxDataProcessor):
-    """Processor for '_1d_Nmx.csv' files.
-    """
+    """Processor for '_1d_Nmx.csv' files."""
 
     def process(self) -> None:
-        """Process the '_1d_Nmx.csv' file and modify self.df in place.
-        """
+        """Process the '_1d_Nmx.csv' file and modify self.df in place."""
         logger.info(f"Starting processing of NMX file: {self.log_path}")
 
         try:
@@ -53,8 +51,7 @@ class NmxProcessor(MaxDataProcessor):
             return
 
     def _extract_and_transform_nmx_data(self) -> None:
-        """Extract and transform NMX-specific data from the DataFrame.
-        """
+        """Extract and transform NMX-specific data from the DataFrame."""
         logger.debug("Starting NMX data extraction and transformation.")
 
         try:
@@ -79,7 +76,7 @@ class NmxProcessor(MaxDataProcessor):
                 aggfunc="first",
             ).reset_index()
 
-            pivot_df.rename(columns={"1": "US_h", "2": "DS_h", "Time Hmax": "Time"}, inplace=True)
+            pivot_df = pivot_df.rename(columns={"1": "US_h", "2": "DS_h", "Time Hmax": "Time"})
 
             expected_pivot_columns = ["Chan ID", "Time", "US_h", "DS_h"]
             missing_pivot_columns = [col for col in expected_pivot_columns if col not in pivot_df.columns]

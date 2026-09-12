@@ -60,7 +60,7 @@ service and its HTML/JavaScript response format.
 
 # 2025-11-20 RFFE extractor update v6  ──────────────────────────────────────────────────────────────────────────────
 # fix bugs
-#  RFFE batch extractor – single-file
+#  RFFE batch extractor - single-file
 #
 #  Copy this file anywhere and run:
 #        python RFFE_Only_v6.py

@@ -51,16 +51,18 @@ def find_repo_root(preferred: Path | None) -> Path:
     for path in (root_candidate, *root_candidate.parents):
         if (path / ".git").exists():
             return path
-    raise RuntimeError("Unable to locate repository root (missing .git directory).")
+    msg = "Unable to locate repository root (missing .git directory)."
+    raise RuntimeError(msg)
 
 
 def capture(args: list[str], cwd: Path, *, check: bool = True) -> str:
     """Run a subprocess and return stdout, optionally surfacing non-zero exits."""
-    result: subprocess.CompletedProcess[str] = subprocess.run(args=args, cwd=cwd, capture_output=True, text=True)
+    result: subprocess.CompletedProcess[str] = subprocess.run(
+        args=args, cwd=cwd, capture_output=True, text=True, check=False
+    )
     if check and result.returncode != 0:
-        raise RuntimeError(
-            f"Command {' '.join(args)} failed with exit code {result.returncode}:\n{result.stderr.strip()}"
-        )
+        msg = f"Command {' '.join(args)} failed with exit code {result.returncode}:\n{result.stderr.strip()}"
+        raise RuntimeError(msg)
     return result.stdout.strip()
 
 
@@ -101,7 +103,8 @@ def main() -> int:
     root: Path = find_repo_root(preferred=args.root)
     submodule_dir: Path = root / SUBMODULE_PATH
     if not submodule_dir.exists():
-        raise FileNotFoundError(f"Submodule directory {submodule_dir} does not exist. Has it been initialized?")
+        msg = f"Submodule directory {submodule_dir} does not exist. Has it been initialized?"
+        raise FileNotFoundError(msg)
 
     if not args.skip_update:
         print("Updating vendor/run_hy8 from upstream ...")

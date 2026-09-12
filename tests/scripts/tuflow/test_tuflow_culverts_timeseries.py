@@ -9,11 +9,13 @@ from ryan_library.orchestrators.tuflow import tuflow_culverts_timeseries
 
 
 def test_main_processing_success() -> None:
-    with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.setup_logger"), patch(
-        "ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.bulk_read_and_merge_tuflow_csv"
-    ) as mock_bulk:
+    with (
+        patch("ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.setup_logger"),
+        patch(
+            "ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.bulk_read_and_merge_tuflow_csv"
+        ) as mock_bulk,
+    ):
         with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.ExcelExporter") as mock_exporter:
-
             # Mock collection
             mock_collection = MagicMock()
             mock_collection.combine_1d_timeseries.return_value = pd.DataFrame({"A": [1]})
@@ -29,11 +31,13 @@ def test_main_processing_success() -> None:
 
 
 def test_main_processing_parquet() -> None:
-    with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.setup_logger"), patch(
-        "ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.bulk_read_and_merge_tuflow_csv"
-    ) as mock_bulk:
+    with (
+        patch("ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.setup_logger"),
+        patch(
+            "ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.bulk_read_and_merge_tuflow_csv"
+        ) as mock_bulk,
+    ):
         with patch("ryan_library.orchestrators.tuflow.tuflow_culverts_timeseries.ExcelExporter") as mock_exporter:
-
             mock_collection = MagicMock()
             mock_collection.combine_1d_timeseries.return_value = pd.DataFrame({"A": [1]})
             mock_bulk.return_value = mock_collection

@@ -70,7 +70,8 @@ def test_is_non_zero_file_variants(tmp_path: Path) -> None:
 def test_ensure_output_directory_creates_missing(tmp_path: Path) -> None:
     out_dir = tmp_path / "exports"
     ensure_output_directory(out_dir)
-    assert out_dir.exists() and out_dir.is_dir()
+    assert out_dir.exists()
+    assert out_dir.is_dir()
 
     # second invocation should be a no-op
     ensure_output_directory(out_dir)

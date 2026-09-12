@@ -39,7 +39,7 @@ class BenchmarkResult:
 
     def format(self) -> str:
         return (
-            f"{self.backend:10s} {self.action:12s} {self.seconds*1000:8.1f} ms  rows={self.rows:,} cols={self.cols}"
+            f"{self.backend:10s} {self.action:12s} {self.seconds * 1000:8.1f} ms  rows={self.rows:,} cols={self.cols}"
         )
 
 
@@ -160,7 +160,7 @@ def bench_pyarrow(frames: list[pd.DataFrame]) -> list[BenchmarkResult]:
         pandas_df = combined.to_pandas()
         elapsed = _now() - start
         results.append(BenchmarkResult("pyarrow->pd", "to_pandas", elapsed, len(pandas_df), pandas_df.shape[1]))
-    except Exception:
+    except Exception:  # noqa: S110 - optional conversion must not invalidate other benchmark results
         pass
 
     return results
@@ -218,7 +218,8 @@ def main(argv: list[str] | None = None) -> int:
     args: argparse.Namespace = parse_args(argv)
 
     if args.num_frames < 1 or args.rows_per_frame < 1 or args.num_columns < 3 or args.repeats < 1:
-        raise ValueError("Frame count, row count and repeats must be positive; --num-columns must be at least 3.")
+        msg = "Frame count, row count and repeats must be positive; --num-columns must be at least 3."
+        raise ValueError(msg)
 
     include_polars = False
     include_pyarrow = False
@@ -239,7 +240,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.input_glob:
         path_strings: list[str] = []
         for pattern in args.input_glob:
-            path_strings.extend(glob.glob(pattern))
+            path_strings.extend(glob.glob(pattern))  # CLI patterns may be absolute.
         paths: list[Path] = [Path(p) for p in path_strings]
         frames = load_frames_from_paths(paths=paths, limit=args.limit_frames, fmt=args.input_format)
         if not frames:
@@ -247,7 +248,7 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         print(
             f"Loaded {len(frames)} frame(s) from input globs "
-            f"(mean rows {int(sum(len(f) for f in frames)/len(frames)):,}). Repeats: {args.repeats}"
+            f"(mean rows {int(sum(len(f) for f in frames) / len(frames)):,}). Repeats: {args.repeats}"
         )
     else:
         frames = make_frames(
@@ -279,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
             include_polars=include_polars,
             include_pyarrow=include_pyarrow,
         )
-        print(f"\nRun {i+1}:")
+        print(f"\nRun {i + 1}:")
         for result in run_results:
             print(f"  {result.format()}")
         all_results.extend(run_results)

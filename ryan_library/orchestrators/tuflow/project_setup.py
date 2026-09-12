@@ -165,18 +165,24 @@ def initialize_tuflow_project(
 def _validate_config(config: TuflowProjectConfig) -> None:
     for label, value in (("project name", config.project_name), ("scenario name", config.scenario_name)):
         if not _NAME_PATTERN.fullmatch(value):
-            raise ValueError(f"Invalid {label} {value!r}; use letters, numbers, underscores, or hyphens.")
+            msg = f"Invalid {label} {value!r}; use letters, numbers, underscores, or hyphens."
+            raise ValueError(msg)
     if not config.prj_file.is_file():
-        raise FileNotFoundError(f"Projection file not found: {config.prj_file}")
+        msg = f"Projection file not found: {config.prj_file}"
+        raise FileNotFoundError(msg)
     if config.prj_file.suffix.casefold() != ".prj":
-        raise ValueError(f"Projection file must use the .prj extension: {config.prj_file}")
+        msg = f"Projection file must use the .prj extension: {config.prj_file}"
+        raise ValueError(msg)
     if not config.tuflow_executable.is_file():
-        raise FileNotFoundError(f"TUFLOW executable not found: {config.tuflow_executable}")
+        msg = f"TUFLOW executable not found: {config.tuflow_executable}"
+        raise FileNotFoundError(msg)
     if not config.templates_dir.is_dir():
-        raise FileNotFoundError(f"TUFLOW template directory not found: {config.templates_dir}")
+        msg = f"TUFLOW template directory not found: {config.templates_dir}"
+        raise FileNotFoundError(msg)
     style_file: Path = _resolve_2d_loc_style_file()
     if not style_file.is_file():
-        raise FileNotFoundError(f"2d_loc QML style not found: {style_file}")
+        msg = f"2d_loc QML style not found: {style_file}"
+        raise FileNotFoundError(msg)
 
 
 def _create_folders(project_dir: Path) -> None:
@@ -200,14 +206,16 @@ def _copy_text_templates(*, config: TuflowProjectConfig, project_dir: Path) -> N
         if not template_file.is_file() or template_file.name == "__init__.py" or "__pycache__" in template_file.parts:
             continue
         if template_file.suffix.casefold() == ".gpkg":
-            raise ValueError(f"Bundled working GeoPackages are not permitted: {template_file}")
+            msg = f"Bundled working GeoPackages are not permitted: {template_file}"
+            raise ValueError(msg)
 
         relative_text = str(template_file.relative_to(config.templates_dir))
         for placeholder in ("__project__", "__scenario__"):
             relative_text: str = relative_text.replace(placeholder, replacements[placeholder])
         destination: Path = project_dir / relative_text
         if destination.exists() and not config.overwrite:
-            raise FileExistsError(f"Refusing to overwrite existing project file: {destination}")
+            msg = f"Refusing to overwrite existing project file: {destination}"
+            raise FileExistsError(msg)
 
         content: str = template_file.read_text(encoding="utf-8")
         for placeholder, replacement in replacements.items():
@@ -270,7 +278,8 @@ def _resolve_2d_loc_style_file() -> Path:
 def _copy_2d_loc_style(*, working_layer: Path, overwrite: bool) -> Path:
     destination: Path = working_layer.with_suffix(".qml")
     if destination.exists() and not overwrite:
-        raise FileExistsError(f"Refusing to overwrite existing 2d_loc QML style: {destination}")
+        msg = f"Refusing to overwrite existing 2d_loc QML style: {destination}"
+        raise FileExistsError(msg)
     shutil.copy2(src=_resolve_2d_loc_style_file(), dst=destination)
     logger.info("Copied 2d_loc QML style to {}", destination)
     return destination
@@ -284,7 +293,8 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
     projection_tif: Path = gis_dir / f"{projection_name}.tif"
     for path in (projection_prj, projection_gpkg, projection_tif):
         if path.exists() and not overwrite:
-            raise FileExistsError(f"Refusing to overwrite existing projection file: {path}")
+            msg = f"Refusing to overwrite existing projection file: {path}"
+            raise FileExistsError(msg)
         if path.exists():
             path.unlink()
 
@@ -336,9 +346,11 @@ def _run_tuflow_empty_generation(*, tuflow_executable: Path, control_file: Path,
         logger.debug("TUFLOW empty-file generation output:\n{}", completed.stdout.rstrip())
     if completed.returncode != 0:
         tail: str = "\n".join(completed.stdout.splitlines()[-20:])
-        raise RuntimeError(f"TUFLOW empty-file generation failed with exit code {completed.returncode}.\n{tail}")
+        msg = f"TUFLOW empty-file generation failed with exit code {completed.returncode}.\n{tail}"
+        raise RuntimeError(msg)
     if not expected_empty_dir.is_dir():
-        raise RuntimeError(f"TUFLOW reported success but did not create the empty directory: {expected_empty_dir}")
+        msg = f"TUFLOW reported success but did not create the empty directory: {expected_empty_dir}"
+        raise RuntimeError(msg)
 
 
 def _create_working_layer_from_empty(
@@ -354,9 +366,11 @@ def _create_working_layer_from_empty(
     target_layer: str = f"{spec.empty_type}_{scenario_name}_01_{spec.geometry_suffix}"
     target_path: Path = scenario_dir / f"{target_layer}.gpkg"
     if not source_path.is_file():
-        raise FileNotFoundError(f"TUFLOW empty GeoPackage not found: {source_path}")
+        msg = f"TUFLOW empty GeoPackage not found: {source_path}"
+        raise FileNotFoundError(msg)
     if target_path.exists() and not overwrite:
-        raise FileExistsError(f"Refusing to overwrite existing working layer: {target_path}")
+        msg = f"Refusing to overwrite existing working layer: {target_path}"
+        raise FileExistsError(msg)
     if target_path.exists():
         target_path.unlink()
 
@@ -396,16 +410,18 @@ def _read_fiona_schema(*, source_path: Path, source_layer: str) -> dict[str, obj
                     "SELECT table_name FROM gpkg_contents WHERE data_type = 'features' ORDER BY table_name"
                 )
             ]
-            raise ValueError(
-                f"Layer {source_layer!r} not found in {source_path}. Available feature layers: {available}"
-            )
+            msg = f"Layer {source_layer!r} not found in {source_path}. Available feature layers: {available}"
+            raise ValueError(msg)
         geometry_name: str = _fiona_geometry_name(str(layer_row[0]))
-        feature_count = connection.execute(f"SELECT count(*) FROM {_quote_sql_identifier(source_layer)}").fetchone()
+        feature_count = connection.execute(
+            f"SELECT count(*) FROM {_quote_sql_identifier(source_layer)}"  # noqa: S608 - identifier is helper-quoted
+        ).fetchone()
         if feature_count is None or int(feature_count[0]) != 0:
-            raise ValueError(
+            msg = (
                 f"Canonical TUFLOW empty layer contains features: {source_path}:{source_layer}. "
                 "Refusing to create working GIS from a populated source."
             )
+            raise ValueError(msg)
         columns = connection.execute(f"PRAGMA table_info({_quote_sql_identifier(source_layer)})").fetchall()
 
     properties: dict[str, str] = {}
@@ -427,7 +443,8 @@ def _fiona_geometry_name(gpkg_geometry: str) -> str:
     try:
         return names[gpkg_geometry.upper()]
     except KeyError as exc:
-        raise ValueError(f"Unsupported working-layer geometry type: {gpkg_geometry}") from exc
+        msg = f"Unsupported working-layer geometry type: {gpkg_geometry}"
+        raise ValueError(msg) from exc
 
 
 def _fiona_field_type(declared_type: str) -> str:
@@ -445,4 +462,5 @@ def _fiona_field_type(declared_type: str) -> str:
         return "date"
     if normalized in {"DATETIME", "TIMESTAMP"}:
         return "datetime"
-    raise ValueError(f"Unsupported GeoPackage field type in TUFLOW empty schema: {declared_type!r}")
+    msg = f"Unsupported GeoPackage field type in TUFLOW empty schema: {declared_type!r}"
+    raise ValueError(msg)

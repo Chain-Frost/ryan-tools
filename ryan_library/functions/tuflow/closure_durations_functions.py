@@ -149,14 +149,16 @@ def summarise_results(df: DataFrame) -> DataFrame:
         path, location, threshold, aep = cast("tuple[str, str, float, str]", name)
         combos: DataFrame | None = combo_lookup.get((path, location, aep))
         if combos is not None:
-            group = combos.merge(right=group, on=scenario_keys, how="left")
-            group["AEP"] = group["AEP"].fillna(aep)
-            group["out_path"] = group["out_path"].fillna(path)
-            group["Location"] = group["Location"].fillna(location)
-            group["ThresholdFlow"] = group["ThresholdFlow"].fillna(threshold)
-            group["Duration_Exceeding"] = group["Duration_Exceeding"].fillna(0.0)
+            expanded_group = combos.merge(right=group, on=scenario_keys, how="left")
+            expanded_group["AEP"] = expanded_group["AEP"].fillna(aep)
+            expanded_group["out_path"] = expanded_group["out_path"].fillna(path)
+            expanded_group["Location"] = expanded_group["Location"].fillna(location)
+            expanded_group["ThresholdFlow"] = expanded_group["ThresholdFlow"].fillna(threshold)
+            expanded_group["Duration_Exceeding"] = expanded_group["Duration_Exceeding"].fillna(0.0)
+        else:
+            expanded_group = group
 
-        stats, _ = median_stats_func(group, "Duration_Exceeding", "TP", "Duration")
+        stats, _ = median_stats_func(expanded_group, "Duration_Exceeding", "TP", "Duration")
         row: list[object] = [path, location, threshold, aep]
         row.extend(
             [

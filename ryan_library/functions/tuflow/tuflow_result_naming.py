@@ -21,7 +21,8 @@ def require_component_text(*, value: str | None, component: str, filename: str) 
     """Return non-empty parsed component text or identify the malformed filename."""
     if value:
         return value
-    raise ValueError(f"Parsed {component} text was empty in {filename}")
+    msg = f"Parsed {component} text was empty in {filename}"
+    raise ValueError(msg)
 
 
 def replace_filename_component(*, filename: str, old_component: str, new_component: str | None) -> str:
@@ -36,7 +37,8 @@ def replace_filename_component(*, filename: str, old_component: str, new_compone
         index for index in range(0, len(parts), 2) if parts[index].casefold() == old_component.casefold()
     ]
     if len(indexes) != 1:
-        raise ValueError(f"Expected one {old_component!r} component in {filename!r}; found {len(indexes)}")
+        msg = f"Expected one {old_component!r} component in {filename!r}; found {len(indexes)}"
+        raise ValueError(msg)
     component_index = indexes[0]
     if new_component is None:
         if component_index + 1 < len(parts):
@@ -56,9 +58,8 @@ def format_user_template(*, template: str, values: Mapping[str, object], descrip
         return template.format_map(values)
     except KeyError as error:
         available = ", ".join(sorted(values))
-        raise ValueError(
-            f"Unknown placeholder {error.args[0]!r} in {description}; available placeholders: {available}"
-        ) from error
+        msg = f"Unknown placeholder {error.args[0]!r} in {description}; available placeholders: {available}"
+        raise ValueError(msg) from error
 
 
 def validate_output_filename(filename: str) -> str:
@@ -66,10 +67,12 @@ def validate_output_filename(filename: str) -> str:
     invalid_characters: set[str] = set('<>:"/\\|?*')
     found_invalid: list[str] = sorted(invalid_characters.intersection(filename))
     if found_invalid:
-        raise ValueError(
+        msg = (
             f"Output filename {filename!r} contains invalid characters: {''.join(found_invalid)}. "
             "Use wildcards only in the input glob and named placeholders in the output template."
         )
+        raise ValueError(msg)
     if Path(filename).name != filename or filename in {"", ".", ".."}:
-        raise ValueError(f"Output filename template must produce a filename, not a path: {filename!r}")
+        msg = f"Output filename template must produce a filename, not a path: {filename!r}"
+        raise ValueError(msg)
     return filename

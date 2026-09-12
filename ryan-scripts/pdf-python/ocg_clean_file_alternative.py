@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The cleaner removes page-local /Xi full-page junk XForms, matching /Xi optional
+r"""The cleaner removes page-local /Xi full-page junk XForms, matching /Xi optional
 content blocks, JavaScript actions, protected-cover pages, and protected form
 fields used by the digital editions.
 
@@ -26,9 +26,7 @@ from pypdf.generic import ArrayObject, ContentStream, NameObject
 
 # --- User configuration -----------------------------------------------------
 
-DEFAULT_INPUT_PDFS: Path | str | Sequence[Path | str] = Path(
-    r"C:\folder\file.pdf"
-)
+DEFAULT_INPUT_PDFS: Path | str | Sequence[Path | str] = Path(r"C:\folder\file.pdf")
 DEFAULT_OUTPUT: Path | str | None = None
 DEFAULT_OUTPUT_DIR: Path | str | None = None
 DEFAULT_DECRYPT_PASSWORD = ""
@@ -633,9 +631,11 @@ def clean_pdf_file(
     source_path = Path(src)
     destination_path = Path(dst) if dst is not None else default_output_path(source_path)
     if not source_path.exists():
-        raise FileNotFoundError(f"Input file does not exist: {source_path}")
+        msg = f"Input file does not exist: {source_path}"
+        raise FileNotFoundError(msg)
     if source_path.resolve() == destination_path.resolve():
-        raise ValueError(f"Refusing to overwrite input PDF: {source_path}")
+        msg = f"Refusing to overwrite input PDF: {source_path}"
+        raise ValueError(msg)
 
     reader = PdfReader(str(source_path))
     writer = PdfWriter()
@@ -645,9 +645,11 @@ def clean_pdf_file(
         try:
             result = reader.decrypt(password)
         except Exception as exc:
-            raise RuntimeError(f"Decrypt failed for {source_path}: {type(exc).__name__}: {exc}") from exc
+            msg = f"Decrypt failed for {source_path}: {type(exc).__name__}: {exc}"
+            raise RuntimeError(msg) from exc
         if result == 0:
-            raise RuntimeError(f"Decrypt failed for {source_path}: invalid or missing password.")
+            msg = f"Decrypt failed for {source_path}: invalid or missing password."
+            raise RuntimeError(msg)
         summary.decrypt_status = f"decrypted (result={result})"
         summary.warnings.append("Input was encrypted; permissions removed by decrypt before processing.")
 
@@ -775,14 +777,17 @@ def clean_pdfs(
 ) -> list[CleanSummary]:
     input_paths = normalize_inputs(inputs, recursive=recursive)
     if not input_paths:
-        raise ValueError("No input PDFs were supplied.")
+        msg = "No input PDFs were supplied."
+        raise ValueError(msg)
 
     output_path = Path(output) if output is not None else None
     output_dir_path = Path(output_dir) if output_dir is not None else None
     if output_path is not None and output_dir_path is not None:
-        raise ValueError("Use either output or output_dir, not both.")
+        msg = "Use either output or output_dir, not both."
+        raise ValueError(msg)
     if output_path is not None and len(input_paths) > 1 and output_path.suffix:
-        raise ValueError("For multiple inputs, output must be a folder. Use output_dir for clarity.")
+        msg = "For multiple inputs, output must be a folder. Use output_dir for clarity."
+        raise ValueError(msg)
 
     summaries: list[CleanSummary] = []
     for src in input_paths:

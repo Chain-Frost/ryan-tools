@@ -1,4 +1,3 @@
-
 """Regression coverage for ccA GeoPackage handling."""
 
 from __future__ import annotations
@@ -100,7 +99,7 @@ def test_cca_dbf_processing(tmp_path: Path, change_cwd) -> None:
 
     with change_cwd(tmp_path):
         dbf_path = tmp_path / "Test_Run_1d_ccA_L.dbf"
-        
+
         # Create a mock DBF file
         base_path = tmp_path / "Test_Run_1d_ccA_L"
         with shapefile.Writer(str(base_path)) as w:
@@ -134,16 +133,18 @@ def test_cca_processor_robustness(tmp_path: Path, change_cwd) -> None:
         # Invalid extension (but valid suffix for BaseProcessor init)
         # If we pass a file with .txt extension but it's not in suffixes config, it raises ValueError.
         # If we pass a file with valid suffix but wrong content, it should fail gracefully.
-        
+
         # Unsupported extension logic in process()
         # We need to bypass BaseProcessor checks or use a valid suffix but force it to be unsupported in process?
         # process() checks extension.
-        
+
         # Let's mock file_path.suffix
         p = tmp_path / "Test_Run_1d_ccA_L.dbf"
         p.touch()
-        proc = ccAProcessor(file_path=p)
-        with patch.object(Path, "suffix", ".xyz"): # Mock property? No, can't mock property on instance easily like this.
+        _processor = ccAProcessor(file_path=p)
+        with patch.object(
+            Path, "suffix", ".xyz"
+        ):  # Mock property? No, can't mock property on instance easily like this.
             # Instead, subclass or mock the whole path object.
             pass
 
@@ -155,6 +156,7 @@ def test_process_gpkg_missing_file(tmp_path):
     df = processor.process_gpkg()
     assert df.empty
 
+
 def test_process_gpkg_no_layer(tmp_path):
     """Test process_gpkg with no matching layer."""
     p = tmp_path / "NoLayer_Results1D.gpkg"
@@ -162,10 +164,11 @@ def test_process_gpkg_no_layer(tmp_path):
     conn.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
     conn.commit()
     conn.close()
-    
+
     processor = ccAProcessor(file_path=p)
     df = processor.process_gpkg()
     assert df.empty
+
 
 def test_process_gpkg_missing_columns(tmp_path):
     """Test process_gpkg with missing required columns."""
@@ -176,56 +179,61 @@ def test_process_gpkg_missing_columns(tmp_path):
     conn.execute("CREATE TABLE layer_1d_ccA_L (fid INTEGER PRIMARY KEY, geom BLOB, WrongCol TEXT)")
     conn.commit()
     conn.close()
-    
+
     processor = ccAProcessor(file_path=p)
     # Mock output_columns to require "Chan ID"
     processor.output_columns = {"Chan ID": "string"}
-    
+
     df = processor.process_gpkg()
     assert df.empty
+
 
 def test_process_gpkg_sqlite_error(tmp_path):
     """Test process_gpkg handling sqlite error."""
     p = tmp_path / "Error_Results1D.gpkg"
-    p.touch() # Not a valid sqlite file
-    
+    p.touch()  # Not a valid sqlite file
+
     processor = ccAProcessor(file_path=p)
     df = processor.process_gpkg()
     assert df.empty
 
+
 def test_process_dbf_error(tmp_path):
     """Test process_dbf handling error."""
     p = tmp_path / "Error_1d_ccA_L.dbf"
-    p.touch() # Not a valid DBF
-    
+    p.touch()  # Not a valid DBF
+
     processor = ccAProcessor(file_path=p)
     df = processor.process_dbf()
     assert df.empty
+
 
 def test_process_validation_failure(tmp_path):
     """Test process validation failure."""
     p = tmp_path / "Valid_1d_ccA_L.dbf"
     # Create valid DBF
     import shapefile
+
     base_path = tmp_path / "Valid_1d_ccA_L"
     with shapefile.Writer(str(base_path)) as w:
         w.field("Channel", "C")
         w.null()
         w.record("C1")
-        
+
     processor = ccAProcessor(file_path=p)
-    
+
     with patch.object(ccAProcessor, "validate_data", return_value=False):
         processor.process()
         assert not processor.processed
         assert processor.df.empty
+
 
 def test_process_exception(tmp_path):
     """Test process exception handling."""
     p = tmp_path / "Test_1d_ccA_L.dbf"
     p.touch()
     processor = ccAProcessor(file_path=p)
-    
+
     with patch.object(ccAProcessor, "process_dbf", side_effect=Exception("Boom")):
         processor.process()
         assert not processor.processed

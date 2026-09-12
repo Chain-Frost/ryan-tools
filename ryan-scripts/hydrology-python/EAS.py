@@ -186,8 +186,8 @@ def plot_stream_profile_with_polygons(
         )
 
         # Plot polygons
-        polygon1 = Polygon(zip(poly1_df["x"], poly1_df["y"]))
-        polygon2 = Polygon(zip(poly2_df["x"], poly2_df["y"]))
+        polygon1 = Polygon(zip(poly1_df["x"], poly1_df["y"], strict=True))
+        polygon2 = Polygon(zip(poly2_df["x"], poly2_df["y"], strict=True))
 
         x_poly1, y_poly1 = polygon1.exterior.xy
         x_poly2, y_poly2 = polygon2.exterior.xy
@@ -272,8 +272,8 @@ def define_polygons(profile_df: pd.DataFrame, intersection: tuple, h: float) -> 
 
     # Polygon A2: Above the intersection
     mask2 = profile_df["x"] > x_int
-    x2 = [x_int] + profile_df.loc[mask2, "x"].tolist() + [profile_df["x"].max(), x_int]
-    y2 = [y_int] + profile_df.loc[mask2, "y"].tolist() + [profile_df["y"].min() + h * L, y_int]
+    x2 = [x_int, *profile_df.loc[mask2, "x"].tolist(), profile_df["x"].max(), x_int]
+    y2 = [y_int, *profile_df.loc[mask2, "y"].tolist(), profile_df["y"].min() + h * L, y_int]
 
     poly2_df = pd.DataFrame({"x": x2, "y": y2})
 
@@ -293,8 +293,8 @@ def calculate_polygon_areas(poly1_df: pd.DataFrame, poly2_df: pd.DataFrame) -> t
     if poly1_df.empty or poly2_df.empty:
         return 0.0, 0.0
 
-    polygon1 = Polygon(zip(poly1_df["x"], poly1_df["y"]))
-    polygon2 = Polygon(zip(poly2_df["x"], poly2_df["y"]))
+    polygon1 = Polygon(zip(poly1_df["x"], poly1_df["y"], strict=True))
+    polygon2 = Polygon(zip(poly2_df["x"], poly2_df["y"], strict=True))
 
     A1 = polygon1.area
     A2 = polygon2.area
@@ -346,7 +346,7 @@ def main():
         print(f"A1 and A2 are equal: {np.isclose(A1, A2, atol=1e-6)}")
 
     # Calculate test slope
-    A_total = np.trapz(profile_df["y"] - profile_df["y"].min(), profile_df["x"])
+    A_total = np.trapezoid(profile_df["y"] - profile_df["y"].min(), profile_df["x"])
     L = profile_df["x"].iloc[-1] - profile_df["x"].iloc[0]
     test_slope_ea = (2 * A_total) / (1000 * L**2)  # Correct formula with 1000 factor
     print(f"Test Slope EA: {test_slope_ea:.6f} m/km")

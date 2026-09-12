@@ -36,9 +36,12 @@ def test_parser_and_replacement_support_both_separators(raster_test_data: Path, 
     fixture = next((raster_test_data / "tuflow_statistics" / "separator_cases" / separator_directory).glob("*.tif"))
     parser = TuflowStringParser(fixture)
 
-    assert parser.aep is not None and parser.aep.numeric_value == pytest.approx(1.0)
-    assert parser.duration is not None and parser.duration.numeric_value == pytest.approx(30.0)
-    assert parser.tp is not None and parser.tp.numeric_value == 1
+    assert parser.aep is not None
+    assert parser.aep.numeric_value == pytest.approx(1.0)
+    assert parser.duration is not None
+    assert parser.duration.numeric_value == pytest.approx(30.0)
+    assert parser.tp is not None
+    assert parser.tp.numeric_value == 1
     assert parser.data_type == "d_HR_Max"
     tp_text = parser.tp.original_text
     duration_text = parser.duration.original_text

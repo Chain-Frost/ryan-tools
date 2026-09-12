@@ -19,7 +19,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 # =====================================================================
-# CONFIG – EDIT THESE PATHS
+# CONFIG - EDIT THESE PATHS
 # =====================================================================
 INPUT_PATH = Path(r"C:\Temp\fmg\anderson-chf\survey-dwg-to-xyz.txt")
 OUTPUT_PATH = Path(r"C:\Temp\fmg\anderson-chf\survey-dwg-to-xyz-mod.csv")
@@ -70,13 +70,15 @@ def parse_tin_file(
 
             if state == "EXPECT_DESCRIPTION":
                 if line != DESCRIPTION_LINE:
-                    raise ParseError(f"Line {line_no}: expected {DESCRIPTION_LINE!r}, got {line!r}")
+                    msg = f"Line {line_no}: expected {DESCRIPTION_LINE!r}, got {line!r}"
+                    raise ParseError(msg)
                 state = "EXPECT_CLOSED"
                 continue
 
             if state == "EXPECT_CLOSED":
                 if line != CLOSED_LINE:
-                    raise ParseError(f"Line {line_no}: expected {CLOSED_LINE!r}, got {line!r}")
+                    msg = f"Line {line_no}: expected {CLOSED_LINE!r}, got {line!r}"
+                    raise ParseError(msg)
                 state = "EXPECT_POINT"
                 points_in_block = 0
                 continue
@@ -85,14 +87,14 @@ def parse_tin_file(
                 # Expect a coordinate line: x,y,z
                 parts: list[str] = [p.strip() for p in line.split(",")]
                 if len(parts) != 3:
-                    raise ParseError(
-                        f"Line {line_no}: expected 'x,y,z' with three comma-separated values, got {line!r}"
-                    )
+                    msg = f"Line {line_no}: expected 'x,y,z' with three comma-separated values, got {line!r}"
+                    raise ParseError(msg)
 
                 try:
                     x, y, z = (float(parts[0]), float(parts[1]), float(parts[2]))
                 except ValueError as exc:
-                    raise ParseError(f"Line {line_no}: could not parse XYZ as floats: {line!r}") from exc
+                    msg = f"Line {line_no}: could not parse XYZ as floats: {line!r}"
+                    raise ParseError(msg) from exc
 
                 unique_points.add((x, y, z))
                 points_in_block += 1
@@ -103,14 +105,16 @@ def parse_tin_file(
 
                 continue
 
-            raise RuntimeError(f"Unknown parser state {state!r} at line {line_no}")
+            msg = f"Unknown parser state {state!r} at line {line_no}"
+            raise RuntimeError(msg)
 
     # At EOF, we must be between blocks, not in the middle of one
     if state != "EXPECT_DESCRIPTION":
-        raise ParseError(
+        msg = (
             f"Unexpected end of file: parser in state {state!r} "
             f"after reading {points_in_block} point line(s) in the last block."
         )
+        raise ParseError(msg)
 
     logger.info("Parsed %d unique points from %s", len(unique_points), path)
     return unique_points
@@ -120,8 +124,7 @@ def write_points_to_csv(
     points: Iterable[tuple[float, float, float]],
     output_path: Path,
 ) -> None:
-    """Write (x, y, z) points to a CSV with header: X,Y,Z.
-    """
+    """Write (x, y, z) points to a CSV with header: X,Y,Z."""
     with output_path.open(mode="w", newline="", encoding="utf-8") as f:
         writer: Writer = csv.writer(f)
         writer.writerow(["X", "Y", "Z"])
@@ -140,19 +143,19 @@ def main() -> None:
     logger.info("Parsing %s", INPUT_PATH)
     try:
         points: set[tuple[float, float, float]] = parse_tin_file(INPUT_PATH, logger=logger)
-    except ParseError as e:
-        logger.error("Parse error: %s", e)
-        raise SystemExit(1)
-    except Exception as e:  # noqa: BLE001
-        logger.error("Unexpected error: %s", e)
-        raise SystemExit(1)
+    except ParseError:
+        logger.exception("Parse error")
+        raise SystemExit(1) from None
+    except Exception:
+        logger.exception("Unexpected error")
+        raise SystemExit(1) from None
 
     logger.info("Writing %d unique points to %s", len(points), OUTPUT_PATH)
     try:
         write_points_to_csv(points, OUTPUT_PATH)
-    except Exception as e:  # noqa: BLE001
-        logger.error("Failed to write CSV: %s", e)
-        raise SystemExit(1)
+    except Exception:
+        logger.exception("Failed to write CSV")
+        raise SystemExit(1) from None
 
     logger.info("Done.")
 

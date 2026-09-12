@@ -18,7 +18,7 @@ class EOFProcessor(BaseProcessor):
         logger.info(f"Starting processing of EOF file: {self.log_path}")
 
         try:
-            with open(self.file_path, encoding="utf-8", errors="replace") as f:
+            with open(self.file_path, encoding="utf-8", errors="replace") as f:  # Retain the builtins.open test seam.
                 lines: list[str] = f.readlines()
 
             start_line_idx = -1
@@ -97,7 +97,7 @@ class EOFProcessor(BaseProcessor):
                     # Keep a stable schema if the final text field contains
                     # unexpected spacing by folding the overflow into the last
                     # column rather than shifting earlier numeric fields.
-                    parts = parts[: len(col_names) - 1] + [" ".join(parts[len(col_names) - 1 :])]
+                    parts = [*parts[: len(col_names) - 1], " ".join(parts[len(col_names) - 1 :])]
 
                 parsed_rows.append([pd.NA if part in missing_markers else part for part in parts])
 
@@ -124,7 +124,7 @@ class EOFProcessor(BaseProcessor):
                 "Slope": "pSlope",
                 "Mannings_n": "n or Cd",
             }
-            self.df.rename(columns=rename_map, inplace=True)
+            self.df = self.df.rename(columns=rename_map)
 
             # Clean 'Ent/Exit Losses' column if present
             if "Ent/Exit Losses" in self.df.columns:

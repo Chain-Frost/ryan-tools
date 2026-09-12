@@ -45,7 +45,8 @@ def find_qgis_install_path() -> Path:
             return qgis_dir
 
     # If not found, raise an error
-    raise FileNotFoundError("QGIS or OSGeo4W installation not found.")
+    msg = "QGIS or OSGeo4W installation not found."
+    raise FileNotFoundError(msg)
 
 
 def find_python_installation(qgis_path: Path) -> Path:
@@ -65,7 +66,8 @@ def find_python_installation(qgis_path: Path) -> Path:
 
     if not python_dirs:
         logger.error("Python installation not found within QGIS/OSGeo4W apps directory.")
-        raise FileNotFoundError("Python installation not found within QGIS/OSGeo4W apps directory.")
+        msg = "Python installation not found within QGIS/OSGeo4W apps directory."
+        raise FileNotFoundError(msg)
 
     python_dir: Path = python_dirs[0]  # Choose the latest Python version
     logger.info(f"Detected Python installation at: {python_dir}")
@@ -136,7 +138,8 @@ def check_executable(path: str, name: str) -> None:
     """
     if not Path(path).exists():
         logger.error(f"Error: {name} not found at {path}. Ensure it is correctly installed.")
-        raise FileNotFoundError(f"{name} not found at {path}.")
+        msg = f"{name} not found at {path}."
+        raise FileNotFoundError(msg)
 
 
 def check_required_components() -> None:

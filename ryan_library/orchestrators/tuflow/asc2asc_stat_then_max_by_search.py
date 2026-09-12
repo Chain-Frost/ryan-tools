@@ -97,7 +97,8 @@ def _statistic_settings(statistic: FirstStageStatistic) -> tuple[str, str, str, 
         return "-statMean", "TPMean", "means", "max_of_means"
     if statistic == "median":
         return "-statMedian", "TPMedian", "medians", "max_of_medians"
-    raise ValueError(f"Unsupported first-stage statistic: {statistic}")
+    msg = f"Unsupported first-stage statistic: {statistic}"
+    raise ValueError(msg)
 
 
 def _nodata_policy_for_result_type(result_type: str) -> NodataPolicy:
@@ -134,7 +135,8 @@ def _parse_raster(
     parsed_parts: set[str] = {part.casefold() for part in parser.run_code_parts.values()}
     matched_scenarios: list[str] = [scenario for scenario in scenarios if scenario.casefold() in parsed_parts]
     if len(matched_scenarios) != 1:
-        raise ValueError(f"Expected one scenario in {input_file.name}; found {matched_scenarios}")
+        msg = f"Expected one scenario in {input_file.name}; found {matched_scenarios}"
+        raise ValueError(msg)
 
     _, statistic_token, _, _ = _statistic_settings(first_stage_statistic)
     statistic_name: str = replace_filename_component(
@@ -174,7 +176,8 @@ def discover_rasters(
     rasters: list[ParsedRaster] = []
     grid_directories: list[Path] = sorted(path for path in search_root.rglob("grids") if path.is_dir())
     if not grid_directories:
-        raise FileNotFoundError(f"No grids directories were found below {search_root}")
+        msg = f"No grids directories were found below {search_root}"
+        raise FileNotFoundError(msg)
     for grid_directory in grid_directories:
         for input_file in sorted(path for path in grid_directory.glob(input_glob) if path.is_file()):
             parsed: ParsedRaster | None = _parse_raster(
@@ -187,7 +190,8 @@ def discover_rasters(
             if parsed is not None:
                 rasters.append(parsed)
     if not rasters:
-        raise FileNotFoundError("No supported ensemble result rasters were found")
+        msg = "No supported ensemble result rasters were found"
+        raise FileNotFoundError(msg)
     return rasters
 
 
@@ -221,10 +225,11 @@ def discover_stat_jobs(
         representative: ParsedRaster = group[0]
         found_tps: list[int] = [raster.tp_number for raster in group]
         if len(found_tps) != len(set(found_tps)):
-            raise ValueError(
+            msg = (
                 f"Duplicate temporal patterns in {representative.scenario} {representative.aep} "
                 f"{representative.duration} {representative.result_type}: {found_tps}"
             )
+            raise ValueError(msg)
         found_tp_set: frozenset[int] = frozenset(found_tps)
         if found_tp_set != expected_tps:
             missing: list[int] = sorted(expected_tps.difference(found_tp_set))
@@ -291,15 +296,17 @@ def discover_max_jobs(
         representative: FirstStageJobDetails = group[0]
         statistics = {details.first_stage_statistic for details in group}
         if len(statistics) != 1:
-            raise ValueError(f"Mixed first-stage statistics in one maximum group: {sorted(statistics)}")
+            msg = f"Mixed first-stage statistics in one maximum group: {sorted(statistics)}"
+            raise ValueError(msg)
         statistic = representative.first_stage_statistic
         _, _, _, maximum_directory = _statistic_settings(statistic)
         durations: list[str] = [details.duration for details in group]
         if len(durations) != len(set(durations)):
-            raise ValueError(
+            msg = (
                 f"Duplicate {statistic} durations for {representative.scenario} {representative.aep} "
                 f"{representative.result_type}: {durations}"
             )
+            raise ValueError(msg)
         jobs.append(
             (
                 RasterOperationJob(

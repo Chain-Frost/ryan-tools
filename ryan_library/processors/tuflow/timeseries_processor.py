@@ -140,7 +140,8 @@ class TimeSeriesProcessor(BaseProcessor):
             return df
         except Exception as exc:
             logger.exception(f"{self.file_name}: Failed to read CSV file '{self.log_path}': {exc}")
-            raise ProcessorError(f"Failed to read CSV file '{file_path}': {exc}") from exc
+            msg = f"Failed to read CSV file '{file_path}': {exc}"
+            raise ProcessorError(msg) from exc
 
     def _clean_headers(self, df: pd.DataFrame, data_type: str) -> pd.DataFrame:
         """Normalise the header row before reshaping timeseries data.
@@ -170,12 +171,13 @@ class TimeSeriesProcessor(BaseProcessor):
                 original: alias for original, alias in time_column_aliases.items() if original in df.columns
             }
             if rename_columns:
-                df.rename(columns=rename_columns, inplace=True)
+                df = df.rename(columns=rename_columns)
                 logger.debug("Renamed time columns: {}.", rename_columns)
 
             if "Time" not in df.columns:
                 logger.error(f"{self.file_name}: 'Time' column is missing after cleaning headers.")
-                raise DataValidationError("'Time' column is missing after cleaning headers.")
+                msg = "'Time' column is missing after cleaning headers."
+                raise DataValidationError(msg)
 
             cleaned_columns: list[str] = self._clean_column_names(columns=df.columns, data_type=data_type)
             df.columns = cleaned_columns
@@ -183,7 +185,8 @@ class TimeSeriesProcessor(BaseProcessor):
             return df
         except Exception as exc:
             logger.exception(f"{self.file_name}: Failed to clean headers: {exc}")
-            raise ProcessorError(f"Failed to clean headers: {exc}") from exc
+            msg = f"Failed to clean headers: {exc}"
+            raise ProcessorError(msg) from exc
 
     def _clean_column_names(self, columns: pd.Index, data_type: str) -> list[str]:
         """Strip prefixes and unit suffixes from a sequence of column names.
@@ -243,11 +246,13 @@ class TimeSeriesProcessor(BaseProcessor):
                 logger.debug("Reshaped DataFrame to long format with {} rows.", len(df_melted))
         except Exception as exc:
             logger.exception(f"{self.file_name}: Failed to reshape DataFrame: {exc}")
-            raise ProcessorError(f"Failed to reshape DataFrame: {exc}") from exc
+            msg = f"Failed to reshape DataFrame: {exc}"
+            raise ProcessorError(msg) from exc
 
         if df_melted.empty:
             logger.error(f"{self.file_name}: No data found after reshaping.")
-            raise DataValidationError("No data found after reshaping.")
+            msg = "No data found after reshaping."
+            raise DataValidationError(msg)
 
         expected_headers: list[str] = (
             ["Time", category_type, "US_H", "DS_H"] if data_type == "H" else ["Time", category_type, data_type]
@@ -259,7 +264,8 @@ class TimeSeriesProcessor(BaseProcessor):
         self.expected_in_header = expected_headers
         if not self.check_headers_match(test_headers=df_melted.columns.tolist()):
             logger.error(f"{self.file_name}: Header mismatch after reshaping.")
-            raise DataValidationError("Header mismatch after reshaping.")
+            msg = "Header mismatch after reshaping."
+            raise DataValidationError(msg)
 
         return df_melted
 
@@ -316,7 +322,7 @@ class TimeSeriesProcessor(BaseProcessor):
             logger.debug("Using '{}' as the identifier column for '{}' values.", identifier_column, value_column)
 
             initial_row_count = len(self.df)
-            self.df.dropna(subset=[value_column], inplace=True)
+            self.df = self.df.dropna(subset=[value_column])
             dropped_rows = initial_row_count - len(self.df)
             if dropped_rows:
                 logger.debug("Dropped {} rows with missing '{}' values.", dropped_rows, value_column)

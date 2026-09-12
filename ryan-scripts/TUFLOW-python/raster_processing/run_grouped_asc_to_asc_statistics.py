@@ -142,7 +142,8 @@ def build_diff_commands(
             continue
         if len(matches) > 1:
             match_names = ", ".join(str(match.full_path) for match in matches)
-            raise ValueError(f"Ambiguous existing-scenario matches for {current.full_path}: {match_names}")
+            msg = f"Ambiguous existing-scenario matches for {current.full_path}: {match_names}"
+            raise ValueError(msg)
         output_path = output_dir / f"{current.full_path.stem}_DIFF.tif"
         commands.append(
             [executable, "-b", "-out", str(output_path), "-dif", str(current.full_path), str(matches[0].full_path)]
@@ -183,11 +184,13 @@ def _resolve_executable(value: str, *, dry_run: bool) -> str:
     candidate = Path(value)
     if candidate.parent != Path() or candidate.is_absolute():
         if not dry_run and not candidate.is_file():
-            raise FileNotFoundError(f"ASC-to-ASC executable does not exist: {candidate}")
+            msg = f"ASC-to-ASC executable does not exist: {candidate}"
+            raise FileNotFoundError(msg)
         return str(candidate)
     discovered = shutil.which(value)
     if discovered is None and not dry_run:
-        raise FileNotFoundError(f"ASC-to-ASC executable was not found on PATH: {value}")
+        msg = f"ASC-to-ASC executable was not found on PATH: {value}"
+        raise FileNotFoundError(msg)
     return discovered or value
 
 

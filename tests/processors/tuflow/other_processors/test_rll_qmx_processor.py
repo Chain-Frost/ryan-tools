@@ -1,4 +1,3 @@
-
 """Unit tests for ryan_library.processors.tuflow.other_processors.RLLQmxProcessor."""
 
 from pathlib import Path
@@ -29,14 +28,9 @@ class TestRLLQmxProcessor:
 
     def test_reshape_rll_qmx_data_success(self, mock_processor):
         """Test successful reshaping of RLL Qmx data."""
-        mock_processor.df = pd.DataFrame({
-            "ID": ["L1"],
-            "Qmax": [10.0],
-            "Time Qmax": [1.0],
-            "dQmax": [0.0],
-            "Time dQmax": [1.0],
-            "H": [5.0]
-        })
+        mock_processor.df = pd.DataFrame(
+            {"ID": ["L1"], "Qmax": [10.0], "Time Qmax": [1.0], "dQmax": [0.0], "Time dQmax": [1.0], "H": [5.0]}
+        )
 
         mock_processor._reshape_rll_qmx_data()
 
@@ -45,41 +39,40 @@ class TestRLLQmxProcessor:
         assert "Time" in mock_processor.df.columns
         assert "dQ" in mock_processor.df.columns
         assert "Time dQ" in mock_processor.df.columns
-        
+
         row = mock_processor.df.iloc[0]
         assert row["Chan ID"] == "L1"
         assert row["Q"] == 10.0
 
     def test_reshape_rll_qmx_data_missing_columns(self, mock_processor):
         """Test reshaping fails with missing columns."""
-        mock_processor.df = pd.DataFrame({
-            "ID": ["L1"]
-            # Missing others
-        })
+        mock_processor.df = pd.DataFrame(
+            {
+                "ID": ["L1"]
+                # Missing others
+            }
+        )
 
         mock_processor._reshape_rll_qmx_data()
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.read_maximums_csv")
     @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.add_common_columns")
-    @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.apply_output_transformations")
+    @patch(
+        "ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.apply_output_transformations"
+    )
     @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.validate_data")
     def test_process_success(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
         """Test full process flow success."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
-        
-        mock_processor.df = pd.DataFrame({
-            "ID": ["L1"],
-            "Qmax": [10.0],
-            "Time Qmax": [1.0],
-            "dQmax": [0.0],
-            "Time dQmax": [1.0],
-            "H": [5.0]
-        })
+
+        mock_processor.df = pd.DataFrame(
+            {"ID": ["L1"], "Qmax": [10.0], "Time Qmax": [1.0], "dQmax": [0.0], "Time dQmax": [1.0], "H": [5.0]}
+        )
 
         mock_processor.process()
-        
+
         assert mock_processor.processed is True
         mock_read.assert_called_once()
         mock_add.assert_called_once()
@@ -88,32 +81,29 @@ class TestRLLQmxProcessor:
     def test_process_read_failure(self, mock_read, mock_processor):
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
-        
+
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.read_maximums_csv")
     @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.add_common_columns")
-    @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.apply_output_transformations")
+    @patch(
+        "ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.apply_output_transformations"
+    )
     @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.validate_data")
     def test_process_validation_failure(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
-        
-        mock_processor.df = pd.DataFrame({
-            "ID": ["L1"],
-            "Qmax": [10.0],
-            "Time Qmax": [1.0],
-            "dQmax": [0.0],
-            "Time dQmax": [1.0],
-            "H": [5.0]
-        })
+
+        mock_processor.df = pd.DataFrame(
+            {"ID": ["L1"], "Qmax": [10.0], "Time Qmax": [1.0], "dQmax": [0.0], "Time dQmax": [1.0], "H": [5.0]}
+        )
 
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
@@ -121,8 +111,8 @@ class TestRLLQmxProcessor:
     def test_process_exception(self, mock_read, mock_processor):
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
-        
+
         mock_processor.process()
-        
+
         assert mock_processor.processed is False
         assert mock_processor.df.empty

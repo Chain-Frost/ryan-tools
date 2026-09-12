@@ -177,10 +177,12 @@ class ExcelExporter:
         normalized_mode: str = export_mode.lower()
         valid_modes: set[str] = {"excel", "parquet", "both"}
         if normalized_mode not in valid_modes:
-            raise ValueError(f"Invalid export_mode '{export_mode}'. Expected one of {sorted(valid_modes)}.")
+            msg = f"Invalid export_mode '{export_mode}'. Expected one of {sorted(valid_modes)}."
+            raise ValueError(msg)
 
         if file_name is not None and len(export_dict) != 1:
-            raise ValueError("'file_name' can only be provided when exporting a single workbook.")
+            msg = "'file_name' can only be provided when exporting a single workbook."
+            raise ValueError(msg)
 
         for export_key, content in export_dict.items():
             dataframes: list[pd.DataFrame] = content.get("dataframes", [])
@@ -188,15 +190,15 @@ class ExcelExporter:
 
             if len(dataframes) != len(sheets):
                 file_label: str = file_name if file_name is not None else export_key
-                raise ValueError(
+                msg = (
                     f"For file '{file_label}', the number of dataframes ({len(dataframes)}) and sheets "
                     f"({len(sheets)}) must match."
                 )
+                raise ValueError(msg)
 
             if include_data_dictionary and DATA_DICTIONARY_SHEET_NAME in sheets:
-                raise ValueError(
-                    f"Sheet name '{DATA_DICTIONARY_SHEET_NAME}' is reserved when include_data_dictionary=True."
-                )
+                msg = f"Sheet name '{DATA_DICTIONARY_SHEET_NAME}' is reserved when include_data_dictionary=True."
+                raise ValueError(msg)
 
             export_stem: str = self._resolve_export_stem(
                 datetime_string=datetime_string, export_key=export_key, file_name=file_name
@@ -264,7 +266,8 @@ class ExcelExporter:
                             logger.error(
                                 f"Duplicate column names in DataFrame for sheet '{sheet}'. Ensure all column names are unique.",
                             )
-                            raise ValueError(f"Duplicate column names found in sheet '{sheet}'.")
+                            msg = f"Duplicate column names found in sheet '{sheet}'."
+                            raise ValueError(msg)
 
                         df.to_excel(  # pyright: ignore[reportUnknownMemberType]
                             excel_writer=writer,
@@ -376,7 +379,7 @@ class ExcelExporter:
     ) -> None:
         """Export each DataFrame to a Parquet file sharing the Excel naming scheme."""
         export_targets: list[tuple[pd.DataFrame, str, Path]] = []
-        for df, sheet in zip(dataframes, sheets):
+        for df, sheet in zip(dataframes, sheets, strict=True):
             sanitized_sheet: str = self._sanitize_name(sheet)
             base_filename: str = f"{export_stem}_{sanitized_sheet}"
             parquet_filename: str = self._build_parquet_filename(base_filename, compression)
@@ -407,7 +410,7 @@ class ExcelExporter:
         """Export dataframes to Parquet and CSV files when Excel limits are exceeded."""
         export_targets: list[tuple[pd.DataFrame, str, Path, Path]] = []
 
-        for df, sheet in zip(dataframes, sheets):
+        for df, sheet in zip(dataframes, sheets, strict=True):
             sanitized_sheet: str = self._sanitize_name(sheet)
             base_filename: str = f"{export_stem}_{sanitized_sheet}"
 
@@ -431,7 +434,7 @@ class ExcelExporter:
                 compression=compression,
             )
 
-        for df, sheet, _, csv_path in export_targets:
+        for df, _sheet, _, csv_path in export_targets:
             df.to_csv(path_or_buf=csv_path, index=False)
             logger.info(f"Exported CSV to {csv_path}")
 
@@ -571,10 +574,12 @@ class ExcelExporter:
 
             try:
                 col_idx = df.columns.get_loc(col_name)
-                assert isinstance(col_idx, int), (
-                    f"Expected integer column index for '{col_name}' in sheet '{sheet_name}', "
-                    f"but got {type(col_idx).__name__}"
-                )
+                if not isinstance(col_idx, int):
+                    msg = (
+                        f"Expected integer column index for '{col_name}' in sheet '{sheet_name}', "
+                        f"but got {type(col_idx).__name__}"
+                    )
+                    raise TypeError(msg)
                 col_letter: str = get_column_letter(col_idx + 1)
                 worksheet.column_dimensions[col_letter].width = width
                 logger.debug(

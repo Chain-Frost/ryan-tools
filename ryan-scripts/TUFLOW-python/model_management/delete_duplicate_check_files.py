@@ -163,9 +163,9 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
     records: list[FileRecord] = []
 
     for check_folder in check_folders:
-        check_folder = absolute_path(check_folder)
+        resolved_check_folder = absolute_path(check_folder)
 
-        for path in sorted(check_folder.rglob("*"), key=lambda p: str(p).lower()):
+        for path in sorted(resolved_check_folder.rglob("*"), key=lambda p: str(p).lower()):
             if not path.is_file():
                 continue
 
@@ -174,7 +174,7 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
 
             records.append(
                 FileRecord(
-                    check_folder=check_folder,
+                    check_folder=resolved_check_folder,
                     path=absolute_path(path),
                     suffix=path.suffix.lower(),
                     size_bytes=path.stat().st_size,

@@ -78,7 +78,8 @@ if not any(getattr(finder, "compatibility_package", None) == __name__ for finder
 def __getattr__(name: str) -> ModuleType:
     """Load a requested compatibility submodule on first attribute access."""
     if name not in __all__:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+        msg = f"module {__name__!r} has no attribute {name!r}"
+        raise AttributeError(msg)
 
     module: ModuleType = importlib.import_module(name=f"{_TARGET_PREFIX}{name}")
     globals()[name] = module

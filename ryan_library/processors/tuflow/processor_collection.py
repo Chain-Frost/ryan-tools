@@ -208,7 +208,7 @@ class ProcessorCollection:
 
         merged_df: DataFrame = df.merge(right=self.basic_info_lookup, on=id_column, how="left")
         if drop_id and id_column in merged_df.columns:
-            merged_df.drop(columns=[id_column], inplace=True)
+            merged_df = merged_df.drop(columns=[id_column])
         return merged_df
 
     def discard_raw_dataframes(self) -> int:
@@ -354,7 +354,7 @@ class ProcessorCollection:
         # Check for existing columns and drop them
         existing_columns_to_drop: list[str] = [col for col in columns_to_drop if col in combined_df.columns]
         if existing_columns_to_drop:
-            combined_df.drop(columns=existing_columns_to_drop, inplace=True)
+            combined_df = combined_df.drop(columns=existing_columns_to_drop)
             logger.debug("Dropped columns {} from DataFrame.", existing_columns_to_drop)
 
         if reset_categoricals:
@@ -733,8 +733,8 @@ class ProcessorCollection:
             column for column in ["internalName", "Location", "Type", "Time"] if column in combined_df.columns
         ]
         if sort_columns:
-            combined_df.sort_values(by=sort_columns, inplace=True)
-            combined_df.reset_index(drop=True, inplace=True)
+            combined_df = combined_df.sort_values(by=sort_columns)
+            combined_df = combined_df.reset_index(drop=True)
 
         return combined_df
 
@@ -778,7 +778,10 @@ class ProcessorCollection:
         # User requested blosc:zstd level 9
         # complib type hint in pandas can be strict, but 'blosc:zstd' is valid at runtime.
         with HDFStore(
-            str(file_path), mode="w", complevel=9, complib="blosc:zstd"  # pyright: ignore[reportArgumentType]
+            str(file_path),
+            mode="w",
+            complevel=9,
+            complib="blosc:zstd",  # pyright: ignore[reportArgumentType]
         ) as store:
             for idx, proc in enumerate(self.processors):
                 # We need a unique key for each processor df
@@ -821,18 +824,18 @@ class ProcessorCollection:
         """
         file_path = Path(file_path)
         if not file_path.exists():
-            raise FileNotFoundError(f"HDF5 file not found: {file_path}")
+            msg = f"HDF5 file not found: {file_path}"
+            raise FileNotFoundError(msg)
 
         collection = ProcessorCollection()
 
         with HDFStore(str(file_path), mode="r") as store:
             if "metadata" not in store:
-                raise KeyError("HDF5 file missing 'metadata' key.")
+                msg = "HDF5 file missing 'metadata' key."
+                raise KeyError(msg)
 
             meta_df = store.get("metadata")
-            metadata: list[dict[str, Any]] = json.loads(
-                meta_df.iloc[0]["json"]
-            )  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+            metadata: list[dict[str, Any]] = json.loads(meta_df.iloc[0]["json"])  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
 
             for item in metadata:
                 file_path_str = item["file_path"]
@@ -851,7 +854,8 @@ class ProcessorCollection:
                     if hdf_key in store:
                         stored_frame = store.get(hdf_key)
                         if not isinstance(stored_frame, DataFrame):
-                            raise TypeError(f"HDF5 key {hdf_key!r} did not contain a DataFrame.")
+                            msg = f"HDF5 key {hdf_key!r} did not contain a DataFrame."
+                            raise TypeError(msg)
                         proc.df = stored_frame
                         proc.processed = True
                     else:
