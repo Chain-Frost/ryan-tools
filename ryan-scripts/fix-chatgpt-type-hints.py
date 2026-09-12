@@ -15,13 +15,13 @@ from pathlib import Path
 
 def fix_type_hints(file_path: Path) -> None:
     """Fix type hints in the Python file and log changes."""
-    with open(file=file_path, encoding="utf-8") as file:
+    with file_path.open(encoding="utf-8") as file:
         lines: list[str] = file.readlines()
 
     modified = False
     found_bad_imports = False
 
-    with open(file=file_path, mode="w", encoding="utf-8") as file:
+    with file_path.open(mode="w", encoding="utf-8") as file:
         for line_number, line in enumerate(lines, start=1):
             # Check for bad imports
             if "from typing import" in line:
@@ -69,8 +69,6 @@ def process_folders(folder_paths: list[Path]) -> None:
 if __name__ == "__main__":
     # List of relative folder paths
     folder_paths: list[Path] = [
-        # Path(r".\ryan_library"),
-        # Path(r".\ryan-scripts"),
         Path(r".\ryan_library"),
         Path(r".\ryan-scripts"),
         Path(r"..\ryan_library"),

@@ -9,17 +9,19 @@ This changes filenames in place and has no dry-run mode. Work on a backed-up
 folder first and review the configured filename length limits.
 """
 
+# pyright: reportMissingTypeStubs=false, reportUnknownMemberType=false, reportUnknownVariableType=false
+
 import hashlib
-import os
 import re
 import sys
 from _hashlib import HASH
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any
+from pathlib import Path
+from typing import Any, cast
 
-import extract_msg
+import extract_msg  # pyright: ignore[reportMissingImports]
 from loguru import logger
 from tabulate import tabulate
 
@@ -36,7 +38,7 @@ def sanitize_filename(s: str) -> str:
     return sanitized
 
 
-def compute_file_hash(file_path: str, hash_algo: str = "sha256") -> str | None:
+def compute_file_hash(file_path: Path, hash_algo: str = "sha256") -> str | None:
     """Compute the hash of a file's contents.
 
     Args:
@@ -48,17 +50,17 @@ def compute_file_hash(file_path: str, hash_algo: str = "sha256") -> str | None:
     """
     try:
         hash_func: HASH = hashlib.new(hash_algo)
-        with open(file=file_path, mode="rb") as f:
+        with file_path.open(mode="rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_func.update(chunk)
         return hash_func.hexdigest()
-    except Exception as e:
-        logger.error(f"Error computing hash for {file_path}: {e}")
+    except (OSError, ValueError) as error:
+        logger.error("Error computing hash for {}: {}", file_path, error)
         return None
 
 
 @contextmanager
-def open_msg(file_path: str) -> Generator[extract_msg.Message, Any]:
+def open_msg(file_path: Path) -> Generator[Any]:
     """Context manager to open and close a .msg file.
 
     Args:
@@ -67,14 +69,14 @@ def open_msg(file_path: str) -> Generator[extract_msg.Message, Any]:
     Yields:
         An extract_msg.Message object.
     """
-    msg = extract_msg.Message(file_path)
+    msg = extract_msg.Message(str(file_path))
     try:
         yield msg
     finally:
         msg.close()
 
 
-def get_email_properties(file_path: str) -> tuple[str, str, str]:
+def get_email_properties(file_path: Path) -> tuple[str, str, str]:
     """Extract SentOn, Sender, and Subject from a .msg file.
 
     Args:
@@ -86,9 +88,9 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
     """
     try:
         with open_msg(file_path) as msg:
-            msg_sender: str = msg.sender or "UnknownSender"
-            msg_date: datetime = msg.date or "1970-01-01 00:00:00"
-            msg_subject: str = msg.subject or "NoSubject"
+            msg_sender = cast("str | None", msg.sender) or "UnknownSender"
+            msg_date = cast("datetime | str | None", msg.date) or "1970-01-01 00:00:00"
+            msg_subject = cast("str | None", msg.subject) or "NoSubject"
 
             # Determine if msg_date is a string or datetime object
             if isinstance(msg_date, str):
@@ -97,7 +99,7 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
                     # Common format: "2024-12-20 10:15:00"
                     parsed_date = datetime.strptime(msg_date[:19], "%Y-%m-%d %H:%M:%S")
                 except ValueError:
-                    logger.warning(f"Unrecognized date format in {file_path}: '{msg_date}'")
+                    logger.warning("Unrecognized date format in {}: '{}'", file_path, msg_date)
                     iso_date = "UnknownDate"
                 else:
                     iso_date = parsed_date.strftime("%Y-%m-%d_%H-%M-%S")
@@ -109,7 +111,7 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
                 iso_date = msg_date.strftime("%Y-%m-%d_%H-%M-%S")
                 logger.debug("msg.date is a datetime object: {}", iso_date)
             else:
-                logger.warning(f"Unsupported date type in {file_path}: {type(msg_date)}")
+                logger.warning("Unsupported date type in {}: {}", file_path, type(msg_date))
                 iso_date = "UnknownDate"
 
             # Sanitize sender and subject to make them filename-safe
@@ -117,8 +119,8 @@ def get_email_properties(file_path: str) -> tuple[str, str, str]:
             sanitized_subject = sanitize_filename(msg_subject)[:MAX_SUBJECT_LENGTH]
 
             return iso_date, sanitized_sender, sanitized_subject
-    except Exception as e:
-        logger.error(f"Error extracting properties from {file_path}: {e}")
+    except Exception as error:
+        logger.error("Error extracting properties from {}: {}", file_path, error)
         return "UnknownDate", "UnknownSender", "NoSubject"
 
 
@@ -153,14 +155,15 @@ def limit_filename_length(new_filename: str) -> str:
     return new_filename[:MAX_FILENAME_LENGTH]
 
 
-def rename_msg_files(directory: str) -> None:
+def rename_msg_files(directory: str | Path) -> None:
     """Rename all .msg files in the specified directory based on email properties.
 
     Args:
         directory: Path to the directory containing .msg files.
     """
-    if not os.path.isdir(directory):
-        logger.error(f"The specified path does not exist: {directory}")
+    target_directory = Path(directory)
+    if not target_directory.is_dir():
+        logger.error("The specified path does not exist: {}", target_directory)
         sys.exit(1)
 
     # Dictionary to track hashes and detect identical files
@@ -173,9 +176,9 @@ def rename_msg_files(directory: str) -> None:
     summary: list[dict[str, str]] = []
 
     # Iterate over all .msg files in the directory
-    for filename in os.listdir(directory):
-        if filename.lower().endswith(".msg"):
-            original_path = os.path.join(directory, filename)
+    for original_path in target_directory.iterdir():
+        if original_path.is_file() and original_path.suffix.lower() == ".msg":
+            filename = original_path.name
 
             # Compute file hash
             file_hash = compute_file_hash(file_path=original_path)
@@ -191,7 +194,7 @@ def rename_msg_files(directory: str) -> None:
 
             # Check for identical files
             if file_hash in hash_dict:
-                logger.warning(f"'{filename}' is identical to '{hash_dict[file_hash]}'. Skipping renaming.")
+                logger.warning("'{}' is identical to '{}'. Skipping renaming.", filename, hash_dict[file_hash])
                 summary.append(
                     {
                         "Original Filename": filename,
@@ -205,7 +208,7 @@ def rename_msg_files(directory: str) -> None:
             # Extract email properties
             sent_on, sender, subject = get_email_properties(original_path)
             if sent_on == "UnknownDate" and sender == "UnknownSender" and subject == "NoSubject":
-                logger.warning(f"Skipping file due to missing properties: {filename}")
+                logger.warning("Skipping file due to missing properties: {}", filename)
                 summary.append(
                     {
                         "Original Filename": filename,
@@ -218,31 +221,31 @@ def rename_msg_files(directory: str) -> None:
             # Construct the new filename
             base_new_name: str = f"{sent_on}_{sender}_{subject}"
             new_name: str = f"{base_new_name}.msg"
-            new_path: str = os.path.join(directory, new_name)
+            new_path = target_directory / new_name
 
             # Handle duplicate filenames by appending a numerical suffix
             if new_name in filename_counts:
                 filename_counts[new_name] += 1
                 new_name = f"{base_new_name}({filename_counts[new_name]}).msg"
-                new_path = os.path.join(directory, new_name)
+                new_path = target_directory / new_name
             else:
                 filename_counts[new_name] = 1
 
             # If the new filename already exists, append a number to make it unique
             counter = 1
-            while os.path.exists(new_path):
+            while new_path.exists():
                 new_name = f"{base_new_name}({counter}).msg"
-                new_path = os.path.join(directory, new_name)
+                new_path = target_directory / new_name
                 counter += 1
 
             # Limit the filename length to prevent exceeding Windows' max path length
             new_name = limit_filename_length(new_name)
-            new_path = os.path.join(directory, new_name)
+            new_path = target_directory / new_name
 
             # Perform the renaming
             try:
-                os.rename(original_path, new_path)
-                logger.success(f"Renamed: '{filename}' --> '{new_name}'")
+                original_path.rename(new_path)
+                logger.success("Renamed: '{}' --> '{}'", filename, new_name)
                 summary.append(
                     {
                         "Original Filename": filename,
@@ -250,13 +253,13 @@ def rename_msg_files(directory: str) -> None:
                         "Status": "Renamed",
                     }
                 )
-            except Exception as e:
-                logger.error(f"Error renaming '{filename}' to '{new_name}': {e}")
+            except OSError as error:
+                logger.error("Error renaming '{}' to '{}': {}", filename, new_name, error)
                 summary.append(
                     {
                         "Original Filename": filename,
                         "New Filename": new_name,
-                        "Status": f"Renaming Error: {e}",
+                        "Status": f"Renaming Error: {error}",
                     }
                 )
 

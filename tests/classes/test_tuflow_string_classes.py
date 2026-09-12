@@ -1,16 +1,26 @@
 import json
 from pathlib import Path
+from typing import TypedDict, cast
 
 import pytest
 
-# import sys
-# REPO_ROOT = Path(__file__).resolve().parents[2]
-# if str(REPO_ROOT) not in sys.path:
-#     sys.path.insert(0, str(REPO_ROOT))
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.classes.tuflow_string_classes import RunCodeComponent, TuflowStringParser
 
 DATA_DIR: Path = Path(__file__).absolute().parent.parent / "test_data" / "tuflow"
+
+
+class ExpectedRunCode(TypedDict):
+    run_code_parts: dict[str, str]
+    aep: str | None
+    duration: str | None
+    tp: str | None
+    trim_run_code: str
+
+
+class RunCodeExample(TypedDict):
+    file_name: str
+    expected: ExpectedRunCode
 
 
 def locate_file(name: str) -> Path:
@@ -21,9 +31,9 @@ def locate_file(name: str) -> Path:
 
 
 @pytest.fixture(scope="module")
-def run_code_examples() -> list[dict]:
-    with open(DATA_DIR / "pomm_run_codes.json", encoding="utf-8") as f:
-        return json.load(f)
+def run_code_examples() -> list[RunCodeExample]:
+    with (DATA_DIR / "pomm_run_codes.json").open(encoding="utf-8") as f:
+        return cast("list[RunCodeExample]", json.load(f))
 
 
 @pytest.fixture(scope="module")
@@ -36,10 +46,10 @@ def test_suffix_loading(suffixes: dict[str, str]) -> None:
     assert "_POMM.csv" in suffixes, "Missing expected key in suffixes."
 
 
-def test_file_name_parsing(run_code_examples: list[dict]) -> None:
+def test_file_name_parsing(run_code_examples: list[RunCodeExample]) -> None:
     for test_case in run_code_examples:
         file_name: str = test_case["file_name"]
-        expected: dict = test_case["expected"]
+        expected = test_case["expected"]
 
         parser = TuflowStringParser(file_path=locate_file(file_name))
 

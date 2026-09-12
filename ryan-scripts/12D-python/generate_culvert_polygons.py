@@ -27,7 +27,7 @@ from ryan_library.functions.loguru_helpers import (
 from ryan_library.functions.process_12D_culverts import get_combined_df_from_csv
 
 """In progress, it works but not properly polished.
-Need to adjust the placement, and also make some more of 
+Need to adjust the placement, and also make some more of
 it a library for use in TUFLOW element generation"""
 
 # Configure logging

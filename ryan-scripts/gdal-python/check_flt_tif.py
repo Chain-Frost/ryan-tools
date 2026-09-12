@@ -47,13 +47,17 @@ def check_files_in_directory(args: tuple[Path, str, str]) -> list[str]:
     directory, primary_ext, secondary_ext = args
     missing_or_older_files: list[str] = []
 
-    primary_files: set[str] = {f for f in os.listdir(directory) if f.lower().endswith(primary_ext.lower())}
+    primary_files: set[str] = {
+        path.name for path in directory.iterdir() if path.name.lower().endswith(primary_ext.lower())
+    }
     secondary_files: dict[str, str] = {
-        f.lower(): f for f in os.listdir(directory) if f.lower().endswith(secondary_ext.lower())
+        path.name.lower(): path.name
+        for path in directory.iterdir()
+        if path.name.lower().endswith(secondary_ext.lower())
     }
 
     for primary_file in primary_files:
-        secondary_file: str = os.path.splitext(primary_file)[0] + secondary_ext
+        secondary_file: str = Path(primary_file).stem + secondary_ext
 
         primary_path: Path = directory / primary_file
         matching_secondary: str | None = secondary_files.get(secondary_file.lower())
@@ -91,9 +95,7 @@ def main(*, input_directories: PathOrList | None = None) -> int:
     # Collect all top-level directories to distribute among processes
     top_level_directories: list[Path] = []
     for target_directory in targets:
-        top_level_directories.extend(
-            [target_directory / name for name in os.listdir(target_directory) if (target_directory / name).is_dir()]
-        )
+        top_level_directories.extend(path for path in target_directory.iterdir() if path.is_dir())
 
     logger.info("Collected {} top-level directories.", len(top_level_directories))
 
@@ -120,7 +122,7 @@ def main(*, input_directories: PathOrList | None = None) -> int:
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        with open(file=output_file, mode="w") as file:
+        with output_file.open(mode="w") as file:
             file.writelines(f"{item}\n" for item in all_missing_files)
         logger.success("Output written to {} with {} entries.", output_file.name, len(all_missing_files))
     except OSError:

@@ -89,7 +89,12 @@ def clip_vector(
         return True
 
     try:
-        result = subprocess.run(command, check=False, text=True, capture_output=True)
+        try:
+            result = subprocess.run(command, check=False, text=True, capture_output=True)
+        except OSError as error:
+            logger.error("Could not execute ogr2ogr for {}: {}", input_path, error)
+            return False
+
         if result.returncode != 0:
             logger.error(
                 "ogr2ogr failed for {} with {} using code {}: {}",
@@ -102,10 +107,7 @@ def clip_vector(
         _promote_dataset(temporary_path, output_path, overwrite=overwrite)
         logger.success("Created {}", output_path)
         return True
-    except OSError as error:
-        logger.error("Could not execute ogr2ogr for {}: {}", input_path, error)
-        return False
-    except Exception:
+    except OSError, RuntimeError:
         logger.exception("Could not finalise clipped output {}", output_path)
         return False
     finally:

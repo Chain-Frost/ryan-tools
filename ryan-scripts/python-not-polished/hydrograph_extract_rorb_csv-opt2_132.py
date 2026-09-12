@@ -10,7 +10,8 @@ waits for Enter. Treat it as an example: validate filename parsing, selected
 columns, and plot labels before adapting it to another dataset.
 """
 
-import os
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+
 import re
 import sys
 from datetime import datetime
@@ -22,11 +23,11 @@ import pandas as pd
 
 # --- User Configuration ---
 # Specify the hydrograph to process. Set to None to trigger dynamic selection.
-selected_hydrograph = None  # Example: "Calculated hydrograph: Outlet"
+selected_hydrograph: str | None = None  # Example: "Calculated hydrograph: Outlet"
 # --- End of User Configuration ---
 
 
-def extract_metadata_from_filename(file_name):
+def extract_metadata_from_filename(file_name: str) -> tuple[str | None, str | None, str | None, str | None]:
     """Extract Crossing Name, AEP, Duration, and TP from the filename.
     Expected filename patterns:
       - Opt2_132Crossing_01_ aep1_du12hourtp2.csv
@@ -65,7 +66,17 @@ def extract_metadata_from_filename(file_name):
     return None, None, None, None
 
 
-def import_data(script_directory, selected_combinations, selected_hydrograph):
+def _aep_sort_key(aep: str) -> int:
+    """Return the numeric portion of an AEP code for legend ordering."""
+    match = re.search(r"\d+", aep)
+    return int(match.group()) if match is not None else 0
+
+
+def import_data(
+    script_directory: Path,
+    selected_combinations: list[tuple[str, str]],
+    selected_hydrograph: str | None,
+) -> tuple[pd.DataFrame, dict[str, str], str]:
     """Import and aggregate hydrograph data from CSV files.
 
     Parameters:
@@ -82,31 +93,32 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
     # ``aep10_du12hourtp1`` inside the file name. The ``\b`` word boundary means
     # ``aep10_du12hourtp1_extra.csv`` still matches but ``aep100`` would not be accepted for ``aep10``.
     # Example: a file named ``hydrograph_aep10_du12hourtp1.csv`` will match the pattern built from ("aep10", "tp1").
-    regex_patterns = {
+    regex_patterns: dict[tuple[str, str], re.Pattern[str]] = {
         (aep, tp): re.compile(rf"{re.escape(aep)}_du12hour{re.escape(tp)}\b", re.IGNORECASE)
         for aep, tp in selected_combinations
     }
 
     # Initialize a list to store all hydrograph data
-    combined_data = []
+    combined_data: list[pd.DataFrame] = []
 
     # Initialize a set to collect unique AEPs for mapping
-    unique_aep_set = set()
+    unique_aep_set: set[str] = set()
 
     # Initialize a set to collect unique crossing names
-    unique_crossing_set = set()
+    unique_crossing_set: set[str] = set()
 
     # Iterate through all files in the directory
-    for file_name in os.listdir(script_directory):
+    for candidate in script_directory.iterdir():
+        file_name: str = candidate.name
         # Process only .csv files
-        if not file_name.lower().endswith(".csv"):
+        if not candidate.is_file() or candidate.suffix.lower() != ".csv":
             continue  # Skip non-CSV files
 
         # Check if the file matches any of the selected combinations using regex
         if not any(pattern.search(file_name) for pattern in regex_patterns.values()):
             continue  # Skip files that do not match any pattern
 
-        file_path = os.path.join(script_directory, file_name)
+        file_path: Path = candidate
         print(f"Processing file: {file_name}")
 
         try:
@@ -175,13 +187,13 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
         hydrograph_data = hydrograph_data.rename(columns={"Time (hrs)": "Time"})
 
         # Extract metadata from filename
-        crossing_name, aep, duration, tp = extract_metadata_from_filename(file_name)
-        if not all([crossing_name, aep, duration, tp]):
+        raw_crossing_name, raw_aep, raw_duration, raw_tp = extract_metadata_from_filename(file_name)
+        if not all([raw_crossing_name, raw_aep, raw_duration, raw_tp]):
             print(f"Warning: Unable to extract metadata from {file_name}. Setting as 'Unknown'.")
-            crossing_name = crossing_name or "Unknown"
-            aep = aep or "Unknown_AEP"
-            duration = duration or "Unknown_Duration"
-            tp = tp or "Unknown_TP"
+        crossing_name = raw_crossing_name or "Unknown"
+        aep = raw_aep or "Unknown_AEP"
+        duration = raw_duration or "Unknown_Duration"
+        tp = raw_tp or "Unknown_TP"
 
         # Add metadata columns
         hydrograph_data["AEP"] = aep
@@ -206,7 +218,7 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
         sys.exit(0)
 
     # Create AEP Mapping (e.g., "aep10" -> "10% AEP")
-    aep_mapping = {}
+    aep_mapping: dict[str, str] = {}
     for aep in unique_aep_set:
         # ``r"aep(\d+)"`` looks for the digits immediately following ``aep``.
         # Example: ``aep20`` -> ``20`` which is then displayed as ``20% AEP``.
@@ -226,7 +238,12 @@ def import_data(script_directory, selected_combinations, selected_hydrograph):
     return combined_df, aep_mapping, crossing_name_final
 
 
-def create_plot(combined_df, aep_mapping, crossing_name, script_directory):
+def create_plot(
+    combined_df: pd.DataFrame,
+    aep_mapping: dict[str, str],
+    crossing_name: str,
+    script_directory: Path,
+) -> None:
     """Create and save a hydrograph plot based on the combined DataFrame.
 
     Parameters:
@@ -243,7 +260,7 @@ def create_plot(combined_df, aep_mapping, crossing_name, script_directory):
             aep_mapping.keys(),
             # ``r"\d+"`` finds the first number in labels such as ``aep10`` so they can be sorted numerically.
             # Example: ``aep2`` (2) comes before ``aep10`` (10) even though ``2`` is a shorter string.
-            key=lambda x: int(re.search(r"\d+", x).group()) if re.search(r"\d+", x) else 0,
+            key=_aep_sort_key,
         )
 
         for aep in sorted_aeps:
@@ -279,7 +296,7 @@ def create_plot(combined_df, aep_mapping, crossing_name, script_directory):
         plt.title("Hydrograph Flow vs Time", fontsize=16)
         plt.legend(fontsize=12)  # Removed legend title
         plt.grid(True)
-        plt.xlim([10, 50])  # Set x-axis bounds
+        plt.xlim((10, 50))  # Set x-axis bounds
         plt.ylim(bottom=0)  # Set y-axis to start from 0
 
         # Enhance x-axis ticks if necessary
@@ -291,7 +308,7 @@ def create_plot(combined_df, aep_mapping, crossing_name, script_directory):
         # Save the plot to a PNG file
         current_time = datetime.now().strftime("%Y%m%d_%H%M")
         plot_file_name = f"hydrograph_plot_{crossing_name}_{current_time}.png"
-        plot_file_path = os.path.join(script_directory, plot_file_name)
+        plot_file_path = script_directory / plot_file_name
         plt.savefig(plot_file_path, dpi=300)
         plt.close()
 
@@ -301,12 +318,12 @@ def create_plot(combined_df, aep_mapping, crossing_name, script_directory):
         sys.exit(1)
 
 
-def main():
+def main() -> None:
     # Get the directory where the script is located
     script_directory = Path(__file__).absolute().parent
 
     # Define specific combinations of AEP and TP to process
-    selected_combinations = [
+    selected_combinations: list[tuple[str, str]] = [
         ("aep50", "tp10"),
         ("aep20", "tp1"),
         ("aep10", "tp1"),
@@ -325,7 +342,7 @@ def main():
 
         # Define the output file name
         output_file_name = f"hydrograph_{crossing_name}_{current_time}.xlsx"
-        output_file_path = os.path.join(script_directory, output_file_name)
+        output_file_path = script_directory / output_file_name
 
         # Save to Excel with a single sheet
         combined_df.to_excel(output_file_path, index=False, sheet_name="Hydrograph Data")

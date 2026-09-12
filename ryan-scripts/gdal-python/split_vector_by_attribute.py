@@ -28,7 +28,7 @@ from ryan_library.functions.gdal.vector_conversion import (
     translate_vector_dataset,
 )
 from ryan_library.functions.path_stuff import sanitize_windows_filename, to_single_path
-from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
+from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
 
 
 def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -99,6 +99,10 @@ def process_single_value(
 
 
 def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> int:
+    target_directory = (working_directory or Path.cwd()).resolve()
+    if not change_working_directory(target_dir=target_directory):
+        return 1
+
     input_path = to_single_path(args.input if args.input is not None else DEFAULT_INPUT)
     out_dir = to_single_path(args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR)
     attribute = args.attribute if args.attribute is not None else DEFAULT_ATTRIBUTE

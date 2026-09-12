@@ -61,7 +61,7 @@ def main(*, input_directories: PathOrList | None = None) -> int:
     all_files.sort(key=lambda f: (f.suffix.lower(), f.stem.lower()))
 
     try:
-        with open(file=output_file, mode="w", encoding="utf-8") as f_out:
+        with output_file.open(mode="w", encoding="utf-8") as f_out:
             f_out.writelines(f"{file_path}\n" for file_path in all_files)
         logger.success("Wrote {} file paths to {}", len(all_files), output_file.name)
     except OSError:

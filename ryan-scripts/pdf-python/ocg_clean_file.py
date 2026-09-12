@@ -13,16 +13,16 @@ Usage:
 
 from __future__ import annotations
 
-import os
 import re
 import sys
+from pathlib import Path
 from typing import Any, Protocol, cast
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, ContentStream, NameObject
 
-DEFAULT_INPUT_PDF = r"C:\temp\file.pdf"
-DEFAULT_OUTPUT_PDF = None
+DEFAULT_INPUT_PDF = Path(r"C:\temp\file.pdf")
+DEFAULT_OUTPUT_PDF: Path | None = None
 DEFAULT_DECRYPT_PASSWORD = ""
 
 
@@ -266,9 +266,8 @@ def _strip_content(
     return content_stream, removed_blocks, do_removed, remove_props
 
 
-def _default_output_path(input_path: str) -> str:
-    root, ext = os.path.splitext(input_path)
-    return f"{root}_cleaned{ext or '.pdf'}"
+def _default_output_path(input_path: Path) -> Path:
+    return input_path.with_name(f"{input_path.stem}_cleaned{input_path.suffix or '.pdf'}")
 
 
 def _strip_js_from_action(action: Any) -> bool:
@@ -445,8 +444,8 @@ def _remove_doc_level_js(writer: PdfWriter) -> bool:
 
 def main() -> int:
     if len(sys.argv) > 1:
-        pdf_path = sys.argv[1]
-        output_path = sys.argv[2] if len(sys.argv) > 2 else _default_output_path(pdf_path)
+        pdf_path = Path(sys.argv[1])
+        output_path = Path(sys.argv[2]) if len(sys.argv) > 2 else _default_output_path(pdf_path)
     else:
         pdf_path = DEFAULT_INPUT_PDF
         output_path = DEFAULT_OUTPUT_PDF or _default_output_path(pdf_path)
@@ -455,7 +454,7 @@ def main() -> int:
         msg = "Set DEFAULT_INPUT_PDF or pass a PDF path on the command line."
         raise ValueError(msg)
 
-    reader = PdfReader(pdf_path)
+    reader = PdfReader(str(pdf_path))
     writer = PdfWriter()
 
     total_ocg_blocks = 0
@@ -541,7 +540,7 @@ def main() -> int:
     writer.clone_document_from_reader(reader, after_page_append=process_page_with_progress)
     doc_js_removed = _remove_doc_level_js(writer)
 
-    with open(output_path, "wb") as handle:
+    with output_path.open("wb") as handle:
         writer.write(handle)
 
     if page_notes:

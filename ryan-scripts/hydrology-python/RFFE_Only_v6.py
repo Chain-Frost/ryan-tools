@@ -137,12 +137,12 @@ class Catchment:
         """
         start_idx: int = html.find(f"{var_name} =")
         if start_idx < 0:
-            logger.warning(f"'{var_name}' not found")
+            logger.warning("'{}' not found", var_name)
             return []
         # find the opening '['
         start: int = html.find("[", start_idx)
         if start < 0:
-            logger.warning(f"No '[' for '{var_name}'")
+            logger.warning("No '[' for '{}'", var_name)
             return []
         # bracket counting
         depth = 0
@@ -155,7 +155,7 @@ class Catchment:
                     raw: str = html[start : i + 1]
                     break
         else:
-            logger.error(f"No matching ']' for '{var_name}'")
+            logger.error("No matching ']' for '{}'", var_name)
             return []
 
         cleaned: str = re.sub(pattern=_TRAILING_COMMA_RE, repl=r"\1", string=raw)
@@ -164,8 +164,8 @@ class Catchment:
         except json.JSONDecodeError:
             try:
                 return ast.literal_eval(node_or_string=raw)
-            except Exception as ex:
-                logger.error(f"Failed to parse JS '{var_name}': {ex}")
+            except (SyntaxError, ValueError) as ex:
+                logger.error("Failed to parse JS '{}': {}", var_name, ex)
                 return []
 
     def parse(self, html: str) -> tuple[DataFrame, DataFrame]:
@@ -174,7 +174,7 @@ class Catchment:
         all_r: Sequence[Record] = self._extract_js_array(html=html, var_name="allCatchmentResults")
         df_r = pd.DataFrame(data=results)
         df_a = pd.DataFrame(data=all_r)
-        logger.info(f"[{self.name}] Parsed {len(df_r)} results, {len(df_a)} allCatchmentResults")
+        logger.info("[{}] Parsed {} results, {} allCatchmentResults", self.name, len(df_r), len(df_a))
         return df_r, df_a
 
     def fetch(self, session: requests.Session) -> requests.Response | None:
@@ -183,14 +183,14 @@ class Catchment:
             resp: requests.Response = session.post(url=RFFE_URL, data=self.payload(), timeout=REQUEST_TIMEOUT)
             resp.raise_for_status()
         except requests.RequestException as ex:
-            logger.error(f"[{self.name}] HTTP error: {ex}")
+            logger.error("[{}] HTTP error: {}", self.name, ex)
             return None
 
         text: str = resp.text
         if "<script>" in text and "results =" in text:
             return resp
 
-        logger.warning(f"[{self.name}] Unexpected response format")
+        logger.warning("[{}] Unexpected response format", self.name)
         return None
 
     def save_raw_html(self, html: str, folder: Path) -> None:
@@ -199,7 +199,7 @@ class Catchment:
             path.write_text(data=html, encoding="utf-8")
             logger.debug("[{}] Saved raw HTML to {}", self.name, path.name)
         except OSError as ex:
-            logger.error(f"[{self.name}] Could not save HTML: {ex}")
+            logger.error("[{}] Could not save HTML: {}", self.name, ex)
 
     def process(self, session: requests.Session, out_dir: Path) -> tuple[DataFrame, DataFrame, str | None]:
         resp: requests.Response | None = self.fetch(session)
@@ -221,9 +221,9 @@ class Catchment:
 def save_df(df: DataFrame, path: Path) -> None:
     try:
         df.to_csv(path_or_buf=path, index=False)
-        logger.info(f"Wrote {path.name} ({len(df)} rows)")
+        logger.info("Wrote {} ({} rows)", path.name, len(df))
     except OSError as ex:
-        logger.error(f"Failed to write {path.name}: {ex}")
+        logger.error("Failed to write {}: {}", path.name, ex)
 
 
 # ─── Main Entrypoint ─────────────────────────────────────────────────────────
@@ -245,17 +245,17 @@ def main() -> int:
     out: Path = (args.output_dir or DEFAULT_OUTPUT_DIR).resolve()
     csv_fp: Path = inp / INPUT_FILE_NAME
 
-    logger.info(f"Input dir:  {inp}")
-    logger.info(f"Output dir: {out}")
+    logger.info("Input dir:  {}", inp)
+    logger.info("Output dir: {}", out)
 
     if not csv_fp.exists():
-        logger.critical(f"Missing input file: {csv_fp}")
+        logger.critical("Missing input file: {}", csv_fp)
         return 1
 
     try:
         df_in: DataFrame = pd.read_csv(filepath_or_buffer=csv_fp)  # type: ignore
-    except Exception as ex:
-        logger.critical(f"Cannot read CSV: {ex}")
+    except (OSError, UnicodeError, ValueError) as ex:
+        logger.critical("Cannot read CSV: {}", ex)
         return 1
 
     out.mkdir(parents=True, exist_ok=True)
@@ -270,11 +270,11 @@ def main() -> int:
 
     with requests.Session() as sess:
         for idx, ct in enumerate(iterable=catchments, start=1):
-            logger.info(f"[{idx}/{len(catchments)}] Processing '{ct.name}'")
+            logger.info("[{}/{}] Processing '{}'", idx, len(catchments), ct.name)
             df_r, df_a, err = ct.process(session=sess, out_dir=out)
             if err:
                 fails.append({"Catchment": ct.name, "Error": err})
-                logger.warning(f"❌ {ct.name}: {err}")
+                logger.warning("❌ {}: {}", ct.name, err)
                 continue
             if not df_r.empty:
                 all_res.append(df_r)
@@ -290,7 +290,7 @@ def main() -> int:
         )
     if fails:
         save_df(df=pd.DataFrame(data=fails), path=out / "failed_catchments.csv")
-        logger.error(f"Completed with {len(fails)} failure(s).")
+        logger.error("Completed with {} failure(s).", len(fails))
         return 1
 
     logger.info("All catchments processed successfully.")

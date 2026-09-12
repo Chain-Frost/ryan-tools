@@ -10,17 +10,17 @@ normalized rainfall table. Check the configured row range against the RORB file
 format and validate the first and final increments before TUFLOW use.
 """
 
-import os
 import re
 from collections.abc import Sequence
+from pathlib import Path
 
 import pandas as pd
 from pandas import DataFrame
 
 HEADER_LINE_COUNT = 3
 TIME_INCREMENT_PATTERN: re.Pattern[str] = re.compile(r"Time increment \(hours\)\s*=\s*([0-9.+-Ee]+)")
-SCRIPT_DIRECTORY: str = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_OUTPUT_DIRECTORY: str | None = SCRIPT_DIRECTORY + r"\rainfall"  # Override to save CSVs somewhere else.
+SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+DEFAULT_OUTPUT_DIRECTORY: str | Path | None = SCRIPT_DIRECTORY / "rainfall"  # Override to save CSVs somewhere else.
 
 
 def parse_time_increment(lines: Sequence[str]) -> float:
@@ -167,7 +167,7 @@ def _append_zero_rainfall_row(df: DataFrame, increment_column: str, time_increme
 
 
 def fix_and_extract(
-    file_path: str,
+    file_path: Path,
     start_row: int,
     end_row: int,
     header_line_count: int = HEADER_LINE_COUNT,
@@ -188,7 +188,7 @@ def fix_and_extract(
     tuple (DataFrame, first_row, last_row)
         The rainfall data plus the actual first/last line numbers captured.
     """
-    with open(file=file_path, encoding="utf-8", errors="ignore") as raw_file:
+    with file_path.open(encoding="utf-8", errors="ignore") as raw_file:
         lines: list[str] = raw_file.readlines()
 
     time_increment: float = parse_time_increment(lines=lines)
@@ -222,11 +222,11 @@ def fix_and_extract(
 
 
 def process_out_files(
-    directory: str,
+    directory: str | Path,
     start_row: int,
     end_row: int,
     header_line_count: int = HEADER_LINE_COUNT,
-    output_directory: str | None = None,
+    output_directory: str | Path | None = None,
 ) -> None:
     """Iterate every .out file in *directory* and export rainfall CSVs.
 
@@ -237,15 +237,15 @@ def process_out_files(
     output_directory:
         Optional destination for CSVs. Defaults to the folder containing this script.
     """
-    output_directory = output_directory or SCRIPT_DIRECTORY
-    os.makedirs(output_directory, exist_ok=True)
+    input_directory = Path(directory)
+    destination = Path(output_directory) if output_directory is not None else SCRIPT_DIRECTORY
+    destination.mkdir(parents=True, exist_ok=True)
 
-    for file_name in os.listdir(directory):
-        lower_name = file_name.lower()
-        if not lower_name.endswith(".out") or lower_name.endswith("_batch.out"):
+    for file_path in input_directory.iterdir():
+        lower_name = file_path.name.lower()
+        if not file_path.is_file() or not lower_name.endswith(".out") or lower_name.endswith("_batch.out"):
             continue
 
-        file_path: str = os.path.join(directory, file_name)
         try:
             print(f"Processing file: {file_path}")
             extracted_df, first_row, last_row = fix_and_extract(
@@ -254,8 +254,8 @@ def process_out_files(
                 end_row=end_row,
                 header_line_count=header_line_count,
             )
-            output_csv_path: str = os.path.join(output_directory, f"{os.path.splitext(file_name)[0]}_Rainfall.csv")
-            with open(output_csv_path, "w", newline="") as csv_file:
+            output_csv_path = destination / f"{file_path.stem}_Rainfall.csv"
+            with output_csv_path.open("w", newline="") as csv_file:
                 csv_file.write(f"Source File:,{file_path}\n")
                 csv_file.write(f"Rows Extracted:,{first_row}-{last_row}\n")
                 extracted_df.to_csv(path_or_buf=csv_file, index=False)

@@ -113,16 +113,26 @@ def process_coordinate(coord: str, coord_type: str) -> float:
         elif coord_type == "long" and value < 0:
             value = -value
         return value
-    except Exception as e:
+    except (TypeError, ValueError) as e:
         print(f"Error processing {coord_type} '{coord}': {e}")
         return float("nan")
 
 
-def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFrame:
+def process_latitude(coord: object) -> float:
+    """Normalize a latitude value supplied by pandas."""
+    return process_coordinate(str(coord), "lat")
+
+
+def process_longitude(coord: object) -> float:
+    """Normalize a longitude value supplied by pandas."""
+    return process_coordinate(str(coord), "long")
+
+
+def extract_data_from_csv(file_path: Path, lookup_df: pd.DataFrame) -> pd.DataFrame:
     print(f"Starting extraction for file: {file_path}")
     try:
         # Read the file into a list of lines
-        with open(file_path, encoding="utf-8") as f:
+        with file_path.open(encoding="utf-8") as f:
             lines: list[str] = f.readlines()
         print(f"File read successfully. Total lines: {len(lines)}")
 
@@ -185,12 +195,12 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
         print(f"Data reshaped successfully. Long DataFrame shape: {long_df.shape}")
 
         # Process grid_lat and grid_long
-        long_df["grid_lat"] = long_df["grid_lat"].apply(lambda x: process_coordinate(x, "lat"))
-        long_df["grid_long"] = long_df["grid_long"].apply(lambda x: process_coordinate(x, "long"))
+        long_df["grid_lat"] = long_df["grid_lat"].apply(process_latitude)
+        long_df["grid_long"] = long_df["grid_long"].apply(process_longitude)
 
         # Process req_lat and req_long
-        long_df["req_lat"] = long_df["req_lat"].apply(lambda x: process_coordinate(x, "lat"))
-        long_df["req_long"] = long_df["req_long"].apply(lambda x: process_coordinate(x, "long"))
+        long_df["req_lat"] = long_df["req_lat"].apply(process_latitude)
+        long_df["req_long"] = long_df["req_long"].apply(process_longitude)
 
         # Convert 'Duration in min' to integer
         long_df["Duration in min"] = pd.to_numeric(long_df["Duration in min"], errors="coerce").astype("Int64")
@@ -244,14 +254,13 @@ def extract_data_from_csv(file_path: str, lookup_df: pd.DataFrame) -> pd.DataFra
         return pd.DataFrame()
 
 
-def find_and_process_files(script_dir: str, lookup_df: pd.DataFrame) -> pd.DataFrame:
+def find_and_process_files(script_dir: Path, lookup_df: pd.DataFrame) -> pd.DataFrame:
     print(f"Scanning directory: {script_dir}")
-    all_files: list[str] = os.listdir(script_dir)
-    csv_files: list[str] = [f for f in all_files if f.lower().endswith(".csv")]
+    csv_files = [path.name for path in script_dir.iterdir() if path.is_file() and path.suffix.lower() == ".csv"]
     print(f"Found {len(csv_files)} CSV files.")
 
     # Group files by patterns
-    locations = {}
+    locations: dict[str, dict[str, str]] = {}
     for file in csv_files:
         if "_ifds" in file:
             location = file.split("_ifds")[0]
@@ -268,13 +277,13 @@ def find_and_process_files(script_dir: str, lookup_df: pd.DataFrame) -> pd.DataF
     print(f"Identified {len(locations)} unique locations.")
 
     # Create an empty list to store all DataFrame entries
-    data_frames = []
+    data_frames: list[pd.DataFrame] = []
 
     # Process each file for each location
     for location, files in locations.items():
         print(f"\nProcessing files for location: {location}")
         for file_type, file_name in files.items():
-            file_path = os.path.join(script_dir, file_name)
+            file_path = script_dir / file_name
             print(f"  Processing file type '{file_type}': {file_name}")
             location_data = extract_data_from_csv(file_path, lookup_df)
             if not location_data.empty:
@@ -307,7 +316,7 @@ def main() -> None:
 
     if not all_data_long.empty:
         # Step 2: Export the complete long data to CSV
-        all_data_csv_path: str = os.path.join(script_dir, "all_location_data_with_AEP_lookup.csv")
+        all_data_csv_path = script_dir / "all_location_data_with_AEP_lookup.csv"
         all_data_long.to_csv(all_data_csv_path, index=False)
         print(f"Step 2: Exported all location data (long format) with AEP lookup to '{all_data_csv_path}'.")
     else:

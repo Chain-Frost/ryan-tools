@@ -1,6 +1,8 @@
 import json
 import sys
+from collections.abc import Hashable
 from pathlib import Path
+from typing import Any
 
 # Add project root to sys.path
 project_root: Path = Path(__file__).parent.parent
@@ -15,7 +17,7 @@ from ryan_library.functions.parse_tlf import (
 from ryan_library.functions.path_stuff import convert_to_relative_path
 
 
-def parse_tlf_file(logfile_path: Path) -> dict:
+def parse_tlf_file(logfile_path: Path) -> dict[Hashable, Any]:
     """Parses a single TLF file and returns the result as a dictionary."""
     sim_complete = 0
     success = 0
@@ -84,11 +86,11 @@ def parse_tlf_file(logfile_path: Path) -> dict:
     return {}
 
 
-def main():
+def main() -> None:
     base_dir = Path(__file__).parent / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "log"
     snapshot_path = Path(__file__).parent / "test_data" / "tlf_regression_snapshot.json"
 
-    results = {}
+    results: dict[str, dict[Hashable, Any]] = {}
 
     tlf_files = sorted(
         [f for f in base_dir.glob("*.tlf") if not f.name.endswith(".hpc.tlf") and not f.name.endswith(".gpu.tlf")]
@@ -106,7 +108,7 @@ def main():
 
     print(f"Generated snapshot for {len(results)} files.")
 
-    with open(snapshot_path, "w", encoding="utf-8") as f:
+    with snapshot_path.open("w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, sort_keys=True)
 
     print(f"Snapshot saved to {snapshot_path}")

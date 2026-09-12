@@ -14,6 +14,7 @@ extend-exclude = [
 select = [
     # Core correctness and Python errors.
     "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
     "F",      # Pyflakes
     "B",      # flake8-bugbear
     "PLE",    # Pylint errors
@@ -24,16 +25,21 @@ select = [
     "UP",     # pyupgrade
     "FURB",   # refurb
     "FLY",    # flynt-style string improvements
+    "SLOT",   # avoid per-instance dictionaries on immutable built-in subclasses
 
     # Imports.
     "I",      # isort
     "ICN",    # import conventions
-    "TID",    # tidy imports
+    "INP",    # prevent accidental implicit namespace packages
 
     # Code quality and maintainability.
     "A",      # built-in shadowing
+    "ARG",    # unused arguments
+    "BLE",    # broad exception handling
     "C4",     # comprehensions
+    "C90",    # McCabe complexity
     "EM",     # exception-message style
+    "ERA",    # commented-out code
     "ISC",    # implicit string concatenation
     "N",      # naming conventions
     "PERF",   # performance
@@ -42,6 +48,7 @@ select = [
     "RET",    # return-statement improvements
     "RSE",    # raise-statement improvements
     "SIM",    # simplification
+    "SLF",    # private-member access boundaries
     "TRY",    # exception-handling practices
 
     # Logging.
@@ -53,6 +60,7 @@ select = [
 
     # Filesystem and general hygiene.
     "EXE",    # executable/shebang checks
+    "PTH",    # pathlib usage
     "T10",    # debugger statements
     "YTT",    # sys.version checks
 
@@ -76,7 +84,6 @@ ignore = [
     "SIM108", # expanded branches are preferred when they make workflow choices clearer
     "SIM117", # nested context managers can make mocked resources and cleanup lifetimes clearer
     "SIM112", # Windows environment variable names use their documented mixed-case spelling
-    "TID252", # relative imports are preferred within packages where practical
     "TRY300", # straight-line success paths are clearer than extra try/else nesting
     "TRY301", # local validation raises do not warrant one-use helper functions
     "TRY004", # configuration validation consistently exposes ValueError for invalid values and shapes
@@ -103,17 +110,88 @@ ignore = [
 "tests/**/*.py" = [
     "A",      # test doubles may need signatures that mirror APIs using built-in-like names
     "E402",   # tests may import after monkeypatching modules or environment state
+    "INP001", # tests are collected by pytest and do not need to be importable packages
     "N",      # mock classes and compatibility API names intentionally retain source naming
     "S101",   # assert is expected in pytest tests.
     "S108",   # tests use literal fake paths without creating shared temporary files
+    "SLF001", # tests may inspect or patch private state to verify behaviour
 ]
 "ryan-scripts/**/*.py" = [
     "E402",   # scripts may configure application environments before dependent imports
+    "INP001", # human-facing scripts are entry points rather than importable packages
     "LOG015", # standalone stdlib-logging scripts intentionally configure and use the root logger
     "N",      # legacy filenames and engineering variable names are user-facing script contracts
 ]
+"ryan-scripts/gdal-python/audit_CRS.py" = [
+    "BLE001", # each independent datasource audit becomes a report row so one unreadable file cannot stop the batch
+]
+"ryan-scripts/gdal-python/batch_vector_clip.py" = [
+    "BLE001", # the executable wrapper boundary logs unexpected worker or validation failures and returns nonzero
+]
+"ryan-scripts/gdal-python/build_VRT.py" = [
+    "BLE001", # maintained wrapper converts unexpected grouped-mosaic failures into a nonzero process result
+]
+"ryan-scripts/gdal-python/convert_gdb_to_gpkg.py" = [
+    "BLE001", # maintained wrapper converts unexpected GDAL export failures into a nonzero process result
+]
+"ryan-scripts/gdal-python/gdal_flood_extent.py" = [
+    "BLE001", # wrapper boundary reports backend failures after the orchestrator closes its logging context
+]
+"ryan-scripts/gdal-python/gdal_merge.py" = [
+    "BLE001", # maintained wrapper converts unexpected raster merge failures into a nonzero process result
+]
+"ryan-scripts/gdal-python/gdal_merge_by_extent.py" = [
+    "BLE001", # maintained wrapper converts unexpected GDAL selection or merge failures into a nonzero process result
+]
+"ryan-scripts/gdal-python/gdal_raster_footprint.py" = [
+    "BLE001", # maintained wrapper converts unexpected raster or vector backend failures into a nonzero process result
+]
+"ryan-scripts/gdal-python/gdal_raster_to_xyz.py" = [
+    "BLE001", # maintained wrapper converts unexpected raster conversion failures into a nonzero process result
+]
+"ryan-scripts/gdal-python/gdal_retile_wrapper.py" = [
+    "BLE001", # executable wrapper boundary logs unexpected worker or validation failures and returns nonzero
+]
+"ryan-scripts/gdal-python/gdal_set_nodata.py" = [
+    "BLE001", # maintained wrapper converts unexpected raster backend failures into a nonzero process result
+]
+"ryan-scripts/gdal-python/gdal_stage_storage.py" = [
+    "BLE001", # each DEM is isolated across raster, numeric, CSV, and plotting backends; the wrapper also fails closed
+    "C901",   # validation, per-DEM output planning, calculation, and partial-failure reporting form one batch workflow
+]
+"ryan-scripts/gdal-python/gdal_translate_TIF_ovr.py" = [
+    "BLE001", # maintained wrapper converts unexpected raster conversion failures into a nonzero process result
+]
+"ryan-scripts/gdal-python/gdal_unset_nodata.py" = [
+    "BLE001", # each raster is an isolation boundary so one GDAL failure does not stop the batch
+    "C901",   # mixed file and directory discovery, deduplication, processing, and summary form one small batch workflow
+]
+"ryan-scripts/gdal-python/gdal_vector_translate.py" = [
+    "BLE001", # wrapper reports any GDAL driver, translation, publication, or filesystem failure as a nonzero result
+]
+"ryan-scripts/gdal-python/gdaladdo_tif_pyramids.py" = [
+    "BLE001", # maintained wrapper converts unexpected overview-generation failures into a nonzero process result
+]
+"ryan-scripts/gdal-python/gdalwarp_clip_to_polygon.py" = [
+    "BLE001", # datasource inspection and each transactional raster clip fail independently across GDAL backends
+    "C901",   # validation, datasource selection, per-directory discovery, and batch reporting remain one workflow
+]
+"ryan-scripts/gdal-python/laz_to_las.py" = [
+    "BLE001", # maintained wrapper converts unexpected point-cloud backend failures into a nonzero process result
+]
+"ryan-scripts/gdal-python/split_vector_by_attribute.py" = [
+    "BLE001", # GDAL inspection and per-value translation are isolation boundaries; the wrapper also fails closed
+    "C901",   # argument resolution, layer validation, job dispatch, and partial-failure reporting form one workflow
+]
+"ryan-scripts/gdal-python/vacuum_geopackages.py" = [
+    "C901",   # directory discovery, per-database accounting, and partial-failure reporting form one compact workflow
+]
 "examples/**/*.py" = [
     "E402",   # examples may establish an application environment before imports
+    "INP001", # examples are executable documentation rather than importable packages
+]
+"repo-scripts/**/*.py" = [
+    "INP001", # repository maintenance commands are standalone scripts rather than an importable package
 ]
 "ryan_library/scripts/**/*.py" = [
     "E402",   # compatibility wrappers must emit deprecation warnings before forwarding imports
@@ -220,6 +298,7 @@ ignore = [
 ]
 "ryan_library/functions/loguru_helpers.py" = [
     "BLE001", # logging transport failures must fall back to stderr without crashing listeners or workers
+    "SLF001", # the context manager coordinates its own process-wide active-instance class state
 ]
 "ryan_library/functions/parse_tlf.py" = [
     "BLE001", # file and parser boundaries return empty or partial records so one damaged log does not stop a batch
@@ -291,6 +370,7 @@ ignore = [
 ]
 "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py" = [
     "BLE001", # standalone workflow boundary logs unexpected library and document-export failures
+    "SLF001", # standalone exporter uses established private plotting and document-library integration points
 ]
 "ryan-scripts/unsorted-python/plot_water_level_profiles.py" = [
     "BLE001", # standalone workflow boundary logs unexpected GIS and plotting failures
@@ -342,6 +422,175 @@ ignore = [
     "BLE001", # each thread reports its own raster or output failure so other TIFF files can complete
     "ERA001", # commented None working-directory value documents the editable local-directory alternative
 ]
+"ryan-scripts/hydrology-python/combine_ifds_v2.py" = [
+    "BLE001", # each input CSV is an isolation boundary across parsing, pandas conversion, and schema failures
+]
+"ryan-scripts/hydrology-python/RFFE_Only_v6.py" = [
+    "ERA001", # commented input directory documents the editable project-directory alternative
+]
+"ryan-scripts/hydrology-python/ARF-calcs.py" = [
+    "BLE001", # legacy public calculation helpers warn and return None for invalid or incompatible numeric inputs
+    "C901", # the explicit ARR duration and area regions mirror the piecewise calculation definition
+    "ERA001", # commented parameter print is a local diagnostic example for this calculation aid
+]
+"ryan-scripts/RORB-python/extract_rainfall-to-TUFLOW.py" = [
+    "BLE001", # each RORB output is an isolation boundary across parsing, tabulation, and CSV writing
+]
+"ryan-scripts/RORB-python/plot_ensemble_results.py" = [
+    "BLE001", # maintained wrapper converts unexpected orchestration failures into a nonzero process result
+]
+"ryan-scripts/RORB-python/rorb-peaks_v2.py" = [
+    "BLE001", # legacy import-time batch skips unreadable files; deeper restructuring is required before narrowing
+    "PTH123", # keep the isolated legacy read unchanged until the import-time workflow is made type-checkable
+]
+"ryan-scripts/RORB-python/hydrograph_extract_rorb_csv.py" = [
+    "BLE001", # per-file import and top-level plotting or workbook boundaries report backend failures to the user
+    "C901", # filename selection and hydrograph validation remain one explicit interactive import workflow
+]
+"ryan-scripts/python-not-polished/hydrograph_extract_rorb_csv-opt2_132.py" = [
+    "BLE001", # experimental per-file import and top-level plot or workbook boundaries report backend failures
+    "C901", # selection and hydrograph validation remain explicit in this project-specific example
+]
+"repo-scripts/generate_regression_snapshot.py" = [
+    "C901", # the one-shot golden-data generator keeps collection, aggregation, and export decisions visible together
+]
+"repo-scripts/benchmarks/benchmark_dataframe_backends.py" = [
+    "BLE001", # optional backends and individual input frames must not invalidate the remaining benchmark results
+    "C901", # CLI validation, backend selection, data setup, repeated timing, and summary form one benchmark driver
+    "PTH207", # CLI glob patterns may be absolute, which Path.glob does not support consistently
+]
+"repo-scripts/benchmarks/benchmark_file_collection.py" = [
+    "BLE001", # installed and local import failures are isolated so the other comparison mode can still run
+]
+"tests/generate_tlf_snapshot.py" = [
+    "BLE001", # snapshot generation reports each parser failure while continuing with the remaining fixtures
+]
+"tests/regression/test_eg02_regression.py" = [
+    "C901", # module fixture mirrors production aggregation branches before comparing every golden data type
+]
+"tests/test_logging_regression.py" = [
+    "BLE001", # direct-execution harness converts any test failure into a nonzero process result
+]
+"tests/scripts/tuflow/test_pomm_combine.py" = [
+    "ARG003", # tz is retained for datetime.now keyword compatibility in the patched clock
+]
+"tests/scripts/test_run_tuflow_simulations.py" = [
+    "ARG001", # tmp_path is retained as part of the shared simulation-test fixture signature
+]
+"tests/scripts/test_wrappers.py" = [
+    "ERA001", # disabled styling wrapper fixture documents a wrapper that is intentionally not imported in this suite
+]
+"tests/scripts/tuflow/test_tuflow_logsummary.py" = [
+    "ERA001", # commented expression documents the incomplete status represented by the mocked tuple
+]
+"tests/orchestrators/gdal/test_raster_maintenance_coverage.py" = [
+    "ARG005", # mock side effects retain the production callback signatures while returning only the output path
+]
+"tests/orchestrators/gdal/test_raster_merge.py" = [
+    "ERA001", # tuple comment documents the positional extent convention used by the assertions
+]
+"tests/orchestrators/gdal/test_raster_workflows_coverage.py" = [
+    "ARG001", # patched collaborators and failure callbacks retain the signatures exercised by each workflow branch
+]
+"tests/orchestrators/tuflow/test_orchestrator_tlf_missing_runs.py" = [
+    "ARG001", # patched CSV writers must stay injected even where only the selected reader and output path are asserted
+]
+"tests/orchestrators/tuflow/test_orchestrator_tuflow_logsummary.py" = [
+    "ERA001", # expression comment documents the mocked non-success status value
+]
+"tests/processors/tuflow/module11_logging_harness.py" = [
+    "ARG001", # level is retained for parity between the serial and threaded harness entry points
+]
+"tests/processors/tuflow/maximums_1d/test_cmx_processor.py" = [
+    "ARG002", # stacked patch arguments preserve the processor pipeline order even when an early stage aborts
+]
+"tests/processors/tuflow/maximums_1d/test_nmx_processor.py" = [
+    "ARG002", # stacked patch arguments preserve the processor pipeline order across success and failure branches
+]
+"tests/processors/tuflow/other_processors/test_chan_processor.py" = [
+    "ARG002", # stacked patch arguments preserve the processor pipeline order across branch-specific assertions
+]
+"tests/processors/tuflow/other_processors/test_eof_processor.py" = [
+    "ARG002", # stacked patch arguments retain the complete processing pipeline signature
+]
+"tests/processors/tuflow/other_processors/test_po_processor_coverage.py" = [
+    "ARG002", # patched CSV reader remains injected while the tests replace the downstream parser directly
+]
+"tests/processors/tuflow/other_processors/test_pomm_processor.py" = [
+    "ERA001", # commented pandas operations explain how the synthetic raw POMM frame represents source layout
+]
+"tests/processors/tuflow/other_processors/test_rll_qmx_processor.py" = [
+    "ARG002", # stacked patch arguments preserve the processor pipeline order across branch-specific assertions
+]
+"tests/processors/tuflow/test_base_processor.py" = [
+    "ARG002", # autouse parser patches retain fixture setup even where a branch exits before parser assertions
+]
+"tests/processors/tuflow/test_processor_collection_persistence.py" = [
+    "ARG001", # storage callbacks and mock constructors retain the third-party call signatures under test
+    "ARG002", # mock processor constructor retains the production entity-filter signature
+]
+"tests/processors/tuflow/test_robustness.py" = [
+    "BLE001", # robustness sweep records every unexpected processor exception as data instead of aborting early
+]
+"tests/processors/tuflow/timeseries_1d/test_h_processor.py" = [
+    "ARG002", # header-check patch remains injected although the empty-data branch exits before using it
+]
+"tests/functions/RORB/test_read_rorb_files.py" = [
+    "ERA001", # parser trace comments document the positional mutation represented by the synthetic run line
+]
+"tests/functions/generate_expected_files.py" = [
+    "PTH123", # retain the legacy import-time fixture generator unchanged until it is converted to a callable tool
+]
+"tests/functions/test_dashboard_workflow.py" = [
+    "ARG001", # status and queue callbacks retain the production callable signatures exercised by the workflow
+    "ARG002", # queue adapter preserves Queue.put keyword compatibility
+]
+"tests/functions/test_data_processing.py" = [
+    "ERA001", # legacy direct-execution path notes remain pending a dedicated typing cleanup of this older test module
+]
+"tests/functions/test_file_utils.py" = [
+    "ERA001", # legacy direct-execution and optional assertion examples remain in this broad historical test module
+    "PTH123", # defer the isolated fixture read until the historical module's existing strict typing debt is addressed
+]
+"tests/functions/test_file_utils_errors.py" = [
+    "ARG002", # patched iterator remains injected while its configured side effect drives the permission-error branch
+]
+"tests/functions/test_lidar_processing.py" = [
+    "ARG001", # fixture injection configures the mocked laspy context used indirectly by the conversion call
+]
+"tests/functions/test_misc_functions.py" = [
+    "ERA001", # legacy direct-execution path notes remain pending dedicated cleanup of this older test module
+]
+"tests/functions/test_parse_tlf_real_world.py" = [
+    "ERA001", # disabled warning line documents the deliberately non-strict missing-snapshot behavior
+    "PTH123", # defer the fixture read until this real-world regression module receives a strict typing pass
+]
+"tests/functions/tuflow/test_asc_to_asc_runner.py" = [
+    "ARG001", # subprocess side effect accepts the production variadic call signature
+    "ERA001", # deletion-position comments label the cases immediately below them rather than disabled code
+]
+"tests/functions/tuflow/test_pomm_utils.py" = [
+    "ARG002", # class fixture remains part of the shared test setup although this case builds a specialized frame
+]
+"ryan-scripts/file-management-python/archive_compress_folder.py" = [
+    "BLE001", # each compression worker returns an error result so the remaining folders can continue
+    "C901", # target validation, worker dispatch, reporting, and cleanup form one cohesive batch CLI
+]
+"ryan-scripts/file-management-python/archive_compress_individual.py" = [
+    "BLE001", # each compression worker returns an error result so the remaining files can continue
+    "C901", # target validation, worker dispatch, reporting, and cleanup form one cohesive batch CLI
+]
+"ryan-scripts/file-management-python/archive_extract.py" = [
+    "BLE001", # each extraction worker cleans its temporary directory and returns a failure result to the batch
+    "C901", # archive discovery, worker dispatch, and result reporting form one cohesive batch CLI
+]
+"ryan-scripts/file-management-python/copy_folder.py" = [
+    "ERA001", # commented network, destination, and credential assignments document the editable settings syntax
+]
+"ryan-scripts/file-management-python/rename-msg-files-argparse-folder.py" = [
+    "BLE001", # extract_msg property parsing spans multiple binary and compression backends and returns safe defaults
+    "C901", # duplicate detection, metadata validation, collision handling, rename, and summary form one batch workflow
+]
 "ryan-scripts/tuflow/find_missing_tlf_runs.py" = [
     "BLE001", # maintained wrapper logs unexpected workflow failures and returns a nonzero process result
 ]
@@ -375,12 +624,24 @@ ignore = [
     "C901",   # path normalization, deduplication, and matching form one discovery contract
 ]
 "ryan-scripts/pdf-python/ocg_clean_file.py" = [
+    "BLE001", # malformed PDF object probing is best-effort and records or skips failures at each optional structure
+    "C901",   # PDF object-tree and content-stream walkers keep their ordered parser state explicit
     "S110",   # PDF object probing and cleanup deliberately skip unsupported optional structures
     "S112",
+    "SLF001", # pypdf exposes required object registration and catalog state through private integration points
 ]
 "ryan-scripts/pdf-python/ocg_clean_file_alternative.py" = [
+    "BLE001", # malformed PDF object probing is best-effort and records or skips failures at each optional structure
+    "C901",   # PDF object-tree and content-stream walkers keep their ordered parser state explicit
     "S110",   # alternate PDF cleanup deliberately skips unsupported optional structures
     "S112",
+    "SLF001", # pypdf exposes required object registration and catalog state through private integration points
+]
+"ryan-scripts/pdf-python/break_pdf_signatures.py" = [
+    "SLF001", # signature removal requires pypdf catalog access that has no equivalent public API
+]
+"ryan-scripts/pdf-python/remove_pdf_restrictions.py" = [
+    "ERA001", # commented input and output assignments document editable wrapper configuration syntax
 ]
 
 [format]

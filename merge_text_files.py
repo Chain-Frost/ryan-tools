@@ -23,7 +23,7 @@ def merge_text_files(
         print(f"Error: {folder_path} is not a valid directory.")
         return
 
-    with open(file=output_file_path, mode="w", encoding="utf-8") as output_file:
+    with output_file_path.open(mode="w", encoding="utf-8") as output_file:
         for file in folder.glob(pattern="*.py"):
             print(file)
             # Skip the output file if it exists in the same directory
@@ -34,7 +34,7 @@ def merge_text_files(
                 output_file.write(f"File: {file.name}\n")
 
             # Write file content
-            with open(file=file, encoding="utf-8") as f:
+            with file.open(encoding="utf-8") as f:
                 output_file.write(f.read())
 
             # Add separator
