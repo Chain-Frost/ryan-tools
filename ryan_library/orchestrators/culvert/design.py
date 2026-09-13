@@ -30,9 +30,11 @@ def design_crossing(
 ) -> DesignResult:
     """Test explicit candidates against all scenarios and rank feasible options by size."""
     if not candidates:
-        raise ValueError("candidates must contain at least one design candidate.")
+        msg = "candidates must contain at least one design candidate."
+        raise ValueError(msg)
     if not scenarios:
-        raise ValueError("scenarios must contain at least one scenario.")
+        msg = "scenarios must contain at least one scenario."
+        raise ValueError(msg)
 
     assessments: list[CandidateAssessment] = []
     for candidate in candidates:
