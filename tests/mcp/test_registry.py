@@ -73,8 +73,10 @@ def test_culvert_workflow_is_catalogued_with_headless_scenarios() -> None:
     assert workflow["script_relative_path"] == "ryan-scripts/culvert.py"
     assert {scenario["name"] for scenario in workflow["resolved_scenarios"]} == {
         "analyse_project",
+        "compare_project",
         "design_crossing",
         "rating_curve",
+        "render_saved_report",
         "solve_scenario",
     }
     assert all("--no-pause" in scenario["command"] for scenario in workflow["resolved_scenarios"])

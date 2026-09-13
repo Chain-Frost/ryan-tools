@@ -1,10 +1,27 @@
 """Typed workflow results retaining authoritative solver output."""
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from culvert_solver import CrossingHydraulicResult, HydraulicResultStatus, RatingCurveResult
 
 from .candidate import DesignCandidate
+
+
+class DesignFailureCode(StrEnum):
+    """Stable categories for rejected candidate evidence."""
+
+    CRITERION = "criterion"
+    SOLVER_FAILURE = "solver_failure"
+
+
+@dataclass(frozen=True, slots=True)
+class DesignFailure:
+    """One typed candidate failure associated with a scenario."""
+
+    code: DesignFailureCode
+    scenario_name: str
+    message: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -15,6 +32,10 @@ class ScenarioResult:
     scenario_name: str
     hydraulic_result: CrossingHydraulicResult
     alternative_name: str | None = None
+    aep_percent: float | None = None
+    source: str | None = None
+    notes: str = ""
+    target_headwater_elevation: float | None = None
 
     @property
     def maximum_outlet_velocity(self) -> float:
@@ -53,10 +74,14 @@ class CandidateAssessment:
     scenario_results: tuple[ScenarioResult, ...]
     passed: bool
     failure_reasons: tuple[str, ...] = ()
+    failures: tuple[DesignFailure, ...] = ()
 
     def __post_init__(self) -> None:
         if self.passed and self.failure_reasons:
             msg = "A passing candidate cannot contain failure reasons."
+            raise ValueError(msg)
+        if self.passed and self.failures:
+            msg = "A passing candidate cannot contain typed failures."
             raise ValueError(msg)
         if not self.passed and not self.failure_reasons:
             msg = "A rejected candidate must retain at least one failure reason."

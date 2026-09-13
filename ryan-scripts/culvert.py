@@ -1,11 +1,12 @@
 r"""Run maintained culvert solve, analyse, design, and rating workflows.
 
-The project file is JSON. Fixed tailwater elevations are supported by JSON configuration;
-Python callers can pass any public ``culvert_solver.TailwaterBoundary`` through ``Scenario``.
+The versioned project file may be JSON or TOML and supports fixed-elevation and
+Manning-channel tailwater definitions.
 
 Minimal project example::
 
     {
+      "schema_version": 1,
       "name": "Demo",
       "crossings": [{
         "name": "Crossing A",
@@ -15,18 +16,18 @@ Minimal project example::
           "barrel": {
             "shape": "circular",
             "diameter_mm": 1200,
-            "length": 40,
-            "inlet_invert": 10.0,
-            "outlet_invert": 9.5,
-            "roughness": 0.013,
+            "length_m": 40,
+            "inlet_invert_elevation_m": 10.0,
+            "outlet_invert_elevation_m": 9.5,
+            "roughness_manning_n": 0.013,
             "material": "concrete_pipe"
           }
         }]
       }],
       "scenarios": [{
         "name": "Design",
-        "discharge": 4.0,
-        "tailwater_elevation": 10.0
+        "discharge_m3s": 4.0,
+        "tailwater": {"type": "fixed", "elevation_m": 10.0}
       }]
     }
 
@@ -41,9 +42,12 @@ Examples::
 
 from __future__ import annotations
 
+import json
+from dataclasses import replace
 from pathlib import Path
+from typing import cast
 
-WRAPPER_VERSION = "2026-09-13.3"
+WRAPPER_VERSION = "2026-09-14.1"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
@@ -69,7 +73,8 @@ from ryan_library.functions.culvert.candidate_generation import (
     generate_circular_candidates,
     generate_rectangular_candidates,
 )
-from ryan_library.functions.culvert.config import load_project_json
+from ryan_library.functions.culvert.config import load_project
+from ryan_library.functions.culvert.event_import import load_event_csv
 from ryan_library.functions.culvert.export import (
     export_crossing_rating_csv,
     export_crossing_rating_json,
@@ -81,8 +86,13 @@ from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
 from ryan_library.orchestrators.culvert.analyse import analyse_project
 from ryan_library.orchestrators.culvert.design import design_crossing
+from ryan_library.orchestrators.culvert.events import materialize_event_scenarios
 from ryan_library.orchestrators.culvert.rating import generate_crossing_rating
-from ryan_library.orchestrators.culvert.report import render_design_markdown, render_scenario_markdown
+from ryan_library.orchestrators.culvert.report import (
+    render_design_markdown,
+    render_scenario_markdown,
+    render_scenario_records_markdown,
+)
 from ryan_library.orchestrators.culvert.solve import solve_crossing_scenario
 
 
@@ -112,6 +122,24 @@ def _write_scenario_outputs(results: Sequence[ScenarioResult], output_directory:
     (output_directory / "scenario_results.md").write_text(render_scenario_markdown(results), encoding="utf-8")
 
 
+def _render_saved_report(output_directory: Path) -> None:
+    source = output_directory / "scenario_results.json"
+    payload = cast(object, json.loads(source.read_text(encoding="utf-8")))
+    if not isinstance(payload, list):
+        msg = f"{source} must contain an array of scenario-result objects."
+        raise ValueError(msg)
+    records: list[dict[str, object]] = []
+    for item in cast("list[object]", payload):
+        if not isinstance(item, dict):
+            msg = f"{source} must contain only scenario-result objects."
+            raise ValueError(msg)
+        records.append(cast("dict[str, object]", item))
+    markdown = render_scenario_records_markdown(records)
+    target = output_directory / "scenario_results.md"
+    target.write_text(markdown, encoding="utf-8")
+    print(markdown)
+
+
 def _run_design(
     *,
     crossing: CrossingDefinition,
@@ -125,8 +153,22 @@ def _run_design(
     maximum_headwater_depth: float | None,
     maximum_outlet_velocity: float | None,
     maximum_roadway_discharge: float | None,
+    configured_criteria: DesignCriteria | None,
 ) -> None:
-    if all(
+    if maximum_headwater_elevation is None and configured_criteria is not None:
+        maximum_headwater_elevation = configured_criteria.maximum_headwater_elevation
+    if maximum_headwater_depth is None and configured_criteria is not None:
+        maximum_headwater_depth = configured_criteria.maximum_headwater_depth
+    if maximum_outlet_velocity is None and configured_criteria is not None:
+        maximum_outlet_velocity = configured_criteria.maximum_outlet_velocity
+    maximum_roadway_discharge = (
+        maximum_roadway_discharge
+        if maximum_roadway_discharge is not None
+        else None
+        if configured_criteria is None
+        else configured_criteria.maximum_roadway_discharge
+    )
+    if configured_criteria is None and all(
         limit is None
         for limit in (
             maximum_headwater_elevation,
@@ -166,8 +208,15 @@ def _run_design(
     criteria = DesignCriteria(
         maximum_headwater_elevation=maximum_headwater_elevation,
         maximum_headwater_depth=maximum_headwater_depth,
+        maximum_headwater_ratio=(None if configured_criteria is None else configured_criteria.maximum_headwater_ratio),
+        minimum_freeboard=None if configured_criteria is None else configured_criteria.minimum_freeboard,
         maximum_outlet_velocity=maximum_outlet_velocity,
         maximum_roadway_discharge=maximum_roadway_discharge,
+        maximum_barrel_count=(None if configured_criteria is None else configured_criteria.maximum_barrel_count),
+        maximum_total_structure_width=(
+            None if configured_criteria is None else configured_criteria.maximum_total_structure_width
+        ),
+        require_resolved_result=(True if configured_criteria is None else configured_criteria.require_resolved_result),
     )
     result = design_crossing(candidates, scenarios, criteria)
     output_directory.mkdir(parents=True, exist_ok=True)
@@ -217,6 +266,7 @@ def main(
     maximum_rating_discharge: float | None = None,
     rating_points: int | None = None,
     console_log_level: str | None = None,
+    event_file: Path | None = None,
 ) -> int:
     """Resolve wrapper settings and execute the requested shared culvert workflow."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
@@ -233,12 +283,27 @@ def main(
 
     with setup_logger(console_log_level=console_log_level or CONSOLE_LOG_LEVEL):
         try:
-            project = load_project_json(project_path)
+            if command == "report":
+                _render_saved_report(resolved_output)
+                logger.success("Culvert report completed; outputs: {}", resolved_output)
+                return 0
+            project = load_project(project_path)
             crossing: CrossingDefinition = _select_named(
                 project.crossings,
                 crossing_name,
                 get_name=lambda item: item.name,
             )
+            if event_file is not None:
+                event_path = event_file if event_file.is_absolute() else target_directory / event_file
+                events = load_event_csv(event_path)
+                project = replace(
+                    project,
+                    scenarios=materialize_event_scenarios(
+                        events,
+                        crossing,
+                        default_tailwater=project.scenarios[0].tailwater,
+                    ),
+                )
             scenario: Scenario = _select_named(
                 project.scenarios,
                 scenario_name,
@@ -249,7 +314,7 @@ def main(
                 results = (solve_crossing_scenario(crossing, scenario),)
                 _write_scenario_outputs(results, resolved_output)
                 print(render_scenario_markdown(results))
-            elif command == "analyse":
+            elif command in {"analyse", "compare"}:
                 results = analyse_project(project)
                 _write_scenario_outputs(results, resolved_output)
                 print(render_scenario_markdown(results))
@@ -266,6 +331,7 @@ def main(
                     maximum_headwater_depth=maximum_headwater_depth,
                     maximum_outlet_velocity=maximum_outlet_velocity,
                     maximum_roadway_discharge=maximum_roadway_discharge,
+                    configured_criteria=project.design_criteria,
                 )
             elif command == "rating":
                 _run_rating(
@@ -291,12 +357,17 @@ def _parse_cli_arguments() -> argparse.Namespace:
         description="Run culvert solve, analysis, design-search, or rating workflows using ryan-culverts hydraulics.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("command", choices=("solve", "analyse", "design", "rating"))
-    parser.add_argument("--project", type=Path, help="Project JSON; default: culvert_project.json.")
+    parser.add_argument("command", choices=("solve", "analyse", "compare", "design", "rating", "report"))
+    parser.add_argument("--project", type=Path, help="Versioned project JSON or TOML; default: culvert_project.json.")
     parser.add_argument("--directory", type=Path, help="Working directory; default: wrapper directory.")
     parser.add_argument("--output-directory", type=Path, help="Output directory; default: culvert_results.")
     parser.add_argument("--crossing", help="Named crossing; default: first project crossing.")
     parser.add_argument("--scenario", help="Named scenario; default: first project scenario.")
+    parser.add_argument(
+        "--events-csv",
+        type=Path,
+        help="Replace project scenarios with imported flow/headwater targets; no hydrology is performed.",
+    )
     parser.add_argument("--diameters-mm", type=float, nargs="+")
     parser.add_argument("--spans-mm", type=float, nargs="+")
     parser.add_argument("--rises-mm", type=float, nargs="+")
@@ -334,6 +405,7 @@ if __name__ == "__main__":
         maximum_rating_discharge=args.max_discharge,
         rating_points=args.points,
         console_log_level=args.console_log_level,
+        event_file=args.events_csv,
     )
     print_wrapper_banner(
         wrapper_file=Path(__file__),

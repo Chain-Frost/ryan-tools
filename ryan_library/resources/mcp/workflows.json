@@ -28,6 +28,10 @@
           "arguments": ["analyse", "--project", "{project_json}", "--no-pause"]
         },
         {
+          "name": "compare_project",
+          "arguments": ["compare", "--project", "{project_file}", "--no-pause"]
+        },
+        {
           "name": "solve_scenario",
           "arguments": ["solve", "--project", "{project_json}", "--no-pause"]
         },
@@ -45,6 +49,10 @@
         {
           "name": "rating_curve",
           "arguments": ["rating", "--project", "{project_json}", "--no-pause"]
+        },
+        {
+          "name": "render_saved_report",
+          "arguments": ["report", "--directory", "{project_directory}", "--no-pause"]
         }
       ]
     },

@@ -12,8 +12,16 @@ from .crossing import (
     RectangularBarrelDefinition,
     RoadwayDefinition,
 )
+from .event import EventDefinition
 from .project import CulvertProject
-from .results import CandidateAssessment, CrossingRatingResult, DesignResult, ScenarioResult
+from .results import (
+    CandidateAssessment,
+    CrossingRatingResult,
+    DesignFailure,
+    DesignFailureCode,
+    DesignResult,
+    ScenarioResult,
+)
 from .scenario import Scenario
 
 __all__: list[str] = [
@@ -28,7 +36,10 @@ __all__: list[str] = [
     "CulvertProject",
     "DesignCandidate",
     "DesignCriteria",
+    "DesignFailure",
+    "DesignFailureCode",
     "DesignResult",
+    "EventDefinition",
     "RectangularBarrelDefinition",
     "RoadwayDefinition",
     "Scenario",

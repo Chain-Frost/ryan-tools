@@ -87,8 +87,12 @@ def design_criteria_record(criteria: DesignCriteria) -> dict[str, object]:
     return {
         "maximum_headwater_elevation_m": criteria.maximum_headwater_elevation,
         "maximum_headwater_depth_m": criteria.maximum_headwater_depth,
+        "maximum_headwater_ratio": criteria.maximum_headwater_ratio,
+        "minimum_freeboard_m": criteria.minimum_freeboard,
         "maximum_outlet_velocity_ms": criteria.maximum_outlet_velocity,
         "maximum_roadway_discharge_m3s": criteria.maximum_roadway_discharge,
+        "maximum_barrel_count": criteria.maximum_barrel_count,
+        "maximum_total_structure_width_m": criteria.maximum_total_structure_width,
         "require_resolved_result": criteria.require_resolved_result,
     }
 
@@ -131,6 +135,10 @@ def scenario_result_record(result: ScenarioResult) -> dict[str, object]:
         "alternative": result.alternative_name,
         "crossing": result.crossing_name,
         "scenario": result.scenario_name,
+        "aep_percent": result.aep_percent,
+        "scenario_source": result.source,
+        "scenario_notes": result.notes,
+        "target_headwater_elevation_m": result.target_headwater_elevation,
         "discharge_m3s": hydraulic.total_discharge,
         "headwater_elevation_m": hydraulic.headwater_elevation,
         "tailwater_elevation_m": hydraulic.tailwater_elevation,
@@ -155,6 +163,14 @@ def candidate_assessment_record(assessment: CandidateAssessment) -> dict[str, ob
         "passed": assessment.passed,
         "worst_status": assessment.worst_status.value,
         "failure_reasons": list(assessment.failure_reasons),
+        "failures": [
+            {
+                "code": failure.code.value,
+                "scenario": failure.scenario_name,
+                "message": failure.message,
+            }
+            for failure in assessment.failures
+        ],
         "scenario_results": [scenario_result_record(result) for result in assessment.scenario_results],
     }
 
@@ -176,6 +192,10 @@ def export_scenario_results_csv(results: Iterable[ScenarioResult], path: Path) -
         "alternative",
         "crossing",
         "scenario",
+        "aep_percent",
+        "scenario_source",
+        "scenario_notes",
+        "target_headwater_elevation_m",
         "discharge_m3s",
         "headwater_elevation_m",
         "tailwater_elevation_m",

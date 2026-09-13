@@ -68,7 +68,10 @@ def test_rejected_candidate_retains_governing_reason() -> None:
     assessment = result.assessments[0]
     assert not assessment.passed
     assert assessment.failure_reasons
+    assert assessment.failures
+    assert assessment.failures[0].code.value == "criterion"
     assert "headwater elevation" in assessment.failure_reasons[0]
+    assert result.recommended is None
 
 
 def test_design_export_retains_criteria_and_candidate_definition(tmp_path: Path) -> None:
@@ -83,3 +86,48 @@ def test_design_export_retains_criteria_and_candidate_definition(tmp_path: Path)
     group = payload["assessments"][0]["crossing_definition"]["groups"][0]
     assert group["quantity"] == 2
     assert group["barrel"]["diameter_mm"] == 1200.0
+
+
+def test_design_applies_ratio_count_and_width_constraints() -> None:
+    candidates = generate_circular_candidates(
+        _template(),
+        diameters_mm=(1200.0,),
+        quantities=(2,),
+    )
+    criteria = DesignCriteria(
+        maximum_headwater_ratio=0.1,
+        maximum_barrel_count=1,
+        maximum_total_structure_width=2.0,
+    )
+
+    assessment = design_crossing(
+        candidates,
+        (Scenario(name="Design", discharge=2.0, tailwater=9.5),),
+        criteria,
+    ).assessments[0]
+
+    assert not assessment.passed
+    assert any("HW/D" in reason for reason in assessment.failure_reasons)
+    assert any("barrel count" in reason for reason in assessment.failure_reasons)
+    assert any("structure width" in reason for reason in assessment.failure_reasons)
+
+
+def test_design_requires_every_scenario_to_pass() -> None:
+    candidates = generate_circular_candidates(
+        _template(),
+        diameters_mm=(1200.0,),
+        quantities=(1,),
+    )
+
+    assessment = design_crossing(
+        candidates,
+        (
+            Scenario(name="Minor", discharge=0.5, tailwater=9.5),
+            Scenario(name="Major", discharge=5.0, tailwater=9.5),
+        ),
+        DesignCriteria(maximum_headwater_elevation=11.0),
+    ).assessments[0]
+
+    assert not assessment.passed
+    assert len(assessment.scenario_results) == 2
+    assert any(failure.scenario_name == "Major" for failure in assessment.failures)

@@ -7,13 +7,13 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [Culvert analysis/design workflow](2026-09-13-culvert-workflow-80.md) | Active | ChatGPT | 2026-09-13 | 2026-09-14 | Review the validated local diff and solver gitlink, then commit and push the accepted changes to draft PR #86. |
+| [Culvert analysis/design workflow](2026-09-13-culvert-workflow-80.md) | Active | ChatGPT | 2026-09-14 | 2026-09-15 | Review the validated combined #80–#85 diff, then commit and push it to draft PR #86; GUI work is deferred to #89. |
 | [Repository improvement backlog](../REPOSITORY_IMPROVEMENT_ROADMAP.md) | Planned | Unassigned | 2026-09-06 | 2026-09-20 | Select a bounded lifecycle review or script family and register its implementation record. |
 | [Scheduled compatibility removals](../COMPATIBILITY_POLICY.md) | Deferred | Unassigned | 2026-09-06 | 2027-01-04 | Support runs through 2026-12-31; then verify callers and select removals using the inventory. |
 
 Initial register created on 2026-09-06 from the roadmap review. These are known follow-ups, not an exhaustive audit or
-an instruction to start them all. The unsorted row records a need to reconcile existing evidence, not fresh validation
-of every migration. Existing staged code changes are not inferred to be separately authorized work fronts.
+an instruction to start them all. Existing staged code changes are not inferred to be separately authorized work
+fronts.
 
 ## Closed work
 

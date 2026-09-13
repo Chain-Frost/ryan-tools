@@ -6,6 +6,26 @@ from math import isfinite
 from culvert_solver import TailwaterBoundary, TailwaterInput
 
 
+def _validate_aep(value: float | None) -> float | None:
+    if value is None:
+        return None
+    result = float(value)
+    if not isfinite(result) or not 0.0 < result <= 100.0:
+        msg = "aep_percent must be greater than 0 and no greater than 100."
+        raise ValueError(msg)
+    return result
+
+
+def _validate_target(value: float | None) -> float | None:
+    if value is None:
+        return None
+    result = float(value)
+    if not isfinite(result):
+        msg = "target_headwater_elevation must be finite when supplied."
+        raise ValueError(msg)
+    return result
+
+
 @dataclass(frozen=True, slots=True)
 class Scenario:
     """One design flow and downstream boundary condition."""
@@ -13,6 +33,10 @@ class Scenario:
     name: str
     discharge: float
     tailwater: TailwaterInput
+    aep_percent: float | None = None
+    source: str | None = None
+    notes: str = ""
+    target_headwater_elevation: float | None = None
 
     def __post_init__(self) -> None:
         name = self.name.strip()
@@ -36,3 +60,12 @@ class Scenario:
             raise ValueError(msg)
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "discharge", discharge)
+        object.__setattr__(self, "aep_percent", _validate_aep(self.aep_percent))
+        source = None if self.source is None else self.source.strip()
+        object.__setattr__(self, "source", source or None)
+        object.__setattr__(self, "notes", self.notes.strip())
+        object.__setattr__(
+            self,
+            "target_headwater_elevation",
+            _validate_target(self.target_headwater_elevation),
+        )
