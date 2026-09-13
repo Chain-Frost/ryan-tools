@@ -53,7 +53,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Legacy GDAL | [Legacy GDAL batch files](../ryan-scripts/gdal-bat/README.md) | Mapping retained BAT entry points to maintained Python replacements |
 | Examples | [Examples index](../examples/README.md) | Choosing direct library examples instead of wrappers |
 | TUFLOW examples | [TUFLOW API examples](../examples/tuflow/README.md) | Filename parsing, processors, batch loading, PO checks and POMM summaries |
-| DataFrame examples | [DataFrame and export examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
+| DataFrame examples | [DataFrame export examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
 | Rock-protection lookup data | [Outlet rock-protection data](../ryan_library/functions/data/README.md) | Source, interpretation and limits of the bundled multi-pipe lookup tables |
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Source algorithm, usage and licence for the vendored similarity-transform implementation |
@@ -88,6 +88,8 @@ but they are not current architectural policy when they conflict with the canoni
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
 | [Floodway design and reporting workflow](work/2026-09-13-floodway-design-87.md) | Active issue #87 research and delivery record; implementation waits for a post-#86 refresh from `main` |
 | [Floodway design research baseline](audits/2026-09-13-floodway-design-research.md) | Dated source review, candidate methods, applicability questions, validation targets and research backlog for issue #87 |
+| [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Research calculation specification for the MRWA legacy procedure, A-F demand model, HEC-23 DG5, event envelopes and applicability handling |
+| [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Published and independently recomputed MRWA/HEC-23 regression targets for future implementation tests |
 | [Transactional package build and verification](work/2026-09-13-transactional-packaging.md) | Completed no-bump, verified and failure-safe wheel workflow implementation |
 | [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |
 | [Compatibility policy and inventory](COMPATIBILITY_POLICY.md) | Compatibility namespaces, migration state and deprecation checklist |
@@ -107,7 +109,7 @@ but they are not current architectural policy when they conflict with the canoni
 ## Where new Markdown belongs
 
 - Put repository-wide architecture, environments, logging, setup or cross-cutting maintenance guidance under `docs/`.
-- Put script-, processor-, example- or tool-specific guidance beside the files it describes. Do not move a useful local
+- Put script-, processor-, example- or tool-specific guidance beside the files they describe. Do not move a useful local
   README into `docs/` merely to centralise it.
 - Put dated audits and implementation plans under `docs/audits/`. Clearly label their date and whether the work is
   proposed, active, complete or superseded.
