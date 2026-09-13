@@ -51,7 +51,6 @@ def export_scenario_results_csv(results: Iterable[ScenarioResult], path: Path) -
     """Write one summary row per scenario result as CSV."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    rows = [scenario_result_record(result) for result in results]
     fieldnames = [
         "alternative",
         "crossing",
@@ -69,11 +68,11 @@ def export_scenario_results_csv(results: Iterable[ScenarioResult], path: Path) -
     with target.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fieldnames)
         writer.writeheader()
-        for row in rows:
-            csv_row = dict(row)
-            csv_row["warning_codes"] = ";".join(row["warning_codes"])
-            csv_row["applicability_codes"] = ";".join(row["applicability_codes"])
-            writer.writerow(csv_row)
+        for result in results:
+            row = scenario_result_record(result)
+            row["warning_codes"] = ";".join(result.warning_codes)
+            row["applicability_codes"] = ";".join(result.applicability_codes)
+            writer.writerow(row)
     return target
 
 
