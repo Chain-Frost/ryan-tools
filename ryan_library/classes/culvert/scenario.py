@@ -17,17 +17,22 @@ class Scenario:
     def __post_init__(self) -> None:
         name = self.name.strip()
         if not name:
-            raise ValueError("name must be nonempty text.")
+            msg = "name must be nonempty text."
+            raise ValueError(msg)
         discharge = float(self.discharge)
         if not isfinite(discharge) or discharge <= 0.0:
-            raise ValueError("discharge must be finite and strictly positive.")
+            msg = "discharge must be finite and strictly positive."
+            raise ValueError(msg)
         tailwater = self.tailwater
         if isinstance(tailwater, bool):
-            raise ValueError("tailwater must be a finite elevation or TailwaterBoundary.")
+            msg = "tailwater must be a finite elevation or TailwaterBoundary."
+            raise ValueError(msg)
         if isinstance(tailwater, (float, int)):
             if not isfinite(float(tailwater)):
-                raise ValueError("Numeric tailwater elevation must be finite.")
+                msg = "Numeric tailwater elevation must be finite."
+                raise ValueError(msg)
         elif not isinstance(tailwater, TailwaterBoundary):
-            raise ValueError("tailwater must be a finite elevation or TailwaterBoundary.")
+            msg = "tailwater must be a finite elevation or TailwaterBoundary."
+            raise ValueError(msg)
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "discharge", discharge)
