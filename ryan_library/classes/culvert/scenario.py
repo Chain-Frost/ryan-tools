@@ -16,12 +16,12 @@ def _validate_aep(value: float | None) -> float | None:
     return result
 
 
-def _validate_target(value: float | None) -> float | None:
+def _validate_optional_elevation(value: float | None, name: str) -> float | None:
     if value is None:
         return None
     result = float(value)
     if not isfinite(result):
-        msg = "target_headwater_elevation must be finite when supplied."
+        msg = f"{name} must be finite when supplied."
         raise ValueError(msg)
     return result
 
@@ -37,6 +37,7 @@ class Scenario:
     source: str | None = None
     notes: str = ""
     target_headwater_elevation: float | None = None
+    tailwater_override_elevation: float | None = None
 
     def __post_init__(self) -> None:
         name = self.name.strip()
@@ -67,5 +68,16 @@ class Scenario:
         object.__setattr__(
             self,
             "target_headwater_elevation",
-            _validate_target(self.target_headwater_elevation),
+            _validate_optional_elevation(
+                self.target_headwater_elevation,
+                "target_headwater_elevation",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "tailwater_override_elevation",
+            _validate_optional_elevation(
+                self.tailwater_override_elevation,
+                "tailwater_override_elevation",
+            ),
         )
