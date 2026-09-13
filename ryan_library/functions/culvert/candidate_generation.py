@@ -13,7 +13,8 @@ from ...classes.culvert.crossing import (
 
 def _single_group(crossing: CrossingDefinition) -> CulvertGroupDefinition:
     if len(crossing.groups) != 1:
-        raise ValueError("Automatic candidate generation currently requires a single-group crossing template.")
+        msg = "Automatic candidate generation currently requires a single-group crossing template."
+        raise ValueError(msg)
     return crossing.groups[0]
 
 
@@ -27,9 +28,11 @@ def generate_rectangular_candidates(
     """Generate the Cartesian product of explicit box sizes and quantities."""
     group = _single_group(template)
     if not isinstance(group.barrel, RectangularBarrelDefinition):
-        raise ValueError("template must contain one rectangular barrel group.")
+        msg = "template must contain one rectangular barrel group."
+        raise ValueError(msg)
     if not spans_mm or not rises_mm or not quantities:
-        raise ValueError("spans_mm, rises_mm, and quantities must all contain at least one value.")
+        msg = "spans_mm, rises_mm, and quantities must all contain at least one value."
+        raise ValueError(msg)
 
     candidates: list[DesignCandidate] = []
     for span_mm in spans_mm:
@@ -52,9 +55,11 @@ def generate_circular_candidates(
     """Generate the Cartesian product of explicit pipe diameters and quantities."""
     group = _single_group(template)
     if not isinstance(group.barrel, CircularBarrelDefinition):
-        raise ValueError("template must contain one circular barrel group.")
+        msg = "template must contain one circular barrel group."
+        raise ValueError(msg)
     if not diameters_mm or not quantities:
-        raise ValueError("diameters_mm and quantities must both contain at least one value.")
+        msg = "diameters_mm and quantities must both contain at least one value."
+        raise ValueError(msg)
 
     candidates: list[DesignCandidate] = []
     for diameter_mm in diameters_mm:
