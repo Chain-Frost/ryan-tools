@@ -19,36 +19,42 @@ from ...classes.culvert.scenario import Scenario
 
 def _mapping(value: object, name: str) -> dict[str, object]:
     if not isinstance(value, dict):
-        raise ValueError(f"{name} must be a JSON object.")
+        msg = f"{name} must be a JSON object."
+        raise ValueError(msg)
     if not all(isinstance(key, str) for key in value):
-        raise ValueError(f"{name} must contain only string keys.")
+        msg = f"{name} must contain only string keys."
+        raise ValueError(msg)
     return cast(dict[str, object], value)
 
 
 def _list(value: object, name: str) -> list[object]:
     if not isinstance(value, list):
-        raise ValueError(f"{name} must be a JSON array.")
+        msg = f"{name} must be a JSON array."
+        raise ValueError(msg)
     return cast(list[object], value)
 
 
 def _text(mapping: dict[str, object], key: str) -> str:
     value = mapping.get(key)
     if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{key} must be nonempty text.")
+        msg = f"{key} must be nonempty text."
+        raise ValueError(msg)
     return value
 
 
 def _float(mapping: dict[str, object], key: str) -> float:
     value = mapping.get(key)
     if isinstance(value, bool) or not isinstance(value, (float, int)):
-        raise ValueError(f"{key} must be numeric.")
+        msg = f"{key} must be numeric."
+        raise ValueError(msg)
     return float(value)
 
 
 def _integer(mapping: dict[str, object], key: str, *, default: int | None = None) -> int:
     value = mapping.get(key, default)
     if isinstance(value, bool) or not isinstance(value, int):
-        raise ValueError(f"{key} must be an integer.")
+        msg = f"{key} must be an integer."
+        raise ValueError(msg)
     return value
 
 
@@ -57,28 +63,36 @@ def _parse_barrel(value: object) -> RectangularBarrelDefinition | CircularBarrel
     shape = _text(data, "shape").lower()
     label_value = data.get("label", "")
     if not isinstance(label_value, str):
-        raise ValueError("barrel label must be text.")
+        msg = "barrel label must be text."
+        raise ValueError(msg)
     material = CulvertMaterialName(_text(data, "material"))
-    common = {
-        "length": _float(data, "length"),
-        "inlet_invert": _float(data, "inlet_invert"),
-        "outlet_invert": _float(data, "outlet_invert"),
-        "roughness": _float(data, "roughness"),
-        "material": material,
-        "label": label_value,
-    }
+    length = _float(data, "length")
+    inlet_invert = _float(data, "inlet_invert")
+    outlet_invert = _float(data, "outlet_invert")
+    roughness = _float(data, "roughness")
     if shape == "rectangular":
         return RectangularBarrelDefinition(
             span_mm=_float(data, "span_mm"),
             rise_mm=_float(data, "rise_mm"),
-            **common,
+            length=length,
+            inlet_invert=inlet_invert,
+            outlet_invert=outlet_invert,
+            roughness=roughness,
+            material=material,
+            label=label_value,
         )
     if shape == "circular":
         return CircularBarrelDefinition(
             diameter_mm=_float(data, "diameter_mm"),
-            **common,
+            length=length,
+            inlet_invert=inlet_invert,
+            outlet_invert=outlet_invert,
+            roughness=roughness,
+            material=material,
+            label=label_value,
         )
-    raise ValueError("barrel shape must be 'rectangular' or 'circular'.")
+    msg = "barrel shape must be 'rectangular' or 'circular'."
+    raise ValueError(msg)
 
 
 def _parse_crossing(value: object) -> CrossingDefinition:
@@ -99,7 +113,8 @@ def _parse_crossing(value: object) -> CrossingDefinition:
         roadway_data = _mapping(roadway_value, "roadway")
         label_value = roadway_data.get("label", "")
         if not isinstance(label_value, str):
-            raise ValueError("roadway label must be text.")
+            msg = "roadway label must be text."
+            raise ValueError(msg)
         roadway = RoadwayDefinition(
             crest_elevation=_float(roadway_data, "crest_elevation"),
             crest_length=_float(roadway_data, "crest_length"),
@@ -121,7 +136,8 @@ def _parse_scenario(value: object) -> Scenario:
 def load_project_json(path: Path) -> CulvertProject:
     """Load a project JSON file. JSON configuration currently supports fixed tailwater elevations."""
     source = Path(path)
-    payload = _mapping(json.loads(source.read_text(encoding="utf-8")), "project")
+    raw_payload = cast(object, json.loads(source.read_text(encoding="utf-8")))
+    payload = _mapping(raw_payload, "project")
     crossings = tuple(_parse_crossing(value) for value in _list(payload.get("crossings"), "crossings"))
     scenarios = tuple(_parse_scenario(value) for value in _list(payload.get("scenarios"), "scenarios"))
     alternatives_value = payload.get("alternatives", [])
