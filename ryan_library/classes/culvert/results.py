@@ -36,6 +36,7 @@ class ScenarioResult:
     source: str | None = None
     notes: str = ""
     target_headwater_elevation: float | None = None
+    tailwater_override_elevation: float | None = None
 
     @property
     def maximum_outlet_velocity(self) -> float:
@@ -48,6 +49,18 @@ class ScenarioResult:
             ),
             default=0.0,
         )
+
+    @property
+    def target_headwater_residual(self) -> float | None:
+        """Return solved minus requested headwater for inverse-target scenarios."""
+        if self.target_headwater_elevation is None:
+            return None
+        return self.hydraulic_result.headwater_elevation - self.target_headwater_elevation
+
+    @property
+    def tailwater_was_event_override(self) -> bool:
+        """Return whether an imported event supplied its own tailwater elevation."""
+        return self.tailwater_override_elevation is not None
 
     @property
     def warning_codes(self) -> tuple[str, ...]:
