@@ -32,15 +32,26 @@ event tailwater-override provenance, inverse-target residual reporting and riche
 
 ## Validation required before merge
 
-The pre-follow-up branch already passed the combined validation matrix. Re-run the following after the final
-provenance/export commits:
+A Windows batch runner now captures the final PR validation matrix. From the repository root, run:
+
+```bat
+repo-scripts\validate_culvert_pr.bat
+```
+
+The batch file uses `python -m` for Ruff, Pyright, pytest and build tooling, stops at the first failing step, and runs:
 
 - Ruff format/check on modified Python files.
 - Strict Pyright on modified Python files.
 - `python -m pytest tests/culvert tests/mcp/test_registry.py -q`.
 - Maintained wrapper compilation and `--help` smoke check.
-- Documentation/link checks, Loguru formatting and `git diff --check`.
+- Documentation/link checks, Loguru formatting and `git diff --check` against `origin/main`.
 - Package build/verification because maintained `ryan_library` code changed after the last recorded build.
+
+Use `repo-scripts\validate_culvert_pr.bat --skip-build` to run the source/test/documentation checks without rebuilding
+the package artifact. If Ruff, Pyright, pytest or build is unavailable, install the repository development tools with
+`python -m pip install -e ".[dev]"` and rerun the batch file. The full run may replace the tracked wheel in `dist` with a
+freshly verified wheel of the same declared version; inspect the final `git status --short` output before committing any
+artifact change.
 
 ## Delivery state
 
@@ -54,8 +65,8 @@ public `culvert_solver` result/provenance fields. No new hydraulic equations wer
 
 ## Next action
 
-Run the final validation matrix in a normal checkout, resolve any lint/type/test findings, update the PR validation
-summary, then merge #86 if review is satisfactory.
+Run `repo-scripts\validate_culvert_pr.bat` in a normal Windows checkout, resolve any reported lint/type/test/build
+findings, update the PR validation summary, then merge #86 if review is satisfactory.
 
 ## Next review
 
@@ -116,3 +127,7 @@ A final auditability follow-up then retained event-level tailwater override prov
 residual evidence, expanded scenario JSON with critical/normal depth, adopted roughness/coefficient/loss provenance and
 convergence records, and added focused tests/documentation for those additions. That follow-up still requires the final
 normal-checkout validation rerun described above.
+
+Added `repo-scripts/validate_culvert_pr.bat` so the final validation matrix can be run reproducibly from a normal Windows
+checkout using the selected Python interpreter and `python -m` tool invocation. The full mode includes package
+build/verification; `--skip-build` is available for a non-artifact validation pass.
