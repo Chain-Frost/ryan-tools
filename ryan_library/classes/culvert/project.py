@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from .alternative import Alternative
+from .criteria import DesignCriteria
 from .crossing import CrossingDefinition
 from .scenario import Scenario
 
@@ -15,6 +16,10 @@ class CulvertProject:
     crossings: tuple[CrossingDefinition, ...]
     scenarios: tuple[Scenario, ...]
     alternatives: tuple[Alternative, ...] = ()
+    design_criteria: DesignCriteria | None = None
+    schema_version: int = 1
+    source: str | None = None
+    notes: str = ""
 
     def __post_init__(self) -> None:
         name = self.name.strip()
@@ -29,6 +34,9 @@ class CulvertProject:
             raise ValueError(msg)
         if not scenarios:
             msg = "scenarios must contain at least one scenario."
+            raise ValueError(msg)
+        if self.schema_version != 1:
+            msg = f"Unsupported culvert project schema_version {self.schema_version!r}; supported version: 1."
             raise ValueError(msg)
         crossing_names = [crossing.name for crossing in crossings]
         scenario_names = [scenario.name for scenario in scenarios]
@@ -46,3 +54,6 @@ class CulvertProject:
         object.__setattr__(self, "crossings", crossings)
         object.__setattr__(self, "scenarios", scenarios)
         object.__setattr__(self, "alternatives", alternatives)
+        source = None if self.source is None else self.source.strip()
+        object.__setattr__(self, "source", source or None)
+        object.__setattr__(self, "notes", self.notes.strip())

@@ -26,4 +26,8 @@ def solve_crossing_scenario(
         scenario_name=scenario.name,
         alternative_name=alternative_name,
         hydraulic_result=hydraulic_result,
+        aep_percent=scenario.aep_percent,
+        source=scenario.source,
+        notes=scenario.notes,
+        target_headwater_elevation=scenario.target_headwater_elevation,
     )

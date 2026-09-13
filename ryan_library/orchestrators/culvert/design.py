@@ -6,7 +6,13 @@ from culvert_solver import ConvergenceError, InvalidInputError
 
 from ...classes.culvert.candidate import DesignCandidate
 from ...classes.culvert.criteria import DesignCriteria
-from ...classes.culvert.results import CandidateAssessment, DesignResult, ScenarioResult
+from ...classes.culvert.results import (
+    CandidateAssessment,
+    DesignFailure,
+    DesignFailureCode,
+    DesignResult,
+    ScenarioResult,
+)
 from ...classes.culvert.scenario import Scenario
 from ...functions.culvert.adapter import build_solver_crossing
 from ...functions.culvert.assessment import assess_scenario
@@ -40,20 +46,39 @@ def design_crossing(
     for candidate in candidates:
         scenario_results: list[ScenarioResult] = []
         failure_reasons: list[str] = []
+        failures: list[DesignFailure] = []
         for scenario in scenarios:
             try:
                 result = solve_crossing_scenario(candidate.crossing, scenario)
             except (InvalidInputError, ConvergenceError) as exc:
-                failure_reasons.append(f"{scenario.name}: solver failure: {exc}")
+                message = f"{scenario.name}: solver failure: {exc}"
+                failure_reasons.append(message)
+                failures.append(
+                    DesignFailure(
+                        code=DesignFailureCode.SOLVER_FAILURE,
+                        scenario_name=scenario.name,
+                        message=message,
+                    )
+                )
                 continue
             scenario_results.append(result)
-            failure_reasons.extend(assess_scenario(result, candidate.crossing, criteria))
+            criterion_reasons = assess_scenario(result, candidate.crossing, criteria)
+            failure_reasons.extend(criterion_reasons)
+            failures.extend(
+                DesignFailure(
+                    code=DesignFailureCode.CRITERION,
+                    scenario_name=scenario.name,
+                    message=message,
+                )
+                for message in criterion_reasons
+            )
         assessments.append(
             CandidateAssessment(
                 candidate=candidate,
                 scenario_results=tuple(scenario_results),
                 passed=not failure_reasons,
                 failure_reasons=tuple(dict.fromkeys(failure_reasons)),
+                failures=tuple(dict.fromkeys(failures)),
             )
         )
 
