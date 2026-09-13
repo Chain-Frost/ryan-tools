@@ -43,7 +43,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-09-13.1"
+WRAPPER_VERSION = "2026-09-13.2"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
@@ -52,7 +52,7 @@ DEFAULT_RATING_POINTS = 11
 CONSOLE_LOG_LEVEL = "INFO"
 
 import argparse
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from culvert_solver import generate_discharge_range
 from loguru import logger
@@ -63,6 +63,7 @@ from ryan_library.classes.culvert import (
     DesignCriteria,
     RectangularBarrelDefinition,
     Scenario,
+    ScenarioResult,
 )
 from ryan_library.functions.culvert.candidate_generation import (
     generate_circular_candidates,
@@ -83,16 +84,18 @@ from ryan_library.orchestrators.culvert.report import render_design_markdown, re
 from ryan_library.orchestrators.culvert.solve import solve_crossing_scenario
 
 
-def _select_named[T](items: Sequence[T], name: str | None, *, get_name: callable[[T], str]) -> T:
+def _select_named[T](items: Sequence[T], name: str | None, *, get_name: Callable[[T], str]) -> T:
     if not items:
-        raise ValueError("No selectable items are available.")
+        msg = "No selectable items are available."
+        raise ValueError(msg)
     if name is None:
         return items[0]
     for item in items:
         if get_name(item) == name:
             return item
     available = ", ".join(get_name(item) for item in items)
-    raise ValueError(f"Unknown name {name!r}. Available: {available}")
+    msg = f"Unknown name {name!r}. Available: {available}"
+    raise ValueError(msg)
 
 
 def _output_path(base: Path, configured: Path | None) -> Path:
@@ -100,7 +103,7 @@ def _output_path(base: Path, configured: Path | None) -> Path:
     return output.resolve() if output.is_absolute() else (base / output).resolve()
 
 
-def _write_scenario_outputs(results: Sequence, output_directory: Path) -> None:
+def _write_scenario_outputs(results: Sequence[ScenarioResult], output_directory: Path) -> None:
     output_directory.mkdir(parents=True, exist_ok=True)
     export_scenario_results_json(results, output_directory / "scenario_results.json")
     export_scenario_results_csv(results, output_directory / "scenario_results.csv")
@@ -132,7 +135,11 @@ def main(
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     target_directory = (working_directory or WORKING_DIR).resolve()
     configured_project = project_file or DEFAULT_PROJECT_FILE
-    project_path = configured_project.resolve() if configured_project.is_absolute() else target_directory / configured_project
+    project_path = (
+        configured_project.resolve()
+        if configured_project.is_absolute()
+        else (target_directory / configured_project).resolve()
+    )
     resolved_output = _output_path(target_directory, output_directory)
     if not change_working_directory(target_dir=target_directory):
         return 1
@@ -169,9 +176,11 @@ def main(
                         maximum_roadway_discharge,
                     )
                 ):
-                    raise ValueError("design requires at least one explicit hydraulic design criterion.")
+                    msg = "design requires at least one explicit hydraulic design criterion."
+                    raise ValueError(msg)
                 if len(crossing.groups) != 1:
-                    raise ValueError("CLI candidate generation currently requires a single-group crossing.")
+                    msg = "CLI candidate generation currently requires a single-group crossing."
+                    raise ValueError(msg)
                 template_group = crossing.groups[0]
                 design_quantities = quantities or (template_group.quantity,)
                 if isinstance(template_group.barrel, CircularBarrelDefinition):
@@ -191,7 +200,8 @@ def main(
                         quantities=design_quantities,
                     )
                 else:
-                    raise TypeError("Unsupported barrel definition for candidate generation.")
+                    msg = "Unsupported barrel definition for candidate generation."
+                    raise TypeError(msg)
                 criteria = DesignCriteria(
                     maximum_headwater_elevation=maximum_headwater_elevation,
                     maximum_headwater_depth=maximum_headwater_depth,
@@ -218,12 +228,14 @@ def main(
                     f"{point.outlet_velocity},{point.status.value}"
                     for point in result.rating_curve.points
                 )
-                (resolved_output / "rating_curve.csv").write_text("\n".join(lines) + "\n", encoding="utf-8")
-                print(f"Wrote {len(result.rating_curve.points)} rating points to {resolved_output / 'rating_curve.csv'}")
+                rating_path = resolved_output / "rating_curve.csv"
+                rating_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+                print(f"Wrote {len(result.rating_curve.points)} rating points to {rating_path}")
             else:
-                raise ValueError(f"Unsupported command: {command}")
+                msg = f"Unsupported command: {command}"
+                raise ValueError(msg)
             logger.success("Culvert workflow completed; outputs: {}", resolved_output)
-        except Exception:
+        except (OSError, ValueError, RuntimeError):
             logger.exception("Culvert workflow failed.")
             return 1
     return 0
