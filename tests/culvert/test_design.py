@@ -145,7 +145,8 @@ def test_solver_failure_is_exported_as_unresolved(monkeypatch: pytest.MonkeyPatc
     )
 
     def fail_solver(*_args: object, **_kwargs: object) -> None:
-        raise InvalidInputError("synthetic solver failure")
+        msg = "synthetic solver failure"
+        raise InvalidInputError(msg)
 
     monkeypatch.setattr(design_module, "solve_crossing_scenario", fail_solver)
     result = design_module.design_crossing(
