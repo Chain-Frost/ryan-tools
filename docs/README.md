@@ -86,6 +86,8 @@ but they are not current architectural policy when they conflict with the canoni
 | Document | Scope and status |
 | --- | --- |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
+| [Floodway design and reporting workflow](work/2026-09-13-floodway-design-87.md) | Active issue #87 research and delivery record; implementation waits for a post-#86 refresh from `main` |
+| [Floodway design research baseline](audits/2026-09-13-floodway-design-research.md) | Dated source review, candidate methods, applicability questions, validation targets and research backlog for issue #87 |
 | [Transactional package build and verification](work/2026-09-13-transactional-packaging.md) | Completed no-bump, verified and failure-safe wheel workflow implementation |
 | [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |
 | [Compatibility policy and inventory](COMPATIBILITY_POLICY.md) | Compatibility namespaces, migration state and deprecation checklist |
