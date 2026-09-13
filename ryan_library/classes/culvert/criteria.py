@@ -9,9 +9,11 @@ def _optional_limit(value: float | None, name: str, *, nonnegative: bool = False
         return None
     result = float(value)
     if not isfinite(result):
-        raise ValueError(f"{name} must be finite when supplied.")
+        msg = f"{name} must be finite when supplied."
+        raise ValueError(msg)
     if nonnegative and result < 0.0:
-        raise ValueError(f"{name} must be nonnegative when supplied.")
+        msg = f"{name} must be nonnegative when supplied."
+        raise ValueError(msg)
     return result
 
 
@@ -53,4 +55,5 @@ class DesignCriteria:
             and self.maximum_roadway_discharge is None
             and not self.require_resolved_result
         ):
-            raise ValueError("DesignCriteria must contain at least one active constraint.")
+            msg = "DesignCriteria must contain at least one active constraint."
+            raise ValueError(msg)
