@@ -7,6 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
+| [Floodway design and reporting workflow](2026-09-13-floodway-design-87.md) | Active | Unassigned | 2026-09-13 | 2026-09-27 or after PR #86 merges | Continue source research; after PR #86 merges refresh the branch from fresh `main` before substantial implementation. |
 | [Repository improvement backlog](../REPOSITORY_IMPROVEMENT_ROADMAP.md) | Planned | Unassigned | 2026-09-06 | 2026-09-20 | Select a bounded lifecycle review or script family and register its implementation record. |
 | [Unsorted migration](../UNSORTED_UPGRADE_ROADMAP.md) | Needs review | Unassigned | 2026-09-06 | 2026-09-20 | Reconcile unchecked/in-progress items with current parent/submodule source and validation; do not assume older parity gaps remain unchanged. |
 | [Scheduled compatibility removals](../COMPATIBILITY_POLICY.md) | Deferred | Unassigned | 2026-09-06 | 2027-01-04 | Support runs through 2026-12-31; then verify callers and select removals using the inventory. |
