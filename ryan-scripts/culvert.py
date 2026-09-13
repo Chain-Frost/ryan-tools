@@ -47,7 +47,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
-WRAPPER_VERSION = "2026-09-14.1"
+WRAPPER_VERSION = "2026-09-14.2"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
@@ -82,7 +82,7 @@ from ryan_library.functions.culvert.export import (
     export_scenario_results_csv,
     export_scenario_results_json,
 )
-from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.loguru_helpers import normalize_log_level, setup_logger
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
 from ryan_library.orchestrators.culvert.analyse import analyse_project
 from ryan_library.orchestrators.culvert.design import design_crossing
@@ -235,8 +235,8 @@ def _run_rating(
     maximum_discharge: float | None,
     points: int | None,
 ) -> None:
-    q_min = minimum_discharge or max(0.01, scenario.discharge / 10.0)
-    q_max = maximum_discharge or scenario.discharge
+    q_max = maximum_discharge if maximum_discharge is not None else scenario.discharge
+    q_min = minimum_discharge if minimum_discharge is not None else q_max / 10.0
     discharges = generate_discharge_range(q_min, q_max, points or DEFAULT_RATING_POINTS)
     result = generate_crossing_rating(crossing, discharges, scenario.tailwater)
     output_directory.mkdir(parents=True, exist_ok=True)
@@ -379,7 +379,7 @@ def _parse_cli_arguments() -> argparse.Namespace:
     parser.add_argument("--min-discharge", type=float)
     parser.add_argument("--max-discharge", type=float)
     parser.add_argument("--points", type=int)
-    parser.add_argument("--console-log-level")
+    parser.add_argument("--console-log-level", type=normalize_log_level)
     parser.add_argument("--no-pause", action="store_true")
     return parser.parse_args()
 
