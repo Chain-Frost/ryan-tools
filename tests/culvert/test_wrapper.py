@@ -20,9 +20,8 @@ def _environment() -> dict[str, str]:
     return environment
 
 
-def test_wrapper_analyse_writes_expected_outputs(tmp_path: Path) -> None:
-    project_path = tmp_path / "project.json"
-    project_path.write_text(
+def _write_project(path: Path, *, discharge: float) -> Path:
+    path.write_text(
         json.dumps(
             {
                 "schema_version": 1,
@@ -50,7 +49,7 @@ def test_wrapper_analyse_writes_expected_outputs(tmp_path: Path) -> None:
                 "scenarios": [
                     {
                         "name": "Design",
-                        "discharge_m3s": 4,
+                        "discharge_m3s": discharge,
                         "tailwater": {"type": "fixed", "elevation_m": 10},
                     }
                 ],
@@ -58,6 +57,11 @@ def test_wrapper_analyse_writes_expected_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    return path
+
+
+def test_wrapper_analyse_writes_expected_outputs(tmp_path: Path) -> None:
+    project_path = _write_project(tmp_path / "project.json", discharge=4.0)
 
     completed = subprocess.run(
         [
@@ -139,3 +143,48 @@ def test_wrapper_report_uses_saved_results_without_project_or_solve(tmp_path: Pa
 
     assert completed.returncode == 0, completed.stderr
     assert "Saved crossing" in (output / "scenario_results.md").read_text(encoding="utf-8")
+
+
+def test_wrapper_rejects_invalid_console_log_level_without_traceback() -> None:
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(WRAPPER),
+            "analyse",
+            "--console-log-level",
+            "not-a-log-level",
+            "--no-pause",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=_environment(),
+    )
+
+    assert completed.returncode == 2
+    assert "Traceback" not in completed.stderr
+
+
+def test_wrapper_rating_defaults_support_low_flow_scenario(tmp_path: Path) -> None:
+    project_path = _write_project(tmp_path / "low-flow.json", discharge=0.005)
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(WRAPPER),
+            "rating",
+            "--directory",
+            str(tmp_path),
+            "--project",
+            str(project_path),
+            "--no-pause",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=_environment(),
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert (tmp_path / "culvert_results" / "rating_curve.csv").is_file()
+    assert (tmp_path / "culvert_results" / "rating_curve.json").is_file()
