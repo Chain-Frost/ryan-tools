@@ -57,7 +57,7 @@ def test_forward_solve_retains_solver_result_and_notices() -> None:
     assert "representative_barrel_equal_flow" in result.applicability_codes
 
 
-def test_machine_record_retains_warning_messages_and_sources() -> None:
+def test_machine_record_retains_warning_messages_sources_and_solver_detail() -> None:
     result = solve_crossing_scenario(
         _crossing(),
         Scenario(name="Extreme", discharge=50.0, tailwater=10.0),
@@ -66,6 +66,17 @@ def test_machine_record_retains_warning_messages_and_sources() -> None:
     record = scenario_result_record(result)
     warnings = cast("list[dict[str, Any]]", record["warnings"])
     notices = cast("list[dict[str, Any]]", record["applicability_notices"])
+    groups = cast("list[dict[str, Any]]", record["group_results"])
+    group = groups[0]
 
     assert warnings[0]["message"]
     assert notices[0]["source"]["source_id"]
+    assert group["critical_depth_m"] > 0.0
+    assert "normal_depth_m" in group
+    assert "adopted_roughness_manning_n" in group
+    assert "inlet_coefficient_selection" in group
+    assert "entrance_loss_selection" in group
+    assert "exit_loss_selection" in group
+    assert "outlet_control_losses" in group
+    assert "convergence" in group
+    assert "headwater_convergence" in record
