@@ -3,6 +3,10 @@
 import json
 from pathlib import Path
 
+import pytest
+from culvert_solver import HydraulicResultStatus, InvalidInputError
+
+import ryan_library.orchestrators.culvert.design as design_module
 from ryan_library.classes.culvert import (
     CircularBarrelDefinition,
     CrossingDefinition,
@@ -131,3 +135,30 @@ def test_design_requires_every_scenario_to_pass() -> None:
     assert not assessment.passed
     assert len(assessment.scenario_results) == 2
     assert any(failure.scenario_name == "Major" for failure in assessment.failures)
+
+
+def test_solver_failure_is_exported_as_unresolved(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    candidates = generate_circular_candidates(
+        _template(),
+        diameters_mm=(1200.0,),
+        quantities=(1,),
+    )
+
+    def fail_solver(*_args: object, **_kwargs: object) -> None:
+        raise InvalidInputError("synthetic solver failure")
+
+    monkeypatch.setattr(design_module, "solve_crossing_scenario", fail_solver)
+    result = design_module.design_crossing(
+        candidates,
+        (Scenario(name="Design", discharge=2.0, tailwater=9.5),),
+        DesignCriteria(maximum_headwater_elevation=100.0),
+    )
+
+    assessment = result.assessments[0]
+    assert not assessment.passed
+    assert not assessment.scenario_results
+    assert assessment.worst_status is HydraulicResultStatus.UNRESOLVED
+
+    path = export_design_result_json(result, tmp_path / "design.json")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["assessments"][0]["worst_status"] == "unresolved"
