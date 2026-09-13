@@ -56,9 +56,11 @@ class CandidateAssessment:
 
     def __post_init__(self) -> None:
         if self.passed and self.failure_reasons:
-            raise ValueError("A passing candidate cannot contain failure reasons.")
+            msg = "A passing candidate cannot contain failure reasons."
+            raise ValueError(msg)
         if not self.passed and not self.failure_reasons:
-            raise ValueError("A rejected candidate must retain at least one failure reason.")
+            msg = "A rejected candidate must retain at least one failure reason."
+            raise ValueError(msg)
 
     @property
     def worst_status(self) -> HydraulicResultStatus:
