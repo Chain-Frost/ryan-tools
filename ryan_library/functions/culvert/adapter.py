@@ -37,7 +37,8 @@ def build_solver_barrel(definition: BarrelDefinition) -> CulvertBarrel:
     elif isinstance(definition, CircularBarrelDefinition):
         geometry = CircularGeometry.from_mm(definition.diameter_mm)
     else:
-        raise TypeError(f"Unsupported barrel definition type: {type(definition).__name__}")
+        msg = f"Unsupported barrel definition type: {type(definition).__name__}"
+        raise TypeError(msg)
     return CulvertBarrel(
         geometry=geometry,
         length=definition.length,
