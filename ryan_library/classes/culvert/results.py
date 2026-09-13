@@ -109,10 +109,13 @@ class CandidateAssessment:
             HydraulicResultStatus.APPROXIMATE: 2,
             HydraulicResultStatus.UNRESOLVED: 3,
         }
+        statuses = [result.hydraulic_result.status for result in self.scenario_results]
+        if any(failure.code is DesignFailureCode.SOLVER_FAILURE for failure in self.failures):
+            statuses.append(HydraulicResultStatus.UNRESOLVED)
         return max(
-            (result.hydraulic_result.status for result in self.scenario_results),
+            statuses,
             key=priority.__getitem__,
-            default=HydraulicResultStatus.VALID,
+            default=(HydraulicResultStatus.VALID if self.passed else HydraulicResultStatus.UNRESOLVED),
         )
 
 
