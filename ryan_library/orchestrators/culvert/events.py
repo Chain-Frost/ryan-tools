@@ -20,9 +20,8 @@ def materialize_event_scenarios(
     solver_crossing = build_solver_crossing(crossing)
     scenarios: list[Scenario] = []
     for event in events:
-        tailwater: TailwaterInput = (
-            default_tailwater if event.tailwater_elevation_m is None else event.tailwater_elevation_m
-        )
+        tailwater_override = event.tailwater_elevation_m
+        tailwater: TailwaterInput = default_tailwater if tailwater_override is None else tailwater_override
         target = event.target_headwater_elevation_m
         discharge = (
             event.discharge_m3s
@@ -45,6 +44,7 @@ def materialize_event_scenarios(
                 source=event.source,
                 notes=event.notes,
                 target_headwater_elevation=target,
+                tailwater_override_elevation=tailwater_override,
             )
         )
     return tuple(scenarios)
