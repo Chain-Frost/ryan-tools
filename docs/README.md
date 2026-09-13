@@ -53,7 +53,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Legacy GDAL | [Legacy GDAL batch files](../ryan-scripts/gdal-bat/README.md) | Mapping retained BAT entry points to maintained Python replacements |
 | Examples | [Examples index](../examples/README.md) | Choosing direct library examples instead of wrappers |
 | TUFLOW examples | [TUFLOW API examples](../examples/tuflow/README.md) | Filename parsing, processors, batch loading, PO checks and POMM summaries |
-| DataFrame examples | [DataFrame export examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
+| DataFrame examples | [DataFrame examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
 | Rock-protection lookup data | [Outlet rock-protection data](../ryan_library/functions/data/README.md) | Source, interpretation and limits of the bundled multi-pipe lookup tables |
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Source algorithm, usage and licence for the vendored similarity-transform implementation |
