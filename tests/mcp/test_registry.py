@@ -63,6 +63,25 @@ def test_repository_workflow_is_unavailable_without_repository_checkout() -> Non
     assert "--no-pause" in workflow["required_headless_arguments"]
 
 
+def test_culvert_workflow_is_catalogued_with_headless_scenarios() -> None:
+    registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
+
+    workflow = registry.get_workflow("culvert_analysis_design")
+
+    assert workflow["available"] is True
+    assert workflow["mutation"] == "creates_outputs"
+    assert workflow["script_relative_path"] == "ryan-scripts/culvert.py"
+    assert {scenario["name"] for scenario in workflow["resolved_scenarios"]} == {
+        "analyse_project",
+        "compare_project",
+        "design_crossing",
+        "rating_curve",
+        "render_saved_report",
+        "solve_scenario",
+    }
+    assert all("--no-pause" in scenario["command"] for scenario in workflow["resolved_scenarios"])
+
+
 def test_repository_script_fallback_resolves_current_relocated_path() -> None:
     registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
 
