@@ -34,9 +34,9 @@ The initial workflow supports:
 - design constraints for maximum headwater elevation, headwater depth, outlet velocity and roadway discharge;
 - preservation of complete `CrossingHydraulicResult` objects, structured warning messages, applicability notices,
   source references and tailwater-resolution provenance;
-- CSV, JSON and Markdown scenario summaries;
+- summary CSV plus detailed JSON and Markdown scenario outputs;
 - JSON and Markdown design-search summaries;
-- crossing rating curves delegated to `culvert_solver`.
+- crossing rating curves delegated to `culvert_solver`;
 - longitudinal profile and rating plots generated from already-computed structured results.
 
 GUI work is future aspirational issue #89 and is outside PR #86. Plotting remains tracked by #84.
@@ -125,9 +125,11 @@ python ryan-scripts/culvert.py analyse --project C:\Project\culvert_project.toml
 ```
 
 Outputs default to a `culvert_results` directory under the wrapper working directory. `solve` and `analyse` write
-`scenario_results.json`, `scenario_results.csv` and `scenario_results.md`. `design` writes `design_results.json` and
-`design_results.md`; the JSON retains the applied criteria and complete candidate definitions. `rating` writes
-`rating_curve.csv` and `rating_curve.json`, with the JSON retaining warnings and tailwater provenance.
+`scenario_results.json`, `scenario_results.csv` and `scenario_results.md`. The CSV is a compact summary; the JSON retains
+per-group hydraulic state, critical/normal depth, adopted coefficient and roughness provenance, loss components,
+convergence evidence, warnings, applicability notices and tailwater-resolution provenance. `design` writes
+`design_results.json` and `design_results.md`; the JSON retains the applied criteria and complete candidate definitions.
+`rating` writes `rating_curve.csv` and `rating_curve.json`, with the JSON retaining warnings and tailwater provenance.
 
 ## Design-search behaviour
 
@@ -142,10 +144,14 @@ simple hydraulic-size ranking, not a cost or constructability optimisation.
 ## Imported events
 
 `load_event_csv` imports externally supplied event rows with a name, AEP, or both. Each row must contain exactly one
-of `discharge_m3s` or `target_headwater_elevation_m` and may override `tailwater_elevation_m`.
+of `discharge_m3s` or `target_headwater_elevation_m` and may override `tailwater_elevation_m`. The equivalent Python/list
+API is a `Sequence[EventDefinition]` passed directly to `materialize_event_scenarios`; no CSV round trip is required.
+
 `materialize_event_scenarios` passes supplied discharges through unchanged and resolves headwater targets with the
-public `culvert_solver.solve_crossing_discharge_for_headwater` API. Source, notes, AEP, target headwater and the resolved
-discharge remain in structured scenario results and exports. This workflow performs no hydrology.
+public `culvert_solver.solve_crossing_discharge_for_headwater` API. Source, notes, AEP, target headwater, resolved
+discharge and any event-level tailwater override remain in structured scenario results and exports. A subsequent forward
+solve reports the target-headwater residual (`solved HW - requested HW`) so the inverse result is auditable. This workflow
+performs no hydrology.
 
 The maintained wrapper accepts the table through `--events-csv`. A `compare` run evaluates the same complete
 alternative/scenario matrix as `analyse` and writes deterministic comparison outputs. A later `report` command reads
