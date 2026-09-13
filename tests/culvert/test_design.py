@@ -39,7 +39,7 @@ def test_design_search_ranks_feasible_candidates() -> None:
     )
     result = design_crossing(
         candidates,
-        (Scenario(name="Design", discharge=6.0, tailwater=10.0),),
+        (Scenario(name="Design", discharge=2.0, tailwater=9.5),),
         DesignCriteria(maximum_headwater_elevation=100.0),
     )
 
@@ -57,7 +57,7 @@ def test_rejected_candidate_retains_governing_reason() -> None:
     )
     result = design_crossing(
         candidates,
-        (Scenario(name="Design", discharge=6.0, tailwater=10.0),),
+        (Scenario(name="Design", discharge=2.0, tailwater=9.5),),
         DesignCriteria(maximum_headwater_elevation=9.0),
     )
 
