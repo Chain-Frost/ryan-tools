@@ -19,23 +19,29 @@ class CulvertProject:
     def __post_init__(self) -> None:
         name = self.name.strip()
         if not name:
-            raise ValueError("name must be nonempty text.")
+            msg = "name must be nonempty text."
+            raise ValueError(msg)
         crossings = tuple(self.crossings)
         scenarios = tuple(self.scenarios)
         alternatives = tuple(self.alternatives)
         if not crossings:
-            raise ValueError("crossings must contain at least one crossing.")
+            msg = "crossings must contain at least one crossing."
+            raise ValueError(msg)
         if not scenarios:
-            raise ValueError("scenarios must contain at least one scenario.")
+            msg = "scenarios must contain at least one scenario."
+            raise ValueError(msg)
         crossing_names = [crossing.name for crossing in crossings]
         scenario_names = [scenario.name for scenario in scenarios]
         alternative_names = [alternative.name for alternative in alternatives]
         if len(crossing_names) != len(set(crossing_names)):
-            raise ValueError("Crossing names must be unique within a project.")
+            msg = "Crossing names must be unique within a project."
+            raise ValueError(msg)
         if len(scenario_names) != len(set(scenario_names)):
-            raise ValueError("Scenario names must be unique within a project.")
+            msg = "Scenario names must be unique within a project."
+            raise ValueError(msg)
         if len(alternative_names) != len(set(alternative_names)):
-            raise ValueError("Alternative names must be unique within a project.")
+            msg = "Alternative names must be unique within a project."
+            raise ValueError(msg)
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "crossings", crossings)
         object.__setattr__(self, "scenarios", scenarios)
