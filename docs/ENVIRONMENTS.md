@@ -73,9 +73,17 @@ The underlying build command is:
 py -3.14 repo-scripts\build_library.py
 ```
 
-Use `--skip-pip` when the build dependency is already installed. Use `--skip-artifacts` only in environments that cannot
-create or retain wheel files. A local build may change package metadata and replace the wheel in `dist`; inspect Git
-status afterward.
+The default build advances the calendar version. Use `--no-bump` to rebuild and verify the current version without
+changing `pyproject.toml`, `--skip-pip` when the build dependency is already installed, or `--skip-artifacts` only in
+environments that cannot create or retain wheel files. A candidate is built and verified in temporary storage before
+it replaces the retained wheel in `dist`; failures restore package metadata and preserve the previous artifact. Inspect
+Git status after every build.
+
+The retained wheel can be checked independently with:
+
+```powershell
+py -3.14 repo-scripts\verify_wheel.py
+```
 
 ## QGIS, OSGeo4W and GDAL
 

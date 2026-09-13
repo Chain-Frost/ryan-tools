@@ -76,7 +76,8 @@ python repo-scripts/build_library.py
 
 The build increments the date-based package version and rebuilds the wheel in `dist`. Use `--skip-pip` when the build
 dependency is already installed. In an environment that cannot save binary artifacts, use `--skip-artifacts` if
-supported and state that a maintainer must rebuild the wheel locally.
+supported and state that a maintainer must rebuild the wheel locally. Use `--no-bump` for a verification rebuild of the
+current declared version; it must not modify `pyproject.toml`.
 
 After a local build, inspect Git status for version, wheel and index changes. Preserve working-tree changes and do not
 leave files staged unless the user asked for staging or a commit.

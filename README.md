@@ -96,10 +96,18 @@ After changing `ryan_library` or package metadata, rebuild from the repository r
 python repo-scripts/build_library.py
 ```
 
-The build script updates the version in `pyproject.toml` and creates the wheel under `dist/`. Use `--skip-pip` when the
-build dependency is already installed, or `--skip-artifacts` in an environment that cannot create or retain wheel
-artifacts. Wheel builds require the QGIS resource submodule because `setup.py` stages the pinned TUFLOW QML styles into
-the package.
+By default, the build script advances the normalized calendar version in `pyproject.toml`. Use `--no-bump` to rebuild
+and verify the current version without changing it, `--skip-pip` when the build dependency is already installed, or
+`--skip-artifacts` in an environment that cannot create or retain wheel artifacts. The wheel is built in temporary
+storage, checked against the project metadata and bundled resource sources, and only then promoted into `dist/`; a
+failed build or verification leaves the previous wheel and package version intact. Wheel builds require the QGIS
+resource submodule because `setup.py` stages the pinned TUFLOW QML styles into the package.
+
+To re-check the retained wheel without rebuilding it:
+
+```powershell
+python repo-scripts/verify_wheel.py
+```
 
 Windows convenience entry points are:
 

@@ -44,6 +44,11 @@ _PROFILE_RANK: dict[CapabilityProfile, int] = {
 }
 
 
+def _empty_metadata() -> dict[str, Any]:
+    """Return a precisely typed empty metadata mapping for dataclass defaults."""
+    return {}
+
+
 def profile_allows(*, configured: CapabilityProfile, required: CapabilityProfile) -> bool:
     """Return whether a configured profile includes a required profile."""
     return _PROFILE_RANK[configured] >= _PROFILE_RANK[required]
@@ -91,7 +96,7 @@ class WorkflowSpec:
     lifecycle: str = "maintained"
     requires_explicit_approval: bool = False
     headless_arguments: tuple[str, ...] = ()
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=_empty_metadata)
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object]) -> WorkflowSpec:
