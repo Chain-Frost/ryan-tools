@@ -5,7 +5,15 @@ import json
 from collections.abc import Iterable
 from pathlib import Path
 
-from culvert_solver import SourceReference, TailwaterResolution
+from culvert_solver import (
+    ConvergenceRecord,
+    EntranceLossSelection,
+    ExitLossSelection,
+    HeadLossComponents,
+    InletCoefficientSelection,
+    SourceReference,
+    TailwaterResolution,
+)
 
 from ...classes.culvert.criteria import DesignCriteria
 from ...classes.culvert.crossing import (
@@ -16,7 +24,9 @@ from ...classes.culvert.crossing import (
 from ...classes.culvert.results import CandidateAssessment, CrossingRatingResult, DesignResult, ScenarioResult
 
 
-def _source_record(source: SourceReference) -> dict[str, object]:
+def _source_record(source: SourceReference | None) -> dict[str, object] | None:
+    if source is None:
+        return None
     return {
         "source_id": source.source_id,
         "publication": source.publication,
@@ -40,10 +50,75 @@ def _tailwater_record(resolution: TailwaterResolution | None) -> dict[str, objec
         "roughness": resolution.roughness,
         "friction_slope": resolution.friction_slope,
         "interpolation": None if resolution.interpolation is None else resolution.interpolation.value,
-        "method_source": None if resolution.method_source is None else _source_record(resolution.method_source),
-        "rating_curve_source": (
-            None if resolution.rating_curve_source is None else _source_record(resolution.rating_curve_source)
-        ),
+        "method_source": _source_record(resolution.method_source),
+        "rating_curve_source": _source_record(resolution.rating_curve_source),
+    }
+
+
+def _convergence_record(record: ConvergenceRecord | None) -> dict[str, object] | None:
+    if record is None:
+        return None
+    result = record.result
+    return {
+        "calculation": record.calculation.value,
+        "root": result.root,
+        "residual": result.residual,
+        "bracket": list(result.bracket),
+        "iterations": result.iterations,
+    }
+
+
+def _head_loss_record(losses: HeadLossComponents | None) -> dict[str, object] | None:
+    if losses is None:
+        return None
+    return {
+        "entrance_m": losses.entrance,
+        "friction_m": losses.friction,
+        "exit_m": losses.exit,
+        "total_m": losses.total,
+    }
+
+
+def _inlet_selection_record(selection: InletCoefficientSelection | None) -> dict[str, object] | None:
+    if selection is None:
+        return None
+    coefficients = selection.coefficients
+    return {
+        "name": coefficients.name,
+        "chart": coefficients.chart,
+        "scale": coefficients.scale,
+        "form": coefficients.form.value,
+        "k": coefficients.k,
+        "m": coefficients.m,
+        "c": coefficients.c,
+        "y": coefficients.y,
+        "slope_correction": coefficients.slope_correction,
+        "shape": coefficients.shape.value,
+        "basis": selection.basis.value,
+        "source": _source_record(selection.source),
+    }
+
+
+def _entrance_loss_selection_record(selection: EntranceLossSelection | None) -> dict[str, object] | None:
+    if selection is None:
+        return None
+    return {
+        "ke": selection.ke,
+        "name": selection.name,
+        "basis": selection.basis.value,
+        "shape": selection.shape.value,
+        "source": _source_record(selection.source),
+    }
+
+
+def _exit_loss_selection_record(selection: ExitLossSelection | None) -> dict[str, object] | None:
+    if selection is None:
+        return None
+    return {
+        "ko": selection.ko,
+        "name": selection.name,
+        "basis": selection.basis.value,
+        "source": _source_record(selection.source),
     }
 
 
@@ -98,7 +173,7 @@ def design_criteria_record(criteria: DesignCriteria) -> dict[str, object]:
 
 
 def scenario_result_record(result: ScenarioResult) -> dict[str, object]:
-    """Flatten one scenario result into stable summary fields."""
+    """Serialize one scenario result with summary fields and detailed solver evidence."""
     hydraulic = result.hydraulic_result
     warning_records = [
         {
@@ -117,20 +192,45 @@ def scenario_result_record(result: ScenarioResult) -> dict[str, object]:
         }
         for notice in hydraulic.applicability_notices
     ]
-    group_records = [
-        {
-            "group_index": index,
-            "quantity": group_result.group.quantity,
-            "total_discharge_m3s": group_result.total_discharge,
-            "barrel_discharge_m3s": group_result.barrel_discharge,
-            "control_type": group_result.barrel_result.control_type.value,
-            "flow_regime": group_result.barrel_result.regime.value,
-            "outlet_velocity_ms": group_result.barrel_result.velocity_outlet,
-            "outlet_depth_m": group_result.barrel_result.outlet_depth,
-            "tailwater_resolution": _tailwater_record(group_result.tailwater_resolution),
-        }
-        for index, group_result in enumerate(hydraulic.group_results, start=1)
-    ]
+    group_records: list[dict[str, object]] = []
+    for index, group_result in enumerate(hydraulic.group_results, start=1):
+        barrel = group_result.barrel_result
+        group_records.append(
+            {
+                "group_index": index,
+                "quantity": group_result.group.quantity,
+                "total_discharge_m3s": group_result.total_discharge,
+                "barrel_discharge_m3s": group_result.barrel_discharge,
+                "headwater_elevation_m": barrel.headwater_elevation,
+                "headwater_depth_m": barrel.headwater_depth,
+                "tailwater_elevation_m": barrel.tailwater_elevation,
+                "tailwater_depth_m": barrel.tailwater_depth,
+                "control_type": barrel.control_type.value,
+                "flow_regime": barrel.regime.value,
+                "outlet_velocity_ms": barrel.velocity_outlet,
+                "outlet_depth_m": barrel.outlet_depth,
+                "critical_depth_m": barrel.critical_depth,
+                "normal_depth_m": barrel.normal_depth,
+                "profile_curve": None if barrel.profile_curve is None else barrel.profile_curve.value,
+                "outlet_sequent_depth_m": barrel.outlet_sequent_depth,
+                "hydraulic_jump_station_m": barrel.hydraulic_jump_station,
+                "hydraulic_jump_swept_out": barrel.hydraulic_jump_swept_out,
+                "full_flow_length_m": barrel.full_flow_length,
+                "adopted_roughness_manning_n": barrel.adopted_roughness,
+                "roughness_selection_basis": (
+                    None if barrel.roughness_selection_basis is None else barrel.roughness_selection_basis.value
+                ),
+                "roughness_source": _source_record(barrel.roughness_source),
+                "inlet_coefficient_selection": _inlet_selection_record(barrel.inlet_coefficient_selection),
+                "entrance_loss_selection": _entrance_loss_selection_record(barrel.entrance_loss_selection),
+                "exit_loss_selection": _exit_loss_selection_record(barrel.exit_loss_selection),
+                "outlet_control_losses": _head_loss_record(barrel.outlet_control_losses),
+                "full_flow_losses": _head_loss_record(barrel.full_flow_losses),
+                "convergence": [_convergence_record(record) for record in barrel.convergence],
+                "discharge_convergence": _convergence_record(group_result.discharge_convergence),
+                "tailwater_resolution": _tailwater_record(group_result.tailwater_resolution),
+            }
+        )
     return {
         "alternative": result.alternative_name,
         "crossing": result.crossing_name,
@@ -139,6 +239,9 @@ def scenario_result_record(result: ScenarioResult) -> dict[str, object]:
         "scenario_source": result.source,
         "scenario_notes": result.notes,
         "target_headwater_elevation_m": result.target_headwater_elevation,
+        "target_headwater_residual_m": result.target_headwater_residual,
+        "tailwater_override_elevation_m": result.tailwater_override_elevation,
+        "tailwater_was_event_override": result.tailwater_was_event_override,
         "discharge_m3s": hydraulic.total_discharge,
         "headwater_elevation_m": hydraulic.headwater_elevation,
         "tailwater_elevation_m": hydraulic.tailwater_elevation,
@@ -150,6 +253,7 @@ def scenario_result_record(result: ScenarioResult) -> dict[str, object]:
         "warnings": warning_records,
         "applicability_codes": list(result.applicability_codes),
         "applicability_notices": applicability_records,
+        "headwater_convergence": _convergence_record(hydraulic.headwater_convergence),
         "tailwater_resolution": _tailwater_record(hydraulic.tailwater_resolution),
         "group_results": group_records,
     }
@@ -176,7 +280,7 @@ def candidate_assessment_record(assessment: CandidateAssessment) -> dict[str, ob
 
 
 def export_scenario_results_json(results: Iterable[ScenarioResult], path: Path) -> Path:
-    """Write scenario summaries as JSON and return the output path."""
+    """Write scenario results as detailed JSON and return the output path."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = [scenario_result_record(result) for result in results]
@@ -185,7 +289,7 @@ def export_scenario_results_json(results: Iterable[ScenarioResult], path: Path) 
 
 
 def export_scenario_results_csv(results: Iterable[ScenarioResult], path: Path) -> Path:
-    """Write one summary row per scenario result as CSV."""
+    """Write one stable summary row per scenario result as CSV."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
@@ -196,6 +300,9 @@ def export_scenario_results_csv(results: Iterable[ScenarioResult], path: Path) -
         "scenario_source",
         "scenario_notes",
         "target_headwater_elevation_m",
+        "target_headwater_residual_m",
+        "tailwater_override_elevation_m",
+        "tailwater_was_event_override",
         "discharge_m3s",
         "headwater_elevation_m",
         "tailwater_elevation_m",
