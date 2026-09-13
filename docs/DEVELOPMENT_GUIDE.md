@@ -188,6 +188,8 @@ submodule content. Pass explicit repository-relative Markdown paths to check a d
 - `tests/test_data`, `excel-resources`, `qgis-resources`, `unsorted`, `vendor/run_hy8` and `vendor/ryan_culverts` are
   submodules. Preserve their independent worktrees and do not assume that a parent-repository change includes their
   contents.
+- The `unsorted` submodule is categorically outside automated inspection and validation. Do not initialise, traverse,
+  search, lint, test or otherwise check it; select required submodules explicitly instead of using recursive checkout.
 - File-management, raster and GIS scripts may overwrite, rename, delete or modify inputs. Prefer dry runs and temporary
   copies, and make destructive scope explicit.
 - Windows paths, long paths, spaces, UNC paths and network locations are normal. Examples should be copy-ready for the
