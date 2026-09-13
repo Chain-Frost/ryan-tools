@@ -7,7 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [Culvert analysis/design workflow](2026-09-13-culvert-workflow-80.md) | Active | ChatGPT | 2026-09-14 | 2026-09-15 | Review the validated combined #80–#85 diff, then commit and push it to draft PR #86; GUI work is deferred to #89. |
+| [Culvert analysis/design workflow](2026-09-13-culvert-workflow-80.md) | Ready for final validation | ChatGPT | 2026-09-14 | After final validation rerun | Re-run Ruff, strict Pyright, focused pytest, wrapper/documentation checks and package verification after the final provenance/export follow-up; merge PR #86 only after those checks pass. |
 | [Repository improvement backlog](../REPOSITORY_IMPROVEMENT_ROADMAP.md) | Planned | Unassigned | 2026-09-06 | 2026-09-20 | Select a bounded lifecycle review or script family and register its implementation record. |
 | [Scheduled compatibility removals](../COMPATIBILITY_POLICY.md) | Deferred | Unassigned | 2026-09-06 | 2027-01-04 | Support runs through 2026-12-31; then verify callers and select removals using the inventory. |
 
