@@ -52,6 +52,8 @@ required.
 
 The generic workflow catalogue and authoritative curated GDAL metadata are packaged with `ryan_functions`. Catalogued
 workflows resolve through their existing maintained repository wrappers so their CLI behavior has one source of truth.
+The `culvert_analysis_design` workflow exposes the maintained solve, analyse, design and rating commands as
+output-creating hydraulic workflows; each scenario requires an explicit project JSON path before execution.
 
 ## Repository workflow resolution
 

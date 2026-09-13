@@ -32,7 +32,8 @@ The initial workflow supports:
 - base crossings, scenarios and named alternatives;
 - explicit circular or rectangular size/quantity candidate generation for a single-group template crossing;
 - design constraints for maximum headwater elevation, headwater depth, outlet velocity and roadway discharge;
-- preservation of complete `CrossingHydraulicResult` objects, structured warnings and applicability notices;
+- preservation of complete `CrossingHydraulicResult` objects, structured warning messages, applicability notices,
+  source references and tailwater-resolution provenance;
 - CSV, JSON and Markdown scenario summaries;
 - JSON and Markdown design-search summaries;
 - crossing rating curves delegated to `culvert_solver`.
@@ -97,7 +98,8 @@ python ryan-scripts/culvert.py rating --project C:\Project\culvert_project.json 
 
 Outputs default to a `culvert_results` directory under the wrapper working directory. `solve` and `analyse` write
 `scenario_results.json`, `scenario_results.csv` and `scenario_results.md`. `design` writes `design_results.json` and
-`design_results.md`. `rating` writes `rating_curve.csv`.
+`design_results.md`; the JSON retains the applied criteria and complete candidate definitions. `rating` writes
+`rating_curve.csv` and `rating_curve.json`, with the JSON retaining warnings and tailwater provenance.
 
 ## Design-search behaviour
 

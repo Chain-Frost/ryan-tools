@@ -1,5 +1,7 @@
 """Focused integration tests for the ryan-tools/culvert_solver boundary."""
 
+from typing import Any, cast
+
 from culvert_solver import CircularGeometry, CulvertCrossing
 
 from ryan_library.classes.culvert import (
@@ -10,6 +12,7 @@ from ryan_library.classes.culvert import (
     Scenario,
 )
 from ryan_library.functions.culvert.adapter import build_solver_crossing
+from ryan_library.functions.culvert.export import scenario_result_record
 from ryan_library.orchestrators.culvert.solve import solve_crossing_scenario
 
 
@@ -52,3 +55,17 @@ def test_forward_solve_retains_solver_result_and_notices() -> None:
     assert result.hydraulic_result.headwater_elevation > 10.0
     assert result.hydraulic_result.group_results[0].barrel_discharge == 2.0
     assert "representative_barrel_equal_flow" in result.applicability_codes
+
+
+def test_machine_record_retains_warning_messages_and_sources() -> None:
+    result = solve_crossing_scenario(
+        _crossing(),
+        Scenario(name="Extreme", discharge=50.0, tailwater=10.0),
+    )
+
+    record = scenario_result_record(result)
+    warnings = cast("list[dict[str, Any]]", record["warnings"])
+    notices = cast("list[dict[str, Any]]", record["applicability_notices"])
+
+    assert warnings[0]["message"]
+    assert notices[0]["source"]["source_id"]

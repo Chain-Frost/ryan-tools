@@ -32,21 +32,26 @@ _MATERIALS: dict[CulvertMaterialName, CulvertMaterial] = {
 
 def build_solver_barrel(definition: BarrelDefinition) -> CulvertBarrel:
     """Convert a workflow barrel definition to the authoritative solver model."""
-    if isinstance(definition, RectangularBarrelDefinition):
-        geometry = RectangularGeometry.from_mm(definition.span_mm, definition.rise_mm)
-    elif isinstance(definition, CircularBarrelDefinition):
-        geometry = CircularGeometry.from_mm(definition.diameter_mm)
+    definition_value: object = definition
+    if isinstance(definition_value, RectangularBarrelDefinition):
+        typed_definition: BarrelDefinition = definition_value
+        geometry = RectangularGeometry.from_mm(definition_value.span_mm, definition_value.rise_mm)
+    elif isinstance(  # pyright: ignore[reportUnnecessaryIsInstance]
+        definition_value, CircularBarrelDefinition
+    ):
+        typed_definition = definition_value
+        geometry = CircularGeometry.from_mm(definition_value.diameter_mm)
     else:
-        msg = f"Unsupported barrel definition type: {type(definition).__name__}"
+        msg = f"Unsupported barrel definition type: {type(definition_value).__name__}"
         raise TypeError(msg)
     return CulvertBarrel(
         geometry=geometry,
-        length=definition.length,
-        inlet_invert=definition.inlet_invert,
-        outlet_invert=definition.outlet_invert,
-        roughness=definition.roughness,
-        material=_MATERIALS[definition.material],
-        label=definition.label,
+        length=typed_definition.length,
+        inlet_invert=typed_definition.inlet_invert,
+        outlet_invert=typed_definition.outlet_invert,
+        roughness=typed_definition.roughness,
+        material=_MATERIALS[typed_definition.material],
+        label=typed_definition.label,
     )
 
 

@@ -113,7 +113,12 @@ class CulvertGroupDefinition:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", _nonempty(self.name, "name"))
-        if isinstance(self.quantity, bool) or not isinstance(self.quantity, int) or self.quantity <= 0:
+        quantity: object = self.quantity
+        if (
+            isinstance(quantity, bool)
+            or not isinstance(quantity, int)  # pyright: ignore[reportUnnecessaryIsInstance]
+            or quantity <= 0
+        ):
             msg = "quantity must be a strictly positive integer."
             raise ValueError(msg)
 

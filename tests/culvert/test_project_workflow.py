@@ -1,6 +1,7 @@
 """Project-level culvert workflow and machine-readable export tests."""
 
 import json
+from pathlib import Path
 
 from ryan_library.classes.culvert import (
     Alternative,
@@ -35,7 +36,7 @@ def _crossing(name: str, diameter_mm: float) -> CrossingDefinition:
     )
 
 
-def test_project_analysis_evaluates_scenarios_and_alternatives(tmp_path) -> None:
+def test_project_analysis_evaluates_scenarios_and_alternatives(tmp_path: Path) -> None:
     project = CulvertProject(
         name="Demo",
         crossings=(_crossing("Existing", 1200.0),),

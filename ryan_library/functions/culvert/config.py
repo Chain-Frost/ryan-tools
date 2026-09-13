@@ -21,10 +21,11 @@ def _mapping(value: object, name: str) -> dict[str, object]:
     if not isinstance(value, dict):
         msg = f"{name} must be a JSON object."
         raise ValueError(msg)
-    if not all(isinstance(key, str) for key in value):
+    raw_mapping = cast("dict[object, object]", value)
+    if not all(isinstance(key, str) for key in raw_mapping):
         msg = f"{name} must contain only string keys."
         raise ValueError(msg)
-    return cast(dict[str, object], value)
+    return cast("dict[str, object]", raw_mapping)
 
 
 def _list(value: object, name: str) -> list[object]:

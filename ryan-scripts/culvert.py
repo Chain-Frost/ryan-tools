@@ -43,7 +43,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-09-13.2"
+WRAPPER_VERSION = "2026-09-13.3"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
@@ -71,6 +71,8 @@ from ryan_library.functions.culvert.candidate_generation import (
 )
 from ryan_library.functions.culvert.config import load_project_json
 from ryan_library.functions.culvert.export import (
+    export_crossing_rating_csv,
+    export_crossing_rating_json,
     export_design_result_json,
     export_scenario_results_csv,
     export_scenario_results_json,
@@ -108,6 +110,91 @@ def _write_scenario_outputs(results: Sequence[ScenarioResult], output_directory:
     export_scenario_results_json(results, output_directory / "scenario_results.json")
     export_scenario_results_csv(results, output_directory / "scenario_results.csv")
     (output_directory / "scenario_results.md").write_text(render_scenario_markdown(results), encoding="utf-8")
+
+
+def _run_design(
+    *,
+    crossing: CrossingDefinition,
+    scenarios: Sequence[Scenario],
+    output_directory: Path,
+    diameters_mm: tuple[float, ...] | None,
+    spans_mm: tuple[float, ...] | None,
+    rises_mm: tuple[float, ...] | None,
+    quantities: tuple[int, ...] | None,
+    maximum_headwater_elevation: float | None,
+    maximum_headwater_depth: float | None,
+    maximum_outlet_velocity: float | None,
+    maximum_roadway_discharge: float | None,
+) -> None:
+    if all(
+        limit is None
+        for limit in (
+            maximum_headwater_elevation,
+            maximum_headwater_depth,
+            maximum_outlet_velocity,
+            maximum_roadway_discharge,
+        )
+    ):
+        msg = "design requires at least one explicit hydraulic design criterion."
+        raise ValueError(msg)
+    if len(crossing.groups) != 1:
+        msg = "CLI candidate generation currently requires a single-group crossing."
+        raise ValueError(msg)
+
+    template_group = crossing.groups[0]
+    design_quantities = quantities or (template_group.quantity,)
+    template_barrel: object = template_group.barrel
+    if isinstance(template_barrel, CircularBarrelDefinition):
+        candidates = generate_circular_candidates(
+            crossing,
+            diameters_mm=diameters_mm or (template_barrel.diameter_mm,),
+            quantities=design_quantities,
+        )
+    elif isinstance(  # pyright: ignore[reportUnnecessaryIsInstance]
+        template_barrel, RectangularBarrelDefinition
+    ):
+        candidates = generate_rectangular_candidates(
+            crossing,
+            spans_mm=spans_mm or (template_barrel.span_mm,),
+            rises_mm=rises_mm or (template_barrel.rise_mm,),
+            quantities=design_quantities,
+        )
+    else:
+        msg = "Unsupported barrel definition for candidate generation."
+        raise TypeError(msg)
+
+    criteria = DesignCriteria(
+        maximum_headwater_elevation=maximum_headwater_elevation,
+        maximum_headwater_depth=maximum_headwater_depth,
+        maximum_outlet_velocity=maximum_outlet_velocity,
+        maximum_roadway_discharge=maximum_roadway_discharge,
+    )
+    result = design_crossing(candidates, scenarios, criteria)
+    output_directory.mkdir(parents=True, exist_ok=True)
+    export_design_result_json(result, output_directory / "design_results.json", criteria=criteria)
+    markdown = render_design_markdown(result)
+    (output_directory / "design_results.md").write_text(markdown, encoding="utf-8")
+    print(markdown)
+
+
+def _run_rating(
+    *,
+    crossing: CrossingDefinition,
+    scenario: Scenario,
+    output_directory: Path,
+    minimum_discharge: float | None,
+    maximum_discharge: float | None,
+    points: int | None,
+) -> None:
+    q_min = minimum_discharge or max(0.01, scenario.discharge / 10.0)
+    q_max = maximum_discharge or scenario.discharge
+    discharges = generate_discharge_range(q_min, q_max, points or DEFAULT_RATING_POINTS)
+    result = generate_crossing_rating(crossing, discharges, scenario.tailwater)
+    output_directory.mkdir(parents=True, exist_ok=True)
+    rating_path = output_directory / "rating_curve.csv"
+    export_crossing_rating_csv(result, rating_path)
+    export_crossing_rating_json(result, output_directory / "rating_curve.json")
+    print(f"Wrote {len(result.rating_curve.points)} rating points to {rating_path}")
 
 
 def main(
@@ -167,75 +254,33 @@ def main(
                 _write_scenario_outputs(results, resolved_output)
                 print(render_scenario_markdown(results))
             elif command == "design":
-                if all(
-                    limit is None
-                    for limit in (
-                        maximum_headwater_elevation,
-                        maximum_headwater_depth,
-                        maximum_outlet_velocity,
-                        maximum_roadway_discharge,
-                    )
-                ):
-                    msg = "design requires at least one explicit hydraulic design criterion."
-                    raise ValueError(msg)
-                if len(crossing.groups) != 1:
-                    msg = "CLI candidate generation currently requires a single-group crossing."
-                    raise ValueError(msg)
-                template_group = crossing.groups[0]
-                design_quantities = quantities or (template_group.quantity,)
-                if isinstance(template_group.barrel, CircularBarrelDefinition):
-                    design_diameters = diameters_mm or (template_group.barrel.diameter_mm,)
-                    candidates = generate_circular_candidates(
-                        crossing,
-                        diameters_mm=design_diameters,
-                        quantities=design_quantities,
-                    )
-                elif isinstance(template_group.barrel, RectangularBarrelDefinition):
-                    design_spans = spans_mm or (template_group.barrel.span_mm,)
-                    design_rises = rises_mm or (template_group.barrel.rise_mm,)
-                    candidates = generate_rectangular_candidates(
-                        crossing,
-                        spans_mm=design_spans,
-                        rises_mm=design_rises,
-                        quantities=design_quantities,
-                    )
-                else:
-                    msg = "Unsupported barrel definition for candidate generation."
-                    raise TypeError(msg)
-                criteria = DesignCriteria(
+                _run_design(
+                    crossing=crossing,
+                    scenarios=project.scenarios,
+                    output_directory=resolved_output,
+                    diameters_mm=diameters_mm,
+                    spans_mm=spans_mm,
+                    rises_mm=rises_mm,
+                    quantities=quantities,
                     maximum_headwater_elevation=maximum_headwater_elevation,
                     maximum_headwater_depth=maximum_headwater_depth,
                     maximum_outlet_velocity=maximum_outlet_velocity,
                     maximum_roadway_discharge=maximum_roadway_discharge,
                 )
-                result = design_crossing(candidates, project.scenarios, criteria)
-                resolved_output.mkdir(parents=True, exist_ok=True)
-                export_design_result_json(result, resolved_output / "design_results.json")
-                markdown = render_design_markdown(result)
-                (resolved_output / "design_results.md").write_text(markdown, encoding="utf-8")
-                print(markdown)
             elif command == "rating":
-                q_min = minimum_rating_discharge or max(0.01, scenario.discharge / 10.0)
-                q_max = maximum_rating_discharge or scenario.discharge
-                discharges = generate_discharge_range(q_min, q_max, rating_points or DEFAULT_RATING_POINTS)
-                result = generate_crossing_rating(crossing, discharges, scenario.tailwater)
-                resolved_output.mkdir(parents=True, exist_ok=True)
-                lines = [
-                    "discharge_m3s,headwater_elevation_m,tailwater_elevation_m,outlet_velocity_ms,status"
-                ]
-                lines.extend(
-                    f"{point.discharge},{point.headwater_elevation},{point.tailwater_elevation},"
-                    f"{point.outlet_velocity},{point.status.value}"
-                    for point in result.rating_curve.points
+                _run_rating(
+                    crossing=crossing,
+                    scenario=scenario,
+                    output_directory=resolved_output,
+                    minimum_discharge=minimum_rating_discharge,
+                    maximum_discharge=maximum_rating_discharge,
+                    points=rating_points,
                 )
-                rating_path = resolved_output / "rating_curve.csv"
-                rating_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-                print(f"Wrote {len(result.rating_curve.points)} rating points to {rating_path}")
             else:
                 msg = f"Unsupported command: {command}"
                 raise ValueError(msg)
             logger.success("Culvert workflow completed; outputs: {}", resolved_output)
-        except (OSError, ValueError, RuntimeError):
+        except OSError, ValueError, RuntimeError:
             logger.exception("Culvert workflow failed.")
             return 1
     return 0

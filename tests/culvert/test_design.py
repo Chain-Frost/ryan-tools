@@ -1,5 +1,8 @@
 """Focused tests for explicit culvert candidate generation and assessment."""
 
+import json
+from pathlib import Path
+
 from ryan_library.classes.culvert import (
     CircularBarrelDefinition,
     CrossingDefinition,
@@ -9,6 +12,7 @@ from ryan_library.classes.culvert import (
     Scenario,
 )
 from ryan_library.functions.culvert.candidate_generation import generate_circular_candidates
+from ryan_library.functions.culvert.export import export_design_result_json
 from ryan_library.orchestrators.culvert.design import design_crossing
 
 
@@ -65,3 +69,17 @@ def test_rejected_candidate_retains_governing_reason() -> None:
     assert not assessment.passed
     assert assessment.failure_reasons
     assert "headwater elevation" in assessment.failure_reasons[0]
+
+
+def test_design_export_retains_criteria_and_candidate_definition(tmp_path: Path) -> None:
+    candidates = generate_circular_candidates(_template(), diameters_mm=(1200.0,), quantities=(2,))
+    criteria = DesignCriteria(maximum_headwater_elevation=100.0)
+    result = design_crossing(candidates, (Scenario(name="Design", discharge=2.0, tailwater=9.5),), criteria)
+
+    path = export_design_result_json(result, tmp_path / "design.json", criteria=criteria)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert payload["design_criteria"]["maximum_headwater_elevation_m"] == 100.0
+    group = payload["assessments"][0]["crossing_definition"]["groups"][0]
+    assert group["quantity"] == 2
+    assert group["barrel"]["diameter_mm"] == 1200.0

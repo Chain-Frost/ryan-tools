@@ -1,6 +1,7 @@
 [submodule "unsorted"]
 	path = unsorted
 	url = https://github.com/Chain-Frost/ryan-tools-unsorted.git
+	update = none
 [submodule "vendor/run_hy8"]
 	path = vendor/run_hy8
 	url = https://github.com/Chain-Frost/run-hy8.git

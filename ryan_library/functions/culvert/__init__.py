@@ -6,6 +6,10 @@ from .candidate_generation import generate_circular_candidates, generate_rectang
 from .config import load_project_json
 from .export import (
     candidate_assessment_record,
+    crossing_definition_record,
+    design_criteria_record,
+    export_crossing_rating_csv,
+    export_crossing_rating_json,
     export_design_result_json,
     export_scenario_results_csv,
     export_scenario_results_json,
@@ -19,6 +23,10 @@ __all__: list[str] = [
     "build_solver_group",
     "build_solver_roadway",
     "candidate_assessment_record",
+    "crossing_definition_record",
+    "design_criteria_record",
+    "export_crossing_rating_csv",
+    "export_crossing_rating_json",
     "export_design_result_json",
     "export_scenario_results_csv",
     "export_scenario_results_json",

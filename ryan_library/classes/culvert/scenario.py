@@ -23,7 +23,7 @@ class Scenario:
         if not isfinite(discharge) or discharge <= 0.0:
             msg = "discharge must be finite and strictly positive."
             raise ValueError(msg)
-        tailwater = self.tailwater
+        tailwater: object = self.tailwater
         if isinstance(tailwater, bool):
             msg = "tailwater must be a finite elevation or TailwaterBoundary."
             raise ValueError(msg)
@@ -31,7 +31,7 @@ class Scenario:
             if not isfinite(float(tailwater)):
                 msg = "Numeric tailwater elevation must be finite."
                 raise ValueError(msg)
-        elif not isinstance(tailwater, TailwaterBoundary):
+        elif not isinstance(tailwater, TailwaterBoundary):  # pyright: ignore[reportUnnecessaryIsInstance]
             msg = "tailwater must be a finite elevation or TailwaterBoundary."
             raise ValueError(msg)
         object.__setattr__(self, "name", name)

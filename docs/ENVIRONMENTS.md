@@ -114,16 +114,20 @@ return or raise errors rather than pausing or calling `SystemExit`.
 
 ## Test and fixture environment
 
-Initialise the repository submodules before running tests that require fixtures:
+Initialise only the specific repository submodules required by the selected tests. For the normal maintained test and
+build surfaces:
 
 ```powershell
-git submodule update --init --recursive
+git submodule update --init excel-resources qgis-resources tests/test_data vendor/run_hy8 vendor/ryan_culverts
 git lfs pull
 ```
 
 `tests/test_data` is a required submodule. Resource submodules may also require their own Git LFS pull. Tests do not
 automatically download unavailable proprietary data, and new committed fixtures should be synthetic unless sharing the
 source data is permitted.
+
+Never initialise, inspect or validate the `unsorted` submodule. Recursive submodule checkout is prohibited because it
+would include that excluded repository.
 
 Some focused pytest runs on Windows require a pre-created repository-local base temporary directory. Environment-specific
 components, such as the bundled `run_hy8` submodule, may have additional import-path instructions in their local docs.

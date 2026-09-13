@@ -6,7 +6,8 @@ Implement the first usable increment of GitHub issue #80: a CulvertMaster-style 
 
 ## Status
 
-In progress.
+Active. The implementation and local acceptance validation are complete; reviewed changes still need to be committed and
+pushed to draft PR #86.
 
 ## Architectural placement
 
@@ -20,7 +21,9 @@ No culvert hydraulic equations are to be duplicated in `ryan-tools`; all hydraul
 
 ## Current milestone
 
-Create the typed domain model, bounded `culvert_solver` adapter, solve/analyse/design orchestration, machine-readable exports, CLI wrapper, and focused synthetic tests.
+The first usable increment is implemented. Design JSON now retains applied criteria and full candidate definitions;
+scenario and rating JSON retain structured warning messages, applicability sources and tailwater-resolution provenance.
+The maintained wrapper is also discoverable through the MCP workflow catalogue.
 
 ## Validation required
 
@@ -34,12 +37,43 @@ Create the typed domain model, bounded `culvert_solver` adapter, solve/analyse/d
 
 Branch: `feature/culvert-workflow-80`
 
-PR: pending.
+PR: draft #86, with the local branch synchronized to its remote baseline before the current changes.
+
+Local delivery: changes are unstaged and uncommitted except for a separately staged `vendor/ryan_culverts` gitlink
+update that appeared during the session and was preserved. The temporary branch-only validation workflow is deleted
+locally. Nothing from this session has been pushed.
 
 ## Next action
 
-Implement the first usable workflow increment and validate it against the vendored `culvert_solver` API.
+Review the local diff and separately staged solver gitlink, then commit and push the accepted changes to PR #86. Remove
+draft status after the pushed head reflects the recorded validation.
 
 ## Next review
 
 2026-09-14
+
+## Validation and delivery
+
+Validated on Windows with the user's Python 3.14 installation on 2026-09-13:
+
+- Ruff format and check passed on all modified Python files.
+- Strict Pyright passed on all modified Python files with 0 errors and 0 warnings.
+- `python -m pytest tests/culvert tests/mcp/test_registry.py -q`: 25 passed, including real wrapper success and
+  missing-directory process-boundary checks.
+- Wrapper compilation and `python ryan-scripts/culvert.py --help` passed.
+- Repository documentation, touched-document link checks, Loguru formatting and `git diff --check` passed.
+- Versioned package build produced and verified `ryan_functions-26.9.13.1-py3-none-any.whl`; a no-bump rebuild against
+  the current solver checkout also passed.
+- Isolated wheel imports, a real crossing solve and packaged MCP catalogue discovery passed without source-checkout
+  imports.
+
+The `unsorted` submodule was not inspected or validated. Repository policy, `.gitmodules` and environment guidance now
+exclude it categorically from automated work.
+
+## Progress
+
+### 2026-09-13
+
+Completed the acceptance implementation, corrected lint/type issues, expanded engineering provenance and focused
+coverage, added MCP discovery, rebuilt the package, and made the `unsorted` exclusion durable. The remaining action is
+Git delivery and final PR review.

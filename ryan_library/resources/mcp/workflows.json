@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "catalogue_updated": "2026-08-27",
+  "catalogue_updated": "2026-09-13",
   "workflows": [
     {
       "id": "audit_qgis_projects",
@@ -12,6 +12,41 @@
       "mutation": "read_only",
       "lifecycle": "experimental",
       "headless_arguments": ["--no-pause"]
+    },
+    {
+      "id": "culvert_analysis_design",
+      "title": "Analyse and design culvert crossings",
+      "domain": "hydraulics",
+      "purpose": "Solve, compare, rate and design culvert crossings through the maintained ryan-culverts workflow.",
+      "script": "ryan-scripts/culvert.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": ["--no-pause"],
+      "scenarios": [
+        {
+          "name": "analyse_project",
+          "arguments": ["analyse", "--project", "{project_json}", "--no-pause"]
+        },
+        {
+          "name": "solve_scenario",
+          "arguments": ["solve", "--project", "{project_json}", "--no-pause"]
+        },
+        {
+          "name": "design_crossing",
+          "arguments": [
+            "design",
+            "--project",
+            "{project_json}",
+            "--max-headwater-elevation",
+            "{maximum_headwater_elevation_m}",
+            "--no-pause"
+          ]
+        },
+        {
+          "name": "rating_curve",
+          "arguments": ["rating", "--project", "{project_json}", "--no-pause"]
+        }
+      ]
     },
     {
       "id": "tuflow_log_summary",
