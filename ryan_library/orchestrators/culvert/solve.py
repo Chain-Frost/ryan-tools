@@ -30,4 +30,5 @@ def solve_crossing_scenario(
         source=scenario.source,
         notes=scenario.notes,
         target_headwater_elevation=scenario.target_headwater_elevation,
+        tailwater_override_elevation=scenario.tailwater_override_elevation,
     )
