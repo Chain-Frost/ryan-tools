@@ -16,21 +16,24 @@ class CulvertMaterialName(StrEnum):
 def _positive(value: float, name: str) -> float:
     result = float(value)
     if not isfinite(result) or result <= 0.0:
-        raise ValueError(f"{name} must be finite and strictly positive.")
+        msg = f"{name} must be finite and strictly positive."
+        raise ValueError(msg)
     return result
 
 
 def _finite(value: float, name: str) -> float:
     result = float(value)
     if not isfinite(result):
-        raise ValueError(f"{name} must be finite.")
+        msg = f"{name} must be finite."
+        raise ValueError(msg)
     return result
 
 
 def _nonempty(value: str, name: str) -> str:
     result = value.strip()
     if not result:
-        raise ValueError(f"{name} must be nonempty text.")
+        msg = f"{name} must be nonempty text."
+        raise ValueError(msg)
     return result
 
 
@@ -49,14 +52,16 @@ class RectangularBarrelDefinition:
 
     def __post_init__(self) -> None:
         if self.material is not CulvertMaterialName.CONCRETE_BOX:
-            raise ValueError("Rectangular barrels currently require material='concrete_box'.")
+            msg = "Rectangular barrels currently require material='concrete_box'."
+            raise ValueError(msg)
         object.__setattr__(self, "span_mm", _positive(self.span_mm, "span_mm"))
         object.__setattr__(self, "rise_mm", _positive(self.rise_mm, "rise_mm"))
         object.__setattr__(self, "length", _positive(self.length, "length"))
         inlet = _finite(self.inlet_invert, "inlet_invert")
         outlet = _finite(self.outlet_invert, "outlet_invert")
         if outlet > inlet:
-            raise ValueError("outlet_invert must not exceed inlet_invert.")
+            msg = "outlet_invert must not exceed inlet_invert."
+            raise ValueError(msg)
         object.__setattr__(self, "inlet_invert", inlet)
         object.__setattr__(self, "outlet_invert", outlet)
         object.__setattr__(self, "roughness", _positive(self.roughness, "roughness"))
@@ -80,13 +85,15 @@ class CircularBarrelDefinition:
             CulvertMaterialName.CONCRETE_PIPE,
             CulvertMaterialName.CORRUGATED_STEEL,
         }:
-            raise ValueError("Circular barrels require concrete_pipe or corrugated_steel material.")
+            msg = "Circular barrels require concrete_pipe or corrugated_steel material."
+            raise ValueError(msg)
         object.__setattr__(self, "diameter_mm", _positive(self.diameter_mm, "diameter_mm"))
         object.__setattr__(self, "length", _positive(self.length, "length"))
         inlet = _finite(self.inlet_invert, "inlet_invert")
         outlet = _finite(self.outlet_invert, "outlet_invert")
         if outlet > inlet:
-            raise ValueError("outlet_invert must not exceed inlet_invert.")
+            msg = "outlet_invert must not exceed inlet_invert."
+            raise ValueError(msg)
         object.__setattr__(self, "inlet_invert", inlet)
         object.__setattr__(self, "outlet_invert", outlet)
         object.__setattr__(self, "roughness", _positive(self.roughness, "roughness"))
@@ -106,8 +113,9 @@ class CulvertGroupDefinition:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "name", _nonempty(self.name, "name"))
-        if isinstance(self.quantity, bool) or self.quantity <= 0:
-            raise ValueError("quantity must be a strictly positive integer.")
+        if isinstance(self.quantity, bool) or not isinstance(self.quantity, int) or self.quantity <= 0:
+            msg = "quantity must be a strictly positive integer."
+            raise ValueError(msg)
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,8 +150,10 @@ class CrossingDefinition:
         object.__setattr__(self, "name", _nonempty(self.name, "name"))
         groups = tuple(self.groups)
         if not groups:
-            raise ValueError("groups must contain at least one culvert group.")
+            msg = "groups must contain at least one culvert group."
+            raise ValueError(msg)
         names = [group.name for group in groups]
         if len(names) != len(set(names)):
-            raise ValueError("Culvert group names must be unique within a crossing.")
+            msg = "Culvert group names must be unique within a crossing."
+            raise ValueError(msg)
         object.__setattr__(self, "groups", groups)
