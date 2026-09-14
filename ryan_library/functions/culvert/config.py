@@ -116,24 +116,31 @@ def _parse_barrel(value: object) -> RectangularBarrelDefinition | CircularBarrel
     if not isinstance(label, str):
         msg = "barrel label must be text."
         raise ValueError(msg)
-    material_name = CulvertMaterialName(_text(data, "material"))
-    common_values = {
-        "length": _number(data, "length_m"),
-        "inlet_invert": _number(data, "inlet_invert_elevation_m"),
-        "outlet_invert": _number(data, "outlet_invert_elevation_m"),
-        "roughness": _number(data, "roughness_manning_n"),
-        "material": material_name,
-        "label": label,
-    }
+    material = CulvertMaterialName(_text(data, "material"))
+    length = _number(data, "length_m")
+    inlet_invert = _number(data, "inlet_invert_elevation_m")
+    outlet_invert = _number(data, "outlet_invert_elevation_m")
+    roughness = _number(data, "roughness_manning_n")
+
     if shape == "rectangular":
         return RectangularBarrelDefinition(
             span_mm=_number(data, "span_mm"),
             rise_mm=_number(data, "rise_mm"),
-            **common_values,
+            length=length,
+            inlet_invert=inlet_invert,
+            outlet_invert=outlet_invert,
+            roughness=roughness,
+            material=material,
+            label=label,
         )
     return CircularBarrelDefinition(
         diameter_mm=_number(data, "diameter_mm"),
-        **common_values,
+        length=length,
+        inlet_invert=inlet_invert,
+        outlet_invert=outlet_invert,
+        roughness=roughness,
+        material=material,
+        label=label,
     )
 
 
