@@ -1,5 +1,6 @@
 """Typed domain models for floodway design and assessment workflows."""
 
+from .envelope import FloodwayEnvelopeGovernor, FloodwayEnvelopeMetric, FloodwayEventEnvelope
 from .models import (
     FloodwayApplicabilityStatus,
     FloodwayAssessmentLayer,
@@ -16,6 +17,9 @@ from .results import FloodwayZoneDemand, GoverningFloodwayDemand, MrwaSurfaceVel
 __all__: list[str] = [
     "FloodwayApplicabilityStatus",
     "FloodwayAssessmentLayer",
+    "FloodwayEnvelopeGovernor",
+    "FloodwayEnvelopeMetric",
+    "FloodwayEventEnvelope",
     "FloodwayFormation",
     "FloodwayFormationZone",
     "FloodwayScenarioHydraulics",
