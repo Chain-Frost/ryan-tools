@@ -112,13 +112,13 @@ class FloodwayZoneDemand:
 
 @dataclass(frozen=True, slots=True)
 class GoverningFloodwayDemand:
-    """Governing local zone demand selected from an event/scenario envelope."""
+    """Candidate local zone demand for event-envelope governing-state selection."""
 
     scenario_name: str
     aep_percent: float | None
-    source_interval_index: int
-    integration_station: float
     demand: FloodwayZoneDemand
+    source_interval_index: int = 0
+    integration_station: float = 0.0
 
     def __post_init__(self) -> None:
         name = self.scenario_name.strip()
