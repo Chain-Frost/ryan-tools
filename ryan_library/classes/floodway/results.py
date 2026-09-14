@@ -3,7 +3,13 @@
 from dataclasses import dataclass
 from math import isfinite
 
-from .models import FloodwayApplicabilityStatus, FloodwayAssessmentLayer, FloodwayZone
+from .models import (
+    FloodwayApplicabilityStatus,
+    FloodwayAssessmentLayer,
+    FloodwayScenarioHydraulics,
+    FloodwayZone,
+    RoadwaySegmentState,
+)
 
 
 def _finite(value: float, name: str) -> float:
@@ -18,6 +24,16 @@ def _nonnegative(value: float, name: str) -> float:
     result = _finite(value, name)
     if result < 0.0:
         msg = f"{name} must be non-negative."
+        raise ValueError(msg)
+    return result
+
+
+def _aep(value: float | None) -> float | None:
+    if value is None:
+        return None
+    result = _nonnegative(value, "aep_percent")
+    if result > 100.0:
+        msg = "aep_percent must not exceed 100."
         raise ValueError(msg)
     return result
 
@@ -96,10 +112,12 @@ class FloodwayZoneDemand:
 
 @dataclass(frozen=True, slots=True)
 class GoverningFloodwayDemand:
-    """Governing zone demand selected from an event/scenario envelope."""
+    """Governing local zone demand selected from an event/scenario envelope."""
 
     scenario_name: str
     aep_percent: float | None
+    source_interval_index: int
+    integration_station: float
     demand: FloodwayZoneDemand
 
     def __post_init__(self) -> None:
@@ -107,10 +125,65 @@ class GoverningFloodwayDemand:
         if not name:
             msg = "scenario_name must be nonempty text."
             raise ValueError(msg)
+        if self.source_interval_index < 0:
+            msg = "source_interval_index must be non-negative."
+            raise ValueError(msg)
         object.__setattr__(self, "scenario_name", name)
-        if self.aep_percent is not None:
-            aep = _nonnegative(self.aep_percent, "aep_percent")
-            if aep > 100.0:
-                msg = "aep_percent must not exceed 100."
-                raise ValueError(msg)
-            object.__setattr__(self, "aep_percent", aep)
+        object.__setattr__(self, "aep_percent", _aep(self.aep_percent))
+        object.__setattr__(self, "integration_station", _finite(self.integration_station, "integration_station"))
+
+
+@dataclass(frozen=True, slots=True)
+class FloodwayZoneAssessment:
+    """Assessment of one A-F zone at one roadway integration location and event."""
+
+    scenario_name: str
+    aep_percent: float | None
+    source_interval_index: int
+    integration_station: float
+    flow_state: RoadwaySegmentState
+    zone: FloodwayZone
+    applicability: FloodwayApplicabilityStatus
+    velocity_result: MrwaSurfaceVelocityResult | None = None
+    demand: FloodwayZoneDemand | None = None
+    message: str = ""
+
+    def __post_init__(self) -> None:
+        name = self.scenario_name.strip()
+        if not name:
+            msg = "scenario_name must be nonempty text."
+            raise ValueError(msg)
+        if self.source_interval_index < 0:
+            msg = "source_interval_index must be non-negative."
+            raise ValueError(msg)
+        if (self.velocity_result is None) != (self.demand is None):
+            msg = "velocity_result and demand must either both be present or both be absent."
+            raise ValueError(msg)
+        object.__setattr__(self, "scenario_name", name)
+        object.__setattr__(self, "aep_percent", _aep(self.aep_percent))
+        object.__setattr__(self, "integration_station", _finite(self.integration_station, "integration_station"))
+        object.__setattr__(self, "message", self.message.strip())
+
+
+@dataclass(frozen=True, slots=True)
+class FloodwayScenarioAssessment:
+    """All zone assessments derived from one solved crossing scenario."""
+
+    hydraulics: FloodwayScenarioHydraulics
+    zone_assessments: tuple[FloodwayZoneAssessment, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "zone_assessments", tuple(self.zone_assessments))
+
+
+@dataclass(frozen=True, slots=True)
+class FloodwayEnvelopeResult:
+    """Scenario envelope with independent governing states for unlike demand measures."""
+
+    scenarios: tuple[FloodwayScenarioAssessment, ...]
+    governing_velocity: GoverningFloodwayDemand | None
+    governing_dynamic_pressure: GoverningFloodwayDemand | None
+    governing_momentum_flux: GoverningFloodwayDemand | None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "scenarios", tuple(self.scenarios))
