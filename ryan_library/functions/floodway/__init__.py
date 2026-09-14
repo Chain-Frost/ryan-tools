@@ -8,6 +8,7 @@ from .assessment import (
     select_governing_momentum_flux,
     select_governing_velocity,
 )
+from .envelope import build_floodway_event_envelope
 from .hec23 import (
     HEC23_SI_KU,
     HEC23_SI_MANNING_STRICKLER,
@@ -36,6 +37,7 @@ __all__: list[str] = [
     "HEC23_SI_KU",
     "HEC23_SI_MANNING_STRICKLER",
     "STANDARD_WATER_DENSITY",
+    "build_floodway_event_envelope",
     "build_floodway_scenario_hydraulics",
     "build_zone_demand",
     "calculate_mrwa_surface_velocity",
