@@ -31,6 +31,8 @@ def floodway_governor_record(governor: FloodwayEnvelopeGovernor) -> dict[str, ob
         "metric": governor.metric.value,
         "scenario": governor.scenario_name,
         "aep_percent": governor.aep_percent,
+        "source_interval_index": governor.source_interval_index,
+        "integration_station_m": governor.integration_station,
         "demand": floodway_zone_demand_record(governor.demand),
     }
 
@@ -42,6 +44,8 @@ def floodway_envelope_record(envelope: FloodwayEventEnvelope) -> dict[str, objec
             {
                 "scenario": candidate.scenario_name,
                 "aep_percent": candidate.aep_percent,
+                "source_interval_index": candidate.source_interval_index,
+                "integration_station_m": candidate.integration_station,
                 "demand": floodway_zone_demand_record(candidate.demand),
             }
             for candidate in envelope.candidates
@@ -67,6 +71,8 @@ def export_floodway_governors_csv(envelope: FloodwayEventEnvelope, path: Path) -
         "metric",
         "scenario",
         "aep_percent",
+        "source_interval_index",
+        "integration_station_m",
         "unit_discharge_m2s",
         "velocity_ms",
         "dynamic_pressure_pa",
@@ -89,7 +95,9 @@ def export_floodway_governors_csv(envelope: FloodwayEventEnvelope, path: Path) -
                     "metric": governor.metric.value,
                     "scenario": governor.scenario_name,
                     "aep_percent": governor.aep_percent,
-                    **{key: demand[key] for key in fieldnames[4:]},
+                    "source_interval_index": governor.source_interval_index,
+                    "integration_station_m": governor.integration_station,
+                    **{key: demand[key] for key in fieldnames[6:]},
                 }
             )
     return target
