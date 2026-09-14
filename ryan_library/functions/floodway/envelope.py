@@ -50,6 +50,8 @@ def build_floodway_event_envelope(
                     scenario_name=governing.scenario_name,
                     aep_percent=governing.aep_percent,
                     demand=governing.demand,
+                    source_interval_index=governing.source_interval_index,
+                    integration_station=governing.integration_station,
                 )
             )
 
