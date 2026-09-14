@@ -127,6 +127,12 @@ def evaluate_hec23_overtopping_riprap(
     size is therefore an explicit input here and is used for Equation 5.1 and all
     subsequent layer-capacity checks. This function does not infer a standard
     gradation class from an incomplete or unverified table transcription.
+
+    For slopes greater than or equal to 0.25, all flow must remain interstitial;
+    if a 2 ``d50`` layer is insufficient, the source procedure moves to the next
+    gradation rather than increasing layer thickness. For milder slopes, surface
+    flow is allowed and an intermediate thickness up to 4 ``d50`` may complete
+    the design before a larger gradation is required.
     """
     q = _positive(unit_discharge, "unit_discharge")
     s = _positive(slope, "slope")
@@ -157,9 +163,10 @@ def evaluate_hec23_overtopping_riprap(
     )
     average_velocity = eta * interstitial_velocity
     all_flow_depth = q / average_velocity
-    minimum_thickness = 2.0 * selected_d50
+    two_d50_thickness = 2.0 * selected_d50
+    four_d50_thickness = 4.0 * selected_d50
 
-    if all_flow_depth <= minimum_thickness:
+    if all_flow_depth <= two_d50_thickness:
         allowable_surface_depth = None
         surface_discharge = 0.0
         required_interstitial_discharge = q
@@ -188,10 +195,23 @@ def evaluate_hec23_overtopping_riprap(
         required_interstitial_discharge = q
         required_thickness = all_flow_depth
 
-    two_d50_capacity = minimum_thickness * average_velocity
-    four_d50_capacity = 4.0 * selected_d50 * average_velocity
+    two_d50_capacity = two_d50_thickness * average_velocity
+    four_d50_capacity = four_d50_thickness * average_velocity
     two_d50_sufficient = two_d50_capacity >= required_interstitial_discharge
     four_d50_sufficient = four_d50_capacity >= required_interstitial_discharge
+
+    if two_d50_sufficient:
+        recommended_thickness = two_d50_thickness
+        requires_larger_gradation = False
+    elif s >= 0.25:
+        recommended_thickness = None
+        requires_larger_gradation = True
+    elif four_d50_sufficient:
+        recommended_thickness = max(two_d50_thickness, required_thickness)
+        requires_larger_gradation = False
+    else:
+        recommended_thickness = None
+        requires_larger_gradation = True
 
     return Hec23OvertoppingRiprapResult(
         unit_discharge=q,
@@ -201,12 +221,13 @@ def evaluate_hec23_overtopping_riprap(
         interstitial_velocity_ms=interstitial_velocity,
         average_interstitial_velocity_ms=average_velocity,
         all_flow_interstitial_depth_m=all_flow_depth,
-        minimum_two_d50_thickness_m=minimum_thickness,
+        minimum_two_d50_thickness_m=two_d50_thickness,
         allowable_surface_depth_m=allowable_surface_depth,
         surface_unit_discharge_m2s=surface_discharge,
         required_interstitial_unit_discharge_m2s=required_interstitial_discharge,
         required_interstitial_thickness_m=required_thickness,
         two_d50_sufficient=two_d50_sufficient,
         four_d50_sufficient=four_d50_sufficient,
-        requires_larger_gradation=not four_d50_sufficient,
+        recommended_thickness_m=recommended_thickness,
+        requires_larger_gradation=requires_larger_gradation,
     )
