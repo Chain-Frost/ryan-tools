@@ -9,6 +9,13 @@ from .assessment import (
     select_governing_velocity,
 )
 from .envelope import build_floodway_event_envelope
+from .export import (
+    export_floodway_envelope_json,
+    export_floodway_governors_csv,
+    floodway_envelope_record,
+    floodway_governor_record,
+    floodway_zone_demand_record,
+)
 from .hec23 import (
     HEC23_SI_KU,
     HEC23_SI_MANNING_STRICKLER,
@@ -43,6 +50,11 @@ __all__: list[str] = [
     "calculate_mrwa_surface_velocity",
     "dynamic_pressure",
     "evaluate_hec23_overtopping_riprap",
+    "export_floodway_envelope_json",
+    "export_floodway_governors_csv",
+    "floodway_envelope_record",
+    "floodway_governor_record",
+    "floodway_zone_demand_record",
     "froude_number_rectangular",
     "governing_velocity",
     "hec23_allowable_surface_depth",
