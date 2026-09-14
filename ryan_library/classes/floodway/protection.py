@@ -37,6 +37,7 @@ class Hec23OvertoppingRiprapResult:
     required_interstitial_thickness_m: float
     two_d50_sufficient: bool
     four_d50_sufficient: bool
+    recommended_thickness_m: float | None
     requires_larger_gradation: bool
     applicability: FloodwayApplicabilityStatus = FloodwayApplicabilityStatus.SUPPORTED
     layer: FloodwayAssessmentLayer = FloodwayAssessmentLayer.ENHANCED_ASSESSMENT
@@ -66,6 +67,15 @@ class Hec23OvertoppingRiprapResult:
                 "allowable_surface_depth_m",
                 _nonnegative(self.allowable_surface_depth_m, "allowable_surface_depth_m"),
             )
+        if self.recommended_thickness_m is not None:
+            object.__setattr__(
+                self,
+                "recommended_thickness_m",
+                _nonnegative(self.recommended_thickness_m, "recommended_thickness_m"),
+            )
+        if self.requires_larger_gradation and self.recommended_thickness_m is not None:
+            msg = "recommended_thickness_m must be None when a larger gradation is required."
+            raise ValueError(msg)
 
     @property
     def d50_m(self) -> float:
