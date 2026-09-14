@@ -1,4 +1,4 @@
-"""Tests for simple fixed-tailwater project JSON configuration."""
+"""Tests for versioned culvert project JSON/TOML configuration."""
 
 import json
 from pathlib import Path
@@ -6,7 +6,13 @@ from pathlib import Path
 import pytest
 from culvert_solver import ManningChannelTailwater, TailwaterCondition
 
-from ryan_library.classes.culvert import CircularBarrelDefinition, RectangularBarrelDefinition
+from ryan_library.classes.culvert import (
+    CircularBarrelDefinition,
+    RectangularBarrelDefinition,
+    RoadwayDefinition,
+    RoadwayProfileDefinition,
+    RoadwaySurfaceName,
+)
 from ryan_library.functions.culvert.config import export_project_json, load_project, load_project_json
 
 
@@ -85,6 +91,7 @@ def test_load_project_json_supports_roadway_and_rectangular_alternative(tmp_path
                             "crest_elevation_m": 12,
                             "crest_length_m": 20,
                             "discharge_coefficient": 1.7,
+                            "surface": "paved",
                         },
                     }
                 ],
@@ -126,9 +133,80 @@ def test_load_project_json_supports_roadway_and_rectangular_alternative(tmp_path
 
     project = load_project_json(path)
 
-    assert project.crossings[0].roadway is not None
-    assert project.crossings[0].roadway.crest_elevation == 12.0
+    roadway = project.crossings[0].roadway
+    assert isinstance(roadway, RoadwayDefinition)
+    assert roadway.crest_elevation == 12.0
+    assert roadway.surface is RoadwaySurfaceName.PAVED
     assert isinstance(project.alternatives[0].crossing.groups[0].barrel, RectangularBarrelDefinition)
+
+
+def test_profile_roadway_json_round_trip_retains_points_and_surface(tmp_path: Path) -> None:
+    path = tmp_path / "profile_project.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "name": "Profile roadway",
+                "crossings": [
+                    {
+                        "name": "Floodway",
+                        "groups": [
+                            {
+                                "name": "Relief pipe",
+                                "barrel": {
+                                    "shape": "circular",
+                                    "diameter_mm": 600,
+                                    "length_m": 30,
+                                    "inlet_invert_elevation_m": 9.4,
+                                    "outlet_invert_elevation_m": 9.2,
+                                    "roughness_manning_n": 0.013,
+                                    "material": "concrete_pipe",
+                                },
+                            }
+                        ],
+                        "roadway": {
+                            "type": "profile",
+                            "points": [
+                                {"station_m": 0.0, "elevation_m": 10.3},
+                                {"station_m": 10.0, "elevation_m": 10.1},
+                                {"station_m": 20.0, "elevation_m": 10.25},
+                            ],
+                            "discharge_coefficient": 1.7,
+                            "surface": "gravel",
+                            "label": "Sag profile",
+                        },
+                    }
+                ],
+                "scenarios": [
+                    {
+                        "name": "Overtopping",
+                        "discharge_m3s": 8.0,
+                        "tailwater": {"type": "fixed", "elevation_m": 9.5},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    project = load_project_json(path)
+    roadway = project.crossings[0].roadway
+
+    assert isinstance(roadway, RoadwayProfileDefinition)
+    assert roadway.surface is RoadwaySurfaceName.GRAVEL
+    assert [(point.station, point.elevation) for point in roadway.points] == [
+        (0.0, 10.3),
+        (10.0, 10.1),
+        (20.0, 10.25),
+    ]
+
+    exported = export_project_json(project, tmp_path / "profile_export.json")
+    exported_payload = json.loads(exported.read_text(encoding="utf-8"))
+    exported_roadway = exported_payload["crossings"][0]["roadway"]
+    assert exported_roadway["type"] == "profile"
+    assert exported_roadway["surface"] == "gravel"
+    assert exported_roadway["points"][1] == {"station_m": 10.0, "elevation_m": 10.1}
+    assert load_project_json(exported) == project
 
 
 def test_load_project_toml_supports_manning_tailwater_and_metadata(tmp_path: Path) -> None:
