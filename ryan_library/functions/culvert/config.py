@@ -15,7 +15,11 @@ from ...classes.culvert.crossing import (
     CulvertGroupDefinition,
     CulvertMaterialName,
     RectangularBarrelDefinition,
+    RoadwayCrestPointDefinition,
     RoadwayDefinition,
+    RoadwayOvertoppingDefinition,
+    RoadwayProfileDefinition,
+    RoadwaySurfaceName,
 )
 from ...classes.culvert.project import CulvertProject
 from ...classes.culvert.scenario import Scenario
@@ -100,82 +104,132 @@ def _parse_barrel(value: object) -> RectangularBarrelDefinition | CircularBarrel
         "label",
     }
     shape = _text(data, "shape")
-    dimensions = {"span_mm", "rise_mm"} if shape == "rectangular" else {"diameter_mm"}
+    if shape == "rectangular":
+        dimensions = {"span_mm", "rise_mm"}
+    elif shape == "circular":
+        dimensions = {"diameter_mm"}
+    else:
+        msg = "barrel shape must be 'rectangular' or 'circular'."
+        raise ValueError(msg)
     _reject_unknown(data, common | dimensions, "barrel")
     label = data.get("label", "")
     if not isinstance(label, str):
         msg = "barrel label must be text."
         raise ValueError(msg)
-    material = _text(data, "material")
-    length = _number(data, "length_m")
-    inlet_invert = _number(data, "inlet_invert_elevation_m")
-    outlet_invert = _number(data, "outlet_invert_elevation_m")
-    roughness = _number(data, "roughness_manning_n")
-    material_name = CulvertMaterialName(material)
+    material_name = CulvertMaterialName(_text(data, "material"))
+    common_values = {
+        "length": _number(data, "length_m"),
+        "inlet_invert": _number(data, "inlet_invert_elevation_m"),
+        "outlet_invert": _number(data, "outlet_invert_elevation_m"),
+        "roughness": _number(data, "roughness_manning_n"),
+        "material": material_name,
+        "label": label,
+    }
     if shape == "rectangular":
         return RectangularBarrelDefinition(
             span_mm=_number(data, "span_mm"),
             rise_mm=_number(data, "rise_mm"),
-            length=length,
-            inlet_invert=inlet_invert,
-            outlet_invert=outlet_invert,
-            roughness=roughness,
-            material=material_name,
-            label=label,
+            **common_values,
         )
-    if shape == "circular":
-        return CircularBarrelDefinition(
-            diameter_mm=_number(data, "diameter_mm"),
-            length=length,
-            inlet_invert=inlet_invert,
-            outlet_invert=outlet_invert,
-            roughness=roughness,
-            material=material_name,
-            label=label,
-        )
-    msg = "barrel shape must be 'rectangular' or 'circular'."
-    raise ValueError(msg)
-
-
-def _parse_roadway(value: object) -> RoadwayDefinition:
-    data = _mapping(value, "roadway")
-    _reject_unknown(
-        data,
-        {"crest_elevation_m", "crest_length_m", "discharge_coefficient", "label"},
-        "roadway",
+    return CircularBarrelDefinition(
+        diameter_mm=_number(data, "diameter_mm"),
+        **common_values,
     )
+
+
+def _parse_roadway_surface(data: dict[str, object]) -> RoadwaySurfaceName | None:
+    value = data.get("surface")
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        msg = "roadway surface must be text."
+        raise ValueError(msg)
+    try:
+        return RoadwaySurfaceName(value)
+    except ValueError as exc:
+        msg = "roadway surface must be 'paved' or 'gravel'."
+        raise ValueError(msg) from exc
+
+
+def _parse_roadway(value: object) -> RoadwayOvertoppingDefinition:
+    data = _mapping(value, "roadway")
+    roadway_type_raw = data.get("type", "constant")
+    if not isinstance(roadway_type_raw, str):
+        msg = "roadway type must be text."
+        raise ValueError(msg)
+    roadway_type = roadway_type_raw.strip().lower()
     label = data.get("label", "")
     if not isinstance(label, str):
         msg = "roadway label must be text."
         raise ValueError(msg)
-    return RoadwayDefinition(
-        crest_elevation=_number(data, "crest_elevation_m"),
-        crest_length=_number(data, "crest_length_m"),
-        discharge_coefficient=_number(data, "discharge_coefficient"),
-        label=label,
-    )
+    surface = _parse_roadway_surface(data)
+
+    if roadway_type == "constant":
+        _reject_unknown(
+            data,
+            {
+                "type",
+                "crest_elevation_m",
+                "crest_length_m",
+                "discharge_coefficient",
+                "surface",
+                "label",
+            },
+            "roadway",
+        )
+        return RoadwayDefinition(
+            crest_elevation=_number(data, "crest_elevation_m"),
+            crest_length=_number(data, "crest_length_m"),
+            discharge_coefficient=_number(data, "discharge_coefficient"),
+            label=label,
+            surface=surface,
+        )
+
+    if roadway_type == "profile":
+        _reject_unknown(
+            data,
+            {"type", "points", "discharge_coefficient", "surface", "label"},
+            "roadway",
+        )
+        points: list[RoadwayCrestPointDefinition] = []
+        for index, raw_point in enumerate(_list(data.get("points"), "roadway.points")):
+            point = _mapping(raw_point, f"roadway.points[{index}]")
+            _reject_unknown(point, {"station_m", "elevation_m"}, f"roadway.points[{index}]")
+            points.append(
+                RoadwayCrestPointDefinition(
+                    station=_number(point, "station_m"),
+                    elevation=_number(point, "elevation_m"),
+                )
+            )
+        return RoadwayProfileDefinition(
+            points=tuple(points),
+            discharge_coefficient=_number(data, "discharge_coefficient"),
+            label=label,
+            surface=surface,
+        )
+
+    msg = "roadway type must be 'constant' or 'profile'."
+    raise ValueError(msg)
 
 
 def _parse_crossing(value: object) -> CrossingDefinition:
     data = _mapping(value, "crossing")
     _reject_unknown(data, {"name", "groups", "roadway", "source", "notes"}, "crossing")
     groups: list[CulvertGroupDefinition] = []
-    for value in _list(data.get("groups"), "groups"):
-        group = _mapping(value, "group")
+    for raw_group in _list(data.get("groups"), "groups"):
+        group = _mapping(raw_group, "group")
         _reject_unknown(group, {"name", "quantity", "barrel"}, "group")
-        name = _text(group, "name")
         groups.append(
             CulvertGroupDefinition(
-                name=name,
+                name=_text(group, "name"),
                 barrel=_parse_barrel(group.get("barrel")),
                 quantity=_integer(group, "quantity", 1),
             )
         )
-    name = _text(data, "name")
     source, notes = _metadata(data)
     roadway_value = data.get("roadway")
     return CrossingDefinition(
-        name=name,
+        name=_text(data, "name"),
         groups=tuple(groups),
         roadway=None if roadway_value is None else _parse_roadway(roadway_value),
         source=source,
@@ -242,14 +296,12 @@ def _parse_scenario(value: object) -> Scenario:
         {"name", "discharge_m3s", "aep_percent", "tailwater", "source", "notes"},
         "scenario",
     )
-    name = _text(data, "name")
     source, notes = _metadata(data)
-    aep = None if data.get("aep_percent") is None else _number(data, "aep_percent")
     return Scenario(
-        name=name,
+        name=_text(data, "name"),
         discharge=_number(data, "discharge_m3s"),
         tailwater=_parse_tailwater(data.get("tailwater")),
-        aep_percent=aep,
+        aep_percent=_optional_number(data, "aep_percent"),
         source=source,
         notes=notes,
     )
@@ -311,26 +363,26 @@ def _parse_project(raw: object) -> CulvertProject:
     if schema_version != SCHEMA_VERSION:
         msg = f"Unsupported culvert project schema_version {schema_version!r}; supported version: {SCHEMA_VERSION}."
         raise ValueError(msg)
+
     alternatives: list[Alternative] = []
-    for value in _list(data.get("alternatives", []), "alternatives"):
-        item = _mapping(value, "alternative")
+    for raw_alternative in _list(data.get("alternatives", []), "alternatives"):
+        item = _mapping(raw_alternative, "alternative")
         _reject_unknown(item, {"name", "crossing", "source", "notes"}, "alternative")
-        name = _text(item, "name")
         source, notes = _metadata(item)
         alternatives.append(
             Alternative(
-                name=name,
+                name=_text(item, "name"),
                 crossing=_parse_crossing(item.get("crossing")),
                 source=source,
                 notes=notes,
             )
         )
-    name = _text(data, "name")
+
     source, notes = _metadata(data)
     return CulvertProject(
-        name=name,
-        crossings=tuple(_parse_crossing(value) for value in _list(data.get("crossings"), "crossings")),
-        scenarios=tuple(_parse_scenario(value) for value in _list(data.get("scenarios"), "scenarios")),
+        name=_text(data, "name"),
+        crossings=tuple(_parse_crossing(item) for item in _list(data.get("crossings"), "crossings")),
+        scenarios=tuple(_parse_scenario(item) for item in _list(data.get("scenarios"), "scenarios")),
         alternatives=tuple(alternatives),
         design_criteria=(
             None if data.get("design_criteria") is None else _parse_design_criteria(data["design_criteria"])
@@ -396,6 +448,35 @@ def _tailwater_record(tailwater: object) -> dict[str, object]:
     return {"type": "fixed", "elevation_m": float(tailwater)}
 
 
+def _roadway_record(roadway: RoadwayOvertoppingDefinition) -> dict[str, object]:
+    common: dict[str, object] = {
+        "discharge_coefficient": roadway.discharge_coefficient,
+    }
+    if roadway.label:
+        common["label"] = roadway.label
+    if roadway.surface is not None:
+        common["surface"] = roadway.surface.value
+
+    if isinstance(roadway, RoadwayDefinition):
+        return {
+            "type": "constant",
+            "crest_elevation_m": roadway.crest_elevation,
+            "crest_length_m": roadway.crest_length,
+            **common,
+        }
+    if isinstance(roadway, RoadwayProfileDefinition):
+        return {
+            "type": "profile",
+            "points": [
+                {"station_m": point.station, "elevation_m": point.elevation}
+                for point in roadway.points
+            ],
+            **common,
+        }
+    msg = f"Unsupported roadway definition type: {type(roadway).__name__}."
+    raise TypeError(msg)
+
+
 def _crossing_record(crossing: CrossingDefinition) -> dict[str, object]:
     groups: list[dict[str, object]] = []
     for group in crossing.groups:
@@ -414,15 +495,10 @@ def _crossing_record(crossing: CrossingDefinition) -> dict[str, object]:
         else:
             record.update(shape="rectangular", span_mm=barrel.span_mm, rise_mm=barrel.rise_mm)
         groups.append({"name": group.name, "quantity": group.quantity, "barrel": record})
+
     result: dict[str, object] = {"name": crossing.name, "groups": groups}
     if crossing.roadway is not None:
-        roadway = crossing.roadway
-        result["roadway"] = {
-            "crest_elevation_m": roadway.crest_elevation,
-            "crest_length_m": roadway.crest_length,
-            "discharge_coefficient": roadway.discharge_coefficient,
-            "label": roadway.label,
-        }
+        result["roadway"] = _roadway_record(crossing.roadway)
     if crossing.source is not None:
         result["source"] = crossing.source
     if crossing.notes:
