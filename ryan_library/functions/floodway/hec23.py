@@ -34,7 +34,7 @@ def hec23_overtopping_riprap_d50(
     angle_of_repose_degrees: float,
     ku: float = HEC23_SI_KU,
 ) -> float:
-    """Return HEC-23 DG5 Equation 5.2 median rock size ``d50`` in metres."""
+    """Return HEC-23 DG5 Equation 5.2 minimum median rock size ``d50`` in metres."""
     q = _positive(unit_discharge, "unit_discharge")
     s = _positive(slope, "slope")
     cu = _positive(uniformity_coefficient, "uniformity_coefficient")
@@ -118,13 +118,15 @@ def evaluate_hec23_overtopping_riprap(
     porosity: float,
     specific_gravity: float,
     angle_of_repose_degrees: float,
+    selected_d50_m: float,
 ) -> Hec23OvertoppingRiprapResult:
     """Evaluate the HEC-23 DG5 riprap sizing/layer-capacity procedure.
 
-    The function sizes the theoretical ``d50`` with Equation 5.2 and evaluates
-    interstitial-flow capacity. It deliberately does not select an FHWA standard
-    riprap gradation class; where 4 ``d50`` cannot carry the required interstitial
-    flow, ``requires_larger_gradation`` is returned instead of inventing a class.
+    Equation 5.2 first establishes the theoretical minimum ``d50``. HEC-23 then
+    requires selection of an appropriate standard gradation. The selected median
+    size is therefore an explicit input here and is used for Equation 5.1 and all
+    subsequent layer-capacity checks. This function does not infer a standard
+    gradation class from an incomplete or unverified table transcription.
     """
     q = _positive(unit_discharge, "unit_discharge")
     s = _positive(slope, "slope")
@@ -133,21 +135,29 @@ def evaluate_hec23_overtopping_riprap(
         msg = "porosity must be less than 1.0."
         raise ValueError(msg)
 
-    d50 = hec23_overtopping_riprap_d50(
+    minimum_d50 = hec23_overtopping_riprap_d50(
         unit_discharge=q,
         slope=s,
         uniformity_coefficient=uniformity_coefficient,
         specific_gravity=specific_gravity,
         angle_of_repose_degrees=angle_of_repose_degrees,
     )
+    selected_d50 = _positive(selected_d50_m, "selected_d50_m")
+    if selected_d50 < minimum_d50:
+        msg = (
+            "selected_d50_m is smaller than the HEC-23 Equation 5.2 minimum; "
+            "select a gradation with d50 at least equal to the calculated minimum."
+        )
+        raise ValueError(msg)
+
     interstitial_velocity = hec23_interstitial_velocity(
-        d50_m=d50,
+        d50_m=selected_d50,
         slope=s,
         uniformity_coefficient=uniformity_coefficient,
     )
     average_velocity = eta * interstitial_velocity
     all_flow_depth = q / average_velocity
-    minimum_thickness = 2.0 * d50
+    minimum_thickness = 2.0 * selected_d50
 
     if all_flow_depth <= minimum_thickness:
         allowable_surface_depth = None
@@ -156,12 +166,12 @@ def evaluate_hec23_overtopping_riprap(
         required_thickness = all_flow_depth
     elif s < 0.25:
         allowable_surface_depth = hec23_allowable_surface_depth(
-            d50_m=d50,
+            d50_m=selected_d50,
             slope=s,
             specific_gravity=specific_gravity,
             angle_of_repose_degrees=angle_of_repose_degrees,
         )
-        roughness = hec23_manning_roughness(d50)
+        roughness = hec23_manning_roughness(selected_d50)
         surface_discharge = min(
             q,
             hec23_surface_unit_discharge(
@@ -179,14 +189,15 @@ def evaluate_hec23_overtopping_riprap(
         required_thickness = all_flow_depth
 
     two_d50_capacity = minimum_thickness * average_velocity
-    four_d50_capacity = 4.0 * d50 * average_velocity
+    four_d50_capacity = 4.0 * selected_d50 * average_velocity
     two_d50_sufficient = two_d50_capacity >= required_interstitial_discharge
     four_d50_sufficient = four_d50_capacity >= required_interstitial_discharge
 
     return Hec23OvertoppingRiprapResult(
         unit_discharge=q,
         slope=s,
-        d50_m=d50,
+        minimum_d50_m=minimum_d50,
+        selected_d50_m=selected_d50,
         interstitial_velocity_ms=interstitial_velocity,
         average_interstitial_velocity_ms=average_velocity,
         all_flow_interstitial_depth_m=all_flow_depth,
