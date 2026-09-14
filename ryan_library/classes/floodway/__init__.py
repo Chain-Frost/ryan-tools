@@ -12,18 +12,28 @@ from .models import (
     RoadwaySegmentState,
 )
 from .protection import Hec23OvertoppingRiprapResult
-from .results import FloodwayZoneDemand, GoverningFloodwayDemand, MrwaSurfaceVelocityResult
+from .results import (
+    FloodwayEnvelopeResult,
+    FloodwayScenarioAssessment,
+    FloodwayZoneAssessment,
+    FloodwayZoneDemand,
+    GoverningFloodwayDemand,
+    MrwaSurfaceVelocityResult,
+)
 
 __all__: list[str] = [
     "FloodwayApplicabilityStatus",
     "FloodwayAssessmentLayer",
     "FloodwayEnvelopeGovernor",
     "FloodwayEnvelopeMetric",
+    "FloodwayEnvelopeResult",
     "FloodwayEventEnvelope",
     "FloodwayFormation",
     "FloodwayFormationZone",
+    "FloodwayScenarioAssessment",
     "FloodwayScenarioHydraulics",
     "FloodwayZone",
+    "FloodwayZoneAssessment",
     "FloodwayZoneDemand",
     "GoverningFloodwayDemand",
     "Hec23OvertoppingRiprapResult",
