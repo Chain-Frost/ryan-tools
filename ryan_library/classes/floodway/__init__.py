@@ -10,6 +10,7 @@ from .models import (
     RoadwaySegmentHydraulicState,
     RoadwaySegmentState,
 )
+from .results import FloodwayZoneDemand, GoverningFloodwayDemand, MrwaSurfaceVelocityResult
 
 __all__: list[str] = [
     "FloodwayApplicabilityStatus",
@@ -18,6 +19,9 @@ __all__: list[str] = [
     "FloodwayFormationZone",
     "FloodwayScenarioHydraulics",
     "FloodwayZone",
+    "FloodwayZoneDemand",
+    "GoverningFloodwayDemand",
+    "MrwaSurfaceVelocityResult",
     "RoadwaySegmentHydraulicState",
     "RoadwaySegmentState",
 ]
