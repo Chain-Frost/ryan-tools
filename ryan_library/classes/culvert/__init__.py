@@ -10,7 +10,11 @@ from .crossing import (
     CulvertGroupDefinition,
     CulvertMaterialName,
     RectangularBarrelDefinition,
+    RoadwayCrestPointDefinition,
     RoadwayDefinition,
+    RoadwayOvertoppingDefinition,
+    RoadwayProfileDefinition,
+    RoadwaySurfaceName,
 )
 from .event import EventDefinition
 from .project import CulvertProject
@@ -41,7 +45,11 @@ __all__: list[str] = [
     "DesignResult",
     "EventDefinition",
     "RectangularBarrelDefinition",
+    "RoadwayCrestPointDefinition",
     "RoadwayDefinition",
+    "RoadwayOvertoppingDefinition",
+    "RoadwayProfileDefinition",
+    "RoadwaySurfaceName",
     "Scenario",
     "ScenarioResult",
 ]
