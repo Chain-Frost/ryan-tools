@@ -8,6 +8,16 @@ from .assessment import (
     select_governing_momentum_flux,
     select_governing_velocity,
 )
+from .hec23 import (
+    HEC23_SI_KU,
+    HEC23_SI_MANNING_STRICKLER,
+    evaluate_hec23_overtopping_riprap,
+    hec23_allowable_surface_depth,
+    hec23_interstitial_velocity,
+    hec23_manning_roughness,
+    hec23_overtopping_riprap_d50,
+    hec23_surface_unit_discharge,
+)
 from .hydraulics import (
     GRAVITATIONAL_ACCELERATION,
     STANDARD_WATER_DENSITY,
@@ -23,13 +33,21 @@ from .hydraulics import (
 
 __all__: list[str] = [
     "GRAVITATIONAL_ACCELERATION",
+    "HEC23_SI_KU",
+    "HEC23_SI_MANNING_STRICKLER",
     "STANDARD_WATER_DENSITY",
     "build_floodway_scenario_hydraulics",
     "build_zone_demand",
     "calculate_mrwa_surface_velocity",
     "dynamic_pressure",
+    "evaluate_hec23_overtopping_riprap",
     "froude_number_rectangular",
     "governing_velocity",
+    "hec23_allowable_surface_depth",
+    "hec23_interstitial_velocity",
+    "hec23_manning_roughness",
+    "hec23_overtopping_riprap_d50",
+    "hec23_surface_unit_discharge",
     "momentum_flux_per_width",
     "mrwa_maximum_attainable_velocity",
     "mrwa_specific_energy",
