@@ -16,11 +16,17 @@ def _nonnegative(value: float, name: str) -> float:
 
 @dataclass(frozen=True, slots=True)
 class Hec23OvertoppingRiprapResult:
-    """HEC-23 DG5 overtopping-riprap sizing and layer-capacity evidence."""
+    """HEC-23 DG5 overtopping-riprap sizing and layer-capacity evidence.
+
+    ``minimum_d50_m`` is the theoretical Equation 5.2 requirement. The separately
+    supplied ``selected_d50_m`` is the adopted gradation median size used by the
+    subsequent interstitial-flow and layer-capacity checks.
+    """
 
     unit_discharge: float
     slope: float
-    d50_m: float
+    minimum_d50_m: float
+    selected_d50_m: float
     interstitial_velocity_ms: float
     average_interstitial_velocity_ms: float
     all_flow_interstitial_depth_m: float
@@ -40,7 +46,8 @@ class Hec23OvertoppingRiprapResult:
         for name in (
             "unit_discharge",
             "slope",
-            "d50_m",
+            "minimum_d50_m",
+            "selected_d50_m",
             "interstitial_velocity_ms",
             "average_interstitial_velocity_ms",
             "all_flow_interstitial_depth_m",
@@ -50,9 +57,17 @@ class Hec23OvertoppingRiprapResult:
             "required_interstitial_thickness_m",
         ):
             object.__setattr__(self, name, _nonnegative(getattr(self, name), name))
+        if self.selected_d50_m < self.minimum_d50_m:
+            msg = "selected_d50_m must be greater than or equal to the Equation 5.2 minimum_d50_m."
+            raise ValueError(msg)
         if self.allowable_surface_depth_m is not None:
             object.__setattr__(
                 self,
                 "allowable_surface_depth_m",
                 _nonnegative(self.allowable_surface_depth_m, "allowable_surface_depth_m"),
             )
+
+    @property
+    def d50_m(self) -> float:
+        """Return the selected gradation median size used for capacity checks."""
+        return self.selected_d50_m
