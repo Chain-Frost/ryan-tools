@@ -50,6 +50,7 @@ def test_mild_slope_example_uses_selected_class_for_capacity_checks() -> None:
     assert result.required_interstitial_unit_discharge_m2s == pytest.approx(0.0143, rel=0.03)
     assert result.two_d50_sufficient
     assert result.four_d50_sufficient
+    assert result.recommended_thickness_m == pytest.approx(0.30)
     assert not result.requires_larger_gradation
 
 
@@ -67,7 +68,8 @@ def test_steep_slope_first_selected_class_requires_larger_gradation() -> None:
     assert result.allowable_surface_depth_m is None
     assert not result.two_d50_sufficient
     assert result.four_d50_sufficient
-    assert not result.requires_larger_gradation
+    assert result.recommended_thickness_m is None
+    assert result.requires_larger_gradation
 
 
 def test_steep_slope_next_class_is_sufficient_at_two_d50() -> None:
@@ -82,6 +84,7 @@ def test_steep_slope_next_class_is_sufficient_at_two_d50() -> None:
     assert result.all_flow_interstitial_depth_m == pytest.approx(0.669, rel=0.02)
     assert result.two_d50_sufficient
     assert result.four_d50_sufficient
+    assert result.recommended_thickness_m == pytest.approx(0.762)
     assert not result.requires_larger_gradation
 
 
