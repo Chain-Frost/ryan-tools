@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from math import isfinite
 
 from .models import FloodwayZone
 from .results import FloodwayZoneDemand, GoverningFloodwayDemand
@@ -24,6 +25,8 @@ class FloodwayEnvelopeGovernor:
     scenario_name: str
     aep_percent: float | None
     demand: FloodwayZoneDemand
+    source_interval_index: int = 0
+    integration_station: float = 0.0
 
     def __post_init__(self) -> None:
         name = self.scenario_name.strip()
@@ -33,7 +36,15 @@ class FloodwayEnvelopeGovernor:
         if self.demand.zone is not self.zone:
             msg = "Governor zone must match demand.zone."
             raise ValueError(msg)
+        if self.source_interval_index < 0:
+            msg = "source_interval_index must be non-negative."
+            raise ValueError(msg)
+        station = float(self.integration_station)
+        if not isfinite(station):
+            msg = "integration_station must be finite."
+            raise ValueError(msg)
         object.__setattr__(self, "scenario_name", name)
+        object.__setattr__(self, "integration_station", station)
 
 
 @dataclass(frozen=True, slots=True)
