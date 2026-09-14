@@ -10,6 +10,11 @@ from culvert_solver import (
     CulvertGroup,
     CulvertMaterial,
     RectangularGeometry,
+    RoadwayCrestPoint,
+    RoadwayCrestProfile,
+    RoadwayOvertoppingInput,
+    RoadwayProfileWeir,
+    RoadwaySurface,
     RoadwayWeir,
 )
 
@@ -21,12 +26,20 @@ from ...classes.culvert.crossing import (
     CulvertMaterialName,
     RectangularBarrelDefinition,
     RoadwayDefinition,
+    RoadwayOvertoppingDefinition,
+    RoadwayProfileDefinition,
+    RoadwaySurfaceName,
 )
 
 _MATERIALS: dict[CulvertMaterialName, CulvertMaterial] = {
     CulvertMaterialName.CONCRETE_BOX: CONCRETE_BOX,
     CulvertMaterialName.CONCRETE_PIPE: CONCRETE_PIPE,
     CulvertMaterialName.CORRUGATED_STEEL: CORRUGATED_STEEL,
+}
+
+_ROADWAY_SURFACES: dict[RoadwaySurfaceName, RoadwaySurface] = {
+    RoadwaySurfaceName.PAVED: RoadwaySurface.PAVED,
+    RoadwaySurfaceName.GRAVEL: RoadwaySurface.GRAVEL,
 }
 
 
@@ -63,14 +76,32 @@ def build_solver_group(definition: CulvertGroupDefinition) -> CulvertGroup:
     )
 
 
-def build_solver_roadway(definition: RoadwayDefinition) -> RoadwayWeir:
-    """Convert a workflow roadway definition to a solver roadway weir."""
-    return RoadwayWeir(
-        crest_elevation=definition.crest_elevation,
-        crest_length=definition.crest_length,
-        discharge_coefficient=definition.discharge_coefficient,
-        label=definition.label,
-    )
+def _solver_surface(surface: RoadwaySurfaceName | None) -> RoadwaySurface | None:
+    return None if surface is None else _ROADWAY_SURFACES[surface]
+
+
+def build_solver_roadway(definition: RoadwayOvertoppingDefinition) -> RoadwayOvertoppingInput:
+    """Convert a workflow roadway definition to the authoritative public solver model."""
+    if isinstance(definition, RoadwayDefinition):
+        return RoadwayWeir(
+            crest_elevation=definition.crest_elevation,
+            crest_length=definition.crest_length,
+            discharge_coefficient=definition.discharge_coefficient,
+            label=definition.label,
+            surface=_solver_surface(definition.surface),
+        )
+    if isinstance(definition, RoadwayProfileDefinition):
+        profile = RoadwayCrestProfile(
+            tuple(RoadwayCrestPoint(station=point.station, elevation=point.elevation) for point in definition.points)
+        )
+        return RoadwayProfileWeir(
+            profile=profile,
+            discharge_coefficient=definition.discharge_coefficient,
+            label=definition.label,
+            surface=_solver_surface(definition.surface),
+        )
+    msg = f"Unsupported roadway definition type: {type(definition).__name__}"
+    raise TypeError(msg)
 
 
 def build_solver_crossing(definition: CrossingDefinition) -> CulvertCrossing:
