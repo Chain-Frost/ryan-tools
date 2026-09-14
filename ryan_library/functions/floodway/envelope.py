@@ -8,6 +8,7 @@ from ...classes.floodway.envelope import (
     FloodwayEnvelopeMetric,
     FloodwayEventEnvelope,
 )
+from ...classes.floodway.models import FloodwayZone
 from ...classes.floodway.results import GoverningFloodwayDemand
 
 
@@ -31,7 +32,7 @@ def build_floodway_event_envelope(
     Equal metric values retain the earliest supplied candidate deterministically.
     """
     retained = tuple(candidates)
-    grouped: dict[object, list[GoverningFloodwayDemand]] = defaultdict(list)
+    grouped: dict[FloodwayZone, list[GoverningFloodwayDemand]] = defaultdict(list)
     for candidate in retained:
         grouped[candidate.demand.zone].append(candidate)
 
@@ -44,7 +45,7 @@ def build_floodway_event_envelope(
             )
             governors.append(
                 FloodwayEnvelopeGovernor(
-                    zone=governing.demand.zone,
+                    zone=zone,
                     metric=metric,
                     scenario_name=governing.scenario_name,
                     aep_percent=governing.aep_percent,
