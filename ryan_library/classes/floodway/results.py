@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from math import isfinite
 
+from .protection import Hec23OvertoppingRiprapResult
+
 from .models import (
     FloodwayApplicabilityStatus,
     FloodwayAssessmentLayer,
@@ -146,6 +148,7 @@ class FloodwayZoneAssessment:
     applicability: FloodwayApplicabilityStatus
     velocity_result: MrwaSurfaceVelocityResult | None = None
     demand: FloodwayZoneDemand | None = None
+    protection_result: Hec23OvertoppingRiprapResult | None = None
     message: str = ""
 
     def __post_init__(self) -> None:
