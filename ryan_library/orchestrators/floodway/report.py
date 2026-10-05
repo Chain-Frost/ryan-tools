@@ -69,7 +69,8 @@ def render_floodway_scenario_markdown(assessment: FloodwayScenarioAssessment) ->
         )
         for item in protection_rows:
             result = item.protection_result
-            assert result is not None
+            if result is None:
+                continue
             lines.append(
                 "| "
                 + " | ".join(
