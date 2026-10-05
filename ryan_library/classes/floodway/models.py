@@ -68,6 +68,41 @@ def _positive(value: float, name: str) -> float:
     return result
 
 
+
+@dataclass(frozen=True, slots=True)
+class Hec23RiprapDesignInput:
+    """Selected HEC-23 DG5 riprap properties for downstream-batter assessment."""
+
+    selected_d50_m: float
+    uniformity_coefficient: float
+    porosity: float
+    specific_gravity: float = 2.65
+    angle_of_repose_degrees: float = 42.0
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "selected_d50_m", _positive(self.selected_d50_m, "selected_d50_m"))
+        object.__setattr__(
+            self,
+            "uniformity_coefficient",
+            _positive(self.uniformity_coefficient, "uniformity_coefficient"),
+        )
+        porosity = _positive(self.porosity, "porosity")
+        if porosity >= 1.0:
+            msg = "porosity must be less than 1.0."
+            raise ValueError(msg)
+        object.__setattr__(self, "porosity", porosity)
+        specific_gravity = _positive(self.specific_gravity, "specific_gravity")
+        if specific_gravity <= 1.0:
+            msg = "specific_gravity must be greater than 1.0."
+            raise ValueError(msg)
+        object.__setattr__(self, "specific_gravity", specific_gravity)
+        angle = _positive(self.angle_of_repose_degrees, "angle_of_repose_degrees")
+        if angle >= 90.0:
+            msg = "angle_of_repose_degrees must be less than 90."
+            raise ValueError(msg)
+        object.__setattr__(self, "angle_of_repose_degrees", angle)
+
+
 @dataclass(frozen=True, slots=True)
 class FloodwayFormationZone:
     """One A-F formation zone with only the geometry/material data known for that zone."""
@@ -76,6 +111,7 @@ class FloodwayFormationZone:
     slope: float | None = None
     roughness: float | None = None
     elevation: float | None = None
+    hec23_riprap: Hec23RiprapDesignInput | None = None
     label: str = ""
 
     def __post_init__(self) -> None:
@@ -85,6 +121,9 @@ class FloodwayFormationZone:
             object.__setattr__(self, "roughness", _positive(self.roughness, "roughness"))
         if self.elevation is not None:
             object.__setattr__(self, "elevation", _finite(self.elevation, "elevation"))
+        if self.hec23_riprap is not None and self.zone is not FloodwayZone.DOWNSTREAM_BATTER:
+            msg = "HEC-23 overtopping-riprap input is currently supported only for the downstream-batter zone."
+            raise ValueError(msg)
         object.__setattr__(self, "label", self.label.strip())
 
 
