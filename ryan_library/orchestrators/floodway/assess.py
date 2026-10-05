@@ -7,11 +7,13 @@ from ...classes.floodway import (
     FloodwayApplicabilityStatus,
     FloodwayEventEnvelope,
     FloodwayFormation,
+    FloodwayFormationZone,
     FloodwayScenarioAssessment,
     FloodwayScenarioHydraulics,
     FloodwayZone,
     FloodwayZoneAssessment,
     GoverningFloodwayDemand,
+    Hec23OvertoppingRiprapResult,
     RoadwaySegmentHydraulicState,
     RoadwaySegmentState,
 )
@@ -20,6 +22,7 @@ from ...functions.floodway import (
     build_floodway_scenario_hydraulics,
     build_zone_demand,
     calculate_mrwa_surface_velocity,
+    evaluate_hec23_overtopping_riprap,
     mrwa_transition_submergence_ratio,
 )
 
@@ -34,6 +37,31 @@ _SPECIALIST_ZONE_MESSAGES: dict[FloodwayZone, str] = {
     FloodwayZone.UPSTREAM_BATTER: "No general upstream-batter capacity method is adopted in this increment.",
     FloodwayZone.FOUNDATION: "Foundation uplift, seepage and piping require specialist/geotechnical assessment.",
 }
+
+
+def _hec23_protection_result(
+    *,
+    segment: RoadwaySegmentHydraulicState,
+    formation_zone: FloodwayFormationZone,
+) -> Hec23OvertoppingRiprapResult | None:
+    """Evaluate configured HEC-23 DG5 protection independently of MRWA velocity applicability."""
+    design = formation_zone.hec23_riprap
+    if (
+        formation_zone.zone is not FloodwayZone.DOWNSTREAM_BATTER
+        or design is None
+        or formation_zone.slope is None
+        or segment.unit_discharge <= 0.0
+    ):
+        return None
+    return evaluate_hec23_overtopping_riprap(
+        unit_discharge=segment.unit_discharge,
+        slope=formation_zone.slope,
+        uniformity_coefficient=design.uniformity_coefficient,
+        porosity=design.porosity,
+        specific_gravity=design.specific_gravity,
+        angle_of_repose_degrees=design.angle_of_repose_degrees,
+        selected_d50_m=design.selected_d50_m,
+    )
 
 
 def _mrwa_velocity_limit_inputs(
@@ -151,6 +179,11 @@ def assess_floodway_hydraulics(
                 )
                 continue
 
+            protection_result = _hec23_protection_result(
+                segment=segment,
+                formation_zone=formation_zone,
+            )
+
             if zone not in _DIRECT_MRWA_SURFACE_ZONES:
                 assessments.append(
                     FloodwayZoneAssessment(
@@ -179,6 +212,7 @@ def assess_floodway_hydraulics(
                         flow_state=segment.flow_state,
                         zone=zone,
                         applicability=FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+                        protection_result=protection_result,
                         message=(
                             "The current MRWA design increment does not yet map the guide's submerged q/D pavement "
                             "approximation into the typed velocity result; no free-flow Equation 7 value is invented."
@@ -197,6 +231,7 @@ def assess_floodway_hydraulics(
                         flow_state=segment.flow_state,
                         zone=zone,
                         applicability=FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+                        protection_result=protection_result,
                         message="MRWA surface-velocity calculation requires zone slope and Manning roughness.",
                     )
                 )
@@ -221,6 +256,7 @@ def assess_floodway_hydraulics(
                         flow_state=segment.flow_state,
                         zone=zone,
                         applicability=limiting_status,
+                        protection_result=protection_result,
                         message=message,
                     )
                 )
@@ -247,6 +283,7 @@ def assess_floodway_hydraulics(
                     applicability=applicability,
                     velocity_result=velocity_result,
                     demand=demand,
+                    protection_result=protection_result,
                     message=message,
                 )
             )
