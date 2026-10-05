@@ -90,10 +90,15 @@ class FloodwayFormationZone:
 
 @dataclass(frozen=True, slots=True)
 class FloodwayFormation:
-    """Cross-road formation description keyed by the Main Roads A-F zones."""
+    """Cross-road formation description keyed by the Main Roads A-F zones.
+
+    ``crest_flow_length`` is the roadway crest/pavement length in the direction
+    of flow used by MRWA Figure 4.5 as ``l`` in the ``H/l`` transition ratio.
+    """
 
     name: str
     zones: tuple[FloodwayFormationZone, ...]
+    crest_flow_length: float | None = None
 
     def __post_init__(self) -> None:
         name = self.name.strip()
@@ -110,6 +115,12 @@ class FloodwayFormation:
             raise ValueError(msg)
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "zones", zones)
+        if self.crest_flow_length is not None:
+            object.__setattr__(
+                self,
+                "crest_flow_length",
+                _positive(self.crest_flow_length, "crest_flow_length"),
+            )
 
     def get_zone(self, zone: FloodwayZone) -> FloodwayFormationZone | None:
         """Return the requested A-F zone when it is represented in this formation."""
