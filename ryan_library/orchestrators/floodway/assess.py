@@ -20,7 +20,9 @@ from ...classes.floodway import (
 from ...functions.floodway import (
     build_floodway_event_envelope,
     build_floodway_scenario_hydraulics,
+    build_submerged_pavement_demand,
     build_zone_demand,
+    calculate_mrwa_submerged_pavement_velocity,
     calculate_mrwa_surface_velocity,
     evaluate_hec23_overtopping_riprap,
     mrwa_transition_submergence_ratio,
@@ -203,22 +205,45 @@ def assess_floodway_hydraulics(
                 continue
 
             if segment.flow_state is RoadwaySegmentState.SUPPORTED_SUBMERGED:
-                assessments.append(
-                    FloodwayZoneAssessment(
-                        scenario_name=hydraulics.scenario_name,
-                        aep_percent=hydraulics.aep_percent,
-                        source_interval_index=segment.source_interval_index,
-                        integration_station=segment.integration_station,
-                        flow_state=segment.flow_state,
-                        zone=zone,
-                        applicability=FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
-                        protection_result=protection_result,
-                        message=(
-                            "The current MRWA design increment does not yet map the guide's submerged q/D pavement "
-                            "approximation into the typed velocity result; no free-flow Equation 7 value is invented."
-                        ),
+                if zone is FloodwayZone.PAVEMENT and segment.downstream_head > 0.0:
+                    velocity_result = calculate_mrwa_submerged_pavement_velocity(
+                        unit_discharge=segment.unit_discharge,
+                        downstream_depth=segment.downstream_head,
                     )
-                )
+                    demand = build_submerged_pavement_demand(velocity_result)
+                    assessments.append(
+                        FloodwayZoneAssessment(
+                            scenario_name=hydraulics.scenario_name,
+                            aep_percent=hydraulics.aep_percent,
+                            source_interval_index=segment.source_interval_index,
+                            integration_station=segment.integration_station,
+                            flow_state=segment.flow_state,
+                            zone=zone,
+                            applicability=velocity_result.applicability,
+                            velocity_result=velocity_result,
+                            demand=demand,
+                            message=(
+                                "MRWA submerged pavement velocity uses the guide's approximate V ~= q/D relation."
+                            ),
+                        )
+                    )
+                else:
+                    assessments.append(
+                        FloodwayZoneAssessment(
+                            scenario_name=hydraulics.scenario_name,
+                            aep_percent=hydraulics.aep_percent,
+                            source_interval_index=segment.source_interval_index,
+                            integration_station=segment.integration_station,
+                            flow_state=segment.flow_state,
+                            zone=zone,
+                            applicability=FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+                            protection_result=protection_result,
+                            message=(
+                                "No supported MRWA submerged downstream-batter velocity method is adopted in this "
+                                "increment; enhanced protection evidence remains separately reportable when configured."
+                            ),
+                        )
+                    )
                 continue
 
             if formation_zone.slope is None or formation_zone.roughness is None:
