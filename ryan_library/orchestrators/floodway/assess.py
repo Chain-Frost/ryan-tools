@@ -12,6 +12,7 @@ from ...classes.floodway import (
     FloodwayZone,
     FloodwayZoneAssessment,
     GoverningFloodwayDemand,
+    RoadwaySegmentHydraulicState,
     RoadwaySegmentState,
 )
 from ...functions.floodway import (
@@ -19,6 +20,7 @@ from ...functions.floodway import (
     build_floodway_scenario_hydraulics,
     build_zone_demand,
     calculate_mrwa_surface_velocity,
+    mrwa_transition_submergence_ratio,
 )
 
 _DIRECT_MRWA_SURFACE_ZONES = {
@@ -34,6 +36,86 @@ _SPECIALIST_ZONE_MESSAGES: dict[FloodwayZone, str] = {
 }
 
 
+def _mrwa_velocity_limit_inputs(
+    *,
+    hydraulics: FloodwayScenarioHydraulics,
+    segment: RoadwaySegmentHydraulicState,
+    formation: FloodwayFormation,
+    zone: FloodwayZone,
+) -> tuple[float | None, FloodwayApplicabilityStatus | None, str]:
+    """Resolve MRWA Equation 7 ``delta_p`` and free-flow regime applicability."""
+    head = segment.upstream_head
+    if head <= 0.0:
+        return None, FloodwayApplicabilityStatus.NOT_APPLICABLE, "No positive upstream head is available."
+
+    shoulder = formation.get_zone(FloodwayZone.DOWNSTREAM_SHOULDER)
+    shoulder_elevation = None if shoulder is None else shoulder.elevation
+
+    if zone is FloodwayZone.PAVEMENT:
+        if shoulder_elevation is None:
+            return (
+                None,
+                FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+                "MRWA pavement Equation 7 requires downstream-shoulder elevation.",
+            )
+        delta_p = segment.crest_elevation - shoulder_elevation
+        if delta_p < 0.0:
+            return (
+                None,
+                FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+                "Downstream-shoulder elevation is above the local roadway crest.",
+            )
+        return delta_p, None, "MRWA pavement velocity uses the Equation 4/7 limiting-velocity path."
+
+    if hydraulics.tailwater_elevation <= segment.crest_elevation:
+        return (
+            segment.crest_elevation - hydraulics.tailwater_elevation,
+            None,
+            "Low-tailwater plunging flow uses delta_p from the roadway crest to tailwater.",
+        )
+
+    if formation.crest_flow_length is None:
+        return (
+            None,
+            FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+            "MRWA batter regime classification requires crest_flow_length for Figure 4.5 H/l.",
+        )
+
+    head_to_length = head / formation.crest_flow_length
+    try:
+        transition_ratio = mrwa_transition_submergence_ratio(head_to_length)
+    except ValueError:
+        return (
+            None,
+            FloodwayApplicabilityStatus.OUTSIDE_SOURCE_RANGE,
+            "Local H/l is outside the digitised MRWA Figure 4.5 source domain; no extrapolation is permitted.",
+        )
+
+    depth_ratio = segment.downstream_head / head
+    if depth_ratio > transition_ratio:
+        return (
+            None,
+            FloodwayApplicabilityStatus.NOT_APPLICABLE,
+            "MRWA Figure 4.5 classifies this free-flow state as surface flow rather than plunging batter flow.",
+        )
+
+    if shoulder_elevation is None:
+        return (
+            None,
+            FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+            "MRWA plunging-flow batter Equation 7 requires downstream-shoulder elevation when tailwater is above crest.",
+        )
+
+    delta_p = segment.crest_elevation - shoulder_elevation
+    if delta_p < 0.0:
+        return (
+            None,
+            FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+            "Downstream-shoulder elevation is above the local roadway crest.",
+        )
+    return delta_p, None, "MRWA Figure 4.5 classifies this state as plunging flow; Equation 4/7 applies."
+
+
 def assess_floodway_hydraulics(
     hydraulics: FloodwayScenarioHydraulics,
     formation: FloodwayFormation,
@@ -44,11 +126,10 @@ def assess_floodway_hydraulics(
     ``ryan-culverts`` segment state. ``effective_length`` and physical source
     interval length are intentionally not used to reconstruct local discharge.
 
-    The first increment evaluates the MRWA Equation 4/6 surface-velocity path
-    only for downstream batter (B) and pavement (D). Without a verified Figure
-    4.6 ``K`` and the complete event/regime procedure, those results remain
-    explicitly ``SOURCE_DATA_REQUIRED`` diagnostics. Other A-F zones fail closed
-    to specialist review rather than receiving invented force/capacity methods.
+    The MRWA Equation 4/6/7 path is evaluated for free-flow pavement and
+    downstream-batter states where the source geometry is available. Figure 4.5
+    is used to distinguish plunging from surface flow when tailwater is above the
+    crest. Unsupported A-F mechanisms continue to fail closed.
     """
     assessments: list[FloodwayZoneAssessment] = []
 
@@ -88,6 +169,24 @@ def assess_floodway_hydraulics(
                 )
                 continue
 
+            if segment.flow_state is RoadwaySegmentState.SUPPORTED_SUBMERGED:
+                assessments.append(
+                    FloodwayZoneAssessment(
+                        scenario_name=hydraulics.scenario_name,
+                        aep_percent=hydraulics.aep_percent,
+                        source_interval_index=segment.source_interval_index,
+                        integration_station=segment.integration_station,
+                        flow_state=segment.flow_state,
+                        zone=zone,
+                        applicability=FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+                        message=(
+                            "The current MRWA design increment does not yet map the guide's submerged q/D pavement "
+                            "approximation into the typed velocity result; no free-flow Equation 7 value is invented."
+                        ),
+                    )
+                )
+                continue
+
             if formation_zone.slope is None or formation_zone.roughness is None:
                 assessments.append(
                     FloodwayZoneAssessment(
@@ -103,13 +202,40 @@ def assess_floodway_hydraulics(
                 )
                 continue
 
+            delta_p, limiting_status, message = _mrwa_velocity_limit_inputs(
+                hydraulics=hydraulics,
+                segment=segment,
+                formation=formation,
+                zone=zone,
+            )
+            if limiting_status in {
+                FloodwayApplicabilityStatus.NOT_APPLICABLE,
+                FloodwayApplicabilityStatus.OUTSIDE_SOURCE_RANGE,
+            }:
+                assessments.append(
+                    FloodwayZoneAssessment(
+                        scenario_name=hydraulics.scenario_name,
+                        aep_percent=hydraulics.aep_percent,
+                        source_interval_index=segment.source_interval_index,
+                        integration_station=segment.integration_station,
+                        flow_state=segment.flow_state,
+                        zone=zone,
+                        applicability=limiting_status,
+                        message=message,
+                    )
+                )
+                continue
+
             velocity_result = calculate_mrwa_surface_velocity(
                 zone=zone,
                 unit_discharge=segment.unit_discharge,
                 slope=formation_zone.slope,
                 roughness=formation_zone.roughness,
+                total_head=segment.upstream_head if delta_p is not None else None,
+                delta_p=delta_p,
             )
             demand = build_zone_demand(velocity_result)
+            applicability = limiting_status or velocity_result.applicability
             assessments.append(
                 FloodwayZoneAssessment(
                     scenario_name=hydraulics.scenario_name,
@@ -118,13 +244,10 @@ def assess_floodway_hydraulics(
                     integration_station=segment.integration_station,
                     flow_state=segment.flow_state,
                     zone=zone,
-                    applicability=velocity_result.applicability,
+                    applicability=applicability,
                     velocity_result=velocity_result,
                     demand=demand,
-                    message=(
-                        "Equation 4/6 diagnostic only until the source-backed Figure 4.6/event-regime path supplies "
-                        "the limiting-velocity check."
-                    ),
+                    message=message,
                 )
             )
 
