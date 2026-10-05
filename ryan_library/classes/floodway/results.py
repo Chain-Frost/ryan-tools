@@ -84,6 +84,27 @@ class MrwaSurfaceVelocityResult:
 
 
 @dataclass(frozen=True, slots=True)
+class MrwaSubmergedPavementVelocityResult:
+    """MRWA 2006 submerged-pavement velocity approximation ``V ~= q / D``."""
+
+    unit_discharge: float
+    downstream_depth: float
+    velocity: float
+    applicability: FloodwayApplicabilityStatus = FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+    layer: FloodwayAssessmentLayer = FloodwayAssessmentLayer.MRWA_COMPLIANCE
+    source_id: str = "MRWA-FLOODWAY-DESIGN-GUIDE-2006-SUBMERGED-Q-OVER-D"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "unit_discharge", _nonnegative(self.unit_discharge, "unit_discharge"))
+        depth = _nonnegative(self.downstream_depth, "downstream_depth")
+        if depth <= 0.0:
+            msg = "downstream_depth must be strictly positive."
+            raise ValueError(msg)
+        object.__setattr__(self, "downstream_depth", depth)
+        object.__setattr__(self, "velocity", _nonnegative(self.velocity, "velocity"))
+
+
+@dataclass(frozen=True, slots=True)
 class FloodwayZoneDemand:
     """Physical hydraulic demand retained separately from design capacity/protection."""
 
@@ -145,7 +166,7 @@ class FloodwayZoneAssessment:
     flow_state: RoadwaySegmentState
     zone: FloodwayZone
     applicability: FloodwayApplicabilityStatus
-    velocity_result: MrwaSurfaceVelocityResult | None = None
+    velocity_result: MrwaSurfaceVelocityResult | MrwaSubmergedPavementVelocityResult | None = None
     demand: FloodwayZoneDemand | None = None
     protection_result: Hec23OvertoppingRiprapResult | None = None
     message: str = ""
