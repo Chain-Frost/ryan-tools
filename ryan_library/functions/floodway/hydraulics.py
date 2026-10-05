@@ -70,6 +70,7 @@ def mrwa_transition_submergence_ratio(head_to_flow_length: float) -> float:
     for (x0, y0), (x1, y1) in zip(
         MRWA_FIGURE_4_5_TRANSITION_POINTS,
         MRWA_FIGURE_4_5_TRANSITION_POINTS[1:],
+        strict=False,
     ):
         if ratio <= x1:
             fraction = (ratio - x0) / (x1 - x0)
