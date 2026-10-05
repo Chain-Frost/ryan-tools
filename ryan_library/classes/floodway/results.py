@@ -3,8 +3,6 @@
 from dataclasses import dataclass
 from math import isfinite
 
-from .protection import Hec23OvertoppingRiprapResult
-
 from .models import (
     FloodwayApplicabilityStatus,
     FloodwayAssessmentLayer,
@@ -12,6 +10,7 @@ from .models import (
     FloodwayZone,
     RoadwaySegmentState,
 )
+from .protection import Hec23OvertoppingRiprapResult
 
 
 def _finite(value: float, name: str) -> float:
