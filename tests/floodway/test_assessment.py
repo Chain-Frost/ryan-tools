@@ -276,3 +276,43 @@ def test_downstream_batter_can_carry_separate_hec23_protection_result() -> None:
     assert batter.demand is not None
     assert batter.demand.layer.value == "mrwa_compliance"
     assert batter.protection_result.layer.value == "enhanced_assessment"
+
+
+
+def test_supported_submerged_state_uses_q_over_d_for_pavement_only() -> None:
+    formation = FloodwayFormation(
+        name="Submerged floodway",
+        zones=(
+            FloodwayFormationZone(zone=FloodwayZone.PAVEMENT, slope=0.03, roughness=0.015),
+            FloodwayFormationZone(zone=FloodwayZone.DOWNSTREAM_BATTER, slope=1.0 / 3.0, roughness=0.04),
+        ),
+    )
+    hydraulics = FloodwayScenarioHydraulics(
+        scenario_name="Submerged event",
+        aep_percent=1.0,
+        headwater_elevation=101.0,
+        tailwater_elevation=100.6,
+        roadway_discharge=30.0,
+        segments=(
+            _segment(
+                q=1.2,
+                station=12.5,
+                state=RoadwaySegmentState.SUPPORTED_SUBMERGED,
+                upstream_head=1.0,
+                downstream_head=0.4,
+            ),
+        ),
+    )
+
+    assessment = assess_floodway_hydraulics(hydraulics, formation)
+    pavement = next(item for item in assessment.zone_assessments if item.zone is FloodwayZone.PAVEMENT)
+    batter = next(item for item in assessment.zone_assessments if item.zone is FloodwayZone.DOWNSTREAM_BATTER)
+
+    assert pavement.demand is not None
+    assert pavement.demand.velocity == 3.0
+    assert pavement.demand.depth_m == 0.4
+    assert pavement.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+    assert "q/D" in pavement.message
+
+    assert batter.demand is None
+    assert batter.applicability is FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
