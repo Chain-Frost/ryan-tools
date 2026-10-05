@@ -23,18 +23,23 @@ Upstream dependency: `ryan-culverts` issue #19 was implemented and merged throug
 A dedicated branch has been created from current `ryan-tools` `main`. The upstream uncertainty API is merged and the
 parent repository's `vendor/ryan_culverts` pointer has been advanced to the merged dependency commit.
 
+The first application-layer increment is implemented: `UncertaintyStudy` owns project selection/sampling policy while
+reusing public `BoundedParameterSpec` / `UniformParameterSpec` contracts, and `generate_study_samples` composes the
+public bounded and seeded sampling primitives into deterministic multi-parameter study samples. Focused tests cover
+Cartesian bounded sweeps and seeded reproducibility.
+
 The existing culvert application boundary remains the integration point:
 `CulvertProject` / crossing / scenario models -> solver adapter -> public `culvert_solver` APIs.
 
-No uncertainty-domain distribution, bounds or sampled-parameter classes will be reimplemented in `ryan-tools`.
+No uncertainty-domain distribution, bounds or sampled-parameter classes are reimplemented in `ryan-tools`.
 
 ## Next action
 
-Add the first typed application-level study models and orchestration for deterministic bounded sweeps and seeded
-stochastic studies, preserving failed/unresolved evaluations and solver status/warning provenance.
+Add project/scenario/alternative evaluation orchestration around the generated samples, preserving successful,
+approximate, unresolved and failed evaluations together with solver status/warning/source provenance.
 
-Then add focused tests for seeded reproducibility, deterministic bounds, failure propagation and a representative
-project/scenario/alternative matrix before extending the maintained wrapper and machine-readable outputs.
+Then add aggregation/percentiles and machine-readable export, followed by project-file/wrapper integration and focused
+failure-propagation plus representative project-matrix tests.
 
 ## Completion criteria
 
@@ -49,10 +54,12 @@ project/scenario/alternative matrix before extending the maintained wrapper and 
 ## Validation and delivery
 
 2026-10-06: repository and upstream APIs inspected through the GitHub connector. Local shell checkout/validation is not
-available in this environment because outbound GitHub DNS/network access is unavailable. No validation result is claimed
-for implementation code until it is run in a normal checkout.
+available in this environment because outbound GitHub DNS/network access is unavailable. Focused tests have been added
+but not executed here; no Ruff, Pyright, pytest or package-build result is claimed until run in a normal checkout.
 
 Branch: `feature/culvert-uncertainty-91`.
+
+Current implementation commit: `724d751a70b4843d1eb1224670064286943ebce2`.
 
 No pull request has been opened.
 
@@ -62,3 +69,7 @@ No pull request has been opened.
 
 Created the feature branch from current `main`, confirmed upstream PR #25 is merged, mapped the existing culvert
 application/solver boundary, and advanced the vendored solver pointer to the merged uncertainty-contract commit.
+
+Added the first typed application increment: project-level uncertainty study policy and multi-parameter bounded/seeded
+sampling orchestration built exclusively from public `ryan-culverts` uncertainty contracts, with focused tests for
+bounded Cartesian sampling and seeded reproducibility.
