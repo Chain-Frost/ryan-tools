@@ -234,8 +234,6 @@ def test_figure_4_5_surface_flow_does_not_invent_batter_demand() -> None:
     assert batter.applicability is FloodwayApplicabilityStatus.NOT_APPLICABLE
     assert "surface flow" in batter.message
 
-
-
 def test_downstream_batter_can_carry_separate_hec23_protection_result() -> None:
     formation = FloodwayFormation(
         name="Protected floodway",
