@@ -42,6 +42,8 @@ def test_mild_slope_example_uses_selected_class_for_capacity_checks() -> None:
 
     assert result.minimum_d50_m == pytest.approx(0.09416, rel=2e-3)
     assert result.selected_d50_m == pytest.approx(0.15)
+    assert result.meets_minimum_d50
+    assert result.is_sufficient
     assert result.interstitial_velocity_ms == pytest.approx(0.228, rel=0.01)
     assert result.average_interstitial_velocity_ms == pytest.approx(0.103, rel=0.01)
     assert result.all_flow_interstitial_depth_m == pytest.approx(1.81, rel=0.02)
@@ -62,6 +64,8 @@ def test_steep_slope_first_selected_class_requires_larger_gradation() -> None:
     )
 
     assert result.minimum_d50_m == pytest.approx(0.289, rel=2e-3)
+    assert result.meets_minimum_d50
+    assert not result.is_sufficient
     assert result.interstitial_velocity_ms == pytest.approx(0.552, rel=0.02)
     assert result.average_interstitial_velocity_ms == pytest.approx(0.249, rel=0.02)
     assert result.all_flow_interstitial_depth_m == pytest.approx(0.748, rel=0.02)
@@ -79,6 +83,8 @@ def test_steep_slope_next_class_is_sufficient_at_two_d50() -> None:
         selected_d50_m=0.381,
     )
 
+    assert result.meets_minimum_d50
+    assert result.is_sufficient
     assert result.interstitial_velocity_ms == pytest.approx(0.618, rel=0.02)
     assert result.average_interstitial_velocity_ms == pytest.approx(0.278, rel=0.02)
     assert result.all_flow_interstitial_depth_m == pytest.approx(0.669, rel=0.02)
@@ -88,10 +94,15 @@ def test_steep_slope_next_class_is_sufficient_at_two_d50() -> None:
     assert not result.requires_larger_gradation
 
 
-def test_selected_gradation_cannot_be_smaller_than_equation_5_2_minimum() -> None:
-    with pytest.raises(ValueError, match="smaller than the HEC-23 Equation 5.2 minimum"):
-        evaluate_hec23_overtopping_riprap(
-            **_COMMON,
-            slope=0.20,
-            selected_d50_m=0.05,
-        )
+def test_selected_gradation_smaller_than_equation_5_2_minimum_is_failed_design_check() -> None:
+    result = evaluate_hec23_overtopping_riprap(
+        **_COMMON,
+        slope=0.20,
+        selected_d50_m=0.05,
+    )
+
+    assert not result.meets_minimum_d50
+    assert not result.is_sufficient
+    assert result.requires_larger_gradation
+    assert result.recommended_thickness_m is None
+    assert result.minimum_d50_m == pytest.approx(0.09416, rel=2e-3)
