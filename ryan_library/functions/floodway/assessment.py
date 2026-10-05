@@ -14,6 +14,7 @@ from .hydraulics import (
     dynamic_pressure,
     governing_velocity,
     momentum_flux_per_width,
+    mrwa_figure_4_6_k,
     mrwa_maximum_attainable_velocity,
     mrwa_specific_energy,
     mrwa_steady_state_velocity,
@@ -28,29 +29,38 @@ def calculate_mrwa_surface_velocity(
     roughness: float,
     total_head: float | None = None,
     coefficient_k: float | None = None,
+    delta_p: float | None = None,
 ) -> MrwaSurfaceVelocityResult:
-    """Evaluate the source-defined MRWA steady/max-velocity path for one zone.
+    """Evaluate the MRWA Equation 4/6/7 velocity path for one local state.
 
-    Equation 4 and Equation 6 can be evaluated from ``q``, ``S`` and ``n``.
-    Equation 7 additionally requires a source-backed Figure 4.6 ``K`` value and
-    total head. Until both are supplied, the result is explicitly marked
-    ``SOURCE_DATA_REQUIRED`` and the steady-state velocity is retained only as
-    an intermediate diagnostic rather than silently presented as the fully
-    checked governing velocity.
+    ``coefficient_k`` remains available for explicit regression/reproduction of a
+    graph-read Figure 4.6 ordinate. Production callers should normally provide
+    ``total_head`` and ``delta_p`` so ``K`` is reconstructed from the guide's own
+    energy relation by :func:`mrwa_figure_4_6_k`.
     """
-    if (total_head is None) != (coefficient_k is None):
-        msg = "total_head and coefficient_k must be supplied together."
+    if coefficient_k is not None and delta_p is not None:
+        msg = "Supply either coefficient_k or delta_p, not both."
+        raise ValueError(msg)
+    if total_head is None and (coefficient_k is not None or delta_p is not None):
+        msg = "total_head is required when coefficient_k or delta_p is supplied."
         raise ValueError(msg)
 
     steady = mrwa_steady_state_velocity(unit_discharge, slope, roughness)
     energy = mrwa_specific_energy(unit_discharge, steady)
 
-    if total_head is None or coefficient_k is None:
+    resolved_k = coefficient_k
+    if total_head is not None and resolved_k is None and delta_p is not None:
+        if total_head <= 0.0:
+            msg = "total_head must be positive when delta_p is used to reconstruct Figure 4.6 K."
+            raise ValueError(msg)
+        resolved_k = mrwa_figure_4_6_k(delta_p / total_head)
+
+    if total_head is None or resolved_k is None:
         maximum = None
         adopted = steady
         applicability = FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
     else:
-        maximum = mrwa_maximum_attainable_velocity(total_head, coefficient_k)
+        maximum = mrwa_maximum_attainable_velocity(total_head, resolved_k)
         adopted = governing_velocity(steady, maximum)
         applicability = FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
 
@@ -63,7 +73,7 @@ def calculate_mrwa_surface_velocity(
         specific_energy=energy,
         maximum_attainable_velocity=maximum,
         adopted_velocity=adopted,
-        coefficient_k=coefficient_k,
+        coefficient_k=resolved_k,
         total_head=total_head,
         applicability=applicability,
     )
