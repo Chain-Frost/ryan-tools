@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite
 
-from .models import FloodwayZone
+from .models import FloodwayZone, RoadwaySegmentState
 from .results import FloodwayZoneDemand, GoverningFloodwayDemand
 
 
@@ -27,6 +27,11 @@ class FloodwayEnvelopeGovernor:
     demand: FloodwayZoneDemand
     source_interval_index: int = 0
     integration_station: float = 0.0
+    total_discharge: float | None = None
+    roadway_discharge: float | None = None
+    headwater_elevation: float | None = None
+    tailwater_elevation: float | None = None
+    flow_state: RoadwaySegmentState | None = None
 
     def __post_init__(self) -> None:
         name = self.scenario_name.strip()
