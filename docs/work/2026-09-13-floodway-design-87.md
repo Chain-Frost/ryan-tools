@@ -2,207 +2,191 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active |
+| Status | Active implementation |
 | Owner | Unassigned |
 | Created | 2026-09-13 |
-| Updated | 2026-09-14 |
-| Next review | Immediately after `ryan-culverts` PR #13/#14 is merged or materially updated |
-| Baseline | `feature/floodway-design-87` is refreshed onto post-#86 `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99` |
+| Updated | 2026-10-06 |
+| Next review | After MRWA regression and repository validation |
+| Branch | `feature/floodway-design-87` / PR #88 |
+| Baseline | Post-#86 `main`; branch is 0 commits behind `main` as checked 2026-10-06 |
 
 ## Outcome and scope
 
-Deliver issue #87: a maintained floodway overtopping design assessment and reporting workflow using `ryan-culverts` as
-the authoritative crossing-hydraulics engine and `ryan-tools` for road-formation hydraulic demand, protection/design
-checks, event envelopes and reporting.
+Deliver issue #87: a maintained floodway overtopping design-assessment and reporting workflow using `ryan-culverts` as
+the authoritative crossing-hydraulics engine and `ryan-tools` for formation response, protection/design checks,
+event envelopes and reporting.
 
-The research, calculation specification and validation-vector preparation can continue independently. The `ryan-tools`
-workflow architecture prerequisite is now complete because PR #86 has merged. Substantial code that consumes advanced
-roadway segment hydraulics still waits for the public `ryan-culverts` PR #13/#14 result contract to stabilise.
+The prerequisite roadway API is no longer blocked:
 
-Dependencies:
+- `ryan-culverts` PR #13 is merged;
+- upstream issues #4 and #14 are closed;
+- the vendored `ryan_culverts` revision on this branch points to the merged roadway-overtopping implementation;
+- `ryan-tools` PR #86 / issue #80 is merged and provides the shared culvert workflow boundary.
 
-- `ryan-culverts` issue #4 / PR #13 — still open;
-- `ryan-culverts` issue #14, intended to be implemented in PR #13 — still required before downstream segment-state
-  integration is finalised;
-- `ryan-tools` issue #80 / PR #86 — merged into `main` on 2026-09-14 at
-  `1d8aa177be7b074003e0e355b5db56f4cd764e99`.
+Debris impact/loading and debris blockage remain future scope.
 
-Debris impact/loading and debris blockage are future considerations only and are outside current scope.
+Hydrograph/overtopping-duration and road-closure-duration analysis is **not part of this floodway formation-design
+workflow**. It is tracked separately in issue #92 because it requires a different time-series workflow, scripts and
+reporting contract.
 
-Research documents:
+## Current implementation
 
-- [Floodway design research baseline](../audits/2026-09-13-floodway-design-research.md)
-- [Floodway calculation specification](../audits/2026-09-14-floodway-calculation-specification.md)
-- [Floodway validation vectors](../audits/2026-09-14-floodway-validation-vectors.md)
+PR #88 now contains substantive Python implementation rather than research-only material:
 
-## Current state
+- typed floodway A-F formation, hydraulic-state, applicability, demand, envelope and protection result models;
+- adapter from authoritative `ScenarioResult` / roadway segment results without re-deriving roadway-weir hydraulics;
+- irregular roadway profile support through the merged `ryan-culverts` public API;
+- MRWA Equation 4/6 surface-velocity primitives;
+- MRWA Equation 7 limiting-velocity calculation;
+- source-bounded Figure 4.5 plunging/surface-flow transition relation;
+- Figure 4.6 `K` relation reconstructed from the guide's own Equation 3 + Equation 6 energy relation rather than
+  hand-digitised;
+- event-envelope selection retaining independent governors for velocity, dynamic pressure and momentum flux;
+- HEC-23 DG5 overtopping-riprap equations and worked-example regression tests;
+- JSON, CSV and Markdown envelope outputs;
+- focused integration tests across the culvert/floodway boundary.
 
-The mandatory post-#86 refresh has occurred. Repository comparison confirms `feature/floodway-design-87` is based on the
-current `main` merge commit for PR #86, is `0` commits behind `main`, and contains only the floodway research/documentation
-commits above that baseline.
+Unsupported zone mechanisms continue to fail closed rather than receiving invented scalar methods.
 
-The research baseline records:
+## MRWA source verification — 2026-10-06
 
-- current MRWA hierarchy and 2023 floodway guidance;
-- the 2006 MRWA A-F failure-zone framework and published regression targets;
-- FHWA HEC-23 embankment-overtopping failure modes and riprap-design research direction;
-- HEC-15/HEC-22 tractive-force guidance;
-- FHWA Federal Lands low-water crossing concepts;
-- US Forest Service low-water crossing geometry considerations;
-- TxDOT common-headwater roadway-overtopping architecture;
-- Chen and Anderson embankment-overtopping research as a candidate basis for sectional hydraulics;
-- the WA Willare Crossing failure/model-test case as a priority source for downstream-shoulder pressure behaviour;
-- a proposed compliance/enhanced-assessment split, A-F result model, event envelope, 2D escalation conditions and
-  validation plan.
+The authoritative 2006 MRWA Floodway Design Guide was visually re-checked for Figures 4.5 and 4.6 and Appendix D.
 
-The 2026-09-14 calculation specification converts the principal research findings into an explicit pre-code procedure,
-including:
+### Figure 4.6
 
-- the production boundary between `ryan-culverts` crossing hydraulics and `ryan-tools` formation response;
-- the MRWA detailed and simplified capacity equations for legacy reproduction;
-- the MRWA Equation 4-9 pavement/batter velocity procedure;
-- explicit preservation of the source discrepancy between the Section 4.4.3 `D/H < 0.76` free-flow applicability
-  statement and the Appendix C/D `D/H = 0.8` operational submergence point;
-- graph/digitisation requirements for MRWA Figures 4.2, 4.5 and 4.6;
-- A-F zone-specific demand/applicability rules rather than a generic floodway-force value;
-- HEC-23 DG5 Equations 5.1-5.3 and the mild/steep-slope routing logic as a candidate enhanced riprap check;
-- event-envelope and governing-state requirements;
-- method-level applicability statuses and 2D/specialist escalation;
-- a deliberate decision not to create an unsupported downstream-shoulder suction coefficient from the Willare evidence.
+Figure 4.6 does not require hand digitisation.
 
-The validation-vector document records future test targets for:
+Using the guide's simplified free-flow relation
 
-- Seven Mile Creek Table D1, maximum pavement/batter velocities and the `Q=150 m3/s` event;
-- Majors Creek Table D2, transition/intersection values and the practical Q50 pavement/batter velocities;
-- MRWA Figure 4.6 graph-read `K` anchors;
-- the 0.76 versus 0.8 legacy-threshold distinction;
-- HEC-23 DG5 Equation 5.2 and both published mild/steep-slope examples;
-- the apparent HEC-23 indexed-text SI inconsistency that labels 12 inches as 0.15 m in the steep example, which must be
-  checked visually against the authoritative document before coding;
-- event-envelope, irregular-crest, inactive-flow, applicability and report-provenance acceptance scenarios.
+```text
+q = 1.69 H^(3/2)
+```
 
-## Post-#86 architecture review
+and Equation 6 no-loss energy relation with
 
-The merged culvert workflow gives #87 a stable downstream workflow shape to build against:
+```text
+V = K sqrt(H)
+delta = delta_p / H
+```
 
-- `ryan_library/classes/culvert/` owns project/crossing/scenario/result models. `ScenarioResult` retains the complete
-  authoritative `CrossingHydraulicResult` plus AEP, source/notes, target-headwater residual evidence and event tailwater
-  override provenance.
-- `ryan_library/functions/culvert/` owns strict project parsing, the bounded adapter into `culvert_solver`, assessment and
-  detailed machine-readable export. Floodway code should consume typed in-memory results rather than parse those JSON
-  exports back into hydraulics.
-- `ryan_library/orchestrators/culvert/` owns project-level solve/analyse/design/rating/report coordination. The floodway
-  workflow should call/reuse this boundary where crossing hydraulics are needed rather than reproduce it.
-- Imported event tables and programmatic `EventDefinition` sequences already provide AEP/name/discharge or target-HW
-  event identity with provenance. The floodway event-envelope layer can reuse this event identity rather than create a
-  parallel hydrology/event format.
-- The present `RoadwayDefinition` is constant-crest only. Breaking project-schema changes remain acceptable during this
-  development series, so irregular/profile roadway configuration should be added only after PR #13/#14 establishes the
-  final upstream public objects and result semantics.
+gives the dimensionless equation
 
-Provisional package placement for #87, subject to implementation review, is:
+```text
+1 + delta = K^2/(2g) + 1.69/K
+```
 
-- `ryan_library/classes/floodway/` — formation geometry, material/protection metadata, applicability/result models and
-  event-envelope result types;
-- `ryan_library/functions/floodway/` — MRWA legacy calculations, enhanced sourced demand/protection calculations,
-  method applicability and machine-readable export helpers;
-- `ryan_library/orchestrators/floodway/` — crossing-result adaptation, event-envelope execution, governing-state
-  selection and report coordination;
-- `ryan-scripts/floodway.py` — maintained human-facing wrapper once the reusable workflow is stable.
+The larger positive root is the Figure 4.6 high-velocity branch. The reconstructed values reproduce the published
+Appendix D graph reads within graph-reading precision:
 
-The culvert package should only be changed where required to expose/configure the final public roadway profile API. A-F
-formation geometry, shear/tractive stress, pavement/batter/toe protection checks and MRWA floodway reporting do not
-belong in `classes/culvert` or `culvert_solver`.
+| delta_p/H | Published graph read | Reconstructed |
+| ---: | ---: | ---: |
+| 0.104 | 3.50 | ~3.48 |
+| 0.150 | 3.70 | ~3.68 |
+| 0.307 | 4.20 | ~4.22 |
+| 0.318 | 4.25 | ~4.25 |
 
-## Next action
+The implementation enforces the displayed Figure 4.6 domain `0 <= delta_p/H <= 1.8` and refuses extrapolation.
 
-The repository-architecture refresh is complete. The remaining primary implementation dependency is `ryan-culverts`
-PR #13/#14. Until that public roadway-segment result contract is stable, continue only work that does not require guessing
-its API:
+### Figure 4.5
 
-1. independently verify/digitise the MRWA Figure 4.2, 4.5 and 4.6 relationships if they are to be automated, preserving
-   source domains and prohibiting extrapolation;
-2. obtain/verify the original Chen-Anderson/FHWA-RD-86-126 equations before deciding whether a sectional 1D formation
-   water-surface solver belongs in the first increment;
-3. obtain the best available Patterson-Abercromby Willare model-test material for quantitative shoulder pressure data;
-4. decide whether a source-backed toe/impingement/scour method belongs in the first increment or remains a
-   specialist/2D trigger;
-5. verify HEC-23 DG5 gradation selections and the steep-example SI conversion visually from an authoritative copy;
-6. review current Austroads Part 5B requirements when the full licensed text is available;
-7. after PR #13/#14 merges, update the `ryan_culverts` dependency, inspect the final roadway result API and then begin the
-   typed floodway implementation against the package placement above.
+Figure 4.5 remains a graphical source and has been visually digitised over its displayed `H/l` domain. The
+implementation uses bounded linear interpolation and refuses extrapolation.
 
-## Completion criteria
+Independent Appendix D checks support the digitisation:
 
-- The research baseline identifies the adopted and rejected calculation methods with authoritative sources and
-  applicability limits.
-- The calculation specification is sufficiently explicit that implementation does not require rediscovering the core
-  MRWA/HEC procedure.
-- Published/recomputed validation vectors exist before design-use code is enabled.
-- The branch is refreshed from post-#86 `main`. **Complete.**
-- Public `ryan-culverts` roadway-segment results required by #87 are stable and available.
-- Typed floodway formation/configuration/result models are implemented against the post-#86 architecture.
-- Event-envelope analysis identifies the governing event/discharge for each supported limit state.
-- MRWA compliance results remain distinct from enhanced engineering checks.
-- Published MRWA worked examples are reproduced for the portions implemented.
-- Any adopted HEC-23 or other protection method reproduces authoritative worked examples before design use.
-- Unsupported shoulder uplift, seepage/piping, debris and complex 2D effects fail closed or are clearly flagged for
-  specialist review.
-- Console plus machine-readable/reviewable output is delivered per issue #87.
-- Required repository validation is complete and recorded.
+- Seven Mile Creek transition: `H/l = 0.90/9.0 = 0.10`, with `(D/H)trans ~= 0.60`;
+- Majors Creek transition: `H/l ~= 1.48/9.0 = 0.164`, with `(D/H)trans ~= 0.67-0.68`.
 
-## Validation and delivery
+### Figure 4.2
 
-### 2026-09-14 — post-#86 refresh
+Figure 4.2 is not required for the production crossing flow split because `ryan-culverts` remains authoritative for
+roadway/culvert hydraulics. It should only be automated if an explicit MRWA legacy-capacity reproduction path is later
+required. The floodway design workflow must not create a competing production crossing solver.
 
-- Confirmed PR #86 is merged into `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99`.
-- Confirmed `feature/floodway-design-87` has that commit as its merge base and is `0` commits behind `main`; no additional
-  rebase/merge operation is required.
-- Re-read the merged culvert workflow/result/export architecture and recorded the package-integration decisions above.
-- No floodway Python implementation was added in this refresh.
-- Repository lint/type/test/build commands were not run in the GitHub connector environment; no unrun check is reported
-  as passed.
+## Architectural boundary
 
-### 2026-09-14 — research increment
+### `ryan-culverts` owns
 
-- Documentation/source research only; no Python modified.
-- Added a detailed calculation specification and source-derived validation-vector pack.
-- Direct arithmetic in the validation pack was independently recomputed while preparing the research, but this is not
-  a substitute for repository tests.
-- Repository documentation checker, Markdown checks, Ruff, Pyright and pytest were **not run** in the connector-only
-  environment. They remain explicit follow-up validation for an agent/local checkout; no unrun check is reported as
-  passed.
-- Changes were committed directly to the existing remote branch through the GitHub connector.
-- Draft PR #88 remains the delivery/research PR.
+- common headwater/tailwater solution;
+- culvert/roadway flow split;
+- irregular roadway crest integration;
+- roadway submergence correction;
+- local roadway unit discharge and segment-state provenance.
 
-### 2026-09-13
+### `ryan-tools` owns
 
-- Documentation/source research only; no Python modified.
-- Repository documentation checker was not run in the connector-only environment and remained a follow-up validation
-  item.
-- Branch created and pushed through GitHub as `feature/floodway-design-87`.
+- floodway formation geometry and material/protection metadata;
+- MRWA formation-response calculations;
+- A-F zone demand and applicability assessment;
+- enhanced sourced protection checks such as HEC-23 DG5;
+- event-envelope and governing-state selection;
+- specialist/2D escalation;
+- floodway reporting and exports.
 
-## Progress
+## Remaining first-increment work
+
+1. **MRWA regression and regime completion**
+   - complete focused regression against Seven Mile Creek and Majors Creek for the portions that are implemented;
+   - map the guide's submerged pavement `q/D` approximation into the typed result model if retained;
+   - preserve the Section 4.4.3 `D/H < 0.76` versus Appendix C/D `D/H = 0.8` source distinction rather than silently
+     reconciling it.
+
+2. **Protection/design integration**
+   - integrate the existing HEC-23 DG5 result into the typed assessment/report path;
+   - keep enhanced HEC-23 checks distinct from MRWA compliance.
+
+3. **Formation/configuration**
+   - expose only the additional geometry/material inputs needed by supported methods;
+   - do not add unsupported shoulder-pressure, complete piping or generic toe-scour models merely to fill A-F fields.
+
+4. **Reporting and human-facing entry point**
+   - expand the report with governing event/state, method provenance, applicability/warnings and supported protection
+     results;
+   - add the maintained floodway wrapper/CLI once the reusable API is stable.
+
+5. **Validation**
+   - run Ruff formatting/lint;
+   - run strict Pyright on changed Python;
+   - run focused and full pytest;
+   - run documentation/Markdown checks and the repository documentation checker;
+   - run package/build verification where required by repository policy.
+
+## Explicit fail-closed boundaries
+
+The first increment does not invent numerical methods for:
+
+- downstream-shoulder suction/uplift without a validated pressure relationship;
+- complete seepage/piping/internal-erosion analysis;
+- complex downstream toe scour/impingement where a bounded analytical method has not been adopted;
+- debris impact/loading or debris blockage;
+- spatial hydraulic effects that require 2D verification.
+
+These states remain `SOURCE_DATA_REQUIRED`, `SPECIALIST_REVIEW_REQUIRED`,
+`OUTSIDE_SOURCE_RANGE` or `TWO_D_VERIFICATION_RECOMMENDED` as appropriate.
+
+## Validation and delivery record
+
+### 2026-10-06
+
+- Confirmed PR #88 is open, mergeable and 0 commits behind `main`.
+- Confirmed `ryan-culverts` PR #13 is merged and issue #14 is closed.
+- Posted a current-status comment to PR #88.
+- Raised issue #92 for the separate hydrograph/overtopping-duration workflow.
+- Visually verified MRWA Figures 4.5 and 4.6 against the authoritative guide.
+- Added bounded Figure 4.5 interpolation with Appendix D anchors.
+- Reconstructed Figure 4.6 analytically from MRWA Equations 3 and 6 and added Appendix D regression anchors.
+- Routed free-flow pavement/downstream-batter assessment through the source-backed Equation 4/7 velocity limit where
+  sufficient geometry is available.
+- Added `crest_flow_length` to formation geometry for Figure 4.5 `H/l` classification.
+- Added focused tests for Figure 4.5/4.6 relations and plunging-versus-surface routing.
+- Full repository Ruff/Pyright/pytest/build validation has **not yet been run**; no unrun check is reported as passed.
 
 ### 2026-09-14
 
-PR #86 merged and the mandatory refresh condition was checked. The floodway branch already has the #86 merge commit as
-its merge base, so it is current with `main` and no history rewrite is needed. The merged workflow was reviewed: #87 can
-reuse typed `ScenarioResult`/`CrossingHydraulicResult`, event provenance, the existing culvert orchestrator boundary and
-detailed result/export conventions. Floodway-specific formation response remains a separate package family, while
-roadway-profile input/output adaptation waits for the final PR #13/#14 public API.
-
-Earlier on 2026-09-14, reconstructed the main MRWA 2006 hydraulic/velocity procedure into a pre-code calculation
-specification rather than leaving it as disconnected literature notes. Recorded the Equation 2-9 logic,
-source-dependent transition/submergence handling, A-F demand boundaries, HEC-23 DG5 riprap equations and routing,
-event-envelope requirements, curve digitisation controls and explicit unsupported/specialist states.
-
-Created a validation pack from the Seven Mile Creek and Majors Creek worked examples and HEC-23 DG5 examples. This
-includes intermediate values so future tests can diagnose errors in the calculation path rather than only compare final
-velocities. The pack also records source ambiguities/inconsistencies instead of silently correcting them.
+- Refreshed against post-#86 `main`.
+- Added the calculation specification and validation-vector pack.
+- Reviewed the shared culvert workflow boundary and package placement.
 
 ### 2026-09-13
 
-Created the research-first delivery branch for issue #87 and recorded an initial literature/source baseline. The
-architecture intentionally keeps crossing hydraulics in `ryan-culverts` and formation-response/design assessment in
-`ryan-tools`.
+- Opened the research-first branch/PR and established the source baseline and architectural boundary.
