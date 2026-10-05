@@ -2,21 +2,23 @@
 
 Date: 2026-09-14
 
-Status: **Research calculation specification for issue #87. Not yet an adopted production calculation contract.**
+Status: **Active calculation specification for issue #87. Updated 2026-10-06 to reflect the implemented first increment.**
 
 This document converts the source review in
-[`2026-09-13-floodway-design-research.md`](2026-09-13-floodway-design-research.md) into a more explicit calculation
-procedure. It is intended to remove engineering ambiguity before implementation begins.
+[`2026-09-13-floodway-design-research.md`](2026-09-13-floodway-design-research.md) into an explicit calculation
+procedure and records the adopted source boundaries for the implementation in PR #88.
 
-Substantial Python implementation remains blocked on the post-PR #86 repository architecture and the public roadway
-hydraulic state from `ryan-culverts` issue #14 / PR #13. The branch must be refreshed from fresh `main` after PR #86
-merges before the package/API layout in this document is translated into code.
+The architecture prerequisites are complete: `ryan-tools` PR #86 and `ryan-culverts` PR #13 are merged, upstream
+roadway-state issue #14 is closed, and the floodway implementation consumes the public roadway-segment result API
+rather than duplicating crossing hydraulics.
 
 Debris impact/loading and debris blockage are future considerations only and are outside the current scope.
+Hydrograph-based overtopping/closure-duration analysis is also outside this formation-design workflow and is tracked
+separately in issue #92.
 
 ## 1. Source hierarchy and interpretation rules
 
-The initial implementation should keep source identity visible rather than blending unlike design methods.
+The implementation keeps source identity visible rather than blending unlike design methods.
 
 1. **Current Main Roads WA requirements** define the WA compliance context. The Main Roads supplement to Austroads
    Guide to Road Design Part 5B states that the 2006 *Floodway Design Guide* takes precedence for floodways. The
@@ -219,8 +221,9 @@ Section 4.6 distinguishes:
 The guide states that plunging flow is generally the more severe condition for downstream-batter erosion.
 
 The plunging-to-surface upper transition is defined graphically by Figure 4.5 as `(D/H)_trans` versus `H/l`.
-A source-traceable digitisation is required before automating this boundary. The published Appendix D transition
-states should be used as regression checks on any digitised curve.
+PR #88 now uses a source-traceable bounded digitisation of the displayed Figure 4.5 domain with linear interpolation
+and no extrapolation. The Appendix D transition states provide independent regression anchors: approximately
+`(D/H)_trans = 0.60` at `H/l = 0.10`, and approximately `0.67-0.68` near `H/l = 0.16-0.17`.
 
 ### 5.2 Steady-state velocity - Equation 4
 
@@ -310,17 +313,34 @@ For an arbitrary event, the guide directs the batter calculation to use the less
 - `Delta p = p - TWL` where tailwater is below the crown; or
 - `Delta p = p - downstream_shoulder_elevation` where tailwater is above the crown.
 
-Figure 4.6 is another graphical dependency. It must not be implemented from an eyeballed curve. Useful published
-regression anchors from Appendix D include:
+Figure 4.6 does **not** require hand digitisation. The high-velocity branch can be reconstructed from the guide's own
+simplified free-flow Equation 3 and Equation 6 energy relation. With
 
-| `Delta p/H` | `K` read by the worked example |
-| ---: | ---: |
-| 0.104 | 3.50 |
-| 0.150 | 3.70 |
-| 0.307 | 4.20 |
-| 0.318-0.320 | 4.25 |
+```text
+q = 1.69 H^(3/2)
+V = K sqrt(H)
+r = Delta p / H
+```
 
-These are validation anchors, not a complete interpolation table.
+substitution into `H + Delta p = V^2/(2g) + q/V` gives:
+
+```text
+1 + r = K^2/(2g) + 1.69/K
+```
+
+The adopted Figure 4.6 value is the larger positive root, corresponding to the supercritical/high-velocity branch.
+PR #88 solves this relation numerically within the displayed Figure 4.6 domain and rejects extrapolation beyond it.
+
+Published Appendix D graph reads independently validate the reconstruction:
+
+| `Delta p/H` | published `K` | reconstructed `K` approximately |
+| ---: | ---: | ---: |
+| 0.104 | 3.50 | 3.48 |
+| 0.150 | 3.70 | 3.68 |
+| 0.307 | 4.20 | 4.22 |
+| 0.318-0.320 | 4.25 | 4.25 |
+
+This is preferable to treating a visually digitised Figure 4.6 curve as the calculation authority.
 
 ### 5.6 Pavement velocity
 
@@ -556,7 +576,7 @@ The event set should include, where resolvable:
 6. initial supported submerged roadway flow;
 7. nominated serviceability/design events;
 8. larger/extreme events used for failure-mode review;
-9. hydrograph points required to determine overtopping/closure duration when a hydrograph is supplied.
+9. refined/interpolated discharge states required to resolve an interior hydraulic-demand maximum.
 
 Between these mandatory states, use a configurable/adaptive sweep dense enough to capture interior maxima. Do not
 assume monotonicity of velocity, shear or protection demand with total discharge.
@@ -573,8 +593,8 @@ For every output/limit state retain:
 - the demand value and method source;
 - whether the governing state is a supplied event, a detected transition or an interpolated/refined envelope point.
 
-The post-#86 implementation should use the repository's final scenario/event model rather than introducing a parallel
-one prematurely.
+The implementation uses the repository's shared scenario/result model and public `ryan-culverts` result state rather
+than introducing a parallel crossing-hydraulics model.
 
 ## 12. 2D/specialist escalation
 
@@ -593,20 +613,22 @@ Candidate reasons include:
 
 A result may therefore be numerically available but still carry `TWO_D_VERIFICATION_RECOMMENDED`.
 
-## 13. Figure/curve digitisation policy
+## 13. Figure/curve source policy
 
-Figures 4.2, 4.5 and 4.6 are critical legacy graphical inputs. If digitised:
+The three MRWA graphical relationships have different production roles:
 
-1. record document title, issue/date, figure number and source image/page;
-2. store the digitised ordinates separately from calculation code;
-3. retain the original x/y domain and prohibit extrapolation by default;
-4. record digitisation method and any interpolation method;
-5. verify independent points against the published Appendix D worked examples;
-6. preserve the ability to report the source ordinate/factor used;
-7. require a review before treating a hand-digitised curve as design-authoritative data.
+- **Figure 4.2** belongs to the legacy crossing-capacity procedure. Production crossing hydraulics remain authoritative
+  in `ryan-culverts`, so Figure 4.2 is not required for the normal floodway formation-design path. If a separately
+  labelled MRWA legacy-capacity reproduction is later implemented, Figure 4.2 must be digitised traceably with bounded
+  interpolation and no extrapolation.
+- **Figure 4.5** is required for the downstream-batter plunging/surface-flow classification. Its bounded digitised
+  ordinates are retained as source data, use linear interpolation, preserve the displayed `H/l` domain and reject
+  extrapolation. Appendix D transition states are regression anchors.
+- **Figure 4.6** is not digitised. `K` is reconstructed from the source equations as described in Section 5.5, bounded
+  to the displayed source domain and regression-tested against Appendix D graph reads.
 
-The worked-example `K` values listed in Section 5.5 are regression anchors only and are insufficient to reconstruct the
-full Figure 4.6 curve.
+Any future digitised source data must record document/version, figure/page, source domain and interpolation method,
+and must preserve the source ordinate used in result provenance where practical.
 
 ## 14. Initial report contract
 
@@ -621,9 +643,11 @@ A reviewable result should eventually contain:
 7. MRWA compliance/legacy results;
 8. enhanced HEC-23 or other checks where supported;
 9. applicability statuses and source warnings;
-10. serviceability/overtopping duration where relevant data exist;
-11. 2D/specialist-review reasons;
-12. machine-readable provenance sufficient to reproduce the calculation.
+10. 2D/specialist-review reasons;
+11. machine-readable provenance sufficient to reproduce the calculation.
+
+Hydrograph/overtopping-duration reporting is deliberately excluded from this contract and is tracked separately in
+issue #92.
 
 Console, Markdown, JSON and CSV outputs should be views of the same typed result model after implementation.
 
@@ -641,17 +665,26 @@ The research to date supports the following decisions:
 - debris remains future scope;
 - complex/local cases should fail/escalate cleanly rather than extrapolate empirical methods.
 
-## 16. Remaining research before substantive coding
+## 16. Remaining implementation and research
 
-The following can continue before PR #86 merges:
+Substantive implementation is now underway in PR #88. The remaining first-increment work is:
 
-- independently verify/digitise the required MRWA Figure 4.2, 4.5 and 4.6 relationships if they are to be automated;
-- obtain the best available original Patterson-Abercromby Willare model-test material and pressure evidence;
-- verify the Chen-Anderson/FHWA-RD-86-126 equations visually before deciding on a sectional 1D formation solver;
-- decide whether an analytically supported toe/impingement/scour method belongs in the first increment or remains a
-  specialist/2D trigger;
-- verify the HEC-23 DG5 SI worked examples and gradation selections against the authoritative document;
-- compare current Austroads Part 5B requirements where the full licensed text is available.
+- complete MRWA Seven Mile Creek and Majors Creek regression for the implemented velocity/regime paths;
+- retain the Section 4.4.3 `D/H < 0.76` applicability statement separately from the Appendix C/D `D/H = 0.8`
+  legacy operational point;
+- decide whether the guide's submerged pavement `q/D` approximation belongs in the typed first-increment result;
+- integrate the already implemented HEC-23 DG5 protection result into the assessment/reporting path while keeping it
+  distinct from MRWA compliance;
+- complete only the formation/configuration inputs required by supported calculations;
+- expand review/report output with governing state, source provenance, applicability and supported protection results;
+- add the maintained human-facing floodway wrapper after the reusable API stabilises;
+- run repository Ruff, strict Pyright, focused/full pytest, documentation/Markdown checks and required package/build
+  verification.
 
-After PR #86 and `ryan-culverts` #14 are complete, refresh the branch from fresh `main`, map these calculations onto the
-final shared configuration/result/reporting models, and only then begin substantial Python implementation.
+The following remain deliberate research/fail-closed boundaries rather than blockers to the first increment:
+
+- quantitative downstream-shoulder suction/uplift without validated pressure data;
+- a full Chen-Anderson sectional solver unless the primary equations and applicability bounds are independently verified;
+- a general toe/impingement/scour calculation without a bounded source method;
+- complete seepage/piping analysis;
+- current licensed Austroads Part 5B detail beyond the documented MRWA hierarchy where the licensed text is unavailable.
