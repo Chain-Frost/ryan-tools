@@ -31,6 +31,7 @@ class Hec23OvertoppingRiprapResult:
     average_interstitial_velocity_ms: float
     all_flow_interstitial_depth_m: float
     minimum_two_d50_thickness_m: float
+    meets_minimum_d50: bool
     allowable_surface_depth_m: float | None
     surface_unit_discharge_m2s: float
     required_interstitial_unit_discharge_m2s: float
@@ -58,9 +59,6 @@ class Hec23OvertoppingRiprapResult:
             "required_interstitial_thickness_m",
         ):
             object.__setattr__(self, name, _nonnegative(getattr(self, name), name))
-        if self.selected_d50_m < self.minimum_d50_m:
-            msg = "selected_d50_m must be greater than or equal to the Equation 5.2 minimum_d50_m."
-            raise ValueError(msg)
         if self.allowable_surface_depth_m is not None:
             object.__setattr__(
                 self,
@@ -81,3 +79,8 @@ class Hec23OvertoppingRiprapResult:
     def d50_m(self) -> float:
         """Return the selected gradation median size used for capacity checks."""
         return self.selected_d50_m
+
+    @property
+    def is_sufficient(self) -> bool:
+        """Return whether the selected gradation and required layer checks are satisfied."""
+        return self.meets_minimum_d50 and not self.requires_larger_gradation
