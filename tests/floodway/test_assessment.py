@@ -6,6 +6,7 @@ from ryan_library.classes.floodway import (
     FloodwayFormationZone,
     FloodwayScenarioHydraulics,
     FloodwayZone,
+    Hec23RiprapDesignInput,
     RoadwaySegmentHydraulicState,
     RoadwaySegmentState,
 )
@@ -161,8 +162,6 @@ def test_envelope_retains_governing_integration_station() -> None:
     assert pavement_velocity.source_interval_index == 1
     assert pavement_velocity.integration_station == 17.5
 
-
-
 def test_complete_formation_applies_figure_4_5_and_4_6_to_plunging_flow() -> None:
     formation = FloodwayFormation(
         name="Complete floodway",
@@ -234,3 +233,48 @@ def test_figure_4_5_surface_flow_does_not_invent_batter_demand() -> None:
     assert batter.demand is None
     assert batter.applicability is FloodwayApplicabilityStatus.NOT_APPLICABLE
     assert "surface flow" in batter.message
+
+
+
+def test_downstream_batter_can_carry_separate_hec23_protection_result() -> None:
+    formation = FloodwayFormation(
+        name="Protected floodway",
+        zones=(
+            FloodwayFormationZone(
+                zone=FloodwayZone.DOWNSTREAM_BATTER,
+                slope=0.20,
+                roughness=0.05,
+                hec23_riprap=Hec23RiprapDesignInput(
+                    selected_d50_m=0.15,
+                    uniformity_coefficient=2.1,
+                    porosity=0.45,
+                ),
+            ),
+        ),
+    )
+    hydraulics = FloodwayScenarioHydraulics(
+        scenario_name="HEC-23 design event",
+        aep_percent=2.0,
+        headwater_elevation=100.8,
+        tailwater_elevation=99.5,
+        roadway_discharge=10.0,
+        segments=(
+            _segment(
+                q=0.186,
+                station=12.5,
+                state=RoadwaySegmentState.FREE_UNSUBMERGED,
+                upstream_head=0.8,
+            ),
+        ),
+    )
+
+    assessment = assess_floodway_hydraulics(hydraulics, formation)
+    batter = next(item for item in assessment.zone_assessments if item.zone is FloodwayZone.DOWNSTREAM_BATTER)
+
+    assert batter.protection_result is not None
+    assert batter.protection_result.source_id == "FHWA-HEC23-V2-DG5-EQ5.1-5.3"
+    assert batter.protection_result.is_sufficient
+    assert batter.protection_result.minimum_d50_m < batter.protection_result.selected_d50_m
+    assert batter.demand is not None
+    assert batter.demand.layer.value == "mrwa_compliance"
+    assert batter.protection_result.layer.value == "enhanced_assessment"
