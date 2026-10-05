@@ -68,7 +68,6 @@ def _positive(value: float, name: str) -> float:
     return result
 
 
-
 @dataclass(frozen=True, slots=True)
 class Hec23RiprapDesignInput:
     """Selected HEC-23 DG5 riprap properties for downstream-batter assessment."""
