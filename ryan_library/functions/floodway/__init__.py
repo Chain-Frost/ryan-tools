@@ -2,7 +2,9 @@
 
 from .adapter import build_floodway_scenario_hydraulics
 from .assessment import (
+    build_submerged_pavement_demand,
     build_zone_demand,
+    calculate_mrwa_submerged_pavement_velocity,
     calculate_mrwa_surface_velocity,
     select_governing_dynamic_pressure,
     select_governing_momentum_flux,
@@ -54,7 +56,9 @@ __all__: list[str] = [
     "STANDARD_WATER_DENSITY",
     "build_floodway_event_envelope",
     "build_floodway_scenario_hydraulics",
+    "build_submerged_pavement_demand",
     "build_zone_demand",
+    "calculate_mrwa_submerged_pavement_velocity",
     "calculate_mrwa_surface_velocity",
     "dynamic_pressure",
     "evaluate_hec23_overtopping_riprap",
