@@ -2,11 +2,11 @@
 
 Date: 2026-09-14
 
-Status: **Source-derived validation pack for issue #87. No production tests have been implemented yet.**
+Status: **Active source-derived validation pack for issue #87. Updated 2026-10-06 alongside PR #88 implementation.**
 
-This document records published worked-example values and independently recomputed arithmetic checks that can be
-turned into regression tests after PR #86 is merged and the floodway implementation is built against refreshed
-`main`.
+This document records published worked-example values and independently recomputed arithmetic checks used by the
+floodway implementation and its regression tests. It distinguishes source targets, graph reads, digitised inputs and
+equation-derived values so implementation arithmetic does not silently replace the published engineering evidence.
 
 It accompanies:
 
@@ -94,8 +94,9 @@ Published worked-example graph-read anchors provide useful checks:
 | Majors Creek batter, Q50 | 0.50 | 0.320 | 4.25 | 3.0052 | 3.01 |
 | Majors Creek pavement, Q50 | 0.50 | 0.300 | 4.20 | 2.9698 | 2.97 |
 
-`K` is a `GRAPH_READ` value from Figure 4.6. These rows validate the use of a supplied `K`; they do not by themselves
-validate a future Figure 4.6 digitisation.
+`K` is printed in the worked examples as a `GRAPH_READ` value from Figure 4.6. PR #88 now independently reconstructs
+Figure 4.6 from MRWA Equation 3 + Equation 6; these graph reads are therefore regression anchors for the reconstructed
+high-velocity root rather than inputs used to construct a digitised curve.
 
 ### 2.4 Equations 8 and 9 - critical state sanity check
 
@@ -302,12 +303,19 @@ Suggested tests:
    physical threshold;
 4. provenance/warnings expose which threshold is being applied.
 
-## 6. MRWA figure-digitalisation validation anchors
+## 6. MRWA figure/source validation anchors
 
 ### 6.1 Figure 4.6 - `K(Delta p/H)`
 
-At minimum, a future digitised/interpolated Figure 4.6 representation should reproduce the following printed reads to
-within an agreed graph-resolution tolerance:
+Figure 4.6 is not digitised in PR #88. The implemented high-velocity branch is reconstructed from:
+
+```text
+q = 1.69 H^(3/2)
+V = K sqrt(H)
+1 + Delta p/H = K^2/(2g) + 1.69/K
+```
+
+The larger positive root should reproduce the following printed graph reads within graph-resolution tolerance:
 
 | `Delta p/H` | source `K` | source occurrence |
 | ---: | ---: | --- |
@@ -318,12 +326,13 @@ within an agreed graph-resolution tolerance:
 | 0.300 | 4.20 | Majors Creek Q50 pavement |
 | 0.320 | 4.25 | Majors Creek Q50 batter |
 
-Do not construct the production curve from these six points alone.
+These points validate the equation-derived curve; they are not used to construct it. The implementation also rejects
+`Delta p/H` outside the displayed Figure 4.6 source domain.
 
 ### 6.2 Figure 4.5 - transition curve
 
-The Appendix D worksheets contain transition states that should be retained as end-to-end checks once Figure 4.5 is
-digitised. In particular:
+Figure 4.5 is now represented by a bounded traceable digitisation. The Appendix D worksheets provide independent
+end-to-end transition checks:
 
 - Seven Mile transition: `q = 1.443 m2/s`, `H = 0.90 m`;
 - Majors Creek transition worksheet converges near `USWL = 76.78 m`, `H = 1.48 m`, `q = 3.04 m2/s`, with
@@ -460,8 +469,8 @@ Future method tests should include:
 
 ## 9. Event-envelope regression scenarios
 
-After crossing integration is available, include synthetic tests whose purpose is algorithmic rather than tied to one
-published site:
+Crossing integration is now available. Synthetic regression scenarios should continue to cover algorithmic behaviour
+that is not tied to one published site:
 
 1. **Interior velocity maximum**: supplied discharge states are arranged so `V_b` peaks below maximum `Q`; the
    envelope must retain the interior governing state.
@@ -476,7 +485,8 @@ published site:
 7. **2D escalation**: a scenario flagged for skew/outflanking/local-pressure dependence still reports supported scalar
    quantities but carries `TWO_D_VERIFICATION_RECOMMENDED`.
 
-Exact fixtures should be designed after #86/#14 finalise the public scenario/result models.
+The #86/#14 public scenario/result dependencies are complete. Existing irregular-crest and inactive-flow fixtures use
+that public result model; transition injection/adaptive sweep and explicit 2D-escalation fixtures remain follow-up work.
 
 ## 10. Reporting/provenance acceptance checks
 
@@ -493,11 +503,18 @@ For every published-method regression, future tests should verify not just the n
 
 JSON/CSV/Markdown views must not independently recalculate the engineering result.
 
-## 11. Validation still deliberately deferred
+## 11. Current validation status
 
-No repository tests, Ruff, Pyright or documentation checker were run while preparing this research increment through
-the GitHub connector environment. These are deliberately recorded as **not run**, not passed.
+PR #88 now contains focused Python tests for:
 
-After the branch is available in a normal checkout, an agent should at minimum run the repository-required
-documentation/link checks for this documentation-only increment. Python/lint/type validation becomes relevant when
-substantive implementation begins after the post-#86 refresh.
+- MRWA Equation 4/6 arithmetic;
+- Figure 4.6 equation reconstruction against published Appendix D graph reads;
+- Figure 4.5 transition anchors and no-extrapolation behaviour;
+- MRWA plunging-versus-surface routing;
+- HEC-23 DG5 mild/steep worked-example vectors;
+- irregular roadway integration and event-envelope selection;
+- JSON/CSV/Markdown result views.
+
+Full repository Ruff, strict Pyright, focused/full pytest, documentation/Markdown checks and required package/build
+verification have **not yet been run on the current PR head in a normal checkout**. They remain required before merge;
+no unrun check is reported as passed.
