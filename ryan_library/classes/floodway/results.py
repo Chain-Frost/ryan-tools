@@ -141,6 +141,11 @@ class GoverningFloodwayDemand:
     demand: FloodwayZoneDemand
     source_interval_index: int = 0
     integration_station: float = 0.0
+    total_discharge: float | None = None
+    roadway_discharge: float | None = None
+    headwater_elevation: float | None = None
+    tailwater_elevation: float | None = None
+    flow_state: RoadwaySegmentState | None = None
 
     def __post_init__(self) -> None:
         name = self.scenario_name.strip()
@@ -153,6 +158,22 @@ class GoverningFloodwayDemand:
         object.__setattr__(self, "scenario_name", name)
         object.__setattr__(self, "aep_percent", _aep(self.aep_percent))
         object.__setattr__(self, "integration_station", _finite(self.integration_station, "integration_station"))
+        if self.total_discharge is not None:
+            object.__setattr__(self, "total_discharge", _nonnegative(self.total_discharge, "total_discharge"))
+        if self.roadway_discharge is not None:
+            object.__setattr__(self, "roadway_discharge", _nonnegative(self.roadway_discharge, "roadway_discharge"))
+        if self.headwater_elevation is not None:
+            object.__setattr__(
+                self,
+                "headwater_elevation",
+                _finite(self.headwater_elevation, "headwater_elevation"),
+            )
+        if self.tailwater_elevation is not None:
+            object.__setattr__(
+                self,
+                "tailwater_elevation",
+                _finite(self.tailwater_elevation, "tailwater_elevation"),
+            )
 
 
 @dataclass(frozen=True, slots=True)
