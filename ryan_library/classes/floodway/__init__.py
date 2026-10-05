@@ -19,6 +19,7 @@ from .results import (
     FloodwayZoneAssessment,
     FloodwayZoneDemand,
     GoverningFloodwayDemand,
+    MrwaSubmergedPavementVelocityResult,
     MrwaSurfaceVelocityResult,
 )
 
@@ -39,6 +40,7 @@ __all__: list[str] = [
     "FloodwayZoneDemand",
     "GoverningFloodwayDemand",
     "Hec23OvertoppingRiprapResult",
+    "MrwaSubmergedPavementVelocityResult",
     "MrwaSurfaceVelocityResult",
     "RoadwaySegmentHydraulicState",
     "RoadwaySegmentState",
