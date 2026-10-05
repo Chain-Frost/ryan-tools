@@ -15,7 +15,15 @@ from ryan_library.orchestrators.floodway import (
 )
 
 
-def _segment(*, q: float, station: float, state: RoadwaySegmentState) -> RoadwaySegmentHydraulicState:
+def _segment(
+    *,
+    q: float,
+    station: float,
+    state: RoadwaySegmentState,
+    upstream_head: float | None = None,
+    downstream_head: float = 0.0,
+) -> RoadwaySegmentHydraulicState:
+    head = (0.8 if q > 0.0 else 0.0) if upstream_head is None else upstream_head
     return RoadwaySegmentHydraulicState(
         source_interval_index=1,
         interval_start_station=10.0,
@@ -24,8 +32,8 @@ def _segment(*, q: float, station: float, state: RoadwaySegmentState) -> Roadway
         physical_interval_length=10.0,
         effective_length=2.5,
         crest_elevation=100.0,
-        upstream_head=0.8 if q > 0.0 else 0.0,
-        downstream_head=0.0,
+        upstream_head=head,
+        downstream_head=downstream_head,
         discharge=q * 2.5,
         unit_discharge=q,
         flow_state=state,
@@ -66,7 +74,9 @@ def test_surface_zones_use_upstream_local_q_without_reconstructing_from_lengths(
     assert pavement.demand.unit_discharge == 2.3
     assert batter.demand.unit_discharge == 2.3
     assert pavement.applicability is FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
-    assert batter.applicability is FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
+    assert batter.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+    assert batter.velocity_result is not None
+    assert batter.velocity_result.coefficient_k is not None
 
 
 def test_unsupported_zones_fail_closed_to_specialist_review() -> None:
@@ -150,3 +160,77 @@ def test_envelope_retains_governing_integration_station() -> None:
     assert pavement_velocity.scenario_name == "2% AEP"
     assert pavement_velocity.source_interval_index == 1
     assert pavement_velocity.integration_station == 17.5
+
+
+
+def test_complete_formation_applies_figure_4_5_and_4_6_to_plunging_flow() -> None:
+    formation = FloodwayFormation(
+        name="Complete floodway",
+        crest_flow_length=9.0,
+        zones=(
+            FloodwayFormationZone(zone=FloodwayZone.PAVEMENT, slope=0.03, roughness=0.015),
+            FloodwayFormationZone(zone=FloodwayZone.DOWNSTREAM_SHOULDER, elevation=99.85),
+            FloodwayFormationZone(zone=FloodwayZone.DOWNSTREAM_BATTER, slope=1.0 / 3.0, roughness=0.04),
+        ),
+    )
+    hydraulics = FloodwayScenarioHydraulics(
+        scenario_name="Transition-side event",
+        aep_percent=2.0,
+        headwater_elevation=100.9,
+        tailwater_elevation=100.5,
+        roadway_discharge=40.0,
+        segments=(
+            _segment(
+                q=1.443,
+                station=12.5,
+                state=RoadwaySegmentState.FREE_UNSUBMERGED,
+                upstream_head=0.90,
+                downstream_head=0.50,
+            ),
+        ),
+    )
+
+    assessment = assess_floodway_hydraulics(hydraulics, formation)
+    pavement = next(item for item in assessment.zone_assessments if item.zone is FloodwayZone.PAVEMENT)
+    batter = next(item for item in assessment.zone_assessments if item.zone is FloodwayZone.DOWNSTREAM_BATTER)
+
+    assert pavement.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+    assert batter.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+    assert pavement.velocity_result is not None
+    assert batter.velocity_result is not None
+    assert pavement.velocity_result.coefficient_k == batter.velocity_result.coefficient_k
+    assert "plunging flow" in batter.message
+
+
+def test_figure_4_5_surface_flow_does_not_invent_batter_demand() -> None:
+    formation = FloodwayFormation(
+        name="Surface-flow floodway",
+        crest_flow_length=9.0,
+        zones=(
+            FloodwayFormationZone(zone=FloodwayZone.DOWNSTREAM_SHOULDER, elevation=99.85),
+            FloodwayFormationZone(zone=FloodwayZone.DOWNSTREAM_BATTER, slope=1.0 / 3.0, roughness=0.04),
+        ),
+    )
+    hydraulics = FloodwayScenarioHydraulics(
+        scenario_name="Surface-flow event",
+        aep_percent=1.0,
+        headwater_elevation=100.9,
+        tailwater_elevation=100.7,
+        roadway_discharge=50.0,
+        segments=(
+            _segment(
+                q=1.5,
+                station=12.5,
+                state=RoadwaySegmentState.FREE_UNSUBMERGED,
+                upstream_head=0.90,
+                downstream_head=0.70,
+            ),
+        ),
+    )
+
+    assessment = assess_floodway_hydraulics(hydraulics, formation)
+    batter = next(item for item in assessment.zone_assessments if item.zone is FloodwayZone.DOWNSTREAM_BATTER)
+
+    assert batter.demand is None
+    assert batter.applicability is FloodwayApplicabilityStatus.NOT_APPLICABLE
+    assert "surface flow" in batter.message
