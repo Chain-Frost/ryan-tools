@@ -125,8 +125,10 @@ def evaluate_hec23_overtopping_riprap(
     Equation 5.2 first establishes the theoretical minimum ``d50``. HEC-23 then
     requires selection of an appropriate standard gradation. The selected median
     size is therefore an explicit input here and is used for Equation 5.1 and all
-    subsequent layer-capacity checks. This function does not infer a standard
-    gradation class from an incomplete or unverified table transcription.
+    subsequent layer-capacity checks. An undersized selected class is returned
+    as a failed design check rather than raised as invalid input. This function
+    does not infer a standard gradation class from an incomplete or unverified
+    table transcription.
 
     For slopes greater than or equal to 0.25, all flow must remain interstitial;
     if a 2 ``d50`` layer is insufficient, the source procedure moves to the next
@@ -149,12 +151,7 @@ def evaluate_hec23_overtopping_riprap(
         angle_of_repose_degrees=angle_of_repose_degrees,
     )
     selected_d50 = _positive(selected_d50_m, "selected_d50_m")
-    if selected_d50 < minimum_d50:
-        msg = (
-            "selected_d50_m is smaller than the HEC-23 Equation 5.2 minimum; "
-            "select a gradation with d50 at least equal to the calculated minimum."
-        )
-        raise ValueError(msg)
+    meets_minimum_d50 = selected_d50 >= minimum_d50
 
     interstitial_velocity = hec23_interstitial_velocity(
         d50_m=selected_d50,
@@ -200,7 +197,10 @@ def evaluate_hec23_overtopping_riprap(
     two_d50_sufficient = two_d50_capacity >= required_interstitial_discharge
     four_d50_sufficient = four_d50_capacity >= required_interstitial_discharge
 
-    if two_d50_sufficient:
+    if not meets_minimum_d50:
+        recommended_thickness = None
+        requires_larger_gradation = True
+    elif two_d50_sufficient:
         recommended_thickness = two_d50_thickness
         requires_larger_gradation = False
     elif s >= 0.25:
@@ -222,6 +222,7 @@ def evaluate_hec23_overtopping_riprap(
         average_interstitial_velocity_ms=average_velocity,
         all_flow_interstitial_depth_m=all_flow_depth,
         minimum_two_d50_thickness_m=two_d50_thickness,
+        meets_minimum_d50=meets_minimum_d50,
         allowable_surface_depth_m=allowable_surface_depth,
         surface_unit_discharge_m2s=surface_discharge,
         required_interstitial_unit_discharge_m2s=required_interstitial_discharge,
