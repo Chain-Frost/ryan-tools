@@ -23,6 +23,7 @@ def render_floodway_scenario_markdown(assessment: FloodwayScenarioAssessment) ->
         f"AEP (%): {_format_optional(hydraulics.aep_percent)}",
         f"Headwater elevation (m): {hydraulics.headwater_elevation:.3f}",
         f"Tailwater elevation (m): {hydraulics.tailwater_elevation:.3f}",
+        f"Total discharge (m³/s): {_format_optional(hydraulics.total_discharge)}",
         f"Roadway discharge (m³/s): {hydraulics.roadway_discharge:.3f}",
         "",
         "## MRWA / hydraulic demand assessment",
