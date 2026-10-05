@@ -219,6 +219,7 @@ class FloodwayScenarioHydraulics:
     tailwater_elevation: float
     roadway_discharge: float
     segments: tuple[RoadwaySegmentHydraulicState, ...]
+    total_discharge: float | None = None
     source: str | None = None
     notes: str = ""
 
@@ -238,6 +239,8 @@ class FloodwayScenarioHydraulics:
         object.__setattr__(self, "tailwater_elevation", _finite(self.tailwater_elevation, "tailwater_elevation"))
         object.__setattr__(self, "roadway_discharge", _nonnegative(self.roadway_discharge, "roadway_discharge"))
         object.__setattr__(self, "segments", tuple(self.segments))
+        if self.total_discharge is not None:
+            object.__setattr__(self, "total_discharge", _nonnegative(self.total_discharge, "total_discharge"))
         source = None if self.source is None else self.source.strip()
         object.__setattr__(self, "source", source or None)
         object.__setattr__(self, "notes", self.notes.strip())
