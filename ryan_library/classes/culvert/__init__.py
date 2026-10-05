@@ -23,6 +23,7 @@ from .results import (
     ScenarioResult,
 )
 from .scenario import Scenario
+from .uncertainty import UncertaintyParameterSpec, UncertaintySamplingMode, UncertaintyStudy
 
 __all__: list[str] = [
     "Alternative",
@@ -44,4 +45,7 @@ __all__: list[str] = [
     "RoadwayDefinition",
     "Scenario",
     "ScenarioResult",
+    "UncertaintyParameterSpec",
+    "UncertaintySamplingMode",
+    "UncertaintyStudy",
 ]

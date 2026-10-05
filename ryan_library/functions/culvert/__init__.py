@@ -17,6 +17,7 @@ from .export import (
     scenario_result_record,
 )
 from .plotting import plot_longitudinal_profile, plot_rating_curve, save_figure
+from .uncertainty import generate_study_samples
 
 __all__: list[str] = [
     "SCHEMA_VERSION",
@@ -36,6 +37,7 @@ __all__: list[str] = [
     "export_scenario_results_json",
     "generate_circular_candidates",
     "generate_rectangular_candidates",
+    "generate_study_samples",
     "load_event_csv",
     "load_project",
     "load_project_json",
