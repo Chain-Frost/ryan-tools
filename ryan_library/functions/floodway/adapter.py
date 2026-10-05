@@ -42,6 +42,7 @@ def build_floodway_scenario_hydraulics(result: ScenarioResult) -> FloodwayScenar
         tailwater_elevation=result.hydraulic_result.tailwater_elevation,
         roadway_discharge=result.hydraulic_result.roadway_discharge,
         segments=segments,
+        total_discharge=result.hydraulic_result.total_discharge,
         source=result.source,
         notes=result.notes,
     )
