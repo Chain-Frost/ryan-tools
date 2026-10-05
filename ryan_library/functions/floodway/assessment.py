@@ -8,6 +8,7 @@ from ...classes.floodway import (
     FloodwayZone,
     FloodwayZoneDemand,
     GoverningFloodwayDemand,
+    MrwaSubmergedPavementVelocityResult,
     MrwaSurfaceVelocityResult,
 )
 from .hydraulics import (
@@ -76,6 +77,43 @@ def calculate_mrwa_surface_velocity(
         coefficient_k=resolved_k,
         total_head=total_head,
         applicability=applicability,
+    )
+
+
+def calculate_mrwa_submerged_pavement_velocity(
+    *,
+    unit_discharge: float,
+    downstream_depth: float,
+) -> MrwaSubmergedPavementVelocityResult:
+    """Evaluate the MRWA submerged-pavement approximation ``V ~= q / D``."""
+    if downstream_depth <= 0.0:
+        msg = "downstream_depth must be strictly positive for the MRWA submerged-pavement approximation."
+        raise ValueError(msg)
+    velocity = unit_discharge / downstream_depth
+    return MrwaSubmergedPavementVelocityResult(
+        unit_discharge=unit_discharge,
+        downstream_depth=downstream_depth,
+        velocity=velocity,
+    )
+
+
+def build_submerged_pavement_demand(
+    velocity_result: MrwaSubmergedPavementVelocityResult,
+) -> FloodwayZoneDemand:
+    """Convert the MRWA submerged-pavement approximation into separate demand measures."""
+    return FloodwayZoneDemand(
+        zone=FloodwayZone.PAVEMENT,
+        unit_discharge=velocity_result.unit_discharge,
+        velocity=velocity_result.velocity,
+        dynamic_pressure_pa=dynamic_pressure(velocity_result.velocity),
+        momentum_flux_per_width_npm=momentum_flux_per_width(
+            velocity_result.unit_discharge,
+            velocity_result.velocity,
+        ),
+        depth_m=velocity_result.downstream_depth,
+        applicability=velocity_result.applicability,
+        layer=velocity_result.layer,
+        source_id=velocity_result.source_id,
     )
 
 
