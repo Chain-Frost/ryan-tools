@@ -5,6 +5,7 @@ import pytest
 from ryan_library.classes.floodway import FloodwayApplicabilityStatus, FloodwayZone
 from ryan_library.functions.floodway import (
     build_zone_demand,
+    calculate_mrwa_submerged_pavement_velocity,
     calculate_mrwa_surface_velocity,
     dynamic_pressure,
     momentum_flux_per_width,
@@ -124,3 +125,15 @@ def test_physical_demands_remain_separate_quantities() -> None:
 def test_rectangular_critical_depth_is_diagnostic_primitive() -> None:
     assert rectangular_critical_depth(0.0) == 0.0
     assert rectangular_critical_depth(2.0) == pytest.approx((4.0 / 9.80665) ** (1.0 / 3.0))
+
+
+
+def test_mrwa_submerged_pavement_velocity_uses_q_over_downstream_depth() -> None:
+    result = calculate_mrwa_submerged_pavement_velocity(
+        unit_discharge=1.2,
+        downstream_depth=0.4,
+    )
+
+    assert result.velocity == pytest.approx(3.0)
+    assert result.downstream_depth == pytest.approx(0.4)
+    assert result.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
