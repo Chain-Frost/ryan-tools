@@ -55,8 +55,6 @@ def test_markdown_report_handles_empty_envelope() -> None:
 
     assert "No active floodway demand states were supplied." in report
 
-
-
 def test_scenario_report_keeps_hec23_enhanced_check_separate_from_mrwa() -> None:
     formation = FloodwayFormation(
         name="Protected floodway",
