@@ -5,6 +5,8 @@ from math import isfinite, sqrt
 GRAVITATIONAL_ACCELERATION = 9.80665
 STANDARD_WATER_DENSITY = 1000.0
 MRWA_FREE_FLOW_COEFFICIENT = 1.69
+MRWA_SIMPLIFIED_FREE_FLOW_MAX_DEPTH_RATIO = 0.76
+MRWA_APPENDIX_SUBMERGENCE_DEPTH_RATIO = 0.8
 MRWA_FIGURE_4_6_MAX_DELTA_P_OVER_HEAD = 1.8
 
 # Visual digitisation of MRWA Floodway Design Guide (2006), Figure 4.5.
@@ -48,6 +50,27 @@ def _nonnegative(value: float, name: str) -> float:
         msg = f"{name} must be non-negative."
         raise ValueError(msg)
     return result
+
+
+def mrwa_simplified_free_flow_applicable(depth_ratio: float) -> bool:
+    """Return whether Section 4.4.3 permits the simplified free-flow equation.
+
+    The guide states the simplified broad-crested free-flow relation is valid
+    only for D/H < 0.76. This limit is retained separately from the Appendix
+    C/D operational point of submergence at D/H = 0.8.
+    """
+    ratio = _nonnegative(depth_ratio, "depth_ratio")
+    return ratio < MRWA_SIMPLIFIED_FREE_FLOW_MAX_DEPTH_RATIO
+
+
+def mrwa_appendix_submergence_reached(depth_ratio: float) -> bool:
+    """Return whether the Appendix C/D legacy submergence point has been reached.
+
+    This is intentionally not presented as the universal physical threshold.
+    Production roadway flow state remains authoritative to ryan-culverts.
+    """
+    ratio = _nonnegative(depth_ratio, "depth_ratio")
+    return ratio >= MRWA_APPENDIX_SUBMERGENCE_DEPTH_RATIO
 
 
 def mrwa_transition_submergence_ratio(head_to_flow_length: float) -> float:
