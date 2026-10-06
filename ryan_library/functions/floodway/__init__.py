@@ -66,6 +66,7 @@ from .hydraulics import (
     mrwa_steady_state_velocity,
     mrwa_transition_submergence_ratio,
     rectangular_critical_depth,
+    velocity_head,
 )
 
 __all__: list[str] = [
@@ -124,4 +125,5 @@ __all__: list[str] = [
     "select_governing_momentum_flux",
     "select_governing_velocity",
     "select_mrwa_rock_slope_protection",
+    "velocity_head",
 ]
