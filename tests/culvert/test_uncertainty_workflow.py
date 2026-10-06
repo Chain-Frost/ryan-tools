@@ -357,6 +357,33 @@ def test_alternative_only_study_has_no_base_results() -> None:
     assert all(evaluation.alternative_name == "Upgrade" for evaluation in result.evaluations)
 
 
+def test_base_only_study_can_exclude_all_alternatives() -> None:
+    result = run_uncertainty_study(
+        _project(),
+        replace(
+            _study(),
+            crossing_names=("Existing",),
+            scenario_names=("Fixed",),
+            include_alternatives=False,
+        ),
+    )
+    assert len(result.evaluations) == 2
+    assert all(evaluation.crossing.name == "Existing" for evaluation in result.evaluations)
+    assert all(evaluation.alternative is None for evaluation in result.evaluations)
+
+
+def test_disabling_all_target_classes_is_rejected_before_sampling(monkeypatch: pytest.MonkeyPatch) -> None:
+    def unexpected(_study: UncertaintyStudy) -> None:
+        pytest.fail("Sampling must not start when both target classes are disabled")
+
+    monkeypatch.setattr("ryan_library.orchestrators.culvert.uncertainty.generate_study_samples", unexpected)
+    with pytest.raises(ValueError, match="no crossings or alternatives"):
+        run_uncertainty_study(
+            _project(),
+            replace(_study(), include_base_crossings=False, include_alternatives=False),
+        )
+
+
 def test_project_studies_roundtrip_and_reject_unknown_fields(tmp_path: Path) -> None:
     project = _project()
     exported = export_project_json(project, tmp_path / "project.json")
@@ -375,6 +402,7 @@ def test_project_studies_roundtrip_and_reject_unknown_fields(tmp_path: Path) -> 
     [
         ("sample_count", True),
         ("maximum_evaluations", 0),
+        ("include_alternatives", "no"),
         ("percentiles", (float("nan"),)),
         ("aggregation_statuses", (HydraulicResultStatus.UNRESOLVED,)),
     ],
@@ -382,3 +410,7 @@ def test_project_studies_roundtrip_and_reject_unknown_fields(tmp_path: Path) -> 
 def test_invalid_study_policy_rejected(field: str, value: object) -> None:
     with pytest.raises(ValueError):
         replace(_study(), **{field: value})
+
+def test_disabled_alternatives_reject_named_alternative_selection() -> None:
+    with pytest.raises(ValueError, match="alternative_names must be empty"):
+        replace(_study(), include_alternatives=False, alternative_names=("Upgrade",))

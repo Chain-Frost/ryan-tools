@@ -201,9 +201,11 @@ multi-parameter samples using the public sampler with `seed + parameter_index` f
 order therefore forms part of reproducibility. Reproducibility assumes the same input definitions and solver version.
 
 Optional `crossing_names`, `scenario_names` and `alternative_names` select exact project names. Omitted or empty lists
-select all available members; unknown or duplicate names fail explicitly. `include_base_crossings = false` enables
-alternative-only studies. Setting `crossing_names` filters base crossings independently of the alternative selection;
-it does not imply a relationship between a crossing and an alternative. The entire matrix is checked against
+select all available members within an enabled target class; unknown or duplicate names fail explicitly.
+`include_base_crossings = false` disables base crossings, while `include_alternatives = false` disables alternatives.
+Both flags default to `true`, preserving the existing all-target behavior. A disabled alternative class requires
+`alternative_names` to be empty. Setting `crossing_names` filters base crossings independently of the alternative
+selection; it does not imply a relationship between a crossing and an alternative. The entire matrix is checked against
 `maximum_evaluations` (default 10000) before samples are allocated or hydraulic evaluation starts. CLI `--crossing` and
 `--scenario` are rejected for uncertainty; put selections in the study. `--study` defaults to the editable wrapper
 setting or the first configured study. Imported `--events-csv` flows can supply the scenario matrix through the existing

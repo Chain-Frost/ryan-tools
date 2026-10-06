@@ -354,6 +354,7 @@ def _parse_study(value: object) -> UncertaintyStudy:
             "scenario_names",
             "alternative_names",
             "include_base_crossings",
+            "include_alternatives",
             "maximum_evaluations",
             "percentiles",
             "aggregation_statuses",
@@ -366,6 +367,10 @@ def _parse_study(value: object) -> UncertaintyStudy:
     include_base = data.get("include_base_crossings", True)
     if not isinstance(include_base, bool):
         msg = "include_base_crossings must be boolean."
+        raise ValueError(msg)
+    include_alternatives = data.get("include_alternatives", True)
+    if not isinstance(include_alternatives, bool):
+        msg = "include_alternatives must be boolean."
         raise ValueError(msg)
     percentiles = tuple(
         _number({"percentile": value}, "percentile")
@@ -386,6 +391,7 @@ def _parse_study(value: object) -> UncertaintyStudy:
         scenario_names=_names(data, "scenario_names"),
         alternative_names=_names(data, "alternative_names"),
         include_base_crossings=include_base,
+        include_alternatives=include_alternatives,
         maximum_evaluations=_integer(data, "maximum_evaluations", 10000),
         percentiles=percentiles,
         aggregation_statuses=statuses,
@@ -405,6 +411,7 @@ def uncertainty_study_record(study: UncertaintyStudy) -> dict[str, object]:
         "scenario_names": list(study.scenario_names),
         "alternative_names": list(study.alternative_names),
         "include_base_crossings": study.include_base_crossings,
+        "include_alternatives": study.include_alternatives,
         "maximum_evaluations": study.maximum_evaluations,
         "percentiles": list(study.percentiles),
         "aggregation_statuses": [status.value for status in study.aggregation_statuses],

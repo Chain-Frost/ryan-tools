@@ -26,7 +26,11 @@ def select_uncertainty_targets(
 ) -> tuple[tuple[CrossingDefinition, Alternative | None], ...]:
     """Resolve the exact crossing/alternative targets selected by a study."""
     crossings = _select(project.crossings, study.crossing_names, lambda item: item.name)
-    alternatives = _select(project.alternatives, study.alternative_names, lambda item: item.name)
+    alternatives = (
+        _select(project.alternatives, study.alternative_names, lambda item: item.name)
+        if study.include_alternatives
+        else ()
+    )
     targets: list[tuple[CrossingDefinition, Alternative | None]] = []
     if study.include_base_crossings:
         targets.extend((crossing, None) for crossing in crossings)

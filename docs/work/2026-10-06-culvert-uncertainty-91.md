@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for final review |
+| Status | Review fix implemented; revalidation required |
 | Owner | ChatGPT |
 | Created | 2026-10-06 |
 | Updated | 2026-10-06 |
-| Next review | Final PR review |
+| Next review | After alternative-selection fix validation |
 | Baseline | `feature/culvert-uncertainty-91` from `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99`; `vendor/ryan_culverts` initially at `00f8274b4702bfe721d111436a15ae435f672460` |
 
 ## Outcome and scope
@@ -51,8 +51,13 @@ the uncertainty command handling into a helper, and formatted the regression fix
 
 ## Next action
 
-Obtain final review against the published head. No remaining implementation, validation or packaging failure is known.
-PR #94 remains unmerged; merging requires an explicit request.
+A separate validation agent should rerun focused culvert/MCP tests, Ruff, strict Pyright, documentation/package checks,
+rebuild the bundled wheel from this new source head, and repeat installed-wheel/copied-wrapper smoke. If those checks pass,
+obtain final review. PR #94 remains unmerged; merging requires an explicit request.
+
+The latest Codex review identified that empty `alternative_names` meant "all alternatives" with no way to express a
+base-crossings-only study. The application policy now adds `include_alternatives` (default `true`); setting it to
+`false` selects zero alternatives while preserving existing empty-selector behavior for enabled target classes.
 
 The Codex review finding about imported target-headwater events has been addressed: uncertainty event import now resolves
 inverse target-headwater rows against the study's sole selected hydraulic target and explicitly rejects ambiguous
@@ -196,3 +201,12 @@ reran the focused checks, rebuilt the wheel without changing its declared versio
 alternative-only, ambiguity-rejection and discharge-only behaviors using a copied wrapper against an isolated installed
 wheel. Committed the source/format/artifact follow-up as `ca31687`; this record and the register now separate current
 passing validation from the historical `70af395` baseline. No push or merge was performed.
+
+
+### 2026-10-06 alternative-selection review follow-up
+
+A subsequent Codex review found that studies could disable base crossings but could not disable alternatives. Added the
+explicit `include_alternatives` policy flag, defaulting to `true` for backwards compatibility. Orchestration now omits
+the entire alternative target class when the flag is false, configuration/serialization preserve the flag, contradictory
+named alternatives are rejected, and focused tests cover base-only studies plus the no-target failure path. This change
+postdates the recorded 60-test/wheel validation and therefore requires revalidation and a refreshed bundled wheel.

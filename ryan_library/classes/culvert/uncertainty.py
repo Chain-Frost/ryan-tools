@@ -82,6 +82,7 @@ class UncertaintyStudy:
     source: str | None = None
     notes: str = ""
     include_base_crossings: bool = True
+    include_alternatives: bool = True
     maximum_evaluations: int = 10000
     percentiles: tuple[float, ...] = (5.0, 50.0, 95.0)
     aggregation_statuses: tuple[HydraulicResultStatus, ...] = (
@@ -115,6 +116,13 @@ class UncertaintyStudy:
         if not isinstance(self.include_base_crossings, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             msg = "include_base_crossings must be boolean."
             raise ValueError(msg)
+        if not isinstance(self.include_alternatives, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            msg = "include_alternatives must be boolean."
+            raise ValueError(msg)
+        alternative_names = _normalise_names(tuple(self.alternative_names), "alternative_names")
+        if not self.include_alternatives and alternative_names:
+            msg = "alternative_names must be empty when include_alternatives is false."
+            raise ValueError(msg)
         percentiles, statuses = _validate_aggregation(self.percentiles, self.aggregation_statuses)
         object.__setattr__(self, "percentiles", percentiles)
         object.__setattr__(self, "aggregation_statuses", statuses)
@@ -125,10 +133,6 @@ class UncertaintyStudy:
         object.__setattr__(self, "parameters", parameters)
         object.__setattr__(self, "crossing_names", _normalise_names(tuple(self.crossing_names), "crossing_names"))
         object.__setattr__(self, "scenario_names", _normalise_names(tuple(self.scenario_names), "scenario_names"))
-        object.__setattr__(
-            self,
-            "alternative_names",
-            _normalise_names(tuple(self.alternative_names), "alternative_names"),
-        )
+        object.__setattr__(self, "alternative_names", alternative_names)
         object.__setattr__(self, "source", source or None)
         object.__setattr__(self, "notes", self.notes.strip())
