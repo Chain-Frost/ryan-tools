@@ -58,6 +58,8 @@ def test_markdown_report_keeps_demand_measures_separate() -> None:
     assert "free_unsubmerged" in report
     assert "15.000" in report
     assert "does not combine them into a generic floodway force" in report
+    assert "MRWA-FLOODWAYS-V3-2023-06-12" in report
+    assert "2% AEP" in report
 
 
 def test_markdown_report_handles_empty_envelope() -> None:
@@ -109,6 +111,8 @@ def test_scenario_report_keeps_hec23_enhanced_check_separate_from_mrwa() -> None
     report = render_floodway_scenario_markdown(assessment)
 
     assert "MRWA / hydraulic demand assessment" in report
+    assert "MRWA legacy rock slope protection" in report
+    assert "MRWA-FLOODWAY-DESIGN-GUIDE-2006-TABLE-5.1" in report
     assert "Enhanced protection assessment" in report
     assert "FHWA-HEC23-V2-DG5-EQ5.1-5.3" in report
     assert "not relabelled as MRWA compliance" in report
