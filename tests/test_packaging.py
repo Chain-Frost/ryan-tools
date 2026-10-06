@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import importlib.util
+import zipfile
 from pathlib import Path
 from types import ModuleType
 
@@ -180,3 +181,23 @@ def test_exactly_one_retained_project_wheel_is_required(tmp_path: Path, monkeypa
 
     with pytest.raises(ValueError, match="exactly one retained project wheel under dist/, found 2"):
         verify_wheel.retained_wheel("26.9.13.2")
+
+
+def test_wheel_resource_verification_normalizes_text_newlines(tmp_path: Path) -> None:
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    source = source_directory / "script.bat"
+    source.write_bytes(b"@echo off\r\necho hello\r\n")
+    wheel = tmp_path / "example.whl"
+
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("package/resources/script.bat", b"@echo off\necho hello\n")
+
+    with zipfile.ZipFile(wheel) as archive:
+        verify_wheel._verify_source_files(
+            archive,
+            set(archive.namelist()),
+            source_directory=source_directory,
+            archive_directory="package/resources",
+            suffixes=(".bat",),
+        )
