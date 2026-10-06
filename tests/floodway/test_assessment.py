@@ -198,6 +198,9 @@ def test_complete_formation_applies_figure_4_5_and_4_6_to_plunging_flow() -> Non
     assert pavement.velocity_result is not None
     assert batter.velocity_result is not None
     assert pavement.velocity_result.coefficient_k == batter.velocity_result.coefficient_k
+    assert batter.mrwa_protection_result is not None
+    assert batter.mrwa_protection_result.rock_class == "1/4 tonne"
+    assert batter.mrwa_protection_result.section_thickness_m == 1.00
     assert "plunging flow" in batter.message
 
 
