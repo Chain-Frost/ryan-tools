@@ -5,7 +5,7 @@ from enum import StrEnum
 from math import isfinite, isnan
 from pathlib import Path
 
-from culvert_solver import solve_crossing_discharge_for_headwater, solve_crossing_hydraulics
+from culvert_solver import (\n    CulvertCrossing as SolverCrossing,\n    solve_crossing_discharge_for_headwater,\n    solve_crossing_hydraulics,\n)
 from run_hy8 import (
     CircularConcreteInlet,
     CircularCorrugatedSteelInlet,
@@ -101,7 +101,7 @@ def _engine(value: CulvertEngine | str) -> CulvertEngine:
     return value if isinstance(value, CulvertEngine) else CulvertEngine(value)
 
 
-def _solver_crossing(definition: TuflowCircularCulvert):
+def _solver_crossing(definition: TuflowCircularCulvert) -> SolverCrossing:
     barrel = CircularBarrelDefinition(
         diameter_mm=definition.diameter_m * 1000.0,
         length=definition.length_m,
