@@ -6,6 +6,7 @@ from ryan_library.classes.floodway import (
     FloodwayZone,
     FloodwayZoneDemand,
     GoverningFloodwayDemand,
+    RoadwaySegmentState,
 )
 from ryan_library.classes.floodway.envelope import FloodwayEnvelopeMetric
 from ryan_library.functions.floodway.envelope import build_floodway_event_envelope
@@ -125,3 +126,38 @@ def test_event_envelope_accepts_no_active_demands() -> None:
 
     assert envelope.candidates == ()
     assert envelope.governors == ()
+
+
+
+def test_event_envelope_retains_governing_hydraulic_evidence() -> None:
+    candidate = GoverningFloodwayDemand(
+        scenario_name="2% AEP",
+        aep_percent=2.0,
+        demand=FloodwayZoneDemand(
+            zone=FloodwayZone.PAVEMENT,
+            unit_discharge=2.5,
+            velocity=4.0,
+            dynamic_pressure_pa=8000.0,
+            momentum_flux_per_width_npm=10000.0,
+            applicability=FloodwayApplicabilityStatus.LEGACY_REPRODUCTION,
+            layer=FloodwayAssessmentLayer.MRWA_COMPLIANCE,
+            source_id="MRWA-FLOODWAY-DESIGN-GUIDE-2006-EQ4-7",
+        ),
+        source_interval_index=3,
+        integration_station=17.5,
+        total_discharge=150.0,
+        roadway_discharge=22.0,
+        headwater_elevation=101.2,
+        tailwater_elevation=100.1,
+        flow_state=RoadwaySegmentState.FREE_UNSUBMERGED,
+    )
+
+    envelope = build_floodway_event_envelope((candidate,))
+    governor = envelope.governor(FloodwayZone.PAVEMENT, FloodwayEnvelopeMetric.VELOCITY)
+
+    assert governor is not None
+    assert governor.total_discharge == 150.0
+    assert governor.roadway_discharge == 22.0
+    assert governor.headwater_elevation == 101.2
+    assert governor.tailwater_elevation == 100.1
+    assert governor.flow_state is RoadwaySegmentState.FREE_UNSUBMERGED
