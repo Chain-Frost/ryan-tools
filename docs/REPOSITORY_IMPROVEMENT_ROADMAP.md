@@ -45,6 +45,8 @@ the next review date. If a maintainer selects one, create a bounded work record 
 
 ### 1. Reconcile lifecycle and import evidence
 
+Tracked in [ryan-tools issue #98](https://github.com/Chain-Frost/ryan-tools/issues/98).
+
 Priority: medium when explicitly selected.
 
 - Reconcile the compatibility inventory with actual namespaces, warnings, supported replacements and known callers,
@@ -61,6 +63,8 @@ No published API should be removed solely because a static search finds no calle
 known external use, and respect recorded support deadlines.
 
 ### 2. Resolve upstream HY-8 demo ownership
+
+Tracked upstream in [run-hy8 issue #4](https://github.com/Chain-Frost/run-hy8/issues/4).
 
 Priority: medium-low; separate upstream follow-up.
 
