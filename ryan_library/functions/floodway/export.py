@@ -14,6 +14,7 @@ from ...classes.floodway import (
     Hec23OvertoppingRiprapResult,
     MrwaSubmergedPavementVelocityResult,
     MrwaSurfaceVelocityResult,
+    RoadwaySegmentState,
 )
 
 
@@ -40,14 +41,14 @@ def _hydraulic_evidence_record(
     roadway_discharge: float | None,
     headwater_elevation: float | None,
     tailwater_elevation: float | None,
-    flow_state: object | None,
+    flow_state: RoadwaySegmentState | None,
 ) -> dict[str, object]:
     return {
         "total_discharge_m3s": total_discharge,
         "roadway_discharge_m3s": roadway_discharge,
         "headwater_elevation_m": headwater_elevation,
         "tailwater_elevation_m": tailwater_elevation,
-        "flow_state": None if flow_state is None else getattr(flow_state, "value", str(flow_state)),
+        "flow_state": None if flow_state is None else flow_state.value,
     }
 
 
