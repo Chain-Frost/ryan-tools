@@ -2,8 +2,9 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from math import isfinite
 
-from culvert_solver import BoundedParameterSpec, UniformParameterSpec
+from culvert_solver import BoundedParameterSpec, HydraulicResultStatus, UniformParameterSpec
 
 type UncertaintyParameterSpec = BoundedParameterSpec | UniformParameterSpec
 
@@ -26,6 +27,46 @@ def _normalise_names(values: tuple[str, ...], name: str) -> tuple[str, ...]:
     return result
 
 
+def _positive_integer(value: object, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        msg = f"{name} must be a strictly positive integer."
+        raise ValueError(msg)
+    return value
+
+
+def _validate_sampling(
+    mode: UncertaintySamplingMode, parameters: tuple[UncertaintyParameterSpec, ...], seed: object
+) -> None:
+    expected = BoundedParameterSpec if mode is UncertaintySamplingMode.BOUNDED_SWEEP else UniformParameterSpec
+    if not all(isinstance(spec, expected) for spec in parameters):  # pyright: ignore[reportUnnecessaryIsInstance]
+        msg = f"{mode.value} studies require only {expected.__name__} values."
+        raise ValueError(msg)
+    if mode is UncertaintySamplingMode.BOUNDED_SWEEP:
+        if seed is not None:
+            msg = "bounded_sweep studies do not use a random seed."
+            raise ValueError(msg)
+    elif isinstance(seed, bool) or not isinstance(seed, int):
+        msg = "monte_carlo studies require an explicit integer seed."
+        raise ValueError(msg)
+
+
+def _validate_aggregation(
+    percentiles: tuple[float, ...], statuses: tuple[HydraulicResultStatus, ...]
+) -> tuple[tuple[float, ...], tuple[HydraulicResultStatus, ...]]:
+    values = tuple(float(value) for value in percentiles)
+    if not values or any(not isfinite(value) or not 0 <= value <= 100 for value in values):
+        msg = "percentiles must contain finite values between 0 and 100."
+        raise ValueError(msg)
+    if len(set(values)) != len(values):
+        msg = "percentiles must be unique."
+        raise ValueError(msg)
+    accepted = tuple(HydraulicResultStatus(status) for status in statuses)
+    if not accepted or HydraulicResultStatus.UNRESOLVED in accepted or len(set(accepted)) != len(accepted):
+        msg = "aggregation_statuses must contain unique resolved statuses; unresolved results cannot be aggregated."
+        raise ValueError(msg)
+    return values, accepted
+
+
 @dataclass(frozen=True, slots=True)
 class UncertaintyStudy:
     """Project policy describing one bounded or stochastic hydraulic uncertainty study."""
@@ -40,6 +81,13 @@ class UncertaintyStudy:
     alternative_names: tuple[str, ...] = ()
     source: str | None = None
     notes: str = ""
+    include_base_crossings: bool = True
+    maximum_evaluations: int = 10000
+    percentiles: tuple[float, ...] = (5.0, 50.0, 95.0)
+    aggregation_statuses: tuple[HydraulicResultStatus, ...] = (
+        HydraulicResultStatus.VALID,
+        HydraulicResultStatus.VALID_WITH_ADVISORY,
+    )
 
     def __post_init__(self) -> None:
         name = self.name.strip()
@@ -56,31 +104,20 @@ class UncertaintyStudy:
         if not parameters:
             msg = "parameters must contain at least one public ryan-culverts uncertainty specification."
             raise ValueError(msg)
+        _validate_sampling(sampling_mode, parameters, self.seed)
         identities = tuple(spec.parameter for spec in parameters)
         if len(identities) != len(set(identities)):
             msg = "parameters must not contain the same hydraulic uncertainty parameter more than once."
             raise ValueError(msg)
 
-        sample_count: object = self.sample_count
-        if isinstance(sample_count, bool) or not isinstance(sample_count, int) or sample_count <= 0:
-            msg = "sample_count must be a strictly positive integer."
+        _positive_integer(self.sample_count, "sample_count")
+        _positive_integer(self.maximum_evaluations, "maximum_evaluations")
+        if not isinstance(self.include_base_crossings, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
+            msg = "include_base_crossings must be boolean."
             raise ValueError(msg)
-
-        if sampling_mode is UncertaintySamplingMode.BOUNDED_SWEEP:
-            if not all(isinstance(spec, BoundedParameterSpec) for spec in parameters):
-                msg = "bounded_sweep studies require only BoundedParameterSpec values."
-                raise ValueError(msg)
-            if self.seed is not None:
-                msg = "bounded_sweep studies do not use a random seed."
-                raise ValueError(msg)
-        else:
-            if not all(isinstance(spec, UniformParameterSpec) for spec in parameters):
-                msg = "monte_carlo studies require only UniformParameterSpec values."
-                raise ValueError(msg)
-            seed: object = self.seed
-            if isinstance(seed, bool) or not isinstance(seed, int):
-                msg = "monte_carlo studies require an explicit integer seed."
-                raise ValueError(msg)
+        percentiles, statuses = _validate_aggregation(self.percentiles, self.aggregation_statuses)
+        object.__setattr__(self, "percentiles", percentiles)
+        object.__setattr__(self, "aggregation_statuses", statuses)
 
         source = None if self.source is None else self.source.strip()
         object.__setattr__(self, "name", name)

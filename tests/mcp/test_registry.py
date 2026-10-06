@@ -78,6 +78,7 @@ def test_culvert_workflow_is_catalogued_with_headless_scenarios() -> None:
         "rating_curve",
         "render_saved_report",
         "solve_scenario",
+        "uncertainty_study",
     }
     assert all("--no-pause" in scenario["command"] for scenario in workflow["resolved_scenarios"])
 

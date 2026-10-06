@@ -28,6 +28,14 @@ def generate_study_samples(study: UncertaintyStudy) -> tuple[HydraulicSample, ..
     sweep. Monte Carlo studies generate sample_count aligned multi-parameter samples,
     using the study seed plus each parameter index as the explicit low-level seed.
     """
+    count = (
+        study.sample_count ** len(study.parameters)
+        if study.sampling_mode is UncertaintySamplingMode.BOUNDED_SWEEP
+        else study.sample_count
+    )
+    if count > study.maximum_evaluations:
+        msg = f"Study requires {count} samples, exceeding maximum_evaluations={study.maximum_evaluations}."
+        raise ValueError(msg)
     if study.sampling_mode is UncertaintySamplingMode.BOUNDED_SWEEP:
         sampled_parameters: list[tuple[HydraulicSample, ...]] = []
         for spec in study.parameters:

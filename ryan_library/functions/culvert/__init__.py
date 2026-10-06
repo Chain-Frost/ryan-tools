@@ -3,7 +3,14 @@
 from .adapter import build_solver_barrel, build_solver_crossing, build_solver_group, build_solver_roadway
 from .assessment import assess_scenario
 from .candidate_generation import generate_circular_candidates, generate_rectangular_candidates
-from .config import SCHEMA_VERSION, export_project_json, load_project, load_project_json, project_record
+from .config import (
+    SCHEMA_VERSION,
+    export_project_json,
+    load_project,
+    load_project_json,
+    project_record,
+    uncertainty_study_record,
+)
 from .event_import import load_event_csv
 from .export import (
     candidate_assessment_record,
@@ -18,9 +25,20 @@ from .export import (
 )
 from .plotting import plot_longitudinal_profile, plot_rating_curve, save_figure
 from .uncertainty import generate_study_samples
+from .uncertainty_evaluation import evaluate_crossing_sample, sampled_crossing_inputs
+from .uncertainty_export import (
+    export_uncertainty_csv,
+    export_uncertainty_json,
+    export_uncertainty_summary_csv,
+    study_evaluation_record,
+    study_summary_record,
+    uncertainty_result_record,
+)
+from .uncertainty_statistics import aggregate_study_evaluations
 
 __all__: list[str] = [
     "SCHEMA_VERSION",
+    "aggregate_study_evaluations",
     "assess_scenario",
     "build_solver_barrel",
     "build_solver_crossing",
@@ -29,12 +47,16 @@ __all__: list[str] = [
     "candidate_assessment_record",
     "crossing_definition_record",
     "design_criteria_record",
+    "evaluate_crossing_sample",
     "export_crossing_rating_csv",
     "export_crossing_rating_json",
     "export_design_result_json",
     "export_project_json",
     "export_scenario_results_csv",
     "export_scenario_results_json",
+    "export_uncertainty_csv",
+    "export_uncertainty_json",
+    "export_uncertainty_summary_csv",
     "generate_circular_candidates",
     "generate_rectangular_candidates",
     "generate_study_samples",
@@ -44,6 +66,11 @@ __all__: list[str] = [
     "plot_longitudinal_profile",
     "plot_rating_curve",
     "project_record",
+    "sampled_crossing_inputs",
     "save_figure",
     "scenario_result_record",
+    "study_evaluation_record",
+    "study_summary_record",
+    "uncertainty_result_record",
+    "uncertainty_study_record",
 ]

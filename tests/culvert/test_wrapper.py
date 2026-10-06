@@ -86,6 +86,91 @@ def test_wrapper_analyse_writes_expected_outputs(tmp_path: Path) -> None:
     assert (tmp_path / "culvert_results" / "scenario_results.md").is_file()
 
 
+def _add_uncertainty_study(path: Path) -> None:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["uncertainty_studies"] = [
+        {
+            "name": "Flow sensitivity",
+            "sampling_mode": "bounded_sweep",
+            "sample_count": 2,
+            "parameters": [
+                {
+                    "parameter": "discharge",
+                    "bounds": {"lower": 2, "upper": 4, "unit": "m3/s"},
+                    "source": {
+                        "source_id": "SMOKE",
+                        "publication": "Synthetic wrapper example",
+                        "edition": "1",
+                        "locator": "Test fixture",
+                        "applicability": "Synthetic test only.",
+                    },
+                }
+            ],
+        }
+    ]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_wrapper_uncertainty_writes_complete_study_outputs(tmp_path: Path) -> None:
+    project_path = _write_project(tmp_path / "project.json", discharge=4)
+    _add_uncertainty_study(project_path)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(WRAPPER),
+            "uncertainty",
+            "--directory",
+            str(tmp_path),
+            "--project",
+            str(project_path),
+            "--study",
+            "Flow sensitivity",
+            "--console-log-level",
+            "SUCCESS",
+            "--no-pause",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=_environment(),
+    )
+    assert completed.returncode == 0, completed.stderr
+    output = tmp_path / "culvert_results"
+    for filename in (
+        "uncertainty_results.json",
+        "uncertainty_results.csv",
+        "uncertainty_summary.csv",
+        "uncertainty_results.md",
+    ):
+        assert (output / filename).is_file()
+    payload = json.loads((output / "uncertainty_results.json").read_text(encoding="utf-8"))
+    assert len(payload["evaluations"]) == 2
+    assert payload["summaries"][0]["eligible_count"] == 2
+    assert "Evaluated 2 uncertainty samples" in completed.stdout + completed.stderr
+
+
+def test_wrapper_uncertainty_missing_study_returns_one(tmp_path: Path) -> None:
+    project_path = _write_project(tmp_path / "project.json", discharge=4)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(WRAPPER),
+            "uncertainty",
+            "--directory",
+            str(tmp_path),
+            "--project",
+            str(project_path),
+            "--no-pause",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=_environment(),
+    )
+    assert completed.returncode == 1
+    assert not (tmp_path / "culvert_results" / "uncertainty_results.json").exists()
+
+
 def test_wrapper_missing_working_directory_returns_one(tmp_path: Path) -> None:
     missing = tmp_path / "missing"
 

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "catalogue_updated": "2026-09-13",
+  "catalogue_updated": "2026-10-06",
   "workflows": [
     {
       "id": "audit_qgis_projects",
@@ -17,7 +17,7 @@
       "id": "culvert_analysis_design",
       "title": "Analyse and design culvert crossings",
       "domain": "hydraulics",
-      "purpose": "Solve, compare, rate and design culvert crossings through the maintained ryan-culverts workflow.",
+      "purpose": "Solve, compare, rate, design and evaluate bounded or seeded uncertainty studies through ryan-culverts; retain all outcomes in CSV/JSON/Markdown.",
       "script": "ryan-scripts/culvert.py",
       "profile": "create",
       "mutation": "creates_outputs",
@@ -53,6 +53,10 @@
         {
           "name": "render_saved_report",
           "arguments": ["report", "--directory", "{project_directory}", "--no-pause"]
+        },
+        {
+          "name": "uncertainty_study",
+          "arguments": ["uncertainty", "--project", "{project_file}", "--study", "{study_name}", "--console-log-level", "SUCCESS", "--no-pause"]
         }
       ]
     },

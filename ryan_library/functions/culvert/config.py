@@ -5,7 +5,19 @@ import tomllib
 from pathlib import Path
 from typing import cast
 
-from culvert_solver import ManningChannelTailwater, RectangularChannel, TailwaterCondition, TrapezoidalChannel
+from culvert_solver import (
+    BoundedParameterSpec,
+    HydraulicResultStatus,
+    HydraulicUncertaintyParameter,
+    HydraulicUncertaintyUnit,
+    ManningChannelTailwater,
+    ParameterBounds,
+    RectangularChannel,
+    SourceReference,
+    TailwaterCondition,
+    TrapezoidalChannel,
+    UniformParameterSpec,
+)
 
 from ...classes.culvert.alternative import Alternative
 from ...classes.culvert.criteria import DesignCriteria
@@ -19,6 +31,7 @@ from ...classes.culvert.crossing import (
 )
 from ...classes.culvert.project import CulvertProject
 from ...classes.culvert.scenario import Scenario
+from ...classes.culvert.uncertainty import UncertaintyParameterSpec, UncertaintySamplingMode, UncertaintyStudy
 
 SCHEMA_VERSION = 1
 
@@ -291,6 +304,131 @@ def _parse_design_criteria(value: object) -> DesignCriteria:
     )
 
 
+def _parse_parameter(value: object, mode: UncertaintySamplingMode) -> UncertaintyParameterSpec:
+    data = _mapping(value, "uncertainty parameter")
+    _reject_unknown(data, {"parameter", "bounds", "source"}, "uncertainty parameter")
+    bounds = _mapping(data.get("bounds"), "parameter bounds")
+    _reject_unknown(bounds, {"lower", "upper", "unit"}, "parameter bounds")
+    source = _mapping(data.get("source"), "parameter source")
+    _reject_unknown(
+        source, {"source_id", "publication", "edition", "locator", "url", "applicability", "notes"}, "parameter source"
+    )
+    _, notes = _metadata({"notes": source.get("notes", "")})
+    reference = SourceReference(
+        source_id=_text(source, "source_id"),
+        publication=_text(source, "publication"),
+        edition=_text(source, "edition"),
+        locator=_text(source, "locator"),
+        url=_optional_text(source, "url"),
+        applicability=_text(source, "applicability"),
+        notes=notes,
+    )
+    spec_type = BoundedParameterSpec if mode is UncertaintySamplingMode.BOUNDED_SWEEP else UniformParameterSpec
+    return spec_type(
+        parameter=HydraulicUncertaintyParameter(_text(data, "parameter")),
+        bounds=ParameterBounds(
+            lower=_number(bounds, "lower"),
+            upper=_number(bounds, "upper"),
+            unit=HydraulicUncertaintyUnit(_text(bounds, "unit")),
+        ),
+        source=reference,
+    )
+
+
+def _names(data: dict[str, object], key: str) -> tuple[str, ...]:
+    values = _list(data.get(key, []), key)
+    return tuple(_text({key: value}, key) for value in values)
+
+
+def _parse_study(value: object) -> UncertaintyStudy:
+    data = _mapping(value, "uncertainty study")
+    _reject_unknown(
+        data,
+        {
+            "name",
+            "sampling_mode",
+            "parameters",
+            "sample_count",
+            "seed",
+            "crossing_names",
+            "scenario_names",
+            "alternative_names",
+            "include_base_crossings",
+            "maximum_evaluations",
+            "percentiles",
+            "aggregation_statuses",
+            "source",
+            "notes",
+        },
+        "uncertainty study",
+    )
+    mode = UncertaintySamplingMode(_text(data, "sampling_mode"))
+    include_base = data.get("include_base_crossings", True)
+    if not isinstance(include_base, bool):
+        msg = "include_base_crossings must be boolean."
+        raise ValueError(msg)
+    percentiles = tuple(
+        _number({"percentile": value}, "percentile")
+        for value in _list(data.get("percentiles", [5, 50, 95]), "percentiles")
+    )
+    statuses = tuple(
+        HydraulicResultStatus(_text({"status": value}, "status"))
+        for value in _list(data.get("aggregation_statuses", ["valid", "valid_with_advisory"]), "aggregation_statuses")
+    )
+    source, notes = _metadata(data)
+    return UncertaintyStudy(
+        name=_text(data, "name"),
+        sampling_mode=mode,
+        parameters=tuple(_parse_parameter(item, mode) for item in _list(data.get("parameters"), "parameters")),
+        sample_count=_integer(data, "sample_count"),
+        seed=None if data.get("seed") is None else _integer(data, "seed"),
+        crossing_names=_names(data, "crossing_names"),
+        scenario_names=_names(data, "scenario_names"),
+        alternative_names=_names(data, "alternative_names"),
+        include_base_crossings=include_base,
+        maximum_evaluations=_integer(data, "maximum_evaluations", 10000),
+        percentiles=percentiles,
+        aggregation_statuses=statuses,
+        source=source,
+        notes=notes,
+    )
+
+
+def uncertainty_study_record(study: UncertaintyStudy) -> dict[str, object]:
+    """Serialize study policy and public hydraulic bounds/source contracts."""
+    return {
+        "name": study.name,
+        "sampling_mode": study.sampling_mode.value,
+        "sample_count": study.sample_count,
+        "seed": study.seed,
+        "crossing_names": list(study.crossing_names),
+        "scenario_names": list(study.scenario_names),
+        "alternative_names": list(study.alternative_names),
+        "include_base_crossings": study.include_base_crossings,
+        "maximum_evaluations": study.maximum_evaluations,
+        "percentiles": list(study.percentiles),
+        "aggregation_statuses": [status.value for status in study.aggregation_statuses],
+        "source": study.source,
+        "notes": study.notes,
+        "parameters": [
+            {
+                "parameter": spec.parameter.value,
+                "bounds": {"lower": spec.bounds.lower, "upper": spec.bounds.upper, "unit": spec.bounds.unit.value},
+                "source": {
+                    "source_id": spec.source.source_id,
+                    "publication": spec.source.publication,
+                    "edition": spec.source.edition,
+                    "locator": spec.source.locator,
+                    "url": spec.source.url,
+                    "applicability": spec.source.applicability,
+                    "notes": spec.source.notes,
+                },
+            }
+            for spec in study.parameters
+        ],
+    }
+
+
 def _parse_project(raw: object) -> CulvertProject:
     data = _mapping(raw, "project")
     _reject_unknown(
@@ -304,6 +442,7 @@ def _parse_project(raw: object) -> CulvertProject:
             "design_criteria",
             "source",
             "notes",
+            "uncertainty_studies",
         },
         "project",
     )
@@ -338,6 +477,9 @@ def _parse_project(raw: object) -> CulvertProject:
         schema_version=schema_version,
         source=source,
         notes=notes,
+        uncertainty_studies=tuple(
+            _parse_study(value) for value in _list(data.get("uncertainty_studies", []), "uncertainty_studies")
+        ),
     )
 
 
@@ -480,6 +622,8 @@ def project_record(project: CulvertProject) -> dict[str, object]:
         "scenarios": [_scenario_record(scenario) for scenario in project.scenarios],
         "alternatives": [_alternative_record(alternative) for alternative in project.alternatives],
     }
+    if project.uncertainty_studies:
+        result["uncertainty_studies"] = [uncertainty_study_record(study) for study in project.uncertainty_studies]
     if project.design_criteria is not None:
         result["design_criteria"] = _criteria_record(project.design_criteria)
     if project.source is not None:
