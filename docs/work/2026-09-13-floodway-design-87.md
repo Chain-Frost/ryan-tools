@@ -43,6 +43,7 @@ PR #88 now contains substantive Python implementation rather than research-only 
   hand-digitised;
 - event-envelope selection retaining independent governors for unit discharge, velocity, dynamic pressure and momentum flux;
 - configurable peak-discharge sweeps from overtopping onset through the selected maximum, with solver submergence detection;
+- explicit project-configured 2D-verification escalation that preserves supported scalar results while flagging spatial limitations;
 - explicit preservation of the MRWA `D/H < 0.76` and Appendix C/D `D/H = 0.8` source thresholds;
 - MRWA Table 5.1 dumped-rock class/thickness selection kept distinct from HEC-23 enhanced protection;
 - current MRWA 2023 floodway requirements retained as source-labelled project-level report guidance;
@@ -179,6 +180,8 @@ These states remain `SOURCE_DATA_REQUIRED`, `SPECIALIST_REVIEW_REQUIRED`,
   separate from hydrograph/time-series analysis in issue #93.
 - Added strict floodway formation JSON/TOML configuration and the maintained `ryan-scripts/floodway.py` wrapper.
 - Added JSON/CSV/Markdown hydraulic/protection provenance, MCP workflow discovery and focused wrapper/config/sweep tests.
+- Added explicit `two_d_verification_reason` formation configuration and propagated the resulting
+  `TWO_D_VERIFICATION_RECOMMENDED` status/message through scenario, envelope, JSON/CSV and Markdown outputs.
 - Full repository Ruff/Pyright/pytest/docs/build validation has **not yet been run** and is explicitly delegated to a
   separate validation agent; no unrun check is reported as passed.
 
