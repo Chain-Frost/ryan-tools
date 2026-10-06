@@ -5,10 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from run_hy8 import Hy8ResultRow, HydraulicsResult
-
-import ryan_library.functions.culvert.tuflow_engines as engine_module
-
 from ryan_library.classes.culvert import CulvertMaterialName
+from ryan_library.functions.culvert import tuflow_engines as engine_module
 from ryan_library.functions.culvert.tuflow_engines import (
     CulvertEngine,
     TuflowCircularCulvert,
@@ -116,7 +114,8 @@ def test_hy8_forward_dispatch_uses_run_hy8_boundary(
             overtopping=False,
         ),
     )
-    monkeypatch.setattr(engine_module, "_hy8_crossing", lambda *args, **kwargs: (MagicMock(), crossing))
+    builder = MagicMock(return_value=(MagicMock(), crossing))
+    monkeypatch.setattr(engine_module, "_hy8_crossing", builder)
 
     result = solve_tuflow_culvert_forward(
         concrete_crossing,
