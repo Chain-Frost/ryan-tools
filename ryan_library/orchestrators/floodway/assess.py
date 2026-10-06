@@ -47,6 +47,25 @@ _SPECIALIST_ZONE_MESSAGES: dict[FloodwayZone, str] = {
 }
 
 
+def _with_2d_verification(
+    formation: FloodwayFormation,
+    applicability: FloodwayApplicabilityStatus,
+    message: str,
+) -> tuple[FloodwayApplicabilityStatus, str]:
+    """Escalate otherwise-supported 1D results when project geometry needs 2D review."""
+    reason = formation.two_d_verification_reason
+    if not reason or applicability not in {
+        FloodwayApplicabilityStatus.SUPPORTED,
+        FloodwayApplicabilityStatus.LEGACY_REPRODUCTION,
+    }:
+        return applicability, message
+    note = f"2D hydraulic verification is recommended: {reason}"
+    return (
+        FloodwayApplicabilityStatus.TWO_D_VERIFICATION_RECOMMENDED,
+        f"{message} {note}".strip(),
+    )
+
+
 def _mrwa_depth_ratio_context(segment: RoadwaySegmentHydraulicState) -> tuple[float | None, str]:
     """Return D/H and a source-specific threshold note without changing solver state."""
     if segment.upstream_head <= 0.0:
@@ -269,6 +288,16 @@ def assess_floodway_hydraulics(
                         applicability=applicability,
                     )
                     demand = build_submerged_pavement_demand(velocity_result)
+                    assessment_message = (
+                        "MRWA submerged pavement velocity uses the guide's approximate V ~= q/D relation. "
+                        + threshold_note
+                        + " Roadway free/submerged state remains authoritative to ryan-culverts."
+                    )
+                    assessment_applicability, assessment_message = _with_2d_verification(
+                        formation,
+                        velocity_result.applicability,
+                        assessment_message,
+                    )
                     assessments.append(
                         FloodwayZoneAssessment(
                             scenario_name=hydraulics.scenario_name,
@@ -277,14 +306,10 @@ def assess_floodway_hydraulics(
                             integration_station=segment.integration_station,
                             flow_state=segment.flow_state,
                             zone=zone,
-                            applicability=velocity_result.applicability,
+                            applicability=assessment_applicability,
                             velocity_result=velocity_result,
                             demand=demand,
-                            message=(
-                                "MRWA submerged pavement velocity uses the guide's approximate V ~= q/D relation. "
-                                + threshold_note
-                                + " Roadway free/submerged state remains authoritative to ryan-culverts."
-                            ),
+                            message=assessment_message,
                         )
                     )
                 else:
@@ -356,12 +381,17 @@ def assess_floodway_hydraulics(
                 delta_p=delta_p,
             )
             demand = build_zone_demand(velocity_result)
-            applicability = limiting_status or velocity_result.applicability
+            method_applicability = limiting_status or velocity_result.applicability
             mrwa_protection_result = (
                 select_mrwa_rock_slope_protection(demand.velocity)
                 if zone is FloodwayZone.DOWNSTREAM_BATTER
-                and applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+                and method_applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
                 else None
+            )
+            applicability, message = _with_2d_verification(
+                formation,
+                method_applicability,
+                message,
             )
             assessments.append(
                 FloodwayZoneAssessment(
@@ -410,6 +440,8 @@ def build_floodway_envelope_from_assessments(
             headwater_elevation=scenario_assessment.hydraulics.headwater_elevation,
             tailwater_elevation=scenario_assessment.hydraulics.tailwater_elevation,
             flow_state=zone_assessment.flow_state,
+            assessment_applicability=zone_assessment.applicability,
+            assessment_message=zone_assessment.message,
         )
         for scenario_assessment in assessments
         for zone_assessment in scenario_assessment.zone_assessments
