@@ -131,7 +131,8 @@ def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[di
     frame["aep_text"] = frame["aep_text"].fillna("").astype(str).str.strip()
     frame = frame.sort_values(["Chan ID", "aep_text", "Q"], ascending=[True, True, False])
     frame = frame.groupby(["Chan ID", "aep_text"], as_index=False, dropna=False).first()
-    records = frame.where(pd.notna(frame), None).to_dict(orient="records")\n    return cast("list[dict[str, Any]]", records)
+    records = frame.where(pd.notna(frame), None).to_dict(orient="records")
+    return cast("list[dict[str, Any]]", records)
 
 
 def _workspace(root: Path | None, crossing: str, scenario: str) -> Path | None:
@@ -165,7 +166,9 @@ def run(args: argparse.Namespace) -> int:
                 msg = "Q must contain a positive finite discharge after row selection."
                 raise ValueError(msg)
             ds_invert = definition.outlet_invert_m
-            ds_headwater = _float(row, "DS_h", ds_invert)\n            if ds_headwater is None:\n                ds_headwater = ds_invert
+            ds_headwater = _float(row, "DS_h", ds_invert)
+            if ds_headwater is None:
+                ds_headwater = ds_invert
             cases: list[tuple[str, str, float, float]] = [
                 ("forward", "Q @ DS_h TW", flow, ds_headwater),
                 ("forward", "Q @ invert TW", flow, ds_invert),
