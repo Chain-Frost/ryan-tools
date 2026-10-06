@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Review fix implemented; revalidation required |
+| Status | Needs review |
 | Owner | ChatGPT |
 | Created | 2026-10-06 |
 | Updated | 2026-10-06 |
-| Next review | After alternative-selection fix validation |
+| Next review | 2026-10-07 |
 | Baseline | `feature/culvert-uncertainty-91` from `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99`; `vendor/ryan_culverts` initially at `00f8274b4702bfe721d111436a15ae435f672460` |
 
 ## Outcome and scope
@@ -51,17 +51,16 @@ the uncertainty command handling into a helper, and formatted the regression fix
 
 ## Next action
 
-A separate validation agent should rerun focused culvert/MCP tests, Ruff, strict Pyright, documentation/package checks,
-rebuild the bundled wheel from this new source head, and repeat installed-wheel/copied-wrapper smoke. If those checks pass,
-obtain final review. PR #94 remains unmerged; merging requires an explicit request.
+Review the resolved local merge and commit it when authorized. All conflict entries are cleared; changes remain
+unstaged and `MERGE_HEAD` remains present. PR #94 has not been pushed or merged. Focused checks and the rebuilt
+`26.10.6.2` installed wheel pass, including base-only study selection.
 
 The latest Codex review identified that empty `alternative_names` meant "all alternatives" with no way to express a
 base-crossings-only study. The application policy now adds `include_alternatives` (default `true`); setting it to
 `false` selects zero alternatives while preserving existing empty-selector behavior for enabled target classes.
 
-The earlier target-headwater event and stale-wheel review findings were addressed and validated at `ca31687`. The new
-`include_alternatives` selection-policy change postdates that wheel, so package rebuilding and installed-wrapper
-verification are required again before final review.
+The earlier target-headwater event and stale-wheel review findings were addressed and validated at `ca31687`. The `include_alternatives` selection-policy change is now validated in the refreshed `26.10.6.2` wheel;
+the earlier `26.10.6.1` wheel evidence remains historical.
 
 Group-specific variations, correlated distributions, solved capacity studies and automatic engineering acceptance or
 alternative ranking are outside the initial contract. The existing design-search workflow owns acceptance/ranking;
@@ -210,3 +209,25 @@ target classes now use symmetric enable/disable semantics: disabled classes sele
 selectors. Configuration/serialization preserve the new flag, and focused tests cover base-only studies, round trips,
 contradictory selectors and the no-target failure path. This change
 postdates the recorded 60-test/wheel validation and therefore requires revalidation and a refreshed bundled wheel.
+
+### 2026-10-06 PR #94 merge-conflict resolution
+
+Resolved the local merge of `origin/main` (`beb1011`) into PR head `c404635`. The squash landing of PR #86
+caused shared culvert files to appear independently added. Retained the PR uncertainty implementation and documentation;
+the main-side solver pointer is an ancestor of retained `0213eac`. Replaced conflicting legacy wheels with
+`dist/ryan_functions-26.10.6.2-py3-none-any.whl`, and corrected two formatting issues in the latest selection-policy changes.
+
+Validation in normal user Python 3.14:
+
+- `python -m pytest tests/culvert tests/mcp/test_registry.py -q --tb=short`: 65 passed.
+- Focused culvert/MCP Ruff lint and formatting, strict Pyright on affected Python files, and Loguru policy: passed.
+- `python repo-scripts/build_library.py --skip-pip`, followed after formatting by `--skip-pip --no-bump`: passed.
+- Wheel verification: 638356 bytes; SHA-256 `603b1cbc9a0307e15ecfc449f907fe3c917d07ce74df9722e358024e1b1a4a31`.
+- Isolated target install proved all three public packages import below the install root; copied-wrapper TOML
+  base-only uncertainty smoke: six evaluations, no alternatives, exit 0.
+- Default documentation/index check, explicit links-only check of six affected documents, and `git diff --check`: passed.
+- `git ls-files -u` and `git diff --cached --stat`: empty; all conflict entries cleared and nothing staged.
+
+Git delivery: no unmerged index entries; all resulting changes are unstaged, including the new untracked wheel.
+The merge remains uncommitted (`MERGE_HEAD` retained); no push or GitHub merge occurred. Neither solver submodule
+was changed locally. Next action: review and authorize the merge commit; next review 2026-10-07.

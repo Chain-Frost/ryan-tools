@@ -414,6 +414,7 @@ def test_invalid_study_policy_rejected(field: str, value: object) -> None:
     with pytest.raises(ValueError):
         replace(_study(), **{field: value})
 
+
 def test_disabled_alternatives_reject_named_alternative_selection() -> None:
     with pytest.raises(ValueError, match="alternative_names must be empty"):
         replace(_study(), include_alternatives=False, alternative_names=("Upgrade",))
@@ -422,4 +423,3 @@ def test_disabled_alternatives_reject_named_alternative_selection() -> None:
 def test_disabled_base_crossings_reject_named_crossing_selection() -> None:
     with pytest.raises(ValueError, match="crossing_names must be empty"):
         replace(_study(), include_base_crossings=False, crossing_names=("Existing",))
-
