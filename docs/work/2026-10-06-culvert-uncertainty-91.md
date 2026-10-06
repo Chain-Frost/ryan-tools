@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review |
+| Status | Ready for final review |
 | Owner | ChatGPT |
 | Created | 2026-10-06 |
 | Updated | 2026-10-06 |
-| Next review | 2026-10-07 |
+| Next review | Final PR review |
 | Baseline | `feature/culvert-uncertainty-91` from `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99`; `vendor/ryan_culverts` initially at `00f8274b4702bfe721d111436a15ae435f672460` |
 
 ## Outcome and scope
@@ -44,16 +44,15 @@ The existing culvert application boundary remains the integration point:
 
 No uncertainty-domain distribution, bounds or sampled-parameter classes are reimplemented in `ryan-tools`.
 
-Post-review-fix validation is complete at local implementation commit `ca31687`. The review-fix code passed focused
-regressions and installed-package checks. Validation found and fixed the wrapper complexity violation by extracting
-the uncertainty command handling into a helper, and formatted the regression fixture. Wrapper version remains
-`2026-10-06.2`; the declared package version remains `26.10.6.1` for this verification rebuild.
+Post-review-fix validation is complete. After merging current `main` into the feature branch, the final synced source
+was revalidated with the expanded 65-test culvert/MCP suite, lint/type/documentation checks, package verification and
+isolated installed-wheel smoke. The current bundled distribution is `26.10.6.2`; wrapper version remains
+`2026-10-06.2`.
 
 ## Next action
 
-Review the resolved local merge and commit it when authorized. All conflict entries are cleared; changes remain
-unstaged and `MERGE_HEAD` remains present. PR #94 has not been pushed or merged. Focused checks and the rebuilt
-`26.10.6.2` installed wheel pass, including base-only study selection.
+Obtain final PR review against the published head. PR #94 is synced with current `main`, mergeable, and remains
+intentionally unmerged. No known implementation, validation or packaging blocker remains.
 
 The latest Codex review identified that empty `alternative_names` meant "all alternatives" with no way to express a
 base-crossings-only study. The application policy now adds `include_alternatives` (default `true`); setting it to
@@ -228,6 +227,7 @@ Validation in normal user Python 3.14:
 - Default documentation/index check, explicit links-only check of six affected documents, and `git diff --check`: passed.
 - `git ls-files -u` and `git diff --cached --stat`: empty; all conflict entries cleared and nothing staged.
 
-Git delivery: no unmerged index entries; all resulting changes are unstaged, including the new untracked wheel.
-The merge remains uncommitted (`MERGE_HEAD` retained); no push or GitHub merge occurred. Neither solver submodule
-was changed locally. Next action: review and authorize the merge commit; next review 2026-10-07.
+Git delivery: the resolved merge was committed and pushed as `cfd621a0e9e4bfbeb7ae73938b4b82a655c5f13f`.
+The branch is now based on current `main`, GitHub reports PR #94 as mergeable, and the refreshed
+`dist/ryan_functions-26.10.6.2-py3-none-any.whl` is published on the branch. Neither solver submodule was changed
+locally during conflict resolution. Next action: final PR review; do not merge without an explicit request.
