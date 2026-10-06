@@ -48,6 +48,14 @@ def test_json_export_retains_candidates_governors_and_provenance(tmp_path: Path)
     target = export_floodway_envelope_json(envelope, tmp_path / "floodway.json")
     payload = json.loads(target.read_text(encoding="utf-8"))
 
+    assert payload["current_mrwa_guidance"]["source_id"] == "MRWA-FLOODWAYS-V3-2023-06-12"
+    assert {item["id"] for item in payload["current_mrwa_guidance"]["requirements"]} >= {
+        "pavement_protection_extent",
+        "embankment_protection_extent",
+        "trafficability",
+        "approach_containment",
+        "relief_culvert",
+    }
     assert payload["candidates"][0]["scenario"] == "2% AEP"
     assert payload["candidates"][0]["demand"]["zone"] == "D"
     assert payload["candidates"][0]["total_discharge_m3s"] == 150.0
