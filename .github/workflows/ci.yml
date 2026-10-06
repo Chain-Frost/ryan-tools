@@ -175,12 +175,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Initialise vendored packages
+      - name: Initialise package resources
         shell: pwsh
         run: |
-          git submodule sync -- vendor/run_hy8 vendor/ryan_culverts
+          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init vendor/run_hy8 vendor/ryan_culverts
+          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Set up Python 3.14
