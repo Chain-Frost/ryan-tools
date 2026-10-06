@@ -12,10 +12,12 @@
 
 This migration remains incomplete but is deliberately deferred and is not being actively progressed.
 It remains discoverable in the [work register](work/README.md) without being treated as a current implementation task.
-The `unsorted` submodule is excluded from routine automated inspection and validation while the work is deferred.
-Unchecked and in-progress items below remain valid migration candidates and may be resumed if a maintainer explicitly
-selects this work front. The next review is 5 April 2027 unless it is deliberately resumed earlier; agents should not
-surface it as overdue before then.
+The `unsorted` submodule is excluded from all automated work unconditionally: agents must not initialise, inspect,
+traverse, search, lint, test, validate or otherwise check that submodule, including if this migration is later resumed.
+Unchecked and in-progress items below remain valid migration candidates, but any resumed work must respect that
+boundary and rely on maintainer-provided evidence or parent-repository changes that do not inspect `unsorted`.
+The next review is 5 April 2027 unless it is deliberately resumed earlier; agents should not surface it as overdue
+before then.
 
 ## Conversion Standards
 
