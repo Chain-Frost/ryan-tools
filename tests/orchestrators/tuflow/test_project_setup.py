@@ -2,6 +2,7 @@
 
 import sqlite3
 from collections.abc import Mapping
+from contextlib import closing
 from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock
@@ -159,9 +160,9 @@ def test_project_layers_are_empty_derivatives_of_tuflow_empties(
     loc_style: Path = result.project_dir / "model" / "gis" / "baseModel" / "2d_loc_baseModel_01_R.qml"
     style_file: Path = project_setup._resolve_2d_loc_style_file()  # pyright: ignore[reportPrivateUsage]
     assert loc_style.read_bytes() == style_file.read_bytes()
-    with sqlite3.connect(result.empty_dir / "2d_bc_empty.gpkg") as source_connection:
+    with closing(sqlite3.connect(result.empty_dir / "2d_bc_empty.gpkg")) as source_connection:
         assert source_connection.execute('SELECT count(*) FROM "2d_bc_empty_L"').fetchone() == (0,)
-    with sqlite3.connect(result.working_layers[0]) as target_connection:
+    with closing(sqlite3.connect(result.working_layers[0])) as target_connection:
         assert target_connection.execute('SELECT count(*) FROM "2d_bc_baseModel_01_L"').fetchone() == (0,)
         assert target_connection.execute(
             "SELECT geometry_type_name FROM gpkg_geometry_columns WHERE table_name = '2d_bc_baseModel_01_L'"
@@ -172,7 +173,7 @@ def test_project_layers_are_empty_derivatives_of_tuflow_empties(
     assert (projection_dir / "projection_MGA94_Zone_51.prj").is_file()
     assert (projection_dir / "projection_MGA94_Zone_51.gpkg").is_file()
     assert (projection_dir / "projection_MGA94_Zone_51.tif").is_file()
-    with sqlite3.connect(projection_dir / "projection_MGA94_Zone_51.gpkg") as projection_connection:
+    with closing(sqlite3.connect(projection_dir / "projection_MGA94_Zone_51.gpkg")) as projection_connection:
         assert projection_connection.execute(
             "SELECT table_name FROM gpkg_contents WHERE data_type = 'features'"
         ).fetchone() == ("projection_MGA94_Zone_51",)
