@@ -149,6 +149,8 @@ class GoverningFloodwayDemand:
     headwater_elevation: float | None = None
     tailwater_elevation: float | None = None
     flow_state: RoadwaySegmentState | None = None
+    assessment_applicability: FloodwayApplicabilityStatus | None = None
+    assessment_message: str = ""
 
     def __post_init__(self) -> None:
         name = self.scenario_name.strip()
@@ -177,6 +179,9 @@ class GoverningFloodwayDemand:
                 "tailwater_elevation",
                 _finite(self.tailwater_elevation, "tailwater_elevation"),
             )
+        if self.assessment_applicability is None:
+            object.__setattr__(self, "assessment_applicability", self.demand.applicability)
+        object.__setattr__(self, "assessment_message", self.assessment_message.strip())
 
 
 @dataclass(frozen=True, slots=True)
