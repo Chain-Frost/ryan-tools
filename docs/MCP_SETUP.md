@@ -69,7 +69,9 @@ The `tuflow_culvert_evaluate_maximums` and `tuflow_culvert_evaluate_1d_nwk` work
 TUFLOW culvert evaluation wrappers. Each advertises separate `ryan-culverts` and `hy8` scenarios; the native
 solver scenario does not require HY-8, while the HY-8 scenario requires an explicit executable path. Both wrappers
 refuse to replace an existing CSV unless `--overwrite` is supplied, and retained Maximums HY-8 workspaces are unique
-per crossing/AEP/scenario and require the same explicit overwrite choice before reuse.
+per crossing/AEP/scenario and require the same explicit overwrite choice before reuse. Their catalogue mutation is
+therefore `creates_or_replaces`, while metadata records that replacement is disabled by default and that only the
+`hy8` engine mode executes an external hydraulic program.
 
 ## Repository workflow resolution
 
