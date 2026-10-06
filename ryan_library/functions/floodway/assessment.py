@@ -156,6 +156,14 @@ def build_zone_demand(
     )
 
 
+def select_governing_unit_discharge(candidates: Sequence[GoverningFloodwayDemand]) -> GoverningFloodwayDemand:
+    """Return the candidate with the maximum unit-discharge demand."""
+    if not candidates:
+        msg = "candidates must contain at least one demand."
+        raise ValueError(msg)
+    return max(candidates, key=lambda candidate: candidate.demand.unit_discharge)
+
+
 def select_governing_velocity(candidates: Sequence[GoverningFloodwayDemand]) -> GoverningFloodwayDemand:
     """Return the candidate with the maximum velocity demand."""
     if not candidates:
