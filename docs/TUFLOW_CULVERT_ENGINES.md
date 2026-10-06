@@ -40,7 +40,13 @@ to supply another set.
 Both migrated wrappers refuse to replace an existing result CSV unless
 `--overwrite` is supplied. The `1d_nwk` wrapper also honours the TUFLOW
 `Ignore` field and resolves negative `Len_or_ANA` values from the digitized
-feature length.
+feature length. When Maximums HY-8 workspaces are retained, their paths include
+the crossing, AEP and scenario; an existing run directory is not reused unless
+`--overwrite` is explicitly supplied.
+
+The wrappers are discoverable through the MCP workflow catalogue as
+`tuflow_culvert_evaluate_maximums` and `tuflow_culvert_evaluate_1d_nwk`,
+with separate `ryan-culverts` and `hy8` scenarios.
 
 ## Shared mapping contract
 
