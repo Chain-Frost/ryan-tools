@@ -4,7 +4,7 @@ import argparse
 import csv
 from math import isfinite
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import geopandas as gpd
 
@@ -143,7 +143,7 @@ def run(args: argparse.Namespace) -> int:
         msg = f"No features found in {args.input_gis}."
         raise ValueError(msg)
     frame = frame.where(frame.notna(), None)
-    rows: list[dict[str, Any]] = frame.to_dict(orient="records")
+    rows = cast("list[dict[str, Any]]", frame.to_dict(orient="records"))
     if args.crossing:
         rows = [row for row in rows if str(row.get("ID") or "").strip() == args.crossing]
         if not rows:
