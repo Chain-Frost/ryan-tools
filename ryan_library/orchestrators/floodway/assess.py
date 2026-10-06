@@ -101,6 +101,7 @@ def _hec23_protection_result(
         formation_zone.zone is not FloodwayZone.DOWNSTREAM_BATTER
         or design is None
         or formation_zone.slope is None
+        or formation_zone.slope <= 0.0
         or segment.unit_discharge <= 0.0
     ):
         return None
@@ -350,6 +351,25 @@ def assess_floodway_hydraulics(
                         applicability=FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
                         protection_result=protection_result,
                         message="MRWA surface-velocity calculation requires zone slope and Manning roughness.",
+                    )
+                )
+                continue
+
+            if formation_zone.slope <= 0.0 and segment.unit_discharge > 0.0:
+                assessments.append(
+                    FloodwayZoneAssessment(
+                        scenario_name=hydraulics.scenario_name,
+                        aep_percent=hydraulics.aep_percent,
+                        source_interval_index=segment.source_interval_index,
+                        integration_station=segment.integration_station,
+                        flow_state=segment.flow_state,
+                        zone=zone,
+                        applicability=FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+                        protection_result=protection_result,
+                        message=(
+                            "MRWA Equation 4 surface-velocity assessment requires a positive zone slope for active "
+                            "overtopping flow; the configured zero slope is retained without inventing an energy state."
+                        ),
                     )
                 )
                 continue
