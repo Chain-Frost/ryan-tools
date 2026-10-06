@@ -57,8 +57,8 @@ class FloodwayEnvelopeGovernor:
 class FloodwayEventEnvelope:
     """All supplied demand states plus independent governing results by zone/metric.
 
-    The envelope deliberately retains velocity, dynamic pressure and momentum
-    flux as separate limit-state demand measures. It does not collapse them into
+    The envelope deliberately retains unit discharge, velocity, dynamic pressure
+    and momentum flux as separate limit-state demand measures. It does not collapse them into
     a generic floodway force.
     """
 
