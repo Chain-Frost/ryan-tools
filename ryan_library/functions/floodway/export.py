@@ -12,9 +12,15 @@ from ...classes.floodway import (
     FloodwayZoneAssessment,
     FloodwayZoneDemand,
     Hec23OvertoppingRiprapResult,
+    MrwaRockSlopeProtectionResult,
     MrwaSubmergedPavementVelocityResult,
     MrwaSurfaceVelocityResult,
     RoadwaySegmentState,
+)
+
+from .mrwa_protection import (
+    MRWA_CURRENT_FLOODWAY_GUIDANCE,
+    MRWA_CURRENT_FLOODWAY_GUIDANCE_SOURCE_ID,
 )
 
 
@@ -84,6 +90,21 @@ def floodway_velocity_result_record(
     }
 
 
+def mrwa_rock_protection_record(result: MrwaRockSlopeProtectionResult) -> dict[str, object]:
+    """Serialize MRWA 2006 Table 5.1 rock slope-protection evidence."""
+    return {
+        "velocity_ms": result.velocity_ms,
+        "rock_class": result.rock_class,
+        "section_thickness_m": result.section_thickness_m,
+        "nominal_class_tonnes": result.nominal_class_tonnes,
+        "no_rock_required": result.no_rock_required,
+        "requires_special_design": result.requires_special_design,
+        "applicability": result.applicability.value,
+        "assessment_layer": result.layer.value,
+        "source_id": result.source_id,
+    }
+
+
 def hec23_protection_record(result: Hec23OvertoppingRiprapResult) -> dict[str, object]:
     """Serialize HEC-23 DG5 protection evidence."""
     return {
@@ -128,6 +149,11 @@ def floodway_zone_assessment_record(assessment: FloodwayZoneAssessment) -> dict[
             else floodway_velocity_result_record(assessment.velocity_result)
         ),
         "demand": None if assessment.demand is None else floodway_zone_demand_record(assessment.demand),
+        "mrwa_protection_result": (
+            None
+            if assessment.mrwa_protection_result is None
+            else mrwa_rock_protection_record(assessment.mrwa_protection_result)
+        ),
         "protection_result": (
             None
             if assessment.protection_result is None
@@ -177,6 +203,13 @@ def floodway_governor_record(governor: FloodwayEnvelopeGovernor) -> dict[str, ob
 def floodway_envelope_record(envelope: FloodwayEventEnvelope) -> dict[str, object]:
     """Serialize the complete event envelope including all candidate states."""
     return {
+        "current_mrwa_guidance": {
+            "source_id": MRWA_CURRENT_FLOODWAY_GUIDANCE_SOURCE_ID,
+            "requirements": [
+                {"id": identifier, "requirement": requirement}
+                for identifier, requirement in MRWA_CURRENT_FLOODWAY_GUIDANCE
+            ],
+        },
         "candidates": [
             {
                 "scenario": candidate.scenario_name,
