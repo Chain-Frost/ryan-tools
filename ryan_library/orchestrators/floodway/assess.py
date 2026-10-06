@@ -338,6 +338,11 @@ def build_floodway_envelope_from_assessments(
             demand=zone_assessment.demand,
             source_interval_index=zone_assessment.source_interval_index,
             integration_station=zone_assessment.integration_station,
+            total_discharge=scenario_assessment.hydraulics.total_discharge,
+            roadway_discharge=scenario_assessment.hydraulics.roadway_discharge,
+            headwater_elevation=scenario_assessment.hydraulics.headwater_elevation,
+            tailwater_elevation=scenario_assessment.hydraulics.tailwater_elevation,
+            flow_state=zone_assessment.flow_state,
         )
         for scenario_assessment in assessments
         for zone_assessment in scenario_assessment.zone_assessments
