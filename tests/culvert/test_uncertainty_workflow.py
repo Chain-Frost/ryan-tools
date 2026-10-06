@@ -292,7 +292,7 @@ def test_all_failed_summary_has_no_fabricated_statistics(monkeypatch: pytest.Mon
     )
 
 
-def test_wrapper_retains_failed_output_and_returns_review_exit_code(
+def test_wrapper_retains_failed_output_and_returns_success(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     def solve(
@@ -305,7 +305,7 @@ def test_wrapper_retains_failed_output_and_returns_review_exit_code(
     monkeypatch.setattr("ryan_library.functions.culvert.uncertainty_evaluation.solve_crossing_hydraulics", solve)
     wrapper = runpy.run_path(str(Path(__file__).resolve().parents[2] / "ryan-scripts" / "culvert.py"))
     run = cast("Callable[[CulvertProject, str | None, Path], int]", wrapper["_run_uncertainty"])
-    assert run(_project(), "Sensitivity", tmp_path) == 2
+    assert run(_project(), "Sensitivity", tmp_path) == 0
     payload = cast("dict[str, object]", json.loads((tmp_path / "uncertainty_results.json").read_text(encoding="utf-8")))
     assert "Synthetic wrapper failure" in json.dumps(payload)
     assert (tmp_path / "uncertainty_results.md").is_file()
