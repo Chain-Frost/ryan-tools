@@ -82,6 +82,18 @@ def test_culvert_workflow_is_catalogued_with_headless_scenarios() -> None:
     assert all("--no-pause" in scenario["command"] for scenario in workflow["resolved_scenarios"])
 
 
+def test_floodway_workflow_is_catalogued_with_headless_assessment() -> None:
+    registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
+
+    workflow = registry.get_workflow("floodway_design_assessment")
+
+    assert workflow["available"] is True
+    assert workflow["mutation"] == "creates_outputs"
+    assert workflow["script_relative_path"] == "ryan-scripts/floodway.py"
+    assert {scenario["name"] for scenario in workflow["resolved_scenarios"]} == {"assess_floodway"}
+    assert "--no-pause" in workflow["resolved_scenarios"][0]["command"]
+
+
 def test_repository_script_fallback_resolves_current_relocated_path() -> None:
     registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
 

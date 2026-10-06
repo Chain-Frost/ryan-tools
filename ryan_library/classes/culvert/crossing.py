@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from itertools import pairwise
 from math import isfinite
 
 
@@ -11,6 +12,13 @@ class CulvertMaterialName(StrEnum):
     CONCRETE_BOX = "concrete_box"
     CONCRETE_PIPE = "concrete_pipe"
     CORRUGATED_STEEL = "corrugated_steel"
+
+
+class RoadwaySurfaceName(StrEnum):
+    """Roadway surfaces supported by the upstream submergence relationship."""
+
+    PAVED = "paved"
+    GRAVEL = "gravel"
 
 
 def _positive(value: float, name: str) -> float:
@@ -125,12 +133,13 @@ class CulvertGroupDefinition:
 
 @dataclass(frozen=True, slots=True)
 class RoadwayDefinition:
-    """Optional constant-elevation roadway-weir definition."""
+    """Constant-elevation roadway-weir definition."""
 
     crest_elevation: float
     crest_length: float
     discharge_coefficient: float
     label: str = ""
+    surface: RoadwaySurfaceName | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "crest_elevation", _finite(self.crest_elevation, "crest_elevation"))
@@ -144,12 +153,64 @@ class RoadwayDefinition:
 
 
 @dataclass(frozen=True, slots=True)
+class RoadwayCrestPointDefinition:
+    """One station/elevation coordinate on an irregular roadway crest."""
+
+    station: float
+    elevation: float
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "station", _finite(self.station, "station"))
+        object.__setattr__(self, "elevation", _finite(self.elevation, "elevation"))
+
+
+@dataclass(frozen=True, slots=True)
+class RoadwayProfileDefinition:
+    """Piecewise-linear roadway crest for upstream irregular-overtopping hydraulics."""
+
+    points: tuple[RoadwayCrestPointDefinition, ...]
+    discharge_coefficient: float
+    label: str = ""
+    surface: RoadwaySurfaceName | None = None
+
+    def __post_init__(self) -> None:
+        points = tuple(self.points)
+        if len(points) < 2:
+            msg = "RoadwayProfileDefinition requires at least two crest points."
+            raise ValueError(msg)
+        for left, right in pairwise(points):
+            if right.station <= left.station:
+                msg = "Roadway profile stations must be strictly increasing."
+                raise ValueError(msg)
+        object.__setattr__(self, "points", points)
+        object.__setattr__(
+            self,
+            "discharge_coefficient",
+            _positive(self.discharge_coefficient, "discharge_coefficient"),
+        )
+        object.__setattr__(self, "label", self.label.strip())
+
+    @property
+    def crest_length(self) -> float:
+        """Return the horizontal station span of the profile."""
+        return self.points[-1].station - self.points[0].station
+
+    @property
+    def crest_elevation(self) -> float:
+        """Return the minimum profile elevation as a scalar summary."""
+        return min(point.elevation for point in self.points)
+
+
+type RoadwayOvertoppingDefinition = RoadwayDefinition | RoadwayProfileDefinition
+
+
+@dataclass(frozen=True, slots=True)
 class CrossingDefinition:
     """A named crossing made from one or more culvert groups and optional roadway."""
 
     name: str
     groups: tuple[CulvertGroupDefinition, ...]
-    roadway: RoadwayDefinition | None = None
+    roadway: RoadwayOvertoppingDefinition | None = None
     source: str | None = None
     notes: str = ""
 
