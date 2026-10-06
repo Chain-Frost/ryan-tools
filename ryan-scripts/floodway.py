@@ -10,6 +10,7 @@ Minimal formation JSON example::
       "schema_version": 1,
       "name": "Floodway formation",
       "crest_flow_length_m": 9.0,
+      "two_d_verification_reason": "",
       "zones": [
         {"zone": "D", "slope": 0.03, "roughness_manning_n": 0.015},
         {"zone": "C", "elevation_m": 10.0},
