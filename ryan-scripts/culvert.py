@@ -1,4 +1,4 @@
-r"""Run maintained culvert solve, analyse, design, and rating workflows.
+r"""Run maintained culvert solve, analyse, design, rating and uncertainty workflows.
 
 The versioned project file may be JSON or TOML and supports fixed-elevation and
 Manning-channel tailwater definitions.
@@ -38,6 +38,11 @@ Examples::
     python culvert.py design --project culvert_project.json --diameters-mm 900 1200 1500 --quantities 1 2 3 \
         --max-headwater-elevation 11.5
     python culvert.py rating --project culvert_project.json --min-discharge 0.5 --max-discharge 8 --points 16
+    python culvert.py uncertainty --project culvert_project.toml --study "Roughness sensitivity" --no-pause
+
+Uncertainty writes complete JSON, evaluation CSV, metric-summary CSV and Markdown.
+Completed studies return exit code 0 even when retained outcomes require engineering review;
+exit code 1 indicates configuration, execution or export failure. Invalid CLI arguments use argparse exit code 2.
 """
 
 from __future__ import annotations
@@ -47,12 +52,17 @@ from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
-WRAPPER_VERSION = "2026-09-14.2"
+WRAPPER_VERSION = "2026-10-06.4"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
 DEFAULT_OUTPUT_DIRECTORY = Path("culvert_results")
 DEFAULT_RATING_POINTS = 11
+DEFAULT_UNCERTAINTY_STUDY: str | None = None
+UNCERTAINTY_JSON_FILENAME = "uncertainty_results.json"
+UNCERTAINTY_CSV_FILENAME = "uncertainty_results.csv"
+UNCERTAINTY_SUMMARY_CSV_FILENAME = "uncertainty_summary.csv"
+UNCERTAINTY_MARKDOWN_FILENAME = "uncertainty_results.md"
 CONSOLE_LOG_LEVEL = "INFO"
 
 import argparse
@@ -64,10 +74,13 @@ from loguru import logger
 from ryan_library.classes.culvert import (
     CircularBarrelDefinition,
     CrossingDefinition,
+    CulvertProject,
     DesignCriteria,
+    EventDefinition,
     RectangularBarrelDefinition,
     Scenario,
     ScenarioResult,
+    UncertaintyStudy,
 )
 from ryan_library.functions.culvert.candidate_generation import (
     generate_circular_candidates,
@@ -82,6 +95,11 @@ from ryan_library.functions.culvert.export import (
     export_scenario_results_csv,
     export_scenario_results_json,
 )
+from ryan_library.functions.culvert.uncertainty_export import (
+    export_uncertainty_csv,
+    export_uncertainty_json,
+    export_uncertainty_summary_csv,
+)
 from ryan_library.functions.loguru_helpers import normalize_log_level, setup_logger
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
 from ryan_library.orchestrators.culvert.analyse import analyse_project
@@ -94,6 +112,8 @@ from ryan_library.orchestrators.culvert.report import (
     render_scenario_records_markdown,
 )
 from ryan_library.orchestrators.culvert.solve import solve_crossing_scenario
+from ryan_library.orchestrators.culvert.uncertainty import run_uncertainty_study, select_uncertainty_targets
+from ryan_library.orchestrators.culvert.uncertainty_report import render_uncertainty_markdown
 
 
 def _select_named[T](items: Sequence[T], name: str | None, *, get_name: Callable[[T], str]) -> T:
@@ -246,6 +266,77 @@ def _run_rating(
     print(f"Wrote {len(result.rating_curve.points)} rating points to {rating_path}")
 
 
+def _run_uncertainty(project: CulvertProject, study_name: str | None, output_directory: Path) -> int:
+    study: UncertaintyStudy = _select_named(
+        project.uncertainty_studies, study_name or DEFAULT_UNCERTAINTY_STUDY, get_name=lambda item: item.name
+    )
+    result = run_uncertainty_study(project, study)
+    export_uncertainty_json(result, output_directory / UNCERTAINTY_JSON_FILENAME)
+    export_uncertainty_csv(result, output_directory / UNCERTAINTY_CSV_FILENAME)
+    export_uncertainty_summary_csv(result, output_directory / UNCERTAINTY_SUMMARY_CSV_FILENAME)
+    markdown = render_uncertainty_markdown(result)
+    (output_directory / UNCERTAINTY_MARKDOWN_FILENAME).write_text(markdown, encoding="utf-8")
+    logger.success("Evaluated {} uncertainty evaluations; outputs: {}", len(result.evaluations), output_directory)
+    incomplete = sum(
+        evaluation.failure is not None or evaluation.status not in study.aggregation_statuses
+        for evaluation in result.evaluations
+    )
+    if incomplete:
+        logger.warning("{} outcomes are excluded from statistics; review retained statuses and failures.", incomplete)
+    return 0
+
+
+def _uncertainty_event_reference_crossing(
+    project: CulvertProject,
+    study: UncertaintyStudy,
+    events: Sequence[EventDefinition],
+) -> CrossingDefinition:
+    """Return the only valid geometry for inverse target-headwater event resolution."""
+    if not any(event.target_headwater_elevation_m is not None for event in events):
+        return project.crossings[0]
+    targets = select_uncertainty_targets(project, study)
+    if len(targets) != 1:
+        msg = (
+            "uncertainty --events-csv rows with target_headwater_elevation_m require the selected study "
+            f"to resolve to exactly one crossing or alternative; {len(targets)} hydraulic targets are selected."
+        )
+        raise ValueError(msg)
+    return targets[0][0]
+
+
+def _run_uncertainty_command(
+    project: CulvertProject,
+    *,
+    study_name: str | None,
+    event_file: Path | None,
+    working_directory: Path,
+    output_directory: Path,
+    crossing_name: str | None,
+    scenario_name: str | None,
+) -> int:
+    if crossing_name is not None or scenario_name is not None:
+        msg = "uncertainty selections belong in the study crossing_names/scenario_names fields."
+        raise ValueError(msg)
+    study: UncertaintyStudy = _select_named(
+        project.uncertainty_studies,
+        study_name or DEFAULT_UNCERTAINTY_STUDY,
+        get_name=lambda item: item.name,
+    )
+    if event_file is not None:
+        event_path = event_file if event_file.is_absolute() else working_directory / event_file
+        events = load_event_csv(event_path)
+        event_crossing = _uncertainty_event_reference_crossing(project, study, events)
+        project = replace(
+            project,
+            scenarios=materialize_event_scenarios(
+                events,
+                event_crossing,
+                default_tailwater=project.scenarios[0].tailwater,
+            ),
+        )
+    return _run_uncertainty(project, study.name, output_directory)
+
+
 def main(
     *,
     command: str,
@@ -267,6 +358,7 @@ def main(
     rating_points: int | None = None,
     console_log_level: str | None = None,
     event_file: Path | None = None,
+    study_name: str | None = None,
 ) -> int:
     """Resolve wrapper settings and execute the requested shared culvert workflow."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
@@ -288,6 +380,17 @@ def main(
                 logger.success("Culvert report completed; outputs: {}", resolved_output)
                 return 0
             project = load_project(project_path)
+            if command == "uncertainty":
+                return _run_uncertainty_command(
+                    project,
+                    study_name=study_name,
+                    event_file=event_file,
+                    working_directory=target_directory,
+                    output_directory=resolved_output,
+                    crossing_name=crossing_name,
+                    scenario_name=scenario_name,
+                )
+
             crossing: CrossingDefinition = _select_named(
                 project.crossings,
                 crossing_name,
@@ -354,10 +457,11 @@ def main(
 
 def _parse_cli_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run culvert solve, analysis, design-search, or rating workflows using ryan-culverts hydraulics.",
+        description="Run culvert solve, analysis, design, rating or uncertainty workflows using ryan-culverts hydraulics.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("command", choices=("solve", "analyse", "compare", "design", "rating", "report"))
+    parser.add_argument("command", choices=("solve", "analyse", "compare", "design", "rating", "report", "uncertainty"))
+    parser.add_argument("--study", help="Named uncertainty study; default: editable setting or first configured study.")
     parser.add_argument("--project", type=Path, help="Versioned project JSON or TOML; default: culvert_project.json.")
     parser.add_argument("--directory", type=Path, help="Working directory; default: wrapper directory.")
     parser.add_argument("--output-directory", type=Path, help="Output directory; default: culvert_results.")
@@ -406,6 +510,7 @@ if __name__ == "__main__":
         rating_points=args.points,
         console_log_level=args.console_log_level,
         event_file=args.events_csv,
+        study_name=args.study,
     )
     print_wrapper_banner(
         wrapper_file=Path(__file__),

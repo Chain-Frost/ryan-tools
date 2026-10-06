@@ -27,6 +27,8 @@ from .results import (
     ScenarioResult,
 )
 from .scenario import Scenario
+from .uncertainty import UncertaintyParameterSpec, UncertaintySamplingMode, UncertaintyStudy
+from .uncertainty_results import StudyEvaluation, StudyMetricSummary, StudySummary, UncertaintyStudyResult
 
 __all__: list[str] = [
     "Alternative",
@@ -52,4 +54,11 @@ __all__: list[str] = [
     "RoadwaySurfaceName",
     "Scenario",
     "ScenarioResult",
+    "StudyEvaluation",
+    "StudyMetricSummary",
+    "StudySummary",
+    "UncertaintyParameterSpec",
+    "UncertaintySamplingMode",
+    "UncertaintyStudy",
+    "UncertaintyStudyResult",
 ]

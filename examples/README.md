@@ -9,6 +9,7 @@ the library supplies reusable processing.
 - [`tuflow_workflow_demo.ipynb`](tuflow_workflow_demo.ipynb): notebook-oriented TUFLOW exploration.
 - [`logging_usage.py`](logging_usage.py): serial, multiprocessing and notebook-safe Loguru setup.
 - [`culvert_project.toml`](culvert_project.toml): complete schema-versioned culvert project with mixed groups,
-  roadway overtopping, fixed and Manning-channel tailwater, scenarios and an alternative.
+  roadway overtopping, fixed and Manning-channel tailwater, scenarios, an alternative and a sourced roughness
+  sensitivity study.
 
 Copy an example into project code and replace its paths, filters and output names. Do not edit installed package files.

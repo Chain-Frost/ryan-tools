@@ -1,49 +1,64 @@
-.mypy_cache/
-pyrightconfig.json
-ryan_functions.egg-info
+# =============================================================================
+# Python
+# =============================================================================
 
-build/
-%LOCALAPPDATA%
-
-# Local virtual environments
-.venv/
-
-# Ignore everything in the dist folder
-dist/*
-
-# Allow only files directly under dist
-!dist/*.*
-
-# Exclude folders and their contents under dist
-dist/*/
-# Exclude pytest cache directory
-.pytest_cache
-pytest-cache-files-*
-*.pyc
-
-# Python bytecode / caches
 __pycache__/
 *.py[cod]
 *.pyc.*
+*.egg-info/
 
-# Ignore all .xlsx files in the tests/test_data folder and its subfolders, such as from testing runs
-tests/test_data/tuflow/tutorials/**/*.xlsx
+# Virtual environments
+.venv/
+
+# Type checking / tooling caches
+.mypy_cache/
+.pytest_cache/
+pytest-cache-files-*
+
+# =============================================================================
+# Build / packaging
+# =============================================================================
+
+build/
+
+# Ignore subdirectories within dist, but allow files directly inside dist.
+dist/*/
+# If dist itself contains generated files that should also be ignored,
+# replace the above with simply:
+# dist/
+
+# =============================================================================
+# Test-generated files
+# =============================================================================
+
+# Generated Excel files in test data
 tests/test_data/**/*.xlsx
+
+# Python files generated/copied into test data
 tests/test_data/**/*.py
 
-# Others
-*/Thumbs.db
-*/~$*.xlsx
-**/*/~$*.xlsx
-tests/test_data/tuflow/Thumbs.db
 test_output.txt
 
+# =============================================================================
+# Coverage
+# =============================================================================
 
 # Coverage output is generated locally and must not be committed.
 .coverage
 coverage.xml
 coverage_report.txt
 htmlcov/
+
+# =============================================================================
+# Microsoft Office / Windows
+# =============================================================================
+
+Thumbs.db
+~$*.xlsx
+
+# =============================================================================
+# Project-specific generated files
+# =============================================================================
 
 ryan-scripts/misc-python/style_audit_report/styles_applied_summary.json
 ryan-scripts/misc-python/style_audit_report/styles_applied.csv

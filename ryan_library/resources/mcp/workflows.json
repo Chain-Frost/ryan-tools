@@ -11,48 +11,29 @@
       "profile": "analysis",
       "mutation": "read_only",
       "lifecycle": "experimental",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "culvert_analysis_design",
       "title": "Analyse and design culvert crossings",
       "domain": "hydraulics",
-      "purpose": "Solve, compare, rate and design culvert crossings through the maintained ryan-culverts workflow.",
+      "purpose": "Solve, compare, rate, design and evaluate bounded or seeded uncertainty studies through ryan-culverts; retain all outcomes in CSV/JSON/Markdown.",
       "script": "ryan-scripts/culvert.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ],
+      "headless_arguments": ["--no-pause"],
       "scenarios": [
         {
           "name": "analyse_project",
-          "arguments": [
-            "analyse",
-            "--project",
-            "{project_json}",
-            "--no-pause"
-          ]
+          "arguments": ["analyse", "--project", "{project_json}", "--no-pause"]
         },
         {
           "name": "compare_project",
-          "arguments": [
-            "compare",
-            "--project",
-            "{project_file}",
-            "--no-pause"
-          ]
+          "arguments": ["compare", "--project", "{project_file}", "--no-pause"]
         },
         {
           "name": "solve_scenario",
-          "arguments": [
-            "solve",
-            "--project",
-            "{project_json}",
-            "--no-pause"
-          ]
+          "arguments": ["solve", "--project", "{project_json}", "--no-pause"]
         },
         {
           "name": "design_crossing",
@@ -67,21 +48,15 @@
         },
         {
           "name": "rating_curve",
-          "arguments": [
-            "rating",
-            "--project",
-            "{project_json}",
-            "--no-pause"
-          ]
+          "arguments": ["rating", "--project", "{project_json}", "--no-pause"]
         },
         {
           "name": "render_saved_report",
-          "arguments": [
-            "report",
-            "--directory",
-            "{project_directory}",
-            "--no-pause"
-          ]
+          "arguments": ["report", "--directory", "{project_directory}", "--no-pause"]
+        },
+        {
+          "name": "uncertainty_study",
+          "arguments": ["uncertainty", "--project", "{project_file}", "--study", "{study_name}", "--console-log-level", "SUCCESS", "--no-pause"]
         }
       ]
     },
@@ -117,10 +92,7 @@
       "script": "ryan-scripts/TUFLOW-python/log_processing/create_log_summary_report.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-live-dashboard",
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-live-dashboard", "--no-pause"]
     },
     {
       "id": "tuflow_pomm_combine",
@@ -130,9 +102,7 @@
       "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/combine_pomm_results.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_po_combine",
@@ -142,9 +112,7 @@
       "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/combine_po_results.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_pomm_mean_peaks",
@@ -154,9 +122,7 @@
       "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_pomm_median_peaks",
@@ -166,9 +132,7 @@
       "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/create_pomm_median_peak_report.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_closure_durations",
@@ -178,9 +142,7 @@
       "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_culvert_mean_peaks",
@@ -190,9 +152,7 @@
       "script": "ryan-scripts/TUFLOW-python/culvert_results/create_mean_culvert_peak_report.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_culvert_median_peaks",
@@ -202,9 +162,7 @@
       "script": "ryan-scripts/TUFLOW-python/culvert_results/create_median_culvert_peak_report.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_culvert_maximums",
@@ -214,9 +172,7 @@
       "script": "ryan-scripts/TUFLOW-python/culvert_results/combine_culvert_maximums.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_culvert_timeseries",
@@ -226,9 +182,7 @@
       "script": "ryan-scripts/TUFLOW-python/culvert_results/combine_culvert_timeseries.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_timeseries_peak_check",
@@ -238,9 +192,7 @@
       "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/check_po_timeseries_peaks.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_timeseries_stability",
@@ -250,9 +202,7 @@
       "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/check_timeseries_stability.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_water_level_profiles",
@@ -262,9 +212,7 @@
       "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/plot_water_level_profiles.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "rorb_closure_durations",
@@ -274,9 +222,7 @@
       "script": "ryan-scripts/RORB-python/RORB-find-closure-durations.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "rorb_ensemble_plots",
@@ -286,9 +232,7 @@
       "script": "ryan-scripts/RORB-python/plot_ensemble_results.py",
       "profile": "create",
       "mutation": "creates_outputs",
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_log_summary_append_master",
@@ -299,9 +243,7 @@
       "profile": "privileged",
       "mutation": "in_place",
       "requires_explicit_approval": true,
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "tuflow_asc2asc_groups",
@@ -312,9 +254,7 @@
       "profile": "privileged",
       "mutation": "executes_external",
       "requires_explicit_approval": true,
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     },
     {
       "id": "run_tuflow_batch",
@@ -347,9 +287,7 @@
       "profile": "privileged",
       "mutation": "creates_or_replaces",
       "requires_explicit_approval": true,
-      "headless_arguments": [
-        "--no-pause"
-      ]
+      "headless_arguments": ["--no-pause"]
     }
   ]
 }

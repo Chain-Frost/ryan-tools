@@ -1,0 +1,12 @@
+{
+  "pythonVersion": "3.14",
+  "typeCheckingMode": "strict",
+  "include": ["."],
+  "extraPaths": [
+    "../../../ryan-scripts/TUFLOW-python",
+    "../../../ryan-scripts/gdal-python",
+    "../../../ryan-scripts/RORB-python",
+    "../../../ryan-scripts/hydrology-python",
+    "../../../ryan-scripts/other"
+  ]
+}

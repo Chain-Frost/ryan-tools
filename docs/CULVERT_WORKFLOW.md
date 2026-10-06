@@ -162,3 +162,86 @@ the saved `scenario_results.json` and regenerates Markdown without loading a pro
 Workflow code may select candidates, apply project criteria and format results, but it must not reproduce hydraulic
 relationships from `ryan-culverts`. Missing hydraulic behaviour belongs upstream in `ryan-culverts` and should be added
 there before being exposed through this workflow.
+
+## Uncertainty and sensitivity studies
+
+Project schema version 1 accepts an optional `uncertainty_studies` array. The
+[complete TOML example](../examples/culvert_project.toml) includes a synthetic bounded roughness study.
+Use project evidence for bounds and source references before applying it to engineering work.
+
+```powershell
+python ryan-scripts/culvert.py uncertainty --project C:\Project\culvert_project.toml `
+    --study "Roughness sensitivity" --console-log-level SUCCESS --no-pause
+```
+
+The Python entry point is `ryan_library.orchestrators.culvert.run_uncertainty_study(project, study)`.
+`UncertaintyStudy` and study results belong to the application layer; bounds, distributions, parameter identities,
+samples and expected failure records use the public `culvert_solver` contracts directly. Hydraulic calculations use
+`solve_crossing_hydraulics`, including upstream group allocation, roadway flow and tailwater resolution.
+
+Every study requires `name`, `sampling_mode`, `sample_count` and a nonempty `parameters` array. Each parameter requires
+`parameter`, `bounds` (`lower`, `upper`, `unit`) and `source` (`source_id`, `publication`, `edition`, `locator`,
+`applicability`; optional `url` and `notes`). Supported identities and canonical units are:
+
+| Parameter | Unit | Application |
+| --- | --- | --- |
+| `manning_roughness` | `s/m^(1/3)` | Replace roughness in every barrel group; retain its source as a user override. |
+| `entrance_loss_coefficient` | `1` | Attach a sourced coefficient to every barrel group. |
+| `discharge` | `m3/s` | Replace total crossing discharge; let the solver allocate flows. |
+| `tailwater_elevation` | `m` | Replace downstream boundary with an absolute elevation. |
+
+Values are absolute SI inputs, not multipliers or relative perturbations. Unvaried inputs retain their base definitions;
+unvaried flow-dependent tailwater is resolved at the sampled discharge. Group-specific variation and correlated
+distributions are not represented by this study policy.
+
+`bounded_sweep` forms a deterministic Cartesian grid with `sample_count` points per parameter, inclusive of both bounds
+when count is at least two; a single point uses the midpoint. It does not accept a seed. With `k` parameters the sample
+count is `sample_count ** k`. `monte_carlo` uses uniform bounds and requires an integer `seed`; it creates `sample_count`
+multi-parameter samples using the public sampler with `seed + parameter_index` for each parameter stream. Parameter
+order therefore forms part of reproducibility. Reproducibility assumes the same input definitions and solver version.
+
+Optional `crossing_names`, `scenario_names` and `alternative_names` select exact project names. Omitted or empty lists
+select all available members within an enabled target class; unknown or duplicate names fail explicitly.
+`include_base_crossings = false` disables base crossings, while `include_alternatives = false` disables alternatives.
+Both flags default to `true`, preserving the existing all-target behavior. A disabled target class requires its
+corresponding name selector to be empty. Setting `crossing_names` filters base crossings independently of the alternative
+selection; it does not imply a relationship between a crossing and an alternative. The entire matrix is checked against
+`maximum_evaluations` (default 10000) before samples are allocated or hydraulic evaluation starts. CLI `--crossing` and
+`--scenario` are rejected for uncertainty; put selections in the study. `--study` defaults to the editable wrapper
+setting or the first configured study. Imported `--events-csv` flows can supply the scenario matrix through the existing
+event boundary; they remain externally supplied hydrology. Discharge rows are geometry-independent. A
+`target_headwater_elevation_m` row is an inverse hydraulic solve and therefore requires the selected study to resolve
+to exactly one base crossing or alternative; the wrapper uses that target geometry and rejects ambiguous multi-target
+studies instead of deriving one discharge from an unrelated crossing.
+
+Every evaluation retains its sample, crossing, scenario, alternative, sources and full hydraulic result or expected
+failure. Input-domain and convergence exceptions become public `HydraulicEvaluationFailure` records with category,
+exception type, message, bracket and iteration evidence where supplied. Unexpected programming errors propagate.
+Valid, advisory, approximate and unresolved results retain their authoritative status and warnings; failed evaluations
+have a distinct `failed` outcome and no invented hydraulic result.
+
+Statistics are computed separately for each crossing/scenario/alternative. `aggregation_statuses` defaults to
+`["valid", "valid_with_advisory"]`; `"approximate"` can be explicitly included. Unresolved and failed outcomes always
+remain outside the statistics but visible in status counts and detailed output. Each metric includes its finite-value
+count, minimum, maximum, mean, configured percentiles and governing maximum sample ID. Defaults are P5/P50/P95;
+percentiles use linear interpolation at `(n-1)*p/100`. Empty populations have null statistics and no percentiles.
+These are conditional sample descriptions, not confidence limits; bounded-grid percentiles imply no probability model.
+
+Outputs include headwater elevation/depth, outlet velocity, total discharge, culvert/roadway discharge and each group
+discharge. Sampled discharge is an imposed flow, not a solved capacity. The separate design-search API remains the
+boundary for project acceptance criteria and candidate ranking; uncertainty summaries do not choose a preferred
+alternative across unrelated crossing sites.
+
+The wrapper writes `uncertainty_results.json` with study policy, input project, every evaluation and detailed solver
+evidence. Its project field is an audit snapshot, not a project-file interchange document. Public fixed, channel and rating
+tailwater boundaries retain their typed input definitions. Other Python boundary implementations are identified by type
+with an explicit unavailable-definition marker; retain their external configuration separately. Imported event overrides
+remain in the input snapshot even when a sample replaces the applied tailwater. The result-level event-override flag
+then correctly describes the applied boundary.
+
+It also writes `uncertainty_results.csv` (one row per outcome, including failures, with sourced parameter JSON and
+warning/failure cells), `uncertainty_summary.csv` (one row per metric with denominators, percentiles and governing sample
+IDs) and `uncertainty_results.md` (concise review summary). A completed study returns exit code 0 even when failed,
+unresolved, approximate or otherwise excluded outcomes are retained for engineering review; the wrapper emits a warning
+for those outcomes. Exit code 1 means a configuration, execution or export failure. Invalid CLI arguments retain
+`argparse` exit code 2. Existing files at these output names are overwritten, as with the other wrapper commands.

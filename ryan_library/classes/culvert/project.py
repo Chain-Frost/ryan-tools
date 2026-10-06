@@ -6,6 +6,7 @@ from .alternative import Alternative
 from .criteria import DesignCriteria
 from .crossing import CrossingDefinition
 from .scenario import Scenario
+from .uncertainty import UncertaintyStudy
 
 
 @dataclass(frozen=True, slots=True)
@@ -20,6 +21,7 @@ class CulvertProject:
     schema_version: int = 1
     source: str | None = None
     notes: str = ""
+    uncertainty_studies: tuple[UncertaintyStudy, ...] = ()
 
     def __post_init__(self) -> None:
         name = self.name.strip()
@@ -29,6 +31,10 @@ class CulvertProject:
         crossings = tuple(self.crossings)
         scenarios = tuple(self.scenarios)
         alternatives = tuple(self.alternatives)
+        studies = tuple(self.uncertainty_studies)
+        if len({study.name for study in studies}) != len(studies):
+            msg = "Uncertainty study names must be unique within a project."
+            raise ValueError(msg)
         if not crossings:
             msg = "crossings must contain at least one crossing."
             raise ValueError(msg)
@@ -54,6 +60,7 @@ class CulvertProject:
         object.__setattr__(self, "crossings", crossings)
         object.__setattr__(self, "scenarios", scenarios)
         object.__setattr__(self, "alternatives", alternatives)
+        object.__setattr__(self, "uncertainty_studies", studies)
         source = None if self.source is None else self.source.strip()
         object.__setattr__(self, "source", source or None)
         object.__setattr__(self, "notes", self.notes.strip())
