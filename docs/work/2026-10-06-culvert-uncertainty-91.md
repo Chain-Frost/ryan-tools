@@ -57,7 +57,8 @@ This validation session does not push, change the PR description or resolve remo
 
 The Codex review finding about imported target-headwater events has been addressed: uncertainty event import now resolves
 inverse target-headwater rows against the study's sole selected hydraulic target and explicitly rejects ambiguous
-multi-crossing/alternative studies rather than reusing a discharge derived from unrelated geometry.
+multi-crossing/alternative studies rather than reusing a discharge derived from unrelated geometry. The subsequent review
+confirmed the source change but identified that the committed wheel still predates `select_uncertainty_targets`.
 
 Group-specific variations, correlated distributions, solved capacity studies and automatic engineering acceptance or
 alternative ranking are outside the initial contract. The existing design-search workflow owns acceptance/ranking;
