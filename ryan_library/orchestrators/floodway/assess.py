@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 
-from ...classes.culvert import ScenarioResult
+from ...classes.culvert import CrossingDefinition, Scenario, ScenarioResult
 from ...classes.floodway import (
     FloodwayApplicabilityStatus,
     FloodwayEventEnvelope,
@@ -29,6 +29,9 @@ from ...functions.floodway import (
     mrwa_simplified_free_flow_applicable,
     mrwa_transition_submergence_ratio,
 )
+
+from ..culvert.solve import solve_crossing_scenario
+
 
 _DIRECT_MRWA_SURFACE_ZONES = {
     FloodwayZone.DOWNSTREAM_BATTER,
@@ -405,3 +408,16 @@ def build_floodway_envelope_from_assessments(
         if zone_assessment.demand is not None
     )
     return build_floodway_event_envelope(candidates)
+
+
+
+def assess_floodway_crossing(
+    crossing: CrossingDefinition,
+    scenarios: Sequence[Scenario],
+    formation: FloodwayFormation,
+) -> tuple[FloodwayScenarioAssessment, ...]:
+    """Solve and assess one crossing across the supplied hydraulic scenarios."""
+    return tuple(
+        assess_floodway_scenario(solve_crossing_scenario(crossing, scenario), formation)
+        for scenario in scenarios
+    )
