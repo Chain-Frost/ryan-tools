@@ -11,6 +11,7 @@ from .results import FloodwayZoneDemand, GoverningFloodwayDemand
 class FloodwayEnvelopeMetric(StrEnum):
     """Independent hydraulic-demand metrics retained by the event envelope."""
 
+    UNIT_DISCHARGE = "unit_discharge"
     VELOCITY = "velocity"
     DYNAMIC_PRESSURE = "dynamic_pressure"
     MOMENTUM_FLUX = "momentum_flux"
