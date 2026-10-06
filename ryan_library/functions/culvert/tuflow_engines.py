@@ -184,7 +184,7 @@ def _hy8_crossing(
         method=FlowMethod.USER_DEFINED,
         user_values=[max(seed_discharge_m3s, 0.05)],
     )
-    crossing.tailwater.set_constant(elevation=tailwater_elevation_m, invert=tailwater_elevation_m)
+    crossing.tailwater.set_constant(\n        elevation=tailwater_elevation_m,\n        invert=definition.outlet_invert_m,\n    )
     crossing.roadway.width = 10.0
     crossing.roadway.stations = [0.0, 10.0]
     crest = definition.inlet_invert_m + 50.0
