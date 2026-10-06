@@ -51,6 +51,7 @@ from collections.abc import Callable, Sequence
 from loguru import logger
 
 from ryan_library.classes.culvert import CrossingDefinition, Scenario
+from ryan_library.classes.floodway import FloodwayEventEnvelope, FloodwayScenarioAssessment
 from ryan_library.functions.culvert.config import load_project
 from ryan_library.functions.floodway import (
     export_floodway_envelope_json,
@@ -93,24 +94,12 @@ def _output_path(base: Path, configured: Path | None) -> Path:
 
 def _write_outputs(
     *,
-    assessments: Sequence[object],
-    envelope: object,
+    assessments: Sequence[FloodwayScenarioAssessment],
+    envelope: FloodwayEventEnvelope,
     output_directory: Path,
 ) -> None:
-    from ryan_library.classes.floodway import FloodwayEventEnvelope, FloodwayScenarioAssessment
-
-    typed_assessments = tuple(
-        item for item in assessments if isinstance(item, FloodwayScenarioAssessment)
-    )
-    if len(typed_assessments) != len(assessments):
-        msg = "Floodway assessment output contained an unexpected result type."
-        raise TypeError(msg)
-    if not isinstance(envelope, FloodwayEventEnvelope):
-        msg = "Floodway envelope output has an unexpected result type."
-        raise TypeError(msg)
-
     output_directory.mkdir(parents=True, exist_ok=True)
-    export_floodway_scenarios_json(typed_assessments, output_directory / "floodway_scenarios.json")
+    export_floodway_scenarios_json(assessments, output_directory / "floodway_scenarios.json")
     export_floodway_envelope_json(envelope, output_directory / "floodway_envelope.json")
     export_floodway_governors_csv(envelope, output_directory / "floodway_governors.csv")
     (output_directory / "floodway_envelope.md").write_text(
@@ -118,7 +107,7 @@ def _write_outputs(
         encoding="utf-8",
     )
     scenario_markdown = "\n\n---\n\n".join(
-        render_floodway_scenario_markdown(item) for item in typed_assessments
+        render_floodway_scenario_markdown(item) for item in assessments
     )
     (output_directory / "floodway_scenarios.md").write_text(
         scenario_markdown + ("\n" if scenario_markdown else ""),
