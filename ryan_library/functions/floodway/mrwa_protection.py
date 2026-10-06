@@ -6,6 +6,31 @@ from ...classes.floodway.protection import MrwaRockSlopeProtectionResult
 from ...classes.floodway.models import FloodwayApplicabilityStatus
 
 
+MRWA_CURRENT_FLOODWAY_GUIDANCE_SOURCE_ID = "MRWA-FLOODWAYS-V3-2023-06-12"
+MRWA_CURRENT_FLOODWAY_GUIDANCE: tuple[tuple[str, str], ...] = (
+    (
+        "pavement_protection_extent",
+        "Extend cement-stabilised pavement to the 1% AEP water level or the vertical-crest VPI, whichever is lower.",
+    ),
+    (
+        "embankment_protection_extent",
+        "Extend embankment scour protection beyond the floodway design length; 2% AEP is the desirable water-level extent.",
+    ),
+    (
+        "trafficability",
+        "The floodway is to remain trafficable for flows up to the nominated design AEP.",
+    ),
+    (
+        "approach_containment",
+        "Flows up to 2% AEP are to remain contained within the floodway approach without spilling elsewhere along the road.",
+    ),
+    (
+        "relief_culvert",
+        "Provide a relief culvert at the natural low point where needed to drain perennial or frequent flows and avoid ponding.",
+    ),
+)
+
+
 def select_mrwa_rock_slope_protection(velocity_ms: float) -> MrwaRockSlopeProtectionResult:
     """Return the MRWA 2006 Table 5.1 dumped-rock class for batter velocity.
 
