@@ -61,6 +61,30 @@
       ]
     },
     {
+      "id": "floodway_design_assessment",
+      "title": "Assess floodway overtopping design",
+      "domain": "hydraulics",
+      "purpose": "Assess overtopping floodway formation response and protection using authoritative ryan-culverts crossing hydraulics.",
+      "script": "ryan-scripts/floodway.py",
+      "profile": "create",
+      "mutation": "creates_outputs",
+      "headless_arguments": [
+        "--no-pause"
+      ],
+      "scenarios": [
+        {
+          "name": "assess_floodway",
+          "arguments": [
+            "--project",
+            "{project_file}",
+            "--formation",
+            "{formation_file}",
+            "--no-pause"
+          ]
+        }
+      ]
+    },
+    {
       "id": "tuflow_log_summary",
       "title": "TUFLOW log summary",
       "domain": "tuflow",

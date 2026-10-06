@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for final review |
+| Status | Active |
 | Owner | ChatGPT |
 | Created | 2026-10-06 |
 | Updated | 2026-10-06 |
-| Next review | Final PR review |
+| Next review | 2026-10-07 |
 | Baseline | `feature/culvert-uncertainty-91` from `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99`; `vendor/ryan_culverts` initially at `00f8274b4702bfe721d111436a15ae435f672460` |
 
 ## Outcome and scope
@@ -256,3 +256,18 @@ The wrapper now returns 0 after successfully writing outputs, while retaining th
 configuration, execution or export failures remain exit 1. `WRAPPER_VERSION` is now `2026-10-06.4`, the focused
 regression now expects success, and workflow documentation records the standard exit-code contract. The user will merge
 PR #94 manually; do not merge it from an agent session.
+
+
+### 2026-10-06 floodway-main merge resolution
+
+Resolved the local merge of `origin/main` at `aea0eb9` into branch head `9d127d3`. Combined uncertainty and floodway
+MCP documentation and catalogue entries, retained both work fronts in the register and documentation index, and
+corrected stale MCP uncertainty exit-code wording against the current wrapper. Removed the conflicting
+`dist/ryan_functions-26.10.6.2-py3-none-any.whl` at the user's request; rebuilding is deferred to the next step.
+
+Validation: `python -m pytest tests/culvert tests/floodway tests/mcp/test_registry.py -q --tb=short` with source package
+paths: **144 passed**. Default documentation/index and explicit links-only checks pass; diff whitespace checks pass.
+
+Git delivery: conflict resolutions marked in the index; merge remains uncommitted. Nothing pushed or merged on GitHub.
+Next action: rebuild and verify the bundled wheel, then review and commit the local merge. PR #94 remains for manual
+user merge. Next review: 2026-10-07. The unrelated repository backlog review remains overdue (2026-09-20).

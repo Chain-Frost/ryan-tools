@@ -54,7 +54,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Legacy GDAL | [Legacy GDAL batch files](../ryan-scripts/gdal-bat/README.md) | Mapping retained BAT entry points to maintained Python replacements |
 | Examples | [Examples index](../examples/README.md) | Choosing direct library examples instead of wrappers |
 | TUFLOW examples | [TUFLOW API examples](../examples/tuflow/README.md) | Filename parsing, processors, batch loading, PO checks and POMM summaries |
-| DataFrame examples | [DataFrame and export examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
+| DataFrame examples | [DataFrame examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
 | Rock-protection lookup data | [Outlet rock-protection data](../ryan_library/functions/data/README.md) | Source, interpretation and limits of the bundled multi-pipe lookup tables |
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Source algorithm, usage and licence for the vendored similarity-transform implementation |
@@ -86,8 +86,12 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [Floodway work record](work/2026-09-13-floodway-design-87.md) | Floodway implementation and validation |
+| [Floodway research](audits/2026-09-13-floodway-design-research.md) | Source baseline |
+| [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
+| [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
-| [Culvert uncertainty/sensitivity workflow](work/2026-10-06-culvert-uncertainty-91.md) | Issue #91 implementation synced with current main; refreshed 26.10.6.2 wheel validated and awaiting final PR review |
+| [Culvert uncertainty/sensitivity workflow](work/2026-10-06-culvert-uncertainty-91.md) | Issue #91 implementation; local main integration and wheel rebuild follow-up |
 | [Culvert workflow implementation](work/2026-09-13-culvert-workflow-80.md) | Active issue #80 implementation and validation/delivery status |
 | [Transactional package build and verification](work/2026-09-13-transactional-packaging.md) | Completed no-bump, verified and failure-safe wheel workflow implementation |
 | [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |
@@ -108,7 +112,7 @@ but they are not current architectural policy when they conflict with the canoni
 ## Where new Markdown belongs
 
 - Put repository-wide architecture, environments, logging, setup or cross-cutting maintenance guidance under `docs/`.
-- Put script-, processor-, example- or tool-specific guidance beside the files it describes. Do not move a useful local
+- Put script-, processor-, example- or tool-specific guidance beside the files they describe. Do not move a useful local
   README into `docs/` merely to centralise it.
 - Put dated audits and implementation plans under `docs/audits/`. Clearly label their date and whether the work is
   proposed, active, complete or superseded.

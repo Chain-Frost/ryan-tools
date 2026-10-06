@@ -53,11 +53,17 @@ required.
 The generic workflow catalogue and authoritative curated GDAL metadata are packaged with `ryan_functions`. Catalogued
 workflows resolve through their existing maintained repository wrappers so their CLI behavior has one source of truth.
 The `culvert_analysis_design` workflow exposes the maintained solve, analyse, compare, design, rating and saved-report
-commands, plus a bounded or seeded `uncertainty_study` scenario, as output-creating hydraulic workflows. Project-driven scenarios require an explicit versioned JSON or TOML
-path; saved-report rendering consumes existing structured output without rerunning hydraulics.
+commands, plus a bounded or seeded `uncertainty_study` scenario, as output-creating hydraulic workflows.
+Project-driven scenarios require an explicit versioned JSON or TOML path; saved-report rendering consumes existing
+structured output without rerunning hydraulics.
 Uncertainty discovery uses the same maintained wrapper with `--study`, `--console-log-level SUCCESS` and `--no-pause`.
-The study owns selection and the evaluation bound; outputs retain excluded statuses and failures. Exit code 2 signals
-completed output requiring review. See [culvert workflow](CULVERT_WORKFLOW.md#uncertainty-and-sensitivity-studies).
+The study owns selection and the evaluation bound; outputs retain excluded statuses and failures. Successfully written
+studies return exit code 0; invalid CLI arguments return 2 and configuration, execution or export failures return 1.
+See [culvert workflow](CULVERT_WORKFLOW.md#uncertainty-and-sensitivity-studies).
+
+The `floodway_design_assessment` workflow exposes the maintained floodway wrapper, combining the culvert project with a
+separate versioned floodway-formation JSON/TOML definition and creating scenario plus governing-envelope outputs.
+Hydrograph and closure-duration processing is deliberately excluded from that workflow.
 
 ## Repository workflow resolution
 
