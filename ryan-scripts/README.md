@@ -73,6 +73,13 @@ log messages, prompts, and failures remain visible.
 Versioned filenames usually indicate older standalone snapshots. Prefer an unversioned, library-backed wrapper when one
 exists. Keep project-specific paths, globs, and output names in wrappers; reusable behavior belongs in `ryan_library`.
 
+Maintained root-level hydraulic wrappers include:
+
+- `culvert.py` for culvert solve/analyse/design/rating workflows;
+- `floodway.py` for overtopping floodway formation assessment using a culvert project plus a separate versioned
+  floodway formation JSON/TOML definition. Hydrograph/closure-duration processing is intentionally not part of this
+  wrapper.
+
 ## Safety and verification
 
 - Start destructive or bulk file-management tools in dry-run mode when available, and keep a backup. Some tools rename,
