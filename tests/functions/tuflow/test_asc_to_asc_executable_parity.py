@@ -21,6 +21,7 @@ from ryan_library.functions.tuflow.asc_to_asc_runner import (
 )
 
 NODATA: float = -9999.0
+DEFAULT_ASC_TO_ASC_EXE: Path = Path(r"C:\TUFLOW\asc_to_asc.2024-06-AB\asc_to_asc_w64.exe")
 
 
 class _RasterWriter(Protocol):
@@ -43,10 +44,12 @@ class _RasterReader(Protocol):
 
 @pytest.fixture(scope="module")
 def asc_to_asc_executable() -> Path:
-    """Load the executable selected explicitly for parity testing."""
+    """Use an explicit executable override or the conventional local installation."""
     configured: str | None = os.environ.get("ASC_TO_ASC_EXE")
     if configured is None:
-        pytest.skip("Set ASC_TO_ASC_EXE to run executable parity tests")
+        if DEFAULT_ASC_TO_ASC_EXE.is_file():
+            return DEFAULT_ASC_TO_ASC_EXE.resolve()
+        pytest.skip("Default ASC_to_ASC executable not found; set ASC_TO_ASC_EXE to run executable parity tests")
     executable: Path = Path(configured).expanduser().resolve()
     if not executable.is_file():
         pytest.fail(f"ASC_TO_ASC_EXE does not identify a file: {executable}")

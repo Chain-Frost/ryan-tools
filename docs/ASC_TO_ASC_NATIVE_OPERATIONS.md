@@ -129,12 +129,13 @@ alignment metadata and source IDs exactly. It also verifies that both legends
 reference the generated input rasters. No generated comparison rasters are
 stored in the repository.
 
-Select the ASC_to_ASC build explicitly and run the test with:
+The tests use `C:\TUFLOW\asc_to_asc.2024-06-AB\asc_to_asc_w64.exe` when
+`ASC_TO_ASC_EXE` is unset. To select a different build, set the override before running:
 
 ```powershell
 $env:ASC_TO_ASC_EXE = 'C:\TUFLOW\asc_to_asc.2024-06-AB\asc_to_asc_w64.exe'
 python -m pytest tests/functions/tuflow/test_asc_to_asc_executable_parity.py -m slow
 ```
 
-The test skips when `ASC_TO_ASC_EXE` is unset and fails clearly when it points
-to a missing file.
+The tests skip when `ASC_TO_ASC_EXE` is unset and the default executable is missing.
+An explicit override is always respected and fails clearly when it points to a missing file.
