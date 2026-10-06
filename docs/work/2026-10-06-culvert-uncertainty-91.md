@@ -46,13 +46,16 @@ No uncertainty-domain distribution, bounds or sampled-parameter classes are reim
 
 Post-review-fix validation is complete. After merging current `main` into the feature branch, the final synced source
 was revalidated with the expanded 65-test culvert/MCP suite, lint/type/documentation checks, package verification and
-isolated installed-wheel smoke. The current bundled distribution is `26.10.6.2`; wrapper version remains
-`2026-10-06.2`.
+isolated installed-wheel smoke. The current bundled distribution is `26.10.6.2`. A final review follow-up corrected
+the wrapper's concise uncertainty count label from "samples" to "evaluations"; because this changes wrapper-visible
+output, `WRAPPER_VERSION` is now `2026-10-06.3`. The matching wrapper regression assertion was updated. This wrapper
+file is not packaged into the wheel, so the validated `26.10.6.2` library artifact is unchanged.
 
 ## Next action
 
 Obtain final PR review against the published head. PR #94 is synced with current `main`, mergeable, and remains
-intentionally unmerged. No known implementation, validation or packaging blocker remains.
+intentionally unmerged. The package validation remains current; the final wrapper-only wording change has a matching
+regression assertion and should receive the normal focused wrapper check before merge if a local runner is available.
 
 The latest Codex review identified that empty `alternative_names` meant "all alternatives" with no way to express a
 base-crossings-only study. The application policy now adds `include_alternatives` (default `true`); setting it to
@@ -231,3 +234,12 @@ Git delivery: the resolved merge was committed and pushed as `cfd621a0e9e4bfbeb7
 The branch is now based on current `main`, GitHub reports PR #94 as mergeable, and the refreshed
 `dist/ryan_functions-26.10.6.2-py3-none-any.whl` is published on the branch. Neither solver submodule was changed
 locally during conflict resolution. Next action: final PR review; do not merge without an explicit request.
+
+
+### 2026-10-06 final review wording follow-up
+
+Codex identified that the wrapper logged the full target × scenario × sample matrix count as "uncertainty samples".
+The summary now calls these "uncertainty evaluations", matching the actual `len(result.evaluations)` semantics.
+`WRAPPER_VERSION` was bumped to `2026-10-06.3` per the maintained wrapper standard and the existing wrapper regression
+assertion now checks the corrected wording. No `ryan_library` or packaged module changed, so the previously verified
+`26.10.6.2` wheel remains the current package artifact.
