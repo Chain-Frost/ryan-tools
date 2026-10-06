@@ -121,6 +121,9 @@ def test_physical_demands_remain_separate_quantities() -> None:
 
     assert demand.dynamic_pressure_pa == pytest.approx(dynamic_pressure(demand.velocity))
     assert demand.momentum_flux_per_width_npm == pytest.approx(momentum_flux_per_width(2.0, demand.velocity))
+    assert demand.depth_m == pytest.approx(2.0 / demand.velocity)
+    assert demand.froude_number is not None
+    assert demand.velocity_head_m == pytest.approx(demand.velocity**2 / (2.0 * 9.80665))
     assert demand.dynamic_pressure_pa != demand.momentum_flux_per_width_npm
 
 
