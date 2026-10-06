@@ -27,6 +27,12 @@ def test_markdown_report_keeps_demand_measures_separate() -> None:
             GoverningFloodwayDemand(
                 scenario_name="1% AEP",
                 aep_percent=1.0,
+                total_discharge=150.0,
+                roadway_discharge=20.0,
+                headwater_elevation=101.2,
+                tailwater_elevation=100.1,
+                flow_state=RoadwaySegmentState.FREE_UNSUBMERGED,
+                integration_station=15.0,
                 demand=FloodwayZoneDemand(
                     zone=FloodwayZone.DOWNSTREAM_BATTER,
                     unit_discharge=2.0,
@@ -47,6 +53,10 @@ def test_markdown_report_keeps_demand_measures_separate() -> None:
     assert "MRWA-FLOODWAY-DESIGN-GUIDE-2006-EQ4-7" in report
     assert "dynamic_pressure" in report
     assert "momentum_flux" in report
+    assert "150.000" in report
+    assert "20.000" in report
+    assert "free_unsubmerged" in report
+    assert "15.000" in report
     assert "does not combine them into a generic floodway force" in report
 
 
