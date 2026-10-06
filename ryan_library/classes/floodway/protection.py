@@ -84,3 +84,42 @@ class Hec23OvertoppingRiprapResult:
     def is_sufficient(self) -> bool:
         """Return whether the selected gradation and required layer checks are satisfied."""
         return self.meets_minimum_d50 and not self.requires_larger_gradation
+
+
+
+@dataclass(frozen=True, slots=True)
+class MrwaRockSlopeProtectionResult:
+    """MRWA 2006 Table 5.1 dumped-rock slope-protection selection."""
+
+    velocity_ms: float
+    rock_class: str
+    section_thickness_m: float | None
+    nominal_class_tonnes: float | None = None
+    no_rock_required: bool = False
+    requires_special_design: bool = False
+    applicability: FloodwayApplicabilityStatus = FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+    layer: FloodwayAssessmentLayer = FloodwayAssessmentLayer.MRWA_COMPLIANCE
+    source_id: str = "MRWA-FLOODWAY-DESIGN-GUIDE-2006-TABLE-5.1"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "velocity_ms", _nonnegative(self.velocity_ms, "velocity_ms"))
+        rock_class = self.rock_class.strip()
+        if not rock_class:
+            msg = "rock_class must be nonempty text."
+            raise ValueError(msg)
+        object.__setattr__(self, "rock_class", rock_class)
+        if self.section_thickness_m is not None:
+            object.__setattr__(
+                self,
+                "section_thickness_m",
+                _nonnegative(self.section_thickness_m, "section_thickness_m"),
+            )
+        if self.nominal_class_tonnes is not None:
+            object.__setattr__(
+                self,
+                "nominal_class_tonnes",
+                _nonnegative(self.nominal_class_tonnes, "nominal_class_tonnes"),
+            )
+        if self.no_rock_required and self.requires_special_design:
+            msg = "A protection result cannot require both no rock and special design."
+            raise ValueError(msg)
