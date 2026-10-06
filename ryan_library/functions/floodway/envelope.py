@@ -59,6 +59,8 @@ def build_floodway_event_envelope(
                     headwater_elevation=governing.headwater_elevation,
                     tailwater_elevation=governing.tailwater_elevation,
                     flow_state=governing.flow_state,
+                    assessment_applicability=governing.assessment_applicability,
+                    assessment_message=governing.assessment_message,
                 )
             )
 
