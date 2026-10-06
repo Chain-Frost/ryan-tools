@@ -489,9 +489,7 @@ def test_figure_4_6_out_of_range_preserves_other_zone_assessments() -> None:
 def test_active_zero_slope_surface_zone_fails_closed_without_aborting_assessment() -> None:
     formation = FloodwayFormation(
         name="Flat pavement",
-        zones=(
-            FloodwayFormationZone(zone=FloodwayZone.PAVEMENT, slope=0.0, roughness=0.015),
-        ),
+        zones=(FloodwayFormationZone(zone=FloodwayZone.PAVEMENT, slope=0.0, roughness=0.015),),
     )
     hydraulics = FloodwayScenarioHydraulics(
         scenario_name="Flat pavement event",

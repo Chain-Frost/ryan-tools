@@ -224,6 +224,28 @@ def _mrwa_velocity_limit_inputs(
     )
 
 
+def _submerged_pavement_applicability(depth_ratio: float | None) -> FloodwayApplicabilityStatus:
+    """Classify whether the local depth ratio supports the Appendix submerged method."""
+    if depth_ratio is not None and mrwa_appendix_submergence_reached(depth_ratio):
+        return FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+    return FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
+
+
+def _check_velocity_source_range(
+    delta_p: float | None,
+    upstream_head: float,
+    status: FloodwayApplicabilityStatus | None,
+    message: str,
+) -> tuple[FloodwayApplicabilityStatus | None, str]:
+    """Reject Figure 4.6 inputs beyond the published source domain."""
+    if delta_p is not None and delta_p / upstream_head > MRWA_FIGURE_4_6_MAX_DELTA_P_OVER_HEAD:
+        return (
+            FloodwayApplicabilityStatus.OUTSIDE_SOURCE_RANGE,
+            "Local delta_p/H is outside the MRWA Figure 4.6 source domain; no extrapolation is permitted.",
+        )
+    return status, message
+
+
 def assess_floodway_hydraulics(
     hydraulics: FloodwayScenarioHydraulics,
     formation: FloodwayFormation,
@@ -285,11 +307,7 @@ def assess_floodway_hydraulics(
             if segment.flow_state is RoadwaySegmentState.SUPPORTED_SUBMERGED:
                 if zone is FloodwayZone.PAVEMENT and segment.downstream_head > 0.0:
                     depth_ratio, threshold_note = _mrwa_depth_ratio_context(segment)
-                    applicability = (
-                        FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
-                        if depth_ratio is not None and mrwa_appendix_submergence_reached(depth_ratio)
-                        else FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
-                    )
+                    applicability = _submerged_pavement_applicability(depth_ratio)
                     velocity_result = calculate_mrwa_submerged_pavement_velocity(
                         unit_discharge=segment.unit_discharge,
                         downstream_depth=segment.downstream_head,
@@ -380,9 +398,9 @@ def assess_floodway_hydraulics(
                 formation=formation,
                 zone=zone,
             )
-            if delta_p is not None and delta_p / segment.upstream_head > MRWA_FIGURE_4_6_MAX_DELTA_P_OVER_HEAD:
-                limiting_status = FloodwayApplicabilityStatus.OUTSIDE_SOURCE_RANGE
-                message = "Local delta_p/H is outside the MRWA Figure 4.6 source domain; no extrapolation is permitted."
+            limiting_status, message = _check_velocity_source_range(
+                delta_p, segment.upstream_head, limiting_status, message
+            )
             if (
                 limiting_status is FloodwayApplicabilityStatus.NOT_APPLICABLE
                 or limiting_status is FloodwayApplicabilityStatus.OUTSIDE_SOURCE_RANGE

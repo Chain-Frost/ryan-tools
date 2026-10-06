@@ -8,7 +8,7 @@
 | Updated | 2026-10-06 |
 | Next review | 2026-10-13 |
 | Branch | `feature/floodway-design-87` / PR #88 |
-| Baseline | Local merge `2d978b6` incorporates `origin/main` (`beb1011`); 0 commits behind main |
+| Baseline | PR head `a90bbae`; local lint repairs are unstaged; incorporates `origin/main` (`beb1011`) |
 
 ## Outcome and scope
 
@@ -253,3 +253,20 @@ Validated `ff77c9bd947ddc5590ab775d8ec7d9c3636aee3e` plus local repairs using no
   `fa4e784` and `beb1011`. `git rev-list --count HEAD..origin/main`: **0**.
 - Merge complete, no unresolved paths, version remains `26.10.6.1`. Nothing pushed; PR #88 remains draft and unmerged.
 - This status-record/register update remains unstaged and uncommitted; the merge itself is committed locally.
+
+### PR head lint and validation refresh - 2026-10-06
+
+- Validated current local/GitHub PR head `a90bbae`; PR is open, review-ready and unmerged.
+  GitHub reports no workflow runs on this head. All four review findings have addressed replies.
+- Fixed two C901 complexity failures by extracting threshold-input validation and local source/applicability
+  classification; formatted the sweep and zero-slope regression. Hydraulic decisions remain unchanged.
+- Changed-Python Ruff lint/format and strict Pyright pass (zero errors/warnings).
+- Final `python -m pytest tests/floodway tests/culvert tests/mcp -q`: **128 passed** in 60.92 seconds.
+- Logging policy, default documentation/index checks, explicit changed-document links, changed-Markdown lint
+  with MD013 excluded, wrapper compilation and diff whitespace checks pass.
+- Built and verified version `26.10.6.2`, then rebuilt final sources with `--no-bump --skip-pip`.
+  Wheel SHA-256: `1718fa925c85b3def050e3efb68571a04056116187739266d9d8d6938b39b79a`.
+- Temporary target install, installed-package import-root smoke and copied-wrapper help pass.
+- Full suite not repeated; the historical five failures remain separately tracked in issue #95.
+- Source, test formatting, metadata, wheel replacement and this handoff are unstaged/uncommitted.
+  Nothing committed, pushed or merged in this validation session. Next action: review and commit the local repairs.

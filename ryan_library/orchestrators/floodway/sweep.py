@@ -43,16 +43,13 @@ def _roadway_submerged(result: ScenarioResult) -> bool:
     return any(segment.flow_state.value == "supported_submerged" for segment in roadway_result.segment_results)
 
 
-def _find_first_condition_discharge(
-    crossing: CrossingDefinition,
-    base_scenario: Scenario,
-    *,
+def _validate_threshold_search(
     maximum_discharge: float,
-    condition: Callable[[ScenarioResult], bool],
     tolerance: float,
-    minimum_discharge: float | None = None,
-    scan_intervals: int | None = None,
-) -> float | None:
+    minimum_discharge: float | None,
+    scan_intervals: int | None,
+) -> None:
+    """Validate discharge bounds and optional interior scan resolution."""
     if maximum_discharge <= 0.0:
         msg = "maximum_discharge must be strictly positive."
         raise ValueError(msg)
@@ -66,11 +63,20 @@ def _find_first_condition_discharge(
         msg = "scan_intervals must be at least 1 when supplied."
         raise ValueError(msg)
 
-    lower = (
-        minimum_discharge
-        if minimum_discharge is not None
-        else max(min(maximum_discharge * 1e-6, 1e-4), 1e-9)
-    )
+
+def _find_first_condition_discharge(
+    crossing: CrossingDefinition,
+    base_scenario: Scenario,
+    *,
+    maximum_discharge: float,
+    condition: Callable[[ScenarioResult], bool],
+    tolerance: float,
+    minimum_discharge: float | None = None,
+    scan_intervals: int | None = None,
+) -> float | None:
+    _validate_threshold_search(maximum_discharge, tolerance, minimum_discharge, scan_intervals)
+
+    lower = minimum_discharge if minimum_discharge is not None else max(min(maximum_discharge * 1e-6, 1e-4), 1e-9)
     lower_result = solve_crossing_scenario(
         crossing,
         _scenario_at_discharge(
