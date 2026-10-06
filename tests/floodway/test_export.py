@@ -10,6 +10,7 @@ from ryan_library.classes.floodway import (
     FloodwayZone,
     FloodwayZoneDemand,
     GoverningFloodwayDemand,
+    RoadwaySegmentState,
 )
 from ryan_library.functions.floodway.envelope import build_floodway_event_envelope
 from ryan_library.functions.floodway.export import (
@@ -22,6 +23,11 @@ def _candidate() -> GoverningFloodwayDemand:
     return GoverningFloodwayDemand(
         scenario_name="2% AEP",
         aep_percent=2.0,
+        total_discharge=150.0,
+        roadway_discharge=24.0,
+        headwater_elevation=101.1,
+        tailwater_elevation=100.2,
+        flow_state=RoadwaySegmentState.FREE_UNSUBMERGED,
         demand=FloodwayZoneDemand(
             zone=FloodwayZone.PAVEMENT,
             unit_discharge=1.8,
@@ -44,6 +50,9 @@ def test_json_export_retains_candidates_governors_and_provenance(tmp_path: Path)
 
     assert payload["candidates"][0]["scenario"] == "2% AEP"
     assert payload["candidates"][0]["demand"]["zone"] == "D"
+    assert payload["candidates"][0]["total_discharge_m3s"] == 150.0
+    assert payload["candidates"][0]["roadway_discharge_m3s"] == 24.0
+    assert payload["candidates"][0]["flow_state"] == "free_unsubmerged"
     assert payload["candidates"][0]["demand"]["source_id"] == "MRWA-FLOODWAY-DESIGN-GUIDE-2006-EQ4-7"
     assert {item["metric"] for item in payload["governors"]} == {
         "velocity",
@@ -63,3 +72,6 @@ def test_csv_export_is_compact_governor_summary(tmp_path: Path) -> None:
     assert {row["metric"] for row in rows} == {"velocity", "dynamic_pressure", "momentum_flux"}
     assert all(row["zone"] == "D" for row in rows)
     assert all(row["scenario"] == "2% AEP" for row in rows)
+    assert all(row["total_discharge_m3s"] == "150.0" for row in rows)
+    assert all(row["roadway_discharge_m3s"] == "24.0" for row in rows)
+    assert all(row["flow_state"] == "free_unsubmerged" for row in rows)
