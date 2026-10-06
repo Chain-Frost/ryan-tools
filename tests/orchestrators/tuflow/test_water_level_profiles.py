@@ -90,7 +90,8 @@ def test_workflow_infers_missing_line_crs_from_rasters(tmp_path: Path) -> None:
         geometry=[LineString(((0.5, 3.5), (3.5, 3.5)))],
         crs=None,
     )
-    lines.to_file(lines_path, layer="profiles")
+    with pytest.warns(UserWarning, match="'crs' was not provided"):
+        lines.to_file(lines_path, layer="profiles")
     terrain = _write_raster(tmp_path / "terrain.tif", 1.0)
     results = tmp_path / "results"
     _write_raster(results / "01.00p" / "Model_01.00p_h_HR_Max.tif", 2.0)
@@ -194,11 +195,13 @@ def test_workflow_assumes_shared_coordinates_when_all_crs_metadata_is_missing(
     tmp_path: Path,
 ) -> None:
     lines_path = tmp_path / "profiles.gpkg"
-    gpd.GeoDataFrame(
+    lines = gpd.GeoDataFrame(
         {"Code": ["A"]},
         geometry=[LineString(((0.5, 3.5), (3.5, 3.5)))],
         crs=None,
-    ).to_file(lines_path, layer="profiles")
+    )
+    with pytest.warns(UserWarning, match="'crs' was not provided"):
+        lines.to_file(lines_path, layer="profiles")
     terrain = _write_raster(tmp_path / "terrain.tif", 1.0, crs=None)
     results = tmp_path / "results"
     _write_raster(results / "Model_01.00p_h_HR_Max.tif", 2.0, crs=None)

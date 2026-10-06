@@ -1,0 +1,248 @@
+name: Python CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: Policy
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Initialise required vendored packages
+        shell: pwsh
+        run: |
+          git submodule sync -- vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git submodule update --init vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: Install development dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/install_latest_wheel.py --dependencies-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Check changed Python files
+        shell: pwsh
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          $base = $env:BASE_SHA
+          if (-not $base -or $base -match '^0+$') {
+            $base = git rev-parse "$env:GITHUB_SHA^"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+          $pythonFiles = @(
+            git diff --name-only --diff-filter=ACMR "$base...$env:GITHUB_SHA" -- "*.py" |
+              Where-Object {
+                $_ -and
+                $_ -notmatch '^(vendor|tests/test_data|unsorted|qgis-resources|excel-resources)/'
+              }
+          )
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          if ($pythonFiles.Count -eq 0) {
+            Write-Host "No changed first-party Python files."
+            exit 0
+          }
+
+          Write-Host "Checking changed Python files:"
+          $pythonFiles | ForEach-Object { Write-Host " - $_" }
+
+          python -m ruff check $pythonFiles
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m ruff format --check $pythonFiles
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pyright $pythonFiles
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Check documentation and logging policy
+        shell: pwsh
+        run: |
+          python repo-scripts/check_documentation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/check_loguru_formatting.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  hosted-tests:
+    name: Hosted tests
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      MPLBACKEND: Agg
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Initialise required test submodules
+        shell: pwsh
+        run: |
+          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: Install development dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/install_latest_wheel.py --dependencies-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run hosted test boundary
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path test-results | Out-Null
+          python -m pytest tests `
+            --ignore=tests/functions/gdal `
+            --ignore=tests/orchestrators/gdal `
+            --ignore=tests/scripts/gdal/test_gdal_flood_extent.py `
+            --ignore=tests/scripts/test_promoted_utilities.py `
+            --ignore=tests/scripts/test_archive_compress.py `
+            -m "not gdal and not gui and not external" `
+            -rs `
+            --junitxml=test-results/hosted-tests.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: hosted-test-report
+          path: test-results/hosted-tests.xml
+          if-no-files-found: warn
+
+  package:
+    name: Package
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Initialise package resources
+        shell: pwsh
+        run: |
+          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: Install development dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/install_latest_wheel.py --dependencies-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify retained wheel
+        shell: pwsh
+        run: |
+          python repo-scripts/verify_wheel.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Rebuild current version and verify
+        shell: pwsh
+        run: |
+          $before = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          python repo-scripts/build_library.py --no-bump --skip-pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          python repo-scripts/verify_wheel.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $after = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($before -ne $after) {
+            throw "No-bump package verification changed the declared version: $before -> $after"
+          }
+
+      - name: Smoke-test isolated installed wheel
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP "ryan-functions-wheel-install"
+          Remove-Item -Recurse -Force $target -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+
+          $wheel = @(Get-ChildItem -LiteralPath dist -Filter "ryan_functions-*.whl" -File)
+          if ($wheel.Count -ne 1) { throw "Expected exactly one retained ryan_functions wheel." }
+
+          python -m pip install --no-deps --target $target $wheel[0].FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $env:PYTHONPATH = $target
+          Push-Location $env:RUNNER_TEMP
+          try {
+            python "$env:GITHUB_WORKSPACE/repo-scripts/smoke_test_installed_wheel.py" --expected-root $target
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Upload verified wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: verified-ryan-functions-wheel
+          path: dist/ryan_functions-*.whl
+          if-no-files-found: error

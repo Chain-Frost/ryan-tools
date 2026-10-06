@@ -21,6 +21,7 @@ fronts.
 
 | Work front / status record | Status | Owner | Updated | Next review | Outcome |
 | --- | --- | --- | --- | --- | --- |
+| [GitHub CI implementation](2026-10-07-github-ci.md) | Complete | ChatGPT | 2026-10-07 | None | Added Windows/Python 3.14 Policy, Hosted tests and Package jobs with explicit capability boundaries. Run #7 at `ad69ef4` passed all three jobs; Hosted tests reported 937 passed and 5 deselected. PR #96 is ready for maintainer review and manual merge. |
 | [Culvert uncertainty/sensitivity workflow](2026-10-06-culvert-uncertainty-91.md) | Complete | ChatGPT | 2026-10-06 | None | 144 focused tests and policy checks pass; verified 26.10.6.3 wheel and installed-wrapper smoke pass. Final artifact published in 35035b8; authorized PR #94 squash merge follows final head check. |
 | [Transactional package build and verification](2026-09-13-transactional-packaging.md) | Complete | Unassigned | 2026-09-13 | — | Added no-bump transactional builds, wheel verification, installed-wheel smoke coverage and focused failure-path tests; recorded upstream follow-ups. |
 | [TUFLOW statistic-then-maximum raster workflow](2026-09-09-tuflow-stat-then-maximum.md) | Complete | Unassigned | 2026-09-10 | — | Shared mean/median orchestration, configurable ASC_to_ASC-default mean selection, flattened TP provenance and compatibility shims completed. |

@@ -85,7 +85,7 @@ def _verify_source_files(
         raise ValueError(msg)
     for source_file in source_files:
         archive_name = f"{archive_directory}/{source_file.relative_to(source_directory).as_posix()}"
-        if archive.read(archive_name) != source_file.read_bytes():
+        if _normalized(archive.read(archive_name)) != _normalized(source_file.read_bytes()):
             msg = f"Packaged resource differs from repository source: {archive_name}"
             raise ValueError(msg)
 

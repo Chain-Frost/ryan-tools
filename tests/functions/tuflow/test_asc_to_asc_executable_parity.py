@@ -121,6 +121,7 @@ def _assert_external_legend_lists_inputs(output_directory: Path, input_files: tu
         assert input_file.name in legend_text
 
 
+@pytest.mark.external
 @pytest.mark.slow
 @pytest.mark.parametrize(
     ("operation", "mean_value_method"),

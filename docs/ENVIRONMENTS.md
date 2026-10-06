@@ -85,6 +85,42 @@ The retained wheel can be checked independently with:
 py -3.14 repo-scripts\verify_wheel.py
 ```
 
+## GitHub Actions CI
+
+The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes to `main` using Windows and Python
+3.14. It has independent policy, hosted-test and package jobs so a policy failure does not hide runtime or packaging
+results.
+
+The hosted test job initialises only `qgis-resources`, `vendor/run_hy8`, `vendor/ryan_culverts` and
+`tests/test_data`. The QGIS repository is used only as test/resource data; no QGIS application is launched. The job
+installs the repository's binary GIS dependency bootstrap, sets `MPLBACKEND=Agg`, and runs:
+
+```powershell
+python -m pytest tests `
+  --ignore=tests/functions/gdal `
+  --ignore=tests/orchestrators/gdal `
+  --ignore=tests/scripts/gdal/test_gdal_flood_extent.py `
+  --ignore=tests/scripts/test_promoted_utilities.py `
+  --ignore=tests/scripts/test_archive_compress.py `
+  -m "not gdal and not gui and not external" `
+  -rs
+```
+
+The ignored modules import `osgeo` directly or through production modules during collection, so marker deselection alone
+cannot make them a valid normal-Python hosted boundary. Rasterio/Fiona tests, native ASC processing, wrapper dry runs,
+mocked subprocess behavior remain in the hosted set. The real 7-Zip archive integration module is deliberately
+excluded from hosted CI and remains an optional local check. Tests marked `external` require an explicitly supplied
+application or executable; the ASC_to_ASC parity tests remain local and use `ASC_TO_ASC_EXE`.
+
+The package job initialises `qgis-resources` plus the two vendored Python packages, verifies the retained wheel,
+performs a `--no-bump` rebuild, verifies the rebuilt artifact, confirms the declared version is unchanged, then
+installs the wheel into a temporary target and runs the installed-wheel smoke test
+outside the checkout with `--expected-root`. The verified wheel and hosted JUnit report are uploaded as workflow
+artifacts.
+
+Real `osgeo`/GDAL integration is deliberately not claimed by this initial workflow. Run those tests in a compatible
+GDAL/QGIS/OSGeo4W environment until a reliable Python 3.14 hosted GDAL installation is established.
+
 ## QGIS, OSGeo4W and GDAL
 
 QGIS and OSGeo4W can supply different Python packages, GDAL binaries, drivers and environment variables from the normal

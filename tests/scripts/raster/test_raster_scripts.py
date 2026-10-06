@@ -50,7 +50,7 @@ def test_tif_to_xyz_drops_nodata_cells(raster_test_data: Path, tmp_path: Path, m
     monkeypatch.setattr(module, "OUT_FOLDER", str(output_directory))
     monkeypatch.setattr(module, "DROP_NA", True)
 
-    module.process_tif_file(str(copied))  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
+    module.process_tif_file(copied)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
 
     output = output_directory / "non_square_cells_mod.xyz"
     lines = output.read_text(encoding="utf-8").splitlines()

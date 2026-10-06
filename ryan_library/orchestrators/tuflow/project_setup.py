@@ -12,6 +12,7 @@ import re
 import shutil
 import sqlite3
 import subprocess
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Literal, cast
@@ -398,7 +399,7 @@ def _create_working_layer_from_empty(
 def _read_fiona_schema(*, source_path: Path, source_layer: str) -> dict[str, object]:
     """Read a complete Fiona schema, including fields Fiona may omit."""
     uri: str = f"file:{source_path.as_posix()}?mode=ro"
-    with sqlite3.connect(database=uri, uri=True) as connection:
+    with closing(sqlite3.connect(database=uri, uri=True)) as connection:
         layer_row = connection.execute(
             "SELECT geometry_type_name FROM gpkg_geometry_columns WHERE lower(table_name) = lower(?)",
             (source_layer,),
