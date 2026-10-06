@@ -9,7 +9,9 @@ from ryan_library.functions.floodway import (
     calculate_mrwa_surface_velocity,
     dynamic_pressure,
     momentum_flux_per_width,
+    mrwa_appendix_submergence_reached,
     mrwa_figure_4_6_k,
+    mrwa_simplified_free_flow_applicable,
     mrwa_specific_energy,
     mrwa_steady_state_velocity,
     mrwa_transition_submergence_ratio,
@@ -137,3 +139,11 @@ def test_mrwa_submerged_pavement_velocity_uses_q_over_downstream_depth() -> None
     assert result.velocity == pytest.approx(3.0)
     assert result.downstream_depth == pytest.approx(0.4)
     assert result.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+
+
+
+def test_mrwa_source_thresholds_remain_distinct() -> None:
+    assert mrwa_simplified_free_flow_applicable(0.759)
+    assert not mrwa_simplified_free_flow_applicable(0.76)
+    assert not mrwa_appendix_submergence_reached(0.799)
+    assert mrwa_appendix_submergence_reached(0.8)
