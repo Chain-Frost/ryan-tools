@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import shutil
 from math import isfinite
 from pathlib import Path
 from typing import Any, cast
@@ -152,12 +153,25 @@ def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
         raise FileExistsError(msg)
 
 
-def _workspace(root: Path | None, crossing: str, scenario: str) -> Path | None:
+def _workspace(
+    root: Path | None,
+    crossing: str,
+    aep: str,
+    scenario: str,
+    *,
+    overwrite: bool,
+) -> Path | None:
     if root is None:
         return None
-    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in f"{crossing}_{scenario}")
+    run_key = f"{crossing}_{aep or 'no-aep'}_{scenario}"
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in run_key)
     path = root / safe
-    path.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        if not overwrite:
+            msg = f"HY-8 workspace already exists: {path}. Pass --overwrite to replace it."
+            raise FileExistsError(msg)
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=False)
     return path
 
 
@@ -199,7 +213,17 @@ def run(args: argparse.Namespace) -> int:
 
             for mode, scenario, value, tailwater in cases:
                 try:
-                    work = _workspace(workspace_root, crossing, scenario)
+                    work = (
+                        _workspace(
+                            workspace_root,
+                            crossing,
+                            aep,
+                            scenario,
+                            overwrite=args.overwrite,
+                        )
+                        if engine is CulvertEngine.HY8
+                        else None
+                    )
                     if mode == "forward":
                         result = solve_tuflow_culvert_forward(
                             definition,
