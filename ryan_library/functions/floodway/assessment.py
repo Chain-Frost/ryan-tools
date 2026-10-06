@@ -13,12 +13,14 @@ from ...classes.floodway import (
 )
 from .hydraulics import (
     dynamic_pressure,
+    froude_number_rectangular,
     governing_velocity,
     momentum_flux_per_width,
     mrwa_figure_4_6_k,
     mrwa_maximum_attainable_velocity,
     mrwa_specific_energy,
     mrwa_steady_state_velocity,
+    velocity_head,
 )
 
 
@@ -116,7 +118,12 @@ def build_submerged_pavement_demand(
             velocity_result.unit_discharge,
             velocity_result.velocity,
         ),
+        velocity_head_m=velocity_head(velocity_result.velocity),
         depth_m=velocity_result.downstream_depth,
+        froude_number=froude_number_rectangular(
+            velocity_result.velocity,
+            velocity_result.downstream_depth,
+        ),
         applicability=velocity_result.applicability,
         layer=velocity_result.layer,
         source_id=velocity_result.source_id,
@@ -128,6 +135,7 @@ def build_zone_demand(
 ) -> FloodwayZoneDemand:
     """Convert a supported/intermediate velocity result into distinct physical demands."""
     velocity = velocity_result.adopted_velocity
+    depth = velocity_result.unit_discharge / velocity if velocity > 0.0 else None
     return FloodwayZoneDemand(
         zone=velocity_result.zone,
         unit_discharge=velocity_result.unit_discharge,
@@ -135,6 +143,9 @@ def build_zone_demand(
         dynamic_pressure_pa=dynamic_pressure(velocity),
         momentum_flux_per_width_npm=momentum_flux_per_width(velocity_result.unit_discharge, velocity),
         specific_energy_m=velocity_result.specific_energy,
+        velocity_head_m=velocity_head(velocity),
+        depth_m=depth,
+        froude_number=None if depth is None or depth <= 0.0 else froude_number_rectangular(velocity, depth),
         applicability=velocity_result.applicability,
         layer=(
             FloodwayAssessmentLayer.MRWA_COMPLIANCE
