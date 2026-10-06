@@ -19,6 +19,7 @@ def test_floodway_formation_json_round_trip_retains_supported_inputs(tmp_path: P
                 "schema_version": 1,
                 "name": "Seven Mile style formation",
                 "crest_flow_length_m": 9.0,
+                "two_d_verification_reason": "Skewed approach flow requires spatial verification.",
                 "zones": [
                     {
                         "zone": "D",
@@ -50,6 +51,7 @@ def test_floodway_formation_json_round_trip_retains_supported_inputs(tmp_path: P
     formation = load_floodway_formation_json(source)
 
     assert formation.crest_flow_length == 9.0
+    assert formation.two_d_verification_reason == "Skewed approach flow requires spatial verification."
     assert formation.get_zone(FloodwayZone.PAVEMENT) is not None
     batter = formation.get_zone(FloodwayZone.DOWNSTREAM_BATTER)
     assert batter is not None
