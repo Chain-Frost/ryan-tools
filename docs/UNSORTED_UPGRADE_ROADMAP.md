@@ -4,18 +4,18 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review |
+| Status | Cancelled |
 | Owner | Unassigned |
-| Updated | 2026-09-06 |
-| Next review | 2026-09-20 |
-| Baseline for registration | `main` / `f7118e2`; detailed migration evidence below predates this registration |
+| Updated | 2026-10-06 |
+| Next review | — |
+| Baseline for registration | Historical migration record; cancellation was recorded in the work register on 2026-09-13 |
 
-Registered in the [work register](work/README.md) under the [work-tracking convention](WORK_TRACKING.md).
-The next action is to reconcile unchecked/in-progress items below with current parent/submodule source and validation,
-then select a bounded migration. No migration statuses or historical results were revalidated during registration.
-Blockers: none established by this documentation review; runtime/environment dependencies need checking per candidate.
-Completion criteria remain the tracked replacement, focused validation and finalized source disposition defined below.
-This handoff is a documentation edit only, uncommitted; preserve pre-existing staged code and independent submodule state.
+This migration front was cancelled on 13 September 2026 and is closed in the
+[work register](work/README.md). The `unsorted` submodule is excluded from automated inspection and validation; no
+further migration review is authorised. The material below is retained as historical implementation evidence only.
+Do not resume unchecked or in-progress items from this document unless a maintainer explicitly creates a new bounded
+work front. This top-level metadata was reconciled on 6 October 2026 because the obsolete review date was still being
+surfaced by agents.
 
 ## Conversion Standards
 
