@@ -217,6 +217,13 @@ def froude_number_rectangular(
     return v / sqrt(g * y)
 
 
+def velocity_head(velocity: float, *, gravity: float = GRAVITATIONAL_ACCELERATION) -> float:
+    """Return velocity head V^2/(2g) in metres."""
+    v = _nonnegative(velocity, "velocity")
+    g = _positive(gravity, "gravity")
+    return v * v / (2.0 * g)
+
+
 def dynamic_pressure(velocity: float, *, density: float = STANDARD_WATER_DENSITY) -> float:
     """Return ``0.5 rho V^2`` dynamic pressure in pascals."""
     v = _nonnegative(velocity, "velocity")
