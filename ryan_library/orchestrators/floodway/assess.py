@@ -25,6 +25,8 @@ from ...functions.floodway import (
     calculate_mrwa_submerged_pavement_velocity,
     calculate_mrwa_surface_velocity,
     evaluate_hec23_overtopping_riprap,
+    mrwa_appendix_submergence_reached,
+    mrwa_simplified_free_flow_applicable,
     mrwa_transition_submergence_ratio,
 )
 
@@ -39,6 +41,29 @@ _SPECIALIST_ZONE_MESSAGES: dict[FloodwayZone, str] = {
     FloodwayZone.UPSTREAM_BATTER: "No general upstream-batter capacity method is adopted in this increment.",
     FloodwayZone.FOUNDATION: "Foundation uplift, seepage and piping require specialist/geotechnical assessment.",
 }
+
+
+def _mrwa_depth_ratio_context(segment: RoadwaySegmentHydraulicState) -> tuple[float | None, str]:
+    """Return D/H and a source-specific threshold note without changing solver state."""
+    if segment.upstream_head <= 0.0:
+        return None, "No positive upstream head is available for an MRWA D/H check."
+
+    ratio = segment.downstream_head / segment.upstream_head
+    if mrwa_simplified_free_flow_applicable(ratio):
+        return (
+            ratio,
+            f"D/H={ratio:.3f} is within the Section 4.4.3 simplified free-flow range D/H < 0.76.",
+        )
+    if not mrwa_appendix_submergence_reached(ratio):
+        return (
+            ratio,
+            f"D/H={ratio:.3f} is above the Section 4.4.3 0.76 limit but below the Appendix C/D "
+            "legacy point of submergence at 0.8; the source thresholds are retained separately.",
+        )
+    return (
+        ratio,
+        f"D/H={ratio:.3f} reaches or exceeds the Appendix C/D legacy point of submergence at 0.8.",
+    )
 
 
 def _hec23_protection_result(
@@ -78,6 +103,20 @@ def _mrwa_velocity_limit_inputs(
     if head <= 0.0:
         return None, FloodwayApplicabilityStatus.NOT_APPLICABLE, "No positive upstream head is available."
 
+    depth_ratio, threshold_note = _mrwa_depth_ratio_context(segment)
+    if (
+        segment.flow_state is RoadwaySegmentState.FREE_UNSUBMERGED
+        and depth_ratio is not None
+        and mrwa_appendix_submergence_reached(depth_ratio)
+    ):
+        return (
+            None,
+            FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+            threshold_note
+            + " The authoritative roadway solver still reports free flow, so the MRWA legacy state is not overridden "
+            "and no compliance-grade Equation 7 limit is claimed.",
+        )
+
     shoulder = formation.get_zone(FloodwayZone.DOWNSTREAM_SHOULDER)
     shoulder_elevation = None if shoulder is None else shoulder.elevation
 
@@ -95,13 +134,17 @@ def _mrwa_velocity_limit_inputs(
                 FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
                 "Downstream-shoulder elevation is above the local roadway crest.",
             )
-        return delta_p, None, "MRWA pavement velocity uses the Equation 4/7 limiting-velocity path."
+        return (
+            delta_p,
+            None,
+            "MRWA pavement velocity uses the Equation 4/7 limiting-velocity path. " + threshold_note,
+        )
 
     if hydraulics.tailwater_elevation <= segment.crest_elevation:
         return (
             segment.crest_elevation - hydraulics.tailwater_elevation,
             None,
-            "Low-tailwater plunging flow uses delta_p from the roadway crest to tailwater.",
+            "Low-tailwater plunging flow uses delta_p from the roadway crest to tailwater. " + threshold_note,
         )
 
     if formation.crest_flow_length is None:
@@ -143,7 +186,11 @@ def _mrwa_velocity_limit_inputs(
             FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
             "Downstream-shoulder elevation is above the local roadway crest.",
         )
-    return delta_p, None, "MRWA Figure 4.5 classifies this state as plunging flow; Equation 4/7 applies."
+    return (
+        delta_p,
+        None,
+        "MRWA Figure 4.5 classifies this state as plunging flow; Equation 4/7 applies. " + threshold_note,
+    )
 
 
 def assess_floodway_hydraulics(
@@ -206,9 +253,16 @@ def assess_floodway_hydraulics(
 
             if segment.flow_state is RoadwaySegmentState.SUPPORTED_SUBMERGED:
                 if zone is FloodwayZone.PAVEMENT and segment.downstream_head > 0.0:
+                    depth_ratio, threshold_note = _mrwa_depth_ratio_context(segment)
+                    applicability = (
+                        FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+                        if depth_ratio is not None and mrwa_appendix_submergence_reached(depth_ratio)
+                        else FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
+                    )
                     velocity_result = calculate_mrwa_submerged_pavement_velocity(
                         unit_discharge=segment.unit_discharge,
                         downstream_depth=segment.downstream_head,
+                        applicability=applicability,
                     )
                     demand = build_submerged_pavement_demand(velocity_result)
                     assessments.append(
@@ -223,7 +277,9 @@ def assess_floodway_hydraulics(
                             velocity_result=velocity_result,
                             demand=demand,
                             message=(
-                                "MRWA submerged pavement velocity uses the guide's approximate V ~= q/D relation."
+                                "MRWA submerged pavement velocity uses the guide's approximate V ~= q/D relation. "
+                                + threshold_note
+                                + " Roadway free/submerged state remains authoritative to ryan-culverts."
                             ),
                         )
                     )
