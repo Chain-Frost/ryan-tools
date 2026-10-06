@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite
 
-from .models import FloodwayZone, RoadwaySegmentState
+from .models import FloodwayApplicabilityStatus, FloodwayZone, RoadwaySegmentState
 from .results import FloodwayZoneDemand, GoverningFloodwayDemand
 
 
@@ -33,6 +33,8 @@ class FloodwayEnvelopeGovernor:
     headwater_elevation: float | None = None
     tailwater_elevation: float | None = None
     flow_state: RoadwaySegmentState | None = None
+    assessment_applicability: FloodwayApplicabilityStatus | None = None
+    assessment_message: str = ""
 
     def __post_init__(self) -> None:
         name = self.scenario_name.strip()
@@ -51,6 +53,9 @@ class FloodwayEnvelopeGovernor:
             raise ValueError(msg)
         object.__setattr__(self, "scenario_name", name)
         object.__setattr__(self, "integration_station", station)
+        if self.assessment_applicability is None:
+            object.__setattr__(self, "assessment_applicability", self.demand.applicability)
+        object.__setattr__(self, "assessment_message", self.assessment_message.strip())
 
 
 @dataclass(frozen=True, slots=True)
