@@ -190,6 +190,10 @@ def floodway_governor_record(governor: FloodwayEnvelopeGovernor) -> dict[str, ob
         "aep_percent": governor.aep_percent,
         "source_interval_index": governor.source_interval_index,
         "integration_station_m": governor.integration_station,
+        "assessment_applicability": (
+            None if governor.assessment_applicability is None else governor.assessment_applicability.value
+        ),
+        "assessment_message": governor.assessment_message,
         **_hydraulic_evidence_record(
             total_discharge=governor.total_discharge,
             roadway_discharge=governor.roadway_discharge,
@@ -217,6 +221,12 @@ def floodway_envelope_record(envelope: FloodwayEventEnvelope) -> dict[str, objec
                 "aep_percent": candidate.aep_percent,
                 "source_interval_index": candidate.source_interval_index,
                 "integration_station_m": candidate.integration_station,
+                "assessment_applicability": (
+                    None
+                    if candidate.assessment_applicability is None
+                    else candidate.assessment_applicability.value
+                ),
+                "assessment_message": candidate.assessment_message,
                 **_hydraulic_evidence_record(
                     total_discharge=candidate.total_discharge,
                     roadway_discharge=candidate.roadway_discharge,
@@ -270,6 +280,8 @@ def export_floodway_governors_csv(envelope: FloodwayEventEnvelope, path: Path) -
         "headwater_elevation_m",
         "tailwater_elevation_m",
         "flow_state",
+        "assessment_applicability",
+        "assessment_message",
         "unit_discharge_m2s",
         "velocity_ms",
         "dynamic_pressure_pa",
@@ -303,7 +315,13 @@ def export_floodway_governors_csv(envelope: FloodwayEventEnvelope, path: Path) -
                     "source_interval_index": governor.source_interval_index,
                     "integration_station_m": governor.integration_station,
                     **evidence,
-                    **{key: demand[key] for key in fieldnames[11:]},
+                    "assessment_applicability": (
+                        ""
+                        if governor.assessment_applicability is None
+                        else governor.assessment_applicability.value
+                    ),
+                    "assessment_message": governor.assessment_message,
+                    **{key: demand[key] for key in fieldnames[13:]},
                 }
             )
     return target
