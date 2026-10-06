@@ -3,6 +3,10 @@
 from pathlib import Path
 
 from ...classes.floodway import FloodwayEventEnvelope, FloodwayScenarioAssessment
+from ...functions.floodway.mrwa_protection import (
+    MRWA_CURRENT_FLOODWAY_GUIDANCE,
+    MRWA_CURRENT_FLOODWAY_GUIDANCE_SOURCE_ID,
+)
 
 
 def _format_optional(value: float | None, *, decimals: int = 3) -> str:
@@ -50,6 +54,43 @@ def render_floodway_scenario_markdown(assessment: FloodwayScenarioAssessment) ->
             )
             + " |"
         )
+
+    mrwa_protection_rows = [
+        item
+        for item in assessment.zone_assessments
+        if item.mrwa_protection_result is not None
+    ]
+    if mrwa_protection_rows:
+        lines.extend(
+            [
+                "",
+                "## MRWA legacy rock slope protection",
+                "",
+                "Table 5.1 dumped-rock selections are reported as legacy MRWA compliance evidence.",
+                "",
+                "| Zone | Station (m) | Velocity (m/s) | Rock class | Section thickness (m) | Applicability | Source |",
+                "| --- | ---: | ---: | --- | ---: | --- | --- |",
+            ]
+        )
+        for item in mrwa_protection_rows:
+            result = item.mrwa_protection_result
+            if result is None:
+                continue
+            lines.append(
+                "| "
+                + " | ".join(
+                    (
+                        item.zone.value,
+                        f"{item.integration_station:.3f}",
+                        f"{result.velocity_ms:.3f}",
+                        result.rock_class,
+                        _format_optional(result.section_thickness_m),
+                        result.applicability.value,
+                        result.source_id,
+                    )
+                )
+                + " |"
+            )
 
     protection_rows = [
         item
@@ -112,6 +153,16 @@ def render_floodway_envelope_markdown(envelope: FloodwayEventEnvelope) -> str:
                 "",
             ]
         )
+        lines.extend(
+            [
+                "## Current MRWA guidance requiring project-level confirmation",
+                "",
+                f"Source: {MRWA_CURRENT_FLOODWAY_GUIDANCE_SOURCE_ID}",
+                "",
+                *[f"- {requirement}" for _, requirement in MRWA_CURRENT_FLOODWAY_GUIDANCE],
+                "",
+            ]
+        )
         return "\n".join(lines)
 
     lines.extend(
@@ -152,6 +203,12 @@ def render_floodway_envelope_markdown(envelope: FloodwayEventEnvelope) -> str:
         [
             "",
             "Velocity, dynamic pressure and momentum flux are reported as separate demand measures; this report does not combine them into a generic floodway force.",
+            "",
+            "## Current MRWA guidance requiring project-level confirmation",
+            "",
+            f"Source: {MRWA_CURRENT_FLOODWAY_GUIDANCE_SOURCE_ID}",
+            "",
+            *[f"- {requirement}" for _, requirement in MRWA_CURRENT_FLOODWAY_GUIDANCE],
             "",
         ]
     )
