@@ -29,6 +29,7 @@ from .export import (
     floodway_zone_assessment_record,
     floodway_zone_demand_record,
     hec23_protection_record,
+    mrwa_rock_protection_record,
 )
 from .hec23 import (
     HEC23_SI_KU,
@@ -113,6 +114,7 @@ __all__: list[str] = [
     "mrwa_appendix_submergence_reached",
     "mrwa_figure_4_6_k",
     "mrwa_maximum_attainable_velocity",
+    "mrwa_rock_protection_record",
     "mrwa_specific_energy",
     "mrwa_simplified_free_flow_applicable",
     "mrwa_steady_state_velocity",
