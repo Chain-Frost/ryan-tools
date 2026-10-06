@@ -26,7 +26,7 @@ The prerequisite roadway API is no longer blocked:
 Debris impact/loading and debris blockage remain future scope.
 
 Hydrograph/overtopping-duration and road-closure-duration analysis is **not part of this floodway formation-design
-workflow**. It is tracked separately in issue #92 because it requires a different time-series workflow, scripts and
+workflow**. It is tracked separately in issue #93 because it requires a different time-series workflow, scripts and
 reporting contract.
 
 ## Current implementation
@@ -171,7 +171,7 @@ These states remain `SOURCE_DATA_REQUIRED`, `SPECIALIST_REVIEW_REQUIRED`,
 - Confirmed PR #88 is open, mergeable and 0 commits behind `main`.
 - Confirmed `ryan-culverts` PR #13 is merged and issue #14 is closed.
 - Posted a current-status comment to PR #88.
-- Raised issue #92 for the separate hydrograph/overtopping-duration workflow.
+- Raised issue #93 for the separate hydrograph/overtopping-duration workflow.
 - Visually verified MRWA Figures 4.5 and 4.6 against the authoritative guide.
 - Added bounded Figure 4.5 interpolation with Appendix D anchors.
 - Reconstructed Figure 4.6 analytically from MRWA Equations 3 and 6 and added Appendix D regression anchors.
