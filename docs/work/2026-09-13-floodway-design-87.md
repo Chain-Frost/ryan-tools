@@ -125,23 +125,23 @@ required. The floodway design workflow must not create a competing production cr
 
 ## Remaining first-increment work
 
-1. **MRWA regression and regime completion**
-   - complete focused regression against Seven Mile Creek and Majors Creek for the portions that are implemented;
-   - map the guide's submerged pavement `q/D` approximation into the typed result model if retained;
+1. **MRWA regime/applicability completion**
+   - Appendix D velocity regression for the implemented Seven Mile Creek and Majors Creek paths is now present;
+   - the submerged pavement `V ~= q/D` approximation is now mapped into the typed result model;
    - preserve the Section 4.4.3 `D/H < 0.76` versus Appendix C/D `D/H = 0.8` source distinction rather than silently
      reconciling it.
 
 2. **Protection/design integration**
-   - integrate the existing HEC-23 DG5 result into the typed assessment/report path;
-   - keep enhanced HEC-23 checks distinct from MRWA compliance.
+   - HEC-23 DG5 is now integrated into the typed scenario assessment/report path;
+   - keep enhanced HEC-23 checks distinct from MRWA compliance and extend only where supported.
 
 3. **Formation/configuration**
    - expose only the additional geometry/material inputs needed by supported methods;
    - do not add unsupported shoulder-pressure, complete piping or generic toe-scour models merely to fill A-F fields.
 
 4. **Reporting and human-facing entry point**
-   - expand the report with governing event/state, method provenance, applicability/warnings and supported protection
-     results;
+   - propagate and expose retained governing event/state hydraulic evidence consistently across envelope export/report views;
+   - keep method provenance, applicability/warnings and supported protection results explicit;
    - add the maintained floodway wrapper/CLI once the reusable API is stable.
 
 5. **Validation**
