@@ -101,6 +101,8 @@ def test_wrapper_assessment_writes_reviewable_outputs(tmp_path: Path) -> None:
             str(project),
             "--formation",
             str(formation),
+            "--sweep-points",
+            "0",
             "--no-pause",
         ],
         check=False,
