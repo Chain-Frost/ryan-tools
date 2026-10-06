@@ -1,8 +1,8 @@
 """Regression tests for migrated TUFLOW culvert wrappers."""
 
+import runpy
 from collections.abc import Callable
 from pathlib import Path
-import runpy
 from typing import Any, cast
 
 import pandas as pd
