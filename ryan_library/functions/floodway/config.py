@@ -132,7 +132,7 @@ def _parse_formation(raw: object) -> FloodwayFormation:
     data = _mapping(raw, "floodway formation")
     _reject_unknown(
         data,
-        {"schema_version", "name", "crest_flow_length_m", "zones"},
+        {"schema_version", "name", "crest_flow_length_m", "two_d_verification_reason", "zones"},
         "floodway formation",
     )
     schema_version = _integer(data, "schema_version")
@@ -143,9 +143,15 @@ def _parse_formation(raw: object) -> FloodwayFormation:
         )
         raise ValueError(msg)
 
+    two_d_reason = data.get("two_d_verification_reason", "")
+    if not isinstance(two_d_reason, str):
+        msg = "two_d_verification_reason must be text."
+        raise ValueError(msg)
+
     return FloodwayFormation(
         name=_text(data, "name"),
         crest_flow_length=_optional_number(data, "crest_flow_length_m"),
+        two_d_verification_reason=two_d_reason,
         zones=tuple(
             _parse_zone(item, index)
             for index, item in enumerate(_list(data.get("zones"), "zones"))
@@ -191,6 +197,7 @@ def floodway_formation_record(formation: FloodwayFormation) -> dict[str, object]
         "schema_version": FLOODWAY_FORMATION_SCHEMA_VERSION,
         "name": formation.name,
         "crest_flow_length_m": formation.crest_flow_length,
+        "two_d_verification_reason": formation.two_d_verification_reason,
         "zones": [
             {
                 "zone": zone.zone.value,
