@@ -1,14 +1,13 @@
 """Focused tests for the TUFLOW project setup workflow."""
 
 import sqlite3
+from unittest.mock import MagicMock
 from collections.abc import Mapping
-from io import StringIO
 from pathlib import Path
 from typing import cast
 
 import fiona  # pyright: ignore[reportMissingTypeStubs]
 import pytest
-from loguru import logger
 from rasterio.crs import CRS  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 
 from ryan_library.orchestrators.tuflow import project_setup
@@ -284,26 +283,26 @@ def test_missing_project_utility_is_reported_without_stopping(
     available_utility.parent.mkdir(parents=True)
     available_utility.write_text("# available\n", encoding="utf-8")
     monkeypatch.setattr(project_setup, "DEFAULT_UTILITY_SOURCE_ROOT", utility_source_root)
-    messages = StringIO()
-    sink_id: int = logger.add(messages, level="ERROR", format="{message}")
-    try:
-        copied = project_setup._copy_project_utilities(  # pyright: ignore[reportPrivateUsage]
-            config=TuflowProjectConfig(
-                output_dir=project_dir,
-                project_name="Example",
-                scenario_name="baseModel",
-                prj_file=tmp_path / "projection.prj",
-                tuflow_executable=tmp_path / "TUFLOW.exe",
-                templates_dir=tmp_path / "templates",
-            ),
-            project_dir=project_dir,
-        )
-    finally:
-        logger.remove(sink_id)
+    logger_mock = MagicMock()
+    monkeypatch.setattr(project_setup, "logger", logger_mock)
+
+    copied = project_setup._copy_project_utilities(  # pyright: ignore[reportPrivateUsage]
+        config=TuflowProjectConfig(
+            output_dir=project_dir,
+            project_name="Example",
+            scenario_name="baseModel",
+            prj_file=tmp_path / "projection.prj",
+            tuflow_executable=tmp_path / "TUFLOW.exe",
+            templates_dir=tmp_path / "templates",
+        ),
+        project_dir=project_dir,
+    )
 
     assert copied == (project_dir / "model" / "gis" / "rename_geopackage_layer_to_filename.py",)
-    assert "Project utility not found; skipping" in messages.getvalue()
-    assert str(utility_source_root / "culvert_results" / "combine_culvert_maximums.py") in messages.getvalue()
+    logger_mock.error.assert_any_call(
+        "Project utility not found; skipping: {}",
+        utility_source_root / "culvert_results" / "combine_culvert_maximums.py",
+    )
 
 
 def test_populated_empty_source_is_rejected(tmp_path: Path) -> None:
