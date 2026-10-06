@@ -57,27 +57,27 @@ class TuflowCircularCulvert:
     def __post_init__(self) -> None:
         name = self.name.strip()
         if not name:
-            raise ValueError("name must be nonempty.")
+            msg = "name must be nonempty."\n            raise ValueError(msg)
         for field_name in ("diameter_m", "length_m", "roughness_manning_n"):
             value = float(getattr(self, field_name))
             if not isfinite(value) or value <= 0.0:
-                raise ValueError(f"{field_name} must be finite and strictly positive.")
+                msg = f"{field_name} must be finite and strictly positive."\n                raise ValueError(msg)
             object.__setattr__(self, field_name, value)
         for field_name in ("inlet_invert_m", "outlet_invert_m"):
             value = float(getattr(self, field_name))
             if not isfinite(value):
-                raise ValueError(f"{field_name} must be finite.")
+                msg = f"{field_name} must be finite."\n                raise ValueError(msg)
             object.__setattr__(self, field_name, value)
         if self.outlet_invert_m > self.inlet_invert_m:
-            raise ValueError("outlet_invert_m must not exceed inlet_invert_m.")
+            msg = "outlet_invert_m must not exceed inlet_invert_m."\n            raise ValueError(msg)
         barrels: object = self.barrels
         if isinstance(barrels, bool) or not isinstance(barrels, int) or barrels <= 0:
-            raise ValueError("barrels must be a strictly positive integer.")
+            msg = "barrels must be a strictly positive integer."\n            raise ValueError(msg)
         if self.material not in {
             CulvertMaterialName.CONCRETE_PIPE,
             CulvertMaterialName.CORRUGATED_STEEL,
         }:
-            raise ValueError("TUFLOW engine integration currently supports circular concrete or corrugated-steel pipes.")
+            msg = "TUFLOW engine integration currently supports circular concrete or corrugated-steel pipes."\n            raise ValueError(msg)
         object.__setattr__(self, "name", name)
 
 
@@ -191,7 +191,7 @@ def _hy8_crossing(
         material = Hy8Material.CORRUGATED_STEEL
         inlet_configuration = CircularCorrugatedSteelInlet.THIN_EDGE_PROJECTING
     else:
-        raise ValueError(f"Unsupported HY-8 material: {definition.material.value}")
+        msg = f"Unsupported HY-8 material: {definition.material.value}"\n        raise ValueError(msg)
 
     barrel = Hy8Barrel(
         name=f"{definition.name} Barrel",
@@ -212,7 +212,7 @@ def _hy8_crossing(
     crossing.culverts = [barrel]
     errors = crossing.validate()
     if errors:
-        raise ValueError("; ".join(errors))
+        msg = "; ".join(errors)\n        raise ValueError(msg)
     return project, crossing
 
 
@@ -224,7 +224,7 @@ def _hy8_result(
 ) -> CulvertEngineResult:
     row = result.row
     if row is None:
-        raise ValueError("HY-8 returned no result row.")
+        msg = "HY-8 returned no result row."\n        raise ValueError(msg)
     roadway = 0.0 if isnan(row.roadway_discharge) else row.roadway_discharge
     return CulvertEngineResult(
         engine=CulvertEngine.HY8,
