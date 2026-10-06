@@ -146,7 +146,7 @@ def test_wrapper_uncertainty_writes_complete_study_outputs(tmp_path: Path) -> No
     payload = json.loads((output / "uncertainty_results.json").read_text(encoding="utf-8"))
     assert len(payload["evaluations"]) == 2
     assert payload["summaries"][0]["eligible_count"] == 2
-    assert "Evaluated 2 uncertainty samples" in completed.stdout + completed.stderr
+    assert "Evaluated 2 uncertainty evaluations" in completed.stdout + completed.stderr
 
 
 def test_wrapper_uncertainty_missing_study_returns_one(tmp_path: Path) -> None:
