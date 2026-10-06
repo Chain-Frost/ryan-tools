@@ -49,6 +49,12 @@ def calculate_mrwa_surface_velocity(
         raise ValueError(msg)
 
     steady = mrwa_steady_state_velocity(unit_discharge, slope, roughness)
+    if unit_discharge > 0.0 and steady <= 0.0:
+        msg = (
+            "MRWA Equation 4 surface velocity is zero for positive unit discharge at zero slope; "
+            "the surface-velocity method is not applicable to this state."
+        )
+        raise ValueError(msg)
     energy = mrwa_specific_energy(unit_discharge, steady)
 
     resolved_k = coefficient_k
