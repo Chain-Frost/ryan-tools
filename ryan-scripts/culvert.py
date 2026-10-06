@@ -305,6 +305,39 @@ def _uncertainty_event_reference_crossing(
     return targets[0][0]
 
 
+def _run_uncertainty_command(
+    project: CulvertProject,
+    *,
+    study_name: str | None,
+    event_file: Path | None,
+    working_directory: Path,
+    output_directory: Path,
+    crossing_name: str | None,
+    scenario_name: str | None,
+) -> int:
+    if crossing_name is not None or scenario_name is not None:
+        msg = "uncertainty selections belong in the study crossing_names/scenario_names fields."
+        raise ValueError(msg)
+    study: UncertaintyStudy = _select_named(
+        project.uncertainty_studies,
+        study_name or DEFAULT_UNCERTAINTY_STUDY,
+        get_name=lambda item: item.name,
+    )
+    if event_file is not None:
+        event_path = event_file if event_file.is_absolute() else working_directory / event_file
+        events = load_event_csv(event_path)
+        event_crossing = _uncertainty_event_reference_crossing(project, study, events)
+        project = replace(
+            project,
+            scenarios=materialize_event_scenarios(
+                events,
+                event_crossing,
+                default_tailwater=project.scenarios[0].tailwater,
+            ),
+        )
+    return _run_uncertainty(project, study.name, output_directory)
+
+
 def main(
     *,
     command: str,
@@ -349,27 +382,15 @@ def main(
                 return 0
             project = load_project(project_path)
             if command == "uncertainty":
-                if crossing_name is not None or scenario_name is not None:
-                    msg = "uncertainty selections belong in the study crossing_names/scenario_names fields."
-                    raise ValueError(msg)
-                study: UncertaintyStudy = _select_named(
-                    project.uncertainty_studies,
-                    study_name or DEFAULT_UNCERTAINTY_STUDY,
-                    get_name=lambda item: item.name,
+                return _run_uncertainty_command(
+                    project,
+                    study_name=study_name,
+                    event_file=event_file,
+                    working_directory=target_directory,
+                    output_directory=resolved_output,
+                    crossing_name=crossing_name,
+                    scenario_name=scenario_name,
                 )
-                if event_file is not None:
-                    event_path = event_file if event_file.is_absolute() else target_directory / event_file
-                    events = load_event_csv(event_path)
-                    event_crossing = _uncertainty_event_reference_crossing(project, study, events)
-                    project = replace(
-                        project,
-                        scenarios=materialize_event_scenarios(
-                            events,
-                            event_crossing,
-                            default_tailwater=project.scenarios[0].tailwater,
-                        ),
-                    )
-                return _run_uncertainty(project, study.name, resolved_output)
 
             crossing: CrossingDefinition = _select_named(
                 project.crossings,

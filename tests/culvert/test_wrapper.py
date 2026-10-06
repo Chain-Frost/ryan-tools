@@ -274,6 +274,7 @@ def test_wrapper_rating_defaults_support_low_flow_scenario(tmp_path: Path) -> No
     assert (tmp_path / "culvert_results" / "rating_curve.csv").is_file()
     assert (tmp_path / "culvert_results" / "rating_curve.json").is_file()
 
+
 def _write_target_headwater_uncertainty_project(path: Path, *, select_one: bool) -> Path:
     payload = {
         "schema_version": 1,
@@ -411,4 +412,3 @@ def test_wrapper_uncertainty_rejects_ambiguous_target_headwater_event(tmp_path: 
     assert completed.returncode == 1
     assert "exactly one crossing or alternative" in completed.stdout + completed.stderr
     assert not (tmp_path / "culvert_results" / "uncertainty_results.json").exists()
-
