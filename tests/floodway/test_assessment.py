@@ -349,3 +349,73 @@ def test_submerged_state_in_threshold_gap_is_not_labelled_clean_legacy_complianc
     assert pavement.demand.applicability is FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
     assert "0.76" in pavement.message
     assert "0.8" in pavement.message
+
+
+
+def test_free_solver_state_at_appendix_submergence_point_downgrades_mrwa_compliance() -> None:
+    formation = FloodwayFormation(
+        name="Legacy-threshold floodway",
+        zones=(
+            FloodwayFormationZone(zone=FloodwayZone.PAVEMENT, slope=0.03, roughness=0.015),
+            FloodwayFormationZone(zone=FloodwayZone.DOWNSTREAM_SHOULDER, elevation=99.85),
+        ),
+    )
+    hydraulics = FloodwayScenarioHydraulics(
+        scenario_name="Free solver state at legacy threshold",
+        aep_percent=1.0,
+        headwater_elevation=101.0,
+        tailwater_elevation=100.8,
+        roadway_discharge=30.0,
+        segments=(
+            _segment(
+                q=1.2,
+                station=12.5,
+                state=RoadwaySegmentState.FREE_UNSUBMERGED,
+                upstream_head=1.0,
+                downstream_head=0.8,
+            ),
+        ),
+    )
+
+    assessment = assess_floodway_hydraulics(hydraulics, formation)
+    pavement = next(item for item in assessment.zone_assessments if item.zone is FloodwayZone.PAVEMENT)
+
+    assert pavement.demand is not None
+    assert pavement.applicability is FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
+    assert pavement.demand.applicability is FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
+    assert "0.8" in pavement.message
+    assert "not overridden" in pavement.message
+
+
+def test_free_state_between_mrwa_thresholds_retains_velocity_with_explicit_warning() -> None:
+    formation = FloodwayFormation(
+        name="Threshold-warning floodway",
+        zones=(
+            FloodwayFormationZone(zone=FloodwayZone.PAVEMENT, slope=0.03, roughness=0.015),
+            FloodwayFormationZone(zone=FloodwayZone.DOWNSTREAM_SHOULDER, elevation=99.85),
+        ),
+    )
+    hydraulics = FloodwayScenarioHydraulics(
+        scenario_name="Between thresholds",
+        aep_percent=1.0,
+        headwater_elevation=101.0,
+        tailwater_elevation=100.78,
+        roadway_discharge=30.0,
+        segments=(
+            _segment(
+                q=1.2,
+                station=12.5,
+                state=RoadwaySegmentState.FREE_UNSUBMERGED,
+                upstream_head=1.0,
+                downstream_head=0.78,
+            ),
+        ),
+    )
+
+    assessment = assess_floodway_hydraulics(hydraulics, formation)
+    pavement = next(item for item in assessment.zone_assessments if item.zone is FloodwayZone.PAVEMENT)
+
+    assert pavement.demand is not None
+    assert pavement.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+    assert "0.76" in pavement.message
+    assert "0.8" in pavement.message
