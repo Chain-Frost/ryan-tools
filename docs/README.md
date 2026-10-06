@@ -106,7 +106,7 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Relevant work |
 | --- | --- |
-| [Code-review instructions](../.github/code_review_instructions.md) | Reviewing repository changes and reporting blocking versus non-blocking findings |
+| [Agent Code Review Rules](../AGENTS.md#code-review-rules) | Repository-wide Codex review guidance and mandatory automated-agent behaviour |
 | [Pull-request template](../.github/pull_request_template.md) | Recording summary, validation and review checklist details for a pull request |
 
 ## Where new Markdown belongs
