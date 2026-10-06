@@ -86,7 +86,6 @@ class Hec23OvertoppingRiprapResult:
         return self.meets_minimum_d50 and not self.requires_larger_gradation
 
 
-
 @dataclass(frozen=True, slots=True)
 class MrwaRockSlopeProtectionResult:
     """MRWA 2006 Table 5.1 dumped-rock slope-protection selection."""
@@ -122,4 +121,10 @@ class MrwaRockSlopeProtectionResult:
             )
         if self.no_rock_required and self.requires_special_design:
             msg = "A protection result cannot require both no rock and special design."
+            raise ValueError(msg)
+        if self.no_rock_required and (self.section_thickness_m is not None or self.nominal_class_tonnes is not None):
+            msg = "No-rock results must not carry a rock thickness or nominal rock class."
+            raise ValueError(msg)
+        if self.requires_special_design and self.section_thickness_m is not None:
+            msg = "Special-design results must not claim a source-table section thickness."
             raise ValueError(msg)
