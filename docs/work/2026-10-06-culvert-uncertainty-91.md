@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for revalidation after review fixes |
+| Status | Needs review (post-fix validation passed) |
 | Owner | ChatGPT |
 | Created | 2026-10-06 |
 | Updated | 2026-10-06 |
-| Next review | After review-fix validation |
+| Next review | 2026-10-20 |
 | Baseline | `feature/culvert-uncertainty-91` from `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99`; `vendor/ryan_culverts` initially at `00f8274b4702bfe721d111436a15ae435f672460` |
 
 ## Outcome and scope
@@ -44,11 +44,16 @@ The existing culvert application boundary remains the integration point:
 
 No uncertainty-domain distribution, bounds or sampled-parameter classes are reimplemented in `ryan-tools`.
 
+Post-review-fix validation is complete at local implementation commit `ca31687`. The review-fix code passed focused
+regressions and installed-package checks. Validation found and fixed the wrapper complexity violation by extracting
+the uncertainty command handling into a helper, and formatted the regression fixture. Wrapper version remains
+`2026-10-06.2`; the declared package version remains `26.10.6.1` for this verification rebuild.
+
 ## Next action
 
-A separate validation agent should rerun the focused culvert/MCP tests, HY-8 tests as appropriate, Ruff, strict Pyright,
-documentation checks, package verification and installed-wrapper smoke against the review-fix head. If those checks pass,
-PR #94 is ready for final review and merge when explicitly requested.
+Publish the local validation follow-up commits when requested, then obtain final review against that published head.
+No remaining local validation failure is known. PR #94 remains unmerged; merging requires an explicit request.
+This validation session does not push, change the PR description or resolve remote review threads.
 
 The Codex review finding about imported target-headwater events has been addressed: uncertainty event import now resolves
 inverse target-headwater rows against the study's sole selected hydraulic target and explicitly rejects ambiguous
@@ -69,6 +74,52 @@ uncertainty reports imposed flows and conditional hydraulic output envelopes, no
 - Focused Ruff, strict Pyright, pytest, wrapper/documentation checks and package verification pass.
 
 ## Validation and delivery
+
+### Post-review-fix validation on 2026-10-06
+
+Validated the `1c445e58a0cb604e4241cb569194df259dfc3fd1` review-fix checkout, then reran affected checks after the
+wrapper helper extraction and formatting fix. The final tested implementation and refreshed wheel are committed as
+`ca31687c59924e2a631c2fc22b54e4c9184ff886` on the existing `feature/culvert-uncertainty-91` branch in `E:\Github\ryan-tools`.
+Environment: normal user Python **3.14.6**, Ruff **0.16.6**, strict Pyright **1.1.411**.
+
+- `python -m pytest tests/culvert tests/mcp/test_registry.py -q --tb=short`: **60 passed**, including the selected-crossing
+  target-headwater regression and ambiguous-target rejection. The complete focused suite passed again after extraction.
+- `python -m ruff check ryan_library/classes/culvert ryan_library/functions/culvert ryan_library/orchestrators/culvert
+  ryan-scripts/culvert.py tests/culvert tests/mcp/test_registry.py`: **passed**. The first run found C901 in wrapper `main`;
+  the helper extraction corrected it without changing event selection or hydraulic behavior.
+- `python -m ruff format --check ryan-scripts/culvert.py ryan_library/orchestrators/culvert/__init__.py
+  ryan_library/orchestrators/culvert/uncertainty.py tests/culvert/test_wrapper.py`: **four files already formatted** after
+  fixing the first-run regression-fixture whitespace failure.
+- `python -m pyright ryan-scripts/culvert.py ryan_library/orchestrators/culvert/__init__.py
+  ryan_library/orchestrators/culvert/uncertainty.py tests/culvert/test_wrapper.py`: **0 errors, 0 warnings**.
+  Only the four Python files modified since the earlier validation baseline were checked.
+- `python repo-scripts/check_loguru_formatting.py`: **passed**.
+- `python repo-scripts/check_documentation.py`: **passed**; explicit `--links-only` checks of the workflow, work record,
+  register and central index also **passed**.
+- `python -m compileall -q ryan-scripts/culvert.py` and wrapper `--help`: **passed**. Source commands used
+  `PYTHONPATH=.;vendor/ryan_culverts/src;vendor/run_hy8/src` to avoid older separately installed solver code.
+- In `vendor/run_hy8`, with `PYTHONPATH=src`,
+  `python -m pytest tests/test_roadway.py tests/test_results.py tests/test_reader.py -q -m 'not requires_hy8'`:
+  **77 passed, 23 deselected**. This is package-level validation; executable-dependent HY-8 parity was not run.
+- `python repo-scripts/build_library.py --skip-pip --no-bump`: **passed** with candidate verification and promotion.
+  `pyproject.toml` was unchanged. Refreshed `dist/ryan_functions-26.10.6.1-py3-none-any.whl`: **638194 bytes**,
+  SHA-256 `77a2a2f39e7915905cf7a955531cbed9d42c9746b1edea72a525db0e0f4c4228`.
+- Installed this wheel with `pip install --no-deps --target` into temporary storage and ran
+  `repo-scripts/smoke_test_installed_wheel.py --expected-root` from outside the checkout: **passed**. Confirmed study,
+  `culvert_solver` and `run_hy8` imports resolve inside that installation. Copied-wrapper tests using version
+  `2026-10-06.2` passed for the following cases:
+  - complete TOML example: **12 evaluations**, all four outputs, exit **0**;
+  - selected large crossing and target-headwater CSV: **one evaluation**, residual below **1e-4 m**, exit **0**;
+  - selected alternative-only study and target-headwater CSV: **one evaluation**, residual below **1e-4 m**, exit **0**;
+  - ambiguous multi-crossing target event: explicit rejection, exit **1**, no result file;
+  - discharge-only CSV over both differently sized crossings: **two evaluations**, each at the supplied flow, exit **0**.
+- `git diff --check`: **passed**. No unrelated full repository suite was run.
+
+The validation follow-up and handoff documentation are local commits. Nothing was pushed or merged in this session;
+the remote PR/review state has not been rechecked or changed. Both included submodule worktrees remain clean at their
+recorded pins. Unrelated work-register review items remain unchanged.
+
+### Earlier validation baseline (historical)
 
 2026-10-06 validation at commit `70af395` used the user's normal Python 3.14.6, Ruff 0.16.6 and strict Pyright 1.1.411.
 The earlier connector-only sampling handoff had not run checks; it is superseded by this evidence. These checks predate
@@ -107,8 +158,8 @@ Branch: `feature/culvert-uncertainty-91`.
 
 Validated implementation baseline: `70af395`.
 Included HY-8 pointer commit: `2bb912b`.
-The branch is synced to GitHub and PR #94 is open and ready for review. It remains unmerged. The current review-fix head
-contains changes after the validation baseline, so no post-fix validation result is claimed here.
+The user reported the branch synced to GitHub through review-fix head `1c445e5`, with PR #94 ready for review and
+unmerged. The post-fix checks and later local delivery are recorded above; the earlier wheel/hash below are historical.
 
 PR: [#94](https://github.com/Chain-Frost/ryan-tools/pull/94)
 (`[core] Add culvert uncertainty and sensitivity workflow`).
@@ -138,3 +189,11 @@ materialized using the first project crossing rather than the study-selected hyd
 those inverse events only against the study's sole selected crossing/alternative and rejects ambiguous multi-target
 studies. Focused wrapper regression tests cover both the selected-crossing path and the explicit ambiguity rejection.
 The stale delivery/work-register language was also corrected. Revalidation is intentionally delegated to a separate agent.
+
+### 2026-10-06 post-review-fix validation
+
+Completed the requested revalidation in the existing PR checkout. Fixed Ruff complexity and formatting failures,
+reran the focused checks, rebuilt the wheel without changing its declared version, and proved the selected-crossing,
+alternative-only, ambiguity-rejection and discharge-only behaviors using a copied wrapper against an isolated installed
+wheel. Committed the source/format/artifact follow-up as `ca31687`; this record and the register now separate current
+passing validation from the historical `70af395` baseline. No push or merge was performed.
