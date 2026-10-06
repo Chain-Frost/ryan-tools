@@ -28,6 +28,7 @@ from ...functions.floodway import (
     mrwa_appendix_submergence_reached,
     mrwa_simplified_free_flow_applicable,
     mrwa_transition_submergence_ratio,
+    select_mrwa_rock_slope_protection,
 )
 
 from ..culvert.solve import solve_crossing_scenario
@@ -356,6 +357,12 @@ def assess_floodway_hydraulics(
             )
             demand = build_zone_demand(velocity_result)
             applicability = limiting_status or velocity_result.applicability
+            mrwa_protection_result = (
+                select_mrwa_rock_slope_protection(demand.velocity)
+                if zone is FloodwayZone.DOWNSTREAM_BATTER
+                and applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+                else None
+            )
             assessments.append(
                 FloodwayZoneAssessment(
                     scenario_name=hydraulics.scenario_name,
@@ -367,6 +374,7 @@ def assess_floodway_hydraulics(
                     applicability=applicability,
                     velocity_result=velocity_result,
                     demand=demand,
+                    mrwa_protection_result=mrwa_protection_result,
                     protection_result=protection_result,
                     message=message,
                 )
