@@ -171,8 +171,8 @@ def render_floodway_envelope_markdown(envelope: FloodwayEventEnvelope) -> str:
 
     lines.extend(
         [
-            "| Zone | Metric | Scenario | AEP (%) | Total Q (m³/s) | Roadway Q (m³/s) | HW (m) | TW (m) | Flow state | Station (m) | q (m²/s) | Depth (m) | V (m/s) | Fr | V²/2g (m) | Specific energy (m) | Dynamic pressure (Pa) | Momentum flux (N/m) | Applicability | Layer | Source |",
-            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
+            "| Zone | Metric | Scenario | AEP (%) | Total Q (m³/s) | Roadway Q (m³/s) | HW (m) | TW (m) | Flow state | Station (m) | q (m²/s) | Depth (m) | V (m/s) | Fr | V²/2g (m) | Specific energy (m) | Dynamic pressure (Pa) | Momentum flux (N/m) | Assessment | Method applicability | Layer | Source | Message |",
+            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- | --- | --- |",
         ]
     )
     for governor in envelope.governors:
@@ -199,9 +199,15 @@ def render_floodway_envelope_markdown(envelope: FloodwayEventEnvelope) -> str:
                     _format_optional(demand.specific_energy_m),
                     f"{demand.dynamic_pressure_pa:.1f}",
                     f"{demand.momentum_flux_per_width_npm:.1f}",
+                    (
+                        demand.applicability.value
+                        if governor.assessment_applicability is None
+                        else governor.assessment_applicability.value
+                    ),
                     demand.applicability.value,
                     demand.layer.value,
                     demand.source_id or "—",
+                    governor.assessment_message or "—",
                 )
             )
             + " |"
@@ -210,7 +216,7 @@ def render_floodway_envelope_markdown(envelope: FloodwayEventEnvelope) -> str:
     lines.extend(
         [
             "",
-            "Velocity, dynamic pressure and momentum flux are reported as separate demand measures; this report does not combine them into a generic floodway force.",
+            "Unit discharge, velocity, dynamic pressure and momentum flux are reported as separate demand measures; this report does not combine them into a generic floodway force.",
             "",
             "## Current MRWA guidance requiring project-level confirmation",
             "",
