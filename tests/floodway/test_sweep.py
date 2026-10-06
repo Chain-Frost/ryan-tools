@@ -3,7 +3,6 @@
 import pytest
 
 import ryan_library.orchestrators.floodway.sweep as sweep_module
-
 from ryan_library.classes.culvert import (
     CircularBarrelDefinition,
     CrossingDefinition,
@@ -102,20 +101,35 @@ def test_discharge_sweep_honours_explicit_minimum_bound() -> None:
     )
 
     assert assessments
-    assert all(item.hydraulics.total_discharge is not None for item in assessments)
-    assert all(6.0 <= item.hydraulics.total_discharge <= 8.0 for item in assessments)
+    for assessment in assessments:
+        total_discharge = assessment.hydraulics.total_discharge
+        assert total_discharge is not None
+        assert 6.0 <= total_discharge <= 8.0
 
 
 def test_submergence_search_scans_interior_when_upper_endpoint_is_free(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(sweep_module, "find_roadway_overtopping_onset", lambda *_args, **_kwargs: 1.0)
-    monkeypatch.setattr(sweep_module, "solve_crossing_scenario", lambda _crossing, scenario: scenario)
-    monkeypatch.setattr(
-        sweep_module,
-        "_roadway_submerged",
-        lambda scenario: 2.0 <= scenario.discharge <= 4.0,
-    )
+    def fake_overtopping_onset(
+        _crossing: CrossingDefinition,
+        _scenario: Scenario,
+        *,
+        maximum_discharge: float | None = None,
+        discharge_tolerance: float = 1e-6,
+        roadway_discharge_tolerance: float = 1e-9,
+    ) -> float | None:
+        del maximum_discharge, discharge_tolerance, roadway_discharge_tolerance
+        return 1.0
+
+    def fake_solve(_crossing: CrossingDefinition, scenario: Scenario) -> Scenario:
+        return scenario
+
+    def fake_submerged(scenario: Scenario) -> bool:
+        return 2.0 <= scenario.discharge <= 4.0
+
+    monkeypatch.setattr(sweep_module, "find_roadway_overtopping_onset", fake_overtopping_onset)
+    monkeypatch.setattr(sweep_module, "solve_crossing_scenario", fake_solve)
+    monkeypatch.setattr(sweep_module, "_roadway_submerged", fake_submerged)
 
     onset = find_roadway_submergence_onset(
         _crossing(),
