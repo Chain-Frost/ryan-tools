@@ -484,3 +484,37 @@ def test_figure_4_6_out_of_range_preserves_other_zone_assessments() -> None:
         assert result.demand is None
         assert "Figure 4.6" in result.message
     assert any(item.zone is FloodwayZone.DOWNSTREAM_SHOULDER for item in assessment.zone_assessments)
+
+
+def test_active_zero_slope_surface_zone_fails_closed_without_aborting_assessment() -> None:
+    formation = FloodwayFormation(
+        name="Flat pavement",
+        zones=(
+            FloodwayFormationZone(zone=FloodwayZone.PAVEMENT, slope=0.0, roughness=0.015),
+        ),
+    )
+    hydraulics = FloodwayScenarioHydraulics(
+        scenario_name="Flat pavement event",
+        aep_percent=2.0,
+        headwater_elevation=100.8,
+        tailwater_elevation=99.5,
+        roadway_discharge=10.0,
+        segments=(
+            _segment(
+                q=0.5,
+                station=12.5,
+                state=RoadwaySegmentState.FREE_UNSUBMERGED,
+                upstream_head=0.8,
+            ),
+        ),
+    )
+
+    assessment = assess_floodway_hydraulics(hydraulics, formation)
+    pavement = assessment.zone_assessments[0]
+
+    assert pavement.zone is FloodwayZone.PAVEMENT
+    assert pavement.demand is None
+    assert pavement.velocity_result is None
+    assert pavement.applicability is FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
+    assert "positive zone slope" in pavement.message
+    assert "zero slope" in pavement.message
