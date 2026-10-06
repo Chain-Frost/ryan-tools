@@ -10,6 +10,7 @@ from .assess import assess_floodway_scenario
 
 _DEFAULT_ACTIVITY_TOLERANCE = 1e-9
 _DEFAULT_BISECTION_ITERATIONS = 60
+_DEFAULT_TRANSITION_SCAN_INTERVALS = 128
 
 
 def _scenario_at_discharge(base_scenario: Scenario, discharge: float, *, name: str, note: str) -> Scenario:
@@ -49,6 +50,8 @@ def _find_first_condition_discharge(
     maximum_discharge: float,
     condition: Callable[[ScenarioResult], bool],
     tolerance: float,
+    minimum_discharge: float | None = None,
+    scan_intervals: int | None = None,
 ) -> float | None:
     if maximum_discharge <= 0.0:
         msg = "maximum_discharge must be strictly positive."
@@ -56,8 +59,18 @@ def _find_first_condition_discharge(
     if tolerance <= 0.0:
         msg = "tolerance must be strictly positive."
         raise ValueError(msg)
+    if minimum_discharge is not None and not 0.0 < minimum_discharge <= maximum_discharge:
+        msg = "minimum_discharge must be strictly positive and no greater than maximum_discharge."
+        raise ValueError(msg)
+    if scan_intervals is not None and scan_intervals < 1:
+        msg = "scan_intervals must be at least 1 when supplied."
+        raise ValueError(msg)
 
-    lower = max(min(maximum_discharge * 1e-6, 1e-4), 1e-9)
+    lower = (
+        minimum_discharge
+        if minimum_discharge is not None
+        else max(min(maximum_discharge * 1e-6, 1e-4), 1e-9)
+    )
     lower_result = solve_crossing_scenario(
         crossing,
         _scenario_at_discharge(
@@ -70,19 +83,42 @@ def _find_first_condition_discharge(
     if condition(lower_result):
         return lower
 
-    upper_result = solve_crossing_scenario(
-        crossing,
-        _scenario_at_discharge(
-            base_scenario,
-            maximum_discharge,
-            name=f"{base_scenario.name} threshold upper",
-            note="Internal floodway threshold search point.",
-        ),
-    )
-    if not condition(upper_result):
-        return None
+    if scan_intervals is None:
+        upper = maximum_discharge
+        upper_result = solve_crossing_scenario(
+            crossing,
+            _scenario_at_discharge(
+                base_scenario,
+                upper,
+                name=f"{base_scenario.name} threshold upper",
+                note="Internal floodway threshold search point.",
+            ),
+        )
+        if not condition(upper_result):
+            return None
+    else:
+        previous = lower
+        upper = lower
+        for index in range(1, scan_intervals + 1):
+            fraction = index / scan_intervals
+            probe = lower + (maximum_discharge - lower) * fraction
+            probe_result = solve_crossing_scenario(
+                crossing,
+                _scenario_at_discharge(
+                    base_scenario,
+                    probe,
+                    name=f"{base_scenario.name} threshold scan",
+                    note="Internal floodway threshold scan point.",
+                ),
+            )
+            if condition(probe_result):
+                lower = previous
+                upper = probe
+                break
+            previous = probe
+        else:
+            return None
 
-    upper = maximum_discharge
     for _ in range(_DEFAULT_BISECTION_ITERATIONS):
         midpoint = 0.5 * (lower + upper)
         result = solve_crossing_scenario(
@@ -131,10 +167,20 @@ def find_roadway_submergence_onset(
 ) -> float | None:
     """Return the first discharge with a solver-supported submerged roadway segment, if bracketed."""
     upper = base_scenario.discharge if maximum_discharge is None else maximum_discharge
+    overtopping_onset = find_roadway_overtopping_onset(
+        crossing,
+        base_scenario,
+        maximum_discharge=upper,
+        discharge_tolerance=discharge_tolerance,
+    )
+    if overtopping_onset is None:
+        return None
     return _find_first_condition_discharge(
         crossing,
         base_scenario,
         maximum_discharge=upper,
+        minimum_discharge=overtopping_onset,
+        scan_intervals=_DEFAULT_TRANSITION_SCAN_INTERVALS,
         condition=_roadway_submerged,
         tolerance=discharge_tolerance,
     )
@@ -204,11 +250,12 @@ def assess_floodway_discharge_sweep(
         raise ValueError(msg)
 
     discharges = set(_sample_discharges(start, upper, points))
-    if onset is not None:
+    if onset is not None and start <= onset <= upper:
         discharges.add(onset)
         shallow = min(upper, onset + max(upper * 1e-4, 1e-6))
-        discharges.add(shallow)
-    if submergence is not None:
+        if start <= shallow <= upper:
+            discharges.add(shallow)
+    if submergence is not None and start <= submergence <= upper:
         discharges.add(submergence)
 
     note = (
