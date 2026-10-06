@@ -63,6 +63,7 @@ def test_json_export_retains_candidates_governors_and_provenance(tmp_path: Path)
     assert payload["candidates"][0]["flow_state"] == "free_unsubmerged"
     assert payload["candidates"][0]["demand"]["source_id"] == "MRWA-FLOODWAY-DESIGN-GUIDE-2006-EQ4-7"
     assert {item["metric"] for item in payload["governors"]} == {
+        "unit_discharge",
         "velocity",
         "dynamic_pressure",
         "momentum_flux",
@@ -76,8 +77,13 @@ def test_csv_export_is_compact_governor_summary(tmp_path: Path) -> None:
     with target.open("r", encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
 
-    assert len(rows) == 3
-    assert {row["metric"] for row in rows} == {"velocity", "dynamic_pressure", "momentum_flux"}
+    assert len(rows) == 4
+    assert {row["metric"] for row in rows} == {
+        "unit_discharge",
+        "velocity",
+        "dynamic_pressure",
+        "momentum_flux",
+    }
     assert all(row["zone"] == "D" for row in rows)
     assert all(row["scenario"] == "2% AEP" for row in rows)
     assert all(row["total_discharge_m3s"] == "150.0" for row in rows)
