@@ -12,7 +12,7 @@ from .models import (
     RoadwaySegmentHydraulicState,
     RoadwaySegmentState,
 )
-from .protection import Hec23OvertoppingRiprapResult
+from .protection import Hec23OvertoppingRiprapResult, MrwaRockSlopeProtectionResult
 from .results import (
     FloodwayEnvelopeResult,
     FloodwayScenarioAssessment,
@@ -40,6 +40,7 @@ __all__: list[str] = [
     "FloodwayZoneDemand",
     "GoverningFloodwayDemand",
     "Hec23OvertoppingRiprapResult",
+    "MrwaRockSlopeProtectionResult",
     "MrwaSubmergedPavementVelocityResult",
     "MrwaSurfaceVelocityResult",
     "RoadwaySegmentHydraulicState",
