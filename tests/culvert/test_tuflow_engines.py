@@ -130,3 +130,16 @@ def test_hy8_forward_dispatch_uses_run_hy8_boundary(
     assert result.computed_discharge_m3s == pytest.approx(2.0)
     assert result.headwater_elevation_m == pytest.approx(10.8)
     crossing.hw_from_q.assert_called_once()
+
+
+def test_hy8_tailwater_preserves_downstream_invert(
+    concrete_crossing: TuflowCircularCulvert,
+) -> None:
+    _project, crossing = engine_module._hy8_crossing(
+        concrete_crossing,
+        tailwater_elevation_m=10.25,
+        seed_discharge_m3s=2.0,
+    )
+
+    assert crossing.tailwater.constant_elevation == pytest.approx(10.25)
+    assert crossing.tailwater.invert_elevation == pytest.approx(concrete_crossing.outlet_invert_m)
