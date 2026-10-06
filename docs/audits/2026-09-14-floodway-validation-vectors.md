@@ -164,7 +164,7 @@ Published target sequence:
 - governing `V_b = max(V_bu, V_bo) = 3.51 m/s`.
 
 The source then selects 1/4-tonne-class rock with a 1.00 m section thickness using its Table 5.1. That protection
-selection should be tested separately from the hydraulic velocity calculation.
+selection is implemented and tested separately from the hydraulic velocity calculation.
 
 ### 3.4 Published maximum pavement velocity
 
