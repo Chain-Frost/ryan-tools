@@ -241,6 +241,7 @@ then correctly describes the applied boundary.
 
 It also writes `uncertainty_results.csv` (one row per outcome, including failures, with sourced parameter JSON and
 warning/failure cells), `uncertainty_summary.csv` (one row per metric with denominators, percentiles and governing sample
-IDs) and `uncertainty_results.md` (concise review summary). Exit code 0 means all outcomes belong to the declared statistics
-population; 2 means outputs were written with failed or excluded outcomes requiring review; 1 means a configuration,
-execution or export failure. Existing files at these output names are overwritten, as with the other wrapper commands.
+IDs) and `uncertainty_results.md` (concise review summary). A completed study returns exit code 0 even when failed,
+unresolved, approximate or otherwise excluded outcomes are retained for engineering review; the wrapper emits a warning
+for those outcomes. Exit code 1 means a configuration, execution or export failure. Invalid CLI arguments retain
+`argparse` exit code 2. Existing files at these output names are overwritten, as with the other wrapper commands.
