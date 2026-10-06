@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for revalidation after review fixes |
+| Status | Validation run completed; bundled wheel rebuild pending |
 | Owner | ChatGPT |
 | Created | 2026-10-06 |
 | Updated | 2026-10-06 |
-| Next review | After review-fix validation |
+| Next review | After bundled wheel rebuild and installed-wrapper verification |
 | Baseline | `feature/culvert-uncertainty-91` from `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99`; `vendor/ryan_culverts` initially at `00f8274b4702bfe721d111436a15ae435f672460` |
 
 ## Outcome and scope
@@ -46,13 +46,14 @@ No uncertainty-domain distribution, bounds or sampled-parameter classes are reim
 
 ## Next action
 
-A separate validation agent should rerun the focused culvert/MCP tests, HY-8 tests as appropriate, Ruff, strict Pyright,
-documentation checks, package verification and installed-wrapper smoke against the review-fix head. If those checks pass,
-PR #94 is ready for final review and merge when explicitly requested.
+Post-fix tests have now been run by the separate validation agent. One fresh Codex review finding remains before PR #94
+can be considered merge-ready: rebuild and commit the bundled `ryan_functions` wheel from the final source, then repeat
+the installed-wheel/copied-wrapper smoke check against that rebuilt artifact.
 
 The Codex review finding about imported target-headwater events has been addressed: uncertainty event import now resolves
 inverse target-headwater rows against the study's sole selected hydraulic target and explicitly rejects ambiguous
-multi-crossing/alternative studies rather than reusing a discharge derived from unrelated geometry.
+multi-crossing/alternative studies rather than reusing a discharge derived from unrelated geometry. The subsequent review
+confirmed the source change but identified that the committed wheel still predates `select_uncertainty_targets`.
 
 Group-specific variations, correlated distributions, solved capacity studies and automatic engineering acceptance or
 alternative ranking are outside the initial contract. The existing design-search workflow owns acceptance/ranking;
@@ -107,8 +108,9 @@ Branch: `feature/culvert-uncertainty-91`.
 
 Validated implementation baseline: `70af395`.
 Included HY-8 pointer commit: `2bb912b`.
-The branch is synced to GitHub and PR #94 is open and ready for review. It remains unmerged. The current review-fix head
-contains changes after the validation baseline, so no post-fix validation result is claimed here.
+The branch is synced to GitHub and PR #94 is open and remains unmerged. Post-fix validation has been run separately, but
+the current committed wheel is stale relative to the review-fix source and must be rebuilt before installed-package
+validation can be considered final.
 
 PR: [#94](https://github.com/Chain-Frost/ryan-tools/pull/94)
 (`[core] Add culvert uncertainty and sensitivity workflow`).
@@ -137,4 +139,5 @@ After the branch was synced, Codex review identified that uncertainty `--events-
 materialized using the first project crossing rather than the study-selected hydraulic target. The wrapper now resolves
 those inverse events only against the study's sole selected crossing/alternative and rejects ambiguous multi-target
 studies. Focused wrapper regression tests cover both the selected-crossing path and the explicit ambiguity rejection.
-The stale delivery/work-register language was also corrected. Revalidation is intentionally delegated to a separate agent.
+The stale delivery/work-register language was also corrected. The separate validation run has since been completed.
+A fresh Codex review then identified the stale bundled wheel as the remaining packaging blocker.
