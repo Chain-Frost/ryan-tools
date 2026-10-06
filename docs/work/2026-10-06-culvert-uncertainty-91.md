@@ -61,7 +61,7 @@ Branch: `feature/culvert-uncertainty-91`.
 
 Current implementation commit: `724d751a70b4843d1eb1224670064286943ebce2`.
 
-No pull request has been opened.
+Draft PR: #94 (`[core] Add culvert uncertainty and sensitivity workflow`). It remains intentionally unmerged while implementation and validation continue.
 
 ## Progress
 
