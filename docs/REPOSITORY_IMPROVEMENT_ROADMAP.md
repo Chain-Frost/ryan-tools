@@ -4,14 +4,15 @@
 
 | Item | Value |
 | --- | --- |
-| Reviewed | 2026-09-06 |
-| Status | Planned: remaining work needs a bounded task selection |
+| Reviewed | 2026-10-06 |
+| Status | Deferred: opportunity inventory only; no repository-wide implementation front is selected |
 | Owner | Unassigned |
-| Next review | 2026-09-20 |
-| Branch / commit inspected | `main` / `f7118e2` |
-| Package version inspected | `26.08.31.6` |
+| Next review | 2027-04-05 |
+| Branch / commit inspected | `main` / `12441a31` |
+| Package version inspected | `26.10.6.3` |
 
-This is the current high-level backlog, refreshed from the 8 August roadmap against repository source and documents.
+This is a high-level opportunity inventory, reviewed on 6 October 2026 against current `main`. It is deliberately
+deferred: none of the remaining opportunities is an authorised implementation front merely because it appears here.
 The dated [lifecycle audit](audits/2026-08-08-ryan-library-lifecycle-plan.md) remains historical evidence; its file counts
 and classifications are not a current inventory. Canonical architecture remains in the
 [development guide](DEVELOPMENT_GUIDE.md).
@@ -28,62 +29,47 @@ backlog; a selected implementation project should have its own linked status rec
 | Resource extraction | QGIS and Excel resources are separate pinned submodules; `setup.py` stages required QML resources into the package. No history rewrite is planned. |
 | Maintained wrappers | [Wrapper standard](../ryan-scripts/WRAPPER_STANDARD.md) and shared wrapper utilities establish CLI, editable defaults, logging and process-boundary behavior. This does not certify every legacy script. |
 | Documentation foundation | Architecture, environments, logging and the central documentation index are established. |
-| Package import repairs | [Package initializer](../ryan_library/__init__.py) has explicit lazy legacy aliases; [compatibility initializer](../ryan_functions/__init__.py) forwards requested modules lazily instead of importing every discovered module. Separate source/wheel runtime verification was not repeated in this refresh. |
+| Package import repairs | [Package initializer](../ryan_library/__init__.py) has explicit lazy legacy aliases; [compatibility initializer](../ryan_functions/__init__.py) forwards requested modules lazily instead of importing every discovered module. The 26.10.6.3 package was transactionally built and installed-package smoke-tested during issue #91 / PR #94 validation; that evidence does not replace a future bounded lifecycle audit of every legacy namespace. |
 | Logging pipeline | [Implementation outcome](audits/2026-08-08-logging-pipeline-implementation-plan.md#implementation-outcome) records independent thresholds, queue context, deterministic shutdown, notebook setup, AST policy checks and Windows validation. Current implementation retains these mechanisms; historical test results are not a fresh run. |
 | Compatibility inventory | [Compatibility policy](COMPATIBILITY_POLICY.md) records replacements and deadlines. Remaining inventory reconciliation is listed below. |
 | Lifecycle decisions | `data_processing.py` is deprecated through 2026-12-31; `tkinter_utils.py` is absent; [missing-run analysis](../ryan_library/orchestrators/tuflow/tlf_missing_runs.py) has an orchestrator; the [HY-8 wrapper](../ryan-scripts/tuflow/tuflow_to_hy8.py) calls the bridge. These are no longer simply undecided removal/experimental candidates. |
 | PO/POMM combination | Both maintained orchestrators use [shared workflow coordination](../ryan_library/orchestrators/tuflow/_combination_workflow.py) and expose `export_results`. |
 | Timeseries checks | Notebook helpers and the peak/stability orchestrators reuse `po_timeseries_checks`; wider notebook collection/orchestration consolidation still requires assessment. |
-| Root document cleanup | The former testing architecture/task documents and logging checklist are absent. [README implementation plan](../implementation_plan.md) records implementation; its archival disposition remains open. |
+| Root document cleanup | The former testing architecture/task documents and logging checklist are absent. The completed [README implementation plan](../implementation_plan.md) is deliberately retained at the repository root as indexed historical implementation evidence; no archival move is pending. |
 
-## Remaining work
+## Remaining opportunities
+
+These are deferred opportunities, not due tasks. Do not start them opportunistically or report them as overdue before
+the next review date. If a maintainer selects one, create a bounded work record and move that work front to the
+[work register](work/README.md).
 
 ### 1. Reconcile lifecycle and import evidence
 
-Priority: medium. Select a bounded review before further deletion or consolidation.
+Priority: medium when explicitly selected.
 
 - Reconcile the compatibility inventory with actual namespaces, warnings, supported replacements and known callers,
   including `ryan_functions`. Do not treat the old 88-file classification as current.
-- Verify ordinary source-checkout and installed-wheel imports separately, including optional-dependency isolation.
-- Assess remaining notebook discovery/processing duplication against orchestrators. Preserve notebook return values,
-  serial defaults and process-local logging; shared timeseries checks are already implemented.
+- Verify ordinary source-checkout and installed-wheel imports separately, including optional-dependency isolation, as
+  part of that bounded review. Recent wheel verification proves the current package can be built and imported for its
+  tested paths; it is not a complete lifecycle inventory.
+- Assess remaining notebook discovery/processing duplication against orchestrators only if there is a concrete
+  maintenance need. Preserve notebook return values, serial defaults and process-local logging.
 - Record current maintained status and validation for the HY-8 and missing-run entry points in a new dated lifecycle
-  review rather than silently rewriting the original audit.
+  review if this opportunity is selected.
 
 No published API should be removed solely because a static search finds no callers. Check documentation, history and
 known external use, and respect recorded support deadlines.
 
-### 2. Continue script triage by workflow family
+### 2. Resolve upstream HY-8 demo ownership
 
-Priority: medium. Detailed migration status belongs in the [unsorted upgrade roadmap](UNSORTED_UPGRADE_ROADMAP.md).
+Priority: medium-low; separate upstream follow-up.
 
-- Reconcile its remaining unchecked and in-progress items with current source, submodule disposition and environment
-  validation before selecting the next family. Its previous test results do not prove later changes were validated.
-- Include `python-not-polished`, `other`, `unsorted-python`, root standalone utilities and legacy batch folders in
-  candidate inventories. `misc-python` exists again and contains tracked HEIC conversion and Excel utilities.
-- Classify each candidate before moving it. Keep narrow utilities standalone unless reuse is demonstrated; move
-  reusable processing into functions and complete reusable workflow coordination into orchestrators.
-- Preserve copied-wrapper behavior, editable project settings and independent submodule state.
+`vendor/run_hy8` remains an independent submodule and the parent repository retains a maintained HY-8 bridge and
+wrapper. If duplicate TUFLOW/domain-specific demos still exist upstream and become a maintenance problem, review them
+in the `run-hy8` repository and propose removal or deprecation there. Do not modify vendored content as routine
+parent-repository cleanup.
 
-### 3. Resolve upstream HY-8 demo ownership
-
-Priority: medium-low; separate upstream follow-up, not a completed milestone.
-
-The inspected vendored checkout still contains TUFLOW/1D-network demo scripts. The parent repository has the HY-8
-mapping wrapper and bridge. Verify live upstream status and ownership, then propose removal or deprecation of duplicate
-domain-specific demos upstream if appropriate. Do not modify vendored content as routine parent-repository cleanup.
-Live upstream status was not checked during this refresh.
-
-### 4. Finish documentation disposition and maintain work visibility
-
-Priority: medium-low.
-
-- Deliberately archive or retain the completed root `implementation_plan.md`, updating index links if moved.
-- Use the [work register](work/README.md) for concurrent work, due reviews and resumable handoffs.
-- Keep local guides beside their code and link every repository-owned Markdown file from [the index](README.md).
-- Preserve dated audits as evidence; use a new dated audit for a materially changed baseline.
-
-### 5. Keep directory renames deferred until caller inventory
+### 3. Keep directory renames deferred until caller inventory
 
 Priority: low. No broad rename is scheduled.
 
@@ -91,15 +77,25 @@ Potential normalization of `TUFLOW-python`, `RORB-python`, `AutoCAD-python` and 
 copied wrappers, shortcuts, batch files, workspace tasks, packaging and external project references first. Retain
 `ryan-scripts` and `repo-scripts`. Renaming solely for style does not justify migration risk.
 
-### 6. Maintain proportionate validation
+### 4. Maintain proportionate validation
 
-Ongoing maintenance, not a permanently completable project.
+This is ongoing maintenance policy, not a backlog project that can become overdue.
 
 Use the [validation matrix](DEVELOPMENT_GUIDE.md#validation-by-change-type): focused checks for bounded changes,
 environment-specific smoke checks where required, and the full Windows runner only when scope justifies it. Keep
-synthetic fixtures, repository-local Windows temporary/cache paths and explicit source-checkout HY-8 setup. Remove
-tests for deliberately removed APIs as part of their lifecycle change. New runtime defects should get their own
-bounded work record rather than reopening the entire completed logging project.
+synthetic fixtures, repository-local Windows temporary/cache paths and explicit source-checkout HY-8 setup. New runtime
+defects should get their own bounded work record rather than reopening completed projects.
+
+## Closed or removed from this backlog
+
+- **Unsorted migration:** cancelled on 13 September 2026. The `unsorted` submodule is excluded from automated
+  inspection and validation and no further migration review is authorised. The
+  [unsorted roadmap](UNSORTED_UPGRADE_ROADMAP.md) is retained as historical evidence only.
+- **README implementation-plan disposition:** resolved by retaining `implementation_plan.md` at the repository root as
+  indexed historical evidence. Moving it solely for tidiness would add churn without improving discovery.
+- **Scheduled compatibility removals:** tracked independently in the
+  [compatibility policy](COMPATIBILITY_POLICY.md), with its own review date after the support period. It is not part of
+  this deferred opportunity review.
 
 ## Scheduled compatibility removal
 
@@ -117,15 +113,16 @@ This work is deferred until the support date, with a review scheduled for 2027-0
 - Python 3.15 lazy-import migration: future proposal only. Reassess supported Python, actual language behavior and
   measurable benefit when the repository changes its Python baseline; do not treat declarations as proof of lazy loading.
 
-## Latest handoff — 2026-09-06
+## Latest review — 2026-10-06
 
-- Reviewed repository source, linked plans, file presence and branch/package metadata at `f7118e2`.
-- Replaced stale critical/high-priority implementation tasks with completed evidence and bounded remaining work.
-- Next action: select one remaining lifecycle review or script family, assign an owner and create/link its work record.
-- Blockers: no technical blocker identified; remaining implementation scope is not selected.
-- Validation on 2026-09-06 in normal user Python: `python repo-scripts/check_documentation.py` passed all seven default
-  documents and central-index coverage; explicit `--links-only` checks passed all eight touched Markdown files,
-  including the new work guide/register. `git diff --check` passed. No runtime tests, wheel imports or build were
-  rerun for these documentation-only changes; earlier runtime validation is explicitly historical.
-- Git state at handoff: this documentation refresh is uncommitted. Pre-existing staged timeseries stability,
-  water-level profile orchestrator and profile-table script changes are unrelated and were preserved.
+- Reviewed current `main` at `12441a31` / package `26.10.6.3` after PR #94.
+- Reconciled the roadmap with the work register: the unsorted migration had already been cancelled on 13 September,
+  so script-family triage is no longer an open repository-improvement task.
+- Resolved the completed README plan's disposition by deliberately retaining and indexing it as historical evidence.
+- Kept lifecycle/import reconciliation, upstream HY-8 demo ownership and possible directory renames as deferred
+  opportunities only. None is authorised merely because it is listed here.
+- Left scheduled compatibility removals under their separate policy and 4 January 2027 review.
+- Next repository-wide backlog review: 5 April 2027, unless a maintainer explicitly selects an opportunity earlier.
+  Agents should not repeatedly surface this deferred backlog before that date.
+- This review changes documentation/status only; it does not claim runtime validation beyond the current evidence
+  already recorded by the relevant completed work.
