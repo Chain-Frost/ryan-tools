@@ -64,6 +64,16 @@ def test_figure_4_5_digitisation_rejects_extrapolation() -> None:
         mrwa_transition_submergence_ratio(0.21)
 
 
+def test_mrwa_velocity_rejects_zero_slope_with_positive_flow_explicitly() -> None:
+    with pytest.raises(ValueError, match="zero slope"):
+        calculate_mrwa_surface_velocity(
+            zone=FloodwayZone.PAVEMENT,
+            unit_discharge=1.0,
+            slope=0.0,
+            roughness=0.015,
+        )
+
+
 def test_mrwa_velocity_requires_source_data_before_equation_7_is_claimed() -> None:
     result = calculate_mrwa_surface_velocity(
         zone=FloodwayZone.DOWNSTREAM_BATTER,
