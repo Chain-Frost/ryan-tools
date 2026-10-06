@@ -8,7 +8,7 @@
 | Updated | 2026-10-06 |
 | Next review | 2026-10-13 |
 | Branch | `feature/floodway-design-87` / PR #88 |
-| Baseline | Post-#86 `main`; branch is 0 commits behind `main` as checked 2026-10-06 |
+| Baseline | Post-#86 `main`; `main` advanced after validation and branch is currently 1 commit behind pending reconciliation |
 
 ## Outcome and scope
 
@@ -178,7 +178,7 @@ These states remain `SOURCE_DATA_REQUIRED`, `SPECIALIST_REVIEW_REQUIRED`,
 - Added explicit `two_d_verification_reason` formation configuration and propagated the resulting
   `TWO_D_VERIFICATION_RECOMMENDED` status/message through scenario, envelope, JSON/CSV and Markdown outputs.
 - Full repository Ruff/Pyright/pytest/docs/build validation has **not yet been run** and is explicitly delegated to a
-  separate validation agent; no unrun check is reported as passed.
+  separate validation agent; local focused validation is now recorded above.
 
 ### 2026-09-14
 
@@ -232,7 +232,7 @@ Validated `ff77c9bd947ddc5590ab775d8ec7d9c3636aee3e` plus local repairs using no
 - GitHub checks confirmed draft/open/unmerged state, no review threads and no workflow runs on the validated head.
   The checkout has no enabled CI workflow. The validation repairs and documentation/package updates were subsequently
   committed and pushed to PR #88; the PR remains draft and unmerged.
-- The five full-suite failures are outside the floodway change surface. Four deterministic failures are in test/production
-  files byte-identical to `main`; the TUFLOW logging test passes in isolation and appears order-dependent. These are not
-  currently demonstrated regressions caused by PR #88.
+- The five full-suite failures are outside the floodway change surface and are tracked separately in issue #95. Four
+  deterministic failures are in test/production files byte-identical to `main`; the TUFLOW logging test passes in
+  isolation and appears order-dependent. These are not currently demonstrated regressions caused by PR #88.
 - The repository improvement backlog review date remains overdue (2026-09-20); unrelated work was not started.
