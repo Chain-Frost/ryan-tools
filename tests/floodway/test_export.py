@@ -28,6 +28,8 @@ def _candidate() -> GoverningFloodwayDemand:
         headwater_elevation=101.1,
         tailwater_elevation=100.2,
         flow_state=RoadwaySegmentState.FREE_UNSUBMERGED,
+        assessment_applicability=FloodwayApplicabilityStatus.TWO_D_VERIFICATION_RECOMMENDED,
+        assessment_message="Skew requires 2D verification.",
         demand=FloodwayZoneDemand(
             zone=FloodwayZone.PAVEMENT,
             unit_discharge=1.8,
@@ -61,6 +63,8 @@ def test_json_export_retains_candidates_governors_and_provenance(tmp_path: Path)
     assert payload["candidates"][0]["total_discharge_m3s"] == 150.0
     assert payload["candidates"][0]["roadway_discharge_m3s"] == 24.0
     assert payload["candidates"][0]["flow_state"] == "free_unsubmerged"
+    assert payload["candidates"][0]["assessment_applicability"] == "two_d_verification_recommended"
+    assert payload["candidates"][0]["assessment_message"] == "Skew requires 2D verification."
     assert payload["candidates"][0]["demand"]["source_id"] == "MRWA-FLOODWAY-DESIGN-GUIDE-2006-EQ4-7"
     assert {item["metric"] for item in payload["governors"]} == {
         "unit_discharge",
@@ -89,3 +93,5 @@ def test_csv_export_is_compact_governor_summary(tmp_path: Path) -> None:
     assert all(row["total_discharge_m3s"] == "150.0" for row in rows)
     assert all(row["roadway_discharge_m3s"] == "24.0" for row in rows)
     assert all(row["flow_state"] == "free_unsubmerged" for row in rows)
+    assert all(row["assessment_applicability"] == "two_d_verification_recommended" for row in rows)
+    assert all(row["assessment_message"] == "Skew requires 2D verification." for row in rows)
