@@ -14,6 +14,8 @@ from ...classes.floodway.results import GoverningFloodwayDemand
 
 def _metric_value(candidate: GoverningFloodwayDemand, metric: FloodwayEnvelopeMetric) -> float:
     demand = candidate.demand
+    if metric is FloodwayEnvelopeMetric.UNIT_DISCHARGE:
+        return demand.unit_discharge
     if metric is FloodwayEnvelopeMetric.VELOCITY:
         return demand.velocity
     if metric is FloodwayEnvelopeMetric.DYNAMIC_PRESSURE:
