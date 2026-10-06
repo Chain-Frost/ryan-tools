@@ -31,6 +31,7 @@ Examples::
     python floodway.py --project culvert_project.json --formation floodway_formation.json --no-pause
     python floodway.py --project culvert_project.toml --formation floodway.toml --crossing "Floodway A" --no-pause
     python floodway.py --project culvert_project.json --formation floodway_formation.json --scenario "1% AEP"
+    python floodway.py --project culvert_project.json --formation floodway_formation.json --sweep-points 31 --no-pause
 """
 
 from __future__ import annotations
@@ -43,6 +44,7 @@ WORKING_DIR: Path = Path(__file__).resolve().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
 DEFAULT_FORMATION_FILE = Path("floodway_formation.json")
 DEFAULT_OUTPUT_DIRECTORY = Path("floodway_results")
+DEFAULT_SWEEP_POINTS = 21
 CONSOLE_LOG_LEVEL = "INFO"
 
 import argparse
@@ -63,6 +65,7 @@ from ryan_library.functions.loguru_helpers import normalize_log_level, setup_log
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
 from ryan_library.orchestrators.floodway import (
     assess_floodway_crossing,
+    assess_floodway_discharge_sweep,
     build_floodway_envelope_from_assessments,
     render_floodway_envelope_markdown,
     render_floodway_scenario_markdown,
@@ -123,6 +126,8 @@ def main(
     output_directory: Path | None = None,
     crossing_name: str | None = None,
     scenario_name: str | None = None,
+    sweep_scenario_name: str | None = None,
+    sweep_points: int | None = None,
     console_log_level: str | None = None,
 ) -> int:
     """Resolve wrapper settings and execute the floodway assessment workflow."""
@@ -159,6 +164,29 @@ def main(
                 )
 
             assessments = assess_floodway_crossing(crossing, scenarios, formation)
+
+            resolved_sweep_points = DEFAULT_SWEEP_POINTS if sweep_points is None else sweep_points
+            if resolved_sweep_points < 0 or resolved_sweep_points == 1:
+                msg = "sweep_points must be 0 to disable the sweep or at least 2."
+                raise ValueError(msg)
+            if resolved_sweep_points >= 2:
+                sweep_base = (
+                    max(scenarios, key=lambda item: item.discharge)
+                    if sweep_scenario_name is None
+                    else _select_named(
+                        project.scenarios,
+                        sweep_scenario_name,
+                        get_name=lambda item: item.name,
+                    )
+                )
+                sweep_assessments = assess_floodway_discharge_sweep(
+                    crossing,
+                    sweep_base,
+                    formation,
+                    points=resolved_sweep_points,
+                )
+                assessments = assessments + sweep_assessments
+
             envelope = build_floodway_envelope_from_assessments(assessments)
             _write_outputs(
                 assessments=assessments,
@@ -188,6 +216,15 @@ def _parse_cli_arguments() -> argparse.Namespace:
     parser.add_argument("--output-directory", type=Path, help="Output directory; default: floodway_results.")
     parser.add_argument("--crossing", help="Named crossing; default: first project crossing.")
     parser.add_argument("--scenario", help="Named scenario; default: assess every project scenario.")
+    parser.add_argument(
+        "--sweep-scenario",
+        help="Scenario providing the downstream boundary for the interior discharge sweep; default: highest-Q selected event.",
+    )
+    parser.add_argument(
+        "--sweep-points",
+        type=int,
+        help="Interior discharge sweep points; default: 21. Use 0 to disable.",
+    )
     parser.add_argument("--console-log-level", type=normalize_log_level)
     parser.add_argument("--no-pause", action="store_true")
     return parser.parse_args()
@@ -202,6 +239,8 @@ if __name__ == "__main__":
         output_directory=args.output_directory,
         crossing_name=args.crossing,
         scenario_name=args.scenario,
+        sweep_scenario_name=args.sweep_scenario,
+        sweep_points=args.sweep_points,
         console_log_level=args.console_log_level,
     )
     print_wrapper_banner(
