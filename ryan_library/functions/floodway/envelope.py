@@ -52,6 +52,11 @@ def build_floodway_event_envelope(
                     demand=governing.demand,
                     source_interval_index=governing.source_interval_index,
                     integration_station=governing.integration_station,
+                    total_discharge=governing.total_discharge,
+                    roadway_discharge=governing.roadway_discharge,
+                    headwater_elevation=governing.headwater_elevation,
+                    tailwater_elevation=governing.tailwater_elevation,
+                    flow_state=governing.flow_state,
                 )
             )
 
