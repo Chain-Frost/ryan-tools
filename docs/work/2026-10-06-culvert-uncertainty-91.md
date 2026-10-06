@@ -59,10 +59,9 @@ The latest Codex review identified that empty `alternative_names` meant "all alt
 base-crossings-only study. The application policy now adds `include_alternatives` (default `true`); setting it to
 `false` selects zero alternatives while preserving existing empty-selector behavior for enabled target classes.
 
-The Codex review finding about imported target-headwater events has been addressed: uncertainty event import now resolves
-inverse target-headwater rows against the study's sole selected hydraulic target and explicitly rejects ambiguous
-multi-crossing/alternative studies rather than reusing a discharge derived from unrelated geometry. The subsequent review
-confirmed the source change but identified that the committed wheel still predates `select_uncertainty_targets`.
+The earlier target-headwater event and stale-wheel review findings were addressed and validated at `ca31687`. The new
+`include_alternatives` selection-policy change postdates that wheel, so package rebuilding and installed-wrapper
+verification are required again before final review.
 
 Group-specific variations, correlated distributions, solved capacity studies and automatic engineering acceptance or
 alternative ranking are outside the initial contract. The existing design-search workflow owns acceptance/ranking;
@@ -206,7 +205,8 @@ passing validation from the historical `70af395` baseline. No push or merge was 
 ### 2026-10-06 alternative-selection review follow-up
 
 A subsequent Codex review found that studies could disable base crossings but could not disable alternatives. Added the
-explicit `include_alternatives` policy flag, defaulting to `true` for backwards compatibility. Orchestration now omits
-the entire alternative target class when the flag is false, configuration/serialization preserve the flag, contradictory
-named alternatives are rejected, and focused tests cover base-only studies plus the no-target failure path. This change
+explicit `include_alternatives` policy flag, defaulting to `true` for backwards compatibility. The base and alternative
+target classes now use symmetric enable/disable semantics: disabled classes select nothing and reject contradictory named
+selectors. Configuration/serialization preserve the new flag, and focused tests cover base-only studies, round trips,
+contradictory selectors and the no-target failure path. This change
 postdates the recorded 60-test/wheel validation and therefore requires revalidation and a refreshed bundled wheel.

@@ -385,7 +385,10 @@ def test_disabling_all_target_classes_is_rejected_before_sampling(monkeypatch: p
 
 
 def test_project_studies_roundtrip_and_reject_unknown_fields(tmp_path: Path) -> None:
-    project = _project()
+    project = replace(
+        _project(),
+        uncertainty_studies=(replace(_study(), include_alternatives=False),),
+    )
     exported = export_project_json(project, tmp_path / "project.json")
     assert project_record(load_project(exported)) == project_record(project)
     assert load_project(exported).uncertainty_studies == project.uncertainty_studies
@@ -414,3 +417,9 @@ def test_invalid_study_policy_rejected(field: str, value: object) -> None:
 def test_disabled_alternatives_reject_named_alternative_selection() -> None:
     with pytest.raises(ValueError, match="alternative_names must be empty"):
         replace(_study(), include_alternatives=False, alternative_names=("Upgrade",))
+
+
+def test_disabled_base_crossings_reject_named_crossing_selection() -> None:
+    with pytest.raises(ValueError, match="crossing_names must be empty"):
+        replace(_study(), include_base_crossings=False, crossing_names=("Existing",))
+

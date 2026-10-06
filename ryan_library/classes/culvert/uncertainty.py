@@ -119,7 +119,11 @@ class UncertaintyStudy:
         if not isinstance(self.include_alternatives, bool):  # pyright: ignore[reportUnnecessaryIsInstance]
             msg = "include_alternatives must be boolean."
             raise ValueError(msg)
+        crossing_names = _normalise_names(tuple(self.crossing_names), "crossing_names")
         alternative_names = _normalise_names(tuple(self.alternative_names), "alternative_names")
+        if not self.include_base_crossings and crossing_names:
+            msg = "crossing_names must be empty when include_base_crossings is false."
+            raise ValueError(msg)
         if not self.include_alternatives and alternative_names:
             msg = "alternative_names must be empty when include_alternatives is false."
             raise ValueError(msg)
@@ -131,7 +135,7 @@ class UncertaintyStudy:
         object.__setattr__(self, "name", name)
         object.__setattr__(self, "sampling_mode", sampling_mode)
         object.__setattr__(self, "parameters", parameters)
-        object.__setattr__(self, "crossing_names", _normalise_names(tuple(self.crossing_names), "crossing_names"))
+        object.__setattr__(self, "crossing_names", crossing_names)
         object.__setattr__(self, "scenario_names", _normalise_names(tuple(self.scenario_names), "scenario_names"))
         object.__setattr__(self, "alternative_names", alternative_names)
         object.__setattr__(self, "source", source or None)

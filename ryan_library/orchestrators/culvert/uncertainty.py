@@ -25,7 +25,11 @@ def select_uncertainty_targets(
     study: UncertaintyStudy,
 ) -> tuple[tuple[CrossingDefinition, Alternative | None], ...]:
     """Resolve the exact crossing/alternative targets selected by a study."""
-    crossings = _select(project.crossings, study.crossing_names, lambda item: item.name)
+    crossings = (
+        _select(project.crossings, study.crossing_names, lambda item: item.name)
+        if study.include_base_crossings
+        else ()
+    )
     alternatives = (
         _select(project.alternatives, study.alternative_names, lambda item: item.name)
         if study.include_alternatives
@@ -44,9 +48,9 @@ def select_uncertainty_targets(
 def run_uncertainty_study(project: CulvertProject, study: UncertaintyStudy) -> UncertaintyStudyResult:
     """Evaluate the selected matrix, retaining every expected hydraulic outcome.
 
-    Empty name selectors mean all available members. Base crossings can be disabled
-    explicitly for alternative-only studies. The full Cartesian evaluation count is
-    checked before allocating samples or invoking hydraulics.
+    Empty name selectors mean all available members within enabled target classes.
+    Base crossings and alternatives can each be disabled explicitly. The full Cartesian
+    evaluation count is checked before allocating samples or invoking hydraulics.
     """
     scenarios = _select(project.scenarios, study.scenario_names, lambda item: item.name)
     targets = select_uncertainty_targets(project, study)
