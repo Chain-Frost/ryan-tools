@@ -54,7 +54,10 @@ The generic workflow catalogue and authoritative curated GDAL metadata are packa
 workflows resolve through their existing maintained repository wrappers so their CLI behavior has one source of truth.
 The `culvert_analysis_design` workflow exposes the maintained solve, analyse, compare, design, rating and saved-report
 commands as output-creating hydraulic workflows. Project-driven scenarios require an explicit versioned JSON or TOML
-path; saved-report rendering consumes existing structured output without rerunning hydraulics.
+path; saved-report rendering consumes existing structured output without rerunning hydraulics. The
+`floodway_design_assessment` workflow exposes the maintained floodway wrapper, combining the culvert project with a
+separate versioned floodway-formation JSON/TOML definition and creating scenario plus governing-envelope outputs.
+Hydrograph and closure-duration processing is deliberately excluded from that workflow.
 
 ## Repository workflow resolution
 
