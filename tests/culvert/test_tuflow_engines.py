@@ -91,3 +91,39 @@ def test_unknown_engine_fails_closed(concrete_crossing: TuflowCircularCulvert) -
             tailwater_elevation_m=9.5,
             engine="not-an-engine",
         )
+
+
+def test_hy8_forward_dispatch_uses_run_hy8_boundary(
+    concrete_crossing: TuflowCircularCulvert,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    crossing = MagicMock()
+    crossing.hw_from_q.return_value = HydraulicsResult(
+        crossing_name="C01",
+        requested_flow=2.0,
+        computed_flow=2.0,
+        computed_headwater=10.8,
+        row=Hy8ResultRow(
+            flow=2.0,
+            headwater_elevation=10.8,
+            velocity=2.2,
+            roadway_discharge=0.0,
+            flow_type="Outlet Control",
+            overtopping=False,
+        ),
+    )
+    monkeypatch.setattr(engine_module, "_hy8_crossing", lambda *args, **kwargs: (MagicMock(), crossing))
+
+    result = solve_tuflow_culvert_forward(
+        concrete_crossing,
+        scenario="HY-8 mock",
+        discharge_m3s=2.0,
+        tailwater_elevation_m=9.5,
+        engine=CulvertEngine.HY8,
+        hy8=Path("C:/HY8/HY864.exe"),
+    )
+
+    assert result.engine is CulvertEngine.HY8
+    assert result.computed_discharge_m3s == pytest.approx(2.0)
+    assert result.headwater_elevation_m == pytest.approx(10.8)
+    crossing.hw_from_q.assert_called_once()
