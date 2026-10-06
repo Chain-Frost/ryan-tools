@@ -14,7 +14,7 @@ rather than duplicating crossing hydraulics.
 
 Debris impact/loading and debris blockage are future considerations only and are outside the current scope.
 Hydrograph-based overtopping/closure-duration analysis is also outside this formation-design workflow and is tracked
-separately in issue #92.
+separately in issue #93.
 
 ## 1. Source hierarchy and interpretation rules
 
@@ -393,6 +393,28 @@ notes possible uplift under impervious batter protection, warns about leakage/cu
 upstands near the downstream shoulder. These should initially be geometry/detail warnings rather than unsupported
 pressure calculations.
 
+### 6.1 MRWA Table 5.1 dumped-rock slope protection
+
+For a supported MRWA downstream-batter velocity, the legacy compliance layer reproduces Table 5.1 as a discrete
+dumped-rock selection:
+
+| Batter velocity (m/s) | Rock class | Section thickness (m) |
+| ---: | --- | ---: |
+| < 2.0 | None | — |
+| 2.0 to < 2.6 | Facing | 0.50 |
+| 2.6 to < 2.9 | Light | 0.75 |
+| 2.9 to < 3.9 | 1/4 tonne | 1.00 |
+| 3.9 to < 4.5 | 1/2 tonne | 1.25 |
+| 4.5 to < 5.1 | 1 tonne | 1.60 |
+| 5.1 to < 5.7 | 2 tonne | 2.00 |
+| 5.7 to 6.4 | 4 tonne | 2.50 |
+| > 6.4 | Special design | — |
+
+At a shared table boundary the implementation selects the higher protection class conservatively. Values above
+6.4 m/s are not extrapolated and return a specialist-review condition. The result remains explicitly MRWA legacy
+compliance evidence and is not replaced by the separate HEC-23 enhanced check. Published Appendix D vectors include
+2.82 m/s -> Light / 0.75 m and 3.51 m/s -> 1/4 tonne / 1.00 m.
+
 ## 7. Enhanced demand quantities
 
 Where the hydraulic state and selected method support them, useful diagnostic/enhanced quantities include:
@@ -647,7 +669,7 @@ A reviewable result should eventually contain:
 11. machine-readable provenance sufficient to reproduce the calculation.
 
 Hydrograph/overtopping-duration reporting is deliberately excluded from this contract and is tracked separately in
-issue #92.
+issue #93.
 
 Console, Markdown, JSON and CSV outputs should be views of the same typed result model after implementation.
 
@@ -667,19 +689,13 @@ The research to date supports the following decisions:
 
 ## 16. Remaining implementation and research
 
-Substantive implementation is now underway in PR #88. The remaining first-increment work is:
+The supported first-increment implementation is complete in PR #88. It now includes the MRWA Figure 4.5/4.6 path,
+the distinct 0.76/0.8 source thresholds, submerged pavement `q/D`, Table 5.1 rock selection, HEC-23 DG5 enhanced
+protection, a configurable peak-discharge sweep, strict formation configuration, machine-readable/reviewable reporting
+and a maintained wrapper.
 
-- complete MRWA Seven Mile Creek and Majors Creek regression for the implemented velocity/regime paths;
-- retain the Section 4.4.3 `D/H < 0.76` applicability statement separately from the Appendix C/D `D/H = 0.8`
-  legacy operational point;
-- decide whether the guide's submerged pavement `q/D` approximation belongs in the typed first-increment result;
-- integrate the already implemented HEC-23 DG5 protection result into the assessment/reporting path while keeping it
-  distinct from MRWA compliance;
-- complete only the formation/configuration inputs required by supported calculations;
-- expand review/report output with governing state, source provenance, applicability and supported protection results;
-- add the maintained human-facing floodway wrapper after the reusable API stabilises;
-- run repository Ruff, strict Pyright, focused/full pytest, documentation/Markdown checks and required package/build
-  verification.
+The remaining delivery work is independent repository validation: Ruff, strict Pyright, focused/full pytest,
+documentation/Markdown checks and required package/build verification, followed by correction of any findings.
 
 The following remain deliberate research/fail-closed boundaries rather than blockers to the first increment:
 
@@ -687,4 +703,5 @@ The following remain deliberate research/fail-closed boundaries rather than bloc
 - a full Chen-Anderson sectional solver unless the primary equations and applicability bounds are independently verified;
 - a general toe/impingement/scour calculation without a bounded source method;
 - complete seepage/piping analysis;
-- current licensed Austroads Part 5B detail beyond the documented MRWA hierarchy where the licensed text is unavailable.
+- current licensed Austroads Part 5B detail beyond the documented MRWA hierarchy where the licensed text is unavailable;
+- hydrograph/overtopping-duration and road-closure-duration analysis, tracked separately in issue #93.
