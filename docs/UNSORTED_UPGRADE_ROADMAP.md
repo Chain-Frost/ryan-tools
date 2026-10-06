@@ -1,21 +1,23 @@
 # Unsorted → ryan-tools Upgrade Roadmap
 
-## Current handoff — 2026-09-06
+## Current handoff — 2026-10-07
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review |
+| Status | Deferred |
 | Owner | Unassigned |
-| Updated | 2026-09-06 |
-| Next review | 2026-09-20 |
-| Baseline for registration | `main` / `f7118e2`; detailed migration evidence below predates this registration |
+| Updated | 2026-10-07 |
+| Next review | 2027-04-05 |
+| Baseline for registration | Historical migration record; migration remains incomplete but is not being actively progressed |
 
-Registered in the [work register](work/README.md) under the [work-tracking convention](WORK_TRACKING.md).
-The next action is to reconcile unchecked/in-progress items below with current parent/submodule source and validation,
-then select a bounded migration. No migration statuses or historical results were revalidated during registration.
-Blockers: none established by this documentation review; runtime/environment dependencies need checking per candidate.
-Completion criteria remain the tracked replacement, focused validation and finalized source disposition defined below.
-This handoff is a documentation edit only, uncommitted; preserve pre-existing staged code and independent submodule state.
+This migration remains incomplete but is deliberately deferred and is not being actively progressed.
+It remains discoverable in the [work register](work/README.md) without being treated as a current implementation task.
+The `unsorted` submodule is excluded from all automated work unconditionally: agents must not initialise, inspect,
+traverse, search, lint, test, validate or otherwise check that submodule, including if this migration is later resumed.
+Unchecked and in-progress items below remain valid migration candidates, but any resumed work must respect that
+boundary and rely on maintainer-provided evidence or parent-repository changes that do not inspect `unsorted`.
+The next review is 5 April 2027 unless it is deliberately resumed earlier; agents should not surface it as overdue
+before then.
 
 ## Conversion Standards
 
