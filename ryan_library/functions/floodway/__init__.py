@@ -8,6 +8,7 @@ from .assessment import (
     calculate_mrwa_surface_velocity,
     select_governing_dynamic_pressure,
     select_governing_momentum_flux,
+    select_governing_unit_discharge,
     select_governing_velocity,
 )
 from .config import (
@@ -123,6 +124,7 @@ __all__: list[str] = [
     "rectangular_critical_depth",
     "select_governing_dynamic_pressure",
     "select_governing_momentum_flux",
+    "select_governing_unit_discharge",
     "select_governing_velocity",
     "select_mrwa_rock_slope_protection",
     "velocity_head",
