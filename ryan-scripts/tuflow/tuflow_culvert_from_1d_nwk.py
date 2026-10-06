@@ -18,6 +18,7 @@ from ryan_library.functions.culvert.tuflow_engines import (
 
 DIAMETER_FIELDS = ("Width_or_D", "Width_or_Diameter", "Width_or_Dia")
 BARREL_FIELDS = ("Number_of", "num_barrels", "Barrels")
+IGNORED_VALUES = frozenset({"T", "Y"})
 DEFAULT_N = 0.024
 
 
@@ -37,6 +38,57 @@ def _first_float(row: dict[str, Any], keys: tuple[str, ...]) -> float | None:
     return None
 
 
+def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> int:
+    for key in keys:
+        value = _float(row, key)
+        if value is not None:
+            rounded = round(value)
+            if abs(value - rounded) > 1e-9 or rounded <= 0:
+                msg = f"{key} must contain a strictly positive integer barrel count."
+                raise ValueError(msg)
+            return int(rounded)
+    return default
+
+
+def _is_ignored(row: dict[str, Any]) -> bool:
+    return str(row.get("Ignore") or "").strip().upper() in IGNORED_VALUES
+
+
+def _geometry_length(row: dict[str, Any]) -> float:
+    geometry = row.get("geometry")
+    try:
+        length = float(geometry.length)
+    except (AttributeError, TypeError, ValueError):
+        length = float("nan")
+    if not isfinite(length) or length <= 0.0:
+        msg = "Negative Len_or_ANA requires a feature geometry with a positive digitized length."
+        raise ValueError(msg)
+    return length
+
+
+def _select_active_rows(rows: list[dict[str, Any]], crossing: str | None) -> list[dict[str, Any]]:
+    selected = rows
+    if crossing:
+        selected = [row for row in rows if str(row.get("ID") or "").strip() == crossing]
+        if not selected:
+            msg = f"Crossing {crossing!r} was not found."
+            raise ValueError(msg)
+    active = [row for row in selected if not _is_ignored(row)]
+    if not active:
+        if crossing:
+            msg = f"Crossing {crossing!r} is marked ignored in the TUFLOW 1d_nwk layer."
+        else:
+            msg = "No active culvert features remain after applying the TUFLOW Ignore field."
+        raise ValueError(msg)
+    return active
+
+
+def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
+    if path.exists() and not overwrite:
+        msg = f"Output already exists: {path}. Pass --overwrite to replace it."
+        raise FileExistsError(msg)
+
+
 def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
     source_type = str(row.get("Type") or "").strip().upper()
     if source_type != "C":
@@ -44,6 +96,8 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
         raise ValueError(msg)
     diameter = _first_float(row, DIAMETER_FIELDS)
     length = _float(row, "Len_or_ANA")
+    if length is not None and length < 0.0:
+        length = _geometry_length(row)
     inlet = _float(row, "US_Invert")
     outlet = _float(row, "DS_Invert")
     if diameter is None or diameter <= 0.0:
@@ -55,9 +109,9 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
     if inlet is None or outlet is None:
         msg = "US_Invert and DS_Invert are required."
         raise ValueError(msg)
-    roughness = _float(row, "n_nF_Cd", DEFAULT_N) or DEFAULT_N
-    barrels_raw = _first_float(row, BARREL_FIELDS)
-    barrels = 1 if barrels_raw is None else max(1, int(barrels_raw))
+    roughness_raw = _float(row, "n_nF_Cd", DEFAULT_N)
+    roughness = DEFAULT_N if roughness_raw is None else roughness_raw
+    barrels = _int_first(row, BARREL_FIELDS)
     name = str(row.get("ID") or "").strip() or f"culvert_{source_row:04d}"
     return TuflowCircularCulvert(
         name=name,
@@ -135,6 +189,7 @@ def _workspace(root: Path | None, crossing: str, scenario: str) -> Path | None:
 
 def run(args: argparse.Namespace) -> int:
     engine = CulvertEngine(args.engine)
+    _ensure_output_available(args.output_csv, overwrite=args.overwrite)
     kwargs: dict[str, str] = {}
     if args.layer:
         kwargs["layer"] = args.layer
@@ -144,11 +199,7 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError(msg)
     frame = frame.where(frame.notna(), None)
     rows = cast("list[dict[str, Any]]", frame.to_dict(orient="records"))
-    if args.crossing:
-        rows = [row for row in rows if str(row.get("ID") or "").strip() == args.crossing]
-        if not rows:
-            msg = f"Crossing {args.crossing!r} was not found."
-            raise ValueError(msg)
+    rows = _select_active_rows(rows, args.crossing)
 
     workspace_root: Path | None = args.workspace
     if args.keep_workspace and workspace_root is None:
@@ -232,6 +283,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("input_gis", type=Path)
     parser.add_argument("--layer")
     parser.add_argument("--output-csv", type=Path, default=Path("tuflow-1d-nwk-culvert-results.csv"))
+    parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--crossing")
     parser.add_argument("--engine", choices=[item.value for item in CulvertEngine], default=CulvertEngine.HY8.value)
     parser.add_argument("--headwater-ratios", type=float, nargs="+", default=[1.5, 2.0])
