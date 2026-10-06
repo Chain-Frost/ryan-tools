@@ -1,0 +1,328 @@
+"""Selectable hydraulic backends for TUFLOW culvert integration."""
+
+from dataclasses import dataclass
+from enum import StrEnum
+from math import isfinite, isnan
+from pathlib import Path
+
+from culvert_solver import solve_crossing_discharge_for_headwater, solve_crossing_hydraulics
+from run_hy8 import (
+    CircularConcreteInlet,
+    CircularCorrugatedSteelInlet,
+    CulvertBarrel as Hy8Barrel,
+    CulvertCrossing as Hy8Crossing,
+    CulvertMaterial as Hy8Material,
+    CulvertShape as Hy8Shape,
+    FlowDefinition,
+    FlowMethod,
+    Hy8Project,
+    HydraulicsResult,
+    InletType,
+    UnitSystem,
+)
+
+from ...classes.culvert import (
+    CircularBarrelDefinition,
+    CrossingDefinition,
+    CulvertGroupDefinition,
+    CulvertMaterialName,
+)
+from .adapter import build_solver_crossing
+
+
+class CulvertEngine(StrEnum):
+    """Hydraulic engine available to TUFLOW culvert workflows."""
+
+    HY8 = "hy8"
+    RYAN_CULVERTS = "ryan-culverts"
+
+
+@dataclass(frozen=True, slots=True)
+class TuflowCircularCulvert:
+    """Engine-neutral circular culvert definition in SI units."""
+
+    name: str
+    diameter_m: float
+    length_m: float
+    inlet_invert_m: float
+    outlet_invert_m: float
+    roughness_manning_n: float
+    barrels: int = 1
+    material: CulvertMaterialName = CulvertMaterialName.CONCRETE_PIPE
+
+    def __post_init__(self) -> None:
+        name = self.name.strip()
+        if not name:
+            raise ValueError("name must be nonempty.")
+        for field_name in ("diameter_m", "length_m", "roughness_manning_n"):
+            value = float(getattr(self, field_name))
+            if not isfinite(value) or value <= 0.0:
+                raise ValueError(f"{field_name} must be finite and strictly positive.")
+            object.__setattr__(self, field_name, value)
+        for field_name in ("inlet_invert_m", "outlet_invert_m"):
+            value = float(getattr(self, field_name))
+            if not isfinite(value):
+                raise ValueError(f"{field_name} must be finite.")
+            object.__setattr__(self, field_name, value)
+        if self.outlet_invert_m > self.inlet_invert_m:
+            raise ValueError("outlet_invert_m must not exceed inlet_invert_m.")
+        if isinstance(self.barrels, bool) or not isinstance(self.barrels, int) or self.barrels <= 0:
+            raise ValueError("barrels must be a strictly positive integer.")
+        if self.material not in {
+            CulvertMaterialName.CONCRETE_PIPE,
+            CulvertMaterialName.CORRUGATED_STEEL,
+        }:
+            raise ValueError("TUFLOW engine integration currently supports circular concrete or corrugated-steel pipes.")
+        object.__setattr__(self, "name", name)
+
+
+@dataclass(frozen=True, slots=True)
+class CulvertEngineResult:
+    """Normalized result shared by both hydraulic engines."""
+
+    engine: CulvertEngine
+    crossing: str
+    scenario: str
+    requested_discharge_m3s: float | None
+    requested_headwater_m: float | None
+    computed_discharge_m3s: float
+    headwater_elevation_m: float
+    headwater_ratio: float
+    outlet_velocity_mps: float
+    flow_type: str
+    roadway_discharge_m3s: float
+    overtopping: bool
+    status: str
+    warnings: tuple[str, ...] = ()
+    workspace: Path | None = None
+
+
+def _engine(value: CulvertEngine | str) -> CulvertEngine:
+    return value if isinstance(value, CulvertEngine) else CulvertEngine(value)
+
+
+def _solver_crossing(definition: TuflowCircularCulvert):
+    barrel = CircularBarrelDefinition(
+        diameter_mm=definition.diameter_m * 1000.0,
+        length=definition.length_m,
+        inlet_invert=definition.inlet_invert_m,
+        outlet_invert=definition.outlet_invert_m,
+        roughness=definition.roughness_manning_n,
+        material=definition.material,
+        label=definition.name,
+    )
+    crossing = CrossingDefinition(
+        name=definition.name,
+        groups=(CulvertGroupDefinition(name=definition.name, barrel=barrel, quantity=definition.barrels),),
+    )
+    return build_solver_crossing(crossing)
+
+
+def _solver_result(
+    definition: TuflowCircularCulvert,
+    *,
+    scenario: str,
+    discharge_m3s: float,
+    tailwater_elevation_m: float,
+    requested_headwater_m: float | None,
+) -> CulvertEngineResult:
+    crossing = _solver_crossing(definition)
+    result = solve_crossing_hydraulics(
+        crossing=crossing,
+        total_discharge=discharge_m3s,
+        tailwater=tailwater_elevation_m,
+    )
+    active = tuple(item for item in result.group_results if item.barrel_discharge > 0.0)
+    velocity = max((item.barrel_result.velocity_outlet for item in active), default=0.0)
+    regimes = tuple(dict.fromkeys(item.barrel_result.regime.value for item in active))
+    warnings = tuple(
+        dict.fromkeys(
+            warning.code.value
+            for item in active
+            for warning in item.barrel_result.warnings
+        )
+    )
+    return CulvertEngineResult(
+        engine=CulvertEngine.RYAN_CULVERTS,
+        crossing=definition.name,
+        scenario=scenario,
+        requested_discharge_m3s=None if requested_headwater_m is not None else discharge_m3s,
+        requested_headwater_m=requested_headwater_m,
+        computed_discharge_m3s=result.total_discharge,
+        headwater_elevation_m=result.headwater_elevation,
+        headwater_ratio=(result.headwater_elevation - definition.inlet_invert_m) / definition.diameter_m,
+        outlet_velocity_mps=velocity,
+        flow_type=";".join(regimes),
+        roadway_discharge_m3s=result.roadway_discharge,
+        overtopping=result.roadway_discharge > 0.0,
+        status=result.status.value,
+        warnings=warnings,
+    )
+
+
+def _hy8_crossing(
+    definition: TuflowCircularCulvert,
+    *,
+    tailwater_elevation_m: float,
+    seed_discharge_m3s: float,
+) -> tuple[Hy8Project, Hy8Crossing]:
+    project = Hy8Project(title=definition.name, units=UnitSystem.SI, exit_loss_option=0)
+    crossing = Hy8Crossing(name=definition.name)
+    project.crossings.append(crossing)
+    crossing.flow = FlowDefinition(
+        method=FlowMethod.USER_DEFINED,
+        user_values=[max(seed_discharge_m3s, 0.05)],
+    )
+    crossing.tailwater.set_constant(elevation=tailwater_elevation_m, invert=tailwater_elevation_m)
+    crossing.roadway.width = 10.0
+    crossing.roadway.stations = [0.0, 10.0]
+    crest = definition.inlet_invert_m + 50.0
+    crossing.roadway.elevations = [crest, crest]
+
+    if definition.material is CulvertMaterialName.CONCRETE_PIPE:
+        material = Hy8Material.CONCRETE
+        inlet_configuration = CircularConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
+    elif definition.material is CulvertMaterialName.CORRUGATED_STEEL:
+        material = Hy8Material.CORRUGATED_STEEL
+        inlet_configuration = CircularCorrugatedSteelInlet.THIN_EDGE_PROJECTING
+    else:
+        raise ValueError(f"Unsupported HY-8 material: {definition.material.value}")
+
+    barrel = Hy8Barrel(
+        name=f"{definition.name} Barrel",
+        span=definition.diameter_m,
+        rise=definition.diameter_m,
+        shape=Hy8Shape.CIRCLE,
+        material=material,
+        number_of_barrels=definition.barrels,
+        inlet_invert_station=0.0,
+        inlet_invert_elevation=definition.inlet_invert_m,
+        outlet_invert_station=definition.length_m,
+        outlet_invert_elevation=definition.outlet_invert_m,
+        inlet_type=InletType.STRAIGHT,
+        inlet_configuration=inlet_configuration,
+    )
+    barrel.manning_n_top = definition.roughness_manning_n
+    barrel.manning_n_bottom = definition.roughness_manning_n
+    crossing.culverts = [barrel]
+    errors = crossing.validate()
+    if errors:
+        raise ValueError("; ".join(errors))
+    return project, crossing
+
+
+def _hy8_result(
+    definition: TuflowCircularCulvert,
+    *,
+    scenario: str,
+    result: HydraulicsResult,
+) -> CulvertEngineResult:
+    row = result.row
+    if row is None:
+        raise ValueError("HY-8 returned no result row.")
+    roadway = 0.0 if isnan(row.roadway_discharge) else row.roadway_discharge
+    return CulvertEngineResult(
+        engine=CulvertEngine.HY8,
+        crossing=definition.name,
+        scenario=scenario,
+        requested_discharge_m3s=result.requested_flow,
+        requested_headwater_m=result.requested_headwater,
+        computed_discharge_m3s=result.computed_flow,
+        headwater_elevation_m=result.computed_headwater,
+        headwater_ratio=(result.computed_headwater - definition.inlet_invert_m) / definition.diameter_m,
+        outlet_velocity_mps=row.velocity,
+        flow_type=row.flow_type,
+        roadway_discharge_m3s=roadway,
+        overtopping=row.overtopping or roadway > 0.0,
+        status="success",
+        workspace=result.workspace,
+    )
+
+
+def solve_tuflow_culvert_forward(
+    definition: TuflowCircularCulvert,
+    *,
+    scenario: str,
+    discharge_m3s: float,
+    tailwater_elevation_m: float,
+    engine: CulvertEngine | str,
+    hy8: Path | str | None = None,
+    workspace: Path | None = None,
+    keep_workspace: bool = False,
+) -> CulvertEngineResult:
+    """Solve headwater for a prescribed crossing discharge."""
+    selected = _engine(engine)
+    if selected is CulvertEngine.RYAN_CULVERTS:
+        return _solver_result(
+            definition,
+            scenario=scenario,
+            discharge_m3s=discharge_m3s,
+            tailwater_elevation_m=tailwater_elevation_m,
+            requested_headwater_m=None,
+        )
+    project, crossing = _hy8_crossing(
+        definition,
+        tailwater_elevation_m=tailwater_elevation_m,
+        seed_discharge_m3s=discharge_m3s,
+    )
+    result = crossing.hw_from_q(
+        q=discharge_m3s,
+        hy8=hy8,
+        project=project,
+        workspace=workspace,
+        keep_files=keep_workspace,
+    )
+    return _hy8_result(definition, scenario=scenario, result=result)
+
+
+def solve_tuflow_culvert_inverse(
+    definition: TuflowCircularCulvert,
+    *,
+    scenario: str,
+    headwater_elevation_m: float,
+    tailwater_elevation_m: float,
+    engine: CulvertEngine | str,
+    q_hint_m3s: float | None = None,
+    hy8: Path | str | None = None,
+    workspace: Path | None = None,
+    keep_workspace: bool = False,
+) -> CulvertEngineResult:
+    """Solve discharge for a prescribed headwater elevation."""
+    selected = _engine(engine)
+    if selected is CulvertEngine.RYAN_CULVERTS:
+        crossing = _solver_crossing(definition)
+        discharge = solve_crossing_discharge_for_headwater(
+            crossing=crossing,
+            headwater_elevation=headwater_elevation_m,
+            tailwater=tailwater_elevation_m,
+        )
+        return _solver_result(
+            definition,
+            scenario=scenario,
+            discharge_m3s=discharge,
+            tailwater_elevation_m=tailwater_elevation_m,
+            requested_headwater_m=headwater_elevation_m,
+        )
+    project, crossing = _hy8_crossing(
+        definition,
+        tailwater_elevation_m=tailwater_elevation_m,
+        seed_discharge_m3s=q_hint_m3s or 0.05,
+    )
+    result = crossing.q_from_hw(
+        hw=headwater_elevation_m,
+        q_hint=q_hint_m3s,
+        hy8=hy8,
+        project=project,
+        workspace=workspace,
+        keep_files=keep_workspace,
+    )
+    return _hy8_result(definition, scenario=scenario, result=result)
+
+
+__all__ = [
+    "CulvertEngine",
+    "CulvertEngineResult",
+    "TuflowCircularCulvert",
+    "solve_tuflow_culvert_forward",
+    "solve_tuflow_culvert_inverse",
+]
