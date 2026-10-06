@@ -84,8 +84,13 @@ def calculate_mrwa_submerged_pavement_velocity(
     *,
     unit_discharge: float,
     downstream_depth: float,
+    applicability: FloodwayApplicabilityStatus = FloodwayApplicabilityStatus.LEGACY_REPRODUCTION,
 ) -> MrwaSubmergedPavementVelocityResult:
-    """Evaluate the MRWA submerged-pavement approximation ``V ~= q / D``."""
+    """Evaluate the MRWA submerged-pavement approximation V ~= q / D.
+
+    Callers may downgrade applicability when the authoritative crossing state
+    falls within the guide's unresolved 0.76-versus-0.8 threshold interval.
+    """
     if downstream_depth <= 0.0:
         msg = "downstream_depth must be strictly positive for the MRWA submerged-pavement approximation."
         raise ValueError(msg)
@@ -94,6 +99,7 @@ def calculate_mrwa_submerged_pavement_velocity(
         unit_discharge=unit_discharge,
         downstream_depth=downstream_depth,
         velocity=velocity,
+        applicability=applicability,
     )
 
 
