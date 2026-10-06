@@ -37,6 +37,11 @@ python ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_n
 The default inverse checks are HW/D 1.5 and 2.0. Use `--headwater-ratios`
 to supply another set.
 
+Both migrated wrappers refuse to replace an existing result CSV unless
+`--overwrite` is supplied. The `1d_nwk` wrapper also honours the TUFLOW
+`Ignore` field and resolves negative `Len_or_ANA` values from the digitized
+feature length.
+
 ## Shared mapping contract
 
 Both engines receive the same engine-neutral circular-culvert definition:
