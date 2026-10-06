@@ -118,6 +118,9 @@ def test_wrapper_assessment_writes_reviewable_outputs(tmp_path: Path) -> None:
     assert (output / "floodway_envelope.json").is_file()
     assert (output / "floodway_governors.csv").is_file()
     assert (output / "floodway_envelope.md").is_file()
+    log_file = tmp_path / "floodway.log"
+    assert log_file.is_file()
+    assert "Floodway assessment completed" in log_file.read_text(encoding="utf-8")
 
 
 def test_wrapper_missing_working_directory_returns_one(tmp_path: Path) -> None:
