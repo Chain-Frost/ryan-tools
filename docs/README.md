@@ -86,6 +86,7 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Proposed hosted checks, external-software boundaries and implementation tasks |
 | [Floodway work record](work/2026-09-13-floodway-design-87.md) | Floodway implementation and validation |
 | [Floodway research](audits/2026-09-13-floodway-design-research.md) | Source baseline |
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
