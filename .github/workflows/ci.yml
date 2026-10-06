@@ -111,9 +111,9 @@ jobs:
       - name: Initialise required test submodules
         shell: pwsh
         run: |
-          git submodule sync -- vendor/run_hy8 vendor/ryan_culverts tests/test_data
+          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init vendor/run_hy8 vendor/ryan_culverts tests/test_data
+          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Set up Python 3.14

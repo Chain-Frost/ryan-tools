@@ -91,8 +91,9 @@ The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes
 3.14. It has independent policy, hosted-test and package jobs so a policy failure does not hide runtime or packaging
 results.
 
-The hosted test job initialises only `vendor/run_hy8`, `vendor/ryan_culverts` and `tests/test_data`, provisions
-7-Zip, sets `MPLBACKEND=Agg`, and runs:
+The hosted test job initialises only `qgis-resources`, `vendor/run_hy8`, `vendor/ryan_culverts` and
+`tests/test_data`. The QGIS repository is used only as test/resource data; no QGIS application is launched. The job
+installs the repository's binary GIS dependency bootstrap, provisions 7-Zip, sets `MPLBACKEND=Agg`, and runs:
 
 ```powershell
 python -m pytest tests `
@@ -109,8 +110,9 @@ cannot make them a valid normal-Python hosted boundary. Rasterio/Fiona tests, na
 mocked subprocess behavior and archive tests remain in the hosted set. Tests marked `external` require an explicitly
 supplied application or executable; the ASC_to_ASC parity tests remain local and use `ASC_TO_ASC_EXE`.
 
-The package job verifies the retained wheel, performs a `--no-bump` rebuild, verifies the rebuilt artifact, confirms the
-declared version is unchanged, then installs the wheel into a temporary target and runs the installed-wheel smoke test
+The package job initialises `qgis-resources` plus the two vendored Python packages, verifies the retained wheel,
+performs a `--no-bump` rebuild, verifies the rebuilt artifact, confirms the declared version is unchanged, then
+installs the wheel into a temporary target and runs the installed-wheel smoke test
 outside the checkout with `--expected-root`. The verified wheel and hosted JUnit report are uploaded as workflow
 artifacts.
 
