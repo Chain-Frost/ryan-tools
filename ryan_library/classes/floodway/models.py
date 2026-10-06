@@ -137,6 +137,7 @@ class FloodwayFormation:
     name: str
     zones: tuple[FloodwayFormationZone, ...]
     crest_flow_length: float | None = None
+    two_d_verification_reason: str = ""
 
     def __post_init__(self) -> None:
         name = self.name.strip()
@@ -159,6 +160,7 @@ class FloodwayFormation:
                 "crest_flow_length",
                 _positive(self.crest_flow_length, "crest_flow_length"),
             )
+        object.__setattr__(self, "two_d_verification_reason", self.two_d_verification_reason.strip())
 
     def get_zone(self, zone: FloodwayZone) -> FloodwayFormationZone | None:
         """Return the requested A-F zone when it is represented in this formation."""
