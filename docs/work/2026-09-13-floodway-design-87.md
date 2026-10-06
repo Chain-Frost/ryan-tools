@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active implementation |
+| Status | Implementation complete; validation pending |
 | Owner | Unassigned |
 | Created | 2026-09-13 |
 | Updated | 2026-10-06 |
-| Next review | After MRWA regression and repository validation |
+| Next review | After independent repository validation |
 | Branch | `feature/floodway-design-87` / PR #88 |
 | Baseline | Post-#86 `main`; branch is 0 commits behind `main` as checked 2026-10-06 |
 
@@ -41,10 +41,16 @@ PR #88 now contains substantive Python implementation rather than research-only 
 - source-bounded Figure 4.5 plunging/surface-flow transition relation;
 - Figure 4.6 `K` relation reconstructed from the guide's own Equation 3 + Equation 6 energy relation rather than
   hand-digitised;
-- event-envelope selection retaining independent governors for velocity, dynamic pressure and momentum flux;
+- event-envelope selection retaining independent governors for unit discharge, velocity, dynamic pressure and momentum flux;
+- configurable peak-discharge sweeps from overtopping onset through the selected maximum, with solver submergence detection;
+- explicit preservation of the MRWA `D/H < 0.76` and Appendix C/D `D/H = 0.8` source thresholds;
+- MRWA Table 5.1 dumped-rock class/thickness selection kept distinct from HEC-23 enhanced protection;
+- current MRWA 2023 floodway requirements retained as source-labelled project-level report guidance;
 - HEC-23 DG5 overtopping-riprap equations and worked-example regression tests;
-- JSON, CSV and Markdown envelope outputs;
-- focused integration tests across the culvert/floodway boundary.
+- strict versioned floodway formation JSON/TOML configuration;
+- JSON, CSV and Markdown scenario/envelope outputs with retained governing hydraulic evidence;
+- maintained `ryan-scripts/floodway.py` human-facing wrapper and MCP workflow catalogue entry;
+- focused test coverage across calculations, configuration, sweep, reporting, wrapper and the culvert/floodway boundary.
 
 Unsupported zone mechanisms continue to fail closed rather than receiving invented scalar methods.
 
@@ -125,31 +131,17 @@ required. The floodway design workflow must not create a competing production cr
 
 ## Remaining first-increment work
 
-1. **MRWA regime/applicability completion**
-   - Appendix D velocity regression for the implemented Seven Mile Creek and Majors Creek paths is now present;
-   - the submerged pavement `V ~= q/D` approximation is now mapped into the typed result model;
-   - preserve the Section 4.4.3 `D/H < 0.76` versus Appendix C/D `D/H = 0.8` source distinction rather than silently
-     reconciling it.
+Implementation work for the supported first increment is complete. The remaining handoff is validation by a separate
+agent:
 
-2. **Protection/design integration**
-   - HEC-23 DG5 is now integrated into the typed scenario assessment/report path;
-   - keep enhanced HEC-23 checks distinct from MRWA compliance and extend only where supported.
+1. run Ruff formatting/lint;
+2. run strict Pyright on changed Python;
+3. run focused and full pytest;
+4. run documentation/Markdown checks and the repository documentation checker;
+5. run required package/build verification;
+6. address any findings before merge.
 
-3. **Formation/configuration**
-   - expose only the additional geometry/material inputs needed by supported methods;
-   - do not add unsupported shoulder-pressure, complete piping or generic toe-scour models merely to fill A-F fields.
-
-4. **Reporting and human-facing entry point**
-   - propagate and expose retained governing event/state hydraulic evidence consistently across envelope export/report views;
-   - keep method provenance, applicability/warnings and supported protection results explicit;
-   - add the maintained floodway wrapper/CLI once the reusable API is stable.
-
-5. **Validation**
-   - run Ruff formatting/lint;
-   - run strict Pyright on changed Python;
-   - run focused and full pytest;
-   - run documentation/Markdown checks and the repository documentation checker;
-   - run package/build verification where required by repository policy.
+No unrun validation is reported as passed. PR #88 must remain unmerged until that independent validation is complete.
 
 ## Explicit fail-closed boundaries
 
@@ -179,7 +171,16 @@ These states remain `SOURCE_DATA_REQUIRED`, `SPECIALIST_REVIEW_REQUIRED`,
   sufficient geometry is available.
 - Added `crest_flow_length` to formation geometry for Figure 4.5 `H/l` classification.
 - Added focused tests for Figure 4.5/4.6 relations and plunging-versus-surface routing.
-- Full repository Ruff/Pyright/pytest/build validation has **not yet been run**; no unrun check is reported as passed.
+- Preserved the Section 4.4.3 `D/H < 0.76` and Appendix C/D `D/H = 0.8` thresholds as separate source rules.
+- Visually verified MRWA Table 5.1 and implemented dumped-rock class/thickness selection with source-vector tests.
+- Added source-labelled current MRWA 2023 pavement/protection extent, trafficability, containment and relief-culvert guidance.
+- Added depth, Froude number, velocity head and an independent unit-discharge envelope governor.
+- Added a configurable peak-discharge sweep with overtopping-onset and solver-submergence searches; this is explicitly
+  separate from hydrograph/time-series analysis in issue #93.
+- Added strict floodway formation JSON/TOML configuration and the maintained `ryan-scripts/floodway.py` wrapper.
+- Added JSON/CSV/Markdown hydraulic/protection provenance, MCP workflow discovery and focused wrapper/config/sweep tests.
+- Full repository Ruff/Pyright/pytest/docs/build validation has **not yet been run** and is explicitly delegated to a
+  separate validation agent; no unrun check is reported as passed.
 
 ### 2026-09-14
 
