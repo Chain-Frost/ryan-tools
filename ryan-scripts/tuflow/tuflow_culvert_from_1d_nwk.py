@@ -25,7 +25,7 @@ DEFAULT_N = 0.024
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     try:
         value = float(row.get(key))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
     return value if isfinite(value) else default
 
@@ -58,7 +58,7 @@ def _geometry_length(row: dict[str, Any]) -> float:
     geometry = row.get("geometry")
     try:
         length = float(geometry.length)
-    except (AttributeError, TypeError, ValueError):
+    except AttributeError, TypeError, ValueError:
         length = float("nan")
     if not isfinite(length) or length <= 0.0:
         msg = "Negative Len_or_ANA requires a feature geometry with a positive digitized length."
