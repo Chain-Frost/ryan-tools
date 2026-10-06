@@ -1,21 +1,21 @@
 # Unsorted → ryan-tools Upgrade Roadmap
 
-## Current handoff — 2026-09-06
+## Current handoff — 2026-10-07
 
 | Field | Value |
 | --- | --- |
-| Status | Cancelled |
+| Status | Deferred |
 | Owner | Unassigned |
-| Updated | 2026-10-06 |
-| Next review | — |
-| Baseline for registration | Historical migration record; cancellation was recorded in the work register on 2026-09-13 |
+| Updated | 2026-10-07 |
+| Next review | 2027-04-05 |
+| Baseline for registration | Historical migration record; migration remains incomplete but is not being actively progressed |
 
-This migration front was cancelled on 13 September 2026 and is closed in the
-[work register](work/README.md). The `unsorted` submodule is excluded from automated inspection and validation; no
-further migration review is authorised. The material below is retained as historical implementation evidence only.
-Do not resume unchecked or in-progress items from this document unless a maintainer explicitly creates a new bounded
-work front. This top-level metadata was reconciled on 6 October 2026 because the obsolete review date was still being
-surfaced by agents.
+This migration remains incomplete but is deliberately deferred and is not being actively progressed.
+It remains discoverable in the [work register](work/README.md) without being treated as a current implementation task.
+The `unsorted` submodule is excluded from routine automated inspection and validation while the work is deferred.
+Unchecked and in-progress items below remain valid migration candidates and may be resumed if a maintainer explicitly
+selects this work front. The next review is 5 April 2027 unless it is deliberately resumed earlier; agents should not
+surface it as overdue before then.
 
 ## Conversion Standards
 
