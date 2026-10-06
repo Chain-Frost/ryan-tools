@@ -97,7 +97,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |
 | [Compatibility policy and inventory](COMPATIBILITY_POLICY.md) | Compatibility namespaces, migration state and deprecation checklist |
 | [Repository improvement roadmap](REPOSITORY_IMPROVEMENT_ROADMAP.md) | Deferred repository-wide opportunity inventory; no active improvement front is selected |
-| [Unsorted upgrade roadmap](UNSORTED_UPGRADE_ROADMAP.md) | Historical migration record; cancelled 13 September 2026 with no further review authorised |
+| [Unsorted upgrade roadmap](UNSORTED_UPGRADE_ROADMAP.md) | Incomplete migration inventory; currently deferred and not actively progressed |
 | [README improvement implementation plan](../implementation_plan.md) | Implemented 8 August 2026 README audit and its recorded reasoning |
 | [Logging pipeline implementation plan](audits/2026-08-08-logging-pipeline-implementation-plan.md) | Dated logging implementation outcome and supporting audit |
 | [`ryan_library` lifecycle audit and implementation plan](audits/2026-08-08-ryan-library-lifecycle-plan.md) | Dated lifecycle inventory and proposed migration work |
