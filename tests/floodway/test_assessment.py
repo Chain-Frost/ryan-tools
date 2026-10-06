@@ -422,3 +422,52 @@ def test_free_state_between_mrwa_thresholds_retains_velocity_with_explicit_warni
     assert pavement.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
     assert "0.76" in pavement.message
     assert "0.8" in pavement.message
+
+
+
+def test_explicit_2d_escalation_retains_scalar_demand_and_governing_state() -> None:
+    formation = FloodwayFormation(
+        name="Skewed floodway",
+        two_d_verification_reason="Skewed approach and possible outflanking are not represented by the 1D section.",
+        zones=(
+            FloodwayFormationZone(zone=FloodwayZone.PAVEMENT, slope=0.03, roughness=0.015),
+            FloodwayFormationZone(zone=FloodwayZone.DOWNSTREAM_SHOULDER, elevation=99.85),
+        ),
+    )
+    hydraulics = FloodwayScenarioHydraulics(
+        scenario_name="2% AEP",
+        aep_percent=2.0,
+        headwater_elevation=100.9,
+        tailwater_elevation=99.5,
+        roadway_discharge=30.0,
+        total_discharge=120.0,
+        segments=(
+            _segment(
+                q=1.2,
+                station=12.5,
+                state=RoadwaySegmentState.FREE_UNSUBMERGED,
+                upstream_head=0.9,
+                downstream_head=0.2,
+            ),
+        ),
+    )
+
+    assessment = assess_floodway_hydraulics(hydraulics, formation)
+    pavement = next(item for item in assessment.zone_assessments if item.zone is FloodwayZone.PAVEMENT)
+
+    assert pavement.demand is not None
+    assert pavement.demand.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
+    assert pavement.applicability is FloodwayApplicabilityStatus.TWO_D_VERIFICATION_RECOMMENDED
+    assert "Skewed approach" in pavement.message
+
+    envelope = build_floodway_envelope_from_assessments((assessment,))
+    pavement_governors = [
+        item for item in envelope.governors if item.zone is FloodwayZone.PAVEMENT
+    ]
+
+    assert pavement_governors
+    assert all(
+        item.assessment_applicability is FloodwayApplicabilityStatus.TWO_D_VERIFICATION_RECOMMENDED
+        for item in pavement_governors
+    )
+    assert all("Skewed approach" in item.assessment_message for item in pavement_governors)
