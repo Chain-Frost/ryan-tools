@@ -167,6 +167,7 @@ def test_maintenance_wrappers_modify_only_temporary_copy(
         assert dataset.nodata == -9999.0
 
 
+@pytest.mark.gdal
 def test_flood_extent_wrapper_creates_raster_and_vector(
     raster_test_data: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

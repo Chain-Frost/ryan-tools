@@ -85,6 +85,38 @@ The retained wheel can be checked independently with:
 py -3.14 repo-scripts\verify_wheel.py
 ```
 
+## GitHub Actions CI
+
+The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes to `main` using Windows and Python
+3.14. It has independent policy, hosted-test and package jobs so a policy failure does not hide runtime or packaging
+results.
+
+The hosted test job initialises only `vendor/run_hy8`, `vendor/ryan_culverts` and `tests/test_data`, provisions
+7-Zip, sets `MPLBACKEND=Agg`, and runs:
+
+```powershell
+python -m pytest tests `
+  --ignore=tests/functions/gdal `
+  --ignore=tests/orchestrators/gdal `
+  --ignore=tests/scripts/gdal/test_gdal_flood_extent.py `
+  --ignore=tests/scripts/test_promoted_utilities.py `
+  -m "not gdal and not gui and not external" `
+  -rs
+```
+
+The ignored modules import `osgeo` directly or through production modules during collection, so marker deselection alone
+cannot make them a valid normal-Python hosted boundary. Rasterio/Fiona tests, native ASC processing, wrapper dry runs,
+mocked subprocess behavior and archive tests remain in the hosted set. Tests marked `external` require an explicitly
+supplied application or executable; the ASC_to_ASC parity tests remain local and use `ASC_TO_ASC_EXE`.
+
+The package job verifies the retained wheel, performs a `--no-bump` rebuild, verifies the rebuilt artifact, confirms the
+declared version is unchanged, then installs the wheel into a temporary target and runs the installed-wheel smoke test
+outside the checkout with `--expected-root`. The verified wheel and hosted JUnit report are uploaded as workflow
+artifacts.
+
+Real `osgeo`/GDAL integration is deliberately not claimed by this initial workflow. Run those tests in a compatible
+GDAL/QGIS/OSGeo4W environment until a reliable Python 3.14 hosted GDAL installation is established.
+
 ## QGIS, OSGeo4W and GDAL
 
 QGIS and OSGeo4W can supply different Python packages, GDAL binaries, drivers and environment variables from the normal
