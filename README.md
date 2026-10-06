@@ -283,7 +283,8 @@ installed with the Python package. The parent repository pins each submodule to 
 
 ## Repository automation
 
+- [Agent instructions](AGENTS.md#code-review-rules) contain the repository-wide Code Review Rules used for Codex
+  GitHub reviews, alongside mandatory automated-agent guidance.
 - [Pull request template](.github/pull_request_template.md) records summaries, validation and review checklists.
-- [Code-review instructions](.github/code_review_instructions.md) describe repository-specific review expectations.
 - [Development guide](docs/DEVELOPMENT_GUIDE.md) is the canonical architecture and validation reference.
 - [MCP setup](docs/MCP_SETUP.md) documents focused inspection tools and staged CLI workflow discovery for AI clients.
