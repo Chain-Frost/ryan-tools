@@ -104,6 +104,38 @@ leave files staged unless the user asked for staging or a commit.
 - Use `enhancement`, `bug` or `docs` labels as appropriate.
 - Update documentation when user-facing behaviour, architecture or validation expectations change.
 
+## Code Review Rules
+
+Use the canonical documents above rather than duplicating their architecture, style or validation rules here. Apply the
+nearest local README or workflow document when it defines a more specific contract for changed code.
+
+### Consequential findings
+
+- Prioritise correctness, regressions, unsafe side effects and contract violations. Do not raise formatting, lint,
+  naming or other deterministic-tool findings unless they expose a real behavioural risk.
+- Treat architecture or lifecycle placement as a review finding only when the change violates the dependency direction
+  or compatibility policy in `docs/DEVELOPMENT_GUIDE.md`. Do not request an unsolicited migration merely because code
+  could be made more reusable.
+- Flag new behaviour added to deprecated compatibility namespaces. The safe path is forwarding to maintained
+  `ryan_library` APIs or moving new behaviour to the maintained implementation.
+
+### Workflow and data safety
+
+- Flag library functions or orchestrators that introduce wrapper-only process behaviour such as pausing, CLI parsing or
+  `SystemExit`. Keep those concerns at the human-facing wrapper boundary.
+- Flag file-management, raster or GIS changes that can overwrite, delete, rename or broaden the mutation scope without
+  an explicit user choice, dry-run boundary or equivalent safeguard appropriate to the workflow.
+- Preserve parent-repository and submodule boundaries. The `unsorted` submodule remains outside automated inspection
+  and validation.
+
+### Validation evidence
+
+- Judge validation against the change-type matrix in `docs/DEVELOPMENT_GUIDE.md`. Do not demand an unrelated full test
+  suite when focused validation is the repository standard.
+- Treat missing tests as a review finding only when the changed behaviour needs executable coverage or when existing
+  relevant coverage was not run. Documentation-only changes normally need documentation validation rather than Python
+  tests.
+
 ### MCP discovery maintenance
 
 - When adding or materially changing a supported, reusable script, orchestrator, processor or function, assess whether
