@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review (post-fix validation passed) |
+| Status | Ready for final review |
 | Owner | ChatGPT |
 | Created | 2026-10-06 |
 | Updated | 2026-10-06 |
-| Next review | 2026-10-20 |
+| Next review | Final PR review |
 | Baseline | `feature/culvert-uncertainty-91` from `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99`; `vendor/ryan_culverts` initially at `00f8274b4702bfe721d111436a15ae435f672460` |
 
 ## Outcome and scope
@@ -51,9 +51,8 @@ the uncertainty command handling into a helper, and formatted the regression fix
 
 ## Next action
 
-Publish the local validation follow-up commits when requested, then obtain final review against that published head.
-No remaining local validation failure is known. PR #94 remains unmerged; merging requires an explicit request.
-This validation session does not push, change the PR description or resolve remote review threads.
+Obtain final review against the published head. No remaining implementation, validation or packaging failure is known.
+PR #94 remains unmerged; merging requires an explicit request.
 
 The Codex review finding about imported target-headwater events has been addressed: uncertainty event import now resolves
 inverse target-headwater rows against the study's sole selected hydraulic target and explicitly rejects ambiguous
@@ -116,9 +115,8 @@ Environment: normal user Python **3.14.6**, Ruff **0.16.6**, strict Pyright **1.
   - discharge-only CSV over both differently sized crossings: **two evaluations**, each at the supplied flow, exit **0**.
 - `git diff --check`: **passed**. No unrelated full repository suite was run.
 
-The validation follow-up and handoff documentation are local commits. Nothing was pushed or merged in this session;
-the remote PR/review state has not been rechecked or changed. Both included submodule worktrees remain clean at their
-recorded pins. Unrelated work-register review items remain unchanged.
+The validation follow-up has now been published to PR #94. The rebuilt wheel is committed, and the installed-package
+and copied-wrapper checks recorded above are the current validation evidence. PR #94 remains unmerged.
 
 ### Earlier validation baseline (historical)
 
@@ -159,8 +157,8 @@ Branch: `feature/culvert-uncertainty-91`.
 
 Validated implementation baseline: `70af395`.
 Included HY-8 pointer commit: `2bb912b`.
-The user reported the branch synced to GitHub through review-fix head `1c445e5`, with PR #94 ready for review and
-unmerged. The post-fix checks and later local delivery are recorded above; the earlier wheel/hash below are historical.
+The branch is synced to GitHub through the post-validation merge head. PR #94 is ready for final review and remains
+unmerged. The earlier wheel/hash below are historical.
 
 PR: [#94](https://github.com/Chain-Frost/ryan-tools/pull/94)
 (`[core] Add culvert uncertainty and sensitivity workflow`).
