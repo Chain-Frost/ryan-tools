@@ -7,6 +7,7 @@ from ryan_library.classes.floodway import (
     FloodwayScenarioHydraulics,
     FloodwayZone,
     Hec23RiprapDesignInput,
+    MrwaSurfaceVelocityResult,
     RoadwaySegmentHydraulicState,
     RoadwaySegmentState,
 )
@@ -61,9 +62,7 @@ def test_surface_zones_use_upstream_local_q_without_reconstructing_from_lengths(
         headwater_elevation=100.8,
         tailwater_elevation=99.5,
         roadway_discharge=25.0,
-        segments=(
-            _segment(q=2.3, station=12.5, state=RoadwaySegmentState.FREE_UNSUBMERGED),
-        ),
+        segments=(_segment(q=2.3, station=12.5, state=RoadwaySegmentState.FREE_UNSUBMERGED),),
     )
 
     assessment = assess_floodway_hydraulics(hydraulics, _formation())
@@ -76,7 +75,7 @@ def test_surface_zones_use_upstream_local_q_without_reconstructing_from_lengths(
     assert batter.demand.unit_discharge == 2.3
     assert pavement.applicability is FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
     assert batter.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
-    assert batter.velocity_result is not None
+    assert isinstance(batter.velocity_result, MrwaSurfaceVelocityResult)
     assert batter.velocity_result.coefficient_k is not None
 
 
@@ -87,9 +86,7 @@ def test_unsupported_zones_fail_closed_to_specialist_review() -> None:
         headwater_elevation=101.0,
         tailwater_elevation=99.5,
         roadway_discharge=25.0,
-        segments=(
-            _segment(q=2.5, station=15.0, state=RoadwaySegmentState.FREE_UNSUBMERGED),
-        ),
+        segments=(_segment(q=2.5, station=15.0, state=RoadwaySegmentState.FREE_UNSUBMERGED),),
     )
 
     assessment = assess_floodway_hydraulics(hydraulics, _formation())
@@ -111,9 +108,7 @@ def test_inactive_segment_is_not_assigned_artificial_demands() -> None:
         headwater_elevation=100.0,
         tailwater_elevation=99.5,
         roadway_discharge=0.0,
-        segments=(
-            _segment(q=0.0, station=12.5, state=RoadwaySegmentState.INACTIVE),
-        ),
+        segments=(_segment(q=0.0, station=12.5, state=RoadwaySegmentState.INACTIVE),),
     )
 
     assessment = assess_floodway_hydraulics(hydraulics, _formation())
@@ -131,9 +126,7 @@ def test_envelope_retains_governing_integration_station() -> None:
             headwater_elevation=100.7,
             tailwater_elevation=99.5,
             roadway_discharge=20.0,
-            segments=(
-                _segment(q=1.5, station=12.5, state=RoadwaySegmentState.FREE_UNSUBMERGED),
-            ),
+            segments=(_segment(q=1.5, station=12.5, state=RoadwaySegmentState.FREE_UNSUBMERGED),),
         ),
         _formation(),
     )
@@ -144,9 +137,7 @@ def test_envelope_retains_governing_integration_station() -> None:
             headwater_elevation=100.9,
             tailwater_elevation=99.5,
             roadway_discharge=30.0,
-            segments=(
-                _segment(q=2.5, station=17.5, state=RoadwaySegmentState.FREE_UNSUBMERGED),
-            ),
+            segments=(_segment(q=2.5, station=17.5, state=RoadwaySegmentState.FREE_UNSUBMERGED),),
         ),
         _formation(),
     )
@@ -161,6 +152,7 @@ def test_envelope_retains_governing_integration_station() -> None:
     assert pavement_velocity.scenario_name == "2% AEP"
     assert pavement_velocity.source_interval_index == 1
     assert pavement_velocity.integration_station == 17.5
+
 
 def test_complete_formation_applies_figure_4_5_and_4_6_to_plunging_flow() -> None:
     formation = FloodwayFormation(
@@ -195,8 +187,8 @@ def test_complete_formation_applies_figure_4_5_and_4_6_to_plunging_flow() -> Non
 
     assert pavement.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
     assert batter.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
-    assert pavement.velocity_result is not None
-    assert batter.velocity_result is not None
+    assert isinstance(pavement.velocity_result, MrwaSurfaceVelocityResult)
+    assert isinstance(batter.velocity_result, MrwaSurfaceVelocityResult)
     assert pavement.velocity_result.coefficient_k == batter.velocity_result.coefficient_k
     assert batter.mrwa_protection_result is not None
     assert batter.mrwa_protection_result.rock_class == "1/4 tonne"
@@ -236,6 +228,7 @@ def test_figure_4_5_surface_flow_does_not_invent_batter_demand() -> None:
     assert batter.demand is None
     assert batter.applicability is FloodwayApplicabilityStatus.NOT_APPLICABLE
     assert "surface flow" in batter.message
+
 
 def test_downstream_batter_can_carry_separate_hec23_protection_result() -> None:
     formation = FloodwayFormation(
@@ -281,7 +274,6 @@ def test_downstream_batter_can_carry_separate_hec23_protection_result() -> None:
     assert batter.protection_result.layer.value == "enhanced_assessment"
 
 
-
 def test_supported_submerged_state_uses_q_over_d_for_pavement_only() -> None:
     formation = FloodwayFormation(
         name="Submerged floodway",
@@ -321,7 +313,6 @@ def test_supported_submerged_state_uses_q_over_d_for_pavement_only() -> None:
     assert batter.applicability is FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
 
 
-
 def test_submerged_state_in_threshold_gap_is_not_labelled_clean_legacy_compliance() -> None:
     formation = FloodwayFormation(
         name="Threshold-gap floodway",
@@ -352,7 +343,6 @@ def test_submerged_state_in_threshold_gap_is_not_labelled_clean_legacy_complianc
     assert pavement.demand.applicability is FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED
     assert "0.76" in pavement.message
     assert "0.8" in pavement.message
-
 
 
 def test_free_solver_state_at_appendix_submergence_point_downgrades_mrwa_compliance() -> None:
@@ -424,7 +414,6 @@ def test_free_state_between_mrwa_thresholds_retains_velocity_with_explicit_warni
     assert "0.8" in pavement.message
 
 
-
 def test_explicit_2d_escalation_retains_scalar_demand_and_governing_state() -> None:
     formation = FloodwayFormation(
         name="Skewed floodway",
@@ -461,9 +450,7 @@ def test_explicit_2d_escalation_retains_scalar_demand_and_governing_state() -> N
     assert "Skewed approach" in pavement.message
 
     envelope = build_floodway_envelope_from_assessments((assessment,))
-    pavement_governors = [
-        item for item in envelope.governors if item.zone is FloodwayZone.PAVEMENT
-    ]
+    pavement_governors = [item for item in envelope.governors if item.zone is FloodwayZone.PAVEMENT]
 
     assert pavement_governors
     assert all(
@@ -471,3 +458,29 @@ def test_explicit_2d_escalation_retains_scalar_demand_and_governing_state() -> N
         for item in pavement_governors
     )
     assert all("Skewed approach" in item.assessment_message for item in pavement_governors)
+
+
+def test_figure_4_6_out_of_range_preserves_other_zone_assessments() -> None:
+    formation = FloodwayFormation(
+        name="Near-onset floodway",
+        zones=(
+            FloodwayFormationZone(zone=FloodwayZone.PAVEMENT, slope=0.02, roughness=0.016),
+            FloodwayFormationZone(zone=FloodwayZone.DOWNSTREAM_SHOULDER, elevation=99.9),
+            FloodwayFormationZone(zone=FloodwayZone.DOWNSTREAM_BATTER, slope=0.2, roughness=0.05),
+        ),
+    )
+    hydraulics = FloodwayScenarioHydraulics(
+        scenario_name="Near onset",
+        aep_percent=None,
+        headwater_elevation=100.01,
+        tailwater_elevation=99.5,
+        roadway_discharge=0.01,
+        segments=(_segment(q=0.004, station=12.5, state=RoadwaySegmentState.FREE_UNSUBMERGED, upstream_head=0.01),),
+    )
+    assessment = assess_floodway_hydraulics(hydraulics, formation)
+    for zone in (FloodwayZone.PAVEMENT, FloodwayZone.DOWNSTREAM_BATTER):
+        result = next(item for item in assessment.zone_assessments if item.zone is zone)
+        assert result.applicability is FloodwayApplicabilityStatus.OUTSIDE_SOURCE_RANGE
+        assert result.demand is None
+        assert "Figure 4.6" in result.message
+    assert any(item.zone is FloodwayZone.DOWNSTREAM_SHOULDER for item in assessment.zone_assessments)

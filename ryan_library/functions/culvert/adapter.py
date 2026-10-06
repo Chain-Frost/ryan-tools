@@ -82,6 +82,11 @@ def _solver_surface(surface: RoadwaySurfaceName | None) -> RoadwaySurface | None
 
 def build_solver_roadway(definition: RoadwayOvertoppingDefinition) -> RoadwayOvertoppingInput:
     """Convert a workflow roadway definition to the authoritative public solver model."""
+    roadway_value: object = definition
+    # Keep runtime rejection for callers outside the typed API.
+    if not isinstance(roadway_value, (RoadwayDefinition, RoadwayProfileDefinition)):  # pyright: ignore[reportUnnecessaryIsInstance]
+        msg = f"Unsupported roadway definition type: {type(roadway_value).__name__}"
+        raise TypeError(msg)
     if isinstance(definition, RoadwayDefinition):
         return RoadwayWeir(
             crest_elevation=definition.crest_elevation,
@@ -90,18 +95,15 @@ def build_solver_roadway(definition: RoadwayOvertoppingDefinition) -> RoadwayOve
             label=definition.label,
             surface=_solver_surface(definition.surface),
         )
-    if isinstance(definition, RoadwayProfileDefinition):
-        profile = RoadwayCrestProfile(
-            tuple(RoadwayCrestPoint(station=point.station, elevation=point.elevation) for point in definition.points)
-        )
-        return RoadwayProfileWeir(
-            profile=profile,
-            discharge_coefficient=definition.discharge_coefficient,
-            label=definition.label,
-            surface=_solver_surface(definition.surface),
-        )
-    msg = f"Unsupported roadway definition type: {type(definition).__name__}"
-    raise TypeError(msg)
+    profile = RoadwayCrestProfile(
+        tuple(RoadwayCrestPoint(station=point.station, elevation=point.elevation) for point in definition.points)
+    )
+    return RoadwayProfileWeir(
+        profile=profile,
+        discharge_coefficient=definition.discharge_coefficient,
+        label=definition.label,
+        surface=_solver_surface(definition.surface),
+    )
 
 
 def build_solver_crossing(definition: CrossingDefinition) -> CulvertCrossing:

@@ -111,9 +111,7 @@ def _write_outputs(
         render_floodway_envelope_markdown(envelope),
         encoding="utf-8",
     )
-    scenario_markdown = "\n\n---\n\n".join(
-        render_floodway_scenario_markdown(item) for item in assessments
-    )
+    scenario_markdown = "\n\n---\n\n".join(render_floodway_scenario_markdown(item) for item in assessments)
     (output_directory / "floodway_scenarios.md").write_text(
         scenario_markdown + ("\n" if scenario_markdown else ""),
         encoding="utf-8",
@@ -201,7 +199,7 @@ def main(
             )
             print(render_floodway_envelope_markdown(envelope))
             logger.success("Floodway assessment completed; outputs: {}", resolved_output)
-        except (OSError, TypeError, ValueError, RuntimeError):
+        except OSError, TypeError, ValueError, RuntimeError:
             logger.exception("Floodway assessment failed.")
             return 1
     return 0

@@ -464,6 +464,11 @@ def _roadway_record(roadway: RoadwayOvertoppingDefinition) -> dict[str, object]:
     if roadway.surface is not None:
         common["surface"] = roadway.surface.value
 
+    roadway_value: object = roadway
+    # Keep runtime rejection for callers outside the typed API.
+    if not isinstance(roadway_value, (RoadwayDefinition, RoadwayProfileDefinition)):  # pyright: ignore[reportUnnecessaryIsInstance]
+        msg = f"Unsupported roadway definition type: {type(roadway_value).__name__}"
+        raise TypeError(msg)
     if isinstance(roadway, RoadwayDefinition):
         return {
             "type": "constant",
@@ -471,17 +476,11 @@ def _roadway_record(roadway: RoadwayOvertoppingDefinition) -> dict[str, object]:
             "crest_length_m": roadway.crest_length,
             **common,
         }
-    if isinstance(roadway, RoadwayProfileDefinition):
-        return {
-            "type": "profile",
-            "points": [
-                {"station_m": point.station, "elevation_m": point.elevation}
-                for point in roadway.points
-            ],
-            **common,
-        }
-    msg = f"Unsupported roadway definition type: {type(roadway).__name__}."
-    raise TypeError(msg)
+    return {
+        "type": "profile",
+        "points": [{"station_m": point.station, "elevation_m": point.elevation} for point in roadway.points],
+        **common,
+    }
 
 
 def _crossing_record(crossing: CrossingDefinition) -> dict[str, object]:

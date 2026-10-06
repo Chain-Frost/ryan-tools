@@ -8,7 +8,7 @@ from ryan_library.functions.floodway import select_mrwa_rock_slope_protection
 
 @pytest.mark.parametrize(
     ("velocity", "rock_class", "thickness"),
-    (
+    [
         (1.99, "None", None),
         (2.00, "Facing", 0.50),
         (2.59, "Facing", 0.50),
@@ -21,7 +21,7 @@ from ryan_library.functions.floodway import select_mrwa_rock_slope_protection
         (5.10, "2 tonne", 2.00),
         (5.70, "4 tonne", 2.50),
         (6.40, "4 tonne", 2.50),
-    ),
+    ],
 )
 def test_table_5_1_velocity_bands(
     velocity: float,

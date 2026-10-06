@@ -86,9 +86,7 @@ def _parse_hec23(value: object) -> Hec23RiprapDesignInput:
         porosity=_number(data, "porosity"),
         specific_gravity=2.65 if data.get("specific_gravity") is None else _number(data, "specific_gravity"),
         angle_of_repose_degrees=(
-            42.0
-            if data.get("angle_of_repose_degrees") is None
-            else _number(data, "angle_of_repose_degrees")
+            42.0 if data.get("angle_of_repose_degrees") is None else _number(data, "angle_of_repose_degrees")
         ),
     )
 
@@ -152,10 +150,7 @@ def _parse_formation(raw: object) -> FloodwayFormation:
         name=_text(data, "name"),
         crest_flow_length=_optional_number(data, "crest_flow_length_m"),
         two_d_verification_reason=two_d_reason,
-        zones=tuple(
-            _parse_zone(item, index)
-            for index, item in enumerate(_list(data.get("zones"), "zones"))
-        ),
+        zones=tuple(_parse_zone(item, index) for index, item in enumerate(_list(data.get("zones"), "zones"))),
     )
 
 

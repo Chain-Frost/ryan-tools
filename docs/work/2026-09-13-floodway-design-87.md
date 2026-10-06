@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implementation complete; validation pending |
+| Status | Needs review: floodway validation passed; repository-wide failures remain |
 | Owner | Unassigned |
 | Created | 2026-09-13 |
 | Updated | 2026-10-06 |
-| Next review | After independent repository validation |
+| Next review | 2026-10-13 |
 | Branch | `feature/floodway-design-87` / PR #88 |
 | Baseline | Post-#86 `main`; branch is 0 commits behind `main` as checked 2026-10-06 |
 
@@ -132,17 +132,11 @@ required. The floodway design workflow must not create a competing production cr
 
 ## Remaining first-increment work
 
-Implementation work for the supported first increment is complete. The remaining handoff is validation by a separate
-agent:
+Implementation and focused validation for the supported first increment are complete locally. PR #88 remains draft
+and unmerged. Validation repairs and the verified wheel are uncommitted and unpushed.
 
-1. run Ruff formatting/lint;
-2. run strict Pyright on changed Python;
-3. run focused and full pytest;
-4. run documentation/Markdown checks and the repository documentation checker;
-5. run required package/build verification;
-6. address any findings before merge.
-
-No unrun validation is reported as passed. PR #88 must remain unmerged until that independent validation is complete.
+Next action: triage the five repository-wide test failures described below, then commit/push the approved repairs and
+review readiness. No enabled GitHub CI workflow or head workflow runs were found; do not treat absent CI as a pass.
 
 ## Explicit fail-closed boundaries
 
@@ -194,3 +188,47 @@ These states remain `SOURCE_DATA_REQUIRED`, `SPECIALIST_REVIEW_REQUIRED`,
 ### 2026-09-13
 
 - Opened the research-first branch/PR and established the source baseline and architectural boundary.
+
+### Independent validation follow-up - 2026-10-06
+
+Validated `ff77c9bd947ddc5590ab775d8ec7d9c3636aee3e` plus local repairs using normal Python 3.14.6.
+
+- Fixed the near-overtopping-onset sweep exception: Figure 4.6 out-of-range inputs now produce
+  `OUTSIDE_SOURCE_RANGE` zone results, preserving other assessments and separate HEC-23 evidence.
+- Added a focused regression for both pavement and downstream-batter source-range handling.
+- Corrected test type narrowing and an invalid assertion that differently dimensioned quantities must have different
+  numerical values; retained independent formula checks.
+- Applied Ruff safe import/export sorting and formatting, used pairwise interpolation, and split pavement input
+  validation to meet the existing complexity limit. No unsafe automatic fixes were used.
+- Added five missing central-index links and formatted source URLs as Markdown autolinks.
+- Changed Python from `git diff --name-only origin/main...HEAD -- '*.py'`: `python -m ruff check` and
+  `python -m ruff format --check` passed; `python -m pyright` passed with zero errors/warnings in strict project mode.
+- `python -m pytest tests/floodway tests/culvert tests/mcp -q`: **124 passed** after final repairs.
+- `python -m pytest tests -q`: **969 passed, 4 skipped, 5 failed**, with two CRS warnings. This is not a full-suite pass.
+  Failures are three footprint mocks in `tests/orchestrators/gdal/test_raster_maintenance_coverage.py` expecting
+  positional arguments where production passes keywords; the missing-utility log assertion in
+  `tests/orchestrators/tuflow/test_project_setup.py`; and the string-versus-Path raster script test in
+  `tests/scripts/raster/test_raster_scripts.py`. Those test and production files are unchanged against `origin/main`.
+  Isolated rerun reproduced the three GDAL and raster failures; the TUFLOW log test passed alone, indicating
+  suite-order interaction. No baseline checkout reproduction was performed; unrelated source/test files were preserved.
+- `python repo-scripts/check_documentation.py` and explicit changed-document `--links-only` checks passed.
+- Markdown lint: `python -m pymarkdown -d MD013 scan` on changed Markdown passed. The default 80-column MD013 rule
+  is excluded explicitly for this check because repository prose/tables use longer lines; default lint fails on that
+  formatting convention. No repository lint configuration was changed.
+- `python repo-scripts/check_loguru_formatting.py`, wrapper compilation and copied-wrapper `--help` passed.
+- `python repo-scripts/build_library.py --no-bump --skip-pip`: passed and retained version `26.9.14.1` without
+  modifying `pyproject.toml`. Candidate verification preceded wheel promotion.
+- After the user queried the old date, ran `python repo-scripts/build_library.py --skip-pip` successfully:
+  declared version is now `26.10.6.1`; the verification rebuild above was superseded by this dated build.
+- Final wheel: `dist/ryan_functions-26.10.6.1-py3-none-any.whl`, 659876 bytes,
+  SHA-256 `952e018b7539894476226eb8aa914dac4b9ff6e678067b4d974a0c9920a894cb`.
+- Temporary `pip --target --no-deps` install, isolated interpreter import-root checks via
+  `repo-scripts/smoke_test_installed_wheel.py --expected-root`, and a copied wrapper outside the checkout passed.
+  Existing user-site runtime dependencies were explicitly made available; bundled packages resolved under the
+  temporary target. Copied wrapper checked help, a five-point synthetic sweep/export, and missing-directory exit 1.
+- The ordinary installed package is stale (`python ryan-scripts/floodway.py --help` cannot import the culvert models).
+  It was not replaced; the rebuilt wheel was verified separately in temporary storage.
+- GitHub read-only checks confirmed draft/open/unmerged/mergeable, no review threads and no workflow runs on the head.
+  The checkout has no enabled CI workflow. No PR comments, ready-state changes, commits, pushes or merges were made.
+- Worktree was initially clean. Local repairs and wheel remain unstaged/uncommitted; submodule pins are unchanged.
+- The repository improvement backlog review date remains overdue (2026-09-20); unrelated work was not started.

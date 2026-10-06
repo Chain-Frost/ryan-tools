@@ -17,7 +17,6 @@ from ...classes.floodway import (
     MrwaSurfaceVelocityResult,
     RoadwaySegmentState,
 )
-
 from .mrwa_protection import (
     MRWA_CURRENT_FLOODWAY_GUIDANCE,
     MRWA_CURRENT_FLOODWAY_GUIDANCE_SOURCE_ID,
@@ -145,9 +144,7 @@ def floodway_zone_assessment_record(assessment: FloodwayZoneAssessment) -> dict[
         "applicability": assessment.applicability.value,
         "message": assessment.message,
         "velocity_result": (
-            None
-            if assessment.velocity_result is None
-            else floodway_velocity_result_record(assessment.velocity_result)
+            None if assessment.velocity_result is None else floodway_velocity_result_record(assessment.velocity_result)
         ),
         "demand": None if assessment.demand is None else floodway_zone_demand_record(assessment.demand),
         "mrwa_protection_result": (
@@ -156,9 +153,7 @@ def floodway_zone_assessment_record(assessment: FloodwayZoneAssessment) -> dict[
             else mrwa_rock_protection_record(assessment.mrwa_protection_result)
         ),
         "protection_result": (
-            None
-            if assessment.protection_result is None
-            else hec23_protection_record(assessment.protection_result)
+            None if assessment.protection_result is None else hec23_protection_record(assessment.protection_result)
         ),
     }
 
@@ -175,9 +170,7 @@ def floodway_scenario_record(assessment: FloodwayScenarioAssessment) -> dict[str
         "roadway_discharge_m3s": hydraulics.roadway_discharge,
         "headwater_elevation_m": hydraulics.headwater_elevation,
         "tailwater_elevation_m": hydraulics.tailwater_elevation,
-        "zone_assessments": [
-            floodway_zone_assessment_record(item) for item in assessment.zone_assessments
-        ],
+        "zone_assessments": [floodway_zone_assessment_record(item) for item in assessment.zone_assessments],
     }
 
 
@@ -222,9 +215,7 @@ def floodway_envelope_record(envelope: FloodwayEventEnvelope) -> dict[str, objec
                 "source_interval_index": candidate.source_interval_index,
                 "integration_station_m": candidate.integration_station,
                 "assessment_applicability": (
-                    None
-                    if candidate.assessment_applicability is None
-                    else candidate.assessment_applicability.value
+                    None if candidate.assessment_applicability is None else candidate.assessment_applicability.value
                 ),
                 "assessment_message": candidate.assessment_message,
                 **_hydraulic_evidence_record(
@@ -316,9 +307,7 @@ def export_floodway_governors_csv(envelope: FloodwayEventEnvelope, path: Path) -
                     "integration_station_m": governor.integration_station,
                     **evidence,
                     "assessment_applicability": (
-                        ""
-                        if governor.assessment_applicability is None
-                        else governor.assessment_applicability.value
+                        "" if governor.assessment_applicability is None else governor.assessment_applicability.value
                     ),
                     "assessment_message": governor.assessment_message,
                     **{key: demand[key] for key in fieldnames[13:]},

@@ -7,7 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [Floodway design and reporting workflow](2026-09-13-floodway-design-87.md) | Active | Unassigned | 2026-10-06 | After independent CI/validation | Core MRWA/HEC-23 assessment, strict formation config, reporting/export and maintained wrapper are implemented. Independent Ruff/Pyright/pytest/docs/build validation remains before merge. |
+| [Floodway design and reporting workflow](2026-09-13-floodway-design-87.md) | Needs review | Unassigned | 2026-10-06 | 2026-10-13 | Focused validation (124 tests), strict typing, docs and isolated wheel/wrapper checks pass locally. Triage five full-suite failures outside changed files; repairs/wheel remain uncommitted and PR #88 draft. No enabled CI. |
 | [Repository improvement backlog](../REPOSITORY_IMPROVEMENT_ROADMAP.md) | Planned | Unassigned | 2026-09-06 | 2026-09-20 | Select a bounded lifecycle review or script family and register its implementation record. |
 | [Scheduled compatibility removals](../COMPATIBILITY_POLICY.md) | Deferred | Unassigned | 2026-09-06 | 2027-01-04 | Support runs through 2026-12-31; then verify callers and select removals using the inventory. |
 

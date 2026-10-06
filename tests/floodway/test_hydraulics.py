@@ -35,12 +35,12 @@ def test_mrwa_equation_4_and_6_are_recomputed_directly() -> None:
 
 @pytest.mark.parametrize(
     ("delta_p_over_head", "graph_k"),
-    (
+    [
         (0.104, 3.50),
         (0.150, 3.70),
         (0.307, 4.20),
         (0.318, 4.25),
-    ),
+    ],
 )
 def test_figure_4_6_reconstruction_matches_published_worked_example_graph_reads(
     delta_p_over_head: float,
@@ -50,7 +50,7 @@ def test_figure_4_6_reconstruction_matches_published_worked_example_graph_reads(
 
 
 def test_figure_4_6_reconstruction_rejects_extrapolation() -> None:
-    with pytest.raises(ValueError, match="outside the MRWA Figure 4.6 domain"):
+    with pytest.raises(ValueError, match=r"outside the MRWA Figure 4\.6 domain"):
         mrwa_figure_4_6_k(1.81)
 
 
@@ -60,7 +60,7 @@ def test_figure_4_5_digitisation_matches_worked_example_transition_anchors() -> 
 
 
 def test_figure_4_5_digitisation_rejects_extrapolation() -> None:
-    with pytest.raises(ValueError, match="outside the digitised MRWA Figure 4.5 domain"):
+    with pytest.raises(ValueError, match=r"outside the digitised MRWA Figure 4\.5 domain"):
         mrwa_transition_submergence_ratio(0.21)
 
 
@@ -88,6 +88,7 @@ def test_mrwa_velocity_uses_lesser_of_steady_and_maximum_attainable() -> None:
     )
 
     assert result.maximum_attainable_velocity == pytest.approx(3.5 * 1.2**0.5)
+    assert result.maximum_attainable_velocity is not None
     assert result.adopted_velocity == min(result.steady_state_velocity, result.maximum_attainable_velocity)
     assert result.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
 
@@ -124,13 +125,13 @@ def test_physical_demands_remain_separate_quantities() -> None:
     assert demand.depth_m == pytest.approx(2.0 / demand.velocity)
     assert demand.froude_number is not None
     assert demand.velocity_head_m == pytest.approx(demand.velocity**2 / (2.0 * 9.80665))
-    assert demand.dynamic_pressure_pa != demand.momentum_flux_per_width_npm
+    # Different physical dimensions can have the same numerical value.
+    assert demand.source_id == result.source_id
 
 
 def test_rectangular_critical_depth_is_diagnostic_primitive() -> None:
     assert rectangular_critical_depth(0.0) == 0.0
     assert rectangular_critical_depth(2.0) == pytest.approx((4.0 / 9.80665) ** (1.0 / 3.0))
-
 
 
 def test_mrwa_submerged_pavement_velocity_uses_q_over_downstream_depth() -> None:
@@ -142,7 +143,6 @@ def test_mrwa_submerged_pavement_velocity_uses_q_over_downstream_depth() -> None
     assert result.velocity == pytest.approx(3.0)
     assert result.downstream_depth == pytest.approx(0.4)
     assert result.applicability is FloodwayApplicabilityStatus.LEGACY_REPRODUCTION
-
 
 
 def test_mrwa_source_thresholds_remain_distinct() -> None:

@@ -128,7 +128,6 @@ def test_event_envelope_accepts_no_active_demands() -> None:
     assert envelope.governors == ()
 
 
-
 def test_event_envelope_retains_governing_hydraulic_evidence() -> None:
     candidate = GoverningFloodwayDemand(
         scenario_name="2% AEP",

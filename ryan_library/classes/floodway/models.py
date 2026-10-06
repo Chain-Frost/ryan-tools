@@ -198,7 +198,9 @@ class RoadwaySegmentHydraulicState:
         object.__setattr__(self, "interval_start_station", start)
         object.__setattr__(self, "interval_end_station", end)
         object.__setattr__(self, "integration_station", _finite(self.integration_station, "integration_station"))
-        object.__setattr__(self, "physical_interval_length", _positive(self.physical_interval_length, "physical_interval_length"))
+        object.__setattr__(
+            self, "physical_interval_length", _positive(self.physical_interval_length, "physical_interval_length")
+        )
         object.__setattr__(self, "effective_length", _positive(self.effective_length, "effective_length"))
         object.__setattr__(self, "crest_elevation", _finite(self.crest_elevation, "crest_elevation"))
         object.__setattr__(self, "upstream_head", _nonnegative(self.upstream_head, "upstream_head"))

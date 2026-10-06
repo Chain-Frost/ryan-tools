@@ -86,6 +86,11 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [Floodway work record](work/2026-09-13-floodway-design-87.md) | Floodway implementation and validation |
+| [Culvert work record](work/2026-09-13-culvert-workflow-80.md) | Culvert workflow delivery evidence |
+| [Floodway research](audits/2026-09-13-floodway-design-research.md) | Source baseline |
+| [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
+| [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
 | [Transactional package build and verification](work/2026-09-13-transactional-packaging.md) | Completed no-bump, verified and failure-safe wheel workflow implementation |
 | [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |

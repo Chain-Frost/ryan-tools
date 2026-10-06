@@ -18,11 +18,11 @@ Debris impact/loading and debris blockage are future considerations only and are
 
 The 2006 Main Roads WA *Floodway Design Guide* remains the controlling floodway reference for Main Roads work. The current MRWA Supplement to Austroads Guide to Road Design Part 5B states that the 2006 Floodway Design Guide takes precedence over the Austroads floodway section:
 
-- https://www.mainroads.wa.gov.au/technical-commercial/technical-library/road-traffic-engineering/guide-to-road-design/mrwa-supplement-to-austroads-guide-to-road-design-part-5b/
+- <https://www.mainroads.wa.gov.au/technical-commercial/technical-library/road-traffic-engineering/guide-to-road-design/mrwa-supplement-to-austroads-guide-to-road-design-part-5b/>
 
 Main Roads also publishes a current floodway guidance page, version 3 dated 12 June 2023:
 
-- https://www.mainroads.wa.gov.au/technical-commercial/technical-library/road-traffic-engineering/drainage-waterways/floodways/
+- <https://www.mainroads.wa.gov.au/technical-commercial/technical-library/road-traffic-engineering/drainage-waterways/floodways/>
 
 Important current requirements/additions on that page include:
 
@@ -64,7 +64,7 @@ The legacy method should be reproducible where practical, but its velocity-based
 
 FHWA HEC-23 Volume II, Design Guideline 5, *Riprap Design for Embankment Overtopping* is directly relevant:
 
-- https://www.fhwa.dot.gov/engineering/hydraulics/pubs/09111/09112.pdf
+- <https://www.fhwa.dot.gov/engineering/hydraulics/pubs/09111/09112.pdf>
 
 HEC-23 describes two distinct erosion patterns:
 
@@ -81,7 +81,7 @@ A key research item before coding is to transcribe and independently verify all 
 
 NCHRP Report 568, *Riprap Design Criteria, Recommended Specifications, and Quality Control*, contains the research basis and discussion for overtopping-flow riprap methods, including near-prototype embankment tests:
 
-- https://www.engr.colostate.edu/CIVE510/Manuals/nchrp_rpt_568.pdf
+- <https://www.engr.colostate.edu/CIVE510/Manuals/nchrp_rpt_568.pdf>
 
 This is useful as supporting evidence for HEC-23 and for identifying where the HEC-23 procedure is empirical. It should be reviewed alongside HEC-23 rather than used to create an independent competing method without a clear need.
 
@@ -89,11 +89,11 @@ This is useful as supporting evidence for HEC-23 and for identifying where the H
 
 FHWA HEC-15 uses maximum permissible tractive force (shear stress) as the design basis for flexible channel linings:
 
-- https://www.fhwa.dot.gov/engineering/hydraulics/library_arc.cfm?CFID=1764819903&CFTOKEN=faadf409cd3ab45-A323BF3E-D606-174A-0D4CA6D37139053D&id=32&pub_number=15
+- <https://www.fhwa.dot.gov/engineering/hydraulics/library_arc.cfm?CFID=1764819903&CFTOKEN=faadf409cd3ab45-A323BF3E-D606-174A-0D4CA6D37139053D&id=32&pub_number=15>
 
 The 2024 HEC-22 fourth edition summarises the tractive-force approach as physically based and preferable to a simple permissible-velocity method for flexible lining stability:
 
-- https://www.fhwa.dot.gov/engineering/hydraulics/pubs/hif24006.pdf
+- <https://www.fhwa.dot.gov/engineering/hydraulics/pubs/hif24006.pdf>
 
 This supports adding shear/tractive-stress demand to the enhanced engineering assessment. It does **not** prove that ordinary uniform-channel shear equations can be applied indiscriminately at the downstream shoulder, hydraulic jump or impingement zone. The software must distinguish between:
 
@@ -104,7 +104,7 @@ This supports adding shear/tractive-stress demand to the enhanced engineering as
 
 FHWA Federal Lands PDDM Chapter 7 contains low-water crossing criteria and reporting requirements:
 
-- https://highways.dot.gov/federal-lands/pddm/Chapter_07.pdf
+- <https://highways.dot.gov/federal-lands/pddm/Chapter_07.pdf>
 
 Relevant concepts include:
 
@@ -121,7 +121,7 @@ This reinforces the proposed separation between hydraulic capacity, formation pr
 
 The US Forest Service publication *Low-Water Crossings: Geomorphic, Biological, and Engineering Design Considerations* provides useful geometry and siting guidance:
 
-- https://www.fs.usda.gov/t-d/pubs/pdf/LowWaterCrossings/LoWholeDoc.pdf
+- <https://www.fs.usda.gov/t-d/pubs/pdf/LowWaterCrossings/LoWholeDoc.pdf>
 
 Relevant findings include:
 
@@ -136,7 +136,7 @@ These concepts are useful for design warnings and reporting but are not intended
 
 The TxDOT Hydraulic Design Manual explicitly requires a flow-distribution analysis when water passes both through a culvert and over the roadway, using a common headwater and iterative solution:
 
-- https://www.txdot.gov/content/txdotoms/us/en/manuals/des/hyd/chapter-8--culverts/section-3--hydraulic-operation-of-culverts/roadway-overtopping.html
+- <https://www.txdot.gov/content/txdotoms/us/en/manuals/des/hyd/chapter-8--culverts/section-3--hydraulic-operation-of-culverts/roadway-overtopping.html>
 
 This is consistent with the architectural decision already made in `ryan-culverts`: culvert and roadway flow splitting belongs in the hydraulic engine, not in the downstream floodway design layer.
 
@@ -144,7 +144,7 @@ This is consistent with the architectural decision already made in `ryan-culvert
 
 Chen and Anderson's FHWA embankment-overtopping work is an important research basis for failure mechanisms and sectional hydraulic calculations. A TRR paper describing the method includes water-surface profiles, critical depth/slope, hydraulic-jump condition, velocity, shear stress and erosion calculations along the embankment:
 
-- https://onlinepubs.trb.org/Onlinepubs/trr/1987/1151/1151-001.pdf
+- <https://onlinepubs.trb.org/Onlinepubs/trr/1987/1151/1151-001.pdf>
 
 This source should be reviewed in full before deciding whether `ryan-tools` should implement a sectional water-surface solver across the road formation or use a smaller set of supported closed-form relationships.
 
@@ -152,7 +152,7 @@ This source should be reviewed in full before deciding whether `ryan-tools` shou
 
 The Willare Crossing floodway case history is particularly relevant because it is a Western Australian full-scale failure/reinstatement case:
 
-- TRID record: https://trid.trb.org/View/1197539
+- TRID record: <https://trid.trb.org/View/1197539>
 
 The record describes a rare flood that damaged the crossing, subsequent hydraulic model testing, negative pressure at the downstream shoulder, and design changes including flattening the downstream batter from 2H:1V to 3H:1V and rounding the shoulder to about a 3 m radius. This appears to be part of the evidence base reflected in the MRWA Floodway Design Guide.
 
@@ -365,14 +365,14 @@ The PR should remain draft until the research baseline is sufficiently complete 
 
 ## References reviewed in this baseline
 
-- Main Roads WA, Floodways (current guidance page, version 3, 12 June 2023): https://www.mainroads.wa.gov.au/technical-commercial/technical-library/road-traffic-engineering/drainage-waterways/floodways/
-- Main Roads WA Supplement to Austroads Guide to Road Design Part 5B (states 2006 Floodway Design Guide precedence): https://www.mainroads.wa.gov.au/technical-commercial/technical-library/road-traffic-engineering/guide-to-road-design/mrwa-supplement-to-austroads-guide-to-road-design-part-5b/
-- FHWA HEC-23 Volume II, Design Guideline 5: https://www.fhwa.dot.gov/engineering/hydraulics/pubs/09111/09112.pdf
-- FHWA HEC-15 publication page: https://www.fhwa.dot.gov/engineering/hydraulics/library_arc.cfm?CFID=1764819903&CFTOKEN=faadf409cd3ab45-A323BF3E-D606-174A-0D4CA6D37139053D&id=32&pub_number=15
-- FHWA HEC-22, Fourth Edition: https://www.fhwa.dot.gov/engineering/hydraulics/pubs/hif24006.pdf
-- FHWA Federal Lands PDDM Chapter 7: https://highways.dot.gov/federal-lands/pddm/Chapter_07.pdf
-- US Forest Service, *Low-Water Crossings: Geomorphic, Biological, and Engineering Design Considerations*: https://www.fs.usda.gov/t-d/pubs/pdf/LowWaterCrossings/LoWholeDoc.pdf
-- TxDOT Hydraulic Design Manual, Roadway Overtopping: https://www.txdot.gov/content/txdotoms/us/en/manuals/des/hyd/chapter-8--culverts/section-3--hydraulic-operation-of-culverts/roadway-overtopping.html
-- Chen and Anderson, TRR 1151 embankment overtopping paper: https://onlinepubs.trb.org/Onlinepubs/trr/1987/1151/1151-001.pdf
-- Willare Crossing TRID record: https://trid.trb.org/View/1197539
-- NCHRP Report 568: https://www.engr.colostate.edu/CIVE510/Manuals/nchrp_rpt_568.pdf
+- Main Roads WA, Floodways (current guidance page, version 3, 12 June 2023): <https://www.mainroads.wa.gov.au/technical-commercial/technical-library/road-traffic-engineering/drainage-waterways/floodways/>
+- Main Roads WA Supplement to Austroads Guide to Road Design Part 5B (states 2006 Floodway Design Guide precedence): <https://www.mainroads.wa.gov.au/technical-commercial/technical-library/road-traffic-engineering/guide-to-road-design/mrwa-supplement-to-austroads-guide-to-road-design-part-5b/>
+- FHWA HEC-23 Volume II, Design Guideline 5: <https://www.fhwa.dot.gov/engineering/hydraulics/pubs/09111/09112.pdf>
+- FHWA HEC-15 publication page: <https://www.fhwa.dot.gov/engineering/hydraulics/library_arc.cfm?CFID=1764819903&CFTOKEN=faadf409cd3ab45-A323BF3E-D606-174A-0D4CA6D37139053D&id=32&pub_number=15>
+- FHWA HEC-22, Fourth Edition: <https://www.fhwa.dot.gov/engineering/hydraulics/pubs/hif24006.pdf>
+- FHWA Federal Lands PDDM Chapter 7: <https://highways.dot.gov/federal-lands/pddm/Chapter_07.pdf>
+- US Forest Service, *Low-Water Crossings: Geomorphic, Biological, and Engineering Design Considerations*: <https://www.fs.usda.gov/t-d/pubs/pdf/LowWaterCrossings/LoWholeDoc.pdf>
+- TxDOT Hydraulic Design Manual, Roadway Overtopping: <https://www.txdot.gov/content/txdotoms/us/en/manuals/des/hyd/chapter-8--culverts/section-3--hydraulic-operation-of-culverts/roadway-overtopping.html>
+- Chen and Anderson, TRR 1151 embankment overtopping paper: <https://onlinepubs.trb.org/Onlinepubs/trr/1987/1151/1151-001.pdf>
+- Willare Crossing TRID record: <https://trid.trb.org/View/1197539>
+- NCHRP Report 568: <https://www.engr.colostate.edu/CIVE510/Manuals/nchrp_rpt_568.pdf>

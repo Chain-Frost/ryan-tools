@@ -39,10 +39,7 @@ def _roadway_submerged(result: ScenarioResult) -> bool:
     roadway_result = result.hydraulic_result.roadway_result
     if roadway_result is None:
         return False
-    return any(
-        segment.flow_state.value == "supported_submerged"
-        for segment in roadway_result.segment_results
-    )
+    return any(segment.flow_state.value == "supported_submerged" for segment in roadway_result.segment_results)
 
 
 def _find_first_condition_discharge(

@@ -59,11 +59,7 @@ def render_floodway_scenario_markdown(assessment: FloodwayScenarioAssessment) ->
             + " |"
         )
 
-    mrwa_protection_rows = [
-        item
-        for item in assessment.zone_assessments
-        if item.mrwa_protection_result is not None
-    ]
+    mrwa_protection_rows = [item for item in assessment.zone_assessments if item.mrwa_protection_result is not None]
     if mrwa_protection_rows:
         lines.extend(
             [
@@ -96,11 +92,7 @@ def render_floodway_scenario_markdown(assessment: FloodwayScenarioAssessment) ->
                 + " |"
             )
 
-    protection_rows = [
-        item
-        for item in assessment.zone_assessments
-        if item.protection_result is not None
-    ]
+    protection_rows = [item for item in assessment.zone_assessments if item.protection_result is not None]
     if protection_rows:
         lines.extend(
             [

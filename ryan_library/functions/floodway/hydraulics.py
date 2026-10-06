@@ -1,5 +1,6 @@
 """Reusable sourced floodway hydraulic-demand calculations."""
 
+from itertools import pairwise
 from math import isfinite, sqrt
 
 GRAVITATIONAL_ACCELERATION = 9.80665
@@ -84,17 +85,10 @@ def mrwa_transition_submergence_ratio(head_to_flow_length: float) -> float:
     lower_bound = MRWA_FIGURE_4_5_TRANSITION_POINTS[0][0]
     upper_bound = MRWA_FIGURE_4_5_TRANSITION_POINTS[-1][0]
     if not lower_bound <= ratio <= upper_bound:
-        msg = (
-            "head_to_flow_length is outside the digitised MRWA Figure 4.5 domain "
-            f"[{lower_bound}, {upper_bound}]."
-        )
+        msg = f"head_to_flow_length is outside the digitised MRWA Figure 4.5 domain [{lower_bound}, {upper_bound}]."
         raise ValueError(msg)
 
-    for (x0, y0), (x1, y1) in zip(
-        MRWA_FIGURE_4_5_TRANSITION_POINTS,
-        MRWA_FIGURE_4_5_TRANSITION_POINTS[1:],
-        strict=False,
-    ):
+    for (x0, y0), (x1, y1) in pairwise(MRWA_FIGURE_4_5_TRANSITION_POINTS):
         if ratio <= x1:
             fraction = (ratio - x0) / (x1 - x0)
             return y0 + fraction * (y1 - y0)
@@ -119,10 +113,7 @@ def mrwa_figure_4_6_k(
     """
     ratio = _nonnegative(delta_p_over_head, "delta_p_over_head")
     if ratio > MRWA_FIGURE_4_6_MAX_DELTA_P_OVER_HEAD:
-        msg = (
-            "delta_p_over_head is outside the MRWA Figure 4.6 domain "
-            f"[0.0, {MRWA_FIGURE_4_6_MAX_DELTA_P_OVER_HEAD}]."
-        )
+        msg = f"delta_p_over_head is outside the MRWA Figure 4.6 domain [0.0, {MRWA_FIGURE_4_6_MAX_DELTA_P_OVER_HEAD}]."
         raise ValueError(msg)
 
     g = _positive(gravity, "gravity")
@@ -163,7 +154,9 @@ def mrwa_steady_state_velocity(unit_discharge: float, slope: float, roughness: f
     return ((1.0 / n) * q ** (2.0 / 3.0) * sqrt(s)) ** (3.0 / 5.0)
 
 
-def mrwa_specific_energy(unit_discharge: float, velocity: float, *, gravity: float = GRAVITATIONAL_ACCELERATION) -> float:
+def mrwa_specific_energy(
+    unit_discharge: float, velocity: float, *, gravity: float = GRAVITATIONAL_ACCELERATION
+) -> float:
     """Return MRWA 2006 Equation 6 specific-energy quantity in metres."""
     q = _nonnegative(unit_discharge, "unit_discharge")
     v = _nonnegative(velocity, "velocity")

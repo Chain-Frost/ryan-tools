@@ -18,6 +18,7 @@ from ...classes.floodway import (
     RoadwaySegmentState,
 )
 from ...functions.floodway import (
+    MRWA_FIGURE_4_6_MAX_DELTA_P_OVER_HEAD,
     build_floodway_event_envelope,
     build_floodway_scenario_hydraulics,
     build_submerged_pavement_demand,
@@ -30,9 +31,7 @@ from ...functions.floodway import (
     mrwa_transition_submergence_ratio,
     select_mrwa_rock_slope_protection,
 )
-
 from ..culvert.solve import solve_crossing_scenario
-
 
 _DIRECT_MRWA_SURFACE_ZONES = {
     FloodwayZone.DOWNSTREAM_BATTER,
@@ -80,8 +79,10 @@ def _mrwa_depth_ratio_context(segment: RoadwaySegmentHydraulicState) -> tuple[fl
     if not mrwa_appendix_submergence_reached(ratio):
         return (
             ratio,
-            f"D/H={ratio:.3f} is above the Section 4.4.3 0.76 limit but below the Appendix C/D "
-            "legacy point of submergence at 0.8; the source thresholds are retained separately.",
+            (
+                f"D/H={ratio:.3f} is above the Section 4.4.3 0.76 limit but below the Appendix C/D "
+                "legacy point of submergence at 0.8; the source thresholds are retained separately."
+            ),
         )
     return (
         ratio,
@@ -111,6 +112,29 @@ def _hec23_protection_result(
         specific_gravity=design.specific_gravity,
         angle_of_repose_degrees=design.angle_of_repose_degrees,
         selected_d50_m=design.selected_d50_m,
+    )
+
+
+def _mrwa_pavement_limit_inputs(
+    segment: RoadwaySegmentHydraulicState, shoulder_elevation: float | None, threshold_note: str
+) -> tuple[float | None, FloodwayApplicabilityStatus | None, str]:
+    if shoulder_elevation is None:
+        return (
+            None,
+            FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+            "MRWA pavement Equation 7 requires downstream-shoulder elevation.",
+        )
+    delta_p = segment.crest_elevation - shoulder_elevation
+    if delta_p < 0.0:
+        return (
+            None,
+            FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
+            "Downstream-shoulder elevation is above the local roadway crest.",
+        )
+    return (
+        delta_p,
+        None,
+        "MRWA pavement velocity uses the Equation 4/7 limiting-velocity path. " + threshold_note,
     )
 
 
@@ -144,24 +168,7 @@ def _mrwa_velocity_limit_inputs(
     shoulder_elevation = None if shoulder is None else shoulder.elevation
 
     if zone is FloodwayZone.PAVEMENT:
-        if shoulder_elevation is None:
-            return (
-                None,
-                FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
-                "MRWA pavement Equation 7 requires downstream-shoulder elevation.",
-            )
-        delta_p = segment.crest_elevation - shoulder_elevation
-        if delta_p < 0.0:
-            return (
-                None,
-                FloodwayApplicabilityStatus.SOURCE_DATA_REQUIRED,
-                "Downstream-shoulder elevation is above the local roadway crest.",
-            )
-        return (
-            delta_p,
-            None,
-            "MRWA pavement velocity uses the Equation 4/7 limiting-velocity path. " + threshold_note,
-        )
+        return _mrwa_pavement_limit_inputs(segment, shoulder_elevation, threshold_note)
 
     if hydraulics.tailwater_elevation <= segment.crest_elevation:
         return (
@@ -353,10 +360,13 @@ def assess_floodway_hydraulics(
                 formation=formation,
                 zone=zone,
             )
-            if limiting_status in {
-                FloodwayApplicabilityStatus.NOT_APPLICABLE,
-                FloodwayApplicabilityStatus.OUTSIDE_SOURCE_RANGE,
-            }:
+            if delta_p is not None and delta_p / segment.upstream_head > MRWA_FIGURE_4_6_MAX_DELTA_P_OVER_HEAD:
+                limiting_status = FloodwayApplicabilityStatus.OUTSIDE_SOURCE_RANGE
+                message = "Local delta_p/H is outside the MRWA Figure 4.6 source domain; no extrapolation is permitted."
+            if (
+                limiting_status is FloodwayApplicabilityStatus.NOT_APPLICABLE
+                or limiting_status is FloodwayApplicabilityStatus.OUTSIDE_SOURCE_RANGE
+            ):
                 assessments.append(
                     FloodwayZoneAssessment(
                         scenario_name=hydraulics.scenario_name,
@@ -450,7 +460,6 @@ def build_floodway_envelope_from_assessments(
     return build_floodway_event_envelope(candidates)
 
 
-
 def assess_floodway_crossing(
     crossing: CrossingDefinition,
     scenarios: Sequence[Scenario],
@@ -458,6 +467,5 @@ def assess_floodway_crossing(
 ) -> tuple[FloodwayScenarioAssessment, ...]:
     """Solve and assess one crossing across the supplied hydraulic scenarios."""
     return tuple(
-        assess_floodway_scenario(solve_crossing_scenario(crossing, scenario), formation)
-        for scenario in scenarios
+        assess_floodway_scenario(solve_crossing_scenario(crossing, scenario), formation) for scenario in scenarios
     )

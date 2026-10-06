@@ -85,10 +85,6 @@ class FloodwayEventEnvelope:
     ) -> FloodwayEnvelopeGovernor | None:
         """Return the governing result for one zone/metric pair when available."""
         return next(
-            (
-                item
-                for item in self.governors
-                if item.zone is zone and item.metric is metric
-            ),
+            (item for item in self.governors if item.zone is zone and item.metric is metric),
             None,
         )

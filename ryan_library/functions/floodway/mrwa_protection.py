@@ -5,7 +5,6 @@ from math import isfinite
 from ...classes.floodway.models import FloodwayApplicabilityStatus
 from ...classes.floodway.protection import MrwaRockSlopeProtectionResult
 
-
 MRWA_CURRENT_FLOODWAY_GUIDANCE_SOURCE_ID = "MRWA-FLOODWAYS-V3-2023-06-12"
 MRWA_CURRENT_FLOODWAY_GUIDANCE: tuple[tuple[str, str], ...] = (
     (
