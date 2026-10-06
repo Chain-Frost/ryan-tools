@@ -207,7 +207,10 @@ it does not imply a relationship between a crossing and an alternative. The enti
 `maximum_evaluations` (default 10000) before samples are allocated or hydraulic evaluation starts. CLI `--crossing` and
 `--scenario` are rejected for uncertainty; put selections in the study. `--study` defaults to the editable wrapper
 setting or the first configured study. Imported `--events-csv` flows can supply the scenario matrix through the existing
-event boundary; they remain externally supplied hydrology.
+event boundary; they remain externally supplied hydrology. Discharge rows are geometry-independent. A
+`target_headwater_elevation_m` row is an inverse hydraulic solve and therefore requires the selected study to resolve
+to exactly one base crossing or alternative; the wrapper uses that target geometry and rejects ambiguous multi-target
+studies instead of deriving one discharge from an unrelated crossing.
 
 Every evaluation retains its sample, crossing, scenario, alternative, sources and full hydraulic result or expected
 failure. Input-domain and convergence exceptions become public `HydraulicEvaluationFailure` records with category,

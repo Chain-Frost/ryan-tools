@@ -273,3 +273,142 @@ def test_wrapper_rating_defaults_support_low_flow_scenario(tmp_path: Path) -> No
     assert completed.returncode == 0, completed.stderr
     assert (tmp_path / "culvert_results" / "rating_curve.csv").is_file()
     assert (tmp_path / "culvert_results" / "rating_curve.json").is_file()
+
+def _write_target_headwater_uncertainty_project(path: Path, *, select_one: bool) -> Path:
+    payload = {
+        "schema_version": 1,
+        "name": "Target-headwater uncertainty",
+        "crossings": [
+            {
+                "name": "Small",
+                "groups": [
+                    {
+                        "name": "Pipe",
+                        "quantity": 1,
+                        "barrel": {
+                            "shape": "circular",
+                            "diameter_mm": 600,
+                            "length_m": 40,
+                            "inlet_invert_elevation_m": 10,
+                            "outlet_invert_elevation_m": 9.5,
+                            "roughness_manning_n": 0.013,
+                            "material": "concrete_pipe",
+                        },
+                    }
+                ],
+            },
+            {
+                "name": "Large",
+                "groups": [
+                    {
+                        "name": "Pipe",
+                        "quantity": 1,
+                        "barrel": {
+                            "shape": "circular",
+                            "diameter_mm": 1800,
+                            "length_m": 40,
+                            "inlet_invert_elevation_m": 10,
+                            "outlet_invert_elevation_m": 9.5,
+                            "roughness_manning_n": 0.013,
+                            "material": "concrete_pipe",
+                        },
+                    }
+                ],
+            },
+        ],
+        "scenarios": [
+            {
+                "name": "Base",
+                "discharge_m3s": 1,
+                "tailwater": {"type": "fixed", "elevation_m": 9.5},
+            }
+        ],
+        "uncertainty_studies": [
+            {
+                "name": "Target study",
+                "sampling_mode": "bounded_sweep",
+                "sample_count": 1,
+                "crossing_names": ["Large"] if select_one else [],
+                "parameters": [
+                    {
+                        "parameter": "manning_roughness",
+                        "bounds": {"lower": 0.013, "upper": 0.013, "unit": "s/m^(1/3)"},
+                        "source": {
+                            "source_id": "SMOKE",
+                            "publication": "Synthetic wrapper example",
+                            "edition": "1",
+                            "locator": "Test fixture",
+                            "applicability": "Synthetic test only.",
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_wrapper_uncertainty_target_event_uses_selected_study_crossing(tmp_path: Path) -> None:
+    project_path = _write_target_headwater_uncertainty_project(tmp_path / "project.json", select_one=True)
+    events_path = tmp_path / "events.csv"
+    events_path.write_text("name,target_headwater_elevation_m\nTarget,11.2\n", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(WRAPPER),
+            "uncertainty",
+            "--directory",
+            str(tmp_path),
+            "--project",
+            str(project_path),
+            "--study",
+            "Target study",
+            "--events-csv",
+            str(events_path),
+            "--no-pause",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=_environment(),
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads((tmp_path / "culvert_results" / "uncertainty_results.json").read_text(encoding="utf-8"))
+    evaluation = payload["evaluations"][0]
+    assert evaluation["crossing"] == "Large"
+    assert abs(evaluation["result"]["target_headwater_residual_m"]) < 1e-4
+
+
+def test_wrapper_uncertainty_rejects_ambiguous_target_headwater_event(tmp_path: Path) -> None:
+    project_path = _write_target_headwater_uncertainty_project(tmp_path / "project.json", select_one=False)
+    events_path = tmp_path / "events.csv"
+    events_path.write_text("name,target_headwater_elevation_m\nTarget,11.2\n", encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(WRAPPER),
+            "uncertainty",
+            "--directory",
+            str(tmp_path),
+            "--project",
+            str(project_path),
+            "--study",
+            "Target study",
+            "--events-csv",
+            str(events_path),
+            "--no-pause",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=_environment(),
+    )
+
+    assert completed.returncode == 1
+    assert "exactly one crossing or alternative" in completed.stdout + completed.stderr
+    assert not (tmp_path / "culvert_results" / "uncertainty_results.json").exists()
+

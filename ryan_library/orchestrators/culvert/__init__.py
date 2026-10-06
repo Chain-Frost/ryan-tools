@@ -6,7 +6,7 @@ from .events import materialize_event_scenarios
 from .rating import generate_crossing_rating
 from .report import render_design_markdown, render_scenario_markdown, render_scenario_records_markdown
 from .solve import solve_crossing_scenario
-from .uncertainty import run_uncertainty_study
+from .uncertainty import run_uncertainty_study, select_uncertainty_targets
 from .uncertainty_report import render_uncertainty_markdown
 
 __all__: list[str] = [
@@ -19,5 +19,6 @@ __all__: list[str] = [
     "render_scenario_records_markdown",
     "render_uncertainty_markdown",
     "run_uncertainty_study",
+    "select_uncertainty_targets",
     "solve_crossing_scenario",
 ]

@@ -75,6 +75,7 @@ from ryan_library.classes.culvert import (
     CircularBarrelDefinition,
     CrossingDefinition,
     CulvertProject,
+    EventDefinition,
     DesignCriteria,
     RectangularBarrelDefinition,
     Scenario,
@@ -111,7 +112,7 @@ from ryan_library.orchestrators.culvert.report import (
     render_scenario_records_markdown,
 )
 from ryan_library.orchestrators.culvert.solve import solve_crossing_scenario
-from ryan_library.orchestrators.culvert.uncertainty import run_uncertainty_study
+from ryan_library.orchestrators.culvert.uncertainty import run_uncertainty_study, select_uncertainty_targets
 from ryan_library.orchestrators.culvert.uncertainty_report import render_uncertainty_markdown
 
 
@@ -286,17 +287,22 @@ def _run_uncertainty(project: CulvertProject, study_name: str | None, output_dir
     return 0
 
 
-def _run_selected_uncertainty(
+def _uncertainty_event_reference_crossing(
     project: CulvertProject,
-    study_name: str | None,
-    output_directory: Path,
-    crossing_name: str | None,
-    scenario_name: str | None,
-) -> int:
-    if crossing_name is not None or scenario_name is not None:
-        msg = "uncertainty selections belong in the study crossing_names/scenario_names fields."
+    study: UncertaintyStudy,
+    events: Sequence[EventDefinition],
+) -> CrossingDefinition:
+    """Return the only valid geometry for inverse target-headwater event resolution."""
+    if not any(event.target_headwater_elevation_m is not None for event in events):
+        return project.crossings[0]
+    targets = select_uncertainty_targets(project, study)
+    if len(targets) != 1:
+        msg = (
+            "uncertainty --events-csv rows with target_headwater_elevation_m require the selected study "
+            f"to resolve to exactly one crossing or alternative; {len(targets)} hydraulic targets are selected."
+        )
         raise ValueError(msg)
-    return _run_uncertainty(project, study_name, output_directory)
+    return targets[0][0]
 
 
 def main(
@@ -342,6 +348,29 @@ def main(
                 logger.success("Culvert report completed; outputs: {}", resolved_output)
                 return 0
             project = load_project(project_path)
+            if command == "uncertainty":
+                if crossing_name is not None or scenario_name is not None:
+                    msg = "uncertainty selections belong in the study crossing_names/scenario_names fields."
+                    raise ValueError(msg)
+                study: UncertaintyStudy = _select_named(
+                    project.uncertainty_studies,
+                    study_name or DEFAULT_UNCERTAINTY_STUDY,
+                    get_name=lambda item: item.name,
+                )
+                if event_file is not None:
+                    event_path = event_file if event_file.is_absolute() else target_directory / event_file
+                    events = load_event_csv(event_path)
+                    event_crossing = _uncertainty_event_reference_crossing(project, study, events)
+                    project = replace(
+                        project,
+                        scenarios=materialize_event_scenarios(
+                            events,
+                            event_crossing,
+                            default_tailwater=project.scenarios[0].tailwater,
+                        ),
+                    )
+                return _run_uncertainty(project, study.name, resolved_output)
+
             crossing: CrossingDefinition = _select_named(
                 project.crossings,
                 crossing_name,
@@ -358,8 +387,6 @@ def main(
                         default_tailwater=project.scenarios[0].tailwater,
                     ),
                 )
-            if command == "uncertainty":
-                return _run_selected_uncertainty(project, study_name, resolved_output, crossing_name, scenario_name)
             scenario: Scenario = _select_named(
                 project.scenarios,
                 scenario_name,

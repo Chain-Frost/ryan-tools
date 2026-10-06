@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Complete (local implementation and validation) |
+| Status | Ready for revalidation after review fixes |
 | Owner | ChatGPT |
 | Created | 2026-10-06 |
 | Updated | 2026-10-06 |
-| Next review | — |
+| Next review | After review-fix validation |
 | Baseline | `feature/culvert-uncertainty-91` from `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99`; `vendor/ryan_culverts` initially at `00f8274b4702bfe721d111436a15ae435f672460` |
 
 ## Outcome and scope
@@ -46,9 +46,13 @@ No uncertainty-domain distribution, bounds or sampled-parameter classes are reim
 
 ## Next action
 
-Review the completed local commits and publish them to the existing draft PR when requested. No implementation or
-validation step remains for this initial workflow. No push, PR mutation or merge was performed in this session.
-The user explicitly permits commits on this branch and prohibits merging.
+A separate validation agent should rerun the focused culvert/MCP tests, HY-8 tests as appropriate, Ruff, strict Pyright,
+documentation checks, package verification and installed-wrapper smoke against the review-fix head. If those checks pass,
+PR #94 is ready for final review and merge when explicitly requested.
+
+The Codex review finding about imported target-headwater events has been addressed: uncertainty event import now resolves
+inverse target-headwater rows against the study's sole selected hydraulic target and explicitly rejects ambiguous
+multi-crossing/alternative studies rather than reusing a discharge derived from unrelated geometry.
 
 Group-specific variations, correlated distributions, solved capacity studies and automatic engineering acceptance or
 alternative ranking are outside the initial contract. The existing design-search workflow owns acceptance/ranking;
@@ -66,8 +70,9 @@ uncertainty reports imposed flows and conditional hydraulic output envelopes, no
 
 ## Validation and delivery
 
-2026-10-06 local validation uses the user's normal Python 3.14.6, Ruff 0.16.6 and strict Pyright 1.1.411.
-The earlier connector-only sampling handoff had not run checks; it is superseded by this evidence:
+2026-10-06 validation at commit `70af395` used the user's normal Python 3.14.6, Ruff 0.16.6 and strict Pyright 1.1.411.
+The earlier connector-only sampling handoff had not run checks; it is superseded by this evidence. These checks predate
+the subsequent Codex review fix for target-headwater event selection and therefore must be rerun on the new head:
 
 - `python -m pytest tests/culvert tests/mcp/test_registry.py -q --tb=short`: **58 passed**. This includes the real
   24-evaluation crossing/scenario/alternative matrix, source/flow-split retention, all status classes, expected failures,
@@ -100,14 +105,13 @@ The earlier connector-only sampling handoff had not run checks; it is superseded
 
 Branch: `feature/culvert-uncertainty-91`.
 
-Implementation commit: `f27201c38561f639b49be6602278f99715f583f5`.
+Validated implementation baseline: `70af395`.
 Included HY-8 pointer commit: `2bb912b`.
-The completion/status documentation is committed separately on the same branch. Delivery is local commits; no files
-remain staged after committing, and nothing was pushed or merged.
+The branch is synced to GitHub and PR #94 is open and ready for review. It remains unmerged. The current review-fix head
+contains changes after the validation baseline, so no post-fix validation result is claimed here.
 
-Draft PR: [#94](https://github.com/Chain-Frost/ryan-tools/pull/94)
-(`[core] Add culvert uncertainty and sensitivity workflow`), verified still draft on 2026-10-06. Its remote description
-and eight-commit head still describe the earlier sampling increment; they have not been updated with these local commits.
+PR: [#94](https://github.com/Chain-Frost/ryan-tools/pull/94)
+(`[core] Add culvert uncertainty and sensitivity workflow`).
 
 ## Progress
 
@@ -126,4 +130,11 @@ Resumed the actual PR branch at `950cd49`. Fixed the original sampling complexit
 evaluation, conditional aggregation, exports, project/wrapper integration, discoverability and focused failure/matrix
 coverage. Work was carried out in the requested existing checkout; the user-authorized staged HY-8 pointer was committed
 with its validation evidence. Built and verified the package and proved the copied-wrapper installed-package path.
-No merge or remote publication was performed. The unrelated backlog/#80 review entries remain unchanged.
+
+### 2026-10-06 review follow-up
+
+After the branch was synced, Codex review identified that uncertainty `--events-csv` target-headwater rows could be
+materialized using the first project crossing rather than the study-selected hydraulic target. The wrapper now resolves
+those inverse events only against the study's sole selected crossing/alternative and rejects ambiguous multi-target
+studies. Focused wrapper regression tests cover both the selected-crossing path and the explicit ambiguity rejection.
+The stale delivery/work-register language was also corrected. Revalidation is intentionally delegated to a separate agent.
