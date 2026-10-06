@@ -146,13 +146,13 @@ def _solver_result(
     active = tuple(item for item in result.group_results if item.barrel_discharge > 0.0)
     velocity = max((item.barrel_result.velocity_outlet for item in active), default=0.0)
     regimes = tuple(dict.fromkeys(item.barrel_result.regime.value for item in active))
-    warnings = tuple(
-        dict.fromkeys(
-            warning.code.value
-            for item in active
-            for warning in item.barrel_result.warnings
-        )
-    )
+    warning_codes = [
+        warning.code.value
+        for item in active
+        for warning in item.barrel_result.warnings
+    ]
+    warning_codes.extend(notice.code.value for notice in result.applicability_notices)
+    warnings = tuple(dict.fromkeys(warning_codes))
     return CulvertEngineResult(
         engine=CulvertEngine.RYAN_CULVERTS,
         crossing=definition.name,
