@@ -52,7 +52,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
-WRAPPER_VERSION = "2026-10-06.1"
+WRAPPER_VERSION = "2026-10-06.2"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
@@ -75,8 +75,8 @@ from ryan_library.classes.culvert import (
     CircularBarrelDefinition,
     CrossingDefinition,
     CulvertProject,
-    EventDefinition,
     DesignCriteria,
+    EventDefinition,
     RectangularBarrelDefinition,
     Scenario,
     ScenarioResult,
