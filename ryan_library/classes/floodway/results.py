@@ -10,7 +10,7 @@ from .models import (
     FloodwayZone,
     RoadwaySegmentState,
 )
-from .protection import Hec23OvertoppingRiprapResult
+from .protection import Hec23OvertoppingRiprapResult, MrwaRockSlopeProtectionResult
 
 
 def _finite(value: float, name: str) -> float:
@@ -189,6 +189,7 @@ class FloodwayZoneAssessment:
     applicability: FloodwayApplicabilityStatus
     velocity_result: MrwaSurfaceVelocityResult | MrwaSubmergedPavementVelocityResult | None = None
     demand: FloodwayZoneDemand | None = None
+    mrwa_protection_result: MrwaRockSlopeProtectionResult | None = None
     protection_result: Hec23OvertoppingRiprapResult | None = None
     message: str = ""
 
