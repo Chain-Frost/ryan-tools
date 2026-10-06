@@ -86,11 +86,11 @@ environment-specific smoke checks where required, and the full Windows runner on
 synthetic fixtures, repository-local Windows temporary/cache paths and explicit source-checkout HY-8 setup. New runtime
 defects should get their own bounded work record rather than reopening completed projects.
 
-## Closed or removed from this backlog
+## Separately tracked or removed from this backlog
 
-- **Unsorted migration:** cancelled on 13 September 2026. The `unsorted` submodule is excluded from automated
-  inspection and validation and no further migration review is authorised. The
-  [unsorted roadmap](UNSORTED_UPGRADE_ROADMAP.md) is retained as historical evidence only.
+- **Unsorted migration:** incomplete but deferred. It is tracked separately in the
+  [unsorted roadmap](UNSORTED_UPGRADE_ROADMAP.md) and work register. It is not being actively progressed and should not
+  be treated as part of the general repository-improvement backlog unless explicitly resumed.
 - **README implementation-plan disposition:** resolved by retaining `implementation_plan.md` at the repository root as
   indexed historical evidence. Moving it solely for tidiness would add churn without improving discovery.
 - **Scheduled compatibility removals:** tracked independently in the
@@ -116,8 +116,9 @@ This work is deferred until the support date, with a review scheduled for 2027-0
 ## Latest review — 2026-10-06
 
 - Reviewed current `main` at `12441a31` / package `26.10.6.3` after PR #94.
-- Reconciled the roadmap with the work register: the unsorted migration had already been cancelled on 13 September,
-  so script-family triage is no longer an open repository-improvement task.
+- Reconciled the roadmap with the work register: the unsorted migration remains incomplete but is deferred and tracked
+  separately, so it is not an active repository-improvement task and should not be surfaced as overdue before its
+  explicit review date.
 - Resolved the completed README plan's disposition by deliberately retaining and indexing it as historical evidence.
 - Kept lifecycle/import reconciliation, upstream HY-8 demo ownership and possible directory renames as deferred
   opportunities only. None is authorised merely because it is listed here.
