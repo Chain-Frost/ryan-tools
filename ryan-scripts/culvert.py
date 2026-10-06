@@ -52,7 +52,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
-WRAPPER_VERSION = "2026-10-06.2"
+WRAPPER_VERSION = "2026-10-06.3"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
@@ -276,7 +276,7 @@ def _run_uncertainty(project: CulvertProject, study_name: str | None, output_dir
     export_uncertainty_summary_csv(result, output_directory / UNCERTAINTY_SUMMARY_CSV_FILENAME)
     markdown = render_uncertainty_markdown(result)
     (output_directory / UNCERTAINTY_MARKDOWN_FILENAME).write_text(markdown, encoding="utf-8")
-    logger.success("Evaluated {} uncertainty samples; outputs: {}", len(result.evaluations), output_directory)
+    logger.success("Evaluated {} uncertainty evaluations; outputs: {}", len(result.evaluations), output_directory)
     incomplete = sum(
         evaluation.failure is not None or evaluation.status not in study.aggregation_statuses
         for evaluation in result.evaluations
