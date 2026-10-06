@@ -31,12 +31,23 @@ def _float(row: dict[str, Any], key: str, default: float | None = None) -> float
     return value if isfinite(value) else default
 
 
-def _int(row: dict[str, Any], key: str, default: int = 1) -> int:
-    value = _float(row, key)
-    return default if value is None else max(1, int(value))
+def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> int:
+    for key in keys:
+        value = _float(row, key)
+        if value is not None:
+            rounded = round(value)
+            if abs(value - rounded) > 1e-9 or rounded <= 0:
+                msg = f"{key} must contain a strictly positive integer barrel count."
+                raise ValueError(msg)
+            return int(rounded)
+    return default
 
 
 def _definition(row: dict[str, Any]) -> TuflowCircularCulvert:
+    source_type = str(row.get("Flags") or "").strip().upper()
+    if source_type != "C":
+        msg = f"Unsupported Maximums Flags value {source_type or '<blank>'!r}; this migrated workflow supports circular 'C' rows only."
+        raise ValueError(msg)
     diameter = _float(row, "Height")
     if diameter is None or diameter <= 0.0:
         msg = "Height must contain a positive circular culvert diameter."
@@ -52,7 +63,7 @@ def _definition(row: dict[str, Any]) -> TuflowCircularCulvert:
         inlet_invert_m=DEFAULT_INLET_INVERT_M if inlet is None else inlet,
         outlet_invert_m=DEFAULT_OUTLET_INVERT_M if outlet is None else outlet,
         roughness_manning_n=DEFAULT_N if roughness is None else roughness,
-        barrels=_int(row, "num_barrels"),
+        barrels=_int_first(row, ("Num_barrels", "num_barrels", "Barrels")),
         material=CulvertMaterialName.CORRUGATED_STEEL,
     )
 
@@ -112,7 +123,7 @@ def _record(
 
 def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[dict[str, Any]]:
     frame = pd.read_excel(path, sheet_name=sheet_name)
-    required = {"Chan ID", "Q", "Height"}
+    required = {"Chan ID", "Q", "Height", "Flags"}
     missing = required - set(frame.columns)
     if missing:
         msg = f"Missing required Maximums columns: {', '.join(sorted(missing))}"
@@ -130,7 +141,7 @@ def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[di
         frame["aep_text"] = ""
     frame["aep_text"] = frame["aep_text"].fillna("").astype(str).str.strip()
     frame = frame.sort_values(["Chan ID", "aep_text", "Q"], ascending=[True, True, False])
-    frame = frame.groupby(["Chan ID", "aep_text"], as_index=False, dropna=False).first()
+    frame = frame.drop_duplicates(subset=["Chan ID", "aep_text"], keep="first")
     records = frame.where(pd.notna(frame), None).to_dict(orient="records")
     return cast("list[dict[str, Any]]", records)
 
