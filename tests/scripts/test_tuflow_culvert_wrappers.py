@@ -3,6 +3,7 @@
 import runpy
 from collections.abc import Callable
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pandas as pd
@@ -12,10 +13,15 @@ from ryan_library.functions.culvert.tuflow_engines import TuflowCircularCulvert
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MAXIMUMS_SCRIPT = PROJECT_ROOT / "ryan-scripts" / "tuflow" / "tuflow_culvert_from_maximums.py"
+NWK_SCRIPT = PROJECT_ROOT / "ryan-scripts" / "tuflow" / "tuflow_culvert_from_1d_nwk.py"
 
 
 def _maximums_namespace() -> dict[str, Any]:
     return runpy.run_path(str(MAXIMUMS_SCRIPT))
+
+
+def _nwk_namespace() -> dict[str, Any]:
+    return runpy.run_path(str(NWK_SCRIPT))
 
 
 def test_maximums_mapping_uses_canonical_barrel_count_and_preserves_zero_invert() -> None:
@@ -103,3 +109,61 @@ def test_maximums_selection_keeps_governing_row_intact(
     assert rows[0]["Q"] == pytest.approx(10.0)
     assert pd.isna(rows[0]["US_h"])
     assert pd.isna(rows[0]["DS_h"])
+
+
+def test_1d_nwk_skips_ignored_features() -> None:
+    namespace = _nwk_namespace()
+    select_active_rows = cast(
+        "Callable[[list[dict[str, Any]], str | None], list[dict[str, Any]]]",
+        namespace["_select_active_rows"],
+    )
+    rows: list[dict[str, Any]] = [
+        {"ID": "IGNORED", "Ignore": "T"},
+        {"ID": "ACTIVE", "Ignore": ""},
+        {"ID": "IGNORED_Y", "Ignore": "y"},
+    ]
+
+    selected = select_active_rows(rows, None)
+
+    assert [row["ID"] for row in selected] == ["ACTIVE"]
+    with pytest.raises(ValueError, match="marked ignored"):
+        select_active_rows(rows, "IGNORED")
+
+
+def test_1d_nwk_negative_length_uses_digitized_geometry_length() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    definition = build_definition(
+        {
+            "ID": "C01",
+            "Type": "C",
+            "Width_or_D": 1.2,
+            "Len_or_ANA": -1.0,
+            "US_Invert": 10.0,
+            "DS_Invert": 9.8,
+            "n_nF_Cd": 0.013,
+            "Number_of": 2,
+            "geometry": SimpleNamespace(length=42.5),
+        },
+        1,
+    )
+
+    assert definition.length_m == pytest.approx(42.5)
+    assert definition.barrels == 2
+
+
+@pytest.mark.parametrize("script_path", [MAXIMUMS_SCRIPT, NWK_SCRIPT])
+def test_wrappers_require_explicit_overwrite(script_path: Path, tmp_path: Path) -> None:
+    namespace = runpy.run_path(str(script_path))
+    ensure_output = cast("Any", namespace["_ensure_output_available"])
+    output = tmp_path / "results.csv"
+    output.write_text("existing", encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="--overwrite"):
+        ensure_output(output, overwrite=False)
+
+    ensure_output(output, overwrite=True)
