@@ -7,7 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [Culvert uncertainty/sensitivity workflow](2026-10-06-culvert-uncertainty-91.md) | Needs review | ChatGPT | 2026-10-06 | 2026-10-20 | Post-fix validation passed: 60 culvert/MCP tests, 77 HY-8 tests, lint/types/docs, verified wheel and installed-wrapper event checks. Publish local follow-ups when requested, then obtain final review; do not merge without an explicit request. |
+| [Culvert uncertainty/sensitivity workflow](2026-10-06-culvert-uncertainty-91.md) | Ready for final review | ChatGPT | 2026-10-06 | Final PR review | Post-fix validation passed: 60 culvert/MCP tests, 77 HY-8 tests, lint/types/docs, rebuilt verified wheel and installed-wrapper event checks. PR #94 is synced and unmerged; obtain final review before any merge. |
 | [Culvert analysis/design workflow](2026-09-13-culvert-workflow-80.md) | Ready for final validation | ChatGPT | 2026-09-14 | After final validation rerun | Re-run Ruff, strict Pyright, focused pytest, wrapper/documentation checks and package verification after the final provenance/export follow-up; merge PR #86 only after those checks pass. |
 | [Repository improvement backlog](../REPOSITORY_IMPROVEMENT_ROADMAP.md) | Planned | Unassigned | 2026-09-06 | 2026-09-20 | Select a bounded lifecycle review or script family and register its implementation record. |
 | [Scheduled compatibility removals](../COMPATIBILITY_POLICY.md) | Deferred | Unassigned | 2026-09-06 | 2027-01-04 | Support runs through 2026-12-31; then verify callers and select removals using the inventory. |
