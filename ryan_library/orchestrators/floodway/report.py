@@ -116,8 +116,8 @@ def render_floodway_envelope_markdown(envelope: FloodwayEventEnvelope) -> str:
 
     lines.extend(
         [
-            "| Zone | Metric | Scenario | AEP (%) | q (m²/s) | V (m/s) | Dynamic pressure (Pa) | Momentum flux (N/m) | Applicability | Layer | Source |",
-            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
+            "| Zone | Metric | Scenario | AEP (%) | Total Q (m³/s) | Roadway Q (m³/s) | HW (m) | TW (m) | Flow state | Station (m) | q (m²/s) | V (m/s) | Dynamic pressure (Pa) | Momentum flux (N/m) | Applicability | Layer | Source |",
+            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
         ]
     )
     for governor in envelope.governors:
@@ -130,6 +130,12 @@ def render_floodway_envelope_markdown(envelope: FloodwayEventEnvelope) -> str:
                     governor.metric.value,
                     governor.scenario_name,
                     _format_optional(governor.aep_percent),
+                    _format_optional(governor.total_discharge),
+                    _format_optional(governor.roadway_discharge),
+                    _format_optional(governor.headwater_elevation),
+                    _format_optional(governor.tailwater_elevation),
+                    "—" if governor.flow_state is None else governor.flow_state.value,
+                    f"{governor.integration_station:.3f}",
                     f"{demand.unit_discharge:.3f}",
                     f"{demand.velocity:.3f}",
                     f"{demand.dynamic_pressure_pa:.1f}",
