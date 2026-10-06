@@ -5,18 +5,11 @@ from enum import StrEnum
 from math import isfinite, isnan
 from pathlib import Path
 
-from culvert_solver import (
-    CulvertCrossing as SolverCrossing,
-    solve_crossing_discharge_for_headwater,
-    solve_crossing_hydraulics,
-)
+from culvert_solver import CulvertCrossing as SolverCrossing
+from culvert_solver import solve_crossing_discharge_for_headwater, solve_crossing_hydraulics
 from run_hy8 import (
     CircularConcreteInlet,
     CircularCorrugatedSteelInlet,
-    CulvertBarrel as Hy8Barrel,
-    CulvertCrossing as Hy8Crossing,
-    CulvertMaterial as Hy8Material,
-    CulvertShape as Hy8Shape,
     FlowDefinition,
     FlowMethod,
     Hy8Project,
@@ -24,6 +17,10 @@ from run_hy8 import (
     InletType,
     UnitSystem,
 )
+from run_hy8 import CulvertBarrel as Hy8Barrel
+from run_hy8 import CulvertCrossing as Hy8Crossing
+from run_hy8 import CulvertMaterial as Hy8Material
+from run_hy8 import CulvertShape as Hy8Shape
 
 from ...classes.culvert import (
     CircularBarrelDefinition,
