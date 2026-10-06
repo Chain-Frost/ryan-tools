@@ -26,7 +26,7 @@ DEFAULT_OUTLET_INVERT_M = 0.0
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     try:
         value = float(row.get(key))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return default
     return value if isfinite(value) else default
 
