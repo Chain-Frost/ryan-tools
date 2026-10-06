@@ -114,4 +114,7 @@ __all__: list[str] = [
     "select_governing_dynamic_pressure",
     "select_governing_momentum_flux",
     "select_governing_velocity",
+    "select_mrwa_rock_slope_protection",
 ]
+
+from .mrwa_protection import select_mrwa_rock_slope_protection
