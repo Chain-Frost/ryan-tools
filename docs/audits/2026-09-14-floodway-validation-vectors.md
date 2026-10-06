@@ -486,7 +486,10 @@ that is not tied to one published site:
    quantities but carries `TWO_D_VERIFICATION_RECOMMENDED`.
 
 The #86/#14 public scenario/result dependencies are complete. Existing irregular-crest and inactive-flow fixtures use
-that public result model; transition injection/adaptive sweep and explicit 2D-escalation fixtures remain follow-up work.
+that public result model. PR #88 now also includes a configurable peak-discharge sweep with overtopping-onset and
+solver-submergence searches, plus an explicit project-configured 2D-escalation fixture that retains supported scalar
+demands while carrying `TWO_D_VERIFICATION_RECOMMENDED`. Exact source-transition refinement can remain a later
+enhancement where a project needs denser resolution than the configurable sweep provides.
 
 ## 10. Reporting/provenance acceptance checks
 
@@ -513,6 +516,8 @@ PR #88 now contains focused Python tests for:
 - MRWA plunging-versus-surface routing;
 - HEC-23 DG5 mild/steep worked-example vectors;
 - irregular roadway integration and event-envelope selection;
+- configurable discharge-sweep orchestration;
+- explicit 2D-verification escalation with retained scalar demands;
 - JSON/CSV/Markdown result views.
 
 Full repository Ruff, strict Pyright, focused/full pytest, documentation/Markdown checks and required package/build
