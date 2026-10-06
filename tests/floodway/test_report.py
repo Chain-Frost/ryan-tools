@@ -32,6 +32,8 @@ def test_markdown_report_keeps_demand_measures_separate() -> None:
                 headwater_elevation=101.2,
                 tailwater_elevation=100.1,
                 flow_state=RoadwaySegmentState.FREE_UNSUBMERGED,
+                assessment_applicability=FloodwayApplicabilityStatus.TWO_D_VERIFICATION_RECOMMENDED,
+                assessment_message="Skew requires 2D verification.",
                 integration_station=15.0,
                 demand=FloodwayZoneDemand(
                     zone=FloodwayZone.DOWNSTREAM_BATTER,
@@ -57,6 +59,8 @@ def test_markdown_report_keeps_demand_measures_separate() -> None:
     assert "20.000" in report
     assert "free_unsubmerged" in report
     assert "15.000" in report
+    assert "two_d_verification_recommended" in report
+    assert "Skew requires 2D verification." in report
     assert "does not combine them into a generic floodway force" in report
     assert "MRWA-FLOODWAYS-V3-2023-06-12" in report
     assert "2% AEP" in report
