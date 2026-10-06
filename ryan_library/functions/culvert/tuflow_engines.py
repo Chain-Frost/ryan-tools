@@ -5,7 +5,11 @@ from enum import StrEnum
 from math import isfinite, isnan
 from pathlib import Path
 
-from culvert_solver import (\n    CulvertCrossing as SolverCrossing,\n    solve_crossing_discharge_for_headwater,\n    solve_crossing_hydraulics,\n)
+from culvert_solver import (
+    CulvertCrossing as SolverCrossing,
+    solve_crossing_discharge_for_headwater,
+    solve_crossing_hydraulics,
+)
 from run_hy8 import (
     CircularConcreteInlet,
     CircularCorrugatedSteelInlet,
@@ -66,7 +70,8 @@ class TuflowCircularCulvert:
             object.__setattr__(self, field_name, value)
         if self.outlet_invert_m > self.inlet_invert_m:
             raise ValueError("outlet_invert_m must not exceed inlet_invert_m.")
-        if isinstance(self.barrels, bool) or not isinstance(self.barrels, int) or self.barrels <= 0:
+        barrels: object = self.barrels
+        if isinstance(barrels, bool) or not isinstance(barrels, int) or barrels <= 0:
             raise ValueError("barrels must be a strictly positive integer.")
         if self.material not in {
             CulvertMaterialName.CONCRETE_PIPE,
