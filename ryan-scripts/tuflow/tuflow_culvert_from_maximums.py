@@ -39,14 +39,19 @@ def _int(row: dict[str, Any], key: str, default: int = 1) -> int:
 def _definition(row: dict[str, Any]) -> TuflowCircularCulvert:
     diameter = _float(row, "Height")
     if diameter is None or diameter <= 0.0:
-        raise ValueError("Height must contain a positive circular culvert diameter.")
+        msg = "Height must contain a positive circular culvert diameter."
+        raise ValueError(msg)
+    length = _float(row, "Length", DEFAULT_LENGTH_M)
+    inlet = _float(row, "US Invert", DEFAULT_INLET_INVERT_M)
+    outlet = _float(row, "DS Invert", DEFAULT_OUTLET_INVERT_M)
+    roughness = _float(row, "n or Cd", DEFAULT_N)
     return TuflowCircularCulvert(
         name=str(row.get("Chan ID") or "").strip(),
         diameter_m=diameter,
-        length_m=_float(row, "Length", DEFAULT_LENGTH_M) or DEFAULT_LENGTH_M,
-        inlet_invert_m=_float(row, "US Invert", DEFAULT_INLET_INVERT_M) or DEFAULT_INLET_INVERT_M,
-        outlet_invert_m=_float(row, "DS Invert", DEFAULT_OUTLET_INVERT_M) or DEFAULT_OUTLET_INVERT_M,
-        roughness_manning_n=_float(row, "n or Cd", DEFAULT_N) or DEFAULT_N,
+        length_m=DEFAULT_LENGTH_M if length is None else length,
+        inlet_invert_m=DEFAULT_INLET_INVERT_M if inlet is None else inlet,
+        outlet_invert_m=DEFAULT_OUTLET_INVERT_M if outlet is None else outlet,
+        roughness_manning_n=DEFAULT_N if roughness is None else roughness,
         barrels=_int(row, "num_barrels"),
         material=CulvertMaterialName.CORRUGATED_STEEL,
     )
@@ -110,7 +115,8 @@ def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[di
     required = {"Chan ID", "Q", "Height"}
     missing = required - set(frame.columns)
     if missing:
-        raise ValueError(f"Missing required Maximums columns: {', '.join(sorted(missing))}")
+        msg = f"Missing required Maximums columns: {', '.join(sorted(missing))}"
+        raise ValueError(msg)
     frame["Chan ID"] = frame["Chan ID"].fillna("").astype(str).str.strip()
     frame = frame[frame["Chan ID"].astype(bool)]
     if crossing is not None:
@@ -118,7 +124,8 @@ def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[di
     frame["Q"] = pd.to_numeric(frame["Q"], errors="coerce")
     frame = frame[frame["Q"] > 0.0]
     if frame.empty:
-        raise ValueError("No positive-flow Maximums rows matched the selection.")
+        msg = "No positive-flow Maximums rows matched the selection."
+        raise ValueError(msg)
     if "aep_text" not in frame.columns:
         frame["aep_text"] = ""
     frame["aep_text"] = frame["aep_text"].fillna("").astype(str).str.strip()
@@ -154,7 +161,9 @@ def run(args: argparse.Namespace) -> int:
         try:
             definition = _definition(row)
             flow = _float(row, "Q")
-            assert flow is not None
+            if flow is None:
+                msg = "Q must contain a positive finite discharge after row selection."
+                raise ValueError(msg)
             ds_invert = definition.outlet_invert_m
             ds_headwater = _float(row, "DS_h", ds_invert) or ds_invert
             cases: list[tuple[str, str, float, float]] = [
