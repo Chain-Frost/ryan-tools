@@ -133,10 +133,11 @@ required. The floodway design workflow must not create a competing production cr
 ## Remaining first-increment work
 
 Implementation and focused validation for the supported first increment are complete locally. PR #88 remains draft
-and unmerged. Validation repairs and the verified wheel are uncommitted and unpushed.
+and unmerged. The validation repairs, documentation updates and dated package version are now committed on the PR branch.
 
-Next action: triage the five repository-wide test failures described below, then commit/push the approved repairs and
-review readiness. No enabled GitHub CI workflow or head workflow runs were found; do not treat absent CI as a pass.
+Next action: reconcile the branch with the latest `main`, review the five repository-wide test failures described below,
+and then decide review readiness. No enabled GitHub CI workflow exists; local validation is the delivery evidence and
+absence of CI is not a blocker.
 
 ## Explicit fail-closed boundaries
 
@@ -228,7 +229,10 @@ Validated `ff77c9bd947ddc5590ab775d8ec7d9c3636aee3e` plus local repairs using no
   temporary target. Copied wrapper checked help, a five-point synthetic sweep/export, and missing-directory exit 1.
 - The ordinary installed package is stale (`python ryan-scripts/floodway.py --help` cannot import the culvert models).
   It was not replaced; the rebuilt wheel was verified separately in temporary storage.
-- GitHub read-only checks confirmed draft/open/unmerged/mergeable, no review threads and no workflow runs on the head.
-  The checkout has no enabled CI workflow. No PR comments, ready-state changes, commits, pushes or merges were made.
-- Worktree was initially clean. Local repairs and wheel remain unstaged/uncommitted; submodule pins are unchanged.
+- GitHub checks confirmed draft/open/unmerged state, no review threads and no workflow runs on the validated head.
+  The checkout has no enabled CI workflow. The validation repairs and documentation/package updates were subsequently
+  committed and pushed to PR #88; the PR remains draft and unmerged.
+- The five full-suite failures are outside the floodway change surface. Four deterministic failures are in test/production
+  files byte-identical to `main`; the TUFLOW logging test passes in isolation and appears order-dependent. These are not
+  currently demonstrated regressions caused by PR #88.
 - The repository improvement backlog review date remains overdue (2026-09-20); unrelated work was not started.
