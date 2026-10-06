@@ -93,7 +93,7 @@ results.
 
 The hosted test job initialises only `qgis-resources`, `vendor/run_hy8`, `vendor/ryan_culverts` and
 `tests/test_data`. The QGIS repository is used only as test/resource data; no QGIS application is launched. The job
-installs the repository's binary GIS dependency bootstrap, provisions 7-Zip, sets `MPLBACKEND=Agg`, and runs:
+installs the repository's binary GIS dependency bootstrap, sets `MPLBACKEND=Agg`, and runs:
 
 ```powershell
 python -m pytest tests `
@@ -101,14 +101,16 @@ python -m pytest tests `
   --ignore=tests/orchestrators/gdal `
   --ignore=tests/scripts/gdal/test_gdal_flood_extent.py `
   --ignore=tests/scripts/test_promoted_utilities.py `
+  --ignore=tests/scripts/test_archive_compress.py `
   -m "not gdal and not gui and not external" `
   -rs
 ```
 
 The ignored modules import `osgeo` directly or through production modules during collection, so marker deselection alone
 cannot make them a valid normal-Python hosted boundary. Rasterio/Fiona tests, native ASC processing, wrapper dry runs,
-mocked subprocess behavior and archive tests remain in the hosted set. Tests marked `external` require an explicitly
-supplied application or executable; the ASC_to_ASC parity tests remain local and use `ASC_TO_ASC_EXE`.
+mocked subprocess behavior remain in the hosted set. The real 7-Zip archive integration module is deliberately
+excluded from hosted CI and remains an optional local check. Tests marked `external` require an explicitly supplied
+application or executable; the ASC_to_ASC parity tests remain local and use `ASC_TO_ASC_EXE`.
 
 The package job initialises `qgis-resources` plus the two vendored Python packages, verifies the retained wheel,
 performs a `--no-bump` rebuild, verifies the rebuilt artifact, confirms the declared version is unchanged, then
