@@ -41,8 +41,8 @@ Examples::
     python culvert.py uncertainty --project culvert_project.toml --study "Roughness sensitivity" --no-pause
 
 Uncertainty writes complete JSON, evaluation CSV, metric-summary CSV and Markdown.
-Exit code 2 means outputs were written with failed or statistically excluded outcomes;
-exit code 1 indicates configuration, execution or export failure.
+Completed studies return exit code 0 even when retained outcomes require engineering review;
+exit code 1 indicates configuration, execution or export failure. Invalid CLI arguments use argparse exit code 2.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
-WRAPPER_VERSION = "2026-10-06.3"
+WRAPPER_VERSION = "2026-10-06.4"
 
 WORKING_DIR: Path = Path(__file__).resolve().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
@@ -283,7 +283,6 @@ def _run_uncertainty(project: CulvertProject, study_name: str | None, output_dir
     )
     if incomplete:
         logger.warning("{} outcomes are excluded from statistics; review retained statuses and failures.", incomplete)
-        return 2
     return 0
 
 
