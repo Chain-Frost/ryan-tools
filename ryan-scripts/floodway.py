@@ -32,6 +32,7 @@ Examples::
     python floodway.py --project culvert_project.toml --formation floodway.toml --crossing "Floodway A" --no-pause
     python floodway.py --project culvert_project.json --formation floodway_formation.json --scenario "1% AEP"
     python floodway.py --project culvert_project.json --formation floodway_formation.json --sweep-points 31 --no-pause
+    python floodway.py --project culvert_project.json --formation floodway_formation.json --sweep-max-discharge 250 --no-pause
 """
 
 from __future__ import annotations
@@ -128,6 +129,8 @@ def main(
     scenario_name: str | None = None,
     sweep_scenario_name: str | None = None,
     sweep_points: int | None = None,
+    sweep_min_discharge: float | None = None,
+    sweep_max_discharge: float | None = None,
     console_log_level: str | None = None,
 ) -> int:
     """Resolve wrapper settings and execute the floodway assessment workflow."""
@@ -184,6 +187,8 @@ def main(
                     sweep_base,
                     formation,
                     points=resolved_sweep_points,
+                    minimum_discharge=sweep_min_discharge,
+                    maximum_discharge=sweep_max_discharge,
                 )
                 assessments = assessments + sweep_assessments
 
@@ -225,6 +230,16 @@ def _parse_cli_arguments() -> argparse.Namespace:
         type=int,
         help="Interior discharge sweep points; default: 21. Use 0 to disable.",
     )
+    parser.add_argument(
+        "--sweep-min-discharge",
+        type=float,
+        help="Optional lower sweep discharge in m³/s; default: detected roadway-overtopping onset.",
+    )
+    parser.add_argument(
+        "--sweep-max-discharge",
+        type=float,
+        help="Optional upper sweep discharge in m³/s; default: selected sweep scenario discharge.",
+    )
     parser.add_argument("--console-log-level", type=normalize_log_level)
     parser.add_argument("--no-pause", action="store_true")
     return parser.parse_args()
@@ -241,6 +256,8 @@ if __name__ == "__main__":
         scenario_name=args.scenario,
         sweep_scenario_name=args.sweep_scenario,
         sweep_points=args.sweep_points,
+        sweep_min_discharge=args.sweep_min_discharge,
+        sweep_max_discharge=args.sweep_max_discharge,
         console_log_level=args.console_log_level,
     )
     print_wrapper_banner(
