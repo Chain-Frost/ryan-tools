@@ -95,7 +95,6 @@ def test_floodway_workflow_is_catalogued_with_headless_assessment() -> None:
     assert "--no-pause" in workflow["resolved_scenarios"][0]["command"]
 
 
-
 def test_tuflow_culvert_engine_workflows_are_catalogued() -> None:
     registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
 
@@ -108,8 +107,12 @@ def test_tuflow_culvert_engine_workflows_are_catalogued() -> None:
 
         assert workflow["available"] is True
         assert workflow["profile"] == "create"
-        assert workflow["mutation"] == "creates_outputs"
+        assert workflow["mutation"] == "creates_or_replaces"
         assert workflow["script_relative_path"] == script_path
+        assert workflow["metadata"]["overwrite_flag"] == "--overwrite"
+        assert workflow["metadata"]["overwrite_default"] is False
+        assert workflow["metadata"]["engine_modes"] == ["ryan-culverts", "hy8"]
+        assert workflow["metadata"]["hy8_executes_external"] is True
         scenarios = {scenario["name"]: scenario["command"] for scenario in workflow["resolved_scenarios"]}
         assert set(scenarios) == {"hy8", "ryan_culverts"}
         assert "--engine" in scenarios["hy8"]
