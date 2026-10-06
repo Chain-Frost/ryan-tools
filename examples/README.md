@@ -8,5 +8,7 @@ the library supplies reusable processing.
 - [DataFrame and export examples](dataframes/README.md): shared table helpers and Excel/Parquet export.
 - [`tuflow_workflow_demo.ipynb`](tuflow_workflow_demo.ipynb): notebook-oriented TUFLOW exploration.
 - [`logging_usage.py`](logging_usage.py): serial, multiprocessing and notebook-safe Loguru setup.
+- [`culvert_project.toml`](culvert_project.toml): complete schema-versioned culvert project with mixed groups,
+  roadway overtopping, fixed and Manning-channel tailwater, scenarios and an alternative.
 
 Copy an example into project code and replace its paths, filters and output names. Do not edit installed package files.

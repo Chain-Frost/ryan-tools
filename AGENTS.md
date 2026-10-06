@@ -14,6 +14,8 @@ matrix.
 - `ryan_library/scripts` and `ryan_functions`: deprecated import-compatibility namespaces; do not add new behaviour.
 - `vendor`, `tests/test_data`, `excel-resources`, `qgis-resources` and `unsorted`: vendored content or submodules; preserve
   their independent state.
+- `unsorted` is excluded from all automated work. Do not initialise, inspect, traverse, search, lint, test, validate or
+  otherwise check that submodule for any reason.
 
 Classify the target before changing it. Do not automatically modernise a standalone, project-specific or legacy script
 into library code. Reuse must be demonstrated, not inferred solely because code could technically be shared.

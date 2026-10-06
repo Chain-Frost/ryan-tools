@@ -1,0 +1,89 @@
+schema_version = 1
+name = "Example Creek crossing"
+source = "Concept design brief"
+notes = "Coordinates and hydrology are managed by the source project."
+
+[design_criteria]
+maximum_headwater_elevation_m = 12.10
+maximum_outlet_velocity_ms = 3.0
+maximum_roadway_discharge_m3s = 0.0
+require_resolved_result = true
+
+[[crossings]]
+name = "Existing crossing"
+source = "Survey 2026-08"
+notes = "Mixed barrel groups are retained explicitly."
+
+[[crossings.groups]]
+name = "Concrete pipes"
+quantity = 2
+[crossings.groups.barrel]
+shape = "circular"
+diameter_mm = 1200
+length_m = 42.0
+inlet_invert_elevation_m = 10.10
+outlet_invert_elevation_m = 9.60
+roughness_manning_n = 0.013
+material = "concrete_pipe"
+
+[[crossings.groups]]
+name = "Relief box"
+quantity = 1
+[crossings.groups.barrel]
+shape = "rectangular"
+span_mm = 1800
+rise_mm = 1200
+length_m = 38.0
+inlet_invert_elevation_m = 10.25
+outlet_invert_elevation_m = 9.75
+roughness_manning_n = 0.013
+material = "concrete_box"
+
+[crossings.roadway]
+crest_elevation_m = 12.40
+crest_length_m = 35.0
+discharge_coefficient = 1.70
+label = "Constant crest approximation"
+
+[[scenarios]]
+name = "20% AEP"
+aep_percent = 20.0
+discharge_m3s = 3.5
+source = "Externally supplied design flows"
+[scenarios.tailwater]
+type = "fixed"
+elevation_m = 10.05
+
+[[scenarios]]
+name = "1% AEP"
+aep_percent = 1.0
+discharge_m3s = 9.8
+source = "Externally supplied design flows"
+notes = "Tailwater resolved from the receiving channel at each trial discharge."
+[scenarios.tailwater]
+type = "manning_channel"
+channel_invert_elevation_m = 9.20
+roughness_manning_n = 0.035
+friction_slope = 0.002
+[scenarios.tailwater.section]
+shape = "trapezoidal"
+bottom_width_m = 3.0
+left_side_slope_h_to_v = 2.0
+right_side_slope_h_to_v = 2.0
+
+[[alternatives]]
+name = "Three 1500 mm pipes"
+notes = "Concept option only."
+[alternatives.crossing]
+name = "Proposed crossing"
+[[alternatives.crossing.groups]]
+name = "Concrete pipes"
+quantity = 3
+[alternatives.crossing.groups.barrel]
+shape = "circular"
+diameter_mm = 1500
+length_m = 40.0
+inlet_invert_elevation_m = 10.00
+outlet_invert_elevation_m = 9.50
+roughness_manning_n = 0.013
+material = "concrete_pipe"
