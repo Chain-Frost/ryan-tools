@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active |
+| Status | Complete |
 | Owner | ChatGPT |
 | Created | 2026-10-06 |
 | Updated | 2026-10-06 |
-| Next review | 2026-10-07 |
+| Next review | None; implementation and validation complete |
 | Baseline | `feature/culvert-uncertainty-91` from `main` at `1d8aa177be7b074003e0e355b5db56f4cd764e99`; `vendor/ryan_culverts` initially at `00f8274b4702bfe721d111436a15ae435f672460` |
 
 ## Outcome and scope
@@ -55,17 +55,10 @@ so the validated `26.10.6.2` library artifact is unchanged.
 
 ## Next action
 
-Obtain final PR review against the published head. PR #94 is synced with current `main`, mergeable, and remains
-intentionally unmerged. The package validation remains current. The final wrapper-only behavior changes have matching regression updates and
-should receive the normal focused wrapper check before manual merge if a local runner is available. ChatGPT must not
-merge PR #94; the user will merge manually.
-
-The latest Codex review identified that empty `alternative_names` meant "all alternatives" with no way to express a
-base-crossings-only study. The application policy now adds `include_alternatives` (default `true`); setting it to
-`false` selects zero alternatives while preserving existing empty-selector behavior for enabled target classes.
-
-The earlier target-headwater event and stale-wheel review findings were addressed and validated at `ca31687`. The `include_alternatives` selection-policy change is now validated in the refreshed `26.10.6.2` wheel;
-the earlier `26.10.6.1` wheel evidence remains historical.
+The user authorized resolving the final review thread and squash merging PR #94 on 2026-10-06.
+The main integration is committed and published as `b439e87`; the earlier uncommitted-merge handoff is historical.
+Final release verification restores the bundled wheel as `26.10.6.3`. Publish this final artifact/status follow-up,
+resolve the MCP exit-code thread, and squash merge only after the focused checks pass and the published head is verified.
 
 Group-specific variations, correlated distributions, solved capacity studies and automatic engineering acceptance or
 alternative ranking are outside the initial contract. The existing design-search workflow owns acceptance/ranking;
@@ -271,3 +264,19 @@ paths: **144 passed**. Default documentation/index and explicit links-only check
 Git delivery: conflict resolutions marked in the index; merge remains uncommitted. Nothing pushed or merged on GitHub.
 Next action: rebuild and verify the bundled wheel, then review and commit the local merge. PR #94 remains for manual
 user merge. Next review: 2026-10-07. The unrelated repository backlog review remains overdue (2026-09-20).
+
+### 2026-10-06 final merge preparation
+
+The user superseded the earlier manual-merge restriction and authorized review resolution plus squash merge if appropriate.
+Confirmed `b439e87` is committed and pushed. The final MCP guidance already declares completed studies as exit 0,
+processing failures as 1 and invalid CLI arguments as 2; its remaining GitHub thread can now be resolved.
+
+Rebuilt with `python repo-scripts/build_library.py --skip-pip`, advancing version to `26.10.6.3`.
+Verified wheel: 675973 bytes; SHA-256 `106823dd544e67eaaac4860611a7a7e7b9fd1fb074baa16b4f8785585ddf03f1`.
+Isolated installed-wheel smoke and copied-wrapper uncertainty TOML example passed: 12 evaluations, exit 0.
+Focused culvert/MCP Ruff, wrapper format/strict Pyright, documentation/index and Loguru checks passed.
+GitHub reports no check runs or commit statuses; the repository has no enabled CI workflow.
+The historical merge and wheel-deletion handoff above is superseded by this final release preparation.
+Focused validation: 144 culvert/floodway/MCP tests passed in 72.24 seconds.
+Git delivery: this final artifact/status follow-up is ready for commit/push and authorized squash merge.
+Implementation and required validation are complete; the PR merge event is the authoritative final delivery evidence.

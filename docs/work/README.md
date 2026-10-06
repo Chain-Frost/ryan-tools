@@ -7,7 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [Culvert uncertainty/sensitivity workflow](2026-10-06-culvert-uncertainty-91.md) | Active | ChatGPT | 2026-10-06 | 2026-10-07 | Main floodway changes integrated locally; 144 focused culvert/floodway/MCP tests and documentation checks pass. Conflicting 26.10.6.2 wheel removed by user request; rebuild before final review. Leave PR #94 unmerged for manual user merge. |
+| [Culvert uncertainty/sensitivity workflow](2026-10-06-culvert-uncertainty-91.md) | Active | ChatGPT | 2026-10-06 | 2026-10-07 | Main integration committed/pushed at b439e87; verified 26.10.6.3 wheel and installed-wrapper smoke pass. User authorizes final review resolution and squash merge after focused tests. |
 | [Culvert analysis/design workflow](2026-09-13-culvert-workflow-80.md) | Ready for final validation | ChatGPT | 2026-09-14 | After final validation rerun | Re-run Ruff, strict Pyright, focused pytest, wrapper/documentation checks and package verification after the final provenance/export follow-up; merge PR #86 only after those checks pass. |
 | [Floodway design and reporting workflow](2026-09-13-floodway-design-87.md) | Needs review | Unassigned | 2026-10-06 | 2026-10-13 | Current PR head a90bbae checked; local lint repairs and verified 26.10.6.2 wheel unstaged. Review and commit repairs; historical full-suite failures tracked in #95. |
 | [Repository improvement backlog](../REPOSITORY_IMPROVEMENT_ROADMAP.md) | Planned | Unassigned | 2026-09-06 | 2026-09-20 | Select a bounded lifecycle review or script family and register its implementation record. |
