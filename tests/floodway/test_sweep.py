@@ -1,5 +1,9 @@
 """Tests for floodway interior discharge-sweep orchestration."""
 
+import pytest
+
+import ryan_library.orchestrators.floodway.sweep as sweep_module
+
 from ryan_library.classes.culvert import (
     CircularBarrelDefinition,
     CrossingDefinition,
@@ -18,6 +22,7 @@ from ryan_library.classes.floodway import (
 from ryan_library.orchestrators.floodway import (
     assess_floodway_discharge_sweep,
     find_roadway_overtopping_onset,
+    find_roadway_submergence_onset,
 )
 
 
@@ -84,3 +89,39 @@ def test_discharge_sweep_detects_overtopping_and_retains_non_aep_interior_states
     assert all(item.hydraulics.aep_percent is None for item in assessments)
     assert all("discharge sweep" in (item.hydraulics.source or "").lower() for item in assessments)
     assert any(item.hydraulics.roadway_discharge > 0.0 for item in assessments)
+
+
+def test_discharge_sweep_honours_explicit_minimum_bound() -> None:
+    assessments = assess_floodway_discharge_sweep(
+        _crossing(),
+        _scenario(),
+        _formation(),
+        points=4,
+        minimum_discharge=6.0,
+        maximum_discharge=8.0,
+    )
+
+    assert assessments
+    assert all(item.hydraulics.total_discharge is not None for item in assessments)
+    assert all(6.0 <= item.hydraulics.total_discharge <= 8.0 for item in assessments)
+
+
+def test_submergence_search_scans_interior_when_upper_endpoint_is_free(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sweep_module, "find_roadway_overtopping_onset", lambda *_args, **_kwargs: 1.0)
+    monkeypatch.setattr(sweep_module, "solve_crossing_scenario", lambda _crossing, scenario: scenario)
+    monkeypatch.setattr(
+        sweep_module,
+        "_roadway_submerged",
+        lambda scenario: 2.0 <= scenario.discharge <= 4.0,
+    )
+
+    onset = find_roadway_submergence_onset(
+        _crossing(),
+        _scenario(),
+        maximum_discharge=8.0,
+        discharge_tolerance=1e-6,
+    )
+
+    assert onset == pytest.approx(2.0, abs=1e-5)
