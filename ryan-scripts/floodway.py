@@ -47,7 +47,9 @@ DEFAULT_PROJECT_FILE = Path("culvert_project.json")
 DEFAULT_FORMATION_FILE = Path("floodway_formation.json")
 DEFAULT_OUTPUT_DIRECTORY = Path("floodway_results")
 DEFAULT_SWEEP_POINTS = 21
-CONSOLE_LOG_LEVEL = "INFO"
+CONSOLE_LOG_LEVEL = "SUCCESS"
+LOG_FILE = "floodway.log"
+FILE_LOG_LEVEL = "DEBUG"
 
 import argparse
 from collections.abc import Callable, Sequence
@@ -141,7 +143,11 @@ def main(
     if not change_working_directory(target_dir=target_directory):
         return 1
 
-    with setup_logger(console_log_level=console_log_level or CONSOLE_LOG_LEVEL):
+    with setup_logger(
+        console_log_level=console_log_level or CONSOLE_LOG_LEVEL,
+        log_file=LOG_FILE,
+        file_log_level=FILE_LOG_LEVEL,
+    ):
         try:
             project = load_project(project_path)
             formation = load_floodway_formation(formation_path)
