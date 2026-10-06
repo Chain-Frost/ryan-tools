@@ -25,8 +25,11 @@ DEFAULT_OUTLET_INVERT_M = 0.0
 
 
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
+    raw = row.get(key)
+    if raw is None:
+        return default
     try:
-        value = float(row.get(key))
+        value = float(raw)
     except TypeError, ValueError:
         return default
     return value if isfinite(value) else default
@@ -123,7 +126,8 @@ def _record(
 
 
 def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[dict[str, Any]]:
-    frame = pd.read_excel(path, sheet_name=sheet_name)
+    # Pandas stubs include optional workbook types without complete typing.
+    frame = pd.read_excel(path, sheet_name=sheet_name)  # pyright: ignore[reportUnknownMemberType]
     required = {"Chan ID", "Q", "Height", "Flags"}
     missing = required - set(frame.columns)
     if missing:

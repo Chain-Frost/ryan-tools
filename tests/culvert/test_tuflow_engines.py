@@ -136,7 +136,7 @@ def test_hy8_forward_dispatch_uses_run_hy8_boundary(
 def test_hy8_tailwater_preserves_downstream_invert(
     concrete_crossing: TuflowCircularCulvert,
 ) -> None:
-    _project, crossing = engine_module._hy8_crossing(
+    _project, crossing = engine_module._hy8_crossing(  # pyright: ignore[reportPrivateUsage]
         concrete_crossing,
         tailwater_elevation_m=10.25,
         seed_discharge_m3s=2.0,

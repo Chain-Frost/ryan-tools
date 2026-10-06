@@ -101,7 +101,11 @@ def test_maximums_selection_keeps_governing_row_intact(
             },
         ]
     )
-    monkeypatch.setattr(pd, "read_excel", lambda *_args, **_kwargs: source.copy())
+
+    def read_excel(*_args: object, **_kwargs: object) -> pd.DataFrame:
+        return source.copy()
+
+    monkeypatch.setattr(pd, "read_excel", read_excel)
 
     rows = select_rows(Path("maximums.xlsx"), "Maximums", None)
 
@@ -159,7 +163,7 @@ def test_1d_nwk_negative_length_uses_digitized_geometry_length() -> None:
 @pytest.mark.parametrize("script_path", [MAXIMUMS_SCRIPT, NWK_SCRIPT])
 def test_wrappers_require_explicit_overwrite(script_path: Path, tmp_path: Path) -> None:
     namespace = runpy.run_path(str(script_path))
-    ensure_output = cast("Any", namespace["_ensure_output_available"])
+    ensure_output = namespace["_ensure_output_available"]
     output = tmp_path / "results.csv"
     output.write_text("existing", encoding="utf-8")
 
@@ -171,7 +175,7 @@ def test_wrappers_require_explicit_overwrite(script_path: Path, tmp_path: Path) 
 
 def test_maximums_hy8_workspaces_are_unique_by_aep_and_require_overwrite(tmp_path: Path) -> None:
     namespace = _maximums_namespace()
-    workspace = cast("Any", namespace["_workspace"])
+    workspace = namespace["_workspace"]
 
     first = workspace(tmp_path, "C01", "1%", "Q @ DS_h TW", overwrite=False)
     second = workspace(tmp_path, "C01", "2%", "Q @ DS_h TW", overwrite=False)

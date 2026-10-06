@@ -23,8 +23,11 @@ DEFAULT_N = 0.024
 
 
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
+    raw = row.get(key)
+    if raw is None:
+        return default
     try:
-        value = float(row.get(key))
+        value = float(raw)
     except TypeError, ValueError:
         return default
     return value if isfinite(value) else default
@@ -57,7 +60,7 @@ def _is_ignored(row: dict[str, Any]) -> bool:
 def _geometry_length(row: dict[str, Any]) -> float:
     geometry = row.get("geometry")
     try:
-        length = float(geometry.length)
+        length = float(getattr(geometry, "length", float("nan")))
     except AttributeError, TypeError, ValueError:
         length = float("nan")
     if not isfinite(length) or length <= 0.0:
@@ -190,10 +193,8 @@ def _workspace(root: Path | None, crossing: str, scenario: str) -> Path | None:
 def run(args: argparse.Namespace) -> int:
     engine = CulvertEngine(args.engine)
     _ensure_output_available(args.output_csv, overwrite=args.overwrite)
-    kwargs: dict[str, str] = {}
-    if args.layer:
-        kwargs["layer"] = args.layer
-    frame = gpd.read_file(args.input_gis, **kwargs)
+    # GeoPandas stubs leave backend keyword arguments untyped.
+    frame = gpd.read_file(args.input_gis, layer=args.layer or None)  # pyright: ignore[reportUnknownMemberType]
     if frame.empty:
         msg = f"No features found in {args.input_gis}."
         raise ValueError(msg)

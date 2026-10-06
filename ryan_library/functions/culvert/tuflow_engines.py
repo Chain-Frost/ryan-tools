@@ -72,7 +72,8 @@ class TuflowCircularCulvert:
             msg = "outlet_invert_m must not exceed inlet_invert_m."
             raise ValueError(msg)
         barrels: object = self.barrels
-        if isinstance(barrels, bool) or not isinstance(barrels, int) or barrels <= 0:
+        # Keep runtime validation for callers supplying values outside the annotation.
+        if isinstance(barrels, bool) or not isinstance(barrels, int) or barrels <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
             msg = "barrels must be a strictly positive integer."
             raise ValueError(msg)
         if self.material not in {
@@ -277,7 +278,7 @@ def solve_tuflow_culvert_forward(
     )
     result = crossing.hw_from_q(
         q=discharge_m3s,
-        hy8=hy8,
+        hy8=Path(hy8) if isinstance(hy8, str) else hy8,
         project=project,
         workspace=workspace,
         keep_files=keep_workspace,
@@ -321,7 +322,7 @@ def solve_tuflow_culvert_inverse(
     result = crossing.q_from_hw(
         hw=headwater_elevation_m,
         q_hint=q_hint_m3s,
-        hy8=hy8,
+        hy8=Path(hy8) if isinstance(hy8, str) else hy8,
         project=project,
         workspace=workspace,
         keep_files=keep_workspace,
