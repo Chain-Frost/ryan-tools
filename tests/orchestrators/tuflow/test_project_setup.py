@@ -1,10 +1,10 @@
 """Focused tests for the TUFLOW project setup workflow."""
 
 import sqlite3
-from unittest.mock import MagicMock
 from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
+from unittest.mock import MagicMock
 
 import fiona  # pyright: ignore[reportMissingTypeStubs]
 import pytest
