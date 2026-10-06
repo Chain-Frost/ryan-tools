@@ -1,6 +1,6 @@
 """Tests for raster_maintenance orchestration."""
 
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pytest
 
@@ -46,20 +46,57 @@ def test_create_footprints_empty(mock_create, tmp_path):
 
 @patch("ryan_library.orchestrators.gdal.raster_maintenance.create_raster_footprint")
 def test_create_footprints_serial(mock_create, dummy_dir):
-    mock_create.side_effect = lambda x, out, **kw: out
+    mock_create.side_effect = lambda **kwargs: kwargs["output_vector"]
     res = create_footprints_in_directory(dummy_dir, workers=1, vector_format="shp")
     assert len(res) == 2
     assert mock_create.call_count == 2
     assert str(res[0]).endswith(".shp")
+    mock_create.assert_has_calls(
+        [
+            call(
+                input_raster=dummy_dir.resolve() / "r1.tif",
+                output_vector=dummy_dir.resolve() / "r1_footprint.shp",
+                vector_format="shp",
+                layer_name="raster_footprint",
+                overwrite=False,
+            ),
+            call(
+                input_raster=dummy_dir.resolve() / "r2.tif",
+                output_vector=dummy_dir.resolve() / "r2_footprint.shp",
+                vector_format="shp",
+                layer_name="raster_footprint",
+                overwrite=False,
+            ),
+        ]
+    )
 
 
 @patch("ryan_library.orchestrators.gdal.raster_maintenance.create_raster_footprint")
 def test_create_footprints_parallel(mock_create, dummy_dir):
-    mock_create.side_effect = lambda x, out, **kw: out
+    mock_create.side_effect = lambda **kwargs: kwargs["output_vector"]
     res = create_footprints_in_directory(dummy_dir, workers=2, vector_format="gpkg")
     assert len(res) == 2
     assert mock_create.call_count == 2
     assert str(res[0]).endswith(".gpkg")
+    mock_create.assert_has_calls(
+        [
+            call(
+                input_raster=dummy_dir.resolve() / "r1.tif",
+                output_vector=dummy_dir.resolve() / "r1_footprint.gpkg",
+                vector_format="gpkg",
+                layer_name="raster_footprint",
+                overwrite=False,
+            ),
+            call(
+                input_raster=dummy_dir.resolve() / "r2.tif",
+                output_vector=dummy_dir.resolve() / "r2_footprint.gpkg",
+                vector_format="gpkg",
+                layer_name="raster_footprint",
+                overwrite=False,
+            ),
+        ],
+        any_order=True,
+    )
 
 
 @patch("ryan_library.orchestrators.gdal.raster_maintenance.create_raster_footprint")
@@ -75,8 +112,14 @@ def test_create_footprints_skip_existing(mock_create, dummy_dir):
     out1.touch()
     assert out1.stat().st_mtime >= r1.stat().st_mtime
 
-    mock_create.side_effect = lambda x, out, **kw: out
+    mock_create.side_effect = lambda **kwargs: kwargs["output_vector"]
     res = create_footprints_in_directory(dummy_dir, workers=1, overwrite=False)
     # r1 skipped, r2 created
     assert len(res) == 2
-    assert mock_create.call_count == 1  # only called for r2
+    mock_create.assert_called_once_with(
+        input_raster=dummy_dir.resolve() / "r2.tif",
+        output_vector=dummy_dir.resolve() / "r2_footprint.gpkg",
+        vector_format="gpkg",
+        layer_name="raster_footprint",
+        overwrite=False,
+    )
