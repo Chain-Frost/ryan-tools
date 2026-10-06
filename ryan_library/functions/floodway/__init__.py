@@ -40,6 +40,11 @@ from .hec23 import (
     hec23_overtopping_riprap_d50,
     hec23_surface_unit_discharge,
 )
+from .mrwa_protection import (
+    MRWA_CURRENT_FLOODWAY_GUIDANCE,
+    MRWA_CURRENT_FLOODWAY_GUIDANCE_SOURCE_ID,
+    select_mrwa_rock_slope_protection,
+)
 from .hydraulics import (
     GRAVITATIONAL_ACCELERATION,
     MRWA_APPENDIX_SUBMERGENCE_DEPTH_RATIO,
@@ -68,6 +73,8 @@ __all__: list[str] = [
     "HEC23_SI_KU",
     "HEC23_SI_MANNING_STRICKLER",
     "MRWA_APPENDIX_SUBMERGENCE_DEPTH_RATIO",
+    "MRWA_CURRENT_FLOODWAY_GUIDANCE",
+    "MRWA_CURRENT_FLOODWAY_GUIDANCE_SOURCE_ID",
     "MRWA_FIGURE_4_5_TRANSITION_POINTS",
     "MRWA_FIGURE_4_6_MAX_DELTA_P_OVER_HEAD",
     "MRWA_FREE_FLOW_COEFFICIENT",
@@ -116,5 +123,3 @@ __all__: list[str] = [
     "select_governing_velocity",
     "select_mrwa_rock_slope_protection",
 ]
-
-from .mrwa_protection import select_mrwa_rock_slope_protection
