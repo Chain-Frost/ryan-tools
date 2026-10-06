@@ -32,8 +32,8 @@ def render_floodway_scenario_markdown(assessment: FloodwayScenarioAssessment) ->
         "",
         "## MRWA / hydraulic demand assessment",
         "",
-        "| Zone | Station (m) | Flow state | Applicability | q (m²/s) | V (m/s) | Source | Message |",
-        "| --- | ---: | --- | --- | ---: | ---: | --- | --- |",
+        "| Zone | Station (m) | Flow state | Applicability | q (m²/s) | Depth (m) | V (m/s) | Fr | V²/2g (m) | Specific energy (m) | Source | Message |",
+        "| --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
     ]
 
     for item in assessment.zone_assessments:
@@ -47,7 +47,11 @@ def render_floodway_scenario_markdown(assessment: FloodwayScenarioAssessment) ->
                     item.flow_state.value,
                     item.applicability.value,
                     "—" if demand is None else f"{demand.unit_discharge:.3f}",
+                    "—" if demand is None else _format_optional(demand.depth_m),
                     "—" if demand is None else f"{demand.velocity:.3f}",
+                    "—" if demand is None else _format_optional(demand.froude_number),
+                    "—" if demand is None else _format_optional(demand.velocity_head_m),
+                    "—" if demand is None else _format_optional(demand.specific_energy_m),
                     "—" if demand is None or not demand.source_id else demand.source_id,
                     item.message or "—",
                 )
@@ -167,8 +171,8 @@ def render_floodway_envelope_markdown(envelope: FloodwayEventEnvelope) -> str:
 
     lines.extend(
         [
-            "| Zone | Metric | Scenario | AEP (%) | Total Q (m³/s) | Roadway Q (m³/s) | HW (m) | TW (m) | Flow state | Station (m) | q (m²/s) | V (m/s) | Dynamic pressure (Pa) | Momentum flux (N/m) | Applicability | Layer | Source |",
-            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
+            "| Zone | Metric | Scenario | AEP (%) | Total Q (m³/s) | Roadway Q (m³/s) | HW (m) | TW (m) | Flow state | Station (m) | q (m²/s) | Depth (m) | V (m/s) | Fr | V²/2g (m) | Specific energy (m) | Dynamic pressure (Pa) | Momentum flux (N/m) | Applicability | Layer | Source |",
+            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
         ]
     )
     for governor in envelope.governors:
@@ -188,7 +192,11 @@ def render_floodway_envelope_markdown(envelope: FloodwayEventEnvelope) -> str:
                     "—" if governor.flow_state is None else governor.flow_state.value,
                     f"{governor.integration_station:.3f}",
                     f"{demand.unit_discharge:.3f}",
+                    _format_optional(demand.depth_m),
                     f"{demand.velocity:.3f}",
+                    _format_optional(demand.froude_number),
+                    _format_optional(demand.velocity_head_m),
+                    _format_optional(demand.specific_energy_m),
                     f"{demand.dynamic_pressure_pa:.1f}",
                     f"{demand.momentum_flux_per_width_npm:.1f}",
                     demand.applicability.value,
