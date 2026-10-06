@@ -24,6 +24,13 @@ from .export import (
     scenario_result_record,
 )
 from .plotting import plot_longitudinal_profile, plot_rating_curve, save_figure
+from .tuflow_engines import (
+    CulvertEngine,
+    CulvertEngineResult,
+    TuflowCircularCulvert,
+    solve_tuflow_culvert_forward,
+    solve_tuflow_culvert_inverse,
+)
 from .uncertainty import generate_study_samples
 from .uncertainty_evaluation import evaluate_crossing_sample, sampled_crossing_inputs
 from .uncertainty_export import (
@@ -38,6 +45,9 @@ from .uncertainty_statistics import aggregate_study_evaluations
 
 __all__: list[str] = [
     "SCHEMA_VERSION",
+    "CulvertEngine",
+    "CulvertEngineResult",
+    "TuflowCircularCulvert",
     "aggregate_study_evaluations",
     "assess_scenario",
     "build_solver_barrel",
@@ -68,6 +78,8 @@ __all__: list[str] = [
     "project_record",
     "sampled_crossing_inputs",
     "save_figure",
+    "solve_tuflow_culvert_forward",
+    "solve_tuflow_culvert_inverse",
     "scenario_result_record",
     "study_evaluation_record",
     "study_summary_record",
