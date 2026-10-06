@@ -8,7 +8,7 @@
 | Updated | 2026-10-06 |
 | Next review | 2026-10-13 |
 | Branch | `feature/floodway-design-87` / PR #88 |
-| Baseline | Post-#86 `main`; `main` advanced after validation and branch is currently 1 commit behind pending reconciliation |
+| Baseline | Local merge `2d978b6` incorporates `origin/main` (`beb1011`); 0 commits behind main |
 
 ## Outcome and scope
 
@@ -236,3 +236,20 @@ Validated `ff77c9bd947ddc5590ab775d8ec7d9c3636aee3e` plus local repairs using no
   deterministic failures are in test/production files byte-identical to `main`; the TUFLOW logging test passes in
   isolation and appears order-dependent. These are not currently demonstrated regressions caused by PR #88.
 - The repository improvement backlog review date remains overdue (2026-09-20); unrelated work was not started.
+
+### Merge reconciliation - 2026-10-06
+
+- User authorized resolving the in-progress merge while retaining the reviewed current implementation.
+- Incoming `beb1011` has exactly the same tree as previously integrated `1d8aa17`:
+  `26aa3a58e4cfe2fe32e14c7d9b88e35634e1a138`. The conflicts resulted from changed commit ancestry, not new source work.
+- Retained current versions of every conflicted file and the `0213eac` culvert pin; removed the incoming old wheel and
+  duplicate stale culvert index entry. No submodule worktree was modified.
+- Resolved index tree exactly matched pre-merge `fa4e784`:
+  `272f382b66ad6d582debbdca6fc37e04296a3627`. The local merge commit preserves that tree unchanged.
+- Ruff lint/format, strict Pyright on conflicted Python, documentation index checks and dated-wheel verification passed.
+- `python -m pytest tests/floodway tests/culvert tests/mcp -q`: **124 passed** (13.83 seconds).
+- No source changes warranted rerunning the full suite; the five previously recorded failures remain unresolved.
+- Local merge commit: `2d978b6` (`Merge main while preserving validated floodway implementation`), parents
+  `fa4e784` and `beb1011`. `git rev-list --count HEAD..origin/main`: **0**.
+- Merge complete, no unresolved paths, version remains `26.10.6.1`. Nothing pushed; PR #88 remains draft and unmerged.
+- This status-record/register update remains unstaged and uncommitted; the merge itself is committed locally.
