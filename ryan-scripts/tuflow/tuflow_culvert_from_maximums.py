@@ -146,6 +146,12 @@ def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[di
     return cast("list[dict[str, Any]]", records)
 
 
+def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
+    if path.exists() and not overwrite:
+        msg = f"Output already exists: {path}. Pass --overwrite to replace it."
+        raise FileExistsError(msg)
+
+
 def _workspace(root: Path | None, crossing: str, scenario: str) -> Path | None:
     if root is None:
         return None
@@ -157,6 +163,7 @@ def _workspace(root: Path | None, crossing: str, scenario: str) -> Path | None:
 
 def run(args: argparse.Namespace) -> int:
     engine = CulvertEngine(args.engine)
+    _ensure_output_available(args.output_csv, overwrite=args.overwrite)
     rows = _selected_rows(args.input_workbook, args.sheet_name, args.crossing)
     workspace_root: Path | None = args.workspace
     if args.keep_workspace and workspace_root is None:
@@ -259,6 +266,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("input_workbook", type=Path)
     parser.add_argument("--sheet-name", default="Maximums")
     parser.add_argument("--output-csv", type=Path, default=Path("tuflow-culvert-results.csv"))
+    parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--crossing")
     parser.add_argument("--engine", choices=[item.value for item in CulvertEngine], default=CulvertEngine.HY8.value)
     parser.add_argument("--headwater-ratio", type=float, default=1.5)
