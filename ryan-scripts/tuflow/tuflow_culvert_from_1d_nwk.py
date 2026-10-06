@@ -40,17 +40,21 @@ def _first_float(row: dict[str, Any], keys: tuple[str, ...]) -> float | None:
 def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
     source_type = str(row.get("Type") or "").strip().upper()
     if source_type != "C":
-        raise ValueError(f"Unsupported TUFLOW Type {source_type or '<blank>'!r}; migrated workflow supports Type 'C'.")
+        msg = f"Unsupported TUFLOW Type {source_type or '<blank>'!r}; migrated workflow supports Type 'C'."
+        raise ValueError(msg)
     diameter = _first_float(row, DIAMETER_FIELDS)
     length = _float(row, "Len_or_ANA")
     inlet = _float(row, "US_Invert")
     outlet = _float(row, "DS_Invert")
     if diameter is None or diameter <= 0.0:
-        raise ValueError(f"Expected a positive diameter in one of: {', '.join(DIAMETER_FIELDS)}.")
+        msg = f"Expected a positive diameter in one of: {', '.join(DIAMETER_FIELDS)}."
+        raise ValueError(msg)
     if length is None or length <= 0.0:
-        raise ValueError("Len_or_ANA must contain a positive culvert length.")
+        msg = "Len_or_ANA must contain a positive culvert length."
+        raise ValueError(msg)
     if inlet is None or outlet is None:
-        raise ValueError("US_Invert and DS_Invert are required.")
+        msg = "US_Invert and DS_Invert are required."
+        raise ValueError(msg)
     roughness = _float(row, "n_nF_Cd", DEFAULT_N) or DEFAULT_N
     barrels_raw = _first_float(row, BARREL_FIELDS)
     barrels = 1 if barrels_raw is None else max(1, int(barrels_raw))
@@ -136,13 +140,15 @@ def run(args: argparse.Namespace) -> int:
         kwargs["layer"] = args.layer
     frame = gpd.read_file(args.input_gis, **kwargs)
     if frame.empty:
-        raise ValueError(f"No features found in {args.input_gis}.")
+        msg = f"No features found in {args.input_gis}."
+        raise ValueError(msg)
     frame = frame.where(frame.notna(), None)
     rows: list[dict[str, Any]] = frame.to_dict(orient="records")
     if args.crossing:
         rows = [row for row in rows if str(row.get("ID") or "").strip() == args.crossing]
         if not rows:
-            raise ValueError(f"Crossing {args.crossing!r} was not found.")
+            msg = f"Crossing {args.crossing!r} was not found."
+            raise ValueError(msg)
 
     workspace_root: Path | None = args.workspace
     if args.keep_workspace and workspace_root is None:
@@ -211,7 +217,8 @@ def run(args: argparse.Namespace) -> int:
             )
 
     if not output_rows:
-        raise ValueError("No output rows were produced.")
+        msg = "No output rows were produced."
+        raise ValueError(msg)
     args.output_csv.parent.mkdir(parents=True, exist_ok=True)
     with args.output_csv.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(output_rows[0]))
