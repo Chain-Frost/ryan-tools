@@ -292,9 +292,7 @@ def test_all_failed_summary_has_no_fabricated_statistics(monkeypatch: pytest.Mon
     )
 
 
-def test_wrapper_retains_failed_output_and_returns_success(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_wrapper_retains_failed_output_and_returns_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def solve(
         crossing: CulvertCrossing, *, total_discharge: float, tailwater: TailwaterInput
     ) -> CrossingHydraulicResult:
