@@ -114,6 +114,7 @@ class FloodwayZoneDemand:
     dynamic_pressure_pa: float
     momentum_flux_per_width_npm: float
     specific_energy_m: float | None = None
+    velocity_head_m: float | None = None
     depth_m: float | None = None
     froude_number: float | None = None
     applicability: FloodwayApplicabilityStatus = FloodwayApplicabilityStatus.SUPPORTED
@@ -125,6 +126,8 @@ class FloodwayZoneDemand:
             object.__setattr__(self, name, _nonnegative(getattr(self, name), name))
         if self.specific_energy_m is not None:
             object.__setattr__(self, "specific_energy_m", _nonnegative(self.specific_energy_m, "specific_energy_m"))
+        if self.velocity_head_m is not None:
+            object.__setattr__(self, "velocity_head_m", _nonnegative(self.velocity_head_m, "velocity_head_m"))
         if self.depth_m is not None:
             object.__setattr__(self, "depth_m", _nonnegative(self.depth_m, "depth_m"))
         if self.froude_number is not None:
