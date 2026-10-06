@@ -167,3 +167,25 @@ def test_wrappers_require_explicit_overwrite(script_path: Path, tmp_path: Path) 
         ensure_output(output, overwrite=False)
 
     ensure_output(output, overwrite=True)
+
+
+def test_maximums_hy8_workspaces_are_unique_by_aep_and_require_overwrite(tmp_path: Path) -> None:
+    namespace = _maximums_namespace()
+    workspace = cast("Any", namespace["_workspace"])
+
+    first = workspace(tmp_path, "C01", "1%", "Q @ DS_h TW", overwrite=False)
+    second = workspace(tmp_path, "C01", "2%", "Q @ DS_h TW", overwrite=False)
+
+    assert first is not None
+    assert second is not None
+    assert first != second
+
+    marker = first / "retained.txt"
+    marker.write_text("old run", encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="--overwrite"):
+        workspace(tmp_path, "C01", "1%", "Q @ DS_h TW", overwrite=False)
+
+    replaced = workspace(tmp_path, "C01", "1%", "Q @ DS_h TW", overwrite=True)
+    assert replaced == first
+    assert not marker.exists()
