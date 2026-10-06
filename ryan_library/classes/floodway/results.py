@@ -229,6 +229,7 @@ class FloodwayEnvelopeResult:
     """Scenario envelope with independent governing states for unlike demand measures."""
 
     scenarios: tuple[FloodwayScenarioAssessment, ...]
+    governing_unit_discharge: GoverningFloodwayDemand | None
     governing_velocity: GoverningFloodwayDemand | None
     governing_dynamic_pressure: GoverningFloodwayDemand | None
     governing_momentum_flux: GoverningFloodwayDemand | None
