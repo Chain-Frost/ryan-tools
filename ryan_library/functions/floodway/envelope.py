@@ -29,7 +29,7 @@ def build_floodway_event_envelope(
     """Select independent governing events for each represented floodway zone.
 
     Every supplied candidate is retained in the returned envelope. For each zone,
-    velocity, dynamic pressure and momentum flux are governed independently so a
+    unit discharge, velocity, dynamic pressure and momentum flux are governed independently so a
     lower-discharge event can remain controlling where the hydraulics demand it.
     Equal metric values retain the earliest supplied candidate deterministically.
     """
