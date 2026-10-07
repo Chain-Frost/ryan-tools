@@ -71,6 +71,7 @@ def test_maximums_applies_numeric_blockage_to_circular_diameter() -> None:
     )
 
     assert definition.diameter_m == pytest.approx(1.2 * (0.5**0.5))
+    assert definition.hw_diameter_m == pytest.approx(1.2)
 
 
 def test_maximums_rejects_unresolved_category_blockage() -> None:
@@ -161,6 +162,68 @@ def test_maximums_selection_keeps_governing_row_intact(
     assert pd.isna(rows[0]["DS_h"])
 
 
+def test_maximums_selection_preserves_base_run_scenarios(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    namespace = _maximums_namespace()
+    select_rows = cast(
+        "Callable[[Path, str, str | None], list[dict[str, Any]]]",
+        namespace["_selected_rows"],
+    )
+    source = pd.DataFrame(
+        [
+            {
+                "Chan ID": "C01",
+                "trim_runcode": "EXG",
+                "internalName": "Model_EXG_01.0p_060m_TP01",
+                "aep_text": "1%",
+                "Flags": "C",
+                "Height": 1.2,
+                "Q": 8.0,
+            },
+            {
+                "Chan ID": "C01",
+                "trim_runcode": "EXG",
+                "internalName": "Model_EXG_01.0p_120m_TP02",
+                "aep_text": "1%",
+                "Flags": "C",
+                "Height": 1.2,
+                "Q": 10.0,
+            },
+            {
+                "Chan ID": "C01",
+                "trim_runcode": "DEV",
+                "internalName": "Model_DEV_01.0p_060m_TP01",
+                "aep_text": "1%",
+                "Flags": "C",
+                "Height": 1.2,
+                "Q": 12.0,
+            },
+            {
+                "Chan ID": "C01",
+                "trim_runcode": "DEV",
+                "internalName": "Model_DEV_01.0p_120m_TP02",
+                "aep_text": "1%",
+                "Flags": "C",
+                "Height": 1.2,
+                "Q": 11.0,
+            },
+        ]
+    )
+
+    def read_excel(*_args: object, **_kwargs: object) -> pd.DataFrame:
+        return source.copy()
+
+    monkeypatch.setattr(pd, "read_excel", read_excel)
+
+    rows = select_rows(Path("maximums.xlsx"), "Maximums", None)
+
+    assert [(row["Run"], row["Q"]) for row in rows] == [
+        ("DEV", pytest.approx(12.0)),
+        ("EXG", pytest.approx(10.0)),
+    ]
+
+
 def test_1d_nwk_skips_ignored_features() -> None:
     namespace = _nwk_namespace()
     select_active_rows = cast(
@@ -229,6 +292,7 @@ def test_1d_nwk_applies_numeric_blockage_to_circular_diameter() -> None:
     )
 
     assert definition.diameter_m == pytest.approx(1.2 * (0.5**0.5))
+    assert definition.hw_diameter_m == pytest.approx(1.2)
     assert definition.inlet_invert_m == pytest.approx(10.0)
 
 
@@ -317,8 +381,8 @@ def test_maximums_hy8_workspaces_are_unique_by_aep_and_require_overwrite(tmp_pat
     namespace = _maximums_namespace()
     workspace = namespace["_workspace"]
 
-    first = workspace(tmp_path, "C01", "1%", "Q @ DS_h TW", overwrite=False)
-    second = workspace(tmp_path, "C01", "2%", "Q @ DS_h TW", overwrite=False)
+    first = workspace(tmp_path, "C01", "EXG", "1%", "Q @ DS_h TW", overwrite=False)
+    second = workspace(tmp_path, "C01", "EXG", "2%", "Q @ DS_h TW", overwrite=False)
 
     assert first is not None
     assert second is not None
@@ -328,9 +392,9 @@ def test_maximums_hy8_workspaces_are_unique_by_aep_and_require_overwrite(tmp_pat
     marker.write_text("old run", encoding="utf-8")
 
     with pytest.raises(FileExistsError, match="--overwrite"):
-        workspace(tmp_path, "C01", "1%", "Q @ DS_h TW", overwrite=False)
+        workspace(tmp_path, "C01", "EXG", "1%", "Q @ DS_h TW", overwrite=False)
 
-    replaced = workspace(tmp_path, "C01", "1%", "Q @ DS_h TW", overwrite=True)
+    replaced = workspace(tmp_path, "C01", "EXG", "1%", "Q @ DS_h TW", overwrite=True)
     assert replaced == first
     assert not marker.exists()
 
@@ -357,8 +421,8 @@ def test_maximums_workspace_sanitization_is_collision_safe(tmp_path: Path) -> No
     namespace = _maximums_namespace()
     workspace = namespace["_workspace"]
 
-    first = workspace(tmp_path, "A B", "1%", "Q @ DS_h TW", overwrite=False)
-    second = workspace(tmp_path, "A_B", "1%", "Q @ DS_h TW", overwrite=False)
+    first = workspace(tmp_path, "A B", "EXG", "1%", "Q @ DS_h TW", overwrite=False)
+    second = workspace(tmp_path, "A_B", "EXG", "1%", "Q @ DS_h TW", overwrite=False)
 
     assert first is not None
     assert second is not None
@@ -397,6 +461,7 @@ def test_native_maximums_does_not_create_hy8_workspace(
                 "Flags": "C",
                 "Height": 1.2,
                 "Q": 2.0,
+                "trim_runcode": "EXG",
                 "US Invert": 10.0,
                 "DS Invert": 9.5,
             }
@@ -409,5 +474,7 @@ def test_native_maximums_does_not_create_hy8_workspace(
     args = namespace["_parser"]().parse_args(cli)
     assert namespace["run"](args) == 0
     assert args.output_csv.exists()
+    output = pd.read_csv(args.output_csv)
+    assert set(output["Run"]) == {"EXG"}
     assert not workspace.exists()
     assert not (tmp_path / "hy8-workspaces").exists()
