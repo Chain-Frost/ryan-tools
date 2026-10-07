@@ -312,7 +312,7 @@ def test_adverse_slope_dispatch_is_engine_specific(
     dispatch.assert_called_once()
 
 
-def test_native_entry_loss_override_is_numeric_not_an_inlet_selector(
+def test_native_entry_loss_override_is_attached_without_selecting_inlet(
     concrete_crossing: TuflowCircularCulvert,
 ) -> None:
     definition = replace(
@@ -323,9 +323,11 @@ def test_native_entry_loss_override_is_numeric_not_an_inlet_selector(
     configuration = engine_module._solver_configuration(  # pyright: ignore[reportPrivateUsage]
         definition
     )
+    crossing = engine_module._solver_crossing(definition)  # pyright: ignore[reportPrivateUsage]
 
     assert configuration.default_circular_concrete_inlet is not None
-    assert configuration.default_circular_concrete_loss.ke == pytest.approx(0.65)
+    assert configuration.default_circular_concrete_loss.ke == pytest.approx(0.5)
+    assert crossing.groups[0].barrel.entrance_loss_coefficient == pytest.approx(0.65)
 
 
 def test_hy8_rejects_entry_loss_that_conflicts_with_physical_inlet(

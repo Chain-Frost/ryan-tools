@@ -209,29 +209,23 @@ def _validate_common_loss_support(losses: TuflowLossParameters) -> None:
 
 
 def _solver_configuration(definition: TuflowCircularCulvert) -> SolverConfiguration:
-    """Map physical inlet configuration to native coefficients and preserve EntryC."""
+    """Map physical inlet configuration to native coefficient defaults."""
     _validate_common_loss_support(definition.losses)
     if definition.material is CulvertMaterialName.SMOOTH_HDPE:
         msg = "ryan-culverts requires explicit HDPE inlet coefficients; use HY-8 or extend the native adapter."
         raise ValueError(msg)
     inlet, standard_loss = _native_physical_parameters(definition.configuration)
-    entrance_loss = standard_loss
-    if definition.losses.entry_loss_coefficient is not None:
-        entrance_loss = EntranceLossCoefficient(
-            name="TUFLOW EntryC override",
-            ke=definition.losses.entry_loss_coefficient,
-        )
     if definition.material is CulvertMaterialName.CONCRETE_PIPE:
         return replace(
             DEFAULT_SOLVER_CONFIGURATION,
             default_circular_concrete_inlet=inlet,
-            default_circular_concrete_loss=entrance_loss,
+            default_circular_concrete_loss=standard_loss,
         )
     if definition.material is CulvertMaterialName.CORRUGATED_STEEL:
         return replace(
             DEFAULT_SOLVER_CONFIGURATION,
             default_circular_cmp_inlet=inlet,
-            default_circular_cmp_loss=entrance_loss,
+            default_circular_cmp_loss=standard_loss,
         )
     msg = "ryan-culverts requires explicit HDPE inlet coefficients; use HY-8 or extend the native adapter."
     raise ValueError(msg)
@@ -257,7 +251,18 @@ def _solver_crossing(definition: TuflowCircularCulvert) -> SolverCrossing:
         name=definition.name,
         groups=(CulvertGroupDefinition(name=definition.name, barrel=barrel, quantity=definition.barrels),),
     )
-    return build_solver_crossing(crossing)
+    solver_crossing = build_solver_crossing(crossing)
+    entry_loss = definition.losses.entry_loss_coefficient
+    if entry_loss is None:
+        return solver_crossing
+    groups = tuple(
+        replace(
+            group,
+            barrel=replace(group.barrel, entrance_loss_coefficient=entry_loss),
+        )
+        for group in solver_crossing.groups
+    )
+    return replace(solver_crossing, groups=groups)
 
 
 def _solver_result(
