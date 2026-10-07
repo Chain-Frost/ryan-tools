@@ -73,7 +73,7 @@ class TuflowCircularCulvert:
     inlet_invert_m: float
     outlet_invert_m: float
     roughness_manning_n: float
-    barrels: int
+    barrels: int = 1
     nominal_diameter_m: float | None = None
     losses: TuflowLossParameters = field(default_factory=TuflowLossParameters)
 
@@ -211,6 +211,12 @@ def _validate_common_loss_support(losses: TuflowLossParameters) -> None:
 def _solver_configuration(definition: TuflowCircularCulvert) -> SolverConfiguration:
     """Map physical inlet configuration to native coefficients and preserve EntryC."""
     _validate_common_loss_support(definition.losses)
+    if definition.material is CulvertMaterialName.SMOOTH_HDPE:
+        msg = (
+            "ryan-culverts requires explicit HDPE inlet coefficients; "
+            "use HY-8 or extend the native adapter."
+        )
+        raise ValueError(msg)
     inlet, standard_loss = _native_physical_parameters(definition.configuration)
     entrance_loss = standard_loss
     if definition.losses.entry_loss_coefficient is not None:
@@ -231,7 +237,7 @@ def _solver_configuration(definition: TuflowCircularCulvert) -> SolverConfigurat
             default_circular_cmp_loss=entrance_loss,
         )
     msg = (
-        "ryan-culverts requires an explicit native HDPE inlet coefficient mapping; "
+        "ryan-culverts requires explicit HDPE inlet coefficients; "
         "use HY-8 or extend the native adapter."
     )
     raise ValueError(msg)
@@ -240,7 +246,7 @@ def _solver_configuration(definition: TuflowCircularCulvert) -> SolverConfigurat
 def _solver_crossing(definition: TuflowCircularCulvert) -> SolverCrossing:
     if definition.material is CulvertMaterialName.SMOOTH_HDPE:
         msg = (
-            "ryan-culverts requires an explicit native HDPE inlet coefficient mapping; "
+            "ryan-culverts requires explicit HDPE inlet coefficients; "
             "use HY-8 or extend the native adapter."
         )
         raise ValueError(msg)

@@ -29,7 +29,8 @@ def concrete_crossing() -> TuflowCircularCulvert:
     return TuflowCircularCulvert(
         name="C01",
         configuration=CircularCulvertConfiguration(
-                inlet=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+            material=CulvertMaterialName.CONCRETE_PIPE,
+            inlet=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
         ),
         diameter_m=1.2,
         length_m=40.0,
