@@ -58,12 +58,12 @@ from .uncertainty_export import (
 from .uncertainty_statistics import aggregate_study_evaluations
 
 __all__: list[str] = [
+    "SCHEMA_VERSION",
     "CircularCulvertConfiguration",
     "CircularInletConfiguration",
     "CulvertEngine",
     "CulvertEngineResult",
     "CulvertShapeName",
-    "SCHEMA_VERSION",
     "TuflowCircularCulvert",
     "TuflowCulvertAttributes",
     "TuflowLossParameters",
