@@ -42,7 +42,7 @@ BLOCKAGE_NUMERIC_KEY = "__pblockage_numeric__"
 
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     raw = row.get(key)
-    if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(isna(raw)):
+    if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(cast("Any", isna(raw))):
         return default
     try:
         value = float(raw)
@@ -57,7 +57,7 @@ def _float(row: dict[str, Any], key: str, default: float | None = None) -> float
 
 def _text(row: dict[str, Any], key: str) -> str:
     raw = row.get(key)
-    if raw is None or bool(isna(raw)):
+    if raw is None or bool(cast("Any", isna(raw))):
         return ""
     return str(raw).strip()
 
@@ -88,7 +88,7 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...]) -> int:
         if key not in row:
             continue
         raw = row.get(key)
-        if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(isna(raw)):
+        if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(cast("Any", isna(raw))):
             continue
         try:
             value = float(raw)
@@ -115,7 +115,7 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...]) -> int:
 
 def _blockage_percent(row: dict[str, Any]) -> float:
     raw = row.get("pBlockage")
-    if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(isna(raw)):
+    if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(cast("Any", isna(raw))):
         if row.get(BLOCKAGE_NUMERIC_KEY) is False:
             msg = (
                 "Blank categorical pBlockage is unresolved because TUFLOW may apply "
@@ -164,7 +164,7 @@ def _require_metric_projected_crs(crs: Any) -> None:
     if crs is None or not bool(getattr(crs, "is_projected", False)):
         msg = "Geometry-derived Len_or_ANA requires a projected CRS with metre units."
         raise ValueError(msg)
-    axes = tuple(getattr(crs, "axis_info", ()) or ())
+    axes = cast("tuple[Any, ...]", tuple(getattr(crs, "axis_info", ()) or ()))
     if not axes:
         msg = "Unable to confirm metre units for geometry-derived Len_or_ANA."
         raise ValueError(msg)
@@ -207,10 +207,7 @@ def _resolve_layer(path: Path, requested: str | None) -> str | None:
         msg = f"No layers found in GeoPackage: {path}."
         raise ValueError(msg)
     joined = ", ".join(names)
-    msg = (
-        "GeoPackage layer is ambiguous; pass --layer explicitly. "
-        f"Available layers: {joined}"
-    )
+    msg = f"GeoPackage layer is ambiguous; pass --layer explicitly. Available layers: {joined}"
     raise ValueError(msg)
 
 
@@ -431,9 +428,7 @@ def run(args: argparse.Namespace) -> int:
         row[BLOCKAGE_NUMERIC_KEY] = blockage_is_numeric
     rows = _select_active_rows(rows, args.crossing)
     _validate_unique_ids(rows)
-    uses_geometry_length = any(
-        (value := _float(row, "Len_or_ANA")) is not None and value < 0.0 for row in rows
-    )
+    uses_geometry_length = any((value := _float(row, "Len_or_ANA")) is not None and value < 0.0 for row in rows)
     if uses_geometry_length:
         _require_metric_projected_crs(getattr(frame, "crs", None))
     headwater_ratios = _headwater_ratios(args.headwater_ratios)

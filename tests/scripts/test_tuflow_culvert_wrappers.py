@@ -865,7 +865,11 @@ def test_1d_nwk_run_preserves_original_source_row_after_ignore_filter(
             },
         ]
     )
-    monkeypatch.setattr(namespace["gpd"], "read_file", lambda *_args, **_kwargs: frame.copy())
+
+    def read_file(*_args: object, **_kwargs: object) -> pd.DataFrame:
+        return frame.copy()
+
+    monkeypatch.setattr(namespace["gpd"], "read_file", read_file)
 
     def fake_inverse(
         definition: TuflowCircularCulvert,
@@ -931,6 +935,7 @@ def test_native_maximums_does_not_create_hy8_workspace(
                 "US Invert": 10.0,
                 "DS Invert": 9.5,
                 "n or Cd": 0.024,
+                "Num_barrels": 1,
             }
         ]
     ).to_excel(workbook, sheet_name="Maximums", index=False)  # pyright: ignore[reportUnknownMemberType]
