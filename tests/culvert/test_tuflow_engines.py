@@ -171,6 +171,45 @@ def test_hy8_crossing_uses_filesystem_safe_internal_name() -> None:
     assert crossing.culverts[0].name.startswith(crossing.name)
 
 
+def test_hy8_reported_hw_d_uses_nominal_diameter(
+    concrete_crossing: TuflowCircularCulvert,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    blocked = replace(
+        concrete_crossing,
+        diameter_m=1.2 * (0.5**0.5),
+        nominal_diameter_m=1.2,
+    )
+    crossing = MagicMock()
+    crossing.hw_from_q.return_value = HydraulicsResult(
+        crossing_name=blocked.name,
+        requested_flow=2.0,
+        computed_flow=2.0,
+        computed_headwater=11.8,
+        row=Hy8ResultRow(
+            flow=2.0,
+            headwater_elevation=11.8,
+            velocity=2.0,
+            roadway_discharge=0.0,
+            flow_type="Outlet Control",
+            overtopping=False,
+        ),
+    )
+    builder = MagicMock(return_value=(MagicMock(), crossing))
+    monkeypatch.setattr(engine_module, "_hy8_crossing", builder)
+
+    result = solve_tuflow_culvert_forward(
+        blocked,
+        scenario="blocked",
+        discharge_m3s=2.0,
+        tailwater_elevation_m=9.5,
+        engine=CulvertEngine.HY8,
+    )
+
+    assert blocked.diameter_m < blocked.hw_diameter_m
+    assert result.headwater_ratio == pytest.approx(1.5)
+
+
 @pytest.mark.parametrize("inverse", [False, True])
 def test_adverse_slope_dispatch_is_engine_specific(
     concrete_crossing: TuflowCircularCulvert,
