@@ -9,6 +9,7 @@ from typing import Any, cast
 import pandas as pd
 import pytest
 
+from ryan_library.classes.culvert import CulvertMaterialName
 from ryan_library.functions.culvert.tuflow_engines import (
     CulvertEngine,
     CulvertEngineResult,
