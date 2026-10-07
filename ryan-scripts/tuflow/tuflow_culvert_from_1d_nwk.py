@@ -10,7 +10,7 @@ Example:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-07.5"
+WRAPPER_VERSION = "2026-10-08.1"
 
 import argparse
 import csv
@@ -43,7 +43,9 @@ BLOCKAGE_NUMERIC_KEY = "__pblockage_numeric__"
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     raw = row.get(key)
     if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(isna(raw)):
-        return default
+        joined = ", ".join(keys)
+    msg = f"A barrel count is required in one of: {joined}."
+    raise ValueError(msg)
     try:
         value = float(raw)
     except (TypeError, ValueError) as exc:
@@ -70,7 +72,20 @@ def _first_float(row: dict[str, Any], keys: tuple[str, ...]) -> float | None:
     return None
 
 
-def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> int:
+def _material_from_roughness(roughness: float) -> CulvertMaterialName:
+    """Infer the supported circular material from the source Manning roughness."""
+    if roughness <= 0.013:
+        return CulvertMaterialName.CONCRETE_PIPE
+    if roughness >= 0.016:
+        return CulvertMaterialName.CORRUGATED_STEEL
+    msg = (
+        "Manning roughness is in the ambiguous 0.013-0.016 range where concrete, "
+        "smooth HDPE and small CSP cannot be distinguished reliably from TUFLOW input alone."
+    )
+    raise ValueError(msg)
+
+
+def _int_first(row: dict[str, Any], keys: tuple[str, ...]) -> int:
     for key in keys:
         if key not in row:
             continue
@@ -315,7 +330,7 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
         outlet_invert_m=outlet,
         roughness_manning_n=roughness,
         barrels=barrels,
-        material=CulvertMaterialName.CONCRETE_PIPE,
+        material=_material_from_roughness(roughness),
         nominal_diameter_m=nominal_diameter,
     )
 
