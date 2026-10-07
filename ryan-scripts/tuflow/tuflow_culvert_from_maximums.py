@@ -34,9 +34,7 @@ from ryan_library.functions.wrapper_utils import print_wrapper_banner
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     raw = row.get(key)
     if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(pd.isna(raw)):
-        joined = ", ".join(keys)
-    msg = f"A barrel count is required in one of: {joined}."
-    raise ValueError(msg)
+        return default
     try:
         value = float(raw)
     except (TypeError, ValueError) as exc:
@@ -115,7 +113,9 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...]) -> int:
             msg = f"{key} must contain a strictly positive integer barrel count."
             raise ValueError(msg)
         return int(rounded)
-    return default
+    joined = ", ".join(keys)
+    msg = f"A barrel count is required in one of: {joined}."
+    raise ValueError(msg)
 
 
 def _definition(row: dict[str, Any]) -> TuflowCircularCulvert:
