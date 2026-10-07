@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-07.3"
+WRAPPER_VERSION = "2026-10-07.4"
 
 import argparse
 import csv
 import hashlib
 import shutil
-from math import isfinite, sqrt
+from math import isfinite, isnan, sqrt
 from typing import Any, cast
 
 import pandas as pd
@@ -31,13 +31,19 @@ DEFAULT_OUTLET_INVERT_M = 0.0
 
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     raw = row.get(key)
-    if raw is None:
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
         return default
     try:
         value = float(raw)
-    except TypeError, ValueError:
+    except (TypeError, ValueError) as exc:
+        msg = f"{key} must contain a numeric value."
+        raise ValueError(msg) from exc
+    if isnan(value):
         return default
-    return value if isfinite(value) else default
+    if not isfinite(value):
+        msg = f"{key} must contain a finite numeric value."
+        raise ValueError(msg)
+    return value
 
 
 def _blockage_percent(row: dict[str, Any]) -> float:
@@ -56,6 +62,14 @@ def _blockage_percent(row: dict[str, Any]) -> float:
         msg = "pBlockage must be at least 0 and less than 100 percent for this workflow."
         raise ValueError(msg)
     return value
+
+
+def _headwater_ratio(value: float) -> float:
+    ratio = float(value)
+    if not isfinite(ratio) or ratio <= 0.0:
+        msg = "--headwater-ratio must be finite and strictly positive."
+        raise ValueError(msg)
+    return ratio
 
 
 def _run_identity(row: dict[str, Any]) -> str:
@@ -242,6 +256,7 @@ def run(args: argparse.Namespace) -> int:
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     engine = CulvertEngine(args.engine)
     _ensure_output_available(args.output_csv, overwrite=args.overwrite)
+    headwater_ratio = _headwater_ratio(args.headwater_ratio)
     rows = _selected_rows(args.input_workbook, args.sheet_name, args.crossing)
     workspace_root: Path | None = args.workspace
     if engine is CulvertEngine.HY8 and args.keep_workspace and workspace_root is None:
@@ -273,8 +288,8 @@ def run(args: argparse.Namespace) -> int:
             us_headwater = _float(row, "US_h")
             if us_headwater is not None:
                 cases.append(("inverse", "HW = US_h", us_headwater, ds_headwater))
-            ratio_headwater = definition.inlet_invert_m + args.headwater_ratio * definition.hw_diameter_m
-            cases.append(("inverse", f"HW:D = {args.headwater_ratio:g}", ratio_headwater, ds_invert))
+            ratio_headwater = definition.inlet_invert_m + headwater_ratio * definition.hw_diameter_m
+            cases.append(("inverse", f"HW:D = {headwater_ratio:g}", ratio_headwater, ds_invert))
 
             for mode, scenario, value, tailwater in cases:
                 try:
