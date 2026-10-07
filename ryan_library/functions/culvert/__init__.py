@@ -24,6 +24,12 @@ from .export import (
     scenario_result_record,
 )
 from .plotting import plot_longitudinal_profile, plot_rating_curve, save_figure
+from .tuflow_attributes import (
+    TuflowCulvertAttributes,
+    load_tuflow_culvert_attributes,
+    material_from_mapping,
+    parse_culvert_material,
+)
 from .tuflow_engines import (
     CulvertEngine,
     CulvertEngineResult,
@@ -48,6 +54,7 @@ __all__: list[str] = [
     "CulvertEngine",
     "CulvertEngineResult",
     "TuflowCircularCulvert",
+    "TuflowCulvertAttributes",
     "aggregate_study_evaluations",
     "assess_scenario",
     "build_solver_barrel",
@@ -71,8 +78,11 @@ __all__: list[str] = [
     "generate_rectangular_candidates",
     "generate_study_samples",
     "load_event_csv",
+    "load_tuflow_culvert_attributes",
     "load_project",
     "load_project_json",
+    "material_from_mapping",
+    "parse_culvert_material",
     "plot_longitudinal_profile",
     "plot_rating_curve",
     "project_record",
