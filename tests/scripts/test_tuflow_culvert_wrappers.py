@@ -427,6 +427,29 @@ def test_1d_nwk_geometry_length_requires_projected_metre_crs() -> None:
         )
 
 
+def test_1d_nwk_rejects_blank_culvert_id() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    with pytest.raises(ValueError, match="ID is required"):
+        build_definition(
+            {
+                "ID": None,
+                "Type": "C",
+                "Width_or_D": 1.2,
+                "Len_or_ANA": 30.0,
+                "US_Invert": 10.0,
+                "DS_Invert": 9.8,
+                "n_nF_Cd": 0.013,
+                "Number_of": 1,
+            },
+            2,
+        )
+
+
 def test_1d_nwk_negative_length_uses_digitized_geometry_length() -> None:
     namespace = _nwk_namespace()
     build_definition = cast(
