@@ -131,25 +131,12 @@ def _validate_supported_losses(
     form_loss = _effective_loss(row, attributes, attribute_name="form_loss", row_field="Fixed Loss")
     width_contraction = attributes.width_contraction if attributes is not None else None
 
-    missing = [
-        label
-        for label, value in (
-            ("Entry Loss", entry_loss),
-            ("Exit Loss", exit_loss),
-            ("Fixed/Form Loss", form_loss),
-        )
-        if value is None
-    ]
-    if missing:
-        msg = "Effective culvert loss coefficients are unresolved; missing: " + ", ".join(missing)
-        raise ValueError(msg)
-
     unsupported: list[str] = []
-    if abs(entry_loss - expected_entry) > 1e-12:
+    if entry_loss is not None and abs(entry_loss - expected_entry) > 1e-12:
         unsupported.append(f"Entry Loss={entry_loss:g}")
-    if abs(exit_loss - 1.0) > 1e-12:
+    if exit_loss is not None and abs(exit_loss - 1.0) > 1e-12:
         unsupported.append(f"Exit Loss={exit_loss:g}")
-    if abs(form_loss) > 1e-12:
+    if form_loss is not None and abs(form_loss) > 1e-12:
         unsupported.append(f"Fixed/Form Loss={form_loss:g}")
     if width_contraction is not None and abs(width_contraction - 1.0) > 1e-12:
         unsupported.append(f"WConF_or_WEx={width_contraction:g}")
