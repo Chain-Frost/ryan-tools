@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-07.1"
+WRAPPER_VERSION = "2026-10-07.2"
 
 import argparse
 import csv
@@ -163,6 +163,7 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
         roughness_manning_n=roughness,
         barrels=barrels,
         material=CulvertMaterialName.CONCRETE_PIPE,
+        nominal_diameter_m=nominal_diameter,
     )
 
 
@@ -270,7 +271,7 @@ def run(args: argparse.Namespace) -> int:
             q_hint = max(definition.diameter_m**2 * definition.barrels, 0.05)
             for ratio in args.headwater_ratios:
                 scenario = f"HW:D = {ratio:g}"
-                target = definition.inlet_invert_m + ratio * definition.diameter_m
+                target = definition.inlet_invert_m + ratio * definition.hw_diameter_m
                 try:
                     work = (
                         _workspace(
