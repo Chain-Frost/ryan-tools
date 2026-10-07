@@ -56,6 +56,18 @@ def parse_culvert_material(value: str) -> CulvertMaterialName:
     return material
 
 
+def material_from_mapping(row: dict[str, Any]) -> CulvertMaterialName | None:
+    """Return an explicit material from a mapping when one is present."""
+    for field in MATERIAL_FIELDS:
+        value = row.get(field)
+        if _is_missing(value):
+            continue
+        text = str(value).strip()
+        if text:
+            return parse_culvert_material(text)
+    return None
+
+
 def _is_missing(value: object) -> bool:
     if value is None:
         return True
