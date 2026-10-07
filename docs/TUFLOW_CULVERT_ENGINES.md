@@ -18,7 +18,7 @@ python ryan-scripts/tuflow/tuflow_culvert_from_maximums.py maximums.xlsx --engin
 ```
 
 The workflow retains the useful scenarios from the former
-`culvert_demo-from-tuflow.py` script:
+culvert_demo-from-tuflow.py script:
 
 - prescribed TUFLOW discharge with `DS_h` tailwater;
 - prescribed TUFLOW discharge with downstream-invert tailwater;
@@ -66,7 +66,9 @@ under the `privileged` profile with explicit approval required.
 
 Both engines receive the same engine-neutral circular-culvert definition:
 diameter, length, inlet/outlet invert, Manning roughness, barrel count and material.
-TUFLOW parsing therefore happens before engine dispatch.
+TUFLOW parsing therefore happens before engine dispatch. Adverse slopes are retained
+in the shared definition and passed to HY-8; the `ryan-culverts` backend rejects
+these slopes explicitly because its current geometry contract does not support them.
 
 The migrated source demos are circular-only:
 
@@ -77,7 +79,7 @@ The migrated source demos are circular-only:
 
 The migration deliberately does not infer missing box width, material or inlet
 configuration. Unsupported source combinations fail closed. Broader project-export
-mapping in `tuflow_to_hy8.py` remains a separate workflow.
+mapping in [`tuflow_to_hy8.py`](../ryan-scripts/tuflow/tuflow_to_hy8.py) remains a separate workflow.
 
 ## Engine differences
 
@@ -95,6 +97,10 @@ contracts and the authoritative solver coefficient selection. Compare the engine
 explicitly before treating them as interchangeable for design acceptance.
 
 ## Output
+
+Both wrappers print their embedded wrapper revision and installed library version
+at startup and completion, including processing failures. Native runs do not create
+HY-8 workspace directories even when workspace options are supplied.
 
 Both wrappers write long-form CSV. Every scenario row records the source, crossing,
 selected engine, requested and computed hydraulic values, HW/D, outlet velocity,

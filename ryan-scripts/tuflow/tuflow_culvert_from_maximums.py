@@ -1,11 +1,14 @@
 """Evaluate TUFLOW Maximums culverts with HY-8 or ryan-culverts."""
 
+from pathlib import Path
+
+WRAPPER_VERSION = "2026-10-07.1"
+
 import argparse
 import csv
 import hashlib
 import shutil
 from math import isfinite, sqrt
-from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
@@ -18,6 +21,7 @@ from ryan_library.functions.culvert.tuflow_engines import (
     solve_tuflow_culvert_forward,
     solve_tuflow_culvert_inverse,
 )
+from ryan_library.functions.wrapper_utils import print_wrapper_banner
 
 DEFAULT_N = 0.024
 DEFAULT_LENGTH_M = 30.0
@@ -202,13 +206,14 @@ def _workspace(
 
 
 def run(args: argparse.Namespace) -> int:
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     engine = CulvertEngine(args.engine)
     _ensure_output_available(args.output_csv, overwrite=args.overwrite)
     rows = _selected_rows(args.input_workbook, args.sheet_name, args.crossing)
     workspace_root: Path | None = args.workspace
-    if args.keep_workspace and workspace_root is None:
+    if engine is CulvertEngine.HY8 and args.keep_workspace and workspace_root is None:
         workspace_root = Path("hy8-workspaces")
-    if workspace_root is not None:
+    if engine is CulvertEngine.HY8 and workspace_root is not None:
         workspace_root.mkdir(parents=True, exist_ok=True)
 
     output_rows: list[dict[str, str | float | None]] = []
@@ -327,4 +332,12 @@ def _parser() -> argparse.ArgumentParser:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run(_parser().parse_args()))
+    args = _parser().parse_args()
+    try:
+        exit_code = run(args)
+    except Exception as exc:
+        print(f"Evaluation failed: {exc}")
+        exit_code = 1
+    finally:
+        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    raise SystemExit(exit_code)

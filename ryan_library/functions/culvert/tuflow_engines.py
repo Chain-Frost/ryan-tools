@@ -69,9 +69,6 @@ class TuflowCircularCulvert:
                 msg = f"{field_name} must be finite."
                 raise ValueError(msg)
             object.__setattr__(self, field_name, value)
-        if self.outlet_invert_m > self.inlet_invert_m:
-            msg = "outlet_invert_m must not exceed inlet_invert_m."
-            raise ValueError(msg)
         barrels: object = self.barrels
         # Keep runtime validation for callers supplying values outside the annotation.
         if isinstance(barrels, bool) or not isinstance(barrels, int) or barrels <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -112,6 +109,9 @@ def _engine(value: CulvertEngine | str) -> CulvertEngine:
 
 
 def _solver_crossing(definition: TuflowCircularCulvert) -> SolverCrossing:
+    if definition.outlet_invert_m > definition.inlet_invert_m:
+        msg = "ryan-culverts does not support adverse slopes: outlet_invert_m must not exceed inlet_invert_m."
+        raise ValueError(msg)
     barrel = CircularBarrelDefinition(
         diameter_mm=definition.diameter_m * 1000.0,
         length=definition.length_m,
@@ -168,10 +168,7 @@ def _solver_result(
 
 def _hy8_safe_name(name: str) -> str:
     """Return a deterministic Windows-filename-safe HY-8 internal name."""
-    safe = "".join(
-        ch if ch.isascii() and (ch.isalnum() or ch in "-_.") else "_"
-        for ch in name
-    ).strip(" .")
+    safe = "".join(ch if ch.isascii() and (ch.isalnum() or ch in "-_.") else "_" for ch in name).strip(" .")
     if not safe:
         safe = "culvert"
     digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:12]

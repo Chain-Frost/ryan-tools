@@ -1,5 +1,6 @@
 """Tests for selectable TUFLOW culvert hydraulic engines."""
 
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -168,3 +169,49 @@ def test_hy8_crossing_uses_filesystem_safe_internal_name() -> None:
     assert crossing.name != definition.name
     assert project.title == crossing.name
     assert crossing.culverts[0].name.startswith(crossing.name)
+
+
+@pytest.mark.parametrize("inverse", [False, True])
+def test_adverse_slope_dispatch_is_engine_specific(
+    concrete_crossing: TuflowCircularCulvert,
+    monkeypatch: pytest.MonkeyPatch,
+    inverse: bool,
+) -> None:
+    definition = replace(concrete_crossing, outlet_invert_m=10.5)
+    result = HydraulicsResult(
+        crossing_name=definition.name,
+        computed_flow=2.0,
+        computed_headwater=11.5,
+        row=Hy8ResultRow(flow=2.0, headwater_elevation=11.5, velocity=2.0),
+    )
+    method = "q_from_hw" if inverse else "hw_from_q"
+    dispatch = MagicMock(return_value=result)
+    monkeypatch.setattr(engine_module.Hy8Crossing, method, dispatch)
+    for engine in (CulvertEngine.HY8, CulvertEngine.RYAN_CULVERTS):
+
+        def solve(engine: CulvertEngine = engine) -> engine_module.CulvertEngineResult:
+            if inverse:
+                return solve_tuflow_culvert_inverse(
+                    definition,
+                    scenario="adverse",
+                    headwater_elevation_m=11.5,
+                    tailwater_elevation_m=10.5,
+                    engine=engine,
+                )
+            return solve_tuflow_culvert_forward(
+                definition,
+                scenario="adverse",
+                discharge_m3s=2.0,
+                tailwater_elevation_m=10.5,
+                engine=engine,
+            )
+
+        if engine is CulvertEngine.HY8:
+            assert solve().engine is CulvertEngine.HY8
+            dispatched_barrel = dispatch.call_args.kwargs["project"].crossings[0].culverts[0]
+            assert dispatched_barrel.inlet_invert_elevation == pytest.approx(10.0)
+            assert dispatched_barrel.outlet_invert_elevation == pytest.approx(10.5)
+        else:
+            with pytest.raises(ValueError, match="ryan-culverts does not support adverse slopes"):
+                solve()
+    dispatch.assert_called_once()

@@ -1,11 +1,14 @@
 """Evaluate TUFLOW 1d_nwk circular culverts with HY-8 or ryan-culverts."""
 
+from pathlib import Path
+
+WRAPPER_VERSION = "2026-10-07.1"
+
 import argparse
 import csv
 import hashlib
 import shutil
 from math import isfinite, sqrt
-from pathlib import Path
 from typing import Any, cast
 
 import geopandas as gpd
@@ -17,6 +20,7 @@ from ryan_library.functions.culvert.tuflow_engines import (
     TuflowCircularCulvert,
     solve_tuflow_culvert_inverse,
 )
+from ryan_library.functions.wrapper_utils import print_wrapper_banner
 
 DIAMETER_FIELDS = ("Width_or_D", "Width_or_Diameter", "Width_or_Dia")
 BARREL_FIELDS = ("Number_of", "num_barrels", "Barrels")
@@ -238,6 +242,7 @@ def _workspace(
 
 
 def run(args: argparse.Namespace) -> int:
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     engine = CulvertEngine(args.engine)
     _ensure_output_available(args.output_csv, overwrite=args.overwrite)
     # GeoPandas stubs leave backend keyword arguments untyped.
@@ -352,4 +357,12 @@ def _parser() -> argparse.ArgumentParser:
 
 
 if __name__ == "__main__":
-    raise SystemExit(run(_parser().parse_args()))
+    args = _parser().parse_args()
+    try:
+        exit_code = run(args)
+    except Exception as exc:
+        print(f"Evaluation failed: {exc}")
+        exit_code = 1
+    finally:
+        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    raise SystemExit(exit_code)

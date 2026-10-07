@@ -379,3 +379,35 @@ def test_1d_nwk_workspace_sanitization_is_collision_safe(tmp_path: Path) -> None
     assert first != second
     assert first.exists()
     assert second.exists()
+
+
+@pytest.mark.parametrize("explicit_workspace", [False, True])
+def test_native_maximums_does_not_create_hy8_workspace(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    explicit_workspace: bool,
+) -> None:
+    namespace = _maximums_namespace()
+    monkeypatch.chdir(tmp_path)
+    workbook = tmp_path / "maximums.xlsx"
+    pd.DataFrame(
+        [
+            {
+                "Chan ID": "C01",
+                "Flags": "C",
+                "Height": 1.2,
+                "Q": 2.0,
+                "US Invert": 10.0,
+                "DS Invert": 9.5,
+            }
+        ]
+    ).to_excel(workbook, sheet_name="Maximums", index=False)  # pyright: ignore[reportUnknownMemberType]
+    workspace = tmp_path / "explicit-workspace"
+    cli = [str(workbook), "--engine", "ryan-culverts", "--keep-workspace"]
+    if explicit_workspace:
+        cli.extend(["--workspace", str(workspace)])
+    args = namespace["_parser"]().parse_args(cli)
+    assert namespace["run"](args) == 0
+    assert args.output_csv.exists()
+    assert not workspace.exists()
+    assert not (tmp_path / "hy8-workspaces").exists()
