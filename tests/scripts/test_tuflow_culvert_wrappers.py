@@ -602,11 +602,12 @@ def test_1d_nwk_nan_barrel_count_uses_missing_value_default() -> None:
     ("field_name", "value"),
     [
         ("Form_Loss", 0.2),
-        ("EntryC_or_WSa", 0.5),
-        ("ExitC_or_WSb", 1.0),
+        ("WConF_or_WEx", 0.8),
+        ("EntryC_or_WSa", 0.7),
+        ("ExitC_or_WSb", 0.6),
     ],
 )
-def test_1d_nwk_rejects_explicit_loss_coefficients(field_name: str, value: float) -> None:
+def test_1d_nwk_rejects_unsupported_loss_coefficients(field_name: str, value: float) -> None:
     namespace = _nwk_namespace()
     build_definition = cast(
         "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
@@ -624,8 +625,36 @@ def test_1d_nwk_rejects_explicit_loss_coefficients(field_name: str, value: float
         field_name: value,
     }
 
-    with pytest.raises(ValueError, match="does not yet preserve explicit TUFLOW loss coefficients"):
+    with pytest.raises(ValueError, match="supports only zero additional form loss"):
         build_definition(row, 1)
+
+
+def test_1d_nwk_accepts_supported_standard_loss_coefficients() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    definition = build_definition(
+        {
+            "ID": "C01",
+            "Type": "C",
+            "Width_or_D": 1.2,
+            "Len_or_ANA": 30.0,
+            "US_Invert": 10.0,
+            "DS_Invert": 9.8,
+            "n_nF_Cd": 0.013,
+            "Form_Loss": 0.0,
+            "WConF_or_WEx": 1.0,
+            "EntryC_or_WSa": 0.5,
+            "ExitC_or_WSb": 1.0,
+            "Number_of": 1,
+        },
+        1,
+    )
+
+    assert definition.name == "C01"
 
 
 def test_1d_nwk_zero_number_of_defaults_to_one_barrel() -> None:
