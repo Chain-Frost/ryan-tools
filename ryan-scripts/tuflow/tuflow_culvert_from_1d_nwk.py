@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-07.3"
+WRAPPER_VERSION = "2026-10-07.4"
 
 import argparse
 import csv
 import hashlib
 import shutil
-from math import isfinite, sqrt
+from math import isfinite, isnan, pi, sqrt
 from typing import Any, cast
 
 import geopandas as gpd
@@ -27,17 +27,24 @@ BARREL_FIELDS = ("Number_of", "num_barrels", "Barrels")
 IGNORED_VALUES = frozenset({"T", "Y"})
 DEFAULT_N = 0.024
 AUTO_INVERT_SENTINEL = -99999.0
+SOURCE_ROW_KEY = "__source_row__"
 
 
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     raw = row.get(key)
-    if raw is None:
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
         return default
     try:
         value = float(raw)
-    except TypeError, ValueError:
+    except (TypeError, ValueError) as exc:
+        msg = f"{key} must contain a numeric value."
+        raise ValueError(msg) from exc
+    if isnan(value):
         return default
-    return value if isfinite(value) else default
+    if not isfinite(value):
+        msg = f"{key} must contain a finite numeric value."
+        raise ValueError(msg)
+    return value
 
 
 def _first_float(row: dict[str, Any], keys: tuple[str, ...]) -> float | None:
@@ -92,6 +99,22 @@ def _blockage_percent(row: dict[str, Any]) -> float:
         msg = "pBlockage must be at least 0 and less than 100 percent for this workflow."
         raise ValueError(msg)
     return value
+
+
+def _headwater_ratios(values: list[float]) -> tuple[float, ...]:
+    ratios = tuple(float(value) for value in values)
+    if any(not isfinite(value) or value <= 0.0 for value in ratios):
+        msg = "--headwater-ratios values must be finite and strictly positive."
+        raise ValueError(msg)
+    if len(set(ratios)) != len(ratios):
+        msg = "--headwater-ratios values must be unique."
+        raise ValueError(msg)
+    return ratios
+
+
+def _seed_flow_hint(definition: TuflowCircularCulvert) -> float:
+    area = pi * definition.diameter_m**2 / 4.0
+    return max(area * definition.barrels, 0.05)
 
 
 def _is_ignored(row: dict[str, Any]) -> bool:
@@ -264,7 +287,10 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError(msg)
     frame = frame.where(frame.notna(), None)
     rows = cast("list[dict[str, Any]]", frame.to_dict(orient="records"))
+    for source_row, row in enumerate(rows, start=1):
+        row[SOURCE_ROW_KEY] = source_row
     rows = _select_active_rows(rows, args.crossing)
+    headwater_ratios = _headwater_ratios(args.headwater_ratios)
 
     workspace_root: Path | None = args.workspace
     if engine is CulvertEngine.HY8 and args.keep_workspace and workspace_root is None:
@@ -274,13 +300,14 @@ def run(args: argparse.Namespace) -> int:
 
     output_rows: list[dict[str, str | int | float | None]] = []
     had_failures = False
-    for source_row, row in enumerate(rows, start=1):
+    for row in rows:
+        source_row = int(row[SOURCE_ROW_KEY])
         source = str(args.input_gis)
         fallback_name = str(row.get("ID") or "").strip() or f"culvert_{source_row:04d}"
         try:
             definition = _definition(row, source_row)
-            q_hint = max(definition.diameter_m**2 * definition.barrels, 0.05)
-            for ratio in args.headwater_ratios:
+            q_hint = _seed_flow_hint(definition)
+            for ratio in headwater_ratios:
                 scenario = f"HW:D = {ratio:g}"
                 target = definition.inlet_invert_m + ratio * definition.hw_diameter_m
                 try:
