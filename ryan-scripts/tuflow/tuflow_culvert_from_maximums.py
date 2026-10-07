@@ -23,9 +23,6 @@ from ryan_library.functions.culvert.tuflow_engines import (
 )
 from ryan_library.functions.wrapper_utils import print_wrapper_banner
 
-DEFAULT_N = 0.024
-
-
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     raw = row.get(key)
     if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(pd.isna(raw)):
@@ -115,14 +112,17 @@ def _definition(row: dict[str, Any]) -> TuflowCircularCulvert:
     if length is None or inlet is None or outlet is None:
         msg = "Length, US Invert and DS Invert are required Maximums geometry fields."
         raise ValueError(msg)
-    roughness = _float(row, "n or Cd", DEFAULT_N)
+    roughness = _float(row, "n or Cd")
+    if roughness is None or roughness <= 0.0:
+        msg = "n or Cd must contain a positive Manning roughness for circular culverts."
+        raise ValueError(msg)
     return TuflowCircularCulvert(
         name=str(row.get("Chan ID") or "").strip(),
         diameter_m=diameter,
         length_m=length,
         inlet_invert_m=inlet,
         outlet_invert_m=outlet,
-        roughness_manning_n=DEFAULT_N if roughness is None else roughness,
+        roughness_manning_n=roughness,
         barrels=_int_first(row, ("Num_barrels", "num_barrels", "Barrels")),
         material=CulvertMaterialName.CORRUGATED_STEEL,
         nominal_diameter_m=nominal_diameter,
