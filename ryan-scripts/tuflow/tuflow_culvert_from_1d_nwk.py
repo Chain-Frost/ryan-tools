@@ -2,7 +2,8 @@
 
 import argparse
 import csv
-from math import isfinite
+import shutil
+from math import isfinite, sqrt
 from pathlib import Path
 from typing import Any, cast
 
@@ -20,6 +21,7 @@ DIAMETER_FIELDS = ("Width_or_D", "Width_or_Diameter", "Width_or_Dia")
 BARREL_FIELDS = ("Number_of", "num_barrels", "Barrels")
 IGNORED_VALUES = frozenset({"T", "Y"})
 DEFAULT_N = 0.024
+AUTO_INVERT_SENTINEL = -99999.0
 
 
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
@@ -46,11 +48,34 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> 
         value = _float(row, key)
         if value is not None:
             rounded = round(value)
-            if abs(value - rounded) > 1e-9 or rounded <= 0:
+            if abs(value - rounded) > 1e-9:
+                msg = f"{key} must contain an integer barrel count."
+                raise ValueError(msg)
+            if key == "Number_of" and rounded == 0:
+                return 1
+            if rounded <= 0:
                 msg = f"{key} must contain a strictly positive integer barrel count."
                 raise ValueError(msg)
             return int(rounded)
     return default
+
+
+def _blockage_percent(row: dict[str, Any]) -> float:
+    raw = row.get("pBlockage")
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return 0.0
+    try:
+        value = float(raw)
+    except TypeError, ValueError as exc:
+        msg = (
+            "pBlockage must be a numeric percentage for this workflow; "
+            "category-based blockage must be resolved before evaluation."
+        )
+        raise ValueError(msg) from exc
+    if not isfinite(value) or value < 0.0 or value >= 100.0:
+        msg = "pBlockage must be at least 0 and less than 100 percent for this workflow."
+        raise ValueError(msg)
+    return value
 
 
 def _is_ignored(row: dict[str, Any]) -> bool:
@@ -97,20 +122,28 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
     if source_type != "C":
         msg = f"Unsupported TUFLOW Type {source_type or '<blank>'!r}; migrated workflow supports Type 'C'."
         raise ValueError(msg)
-    diameter = _first_float(row, DIAMETER_FIELDS)
+    nominal_diameter = _first_float(row, DIAMETER_FIELDS)
     length = _float(row, "Len_or_ANA")
     if length is not None and length < 0.0:
         length = _geometry_length(row)
     inlet = _float(row, "US_Invert")
     outlet = _float(row, "DS_Invert")
-    if diameter is None or diameter <= 0.0:
+    if nominal_diameter is None or nominal_diameter <= 0.0:
         msg = f"Expected a positive diameter in one of: {', '.join(DIAMETER_FIELDS)}."
         raise ValueError(msg)
+    blockage_percent = _blockage_percent(row)
+    diameter = nominal_diameter * sqrt(1.0 - blockage_percent / 100.0)
     if length is None or length <= 0.0:
         msg = "Len_or_ANA must contain a positive culvert length."
         raise ValueError(msg)
     if inlet is None or outlet is None:
         msg = "US_Invert and DS_Invert are required."
+        raise ValueError(msg)
+    if inlet == AUTO_INVERT_SENTINEL or outlet == AUTO_INVERT_SENTINEL:
+        msg = (
+            "US_Invert/DS_Invert contains the unresolved TUFLOW -99999 sentinel; "
+            "resolve effective inverts from processed TUFLOW data before evaluation."
+        )
         raise ValueError(msg)
     roughness_raw = _float(row, "n_nF_Cd", DEFAULT_N)
     roughness = DEFAULT_N if roughness_raw is None else roughness_raw
@@ -181,12 +214,23 @@ def _record(
     }
 
 
-def _workspace(root: Path | None, crossing: str, scenario: str) -> Path | None:
+def _workspace(
+    root: Path | None,
+    crossing: str,
+    scenario: str,
+    *,
+    overwrite: bool,
+) -> Path | None:
     if root is None:
         return None
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in f"{crossing}_{scenario}")
     path = root / safe
-    path.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        if not overwrite:
+            msg = f"HY-8 workspace already exists: {path}. Pass --overwrite to replace it."
+            raise FileExistsError(msg)
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=False)
     return path
 
 
@@ -203,9 +247,9 @@ def run(args: argparse.Namespace) -> int:
     rows = _select_active_rows(rows, args.crossing)
 
     workspace_root: Path | None = args.workspace
-    if args.keep_workspace and workspace_root is None:
+    if engine is CulvertEngine.HY8 and args.keep_workspace and workspace_root is None:
         workspace_root = Path("hy8-workspaces")
-    if workspace_root is not None:
+    if engine is CulvertEngine.HY8 and workspace_root is not None:
         workspace_root.mkdir(parents=True, exist_ok=True)
 
     output_rows: list[dict[str, str | int | float | None]] = []
@@ -220,6 +264,16 @@ def run(args: argparse.Namespace) -> int:
                 scenario = f"HW:D = {ratio:g}"
                 target = definition.inlet_invert_m + ratio * definition.diameter_m
                 try:
+                    work = (
+                        _workspace(
+                            workspace_root,
+                            definition.name,
+                            scenario,
+                            overwrite=args.overwrite,
+                        )
+                        if engine is CulvertEngine.HY8
+                        else None
+                    )
                     result = solve_tuflow_culvert_inverse(
                         definition,
                         scenario=scenario,
@@ -228,7 +282,7 @@ def run(args: argparse.Namespace) -> int:
                         engine=engine,
                         q_hint_m3s=q_hint,
                         hy8=args.hy8_exe,
-                        workspace=_workspace(workspace_root, definition.name, scenario),
+                        workspace=work,
                         keep_workspace=args.keep_workspace,
                     )
                     output_rows.append(
