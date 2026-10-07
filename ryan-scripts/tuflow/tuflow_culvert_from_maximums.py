@@ -238,7 +238,8 @@ def _workspace(
     if root is None:
         return None
     run_key = f"{crossing}_{run or 'no-run'}_{aep or 'no-aep'}_{scenario}"
-    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in run_key)
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in run_key).strip(" ._")
+    safe = (safe or "run")[:120].rstrip(" ._")
     digest = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
     path = root / f"{safe}__{digest}"
     if path.exists():
@@ -326,6 +327,8 @@ def run(args: argparse.Namespace) -> int:
                             workspace=work,
                             keep_workspace=args.keep_workspace,
                         )
+                    if result.status.strip().lower() == "unresolved":
+                        had_failures = True
                     output_rows.append(
                         _record(
                             result,
