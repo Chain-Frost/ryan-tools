@@ -27,7 +27,6 @@ from ryan_library.functions.wrapper_utils import print_wrapper_banner
 DIAMETER_FIELDS = ("Width_or_D", "Width_or_Diameter", "Width_or_Dia")
 BARREL_FIELDS = ("Number_of", "num_barrels", "Barrels")
 IGNORED_VALUES = frozenset({"T", "Y"})
-DEFAULT_N = 0.024
 AUTO_INVERT_SENTINEL = -99999.0
 SOURCE_ROW_KEY = "__source_row__"
 BLOCKAGE_NUMERIC_KEY = "__pblockage_numeric__"
@@ -229,8 +228,10 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
         )
         raise ValueError(msg)
     _reject_unsupported_losses(row)
-    roughness_raw = _float(row, "n_nF_Cd", DEFAULT_N)
-    roughness = DEFAULT_N if roughness_raw is None else roughness_raw
+    roughness = _float(row, "n_nF_Cd")
+    if roughness is None or roughness <= 0.0:
+        msg = "n_nF_Cd must contain a positive Manning roughness for a Type C culvert."
+        raise ValueError(msg)
     barrels = _int_first(row, BARREL_FIELDS)
     name = str(row.get("ID") or "").strip() or f"culvert_{source_row:04d}"
     return TuflowCircularCulvert(
