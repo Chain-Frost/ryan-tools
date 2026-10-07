@@ -144,3 +144,27 @@ def test_hy8_tailwater_preserves_downstream_invert(
 
     assert crossing.tailwater.constant_elevation == pytest.approx(10.25)
     assert crossing.tailwater.invert_elevation == pytest.approx(concrete_crossing.outlet_invert_m)
+
+
+def test_hy8_crossing_uses_filesystem_safe_internal_name() -> None:
+    definition = TuflowCircularCulvert(
+        name="A/B:C*?<>|",
+        diameter_m=1.2,
+        length_m=40.0,
+        inlet_invert_m=10.0,
+        outlet_invert_m=9.5,
+        roughness_manning_n=0.013,
+        material=CulvertMaterialName.CONCRETE_PIPE,
+    )
+
+    project, crossing = engine_module._hy8_crossing(  # pyright: ignore[reportPrivateUsage]
+        definition,
+        tailwater_elevation_m=9.5,
+        seed_discharge_m3s=2.0,
+    )
+
+    forbidden = set('<>:"/\\|?*')
+    assert not forbidden.intersection(crossing.name)
+    assert crossing.name != definition.name
+    assert project.title == crossing.name
+    assert crossing.culverts[0].name.startswith(crossing.name)
