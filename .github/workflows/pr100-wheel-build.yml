@@ -1,0 +1,49 @@
+name: PR 100 Wheel Build
+
+on:
+  push:
+    branches:
+      - feature/issue-99-tuflow-culvert-engines
+
+permissions:
+  contents: read
+
+jobs:
+  build-wheel:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Initialise package resources
+        shell: pwsh
+        run: |
+          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install build frontend
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build and verify current package version
+        shell: pwsh
+        run: |
+          python repo-scripts/build_library.py --no-bump --skip-pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr100-wheel
+          path: dist/ryan_functions-*.whl
+          if-no-files-found: error
