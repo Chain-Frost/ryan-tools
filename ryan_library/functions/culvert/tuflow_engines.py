@@ -1,5 +1,6 @@
 """Selectable hydraulic backends for TUFLOW culvert integration."""
 
+import hashlib
 from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite, isnan
@@ -165,14 +166,27 @@ def _solver_result(
     )
 
 
+def _hy8_safe_name(name: str) -> str:
+    """Return a deterministic Windows-filename-safe HY-8 internal name."""
+    safe = "".join(
+        ch if ch.isascii() and (ch.isalnum() or ch in "-_.") else "_"
+        for ch in name
+    ).strip(" .")
+    if not safe:
+        safe = "culvert"
+    digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:12]
+    return f"{safe[:80]}__{digest}"
+
+
 def _hy8_crossing(
     definition: TuflowCircularCulvert,
     *,
     tailwater_elevation_m: float,
     seed_discharge_m3s: float,
 ) -> tuple[Hy8Project, Hy8Crossing]:
-    project = Hy8Project(title=definition.name, units=UnitSystem.SI, exit_loss_option=0)
-    crossing = Hy8Crossing(name=definition.name)
+    hy8_name = _hy8_safe_name(definition.name)
+    project = Hy8Project(title=hy8_name, units=UnitSystem.SI, exit_loss_option=0)
+    crossing = Hy8Crossing(name=hy8_name)
     project.crossings.append(crossing)
     crossing.flow = FlowDefinition(
         method=FlowMethod.USER_DEFINED,
@@ -198,7 +212,7 @@ def _hy8_crossing(
         raise ValueError(msg)
 
     barrel = Hy8Barrel(
-        name=f"{definition.name} Barrel",
+        name=f"{hy8_name} Barrel",
         span=definition.diameter_m,
         rise=definition.diameter_m,
         shape=Hy8Shape.CIRCLE,
