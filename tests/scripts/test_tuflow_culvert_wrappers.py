@@ -40,6 +40,7 @@ def test_maximums_mapping_uses_canonical_barrel_count_and_preserves_zero_invert(
         {
             "Chan ID": "C01",
             "Type": "C",
+            "Material": "concrete_pipe",
             "Height": 1.2,
             "Length": 30.0,
             "US Invert": 0.0,
@@ -66,6 +67,7 @@ def test_maximums_rejects_malformed_canonical_barrel_count() -> None:
             {
                 "Chan ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -88,6 +90,7 @@ def test_maximums_rejects_missing_manning_roughness() -> None:
             {
                 "Chan ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -109,6 +112,7 @@ def test_maximums_rejects_missing_required_geometry() -> None:
             {
                 "Chan ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "US Invert": 10.0,
                 "DS Invert": 9.8,
@@ -129,6 +133,7 @@ def test_maximums_rejects_missing_barrel_count() -> None:
             {
                 "Chan ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -151,6 +156,7 @@ def test_maximums_rejects_malformed_present_numeric_geometry() -> None:
             {
                 "Chan ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Length": "damaged",
                 "US Invert": 10.0,
@@ -180,6 +186,7 @@ def test_maximums_applies_numeric_blockage_to_circular_diameter() -> None:
         {
             "Chan ID": "C01",
             "Type": "C",
+            "Material": "concrete_pipe",
             "Height": 1.2,
             "Length": 30.0,
             "US Invert": 10.0,
@@ -206,6 +213,7 @@ def test_maximums_rejects_unresolved_category_blockage() -> None:
             {
                 "Chan ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -252,6 +260,7 @@ def test_maximums_selection_keeps_governing_row_intact(
                 "Chan ID": "C01",
                 "aep_text": "1%",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Q": 10.0,
                 "US_h": None,
@@ -261,6 +270,7 @@ def test_maximums_selection_keeps_governing_row_intact(
                 "Chan ID": "C01",
                 "aep_text": "1%",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Q": 9.0,
                 "US_h": 11.5,
@@ -298,6 +308,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "internalName": "Model_EXG_01.0p_060m_TP01",
                 "aep_text": "1%",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Q": 8.0,
             },
@@ -307,6 +318,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "internalName": "Model_EXG_01.0p_120m_TP02",
                 "aep_text": "1%",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Q": 10.0,
             },
@@ -316,6 +328,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "internalName": "Model_DEV_01.0p_060m_TP01",
                 "aep_text": "1%",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Q": 12.0,
             },
@@ -325,6 +338,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "internalName": "Model_DEV_01.0p_120m_TP02",
                 "aep_text": "1%",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Q": 11.0,
             },
@@ -344,30 +358,27 @@ def test_maximums_selection_preserves_base_run_scenarios(
     ]
 
 
+def test_material_is_explicit_not_inferred_from_roughness() -> None:
+    for namespace in (_maximums_namespace(), _nwk_namespace()):
+        material = namespace["_material"]
+        with pytest.raises(ValueError, match="material is unresolved"):
+            material({"n or Cd": 0.024, "n_nF_Cd": 0.024}, None, None)
+
+
 @pytest.mark.parametrize(
-    ("roughness", "expected"),
+    ("value", "expected"),
     [
-        (0.012, CulvertMaterialName.CONCRETE_PIPE),
-        (0.013, CulvertMaterialName.CONCRETE_PIPE),
-        (0.016, CulvertMaterialName.CORRUGATED_STEEL),
-        (0.024, CulvertMaterialName.CORRUGATED_STEEL),
+        ("concrete", CulvertMaterialName.CONCRETE_PIPE),
+        ("rcp", CulvertMaterialName.CONCRETE_PIPE),
+        ("concrete_pipe", CulvertMaterialName.CONCRETE_PIPE),
+        ("csp", CulvertMaterialName.CORRUGATED_STEEL),
+        ("corrugated_steel", CulvertMaterialName.CORRUGATED_STEEL),
     ],
 )
-def test_material_inference_from_manning_roughness(
-    roughness: float,
-    expected: CulvertMaterialName,
-) -> None:
-    for namespace in (_maximums_namespace(), _nwk_namespace()):
-        infer = cast("Callable[[float], CulvertMaterialName]", namespace["_material_from_roughness"])
-        assert infer(roughness) is expected
+def test_material_aliases_are_explicit(value: str, expected: CulvertMaterialName) -> None:
+    from ryan_library.functions.culvert.tuflow_attributes import parse_culvert_material
 
-
-@pytest.mark.parametrize("roughness", [0.0131, 0.014, 0.015, 0.0159])
-def test_material_inference_rejects_ambiguous_low_roughness(roughness: float) -> None:
-    for namespace in (_maximums_namespace(), _nwk_namespace()):
-        infer = cast("Callable[[float], CulvertMaterialName]", namespace["_material_from_roughness"])
-        with pytest.raises(ValueError, match="ambiguous"):
-            infer(roughness)
+    assert parse_culvert_material(value) is expected
 
 
 @pytest.mark.parametrize(
@@ -465,6 +476,7 @@ def test_1d_nwk_rejects_blank_culvert_id() -> None:
             {
                 "ID": None,
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -487,6 +499,7 @@ def test_1d_nwk_negative_length_uses_digitized_geometry_length() -> None:
         {
             "ID": "C01",
             "Type": "C",
+            "Material": "concrete_pipe",
             "Width_or_D": 1.2,
             "Len_or_ANA": -1.0,
             "US_Invert": 10.0,
@@ -513,6 +526,7 @@ def test_1d_nwk_applies_numeric_blockage_to_circular_diameter() -> None:
         {
             "ID": "C01",
             "Type": "C",
+            "Material": "concrete_pipe",
             "Width_or_D": 1.2,
             "Len_or_ANA": 30.0,
             "US_Invert": 10.0,
@@ -542,6 +556,7 @@ def test_1d_nwk_rejects_blank_categorical_blockage_default() -> None:
             {
                 "ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -567,6 +582,7 @@ def test_1d_nwk_rejects_category_blockage_without_resolved_percentage() -> None:
             {
                 "ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -590,6 +606,7 @@ def test_1d_nwk_rejects_malformed_canonical_barrel_count() -> None:
             {
                 "ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -613,6 +630,7 @@ def test_1d_nwk_rejects_missing_manning_roughness() -> None:
             {
                 "ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -635,6 +653,7 @@ def test_1d_nwk_rejects_missing_barrel_count() -> None:
             {
                 "ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -664,6 +683,7 @@ def test_1d_nwk_rejects_unsupported_loss_coefficients(field_name: str, value: fl
     row: dict[str, Any] = {
         "ID": "C01",
         "Type": "C",
+            "Material": "concrete_pipe",
         "Width_or_D": 1.2,
         "Len_or_ANA": 30.0,
         "US_Invert": 10.0,
@@ -673,7 +693,7 @@ def test_1d_nwk_rejects_unsupported_loss_coefficients(field_name: str, value: fl
         field_name: value,
     }
 
-    with pytest.raises(ValueError, match="supports only zero additional form loss"):
+    with pytest.raises(ValueError, match="not representable"):
         build_definition(row, 1)
 
 
@@ -688,6 +708,7 @@ def test_1d_nwk_accepts_supported_concrete_loss_coefficients() -> None:
         {
             "ID": "C01",
             "Type": "C",
+            "Material": "concrete_pipe",
             "Width_or_D": 1.2,
             "Len_or_ANA": 30.0,
             "US_Invert": 10.0,
@@ -716,6 +737,7 @@ def test_1d_nwk_zero_number_of_defaults_to_one_barrel() -> None:
         {
             "ID": "C01",
             "Type": "C",
+            "Material": "concrete_pipe",
             "Width_or_D": 1.2,
             "Len_or_ANA": 30.0,
             "US_Invert": 10.0,
@@ -741,6 +763,7 @@ def test_1d_nwk_rejects_unresolved_invert_sentinel() -> None:
             {
                 "ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": -99999,
@@ -844,6 +867,7 @@ def test_1d_nwk_run_preserves_original_source_row_after_ignore_filter(
             {
                 "ID": "IGNORED",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Ignore": "T",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
@@ -855,6 +879,7 @@ def test_1d_nwk_run_preserves_original_source_row_after_ignore_filter(
             {
                 "ID": "ACTIVE",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Ignore": "",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
@@ -928,6 +953,7 @@ def test_native_maximums_does_not_create_hy8_workspace(
             {
                 "Chan ID": "C01",
                 "Type": "C",
+                "Material": "concrete_pipe",
                 "Height": 1.2,
                 "Length": 30.0,
                 "Q": 2.0,
