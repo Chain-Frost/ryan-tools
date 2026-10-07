@@ -1,4 +1,12 @@
-"""Evaluate TUFLOW Maximums culverts with HY-8 or ryan-culverts."""
+"""Evaluate circular culverts from a TUFLOW Maximums workbook.
+
+Input is a processed Maximums Excel workbook containing merged hydraulic and
+culvert-geometry attributes. Output is a long-form CSV of forward and inverse
+checks using either HY-8 or the native ryan-culverts backend.
+
+Example:
+    python tuflow_culvert_from_maximums.py maximums.xlsx --engine ryan-culverts
+"""
 
 from pathlib import Path
 
