@@ -71,8 +71,11 @@ Their companion `tuflow_culvert_evaluate_maximums_hy8` and `tuflow_culvert_evalu
 the external HY-8 engine only under the `privileged` profile, declare `executes_external`, and require explicit
 approval. Both wrappers refuse to replace an existing CSV unless `--overwrite` is supplied. Retained HY-8
 workspaces are also refused when their run directory already exists unless the same explicit overwrite choice is
-provided. The HY-8 catalogue entries retain `creates_or_replaces` as output-mutation metadata while external
-execution remains the governing privileged safety classification.
+provided. The wrappers also accept an optional per-crossing CSV or vector/1d_nwk
+attribute source for explicit material and loss values; this is resolved by the
+wrapper at execution time rather than inferred from Manning roughness. The HY-8
+catalogue entries retain `creates_or_replaces` as output-mutation metadata while
+external execution remains the governing privileged safety classification.
 
 ## Repository workflow resolution
 
