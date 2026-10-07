@@ -82,10 +82,14 @@ class TuflowCircularCulvert:
         if not name:
             msg = "name must be nonempty."
             raise ValueError(msg)
-        if not isinstance(self.configuration, CircularCulvertConfiguration):
+        if not isinstance(  # pyright: ignore[reportUnnecessaryIsInstance]
+            self.configuration, CircularCulvertConfiguration
+        ):
             msg = "configuration must be CircularCulvertConfiguration."
             raise TypeError(msg)
-        if not isinstance(self.losses, TuflowLossParameters):
+        if not isinstance(  # pyright: ignore[reportUnnecessaryIsInstance]
+            self.losses, TuflowLossParameters
+        ):
             msg = "losses must be TuflowLossParameters."
             raise TypeError(msg)
         for field_name in ("diameter_m", "length_m", "roughness_manning_n"):

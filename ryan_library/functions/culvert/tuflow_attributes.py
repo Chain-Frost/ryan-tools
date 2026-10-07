@@ -76,7 +76,7 @@ def _is_missing(value: object) -> bool:
     if isinstance(value, str):
         return not value.strip()
     try:
-        return bool(pd.isna(value))
+        return bool(pd.isna(cast("Any", value)))
     except TypeError, ValueError:
         return False
 
@@ -98,7 +98,7 @@ def _first_float(row: dict[str, Any], fields: tuple[str, ...]) -> float | None:
         if _is_missing(raw):
             continue
         try:
-            value = float(raw)
+            value = float(cast("Any", raw))
         except (TypeError, ValueError) as exc:
             msg = f"{field_name} must contain a numeric value."
             raise ValueError(msg) from exc
