@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 from culvert_solver import CIRCULAR_CMP_PROJECTING, PIPE_CMP_LOSS_PROJECTING
 from run_hy8 import Hy8ResultRow, HydraulicsResult
+from run_hy8 import CulvertMaterial as Hy8Material
 
 from ryan_library.classes.culvert import CulvertMaterialName
 from ryan_library.functions.culvert import tuflow_engines as engine_module
@@ -75,7 +76,7 @@ def test_ryan_culverts_does_not_resolve_hy8_executable(concrete_crossing: Tuflow
 
 
 def test_unsupported_material_fails_closed() -> None:
-    with pytest.raises(ValueError, match="circular concrete or corrugated-steel"):
+    with pytest.raises(ValueError, match="concrete, corrugated-steel or smooth-HDPE"):
         TuflowCircularCulvert(
             name="BOX",
             diameter_m=1.2,
@@ -84,6 +85,32 @@ def test_unsupported_material_fails_closed() -> None:
             outlet_invert_m=9.5,
             roughness_manning_n=0.013,
             material=CulvertMaterialName.CONCRETE_BOX,
+        )
+
+
+def test_hdpe_is_supported_by_hy8_but_fails_closed_for_native(
+    concrete_crossing: TuflowCircularCulvert,
+) -> None:
+    definition = replace(
+        concrete_crossing,
+        material=CulvertMaterialName.SMOOTH_HDPE,
+        roughness_manning_n=0.012,
+    )
+
+    _project, crossing = engine_module._hy8_crossing(  # pyright: ignore[reportPrivateUsage]
+        definition,
+        tailwater_elevation_m=9.5,
+        seed_discharge_m3s=2.0,
+    )
+    assert crossing.culverts[0].material is Hy8Material.HDPE
+
+    with pytest.raises(ValueError, match="requires explicit HDPE inlet coefficients"):
+        solve_tuflow_culvert_forward(
+            definition,
+            scenario="native HDPE",
+            discharge_m3s=2.0,
+            tailwater_elevation_m=9.5,
+            engine=CulvertEngine.RYAN_CULVERTS,
         )
 
 
