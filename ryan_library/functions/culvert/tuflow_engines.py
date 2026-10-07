@@ -6,6 +6,12 @@ from enum import StrEnum
 from math import isfinite, isnan
 from pathlib import Path
 
+from culvert_solver import (
+    CIRCULAR_CMP_PROJECTING,
+    DEFAULT_SOLVER_CONFIGURATION,
+    PIPE_CMP_LOSS_PROJECTING,
+    SolverConfiguration,
+)
 from culvert_solver import CulvertCrossing as SolverCrossing
 from culvert_solver import solve_crossing_discharge_for_headwater, solve_crossing_hydraulics
 from run_hy8 import (
@@ -119,6 +125,20 @@ def _engine(value: CulvertEngine | str) -> CulvertEngine:
     return value if isinstance(value, CulvertEngine) else CulvertEngine(value)
 
 
+def _solver_configuration(definition: TuflowCircularCulvert) -> SolverConfiguration:
+    """Match native coefficient assumptions to the corresponding HY-8 inlet."""
+    if definition.material is CulvertMaterialName.CORRUGATED_STEEL:
+        return SolverConfiguration(
+            default_circular_concrete_inlet=DEFAULT_SOLVER_CONFIGURATION.default_circular_concrete_inlet,
+            default_circular_cmp_inlet=CIRCULAR_CMP_PROJECTING,
+            default_rectangular_inlet=DEFAULT_SOLVER_CONFIGURATION.default_rectangular_inlet,
+            default_circular_concrete_loss=DEFAULT_SOLVER_CONFIGURATION.default_circular_concrete_loss,
+            default_circular_cmp_loss=PIPE_CMP_LOSS_PROJECTING,
+            default_rectangular_loss=DEFAULT_SOLVER_CONFIGURATION.default_rectangular_loss,
+        )
+    return DEFAULT_SOLVER_CONFIGURATION
+
+
 def _solver_crossing(definition: TuflowCircularCulvert) -> SolverCrossing:
     if definition.outlet_invert_m > definition.inlet_invert_m:
         msg = "ryan-culverts does not support adverse slopes: outlet_invert_m must not exceed inlet_invert_m."
@@ -152,6 +172,7 @@ def _solver_result(
         crossing=crossing,
         total_discharge=discharge_m3s,
         tailwater=tailwater_elevation_m,
+        configuration=_solver_configuration(definition),
     )
     active = tuple(item for item in result.group_results if item.barrel_discharge > 0.0)
     velocity = max((item.barrel_result.velocity_outlet for item in active), default=0.0)
@@ -328,6 +349,7 @@ def solve_tuflow_culvert_inverse(
             crossing=crossing,
             headwater_elevation=headwater_elevation_m,
             tailwater=tailwater_elevation_m,
+            configuration=_solver_configuration(definition),
         )
         return _solver_result(
             definition,
