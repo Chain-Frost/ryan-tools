@@ -18,7 +18,7 @@ python ryan-scripts/tuflow/tuflow_culvert_from_maximums.py maximums.xlsx --engin
 ```
 
 The workflow retains the useful scenarios from the former
-culvert_demo-from-tuflow.py script:
+`culvert_demo-from-tuflow.py` script:
 
 - prescribed TUFLOW discharge with `DS_h` tailwater;
 - prescribed TUFLOW discharge with downstream-invert tailwater;
@@ -28,7 +28,10 @@ culvert_demo-from-tuflow.py script:
 For each crossing/base-run/AEP combination the highest positive `Q` row is retained.
 The base run uses `trim_runcode` when available, falling back to `internalName`,
 so alternatives such as EXG and DEV are not collapsed into one governing row.
-The selected run identity is also written to the result CSV.
+The selected run identity is also written to the result CSV. Maximums rows must
+contain the actual culvert length, upstream/downstream inverts and a positive
+Manning roughness; the maintained wrapper does not invent fallback geometry or
+roughness when these merged source attributes are missing.
 
 ## TUFLOW 1d_nwk
 
@@ -38,7 +41,9 @@ python ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_n
 ```
 
 The default inverse checks are HW/D 1.5 and 2.0. Use `--headwater-ratios`
-to supply another set.
+to supply another non-empty set of unique, finite, positive ratios. The wrapper
+expects an SI TUFLOW model. When negative `Len_or_ANA` requests digitised line
+length, the GIS layer must have a projected CRS whose horizontal axes are in metres.
 
 Both migrated wrappers refuse to replace an existing result CSV unless
 `--overwrite` is supplied. Numeric `pBlockage` is applied to circular pipes in
@@ -46,12 +51,21 @@ both Maximums and `1d_nwk` inputs by scaling the hydraulic diameter by the squar
 root of the unblocked area fraction. The original nominal diameter is retained
 separately and remains the denominator for TUFLOW HW/D targets and reported HW/D.
 Category-based blockage is rejected until its event-specific percentage has been
-resolved.
+resolved. A blank character `pBlockage` is also rejected because a TUFLOW
+`Blockage Default` may apply; a blank numeric blockage remains the ordinary 0%
+case. Fully blocked (100%) culverts are rejected rather than converted to a
+zero-diameter solver object.
 
-The `1d_nwk` wrapper also honours the TUFLOW `Ignore` field, resolves negative
-`Len_or_ANA` values from the digitized feature length, treats `Number_of = 0`
-as one barrel, and rejects the TUFLOW `-99999` invert sentinel until effective
-inverts have been resolved from processed TUFLOW data.
+The `1d_nwk` wrapper also honours the TUFLOW `Ignore` field, requires a
+traceable non-blank culvert ID, treats `Number_of = 0` as one barrel, requires a
+positive source Manning roughness, and rejects the TUFLOW `-99999` invert
+sentinel until effective inverts have been resolved from processed TUFLOW data.
+
+For the circular concrete mapping, the currently supported source-loss contract is
+zero additional `Form_Loss`, an effective width-contraction factor of 1.0,
+entry loss 0.5 and exit loss 1.0. Source values requesting another treatment fail
+closed because that TUFLOW loss model is not yet represented consistently by both
+backends.
 
 When HY-8 workspaces are retained, an existing run directory is not reused unless
 `--overwrite` is explicitly supplied. Workspace directory names include a stable
@@ -98,8 +112,11 @@ square-edge headwall for circular concrete and thin-edge projecting for circular
 corrugated steel. A high artificial roadway crest keeps roadway overtopping outside
 the intended migrated demo calculations.
 
-The `ryan-culverts` backend uses the corresponding public material and geometry
-contracts and the authoritative solver coefficient selection. Compare the engines
+The `ryan-culverts` backend now applies the matching public coefficient selection:
+its circular concrete default corresponds to the square-edge assumption, while the
+corrugated-steel Maximums path explicitly selects the projecting CMP inlet and
+entrance-loss coefficients rather than the library's headwall default. The engines
+can still differ in formulations and convergence behaviour, so compare them
 explicitly before treating them as interchangeable for design acceptance.
 
 ## Output
@@ -111,8 +128,11 @@ HY-8 workspace directories even when workspace options are supplied.
 Both wrappers write long-form CSV. Every scenario row records the source, crossing,
 selected engine, requested and computed hydraulic values, HW/D, outlet velocity,
 flow type, roadway discharge/overtopping, status, warnings, failure text and any
-retained HY-8 workspace. Failed inputs and scenarios remain visible rather than
-being silently dropped.
+retained HY-8 workspace. The Maximums output also records the selected base run,
+and the `1d_nwk` output preserves the original source-row number after filtering.
+Failed inputs and scenarios remain visible rather than being silently dropped.
+A native result whose solver status is `unresolved` is retained in the CSV but
+causes a non-zero wrapper exit status.
 
 ## Repository boundary
 
