@@ -375,6 +375,35 @@ def test_1d_nwk_skips_ignored_features() -> None:
         select_active_rows(rows, "IGNORED")
 
 
+def test_1d_nwk_geometry_length_requires_projected_metre_crs() -> None:
+    namespace = _nwk_namespace()
+    validate = cast("Callable[[Any], None]", namespace["_require_metric_projected_crs"])
+
+    metre_crs = SimpleNamespace(
+        is_projected=True,
+        axis_info=(
+            SimpleNamespace(unit_conversion_factor=1.0),
+            SimpleNamespace(unit_conversion_factor=1.0),
+        ),
+    )
+    validate(metre_crs)
+
+    with pytest.raises(ValueError, match="projected CRS"):
+        validate(None)
+    with pytest.raises(ValueError, match="projected CRS"):
+        validate(SimpleNamespace(is_projected=False, axis_info=()))
+    with pytest.raises(ValueError, match="axis units in metres"):
+        validate(
+            SimpleNamespace(
+                is_projected=True,
+                axis_info=(
+                    SimpleNamespace(unit_conversion_factor=0.3048),
+                    SimpleNamespace(unit_conversion_factor=0.3048),
+                ),
+            )
+        )
+
+
 def test_1d_nwk_negative_length_uses_digitized_geometry_length() -> None:
     namespace = _nwk_namespace()
     build_definition = cast(
@@ -663,6 +692,8 @@ def test_maximums_workspace_sanitization_is_collision_safe(tmp_path: Path) -> No
     assert first != second
     assert first.exists()
     assert second.exists()
+    assert len(first.name) <= 134
+    assert len(second.name) <= 134
 
 
 def test_1d_nwk_workspace_sanitization_is_collision_safe(tmp_path: Path) -> None:
