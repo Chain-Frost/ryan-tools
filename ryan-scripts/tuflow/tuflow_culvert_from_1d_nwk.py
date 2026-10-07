@@ -184,17 +184,33 @@ def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
         raise FileExistsError(msg)
 
 
-def _reject_unsupported_losses(row: dict[str, Any]) -> None:
+def _validate_supported_losses(row: dict[str, Any]) -> None:
     unsupported: list[str] = []
-    for field_name in ("Form_Loss", "EntryC_or_WSa", "ExitC_or_WSb"):
-        value = _float(row, field_name)
-        if value is not None and abs(value) > 1e-12:
-            unsupported.append(f"{field_name}={value:g}")
+
+    form_loss = _float(row, "Form_Loss")
+    if form_loss is not None and abs(form_loss) > 1e-12:
+        unsupported.append(f"Form_Loss={form_loss:g}")
+
+    width_contraction = _float(row, "WConF_or_WEx")
+    if width_contraction is not None:
+        tuflow_width_contraction = 1.0 if width_contraction <= 0.0 or width_contraction > 1.0 else width_contraction
+        if abs(tuflow_width_contraction - 1.0) > 1e-12:
+            unsupported.append(f"WConF_or_WEx={width_contraction:g}")
+
+    entry_loss = _float(row, "EntryC_or_WSa")
+    if entry_loss is not None and abs(entry_loss - 0.5) > 1e-12:
+        unsupported.append(f"EntryC_or_WSa={entry_loss:g}")
+
+    exit_loss = _float(row, "ExitC_or_WSb")
+    if exit_loss is not None and abs(exit_loss - 1.0) > 1e-12:
+        unsupported.append(f"ExitC_or_WSb={exit_loss:g}")
+
     if unsupported:
         joined = ", ".join(unsupported)
         msg = (
-            "This migrated workflow does not yet preserve explicit TUFLOW loss "
-            f"coefficients ({joined}); use blank/zero values or extend both engine adapters."
+            "This migrated workflow supports only zero additional form loss, "
+            "circular width-contraction factor 1.0, entry loss 0.5 and exit loss 1.0; "
+            f"unsupported TUFLOW coefficients: {joined}."
         )
         raise ValueError(msg)
 
@@ -227,7 +243,7 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
             "resolve effective inverts from processed TUFLOW data before evaluation."
         )
         raise ValueError(msg)
-    _reject_unsupported_losses(row)
+    _validate_supported_losses(row)
     roughness = _float(row, "n_nF_Cd")
     if roughness is None or roughness <= 0.0:
         msg = "n_nF_Cd must contain a positive Manning roughness for a Type C culvert."
