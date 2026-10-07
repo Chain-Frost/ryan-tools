@@ -10,10 +10,11 @@ from culvert_solver import (
     CIRCULAR_CMP_PROJECTING,
     DEFAULT_SOLVER_CONFIGURATION,
     PIPE_CMP_LOSS_PROJECTING,
+    CulvertCrossing as SolverCrossing,
     SolverConfiguration,
+    solve_crossing_discharge_for_headwater,
+    solve_crossing_hydraulics,
 )
-from culvert_solver import CulvertCrossing as SolverCrossing
-from culvert_solver import solve_crossing_discharge_for_headwater, solve_crossing_hydraulics
 from run_hy8 import (
     CircularConcreteInlet,
     CircularCorrugatedSteelInlet,
