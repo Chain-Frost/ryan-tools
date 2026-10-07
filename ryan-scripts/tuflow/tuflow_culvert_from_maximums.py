@@ -2,8 +2,9 @@
 
 import argparse
 import csv
+import hashlib
 import shutil
-from math import isfinite
+from math import isfinite, sqrt
 from pathlib import Path
 from typing import Any, cast
 
@@ -35,6 +36,24 @@ def _float(row: dict[str, Any], key: str, default: float | None = None) -> float
     return value if isfinite(value) else default
 
 
+def _blockage_percent(row: dict[str, Any]) -> float:
+    raw = row.get("pBlockage")
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return 0.0
+    try:
+        value = float(raw)
+    except (TypeError, ValueError) as exc:
+        msg = (
+            "pBlockage must be a numeric percentage for this workflow; "
+            "category-based blockage must be resolved before evaluation."
+        )
+        raise ValueError(msg) from exc
+    if not isfinite(value) or value < 0.0 or value >= 100.0:
+        msg = "pBlockage must be at least 0 and less than 100 percent for this workflow."
+        raise ValueError(msg)
+    return value
+
+
 def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> int:
     for key in keys:
         value = _float(row, key)
@@ -52,10 +71,12 @@ def _definition(row: dict[str, Any]) -> TuflowCircularCulvert:
     if source_type != "C":
         msg = f"Unsupported Maximums Flags value {source_type or '<blank>'!r}; this migrated workflow supports circular 'C' rows only."
         raise ValueError(msg)
-    diameter = _float(row, "Height")
-    if diameter is None or diameter <= 0.0:
+    nominal_diameter = _float(row, "Height")
+    if nominal_diameter is None or nominal_diameter <= 0.0:
         msg = "Height must contain a positive circular culvert diameter."
         raise ValueError(msg)
+    blockage_percent = _blockage_percent(row)
+    diameter = nominal_diameter * sqrt(1.0 - blockage_percent / 100.0)
     length = _float(row, "Length", DEFAULT_LENGTH_M)
     inlet = _float(row, "US Invert", DEFAULT_INLET_INVERT_M)
     outlet = _float(row, "DS Invert", DEFAULT_OUTLET_INVERT_M)
@@ -169,7 +190,8 @@ def _workspace(
         return None
     run_key = f"{crossing}_{aep or 'no-aep'}_{scenario}"
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in run_key)
-    path = root / safe
+    digest = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
+    path = root / f"{safe}__{digest}"
     if path.exists():
         if not overwrite:
             msg = f"HY-8 workspace already exists: {path}. Pass --overwrite to replace it."
