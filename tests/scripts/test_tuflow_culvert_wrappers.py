@@ -160,6 +160,100 @@ def test_1d_nwk_negative_length_uses_digitized_geometry_length() -> None:
     assert definition.barrels == 2
 
 
+def test_1d_nwk_applies_numeric_blockage_to_circular_diameter() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    definition = build_definition(
+        {
+            "ID": "C01",
+            "Type": "C",
+            "Width_or_D": 1.2,
+            "Len_or_ANA": 30.0,
+            "US_Invert": 10.0,
+            "DS_Invert": 9.8,
+            "n_nF_Cd": 0.013,
+            "pBlockage": 50.0,
+            "Number_of": 1,
+        },
+        1,
+    )
+
+    assert definition.diameter_m == pytest.approx(1.2 * (0.5**0.5))
+    assert definition.inlet_invert_m == pytest.approx(10.0)
+
+
+def test_1d_nwk_rejects_category_blockage_without_resolved_percentage() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    with pytest.raises(ValueError, match="numeric percentage"):
+        build_definition(
+            {
+                "ID": "C01",
+                "Type": "C",
+                "Width_or_D": 1.2,
+                "Len_or_ANA": 30.0,
+                "US_Invert": 10.0,
+                "DS_Invert": 9.8,
+                "pBlockage": "B",
+                "Number_of": 1,
+            },
+            1,
+        )
+
+
+def test_1d_nwk_zero_number_of_defaults_to_one_barrel() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    definition = build_definition(
+        {
+            "ID": "C01",
+            "Type": "C",
+            "Width_or_D": 1.2,
+            "Len_or_ANA": 30.0,
+            "US_Invert": 10.0,
+            "DS_Invert": 9.8,
+            "Number_of": 0,
+        },
+        1,
+    )
+
+    assert definition.barrels == 1
+
+
+def test_1d_nwk_rejects_unresolved_invert_sentinel() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    with pytest.raises(ValueError, match="-99999 sentinel"):
+        build_definition(
+            {
+                "ID": "C01",
+                "Type": "C",
+                "Width_or_D": 1.2,
+                "Len_or_ANA": 30.0,
+                "US_Invert": -99999,
+                "DS_Invert": 9.8,
+                "Number_of": 1,
+            },
+            1,
+        )
+
+
 @pytest.mark.parametrize("script_path", [MAXIMUMS_SCRIPT, NWK_SCRIPT])
 def test_wrappers_require_explicit_overwrite(script_path: Path, tmp_path: Path) -> None:
     namespace = runpy.run_path(str(script_path))
@@ -191,5 +285,23 @@ def test_maximums_hy8_workspaces_are_unique_by_aep_and_require_overwrite(tmp_pat
         workspace(tmp_path, "C01", "1%", "Q @ DS_h TW", overwrite=False)
 
     replaced = workspace(tmp_path, "C01", "1%", "Q @ DS_h TW", overwrite=True)
+    assert replaced == first
+    assert not marker.exists()
+
+
+def test_1d_nwk_hy8_workspace_requires_explicit_overwrite(tmp_path: Path) -> None:
+    namespace = _nwk_namespace()
+    workspace = namespace["_workspace"]
+
+    first = workspace(tmp_path, "C01", "HW:D = 1.5", overwrite=False)
+    assert first is not None
+
+    marker = first / "retained.txt"
+    marker.write_text("old run", encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="--overwrite"):
+        workspace(tmp_path, "C01", "HW:D = 1.5", overwrite=False)
+
+    replaced = workspace(tmp_path, "C01", "HW:D = 1.5", overwrite=True)
     assert replaced == first
     assert not marker.exists()
