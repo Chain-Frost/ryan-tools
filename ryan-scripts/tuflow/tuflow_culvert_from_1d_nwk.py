@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-07.4"
+WRAPPER_VERSION = "2026-10-07.5"
 
 import argparse
 import csv
@@ -69,6 +69,8 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> 
         except (TypeError, ValueError) as exc:
             msg = f"{key} must contain a numeric integer barrel count."
             raise ValueError(msg) from exc
+        if isnan(value):
+            continue
         if not isfinite(value):
             msg = f"{key} must contain a finite integer barrel count."
             raise ValueError(msg)
@@ -167,6 +169,21 @@ def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
         raise FileExistsError(msg)
 
 
+def _reject_unsupported_losses(row: dict[str, Any]) -> None:
+    unsupported: list[str] = []
+    for field_name in ("Form_Loss", "EntryC_or_WSa", "ExitC_or_WSb"):
+        value = _float(row, field_name)
+        if value is not None and abs(value) > 1e-12:
+            unsupported.append(f"{field_name}={value:g}")
+    if unsupported:
+        joined = ", ".join(unsupported)
+        msg = (
+            "This migrated workflow does not yet preserve explicit TUFLOW loss "
+            f"coefficients ({joined}); use blank/zero values or extend both engine adapters."
+        )
+        raise ValueError(msg)
+
+
 def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
     source_type = str(row.get("Type") or "").strip().upper()
     if source_type != "C":
@@ -195,6 +212,7 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
             "resolve effective inverts from processed TUFLOW data before evaluation."
         )
         raise ValueError(msg)
+    _reject_unsupported_losses(row)
     roughness_raw = _float(row, "n_nF_Cd", DEFAULT_N)
     roughness = DEFAULT_N if roughness_raw is None else roughness_raw
     barrels = _int_first(row, BARREL_FIELDS)
