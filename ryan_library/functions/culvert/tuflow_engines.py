@@ -1,7 +1,7 @@
 """Selectable hydraulic backends for TUFLOW culvert integration."""
 
 import hashlib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 from math import isfinite, isnan
 from pathlib import Path
@@ -128,13 +128,10 @@ def _engine(value: CulvertEngine | str) -> CulvertEngine:
 def _solver_configuration(definition: TuflowCircularCulvert) -> SolverConfiguration:
     """Match native coefficient assumptions to the corresponding HY-8 inlet."""
     if definition.material is CulvertMaterialName.CORRUGATED_STEEL:
-        return SolverConfiguration(
-            default_circular_concrete_inlet=DEFAULT_SOLVER_CONFIGURATION.default_circular_concrete_inlet,
+        return replace(
+            DEFAULT_SOLVER_CONFIGURATION,
             default_circular_cmp_inlet=CIRCULAR_CMP_PROJECTING,
-            default_rectangular_inlet=DEFAULT_SOLVER_CONFIGURATION.default_rectangular_inlet,
-            default_circular_concrete_loss=DEFAULT_SOLVER_CONFIGURATION.default_circular_concrete_loss,
             default_circular_cmp_loss=PIPE_CMP_LOSS_PROJECTING,
-            default_rectangular_loss=DEFAULT_SOLVER_CONFIGURATION.default_rectangular_loss,
         )
     return DEFAULT_SOLVER_CONFIGURATION
 
