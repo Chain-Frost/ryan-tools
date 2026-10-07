@@ -66,12 +66,13 @@ separate versioned floodway-formation JSON/TOML definition and creating scenario
 Hydrograph and closure-duration processing is deliberately excluded from that workflow.
 
 The `tuflow_culvert_evaluate_maximums` and `tuflow_culvert_evaluate_1d_nwk` workflows expose the maintained
-TUFLOW culvert evaluation wrappers. Each advertises separate `ryan-culverts` and `hy8` scenarios; the native
-solver scenario does not require HY-8, while the HY-8 scenario requires an explicit executable path. Both wrappers
-refuse to replace an existing CSV unless `--overwrite` is supplied, and retained Maximums HY-8 workspaces are unique
-per crossing/AEP/scenario and require the same explicit overwrite choice before reuse. Their catalogue mutation is
-therefore `creates_or_replaces`, while metadata records that replacement is disabled by default and that only the
-`hy8` engine mode executes an external hydraulic program.
+TUFLOW culvert evaluation wrappers through the native `ryan-culverts` engine under the default `create` profile.
+Their companion `tuflow_culvert_evaluate_maximums_hy8` and `tuflow_culvert_evaluate_1d_nwk_hy8` entries expose
+the external HY-8 engine only under the `privileged` profile, declare `executes_external`, and require explicit
+approval. Both wrappers refuse to replace an existing CSV unless `--overwrite` is supplied. Retained HY-8
+workspaces are also refused when their run directory already exists unless the same explicit overwrite choice is
+provided. The HY-8 catalogue entries retain `creates_or_replaces` as output-mutation metadata while external
+execution remains the governing privileged safety classification.
 
 ## Repository workflow resolution
 
