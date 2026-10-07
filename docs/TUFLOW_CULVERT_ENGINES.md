@@ -38,18 +38,23 @@ The default inverse checks are HW/D 1.5 and 2.0. Use `--headwater-ratios`
 to supply another set.
 
 Both migrated wrappers refuse to replace an existing result CSV unless
-`--overwrite` is supplied. The `1d_nwk` wrapper also honours the TUFLOW
-`Ignore` field, resolves negative `Len_or_ANA` values from the digitized
-feature length, treats `Number_of = 0` as one barrel, and applies numeric
-`pBlockage` to circular pipes by scaling diameter by the square root of the
+`--overwrite` is supplied. Numeric `pBlockage` is applied to circular pipes in
+both Maximums and `1d_nwk` inputs by scaling diameter by the square root of the
 unblocked area fraction. Category-based blockage is rejected until its event-specific
-percentage has been resolved. The TUFLOW `-99999` invert sentinel is also rejected:
-effective inverts must be resolved from processed TUFLOW data before hydraulic
-evaluation.
+percentage has been resolved.
+
+The `1d_nwk` wrapper also honours the TUFLOW `Ignore` field, resolves negative
+`Len_or_ANA` values from the digitized feature length, treats `Number_of = 0`
+as one barrel, and rejects the TUFLOW `-99999` invert sentinel until effective
+inverts have been resolved from processed TUFLOW data.
 
 When HY-8 workspaces are retained, an existing run directory is not reused unless
-`--overwrite` is explicitly supplied. Maximums workspace paths include crossing,
-AEP and scenario; `1d_nwk` workspace paths include crossing and scenario.
+`--overwrite` is explicitly supplied. Workspace directory names include a stable
+hash of the unsanitized run key so distinct TUFLOW identifiers cannot collide after
+filesystem sanitization. Maximums keys include crossing, AEP and scenario;
+`1d_nwk` keys include crossing and scenario. HY-8 also receives a deterministic
+filesystem-safe internal crossing name; normalized output continues to report the
+original TUFLOW crossing identifier.
 
 The native wrappers are discoverable through the MCP workflow catalogue as
 `tuflow_culvert_evaluate_maximums` and `tuflow_culvert_evaluate_1d_nwk` under
