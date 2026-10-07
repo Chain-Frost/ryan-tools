@@ -103,6 +103,9 @@ def _blockage_percent(row: dict[str, Any]) -> float:
 
 def _headwater_ratios(values: list[float]) -> tuple[float, ...]:
     ratios = tuple(float(value) for value in values)
+    if not ratios:
+        msg = "--headwater-ratios requires at least one value."
+        raise ValueError(msg)
     if any(not isfinite(value) or value <= 0.0 for value in ratios):
         msg = "--headwater-ratios values must be finite and strictly positive."
         raise ValueError(msg)
