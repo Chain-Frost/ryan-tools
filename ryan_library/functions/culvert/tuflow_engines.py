@@ -212,10 +212,7 @@ def _solver_configuration(definition: TuflowCircularCulvert) -> SolverConfigurat
     """Map physical inlet configuration to native coefficients and preserve EntryC."""
     _validate_common_loss_support(definition.losses)
     if definition.material is CulvertMaterialName.SMOOTH_HDPE:
-        msg = (
-            "ryan-culverts requires explicit HDPE inlet coefficients; "
-            "use HY-8 or extend the native adapter."
-        )
+        msg = "ryan-culverts requires explicit HDPE inlet coefficients; use HY-8 or extend the native adapter."
         raise ValueError(msg)
     inlet, standard_loss = _native_physical_parameters(definition.configuration)
     entrance_loss = standard_loss
@@ -236,19 +233,13 @@ def _solver_configuration(definition: TuflowCircularCulvert) -> SolverConfigurat
             default_circular_cmp_inlet=inlet,
             default_circular_cmp_loss=entrance_loss,
         )
-    msg = (
-        "ryan-culverts requires explicit HDPE inlet coefficients; "
-        "use HY-8 or extend the native adapter."
-    )
+    msg = "ryan-culverts requires explicit HDPE inlet coefficients; use HY-8 or extend the native adapter."
     raise ValueError(msg)
 
 
 def _solver_crossing(definition: TuflowCircularCulvert) -> SolverCrossing:
     if definition.material is CulvertMaterialName.SMOOTH_HDPE:
-        msg = (
-            "ryan-culverts requires explicit HDPE inlet coefficients; "
-            "use HY-8 or extend the native adapter."
-        )
+        msg = "ryan-culverts requires explicit HDPE inlet coefficients; use HY-8 or extend the native adapter."
         raise ValueError(msg)
     if definition.outlet_invert_m > definition.inlet_invert_m:
         msg = "ryan-culverts does not support adverse slopes: outlet_invert_m must not exceed inlet_invert_m."

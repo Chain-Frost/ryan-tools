@@ -77,8 +77,7 @@ class CircularCulvertConfiguration:
             raise ValueError(msg)
         if self.inlet not in _ALLOWED_CIRCULAR_INLETS[self.material]:
             msg = (
-                f"Inlet configuration {self.inlet.value!r} is not valid for "
-                f"circular material {self.material.value!r}."
+                f"Inlet configuration {self.inlet.value!r} is not valid for circular material {self.material.value!r}."
             )
             raise ValueError(msg)
 

@@ -77,7 +77,7 @@ def _is_missing(value: object) -> bool:
         return not value.strip()
     try:
         return bool(pd.isna(value))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return False
 
 
@@ -216,10 +216,7 @@ def _resolve_vector_layer(path: Path, requested: str | None) -> str | None:
         msg = f"No layers found in culvert attribute GeoPackage: {path}."
         raise ValueError(msg)
     joined = ", ".join(names)
-    msg = (
-        "Culvert attribute GeoPackage layer is ambiguous; pass --attributes-layer. "
-        f"Available layers: {joined}"
-    )
+    msg = f"Culvert attribute GeoPackage layer is ambiguous; pass --attributes-layer. Available layers: {joined}"
     raise ValueError(msg)
 
 
@@ -243,10 +240,7 @@ def load_tuflow_culvert_attributes(
     for row_number, row in enumerate(rows, start=1):
         crossing_id = _first_text(row, ID_FIELDS)
         if crossing_id is None:
-            msg = (
-                f"Culvert attribute source row {row_number} requires one identifier column: "
-                + ", ".join(ID_FIELDS)
-            )
+            msg = f"Culvert attribute source row {row_number} requires one identifier column: " + ", ".join(ID_FIELDS)
             raise ValueError(msg)
         if crossing_id in result:
             msg = f"Duplicate culvert attribute identifier {crossing_id!r}."
@@ -257,9 +251,7 @@ def load_tuflow_culvert_attributes(
         result[crossing_id] = TuflowCulvertAttributes(
             crossing_id=crossing_id,
             material=parse_culvert_material(material_text) if material_text is not None else None,
-            inlet_configuration=(
-                parse_circular_inlet_configuration(inlet_text) if inlet_text is not None else None
-            ),
+            inlet_configuration=(parse_circular_inlet_configuration(inlet_text) if inlet_text is not None else None),
             losses=losses_from_mapping(row),
         )
     return result
