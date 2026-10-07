@@ -253,7 +253,7 @@ def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
         raise FileExistsError(msg)
 
 
-def _validate_supported_losses(row: dict[str, Any]) -> None:
+def _validate_supported_losses(row: dict[str, Any], material: CulvertMaterialName) -> None:
     unsupported: list[str] = []
 
     form_loss = _float(row, "Form_Loss")
@@ -266,8 +266,9 @@ def _validate_supported_losses(row: dict[str, Any]) -> None:
         if abs(tuflow_width_contraction - 1.0) > 1e-12:
             unsupported.append(f"WConF_or_WEx={width_contraction:g}")
 
+    expected_entry = 0.9 if material is CulvertMaterialName.CORRUGATED_STEEL else 0.5
     entry_loss = _float(row, "EntryC_or_WSa")
-    if entry_loss is not None and abs(entry_loss - 0.5) > 1e-12:
+    if entry_loss is not None and abs(entry_loss - expected_entry) > 1e-12:
         unsupported.append(f"EntryC_or_WSa={entry_loss:g}")
 
     exit_loss = _float(row, "ExitC_or_WSb")
@@ -278,8 +279,8 @@ def _validate_supported_losses(row: dict[str, Any]) -> None:
         joined = ", ".join(unsupported)
         msg = (
             "This migrated workflow supports only zero additional form loss, "
-            "circular width-contraction factor 1.0, entry loss 0.5 and exit loss 1.0; "
-            f"unsupported TUFLOW coefficients: {joined}."
+            f"circular width-contraction factor 1.0, entry loss {expected_entry:g} "
+            f"for {material.value}, and exit loss 1.0; unsupported TUFLOW coefficients: {joined}."
         )
         raise ValueError(msg)
 
@@ -312,11 +313,12 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
             "resolve effective inverts from processed TUFLOW data before evaluation."
         )
         raise ValueError(msg)
-    _validate_supported_losses(row)
     roughness = _float(row, "n_nF_Cd")
     if roughness is None or roughness <= 0.0:
         msg = "n_nF_Cd must contain a positive Manning roughness for a Type C culvert."
         raise ValueError(msg)
+    material = _material_from_roughness(roughness)
+    _validate_supported_losses(row, material)
     barrels = _int_first(row, BARREL_FIELDS)
     name = _text(row, "ID")
     if not name:
@@ -330,7 +332,7 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
         outlet_invert_m=outlet,
         roughness_manning_n=roughness,
         barrels=barrels,
-        material=_material_from_roughness(roughness),
+        material=material,
         nominal_diameter_m=nominal_diameter,
     )
 
