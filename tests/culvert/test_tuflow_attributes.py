@@ -1,8 +1,6 @@
 """Tests for per-crossing TUFLOW culvert attribute sources."""
 
 from pathlib import Path
-from typing import Any
-
 import pandas as pd
 import pytest
 
@@ -28,6 +26,13 @@ def test_load_mixed_materials_and_losses_from_csv(tmp_path: Path) -> None:
                 "Exit Loss": 1.0,
                 "Fixed Loss": 0.0,
             },
+            {
+                "ID": "C03",
+                "Material": "hdpe",
+                "Entry Loss": 0.5,
+                "Exit Loss": 1.0,
+                "Fixed Loss": 0.0,
+            },
         ]
     ).to_csv(source, index=False)
 
@@ -37,6 +42,7 @@ def test_load_mixed_materials_and_losses_from_csv(tmp_path: Path) -> None:
     assert attributes["C01"].entry_loss == pytest.approx(0.5)
     assert attributes["C02"].material is CulvertMaterialName.CORRUGATED_STEEL
     assert attributes["C02"].entry_loss == pytest.approx(0.9)
+    assert attributes["C03"].material is CulvertMaterialName.SMOOTH_HDPE
 
 
 def test_load_losses_from_1d_nwk_style_vector_source(
@@ -99,6 +105,7 @@ def test_attribute_source_requires_crossing_identifier(tmp_path: Path) -> None:
         ("RCP", CulvertMaterialName.CONCRETE_PIPE),
         ("csp", CulvertMaterialName.CORRUGATED_STEEL),
         ("corrugated steel", CulvertMaterialName.CORRUGATED_STEEL),
+        ("hdpe", CulvertMaterialName.SMOOTH_HDPE),
     ],
 )
 def test_parse_culvert_material_aliases(value: str, expected: CulvertMaterialName) -> None:
