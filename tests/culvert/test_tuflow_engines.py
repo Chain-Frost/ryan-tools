@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 from culvert_solver import CIRCULAR_CMP_PROJECTING, PIPE_CMP_LOSS_PROJECTING
-from run_hy8 import Hy8ResultRow, HydraulicsResult
 from run_hy8 import CulvertMaterial as Hy8Material
+from run_hy8 import Hy8ResultRow, HydraulicsResult
 
 from ryan_library.classes.culvert import CulvertMaterialName
 from ryan_library.functions.culvert import tuflow_engines as engine_module
