@@ -176,6 +176,45 @@ def _geometry_length(row: dict[str, Any]) -> float:
     return length
 
 
+def _resolve_layer(path: Path, requested: str | None) -> str | None:
+    if requested:
+        return requested
+    if path.suffix.lower() != ".gpkg":
+        return None
+    layers = gpd.list_layers(path)
+    names = [str(name).strip() for name in layers["name"].tolist() if str(name).strip()]
+    candidates = [name for name in names if "1d_nwk" in name.lower()]
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(names) == 1:
+        return names[0]
+    if not names:
+        msg = f"No layers found in GeoPackage: {path}."
+        raise ValueError(msg)
+    joined = ", ".join(names)
+    msg = (
+        "GeoPackage layer is ambiguous; pass --layer explicitly. "
+        f"Available layers: {joined}"
+    )
+    raise ValueError(msg)
+
+
+def _validate_unique_ids(rows: list[dict[str, Any]]) -> None:
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for row in rows:
+        identifier = _text(row, "ID")
+        if not identifier:
+            continue
+        if identifier in seen:
+            duplicates.add(identifier)
+        seen.add(identifier)
+    if duplicates:
+        joined = ", ".join(sorted(duplicates))
+        msg = f"TUFLOW culvert IDs must be unique; duplicate IDs: {joined}."
+        raise ValueError(msg)
+
+
 def _select_active_rows(rows: list[dict[str, Any]], crossing: str | None) -> list[dict[str, Any]]:
     selected = rows
     if crossing:
@@ -362,22 +401,24 @@ def run(args: argparse.Namespace) -> int:
     engine = CulvertEngine(args.engine)
     _ensure_output_available(args.output_csv, overwrite=args.overwrite)
     # GeoPandas stubs leave backend keyword arguments untyped.
-    frame = gpd.read_file(args.input_gis, layer=args.layer or None)  # pyright: ignore[reportUnknownMemberType]
+    layer = _resolve_layer(args.input_gis, args.layer)
+    frame = gpd.read_file(args.input_gis, layer=layer)  # pyright: ignore[reportUnknownMemberType]
     if frame.empty:
         msg = f"No features found in {args.input_gis}."
         raise ValueError(msg)
     frame = frame.where(frame.notna(), None)
     rows = cast("list[dict[str, Any]]", frame.to_dict(orient="records"))
-    uses_geometry_length = any(
-        (value := _float(row, "Len_or_ANA")) is not None and value < 0.0 for row in rows
-    )
-    if uses_geometry_length:
-        _require_metric_projected_crs(getattr(frame, "crs", None))
     blockage_is_numeric = "pBlockage" not in frame.columns or is_numeric_dtype(frame["pBlockage"].dtype)
     for source_row, row in enumerate(rows, start=1):
         row[SOURCE_ROW_KEY] = source_row
         row[BLOCKAGE_NUMERIC_KEY] = blockage_is_numeric
     rows = _select_active_rows(rows, args.crossing)
+    _validate_unique_ids(rows)
+    uses_geometry_length = any(
+        (value := _float(row, "Len_or_ANA")) is not None and value < 0.0 for row in rows
+    )
+    if uses_geometry_length:
+        _require_metric_projected_crs(getattr(frame, "crs", None))
     headwater_ratios = _headwater_ratios(args.headwater_ratios)
 
     workspace_root: Path | None = args.workspace
