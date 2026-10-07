@@ -66,7 +66,7 @@ def _blockage_percent(row: dict[str, Any]) -> float:
         return 0.0
     try:
         value = float(raw)
-    except TypeError, ValueError as exc:
+    except (TypeError, ValueError) as exc:
         msg = (
             "pBlockage must be a numeric percentage for this workflow; "
             "category-based blockage must be resolved before evaluation."
