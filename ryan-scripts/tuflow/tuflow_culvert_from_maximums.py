@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-07.1"
+WRAPPER_VERSION = "2026-10-07.2"
 
 import argparse
 import csv
@@ -58,6 +58,14 @@ def _blockage_percent(row: dict[str, Any]) -> float:
     return value
 
 
+def _run_identity(row: dict[str, Any]) -> str:
+    """Return the comparable base run identity retained in Maximums exports."""
+    trim_runcode = str(row.get("trim_runcode") or "").strip()
+    if trim_runcode:
+        return trim_runcode
+    return str(row.get("internalName") or "").strip()
+
+
 def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> int:
     for key in keys:
         value = _float(row, key)
@@ -94,6 +102,7 @@ def _definition(row: dict[str, Any]) -> TuflowCircularCulvert:
         roughness_manning_n=DEFAULT_N if roughness is None else roughness,
         barrels=_int_first(row, ("Num_barrels", "num_barrels", "Barrels")),
         material=CulvertMaterialName.CORRUGATED_STEEL,
+        nominal_diameter_m=nominal_diameter,
     )
 
 
@@ -102,6 +111,7 @@ def _record(
     *,
     source: str,
     crossing: str,
+    run: str,
     aep: str,
     scenario: str,
     engine: CulvertEngine,
@@ -111,6 +121,7 @@ def _record(
         return {
             "Source": source,
             "Crossing": crossing,
+            "Run": run,
             "AEP": aep,
             "Scenario": scenario,
             "Engine": engine.value,
@@ -131,6 +142,7 @@ def _record(
     return {
         "Source": source,
         "Crossing": crossing,
+        "Run": run,
         "AEP": aep,
         "Scenario": result.scenario,
         "Engine": result.engine.value,
@@ -169,9 +181,18 @@ def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[di
         raise ValueError(msg)
     if "aep_text" not in frame.columns:
         frame["aep_text"] = ""
+    if "trim_runcode" not in frame.columns:
+        frame["trim_runcode"] = ""
+    if "internalName" not in frame.columns:
+        frame["internalName"] = ""
     frame["aep_text"] = frame["aep_text"].fillna("").astype(str).str.strip()
-    frame = frame.sort_values(["Chan ID", "aep_text", "Q"], ascending=[True, True, False])
-    frame = frame.drop_duplicates(subset=["Chan ID", "aep_text"], keep="first")
+    frame["trim_runcode"] = frame["trim_runcode"].fillna("").astype(str).str.strip()
+    frame["internalName"] = frame["internalName"].fillna("").astype(str).str.strip()
+    frame["Run"] = frame["trim_runcode"]
+    missing_run = ~frame["Run"].astype(bool)
+    frame.loc[missing_run, "Run"] = frame.loc[missing_run, "internalName"]
+    frame = frame.sort_values(["Chan ID", "Run", "aep_text", "Q"], ascending=[True, True, True, False])
+    frame = frame.drop_duplicates(subset=["Chan ID", "Run", "aep_text"], keep="first")
     records = frame.where(pd.notna(frame), None).to_dict(orient="records")
     return cast("list[dict[str, Any]]", records)
 
@@ -185,6 +206,7 @@ def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
 def _workspace(
     root: Path | None,
     crossing: str,
+    run: str,
     aep: str,
     scenario: str,
     *,
@@ -192,7 +214,7 @@ def _workspace(
 ) -> Path | None:
     if root is None:
         return None
-    run_key = f"{crossing}_{aep or 'no-aep'}_{scenario}"
+    run_key = f"{crossing}_{run or 'no-run'}_{aep or 'no-aep'}_{scenario}"
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in run_key)
     digest = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
     path = root / f"{safe}__{digest}"
@@ -220,6 +242,7 @@ def run(args: argparse.Namespace) -> int:
     had_failures = False
     for row in rows:
         crossing = str(row.get("Chan ID") or "").strip()
+        run_identity = _run_identity(row)
         aep = str(row.get("aep_text") or "").strip()
         source = str(args.input_workbook)
         try:
@@ -239,7 +262,7 @@ def run(args: argparse.Namespace) -> int:
             us_headwater = _float(row, "US_h")
             if us_headwater is not None:
                 cases.append(("inverse", "HW = US_h", us_headwater, ds_headwater))
-            ratio_headwater = definition.inlet_invert_m + args.headwater_ratio * definition.diameter_m
+            ratio_headwater = definition.inlet_invert_m + args.headwater_ratio * definition.hw_diameter_m
             cases.append(("inverse", f"HW:D = {args.headwater_ratio:g}", ratio_headwater, ds_invert))
 
             for mode, scenario, value, tailwater in cases:
@@ -248,6 +271,7 @@ def run(args: argparse.Namespace) -> int:
                         _workspace(
                             workspace_root,
                             crossing,
+                            run_identity,
                             aep,
                             scenario,
                             overwrite=args.overwrite,
@@ -279,7 +303,15 @@ def run(args: argparse.Namespace) -> int:
                             keep_workspace=args.keep_workspace,
                         )
                     output_rows.append(
-                        _record(result, source=source, crossing=crossing, aep=aep, scenario=scenario, engine=engine)
+                        _record(
+                            result,
+                            source=source,
+                            crossing=crossing,
+                            run=run_identity,
+                            aep=aep,
+                            scenario=scenario,
+                            engine=engine,
+                        )
                     )
                 except Exception as exc:
                     had_failures = True
@@ -288,6 +320,7 @@ def run(args: argparse.Namespace) -> int:
                             None,
                             source=source,
                             crossing=crossing,
+                            run=run_identity,
                             aep=aep,
                             scenario=scenario,
                             engine=engine,
@@ -301,6 +334,7 @@ def run(args: argparse.Namespace) -> int:
                     None,
                     source=source,
                     crossing=crossing or "<unknown>",
+                    run=run_identity,
                     aep=aep,
                     scenario="input mapping",
                     engine=engine,
