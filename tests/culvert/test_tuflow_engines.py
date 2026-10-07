@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from culvert_solver import CIRCULAR_CMP_PROJECTING, PIPE_CMP_LOSS_PROJECTING
 from run_hy8 import Hy8ResultRow, HydraulicsResult
 
 from ryan_library.classes.culvert import CulvertMaterialName
@@ -95,6 +96,22 @@ def test_unknown_engine_fails_closed(concrete_crossing: TuflowCircularCulvert) -
             tailwater_elevation_m=9.5,
             engine="not-an-engine",
         )
+
+
+def test_native_cmp_configuration_matches_projecting_hy8_assumption(
+    concrete_crossing: TuflowCircularCulvert,
+) -> None:
+    definition = replace(
+        concrete_crossing,
+        material=CulvertMaterialName.CORRUGATED_STEEL,
+    )
+
+    configuration = engine_module._solver_configuration(  # pyright: ignore[reportPrivateUsage]
+        definition
+    )
+
+    assert configuration.default_circular_cmp_inlet is CIRCULAR_CMP_PROJECTING
+    assert configuration.default_circular_cmp_loss is PIPE_CMP_LOSS_PROJECTING
 
 
 def test_hy8_forward_dispatch_uses_run_hy8_boundary(
