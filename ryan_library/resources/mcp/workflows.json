@@ -247,7 +247,7 @@
       "id": "tuflow_culvert_evaluate_maximums",
       "title": "Evaluate TUFLOW culvert maximums",
       "domain": "tuflow",
-      "purpose": "Evaluate circular TUFLOW Maximums culverts with selectable HY-8 or ryan-culverts hydraulics and create a long-form CSV result.",
+      "purpose": "Evaluate circular TUFLOW Maximums culverts with native ryan-culverts hydraulics and create a long-form CSV result.",
       "script": "ryan-scripts/tuflow/tuflow_culvert_from_maximums.py",
       "profile": "create",
       "mutation": "creates_or_replaces",
@@ -262,7 +262,24 @@
             "{output_csv}"
           ],
           "note": "Native SI hydraulics; does not require the HY-8 executable."
-        },
+        }
+      ],
+      "overwrite_flag": "--overwrite",
+      "overwrite_default": false,
+      "engine_modes": [
+        "ryan-culverts"
+      ]
+    },
+    {
+      "id": "tuflow_culvert_evaluate_maximums_hy8",
+      "title": "Evaluate TUFLOW culvert maximums with HY-8",
+      "domain": "tuflow",
+      "purpose": "Evaluate circular TUFLOW Maximums culverts through the external HY-8 executable and create a long-form CSV result.",
+      "script": "ryan-scripts/tuflow/tuflow_culvert_from_maximums.py",
+      "profile": "privileged",
+      "mutation": "executes_external",
+      "requires_explicit_approval": true,
+      "scenarios": [
         {
           "name": "hy8",
           "arguments": [
@@ -274,22 +291,22 @@
             "--output-csv",
             "{output_csv}"
           ],
-          "note": "HY-8 executable-backed calculation. Add --keep-workspace and --workspace only when retained run artifacts are required."
+          "note": "External HY-8 calculation. Add --keep-workspace and --workspace only when retained run artifacts are required."
         }
       ],
       "overwrite_flag": "--overwrite",
       "overwrite_default": false,
       "engine_modes": [
-        "ryan-culverts",
         "hy8"
       ],
-      "hy8_executes_external": true
+      "output_mutation": "creates_or_replaces",
+      "external_program": "HY-8"
     },
     {
       "id": "tuflow_culvert_evaluate_1d_nwk",
       "title": "Evaluate TUFLOW 1d_nwk culverts",
       "domain": "tuflow",
-      "purpose": "Evaluate circular TUFLOW 1d_nwk culverts with selectable HY-8 or ryan-culverts hydraulics and create a long-form CSV result.",
+      "purpose": "Evaluate circular TUFLOW 1d_nwk culverts with native ryan-culverts hydraulics and create a long-form CSV result.",
       "script": "ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py",
       "profile": "create",
       "mutation": "creates_or_replaces",
@@ -304,7 +321,24 @@
             "{output_csv}"
           ],
           "note": "Native SI hydraulics; does not require the HY-8 executable."
-        },
+        }
+      ],
+      "overwrite_flag": "--overwrite",
+      "overwrite_default": false,
+      "engine_modes": [
+        "ryan-culverts"
+      ]
+    },
+    {
+      "id": "tuflow_culvert_evaluate_1d_nwk_hy8",
+      "title": "Evaluate TUFLOW 1d_nwk culverts with HY-8",
+      "domain": "tuflow",
+      "purpose": "Evaluate circular TUFLOW 1d_nwk culverts through the external HY-8 executable and create a long-form CSV result.",
+      "script": "ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py",
+      "profile": "privileged",
+      "mutation": "executes_external",
+      "requires_explicit_approval": true,
+      "scenarios": [
         {
           "name": "hy8",
           "arguments": [
@@ -316,16 +350,16 @@
             "--output-csv",
             "{output_csv}"
           ],
-          "note": "HY-8 executable-backed calculation."
+          "note": "External HY-8 calculation."
         }
       ],
       "overwrite_flag": "--overwrite",
       "overwrite_default": false,
       "engine_modes": [
-        "ryan-culverts",
         "hy8"
       ],
-      "hy8_executes_external": true
+      "output_mutation": "creates_or_replaces",
+      "external_program": "HY-8"
     },
     {
       "id": "tuflow_timeseries_peak_check",
