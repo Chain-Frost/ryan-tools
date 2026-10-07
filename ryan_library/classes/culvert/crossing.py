@@ -12,6 +12,7 @@ class CulvertMaterialName(StrEnum):
     CONCRETE_BOX = "concrete_box"
     CONCRETE_PIPE = "concrete_pipe"
     CORRUGATED_STEEL = "corrugated_steel"
+    SMOOTH_HDPE = "smooth_hdpe"
 
 
 class RoadwaySurfaceName(StrEnum):
@@ -92,8 +93,9 @@ class CircularBarrelDefinition:
         if self.material not in {
             CulvertMaterialName.CONCRETE_PIPE,
             CulvertMaterialName.CORRUGATED_STEEL,
+            CulvertMaterialName.SMOOTH_HDPE,
         }:
-            msg = "Circular barrels require concrete_pipe or corrugated_steel material."
+            msg = "Circular barrels require concrete_pipe, corrugated_steel or smooth_hdpe material."
             raise ValueError(msg)
         object.__setattr__(self, "diameter_mm", _positive(self.diameter_mm, "diameter_mm"))
         object.__setattr__(self, "length", _positive(self.length, "length"))
