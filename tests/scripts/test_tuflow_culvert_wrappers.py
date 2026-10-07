@@ -74,6 +74,48 @@ def test_maximums_rejects_malformed_canonical_barrel_count() -> None:
         )
 
 
+def test_maximums_rejects_missing_required_geometry() -> None:
+    namespace = _maximums_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any]], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    with pytest.raises(ValueError, match="required Maximums geometry fields"):
+        build_definition(
+            {
+                "Chan ID": "C01",
+                "Flags": "C",
+                "Height": 1.2,
+                "US Invert": 10.0,
+                "DS Invert": 9.8,
+                "Num_barrels": 1,
+            }
+        )
+
+
+def test_maximums_nan_barrel_count_uses_missing_value_default() -> None:
+    namespace = _maximums_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any]], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    definition = build_definition(
+        {
+            "Chan ID": "C01",
+            "Flags": "C",
+            "Height": 1.2,
+            "Length": 30.0,
+            "US Invert": 10.0,
+            "DS Invert": 9.8,
+            "Num_barrels": float("nan"),
+        }
+    )
+
+    assert definition.barrels == 1
+
+
 def test_maximums_rejects_malformed_present_numeric_geometry() -> None:
     namespace = _maximums_namespace()
     build_definition = cast(
@@ -457,6 +499,60 @@ def test_1d_nwk_rejects_malformed_canonical_barrel_count() -> None:
         )
 
 
+def test_1d_nwk_nan_barrel_count_uses_missing_value_default() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    definition = build_definition(
+        {
+            "ID": "C01",
+            "Type": "C",
+            "Width_or_D": 1.2,
+            "Len_or_ANA": 30.0,
+            "US_Invert": 10.0,
+            "DS_Invert": 9.8,
+            "n_nF_Cd": 0.013,
+            "Number_of": float("nan"),
+        },
+        1,
+    )
+
+    assert definition.barrels == 1
+
+
+@pytest.mark.parametrize(
+    "field_name, value",
+    [
+        ("Form_Loss", 0.2),
+        ("EntryC_or_WSa", 0.5),
+        ("ExitC_or_WSb", 1.0),
+    ],
+)
+def test_1d_nwk_rejects_explicit_loss_coefficients(field_name: str, value: float) -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+    row: dict[str, Any] = {
+        "ID": "C01",
+        "Type": "C",
+        "Width_or_D": 1.2,
+        "Len_or_ANA": 30.0,
+        "US_Invert": 10.0,
+        "DS_Invert": 9.8,
+        "n_nF_Cd": 0.013,
+        "Number_of": 1,
+        field_name: value,
+    }
+
+    with pytest.raises(ValueError, match="does not yet preserve explicit TUFLOW loss coefficients"):
+        build_definition(row, 1)
+
+
 def test_1d_nwk_zero_number_of_defaults_to_one_barrel() -> None:
     namespace = _nwk_namespace()
     build_definition = cast(
@@ -672,6 +768,7 @@ def test_native_maximums_does_not_create_hy8_workspace(
                 "Chan ID": "C01",
                 "Flags": "C",
                 "Height": 1.2,
+                "Length": 30.0,
                 "Q": 2.0,
                 "trim_runcode": "EXG",
                 "US Invert": 10.0,
