@@ -69,7 +69,29 @@ def test_maximums_rejects_malformed_canonical_barrel_count() -> None:
                 "Length": 30.0,
                 "US Invert": 10.0,
                 "DS Invert": 9.8,
+                "n or Cd": 0.024,
                 "Num_barrels": "damaged",
+            }
+        )
+
+
+def test_maximums_rejects_missing_manning_roughness() -> None:
+    namespace = _maximums_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any]], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    with pytest.raises(ValueError, match="positive Manning roughness"):
+        build_definition(
+            {
+                "Chan ID": "C01",
+                "Flags": "C",
+                "Height": 1.2,
+                "Length": 30.0,
+                "US Invert": 10.0,
+                "DS Invert": 9.8,
+                "Num_barrels": 1,
             }
         )
 
@@ -109,6 +131,7 @@ def test_maximums_nan_barrel_count_uses_missing_value_default() -> None:
             "Length": 30.0,
             "US Invert": 10.0,
             "DS Invert": 9.8,
+            "n or Cd": 0.024,
             "Num_barrels": float("nan"),
         }
     )
@@ -522,7 +545,30 @@ def test_1d_nwk_rejects_malformed_canonical_barrel_count() -> None:
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
                 "DS_Invert": 9.8,
+                "n_nF_Cd": 0.013,
                 "Number_of": "damaged",
+            },
+            1,
+        )
+
+
+def test_1d_nwk_rejects_missing_manning_roughness() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    with pytest.raises(ValueError, match="positive Manning roughness"):
+        build_definition(
+            {
+                "ID": "C01",
+                "Type": "C",
+                "Width_or_D": 1.2,
+                "Len_or_ANA": 30.0,
+                "US_Invert": 10.0,
+                "DS_Invert": 9.8,
+                "Number_of": 1,
             },
             1,
         )
@@ -597,6 +643,7 @@ def test_1d_nwk_zero_number_of_defaults_to_one_barrel() -> None:
             "Len_or_ANA": 30.0,
             "US_Invert": 10.0,
             "DS_Invert": 9.8,
+            "n_nF_Cd": 0.013,
             "Number_of": 0,
         },
         1,
@@ -804,6 +851,7 @@ def test_native_maximums_does_not_create_hy8_workspace(
                 "trim_runcode": "EXG",
                 "US Invert": 10.0,
                 "DS Invert": 9.5,
+                "n or Cd": 0.024,
             }
         ]
     ).to_excel(workbook, sheet_name="Maximums", index=False)  # pyright: ignore[reportUnknownMemberType]
