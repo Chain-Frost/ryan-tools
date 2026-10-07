@@ -38,7 +38,7 @@ def test_maximums_mapping_uses_canonical_barrel_count_and_preserves_zero_invert(
     definition = build_definition(
         {
             "Chan ID": "C01",
-            "Flags": "C",
+            "Type": "C",
             "Height": 1.2,
             "Length": 30.0,
             "US Invert": 0.0,
@@ -64,7 +64,7 @@ def test_maximums_rejects_malformed_canonical_barrel_count() -> None:
         build_definition(
             {
                 "Chan ID": "C01",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -86,7 +86,7 @@ def test_maximums_rejects_missing_manning_roughness() -> None:
         build_definition(
             {
                 "Chan ID": "C01",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -107,7 +107,7 @@ def test_maximums_rejects_missing_required_geometry() -> None:
         build_definition(
             {
                 "Chan ID": "C01",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "US Invert": 10.0,
                 "DS Invert": 9.8,
@@ -116,27 +116,26 @@ def test_maximums_rejects_missing_required_geometry() -> None:
         )
 
 
-def test_maximums_nan_barrel_count_uses_missing_value_default() -> None:
+def test_maximums_rejects_missing_barrel_count() -> None:
     namespace = _maximums_namespace()
     build_definition = cast(
         "Callable[[dict[str, Any]], TuflowCircularCulvert]",
         namespace["_definition"],
     )
 
-    definition = build_definition(
-        {
-            "Chan ID": "C01",
-            "Flags": "C",
-            "Height": 1.2,
-            "Length": 30.0,
-            "US Invert": 10.0,
-            "DS Invert": 9.8,
-            "n or Cd": 0.024,
-            "Num_barrels": float("nan"),
-        }
-    )
-
-    assert definition.barrels == 1
+    with pytest.raises(ValueError, match="barrel count is required"):
+        build_definition(
+            {
+                "Chan ID": "C01",
+                "Type": "C",
+                "Height": 1.2,
+                "Length": 30.0,
+                "US Invert": 10.0,
+                "DS Invert": 9.8,
+                "n or Cd": 0.024,
+                "Num_barrels": float("nan"),
+            }
+        )
 
 
 def test_maximums_rejects_malformed_present_numeric_geometry() -> None:
@@ -150,7 +149,7 @@ def test_maximums_rejects_malformed_present_numeric_geometry() -> None:
         build_definition(
             {
                 "Chan ID": "C01",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Length": "damaged",
                 "US Invert": 10.0,
@@ -179,7 +178,7 @@ def test_maximums_applies_numeric_blockage_to_circular_diameter() -> None:
     definition = build_definition(
         {
             "Chan ID": "C01",
-            "Flags": "C",
+            "Type": "C",
             "Height": 1.2,
             "Length": 30.0,
             "US Invert": 10.0,
@@ -205,7 +204,7 @@ def test_maximums_rejects_unresolved_category_blockage() -> None:
         build_definition(
             {
                 "Chan ID": "C01",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -216,18 +215,18 @@ def test_maximums_rejects_unresolved_category_blockage() -> None:
         )
 
 
-def test_maximums_mapping_rejects_rectangular_flag() -> None:
+def test_maximums_mapping_rejects_rectangular_type() -> None:
     namespace = _maximums_namespace()
     build_definition = cast(
         "Callable[[dict[str, Any]], TuflowCircularCulvert]",
         namespace["_definition"],
     )
 
-    with pytest.raises(ValueError, match="circular 'C' rows only"):
+    with pytest.raises(ValueError, match="circular Type 'C' rows only"):
         build_definition(
             {
                 "Chan ID": "BOX01",
-                "Flags": "R",
+                "Type": "R",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -251,7 +250,7 @@ def test_maximums_selection_keeps_governing_row_intact(
             {
                 "Chan ID": "C01",
                 "aep_text": "1%",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Q": 10.0,
                 "US_h": None,
@@ -260,7 +259,7 @@ def test_maximums_selection_keeps_governing_row_intact(
             {
                 "Chan ID": "C01",
                 "aep_text": "1%",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Q": 9.0,
                 "US_h": 11.5,
@@ -297,7 +296,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "trim_runcode": "EXG",
                 "internalName": "Model_EXG_01.0p_060m_TP01",
                 "aep_text": "1%",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Q": 8.0,
             },
@@ -306,7 +305,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "trim_runcode": "EXG",
                 "internalName": "Model_EXG_01.0p_120m_TP02",
                 "aep_text": "1%",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Q": 10.0,
             },
@@ -315,7 +314,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "trim_runcode": "DEV",
                 "internalName": "Model_DEV_01.0p_060m_TP01",
                 "aep_text": "1%",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Q": 12.0,
             },
@@ -324,7 +323,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "trim_runcode": "DEV",
                 "internalName": "Model_DEV_01.0p_120m_TP02",
                 "aep_text": "1%",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Q": 11.0,
             },
@@ -342,6 +341,32 @@ def test_maximums_selection_preserves_base_run_scenarios(
         ("DEV", pytest.approx(12.0)),
         ("EXG", pytest.approx(10.0)),
     ]
+
+
+@pytest.mark.parametrize(
+    ("roughness", "expected"),
+    [
+        (0.012, CulvertMaterialName.CONCRETE_PIPE),
+        (0.013, CulvertMaterialName.CONCRETE_PIPE),
+        (0.016, CulvertMaterialName.CORRUGATED_STEEL),
+        (0.024, CulvertMaterialName.CORRUGATED_STEEL),
+    ],
+)
+def test_material_inference_from_manning_roughness(
+    roughness: float,
+    expected: CulvertMaterialName,
+) -> None:
+    for namespace in (_maximums_namespace(), _nwk_namespace()):
+        infer = cast("Callable[[float], CulvertMaterialName]", namespace["_material_from_roughness"])
+        assert infer(roughness) is expected
+
+
+@pytest.mark.parametrize("roughness", [0.0131, 0.014, 0.015, 0.0159])
+def test_material_inference_rejects_ambiguous_low_roughness(roughness: float) -> None:
+    for namespace in (_maximums_namespace(), _nwk_namespace()):
+        infer = cast("Callable[[float], CulvertMaterialName]", namespace["_material_from_roughness"])
+        with pytest.raises(ValueError, match="ambiguous"):
+            infer(roughness)
 
 
 @pytest.mark.parametrize(
@@ -597,28 +622,27 @@ def test_1d_nwk_rejects_missing_manning_roughness() -> None:
         )
 
 
-def test_1d_nwk_nan_barrel_count_uses_missing_value_default() -> None:
+def test_1d_nwk_rejects_missing_barrel_count() -> None:
     namespace = _nwk_namespace()
     build_definition = cast(
         "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
         namespace["_definition"],
     )
 
-    definition = build_definition(
-        {
-            "ID": "C01",
-            "Type": "C",
-            "Width_or_D": 1.2,
-            "Len_or_ANA": 30.0,
-            "US_Invert": 10.0,
-            "DS_Invert": 9.8,
-            "n_nF_Cd": 0.013,
-            "Number_of": float("nan"),
-        },
-        1,
-    )
-
-    assert definition.barrels == 1
+    with pytest.raises(ValueError, match="barrel count is required"):
+        build_definition(
+            {
+                "ID": "C01",
+                "Type": "C",
+                "Width_or_D": 1.2,
+                "Len_or_ANA": 30.0,
+                "US_Invert": 10.0,
+                "DS_Invert": 9.8,
+                "n_nF_Cd": 0.013,
+                "Number_of": float("nan"),
+            },
+            1,
+        )
 
 
 @pytest.mark.parametrize(
@@ -652,7 +676,7 @@ def test_1d_nwk_rejects_unsupported_loss_coefficients(field_name: str, value: fl
         build_definition(row, 1)
 
 
-def test_1d_nwk_accepts_supported_standard_loss_coefficients() -> None:
+def test_1d_nwk_accepts_supported_concrete_loss_coefficients() -> None:
     namespace = _nwk_namespace()
     build_definition = cast(
         "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
@@ -870,6 +894,8 @@ def test_1d_nwk_run_preserves_original_source_row_after_ignore_filter(
     args = namespace["_parser"]().parse_args(
         [
             str(tmp_path / "network.gpkg"),
+            "--layer",
+            "1d_nwk",
             "--engine",
             "ryan-culverts",
             "--output-csv",
@@ -896,7 +922,7 @@ def test_native_maximums_does_not_create_hy8_workspace(
         [
             {
                 "Chan ID": "C01",
-                "Flags": "C",
+                "Type": "C",
                 "Height": 1.2,
                 "Length": 30.0,
                 "Q": 2.0,
