@@ -31,6 +31,7 @@ from ryan_library.functions.culvert.tuflow_engines import (
 )
 from ryan_library.functions.wrapper_utils import print_wrapper_banner
 
+
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     raw = row.get(key)
     if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(pd.isna(raw)):
