@@ -47,6 +47,13 @@ def _float(row: dict[str, Any], key: str, default: float | None = None) -> float
     return value
 
 
+def _text(row: dict[str, Any], key: str) -> str:
+    raw = row.get(key)
+    if raw is None or bool(isna(raw)):
+        return ""
+    return str(raw).strip()
+
+
 def _first_float(row: dict[str, Any], keys: tuple[str, ...]) -> float | None:
     for key in keys:
         value = _float(row, key)
@@ -127,7 +134,7 @@ def _seed_flow_hint(definition: TuflowCircularCulvert) -> float:
 
 
 def _is_ignored(row: dict[str, Any]) -> bool:
-    return str(row.get("Ignore") or "").strip().upper() in IGNORED_VALUES
+    return _text(row, "Ignore").upper() in IGNORED_VALUES
 
 
 def _require_metric_projected_crs(crs: Any) -> None:
@@ -164,7 +171,7 @@ def _geometry_length(row: dict[str, Any]) -> float:
 def _select_active_rows(rows: list[dict[str, Any]], crossing: str | None) -> list[dict[str, Any]]:
     selected = rows
     if crossing:
-        selected = [row for row in rows if str(row.get("ID") or "").strip() == crossing]
+        selected = [row for row in rows if _text(row, "ID") == crossing]
         if not selected:
             msg = f"Crossing {crossing!r} was not found."
             raise ValueError(msg)
@@ -216,7 +223,7 @@ def _validate_supported_losses(row: dict[str, Any]) -> None:
 
 
 def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
-    source_type = str(row.get("Type") or "").strip().upper()
+    source_type = _text(row, "Type").upper()
     if source_type != "C":
         msg = f"Unsupported TUFLOW Type {source_type or '<blank>'!r}; migrated workflow supports Type 'C'."
         raise ValueError(msg)
@@ -249,7 +256,10 @@ def _definition(row: dict[str, Any], source_row: int) -> TuflowCircularCulvert:
         msg = "n_nF_Cd must contain a positive Manning roughness for a Type C culvert."
         raise ValueError(msg)
     barrels = _int_first(row, BARREL_FIELDS)
-    name = str(row.get("ID") or "").strip() or f"culvert_{source_row:04d}"
+    name = _text(row, "ID")
+    if not name:
+        msg = f"ID is required for TUFLOW culvert source row {source_row}."
+        raise ValueError(msg)
     return TuflowCircularCulvert(
         name=name,
         diameter_m=diameter,
@@ -373,7 +383,7 @@ def run(args: argparse.Namespace) -> int:
     for row in rows:
         source_row = int(row[SOURCE_ROW_KEY])
         source = str(args.input_gis)
-        fallback_name = str(row.get("ID") or "").strip() or f"culvert_{source_row:04d}"
+        fallback_name = _text(row, "ID") or f"<source row {source_row}>"
         try:
             definition = _definition(row, source_row)
             q_hint = _seed_flow_hint(definition)
