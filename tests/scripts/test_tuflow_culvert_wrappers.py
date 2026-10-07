@@ -386,6 +386,32 @@ def test_1d_nwk_applies_numeric_blockage_to_circular_diameter() -> None:
     assert definition.inlet_invert_m == pytest.approx(10.0)
 
 
+def test_1d_nwk_rejects_blank_categorical_blockage_default() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+    blockage_numeric_key = cast("str", namespace["BLOCKAGE_NUMERIC_KEY"])
+
+    with pytest.raises(ValueError, match="Blockage Default"):
+        build_definition(
+            {
+                "ID": "C01",
+                "Type": "C",
+                "Width_or_D": 1.2,
+                "Len_or_ANA": 30.0,
+                "US_Invert": 10.0,
+                "DS_Invert": 9.8,
+                "n_nF_Cd": 0.013,
+                "pBlockage": "",
+                "Number_of": 1,
+                blockage_numeric_key: False,
+            },
+            1,
+        )
+
+
 def test_1d_nwk_rejects_category_blockage_without_resolved_percentage() -> None:
     namespace = _nwk_namespace()
     build_definition = cast(
