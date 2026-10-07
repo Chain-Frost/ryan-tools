@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-07.4"
+WRAPPER_VERSION = "2026-10-07.5"
 
 import argparse
 import csv
@@ -24,9 +24,6 @@ from ryan_library.functions.culvert.tuflow_engines import (
 from ryan_library.functions.wrapper_utils import print_wrapper_banner
 
 DEFAULT_N = 0.024
-DEFAULT_LENGTH_M = 30.0
-DEFAULT_INLET_INVERT_M = 0.15
-DEFAULT_OUTLET_INVERT_M = 0.0
 
 
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
@@ -92,6 +89,8 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> 
         except (TypeError, ValueError) as exc:
             msg = f"{key} must contain a numeric integer barrel count."
             raise ValueError(msg) from exc
+        if isnan(value):
+            continue
         if not isfinite(value):
             msg = f"{key} must contain a finite integer barrel count."
             raise ValueError(msg)
@@ -114,16 +113,19 @@ def _definition(row: dict[str, Any]) -> TuflowCircularCulvert:
         raise ValueError(msg)
     blockage_percent = _blockage_percent(row)
     diameter = nominal_diameter * sqrt(1.0 - blockage_percent / 100.0)
-    length = _float(row, "Length", DEFAULT_LENGTH_M)
-    inlet = _float(row, "US Invert", DEFAULT_INLET_INVERT_M)
-    outlet = _float(row, "DS Invert", DEFAULT_OUTLET_INVERT_M)
+    length = _float(row, "Length")
+    inlet = _float(row, "US Invert")
+    outlet = _float(row, "DS Invert")
+    if length is None or inlet is None or outlet is None:
+        msg = "Length, US Invert and DS Invert are required Maximums geometry fields."
+        raise ValueError(msg)
     roughness = _float(row, "n or Cd", DEFAULT_N)
     return TuflowCircularCulvert(
         name=str(row.get("Chan ID") or "").strip(),
         diameter_m=diameter,
-        length_m=DEFAULT_LENGTH_M if length is None else length,
-        inlet_invert_m=DEFAULT_INLET_INVERT_M if inlet is None else inlet,
-        outlet_invert_m=DEFAULT_OUTLET_INVERT_M if outlet is None else outlet,
+        length_m=length,
+        inlet_invert_m=inlet,
+        outlet_invert_m=outlet,
         roughness_manning_n=DEFAULT_N if roughness is None else roughness,
         barrels=_int_first(row, ("Num_barrels", "num_barrels", "Barrels")),
         material=CulvertMaterialName.CORRUGATED_STEEL,
