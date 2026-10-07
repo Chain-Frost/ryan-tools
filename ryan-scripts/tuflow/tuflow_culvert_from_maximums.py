@@ -10,7 +10,7 @@ Example:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-07.5"
+WRAPPER_VERSION = "2026-10-08.1"
 
 import argparse
 import csv
@@ -34,7 +34,9 @@ from ryan_library.functions.wrapper_utils import print_wrapper_banner
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     raw = row.get(key)
     if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(pd.isna(raw)):
-        return default
+        joined = ", ".join(keys)
+    msg = f"A barrel count is required in one of: {joined}."
+    raise ValueError(msg)
     try:
         value = float(raw)
     except (TypeError, ValueError) as exc:
@@ -80,7 +82,20 @@ def _run_identity(row: dict[str, Any]) -> str:
     return str(row.get("internalName") or "").strip()
 
 
-def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> int:
+def _material_from_roughness(roughness: float) -> CulvertMaterialName:
+    """Infer the supported circular material from the source Manning roughness."""
+    if roughness <= 0.013:
+        return CulvertMaterialName.CONCRETE_PIPE
+    if roughness >= 0.016:
+        return CulvertMaterialName.CORRUGATED_STEEL
+    msg = (
+        "Manning roughness is in the ambiguous 0.013-0.016 range where concrete, "
+        "smooth HDPE and small CSP cannot be distinguished reliably from TUFLOW output alone."
+    )
+    raise ValueError(msg)
+
+
+def _int_first(row: dict[str, Any], keys: tuple[str, ...]) -> int:
     for key in keys:
         if key not in row:
             continue
@@ -104,9 +119,9 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> 
 
 
 def _definition(row: dict[str, Any]) -> TuflowCircularCulvert:
-    source_type = str(row.get("Flags") or "").strip().upper()
+    source_type = str(row.get("Type") or "").strip().upper()
     if source_type != "C":
-        msg = f"Unsupported Maximums Flags value {source_type or '<blank>'!r}; this migrated workflow supports circular 'C' rows only."
+        msg = f"Unsupported Maximums Type value {source_type or '<blank>'!r}; this migrated workflow supports circular Type 'C' rows only."
         raise ValueError(msg)
     nominal_diameter = _float(row, "Height")
     if nominal_diameter is None or nominal_diameter <= 0.0:
@@ -132,7 +147,7 @@ def _definition(row: dict[str, Any]) -> TuflowCircularCulvert:
         outlet_invert_m=outlet,
         roughness_manning_n=roughness,
         barrels=_int_first(row, ("Num_barrels", "num_barrels", "Barrels")),
-        material=CulvertMaterialName.CORRUGATED_STEEL,
+        material=_material_from_roughness(roughness),
         nominal_diameter_m=nominal_diameter,
     )
 
@@ -196,7 +211,7 @@ def _record(
 def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[dict[str, Any]]:
     # Pandas stubs include optional workbook types without complete typing.
     frame = pd.read_excel(path, sheet_name=sheet_name)  # pyright: ignore[reportUnknownMemberType]
-    required = {"Chan ID", "Q", "Height", "Flags"}
+    required = {"Chan ID", "Q", "Height", "Type"}
     missing = required - set(frame.columns)
     if missing:
         msg = f"Missing required Maximums columns: {', '.join(sorted(missing))}"
