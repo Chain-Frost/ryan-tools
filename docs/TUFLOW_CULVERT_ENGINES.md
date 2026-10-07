@@ -25,7 +25,10 @@ culvert_demo-from-tuflow.py script:
 - inverse discharge at the TUFLOW `US_h` level when available;
 - inverse discharge at a configurable HW/D target, default 1.5.
 
-For each crossing/AEP pair the highest positive `Q` row is retained.
+For each crossing/base-run/AEP combination the highest positive `Q` row is retained.
+The base run uses `trim_runcode` when available, falling back to `internalName`,
+so alternatives such as EXG and DEV are not collapsed into one governing row.
+The selected run identity is also written to the result CSV.
 
 ## TUFLOW 1d_nwk
 
@@ -39,9 +42,11 @@ to supply another set.
 
 Both migrated wrappers refuse to replace an existing result CSV unless
 `--overwrite` is supplied. Numeric `pBlockage` is applied to circular pipes in
-both Maximums and `1d_nwk` inputs by scaling diameter by the square root of the
-unblocked area fraction. Category-based blockage is rejected until its event-specific
-percentage has been resolved.
+both Maximums and `1d_nwk` inputs by scaling the hydraulic diameter by the square
+root of the unblocked area fraction. The original nominal diameter is retained
+separately and remains the denominator for TUFLOW HW/D targets and reported HW/D.
+Category-based blockage is rejected until its event-specific percentage has been
+resolved.
 
 The `1d_nwk` wrapper also honours the TUFLOW `Ignore` field, resolves negative
 `Len_or_ANA` values from the digitized feature length, treats `Number_of = 0`
@@ -51,7 +56,7 @@ inverts have been resolved from processed TUFLOW data.
 When HY-8 workspaces are retained, an existing run directory is not reused unless
 `--overwrite` is explicitly supplied. Workspace directory names include a stable
 hash of the unsanitized run key so distinct TUFLOW identifiers cannot collide after
-filesystem sanitization. Maximums keys include crossing, AEP and scenario;
+filesystem sanitization. Maximums keys include crossing, base run, AEP and scenario;
 `1d_nwk` keys include crossing and scenario. HY-8 also receives a deterministic
 filesystem-safe internal crossing name; normalized output continues to report the
 original TUFLOW crossing identifier.
@@ -65,7 +70,8 @@ under the `privileged` profile with explicit approval required.
 ## Shared mapping contract
 
 Both engines receive the same engine-neutral circular-culvert definition:
-diameter, length, inlet/outlet invert, Manning roughness, barrel count and material.
+hydraulic diameter, nominal HW/D diameter, length, inlet/outlet invert, Manning
+roughness, barrel count and material.
 TUFLOW parsing therefore happens before engine dispatch. Adverse slopes are retained
 in the shared definition and passed to HY-8; the `ryan-culverts` backend rejects
 these slopes explicitly because its current geometry contract does not support them.
