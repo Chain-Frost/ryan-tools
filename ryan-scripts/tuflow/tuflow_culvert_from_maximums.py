@@ -10,7 +10,7 @@ Example:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-08.2"
+WRAPPER_VERSION = "2026-10-08.3"
 
 import argparse
 import csv
@@ -22,6 +22,12 @@ from typing import Any, cast
 import pandas as pd
 
 from ryan_library.classes.culvert import CulvertMaterialName
+from ryan_library.functions.culvert.tuflow_attributes import (
+    TuflowCulvertAttributes,
+    load_tuflow_culvert_attributes,
+    material_from_mapping,
+    parse_culvert_material,
+)
 from ryan_library.functions.culvert.tuflow_engines import (
     CulvertEngine,
     CulvertEngineResult,
@@ -81,69 +87,78 @@ def _run_identity(row: dict[str, Any]) -> str:
     return str(row.get("internalName") or "").strip()
 
 
-MATERIAL_FIELDS = ("Material", "Culvert Material", "Culvert_Material")
-_MATERIAL_ALIASES = {
-    "concrete": CulvertMaterialName.CONCRETE_PIPE,
-    "concrete_pipe": CulvertMaterialName.CONCRETE_PIPE,
-    "rcp": CulvertMaterialName.CONCRETE_PIPE,
-    "csp": CulvertMaterialName.CORRUGATED_STEEL,
-    "corrugated_steel": CulvertMaterialName.CORRUGATED_STEEL,
-    "corrugated steel": CulvertMaterialName.CORRUGATED_STEEL,
-}
-
-
-def _parse_material(value: str) -> CulvertMaterialName:
-    key = value.strip().lower()
-    material = _MATERIAL_ALIASES.get(key)
-    if material is None:
-        allowed = "concrete/concrete_pipe/rcp or csp/corrugated_steel"
-        msg = f"Unsupported culvert material {value!r}; expected {allowed}."
-        raise ValueError(msg)
-    return material
-
-
-def _material(row: dict[str, Any], override: CulvertMaterialName | None) -> CulvertMaterialName:
+def _material(
+    row: dict[str, Any],
+    override: CulvertMaterialName | None,
+    attributes: TuflowCulvertAttributes | None,
+) -> CulvertMaterialName:
     if override is not None:
         return override
-    for field in MATERIAL_FIELDS:
-        raw = row.get(field)
-        if raw is None or bool(pd.isna(raw)):
-            continue
-        text = str(raw).strip()
-        if text:
-            return _parse_material(text)
+    if attributes is not None and attributes.material is not None:
+        return attributes.material
+    inline = material_from_mapping(row)
+    if inline is not None:
+        return inline
     msg = (
-        "Circular culvert material is required explicitly; provide --material or a "
-        f"source column named one of: {', '.join(MATERIAL_FIELDS)}."
+        "Circular culvert material is unresolved; provide --material, a per-crossing "
+        "--culvert-attributes source, or an explicit Material column."
     )
     raise ValueError(msg)
 
 
-def _validate_supported_losses(row: dict[str, Any], material: CulvertMaterialName) -> None:
+def _effective_loss(
+    row: dict[str, Any],
+    attributes: TuflowCulvertAttributes | None,
+    *,
+    attribute_name: str,
+    row_field: str,
+) -> float | None:
+    if attributes is not None:
+        value = getattr(attributes, attribute_name)
+        if value is not None:
+            return float(value)
+    return _float(row, row_field)
+
+
+def _validate_supported_losses(
+    row: dict[str, Any],
+    material: CulvertMaterialName,
+    attributes: TuflowCulvertAttributes | None,
+) -> None:
     expected_entry = 0.9 if material is CulvertMaterialName.CORRUGATED_STEEL else 0.5
-    expected = {
-        "Entry Loss": expected_entry,
-        "Exit Loss": 1.0,
-        "Fixed Loss": 0.0,
-    }
-    missing = [field for field in expected if _float(row, field) is None]
-    if missing:
-        msg = (
-            "Maximums rows require effective EOF loss coefficients; missing: "
-            + ", ".join(missing)
+    entry_loss = _effective_loss(row, attributes, attribute_name="entry_loss", row_field="Entry Loss")
+    exit_loss = _effective_loss(row, attributes, attribute_name="exit_loss", row_field="Exit Loss")
+    form_loss = _effective_loss(row, attributes, attribute_name="form_loss", row_field="Fixed Loss")
+    width_contraction = attributes.width_contraction if attributes is not None else None
+
+    missing = [
+        label
+        for label, value in (
+            ("Entry Loss", entry_loss),
+            ("Exit Loss", exit_loss),
+            ("Fixed/Form Loss", form_loss),
         )
-        raise ValueError(msg)
-    unsupported = [
-        f"{field}={value:g}"
-        for field, target in expected.items()
-        if (value := _float(row, field)) is not None and abs(value - target) > 1e-12
+        if value is None
     ]
+    if missing:
+        msg = "Effective culvert loss coefficients are unresolved; missing: " + ", ".join(missing)
+        raise ValueError(msg)
+
+    unsupported: list[str] = []
+    if abs(entry_loss - expected_entry) > 1e-12:
+        unsupported.append(f"Entry Loss={entry_loss:g}")
+    if abs(exit_loss - 1.0) > 1e-12:
+        unsupported.append(f"Exit Loss={exit_loss:g}")
+    if abs(form_loss) > 1e-12:
+        unsupported.append(f"Fixed/Form Loss={form_loss:g}")
+    if width_contraction is not None and abs(width_contraction - 1.0) > 1e-12:
+        unsupported.append(f"WConF_or_WEx={width_contraction:g}")
     if unsupported:
         joined = ", ".join(unsupported)
         msg = (
-            "Maximums EOF loss coefficients do not match the selected backend assumption "
-            f"for {material.value}: expected Entry Loss={expected_entry:g}, "
-            f"Exit Loss=1, Fixed Loss=0; got {joined}."
+            "Effective TUFLOW loss coefficients are not representable by the current "
+            f"{material.value} backend assumptions: expected Entry Loss={expected_entry:g}, "
+            f"Exit Loss=1, Fixed/Form Loss=0 and circular WConF=1 when supplied; got {joined}."
         )
         raise ValueError(msg)
 
@@ -176,6 +191,7 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...]) -> int:
 def _definition(
     row: dict[str, Any],
     material_override: CulvertMaterialName | None = None,
+    attributes: TuflowCulvertAttributes | None = None,
 ) -> TuflowCircularCulvert:
     source_type = str(row.get("Type") or "").strip().upper()
     if source_type != "C":
@@ -197,8 +213,8 @@ def _definition(
     if roughness is None or roughness <= 0.0:
         msg = "n or Cd must contain a positive Manning roughness for circular culverts."
         raise ValueError(msg)
-    material = _material(row, material_override)
-    _validate_supported_losses(row, material)
+    material = _material(row, material_override, attributes)
+    _validate_supported_losses(row, material, attributes)
     return TuflowCircularCulvert(
         name=str(row.get("Chan ID") or "").strip(),
         diameter_m=diameter,
@@ -340,6 +356,10 @@ def run(args: argparse.Namespace) -> int:
     _ensure_output_available(args.output_csv, overwrite=args.overwrite)
     headwater_ratio = _headwater_ratio(args.headwater_ratio)
     rows = _selected_rows(args.input_workbook, args.sheet_name, args.crossing)
+    attribute_map = load_tuflow_culvert_attributes(
+        args.culvert_attributes,
+        layer=args.attributes_layer,
+    )
     workspace_root: Path | None = args.workspace
     if engine is CulvertEngine.HY8 and args.keep_workspace and workspace_root is None:
         workspace_root = Path("hy8-workspaces")
@@ -354,7 +374,11 @@ def run(args: argparse.Namespace) -> int:
         aep = str(row.get("aep_text") or "").strip()
         source = str(args.input_workbook)
         try:
-            definition = _definition(row, args.material)
+            definition = _definition(
+                row,
+                args.material,
+                attribute_map.get(crossing),
+            )
             flow = _float(row, "Q")
             if flow is None:
                 msg = "Q must contain a positive finite discharge after row selection."
@@ -470,9 +494,21 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--engine", choices=[item.value for item in CulvertEngine], default=CulvertEngine.HY8.value)
     parser.add_argument(
         "--material",
-        type=_parse_material,
+        type=parse_culvert_material,
         metavar="{concrete,csp}",
         help="Explicit material override for all selected circular culverts.",
+    )
+    parser.add_argument(
+        "--culvert-attributes",
+        type=Path,
+        help=(
+            "Optional CSV or vector/1d_nwk source keyed by ID/Chan ID/Crossing. "
+            "Per-crossing Material and loss attributes take precedence over workbook fields."
+        ),
+    )
+    parser.add_argument(
+        "--attributes-layer",
+        help="Layer name when --culvert-attributes is a multi-layer vector dataset.",
     )
     parser.add_argument("--headwater-ratio", type=float, default=1.5)
     parser.add_argument("--hy8-exe", type=Path)
