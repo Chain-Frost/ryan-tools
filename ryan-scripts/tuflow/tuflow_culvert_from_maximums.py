@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-07.2"
+WRAPPER_VERSION = "2026-10-07.3"
 
 import argparse
 import csv
@@ -68,13 +68,24 @@ def _run_identity(row: dict[str, Any]) -> str:
 
 def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> int:
     for key in keys:
-        value = _float(row, key)
-        if value is not None:
-            rounded = round(value)
-            if abs(value - rounded) > 1e-9 or rounded <= 0:
-                msg = f"{key} must contain a strictly positive integer barrel count."
-                raise ValueError(msg)
-            return int(rounded)
+        if key not in row:
+            continue
+        raw = row.get(key)
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            continue
+        try:
+            value = float(raw)
+        except (TypeError, ValueError) as exc:
+            msg = f"{key} must contain a numeric integer barrel count."
+            raise ValueError(msg) from exc
+        if not isfinite(value):
+            msg = f"{key} must contain a finite integer barrel count."
+            raise ValueError(msg)
+        rounded = round(value)
+        if abs(value - rounded) > 1e-9 or rounded <= 0:
+            msg = f"{key} must contain a strictly positive integer barrel count."
+            raise ValueError(msg)
+        return int(rounded)
     return default
 
 
