@@ -11,6 +11,11 @@ import pytest
 
 from ryan_library.classes.culvert import CulvertMaterialName
 from ryan_library.functions.culvert.tuflow_attributes import TuflowCulvertAttributes
+from ryan_library.functions.culvert.tuflow_configuration import (
+    CircularCulvertConfiguration,
+    CircularInletConfiguration,
+    TuflowLossParameters,
+)
 from ryan_library.functions.culvert.tuflow_engines import (
     CulvertEngine,
     CulvertEngineResult,
@@ -42,6 +47,7 @@ def test_maximums_mapping_uses_canonical_barrel_count_and_preserves_zero_invert(
             "Chan ID": "C01",
             "Type": "C",
         "Material": "concrete_pipe",
+        "Inlet Configuration": "square-edge-headwall",
             "Height": 1.2,
             "Length": 30.0,
             "US Invert": 0.0,
@@ -69,6 +75,7 @@ def test_maximums_rejects_malformed_canonical_barrel_count() -> None:
                 "Chan ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -92,6 +99,7 @@ def test_maximums_rejects_missing_manning_roughness() -> None:
                 "Chan ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -114,6 +122,7 @@ def test_maximums_rejects_missing_required_geometry() -> None:
                 "Chan ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "US Invert": 10.0,
                 "DS Invert": 9.8,
@@ -135,6 +144,7 @@ def test_maximums_rejects_missing_barrel_count() -> None:
                 "Chan ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -158,6 +168,7 @@ def test_maximums_rejects_malformed_present_numeric_geometry() -> None:
                 "Chan ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Length": "damaged",
                 "US Invert": 10.0,
@@ -188,6 +199,7 @@ def test_maximums_applies_numeric_blockage_to_circular_diameter() -> None:
             "Chan ID": "C01",
             "Type": "C",
             "Material": "concrete_pipe",
+        "Inlet Configuration": "square-edge-headwall",
             "Height": 1.2,
             "Length": 30.0,
             "US Invert": 10.0,
@@ -215,6 +227,7 @@ def test_maximums_rejects_unresolved_category_blockage() -> None:
                 "Chan ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Length": 30.0,
                 "US Invert": 10.0,
@@ -232,7 +245,7 @@ def test_maximums_mapping_rejects_rectangular_type() -> None:
         namespace["_definition"],
     )
 
-    with pytest.raises(ValueError, match="circular Type 'C' rows only"):
+    with pytest.raises(ValueError, match="circular TUFLOW Type 'C' rows only"):
         build_definition(
             {
                 "Chan ID": "BOX01",
@@ -262,6 +275,7 @@ def test_maximums_selection_keeps_governing_row_intact(
                 "aep_text": "1%",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Q": 10.0,
                 "US_h": None,
@@ -272,6 +286,7 @@ def test_maximums_selection_keeps_governing_row_intact(
                 "aep_text": "1%",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Q": 9.0,
                 "US_h": 11.5,
@@ -310,6 +325,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "aep_text": "1%",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Q": 8.0,
             },
@@ -320,6 +336,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "aep_text": "1%",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Q": 10.0,
             },
@@ -330,6 +347,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "aep_text": "1%",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Q": 12.0,
             },
@@ -340,6 +358,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
                 "aep_text": "1%",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Q": 11.0,
             },
@@ -359,11 +378,13 @@ def test_maximums_selection_preserves_base_run_scenarios(
     ]
 
 
-def test_material_is_explicit_not_inferred_from_roughness() -> None:
-    for namespace in (_maximums_namespace(), _nwk_namespace()):
-        material = namespace["_material"]
-        with pytest.raises(ValueError, match="material is unresolved"):
-            material({"n or Cd": 0.024, "n_nF_Cd": 0.024}, None, None)
+def test_physical_configuration_is_explicit_not_inferred_from_roughness() -> None:
+    from ryan_library.functions.culvert.tuflow_attributes import resolve_circular_configuration
+
+    with pytest.raises(ValueError, match="material is unresolved"):
+        resolve_circular_configuration({"n_nF_Cd": 0.024})
+    with pytest.raises(ValueError, match="inlet configuration is unresolved"):
+        resolve_circular_configuration({"Material": "csp", "n_nF_Cd": 0.024})
 
 
 @pytest.mark.parametrize(
@@ -389,9 +410,12 @@ def test_maximums_external_attributes_override_inline_material_and_losses() -> N
     attributes = TuflowCulvertAttributes(
         crossing_id="C01",
         material=CulvertMaterialName.CORRUGATED_STEEL,
-        entry_loss=0.9,
-        exit_loss=1.0,
-        form_loss=0.0,
+        inlet_configuration=CircularInletConfiguration.THIN_EDGE_PROJECTING,
+        losses=TuflowLossParameters(
+            entry_loss_coefficient=0.9,
+            exit_loss_coefficient=1.0,
+            form_loss_coefficient=0.0,
+        ),
     )
 
     definition = build_definition(
@@ -399,6 +423,7 @@ def test_maximums_external_attributes_override_inline_material_and_losses() -> N
             "Chan ID": "C01",
             "Type": "C",
             "Material": "concrete_pipe",
+        "Inlet Configuration": "square-edge-headwall",
             "Height": 1.2,
             "Length": 30.0,
             "US Invert": 10.0,
@@ -410,10 +435,14 @@ def test_maximums_external_attributes_override_inline_material_and_losses() -> N
             "Fixed Loss": 0.2,
         },
         None,
+        None,
         attributes,
     )
 
-    assert definition.material is CulvertMaterialName.CORRUGATED_STEEL
+    assert definition.configuration == CircularCulvertConfiguration(
+        material=CulvertMaterialName.CORRUGATED_STEEL,
+        inlet=CircularInletConfiguration.THIN_EDGE_PROJECTING,
+    )
 
 
 def test_1d_nwk_external_attributes_override_inline_material_and_losses() -> None:
@@ -422,10 +451,13 @@ def test_1d_nwk_external_attributes_override_inline_material_and_losses() -> Non
     attributes = TuflowCulvertAttributes(
         crossing_id="C01",
         material=CulvertMaterialName.CONCRETE_PIPE,
-        entry_loss=0.5,
-        exit_loss=1.0,
-        form_loss=0.0,
-        width_contraction=1.0,
+        inlet_configuration=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+        losses=TuflowLossParameters(
+            entry_loss_coefficient=0.5,
+            exit_loss_coefficient=1.0,
+            form_loss_coefficient=0.0,
+            width_contraction_coefficient=1.0,
+        ),
     )
 
     definition = build_definition(
@@ -433,6 +465,7 @@ def test_1d_nwk_external_attributes_override_inline_material_and_losses() -> Non
             "ID": "C01",
             "Type": "C",
             "Material": "csp",
+            "Inlet Configuration": "thin-edge-projecting",
             "Width_or_D": 1.2,
             "Len_or_ANA": 30.0,
             "US_Invert": 10.0,
@@ -446,10 +479,14 @@ def test_1d_nwk_external_attributes_override_inline_material_and_losses() -> Non
         },
         1,
         None,
+        None,
         attributes,
     )
 
-    assert definition.material is CulvertMaterialName.CONCRETE_PIPE
+    assert definition.configuration == CircularCulvertConfiguration(
+        material=CulvertMaterialName.CONCRETE_PIPE,
+        inlet=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+    )
 
 
 @pytest.mark.parametrize(
@@ -476,6 +513,10 @@ def test_1d_nwk_seed_flow_uses_circular_area() -> None:
     seed_flow = cast("Callable[[TuflowCircularCulvert], float]", namespace["_seed_flow_hint"])
     definition = TuflowCircularCulvert(
         name="C01",
+        configuration=CircularCulvertConfiguration(
+            material=CulvertMaterialName.CONCRETE_PIPE,
+            inlet=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+        ),
         diameter_m=2.0,
         length_m=30.0,
         inlet_invert_m=10.0,
@@ -548,6 +589,7 @@ def test_1d_nwk_rejects_blank_culvert_id() -> None:
                 "ID": None,
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -571,6 +613,7 @@ def test_1d_nwk_negative_length_uses_digitized_geometry_length() -> None:
             "ID": "C01",
             "Type": "C",
             "Material": "concrete_pipe",
+        "Inlet Configuration": "square-edge-headwall",
             "Width_or_D": 1.2,
             "Len_or_ANA": -1.0,
             "US_Invert": 10.0,
@@ -598,6 +641,7 @@ def test_1d_nwk_applies_numeric_blockage_to_circular_diameter() -> None:
             "ID": "C01",
             "Type": "C",
             "Material": "concrete_pipe",
+        "Inlet Configuration": "square-edge-headwall",
             "Width_or_D": 1.2,
             "Len_or_ANA": 30.0,
             "US_Invert": 10.0,
@@ -628,6 +672,7 @@ def test_1d_nwk_rejects_blank_categorical_blockage_default() -> None:
                 "ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -654,6 +699,7 @@ def test_1d_nwk_rejects_category_blockage_without_resolved_percentage() -> None:
                 "ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -678,6 +724,7 @@ def test_1d_nwk_rejects_malformed_canonical_barrel_count() -> None:
                 "ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -702,6 +749,7 @@ def test_1d_nwk_rejects_missing_manning_roughness() -> None:
                 "ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -725,6 +773,7 @@ def test_1d_nwk_rejects_missing_barrel_count() -> None:
                 "ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": 10.0,
@@ -736,36 +785,36 @@ def test_1d_nwk_rejects_missing_barrel_count() -> None:
         )
 
 
-@pytest.mark.parametrize(
-    ("field_name", "value"),
-    [
-        ("Form_Loss", 0.2),
-        ("WConF_or_WEx", 0.8),
-        ("EntryC_or_WSa", 0.7),
-        ("ExitC_or_WSb", 0.6),
-    ],
-)
-def test_1d_nwk_rejects_unsupported_loss_coefficients(field_name: str, value: float) -> None:
+def test_1d_nwk_preserves_tuflow_loss_parameters() -> None:
     namespace = _nwk_namespace()
-    build_definition = cast(
-        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
-        namespace["_definition"],
-    )
-    row: dict[str, Any] = {
-        "ID": "C01",
-        "Type": "C",
-            "Material": "concrete_pipe",
-        "Width_or_D": 1.2,
-        "Len_or_ANA": 30.0,
-        "US_Invert": 10.0,
-        "DS_Invert": 9.8,
-        "n_nF_Cd": 0.013,
-        "Number_of": 1,
-        field_name: value,
-    }
+    build_definition = namespace["_definition"]
 
-    with pytest.raises(ValueError, match="not representable"):
-        build_definition(row, 1)
+    definition = build_definition(
+        {
+            "ID": "C01",
+            "Type": "C",
+            "Material": "concrete_pipe",
+            "Inlet Configuration": "square-edge-headwall",
+            "Width_or_D": 1.2,
+            "Len_or_ANA": 30.0,
+            "US_Invert": 10.0,
+            "DS_Invert": 9.8,
+            "n_nF_Cd": 0.013,
+            "Form_Loss": 0.2,
+            "WConF_or_WEx": 0.8,
+            "EntryC_or_WSa": 0.7,
+            "ExitC_or_WSb": 0.6,
+            "Number_of": 1,
+        },
+        1,
+    )
+
+    assert definition.losses == TuflowLossParameters(
+        entry_loss_coefficient=0.7,
+        exit_loss_coefficient=0.6,
+        form_loss_coefficient=0.2,
+        width_contraction_coefficient=0.8,
+    )
 
 
 def test_1d_nwk_accepts_supported_concrete_loss_coefficients() -> None:
@@ -780,6 +829,7 @@ def test_1d_nwk_accepts_supported_concrete_loss_coefficients() -> None:
             "ID": "C01",
             "Type": "C",
             "Material": "concrete_pipe",
+        "Inlet Configuration": "square-edge-headwall",
             "Width_or_D": 1.2,
             "Len_or_ANA": 30.0,
             "US_Invert": 10.0,
@@ -809,6 +859,7 @@ def test_1d_nwk_zero_number_of_defaults_to_one_barrel() -> None:
             "ID": "C01",
             "Type": "C",
             "Material": "concrete_pipe",
+        "Inlet Configuration": "square-edge-headwall",
             "Width_or_D": 1.2,
             "Len_or_ANA": 30.0,
             "US_Invert": 10.0,
@@ -835,6 +886,7 @@ def test_1d_nwk_rejects_unresolved_invert_sentinel() -> None:
                 "ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
                 "US_Invert": -99999,
@@ -939,6 +991,7 @@ def test_1d_nwk_run_preserves_original_source_row_after_ignore_filter(
                 "ID": "IGNORED",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Ignore": "T",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
@@ -951,6 +1004,7 @@ def test_1d_nwk_run_preserves_original_source_row_after_ignore_filter(
                 "ID": "ACTIVE",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Ignore": "",
                 "Width_or_D": 1.2,
                 "Len_or_ANA": 30.0,
@@ -1025,6 +1079,7 @@ def test_native_maximums_does_not_create_hy8_workspace(
                 "Chan ID": "C01",
                 "Type": "C",
                 "Material": "concrete_pipe",
+                "Inlet Configuration": "square-edge-headwall",
                 "Height": 1.2,
                 "Length": 30.0,
                 "Q": 2.0,

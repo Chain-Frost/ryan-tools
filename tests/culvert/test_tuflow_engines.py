@@ -11,6 +11,11 @@ from run_hy8 import CulvertMaterial as Hy8Material
 
 from ryan_library.classes.culvert import CulvertMaterialName
 from ryan_library.functions.culvert import tuflow_engines as engine_module
+from ryan_library.functions.culvert.tuflow_configuration import (
+    CircularCulvertConfiguration,
+    CircularInletConfiguration,
+    TuflowLossParameters,
+)
 from ryan_library.functions.culvert.tuflow_engines import (
     CulvertEngine,
     TuflowCircularCulvert,
@@ -23,13 +28,15 @@ from ryan_library.functions.culvert.tuflow_engines import (
 def concrete_crossing() -> TuflowCircularCulvert:
     return TuflowCircularCulvert(
         name="C01",
+        configuration=CircularCulvertConfiguration(
+                inlet=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+        ),
         diameter_m=1.2,
         length_m=40.0,
         inlet_invert_m=10.0,
         outlet_invert_m=9.5,
         roughness_manning_n=0.013,
         barrels=3,
-        material=CulvertMaterialName.CONCRETE_PIPE,
     )
 
 
@@ -75,16 +82,11 @@ def test_ryan_culverts_does_not_resolve_hy8_executable(concrete_crossing: Tuflow
     assert result.computed_discharge_m3s == pytest.approx(2.0)
 
 
-def test_unsupported_material_fails_closed() -> None:
-    with pytest.raises(ValueError, match="concrete, corrugated-steel or smooth-HDPE"):
-        TuflowCircularCulvert(
-            name="BOX",
-            diameter_m=1.2,
-            length_m=40.0,
-            inlet_invert_m=10.0,
-            outlet_invert_m=9.5,
-            roughness_manning_n=0.013,
+def test_physical_configuration_rejects_box_material_for_circular_pipe() -> None:
+    with pytest.raises(ValueError, match="Unsupported circular culvert material"):
+        CircularCulvertConfiguration(
             material=CulvertMaterialName.CONCRETE_BOX,
+            inlet=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
         )
 
 
@@ -93,7 +95,10 @@ def test_hdpe_is_supported_by_hy8_but_fails_closed_for_native(
 ) -> None:
     definition = replace(
         concrete_crossing,
-        material=CulvertMaterialName.SMOOTH_HDPE,
+        configuration=CircularCulvertConfiguration(
+            material=CulvertMaterialName.SMOOTH_HDPE,
+            inlet=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+        ),
         roughness_manning_n=0.012,
     )
 
@@ -130,7 +135,10 @@ def test_native_cmp_configuration_matches_projecting_hy8_assumption(
 ) -> None:
     definition = replace(
         concrete_crossing,
-        material=CulvertMaterialName.CORRUGATED_STEEL,
+        configuration=CircularCulvertConfiguration(
+            material=CulvertMaterialName.CORRUGATED_STEEL,
+            inlet=CircularInletConfiguration.THIN_EDGE_PROJECTING,
+        ),
     )
 
     configuration = engine_module._solver_configuration(  # pyright: ignore[reportPrivateUsage]
@@ -194,12 +202,15 @@ def test_hy8_tailwater_preserves_downstream_invert(
 def test_hy8_crossing_uses_filesystem_safe_internal_name() -> None:
     definition = TuflowCircularCulvert(
         name="A/B:C*?<>|",
+        configuration=CircularCulvertConfiguration(
+            material=CulvertMaterialName.CONCRETE_PIPE,
+            inlet=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+        ),
         diameter_m=1.2,
         length_m=40.0,
         inlet_invert_m=10.0,
         outlet_invert_m=9.5,
         roughness_manning_n=0.013,
-        material=CulvertMaterialName.CONCRETE_PIPE,
     )
 
     project, crossing = engine_module._hy8_crossing(  # pyright: ignore[reportPrivateUsage]
@@ -298,3 +309,75 @@ def test_adverse_slope_dispatch_is_engine_specific(
             with pytest.raises(ValueError, match="ryan-culverts does not support adverse slopes"):
                 solve()
     dispatch.assert_called_once()
+
+
+def test_native_entry_loss_override_is_numeric_not_an_inlet_selector(
+    concrete_crossing: TuflowCircularCulvert,
+) -> None:
+    definition = replace(
+        concrete_crossing,
+        losses=TuflowLossParameters(entry_loss_coefficient=0.65),
+    )
+
+    configuration = engine_module._solver_configuration(  # pyright: ignore[reportPrivateUsage]
+        definition
+    )
+
+    assert configuration.default_circular_concrete_inlet is not None
+    assert configuration.default_circular_concrete_loss.ke == pytest.approx(0.65)
+
+
+def test_hy8_rejects_entry_loss_that_conflicts_with_physical_inlet(
+    concrete_crossing: TuflowCircularCulvert,
+) -> None:
+    definition = replace(
+        concrete_crossing,
+        losses=TuflowLossParameters(entry_loss_coefficient=0.7),
+    )
+
+    with pytest.raises(ValueError, match="does not yet expose an arbitrary TUFLOW EntryC override"):
+        engine_module._hy8_crossing(  # pyright: ignore[reportPrivateUsage]
+            definition,
+            tailwater_elevation_m=9.5,
+            seed_discharge_m3s=2.0,
+        )
+
+
+@pytest.mark.parametrize(
+    ("material", "inlet", "hy8_material"),
+    [
+        (
+            CulvertMaterialName.CONCRETE_PIPE,
+            CircularInletConfiguration.GROOVED_END_HEADWALL,
+            Hy8Material.CONCRETE,
+        ),
+        (
+            CulvertMaterialName.CORRUGATED_STEEL,
+            CircularInletConfiguration.MITERED_TO_SLOPE,
+            Hy8Material.CORRUGATED_STEEL,
+        ),
+        (
+            CulvertMaterialName.SMOOTH_HDPE,
+            CircularInletConfiguration.THIN_EDGE_PROJECTING,
+            Hy8Material.HDPE,
+        ),
+    ],
+)
+def test_hy8_mapping_uses_explicit_physical_configuration(
+    concrete_crossing: TuflowCircularCulvert,
+    material: CulvertMaterialName,
+    inlet: CircularInletConfiguration,
+    hy8_material: Hy8Material,
+) -> None:
+    definition = replace(
+        concrete_crossing,
+        configuration=CircularCulvertConfiguration(material=material, inlet=inlet),
+    )
+
+    _project, crossing = engine_module._hy8_crossing(  # pyright: ignore[reportPrivateUsage]
+        definition,
+        tailwater_elevation_m=9.5,
+        seed_discharge_m3s=2.0,
+    )
+
+    assert crossing.culverts[0].material is hy8_material

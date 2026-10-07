@@ -30,6 +30,14 @@ from .tuflow_attributes import (
     material_from_mapping,
     parse_culvert_material,
 )
+from .tuflow_configuration import (
+    CircularCulvertConfiguration,
+    CircularInletConfiguration,
+    CulvertShapeName,
+    TuflowLossParameters,
+    parse_circular_inlet_configuration,
+    parse_tuflow_shape,
+)
 from .tuflow_engines import (
     CulvertEngine,
     CulvertEngineResult,
@@ -53,7 +61,11 @@ __all__: list[str] = [
     "SCHEMA_VERSION",
     "CulvertEngine",
     "CulvertEngineResult",
+    "CulvertShapeName",
+    "CircularCulvertConfiguration",
+    "CircularInletConfiguration",
     "TuflowCircularCulvert",
+    "TuflowLossParameters",
     "TuflowCulvertAttributes",
     "aggregate_study_evaluations",
     "assess_scenario",
@@ -83,6 +95,8 @@ __all__: list[str] = [
     "load_project_json",
     "material_from_mapping",
     "parse_culvert_material",
+    "parse_circular_inlet_configuration",
+    "parse_tuflow_shape",
     "plot_longitudinal_profile",
     "plot_rating_curve",
     "project_record",

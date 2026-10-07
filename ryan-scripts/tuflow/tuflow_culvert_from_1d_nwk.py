@@ -10,7 +10,7 @@ Example:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-08.3"
+WRAPPER_VERSION = "2026-10-08.4"
 
 import argparse
 import csv
@@ -27,8 +27,15 @@ from ryan_library.classes.culvert import CulvertMaterialName
 from ryan_library.functions.culvert.tuflow_attributes import (
     TuflowCulvertAttributes,
     load_tuflow_culvert_attributes,
-    material_from_mapping,
     parse_culvert_material,
+    resolve_circular_configuration,
+    resolve_tuflow_losses,
+)
+from ryan_library.functions.culvert.tuflow_configuration import (
+    CircularInletConfiguration,
+    CulvertShapeName,
+    parse_circular_inlet_configuration,
+    parse_tuflow_shape,
 )
 from ryan_library.functions.culvert.tuflow_engines import (
     CulvertEngine,
@@ -74,25 +81,6 @@ def _first_float(row: dict[str, Any], keys: tuple[str, ...]) -> float | None:
         if value is not None:
             return value
     return None
-
-
-def _material(
-    row: dict[str, Any],
-    override: CulvertMaterialName | None,
-    attributes: TuflowCulvertAttributes | None,
-) -> CulvertMaterialName:
-    if override is not None:
-        return override
-    if attributes is not None and attributes.material is not None:
-        return attributes.material
-    inline = material_from_mapping(row)
-    if inline is not None:
-        return inline
-    msg = (
-        "Circular culvert material is unresolved; provide --material, a per-crossing "
-        "--culvert-attributes source, or an explicit Material column."
-    )
-    raise ValueError(msg)
 
 
 def _int_first(row: dict[str, Any], keys: tuple[str, ...]) -> int:
@@ -262,87 +250,16 @@ def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
         raise FileExistsError(msg)
 
 
-def _effective_loss(
-    row: dict[str, Any],
-    attributes: TuflowCulvertAttributes | None,
-    *,
-    attribute_name: str,
-    row_field: str,
-) -> float | None:
-    if attributes is not None:
-        value = getattr(attributes, attribute_name)
-        if value is not None:
-            return float(value)
-    return _float(row, row_field)
-
-
-def _validate_supported_losses(
-    row: dict[str, Any],
-    material: CulvertMaterialName,
-    attributes: TuflowCulvertAttributes | None,
-) -> None:
-    unsupported: list[str] = []
-
-    form_loss = _effective_loss(
-        row,
-        attributes,
-        attribute_name="form_loss",
-        row_field="Form_Loss",
-    )
-    if form_loss is not None and abs(form_loss) > 1e-12:
-        unsupported.append(f"Form_Loss={form_loss:g}")
-
-    width_contraction = _effective_loss(
-        row,
-        attributes,
-        attribute_name="width_contraction",
-        row_field="WConF_or_WEx",
-    )
-    if width_contraction is not None:
-        tuflow_width_contraction = (
-            1.0 if width_contraction <= 0.0 or width_contraction > 1.0 else width_contraction
-        )
-        if abs(tuflow_width_contraction - 1.0) > 1e-12:
-            unsupported.append(f"WConF_or_WEx={width_contraction:g}")
-
-    expected_entry = 0.9 if material is CulvertMaterialName.CORRUGATED_STEEL else 0.5
-    entry_loss = _effective_loss(
-        row,
-        attributes,
-        attribute_name="entry_loss",
-        row_field="EntryC_or_WSa",
-    )
-    if entry_loss is not None and abs(entry_loss - expected_entry) > 1e-12:
-        unsupported.append(f"EntryC_or_WSa={entry_loss:g}")
-
-    exit_loss = _effective_loss(
-        row,
-        attributes,
-        attribute_name="exit_loss",
-        row_field="ExitC_or_WSb",
-    )
-    if exit_loss is not None and abs(exit_loss - 1.0) > 1e-12:
-        unsupported.append(f"ExitC_or_WSb={exit_loss:g}")
-
-    if unsupported:
-        joined = ", ".join(unsupported)
-        msg = (
-            "Effective TUFLOW loss coefficients are not representable by the current "
-            f"{material.value} backend assumptions: expected Form_Loss=0, circular "
-            f"WConF=1, EntryC={expected_entry:g}, ExitC=1; got {joined}."
-        )
-        raise ValueError(msg)
-
-
 def _definition(
     row: dict[str, Any],
     source_row: int,
     material_override: CulvertMaterialName | None = None,
+    inlet_override: CircularInletConfiguration | None = None,
     attributes: TuflowCulvertAttributes | None = None,
 ) -> TuflowCircularCulvert:
-    source_type = _text(row, "Type").upper()
-    if source_type != "C":
-        msg = f"Unsupported TUFLOW Type {source_type or '<blank>'!r}; migrated workflow supports Type 'C'."
+    shape = parse_tuflow_shape(_text(row, "Type"))
+    if shape is not CulvertShapeName.CIRCULAR:
+        msg = "This migrated workflow currently supports circular TUFLOW Type 'C' rows only."
         raise ValueError(msg)
     nominal_diameter = _first_float(row, DIAMETER_FIELDS)
     length = _float(row, "Len_or_ANA")
@@ -371,8 +288,13 @@ def _definition(
     if roughness is None or roughness <= 0.0:
         msg = "n_nF_Cd must contain a positive Manning roughness for a Type C culvert."
         raise ValueError(msg)
-    material = _material(row, material_override, attributes)
-    _validate_supported_losses(row, material, attributes)
+    configuration = resolve_circular_configuration(
+        row,
+        attributes=attributes,
+        material_override=material_override,
+        inlet_override=inlet_override,
+    )
+    losses = resolve_tuflow_losses(row, attributes=attributes)
     barrels = _int_first(row, BARREL_FIELDS)
     name = _text(row, "ID")
     if not name:
@@ -380,14 +302,15 @@ def _definition(
         raise ValueError(msg)
     return TuflowCircularCulvert(
         name=name,
+        configuration=configuration,
         diameter_m=diameter,
         length_m=length,
         inlet_invert_m=inlet,
         outlet_invert_m=outlet,
         roughness_manning_n=roughness,
         barrels=barrels,
-        material=material,
         nominal_diameter_m=nominal_diameter,
+        losses=losses,
     )
 
 
@@ -505,12 +428,14 @@ def run(args: argparse.Namespace) -> int:
     for row in rows:
         source_row = int(row[SOURCE_ROW_KEY])
         source = str(args.input_gis)
-        fallback_name = _text(row, "ID") or f"<source row {source_row}>"
+        crossing = _text(row, "ID")
+        fallback_name = crossing or f"<source row {source_row}>"
         try:
             definition = _definition(
                 row,
                 source_row,
                 args.material,
+                args.inlet_configuration,
                 attribute_map.get(crossing),
             )
             q_hint = _seed_flow_hint(definition)
@@ -600,8 +525,13 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--material",
         type=parse_culvert_material,
-        metavar="{concrete,csp}",
+        metavar="{concrete,csp,hdpe}",
         help="Explicit material override for all selected circular culverts.",
+    )
+    parser.add_argument(
+        "--inlet-configuration",
+        type=parse_circular_inlet_configuration,
+        help="Explicit physical inlet configuration override for all selected circular culverts.",
     )
     parser.add_argument(
         "--culvert-attributes",

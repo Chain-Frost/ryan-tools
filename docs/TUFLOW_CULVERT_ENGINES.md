@@ -35,12 +35,17 @@ contain the actual culvert length, upstream/downstream inverts and a positive
 Manning roughness; the maintained wrapper does not invent fallback geometry or
 roughness when these merged source attributes are missing.
 
-Material is **not inferred from Manning roughness**. A mixed network can supply
-per-crossing material through `--culvert-attributes`, using a CSV or vector
-layer keyed by `ID`, `Chan ID` or `Crossing`. The same source can provide
-loss attributes. A global `--material` remains available only when every selected
-circular culvert genuinely uses the same material. Precedence is explicit global
-override, then per-crossing attribute source, then an inline `Material` column.
+Physical configuration is explicit and is **not inferred from Manning roughness
+or TUFLOW loss coefficients**. A mixed network can supply per-crossing
+`Material` and `Inlet Configuration` through `--culvert-attributes`, using a
+CSV or vector layer keyed by `ID`, `Chan ID` or `Crossing`. Global
+`--material` and `--inlet-configuration` overrides are available only when the
+whole selection genuinely shares those properties.
+
+Internally, TUFLOW `Type = C` maps to the circular physical configuration
+family. Material and inlet treatment are stored together in a typed
+`CircularCulvertConfiguration`; numeric TUFLOW loss coefficients are stored
+separately in `TuflowLossParameters`.
 
 ## TUFLOW 1d_nwk
 
@@ -78,14 +83,14 @@ recognised, as are the canonical `1d_nwk` names `EntryC_or_WSa`,
 precedence for fields it supplies. It does not replace geometry, inverts, diameter
 or barrel count.
 
-Missing loss attributes use the current backend assumptions. Supplied values are
-never ignored: if they cannot be represented consistently by the selected
-material/backend mapping, the row fails closed. For circular concrete the current
-representable contract is additional form loss 0, effective width contraction 1,
-entry loss 0.5 and exit loss 1. Circular CSP currently uses the migrated projecting
-CMP inlet assumption, including its corresponding outlet-control entrance-loss
-coefficient. Broader arbitrary TUFLOW loss coefficients require engine support
-rather than being silently discarded by this integration layer.
+Loss coefficients do not select the physical inlet enum. They are retained as
+numeric TUFLOW model parameters. The native engine can honour an explicit
+`EntryC` independently of the physical inlet-control coefficient set; unsupported
+exit/form/contraction overrides fail closed. HY-8 currently obtains its outlet-loss
+behaviour from the selected physical inlet configuration, so a supplied `EntryC`
+is accepted only when it matches that physical configuration's standard value.
+Broader arbitrary TUFLOW loss overrides require engine support rather than being
+silently converted into another inlet type.
 
 When HY-8 workspaces are retained, an existing run directory is not reused unless
 `--overwrite` is explicitly supplied. Workspace directory names include a stable
@@ -104,16 +109,18 @@ under the `privileged` profile with explicit approval required.
 ## Shared mapping contract
 
 Both engines receive the same engine-neutral circular-culvert definition:
-hydraulic diameter, nominal HW/D diameter, length, inlet/outlet invert, Manning
-roughness, barrel count and material.
+a typed physical configuration (shape/material/inlet), hydraulic diameter,
+nominal HW/D diameter, length, inlet/outlet invert, Manning roughness, barrel
+count, and separate TUFLOW loss parameters.
 TUFLOW parsing therefore happens before engine dispatch. Adverse slopes are retained
 in the shared definition and passed to HY-8; the `ryan-culverts` backend rejects
 these slopes explicitly because its current geometry contract does not support them.
 
 The migrated workflows are circular-only: TUFLOW `Type = C` is accepted and
-`Type = R` remains outside this adapter. Material is an independent explicit
-input, not a consequence of `Type` or Manning roughness. Supported explicit
-materials are reinforced concrete pipe, corrugated steel pipe and smooth HDPE.
+`Type = R` remains outside this adapter. Material and inlet treatment are independent explicit physical inputs, not a
+consequence of `Type`, Manning roughness, `EntryC`, or other loss coefficients.
+Supported explicit materials are reinforced concrete pipe, corrugated steel pipe
+and smooth HDPE.
 
 HY-8 supports all three explicit circular materials. The native `ryan-culverts`
 path currently fails closed for HDPE because the TUFLOW adapter does not yet supply

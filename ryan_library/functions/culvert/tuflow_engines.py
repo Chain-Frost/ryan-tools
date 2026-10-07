@@ -1,22 +1,30 @@
 """Selectable hydraulic backends for TUFLOW culvert integration."""
 
 import hashlib
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from math import isfinite, isnan
 from pathlib import Path
 
 from culvert_solver import (
+    CIRCULAR_CMP_HEADWALL,
+    CIRCULAR_CMP_MITERED,
     CIRCULAR_CMP_PROJECTING,
+    CIRCULAR_CONCRETE_GROOVE_END,
+    CIRCULAR_CONCRETE_SQUARE_EDGE,
     DEFAULT_SOLVER_CONFIGURATION,
+    PIPE_CMP_LOSS_HEADWALL,
     PIPE_CMP_LOSS_PROJECTING,
+    PIPE_LOSS_SOCKET_END,
+    PIPE_LOSS_SQUARE_EDGE,
+    EntranceLossCoefficient,
+    InletCoefficients,
     SolverConfiguration,
     solve_crossing_discharge_for_headwater,
     solve_crossing_hydraulics,
 )
-from culvert_solver import (
-    CulvertCrossing as SolverCrossing,
-)
+from culvert_solver import CulvertCrossing as SolverCrossing
+from culvert_solver.outlet_control.losses import PIPE_CMP_MITERED
 from run_hy8 import (
     CircularConcreteInlet,
     CircularCorrugatedSteelInlet,
@@ -40,6 +48,11 @@ from ...classes.culvert import (
     CulvertMaterialName,
 )
 from .adapter import build_solver_crossing
+from .tuflow_configuration import (
+    CircularCulvertConfiguration,
+    CircularInletConfiguration,
+    TuflowLossParameters,
+)
 
 
 class CulvertEngine(StrEnum):
@@ -54,20 +67,27 @@ class TuflowCircularCulvert:
     """Engine-neutral circular culvert definition in SI units."""
 
     name: str
+    configuration: CircularCulvertConfiguration
     diameter_m: float
     length_m: float
     inlet_invert_m: float
     outlet_invert_m: float
     roughness_manning_n: float
-    barrels: int = 1
-    material: CulvertMaterialName = CulvertMaterialName.CONCRETE_PIPE
+    barrels: int
     nominal_diameter_m: float | None = None
+    losses: TuflowLossParameters = field(default_factory=TuflowLossParameters)
 
     def __post_init__(self) -> None:
         name = self.name.strip()
         if not name:
             msg = "name must be nonempty."
             raise ValueError(msg)
+        if not isinstance(self.configuration, CircularCulvertConfiguration):
+            msg = "configuration must be CircularCulvertConfiguration."
+            raise TypeError(msg)
+        if not isinstance(self.losses, TuflowLossParameters):
+            msg = "losses must be TuflowLossParameters."
+            raise TypeError(msg)
         for field_name in ("diameter_m", "length_m", "roughness_manning_n"):
             value = float(getattr(self, field_name))
             if not isfinite(value) or value <= 0.0:
@@ -86,18 +106,18 @@ class TuflowCircularCulvert:
                 raise ValueError(msg)
             object.__setattr__(self, field_name, value)
         barrels: object = self.barrels
-        # Keep runtime validation for callers supplying values outside the annotation.
         if isinstance(barrels, bool) or not isinstance(barrels, int) or barrels <= 0:  # pyright: ignore[reportUnnecessaryIsInstance]
             msg = "barrels must be a strictly positive integer."
             raise ValueError(msg)
-        if self.material not in {
-            CulvertMaterialName.CONCRETE_PIPE,
-            CulvertMaterialName.CORRUGATED_STEEL,
-            CulvertMaterialName.SMOOTH_HDPE,
-        }:
-            msg = "TUFLOW engine integration currently supports circular concrete, corrugated-steel or smooth-HDPE pipes."
-            raise ValueError(msg)
         object.__setattr__(self, "name", name)
+
+    @property
+    def material(self) -> CulvertMaterialName:
+        return self.configuration.material
+
+    @property
+    def inlet_configuration(self) -> CircularInletConfiguration:
+        return self.configuration.inlet
 
     @property
     def hw_diameter_m(self) -> float:
@@ -130,22 +150,98 @@ def _engine(value: CulvertEngine | str) -> CulvertEngine:
     return value if isinstance(value, CulvertEngine) else CulvertEngine(value)
 
 
+def _native_physical_parameters(
+    configuration: CircularCulvertConfiguration,
+) -> tuple[InletCoefficients, EntranceLossCoefficient]:
+    key = (configuration.material, configuration.inlet)
+    supported: dict[
+        tuple[CulvertMaterialName, CircularInletConfiguration],
+        tuple[InletCoefficients, EntranceLossCoefficient],
+    ] = {
+        (
+            CulvertMaterialName.CONCRETE_PIPE,
+            CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+        ): (CIRCULAR_CONCRETE_SQUARE_EDGE, PIPE_LOSS_SQUARE_EDGE),
+        (
+            CulvertMaterialName.CONCRETE_PIPE,
+            CircularInletConfiguration.GROOVED_END_HEADWALL,
+        ): (CIRCULAR_CONCRETE_GROOVE_END, PIPE_LOSS_SOCKET_END),
+        (
+            CulvertMaterialName.CORRUGATED_STEEL,
+            CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+        ): (CIRCULAR_CMP_HEADWALL, PIPE_CMP_LOSS_HEADWALL),
+        (
+            CulvertMaterialName.CORRUGATED_STEEL,
+            CircularInletConfiguration.THIN_EDGE_PROJECTING,
+        ): (CIRCULAR_CMP_PROJECTING, PIPE_CMP_LOSS_PROJECTING),
+        (
+            CulvertMaterialName.CORRUGATED_STEEL,
+            CircularInletConfiguration.MITERED_TO_SLOPE,
+        ): (CIRCULAR_CMP_MITERED, PIPE_CMP_MITERED),
+    }
+    try:
+        return supported[key]
+    except KeyError as exc:
+        msg = (
+            "ryan-culverts does not yet provide a mapped inlet coefficient set for "
+            f"{configuration.material.value}/{configuration.inlet.value}. "
+            "Use HY-8 or extend the native adapter."
+        )
+        raise ValueError(msg) from exc
+
+
+def _effective_width_contraction(value: float) -> float:
+    return 1.0 if value <= 0.0 or value > 1.0 else value
+
+
+def _validate_common_loss_support(losses: TuflowLossParameters) -> None:
+    if losses.exit_loss_coefficient is not None and abs(losses.exit_loss_coefficient - 1.0) > 1e-12:
+        msg = "The current adapters only represent TUFLOW exit loss coefficient 1.0."
+        raise ValueError(msg)
+    if losses.form_loss_coefficient is not None and abs(losses.form_loss_coefficient) > 1e-12:
+        msg = "The current adapters do not yet represent non-zero TUFLOW Form_Loss."
+        raise ValueError(msg)
+    if losses.width_contraction_coefficient is not None:
+        effective = _effective_width_contraction(losses.width_contraction_coefficient)
+        if abs(effective - 1.0) > 1e-12:
+            msg = "The current adapters only represent effective circular width-contraction factor 1.0."
+            raise ValueError(msg)
+
+
 def _solver_configuration(definition: TuflowCircularCulvert) -> SolverConfiguration:
-    """Match native coefficient assumptions to the corresponding HY-8 inlet."""
+    """Map physical inlet configuration to native coefficients and preserve EntryC."""
+    _validate_common_loss_support(definition.losses)
+    inlet, standard_loss = _native_physical_parameters(definition.configuration)
+    entrance_loss = standard_loss
+    if definition.losses.entry_loss_coefficient is not None:
+        entrance_loss = EntranceLossCoefficient(
+            name="TUFLOW EntryC override",
+            ke=definition.losses.entry_loss_coefficient,
+        )
+    if definition.material is CulvertMaterialName.CONCRETE_PIPE:
+        return replace(
+            DEFAULT_SOLVER_CONFIGURATION,
+            default_circular_concrete_inlet=inlet,
+            default_circular_concrete_loss=entrance_loss,
+        )
     if definition.material is CulvertMaterialName.CORRUGATED_STEEL:
         return replace(
             DEFAULT_SOLVER_CONFIGURATION,
-            default_circular_cmp_inlet=CIRCULAR_CMP_PROJECTING,
-            default_circular_cmp_loss=PIPE_CMP_LOSS_PROJECTING,
+            default_circular_cmp_inlet=inlet,
+            default_circular_cmp_loss=entrance_loss,
         )
-    return DEFAULT_SOLVER_CONFIGURATION
+    msg = (
+        "ryan-culverts requires an explicit native HDPE inlet coefficient mapping; "
+        "use HY-8 or extend the native adapter."
+    )
+    raise ValueError(msg)
 
 
 def _solver_crossing(definition: TuflowCircularCulvert) -> SolverCrossing:
     if definition.material is CulvertMaterialName.SMOOTH_HDPE:
         msg = (
-            "ryan-culverts requires explicit HDPE inlet coefficients; the TUFLOW "
-            "adapter does not yet supply them. Use HY-8 or extend the native adapter."
+            "ryan-culverts requires an explicit native HDPE inlet coefficient mapping; "
+            "use HY-8 or extend the native adapter."
         )
         raise ValueError(msg)
     if definition.outlet_invert_m > definition.inlet_invert_m:
@@ -215,12 +311,91 @@ def _hy8_safe_name(name: str) -> str:
     return f"{safe[:80]}__{digest}"
 
 
+def _hy8_material_and_inlet(
+    configuration: CircularCulvertConfiguration,
+) -> tuple[
+    Hy8Material,
+    CircularConcreteInlet | CircularCorrugatedSteelInlet | CircularHdpeInlet,
+]:
+    material = configuration.material
+    inlet = configuration.inlet
+    if material is CulvertMaterialName.CONCRETE_PIPE:
+        mapping = {
+            CircularInletConfiguration.SQUARE_EDGE_HEADWALL: CircularConcreteInlet.SQUARE_EDGE_WITH_HEADWALL,
+            CircularInletConfiguration.GROOVED_END_PROJECTING: CircularConcreteInlet.GROOVED_END_PROJECTING,
+            CircularInletConfiguration.GROOVED_END_HEADWALL: CircularConcreteInlet.GROOVED_END_IN_HEADWALL,
+            CircularInletConfiguration.MITERED_TO_SLOPE: CircularConcreteInlet.MITERED_TO_CONFORM_TO_SLOPE,
+            CircularInletConfiguration.BEVELED_EDGE_1_TO_1: CircularConcreteInlet.BEVELED_EDGE_1_TO_1,
+            CircularInletConfiguration.BEVELED_EDGE_1_5_TO_1: CircularConcreteInlet.BEVELED_EDGE_1_5_TO_1,
+        }
+        return Hy8Material.CONCRETE, mapping[inlet]
+    if material is CulvertMaterialName.CORRUGATED_STEEL:
+        mapping = {
+            CircularInletConfiguration.THIN_EDGE_PROJECTING: CircularCorrugatedSteelInlet.THIN_EDGE_PROJECTING,
+            CircularInletConfiguration.MITERED_TO_SLOPE: CircularCorrugatedSteelInlet.MITERED_TO_CONFORM_TO_SLOPE,
+            CircularInletConfiguration.SQUARE_EDGE_HEADWALL: CircularCorrugatedSteelInlet.SQUARE_EDGE_WITH_HEADWALL,
+            CircularInletConfiguration.BEVELED_EDGE_1_TO_1: CircularCorrugatedSteelInlet.BEVELED_EDGE_1_TO_1,
+            CircularInletConfiguration.BEVELED_EDGE_1_5_TO_1: CircularCorrugatedSteelInlet.BEVELED_EDGE_1_5_TO_1,
+        }
+        return Hy8Material.CORRUGATED_STEEL, mapping[inlet]
+    if material is CulvertMaterialName.SMOOTH_HDPE:
+        mapping = {
+            CircularInletConfiguration.SQUARE_EDGE_HEADWALL: CircularHdpeInlet.SQUARE_EDGE_WITH_HEADWALL,
+            CircularInletConfiguration.THIN_EDGE_PROJECTING: CircularHdpeInlet.THIN_EDGE_PROJECTING,
+            CircularInletConfiguration.MITERED_TO_SLOPE: CircularHdpeInlet.MITERED_TO_CONFORM_TO_SLOPE,
+            CircularInletConfiguration.BEVELED_EDGE_1_TO_1: CircularHdpeInlet.BEVELED_EDGE_1_TO_1,
+            CircularInletConfiguration.BEVELED_EDGE_1_5_TO_1: CircularHdpeInlet.BEVELED_EDGE_1_5_TO_1,
+        }
+        return Hy8Material.HDPE, mapping[inlet]
+    msg = f"Unsupported HY-8 material: {material.value}"
+    raise ValueError(msg)
+
+
+_STANDARD_ENTRY_LOSS: dict[
+    tuple[CulvertMaterialName, CircularInletConfiguration],
+    float,
+] = {
+    (CulvertMaterialName.CONCRETE_PIPE, CircularInletConfiguration.SQUARE_EDGE_HEADWALL): 0.5,
+    (CulvertMaterialName.CONCRETE_PIPE, CircularInletConfiguration.GROOVED_END_PROJECTING): 0.2,
+    (CulvertMaterialName.CONCRETE_PIPE, CircularInletConfiguration.GROOVED_END_HEADWALL): 0.2,
+    (CulvertMaterialName.CONCRETE_PIPE, CircularInletConfiguration.MITERED_TO_SLOPE): 0.7,
+    (CulvertMaterialName.CONCRETE_PIPE, CircularInletConfiguration.BEVELED_EDGE_1_TO_1): 0.2,
+    (CulvertMaterialName.CONCRETE_PIPE, CircularInletConfiguration.BEVELED_EDGE_1_5_TO_1): 0.2,
+    (CulvertMaterialName.CORRUGATED_STEEL, CircularInletConfiguration.THIN_EDGE_PROJECTING): 0.9,
+    (CulvertMaterialName.CORRUGATED_STEEL, CircularInletConfiguration.SQUARE_EDGE_HEADWALL): 0.5,
+    (CulvertMaterialName.CORRUGATED_STEEL, CircularInletConfiguration.MITERED_TO_SLOPE): 0.7,
+    (CulvertMaterialName.CORRUGATED_STEEL, CircularInletConfiguration.BEVELED_EDGE_1_TO_1): 0.2,
+    (CulvertMaterialName.CORRUGATED_STEEL, CircularInletConfiguration.BEVELED_EDGE_1_5_TO_1): 0.2,
+    (CulvertMaterialName.SMOOTH_HDPE, CircularInletConfiguration.SQUARE_EDGE_HEADWALL): 0.5,
+    (CulvertMaterialName.SMOOTH_HDPE, CircularInletConfiguration.THIN_EDGE_PROJECTING): 0.9,
+    (CulvertMaterialName.SMOOTH_HDPE, CircularInletConfiguration.MITERED_TO_SLOPE): 0.7,
+    (CulvertMaterialName.SMOOTH_HDPE, CircularInletConfiguration.BEVELED_EDGE_1_TO_1): 0.2,
+    (CulvertMaterialName.SMOOTH_HDPE, CircularInletConfiguration.BEVELED_EDGE_1_5_TO_1): 0.2,
+}
+
+
+def _validate_hy8_losses(definition: TuflowCircularCulvert) -> None:
+    _validate_common_loss_support(definition.losses)
+    entry_loss = definition.losses.entry_loss_coefficient
+    if entry_loss is None:
+        return
+    expected = _STANDARD_ENTRY_LOSS[(definition.material, definition.inlet_configuration)]
+    if abs(entry_loss - expected) > 1e-12:
+        msg = (
+            "run-hy8 does not yet expose an arbitrary TUFLOW EntryC override. "
+            f"The selected physical inlet implies standard Ke={expected:g}, but the "
+            f"TUFLOW value is {entry_loss:g}."
+        )
+        raise ValueError(msg)
+
+
 def _hy8_crossing(
     definition: TuflowCircularCulvert,
     *,
     tailwater_elevation_m: float,
     seed_discharge_m3s: float,
 ) -> tuple[Hy8Project, Hy8Crossing]:
+    _validate_hy8_losses(definition)
     hy8_name = _hy8_safe_name(definition.name)
     project = Hy8Project(title=hy8_name, units=UnitSystem.SI, exit_loss_option=0)
     crossing = Hy8Crossing(name=hy8_name)
@@ -238,19 +413,7 @@ def _hy8_crossing(
     crest = definition.inlet_invert_m + 50.0
     crossing.roadway.elevations = [crest, crest]
 
-    if definition.material is CulvertMaterialName.CONCRETE_PIPE:
-        material = Hy8Material.CONCRETE
-        inlet_configuration = CircularConcreteInlet.SQUARE_EDGE_WITH_HEADWALL
-    elif definition.material is CulvertMaterialName.CORRUGATED_STEEL:
-        material = Hy8Material.CORRUGATED_STEEL
-        inlet_configuration = CircularCorrugatedSteelInlet.THIN_EDGE_PROJECTING
-    elif definition.material is CulvertMaterialName.SMOOTH_HDPE:
-        material = Hy8Material.HDPE
-        inlet_configuration = CircularHdpeInlet.SQUARE_EDGE_WITH_HEADWALL
-    else:
-        msg = f"Unsupported HY-8 material: {definition.material.value}"
-        raise ValueError(msg)
-
+    material, inlet_configuration = _hy8_material_and_inlet(definition.configuration)
     barrel = Hy8Barrel(
         name=f"{hy8_name} Barrel",
         span=definition.diameter_m,
