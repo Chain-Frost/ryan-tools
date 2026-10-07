@@ -49,6 +49,52 @@ def test_maximums_mapping_uses_canonical_barrel_count_and_preserves_zero_invert(
     assert definition.outlet_invert_m == pytest.approx(-0.2)
 
 
+def test_maximums_applies_numeric_blockage_to_circular_diameter() -> None:
+    namespace = _maximums_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any]], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    definition = build_definition(
+        {
+            "Chan ID": "C01",
+            "Flags": "C",
+            "Height": 1.2,
+            "Length": 30.0,
+            "US Invert": 10.0,
+            "DS Invert": 9.8,
+            "n or Cd": 0.024,
+            "Num_barrels": 1,
+            "pBlockage": 50.0,
+        }
+    )
+
+    assert definition.diameter_m == pytest.approx(1.2 * (0.5**0.5))
+
+
+def test_maximums_rejects_unresolved_category_blockage() -> None:
+    namespace = _maximums_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any]], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    with pytest.raises(ValueError, match="numeric percentage"):
+        build_definition(
+            {
+                "Chan ID": "C01",
+                "Flags": "C",
+                "Height": 1.2,
+                "Length": 30.0,
+                "US Invert": 10.0,
+                "DS Invert": 9.8,
+                "Num_barrels": 1,
+                "pBlockage": "B",
+            }
+        )
+
+
 def test_maximums_mapping_rejects_rectangular_flag() -> None:
     namespace = _maximums_namespace()
     build_definition = cast(
@@ -305,3 +351,31 @@ def test_1d_nwk_hy8_workspace_requires_explicit_overwrite(tmp_path: Path) -> Non
     replaced = workspace(tmp_path, "C01", "HW:D = 1.5", overwrite=True)
     assert replaced == first
     assert not marker.exists()
+
+
+def test_maximums_workspace_sanitization_is_collision_safe(tmp_path: Path) -> None:
+    namespace = _maximums_namespace()
+    workspace = namespace["_workspace"]
+
+    first = workspace(tmp_path, "A B", "1%", "Q @ DS_h TW", overwrite=False)
+    second = workspace(tmp_path, "A_B", "1%", "Q @ DS_h TW", overwrite=False)
+
+    assert first is not None
+    assert second is not None
+    assert first != second
+    assert first.exists()
+    assert second.exists()
+
+
+def test_1d_nwk_workspace_sanitization_is_collision_safe(tmp_path: Path) -> None:
+    namespace = _nwk_namespace()
+    workspace = namespace["_workspace"]
+
+    first = workspace(tmp_path, "A B", "HW:D = 1.5", overwrite=False)
+    second = workspace(tmp_path, "A_B", "HW:D = 1.5", overwrite=False)
+
+    assert first is not None
+    assert second is not None
+    assert first != second
+    assert first.exists()
+    assert second.exists()
