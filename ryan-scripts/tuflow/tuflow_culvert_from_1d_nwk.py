@@ -131,6 +131,25 @@ def _is_ignored(row: dict[str, Any]) -> bool:
     return str(row.get("Ignore") or "").strip().upper() in IGNORED_VALUES
 
 
+def _require_metric_projected_crs(crs: Any) -> None:
+    if crs is None or not bool(getattr(crs, "is_projected", False)):
+        msg = "Geometry-derived Len_or_ANA requires a projected CRS with metre units."
+        raise ValueError(msg)
+    axes = tuple(getattr(crs, "axis_info", ()) or ())
+    if not axes:
+        msg = "Unable to confirm metre units for geometry-derived Len_or_ANA."
+        raise ValueError(msg)
+    for axis in axes[:2]:
+        try:
+            factor = float(axis.unit_conversion_factor)
+        except (AttributeError, TypeError, ValueError) as exc:
+            msg = "Unable to confirm metre units for geometry-derived Len_or_ANA."
+            raise ValueError(msg) from exc
+        if not isfinite(factor) or abs(factor - 1.0) > 1e-12:
+            msg = "Geometry-derived Len_or_ANA requires CRS axis units in metres."
+            raise ValueError(msg)
+
+
 def _geometry_length(row: dict[str, Any]) -> float:
     geometry = row.get("geometry")
     try:
@@ -290,7 +309,8 @@ def _workspace(
     if root is None:
         return None
     run_key = f"{crossing}_{scenario}"
-    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in run_key)
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in run_key).strip(" ._")
+    safe = (safe or "run")[:120].rstrip(" ._")
     digest = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
     path = root / f"{safe}__{digest}"
     if path.exists():
@@ -313,6 +333,11 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError(msg)
     frame = frame.where(frame.notna(), None)
     rows = cast("list[dict[str, Any]]", frame.to_dict(orient="records"))
+    uses_geometry_length = any(
+        (value := _float(row, "Len_or_ANA")) is not None and value < 0.0 for row in rows
+    )
+    if uses_geometry_length:
+        _require_metric_projected_crs(getattr(frame, "crs", None))
     blockage_is_numeric = "pBlockage" not in frame.columns or is_numeric_dtype(frame["pBlockage"].dtype)
     for source_row, row in enumerate(rows, start=1):
         row[SOURCE_ROW_KEY] = source_row
@@ -360,6 +385,8 @@ def run(args: argparse.Namespace) -> int:
                         workspace=work,
                         keep_workspace=args.keep_workspace,
                     )
+                    if result.status.strip().lower() == "unresolved":
+                        had_failures = True
                     output_rows.append(
                         _record(
                             result,
