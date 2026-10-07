@@ -60,10 +60,11 @@ without adding a capability.
 The same policy applies to catalogued GDAL workflows: their existing wrappers remain authoritative. A wrapper does not
 need a duplicate package CLI, and basic or narrowly scoped wrappers do not need an MCP catalogue record.
 
-The maintained `tuflow_culvert_from_maximums.py` and `tuflow_culvert_from_1d_nwk.py` wrappers are catalogued as
-`tuflow_culvert_evaluate_maximums` and `tuflow_culvert_evaluate_1d_nwk`. Their catalogue scenarios expose the
-native `ryan-culverts` path separately from the external HY-8 path while leaving the wrapper as the single source of
-CLI parsing, overwrite safeguards and output contracts.
+The maintained `tuflow_culvert_from_maximums.py` and `tuflow_culvert_from_1d_nwk.py` wrappers remain the single
+source of CLI parsing, overwrite safeguards and output contracts. Their native `ryan-culverts` catalogue entries are
+`tuflow_culvert_evaluate_maximums` and `tuflow_culvert_evaluate_1d_nwk` under the `create` profile. External
+HY-8 execution is deliberately split into `tuflow_culvert_evaluate_maximums_hy8` and
+`tuflow_culvert_evaluate_1d_nwk_hy8`, which require the `privileged` profile and explicit approval.
 
 ### Repository fallback and relocated scripts
 
