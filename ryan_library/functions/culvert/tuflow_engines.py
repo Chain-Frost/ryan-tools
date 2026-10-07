@@ -24,7 +24,7 @@ from culvert_solver import (
     solve_crossing_hydraulics,
 )
 from culvert_solver import CulvertCrossing as SolverCrossing
-from culvert_solver.outlet_control.losses import PIPE_CMP_MITERED
+from culvert_solver.outlet_control import PIPE_CMP_MITERED
 from run_hy8 import (
     CircularConcreteInlet,
     CircularCorrugatedSteelInlet,
