@@ -51,6 +51,7 @@ class TuflowCircularCulvert:
     roughness_manning_n: float
     barrels: int = 1
     material: CulvertMaterialName = CulvertMaterialName.CONCRETE_PIPE
+    nominal_diameter_m: float | None = None
 
     def __post_init__(self) -> None:
         name = self.name.strip()
@@ -63,6 +64,11 @@ class TuflowCircularCulvert:
                 msg = f"{field_name} must be finite and strictly positive."
                 raise ValueError(msg)
             object.__setattr__(self, field_name, value)
+        nominal_diameter = self.diameter_m if self.nominal_diameter_m is None else float(self.nominal_diameter_m)
+        if not isfinite(nominal_diameter) or nominal_diameter <= 0.0:
+            msg = "nominal_diameter_m must be finite and strictly positive."
+            raise ValueError(msg)
+        object.__setattr__(self, "nominal_diameter_m", nominal_diameter)
         for field_name in ("inlet_invert_m", "outlet_invert_m"):
             value = float(getattr(self, field_name))
             if not isfinite(value):
@@ -156,7 +162,7 @@ def _solver_result(
         requested_headwater_m=requested_headwater_m,
         computed_discharge_m3s=result.total_discharge,
         headwater_elevation_m=result.headwater_elevation,
-        headwater_ratio=(result.headwater_elevation - definition.inlet_invert_m) / definition.diameter_m,
+        headwater_ratio=(result.headwater_elevation - definition.inlet_invert_m) / definition.nominal_diameter_m,
         outlet_velocity_mps=velocity,
         flow_type=";".join(regimes),
         roadway_discharge_m3s=result.roadway_discharge,
@@ -251,7 +257,7 @@ def _hy8_result(
         requested_headwater_m=result.requested_headwater,
         computed_discharge_m3s=result.computed_flow,
         headwater_elevation_m=result.computed_headwater,
-        headwater_ratio=(result.computed_headwater - definition.inlet_invert_m) / definition.diameter_m,
+        headwater_ratio=(result.computed_headwater - definition.inlet_invert_m) / definition.nominal_diameter_m,
         outlet_velocity_mps=row.velocity,
         flow_type=row.flow_type,
         roadway_discharge_m3s=roadway,
