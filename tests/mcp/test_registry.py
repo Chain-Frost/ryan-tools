@@ -152,6 +152,7 @@ def test_tuflow_culvert_hy8_workflows_require_privileged_profile_and_approval() 
         assert "hy8" in scenarios["hy8"]
         assert "--hy8-exe" in scenarios["hy8"]
 
+
 def test_repository_script_fallback_resolves_current_relocated_path() -> None:
     registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
 
