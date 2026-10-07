@@ -49,6 +49,27 @@ def test_maximums_mapping_uses_canonical_barrel_count_and_preserves_zero_invert(
     assert definition.outlet_invert_m == pytest.approx(-0.2)
 
 
+def test_maximums_rejects_malformed_canonical_barrel_count() -> None:
+    namespace = _maximums_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any]], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    with pytest.raises(ValueError, match="Num_barrels must contain a numeric integer barrel count"):
+        build_definition(
+            {
+                "Chan ID": "C01",
+                "Flags": "C",
+                "Height": 1.2,
+                "Length": 30.0,
+                "US Invert": 10.0,
+                "DS Invert": 9.8,
+                "Num_barrels": "damaged",
+            }
+        )
+
+
 def test_maximums_applies_numeric_blockage_to_circular_diameter() -> None:
     namespace = _maximums_namespace()
     build_definition = cast(
@@ -314,6 +335,28 @@ def test_1d_nwk_rejects_category_blockage_without_resolved_percentage() -> None:
                 "DS_Invert": 9.8,
                 "pBlockage": "B",
                 "Number_of": 1,
+            },
+            1,
+        )
+
+
+def test_1d_nwk_rejects_malformed_canonical_barrel_count() -> None:
+    namespace = _nwk_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any], int], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    with pytest.raises(ValueError, match="Number_of must contain a numeric integer barrel count"):
+        build_definition(
+            {
+                "ID": "C01",
+                "Type": "C",
+                "Width_or_D": 1.2,
+                "Len_or_ANA": 30.0,
+                "US_Invert": 10.0,
+                "DS_Invert": 9.8,
+                "Number_of": "damaged",
             },
             1,
         )
