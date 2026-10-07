@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import hashlib
 import shutil
 from math import isfinite, sqrt
 from pathlib import Path
@@ -223,8 +224,10 @@ def _workspace(
 ) -> Path | None:
     if root is None:
         return None
-    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in f"{crossing}_{scenario}")
-    path = root / safe
+    run_key = f"{crossing}_{scenario}"
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in run_key)
+    digest = hashlib.sha256(run_key.encode("utf-8")).hexdigest()[:12]
+    path = root / f"{safe}__{digest}"
     if path.exists():
         if not overwrite:
             msg = f"HY-8 workspace already exists: {path}. Pass --overwrite to replace it."
