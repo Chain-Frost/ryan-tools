@@ -39,14 +39,23 @@ to supply another set.
 
 Both migrated wrappers refuse to replace an existing result CSV unless
 `--overwrite` is supplied. The `1d_nwk` wrapper also honours the TUFLOW
-`Ignore` field and resolves negative `Len_or_ANA` values from the digitized
-feature length. When Maximums HY-8 workspaces are retained, their paths include
-the crossing, AEP and scenario; an existing run directory is not reused unless
-`--overwrite` is explicitly supplied.
+`Ignore` field, resolves negative `Len_or_ANA` values from the digitized
+feature length, treats `Number_of = 0` as one barrel, and applies numeric
+`pBlockage` to circular pipes by scaling diameter by the square root of the
+unblocked area fraction. Category-based blockage is rejected until its event-specific
+percentage has been resolved. The TUFLOW `-99999` invert sentinel is also rejected:
+effective inverts must be resolved from processed TUFLOW data before hydraulic
+evaluation.
 
-The wrappers are discoverable through the MCP workflow catalogue as
-`tuflow_culvert_evaluate_maximums` and `tuflow_culvert_evaluate_1d_nwk`,
-with separate `ryan-culverts` and `hy8` scenarios.
+When HY-8 workspaces are retained, an existing run directory is not reused unless
+`--overwrite` is explicitly supplied. Maximums workspace paths include crossing,
+AEP and scenario; `1d_nwk` workspace paths include crossing and scenario.
+
+The native wrappers are discoverable through the MCP workflow catalogue as
+`tuflow_culvert_evaluate_maximums` and `tuflow_culvert_evaluate_1d_nwk` under
+the `create` profile. External HY-8 execution is exposed separately as
+`tuflow_culvert_evaluate_maximums_hy8` and `tuflow_culvert_evaluate_1d_nwk_hy8`
+under the `privileged` profile with explicit approval required.
 
 ## Shared mapping contract
 
