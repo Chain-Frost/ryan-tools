@@ -1,4 +1,12 @@
-"""Evaluate TUFLOW 1d_nwk circular culverts with HY-8 or ryan-culverts."""
+"""Evaluate circular culverts from a TUFLOW 1d_nwk GIS layer.
+
+Input is a canonical SI 1d_nwk/1d_nwkb-compatible GIS layer. Output is a
+long-form CSV of inverse HW/D capacity checks using either HY-8 or the native
+ryan-culverts backend.
+
+Example:
+    python tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_nwk --engine ryan-culverts
+"""
 
 from pathlib import Path
 
