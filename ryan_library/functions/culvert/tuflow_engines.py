@@ -20,6 +20,7 @@ from culvert_solver import (
 from run_hy8 import (
     CircularConcreteInlet,
     CircularCorrugatedSteelInlet,
+    CircularHdpeInlet,
     FlowDefinition,
     FlowMethod,
     Hy8Project,
@@ -92,8 +93,9 @@ class TuflowCircularCulvert:
         if self.material not in {
             CulvertMaterialName.CONCRETE_PIPE,
             CulvertMaterialName.CORRUGATED_STEEL,
+            CulvertMaterialName.SMOOTH_HDPE,
         }:
-            msg = "TUFLOW engine integration currently supports circular concrete or corrugated-steel pipes."
+            msg = "TUFLOW engine integration currently supports circular concrete, corrugated-steel or smooth-HDPE pipes."
             raise ValueError(msg)
         object.__setattr__(self, "name", name)
 
@@ -140,6 +142,12 @@ def _solver_configuration(definition: TuflowCircularCulvert) -> SolverConfigurat
 
 
 def _solver_crossing(definition: TuflowCircularCulvert) -> SolverCrossing:
+    if definition.material is CulvertMaterialName.SMOOTH_HDPE:
+        msg = (
+            "ryan-culverts requires explicit HDPE inlet coefficients; the TUFLOW "
+            "adapter does not yet supply them. Use HY-8 or extend the native adapter."
+        )
+        raise ValueError(msg)
     if definition.outlet_invert_m > definition.inlet_invert_m:
         msg = "ryan-culverts does not support adverse slopes: outlet_invert_m must not exceed inlet_invert_m."
         raise ValueError(msg)
@@ -236,6 +244,9 @@ def _hy8_crossing(
     elif definition.material is CulvertMaterialName.CORRUGATED_STEEL:
         material = Hy8Material.CORRUGATED_STEEL
         inlet_configuration = CircularCorrugatedSteelInlet.THIN_EDGE_PROJECTING
+    elif definition.material is CulvertMaterialName.SMOOTH_HDPE:
+        material = Hy8Material.HDPE
+        inlet_configuration = CircularHdpeInlet.SQUARE_EDGE_WITH_HEADWALL
     else:
         msg = f"Unsupported HY-8 material: {definition.material.value}"
         raise ValueError(msg)
