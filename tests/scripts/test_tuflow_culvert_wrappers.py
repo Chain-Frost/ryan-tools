@@ -322,7 +322,7 @@ def test_maximums_selection_preserves_base_run_scenarios(
 
 
 @pytest.mark.parametrize(
-    "ratios, message",
+    ("ratios", "message"),
     [
         ([0.0], "finite and strictly positive"),
         ([-1.0], "finite and strictly positive"),
@@ -524,7 +524,7 @@ def test_1d_nwk_nan_barrel_count_uses_missing_value_default() -> None:
 
 
 @pytest.mark.parametrize(
-    "field_name, value",
+    ("field_name", "value"),
     [
         ("Form_Loss", 0.2),
         ("EntryC_or_WSa", 0.5),
