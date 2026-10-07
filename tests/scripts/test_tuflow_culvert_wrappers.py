@@ -9,7 +9,11 @@ from typing import Any, cast
 import pandas as pd
 import pytest
 
-from ryan_library.functions.culvert.tuflow_engines import TuflowCircularCulvert
+from ryan_library.functions.culvert.tuflow_engines import (
+    CulvertEngine,
+    CulvertEngineResult,
+    TuflowCircularCulvert,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MAXIMUMS_SCRIPT = PROJECT_ROOT / "ryan-scripts" / "tuflow" / "tuflow_culvert_from_maximums.py"
@@ -68,6 +72,36 @@ def test_maximums_rejects_malformed_canonical_barrel_count() -> None:
                 "Num_barrels": "damaged",
             }
         )
+
+
+def test_maximums_rejects_malformed_present_numeric_geometry() -> None:
+    namespace = _maximums_namespace()
+    build_definition = cast(
+        "Callable[[dict[str, Any]], TuflowCircularCulvert]",
+        namespace["_definition"],
+    )
+
+    with pytest.raises(ValueError, match="Length must contain a numeric value"):
+        build_definition(
+            {
+                "Chan ID": "C01",
+                "Flags": "C",
+                "Height": 1.2,
+                "Length": "damaged",
+                "US Invert": 10.0,
+                "DS Invert": 9.8,
+                "Num_barrels": 1,
+            }
+        )
+
+
+@pytest.mark.parametrize("ratio", [0.0, -1.0, float("inf"), float("nan")])
+def test_maximums_rejects_invalid_headwater_ratio(ratio: float) -> None:
+    namespace = _maximums_namespace()
+    validate = cast("Callable[[float], float]", namespace["_headwater_ratio"])
+
+    with pytest.raises(ValueError, match="finite and strictly positive"):
+        validate(ratio)
 
 
 def test_maximums_applies_numeric_blockage_to_circular_diameter() -> None:
@@ -243,6 +277,41 @@ def test_maximums_selection_preserves_base_run_scenarios(
         ("DEV", pytest.approx(12.0)),
         ("EXG", pytest.approx(10.0)),
     ]
+
+
+@pytest.mark.parametrize(
+    "ratios, message",
+    [
+        ([0.0], "finite and strictly positive"),
+        ([-1.0], "finite and strictly positive"),
+        ([float("inf")], "finite and strictly positive"),
+        ([float("nan")], "finite and strictly positive"),
+        ([1.5, 1.5], "must be unique"),
+        ([], "at least one"),
+    ],
+)
+def test_1d_nwk_rejects_invalid_headwater_ratios(ratios: list[float], message: str) -> None:
+    namespace = _nwk_namespace()
+    validate = cast("Callable[[list[float]], tuple[float, ...]]", namespace["_headwater_ratios"])
+
+    with pytest.raises(ValueError, match=message):
+        validate(ratios)
+
+
+def test_1d_nwk_seed_flow_uses_circular_area() -> None:
+    namespace = _nwk_namespace()
+    seed_flow = cast("Callable[[TuflowCircularCulvert], float]", namespace["_seed_flow_hint"])
+    definition = TuflowCircularCulvert(
+        name="C01",
+        diameter_m=2.0,
+        length_m=30.0,
+        inlet_invert_m=10.0,
+        outlet_invert_m=9.5,
+        roughness_manning_n=0.013,
+        barrels=2,
+    )
+
+    assert seed_flow(definition) == pytest.approx(2.0 * 3.141592653589793)
 
 
 def test_1d_nwk_skips_ignored_features() -> None:
@@ -486,6 +555,80 @@ def test_1d_nwk_workspace_sanitization_is_collision_safe(tmp_path: Path) -> None
     assert first != second
     assert first.exists()
     assert second.exists()
+
+
+def test_1d_nwk_run_preserves_original_source_row_after_ignore_filter(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    namespace = _nwk_namespace()
+    frame = pd.DataFrame(
+        [
+            {
+                "ID": "IGNORED",
+                "Type": "C",
+                "Ignore": "T",
+                "Width_or_D": 1.2,
+                "Len_or_ANA": 30.0,
+                "US_Invert": 10.0,
+                "DS_Invert": 9.5,
+                "n_nF_Cd": 0.013,
+                "Number_of": 1,
+            },
+            {
+                "ID": "ACTIVE",
+                "Type": "C",
+                "Ignore": "",
+                "Width_or_D": 1.2,
+                "Len_or_ANA": 30.0,
+                "US_Invert": 10.0,
+                "DS_Invert": 9.5,
+                "n_nF_Cd": 0.013,
+                "Number_of": 1,
+            },
+        ]
+    )
+    monkeypatch.setattr(namespace["gpd"], "read_file", lambda *_args, **_kwargs: frame.copy())
+
+    def fake_inverse(
+        definition: TuflowCircularCulvert,
+        *,
+        scenario: str,
+        headwater_elevation_m: float,
+        **_kwargs: object,
+    ) -> CulvertEngineResult:
+        return CulvertEngineResult(
+            engine=CulvertEngine.RYAN_CULVERTS,
+            crossing=definition.name,
+            scenario=scenario,
+            requested_discharge_m3s=None,
+            requested_headwater_m=headwater_elevation_m,
+            computed_discharge_m3s=1.0,
+            headwater_elevation_m=headwater_elevation_m,
+            headwater_ratio=(headwater_elevation_m - definition.inlet_invert_m) / definition.hw_diameter_m,
+            outlet_velocity_mps=1.0,
+            flow_type="test",
+            roadway_discharge_m3s=0.0,
+            overtopping=False,
+            status="valid",
+        )
+
+    namespace["solve_tuflow_culvert_inverse"] = fake_inverse
+    output = tmp_path / "results.csv"
+    args = namespace["_parser"]().parse_args(
+        [
+            str(tmp_path / "network.gpkg"),
+            "--engine",
+            "ryan-culverts",
+            "--output-csv",
+            str(output),
+        ]
+    )
+
+    assert namespace["run"](args) == 0
+    result = pd.read_csv(output)
+    assert set(result["Crossing"]) == {"ACTIVE"}
+    assert set(result["Source Row"]) == {2}
 
 
 @pytest.mark.parametrize("explicit_workspace", [False, True])
