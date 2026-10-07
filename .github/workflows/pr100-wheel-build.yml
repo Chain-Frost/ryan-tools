@@ -6,10 +6,11 @@ on:
       - feature/issue-99-tuflow-culvert-engines
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-wheel:
+    if: ${{ !contains(github.event.head_commit.message, '[wheel-sync]') }}
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -47,3 +48,19 @@ jobs:
           name: pr100-wheel
           path: dist/ryan_functions-*.whl
           if-no-files-found: error
+
+      - name: Commit verified wheel to branch
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- dist/ryan_functions-*.whl
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Retained wheel is already current."
+            exit 0
+          }
+          git commit -m "[wheel-sync] refresh retained package wheel"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git push origin "HEAD:$env:GITHUB_REF_NAME"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
