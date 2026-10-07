@@ -8,7 +8,7 @@ import argparse
 import csv
 import hashlib
 import shutil
-from math import isfinite, isnan, sqrt
+from math import isfinite, sqrt
 from typing import Any, cast
 
 import pandas as pd
@@ -28,15 +28,13 @@ DEFAULT_N = 0.024
 
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     raw = row.get(key)
-    if raw is None or (isinstance(raw, str) and not raw.strip()):
+    if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(pd.isna(raw)):
         return default
     try:
         value = float(raw)
     except (TypeError, ValueError) as exc:
         msg = f"{key} must contain a numeric value."
         raise ValueError(msg) from exc
-    if isnan(value):
-        return default
     if not isfinite(value):
         msg = f"{key} must contain a finite numeric value."
         raise ValueError(msg)
@@ -45,7 +43,7 @@ def _float(row: dict[str, Any], key: str, default: float | None = None) -> float
 
 def _blockage_percent(row: dict[str, Any]) -> float:
     raw = row.get("pBlockage")
-    if raw is None or (isinstance(raw, str) and not raw.strip()):
+    if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(pd.isna(raw)):
         return 0.0
     try:
         value = float(raw)
@@ -82,15 +80,13 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> 
         if key not in row:
             continue
         raw = row.get(key)
-        if raw is None or (isinstance(raw, str) and not raw.strip()):
+        if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(pd.isna(raw)):
             continue
         try:
             value = float(raw)
         except (TypeError, ValueError) as exc:
             msg = f"{key} must contain a numeric integer barrel count."
             raise ValueError(msg) from exc
-        if isnan(value):
-            continue
         if not isfinite(value):
             msg = f"{key} must contain a finite integer barrel count."
             raise ValueError(msg)
