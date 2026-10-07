@@ -88,6 +88,11 @@ class TuflowCircularCulvert:
             raise ValueError(msg)
         object.__setattr__(self, "name", name)
 
+    @property
+    def hw_diameter_m(self) -> float:
+        """Nominal diameter used for TUFLOW HW/D targets and reporting."""
+        return self.diameter_m if self.nominal_diameter_m is None else self.nominal_diameter_m
+
 
 @dataclass(frozen=True, slots=True)
 class CulvertEngineResult:
@@ -162,7 +167,7 @@ def _solver_result(
         requested_headwater_m=requested_headwater_m,
         computed_discharge_m3s=result.total_discharge,
         headwater_elevation_m=result.headwater_elevation,
-        headwater_ratio=(result.headwater_elevation - definition.inlet_invert_m) / definition.nominal_diameter_m,
+        headwater_ratio=(result.headwater_elevation - definition.inlet_invert_m) / definition.hw_diameter_m,
         outlet_velocity_mps=velocity,
         flow_type=";".join(regimes),
         roadway_discharge_m3s=result.roadway_discharge,
@@ -257,7 +262,7 @@ def _hy8_result(
         requested_headwater_m=result.requested_headwater,
         computed_discharge_m3s=result.computed_flow,
         headwater_elevation_m=result.computed_headwater,
-        headwater_ratio=(result.computed_headwater - definition.inlet_invert_m) / definition.nominal_diameter_m,
+        headwater_ratio=(result.computed_headwater - definition.inlet_invert_m) / definition.hw_diameter_m,
         outlet_velocity_mps=row.velocity,
         flow_type=row.flow_type,
         roadway_discharge_m3s=roadway,
