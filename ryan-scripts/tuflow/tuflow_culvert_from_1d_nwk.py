@@ -8,10 +8,11 @@ import argparse
 import csv
 import hashlib
 import shutil
-from math import isfinite, isnan, pi, sqrt
+from math import isfinite, pi, sqrt
 from typing import Any, cast
 
 import geopandas as gpd
+from pandas import isna
 from pandas.api.types import is_numeric_dtype
 
 from ryan_library.classes.culvert import CulvertMaterialName
@@ -34,15 +35,13 @@ BLOCKAGE_NUMERIC_KEY = "__pblockage_numeric__"
 
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
     raw = row.get(key)
-    if raw is None or (isinstance(raw, str) and not raw.strip()):
+    if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(isna(raw)):
         return default
     try:
         value = float(raw)
     except (TypeError, ValueError) as exc:
         msg = f"{key} must contain a numeric value."
         raise ValueError(msg) from exc
-    if isnan(value):
-        return default
     if not isfinite(value):
         msg = f"{key} must contain a finite numeric value."
         raise ValueError(msg)
@@ -62,15 +61,13 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> 
         if key not in row:
             continue
         raw = row.get(key)
-        if raw is None or (isinstance(raw, str) and not raw.strip()):
+        if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(isna(raw)):
             continue
         try:
             value = float(raw)
         except (TypeError, ValueError) as exc:
             msg = f"{key} must contain a numeric integer barrel count."
             raise ValueError(msg) from exc
-        if isnan(value):
-            continue
         if not isfinite(value):
             msg = f"{key} must contain a finite integer barrel count."
             raise ValueError(msg)
@@ -89,7 +86,7 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> 
 
 def _blockage_percent(row: dict[str, Any]) -> float:
     raw = row.get("pBlockage")
-    if raw is None or (isinstance(raw, str) and not raw.strip()):
+    if raw is None or (isinstance(raw, str) and not raw.strip()) or bool(isna(raw)):
         if row.get(BLOCKAGE_NUMERIC_KEY) is False:
             msg = (
                 "Blank categorical pBlockage is unresolved because TUFLOW may apply "
