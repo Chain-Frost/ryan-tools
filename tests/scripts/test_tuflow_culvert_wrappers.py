@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 from ryan_library.classes.culvert import CulvertMaterialName
+from ryan_library.functions.culvert.tuflow_attributes import TuflowCulvertAttributes
 from ryan_library.functions.culvert.tuflow_engines import (
     CulvertEngine,
     CulvertEngineResult,
@@ -40,7 +41,7 @@ def test_maximums_mapping_uses_canonical_barrel_count_and_preserves_zero_invert(
         {
             "Chan ID": "C01",
             "Type": "C",
-            "Material": "concrete_pipe",
+        "Material": "concrete_pipe",
             "Height": 1.2,
             "Length": 30.0,
             "US Invert": 0.0,
@@ -373,12 +374,82 @@ def test_material_is_explicit_not_inferred_from_roughness() -> None:
         ("concrete_pipe", CulvertMaterialName.CONCRETE_PIPE),
         ("csp", CulvertMaterialName.CORRUGATED_STEEL),
         ("corrugated_steel", CulvertMaterialName.CORRUGATED_STEEL),
+        ("hdpe", CulvertMaterialName.SMOOTH_HDPE),
     ],
 )
 def test_material_aliases_are_explicit(value: str, expected: CulvertMaterialName) -> None:
     from ryan_library.functions.culvert.tuflow_attributes import parse_culvert_material
 
     assert parse_culvert_material(value) is expected
+
+
+def test_maximums_external_attributes_override_inline_material_and_losses() -> None:
+    namespace = _maximums_namespace()
+    build_definition = namespace["_definition"]
+    attributes = TuflowCulvertAttributes(
+        crossing_id="C01",
+        material=CulvertMaterialName.CORRUGATED_STEEL,
+        entry_loss=0.9,
+        exit_loss=1.0,
+        form_loss=0.0,
+    )
+
+    definition = build_definition(
+        {
+            "Chan ID": "C01",
+            "Type": "C",
+            "Material": "concrete_pipe",
+            "Height": 1.2,
+            "Length": 30.0,
+            "US Invert": 10.0,
+            "DS Invert": 9.8,
+            "n or Cd": 0.024,
+            "Num_barrels": 1,
+            "Entry Loss": 0.7,
+            "Exit Loss": 0.6,
+            "Fixed Loss": 0.2,
+        },
+        None,
+        attributes,
+    )
+
+    assert definition.material is CulvertMaterialName.CORRUGATED_STEEL
+
+
+def test_1d_nwk_external_attributes_override_inline_material_and_losses() -> None:
+    namespace = _nwk_namespace()
+    build_definition = namespace["_definition"]
+    attributes = TuflowCulvertAttributes(
+        crossing_id="C01",
+        material=CulvertMaterialName.CONCRETE_PIPE,
+        entry_loss=0.5,
+        exit_loss=1.0,
+        form_loss=0.0,
+        width_contraction=1.0,
+    )
+
+    definition = build_definition(
+        {
+            "ID": "C01",
+            "Type": "C",
+            "Material": "csp",
+            "Width_or_D": 1.2,
+            "Len_or_ANA": 30.0,
+            "US_Invert": 10.0,
+            "DS_Invert": 9.8,
+            "n_nF_Cd": 0.013,
+            "Form_Loss": 0.4,
+            "WConF_or_WEx": 0.8,
+            "EntryC_or_WSa": 0.7,
+            "ExitC_or_WSb": 0.6,
+            "Number_of": 1,
+        },
+        1,
+        None,
+        attributes,
+    )
+
+    assert definition.material is CulvertMaterialName.CONCRETE_PIPE
 
 
 @pytest.mark.parametrize(
