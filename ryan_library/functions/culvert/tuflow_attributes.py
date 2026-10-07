@@ -30,6 +30,9 @@ _MATERIAL_ALIASES: dict[str, CulvertMaterialName] = {
     "csp": CulvertMaterialName.CORRUGATED_STEEL,
     "corrugated_steel": CulvertMaterialName.CORRUGATED_STEEL,
     "corrugated steel": CulvertMaterialName.CORRUGATED_STEEL,
+    "hdpe": CulvertMaterialName.SMOOTH_HDPE,
+    "smooth_hdpe": CulvertMaterialName.SMOOTH_HDPE,
+    "smooth hdpe": CulvertMaterialName.SMOOTH_HDPE,
 }
 
 
@@ -50,7 +53,7 @@ def parse_culvert_material(value: str) -> CulvertMaterialName:
     key = value.strip().lower()
     material = _MATERIAL_ALIASES.get(key)
     if material is None:
-        allowed = "concrete/concrete_pipe/rcp or csp/corrugated_steel"
+        allowed = "concrete/rcp, csp/corrugated_steel, or hdpe/smooth_hdpe"
         msg = f"Unsupported culvert material {value!r}; expected {allowed}."
         raise ValueError(msg)
     return material
