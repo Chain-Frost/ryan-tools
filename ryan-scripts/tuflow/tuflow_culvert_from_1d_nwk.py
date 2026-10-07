@@ -12,6 +12,7 @@ from math import isfinite, isnan, pi, sqrt
 from typing import Any, cast
 
 import geopandas as gpd
+from pandas.api.types import is_numeric_dtype
 
 from ryan_library.classes.culvert import CulvertMaterialName
 from ryan_library.functions.culvert.tuflow_engines import (
@@ -28,6 +29,7 @@ IGNORED_VALUES = frozenset({"T", "Y"})
 DEFAULT_N = 0.024
 AUTO_INVERT_SENTINEL = -99999.0
 SOURCE_ROW_KEY = "__source_row__"
+BLOCKAGE_NUMERIC_KEY = "__pblockage_numeric__"
 
 
 def _float(row: dict[str, Any], key: str, default: float | None = None) -> float | None:
@@ -86,6 +88,12 @@ def _int_first(row: dict[str, Any], keys: tuple[str, ...], default: int = 1) -> 
 def _blockage_percent(row: dict[str, Any]) -> float:
     raw = row.get("pBlockage")
     if raw is None or (isinstance(raw, str) and not raw.strip()):
+        if row.get(BLOCKAGE_NUMERIC_KEY) is False:
+            msg = (
+                "Blank categorical pBlockage is unresolved because TUFLOW may apply "
+                "Blockage Default; resolve the effective event blockage before evaluation."
+            )
+            raise ValueError(msg)
         return 0.0
     try:
         value = float(raw)
@@ -290,8 +298,10 @@ def run(args: argparse.Namespace) -> int:
         raise ValueError(msg)
     frame = frame.where(frame.notna(), None)
     rows = cast("list[dict[str, Any]]", frame.to_dict(orient="records"))
+    blockage_is_numeric = "pBlockage" not in frame.columns or is_numeric_dtype(frame["pBlockage"].dtype)
     for source_row, row in enumerate(rows, start=1):
         row[SOURCE_ROW_KEY] = source_row
+        row[BLOCKAGE_NUMERIC_KEY] = blockage_is_numeric
     rows = _select_active_rows(rows, args.crossing)
     headwater_ratios = _headwater_ratios(args.headwater_ratios)
 
