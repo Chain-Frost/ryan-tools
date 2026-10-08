@@ -554,7 +554,6 @@ def solve_tuflow_culvert_inverse(
     return _hy8_result(definition, scenario=scenario, result=result)
 
 
-
 def tuflow_input_evidence(definition: TuflowCircularCulvert | None) -> dict[str, str | float | int | None]:
     """Describe the physical and model inputs used for a normalized output row."""
     if definition is None:
