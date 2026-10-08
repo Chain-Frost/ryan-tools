@@ -141,6 +141,9 @@ def _definition(
     if length is None or inlet is None or outlet is None:
         msg = "Length, US Invert and DS Invert are required Maximums geometry fields."
         raise ValueError(msg)
+    if inlet == -99999.0 or outlet == -99999.0:
+        msg = "US Invert/DS Invert contains the unresolved TUFLOW -99999 sentinel."
+        raise ValueError(msg)
     roughness = _float(row, "n or Cd")
     if roughness is None or roughness <= 0.0:
         msg = "n or Cd must contain a positive Manning roughness for circular culverts."
@@ -235,7 +238,7 @@ def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[di
     if crossing is not None:
         frame = frame[frame["Chan ID"] == crossing]
     frame["Q"] = pd.to_numeric(frame["Q"], errors="coerce")
-    frame = frame[frame["Q"] > 0.0]
+    frame = frame[frame["Q"].map(lambda value: isfinite(value) and value > 0.0)]
     if frame.empty:
         msg = "No positive-flow Maximums rows matched the selection."
         raise ValueError(msg)
