@@ -256,7 +256,7 @@ def _solver_crossing(definition: TuflowCircularCulvert) -> SolverCrossing:
         groups=(CulvertGroupDefinition(name=definition.name, barrel=barrel, quantity=definition.barrels),),
     )
     solver_crossing = build_solver_crossing(crossing)
-    entry_loss = definition.losses.entry_loss_coefficient
+    entry_loss = definition.losses.effective_entry_loss_coefficient
     if entry_loss is None:
         return solver_crossing
     groups = tuple(
@@ -382,7 +382,7 @@ _STANDARD_ENTRY_LOSS: dict[
 
 def _validate_hy8_losses(definition: TuflowCircularCulvert) -> None:
     _validate_common_loss_support(definition.losses)
-    entry_loss = definition.losses.entry_loss_coefficient
+    entry_loss = definition.losses.effective_entry_loss_coefficient
     if entry_loss is None:
         return
     expected = _STANDARD_ENTRY_LOSS[(definition.material, definition.inlet_configuration)]
