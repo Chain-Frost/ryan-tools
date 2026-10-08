@@ -3,7 +3,7 @@
 import runpy
 from collections.abc import Callable
 from pathlib import Path
-from types import SimpleNamespace
+from types import FunctionType, SimpleNamespace
 from typing import Any, cast
 
 import pandas as pd
@@ -1044,7 +1044,8 @@ def test_1d_nwk_run_preserves_original_source_row_after_ignore_filter(
             status="valid",
         )
 
-    namespace["solve_tuflow_culvert_inverse"] = fake_inverse
+    run_function = cast("FunctionType", namespace["run"])
+    run_function.__globals__["solve_tuflow_culvert_inverse"] = fake_inverse
     output = tmp_path / "results.csv"
     args = namespace["_parser"]().parse_args(
         [
@@ -1118,8 +1119,9 @@ def test_native_maximums_does_not_create_hy8_workspace(
             status="valid",
         )
 
-    namespace["solve_tuflow_culvert_forward"] = fake_forward
-    namespace["solve_tuflow_culvert_inverse"] = fake_inverse
+    run_function = cast("FunctionType", namespace["run"])
+    run_function.__globals__["solve_tuflow_culvert_forward"] = fake_forward
+    run_function.__globals__["solve_tuflow_culvert_inverse"] = fake_inverse
     monkeypatch.chdir(tmp_path)
     workbook = tmp_path / "maximums.xlsx"
     pd.DataFrame(
