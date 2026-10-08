@@ -392,7 +392,6 @@ def test_hy8_mapping_uses_explicit_physical_configuration(
     assert crossing.culverts[0].material is hy8_material
 
 
-
 def test_updated_ryan_culverts_cmp_defaults_are_projecting() -> None:
     assert DEFAULT_SOLVER_CONFIGURATION.default_circular_cmp_inlet is CIRCULAR_CMP_PROJECTING
     assert DEFAULT_SOLVER_CONFIGURATION.default_circular_cmp_loss is PIPE_CMP_LOSS_PROJECTING
