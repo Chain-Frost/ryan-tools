@@ -130,6 +130,14 @@ or inlet configuration. Unsupported source combinations fail closed. Broader
 project-export mapping in [`tuflow_to_hy8.py`](../ryan-scripts/tuflow/tuflow_to_hy8.py)
 remains a separate workflow.
 
+**TODO (deferred, out of scope of this PR):** Complete native HDPE support before
+advertising `SMOOTH_HDPE` as solvable through the generic `culvert_solver`
+adapter. The generic `CircularBarrelDefinition` schema currently accepts HDPE,
+but `build_solver_crossing()` does not supply verified HDPE inlet-control and
+entrance-loss coefficients, so native evaluation cannot succeed. Add material-
+specific coefficient mappings, explicit validation, and regression tests when
+HDPE support is prioritised. Until then, use the supported HY-8 path for HDPE.
+
 ## Engine differences
 
 The engines are not asserted to be numerically identical. Inlet configuration and
