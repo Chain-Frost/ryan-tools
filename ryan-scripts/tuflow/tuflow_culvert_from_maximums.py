@@ -41,6 +41,7 @@ from ryan_library.functions.culvert.tuflow_engines import (
     TuflowCircularCulvert,
     solve_tuflow_culvert_forward,
     solve_tuflow_culvert_inverse,
+    tuflow_input_evidence,
 )
 from ryan_library.functions.wrapper_utils import print_wrapper_banner
 
@@ -179,7 +180,9 @@ def _record(
     scenario: str,
     engine: CulvertEngine,
     error: str = "",
-) -> dict[str, str | float | None]:
+    definition: TuflowCircularCulvert | None = None,
+    tailwater_elevation_m: float | None = None,
+) -> dict[str, str | int | float | None]:
     if result is None:
         return {
             "Source": source,
@@ -188,6 +191,8 @@ def _record(
             "AEP": aep,
             "Scenario": scenario,
             "Engine": engine.value,
+            **tuflow_input_evidence(definition),
+            "Tailwater Elevation (m)": tailwater_elevation_m,
             "Requested Flow (m3/s)": None,
             "Requested Headwater (m)": None,
             "Computed Flow (m3/s)": None,
@@ -209,6 +214,8 @@ def _record(
         "AEP": aep,
         "Scenario": result.scenario,
         "Engine": result.engine.value,
+        **tuflow_input_evidence(definition),
+        "Tailwater Elevation (m)": tailwater_elevation_m,
         "Requested Flow (m3/s)": result.requested_discharge_m3s,
         "Requested Headwater (m)": result.requested_headwater_m,
         "Computed Flow (m3/s)": result.computed_discharge_m3s,
@@ -307,7 +314,7 @@ def run(args: argparse.Namespace) -> int:
     if engine is CulvertEngine.HY8 and workspace_root is not None:
         workspace_root.mkdir(parents=True, exist_ok=True)
 
-    output_rows: list[dict[str, str | float | None]] = []
+    output_rows: list[dict[str, str | int | float | None]] = []
     had_failures = False
     for row in rows:
         crossing = str(row.get("Chan ID") or "").strip()
@@ -387,6 +394,8 @@ def run(args: argparse.Namespace) -> int:
                             aep=aep,
                             scenario=scenario,
                             engine=engine,
+                            definition=definition,
+                            tailwater_elevation_m=tailwater,
                         )
                     )
                 except Exception as exc:
@@ -401,6 +410,8 @@ def run(args: argparse.Namespace) -> int:
                             scenario=scenario,
                             engine=engine,
                             error=str(exc),
+                            definition=definition,
+                            tailwater_elevation_m=tailwater,
                         )
                     )
         except Exception as exc:
