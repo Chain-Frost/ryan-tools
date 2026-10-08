@@ -7,7 +7,7 @@
 | Created | 2026-10-08 |
 | Updated | 2026-10-08 |
 | Next review | 2026-10-15 |
-| Baseline | `feature/issue-99-tuflow-culvert-engines` at `4839e8bd3fe7dc1d9b05557624211aa32a8be92f` |
+| Baseline | `feature/issue-99-tuflow-culvert-engines` at `45e972c695d5669ed3f34a876cb6e70ca77ec9cc` |
 
 ## Outcome and scope
 
@@ -19,16 +19,19 @@ Finish validation of [PR #100](https://github.com/Chain-Frost/ryan-tools/pull/10
 ## Current state
 
 - The supplied handoff reports implementation threads resolved and the deferred HDPE thread closed.
-- Hosted run [149](https://github.com/Chain-Frost/ryan-tools/actions/runs/37745967656) is terminal at the baseline:
-  Hosted tests passed (1037 passed, 5 deselected, 63 warnings); Policy and Package failed.
+- Hosted run [150](https://github.com/Chain-Frost/ryan-tools/actions/runs/37754684194) at the baseline:
+  Policy passed; Package failed at retained-wheel verification; Hosted tests were still running at the latest check.
+  The 1037 passing hosted tests from run 149 apply to the older `4839e8b` head.
 - Local fixes replace the Maximums finite-positive-flow lambda with vector comparisons and type the two test reader
   stubs. Strict Pyright now reports zero errors. Ruff formatting was applied to the reader stubs.
-- The stale retained wheel differed from pinned `culvert_solver/__init__.py`. Rebuilt version `26.10.8.3` verifies
-  against the source and passes isolated installed-wheel smoke validation.
+- Head `45e972c` advances `vendor/run_hy8` to `28e7909afd5ae53c4357380ef70c5f2e482c917d` (elliptical support,
+  upstream PR #7), making retained wheel `26.10.8.3` stale. Rebuilt version `26.10.8.4` verifies against current source
+  and passes isolated installed-wheel smoke validation. The replacement wheel and metadata remain uncommitted.
 - User confirms reduced-area blockage with unadjusted nominal diameters as the intended design-acceptance assumption.
   This decision does not establish the provenance of any particular EOF dimensions or active blockage matrix.
 - User requires Windows HY-8 numerical verification before merge; it is not deferred.
-- Synthetic executable comparisons completed, but representative Maximums/EOF and mixed-network verification is
+- All 15 synthetic executable comparison pairs were repeated against `28e7909`; the 30 results are unchanged for
+  discharge, headwater, velocity, flow type and status. Representative Maximums/EOF and mixed-network verification is
   blocked on missing source inputs. No numerical equivalence or general engineering acceptance is claimed.
 
 ## Next action
@@ -56,26 +59,33 @@ Local environment: Windows, normal Python 3.14.6, 2026-10-08.
 - Changed-file Ruff lint and format checks cover the 15 first-party Python files in `origin/main...HEAD`.
 - `python -m pyright` on those files uses the repository strict configuration: zero errors, warnings or informations.
 - Focused pytest across TUFLOW attributes/configuration/engines, uncertainty workflow, wrappers and MCP registry:
-  **134 passed**, zero skips or deselections (5.90 seconds).
-- `python repo-scripts/build_library.py --skip-pip`: transactional build passed, version `26.10.8.2` to `26.10.8.3`.
+  **134 passed**, zero skips or deselections (5.12 seconds), repeated after the dependency update.
+- `python repo-scripts/build_library.py --skip-pip`: transactional build passed, version `26.10.8.3` to `26.10.8.4`.
 - `python repo-scripts/verify_wheel.py`: passed; SHA-256
-  `9e60cda4e8e9b768fa21e8eb4dcf2c79cbcffc90187a562804d99a1e69d725cf` (691666 bytes).
+  `56d2573ae626267de8433b19fa25dfa050f5e5362d5a5cf850b40b0f08626756` (699341 bytes).
 - Isolated `pip install --no-deps --target` and `smoke_test_installed_wheel.py --expected-root`: passed outside the
-  source tree. Both wrappers' `--help` passed against that isolated install. Normal installed package remains stale;
+  source tree for `26.10.8.4`. Both wrappers' `--help` previously passed against the `26.10.8.3` isolated install.
+  Normal installed package remains stale;
   a direct wrapper invocation without the isolated installation failed to import `tuflow_attributes`.
 - Loguru policy passed. No unrelated full local suite or application-environment checks were run.
 - Final documentation/link and diff checks accompany this record.
-- Parent changes are unstaged/uncommitted; no push, external comment or merge performed. Version metadata, replacement
-  wheel, two Python files and this indexed handoff are the delivery set.
-- Dependency refs: `vendor/run_hy8` at `0baaa2ac83e38aaad1a0419dc6e39c40445cb98d`, `vendor/ryan_culverts` at
-  `2adea6abdb715993ba06c2487a12da9a7207f335`, fixture submodule at
-  `277b08e8821f60dad740635f1c7bbe730c418880`. Fixture worktree was clean; submodule contents were not changed.
+- The previous fixes/handoff and wheel were committed in `dd25469`; the dependency update is committed in `45e972c`.
+  Current replacement wheel, version metadata and handoff/register updates remain unstaged/uncommitted. No push or
+  merge performed. PR description refreshed under the user's instruction with the current head and dependency refs,
+  local verification, pending publication and representative-data blockers.
+- Dependency refs: `vendor/run_hy8` at `28e7909afd5ae53c4357380ef70c5f2e482c917d`, `vendor/ryan_culverts` at
+  `2adea6abdb715993ba06c2487a12da9a7207f335`. The parent pins fixture commit
+  `277b08e8821f60dad740635f1c7bbe730c418880`, but its independent checkout is now at
+  `b604b20ea62a61f1aa8e4837dc7e4ebd155430a4` (only `.gitignore` differs; fixture contents unchanged).
+  This pre-existing submodule pointer difference was preserved and must not be staged with the wheel repair.
 
 ## Windows numerical evidence
 
 Executable: `C:/Program Files/HY-8 8.00/HY864.exe`, file/product version **8.0.1.2**.
 Raw HY-8 projects/reports, per-engine JSON, comparison script and aggregate JSON are retained locally under
-`C:/Users/Ryan/AppData/Local/Temp/pr100-hy8-numerical-cblw4r5h` (temporary storage; archive before cleanup).
+`C:/Users/Ryan/AppData/Local/Temp/pr100-hy8-28e7909-c0c9026bbb9c4965975004ea8486a5b7`
+(temporary storage; archive before cleanup). The earlier comparison used `0baaa2a` and remains under
+`C:/Users/Ryan/AppData/Local/Temp/pr100-hy8-numerical-cblw4r5h` as historical evidence.
 
 The 15 scenario pairs use concrete square-edge headwall, CSP thin-edge projecting and CSP square-edge headwall.
 Each uses three barrels, diameter 1.2 m, length 40 m, inverts 10/9.5 m, source Manning n 0.013 for concrete and
@@ -90,6 +100,14 @@ Flow-type strings were retained but not semantically reconciled. Wrapper-level r
 blockage and retained-workspace safeguards remain outside this synthetic numerical check.
 
 ## Progress
+
+### 2026-10-08: run-hy8 reference update
+
+Rebuilt and verified `26.10.8.4` against `28e7909`, isolated-smoked the installed wheel, repeated all 15 synthetic
+comparison pairs with zero engine failures, and confirmed results unchanged across the reference update. Repeated
+changed-file Ruff/strict Pyright and focused tests successfully. CI run 150 has Policy passing and Package failing;
+Hosted tests remain pending terminal confirmation. Representative input and processed-dimension provenance blockers
+remain. Preserve the independent fixture pointer change and keep PR #100 open.
 
 ### 2026-10-08
 
