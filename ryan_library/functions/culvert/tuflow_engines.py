@@ -554,10 +554,50 @@ def solve_tuflow_culvert_inverse(
     return _hy8_result(definition, scenario=scenario, result=result)
 
 
+
+def tuflow_input_evidence(definition: TuflowCircularCulvert | None) -> dict[str, str | float | int | None]:
+    """Describe the physical and model inputs used for a normalized output row."""
+    if definition is None:
+        return {
+            "Material": None,
+            "Inlet Configuration": None,
+            "Nominal Diameter (m)": None,
+            "Hydraulic Diameter (m)": None,
+            "Length (m)": None,
+            "Upstream Invert (m)": None,
+            "Downstream Invert (m)": None,
+            "Manning n": None,
+            "Barrels": None,
+            "EntryC Source": None,
+            "EntryC Effective": None,
+            "Exit Loss Coefficient": None,
+            "Form Loss Coefficient": None,
+            "Width Contraction Factor": None,
+        }
+    losses = definition.losses
+    return {
+        "Material": definition.material.value,
+        "Inlet Configuration": definition.inlet_configuration.value,
+        "Nominal Diameter (m)": definition.hw_diameter_m,
+        "Hydraulic Diameter (m)": definition.diameter_m,
+        "Length (m)": definition.length_m,
+        "Upstream Invert (m)": definition.inlet_invert_m,
+        "Downstream Invert (m)": definition.outlet_invert_m,
+        "Manning n": definition.roughness_manning_n,
+        "Barrels": definition.barrels,
+        "EntryC Source": losses.entry_loss_coefficient,
+        "EntryC Effective": losses.effective_entry_loss_coefficient,
+        "Exit Loss Coefficient": losses.exit_loss_coefficient,
+        "Form Loss Coefficient": losses.form_loss_coefficient,
+        "Width Contraction Factor": losses.width_contraction_coefficient,
+    }
+
+
 __all__ = [
     "CulvertEngine",
     "CulvertEngineResult",
     "TuflowCircularCulvert",
     "solve_tuflow_culvert_forward",
     "solve_tuflow_culvert_inverse",
+    "tuflow_input_evidence",
 ]
