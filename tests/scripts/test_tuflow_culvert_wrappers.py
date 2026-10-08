@@ -546,9 +546,9 @@ def test_1d_nwk_skips_ignored_features() -> None:
         namespace["_select_active_rows"],
     )
     rows: list[dict[str, Any]] = [
-        {"ID": "IGNORED", "Ignore": "T"},
-        {"ID": "ACTIVE", "Ignore": ""},
-        {"ID": "IGNORED_Y", "Ignore": "y"},
+        {"ID": "IGNORED", "Type": "C", "Ignore": "T"},
+        {"ID": "ACTIVE", "Type": "C", "Ignore": ""},
+        {"ID": "IGNORED_Y", "Type": "C", "Ignore": "y"},
     ]
 
     selected = select_active_rows(rows, None)
@@ -631,7 +631,7 @@ def test_1d_nwk_negative_length_uses_digitized_geometry_length() -> None:
             "DS_Invert": 9.8,
             "n_nF_Cd": 0.013,
             "Number_of": 2,
-            "geometry": SimpleNamespace(length=42.5),
+            "geometry": SimpleNamespace(geom_type="LineString", length=42.5),
         },
         1,
     )
@@ -1166,3 +1166,147 @@ def test_native_maximums_does_not_create_hy8_workspace(
     assert set(output["Run"]) == {"EXG"}
     assert not workspace.exists()
     assert not (tmp_path / "hy8-workspaces").exists()
+
+
+
+def test_maximums_rejects_unresolved_invert_sentinel() -> None:
+    namespace = _maximums_namespace()
+    build_definition = namespace["_definition"]
+    row = {
+        "Chan ID": "C01",
+        "Type": "C",
+        "Material": "concrete_pipe",
+        "Inlet Configuration": "square-edge-headwall",
+        "Height": 1.2,
+        "Length": 30.0,
+        "US Invert": 10.0,
+        "DS Invert": -99999.0,
+        "n or Cd": 0.013,
+        "Num_barrels": 1,
+    }
+    with pytest.raises(ValueError, match="unresolved TUFLOW -99999 sentinel"):
+        build_definition(row)
+    row["DS Invert"] = 9.8
+    row["US Invert"] = -99999.0
+    with pytest.raises(ValueError, match="unresolved TUFLOW -99999 sentinel"):
+        build_definition(row)
+
+
+def test_maximums_ignores_nonfinite_governing_flow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    namespace = _maximums_namespace()
+    frame = pd.DataFrame(
+        [
+            {"Chan ID": "C01", "Type": "C", "Height": 1.2, "Q": float("inf")},
+            {"Chan ID": "C01", "Type": "C", "Height": 1.2, "Q": 2.0},
+            {"Chan ID": "C01", "Type": "C", "Height": 1.2, "Q": -1.0},
+        ]
+    )
+    monkeypatch.setattr(namespace["pd"], "read_excel", lambda *_args, **_kwargs: frame.copy())
+    rows = namespace["_selected_rows"](Path("fake.xlsx"), "Maximums", None)
+    assert len(rows) == 1
+    assert rows[0]["Q"] == pytest.approx(2.0)
+
+
+def test_1d_nwk_only_selects_circular_channels_by_default() -> None:
+    namespace = _nwk_namespace()
+    select = namespace["_select_active_rows"]
+    rows = [
+        {"ID": "CHANNEL", "Type": "S"},
+        {"ID": "BOX", "Type": "R"},
+        {"ID": "CIRCLE", "Type": "C"},
+    ]
+    assert [row["ID"] for row in select(rows, None)] == ["CIRCLE"]
+    # An explicitly selected box must fail mapping rather than being silently excluded.
+    assert [row["ID"] for row in select(rows, "BOX")] == ["BOX"]
+
+
+def test_1d_nwk_rejects_circular_point_pit() -> None:
+    namespace = _nwk_namespace()
+    with pytest.raises(ValueError, match="point-based Type C pit inlets"):
+        namespace["_definition"](
+            {
+                "ID": "PIT",
+                "Type": "C",
+                "geometry": SimpleNamespace(geom_type="Point", length=0.0),
+                "Width_or_D": 0.9,
+                "Len_or_ANA": 2.0,
+                "US_Invert": 10.0,
+                "DS_Invert": 9.8,
+                "n_nF_Cd": 0.013,
+                "Number_of": 1,
+            },
+            1,
+        )
+
+
+def test_1d_nwk_bad_feature_preserves_valid_results(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    namespace = _nwk_namespace()
+    common = {
+        "Material": "concrete_pipe",
+        "Inlet Configuration": "square-edge-headwall",
+        "Ignore": "",
+        "Width_or_D": 1.2,
+        "US_Invert": 10.0,
+        "DS_Invert": 9.8,
+        "n_nF_Cd": 0.013,
+        "Number_of": 1,
+    }
+    frame = pd.DataFrame(
+        [
+            {**common, "ID": "GOOD", "Type": "C", "Len_or_ANA": 30.0},
+            {**common, "ID": "BAD", "Type": "C", "Len_or_ANA": "damaged"},
+            {**common, "ID": "BOX", "Type": "R", "Len_or_ANA": 20.0},
+        ]
+    )
+    monkeypatch.setattr(namespace["gpd"], "read_file", lambda *_args, **_kwargs: frame.copy())
+
+    def fake_inverse(
+        definition: TuflowCircularCulvert,
+        *,
+        scenario: str,
+        headwater_elevation_m: float,
+        **_kwargs: object,
+    ) -> CulvertEngineResult:
+        return CulvertEngineResult(
+            engine=CulvertEngine.RYAN_CULVERTS,
+            crossing=definition.name,
+            scenario=scenario,
+            requested_discharge_m3s=None,
+            requested_headwater_m=headwater_elevation_m,
+            computed_discharge_m3s=1.0,
+            headwater_elevation_m=headwater_elevation_m,
+            headwater_ratio=(headwater_elevation_m - definition.inlet_invert_m) / definition.hw_diameter_m,
+            outlet_velocity_mps=1.0,
+            flow_type="test",
+            roadway_discharge_m3s=0.0,
+            overtopping=False,
+            status="valid",
+        )
+
+    run_function = cast("FunctionType", namespace["run"])
+    run_function.__globals__["solve_tuflow_culvert_inverse"] = fake_inverse
+    output = tmp_path / "network-output.csv"
+    args = namespace["_parser"]().parse_args(
+        [
+            str(tmp_path / "network.gpkg"),
+            "--layer",
+            "1d_nwk",
+            "--engine",
+            "ryan-culverts",
+            "--output-csv",
+            str(output),
+        ]
+    )
+    assert namespace["run"](args) == 1
+    results = pd.read_csv(output)
+    assert set(results["Crossing"]) == {"GOOD", "BAD"}
+    assert set(results.loc[results["Crossing"] == "GOOD", "Status"]) == {"valid"}
+    failed = results.loc[results["Crossing"] == "BAD"]
+    assert len(failed) == 1
+    assert failed.iloc[0]["Scenario"] == "input mapping"
+    assert "Len_or_ANA must contain a numeric value" in failed.iloc[0]["Error"]
