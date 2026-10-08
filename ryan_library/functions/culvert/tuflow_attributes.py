@@ -230,7 +230,7 @@ def load_tuflow_culvert_attributes(
         return {}
 
     if path.suffix.lower() == ".csv":
-        frame = pd.read_csv(path, dtype={field: str for field in ID_FIELDS})
+        frame = pd.read_csv(path, dtype=dict.fromkeys(ID_FIELDS, str))
     else:
         resolved_layer = _resolve_vector_layer(path, layer)
         frame = gpd.read_file(path, layer=resolved_layer)  # pyright: ignore[reportUnknownMemberType]
