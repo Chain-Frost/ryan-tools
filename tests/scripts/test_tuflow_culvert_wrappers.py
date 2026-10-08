@@ -1096,7 +1096,9 @@ def test_native_maximums_does_not_create_hy8_workspace(
     if explicit_workspace:
         cli.extend(["--workspace", str(workspace)])
     args = namespace["_parser"]().parse_args(cli)
-    assert namespace["run"](args) == 0
+    exit_code = namespace["run"](args)
+    diagnostic = args.output_csv.read_text(encoding="utf-8") if args.output_csv.exists() else "<no output CSV>"
+    assert exit_code == 0, diagnostic
     assert args.output_csv.exists()
     output = pd.read_csv(args.output_csv)
     assert set(output["Run"]) == {"EXG"}

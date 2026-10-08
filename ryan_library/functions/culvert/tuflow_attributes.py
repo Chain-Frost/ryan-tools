@@ -76,7 +76,7 @@ def _is_missing(value: object) -> bool:
     if isinstance(value, str):
         return not value.strip()
     try:
-        return bool(pd.isna(cast("Any", value)))
+        return cast("bool", pd.isna(cast("Any", value)))
     except TypeError, ValueError:
         return False
 
