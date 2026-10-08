@@ -447,7 +447,7 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         help=(
             "Optional CSV or vector/1d_nwk source keyed by ID/Chan ID/Crossing. "
-            "Per-crossing Material and loss attributes take precedence over workbook fields."
+            "Per-crossing Material, Inlet Configuration and loss attributes take precedence over workbook fields."
         ),
     )
     parser.add_argument(

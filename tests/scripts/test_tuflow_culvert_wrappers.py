@@ -1071,6 +1071,55 @@ def test_native_maximums_does_not_create_hy8_workspace(
     explicit_workspace: bool,
 ) -> None:
     namespace = _maximums_namespace()
+
+    def fake_forward(
+        definition: TuflowCircularCulvert,
+        *,
+        scenario: str,
+        discharge_m3s: float,
+        **_kwargs: object,
+    ) -> CulvertEngineResult:
+        return CulvertEngineResult(
+            engine=CulvertEngine.RYAN_CULVERTS,
+            crossing=definition.name,
+            scenario=scenario,
+            requested_discharge_m3s=discharge_m3s,
+            requested_headwater_m=None,
+            computed_discharge_m3s=discharge_m3s,
+            headwater_elevation_m=definition.inlet_invert_m + definition.hw_diameter_m,
+            headwater_ratio=1.0,
+            outlet_velocity_mps=1.0,
+            flow_type="test",
+            roadway_discharge_m3s=0.0,
+            overtopping=False,
+            status="valid",
+        )
+
+    def fake_inverse(
+        definition: TuflowCircularCulvert,
+        *,
+        scenario: str,
+        headwater_elevation_m: float,
+        **_kwargs: object,
+    ) -> CulvertEngineResult:
+        return CulvertEngineResult(
+            engine=CulvertEngine.RYAN_CULVERTS,
+            crossing=definition.name,
+            scenario=scenario,
+            requested_discharge_m3s=None,
+            requested_headwater_m=headwater_elevation_m,
+            computed_discharge_m3s=1.0,
+            headwater_elevation_m=headwater_elevation_m,
+            headwater_ratio=(headwater_elevation_m - definition.inlet_invert_m) / definition.hw_diameter_m,
+            outlet_velocity_mps=1.0,
+            flow_type="test",
+            roadway_discharge_m3s=0.0,
+            overtopping=False,
+            status="valid",
+        )
+
+    namespace["solve_tuflow_culvert_forward"] = fake_forward
+    namespace["solve_tuflow_culvert_inverse"] = fake_inverse
     monkeypatch.chdir(tmp_path)
     workbook = tmp_path / "maximums.xlsx"
     pd.DataFrame(

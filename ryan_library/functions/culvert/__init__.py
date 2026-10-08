@@ -26,9 +26,13 @@ from .export import (
 from .plotting import plot_longitudinal_profile, plot_rating_curve, save_figure
 from .tuflow_attributes import (
     TuflowCulvertAttributes,
+    inlet_from_mapping,
     load_tuflow_culvert_attributes,
+    losses_from_mapping,
     material_from_mapping,
     parse_culvert_material,
+    resolve_circular_configuration,
+    resolve_tuflow_losses,
 )
 from .tuflow_configuration import (
     CircularCulvertConfiguration,
@@ -89,10 +93,12 @@ __all__: list[str] = [
     "generate_circular_candidates",
     "generate_rectangular_candidates",
     "generate_study_samples",
+    "inlet_from_mapping",
     "load_event_csv",
     "load_project",
     "load_project_json",
     "load_tuflow_culvert_attributes",
+    "losses_from_mapping",
     "material_from_mapping",
     "parse_circular_inlet_configuration",
     "parse_culvert_material",
@@ -100,6 +106,8 @@ __all__: list[str] = [
     "plot_longitudinal_profile",
     "plot_rating_curve",
     "project_record",
+    "resolve_circular_configuration",
+    "resolve_tuflow_losses",
     "sampled_crossing_inputs",
     "save_figure",
     "scenario_result_record",

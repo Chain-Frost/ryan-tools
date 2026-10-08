@@ -136,18 +136,21 @@ The engines are not asserted to be numerically identical. Inlet configuration an
 coefficient libraries, solver formulations, convergence behaviour and supported
 hydraulic states can differ.
 
-For the HY-8 backend the migration preserves explicit inlet assumptions:
-square-edge headwall for circular concrete, thin-edge projecting for circular
-corrugated steel, and square-edge headwall for explicitly selected smooth HDPE.
-A high artificial roadway crest keeps roadway overtopping outside the intended
-migrated demo calculations.
+For the HY-8 backend the selected physical `CircularInletConfiguration` is
+mapped to the corresponding material-specific HY-8 inlet enum. The adapter does
+not use `EntryC` or Manning roughness to choose that enum. A high artificial
+roadway crest keeps roadway overtopping outside the intended migrated demo
+calculations.
 
-The `ryan-culverts` backend now applies the matching public coefficient selection:
-its circular concrete default corresponds to the square-edge assumption, while the
-corrugated-steel Maximums path explicitly selects the projecting CMP inlet and
-entrance-loss coefficients rather than the library's headwall default. The engines
-can still differ in formulations and convergence behaviour, so compare them
-explicitly before treating them as interchangeable for design acceptance.
+The `ryan-culverts` backend maps the same physical configuration to its public
+inlet-control and outlet-control coefficient sets where a verified mapping exists.
+For example, square-edge concrete headwall and projecting/mitered CSP treatments
+use their matching native coefficient records. Unsupported physical combinations
+fail closed instead of borrowing another inlet type. A numeric TUFLOW `EntryC`
+override is attached separately to the native barrel for outlet-control loss
+resolution and does not alter the inlet-control selection. The engines can still
+differ in formulations and convergence behaviour, so compare them explicitly
+before treating them as interchangeable for design acceptance.
 
 ## Output
 
