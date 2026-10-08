@@ -59,6 +59,11 @@ The default inverse checks are HW/D 1.5 and 2.0. Use `--headwater-ratios`
 to supply another non-empty set of unique, finite, positive ratios. The wrapper
 expects an SI TUFLOW model. When negative `Len_or_ANA` requests digitised line
 length, the GIS layer must have a projected CRS whose horizontal axes are in metres.
+Unselected non-circular channel types are excluded from bulk `1d_nwk` runs;
+explicitly requested non-circular channels report an input mapping error. Point-based
+`Type = C` pit inlets are not circular culvert barrels and are rejected based on
+geometry type. Malformed length and CRS errors are reported for the affected feature
+rather than aborting an otherwise usable batch.
 
 Both migrated wrappers refuse to replace an existing result CSV unless
 `--overwrite` is supplied. Numeric `pBlockage` is applied to circular pipes in
@@ -69,12 +74,19 @@ Category-based blockage is rejected until its event-specific percentage has been
 resolved. A blank character `pBlockage` is also rejected because a TUFLOW
 `Blockage Default` may apply; a blank numeric blockage remains the ordinary 0%
 case. Fully blocked (100%) culverts are rejected rather than converted to a
-zero-diameter solver object.
+zero-diameter solver object. This is the reduced-area blockage approximation,
+not TUFLOW's alternative increased-energy-loss blockage method. Confirm that
+Maximums `Height` represents nominal diameter and that processed input dimensions
+have not already been adjusted for blockage, otherwise applying `pBlockage` again
+would double-count the adjustment. Event-based category blockage and energy-loss
+blockage require a separate processed-data mapping.
 
 The `1d_nwk` wrapper also honours the TUFLOW `Ignore` field, requires a
 traceable non-blank culvert ID, treats `Number_of = 0` as one barrel, requires a
 positive source Manning roughness, and rejects the TUFLOW `-99999` invert
 sentinel until effective inverts have been resolved from processed TUFLOW data.
+The Maximums wrapper also rejects unresolved `-99999` inlet/outlet inverts and
+nonfinite discharge values when selecting the governing event.
 
 Loss attributes may come from the input row or the optional per-crossing attribute
 source. CSV/EOF-style names `Entry Loss`, `Exit Loss` and `Fixed Loss` are
@@ -86,7 +98,9 @@ or barrel count.
 Loss coefficients do not select the physical inlet enum. They are retained as
 numeric TUFLOW model parameters. The native engine can honour an explicit
 `EntryC` independently of the physical inlet-control coefficient set; unsupported
-exit/form/contraction overrides fail closed. HY-8 currently obtains its outlet-loss
+exit/form/contraction overrides fail closed. Source `EntryC` above 1.0 is retained
+for auditing while the effective TUFLOW inlet loss is clipped to 1.0 for hydraulic
+application. HY-8 currently obtains its outlet-loss
 behaviour from the selected physical inlet configuration, so a supplied `EntryC`
 is accepted only when it matches that physical configuration's standard value.
 Broader arbitrary TUFLOW loss overrides require engine support rather than being
@@ -160,6 +174,16 @@ resolution and does not alter the inlet-control selection. The engines can still
 differ in formulations and convergence behaviour, so compare them explicitly
 before treating them as interchangeable for design acceptance.
 
+### Updated ryan-culverts CSP defaults (2026-10-08)
+
+The vendored `ryan-culverts` reference includes its projecting-end CSP default
+(`Ke = 0.9`) and a sourced MRWA diameter/corrugation roughness resolver. The generic
+Austroads CSP roughness fallback is opt-in. The TUFLOW adapter **does not** infer
+physical inlet geometry from those library defaults, and does not replace the
+Manning `n` read from the source TUFLOW network/EOF. Its explicit per-crossing
+physical inlet selection overrides the solver's default; missing source roughness
+is a mapping failure. The native solver also has no HDPE default inlet coefficients.
+
 ## Output
 
 Both wrappers print their embedded wrapper revision and installed library version
@@ -171,6 +195,9 @@ selected engine, requested and computed hydraulic values, HW/D, outlet velocity,
 flow type, roadway discharge/overtopping, status, warnings, failure text and any
 retained HY-8 workspace. The Maximums output also records the selected base run,
 and the `1d_nwk` output preserves the original source-row number after filtering.
+Both outputs include physical input audit columns for material, inlet arrangement,
+nominal/effective diameter, length, inverts, Manning roughness, barrel count,
+raw/effective EntryC, remaining losses and scenario tailwater elevation.
 Failed inputs and scenarios remain visible rather than being silently dropped.
 A native result whose solver status is `unresolved` is retained in the CSV but
 causes a non-zero wrapper exit status.
