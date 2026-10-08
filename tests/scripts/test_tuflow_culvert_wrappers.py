@@ -1177,7 +1177,6 @@ def test_native_maximums_does_not_create_hy8_workspace(
     assert not (tmp_path / "hy8-workspaces").exists()
 
 
-
 def test_maximums_rejects_unresolved_invert_sentinel() -> None:
     namespace = _maximums_namespace()
     build_definition = namespace["_definition"]
