@@ -241,7 +241,14 @@ def _select_active_rows(rows: list[dict[str, Any]], crossing: str | None) -> lis
         else:
             msg = "No active culvert features remain after applying the TUFLOW Ignore field."
         raise ValueError(msg)
-    return active
+    if crossing is not None:
+        # A requested unsupported Type must remain visible as a failed input mapping.
+        return active
+    culverts = [row for row in active if _text(row, "Type").upper() == "C"]
+    if not culverts:
+        msg = "No active Type C circular culverts were found in the selected TUFLOW layer."
+        raise ValueError(msg)
+    return culverts
 
 
 def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
@@ -260,6 +267,13 @@ def _definition(
     shape = parse_tuflow_shape(_text(row, "Type"))
     if shape is not CulvertShapeName.CIRCULAR:
         msg = "This migrated workflow currently supports circular TUFLOW Type 'C' rows only."
+        raise ValueError(msg)
+    # TUFLOW also uses Type C for point-based circular pit inlets. Those are not pipes.
+    if "geometry" in row and getattr(row["geometry"], "geom_type", None) not in {
+        "LineString",
+        "MultiLineString",
+    }:
+        msg = "A Type C culvert must have line geometry; point-based Type C pit inlets are unsupported."
         raise ValueError(msg)
     nominal_diameter = _first_float(row, DIAMETER_FIELDS)
     length = _float(row, "Len_or_ANA")
@@ -412,9 +426,6 @@ def run(args: argparse.Namespace) -> int:
         layer=args.attributes_layer,
     )
     _validate_unique_ids(rows)
-    uses_geometry_length = any((value := _float(row, "Len_or_ANA")) is not None and value < 0.0 for row in rows)
-    if uses_geometry_length:
-        _require_metric_projected_crs(getattr(frame, "crs", None))
     headwater_ratios = _headwater_ratios(args.headwater_ratios)
 
     workspace_root: Path | None = args.workspace
@@ -431,6 +442,10 @@ def run(args: argparse.Namespace) -> int:
         crossing = _text(row, "ID")
         fallback_name = crossing or f"<source row {source_row}>"
         try:
+            # Keep malformed lengths and CRS errors local to the affected feature.
+            source_length = _float(row, "Len_or_ANA")
+            if source_length is not None and source_length < 0.0:
+                _require_metric_projected_crs(getattr(frame, "crs", None))
             definition = _definition(
                 row,
                 source_row,
