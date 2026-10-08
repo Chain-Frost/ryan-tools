@@ -42,6 +42,7 @@ from ryan_library.functions.culvert.tuflow_engines import (
     CulvertEngineResult,
     TuflowCircularCulvert,
     solve_tuflow_culvert_inverse,
+    tuflow_input_evidence,
 )
 from ryan_library.functions.wrapper_utils import print_wrapper_banner
 
@@ -337,6 +338,8 @@ def _record(
     scenario: str,
     engine: CulvertEngine,
     error: str = "",
+    definition: TuflowCircularCulvert | None = None,
+    tailwater_elevation_m: float | None = None,
 ) -> dict[str, str | int | float | None]:
     if result is None:
         return {
@@ -345,6 +348,8 @@ def _record(
             "Crossing": crossing,
             "Scenario": scenario,
             "Engine": engine.value,
+            **tuflow_input_evidence(definition),
+            "Tailwater Elevation (m)": tailwater_elevation_m,
             "Requested Flow (m3/s)": None,
             "Requested Headwater (m)": None,
             "Computed Flow (m3/s)": None,
@@ -365,6 +370,8 @@ def _record(
         "Crossing": crossing,
         "Scenario": result.scenario,
         "Engine": result.engine.value,
+        **tuflow_input_evidence(definition),
+        "Tailwater Elevation (m)": tailwater_elevation_m,
         "Requested Flow (m3/s)": result.requested_discharge_m3s,
         "Requested Headwater (m)": result.requested_headwater_m,
         "Computed Flow (m3/s)": result.computed_discharge_m3s,
@@ -489,6 +496,8 @@ def run(args: argparse.Namespace) -> int:
                             crossing=definition.name,
                             scenario=scenario,
                             engine=engine,
+                            definition=definition,
+                            tailwater_elevation_m=definition.outlet_invert_m,
                         )
                     )
                 except Exception as exc:
@@ -502,6 +511,8 @@ def run(args: argparse.Namespace) -> int:
                             scenario=scenario,
                             engine=engine,
                             error=str(exc),
+                            definition=definition,
+                            tailwater_elevation_m=definition.outlet_invert_m,
                         )
                     )
         except Exception as exc:
