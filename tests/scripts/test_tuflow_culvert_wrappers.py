@@ -1211,7 +1211,11 @@ def test_maximums_ignores_nonfinite_governing_flow(
             {"Chan ID": "C01", "Type": "C", "Height": 1.2, "Q": -1.0},
         ]
     )
-    monkeypatch.setattr(namespace["pd"], "read_excel", lambda *_args, **_kwargs: frame.copy())
+
+    def read_excel(*_args: object, **_kwargs: object) -> pd.DataFrame:
+        return frame.copy()
+
+    monkeypatch.setattr(namespace["pd"], "read_excel", read_excel)
     rows = namespace["_selected_rows"](Path("fake.xlsx"), "Maximums", None)
     assert len(rows) == 1
     assert rows[0]["Q"] == pytest.approx(2.0)
@@ -1271,7 +1275,11 @@ def test_1d_nwk_bad_feature_preserves_valid_results(
             {**common, "ID": "BOX", "Type": "R", "Len_or_ANA": 20.0},
         ]
     )
-    monkeypatch.setattr(namespace["gpd"], "read_file", lambda *_args, **_kwargs: frame.copy())
+
+    def read_file(*_args: object, **_kwargs: object) -> pd.DataFrame:
+        return frame.copy()
+
+    monkeypatch.setattr(namespace["gpd"], "read_file", read_file)
 
     def fake_inverse(
         definition: TuflowCircularCulvert,
