@@ -443,6 +443,11 @@ def test_maximums_external_attributes_override_inline_material_and_losses() -> N
         material=CulvertMaterialName.CORRUGATED_STEEL,
         inlet=CircularInletConfiguration.THIN_EDGE_PROJECTING,
     )
+    assert definition.losses == TuflowLossParameters(
+        entry_loss_coefficient=0.9,
+        exit_loss_coefficient=1.0,
+        form_loss_coefficient=0.0,
+    )
 
 
 def test_1d_nwk_external_attributes_override_inline_material_and_losses() -> None:
@@ -486,6 +491,12 @@ def test_1d_nwk_external_attributes_override_inline_material_and_losses() -> Non
     assert definition.configuration == CircularCulvertConfiguration(
         material=CulvertMaterialName.CONCRETE_PIPE,
         inlet=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+    )
+    assert definition.losses == TuflowLossParameters(
+        entry_loss_coefficient=0.5,
+        exit_loss_coefficient=1.0,
+        form_loss_coefficient=0.0,
+        width_contraction_coefficient=1.0,
     )
 
 
