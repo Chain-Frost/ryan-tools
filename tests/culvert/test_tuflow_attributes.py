@@ -148,3 +148,17 @@ def test_attribute_source_rejects_nonfinite_loss(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="finite numeric value"):
         tuflow_attributes.load_tuflow_culvert_attributes(source)
+
+
+
+def test_attribute_csv_preserves_leading_zero_identifiers(tmp_path: Path) -> None:
+    source = tmp_path / "id_text.csv"
+    source.write_text(
+        "ID,Material,Inlet Configuration\n"
+        "001,concrete_pipe,square-edge-headwall\n"
+        "002,csp,thin-edge-projecting\n",
+        encoding="utf-8",
+    )
+    attributes = tuflow_attributes.load_tuflow_culvert_attributes(source)
+    assert set(attributes) == {"001", "002"}
+    assert attributes["001"].material is CulvertMaterialName.CONCRETE_PIPE
