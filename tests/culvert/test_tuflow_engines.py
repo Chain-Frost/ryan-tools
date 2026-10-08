@@ -5,7 +5,13 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from culvert_solver import CIRCULAR_CMP_PROJECTING, PIPE_CMP_LOSS_PROJECTING
+from culvert_solver import (
+    CIRCULAR_CMP_HEADWALL,
+    CIRCULAR_CMP_PROJECTING,
+    DEFAULT_SOLVER_CONFIGURATION,
+    PIPE_CMP_LOSS_HEADWALL,
+    PIPE_CMP_LOSS_PROJECTING,
+)
 from run_hy8 import CulvertMaterial as Hy8Material
 from run_hy8 import Hy8ResultRow, HydraulicsResult
 
@@ -384,3 +390,39 @@ def test_hy8_mapping_uses_explicit_physical_configuration(
     )
 
     assert crossing.culverts[0].material is hy8_material
+
+
+
+def test_updated_ryan_culverts_cmp_defaults_are_projecting() -> None:
+    assert DEFAULT_SOLVER_CONFIGURATION.default_circular_cmp_inlet is CIRCULAR_CMP_PROJECTING
+    assert DEFAULT_SOLVER_CONFIGURATION.default_circular_cmp_loss is PIPE_CMP_LOSS_PROJECTING
+
+
+def test_explicit_cmp_headwall_overrides_new_projecting_default(
+    concrete_crossing: TuflowCircularCulvert,
+) -> None:
+    definition = replace(
+        concrete_crossing,
+        configuration=CircularCulvertConfiguration(
+            material=CulvertMaterialName.CORRUGATED_STEEL,
+            inlet=CircularInletConfiguration.SQUARE_EDGE_HEADWALL,
+        ),
+        roughness_manning_n=0.028,
+    )
+    configuration = engine_module._solver_configuration(definition)  # pyright: ignore[reportPrivateUsage]
+    crossing = engine_module._solver_crossing(definition)  # pyright: ignore[reportPrivateUsage]
+    assert configuration.default_circular_cmp_inlet is CIRCULAR_CMP_HEADWALL
+    assert configuration.default_circular_cmp_loss is PIPE_CMP_LOSS_HEADWALL
+    # An explicit TUFLOW Manning value must not be replaced by a new MRWA fallback.
+    assert crossing.groups[0].barrel.roughness == pytest.approx(0.028)
+
+
+def test_tuflow_entry_loss_above_one_preserves_raw_and_clips_effective(
+    concrete_crossing: TuflowCircularCulvert,
+) -> None:
+    raw = TuflowLossParameters(entry_loss_coefficient=1.2)
+    assert raw.entry_loss_coefficient == pytest.approx(1.2)
+    assert raw.effective_entry_loss_coefficient == pytest.approx(1.0)
+    definition = replace(concrete_crossing, losses=raw)
+    crossing = engine_module._solver_crossing(definition)  # pyright: ignore[reportPrivateUsage]
+    assert crossing.groups[0].barrel.entrance_loss_coefficient == pytest.approx(1.0)
