@@ -110,6 +110,11 @@ class TuflowLossParameters:
                 raise ValueError(msg)
             object.__setattr__(self, field_name, value)
 
+    @property
+    def effective_entry_loss_coefficient(self) -> float | None:
+        """TUFLOW clamps EntryC above 1.0; preserve the supplied value separately."""
+        return None if self.entry_loss_coefficient is None else min(self.entry_loss_coefficient, 1.0)
+
 
 _SHAPE_ALIASES: dict[str, CulvertShapeName] = {
     "c": CulvertShapeName.CIRCULAR,
