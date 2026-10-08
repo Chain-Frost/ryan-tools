@@ -1074,6 +1074,11 @@ def test_1d_nwk_run_preserves_original_source_row_after_ignore_filter(
     result = pd.read_csv(output)
     assert set(result["Crossing"]) == {"ACTIVE"}
     assert set(result["Source Row"]) == {2}
+    assert set(result["Material"]) == {"concrete_pipe"}
+    assert set(result["Inlet Configuration"]) == {"square-edge-headwall"}
+    assert set(result["Nominal Diameter (m)"]) == {1.2}
+    assert set(result["Barrels"]) == {1}
+    assert set(result["Tailwater Elevation (m)"]) == {9.5}
 
 
 @pytest.mark.parametrize("explicit_workspace", [False, True])
@@ -1164,6 +1169,10 @@ def test_native_maximums_does_not_create_hy8_workspace(
     assert args.output_csv.exists()
     output = pd.read_csv(args.output_csv)
     assert set(output["Run"]) == {"EXG"}
+    assert set(output["Material"]) == {"concrete_pipe"}
+    assert set(output["Nominal Diameter (m)"]) == {1.2}
+    assert set(output["Barrels"]) == {1}
+    assert set(output["Manning n"]) == {0.024}
     assert not workspace.exists()
     assert not (tmp_path / "hy8-workspaces").exists()
 
