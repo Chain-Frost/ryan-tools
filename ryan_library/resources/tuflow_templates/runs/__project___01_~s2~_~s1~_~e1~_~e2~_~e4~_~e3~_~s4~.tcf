@@ -63,7 +63,7 @@
 !**** Output ****
 	Map Output Format ==			TIF HRTIF
 	TIF Map Output Data Types ==	d dt v h Z0
-	HRTIF Map Output Data Types == 	 d h
+	HRTIF Map Output Data Types == 	d h
 	TIF Start Map Output ==			0
 	TIF Map Output Interval ==		0
 	HRTIF Start Map Output ==		0
