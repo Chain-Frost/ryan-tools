@@ -76,6 +76,7 @@ exists. Keep project-specific paths, globs, and output names in wrappers; reusab
 Maintained root-level hydraulic wrappers include:
 
 - `culvert.py` for culvert solve/analyse/design/rating workflows;
+- `tuflow/tuflow_culvert_from_maximums.py` and `tuflow/tuflow_culvert_from_1d_nwk.py` for TUFLOW culvert checks with an explicit `--engine hy8|ryan-culverts` selection; see [the engine guide](../docs/TUFLOW_CULVERT_ENGINES.md);
 - `floodway.py` for overtopping floodway formation assessment using a culvert project plus a separate versioned
   floodway formation JSON/TOML definition. Hydrograph/closure-duration processing is intentionally not part of this
   wrapper.

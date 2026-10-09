@@ -95,6 +95,64 @@ def test_floodway_workflow_is_catalogued_with_headless_assessment() -> None:
     assert "--no-pause" in workflow["resolved_scenarios"][0]["command"]
 
 
+def test_tuflow_culvert_native_workflows_are_catalogued_under_create_profile() -> None:
+    registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
+
+    expected = {
+        "tuflow_culvert_evaluate_maximums": "ryan-scripts/tuflow/tuflow_culvert_from_maximums.py",
+        "tuflow_culvert_evaluate_1d_nwk": "ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py",
+    }
+    for workflow_id, script_path in expected.items():
+        workflow = registry.get_workflow(workflow_id)
+
+        assert workflow["available"] is True
+        assert workflow["profile"] == "create"
+        assert workflow["mutation"] == "creates_or_replaces"
+        assert workflow["requires_explicit_approval"] is False
+        assert workflow["script_relative_path"] == script_path
+        assert workflow["metadata"]["overwrite_flag"] == "--overwrite"
+        assert workflow["metadata"]["overwrite_default"] is False
+        assert workflow["metadata"]["engine_modes"] == ["ryan-culverts"]
+        scenarios = {scenario["name"]: scenario["command"] for scenario in workflow["resolved_scenarios"]}
+        assert set(scenarios) == {"ryan_culverts"}
+        assert "--engine" in scenarios["ryan_culverts"]
+        assert "ryan-culverts" in scenarios["ryan_culverts"]
+
+    visible = {workflow["id"] for workflow in registry.list_workflows(domain="tuflow")["workflows"]}
+    assert "tuflow_culvert_evaluate_maximums_hy8" not in visible
+    assert "tuflow_culvert_evaluate_1d_nwk_hy8" not in visible
+
+
+def test_tuflow_culvert_hy8_workflows_require_privileged_profile_and_approval() -> None:
+    registry = WorkflowRegistry(
+        configured_profile=CapabilityProfile.PRIVILEGED,
+        repository_root=PROJECT_ROOT,
+    )
+
+    expected = {
+        "tuflow_culvert_evaluate_maximums_hy8": "ryan-scripts/tuflow/tuflow_culvert_from_maximums.py",
+        "tuflow_culvert_evaluate_1d_nwk_hy8": "ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py",
+    }
+    for workflow_id, script_path in expected.items():
+        workflow = registry.get_workflow(workflow_id)
+
+        assert workflow["available"] is True
+        assert workflow["profile"] == "privileged"
+        assert workflow["mutation"] == "executes_external"
+        assert workflow["requires_explicit_approval"] is True
+        assert workflow["script_relative_path"] == script_path
+        assert workflow["metadata"]["overwrite_flag"] == "--overwrite"
+        assert workflow["metadata"]["overwrite_default"] is False
+        assert workflow["metadata"]["engine_modes"] == ["hy8"]
+        assert workflow["metadata"]["output_mutation"] == "creates_or_replaces"
+        assert workflow["metadata"]["external_program"] == "HY-8"
+        scenarios = {scenario["name"]: scenario["command"] for scenario in workflow["resolved_scenarios"]}
+        assert set(scenarios) == {"hy8"}
+        assert "--engine" in scenarios["hy8"]
+        assert "hy8" in scenarios["hy8"]
+        assert "--hy8-exe" in scenarios["hy8"]
+
+
 def test_repository_script_fallback_resolves_current_relocated_path() -> None:
     registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
 

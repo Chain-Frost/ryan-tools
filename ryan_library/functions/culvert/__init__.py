@@ -24,6 +24,31 @@ from .export import (
     scenario_result_record,
 )
 from .plotting import plot_longitudinal_profile, plot_rating_curve, save_figure
+from .tuflow_attributes import (
+    TuflowCulvertAttributes,
+    inlet_from_mapping,
+    load_tuflow_culvert_attributes,
+    losses_from_mapping,
+    material_from_mapping,
+    parse_culvert_material,
+    resolve_circular_configuration,
+    resolve_tuflow_losses,
+)
+from .tuflow_configuration import (
+    CircularCulvertConfiguration,
+    CircularInletConfiguration,
+    CulvertShapeName,
+    TuflowLossParameters,
+    parse_circular_inlet_configuration,
+    parse_tuflow_shape,
+)
+from .tuflow_engines import (
+    CulvertEngine,
+    CulvertEngineResult,
+    TuflowCircularCulvert,
+    solve_tuflow_culvert_forward,
+    solve_tuflow_culvert_inverse,
+)
 from .uncertainty import generate_study_samples
 from .uncertainty_evaluation import evaluate_crossing_sample, sampled_crossing_inputs
 from .uncertainty_export import (
@@ -38,6 +63,14 @@ from .uncertainty_statistics import aggregate_study_evaluations
 
 __all__: list[str] = [
     "SCHEMA_VERSION",
+    "CircularCulvertConfiguration",
+    "CircularInletConfiguration",
+    "CulvertEngine",
+    "CulvertEngineResult",
+    "CulvertShapeName",
+    "TuflowCircularCulvert",
+    "TuflowCulvertAttributes",
+    "TuflowLossParameters",
     "aggregate_study_evaluations",
     "assess_scenario",
     "build_solver_barrel",
@@ -60,15 +93,26 @@ __all__: list[str] = [
     "generate_circular_candidates",
     "generate_rectangular_candidates",
     "generate_study_samples",
+    "inlet_from_mapping",
     "load_event_csv",
     "load_project",
     "load_project_json",
+    "load_tuflow_culvert_attributes",
+    "losses_from_mapping",
+    "material_from_mapping",
+    "parse_circular_inlet_configuration",
+    "parse_culvert_material",
+    "parse_tuflow_shape",
     "plot_longitudinal_profile",
     "plot_rating_curve",
     "project_record",
+    "resolve_circular_configuration",
+    "resolve_tuflow_losses",
     "sampled_crossing_inputs",
     "save_figure",
     "scenario_result_record",
+    "solve_tuflow_culvert_forward",
+    "solve_tuflow_culvert_inverse",
     "study_evaluation_record",
     "study_summary_record",
     "uncertainty_result_record",
