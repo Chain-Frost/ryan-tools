@@ -134,6 +134,15 @@ or change `ROOT_DIR` in the script.
 - Each affected check folder gets one `.DUPLICATE_REMOVED.txt` placeholder per unique deleted
   content group, including groups whose kept copy is **in the same folder**. It lists every original
   deleted filename and the location of the retained file.
+- During SHA-256 candidate scanning, `SHOW_HASH_PROGRESS = True` displays a Rich live progress bar with
+  **bytes hashed / total candidate bytes**, percentage, throughput, ETA and files completed. The current
+  filename is shown while it is being read, including for individual multi-gigabyte files. The
+  update frequency is set by `HASH_PROGRESS_REFRESH_PER_SECOND` (default 2). The progress view uses
+  the same Rich terminal approach as the repo's other dashboards, not a separate GUI window.
+  The total counts only files requiring content hashes (equal extension and size), not every
+  discovered file. Redirected/headless execution prints the completion summary without live frames.
+  `rich` is included in the repo requirements; copied standalone scripts also need it installed.
+- Set `SHOW_HASH_PROGRESS = False` to disable the live display.
 - SHA-256 reads candidate contents **once** during grouping. Deletion checks existence, size and
   modification time of both paths, rechecking the retained path before each unlink. It does **not**
   hash file content again. Run only on static/inactive results; metadata checks are not file locks.
