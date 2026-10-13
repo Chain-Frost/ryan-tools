@@ -33,6 +33,7 @@ CHECK_FOLDER_NAME = "check"
 
 REPORT_FILE = Path("duplicate_files_to_delete.txt")
 MANIFEST_FILE = Path("duplicate_files_manifest.csv")
+PROPOSAL_MANIFEST_FILE = Path("duplicate_files_proposed.csv")
 
 HASH_CHUNK_SIZE = 1024 * 1024  # 1 MiB
 
@@ -482,6 +483,133 @@ def write_placeholder_files(placeholder_actions: list[PlaceholderAction]) -> Non
         write_placeholder_file(action)
 
 
+
+# ---------------------------------------------------------------------------
+# Deletion manifest and restoration
+# ---------------------------------------------------------------------------
+
+MANIFEST_FIELDS = ("original_path", "kept_path", "suffix", "size_bytes", "sha256", "status")
+
+
+def manifest_rows(
+    actions: list[DeleteAction],
+    *,
+    successful_actions: list[DeleteAction] | None = None,
+    status: str = "planned",
+) -> list[dict[str, str]]:
+    """Create an explicit old-path -> retained-path mapping for every deletion."""
+    successful_paths = {action.delete_file for action in successful_actions or []}
+    rows: list[dict[str, str]] = []
+    for action in actions:
+        action_status = status
+        if successful_actions is not None:
+            action_status = "deleted" if action.delete_file in successful_paths else "failed"
+        rows.append(
+            {
+                "original_path": str(absolute_path(action.delete_file)),
+                "kept_path": str(absolute_path(action.keep_file)),
+                "suffix": action.suffix,
+                "size_bytes": str(action.size_bytes),
+                "sha256": action.content_hash,
+                "status": action_status,
+            }
+        )
+    return rows
+
+
+def write_manifest(path: Path, rows: list[dict[str, str]], *, exclusive: bool = False) -> None:
+    """Persist recovery information before any destructive changes."""
+    path = absolute_path(path)
+    with path.open("x" if exclusive else "w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=MANIFEST_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def update_manifest(path: Path, rows: list[dict[str, str]]) -> None:
+    """Replace a manifest after deleting/restoring without leaving a partial CSV."""
+    path = absolute_path(path)
+    temp_path = path.with_name(path.name + ".tmp")
+    try:
+        write_manifest(temp_path, rows, exclusive=True)
+        os.replace(temp_path, path)
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+def read_manifest(path: Path) -> list[dict[str, str]]:
+    """Load and validate the recovery manifest's required fields."""
+    with absolute_path(path).open(newline="", encoding="utf-8") as source:
+        reader = csv.DictReader(source)
+        if reader.fieldnames is None or not set(MANIFEST_FIELDS).issubset(reader.fieldnames):
+            raise ValueError("The manifest is missing required recovery columns.")
+        return [dict(row) for row in reader if row.get("original_path")]
+
+
+def matches_record(path: Path, *, size_bytes: int, content_hash: str) -> bool:
+    """Verify that the file still matches the scanned content before mutation."""
+    try:
+        return path.is_file() and path.stat().st_size == size_bytes and file_hash(path) == content_hash
+    except OSError:
+        return False
+
+
+def restore_files_from_manifest(path: Path) -> tuple[int, int]:
+    """Restore deleted filenames as copies of SHA-256-verified retained files.
+
+    'pending' entries are eligible after an interrupted deletion, provided the
+    old path is missing. Existing original paths are never overwritten.
+    """
+    rows = read_manifest(path)
+    candidates = [row for row in rows if row["status"] in {"deleted", "pending"}]
+    print(f"Recovery manifest: {absolute_path(path)}")
+    print(f"Eligible entries: {len(candidates)}")
+    if DRY_RUN:
+        for row in candidates:
+            original = Path(row["original_path"])
+            if not original.exists():
+                print(f"DRY RUN - would restore: {original} <- {row['kept_path']}")
+        return 0, 0
+
+    print("Restoration copies the retained file back to its original filename.")
+    print("Type RESTORE to continue; existing files will never be overwritten.")
+    if input("> ").strip() != "RESTORE":
+        print("Restoration cancelled.")
+        return 0, 0
+
+    restored = 0
+    failed = 0
+    for row in candidates:
+        original = Path(row["original_path"])
+        retained = Path(row["kept_path"])
+        if original.exists():
+            print(f"Existing original, skipped: {original}")
+            continue
+        try:
+            size_bytes = int(row["size_bytes"])
+            if not matches_record(retained, size_bytes=size_bytes, content_hash=row["sha256"]):
+                raise ValueError(f"Retained file missing or changed: {retained}")
+            original.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                with retained.open("rb") as source, original.open("xb") as destination:
+                    shutil.copyfileobj(source, destination, length=HASH_CHUNK_SIZE)
+                if not matches_record(original, size_bytes=size_bytes, content_hash=row["sha256"]):
+                    raise ValueError(f"Restored file failed hash verification: {original}")
+            except Exception:
+                # Only remove files created by this restore, never pre-existing paths.
+                original.unlink(missing_ok=True)
+                raise
+            row["status"] = "restored"
+            restored += 1
+            print(f"Restored: {original}")
+        except (OSError, ValueError) as error:
+            failed += 1
+            print(f"Failed to restore {original}: {error}")
+    update_manifest(path, rows)
+    print(f"Restored: {restored}; failed: {failed}")
+    return restored, failed
+
+
 # ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
@@ -503,6 +631,7 @@ def write_report(
         f"Duplicate groups found: {len(duplicate_groups)}",
         f"Files marked for deletion: {len(actions)}",
         f"Placeholder files to write: {len(placeholder_actions)}",
+        f"Proposal CSV manifest: {absolute_path(PROPOSAL_MANIFEST_FILE)}",
         "",
         "Placeholder policy:",
         "  One placeholder per unique deleted content per affected check folder.",
@@ -607,7 +736,7 @@ def confirm_deletion() -> bool:
 def delete_duplicate_file(action: DeleteAction) -> bool:
     """Delete one duplicate file.
 
-    Returns True only if the file was deleted or was already missing.
+    Returns True only if the file was actually deleted.
     """
     path = action.delete_file
 
@@ -621,7 +750,7 @@ def delete_duplicate_file(action: DeleteAction) -> bool:
         return True
     except FileNotFoundError:
         print(f"Already missing: {path}")
-        return True
+        return False
     except PermissionError:
         print(f"Permission denied: {path}")
         return False
@@ -631,13 +760,22 @@ def delete_duplicate_file(action: DeleteAction) -> bool:
 
 
 def delete_duplicate_files(actions: list[DeleteAction]) -> list[DeleteAction]:
-    """Delete duplicate files.
-
-    Returns the actions that successfully deleted or skipped already-missing files.
-    """
+    """Verify both copies against the scan before deleting each duplicate."""
     successful_actions: list[DeleteAction] = []
+    checked_kept: dict[tuple[Path, int, str], bool] = {}
 
     for action in actions:
+        keep_key = (action.keep_file, action.size_bytes, action.content_hash)
+        if keep_key not in checked_kept:
+            checked_kept[keep_key] = matches_record(
+                action.keep_file, size_bytes=action.size_bytes, content_hash=action.content_hash
+            )
+        if not checked_kept[keep_key]:
+            print(f"Retained copy missing or changed; skipping: {action.delete_file}")
+            continue
+        if not matches_record(action.delete_file, size_bytes=action.size_bytes, content_hash=action.content_hash):
+            print(f"Duplicate missing or changed; skipping: {action.delete_file}")
+            continue
         if delete_duplicate_file(action):
             successful_actions.append(action)
 
@@ -650,6 +788,10 @@ def delete_duplicate_files(actions: list[DeleteAction]) -> list[DeleteAction]:
 
 
 def main() -> None:
+    if RESTORE_FROM_MANIFEST:
+        restore_files_from_manifest(MANIFEST_FILE)
+        return
+
     check_folders = find_check_folders(ROOT_DIR)
 
     if not check_folders:
@@ -675,6 +817,7 @@ def main() -> None:
         records=records,
     )
 
+    write_manifest(PROPOSAL_MANIFEST_FILE, manifest_rows(actions))
     write_report(
         duplicate_groups=duplicate_groups,
         actions=actions,
@@ -698,11 +841,26 @@ def main() -> None:
         print("DRY_RUN is enabled. No files were deleted and no placeholders were written.")
         return
 
+    if MANIFEST_FILE.exists():
+        print(f"Refusing deletion: recovery manifest already exists: {absolute_path(MANIFEST_FILE)}")
+        print("Archive/rename the previous manifest before another deletion run.")
+        return
+
+    for placeholder in planned_placeholder_actions:
+        if placeholder.placeholder_file.exists() and (
+            placeholder.placeholder_file.read_text(encoding="utf-8") != placeholder_text(placeholder)
+        ):
+            print(f"Refusing deletion: conflicting placeholder: {placeholder.placeholder_file}")
+            return
+
     if not confirm_deletion():
         print("Deletion cancelled. No files were deleted.")
         return
 
+    # The pending manifest is durable before any file is removed.
+    write_manifest(MANIFEST_FILE, manifest_rows(actions, status="pending"), exclusive=True)
     successful_actions = delete_duplicate_files(actions)
+    update_manifest(MANIFEST_FILE, manifest_rows(actions, successful_actions=successful_actions))
 
     successful_placeholder_actions = build_placeholder_actions(
         actions=successful_actions,
@@ -718,9 +876,10 @@ def main() -> None:
     print("Finished")
     print("=" * 80)
     print(f"Duplicate files requested for deletion: {len(actions)}")
-    print(f"Duplicate files deleted/skipped:         {len(successful_actions)}")
+    print(f"Duplicate files deleted:                 {len(successful_actions)}")
     print(f"Duplicate files failed:                  {failed_count}")
-    print(f"Placeholder files written/planned:        {len(successful_placeholder_actions)}")
+    print(f"Placeholder groups written/planned:       {len(successful_placeholder_actions)}")
+    print(f"Recovery manifest:                       {absolute_path(MANIFEST_FILE)}")
 
 
 if __name__ == "__main__":
