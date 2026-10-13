@@ -134,10 +134,12 @@ def test_raster_and_sidecar_are_opt_in(utility: ModuleType, tmp_path: Path, monk
     assert len(all_files) == 8
 
 
-def test_dry_run_writes_report_and_proposal_without_mutation(utility: ModuleType, tmp_path: Path) -> None:
+def test_dry_run_writes_report_and_proposal_without_mutation(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     folder = check_folder(tmp_path, "GD2")
     paths = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
-    utility.DRY_RUN = True
+    monkeypatch.setattr(utility, "DRY_RUN", True)
     utility.main()
     assert all(path.is_file() for path in paths)
     assert (tmp_path / "deletions.txt").is_file()
