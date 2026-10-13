@@ -107,7 +107,7 @@ def test_find_check_folders_walks_nested_directories_only(utility: ModuleType, t
     (unrelated / "checks").write_text("not a directory", encoding="utf-8")
     (root / "GD2" / "ordinary.txt").write_text("not a directory", encoding="utf-8")
 
-    assert utility.find_check_folders(root) == [first, second, third]
+    assert utility.find_check_folders(root) == sorted((first, second, third), key=lambda path: str(path).casefold())
 
 
 def test_duplicates_compare_across_check_and_checks_folders(utility: ModuleType, tmp_path: Path) -> None:
