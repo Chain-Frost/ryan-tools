@@ -548,6 +548,27 @@ def write_manifest(path: Path, rows: list[dict[str, str]], *, exclusive: bool = 
         writer.writerows(rows)
 
 
+def available_output_path(path: Path, index: int) -> Path:
+    """Give each new report/proposal a distinct name without replacing prior evidence."""
+    path = absolute_path(path)
+    if index == 0:
+        return path
+    return path.with_name(f"{path.stem}_{index:03d}{path.suffix}")
+
+
+def write_proposal_manifest(path: Path, rows: list[dict[str, str]]) -> Path:
+    """Write the first available numbered CSV, using exclusive file creation."""
+    for index in range(10000):
+        candidate = available_output_path(path, index)
+        try:
+            write_manifest(candidate, rows, exclusive=True)
+        except FileExistsError:
+            continue
+        return candidate
+    message = f"Too many existing proposal manifests for {path}"
+    raise FileExistsError(message)
+
+
 def update_manifest(path: Path, rows: list[dict[str, str]]) -> None:
     """Replace a manifest after deleting/restoring without leaving a partial CSV."""
     path = absolute_path(path)
@@ -662,8 +683,9 @@ def write_report(
     actions: list[DeleteAction],
     placeholder_actions: list[PlaceholderAction],
     report_file: Path,
-) -> None:
-    """Write a human-readable duplicate deletion report."""
+    proposal_file: Path,
+) -> Path:
+    """Write a human-readable duplicate deletion report without overwriting it."""
     lines: list[str] = [
         "Duplicate file report",
         "=" * 80,
@@ -673,7 +695,7 @@ def write_report(
         f"Duplicate groups found: {len(duplicate_groups)}",
         f"Files marked for deletion: {len(actions)}",
         f"Placeholder files to write: {len(placeholder_actions)}",
-        f"Proposal CSV manifest: {absolute_path(PROPOSAL_MANIFEST_FILE)}",
+        f"Proposal CSV manifest: {absolute_path(proposal_file)}",
         "",
         "Placeholder policy:",
         "  One placeholder per unique deleted content per affected check folder.",
@@ -733,8 +755,16 @@ def write_report(
 
             lines.append("")
 
-    report_file = absolute_path(report_file)
-    report_file.write_text("\n".join(lines), encoding="utf-8")
+    for index in range(10000):
+        candidate = available_output_path(report_file, index)
+        try:
+            with candidate.open("x", encoding="utf-8") as output:
+                output.write("\n".join(lines))
+        except FileExistsError:
+            continue
+        return candidate
+    message = f"Too many existing reports for {report_file}"
+    raise FileExistsError(message)
 
 
 def print_summary(
@@ -743,6 +773,8 @@ def print_summary(
     duplicate_groups: list[DuplicateGroup],
     actions: list[DeleteAction],
     placeholder_actions: list[PlaceholderAction],
+    report_file: Path,
+    proposal_file: Path,
 ) -> None:
     """Print a console summary."""
     print()
@@ -756,8 +788,9 @@ def print_summary(
     print(f"Duplicate groups found:          {len(duplicate_groups)}")
     print(f"Files proposed for deletion:     {len(actions)}")
     print(f"Placeholder files to write:      {len(placeholder_actions)}")
-    print(f"Report written to:               {absolute_path(REPORT_FILE)}")
-    print(f"CSV manifest:                    {absolute_path(MANIFEST_FILE)}")
+    print(f"Report written to:               {absolute_path(report_file)}")
+    print(f"Proposal manifest:                {absolute_path(proposal_file)}")
+    print(f"Recovery manifest:                {absolute_path(MANIFEST_FILE)}")
     print()
 
 
@@ -874,12 +907,13 @@ def main() -> None:
         records=records,
     )
 
-    write_manifest(PROPOSAL_MANIFEST_FILE, manifest_rows(actions))
-    write_report(
+    proposal_file = write_proposal_manifest(PROPOSAL_MANIFEST_FILE, manifest_rows(actions))
+    report_file = write_report(
         duplicate_groups=duplicate_groups,
         actions=actions,
         placeholder_actions=planned_placeholder_actions,
         report_file=REPORT_FILE,
+        proposal_file=proposal_file,
     )
 
     print_summary(
@@ -888,6 +922,8 @@ def main() -> None:
         duplicate_groups=duplicate_groups,
         actions=actions,
         placeholder_actions=planned_placeholder_actions,
+        report_file=report_file,
+        proposal_file=proposal_file,
     )
 
     if not duplicate_groups:
