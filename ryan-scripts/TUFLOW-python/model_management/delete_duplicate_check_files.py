@@ -187,8 +187,7 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
             if is_placeholder_file(path):
                 continue
             if not INCLUDE_RASTER_FILES and (
-                path.suffix.lower() in RASTER_SUFFIXES
-                or path.name.lower().endswith((".tif.aux.xml", ".tiff.aux.xml"))
+                path.suffix.lower() in RASTER_SUFFIXES or path.name.lower().endswith((".tif.aux.xml", ".tiff.aux.xml"))
             ):
                 continue
 
@@ -484,7 +483,6 @@ def write_placeholder_files(placeholder_actions: list[PlaceholderAction]) -> Non
     """Write placeholder files."""
     for action in placeholder_actions:
         write_placeholder_file(action)
-
 
 
 # ---------------------------------------------------------------------------
