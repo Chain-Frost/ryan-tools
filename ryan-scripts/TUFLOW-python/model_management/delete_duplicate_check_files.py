@@ -802,27 +802,26 @@ def delete_duplicate_file(action: DeleteAction) -> bool:
 
 
 def delete_duplicate_files(actions: list[DeleteAction]) -> list[DeleteAction]:
-    """Verify both copies against the scan before deleting each duplicate."""
+    """Use cheap metadata checks before each unlink; no repeated SHA-256 reads."""
     successful_actions: list[DeleteAction] = []
-    checked_kept: dict[tuple[Path, int, str], bool] = {}
 
     for action in actions:
-        keep_key = (action.keep_file, action.size_bytes, action.content_hash)
-        if keep_key not in checked_kept:
-            checked_kept[keep_key] = matches_record(
-                action.keep_file, size_bytes=action.size_bytes, content_hash=action.content_hash
-            )
-        if not checked_kept[keep_key]:
+        # Recheck the retained file for EACH deletion, addressing changes on a
+        # shared drive without rereading gigabytes of content.
+        if not matches_snapshot(
+            action.keep_file, size_bytes=action.size_bytes, mtime_ns=action.keep_mtime_ns
+        ):
             print(f"Retained copy missing or changed; skipping: {action.delete_file}")
             continue
-        if not matches_record(action.delete_file, size_bytes=action.size_bytes, content_hash=action.content_hash):
+        if not matches_snapshot(
+            action.delete_file, size_bytes=action.size_bytes, mtime_ns=action.delete_mtime_ns
+        ):
             print(f"Duplicate missing or changed; skipping: {action.delete_file}")
             continue
         if delete_duplicate_file(action):
             successful_actions.append(action)
 
     return successful_actions
-
 
 def cleanup_targets_are_safe(placeholder_actions: list[PlaceholderAction]) -> bool:
     """Reject conflicting placeholder paths and existing recovery manifests."""
