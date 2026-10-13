@@ -38,15 +38,15 @@ PROPOSAL_MANIFEST_FILE = Path("duplicate_files_proposed.csv")
 HASH_CHUNK_SIZE = 1024 * 1024  # 1 MiB
 
 # Even when False, deletion still requires typing DELETE.
-DRY_RUN = True
+DRY_RUN = False
 
 # True  = compare duplicates across all discovered check folders.
 # False = compare duplicates only within each individual check folder.
-COMPARE_ACROSS_CHECK_FOLDERS = False
+COMPARE_ACROSS_CHECK_FOLDERS = True
 
 # Preserve original paths to TUFLOW rasters and their overview sidecars by default.
 # Opting in can invalidate path-based references in existing GIS projects.
-INCLUDE_RASTER_FILES = False
+INCLUDE_RASTER_FILES = True
 RASTER_SUFFIXES = {".tif", ".tiff", ".ovr"}
 
 # When True, restore files from the last completed MANIFEST_FILE rather than
