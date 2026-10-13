@@ -115,7 +115,7 @@ the maintained versions before that date.
 ## Duplicate check-file cleanup
 
 `model_management/delete_duplicate_check_files.py` removes byte-identical files within TUFLOW
-`check` folders, retaining one copy per unique content group. Run from the intended result/model root
+folders named `check` or `checks` (case-insensitive), retaining one copy per unique content group. Run from the intended result/model root
 or change `ROOT_DIR` in the script.
 
 - **Default `DRY_RUN = False`:** the script writes a proposal and report, then requires typing exactly

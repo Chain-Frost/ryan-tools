@@ -1,4 +1,4 @@
-"""Find and optionally delete byte-identical files in TUFLOW check folders.
+"""Find and optionally delete byte-identical files in TUFLOW check/checks folders.
 
 Run from the model/result root or set ROOT_DIR. Cross-folder comparison and
 raster scanning are enabled by default. Review the proposed deletion list and
@@ -45,7 +45,7 @@ from rich.progress import (
 # ---------------------------------------------------------------------------
 
 ROOT_DIR = Path()
-CHECK_FOLDER_NAME = "check"
+CHECK_FOLDER_NAMES = ("check", "checks")
 
 REPORT_FILE = Path("duplicate_files_to_delete.txt")
 MANIFEST_FILE = Path("duplicate_files_manifest.csv")
@@ -183,14 +183,14 @@ def relative_or_absolute_path_from_placeholder_to_kept_file(
 
 
 def find_check_folders(root_dir: Path) -> list[Path]:
-    """Find check directories without stat-ing every file under the root."""
+    """Find check/checks directories without stat-ing every file under the root."""
     root_dir = absolute_path(root_dir)
-    target = CHECK_FOLDER_NAME.casefold()
+    targets = {name.casefold() for name in CHECK_FOLDER_NAMES}
     matches = [
         parent / name
         for parent, directory_names, _ in root_dir.walk()
         for name in directory_names
-        if name.casefold() == target
+        if name.casefold() in targets
     ]
     return sorted(matches, key=lambda path: str(path).casefold())
 
@@ -953,7 +953,7 @@ def main() -> None:
     check_folders = find_check_folders(ROOT_DIR)
 
     if not check_folders:
-        print(f"No folders named {CHECK_FOLDER_NAME!r} found under {absolute_path(ROOT_DIR)}")
+        print(f"No folders named {CHECK_FOLDER_NAMES!r} found under {absolute_path(ROOT_DIR)}")
         return
 
     records = iter_files_in_check_folders(check_folders)
