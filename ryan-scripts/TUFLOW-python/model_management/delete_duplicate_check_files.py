@@ -23,9 +23,9 @@ import sys
 from collections import defaultdict
 from collections.abc import Callable
 from contextlib import nullcontext
-from time import monotonic
 from dataclasses import dataclass
 from pathlib import Path
+from time import monotonic
 
 from rich.progress import (
     BarColumn,
@@ -274,6 +274,22 @@ def hash_progress_display() -> Progress:
     )
 
 
+def hash_candidate_record(record: FileRecord, *, on_chunk: Callable[[int], None] | None = None) -> FileRecord:
+    """Hash a candidate once and reject it if the source changed during that read."""
+    digest = file_hash(record.path, on_chunk=on_chunk) if on_chunk is not None else file_hash(record.path)
+    if not matches_snapshot(record.path, size_bytes=record.size_bytes, mtime_ns=record.mtime_ns):
+        print(f"Changed during hashing, excluded from deletion: {record.path}")
+        return record
+    return FileRecord(
+        check_folder=record.check_folder,
+        path=record.path,
+        suffix=record.suffix,
+        size_bytes=record.size_bytes,
+        mtime_ns=record.mtime_ns,
+        content_hash=digest,
+    )
+
+
 def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
     """Hash only same-suffix, same-size candidates and report byte-level progress.
 
@@ -311,24 +327,12 @@ def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
                     name = record.path.name
                     short_name = name if len(name) <= 32 else name[:29] + "..."
                     progress.update(task_id, description=short_name)
-                    digest = file_hash(record.path, on_chunk=lambda size: progress.update(task_id, advance=size))
+                    active_progress = progress
+                    active_task_id = task_id
+                    on_chunk: Callable[[int], None] = lambda size: active_progress.update(active_task_id, advance=size)
+                    output.append(hash_candidate_record(record, on_chunk=on_chunk))
                 else:
-                    digest = file_hash(record.path)
-
-                if not matches_snapshot(record.path, size_bytes=record.size_bytes, mtime_ns=record.mtime_ns):
-                    print(f"Changed during hashing, excluded from deletion: {record.path}")
-                    output.append(record)
-                else:
-                    output.append(
-                        FileRecord(
-                            check_folder=record.check_folder,
-                            path=record.path,
-                            suffix=record.suffix,
-                            size_bytes=record.size_bytes,
-                            mtime_ns=record.mtime_ns,
-                            content_hash=digest,
-                        )
-                    )
+                    output.append(hash_candidate_record(record))
                 completed_files += 1
                 if progress is not None and task_id is not None:
                     progress.update(task_id, files_done=completed_files)
