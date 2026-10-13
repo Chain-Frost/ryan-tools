@@ -53,6 +53,29 @@ and the remaining interpolation weights are renormalised.
 | `po_and_timeseries` | Process PO and POMM outputs, check time series and plot profiles. |
 | `raster_processing` | Run ASC_to_ASC and native-Python raster calculations. |
 
+## Duplicate check-file cleanup
+
+\`model_management/delete_duplicate_check_files.py\` is a self-contained utility for byte-identical files in TUFLOW
+\`check\` folders. Run it **from the desired result/model root** or change \`ROOT_DIR\` near the top of the script.
+
+- Default \`DRY_RUN = True\`; inspect \`duplicate_files_to_delete.txt\` and \`duplicate_files_proposed.csv\` first.
+- Default \`COMPARE_ACROSS_CHECK_FOLDERS = False\`: retain one copy *per check folder*. Set \`True\` only when it is
+  acceptable for a folder's retained copy to live elsewhere.
+- Default \`INCLUDE_RASTER_FILES = False\`: GeoTIFFs and their overview/auxiliary files are excluded to preserve
+  file-path dependencies. Set this to \`True\` only after reviewing affected QGIS/TUFLOW references.
+- On a confirmed run (\`DRY_RUN = False\` and typing \`DELETE\`), the script writes
+  \`duplicate_files_manifest.csv\` **before** removing files, then updates it with the outcome of each deletion.
+  Preserve this CSV. A later deletion refuses to overwrite an existing recovery manifest; archive it first.
+- **One \`.DUPLICATE_REMOVED.txt\` placeholder per distinct content hash per affected check folder** documents all
+  deleted original names, the retained filename, byte size and SHA-256. This applies to deletions within the same folder.
+  These are audit notes, not path-preserving proxies. Any GIS reference to a deleted filename may break.
+- Set \`RESTORE_FROM_MANIFEST = True\` to restore the original paths by copying verified retained content from the
+  completed/pending manifest. Restore uses dry-run by default, requires typing \`RESTORE\` for actual writes and
+  refuses to overwrite existing files. The pre-deletion proposal CSV is **not** a recovery manifest.
+
+Run only against disposable/copy data for first verification. Explicitly exclude or preserve files whose names are
+significant to a workflow; identical hashes establish equal bytes, not safe removal from references.
+
 Only imports needed to construct or annotate those editable values, such as
 `Path` and `Literal`, appear before the settings. Operational third-party and
 `ryan_library` imports follow the editable block so users see configuration
