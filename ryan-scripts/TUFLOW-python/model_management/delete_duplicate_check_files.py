@@ -3,6 +3,7 @@
 Run from the model/result root or set ROOT_DIR. Cross-folder comparison and
 raster scanning are enabled by default. Review the proposed deletion list and
 type DELETE to confirm actual removal; DRY_RUN = True remains available.
+A Rich SHA-256 progress display tracks candidate bytes, throughput and ETA.
 
 One placeholder is retained per unique deleted content group in each affected
 check folder, even when the retained file is in that folder. Placeholders are
@@ -18,9 +19,24 @@ import csv
 import hashlib
 import os
 import shutil
+import sys
 from collections import defaultdict
+from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
+from time import monotonic
+
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 
 # delete duplicate files below this script in TUFLOW check folders.
 
@@ -36,6 +52,11 @@ MANIFEST_FILE = Path("duplicate_files_manifest.csv")
 PROPOSAL_MANIFEST_FILE = Path("duplicate_files_proposed.csv")
 
 HASH_CHUNK_SIZE = 1024 * 1024  # 1 MiB
+
+# Rich byte-based hash progress; defaults to live updates in interactive terminals.
+# Disable for quiet/headless operation. Does not affect hashing or deletion.
+SHOW_HASH_PROGRESS = True
+HASH_PROGRESS_REFRESH_PER_SECOND = 2.0
 
 # Even when False, deletion still requires typing DELETE.
 DRY_RUN = False
@@ -216,13 +237,15 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
 # ---------------------------------------------------------------------------
 
 
-def file_hash(path: Path) -> str:
-    """Hash a file using SHA-256."""
+def file_hash(path: Path, *, on_chunk: Callable[[int], None] | None = None) -> str:
+    """Hash a file using SHA-256; optionally report bytes read during the same pass."""
     digest = hashlib.sha256()
 
     with path.open("rb") as file:
         while chunk := file.read(HASH_CHUNK_SIZE):
             digest.update(chunk)
+            if on_chunk is not None:
+                on_chunk(len(chunk))
 
     return digest.hexdigest()
 
@@ -236,13 +259,45 @@ def matches_snapshot(path: Path, *, size_bytes: int, mtime_ns: int) -> bool:
         return False
 
 
-def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
-    """Hash only files that have at least one same-suffix, same-size candidate.
+def hash_progress_display() -> Progress:
+    """Build a byte-weighted Rich display, as used by other repo dashboards."""
+    return Progress(
+        TextColumn("[cyan]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        DownloadColumn(),
+        TransferSpeedColumn(),
+        TimeRemainingColumn(),
+        TextColumn("{task.fields[files_done]}/{task.fields[files_total]} files"),
+        refresh_per_second=HASH_PROGRESS_REFRESH_PER_SECOND,
+        transient=False,
+        disable=not sys.stdout.isatty(),
+    )
 
-    This avoids hashing files that cannot be duplicates.
+
+def hash_candidate_record(record: FileRecord, *, on_chunk: Callable[[int], None] | None = None) -> FileRecord:
+    """Hash a candidate once and reject it if the source changed during that read."""
+    digest = file_hash(record.path, on_chunk=on_chunk) if on_chunk is not None else file_hash(record.path)
+    if not matches_snapshot(record.path, size_bytes=record.size_bytes, mtime_ns=record.mtime_ns):
+        print(f"Changed during hashing, excluded from deletion: {record.path}")
+        return record
+    return FileRecord(
+        check_folder=record.check_folder,
+        path=record.path,
+        suffix=record.suffix,
+        size_bytes=record.size_bytes,
+        mtime_ns=record.mtime_ns,
+        content_hash=digest,
+    )
+
+
+def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
+    """Hash only same-suffix, same-size candidates and report byte-level progress.
+
+    Counts exclude files with no possible size/suffix match. Updates occur within
+    the original read loop: never read the files a second time for progress.
     """
     by_size: dict[object, list[FileRecord]] = defaultdict(list)
-
     for record in records:
         if COMPARE_ACROSS_CHECK_FOLDERS:
             key = (record.suffix, record.size_bytes)
@@ -250,31 +305,45 @@ def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
             key = (record.check_folder, record.suffix, record.size_bytes)
         by_size[key].append(record)
 
+    candidates = [record for group in by_size.values() if len(group) > 1 for record in group]
+    total_bytes = sum(record.size_bytes for record in candidates)
+    total_files = len(candidates)
     output: list[FileRecord] = []
+    completed_files = 0
+    started = monotonic()
 
-    for group in by_size.values():
-        if len(group) == 1:
-            output.extend(group)
-            continue
-
-        for record in group:
-            digest = file_hash(record.path)
-            if not matches_snapshot(record.path, size_bytes=record.size_bytes, mtime_ns=record.mtime_ns):
-                print(f"Changed during hashing, excluded from deletion: {record.path}")
-                output.append(record)
+    progress = hash_progress_display() if SHOW_HASH_PROGRESS and candidates else None
+    with progress if progress is not None else nullcontext():
+        task_id = (
+            progress.add_task("SHA-256", total=total_bytes, files_done=0, files_total=total_files)
+            if progress is not None
+            else None
+        )
+        for group in by_size.values():
+            if len(group) == 1:
+                output.extend(group)
                 continue
-            output.append(
-                FileRecord(
-                    check_folder=record.check_folder,
-                    path=record.path,
-                    suffix=record.suffix,
-                    size_bytes=record.size_bytes,
-                    mtime_ns=record.mtime_ns,
-                    content_hash=digest,
-                )
-            )
+            for record in group:
+                if progress is not None and task_id is not None:
+                    name = record.path.name
+                    short_name = name if len(name) <= 32 else name[:29] + "..."
+                    progress.update(task_id, description=short_name)
+                    output.append(hash_candidate_record(record, on_chunk=partial(progress.advance, task_id)))
+                else:
+                    output.append(hash_candidate_record(record))
+                completed_files += 1
+                if progress is not None and task_id is not None:
+                    progress.update(task_id, files_done=completed_files)
 
-    return sorted(output, key=lambda r: str(r.path).lower())
+        if progress is not None and task_id is not None:
+            progress.update(task_id, description="SHA-256 complete", refresh=True)
+
+    if candidates:
+        print(
+            f"SHA-256 complete: {completed_files}/{total_files} candidate files, "
+            f"{total_bytes / (1024**3):.2f} GiB in {monotonic() - started:.1f}s."
+        )
+    return sorted(output, key=lambda record: str(record.path).lower())
 
 
 def find_duplicate_groups(records: list[FileRecord]) -> list[DuplicateGroup]:
