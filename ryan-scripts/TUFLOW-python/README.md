@@ -111,3 +111,34 @@ wrappers that use `PommPeakWrapperDefaults` and
 `run_pomm_peak_report_wrapper()` from `wrapper_utils` remain supported, with a
 deprecation warning, until 31 December 2026. Replace those copied wrappers with
 the maintained versions before that date.
+
+## Duplicate check-file cleanup
+
+`model_management/delete_duplicate_check_files.py` removes byte-identical files within TUFLOW
+`check` folders, retaining one copy per unique content group. Run from the intended result/model root
+or change `ROOT_DIR` in the script.
+
+- **Default `DRY_RUN = False`:** the script writes a proposal and report, then requires typing exactly
+  `DELETE` before removal. Set `DRY_RUN = True` for review-only operation (no prompt or deletion).
+- **Default `COMPARE_ACROSS_CHECK_FOLDERS = True`:** keep one copy of each content group across all scanned
+  folders. With `False`, keep one representative in each check folder instead.
+- **Default `INCLUDE_RASTER_FILES = True`:** GeoTIFFs and auxiliary files are included. Set `False` to
+  exclude them. Identical bytes do **not** mean the original file paths are safe to remove: linked QGIS
+  projects or scripts may stop finding their inputs.
+- A new numbered proposal CSV and TXT report are written **without overwriting older runs**
+  (`duplicate_files_proposed.csv`, then `duplicate_files_proposed_001.csv`, and likewise for reports).
+  Review their listed keep/delete choices before confirming.
+- A confirmed run writes `duplicate_files_manifest.csv` before deletion and records all original
+  filenames, retained paths, hashes and outcomes. It refuses another deletion if a recovery manifest
+  already exists. Archive that manifest before starting another run.
+- Each affected check folder gets one `.DUPLICATE_REMOVED.txt` placeholder per unique deleted
+  content group, including groups whose kept copy is **in the same folder**. It lists every original
+  deleted filename and the location of the retained file.
+- SHA-256 reads candidate contents **once** during grouping. Deletion checks existence, size and
+  modification time of both paths, rechecking the retained path before each unlink. It does **not**
+  hash file content again. Run only on static/inactive results; metadata checks are not file locks.
+- Set `RESTORE_FROM_MANIFEST = True` to copy verified retained content back into missing original
+  paths. With the default `DRY_RUN = False`, restoration requires typing `RESTORE`. Existing
+  files are never overwritten; a recovery manifest (not the pre-deletion proposal) is required.
+
+Verify first on a disposable copy of model results, particularly on network drives.
