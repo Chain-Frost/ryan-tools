@@ -22,6 +22,11 @@ SCRIPT = (
 )
 
 
+class DeleteRecord(Protocol):
+    @property
+    def delete_file(self) -> Path: ...
+
+
 class PlaceholderRecord(Protocol):
     @property
     def keep_file(self) -> Path: ...
@@ -74,13 +79,13 @@ def write_duplicates(folder: Path, *names: str, content: bytes = b"identical-sty
     return paths
 
 
-def planned_actions(utility: ModuleType, root: Path) -> tuple[list[object], list[PlaceholderRecord]]:
+def planned_actions(utility: ModuleType, root: Path) -> tuple[list[DeleteRecord], list[PlaceholderRecord]]:
     records = utility.iter_files_in_check_folders(utility.find_check_folders(root))
     hashed_records = utility.add_hashes_to_candidates(records)
     groups = utility.find_duplicate_groups(hashed_records)
     actions = utility.build_delete_actions(groups, hashed_records)
     placeholders = utility.build_placeholder_actions(actions, records)
-    return actions, cast(list[PlaceholderRecord], placeholders)
+    return cast(list[DeleteRecord], actions), cast(list[PlaceholderRecord], placeholders)
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
