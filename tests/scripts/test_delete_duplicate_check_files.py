@@ -96,9 +96,7 @@ def test_placeholder_for_each_affected_folder_and_content_group(
     assert sorted(p.check_folder for p in placeholders).count(folder_b) == 2
 
 
-def test_raster_and_sidecar_are_opt_in(
-    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_raster_and_sidecar_are_opt_in(utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     folder = check_folder(tmp_path, "GD2")
     write_duplicates(folder, "a.qml", "b.qml")
     for name in ("a.tif", "b.tif", "a.tif.ovr", "b.tif.ovr", "a.tif.aux.xml", "b.tif.aux.xml"):
@@ -110,9 +108,7 @@ def test_raster_and_sidecar_are_opt_in(
     assert len(all_files) == 8
 
 
-def test_dry_run_writes_report_and_proposal_without_mutation(
-    utility: ModuleType, tmp_path: Path
-) -> None:
+def test_dry_run_writes_report_and_proposal_without_mutation(utility: ModuleType, tmp_path: Path) -> None:
     folder = check_folder(tmp_path, "GD2")
     paths = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
     utility.main()
@@ -154,9 +150,7 @@ def test_changed_keep_or_duplicate_is_not_deleted(utility: ModuleType, tmp_path:
     assert all(path.exists() for path in files)
 
 
-def test_recovery_restores_original_paths(
-    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_recovery_restores_original_paths(utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     folder = check_folder(tmp_path, "GD2")
     files = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
     monkeypatch.setattr(utility, "DRY_RUN", False)
