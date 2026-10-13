@@ -3,6 +3,7 @@
 Run from the model/result root or set ROOT_DIR. Cross-folder comparison and
 raster scanning are enabled by default. Review the proposed deletion list and
 type DELETE to confirm actual removal; DRY_RUN = True remains available.
+A Rich SHA-256 progress display tracks candidate bytes, throughput and ETA.
 
 One placeholder is retained per unique deleted content group in each affected
 check folder, even when the retained file is in that folder. Placeholders are
@@ -26,7 +27,15 @@ from time import monotonic
 from dataclasses import dataclass
 from pathlib import Path
 
-from rich.progress import BarColumn, DownloadColumn, Progress, TaskProgressColumn, TextColumn, TimeRemainingColumn, TransferSpeedColumn
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 
 # delete duplicate files below this script in TUFLOW check folders.
 
@@ -249,7 +258,7 @@ def matches_snapshot(path: Path, *, size_bytes: int, mtime_ns: int) -> bool:
         return False
 
 
-def hash_progress_display(*, total_bytes: int, total_files: int) -> Progress:
+def hash_progress_display() -> Progress:
     """Build a byte-weighted Rich display, as used by other repo dashboards."""
     return Progress(
         TextColumn("[cyan]{task.description}"),
@@ -286,9 +295,13 @@ def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
     completed_files = 0
     started = monotonic()
 
-    progress = hash_progress_display(total_bytes=total_bytes, total_files=total_files) if SHOW_HASH_PROGRESS and candidates else None
+    progress = hash_progress_display() if SHOW_HASH_PROGRESS and candidates else None
     with progress if progress is not None else nullcontext():
-        task_id = progress.add_task("SHA-256", total=total_bytes, files_done=0, files_total=total_files) if progress else None
+        task_id = (
+            progress.add_task("SHA-256", total=total_bytes, files_done=0, files_total=total_files)
+            if progress is not None
+            else None
+        )
         for group in by_size.values():
             if len(group) == 1:
                 output.extend(group)
@@ -324,7 +337,10 @@ def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
             progress.update(task_id, description="SHA-256 complete", refresh=True)
 
     if candidates:
-        print(f"SHA-256 complete: {completed_files}/{total_files} candidate files, {total_bytes / (1024**3):.2f} GiB in {monotonic() - started:.1f}s.")
+        print(
+            f"SHA-256 complete: {completed_files}/{total_files} candidate files, "
+            f"{total_bytes / (1024**3):.2f} GiB in {monotonic() - started:.1f}s."
+        )
     return sorted(output, key=lambda record: str(record.path).lower())
 
 
