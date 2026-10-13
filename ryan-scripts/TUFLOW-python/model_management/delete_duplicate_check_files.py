@@ -1,19 +1,23 @@
-"""Find and optionally delete identical files in TUFLOW ``check`` folders.
+"""Find and optionally delete byte-identical files in TUFLOW check folders.
 
-Run this from the model/result root or edit ``ROOT_DIR``. Start with
-``DRY_RUN = True`` and review ``duplicate_files_to_delete.txt``. Files are
-grouped by suffix, size, and content hash either across all check folders or
-within each one according to ``COMPARE_ACROSS_CHECK_FOLDERS``.
+Run from the model/result root or set ROOT_DIR. Dry-run and per-folder comparison
+are defaults. Review the TXT report and CSV manifest before typing DELETE.
 
-With dry-run disabled, deletion still requires typing ``DELETE``. The script
-keeps one copy and may write ``.DUPLICATE_REMOVED.txt`` placeholders pointing to
-it. Keep a backup and inspect the proposed keep/delete choices before approval.
+One placeholder is retained per unique deleted content group in each affected
+check folder, even when the kept file is in that folder. Placeholders are audit
+records, not usable replacements for original file paths. Raster/overview files
+are excluded by default to protect GIS and TUFLOW path references.
+
+To recover files deleted by this version, set RESTORE_FROM_MANIFEST = True and
+follow the separate restore confirmation. Restoration never overwrites files.
 """
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import os
+import shutil
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,15 +32,25 @@ ROOT_DIR = Path()
 CHECK_FOLDER_NAME = "check"
 
 REPORT_FILE = Path("duplicate_files_to_delete.txt")
+MANIFEST_FILE = Path("duplicate_files_manifest.csv")
 
 HASH_CHUNK_SIZE = 1024 * 1024  # 1 MiB
 
 # Even when False, deletion still requires typing DELETE.
-DRY_RUN = False
+DRY_RUN = True
 
 # True  = compare duplicates across all discovered check folders.
 # False = compare duplicates only within each individual check folder.
-COMPARE_ACROSS_CHECK_FOLDERS = True
+COMPARE_ACROSS_CHECK_FOLDERS = False
+
+# Preserve original paths to TUFLOW rasters and their overview sidecars by default.
+# Opting in can invalidate path-based references in existing GIS projects.
+INCLUDE_RASTER_FILES = False
+RASTER_SUFFIXES = {".tif", ".tiff", ".ovr"}
+
+# When True, restore files from the last completed MANIFEST_FILE rather than
+# scanning for duplicates. Restore requires typing RESTORE when DRY_RUN is False.
+RESTORE_FROM_MANIFEST = False
 
 # Example:
 #   deleted file: result_001.tif
@@ -170,6 +184,8 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
                 continue
 
             if is_placeholder_file(path):
+                continue
+            if not INCLUDE_RASTER_FILES and path.suffix.lower() in RASTER_SUFFIXES:
                 continue
 
             records.append(
@@ -311,17 +327,8 @@ def should_write_placeholder(
     action: DeleteAction,
     check_folder_by_file: dict[Path, Path],
 ) -> bool:
-    """Return True when the deleted file and kept file are in different check folders.
-
-    Placeholder files are only required when the remaining source file is elsewhere.
-    """
-    delete_check_folder = check_folder_by_file.get(action.delete_file)
-    keep_check_folder = check_folder_by_file.get(action.keep_file)
-
-    if delete_check_folder is None or keep_check_folder is None:
-        return False
-
-    return delete_check_folder != keep_check_folder
+    """Return True when a deleted file belongs to a discovered check folder."""
+    return action.delete_file in check_folder_by_file
 
 
 def placeholder_path_for_representative_deleted_file(delete_file: Path) -> Path:
@@ -344,12 +351,8 @@ def build_placeholder_actions(
 
     This prevents writing one placeholder per deleted filename.
 
-    Example:
-        If 10 identical files are deleted from one folder because the same
-        content is kept in another folder, this creates 1 placeholder action.
-
-        If the same folder also has deleted files with another content hash,
-        this creates another placeholder action.
+    Identical files deleted within the same folder also get a placeholder.
+    Different content hashes in a folder get different placeholders.
     """
     check_folder_by_file = build_check_folder_lookup(records)
 
@@ -413,11 +416,14 @@ def placeholder_text(action: PlaceholderAction) -> str:
     lines: list[str] = [
         "Duplicate file content removed.",
         "",
-        "One or more files that were previously in this folder were deleted",
-        "because identical content exists in another check folder.",
+        "The following original files were deleted because their content",
+        "was identical to a retained file (in this or another check folder).",
+        "This record does not preserve the original paths for GIS references.",
         "",
         "Remaining file reference:",
         f"  {kept_file_reference}",
+        "",
+        f"Deleted files in this group: {len(action.deleted_files)}",
         "",
         "Duplicate content details:",
         f"  Suffix: {action.suffix or '[no suffix]'}",
@@ -455,9 +461,16 @@ def write_placeholder_file(action: PlaceholderAction) -> bool:
         return True
 
     try:
-        action.placeholder_file.write_text(text, encoding="utf-8")
+        with action.placeholder_file.open("x", encoding="utf-8") as file:
+            file.write(text)
         print(f"Wrote placeholder: {action.placeholder_file}")
         return True
+    except FileExistsError:
+        if action.placeholder_file.read_text(encoding="utf-8") == text:
+            print(f"Placeholder already correct: {action.placeholder_file}")
+            return True
+        print(f"Existing placeholder differs; not overwriting: {action.placeholder_file}")
+        return False
     except OSError as error:
         print(f"Failed to write placeholder {action.placeholder_file}: {error}")
         return False
@@ -492,8 +505,8 @@ def write_report(
         f"Placeholder files to write: {len(placeholder_actions)}",
         "",
         "Placeholder policy:",
-        "  One placeholder is written per unique deleted file content per check folder.",
-        "  Multiple identical deleted files in the same folder share one placeholder.",
+        "  One placeholder per unique deleted content per affected check folder.",
+        "  The kept copy may be in the same folder; original paths will disappear.",
         "",
     ]
 
@@ -568,10 +581,12 @@ def print_summary(
     print(f"Check folders found:             {len(check_folders)}")
     print(f"Files scanned:                   {len(records)}")
     print(f"Compare across check folders:     {COMPARE_ACROSS_CHECK_FOLDERS}")
+    print(f"Include raster files:            {INCLUDE_RASTER_FILES}")
     print(f"Duplicate groups found:          {len(duplicate_groups)}")
     print(f"Files proposed for deletion:     {len(actions)}")
     print(f"Placeholder files to write:      {len(placeholder_actions)}")
     print(f"Report written to:               {absolute_path(REPORT_FILE)}")
+    print(f"CSV manifest:                    {absolute_path(MANIFEST_FILE)}")
     print()
 
 
