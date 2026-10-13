@@ -1,12 +1,12 @@
 """Find and optionally delete byte-identical files in TUFLOW check folders.
 
-Run from the model/result root or set ROOT_DIR. Dry-run and per-folder comparison
-are defaults. Review the TXT report and CSV manifest before typing DELETE.
+Run from the model/result root or set ROOT_DIR. Cross-folder comparison and
+raster scanning are enabled by default. Review the proposed deletion list and
+type DELETE to confirm actual removal; DRY_RUN = True remains available.
 
 One placeholder is retained per unique deleted content group in each affected
-check folder, even when the kept file is in that folder. Placeholders are audit
-records, not usable replacements for original file paths. Raster/overview files
-are excluded by default to protect GIS and TUFLOW path references.
+check folder, even when the retained file is in that folder. Placeholders are
+audit records, not usable replacements for original file paths.
 
 To recover files deleted by this version, set RESTORE_FROM_MANIFEST = True and
 follow the separate restore confirmation. Restoration never overwrites files.
@@ -44,8 +44,8 @@ DRY_RUN = False
 # False = compare duplicates only within each individual check folder.
 COMPARE_ACROSS_CHECK_FOLDERS = True
 
-# Preserve original paths to TUFLOW rasters and their overview sidecars by default.
-# Opting in can invalidate path-based references in existing GIS projects.
+# Include raster and overview duplicates. Removing original filenames may break
+# path-based GIS/TUFLOW references. Set False to exclude these files.
 INCLUDE_RASTER_FILES = True
 RASTER_SUFFIXES = {".tif", ".tiff", ".ovr"}
 
@@ -73,6 +73,7 @@ class FileRecord:
     path: Path
     suffix: str
     size_bytes: int
+    mtime_ns: int
     content_hash: str | None = None
 
 
@@ -89,6 +90,8 @@ class DuplicateGroup:
 class DeleteAction:
     delete_file: Path
     keep_file: Path
+    delete_mtime_ns: int
+    keep_mtime_ns: int
     suffix: str
     size_bytes: int
     content_hash: str
@@ -191,12 +194,14 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
             ):
                 continue
 
+            file_stat = path.stat()
             records.append(
                 FileRecord(
                     check_folder=resolved_check_folder,
                     path=absolute_path(path),
                     suffix=path.suffix.lower(),
-                    size_bytes=path.stat().st_size,
+                    size_bytes=file_stat.st_size,
+                    mtime_ns=file_stat.st_mtime_ns,
                 )
             )
 
