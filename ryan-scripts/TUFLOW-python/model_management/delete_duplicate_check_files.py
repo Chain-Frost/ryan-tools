@@ -224,15 +224,14 @@ def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
 
     This avoids hashing files that cannot be duplicates.
     """
-    if COMPARE_ACROSS_CHECK_FOLDERS:
-        size_group_key = lambda r: (r.suffix, r.size_bytes)
-    else:
-        size_group_key = lambda r: (r.check_folder, r.suffix, r.size_bytes)
-
     by_size: dict[object, list[FileRecord]] = defaultdict(list)
 
     for record in records:
-        by_size[size_group_key(record)].append(record)
+        if COMPARE_ACROSS_CHECK_FOLDERS:
+            key = (record.suffix, record.size_bytes)
+        else:
+            key = (record.check_folder, record.suffix, record.size_bytes)
+        by_size[key].append(record)
 
     output: list[FileRecord] = []
 
@@ -260,18 +259,16 @@ def find_duplicate_groups(records: list[FileRecord]) -> list[DuplicateGroup]:
 
     The first file alphabetically is kept.
     """
-    if COMPARE_ACROSS_CHECK_FOLDERS:
-        hash_group_key = lambda r: (r.suffix, r.size_bytes, r.content_hash)
-    else:
-        hash_group_key = lambda r: (r.check_folder, r.suffix, r.size_bytes, r.content_hash)
-
     by_hash: dict[object, list[FileRecord]] = defaultdict(list)
 
     for record in records:
         if record.content_hash is None:
             continue
-
-        by_hash[hash_group_key(record)].append(record)
+        if COMPARE_ACROSS_CHECK_FOLDERS:
+            key = (record.suffix, record.size_bytes, record.content_hash)
+        else:
+            key = (record.check_folder, record.suffix, record.size_bytes, record.content_hash)
+        by_hash[key].append(record)
 
     duplicate_groups: list[DuplicateGroup] = []
 
@@ -489,7 +486,7 @@ def write_placeholder_files(placeholder_actions: list[PlaceholderAction]) -> Non
 # Deletion manifest and restoration
 # ---------------------------------------------------------------------------
 
-MANIFEST_FIELDS = ("original_path", "kept_path", "suffix", "size_bytes", "sha256", "status")
+MANIFEST_FIELDS: tuple[str, ...] = ("original_path", "kept_path", "suffix", "size_bytes", "sha256", "status")
 
 
 def manifest_rows(
