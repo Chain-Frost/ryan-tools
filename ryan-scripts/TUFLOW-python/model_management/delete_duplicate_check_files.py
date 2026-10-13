@@ -162,13 +162,16 @@ def relative_or_absolute_path_from_placeholder_to_kept_file(
 
 
 def find_check_folders(root_dir: Path) -> list[Path]:
-    """Find folders named CHECK_FOLDER_NAME under root_dir."""
+    """Find check directories without stat-ing every file under the root."""
     root_dir = absolute_path(root_dir)
-
-    return sorted(
-        (path for path in root_dir.rglob("*") if path.is_dir() and path.name.lower() == CHECK_FOLDER_NAME.lower()),
-        key=lambda p: str(p).lower(),
-    )
+    target = CHECK_FOLDER_NAME.casefold()
+    matches = [
+        parent / name
+        for parent, directory_names, _ in root_dir.walk()
+        for name in directory_names
+        if name.casefold() == target
+    ]
+    return sorted(matches, key=lambda path: str(path).casefold())
 
 
 def is_placeholder_file(path: Path) -> bool:
