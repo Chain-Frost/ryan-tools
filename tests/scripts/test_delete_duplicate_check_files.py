@@ -7,6 +7,7 @@ import importlib.util
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Protocol, cast
 
 import pytest
 
@@ -17,6 +18,25 @@ SCRIPT = (
     / "model_management"
     / "delete_duplicate_check_files.py"
 )
+
+
+class PlaceholderRecord(Protocol):
+    @property
+    def keep_file(self) -> Path: ...
+
+    @property
+    def check_folder(self) -> Path: ...
+
+    @property
+    def deleted_files(self) -> tuple[Path, ...]: ...
+
+
+def respond_delete(_prompt: str) -> str:
+    return "DELETE"
+
+
+def respond_restore(_prompt: str) -> str:
+    return "RESTORE"
 
 
 @pytest.fixture
@@ -48,12 +68,12 @@ def write_duplicates(folder: Path, *names: str, content: bytes = b"identical-sty
     return paths
 
 
-def planned_actions(utility: ModuleType, root: Path) -> tuple[list[object], list[object]]:
+def planned_actions(utility: ModuleType, root: Path) -> tuple[list[object], list[PlaceholderRecord]]:
     records = utility.iter_files_in_check_folders(utility.find_check_folders(root))
     groups = utility.find_duplicate_groups(utility.add_hashes_to_candidates(records))
     actions = utility.build_delete_actions(groups)
     placeholders = utility.build_placeholder_actions(actions, records)
-    return actions, placeholders
+    return actions, cast(list[PlaceholderRecord], placeholders)
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
@@ -125,7 +145,7 @@ def test_delete_creates_manifest_and_same_folder_placeholder(
     folder = check_folder(tmp_path, "GD2")
     paths = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
     monkeypatch.setattr(utility, "DRY_RUN", False)
-    monkeypatch.setattr("builtins.input", lambda _: "DELETE")
+    monkeypatch.setattr("builtins.input", respond_delete)
     utility.main()
     assert paths[0].is_file()
     assert not paths[1].exists()
@@ -154,10 +174,10 @@ def test_recovery_restores_original_paths(utility: ModuleType, tmp_path: Path, m
     folder = check_folder(tmp_path, "GD2")
     files = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
     monkeypatch.setattr(utility, "DRY_RUN", False)
-    monkeypatch.setattr("builtins.input", lambda _: "DELETE")
+    monkeypatch.setattr("builtins.input", respond_delete)
     utility.main()
     monkeypatch.setattr(utility, "RESTORE_FROM_MANIFEST", True)
-    monkeypatch.setattr("builtins.input", lambda _: "RESTORE")
+    monkeypatch.setattr("builtins.input", respond_restore)
     utility.main()
     assert all(path.read_bytes() == b"identical-style" for path in files)
     assert all(row["status"] == "restored" for row in read_rows(tmp_path / "deletions.csv"))
@@ -169,10 +189,10 @@ def test_restoration_preserves_existing_different_file(
     folder = check_folder(tmp_path, "GD2")
     files = write_duplicates(folder, "a.qml", "b.qml")
     monkeypatch.setattr(utility, "DRY_RUN", False)
-    monkeypatch.setattr("builtins.input", lambda _: "DELETE")
+    monkeypatch.setattr("builtins.input", respond_delete)
     utility.main()
     files[1].write_bytes(b"new-user-content")
-    monkeypatch.setattr("builtins.input", lambda _: "RESTORE")
+    monkeypatch.setattr("builtins.input", respond_restore)
     assert utility.restore_files_from_manifest(tmp_path / "deletions.csv") == (0, 0)
     assert files[1].read_bytes() == b"new-user-content"
 
@@ -186,7 +206,7 @@ def test_restore_pending_manifest_after_interruption(
     utility.write_manifest(tmp_path / "deletions.csv", utility.manifest_rows(actions, status="pending"))
     files[1].unlink()
     monkeypatch.setattr(utility, "DRY_RUN", False)
-    monkeypatch.setattr("builtins.input", lambda _: "RESTORE")
+    monkeypatch.setattr("builtins.input", respond_restore)
     assert utility.restore_files_from_manifest(tmp_path / "deletions.csv") == (1, 0)
     assert files[1].read_bytes() == files[0].read_bytes()
 
