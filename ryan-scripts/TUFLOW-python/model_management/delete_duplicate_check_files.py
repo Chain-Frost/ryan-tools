@@ -186,7 +186,10 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
 
             if is_placeholder_file(path):
                 continue
-            if not INCLUDE_RASTER_FILES and path.suffix.lower() in RASTER_SUFFIXES:
+            if not INCLUDE_RASTER_FILES and (
+                path.suffix.lower() in RASTER_SUFFIXES
+                or path.name.lower().endswith((".tif.aux.xml", ".tiff.aux.xml"))
+            ):
                 continue
 
             records.append(
@@ -543,7 +546,17 @@ def read_manifest(path: Path) -> list[dict[str, str]]:
         reader = csv.DictReader(source)
         if reader.fieldnames is None or not set(MANIFEST_FIELDS).issubset(reader.fieldnames):
             raise ValueError("The manifest is missing required recovery columns.")
-        return [dict(row) for row in reader if row.get("original_path")]
+        rows: list[dict[str, str]] = []
+        for raw_row in reader:
+            row: dict[str, str] = {}
+            for field in MANIFEST_FIELDS:
+                value = raw_row.get(field)
+                if not isinstance(value, str):
+                    raise ValueError(f"Invalid manifest field: {field}")
+                row[field] = value
+            if row["original_path"]:
+                rows.append(row)
+        return rows
 
 
 def matches_record(path: Path, *, size_bytes: int, content_hash: str) -> bool:
@@ -590,14 +603,17 @@ def restore_files_from_manifest(path: Path) -> tuple[int, int]:
             if not matches_record(retained, size_bytes=size_bytes, content_hash=row["sha256"]):
                 raise ValueError(f"Retained file missing or changed: {retained}")
             original.parent.mkdir(parents=True, exist_ok=True)
+            created = False
             try:
                 with retained.open("rb") as source, original.open("xb") as destination:
+                    created = True
                     shutil.copyfileobj(source, destination, length=HASH_CHUNK_SIZE)
                 if not matches_record(original, size_bytes=size_bytes, content_hash=row["sha256"]):
                     raise ValueError(f"Restored file failed hash verification: {original}")
             except Exception:
-                # Only remove files created by this restore, never pre-existing paths.
-                original.unlink(missing_ok=True)
+                # Never unlink an existing path created by another process.
+                if created:
+                    original.unlink(missing_ok=True)
                 raise
             row["status"] = "restored"
             restored += 1
@@ -858,7 +874,11 @@ def main() -> None:
         return
 
     # The pending manifest is durable before any file is removed.
-    write_manifest(MANIFEST_FILE, manifest_rows(actions, status="pending"), exclusive=True)
+    try:
+        write_manifest(MANIFEST_FILE, manifest_rows(actions, status="pending"), exclusive=True)
+    except FileExistsError:
+        print(f"Refusing deletion: recovery manifest appeared meanwhile: {absolute_path(MANIFEST_FILE)}")
+        return
     successful_actions = delete_duplicate_files(actions)
     update_manifest(MANIFEST_FILE, manifest_rows(actions, successful_actions=successful_actions))
 
