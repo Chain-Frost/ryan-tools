@@ -236,3 +236,84 @@ def test_conflicting_placeholder_blocks_delete(
     utility.main()
     assert all(path.exists() for path in files)
     assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_two_folders_three_groups_of_100_leave_six_placeholders(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder_a = check_folder(tmp_path, "GD2")
+    folder_b = check_folder(tmp_path, "MLTP")
+    groups = [
+        ("_Z.qml", b"style"),
+        ("_DEM_Z.tif", b"terrain"),
+        ("_DEM_Z_HR.tif", b"hires"),
+    ]
+    for folder in (folder_a, folder_b):
+        for suffix, data in groups:
+            for index in range(100):
+                (folder / f"run_{index:03}{suffix}").write_bytes(data)
+
+    hash_calls: list[Path] = []
+    hash_once = utility.file_hash
+
+    def tracking_hash(path: Path) -> str:
+        hash_calls.append(path)
+        return hash_once(path)
+
+    monkeypatch.setattr(utility, "file_hash", tracking_hash)
+    monkeypatch.setattr("builtins.input", respond_delete)
+    utility.main()
+
+    assert len(hash_calls) == 600  # One content read per candidate; none during deletion.
+    assert len(list(folder_a.glob("*.DUPLICATE_REMOVED.txt"))) == 3
+    assert len(list(folder_b.glob("*.DUPLICATE_REMOVED.txt"))) == 3
+    assert len([path for path in folder_a.iterdir() if not utility.is_placeholder_file(path)]) == 3
+    assert len([path for path in folder_b.iterdir() if not utility.is_placeholder_file(path)]) == 0
+    rows = read_rows(tmp_path / "deletions.csv")
+    assert len(rows) == 597
+    assert all(row["status"] == "deleted" for row in rows)
+
+
+def test_retained_file_checked_before_each_delete(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "GD2")
+    paths = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
+    actions, _ = planned_actions(utility, tmp_path)
+    original_delete = utility.delete_duplicate_file
+    deletion_count = 0
+
+    def change_retained_after_first(action: object) -> bool:
+        nonlocal deletion_count
+        deleted: bool = original_delete(action)
+        if deleted:
+            deletion_count += 1
+            paths[0].write_bytes(b"modified-retained")
+        return deleted
+
+    monkeypatch.setattr(utility, "delete_duplicate_file", change_retained_after_first)
+    deleted_actions = utility.delete_duplicate_files(actions)
+    assert deletion_count == 1
+    assert len(deleted_actions) == 1
+    assert paths[2].exists()
+
+
+def test_proposal_and_report_are_not_overwritten(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "GD2")
+    paths = write_duplicates(folder, "a.qml", "b.qml")
+    proposal = tmp_path / "proposal.csv"
+    report = tmp_path / "deletions.txt"
+    proposal.write_text("old proposal", encoding="utf-8")
+    report.write_text("old report", encoding="utf-8")
+    monkeypatch.setattr("builtins.input", lambda _prompt: "CANCEL")
+
+    utility.main()
+
+    assert all(path.exists() for path in paths)
+    assert proposal.read_text(encoding="utf-8") == "old proposal"
+    assert report.read_text(encoding="utf-8") == "old report"
+    assert len(read_rows(tmp_path / "proposal_001.csv")) == 1
+    assert (tmp_path / "deletions_001.txt").is_file()
+    assert not (tmp_path / "deletions.csv").exists()
