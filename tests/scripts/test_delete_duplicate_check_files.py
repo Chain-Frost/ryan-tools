@@ -8,8 +8,10 @@ import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Protocol, cast
+from collections.abc import Callable
 
 import pytest
+from rich.progress import Progress
 
 SCRIPT = (
     Path(__file__).resolve().parents[2]
@@ -276,9 +278,9 @@ def test_two_folders_three_groups_of_100_leave_six_placeholders(
     hash_calls: list[Path] = []
     hash_once = utility.file_hash
 
-    def tracking_hash(path: Path) -> str:
+    def tracking_hash(path: Path, *, on_chunk: Callable[[int], None] | None = None) -> str:
         hash_calls.append(path)
-        return hash_once(path)
+        return hash_once(path, on_chunk=on_chunk)
 
     monkeypatch.setattr(utility, "file_hash", tracking_hash)
     monkeypatch.setattr("builtins.input", respond_delete)
@@ -337,3 +339,77 @@ def test_proposal_and_report_are_not_overwritten(
     assert len(read_rows(tmp_path / "proposal_001.csv")) == 1
     assert (tmp_path / "deletions_001.txt").is_file()
     assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_sha256_progress_tracks_bytes_during_large_file(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "GD2")
+    content = b"0123456789ABCDEF"
+    paths = write_duplicates(folder, "a.qml", "b.qml", content=content)
+    monkeypatch.setattr(utility, "HASH_CHUNK_SIZE", 3)
+    dashboard = Progress(disable=True)
+
+    def make_dashboard() -> Progress:
+        return dashboard
+
+    monkeypatch.setattr(utility, "hash_progress_display", make_dashboard)
+    result = utility.add_hashes_to_candidates(utility.iter_files_in_check_folders([folder]))
+
+    assert all(record.content_hash is not None for record in result)
+    assert len(result) == 2
+    assert len(dashboard.tasks) == 1
+    assert dashboard.tasks[0].completed == len(content) * 2
+    assert dashboard.tasks[0].total == len(content) * 2
+    assert dashboard.tasks[0].fields["files_done"] == 2
+    assert dashboard.tasks[0].description == "SHA-256 complete"
+    assert all(path.exists() for path in paths)
+
+
+def test_hashing_progress_skips_non_candidates(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "GD2")
+    (folder / "small.qml").write_bytes(b"a")
+    (folder / "large.qml").write_bytes(b"abcdef")
+    dashboard = Progress(disable=True)
+
+    def make_dashboard() -> Progress:
+        return dashboard
+
+    monkeypatch.setattr(utility, "hash_progress_display", make_dashboard)
+    records = utility.iter_files_in_check_folders([folder])
+    output = utility.add_hashes_to_candidates(records)
+    assert len(output) == 2
+    assert all(record.content_hash is None for record in output)
+    assert not dashboard.tasks
+
+
+def test_hashing_progress_disabled_preserves_hashes(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "GD2")
+    write_duplicates(folder, "a.qml", "b.qml", content=b"equal")
+    records = utility.iter_files_in_check_folders([folder])
+    monkeypatch.setattr(utility, "SHOW_HASH_PROGRESS", False)
+    output = utility.add_hashes_to_candidates(records)
+    assert output[0].content_hash is not None
+    assert output[0].content_hash == output[1].content_hash
+
+
+def test_sha256_progress_handles_zero_length_files(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "GD2")
+    write_duplicates(folder, "a.qml", "b.qml", content=b"")
+    dashboard = Progress(disable=True)
+
+    def make_dashboard() -> Progress:
+        return dashboard
+
+    monkeypatch.setattr(utility, "hash_progress_display", make_dashboard)
+    output = utility.add_hashes_to_candidates(utility.iter_files_in_check_folders([folder]))
+    assert len(output) == 2
+    assert output[0].content_hash == output[1].content_hash
+    assert dashboard.tasks[0].total == 0
+    assert dashboard.tasks[0].fields["files_done"] == 2
