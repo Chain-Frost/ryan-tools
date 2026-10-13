@@ -224,6 +224,15 @@ def file_hash(path: Path) -> str:
     return digest.hexdigest()
 
 
+def matches_snapshot(path: Path, *, size_bytes: int, mtime_ns: int) -> bool:
+    """Compare inexpensive metadata with the original scan; never rehash."""
+    try:
+        stat = path.stat()
+        return stat.st_size == size_bytes and stat.st_mtime_ns == mtime_ns
+    except OSError:
+        return False
+
+
 def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
     """Hash only files that have at least one same-suffix, same-size candidate.
 
@@ -246,13 +255,19 @@ def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
             continue
 
         for record in group:
+            digest = file_hash(record.path)
+            if not matches_snapshot(record.path, size_bytes=record.size_bytes, mtime_ns=record.mtime_ns):
+                print(f"Changed during hashing, excluded from deletion: {record.path}")
+                output.append(record)
+                continue
             output.append(
                 FileRecord(
                     check_folder=record.check_folder,
                     path=record.path,
                     suffix=record.suffix,
                     size_bytes=record.size_bytes,
-                    content_hash=file_hash(record.path),
+                    mtime_ns=record.mtime_ns,
+                    content_hash=digest,
                 )
             )
 
