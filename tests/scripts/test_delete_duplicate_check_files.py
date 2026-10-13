@@ -39,6 +39,10 @@ def respond_restore(_prompt: str) -> str:
     return "RESTORE"
 
 
+def respond_cancel(_prompt: str) -> str:
+    return "CANCEL"
+
+
 @pytest.fixture
 def utility(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     spec = importlib.util.spec_from_file_location("test_duplicate_check_utility", SCRIPT)
@@ -307,7 +311,7 @@ def test_proposal_and_report_are_not_overwritten(
     report = tmp_path / "deletions.txt"
     proposal.write_text("old proposal", encoding="utf-8")
     report.write_text("old report", encoding="utf-8")
-    monkeypatch.setattr("builtins.input", lambda _prompt: "CANCEL")
+    monkeypatch.setattr("builtins.input", respond_cancel)
 
     utility.main()
 
