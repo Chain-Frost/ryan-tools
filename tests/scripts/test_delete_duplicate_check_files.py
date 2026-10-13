@@ -22,7 +22,8 @@ SCRIPT = (
 @pytest.fixture
 def utility(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     spec = importlib.util.spec_from_file_location("test_duplicate_check_utility", SCRIPT)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -131,11 +132,13 @@ def test_delete_creates_manifest_and_same_folder_placeholder(
     monkeypatch.setattr("builtins.input", lambda _: "DELETE")
     utility.main()
     assert paths[0].is_file()
-    assert not paths[1].exists() and not paths[2].exists()
+    assert not paths[1].exists()
+    assert not paths[2].exists()
     placeholders = list(folder.glob("*.DUPLICATE_REMOVED.txt"))
     assert len(placeholders) == 1
     content = placeholders[0].read_text(encoding="utf-8")
-    assert "b.qml" in content and "c.qml" in content
+    assert "b.qml" in content
+    assert "c.qml" in content
     rows = read_rows(tmp_path / "deletions.csv")
     assert len(rows) == 2
     assert all(row["status"] == "deleted" for row in rows)
