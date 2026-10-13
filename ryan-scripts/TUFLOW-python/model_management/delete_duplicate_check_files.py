@@ -24,6 +24,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from time import monotonic
 
@@ -327,10 +328,7 @@ def add_hashes_to_candidates(records: list[FileRecord]) -> list[FileRecord]:
                     name = record.path.name
                     short_name = name if len(name) <= 32 else name[:29] + "..."
                     progress.update(task_id, description=short_name)
-                    active_progress = progress
-                    active_task_id = task_id
-                    on_chunk: Callable[[int], None] = lambda size: active_progress.update(active_task_id, advance=size)
-                    output.append(hash_candidate_record(record, on_chunk=on_chunk))
+                    output.append(hash_candidate_record(record, on_chunk=partial(progress.advance, task_id)))
                 else:
                     output.append(hash_candidate_record(record))
                 completed_files += 1
