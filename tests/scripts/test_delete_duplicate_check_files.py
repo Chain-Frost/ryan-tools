@@ -70,8 +70,9 @@ def write_duplicates(folder: Path, *names: str, content: bytes = b"identical-sty
 
 def planned_actions(utility: ModuleType, root: Path) -> tuple[list[object], list[PlaceholderRecord]]:
     records = utility.iter_files_in_check_folders(utility.find_check_folders(root))
-    groups = utility.find_duplicate_groups(utility.add_hashes_to_candidates(records))
-    actions = utility.build_delete_actions(groups)
+    hashed_records = utility.add_hashes_to_candidates(records)
+    groups = utility.find_duplicate_groups(hashed_records)
+    actions = utility.build_delete_actions(groups, hashed_records)
     placeholders = utility.build_placeholder_actions(actions, records)
     return actions, cast(list[PlaceholderRecord], placeholders)
 
@@ -82,9 +83,9 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 
 
 def test_safe_defaults(utility: ModuleType) -> None:
-    assert utility.DRY_RUN is True
-    assert utility.COMPARE_ACROSS_CHECK_FOLDERS is False
-    assert utility.INCLUDE_RASTER_FILES is False
+    assert utility.DRY_RUN is False
+    assert utility.COMPARE_ACROSS_CHECK_FOLDERS is True
+    assert utility.INCLUDE_RASTER_FILES is True
     assert utility.RESTORE_FROM_MANIFEST is False
 
 
@@ -121,6 +122,7 @@ def test_raster_and_sidecar_are_opt_in(utility: ModuleType, tmp_path: Path, monk
     write_duplicates(folder, "a.qml", "b.qml")
     for name in ("a.tif", "b.tif", "a.tif.ovr", "b.tif.ovr", "a.tif.aux.xml", "b.tif.aux.xml"):
         (folder / name).write_bytes(b"some-raster-or-sidecar")
+    monkeypatch.setattr(utility, "INCLUDE_RASTER_FILES", False)
     default_files = utility.iter_files_in_check_folders([folder])
     assert {record.path.name for record in default_files} == {"a.qml", "b.qml"}
     monkeypatch.setattr(utility, "INCLUDE_RASTER_FILES", True)
@@ -131,6 +133,7 @@ def test_raster_and_sidecar_are_opt_in(utility: ModuleType, tmp_path: Path, monk
 def test_dry_run_writes_report_and_proposal_without_mutation(utility: ModuleType, tmp_path: Path) -> None:
     folder = check_folder(tmp_path, "GD2")
     paths = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
+    utility.DRY_RUN = True
     utility.main()
     assert all(path.is_file() for path in paths)
     assert (tmp_path / "deletions.txt").is_file()
