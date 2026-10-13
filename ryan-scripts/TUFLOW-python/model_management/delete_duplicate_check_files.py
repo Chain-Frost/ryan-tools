@@ -314,9 +314,12 @@ def find_duplicate_groups(records: list[FileRecord]) -> list[DuplicateGroup]:
     return sorted(duplicate_groups, key=lambda g: str(g.keep_file).lower())
 
 
-def build_delete_actions(duplicate_groups: list[DuplicateGroup]) -> list[DeleteAction]:
-    """Create one delete action per duplicate file."""
+def build_delete_actions(
+    duplicate_groups: list[DuplicateGroup], records: list[FileRecord]
+) -> list[DeleteAction]:
+    """Build delete actions with the metadata recorded during initial scan."""
     actions: list[DeleteAction] = []
+    by_path = {record.path: record for record in records}
 
     for group in duplicate_groups:
         for delete_file in group.delete_files:
@@ -324,14 +327,15 @@ def build_delete_actions(duplicate_groups: list[DuplicateGroup]) -> list[DeleteA
                 DeleteAction(
                     delete_file=delete_file,
                     keep_file=group.keep_file,
+                    delete_mtime_ns=by_path[delete_file].mtime_ns,
+                    keep_mtime_ns=by_path[group.keep_file].mtime_ns,
                     suffix=group.suffix,
                     size_bytes=group.size_bytes,
                     content_hash=group.content_hash,
                 )
             )
 
-    return sorted(actions, key=lambda a: str(a.delete_file).lower())
-
+    return sorted(actions, key=lambda action: str(action.delete_file).lower())
 
 # ---------------------------------------------------------------------------
 # Placeholder handling
@@ -864,7 +868,7 @@ def main() -> None:
 
     hashed_records = add_hashes_to_candidates(records)
     duplicate_groups = find_duplicate_groups(hashed_records)
-    actions = build_delete_actions(duplicate_groups)
+    actions = build_delete_actions(duplicate_groups, hashed_records)
 
     planned_placeholder_actions = build_placeholder_actions(
         actions=actions,
