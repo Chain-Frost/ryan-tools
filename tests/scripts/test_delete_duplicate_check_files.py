@@ -5,10 +5,10 @@ from __future__ import annotations
 import csv
 import importlib.util
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 from typing import Protocol, cast
-from collections.abc import Callable
 
 import pytest
 from rich.progress import Progress
