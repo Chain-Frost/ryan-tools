@@ -314,9 +314,7 @@ def find_duplicate_groups(records: list[FileRecord]) -> list[DuplicateGroup]:
     return sorted(duplicate_groups, key=lambda g: str(g.keep_file).lower())
 
 
-def build_delete_actions(
-    duplicate_groups: list[DuplicateGroup], records: list[FileRecord]
-) -> list[DeleteAction]:
+def build_delete_actions(duplicate_groups: list[DuplicateGroup], records: list[FileRecord]) -> list[DeleteAction]:
     """Build delete actions with the metadata recorded during initial scan."""
     actions: list[DeleteAction] = []
     by_path = {record.path: record for record in records}
@@ -336,6 +334,7 @@ def build_delete_actions(
             )
 
     return sorted(actions, key=lambda action: str(action.delete_file).lower())
+
 
 # ---------------------------------------------------------------------------
 # Placeholder handling
@@ -841,20 +840,17 @@ def delete_duplicate_files(actions: list[DeleteAction]) -> list[DeleteAction]:
     for action in actions:
         # Recheck the retained file for EACH deletion, addressing changes on a
         # shared drive without rereading gigabytes of content.
-        if not matches_snapshot(
-            action.keep_file, size_bytes=action.size_bytes, mtime_ns=action.keep_mtime_ns
-        ):
+        if not matches_snapshot(action.keep_file, size_bytes=action.size_bytes, mtime_ns=action.keep_mtime_ns):
             print(f"Retained copy missing or changed; skipping: {action.delete_file}")
             continue
-        if not matches_snapshot(
-            action.delete_file, size_bytes=action.size_bytes, mtime_ns=action.delete_mtime_ns
-        ):
+        if not matches_snapshot(action.delete_file, size_bytes=action.size_bytes, mtime_ns=action.delete_mtime_ns):
             print(f"Duplicate missing or changed; skipping: {action.delete_file}")
             continue
         if delete_duplicate_file(action):
             successful_actions.append(action)
 
     return successful_actions
+
 
 def cleanup_targets_are_safe(placeholder_actions: list[PlaceholderAction]) -> bool:
     """Reject conflicting placeholder paths and existing recovery manifests."""
