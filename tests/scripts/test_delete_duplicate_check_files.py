@@ -86,6 +86,20 @@ def read_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(file))
 
 
+def test_find_check_folders_walks_nested_directories_only(utility: ModuleType, tmp_path: Path) -> None:
+    root = tmp_path / "results"
+    first = root / "GD2" / "01.0p" / "ChEcK"
+    second = root / "MLTP" / "v01" / "check"
+    first.mkdir(parents=True)
+    second.mkdir(parents=True)
+    unrelated = root / "logs"
+    unrelated.mkdir()
+    (unrelated / "check").write_text("not a directory", encoding="utf-8")
+    (root / "GD2" / "ordinary.txt").write_text("not a directory", encoding="utf-8")
+
+    assert utility.find_check_folders(root) == [first, second]
+
+
 def test_safe_defaults(utility: ModuleType) -> None:
     assert utility.DRY_RUN is False
     assert utility.COMPARE_ACROSS_CHECK_FOLDERS is True
