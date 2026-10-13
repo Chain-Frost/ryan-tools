@@ -91,15 +91,34 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 def test_find_check_folders_walks_nested_directories_only(utility: ModuleType, tmp_path: Path) -> None:
     root = tmp_path / "results"
     first = root / "GD2" / "01.0p" / "ChEcK"
-    second = root / "MLTP" / "v01" / "check"
+    second = root / "MLTP" / "v01" / "checks"
+    third = root / "misc" / "CHECKS"
     first.mkdir(parents=True)
     second.mkdir(parents=True)
+    third.mkdir(parents=True)
     unrelated = root / "logs"
     unrelated.mkdir()
     (unrelated / "check").write_text("not a directory", encoding="utf-8")
+    (unrelated / "checks").write_text("not a directory", encoding="utf-8")
     (root / "GD2" / "ordinary.txt").write_text("not a directory", encoding="utf-8")
 
-    assert utility.find_check_folders(root) == [first, second]
+    assert utility.find_check_folders(root) == [first, second, third]
+
+
+def test_duplicates_compare_across_check_and_checks_folders(utility: ModuleType, tmp_path: Path) -> None:
+    first = tmp_path / "GD2" / "check"
+    second = tmp_path / "MLTP" / "checks"
+    first.mkdir(parents=True)
+    second.mkdir(parents=True)
+    write_duplicates(first, "a.qml", "b.qml", content=b"same")
+    write_duplicates(second, "c.qml", "d.qml", content=b"same")
+
+    actions, placeholders = planned_actions(utility, tmp_path)
+
+    assert len(actions) == 3
+    assert len(placeholders) == 2
+    assert {placeholder.check_folder for placeholder in placeholders} == {first, second}
+    assert {action.delete_file.parent for action in actions} == {first, second}
 
 
 def test_safe_defaults(utility: ModuleType) -> None:
