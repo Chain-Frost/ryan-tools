@@ -535,7 +535,7 @@ def update_manifest(path: Path, rows: list[dict[str, str]]) -> None:
     temp_path = path.with_name(path.name + ".tmp")
     try:
         write_manifest(temp_path, rows, exclusive=True)
-        os.replace(temp_path, path)
+        temp_path.replace(path)
     finally:
         temp_path.unlink(missing_ok=True)
 
@@ -545,14 +545,16 @@ def read_manifest(path: Path) -> list[dict[str, str]]:
     with absolute_path(path).open(newline="", encoding="utf-8") as source:
         reader = csv.DictReader(source)
         if reader.fieldnames is None or not set(MANIFEST_FIELDS).issubset(reader.fieldnames):
-            raise ValueError("The manifest is missing required recovery columns.")
+            message = "The manifest is missing required recovery columns."
+            raise ValueError(message)
         rows: list[dict[str, str]] = []
         for raw_row in reader:
             row: dict[str, str] = {}
             for field in MANIFEST_FIELDS:
                 value = raw_row.get(field)
                 if not isinstance(value, str):
-                    raise ValueError(f"Invalid manifest field: {field}")
+                    message = f"Invalid manifest field: {field}"
+                    raise ValueError(message)
                 row[field] = value
             if row["original_path"]:
                 rows.append(row)
@@ -567,12 +569,33 @@ def matches_record(path: Path, *, size_bytes: int, content_hash: str) -> bool:
         return False
 
 
-def restore_files_from_manifest(path: Path) -> tuple[int, int]:
-    """Restore deleted filenames as copies of SHA-256-verified retained files.
+def restore_manifest_entry(row: dict[str, str]) -> None:
+    """Restore a single missing original without overwriting another writer's path."""
+    original = Path(row["original_path"])
+    retained = Path(row["kept_path"])
+    size_bytes = int(row["size_bytes"])
+    if not matches_record(retained, size_bytes=size_bytes, content_hash=row["sha256"]):
+        message = f"Retained file missing or changed: {retained}"
+        raise ValueError(message)
 
-    'pending' entries are eligible after an interrupted deletion, provided the
-    old path is missing. Existing original paths are never overwritten.
-    """
+    original.parent.mkdir(parents=True, exist_ok=True)
+    created = False
+    try:
+        with retained.open("rb") as source, original.open("xb") as destination:
+            created = True
+            shutil.copyfileobj(source, destination, length=HASH_CHUNK_SIZE)
+        if not matches_record(original, size_bytes=size_bytes, content_hash=row["sha256"]):
+            message = f"Restored file failed hash verification: {original}"
+            raise ValueError(message)
+    except Exception:
+        # Never remove a file created by another process if exclusive open failed.
+        if created:
+            original.unlink(missing_ok=True)
+        raise
+
+
+def restore_files_from_manifest(path: Path) -> tuple[int, int]:
+    """Restore missing original paths listed in a completed or pending manifest."""
     rows = read_manifest(path)
     candidates = [row for row in rows if row["status"] in {"deleted", "pending"}]
     print(f"Recovery manifest: {absolute_path(path)}")
@@ -584,7 +607,7 @@ def restore_files_from_manifest(path: Path) -> tuple[int, int]:
                 print(f"DRY RUN - would restore: {original} <- {row['kept_path']}")
         return 0, 0
 
-    print("Restoration copies the retained file back to its original filename.")
+    print("Restoration copies verified retained content back to missing original filenames.")
     print("Type RESTORE to continue; existing files will never be overwritten.")
     if input("> ").strip() != "RESTORE":
         print("Restoration cancelled.")
@@ -594,27 +617,11 @@ def restore_files_from_manifest(path: Path) -> tuple[int, int]:
     failed = 0
     for row in candidates:
         original = Path(row["original_path"])
-        retained = Path(row["kept_path"])
         if original.exists():
             print(f"Existing original, skipped: {original}")
             continue
         try:
-            size_bytes = int(row["size_bytes"])
-            if not matches_record(retained, size_bytes=size_bytes, content_hash=row["sha256"]):
-                raise ValueError(f"Retained file missing or changed: {retained}")
-            original.parent.mkdir(parents=True, exist_ok=True)
-            created = False
-            try:
-                with retained.open("rb") as source, original.open("xb") as destination:
-                    created = True
-                    shutil.copyfileobj(source, destination, length=HASH_CHUNK_SIZE)
-                if not matches_record(original, size_bytes=size_bytes, content_hash=row["sha256"]):
-                    raise ValueError(f"Restored file failed hash verification: {original}")
-            except Exception:
-                # Never unlink an existing path created by another process.
-                if created:
-                    original.unlink(missing_ok=True)
-                raise
+            restore_manifest_entry(row)
             row["status"] = "restored"
             restored += 1
             print(f"Restored: {original}")
@@ -758,7 +765,7 @@ def delete_duplicate_file(action: DeleteAction) -> bool:
 
     if DRY_RUN:
         print(f"DRY RUN - would delete: {path}")
-        return True
+        return False
 
     try:
         path.unlink()
@@ -796,6 +803,22 @@ def delete_duplicate_files(actions: list[DeleteAction]) -> list[DeleteAction]:
             successful_actions.append(action)
 
     return successful_actions
+
+
+def cleanup_targets_are_safe(placeholder_actions: list[PlaceholderAction]) -> bool:
+    """Reject conflicting placeholder paths and existing recovery manifests."""
+    if MANIFEST_FILE.exists():
+        print(f"Refusing deletion: recovery manifest already exists: {absolute_path(MANIFEST_FILE)}")
+        print("Archive/rename the previous manifest before another deletion run.")
+        return False
+
+    for placeholder in placeholder_actions:
+        if placeholder.placeholder_file.exists() and (
+            placeholder.placeholder_file.read_text(encoding="utf-8") != placeholder_text(placeholder)
+        ):
+            print(f"Refusing deletion: conflicting placeholder: {placeholder.placeholder_file}")
+            return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -857,17 +880,8 @@ def main() -> None:
         print("DRY_RUN is enabled. No files were deleted and no placeholders were written.")
         return
 
-    if MANIFEST_FILE.exists():
-        print(f"Refusing deletion: recovery manifest already exists: {absolute_path(MANIFEST_FILE)}")
-        print("Archive/rename the previous manifest before another deletion run.")
+    if not cleanup_targets_are_safe(planned_placeholder_actions):
         return
-
-    for placeholder in planned_placeholder_actions:
-        if placeholder.placeholder_file.exists() and (
-            placeholder.placeholder_file.read_text(encoding="utf-8") != placeholder_text(placeholder)
-        ):
-            print(f"Refusing deletion: conflicting placeholder: {placeholder.placeholder_file}")
-            return
 
     if not confirm_deletion():
         print("Deletion cancelled. No files were deleted.")
