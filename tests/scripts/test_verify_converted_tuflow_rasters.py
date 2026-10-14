@@ -141,7 +141,9 @@ def test_metadata_blocks_candidates(tool: ModuleType, tmp_path: Path, reason: st
     assert not result.eligible
 
 
-def test_delete_requires_explicit_confirmation(tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_delete_requires_explicit_confirmation(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     src, tif = make_pair(tmp_path)
     monkeypatch.setattr("builtins.input", lambda _: "CANCEL")
     assert tool.main(["--root", str(tmp_path), "--no-progress", "--delete"]) == 1
@@ -189,7 +191,10 @@ def test_mirrored_tif_root(tool: ModuleType, tmp_path: Path) -> None:
     dst = tmp_path / "converted" / "day1" / tif.name
     dst.parent.mkdir(parents=True)
     tif.replace(dst)
-    assert tool.main(["--root", str(tmp_path / "sources"), "--tif-root", str(tmp_path / "converted"), "--no-progress"]) == 0
+    assert (
+        tool.main(["--root", str(tmp_path / "sources"), "--tif-root", str(tmp_path / "converted"), "--no-progress"])
+        == 0
+    )
     assert src.exists()
     assert dst.exists()
 
