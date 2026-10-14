@@ -270,7 +270,6 @@ def perform_deletions(results: list[Comparison]) -> tuple[int, int]:
     return deleted, failed
 
 
-
 def finish_deletion(results: list[Comparison], source_count: int, *, allow_delete: bool) -> int:
     """Require an explicit opt-in and final confirmation before any deletion."""
     matched = sum(result.eligible for result in results)
@@ -290,6 +289,7 @@ def finish_deletion(results: list[Comparison], source_count: int, *, allow_delet
     deleted, failed = perform_deletions(results)
     print(f"Files deleted: {deleted}; deletions skipped/failed: {failed}")
     return 1 if failed or matched != source_count else 0
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
