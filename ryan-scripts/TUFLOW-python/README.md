@@ -112,6 +112,44 @@ wrappers that use `PommPeakWrapperDefaults` and
 deprecation warning, until 31 December 2026. Replace those copied wrappers with
 the maintained versions before that date.
 
+## Verify converted FLT/ASC output rasters
+
+Use [`model_management/verify_converted_tuflow_rasters.py`](model_management/verify_converted_tuflow_rasters.py)
+to check legacy TUFLOW `.flt` / `.asc` outputs against same-named newer `.tif` / `.tiff` files.
+This standalone utility uses Rasterio and NumPy (both included in the project dependencies).
+
+- Recursively searches below `ROOT_DIR` (default: current working directory).
+  By default the TIF must be in the same directory. Set `TIF_ROOT_DIR` or `--tif-root`
+  when converted GeoTIFFs are in a parallel folder tree with the same relative directory layout.
+- Compares width, height, band count, exact grid transform, CRS, NoData validity masks and
+  every valid cell without any tolerance or resampling. Different NoData sentinels are allowed
+  only when the invalid cells coincide. Missing or different CRS metadata fails validation.
+- The GeoTIFF must have a **strictly newer modification timestamp** than the source;
+  for FLT files also newer than the paired `.hdr` header when scheduled for deletion.
+- Uses chunked raster reads and a Rich progress indicator, not binary file hashes.
+- Creates non-overwriting `tuflow_raster_conversion_delete_candidates.csv` and
+  `tuflow_raster_conversion_errors.csv` in the source root. Every excluded raster
+  is listed with a status and reason. No per-raster placeholder files are written.
+- **Default is validation only.** Add `--delete` or set `DELETE_FILES = True`,
+  then type exactly `DELETE` to remove confirmed matches. Before each removal it checks
+  source, GeoTIFF and associated header size and modification timestamps again.
+  This protects against ordinary changes, but does not lock files against concurrent writes.
+- For verified FLT files, the associated `.hdr` is included by default. The `.prj`,
+  `.aux.xml` and other sidecars are retained, as they can contain reusable metadata.
+  Set `DELETE_FLT_HEADERS = False` to retain FLT headers.
+
+Example from PowerShell (run verification before considering deletion):
+
+```powershell
+py -3.14 .\ryan-scripts\TUFLOW-python\model_management\verify_converted_tuflow_rasters.py --root "D:\Models\results"
+py -3.14 .\ryan-scripts\TUFLOW-python\model_management\verify_converted_tuflow_rasters.py --root "D:\Models\results" --delete
+```
+
+Check the candidate list, back up the source rasters and make sure model/QGIS references have
+been updated to use the GeoTIFFs. The tool does not modify references, nor does it delete
+unmatched files. This is an exact-value/georeferencing check rather than a guarantee that the
+converted files preserve every possible GDAL metadata tag.
+
 ## Duplicate check-file cleanup
 
 `model_management/delete_duplicate_check_files.py` removes byte-identical files within TUFLOW
