@@ -175,11 +175,11 @@ def compare_rasters(
                 differing = valid_before & ~equal
                 if np.any(differing):
                     local_row, column = np.argwhere(differing)[0]
-                    return (
+                    message = (
                         f"Pixel values differ at band {band}, row {y + int(local_row)}, column {int(column)}: "
-                        f"{left[local_row, column]!r} != {right[local_row, column]!r}",
-                        None,
+                        f"{left[local_row, column]!r} != {right[local_row, column]!r}"
                     )
+                    return message, None
                 if progress is not None and task_id is not None:
                     progress.advance(task_id, height)
     return None, warning
