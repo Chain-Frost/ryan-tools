@@ -93,7 +93,7 @@ def paired_file(directory: Path, stem: str, suffixes: set[str]) -> tuple[Path | 
         matches = [
             child
             for child in directory.iterdir()
-            if child.is_file() and child.stem.casefold() == stem.casefold() and child.suffix.casefold() in suffixes
+            if child.stem.casefold() == stem.casefold() and child.suffix.casefold() in suffixes and child.is_file()
         ]
     except FileNotFoundError:
         return None, "Destination directory does not exist"
@@ -179,6 +179,10 @@ def inspect_source(
             return Comparison(original, converted, "ERROR", f"FLT header: {hdr_error}")
         if hdr is not None:
             header = snapshot(hdr)
+            if converted.mtime_ns <= header.mtime_ns:
+                return Comparison(
+                    original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header
+                )
 
     try:
         difference = compare_rasters(source, candidate, progress, raster_task)
@@ -297,8 +301,7 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 result = inspect_source(source, root, tif_root, progress if progress_enabled else None, cell_task)
             except OSError as exc:
-                print(f"Unable to inspect {source}: {exc}")
-                continue
+                result = Comparison(FileSnapshot(source, -1, -1), None, "ERROR", f"File inspection failed: {exc}")
             results.append(result)
             progress.advance(file_task)
             if not result.eligible:
