@@ -62,6 +62,15 @@ class Comparison:
         return self.status == "MATCH"
 
 
+def has_linked_component(path: Path) -> bool:
+    """Reject symlinks and Windows directory junctions in a path or its parents.
+
+    A non-resolving absolute path preserves its components for inspection.
+    This protects both initial traversal and the final pre-deletion checks.
+    """
+    return any(part.is_symlink() or part.is_junction() for part in (path, *path.parents))
+
+
 def snapshot(path: Path) -> FileSnapshot:
     """Record inexpensive metadata for a file without reading its contents."""
     stat = path.stat()
@@ -74,23 +83,25 @@ def unchanged(record: FileSnapshot) -> bool:
         current = snapshot(record.path)
     except OSError:
         return False
-    return record == current and not record.path.is_symlink()
+    return record == current and not has_linked_component(record.path)
 
 
 def discover_sources(root: Path) -> list[Path]:
     """Walk folders without following symlink directories; collect FLT/ASC only."""
     sources: list[Path] = []
     for parent, directories, files in os.walk(root, followlinks=False):
-        directories[:] = sorted(name for name in directories if not (Path(parent) / name).is_symlink())
+        directories[:] = sorted(name for name in directories if not has_linked_component(Path(parent) / name))
         for name in sorted(files):
             path = Path(parent) / name
-            if path.suffix.casefold() in {".asc", ".flt"} and not path.is_symlink():
+            if path.suffix.casefold() in {".asc", ".flt"} and not has_linked_component(path):
                 sources.append(path)
     return sorted(sources, key=lambda p: str(p).casefold())
 
 
 def paired_file(directory: Path, stem: str, suffixes: set[str]) -> tuple[Path | None, str | None]:
     """Find an unambiguous companion, ignoring filename case."""
+    if has_linked_component(directory):
+        return None, "Matching directory contains a symlink or junction"
     try:
         matches = [
             child
@@ -103,8 +114,8 @@ def paired_file(directory: Path, stem: str, suffixes: set[str]) -> tuple[Path | 
         return None, "Matching file not found"
     if len(matches) > 1:
         return None, "Ambiguous matching files: " + ", ".join(str(path) for path in sorted(matches))
-    if matches[0].is_symlink():
-        return None, "Matching file is a symlink"
+    if has_linked_component(matches[0]):
+        return None, "Matching file contains a symlink or junction"
     return matches[0], None
 
 
@@ -301,12 +312,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-progress", action="store_true", help="Disable live raster progress")
     args = parser.parse_args(argv)
 
-    root: Path = args.root.expanduser().resolve()
-    tif_root: Path = args.tif_root.expanduser().resolve() if args.tif_root is not None else root
-    if not root.is_dir() or root.is_symlink():
-        parser.error(f"Source directory is missing or a symlink: {root}")
-    if not tif_root.is_dir() or tif_root.is_symlink():
-        parser.error(f"TIFF directory is missing or a symlink: {tif_root}")
+    root: Path = args.root.expanduser().absolute()
+    tif_root: Path = args.tif_root.expanduser().absolute() if args.tif_root is not None else root
+    if not root.is_dir() or has_linked_component(root):
+        parser.error(f"Source directory is missing or contains a symlink/junction: {root}")
+    if not tif_root.is_dir() or has_linked_component(tif_root):
+        parser.error(f"TIFF directory is missing or contains a symlink/junction: {tif_root}")
 
     sources = discover_sources(root)
     print(f"Scanning {len(sources)} FLT/ASC raster(s) under {root}")
