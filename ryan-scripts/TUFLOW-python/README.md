@@ -126,6 +126,9 @@ This standalone utility uses Rasterio and NumPy (both included in the project de
   only when the invalid cells coincide. Missing or different CRS metadata fails validation.
 - The GeoTIFF must have a **strictly newer modification timestamp** than the source;
   for FLT files also newer than the paired `.hdr` header when scheduled for deletion.
+- Paths are converted to non-resolving absolute paths, not `resolve()`, and are rejected if
+  any component is a symbolic link or Windows directory junction. Nested linked folders are
+  not scanned and linked paths are rechecked before deletion.
 - Uses chunked raster reads and a Rich progress indicator, not binary file hashes.
 - Creates non-overwriting `tuflow_raster_conversion_delete_candidates.csv` and
   `tuflow_raster_conversion_errors.csv` in the source root. Every excluded raster
