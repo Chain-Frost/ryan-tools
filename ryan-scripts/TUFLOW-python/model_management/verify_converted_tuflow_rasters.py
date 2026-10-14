@@ -125,10 +125,8 @@ def compare_rasters(
             return "Raster width, height or band count differs"
         if original.transform != converted.transform:
             return "Grid geotransform differs"
-        if original.crs is None or converted.crs is None:
-            return "CRS metadata is missing from one or both rasters"
-        if original.crs != converted.crs:
-            return "CRS differs"
+        if original.crs is None or original.crs != converted.crs:
+            return "CRS metadata is missing or differs"
 
         rows = max(1, min(original.height, MAX_WINDOW_CELLS // max(1, original.width)))
         if progress is not None and task_id is not None:
