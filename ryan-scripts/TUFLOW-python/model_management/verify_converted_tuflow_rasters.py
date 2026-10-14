@@ -2,9 +2,10 @@
 
 The default is validation only. Every source is paired with a .tif or .tiff
 having the same stem and relative directory. Compare raster cells exactly,
-including NoData positions, dimensions, grid transform and CRS. No resampling
-or floating-point tolerance is used. Only verified sources become deletion
-candidates. The source FLT's .hdr is also eligible; .prj and auxiliary files
+including NoData positions, dimensions and grid transform. CRS is compared
+when present in both files; missing CRS is logged as a warning rather than a
+mismatch. No resampling or floating-point tolerance is used. Only matching
+sources become deletion candidates. The source FLT's .hdr is also eligible; .prj and auxiliary files
 are always retained. File timestamps must show that the TIFF is strictly newer.
 
 Edit ROOT_DIR/TIF_ROOT_DIR below or use --root/--tif-root. To delete, supply
@@ -59,7 +60,7 @@ class Comparison:
 
     @property
     def eligible(self) -> bool:
-        return self.status == "MATCH"
+        return self.status in {"MATCH", "MATCH_CRS_UNVERIFIED"}
 
 
 def has_linked_component(path: Path) -> bool:
@@ -119,13 +120,26 @@ def paired_file(directory: Path, stem: str, suffixes: set[str]) -> tuple[Path | 
     return matches[0], None
 
 
+def crs_warning(*, source_missing: bool, tif_missing: bool) -> str | None:
+    """Describe missing CRS metadata separately from a true CRS disagreement."""
+    if source_missing and tif_missing:
+        return "Both rasters lack CRS metadata; spatial reference cannot be verified"
+    if source_missing:
+        return "Source raster lacks CRS metadata; GeoTIFF CRS cannot be independently verified"
+    if tif_missing:
+        return "GeoTIFF lacks CRS metadata; source CRS cannot be independently verified"
+    return None
+
+
 def compare_rasters(
     source: Path, tif: Path, progress: Progress | None = None, task_id: TaskID | None = None
-) -> str | None:
-    """Return None if all valid pixel values and spatial metadata match exactly.
+) -> tuple[str | None, str | None]:
+    """Return (mismatch, CRS warning), checking all valid cells exactly.
 
     A raster may be compressed or use another NoData *sentinel*, provided the
     invalid-pixel locations and all valid pixel values are identical.
+    Missing CRS metadata only creates a warning; two conflicting declared CRSs
+    still fail the comparison.
     """
     with rasterio.open(source) as original, rasterio.open(tif) as converted:
         if (original.width, original.height, original.count) != (
@@ -133,11 +147,12 @@ def compare_rasters(
             converted.height,
             converted.count,
         ):
-            return "Raster width, height or band count differs"
+            return "Raster width, height or band count differs", None
         if original.transform != converted.transform:
-            return "Grid geotransform differs"
-        if original.crs is None or original.crs != converted.crs:
-            return "CRS metadata is missing or differs"
+            return "Grid geotransform differs", None
+        if original.crs is not None and converted.crs is not None and original.crs != converted.crs:
+            return "Declared CRS definitions differ", None
+        warning = crs_warning(source_missing=original.crs is None, tif_missing=converted.crs is None)
 
         rows = max(1, min(original.height, MAX_WINDOW_CELLS // max(1, original.width)))
         if progress is not None and task_id is not None:
@@ -152,7 +167,7 @@ def compare_rasters(
                 valid_before = ~np.ma.getmaskarray(before)
                 valid_after = ~np.ma.getmaskarray(after)
                 if not np.array_equal(valid_before, valid_after):
-                    return f"NoData mask differs at band {band}, rows {y}-{y + height - 1}"
+                    return f"NoData mask differs at band {band}, rows {y}-{y + height - 1}", None
 
                 left = np.asarray(before.data)
                 right = np.asarray(after.data)
@@ -160,13 +175,14 @@ def compare_rasters(
                 differing = valid_before & ~equal
                 if np.any(differing):
                     local_row, column = np.argwhere(differing)[0]
-                    return (
+                    message = (
                         f"Pixel values differ at band {band}, row {y + int(local_row)}, column {int(column)}: "
                         f"{left[local_row, column]!r} != {right[local_row, column]!r}"
                     )
+                    return message, None
                 if progress is not None and task_id is not None:
                     progress.advance(task_id, height)
-    return None
+    return None, warning
 
 
 def inspect_source(
@@ -198,11 +214,12 @@ def inspect_source(
                 return Comparison(original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header)
 
     try:
-        difference = compare_rasters(source, candidate, progress, raster_task)
+        difference, warning = compare_rasters(source, candidate, progress, raster_task)
     except (OSError, ValueError, RasterioError) as exc:
         return Comparison(original, converted, "ERROR", f"Raster read failed: {exc}")
 
-    result = Comparison(original, converted, "MATCH" if difference is None else "MISMATCH", difference or "", header)
+    status = "MISMATCH" if difference is not None else "MATCH_CRS_UNVERIFIED" if warning else "MATCH"
+    result = Comparison(original, converted, status, difference or warning or "", header)
     if result.eligible and not all(unchanged(item) for item in (original, converted, header) if item is not None):
         return Comparison(original, converted, "CHANGED_DURING_CHECK", "File metadata changed during comparison")
     return result
@@ -227,25 +244,48 @@ def write_csv(path: Path, headings: tuple[str, ...], rows: list[dict[str, str]])
         writer.writerows(rows)
 
 
-def write_reports(results: list[Comparison], output_dir: Path) -> tuple[Path, Path]:
-    """Write deletion candidate list and non-matches, including detailed reasons."""
+def write_reports(results: list[Comparison], output_dir: Path) -> tuple[Path, Path, Path]:
+    """Write deletion candidates, actual failures, and CRS uncertainty separately."""
     candidates: list[dict[str, str]] = []
     failures: list[dict[str, str]] = []
+    warnings: list[dict[str, str]] = []
     for result in results:
         tif = str(result.tif.path) if result.tif else ""
         if result.eligible:
-            candidates.append({"delete_path": str(result.source.path), "retained_tif": tif, "type": "raster"})
+            candidates.append(
+                {
+                    "delete_path": str(result.source.path),
+                    "retained_tif": tif,
+                    "type": "raster",
+                    "status": result.status,
+                    "warning": result.reason,
+                }
+            )
             if result.header is not None:
-                candidates.append({"delete_path": str(result.header.path), "retained_tif": tif, "type": "flt_header"})
+                candidates.append(
+                    {
+                        "delete_path": str(result.header.path),
+                        "retained_tif": tif,
+                        "type": "flt_header",
+                        "status": result.status,
+                        "warning": result.reason,
+                    }
+                )
+            if result.status == "MATCH_CRS_UNVERIFIED":
+                warnings.append(
+                    {"source": str(result.source.path), "tif": tif, "status": result.status, "reason": result.reason}
+                )
         else:
             failures.append(
                 {"source": str(result.source.path), "tif": tif, "status": result.status, "reason": result.reason}
             )
     proposal = unique_report_path(output_dir, "delete_candidates")
     errors = unique_report_path(output_dir, "errors")
-    write_csv(proposal, ("delete_path", "retained_tif", "type"), candidates)
+    warning_report = unique_report_path(output_dir, "warnings")
+    write_csv(proposal, ("delete_path", "retained_tif", "type", "status", "warning"), candidates)
     write_csv(errors, ("source", "tif", "status", "reason"), failures)
-    return proposal, errors
+    write_csv(warning_report, ("source", "tif", "status", "reason"), warnings)
+    return proposal, errors, warning_report
 
 
 def perform_deletions(results: list[Comparison]) -> tuple[int, int]:
@@ -343,14 +383,17 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{result.status}: {source}: {result.reason}")
 
     try:
-        proposal, errors = write_reports(results, root)
+        proposal, errors, warnings = write_reports(results, root)
     except OSError as exc:
         print(f"Could not write reports; deletion cancelled: {exc}", file=sys.stderr)
         return 2
     matched = sum(result.eligible for result in results)
-    print(f"Verified: {matched}/{len(results)}; excluded: {len(results) - matched}")
+    unverified_crs = sum(result.status == "MATCH_CRS_UNVERIFIED" for result in results)
+    print(f"Verified raster contents: {matched}/{len(results)}; excluded: {len(results) - matched}")
+    print(f"Matched with unverified CRS: {unverified_crs} (eligible; review warning report)")
     print(f"Deletion proposal: {proposal}")
     print(f"Error report: {errors}")
+    print(f"CRS warning report: {warnings}")
     return finish_deletion(results, len(sources), allow_delete=DELETE_FILES or args.delete)
 
 

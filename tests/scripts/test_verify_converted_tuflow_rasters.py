@@ -100,9 +100,10 @@ def test_asc_match_and_report_no_deletion(tool: ModuleType, tmp_path: Path) -> N
     assert src.exists()
     assert tif.exists()
     assert report_rows(tmp_path / "tuflow_raster_conversion_delete_candidates.csv") == [
-        {"delete_path": str(src), "retained_tif": str(tif), "type": "raster"}
+        {"delete_path": str(src), "retained_tif": str(tif), "type": "raster", "status": "MATCH", "warning": ""}
     ]
     assert not report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")
+    assert not report_rows(tmp_path / "tuflow_raster_conversion_warnings.csv")
 
 
 def test_flt_match_includes_header_but_not_projection(tool: ModuleType, tmp_path: Path) -> None:
@@ -196,6 +197,7 @@ def test_report_names_do_not_overwrite(tool: ModuleType, tmp_path: Path) -> None
     assert tool.main(["--root", str(tmp_path), "--no-progress"]) == 0
     assert (tmp_path / "tuflow_raster_conversion_delete_candidates_001.csv").exists()
     assert (tmp_path / "tuflow_raster_conversion_errors_001.csv").exists()
+    assert (tmp_path / "tuflow_raster_conversion_warnings_001.csv").exists()
 
 
 def test_mirrored_tif_root(tool: ModuleType, tmp_path: Path) -> None:
@@ -229,10 +231,11 @@ def test_broken_tif_is_reported(tool: ModuleType, tmp_path: Path) -> None:
     assert src.exists()
 
 
-def test_untagged_crs_is_excluded(tool: ModuleType, tmp_path: Path) -> None:
+def test_both_rasters_without_crs_are_eligible_with_warning(tool: ModuleType, tmp_path: Path) -> None:
     src, _tif = make_pair(tmp_path, crs=None)
     result = tool.inspect_source(src, tmp_path, tmp_path)
-    assert result.status == "MISMATCH"
+    assert result.eligible
+    assert result.status == "MATCH_CRS_UNVERIFIED"
     assert "CRS" in result.reason
 
 
@@ -245,9 +248,7 @@ def create_directory_symlink(target: Path, link: Path) -> None:
 
 
 @pytest.mark.parametrize("linked_input", ["source_root", "tif_root"])
-def test_cli_rejects_directory_symlink_before_scanning(
-    tool: ModuleType, tmp_path: Path, linked_input: str
-) -> None:
+def test_cli_rejects_directory_symlink_before_scanning(tool: ModuleType, tmp_path: Path, linked_input: str) -> None:
     root = tmp_path / "source"
     src, tif = make_pair(root)
     link = tmp_path / "linked"
@@ -286,9 +287,7 @@ def test_scanner_does_not_follow_linked_source_folder(tool: ModuleType, tmp_path
     assert src.exists()
 
 
-def test_mirrored_tif_path_cannot_pass_through_link(
-    tool: ModuleType, tmp_path: Path
-) -> None:
+def test_mirrored_tif_path_cannot_pass_through_link(tool: ModuleType, tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     src, tif = make_pair(source_root / "nested")
     converted = tmp_path / "converted"
@@ -303,9 +302,7 @@ def test_mirrored_tif_path_cannot_pass_through_link(
     assert src.exists()
 
 
-def test_symlinked_parent_introduced_after_verification_blocks_deletion(
-    tool: ModuleType, tmp_path: Path
-) -> None:
+def test_symlinked_parent_introduced_after_verification_blocks_deletion(tool: ModuleType, tmp_path: Path) -> None:
     folder = tmp_path / "original"
     src, tif = make_pair(folder)
     result = tool.inspect_source(src, folder, folder)
@@ -316,3 +313,89 @@ def test_symlinked_parent_introduced_after_verification_blocks_deletion(
     assert tool.perform_deletions([result]) == (0, 1)
     assert (preserved / src.name).exists()
     assert (preserved / tif.name).exists()
+
+
+@pytest.mark.parametrize("suffix", [".flt", ".asc"])
+def test_missing_source_crs_is_a_warning_not_a_mismatch(tool: ModuleType, tmp_path: Path, suffix: str) -> None:
+    src, tif = make_pair(tmp_path, suffix=suffix, crs=None)
+    with rasterio.open(tif, "r+") as dataset:
+        dataset.crs = "EPSG:28350"
+    os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
+
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+    assert result.eligible
+    assert result.status == "MATCH_CRS_UNVERIFIED"
+    assert "Source raster lacks CRS" in result.reason
+    assert tool.main(["--root", str(tmp_path), "--no-progress"]) == 0
+    candidates = report_rows(tmp_path / "tuflow_raster_conversion_delete_candidates.csv")
+    assert {row["delete_path"] for row in candidates} >= {str(src)}
+    assert all(row["status"] == "MATCH_CRS_UNVERIFIED" for row in candidates)
+    assert len(report_rows(tmp_path / "tuflow_raster_conversion_warnings.csv")) == 1
+    assert report_rows(tmp_path / "tuflow_raster_conversion_errors.csv") == []
+    assert src.exists()
+
+
+def test_missing_tif_crs_is_eligible_with_warning(tool: ModuleType, tmp_path: Path) -> None:
+    src, tif = make_pair(tmp_path, suffix=".asc")
+    # Recreate the GeoTIFF without a CRS, preserving the same grid and values.
+    with rasterio.open(
+        tif,
+        "w",
+        driver="GTiff",
+        width=2,
+        height=2,
+        count=1,
+        dtype="float32",
+        transform=from_origin(100, 200, 5, 5),
+        nodata=-9999,
+    ) as destination:
+        destination.write(np.array([[1, 2], [3, -9999]], dtype="float32"), 1)
+    os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
+
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+    assert result.eligible
+    assert result.status == "MATCH_CRS_UNVERIFIED"
+    assert "GeoTIFF lacks CRS" in result.reason
+
+
+def test_missing_crs_does_not_hide_actual_pixel_mismatch(tool: ModuleType, tmp_path: Path) -> None:
+    src, tif = make_pair(
+        tmp_path,
+        suffix=".flt",
+        crs=None,
+        tif_values=np.array([[9, 2], [3, -9999]], dtype="float32"),
+    )
+    with rasterio.open(tif, "r+") as dataset:
+        dataset.crs = "EPSG:28350"
+    os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+    assert not result.eligible
+    assert result.status == "MISMATCH"
+    assert "Pixel values differ" in result.reason
+
+
+def test_declared_conflicting_crs_still_blocks_deletion(tool: ModuleType, tmp_path: Path) -> None:
+    src, tif = make_pair(tmp_path, suffix=".flt")
+    with rasterio.open(tif, "r+") as dataset:
+        dataset.crs = "EPSG:4326"
+    os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+    assert not result.eligible
+    assert result.status == "MISMATCH"
+    assert "CRS" in result.reason
+
+
+def test_warning_candidate_can_be_deleted_after_confirmation(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    src, tif = make_pair(tmp_path, suffix=".flt", crs=None)
+    with rasterio.open(tif, "r+") as dataset:
+        dataset.crs = "EPSG:28350"
+    os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
+    header = src.with_suffix(".hdr")
+    monkeypatch.setattr("builtins.input", approve_delete)
+    assert tool.main(["--root", str(tmp_path), "--no-progress", "--delete"]) == 0
+    assert not src.exists()
+    assert not header.exists()
+    assert tif.exists()
+    assert len(report_rows(tmp_path / "tuflow_raster_conversion_warnings.csv")) == 1
