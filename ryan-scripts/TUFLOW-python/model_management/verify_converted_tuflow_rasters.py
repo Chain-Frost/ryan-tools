@@ -77,9 +77,7 @@ def discover_sources(root: Path) -> list[Path]:
     """Walk folders without following symlink directories; collect FLT/ASC only."""
     sources: list[Path] = []
     for parent, directories, files in os.walk(root, followlinks=False):
-        directories[:] = sorted(
-            name for name in directories if not (Path(parent) / name).is_symlink()
-        )
+        directories[:] = sorted(name for name in directories if not (Path(parent) / name).is_symlink())
         for name in sorted(files):
             path = Path(parent) / name
             if path.suffix.casefold() in {".asc", ".flt"} and not path.is_symlink():
@@ -106,7 +104,9 @@ def paired_file(directory: Path, stem: str, suffixes: set[str]) -> tuple[Path | 
     return matches[0], None
 
 
-def compare_rasters(source: Path, tif: Path, progress: Progress | None = None, task_id: int | None = None) -> str | None:
+def compare_rasters(
+    source: Path, tif: Path, progress: Progress | None = None, task_id: int | None = None
+) -> str | None:
     """Return None if all valid pixel values and spatial metadata match exactly.
 
     A raster may be compressed or use another NoData *sentinel*, provided the
@@ -180,9 +180,7 @@ def inspect_source(
         if hdr is not None:
             header = snapshot(hdr)
             if converted.mtime_ns <= header.mtime_ns:
-                return Comparison(
-                    original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header
-                )
+                return Comparison(original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header)
 
     try:
         difference = compare_rasters(source, candidate, progress, raster_task)
