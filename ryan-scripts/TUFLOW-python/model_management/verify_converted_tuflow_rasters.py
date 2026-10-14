@@ -202,7 +202,8 @@ def unique_report_path(root: Path, stem: str) -> Path:
         candidate = root / f"{REPORT_PREFIX}_{stem}{suffix}.csv"
         if not candidate.exists():
             return candidate
-    raise FileExistsError(f"No available filename for {stem}")
+    message = f"No available filename for {stem}"
+    raise FileExistsError(message)
 
 
 def write_csv(path: Path, headings: tuple[str, ...], rows: list[dict[str, str]]) -> None:
@@ -269,6 +270,27 @@ def perform_deletions(results: list[Comparison]) -> tuple[int, int]:
     return deleted, failed
 
 
+
+def finish_deletion(results: list[Comparison], source_count: int, *, allow_delete: bool) -> int:
+    """Require an explicit opt-in and final confirmation before any deletion."""
+    matched = sum(result.eligible for result in results)
+    if not allow_delete:
+        print("Validation only. No files deleted. Use --delete and type DELETE to allow removal.")
+        return 0 if matched == source_count else 1
+    if not matched:
+        print("No verified candidates to delete.")
+        return 1 if source_count else 0
+    try:
+        answer = input("Type DELETE to remove verified FLT/ASC files (and applicable .hdr): ").strip()
+    except EOFError:
+        answer = ""
+    if answer != "DELETE":
+        print("Deletion cancelled.")
+        return 1
+    deleted, failed = perform_deletions(results)
+    print(f"Files deleted: {deleted}; deletions skipped/failed: {failed}")
+    return 1 if failed or matched != source_count else 0
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT_DIR, help="Source directory to scan recursively")
@@ -316,22 +338,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Verified: {matched}/{len(results)}; excluded: {len(results) - matched}")
     print(f"Deletion proposal: {proposal}")
     print(f"Error report: {errors}")
-    if not (DELETE_FILES or args.delete):
-        print("Validation only. No files deleted. Use --delete and type DELETE to allow removal.")
-        return 0 if matched == len(sources) else 1
-    if not matched:
-        print("No verified candidates to delete.")
-        return 1 if sources else 0
-    try:
-        answer = input("Type DELETE to remove verified FLT/ASC files (and applicable .hdr): ").strip()
-    except EOFError:
-        answer = ""
-    if answer != "DELETE":
-        print("Deletion cancelled.")
-        return 1
-    deleted, failed = perform_deletions(results)
-    print(f"Files deleted: {deleted}; deletions skipped/failed: {failed}")
-    return 1 if failed or matched != len(sources) else 0
+    return finish_deletion(results, len(sources), allow_delete=DELETE_FILES or args.delete)
 
 
 if __name__ == "__main__":
