@@ -248,9 +248,7 @@ def create_directory_symlink(target: Path, link: Path) -> None:
 
 
 @pytest.mark.parametrize("linked_input", ["source_root", "tif_root"])
-def test_cli_rejects_directory_symlink_before_scanning(
-    tool: ModuleType, tmp_path: Path, linked_input: str
-) -> None:
+def test_cli_rejects_directory_symlink_before_scanning(tool: ModuleType, tmp_path: Path, linked_input: str) -> None:
     root = tmp_path / "source"
     src, tif = make_pair(root)
     link = tmp_path / "linked"
@@ -289,9 +287,7 @@ def test_scanner_does_not_follow_linked_source_folder(tool: ModuleType, tmp_path
     assert src.exists()
 
 
-def test_mirrored_tif_path_cannot_pass_through_link(
-    tool: ModuleType, tmp_path: Path
-) -> None:
+def test_mirrored_tif_path_cannot_pass_through_link(tool: ModuleType, tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     src, tif = make_pair(source_root / "nested")
     converted = tmp_path / "converted"
@@ -306,9 +302,7 @@ def test_mirrored_tif_path_cannot_pass_through_link(
     assert src.exists()
 
 
-def test_symlinked_parent_introduced_after_verification_blocks_deletion(
-    tool: ModuleType, tmp_path: Path
-) -> None:
+def test_symlinked_parent_introduced_after_verification_blocks_deletion(tool: ModuleType, tmp_path: Path) -> None:
     folder = tmp_path / "original"
     src, tif = make_pair(folder)
     result = tool.inspect_source(src, folder, folder)
@@ -344,8 +338,17 @@ def test_missing_source_crs_is_a_warning_not_a_mismatch(tool: ModuleType, tmp_pa
 def test_missing_tif_crs_is_eligible_with_warning(tool: ModuleType, tmp_path: Path) -> None:
     src, tif = make_pair(tmp_path, suffix=".asc")
     # Recreate the GeoTIFF without a CRS, preserving the same grid and values.
-    with rasterio.open(tif, "w", driver="GTiff", width=2, height=2, count=1, dtype="float32",
-                       transform=from_origin(100, 200, 5, 5), nodata=-9999) as destination:
+    with rasterio.open(
+        tif,
+        "w",
+        driver="GTiff",
+        width=2,
+        height=2,
+        count=1,
+        dtype="float32",
+        transform=from_origin(100, 200, 5, 5),
+        nodata=-9999,
+    ) as destination:
         destination.write(np.array([[1, 2], [3, -9999]], dtype="float32"), 1)
     os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
 
