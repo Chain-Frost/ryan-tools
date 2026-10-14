@@ -245,9 +245,7 @@ def create_directory_symlink(target: Path, link: Path) -> None:
 
 
 @pytest.mark.parametrize("linked_input", ["source_root", "tif_root"])
-def test_cli_rejects_directory_symlink_before_scanning(
-    tool: ModuleType, tmp_path: Path, linked_input: str
-) -> None:
+def test_cli_rejects_directory_symlink_before_scanning(tool: ModuleType, tmp_path: Path, linked_input: str) -> None:
     root = tmp_path / "source"
     src, tif = make_pair(root)
     link = tmp_path / "linked"
@@ -286,9 +284,7 @@ def test_scanner_does_not_follow_linked_source_folder(tool: ModuleType, tmp_path
     assert src.exists()
 
 
-def test_mirrored_tif_path_cannot_pass_through_link(
-    tool: ModuleType, tmp_path: Path
-) -> None:
+def test_mirrored_tif_path_cannot_pass_through_link(tool: ModuleType, tmp_path: Path) -> None:
     source_root = tmp_path / "source"
     src, tif = make_pair(source_root / "nested")
     converted = tmp_path / "converted"
@@ -303,9 +299,7 @@ def test_mirrored_tif_path_cannot_pass_through_link(
     assert src.exists()
 
 
-def test_symlinked_parent_introduced_after_verification_blocks_deletion(
-    tool: ModuleType, tmp_path: Path
-) -> None:
+def test_symlinked_parent_introduced_after_verification_blocks_deletion(tool: ModuleType, tmp_path: Path) -> None:
     folder = tmp_path / "original"
     src, tif = make_pair(folder)
     result = tool.inspect_source(src, folder, folder)
