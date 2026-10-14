@@ -234,3 +234,85 @@ def test_untagged_crs_is_excluded(tool: ModuleType, tmp_path: Path) -> None:
     result = tool.inspect_source(src, tmp_path, tmp_path)
     assert result.status == "MISMATCH"
     assert "CRS" in result.reason
+
+
+def create_directory_symlink(target: Path, link: Path) -> None:
+    """Make a real directory link, skipping where Windows permissions forbid it."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Directory symlinks unavailable: {exc}")
+
+
+@pytest.mark.parametrize("linked_input", ["source_root", "tif_root"])
+def test_cli_rejects_directory_symlink_before_scanning(
+    tool: ModuleType, tmp_path: Path, linked_input: str
+) -> None:
+    root = tmp_path / "source"
+    src, tif = make_pair(root)
+    link = tmp_path / "linked"
+    create_directory_symlink(root, link)
+    arguments = ["--root", str(link if linked_input == "source_root" else root), "--delete", "--no-progress"]
+    if linked_input == "tif_root":
+        arguments.extend(["--tif-root", str(link)])
+    with pytest.raises(SystemExit) as error:
+        tool.main(arguments)
+    assert error.value.code == 2
+    assert src.exists()
+    assert tif.exists()
+
+
+def test_cli_rejects_symlink_in_parent_directory(tool: ModuleType, tmp_path: Path) -> None:
+    directory = tmp_path / "real" / "nested"
+    src, tif = make_pair(directory)
+    link = tmp_path / "alias"
+    create_directory_symlink(directory.parent, link)
+    root = link / "nested"
+    assert not root.is_symlink()  # The directory itself is real; its parent is linked.
+    with pytest.raises(SystemExit) as error:
+        tool.main(["--root", str(root), "--delete", "--no-progress"])
+    assert error.value.code == 2
+    assert src.exists()
+    assert tif.exists()
+
+
+def test_scanner_does_not_follow_linked_source_folder(tool: ModuleType, tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    src, _tif = make_pair(outside)
+    create_directory_symlink(outside, root / "linked")
+    assert tool.discover_sources(root) == []
+    assert src.exists()
+
+
+def test_mirrored_tif_path_cannot_pass_through_link(
+    tool: ModuleType, tmp_path: Path
+) -> None:
+    source_root = tmp_path / "source"
+    src, tif = make_pair(source_root / "nested")
+    converted = tmp_path / "converted"
+    converted.mkdir()
+    copy_target = tmp_path / "tif_target"
+    copy_target.mkdir()
+    tif.replace(copy_target / tif.name)
+    create_directory_symlink(copy_target, converted / "nested")
+    result = tool.inspect_source(src, source_root, converted)
+    assert not result.eligible
+    assert "symlink" in result.reason
+    assert src.exists()
+
+
+def test_symlinked_parent_introduced_after_verification_blocks_deletion(
+    tool: ModuleType, tmp_path: Path
+) -> None:
+    folder = tmp_path / "original"
+    src, tif = make_pair(folder)
+    result = tool.inspect_source(src, folder, folder)
+    assert result.eligible
+    preserved = tmp_path / "preserved"
+    folder.rename(preserved)
+    create_directory_symlink(preserved, folder)
+    assert tool.perform_deletions([result]) == (0, 1)
+    assert (preserved / src.name).exists()
+    assert (preserved / tif.name).exists()
