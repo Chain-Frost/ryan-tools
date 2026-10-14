@@ -1,5 +1,9 @@
 """Focused synthetic raster verification tests."""
 
+# Rasterio has no distributed typing stubs (same convention as other repo raster tests).
+# pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+
 from __future__ import annotations
 
 import csv
@@ -80,8 +84,8 @@ def make_pair(
         dst.write(arr_tif, 1)
     os.utime(src, ns=(1_000_000_000, 1_000_000_000))
     if suffix == ".flt":
-        os.utime(src.with_suffix(".hdr"), ns=(1_000_000_000,) * 2)
-    os.utime(tif, ns=((2 if newer else 1) * 1_000_000_000,) * 2)
+        os.utime(src.with_suffix(".hdr"), ns=(1_000_000_000, 1_000_000_000))
+    os.utime(tif, ns=((2 if newer else 1) * 1_000_000_000, (2 if newer else 1) * 1_000_000_000))
     return src, tif
 
 
@@ -136,20 +140,28 @@ def test_metadata_blocks_candidates(tool: ModuleType, tmp_path: Path, reason: st
         with rasterio.open(tif, "r+") as dst:
             dst.crs = "EPSG:4326"
     if reason == "crs":
-        os.utime(tif, ns=(2_000_000_000,) * 2)
+        os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
     result = tool.inspect_source(src, tmp_path, tmp_path)
     assert not result.eligible
+
+
+def decline_delete(_prompt: str) -> str:
+    return "CANCEL"
+
+
+def approve_delete(_prompt: str) -> str:
+    return "DELETE"
 
 
 def test_delete_requires_explicit_confirmation(
     tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     src, tif = make_pair(tmp_path)
-    monkeypatch.setattr("builtins.input", lambda _: "CANCEL")
+    monkeypatch.setattr("builtins.input", decline_delete)
     assert tool.main(["--root", str(tmp_path), "--no-progress", "--delete"]) == 1
     assert src.exists()
     assert tif.exists()
-    monkeypatch.setattr("builtins.input", lambda _: "DELETE")
+    monkeypatch.setattr("builtins.input", approve_delete)
     assert tool.main(["--root", str(tmp_path), "--no-progress", "--delete"]) == 0
     assert not src.exists()
     assert tif.exists()
@@ -202,7 +214,7 @@ def test_mirrored_tif_root(tool: ModuleType, tmp_path: Path) -> None:
 def test_header_must_also_precede_tif(tool: ModuleType, tmp_path: Path) -> None:
     src, tif = make_pair(tmp_path, suffix=".flt")
     hdr = src.with_suffix(".hdr")
-    os.utime(hdr, ns=(3_000_000_000,) * 2)
+    os.utime(hdr, ns=(3_000_000_000, 3_000_000_000))
     result = tool.inspect_source(src, tmp_path, tmp_path)
     assert result.status == "TIF_NOT_NEWER"
     assert src.exists()
@@ -215,3 +227,10 @@ def test_broken_tif_is_reported(tool: ModuleType, tmp_path: Path) -> None:
     result = tool.inspect_source(src, tmp_path, tmp_path)
     assert result.status == "ERROR"
     assert src.exists()
+
+
+def test_untagged_crs_is_excluded(tool: ModuleType, tmp_path: Path) -> None:
+    src, _tif = make_pair(tmp_path, crs=None)
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+    assert result.status == "MISMATCH"
+    assert "CRS" in result.reason
