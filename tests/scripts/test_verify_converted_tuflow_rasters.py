@@ -78,6 +78,8 @@ def make_pair(
     ) as dst:
         dst.write(arr_tif, 1)
     os.utime(src, ns=(1_000_000_000, 1_000_000_000))
+    if suffix == ".flt":
+        os.utime(src.with_suffix(".hdr"), ns=(1_000_000_000,) * 2)
     os.utime(tif, ns=((2 if newer else 1) * 1_000_000_000,) * 2)
     return src, tif
 
@@ -185,3 +187,20 @@ def test_mirrored_tif_root(tool: ModuleType, tmp_path: Path) -> None:
     tif.replace(dst)
     assert tool.main(["--root", str(tmp_path / "sources"), "--tif-root", str(tmp_path / "converted"), "--no-progress"]) == 0
     assert src.exists() and dst.exists()
+
+
+def test_header_must_also_precede_tif(tool: ModuleType, tmp_path: Path) -> None:
+    src, tif = make_pair(tmp_path, suffix=".flt")
+    hdr = src.with_suffix(".hdr")
+    os.utime(hdr, ns=(3_000_000_000,) * 2)
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+    assert result.status == "TIF_NOT_NEWER"
+    assert src.exists() and tif.exists()
+
+
+def test_broken_tif_is_reported(tool: ModuleType, tmp_path: Path) -> None:
+    src, tif = make_pair(tmp_path)
+    tif.write_bytes(b"invalid TIFF")
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+    assert result.status == "ERROR"
+    assert src.exists()
