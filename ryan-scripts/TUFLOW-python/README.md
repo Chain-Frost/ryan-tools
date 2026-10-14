@@ -121,18 +121,24 @@ This standalone utility uses Rasterio and NumPy (both included in the project de
 - Recursively searches below `ROOT_DIR` (default: current working directory).
   By default the TIF must be in the same directory. Set `TIF_ROOT_DIR` or `--tif-root`
   when converted GeoTIFFs are in a parallel folder tree with the same relative directory layout.
-- Compares width, height, band count, exact grid transform, CRS, NoData validity masks and
-  every valid cell without any tolerance or resampling. Different NoData sentinels are allowed
-  only when the invalid cells coincide. Missing or different CRS metadata fails validation.
+- Compares width, height, band count, exact grid transform, NoData validity masks and every
+  valid cell without any tolerance or resampling. Different NoData sentinels are allowed only
+  when the invalid cells coincide. **When both files declare a CRS, their CRSs must agree.**
+  A missing CRS (common in legacy FLT/ASC outputs without PRJ files) does not by itself
+  prevent a match. Instead the result is marked `MATCH_CRS_UNVERIFIED`, eligible for the
+  deletion proposal, with an explicit warning that the spatial reference was not independently
+  verified. Known conflicting CRSs remain a mismatch.
 - The GeoTIFF must have a **strictly newer modification timestamp** than the source;
   for FLT files also newer than the paired `.hdr` header when scheduled for deletion.
 - Paths are converted to non-resolving absolute paths, not `resolve()`, and are rejected if
   any component is a symbolic link or Windows directory junction. Nested linked folders are
   not scanned and linked paths are rechecked before deletion.
 - Uses chunked raster reads and a Rich progress indicator, not binary file hashes.
-- Creates non-overwriting `tuflow_raster_conversion_delete_candidates.csv` and
-  `tuflow_raster_conversion_errors.csv` in the source root. Every excluded raster
-  is listed with a status and reason. No per-raster placeholder files are written.
+- Creates non-overwriting `tuflow_raster_conversion_delete_candidates.csv`,
+  `tuflow_raster_conversion_errors.csv`, and `tuflow_raster_conversion_warnings.csv`
+  in the source root. Missing-CRS cases appear in the warning CSV and are clearly marked
+  in the deletion candidates (status and warning columns), **not** in the errors CSV.
+  True mismatches are excluded and listed in the errors CSV. No per-raster placeholders.
 - **Default is validation only.** Add `--delete` or set `DELETE_FILES = True`,
   then type exactly `DELETE` to remove confirmed matches. Before each removal it checks
   source, GeoTIFF and associated header size and modification timestamps again.
