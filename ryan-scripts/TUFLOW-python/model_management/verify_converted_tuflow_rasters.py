@@ -12,6 +12,10 @@ Edit ROOT_DIR/TIF_ROOT_DIR below or use --root/--tif-root. To delete, supply
 Do not run on active outputs; file metadata snapshots do not lock files.
 """
 
+# Pyright: Rasterio currently has no bundled type stubs; follow the existing GIS module boundary.
+# pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+
 from __future__ import annotations
 
 import argparse
@@ -23,8 +27,8 @@ from pathlib import Path
 
 import numpy as np
 import rasterio
-from rasterio.windows import Window
-from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeRemainingColumn
+from rasterio.errors import RasterioError
+from rich.progress import BarColumn, Progress, TaskID, TaskProgressColumn, TextColumn, TimeRemainingColumn
 
 # ---------------------------------------------------------------------------
 # User settings (CLI arguments may override the first three)
@@ -105,7 +109,7 @@ def paired_file(directory: Path, stem: str, suffixes: set[str]) -> tuple[Path | 
 
 
 def compare_rasters(
-    source: Path, tif: Path, progress: Progress | None = None, task_id: int | None = None
+    source: Path, tif: Path, progress: Progress | None = None, task_id: TaskID | None = None
 ) -> str | None:
     """Return None if all valid pixel values and spatial metadata match exactly.
 
@@ -121,8 +125,10 @@ def compare_rasters(
             return "Raster width, height or band count differs"
         if original.transform != converted.transform:
             return "Grid geotransform differs"
+        if original.crs is None or converted.crs is None:
+            return "CRS metadata is missing from one or both rasters"
         if original.crs != converted.crs:
-            return "CRS differs (including a missing CRS)"
+            return "CRS differs"
 
         rows = max(1, min(original.height, MAX_WINDOW_CELLS // max(1, original.width)))
         if progress is not None and task_id is not None:
@@ -131,7 +137,7 @@ def compare_rasters(
         for band in range(1, original.count + 1):
             for y in range(0, original.height, rows):
                 height = min(rows, original.height - y)
-                window = Window(0, y, original.width, height)
+                window = ((y, y + height), (0, original.width))
                 before = original.read(band, window=window, masked=True)
                 after = converted.read(band, window=window, masked=True)
                 valid_before = ~np.ma.getmaskarray(before)
@@ -159,7 +165,7 @@ def inspect_source(
     root: Path,
     tif_root: Path,
     progress: Progress | None = None,
-    raster_task: int | None = None,
+    raster_task: TaskID | None = None,
 ) -> Comparison:
     """Verify a single source and the newer, same-stem GeoTIFF."""
     original = snapshot(source)
@@ -184,7 +190,7 @@ def inspect_source(
 
     try:
         difference = compare_rasters(source, candidate, progress, raster_task)
-    except (OSError, ValueError, rasterio.errors.RasterioError) as exc:
+    except (OSError, ValueError, RasterioError) as exc:
         return Comparison(original, converted, "ERROR", f"Raster read failed: {exc}")
 
     result = Comparison(original, converted, "MATCH" if difference is None else "MISMATCH", difference or "", header)
