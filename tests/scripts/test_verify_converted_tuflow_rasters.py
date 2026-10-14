@@ -26,7 +26,8 @@ SCRIPT = (
 @pytest.fixture
 def tool() -> ModuleType:
     spec = importlib.util.spec_from_file_location("verify_converted_tuflow_rasters_tested", SCRIPT)
-    assert spec and spec.loader
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -92,7 +93,8 @@ def report_rows(path: Path) -> list[dict[str, str]]:
 def test_asc_match_and_report_no_deletion(tool: ModuleType, tmp_path: Path) -> None:
     src, tif = make_pair(tmp_path / "nested")
     assert tool.main(["--root", str(tmp_path), "--no-progress"]) == 0
-    assert src.exists() and tif.exists()
+    assert src.exists()
+    assert tif.exists()
     assert report_rows(tmp_path / "tuflow_raster_conversion_delete_candidates.csv") == [
         {"delete_path": str(src), "retained_tif": str(tif), "type": "raster"}
     ]
@@ -143,10 +145,12 @@ def test_delete_requires_explicit_confirmation(tool: ModuleType, tmp_path: Path,
     src, tif = make_pair(tmp_path)
     monkeypatch.setattr("builtins.input", lambda _: "CANCEL")
     assert tool.main(["--root", str(tmp_path), "--no-progress", "--delete"]) == 1
-    assert src.exists() and tif.exists()
+    assert src.exists()
+    assert tif.exists()
     monkeypatch.setattr("builtins.input", lambda _: "DELETE")
     assert tool.main(["--root", str(tmp_path), "--no-progress", "--delete"]) == 0
-    assert not src.exists() and tif.exists()
+    assert not src.exists()
+    assert tif.exists()
 
 
 def test_changed_tif_or_source_prevents_deletion(tool: ModuleType, tmp_path: Path) -> None:
@@ -159,13 +163,13 @@ def test_changed_tif_or_source_prevents_deletion(tool: ModuleType, tmp_path: Pat
 
 
 def test_unrelated_crs_sentinel_mask_matches(tool: ModuleType, tmp_path: Path) -> None:
-    src, tif = make_pair(tmp_path, tif_values=np.array([[1, 2], [3, -8888]], dtype="float32"), tif_nodata=-8888)
+    src, _tif = make_pair(tmp_path, tif_values=np.array([[1, 2], [3, -8888]], dtype="float32"), tif_nodata=-8888)
     result = tool.inspect_source(src, tmp_path, tmp_path)
     assert result.eligible
 
 
 def test_reject_ambiguous_tif(tool: ModuleType, tmp_path: Path) -> None:
-    src, tif = make_pair(tmp_path)
+    src, _tif = make_pair(tmp_path)
     tif2 = tmp_path / "Depth.tiff"
     tif2.write_bytes(b"dummy")
     result = tool.inspect_source(src, tmp_path, tmp_path)
@@ -186,7 +190,8 @@ def test_mirrored_tif_root(tool: ModuleType, tmp_path: Path) -> None:
     dst.parent.mkdir(parents=True)
     tif.replace(dst)
     assert tool.main(["--root", str(tmp_path / "sources"), "--tif-root", str(tmp_path / "converted"), "--no-progress"]) == 0
-    assert src.exists() and dst.exists()
+    assert src.exists()
+    assert dst.exists()
 
 
 def test_header_must_also_precede_tif(tool: ModuleType, tmp_path: Path) -> None:
@@ -195,7 +200,8 @@ def test_header_must_also_precede_tif(tool: ModuleType, tmp_path: Path) -> None:
     os.utime(hdr, ns=(3_000_000_000,) * 2)
     result = tool.inspect_source(src, tmp_path, tmp_path)
     assert result.status == "TIF_NOT_NEWER"
-    assert src.exists() and tif.exists()
+    assert src.exists()
+    assert tif.exists()
 
 
 def test_broken_tif_is_reported(tool: ModuleType, tmp_path: Path) -> None:
