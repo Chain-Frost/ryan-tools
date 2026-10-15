@@ -38,6 +38,46 @@ register the publisher or create the GitHub environment on your behalf.
 
 ## Create a release
 
+### Automated release (recommended)
+
+Run **Actions → Release to PyPI → Run workflow**, selecting `main`.
+The workflow uses the existing transactional builder to bump the calendar
+version and retain the verified wheel, then opens a `release/pypi-<version>`
+pull request. Only one release PR may be open at a time.
+
+Review and squash merge that PR after the four required CI checks pass.
+Successful **Python CI** on the merge commit triggers **Finalize PyPI release**,
+which creates the matching tag and GitHub Release and explicitly dispatches
+**Publish to PyPI** on that tag. Ordinary PR merges do not publish releases.
+The PyPI publisher identity remains `pypi-publish.yml` / environment `pypi`.
+Both release-event and manually dispatched publication require an existing,
+published, non-draft, non-prerelease GitHub Release for the exact tag. The
+publisher checks this through GitHub's API before checkout or building;
+a bare tag, draft or prerelease cannot be published through manual dispatch.
+
+Enable **Settings → Actions → General → Allow GitHub Actions to create and
+approve pull requests** for the preparation workflow. It requests write
+permissions only for its preparation job; it does not approve or merge PRs.
+The bot-created PR triggers PR-event CI. If GitHub displays **Approve workflows
+to run**, a maintainer must approve that run before the required checks can
+complete. Preparation does not dispatch CI: manually dispatched workflow job
+checks do not satisfy PR ruleset requirements. See GitHub's
+[required-check event restrictions](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated).
+
+Each push to `main` gets a separate CI concurrency group, so later merges
+cannot cancel or replace the release merge's running or pending validation.
+PR runs still cancel superseded runs. Finalization uses the successful run's
+exact merge SHA even if `main` has advanced. Its concurrency group is also
+specific to that SHA. If main CI fails or is manually cancelled, rerun that
+exact push run; a successful later commit does not release the earlier SHA.
+
+If preparation fails after pushing a branch, inspect that branch and any PR
+before retrying. If finalization fails, rerun its failed job. If publication
+fails, rerun **Publish to PyPI** on the existing release tag after correcting
+the cause. Never move an existing release tag or overwrite a PyPI version.
+
+### Manual release
+
 1. Merge approved code and ensure the package CI checks have passed.
 2. Choose a new, unused calendar version and update the `[project]` version
    in `pyproject.toml` **before creating a tag**. The existing
@@ -53,7 +93,7 @@ register the publisher or create the GitHub environment on your behalf.
 6. Verify the resulting project on `https://pypi.org/project/ryan-functions/`.
 
 The workflow rejects a release tag that does not exactly match the version
-recorded in the tagged `pyproject.toml`. It does not bump versions in CI,
+recorded in the tagged `pyproject.toml`. The publishing workflow does not bump versions,
 publish on pull requests, or publish prereleases. PyPI does not permit
 re-uploading a previously published version; advance the version for each
 release, even when correcting packaging.
