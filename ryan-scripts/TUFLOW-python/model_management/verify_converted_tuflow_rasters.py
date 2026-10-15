@@ -1,6 +1,8 @@
-"""Verify converted TUFLOW FLT/ASC rasters against newer GeoTIFFs.
+"""Optionally convert, verify and clean up TUFLOW FLT/ASC rasters.
 
-The default is validation only. Every source is paired with a .tif or .tiff
+The default is validation only. With --convert-missing, create absent GeoTIFFs
+using the existing ryan_library GDAL translation function before verification.
+Every source is paired with a .tif or .tiff
 having the same stem and relative directory. Compare raster cells exactly,
 including NoData positions, dimensions and grid transform. A declared source
 CRS must be preserved in the TIFF; an unknown source CRS is acceptable with a
@@ -9,8 +11,9 @@ statistics and auxiliary metadata are not compared. Only matching sources
 become deletion candidates. The source FLT's .hdr is also eligible; .prj and
 auxiliary files are always retained. The TIFF must be strictly newer.
 
-Edit ROOT_DIR/TIF_ROOT_DIR below or use --root/--tif-root. To delete, supply
---delete (or set DELETE_FILES) and then type DELETE at the confirmation prompt.
+Edit ROOT_DIR/TIF_ROOT_DIR below or use --root/--tif-root. To run all steps,
+provide --convert-missing --delete, then type DELETE when prompted. Existing
+GeoTIFFs are never overwritten, and a failed comparison retains the source.
 Do not run on active outputs; file metadata snapshots do not lock files.
 """
 
@@ -24,7 +27,9 @@ from __future__ import annotations
 import argparse
 import csv
 import os
+import shutil
 import sys
+from uuid import uuid4
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -46,6 +51,7 @@ from ryan_library.functions.file_verification import (
 ROOT_DIR = Path.cwd()
 TIF_ROOT_DIR: Path | None = None  # None means TIFs alongside FLT/ASC files
 DELETE_FILES = False  # Verification/proposal only unless set True or --delete
+CONVERT_MISSING = False  # Opt in to creating absent GeoTIFFs with the shared GDAL converter
 DELETE_FLT_HEADERS = True  # Include .hdr paired with a verified .flt
 SHOW_PROGRESS = True
 MAX_WINDOW_CELLS = 1_000_000  # Approximate upper bound on cells per read
@@ -188,17 +194,94 @@ def compare_rasters(
     return None, warning
 
 
+def create_missing_tif(source: Path, destination_dir: Path) -> Path:
+    """Translate one missing FLT/ASC GeoTIFF without overwriting any existing output.
+
+    The shared GDAL translator creates a temporary GeoTIFF beside the target.
+    Publish the completed file using a no-clobber hard link when supported,
+    with an exclusive-create copy fallback for filesystems without hard links.
+    An interrupted or failed conversion never makes its source eligible for
+    deletion. Only the subsequent independent raster comparison does that.
+    """
+    destination = destination_dir / f"{source.stem}.tif"
+    if has_linked_component(source) or has_linked_component(destination):
+        raise OSError("Source or output location contains a symlink or junction")
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    if has_linked_component(destination):
+        raise OSError("Output location contains a symlink or junction")
+    existing, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
+    if existing is not None or error != "Matching file not found":
+        raise FileExistsError(f"Cannot safely create {destination}: {error or existing}")
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError(f"Destination already exists: {destination}")
+
+    staged = destination_dir / f".{source.stem}.{uuid4().hex}.conversion.tif"
+    original = snapshot(source)
+    header: FileSnapshot | None = None
+    if source.suffix.casefold() == ".flt":
+        hdr, hdr_error = paired_file(source.parent, source.stem, {".hdr"})
+        if hdr_error not in (None, "Matching file not found"):
+            raise OSError(f"Cannot inspect FLT header: {hdr_error}")
+        if hdr is not None:
+            header = snapshot(hdr)
+
+    try:
+        # Keep GDAL translation logic in one place; neither resample nor rewrite CRS.
+        from ryan_library.functions.gdal.raster_processing import translate_to_geotiff
+
+        translate_to_geotiff(source, staged, profile="tuflow")
+        if not unchanged(original) or (header is not None and not unchanged(header)):
+            raise RuntimeError("Source FLT/ASC or its header changed during conversion")
+
+        # Do not publish a file when a counterpart appeared during conversion.
+        existing, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
+        if existing is not None or error != "Matching file not found":
+            raise FileExistsError(f"Counterpart appeared during conversion: {error or existing}")
+        try:
+            os.link(staged, destination)
+        except OSError as link_error:
+            if destination.exists() or destination.is_symlink():
+                raise FileExistsError(f"Destination already exists: {destination}") from link_error
+            # SMB/network shares may not support hard links. Exclusive creation
+            # still prevents overwrites; clean up a partial copy on failure.
+            created = False
+            try:
+                with destination.open("xb") as output:
+                    created = True
+                    with staged.open("rb") as raster:
+                        shutil.copyfileobj(raster, output, length=8 * 1024 * 1024)
+                    output.flush()
+                    os.fsync(output.fileno())
+            except OSError:
+                if created:
+                    destination.unlink(missing_ok=True)
+                raise
+
+        print(f"CREATED: {destination}")
+        return destination
+    finally:
+        staged.unlink(missing_ok=True)
+        Path(f"{staged}.aux.xml").unlink(missing_ok=True)
+
+
 def inspect_source(
     source: Path,
     root: Path,
     tif_root: Path,
     progress: Progress | None = None,
     raster_task: TaskID | None = None,
+    *,
+    convert_missing: bool = False,
 ) -> Comparison:
-    """Verify a single source and the newer, same-stem GeoTIFF."""
+    """Optionally create missing GeoTIFF and verify it against its source."""
     original = snapshot(source)
     destination_dir = tif_root / source.parent.relative_to(root)
     candidate, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
+    if candidate is None and convert_missing and error in {"Matching file not found", "Destination directory does not exist"}:
+        try:
+            candidate = create_missing_tif(source, destination_dir)
+        except (OSError, ValueError, RuntimeError, RasterioError) as exc:
+            return Comparison(original, None, "CONVERSION_FAILED", f"Could not create GeoTIFF: {exc}")
     if candidate is None:
         return Comparison(original, None, "MISSING_OR_AMBIGUOUS_TIF", error or "No GeoTIFF")
 
@@ -352,6 +435,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=Path, default=ROOT_DIR, help="Source directory to scan recursively")
     parser.add_argument("--tif-root", type=Path, default=TIF_ROOT_DIR, help="Matching TIF folder tree (same layout)")
     parser.add_argument("--delete", action="store_true", help="Allow deletion after typing DELETE")
+    parser.add_argument("--convert-missing", action="store_true", help="Create missing GeoTIFFs before verification")
     parser.add_argument("--no-progress", action="store_true", help="Disable live raster progress")
     args = parser.parse_args(argv)
 
@@ -377,7 +461,14 @@ def main(argv: list[str] | None = None) -> int:
         cell_task = progress.add_task("Raster rows", total=1)
         for source in sources:
             try:
-                result = inspect_source(source, root, tif_root, progress if progress_enabled else None, cell_task)
+                result = inspect_source(
+                    source,
+                    root,
+                    tif_root,
+                    progress if progress_enabled else None,
+                    cell_task,
+                    convert_missing=CONVERT_MISSING or args.convert_missing,
+                )
             except OSError as exc:
                 result = Comparison(FileSnapshot(source, -1, -1), None, "ERROR", f"File inspection failed: {exc}")
             results.append(result)
