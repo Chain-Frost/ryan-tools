@@ -431,7 +431,8 @@ def test_wgs84_crs84_and_epsg4326_axis_definitions_are_not_interchangeable(
     """Reject OGC:CRS84 source PRJ versus EPSG:4326 GeoTIFF despite the WGS84 datum."""
     src, tif = make_pair(tmp_path, suffix=suffix, crs="EPSG:4326")
     with rasterio.open(src) as original, rasterio.open(tif) as converted:
-        assert original.crs is not None and converted.crs is not None
+        assert original.crs is not None
+        assert converted.crs is not None
         # GDAL loads the FLT/ASC WGS84 PRJ as OGC:CRS84; axis order matters.
         assert original.crs != converted.crs
 
@@ -440,7 +441,8 @@ def test_wgs84_crs84_and_epsg4326_axis_definitions_are_not_interchangeable(
     assert result.status == "MISMATCH"
     assert not result.eligible
     assert "Declared CRS definitions differ" in result.reason
-    assert src.exists() and tif.exists()
+    assert src.exists()
+    assert tif.exists()
 
 
 @pytest.mark.parametrize("suffix", [".flt", ".asc"])
