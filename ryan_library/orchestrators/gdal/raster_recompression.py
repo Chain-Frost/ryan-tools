@@ -41,14 +41,9 @@ class RecompressionResult:
     final_bytes: int
 
 
-def audit_geotiffs(
-    directory: Path, *, recursive: bool = True
-) -> tuple[RasterInspection, ...]:
+def audit_geotiffs(directory: Path, *, recursive: bool = True) -> tuple[RasterInspection, ...]:
     """Inspect all TIFF files without reading their complete pixel arrays."""
-    return tuple(
-        inspect_geotiff(path)
-        for path in discover_geotiffs(directory, recursive=recursive)
-    )
+    return tuple(inspect_geotiff(path) for path in discover_geotiffs(directory, recursive=recursive))
 
 
 def discover_geotiffs(directory: Path, *, recursive: bool = True) -> tuple[Path, ...]:
@@ -58,13 +53,7 @@ def discover_geotiffs(directory: Path, *, recursive: bool = True) -> tuple[Path,
         message = f"Raster directory does not exist: {root}"
         raise NotADirectoryError(message)
     iterator = root.rglob("*") if recursive else root.iterdir()
-    return tuple(
-        sorted(
-            path
-            for path in iterator
-            if path.is_file() and path.suffix.lower() in {".tif", ".tiff"}
-        )
-    )
+    return tuple(sorted(path for path in iterator if path.is_file() and path.suffix.lower() in {".tif", ".tiff"}))
 
 
 def recompress_geotiffs(
@@ -118,15 +107,10 @@ def _recompress_one(
     if safety_failure is not None:
         return safety_failure
     compression = "DEFLATE" if profile == "tuflow" else "ZSTD"
-    use_stream = strategy == "stream" or (
-        strategy == "auto" and profile == "tuflow" and inspection.stream_eligible
-    )
+    use_stream = strategy == "stream" or (strategy == "auto" and profile == "tuflow" and inspection.stream_eligible)
     chosen = "stream" if use_stream else "translate"
     if strategy == "stream" and (profile != "tuflow" or not inspection.stream_eligible):
-        reason = (
-            inspection.stream_ineligible_reason
-            or "stream mode requires the tuflow profile"
-        )
+        reason = inspection.stream_ineligible_reason or "stream mode requires the tuflow profile"
         return RecompressionResult(
             source,
             "failed",
@@ -209,9 +193,7 @@ def _external_dependencies(path: Path) -> bool:
         return any(Path(name).resolve() != path.resolve() for name in dataset.files)
 
 
-def _replacement_safety_failure(
-    source: Path, inspection: RasterInspection
-) -> RecompressionResult | None:
+def _replacement_safety_failure(source: Path, inspection: RasterInspection) -> RecompressionResult | None:
     """Reject inputs that a single-file atomic overwrite cannot safely handle."""
     linked = _has_linked_component(source)
     if linked:
