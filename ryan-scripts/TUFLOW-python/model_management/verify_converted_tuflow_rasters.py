@@ -308,7 +308,7 @@ def inspect_source(
     destination_dir = tif_root / source.parent.relative_to(root)
     try:
         candidate, error = find_or_create_tif(source, destination_dir, convert_missing=convert_missing)
-    except (OSError, ValueError, RuntimeError, RasterioError) as exc:
+    except (ImportError, OSError, ValueError, RuntimeError, RasterioError) as exc:
         return Comparison(original, None, "CONVERSION_FAILED", f"Could not create GeoTIFF: {exc}")
     if candidate is None:
         return Comparison(original, None, "MISSING_OR_AMBIGUOUS_TIF", error or "No GeoTIFF")

@@ -12,6 +12,7 @@ import os
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Literal
 
 import numpy as np
 import pytest
@@ -595,6 +596,28 @@ def test_convert_missing_in_mirrored_directory_tree(tool: ModuleType, tmp_path: 
     assert (tif_root / "nested" / tif.name).exists()
 
 
+def test_missing_gdal_reports_conversion_failure(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Missing optional bindings still produce reports and preserve the source."""
+    src, tif = make_pair(tmp_path)
+    tif.unlink()
+    monkeypatch.delitem(sys.modules, "ryan_library.functions.gdal.raster_processing", raising=False)
+    monkeypatch.setitem(sys.modules, "osgeo", None)
+
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+
+    errors = report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")
+    assert len(errors) == 1
+    assert errors[0]["status"] == "CONVERSION_FAILED"
+    assert "osgeo" in errors[0]["reason"]
+    assert report_rows(tmp_path / "tuflow_raster_conversion_delete_candidates.csv") == []
+    assert report_rows(tmp_path / "tuflow_raster_conversion_warnings.csv") == []
+    assert src.exists()
+    assert not tif.exists()
+    assert not list(tmp_path.glob(".*.conversion.tif"))
+
+
 def test_failed_conversion_leaves_source_and_no_partial_output(
     tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -631,7 +654,7 @@ def test_generated_tif_mismatch_never_deletes_source(
     tif.unlink()
     real_translate = raster_processing.translate_to_geotiff
 
-    def deliberately_corrupt(source: Path, output: Path, *, profile: str) -> Path:
+    def deliberately_corrupt(source: Path, output: Path, *, profile: Literal["tuflow", "efficient"]) -> Path:
         converted = real_translate(source, output, profile=profile)
         with rasterio.open(converted, "r+") as raster:
             values = raster.read(1)
@@ -669,4 +692,3 @@ def test_convert_and_delete_still_requires_explicit_confirmation(
     assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
     assert src.exists()
     assert tif.exists()
-
