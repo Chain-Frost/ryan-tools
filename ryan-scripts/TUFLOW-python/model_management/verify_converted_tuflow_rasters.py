@@ -17,6 +17,7 @@ Do not run on active outputs; file metadata snapshots do not lock files.
 # Pyright: Rasterio currently has no bundled type stubs; follow the existing GIS module boundary.
 # pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+# pyright: reportUnknownParameterType=false, reportAttributeAccessIssue=false
 
 from __future__ import annotations
 
