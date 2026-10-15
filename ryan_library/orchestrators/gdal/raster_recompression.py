@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import tempfile
 import uuid
@@ -10,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+import rasterio
 from loguru import logger
 
 from ryan_library.functions.gdal.raster_processing import (
@@ -19,7 +19,6 @@ from ryan_library.functions.gdal.raster_processing import (
 from ryan_library.functions.gdal.raster_recompression import (
     RasterInspection,
     copy_file_with_digest,
-    hash_file,
     inspect_geotiff,
     snapshot_is_unchanged,
     stage_raster_with_dependencies,
@@ -56,7 +55,8 @@ def discover_geotiffs(directory: Path, *, recursive: bool = True) -> tuple[Path,
     """Return a stable list of TIFF files below a directory."""
     root = directory.resolve()
     if not root.is_dir():
-        raise NotADirectoryError(f"Raster directory does not exist: {root}")
+        message = f"Raster directory does not exist: {root}"
+        raise NotADirectoryError(message)
     iterator = root.rglob("*") if recursive else root.iterdir()
     return tuple(
         sorted(
@@ -104,6 +104,12 @@ def _recompress_one(
     staging_directory: Path | None,
     max_window_cells: int,
 ) -> RecompressionResult:
+    if _has_linked_component(source):
+        size = source.stat().st_size
+        return RecompressionResult(
+            source, "failed", "safety", "symlink or junction in source path", size, size
+        )
+
     inspection = inspect_geotiff(source)
     if inspection.compression != "NONE":
         return RecompressionResult(
@@ -113,6 +119,13 @@ def _recompress_one(
             f"already {inspection.compression}",
             inspection.snapshot.size,
             inspection.snapshot.size,
+        )
+    # Only the TIFF is replaced atomically; preserving external PAM/OVR/mask
+    # sidecars would require a separately verified multi-file transaction.
+    if _external_dependencies(source):
+        size = inspection.snapshot.size
+        return RecompressionResult(
+            source, "failed", "safety", "external raster sidecars require manual handling", size, size
         )
     compression = "DEFLATE" if profile == "tuflow" else "ZSTD"
     use_stream = strategy == "stream" or (
@@ -158,15 +171,20 @@ def _recompress_one(
                 max_window_cells=max_window_cells,
             )
             if difference is not None:
-                raise RuntimeError(f"Exact verification failed: {difference}")
+                message = f"Exact verification failed: {difference}"
+                raise RuntimeError(message)
+        if _external_dependencies(output):
+            message = "compressed output uses external sidecars; replacement cancelled"
+            raise RuntimeError(message)
         if not snapshot_is_unchanged(inspection.snapshot):
-            raise RuntimeError("source changed during conversion")
-        expected_digest = copy_file_with_digest(output, deployed)
-        if hash_file(deployed) != expected_digest:
-            raise RuntimeError("deployment copy digest differs")
-        if not snapshot_is_unchanged(inspection.snapshot):
-            raise RuntimeError("source changed before replacement")
-        os.replace(deployed, source)
+            message = "source changed during conversion"
+            raise RuntimeError(message)
+        # Copy helper verifies the destination SHA-256; avoid hashing it again.
+        copy_file_with_digest(output, deployed)
+        if not snapshot_is_unchanged(inspection.snapshot) or _has_linked_component(source):
+            message = "source changed or became linked before replacement"
+            raise RuntimeError(message)
+        deployed.replace(source)
         final_size = source.stat().st_size
         logger.info("Replaced {} using {} compression", source, chosen)
         return RecompressionResult(
@@ -177,7 +195,7 @@ def _recompress_one(
             inspection.snapshot.size,
             final_size,
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - return a per-file failure and leave source untouched
         logger.exception("Could not safely recompress {}", source)
         return RecompressionResult(
             source,
@@ -190,3 +208,14 @@ def _recompress_one(
     finally:
         deployed.unlink(missing_ok=True)
         shutil.rmtree(work, ignore_errors=True)
+
+
+def _has_linked_component(path: Path) -> bool:
+    """Never overwrite a file reached via a symlink or Windows junction."""
+    return any(part.is_symlink() or part.is_junction() for part in (path, *path.parents))
+
+
+def _external_dependencies(path: Path) -> bool:
+    """Reject sidecars that a single-file atomic replacement cannot preserve."""
+    with rasterio.open(path) as dataset:
+        return any(Path(name).resolve() != path.resolve() for name in dataset.files)
