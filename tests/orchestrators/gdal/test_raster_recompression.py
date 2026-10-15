@@ -105,6 +105,29 @@ def test_linked_tiff_is_rejected_without_changing_target(tmp_path: Path) -> None
     assert alias.is_symlink()
 
 
+def test_linked_parent_directory_is_rejected_without_changing_target(tmp_path: Path) -> None:
+    """Absolute source paths must retain a linked parent for the safety guard."""
+    source_dir = tmp_path / "real"
+    source_dir.mkdir()
+    source = source_dir / "depth.tif"
+    _write_raster(source, np.ones((5, 5), dtype=np.float32))
+    alias_dir = tmp_path / "linked-parent"
+    try:
+        alias_dir.symlink_to(source_dir, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Directory symlinks unavailable: {exc}")
+    original = source.read_bytes()
+
+    results = recompress_geotiffs(alias_dir, recursive=False)
+
+    assert len(results) == 1
+    assert results[0].path == alias_dir / source.name
+    assert results[0].status == "failed"
+    assert "symlink" in results[0].reason
+    assert source.read_bytes() == original
+    assert alias_dir.is_symlink()
+
+
 def test_raster_sidecar_is_rejected_without_replacing_tiff(tmp_path: Path) -> None:
     source = tmp_path / "sidecar.tif"
     _write_raster(source, np.ones((5, 5), dtype=np.float32))
