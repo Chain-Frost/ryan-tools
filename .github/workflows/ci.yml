@@ -121,6 +121,12 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      - name: Check Python 3.13 source compatibility
+        shell: pwsh
+        run: |
+          python -m compileall -q ryan_library
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Install package and MCP dependencies
         shell: pwsh
         run: |
