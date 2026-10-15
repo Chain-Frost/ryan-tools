@@ -172,9 +172,7 @@ def _run_single(
 
 def main(args: argparse.Namespace) -> int:
     output_dir: Path = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
-    run_increments: int = (
-        args.run_increments if args.run_increments is not None else DEFAULT_RUN_INCREMENTS
-    )
+    run_increments: int = args.run_increments if args.run_increments is not None else DEFAULT_RUN_INCREMENTS
     terminal_zero = cast("TerminalZeroPolicy", args.terminal_zero)
     try:
         if args.critical_storms is not None:
@@ -184,13 +182,12 @@ def main(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
+
 if __name__ == "__main__":
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     arguments = parse_args()
     result = main(arguments)
-    print_wrapper_banner(
-        wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True
-    )
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
     if not arguments.no_pause:
         pause_console()
     raise SystemExit(result)
