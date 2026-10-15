@@ -110,9 +110,6 @@ def test_linked_tiff_is_rejected_without_changing_target(tmp_path: Path) -> None
 def test_raster_sidecar_is_rejected_without_replacing_tiff(tmp_path: Path) -> None:
     source = tmp_path / "sidecar.tif"
     _write_raster(source, np.ones((5, 5), dtype=np.float32))
-    with rasterio.open(source, "r+") as dataset:
-        with rasterio.Env(GDAL_PAM_ENABLED="YES"):
-            pass
     sidecar = tmp_path / "sidecar.tif.aux.xml"
     sidecar.write_text("<PAMDataset><Metadata><MDI key='a'>b</MDI></Metadata></PAMDataset>")
     original = source.read_bytes()
