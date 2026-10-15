@@ -85,7 +85,7 @@ jobs:
       - name: Install packaging tools
         shell: pwsh
         run: |
-          python -m pip install --upgrade build setuptools wheel twine
+          python -m pip install --upgrade build setuptools wheel twine pandas loguru
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build and verify current version
@@ -93,12 +93,27 @@ jobs:
         run: |
           python repo-scripts/build_library.py --no-bump --skip-pip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python repo-scripts/verify_wheel.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $wheels = @(Get-ChildItem -LiteralPath dist -Filter 'ryan_functions-*.whl' -File)
           if ($wheels.Count -ne 1) { throw 'Expected exactly one distribution wheel.' }
           python -m twine check $wheels[0].FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Smoke-test the distribution to be published
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP ('pypi-wheel-' + [guid]::NewGuid().ToString('N'))
+          $wheels = @(Get-ChildItem -LiteralPath dist -Filter 'ryan_functions-*.whl' -File)
+          if ($wheels.Count -ne 1) { throw 'Expected exactly one distribution wheel.' }
+          python -m pip install --no-deps --target $target $wheels[0].FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:PYTHONPATH = $target
+          Push-Location $env:RUNNER_TEMP
+          try {
+            python "$env:GITHUB_WORKSPACE/repo-scripts/smoke_test_installed_wheel.py" --expected-root $target
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
 
       - name: Upload verified distribution
         uses: actions/upload-artifact@v7

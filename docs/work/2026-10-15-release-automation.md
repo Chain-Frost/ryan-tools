@@ -30,7 +30,7 @@ review; no unrelated implementation was started.
 
 ## Next action
 
-Review and merge the automation PR, then validate the first release in GitHub.
+Wait for PR #124 required CI, merge the release PR, then verify finalization and PyPI publication.
 Actions PR creation is enabled; the release PR still needs human merge.
 
 ## Completion criteria
@@ -99,3 +99,13 @@ Local validation of this fix passed: Actionlint, default documentation checks
 (seven files and index), explicit links for both changed documents, and
 `git diff --check`. The fix is committed and pushed on PR #123; fresh hosted
 validation remains pending. Live release API gating and OIDC upload are untested.
+
+## First hosted release test
+
+PR #123 final head 55cb603 passed all four CI jobs and was squash merged as
+00a87f0 with user authorization. Started preparation run 38764697991, which
+succeeded and opened [PR #124](https://github.com/Chain-Frost/ryan-tools/pull/124)
+for 26.10.15.5. Approved the bot-created PR-event CI run 38764857814.
+Release PR CI and publication remain pending. A separate
+[CI validation follow-up](2026-10-15-ci-validation.md) preserves the release
+test baseline and adds workflow linting and exact publication-wheel smoke checks.

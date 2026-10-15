@@ -88,7 +88,8 @@ the cause. Never move an existing release tag or overwrite a PyPI version.
 4. In GitHub, create a **non-prerelease** release for that tag and publish it.
    Creating a release is the deliberate publishing trigger.
 5. Monitor **Actions → Publish to PyPI**. The build job verifies the wheel
-   against the existing repository packaging checks and `twine check`.
+   against the existing repository packaging checks and `twine check`, then
+   smoke-tests an isolated installation of that exact wheel before uploading it.
    The publish job then uses OIDC to upload the same wheel to PyPI.
 6. Verify the resulting project on `https://pypi.org/project/ryan-functions/`.
 
@@ -116,6 +117,22 @@ itself does not prove downstream dependency installation or functionality.
 
 For build architecture, see [the root README](../README.md) and
 [`repo-scripts/build_library.py`](../repo-scripts/build_library.py).
+
+## CI checks and dependency scope
+
+Policy runs Actionlint 1.7.12 (checksum-verified) across repository workflows
+and checks documentation and logging rules. It installs the full development
+and GIS dependencies only when changed Python files require Ruff and strict
+Pyright. Hosted tests retain the full application development environment.
+The Python 3.13 compatibility job remains a separate compatibility check.
+
+Package and publication smoke checks install only their tooling plus pandas
+and Loguru, which are needed by the public imports exercised by the smoke
+script. These are focused packaging checks, not full runtime-dependency or
+GIS/application validation. The package job still verifies the retained wheel
+before rebuilding, and the builder verifies the newly built wheel before
+promotion. Publication smoke-tests the newly built wheel that is uploaded;
+it does not reuse the wheel from a separate CI run.
 
 References:
 - https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/
