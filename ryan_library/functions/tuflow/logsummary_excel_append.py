@@ -300,7 +300,7 @@ def _excel_safe_value(value: object) -> ExcelCellValue:
     if callable(item_method):
         try:
             return _excel_safe_value(item_method())
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             pass
 
     return str(value)

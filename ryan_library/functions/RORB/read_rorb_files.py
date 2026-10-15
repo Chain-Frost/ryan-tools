@@ -61,7 +61,7 @@ def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] |
             tpat=tp,
         )
         return [run, duration_value, aep, tp, *remaining_values, str(csv_path)]
-    except IndexError, TypeError, ValueError:
+    except (IndexError, TypeError, ValueError):
         logger.exception("Error parsing RORB run row: {}", line.rstrip())
         return None
 
@@ -153,7 +153,7 @@ def read_hydrograph_csv(filepath: Path) -> pd.DataFrame:
     """
     try:
         result: DataFrame = pd.read_csv(filepath_or_buffer=filepath, skiprows=2)
-    except OSError, pd.errors.ParserError, UnicodeError:
+    except (OSError, pd.errors.ParserError, UnicodeError):
         logger.exception("Error reading RORB hydrograph {}", filepath)
         return pd.DataFrame()
 

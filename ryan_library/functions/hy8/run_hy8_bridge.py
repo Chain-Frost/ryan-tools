@@ -53,7 +53,7 @@ def _coerce_float(value: Any) -> float | None:
         return None
     try:
         number = float(value)
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
     if math.isnan(number):
         return None
@@ -279,7 +279,7 @@ def _resolve_crossing_name(record: CulvertMaximumRecord, options: Hy8CulvertOpti
     template: str = options.crossing_name_template or "{internal}_{chan}"
     try:
         raw_name = template.format(internal=internal_slug, chan=chan_slug, record=record)
-    except KeyError, ValueError:
+    except (KeyError, ValueError):
         raw_name = f"{internal_slug}_{chan_slug}"
     return _slugify(raw_name, fallback=internal_slug)
 

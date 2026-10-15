@@ -98,7 +98,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   python313-mcp-smoke:
-    name: Python 3.13 MCP startup
+    name: Python 3.13 compatibility and MCP
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -109,9 +109,9 @@ jobs:
       - name: Initialise package resources
         shell: pwsh
         run: |
-          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Set up Python 3.13
@@ -124,13 +124,29 @@ jobs:
       - name: Check Python 3.13 source compatibility
         shell: pwsh
         run: |
-          python -m compileall -q ryan_library/mcp ryan_library/classes ryan_library/processors/tuflow ryan_library/functions/dataframe_helpers.py
+          python -m compileall -q ryan_library
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install package and MCP dependencies
         shell: pwsh
         run: |
-          python -m pip install ".[mcp]"
+          python -m pip install ".[mcp]" pytest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run Python 3.13 focused utility regression tests
+        shell: pwsh
+        env:
+          MPLBACKEND: Agg
+        run: |
+          python -m pytest `
+            tests/functions/RORB/test_read_rorb_files.py `
+            tests/functions/gdal/test_profiling.py `
+            tests/functions/hy8/test_run_hy8_bridge.py `
+            tests/functions/test_process_12D_culverts.py `
+            tests/functions/tuflow/test_logsummary_excel_append.py `
+            tests/functions/tuflow/test_notebook_helpers.py `
+            tests/functions/tuflow/test_po_timeseries_checks.py `
+            -m "not gui and not external"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify MCP module import and tool exports
