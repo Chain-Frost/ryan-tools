@@ -115,7 +115,12 @@ the maintained versions before that date.
 ## Verify converted FLT/ASC output rasters
 
 Use [`model_management/verify_converted_tuflow_rasters.py`](model_management/verify_converted_tuflow_rasters.py)
-to check legacy TUFLOW `.flt` / `.asc` outputs against same-named newer `.tif` / `.tiff` files.
+to optionally **convert -> verify -> delete** legacy TUFLOW `.flt` / `.asc` outputs in a single run.
+Existing same-stem `.tif` / `.tiff` files are checked rather than overwritten. With
+`--convert-missing`, any absent GeoTIFF is generated via the existing
+`ryan_library.functions.gdal.raster_processing.translate_to_geotiff()` using the
+lossless `tuflow`/DEFLATE profile, without creating unnecessary overviews.
+The independent Rasterio comparison runs before any source deletion.
 This standalone utility uses Rasterio and NumPy (both included in the project dependencies).
 It reuses `ryan_library.functions.file_verification` for file snapshots and
 symlink/junction checks. Its semantic raster comparison remains local: only
@@ -125,6 +130,13 @@ values or entire decoded byte sequences.
 - Recursively searches below `ROOT_DIR` (default: current working directory).
   By default the TIF must be in the same directory. Set `TIF_ROOT_DIR` or `--tif-root`
   when converted GeoTIFFs are in a parallel folder tree with the same relative directory layout.
+  With `--convert-missing`, missing child directories in an existing TIFF root are created as needed.
+- **Optional creation:** `--convert-missing` (or `CONVERT_MISSING = True`) converts
+  only when neither `.tif` nor `.tiff` is found; existing/stale/mismatching TIFFs
+  are never overwritten, and ambiguous counterparts block conversion. GDAL writes
+  into a temporary sibling file before publishing a completed TIFF, with
+  exclusive-create fallback for network filesystems that cannot create hard links.
+  Conversion failures and exact-comparison failures leave the source intact.
 - Compares width, height, band count, **exact grid origin, cell dimensions and full
   geotransform**, NoData validity masks and every valid cell without any tolerance
   or resampling. Raster band scale/offset metadata must also match, because it
@@ -153,7 +165,8 @@ values or entire decoded byte sequences.
   in the source root. Missing-CRS cases appear in the warning CSV and are clearly marked
   in the deletion candidates (status and warning columns), **not** in the errors CSV.
   True mismatches are excluded and listed in the errors CSV. No per-raster placeholders.
-- **Default is validation only.** Add `--delete` or set `DELETE_FILES = True`,
+- **Default is validation only.** Use `--convert-missing --delete` to convert,
+  verify and clean up in one invocation. Add `--delete` or set `DELETE_FILES = True`,
   then type exactly `DELETE` to remove confirmed matches. Before each removal it checks
   source, GeoTIFF and associated header size and modification timestamps again.
   This protects against ordinary changes, but does not lock files against concurrent writes.
@@ -165,7 +178,7 @@ Example from PowerShell (run verification before considering deletion):
 
 ```powershell
 py -3.14 .\ryan-scripts\TUFLOW-python\model_management\verify_converted_tuflow_rasters.py --root "D:\Models\results"
-py -3.14 .\ryan-scripts\TUFLOW-python\model_management\verify_converted_tuflow_rasters.py --root "D:\Models\results" --delete
+py -3.14 .\ryan-scripts\TUFLOW-python\model_management\verify_converted_tuflow_rasters.py --root "D:\Models\results" --convert-missing --delete
 ```
 
 Check the candidate list, back up the source rasters and make sure model/QGIS references have

@@ -12,6 +12,7 @@ import os
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Literal
 
 import numpy as np
 import pytest
@@ -529,3 +530,165 @@ def test_warning_candidate_can_be_deleted_after_confirmation(
     assert not header.exists()
     assert tif.exists()
     assert len(report_rows(tmp_path / "tuflow_raster_conversion_warnings.csv")) == 1
+
+
+@pytest.mark.parametrize("suffix", [".asc", ".flt"])
+def test_convert_missing_then_delete_verified_source(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, suffix: str
+) -> None:
+    """A single invocation performs conversion, verification and cleanup."""
+    pytest.importorskip("osgeo")
+    src, tif = make_pair(tmp_path, suffix=suffix)
+    tif.unlink()
+    hdr = src.with_suffix(".hdr")
+    prj = src.with_suffix(".prj")
+    initial_prj_exists = prj.exists()
+    assert src.exists()
+    monkeypatch.setattr("builtins.input", approve_delete)
+
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 0
+
+    assert tif.exists()
+    assert not src.exists()
+    if suffix == ".flt":
+        assert not hdr.exists()
+    assert prj.exists() == initial_prj_exists
+    with rasterio.open(tif) as output:
+        assert output.transform == from_origin(100, 200, 5, 5)
+        assert output.crs is not None
+        assert output.read(1)[0, 0] == 1
+    assert report_rows(tmp_path / "tuflow_raster_conversion_errors.csv") == []
+
+
+def test_convert_missing_without_delete_preserves_source(tool: ModuleType, tmp_path: Path) -> None:
+    pytest.importorskip("osgeo")
+    src, tif = make_pair(tmp_path)
+    tif.unlink()
+
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--no-progress"]) == 0
+
+    assert src.exists()
+    assert tif.exists()
+    rows = report_rows(tmp_path / "tuflow_raster_conversion_delete_candidates.csv")
+    assert len(rows) == 1
+    assert rows[0]["retained_tif"] == str(tif)
+
+
+def test_convert_missing_does_not_overwrite_existing_mismatch(tool: ModuleType, tmp_path: Path) -> None:
+    src, tif = make_pair(tmp_path, tif_values=np.array([[30, 2], [3, -9999]], dtype="float32"))
+    existing_bytes = tif.read_bytes()
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+    assert tif.read_bytes() == existing_bytes
+    assert src.exists()
+    assert report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")[0]["status"] == "MISMATCH"
+
+
+def test_convert_missing_in_mirrored_directory_tree(tool: ModuleType, tmp_path: Path) -> None:
+    pytest.importorskip("osgeo")
+    root = tmp_path / "source"
+    src, tif = make_pair(root / "nested")
+    tif.unlink()
+    tif_root = tmp_path / "converted"
+    tif_root.mkdir()
+    assert tool.main(["--root", str(root), "--tif-root", str(tif_root), "--convert-missing", "--no-progress"]) == 0
+    assert src.exists()
+    assert not tif.exists()
+    assert (tif_root / "nested" / tif.name).exists()
+
+
+def test_missing_gdal_reports_conversion_failure(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Missing optional bindings still produce reports and preserve the source."""
+    src, tif = make_pair(tmp_path)
+    tif.unlink()
+    monkeypatch.delitem(sys.modules, "ryan_library.functions.gdal.raster_processing", raising=False)
+    monkeypatch.setitem(sys.modules, "osgeo", None)
+
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+
+    errors = report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")
+    assert len(errors) == 1
+    assert errors[0]["status"] == "CONVERSION_FAILED"
+    assert "osgeo" in errors[0]["reason"]
+    assert report_rows(tmp_path / "tuflow_raster_conversion_delete_candidates.csv") == []
+    assert report_rows(tmp_path / "tuflow_raster_conversion_warnings.csv") == []
+    assert src.exists()
+    assert not tif.exists()
+    assert not list(tmp_path.glob(".*.conversion.tif"))
+
+
+def test_failed_conversion_leaves_source_and_no_partial_output(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("osgeo")
+    from ryan_library.functions.gdal import raster_processing
+
+    src, tif = make_pair(tmp_path, suffix=".flt")
+    tif.unlink()
+
+    def fail_after_partial_write(_source: Path, output: Path, *, profile: str) -> Path:
+        assert profile == "tuflow"
+        output.write_bytes(b"partial GeoTIFF")
+        message = "simulated GDAL failure"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(raster_processing, "translate_to_geotiff", fail_after_partial_write)
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+
+    assert src.exists()
+    assert src.with_suffix(".hdr").exists()
+    assert not tif.exists()
+    assert not list(tmp_path.glob(".*.conversion.tif"))
+    errors = report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")
+    assert errors[0]["status"] == "CONVERSION_FAILED"
+
+
+def test_generated_tif_mismatch_never_deletes_source(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("osgeo")
+    from ryan_library.functions.gdal import raster_processing
+
+    src, tif = make_pair(tmp_path, suffix=".flt")
+    tif.unlink()
+    real_translate = raster_processing.translate_to_geotiff
+
+    def deliberately_corrupt(source: Path, output: Path, *, profile: Literal["tuflow", "efficient"]) -> Path:
+        converted = real_translate(source, output, profile=profile)
+        with rasterio.open(converted, "r+") as raster:
+            values = raster.read(1)
+            values[0, 0] = 42
+            raster.write(values, 1)
+        return converted
+
+    monkeypatch.setattr(raster_processing, "translate_to_geotiff", deliberately_corrupt)
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+
+    assert tif.exists()
+    assert src.exists()
+    assert src.with_suffix(".hdr").exists()
+    errors = report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")
+    assert errors[0]["status"] == "MISMATCH"
+    assert not list(tmp_path.glob(".*.conversion.tif"))
+
+
+def test_conversion_does_not_run_on_ambiguous_tif(tool: ModuleType, tmp_path: Path) -> None:
+    src, tif = make_pair(tmp_path)
+    tif.with_suffix(".tiff").write_bytes(b"another TIFF")
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--no-progress"]) == 1
+    assert src.exists()
+    assert tif.exists()
+    assert report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")[0]["status"] == "MISSING_OR_AMBIGUOUS_TIF"
+
+
+def test_convert_and_delete_still_requires_explicit_confirmation(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("osgeo")
+    src, tif = make_pair(tmp_path)
+    tif.unlink()
+    monkeypatch.setattr("builtins.input", decline_delete)
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+    assert src.exists()
+    assert tif.exists()

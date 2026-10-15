@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active |
+| Status | Complete |
 | Owner | ChatGPT |
 | Created | 2026-10-15 |
 | Updated | 2026-10-16 |
-| Next review | 2026-10-22 |
+| Next review | None |
 | Baseline | main at 00a87f0, PR #123 merged; branch ci/streamline-release-validation |
 
 ## Outcome and scope
@@ -31,11 +31,12 @@ Python files require static checks. Package uses build, pandas and Loguru;
 hosted tests and Python 3.13 checks keep their existing dependency coverage.
 The builder remains responsible for verifying each new wheel; retained-wheel
 verification is preserved. Publication smoke-tests its wheel before artifact upload.
+These changes are merged and exercised by the successful 26.10.16.1 publication.
 
 ## Next action
 
-Review [PR #125](https://github.com/Chain-Frost/ryan-tools/pull/125) and its final-head checks.
-Merge after validation; exercise publication smoke in a subsequent release.
+No CI/release-setup work remains. The temporary floodway exclusions are separately
+tracked in [their review record](2026-10-16-floodway-ci-exclusions.md), due 2026-10-22.
 
 ## Completion criteria
 
@@ -120,3 +121,36 @@ with no active run remain recoverable. Transient/unknown lookup failures fail cl
 All 16 mocked release/finalization/retry scenarios passed, including already published,
 active, failed previous attempts and unavailable lookup service. Actionlint and touched
 document checks are rerun before pushing; exact-head hosted CI must pass before merging.
+
+## Publication validation complete, 2026-10-16
+
+- Final PR #125 head d39e45d passed all four jobs in run 38773475854 and merged
+  as 519601f. Review fixes were resolved before merging.
+- Preparation run 38774219049 used the new helper and opened release PR #126 for
+  Perth calendar version 26.10.16.1. PR CI run 38774446515 passed all four jobs.
+- Release PR #126 merged as 42a7511. Main CI run 38775345029 passed all four jobs.
+  Hosted pytest: 1038 passed, 7 deselected, 63 warnings in 101.52 seconds.
+- Finalization run 38775942905 created the stable tag/release and dispatched publication.
+- Publication run 38775966068 passed both jobs, including the exact publication-wheel
+  isolated-install smoke step added by this work.
+- Public version: [26.10.16.1](https://pypi.org/project/ryan-functions/26.10.16.1/).
+- Downloaded wheel SHA-256 matched PyPI JSON and the publication CI artifact:
+  `dceb0dfe9de912c02366b3e8bdd140fcf775f1298c1ac673a966b325cc9ba272`.
+- Ran the repository installed-wheel smoke against that public wheel using a fresh
+  target and isolated Python (-I -S) outside the checkout: passed. This used only
+  the focused pandas/Loguru dependencies, not a full fresh GIS dependency installation.
+- The first immediate pip lookup saw a briefly stale index. A fresh no-cache download
+  succeeded; the public Simple API lists the new wheel with Requires-Python >=3.13.
+- Local proof: `C:/Users/Ryan/AppData/Local/Temp/ryan-tools-public-release-proof-ql8csstt/proof.json`.
+- run-hy8 2026.10.16.1 and ryan-culverts 26.10.16.1 also published successfully using
+  the aligned lifecycle. The public culverts extra resolved public run-hy8 in isolation.
+- Hosted rerun of run-hy8 finalization (38774817463, attempt 2) passed, logged that
+  the version was already on PyPI and created no second publication run.
+- MCP discovery assessment: these are repository release-administration tasks. Publishing
+  guides and GitHub Actions provide the appropriate discovery route; no data-workflow
+  catalogue or packaged MCP tool was added.
+- No HY-8 executable comparison or combined installation of all three distributions
+  was assessed. ryan-tools continues to bundle its pinned solver/adapter copies.
+- Code/version/wheel changes are committed, pushed and merged. Completion records and
+  the deferred test-exclusion review are local uncommitted documentation updates;
+  they were not staged solely to save a handoff.
