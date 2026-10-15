@@ -49,10 +49,7 @@ from ryan_library.functions.gdal.raster_processing import (
     build_vrt,
     geotiff_creation_options,
 )
-from ryan_library.functions.tuflow.tuflow_result_naming import (
-    format_user_template,
-    validate_output_filename,
-)
+from ryan_library.functions.tuflow.tuflow_result_naming import format_user_template, validate_output_filename
 
 
 # ---------------------------------------------------------------------------
@@ -152,11 +149,13 @@ def parse_source_group(value: str) -> SourceGroup:
     """Read a group setting: [main|fg:]OUTPUT=SOURCE1,SOURCE2."""
     left, separator, right = value.partition("=")
     if not separator:
-        raise ValueError(f"Invalid group {value!r}; expected [main|fg:]OUTPUT=SOURCE1,SOURCE2.")
+        msg = f"Invalid group {value!r}; expected [main|fg:]OUTPUT=SOURCE1,SOURCE2."
+        raise ValueError(msg)
     prefix, colon, model = left.partition(":")
     if colon:
         if prefix not in {"main", "fg"}:
-            raise ValueError(f"Invalid zone set {prefix!r}; expected main or fg.")
+            msg = f"Invalid zone set {prefix!r}; expected main or fg."
+            raise ValueError(msg)
         zone_set: Literal["main", "fg"] = "fg" if prefix == "fg" else "main"
     else:
         model = left
@@ -164,9 +163,11 @@ def parse_source_group(value: str) -> SourceGroup:
     model = model.strip()
     extents = tuple(part.strip() for part in right.split(","))
     if not model or not extents or any(not part for part in extents):
-        raise ValueError(f"Invalid source group {value!r}.")
-    if len(set(name.casefold() for name in extents)) != len(extents):
-        raise ValueError(f"Duplicate source extents in group {value!r}.")
+        msg = f"Invalid source group {value!r}."
+        raise ValueError(msg)
+    if len({name.casefold() for name in extents}) != len(extents):
+        msg = f"Duplicate source extents in group {value!r}."
+        raise ValueError(msg)
     return SourceGroup(model=model, extents=extents, zone_set=zone_set)
 
 
@@ -177,41 +178,45 @@ def parse_source_group(value: str) -> SourceGroup:
 
 def load_zone_catalog(path: Path, field_name: str = MODEL_FIELD) -> ZoneCatalog:
     if not path.is_file():
-        raise RuntimeError(f"Output-zone GeoPackage not found: {path}")
+        msg = f"Output-zone GeoPackage not found: {path}"
+        raise RuntimeError(msg)
 
     dataset = ogr.Open(str(path), 0)
     if dataset is None:
-        raise RuntimeError(f"OGR could not open: {path}")
+        msg = f"OGR could not open: {path}"
+        raise RuntimeError(msg)
     if dataset.GetLayerCount() != 1:
-        raise RuntimeError(
-            f"Expected one layer in {path.name}, found {dataset.GetLayerCount()}."
-        )
+        msg = f"Expected one layer in {path.name}, found {dataset.GetLayerCount()}."
+        raise RuntimeError(msg)
 
     layer = dataset.GetLayerByIndex(0)
     definition = layer.GetLayerDefn()
     if definition.GetFieldIndex(field_name) < 0:
-        raise RuntimeError(
-            f"Layer {layer.GetName()!r} in {path.name} has no {field_name!r} field."
-        )
+        msg = f"Layer {layer.GetName()!r} in {path.name} has no {field_name!r} field."
+        raise RuntimeError(msg)
 
     models: dict[str, str] = {}
     for feature in layer:
         value = feature.GetField(field_name)
         geometry = feature.GetGeometryRef()
         if value is None or not str(value).strip():
-            raise RuntimeError(f"Feature {feature.GetFID()} in {path.name} has a blank Model.")
+            msg = f"Feature {feature.GetFID()} in {path.name} has a blank Model."
+            raise RuntimeError(msg)
         model = str(value).strip()
         key = model.casefold()
         if key in models:
-            raise RuntimeError(f"Duplicate Model value {model!r} in {path.name}.")
+            msg = f"Duplicate Model value {model!r} in {path.name}."
+            raise RuntimeError(msg)
         if geometry is None or geometry.IsEmpty():
-            raise RuntimeError(f"Model {model!r} has empty geometry in {path.name}.")
+            msg = f"Model {model!r} has empty geometry in {path.name}."
+            raise RuntimeError(msg)
         models[key] = model
 
     layer_name = layer.GetName()
     dataset = None
     if not models:
-        raise RuntimeError(f"No model polygons found in {path.name}.")
+        msg = f"No model polygons found in {path.name}."
+        raise RuntimeError(msg)
     return ZoneCatalog(path=path.absolute(), layer_name=layer_name, field_name=field_name, models=models)
 
 
@@ -300,7 +305,8 @@ def discover_jobs(
     for group in groups:
         key = group.model.casefold()
         if key in group_models:
-            raise ValueError(f"Duplicate output group {group.model!r}.")
+            msg = f"Duplicate output group {group.model!r}."
+            raise ValueError(msg)
         group_models.add(key)
 
     def wanted(model: str) -> bool:
@@ -340,7 +346,8 @@ def discover_jobs(
             for group in groups:
                 zone_catalog = fg_zones if group.zone_set == "fg" else main_zones
                 if zone_catalog is None:
-                    raise ValueError(f"Group {group.model!r} needs an FG zone GeoPackage.")
+                    msg = f"Group {group.model!r} needs an FG zone GeoPackage."
+                    raise ValueError(msg)
                 model = zone_catalog.models.get(group.model.casefold())
                 if model is None:
                     notes.append(f"{version} {aep}: group zone {group.model!r} missing from {zone_catalog.path}")
@@ -515,14 +522,18 @@ def inspect_sources(paths: tuple[Path, ...]) -> SourceInfo:
         for path in paths:
             dataset = gdal.Open(str(path), gdal.GA_ReadOnly)
             if dataset is None:
-                raise RuntimeError(f"GDAL could not open source raster: {path}")
+                msg = f"GDAL could not open source raster: {path}"
+                raise RuntimeError(msg)
             if dataset.RasterCount != 1:
-                raise RuntimeError(f"Expected one band in {path.name}.")
+                msg = f"Expected one band in {path.name}."
+                raise RuntimeError(msg)
             transform = dataset.GetGeoTransform()
             if transform[2] != 0.0 or transform[4] != 0.0:
-                raise RuntimeError(f"Rotated raster grids are not supported: {path.name}")
+                msg = f"Rotated raster grids are not supported: {path.name}"
+                raise RuntimeError(msg)
             if transform[1] <= 0.0 or transform[5] >= 0.0:
-                raise RuntimeError(f"Expected a north-up raster: {path.name}")
+                msg = f"Expected a north-up raster: {path.name}"
+                raise RuntimeError(msg)
 
             band = dataset.GetRasterBand(1)
             datasets.append(dataset)
@@ -533,20 +544,25 @@ def inspect_sources(paths: tuple[Path, ...]) -> SourceInfo:
 
         first_srs = datasets[0].GetSpatialRef()
         if first_srs is None:
-            raise RuntimeError(f"Source raster has no CRS: {paths[0].name}")
-        for path, dataset in zip(paths[1:], datasets[1:]):
+            msg = f"Source raster has no CRS: {paths[0].name}"
+            raise RuntimeError(msg)
+        for path, dataset in zip(paths[1:], datasets[1:], strict=True):
             spatial_ref = dataset.GetSpatialRef()
             if spatial_ref is None or not first_srs.IsSame(spatial_ref):
-                raise RuntimeError(f"Source raster CRS differs: {path.name}")
+                msg = f"Source raster CRS differs: {path.name}"
+                raise RuntimeError(msg)
 
         if any(value is None for value in nodata_values):
-            raise RuntimeError("Every source raster must define a NoData value.")
+            msg = "Every source raster must define a NoData value."
+            raise RuntimeError(msg)
         nodata = float(nodata_values[0])
         if not all(math.isclose(float(value), nodata) for value in nodata_values[1:]):
-            raise RuntimeError(f"Source NoData values differ: {nodata_values}")
+            msg = f"Source NoData values differ: {nodata_values}"
+            raise RuntimeError(msg)
         if len(set(data_types)) != 1:
             names = [gdal.GetDataTypeName(value) for value in data_types]
-            raise RuntimeError(f"Source raster data types differ: {names}")
+            msg = f"Source raster data types differ: {names}"
+            raise RuntimeError(msg)
 
         return SourceInfo(
             x_resolution=min(x_resolutions),
@@ -592,7 +608,8 @@ def create_maximum_vrt(job: Job, source_info: SourceInfo) -> tuple[gdal.Dataset,
         # until the polygon clipping has materialised.
         maximum = gdal.Open(virtual_path, gdal.GA_ReadOnly)
         if maximum is None:
-            raise RuntimeError("GDAL failed to reopen the maximum VRT.")
+            msg = "GDAL failed to reopen the maximum VRT."
+            raise RuntimeError(msg)
         return maximum, virtual_path
     except Exception:
         gdal.Unlink(virtual_path)
@@ -616,18 +633,22 @@ def temporary_tif(destination: Path) -> Path:
 def selected_zone_geometry(job: Job) -> tuple[ogr.DataSource, ogr.Layer, ogr.Geometry]:
     vector_dataset = ogr.Open(str(job.zones.path), 0)
     if vector_dataset is None:
-        raise RuntimeError(f"OGR could not open output zones: {job.zones.path}")
+        msg = f"OGR could not open output zones: {job.zones.path}"
+        raise RuntimeError(msg)
     layer = vector_dataset.GetLayerByName(job.zones.layer_name)
     if layer is None:
-        raise RuntimeError(f"Layer {job.zones.layer_name!r} was not found.")
+        msg = f"Layer {job.zones.layer_name!r} was not found."
+        raise RuntimeError(msg)
     escaped = job.model.replace("'", "''")
     layer.SetAttributeFilter(f'"{job.zones.field_name}" = \'{escaped}\'')
     feature = layer.GetNextFeature()
     if feature is None:
-        raise RuntimeError(f"No polygon found for Model={job.model!r}.")
+        msg = f"No polygon found for Model={job.model!r}."
+        raise RuntimeError(msg)
     geometry = feature.GetGeometryRef()
     if geometry is None or geometry.IsEmpty():
-        raise RuntimeError(f"Polygon for Model={job.model!r} is empty.")
+        msg = f"Polygon for Model={job.model!r} is empty."
+        raise RuntimeError(msg)
     return vector_dataset, layer, geometry.Clone()
 
 
@@ -637,7 +658,8 @@ def clip_bounds_and_crs(
 ) -> tuple[tuple[float, float, float, float], str | None]:
     transform = maximum.GetGeoTransform()
     if transform[2] != 0.0 or transform[4] != 0.0:
-        raise RuntimeError("Rotated maximum grids are not supported.")
+        msg = "Rotated maximum grids are not supported."
+        raise RuntimeError(msg)
 
     vector_dataset, layer, geometry = selected_zone_geometry(job)
     source_wkt = maximum.GetProjection()
@@ -646,7 +668,8 @@ def clip_bounds_and_crs(
         source_srs.ImportFromWkt(source_wkt)
     zone_srs = layer.GetSpatialRef()
     if not source_wkt or zone_srs is None:
-        raise RuntimeError("The maximum raster and output zones must both define a CRS.")
+        msg = "The maximum raster and output zones must both define a CRS."
+        raise RuntimeError(msg)
 
     source_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     zone_srs = zone_srs.Clone()
@@ -660,9 +683,8 @@ def clip_bounds_and_crs(
         # carry LOCAL_CS["GDA94_MG"]. Use the polygon's EPSG definition.
         source_srs_override = zone_srs.ExportToWkt()
     elif source_srs.IsLocal():
-        raise RuntimeError(
-            f"Unsupported local raster CRS {source_srs.GetName()!r}; expected GDA94_MG."
-        )
+        msg = f"Unsupported local raster CRS {source_srs.GetName()!r}; expected GDA94_MG."
+        raise RuntimeError(msg)
     elif not zone_srs.IsSame(source_srs):
         geometry.Transform(osr.CoordinateTransformation(zone_srs, source_srs))
 
@@ -680,7 +702,8 @@ def clip_bounds_and_crs(
         math.ceil((origin_y - min_y) / pixel_y_abs),
     )
     if first_column >= last_column or first_row >= last_row:
-        raise RuntimeError(f"Model {job.model!r} polygon does not overlap its maximum raster.")
+        msg = f"Model {job.model!r} polygon does not overlap its maximum raster."
+        raise RuntimeError(msg)
 
     bounds = (
         origin_x + first_column * pixel_x,
@@ -688,7 +711,6 @@ def clip_bounds_and_crs(
         origin_x + last_column * pixel_x,
         origin_y - first_row * pixel_y_abs,
     )
-    vector_dataset = None
     return bounds, source_srs_override
 
 
@@ -786,9 +808,11 @@ def publish_output(temporary: Path, destination: Path, build_overviews: bool) ->
     temporary_overview = overview_path(temporary)
     destination_overview = overview_path(destination)
     if not temporary.is_file():
-        raise RuntimeError(f"Temporary raster is missing: {temporary}")
+        msg = f"Temporary raster is missing: {temporary}"
+        raise RuntimeError(msg)
     if build_overviews and not temporary_overview.is_file():
-        raise RuntimeError(f"Temporary overview is missing: {temporary_overview}")
+        msg = f"Temporary overview is missing: {temporary_overview}"
+        raise RuntimeError(msg)
 
     marker = uuid.uuid4().hex
     raster_backup = destination.with_name(f".{destination.stem}.{marker}.bak{destination.suffix}")
