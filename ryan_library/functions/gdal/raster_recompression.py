@@ -490,3 +490,10 @@ def _storage_difference(dataset: rasterio.io.DatasetReader, expected_compression
         if dataset.overviews(band):
             return f"band {band} has overviews"
     return None
+
+
+def raster_has_external_dependencies(path: Path) -> bool:
+    """Identify GDAL-reported sidecars that a TIFF-only replacement cannot safely handle."""
+    resolved = path.resolve()
+    with rasterio.open(resolved) as dataset:
+        return any(Path(name).resolve() != resolved for name in dataset.files)
