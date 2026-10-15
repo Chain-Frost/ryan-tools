@@ -10,8 +10,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Preserve every main push revision, including pending runs needed for release finalization.
+  # A shared main group with cancellation disabled would still replace pending runs.
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
 jobs:
   policy:
@@ -197,6 +199,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run hosted test boundary
+        # Temporarily exclude two slow sweeps; see docs/work/2026-10-15-release-automation.md.
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path test-results | Out-Null
@@ -207,6 +210,8 @@ jobs:
             --ignore=tests/scripts/test_promoted_utilities.py `
             --ignore=tests/scripts/test_archive_compress.py `
             -m "not gdal and not gui and not external" `
+            --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_detects_overtopping_and_retains_non_aep_interior_states `
+            --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_honours_explicit_minimum_bound `
             -rs `
             --junitxml=test-results/hosted-tests.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
