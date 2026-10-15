@@ -135,6 +135,28 @@ def _read_csv_column(csv_path: Path, column_name: str) -> tuple[list[list[str]],
     return rows, header_pos, column_indices[0]
 
 
+def _validate_timestamps(times: list[float], depths: list[float], header_pos: int) -> float:
+    """Validate time-zero placeholder and constant positive increment."""
+    if len(times) < 2:
+        message = "At least two timestamps are required for one rainfall interval."
+        raise ConversionError(message)
+    if not math.isclose(times[0], 0.0, abs_tol=1e-9):
+        message = f"First TUFLOW rainfall timestamp must be zero; found {times[0]:g}."
+        raise ConversionError(message)
+    if not math.isclose(depths[0], 0.0, abs_tol=1e-12):
+        message = "TUFLOW time-zero rainfall must be zero; it is not a RORB rainfall interval."
+        raise ConversionError(message)
+    timestep = times[1] - times[0]
+    if timestep <= 0:
+        message = "Rainfall times must increase."
+        raise ConversionError(message)
+    for line, (before, after) in enumerate(pairwise(times), start=header_pos + 3):
+        if not math.isclose(after - before, timestep, rel_tol=1e-8, abs_tol=1e-9):
+            message = f"Irregular rainfall timestep at CSV line {line}."
+            raise ConversionError(message)
+    return timestep
+
+
 def _parse_csv_timesteps(
     rows: list[list[str]], header_pos: int, column_index: int
 ) -> tuple[list[float], list[float], float]:
@@ -161,23 +183,7 @@ def _parse_csv_timesteps(
         times.append(time)
         depths.append(depth)
 
-    if len(times) < 2:
-        message = "At least two timestamps are required for one rainfall interval."
-        raise ConversionError(message)
-    if not math.isclose(times[0], 0.0, abs_tol=1e-9):
-        message = f"First TUFLOW rainfall timestamp must be zero; found {times[0]:g}."
-        raise ConversionError(message)
-    if not math.isclose(depths[0], 0.0, abs_tol=1e-12):
-        message = "TUFLOW time-zero rainfall must be zero; it is not a RORB rainfall interval."
-        raise ConversionError(message)
-    timestep = times[1] - times[0]
-    if timestep <= 0:
-        message = "Rainfall times must increase."
-        raise ConversionError(message)
-    for line, (before, after) in enumerate(pairwise(times), start=header_pos + 3):
-        if not math.isclose(after - before, timestep, rel_tol=1e-8, abs_tol=1e-9):
-            message = f"Irregular rainfall timestep at CSV line {line}."
-            raise ConversionError(message)
+    timestep = _validate_timestamps(times, depths, header_pos)
     return times, depths, timestep
 
 
