@@ -13,7 +13,6 @@ References:
 import csv
 import math
 import re
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -207,7 +206,7 @@ def build_stm(model_name: str, series: RainfallSeries, run_increments: int = DEF
     if not model_name.strip() or "\n" in model_name or "\r" in model_name or len(model_name) > 68:
         raise ConversionError("STM storm identification must be a non-empty single line of at most 68 characters.")
     if not 1 <= run_increments <= MAX_RORB_INCREMENTS:
-        raise ConversionError(f"RORBrun increments must be 1–{MAX_RORB_INCREMENTS} (RORBwin 6.52).")
+        raise ConversionError(f"RORB run increments must be 1–{MAX_RORB_INCREMENTS} (RORBwin 6.52).")
     if run_increments < len(series.values):
         raise ConversionError(
             f"Run length ({run_increments}) is shorter than rainfall ({len(series.values)} intervals); "
