@@ -2,11 +2,12 @@
 
 The default is validation only. Every source is paired with a .tif or .tiff
 having the same stem and relative directory. Compare raster cells exactly,
-including NoData positions, dimensions and grid transform. CRS is compared
-when present in both files; missing CRS is logged as a warning rather than a
-mismatch. No resampling or floating-point tolerance is used. Only matching
-sources become deletion candidates. The source FLT's .hdr is also eligible; .prj and auxiliary files
-are always retained. File timestamps must show that the TIFF is strictly newer.
+including NoData positions, dimensions and grid transform. A declared source
+CRS must be preserved in the TIFF; an unknown source CRS is acceptable with a
+warning. No resampling or floating-point tolerance is used. Regenerable
+statistics and auxiliary metadata are not compared. Only matching sources
+become deletion candidates. The source FLT's .hdr is also eligible; .prj and
+auxiliary files are always retained. The TIFF must be strictly newer.
 
 Edit ROOT_DIR/TIF_ROOT_DIR below or use --root/--tif-root. To delete, supply
 --delete (or set DELETE_FILES) and then type DELETE at the confirmation prompt.
@@ -31,6 +32,13 @@ import rasterio
 from rasterio.errors import RasterioError
 from rich.progress import BarColumn, Progress, TaskID, TaskProgressColumn, TextColumn, TimeRemainingColumn
 
+from ryan_library.functions.file_verification import (
+    FileSnapshot,
+    has_linked_component,
+    snapshot_file,
+    snapshot_is_unchanged,
+)
+
 # ---------------------------------------------------------------------------
 # User settings (CLI arguments may override the first three)
 # ---------------------------------------------------------------------------
@@ -41,13 +49,6 @@ DELETE_FLT_HEADERS = True  # Include .hdr paired with a verified .flt
 SHOW_PROGRESS = True
 MAX_WINDOW_CELLS = 1_000_000  # Approximate upper bound on cells per read
 REPORT_PREFIX = "tuflow_raster_conversion"
-
-
-@dataclass(frozen=True)
-class FileSnapshot:
-    path: Path
-    size: int
-    mtime_ns: int
 
 
 @dataclass(frozen=True)
@@ -63,28 +64,14 @@ class Comparison:
         return self.status in {"MATCH", "MATCH_CRS_UNVERIFIED"}
 
 
-def has_linked_component(path: Path) -> bool:
-    """Reject symlinks and Windows directory junctions in a path or its parents.
-
-    A non-resolving absolute path preserves its components for inspection.
-    This protects both initial traversal and the final pre-deletion checks.
-    """
-    return any(part.is_symlink() or part.is_junction() for part in (path, *path.parents))
-
-
 def snapshot(path: Path) -> FileSnapshot:
     """Record inexpensive metadata for a file without reading its contents."""
-    stat = path.stat()
-    return FileSnapshot(path=path, size=stat.st_size, mtime_ns=stat.st_mtime_ns)
+    return snapshot_file(path)
 
 
 def unchanged(record: FileSnapshot) -> bool:
     """Reject deletion when either file changed after validation."""
-    try:
-        current = snapshot(record.path)
-    except OSError:
-        return False
-    return record == current and not has_linked_component(record.path)
+    return snapshot_is_unchanged(record) and not has_linked_component(record.path)
 
 
 def discover_sources(root: Path) -> list[Path]:
@@ -121,13 +108,33 @@ def paired_file(directory: Path, stem: str, suffixes: set[str]) -> tuple[Path | 
 
 
 def crs_warning(*, source_missing: bool, tif_missing: bool) -> str | None:
-    """Describe missing CRS metadata separately from a true CRS disagreement."""
+    """Warn only when the source CRS is unknown; missing target CRS is an error."""
     if source_missing and tif_missing:
         return "Both rasters lack CRS metadata; spatial reference cannot be verified"
     if source_missing:
         return "Source raster lacks CRS metadata; GeoTIFF CRS cannot be independently verified"
-    if tif_missing:
-        return "GeoTIFF lacks CRS metadata; source CRS cannot be independently verified"
+    return None
+
+
+def raster_metadata_mismatch(original: rasterio.io.DatasetReader, converted: rasterio.io.DatasetReader) -> str | None:
+    """Check non-regenerable geometry, CRS and value interpretation metadata."""
+    if (original.width, original.height, original.count) != (
+        converted.width,
+        converted.height,
+        converted.count,
+    ):
+        return "Raster width, height or band count differs"
+    if original.transform != converted.transform:
+        return "Grid geotransform differs"
+    if original.scales != converted.scales or original.offsets != converted.offsets:
+        return "Raster band value scales or offsets differ"
+    if original.crs is not None:
+        if converted.crs is None:
+            return f"GeoTIFF is missing the declared source CRS: {original.crs}"
+        # Strict CRS equality is intentional: do not ignore axis-order differences
+        # (for example, OGC:CRS84 versus EPSG:4326) or normalise away discrepancies.
+        if original.crs != converted.crs:
+            return f"Declared CRS definitions differ: source {original.crs}, GeoTIFF {converted.crs}"
     return None
 
 
@@ -138,20 +145,15 @@ def compare_rasters(
 
     A raster may be compressed or use another NoData *sentinel*, provided the
     invalid-pixel locations and all valid pixel values are identical.
-    Missing CRS metadata only creates a warning; two conflicting declared CRSs
-    still fail the comparison.
+    An absent source CRS creates a warning. A declared source CRS must be
+    preserved, so a missing or conflicting GeoTIFF CRS fails the comparison.
+    Grid origin/resolution and band scale/offset metadata must match exactly.
+    Statistics tags and auxiliary sidecars are intentionally excluded.
     """
     with rasterio.open(source) as original, rasterio.open(tif) as converted:
-        if (original.width, original.height, original.count) != (
-            converted.width,
-            converted.height,
-            converted.count,
-        ):
-            return "Raster width, height or band count differs", None
-        if original.transform != converted.transform:
-            return "Grid geotransform differs", None
-        if original.crs is not None and converted.crs is not None and original.crs != converted.crs:
-            return "Declared CRS definitions differ", None
+        metadata_difference = raster_metadata_mismatch(original, converted)
+        if metadata_difference is not None:
+            return metadata_difference, None
         warning = crs_warning(source_missing=original.crs is None, tif_missing=converted.crs is None)
 
         rows = max(1, min(original.height, MAX_WINDOW_CELLS // max(1, original.width)))

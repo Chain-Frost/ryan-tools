@@ -117,17 +117,31 @@ the maintained versions before that date.
 Use [`model_management/verify_converted_tuflow_rasters.py`](model_management/verify_converted_tuflow_rasters.py)
 to check legacy TUFLOW `.flt` / `.asc` outputs against same-named newer `.tif` / `.tiff` files.
 This standalone utility uses Rasterio and NumPy (both included in the project dependencies).
+It reuses `ryan_library.functions.file_verification` for file snapshots and
+symlink/junction checks. Its semantic raster comparison remains local: only
+valid-cell values and NoData-mask locations must agree, not NoData sentinel
+values or entire decoded byte sequences.
 
 - Recursively searches below `ROOT_DIR` (default: current working directory).
   By default the TIF must be in the same directory. Set `TIF_ROOT_DIR` or `--tif-root`
   when converted GeoTIFFs are in a parallel folder tree with the same relative directory layout.
-- Compares width, height, band count, exact grid transform, NoData validity masks and every
-  valid cell without any tolerance or resampling. Different NoData sentinels are allowed only
-  when the invalid cells coincide. **When both files declare a CRS, their CRSs must agree.**
-  A missing CRS (common in legacy FLT/ASC outputs without PRJ files) does not by itself
-  prevent a match. Instead the result is marked `MATCH_CRS_UNVERIFIED`, eligible for the
-  deletion proposal, with an explicit warning that the spatial reference was not independently
-  verified. Known conflicting CRSs remain a mismatch.
+- Compares width, height, band count, **exact grid origin, cell dimensions and full
+  geotransform**, NoData validity masks and every valid cell without any tolerance
+  or resampling. Raster band scale/offset metadata must also match, because it
+  changes the interpretation of stored pixel values. Different NoData sentinels
+  are allowed only when their invalid cells coincide. These grid and pixel
+  properties are critical, non-regenerable content.
+- **If the source declares a CRS, the GeoTIFF must declare the same CRS.** For example,
+  source EPSG:28350 and GeoTIFF EPSG:28351 is a blocking mismatch. Strict CRS
+  equality is intentional: OGC:CRS84 in a source PRJ versus EPSG:4326 in a GeoTIFF
+  also fails (axis-order differences are not ignored). A GeoTIFF without
+  CRS when its source declares one is also a blocking mismatch. If the *source*
+  lacks CRS metadata (common in legacy FLT/ASC outputs without PRJ files), matching
+  pixels and geometry remain eligible under `MATCH_CRS_UNVERIFIED`, with a warning
+  that the spatial reference cannot be independently verified.
+- Computed statistics tags and regenerable auxiliary-statistics sidecars are
+  **not compared** and cannot invalidate matching pixel and grid content. The tool
+  deliberately does not require byte-identical FLT/ASC and TIFF files.
 - The GeoTIFF must have a **strictly newer modification timestamp** than the source;
   for FLT files also newer than the paired `.hdr` header when scheduled for deletion.
 - Paths are converted to non-resolving absolute paths, not `resolve()`, and are rejected if
@@ -190,6 +204,9 @@ or change `ROOT_DIR` in the script.
   discovered file. Redirected/headless execution prints the completion summary without live frames.
   `rich` is included in the repo requirements; copied standalone scripts also need it installed.
 - Set `SHOW_HASH_PROGRESS = False` to disable the live display.
+- The script reuses `ryan_library.functions.file_verification.hash_file()` for streaming
+  SHA-256, with the existing 1 MiB chunks, per-chunk Rich callback and hexadecimal
+  manifests unchanged. Final metadata checks also reject symlink/junction paths.
 - SHA-256 reads candidate contents **once** during grouping. Deletion checks existence, size and
   modification time of both paths, rechecking the retained path before each unlink. It does **not**
   hash file content again. Run only on static/inactive results; metadata checks are not file locks.
