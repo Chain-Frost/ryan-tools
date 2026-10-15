@@ -235,7 +235,11 @@ def assert_unoccupied_tif(source: Path, destination: Path) -> None:
 def find_or_create_tif(source: Path, destination_dir: Path, *, convert_missing: bool) -> tuple[Path | None, str | None]:
     """Locate the counterpart or optionally convert exactly one missing TIFF."""
     candidate, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
-    if candidate is None and convert_missing and error in {"Matching file not found", "Destination directory does not exist"}:
+    if (
+        candidate is None
+        and convert_missing
+        and error in {"Matching file not found", "Destination directory does not exist"}
+    ):
         return create_missing_tif(source, destination_dir), None
     return candidate, error
 
