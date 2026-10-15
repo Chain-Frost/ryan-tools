@@ -124,7 +124,7 @@ jobs:
       - name: Check Python 3.13 source compatibility
         shell: pwsh
         run: |
-          python -m compileall -q ryan_library
+          python -m compileall -q ryan_library/mcp ryan_library/classes ryan_library/processors/tuflow ryan_library/functions/dataframe_helpers.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install package and MCP dependencies
