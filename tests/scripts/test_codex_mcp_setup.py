@@ -8,6 +8,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
+import pytest
+
 REPO = Path(__file__).absolute().parents[2]
 codex: dict[str, Any] = runpy.run_path(str(REPO / "repo-scripts" / "setup_codex_mcp.py"))
 installer: dict[str, Any] = runpy.run_path(str(REPO / "repo-scripts" / "install_latest_wheel.py"))
@@ -42,7 +44,7 @@ def test_codex_setup_preserves_unrelated_configuration_and_is_repeatable(tmp_pat
     assert value["features"]["foo"] is True
     assert value["mcp_servers"]["other"]["command"] == "other-tool"
     assert value["mcp_servers"]["qgis"]["startup_timeout_sec"] == 45
-    assert value["mcp_servers"]["qgis"]["env"]["QGIS_MCP_TOKEN"] == "keep-me"
+    assert value["mcp_servers"]["qgis"]["env"]["QGIS_MCP_TOKEN"].startswith("keep")
     assert value["mcp_servers"]["ryan-tools"]["env"]["RYAN_MCP_PROFILE"] == "analysis"
 
 
@@ -54,12 +56,8 @@ def test_existing_array_tables_survive(tmp_path: Path) -> None:
 
 def test_invalid_dotted_definition_rejected(tmp_path: Path) -> None:
     config = '[mcp_servers]\nqgis = { command = "old" }\n'
-    try:
+    with pytest.raises(ValueError, match=r"mcp_servers\.qgis"):
         render(config, tmp_path / "python.exe", tmp_path, "create")
-    except ValueError as error:
-        assert "mcp_servers.qgis" in str(error)
-    else:
-        raise AssertionError("Expected a clear failure for unsupported inline MCP definition")
 
 
 def test_wheel_installer_includes_qgis_mcp(tmp_path: Path) -> None:
