@@ -20,6 +20,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Initialise required package submodules
         shell: pwsh
@@ -33,6 +34,16 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.14"
+
+      - name: Verify release commit is on main
+        shell: pwsh
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git merge-base --is-ancestor "$env:GITHUB_SHA" refs/remotes/origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw "Release commit $env:GITHUB_SHA is not an ancestor of origin/main; refusing PyPI publication."
+          }
 
       - name: Validate release tag and project version
         shell: pwsh
