@@ -116,7 +116,8 @@ def test_batch_prevents_overwrites_by_default(tmp_path: Path) -> None:
     job.output_path.parent.mkdir(parents=True, exist_ok=True)
     job.output_path.write_text("old", encoding="utf-8")
     plan = prepare_batch(table, bc_database=root, output_dir=out)
-    assert plan.errors and "already exists" in plan.errors[0]
+    assert plan.errors
+    assert "already exists" in plan.errors[0]
     plan_overwrite = prepare_batch(table, bc_database=root, output_dir=out, overwrite=True)
     assert not plan_overwrite.errors
     write_batch(plan_overwrite, overwrite=True)
