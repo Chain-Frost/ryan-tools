@@ -155,3 +155,11 @@ it does not reuse the wheel from a separate CI run.
 References:
 - https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/
 - https://docs.pypi.org/trusted-publishers/using-a-publisher/
+
+## Finalization retries
+
+Finalization checks PyPI before dispatching publication. If the version already exists,
+it skips dispatch; if publication for that SHA is active, it also skips duplicate work.
+A missing version with no active run can be dispatched again after a failed attempt.
+Unexpected PyPI responses or lookup timeouts fail visibly rather than guessing. Existing
+tag/SHA and stable-release checks still apply before these recovery decisions.

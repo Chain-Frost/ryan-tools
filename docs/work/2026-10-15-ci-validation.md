@@ -110,3 +110,13 @@ Both new repositories have matching main/tag protections, automatic branch
 deletion, Actions PR creation and automatic tag-only pypi environments. The
 user's screenshot confirms both pending PyPI publishers. Those repositories'
 first publications remain separate from this repository's successful release.
+
+## Retry review fix, 2026-10-16
+
+The review correctly identified duplicate publication dispatch on finalizer retries.
+Across all three repositories, finalization now checks PyPI and active publication runs
+before dispatching. Already published or active revisions skip dispatch; missing versions
+with no active run remain recoverable. Transient/unknown lookup failures fail closed.
+All 16 mocked release/finalization/retry scenarios passed, including already published,
+active, failed previous attempts and unavailable lookup service. Actionlint and touched
+document checks are rerun before pushing; exact-head hosted CI must pass before merging.
