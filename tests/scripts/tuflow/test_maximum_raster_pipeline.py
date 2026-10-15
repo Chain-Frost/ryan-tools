@@ -157,7 +157,9 @@ def test_publish_failure_restores_previous_raster_overview_pair(
     temporary.write_bytes(b"replacement-raster")
     temporary_overview.write_bytes(b"replacement-overview")
 
-    real_replace = pipeline.os.replace
+    from ryan_library.orchestrators.tuflow import maximum_rasters
+
+    real_replace = maximum_rasters.os.replace
 
     def fail_overview_publication(source: Path, target: Path) -> None:
         if source == temporary_overview and target == destination_overview:
@@ -165,7 +167,7 @@ def test_publish_failure_restores_previous_raster_overview_pair(
             raise PermissionError(msg)
         real_replace(source, target)
 
-    monkeypatch.setattr(pipeline.os, "replace", fail_overview_publication)
+    monkeypatch.setattr(maximum_rasters.os, "replace", fail_overview_publication)
     with pytest.raises(PermissionError, match="simulated"):
         pipeline.publish_output(temporary, destination, build_overviews=True)
     assert destination.read_bytes() == b"previous-raster"
