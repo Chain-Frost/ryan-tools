@@ -330,8 +330,19 @@ def build_vrt(
     output_srs: str | None = None,
     source_nodata: float | None = None,
     vrt_nodata: float | None = None,
+    pixel_function: str | None = None,
+    resolution: Literal["highest", "lowest", "average", "user"] | None = None,
+    x_res: float | None = None,
+    y_res: float | None = None,
+    target_aligned_pixels: bool = False,
+    resample_alg: int | None = None,
+    strict: bool = False,
 ) -> Path:
-    """Build a virtual mosaic from one or more source rasters.
+    """Build a virtual mosaic or optional overlapping-pixel reduction.
+
+    GDAL 3.12+ supports pixel functions such as ``max`` for true cell-wise
+    reduction of overlaps. Without a pixel function, later sources take
+    precedence as in the original mosaic workflow.
 
     The VRT references its input files; callers must keep those files available
     until any subsequent translation has finished.
@@ -350,7 +361,12 @@ def build_vrt(
     if not input_files:
         msg = "At least one input raster is required to build a VRT."
         raise ValueError(msg)
-    output = output.resolve()
+    if pixel_function is not None and int(gdal.VersionInfo("VERSION_NUM")) < 3120000:
+        msg = "Pixel-function VRTs require GDAL 3.12 or later (QGIS 4 Python GDAL environment)."
+        raise RuntimeError(msg)
+    if resolution == "user" and (x_res is None or y_res is None):
+        raise ValueError("User VRT resolution requires both x_res and y_res.")
+    output = output.absolute()
     output.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Building VRT {} from {} inputs", output, len(input_files))
     options = gdal.BuildVRTOptions(
@@ -358,9 +374,16 @@ def build_vrt(
         outputSRS=output_srs,
         srcNodata=source_nodata,
         VRTNodata=vrt_nodata,
+        pixelFunction=pixel_function,
+        resolution=resolution,
+        xRes=x_res,
+        yRes=y_res,
+        targetAlignedPixels=target_aligned_pixels,
+        resampleAlg=resample_alg,
+        strict=strict,
     )
     with gdal.ExceptionMgr():
-        dataset = gdal.BuildVRT(str(output), [str(path.resolve()) for path in input_files], options=options)
+        dataset = gdal.BuildVRT(str(output), [str(path.absolute()) for path in input_files], options=options)
         if dataset is None:
             msg = f"GDAL could not build VRT {output}"
             raise RuntimeError(msg)
