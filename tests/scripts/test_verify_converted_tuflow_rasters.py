@@ -589,9 +589,7 @@ def test_convert_missing_in_mirrored_directory_tree(tool: ModuleType, tmp_path: 
     tif.unlink()
     tif_root = tmp_path / "converted"
     tif_root.mkdir()
-    assert tool.main(
-        ["--root", str(root), "--tif-root", str(tif_root), "--convert-missing", "--no-progress"]
-    ) == 0
+    assert tool.main(["--root", str(root), "--tif-root", str(tif_root), "--convert-missing", "--no-progress"]) == 0
     assert src.exists()
     assert not tif.exists()
     assert (tif_root / "nested" / tif.name).exists()
@@ -609,7 +607,8 @@ def test_failed_conversion_leaves_source_and_no_partial_output(
     def fail_after_partial_write(_source: Path, output: Path, *, profile: str) -> Path:
         assert profile == "tuflow"
         output.write_bytes(b"partial GeoTIFF")
-        raise RuntimeError("simulated GDAL failure")
+        message = "simulated GDAL failure"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(raster_processing, "translate_to_geotiff", fail_after_partial_write)
     assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
