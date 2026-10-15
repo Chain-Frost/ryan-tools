@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-import rasterio
 from loguru import logger
 
 from ryan_library.functions.gdal.raster_processing import (
@@ -20,6 +19,7 @@ from ryan_library.functions.gdal.raster_recompression import (
     RasterInspection,
     copy_file_with_digest,
     inspect_geotiff,
+    raster_has_external_dependencies,
     snapshot_is_unchanged,
     stage_raster_with_dependencies,
     stream_copy_float32_geotiff,
@@ -187,18 +187,12 @@ def _has_linked_component(path: Path) -> bool:
     return any(part.is_symlink() or part.is_junction() for part in (path, *path.parents))
 
 
-def _external_dependencies(path: Path) -> bool:
-    """Reject sidecars that a single-file atomic replacement cannot preserve."""
-    with rasterio.open(path) as dataset:
-        return any(Path(name).resolve() != path.resolve() for name in dataset.files)
-
-
 def _replacement_safety_failure(source: Path, inspection: RasterInspection) -> RecompressionResult | None:
     """Reject inputs that a single-file atomic overwrite cannot safely handle."""
     linked = _has_linked_component(source)
     if linked:
         reason = "symlink or junction in source path"
-    elif _external_dependencies(source):
+    elif raster_has_external_dependencies(source):
         reason = "external raster sidecars require manual handling"
     else:
         return None
@@ -208,6 +202,6 @@ def _replacement_safety_failure(source: Path, inspection: RasterInspection) -> R
 
 def _ensure_self_contained_output(output: Path) -> None:
     """Refuse deployment of a compressed TIFF whose metadata needs sidecars."""
-    if _external_dependencies(output):
+    if raster_has_external_dependencies(output):
         message = "compressed output uses external sidecars; replacement cancelled"
         raise RuntimeError(message)
