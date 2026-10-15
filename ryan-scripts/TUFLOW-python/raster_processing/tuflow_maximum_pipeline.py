@@ -56,6 +56,7 @@ from ryan_library.orchestrators.tuflow.maximum_rasters import (
     parse_source_group,
     publish_output,
     run_build,
+    execute_jobs,
     write_report,
 )
 
@@ -232,130 +233,15 @@ def main() -> int:
         print("ERROR: No matching maximum-raster jobs were discovered.", file=sys.stderr)
         return 1
 
-    results: list[JobResult] = []
-    for index, job in enumerate(jobs, start=1):
-        label = (
-            f"[{index}/{len(jobs)}] {job.version} {job.aep} "
-            f"{job.model} {job.grid_type}"
-        )
-        print(f"\n{label}")
-        print(f"  Sources: {len(job.sources)}")
-        print(f"  Output : {job.output}")
-
-        if job.discovery_error:
-            print(f"  FAILED: {job.discovery_error}")
-            results.append(
-                JobResult(
-                    job.version,
-                    job.model,
-                    job.aep,
-                    job.grid_type,
-                    job.output,
-                    len(job.sources),
-                    "FAILED",
-                    job.discovery_error,
-                )
-            )
-            continue
-
-        try:
-            action, reason, sources_hash, zones_hash = determine_action(
-                job,
-                args.profile,
-                build_overviews,
-                args.overwrite,
-            )
-            print(f"  Action : {action} ({reason})")
-
-            if args.dry_run:
-                results.append(
-                    JobResult(
-                        job.version,
-                        job.model,
-                        job.aep,
-                        job.grid_type,
-                        job.output,
-                        len(job.sources),
-                        "DRY-RUN",
-                        f"Would {action}: {reason}",
-                        output_size_mb=(job.output.stat().st_size / 1e6 if job.output.is_file() else 0.0),
-                    )
-                )
-                continue
-
-            if action == "skip":
-                results.append(
-                    JobResult(
-                        job.version,
-                        job.model,
-                        job.aep,
-                        job.grid_type,
-                        job.output,
-                        len(job.sources),
-                        "SKIPPED",
-                        reason,
-                        output_size_mb=job.output.stat().st_size / 1e6,
-                    )
-                )
-                continue
-
-            if action == "overviews":
-                started = time.perf_counter()
-                build_external_overviews(job.output, args.profile)
-                elapsed = time.perf_counter() - started
-                results.append(
-                    JobResult(
-                        job.version,
-                        job.model,
-                        job.aep,
-                        job.grid_type,
-                        job.output,
-                        len(job.sources),
-                        "OVERVIEWS",
-                        reason,
-                        elapsed,
-                        job.output.stat().st_size / 1e6,
-                    )
-                )
-                print(f"  OK: external overviews refreshed in {elapsed:.1f}s")
-                continue
-
-            elapsed, size_mb = run_build(
-                job,
-                args.profile,
-                build_overviews,
-                sources_hash,
-                zones_hash,
-            )
-            results.append(
-                JobResult(
-                    job.version,
-                    job.model,
-                    job.aep,
-                    job.grid_type,
-                    job.output,
-                    len(job.sources),
-                    "BUILT",
-                    reason,
-                    elapsed,
-                    size_mb,
-                )
-            )
-            print(f"  OK: built {size_mb:.1f} MB in {elapsed:.1f}s")
-        except Exception as error:
-            print(f"  FAILED: {error}", file=sys.stderr)
-            results.append(
-                JobResult(
-                    job.version,
-                    job.model,
-                    job.aep,
-                    job.grid_type,
-                    job.output,
-                    len(job.sources),
-                    "FAILED",
-                    str(error),
-                )
-            )
+    results = execute_jobs(
+        jobs,
+        profile=args.profile,
+        build_overviews=build_overviews,
+        overwrite=args.overwrite,
+        dry_run=args.dry_run,
+        notify=print,
+        notify_error=lambda message: print(message, file=sys.stderr),
+    )
 
     counts: dict[str, int] = {}
     for result in results:
