@@ -35,13 +35,9 @@ def test_manual_first_ordinate_is_first_rainfall_interval(tmp_path: Path) -> Non
 
 
 def test_auto_removes_only_extra_zero_after_named_duration(tmp_path: Path) -> None:
-    path = rainfall_csv(
-        tmp_path / "GD08_RF_01.00p00120m.CSV", [0, 1, 2, 3], [0, 5, 10, 0]
-    )
+    path = rainfall_csv(tmp_path / "GD08_RF_01.00p00120m.CSV", [0, 1, 2, 3], [0, 5, 10, 0])
     assert read_rainfall_series(path, "TP07_2030_SSP3-7.0").values == (5, 10)
-    assert read_rainfall_series(path, "TP07_2030_SSP3-7.0", terminal_zero="keep").values == (
-        5, 10, 0
-    )
+    assert read_rainfall_series(path, "TP07_2030_SSP3-7.0", terminal_zero="keep").values == (5, 10, 0)
 
 
 def test_keeps_terminal_zero_within_named_duration(tmp_path: Path) -> None:
@@ -86,9 +82,7 @@ def test_named_duration_mismatch_can_be_explicitly_overridden(tmp_path: Path) ->
     path = rainfall_csv(tmp_path / "GD08_RF_01.00p00120m.CSV", [0, 1, 2, 3, 4], [0, 5, 10, 0, 0])
     with pytest.raises(ConversionError, match="duration"):
         read_rainfall_series(path, "TP07_2030_SSP3-7.0")
-    assert read_rainfall_series(path, "TP07_2030_SSP3-7.0", terminal_zero="keep").values == (
-        5, 10, 0, 0
-    )
+    assert read_rainfall_series(path, "TP07_2030_SSP3-7.0", terminal_zero="keep").values == (5, 10, 0, 0)
 
 
 def test_drop_requires_terminal_zero(tmp_path: Path) -> None:
