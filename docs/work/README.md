@@ -7,7 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [PyPI release automation](2026-10-15-release-automation.md) | Active | ChatGPT | 2026-10-15 | 2026-10-22 | Review PR #123 and its CI, merge, then validate first hosted release. |
+| [CI validation efficiency](2026-10-15-ci-validation.md) | Active | ChatGPT | 2026-10-16 | 2026-10-22 | Review PR #125 and its final-head CI; publication smoke runs after this follow-up merges. |
 | [Safe GeoTIFF recompression](2026-10-15-safe-geotiff-recompression.md) | Ready for review | ChatGPT | 2026-10-15 | 2026-10-22 | Review and merge the pull request after CI passes. |
 | [TUFLOW shared filesystem verification](2026-10-15-tuflow-shared-verification-110.md) | In validation | ChatGPT | 2026-10-15 | 2026-10-22 | Review and commit local CRS test correction and verified 26.10.15.4 wheel; confirm CI on the resulting PR #116 head before merging. |
 | [Culvert analysis/design workflow](2026-09-13-culvert-workflow-80.md) | Ready for final validation | ChatGPT | 2026-09-14 | After final validation rerun | Re-run Ruff, strict Pyright, focused pytest, wrapper/documentation checks and package verification after the final provenance/export follow-up; merge PR #86 only after those checks pass. |
@@ -24,6 +24,7 @@ fronts.
 
 | Work front / status record | Status | Owner | Updated | Next review | Outcome |
 | --- | --- | --- | --- | --- | --- |
+| [PyPI release automation](2026-10-15-release-automation.md) | Complete | ChatGPT | 2026-10-16 | None | PRs #123/#124 merged; 26.10.15.5 published via OIDC and downloaded-wheel smoke passed. Separate improvements in PR #125. |
 | [GitHub CI implementation](2026-10-07-github-ci.md) | Complete | ChatGPT | 2026-10-07 | None | Added Windows/Python 3.14 Policy, Hosted tests and Package jobs with explicit capability boundaries. Run #7 at `ad69ef4` passed all three jobs; Hosted tests reported 937 passed and 5 deselected. PR #96 is ready for maintainer review and manual merge. |
 | [Culvert uncertainty/sensitivity workflow](2026-10-06-culvert-uncertainty-91.md) | Complete | ChatGPT | 2026-10-06 | None | 144 focused tests and policy checks pass; verified 26.10.6.3 wheel and installed-wrapper smoke pass. Final artifact published in 35035b8; authorized PR #94 squash merge follows final head check. |
 | [Transactional package build and verification](2026-09-13-transactional-packaging.md) | Complete | Unassigned | 2026-09-13 | — | Added no-bump transactional builds, wheel verification, installed-wheel smoke coverage and focused failure-path tests; recorded upstream follow-ups. |

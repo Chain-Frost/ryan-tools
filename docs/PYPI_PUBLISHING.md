@@ -31,6 +31,14 @@ as `ryan_library` do not change.
 No PyPI password, long-lived API token or GitHub secret is required for
 Trusted Publishing.
 
+The configured repository policy permits only squash merges, requires the
+four CI checks on an up-to-date PR, and requires resolved review conversations.
+Required approval count remains zero for the solo-maintainer workflow. The
+maintainer's main-branch bypass is limited to PRs, and merged branches are
+automatically deleted. Release-tag creation is allowed after required CI;
+updates and deletions remain restricted. The `pypi` environment allows `v*`
+tags without a required reviewer so publication proceeds automatically.
+
 **Important:** Pending publisher configuration does **not** reserve a package
 name. Confirm the name is available or that you control the existing project.
 You must configure PyPI and GitHub yourself; the repository workflow cannot
@@ -44,6 +52,14 @@ Run **Actions → Release to PyPI → Run workflow**, selecting `main`.
 The workflow uses the existing transactional builder to bump the calendar
 version and retain the verified wheel, then opens a `release/pypi-<version>`
 pull request. Only one release PR may be open at a time.
+
+The common `prepare_release.py` helper selects the date in Perth time
+(UTC+08:00), updates metadata and invokes the existing builder without another
+bump. It restores metadata if that builder fails. The two-digit year remains
+unchanged here; run-hy8 preserves its existing four-digit year to avoid a downgrade.
+All three repositories use the same helper and release lifecycle, with their
+existing package-specific verified builders and smoke checks. The existing-PR
+check runs before checkout/build to avoid wasting work on duplicate requests.
 
 Review and squash merge that PR after the four required CI checks pass.
 Successful **Python CI** on the merge commit triggers **Finalize PyPI release**,
@@ -70,6 +86,8 @@ PR runs still cancel superseded runs. Finalization uses the successful run's
 exact merge SHA even if `main` has advanced. Its concurrency group is also
 specific to that SHA. If main CI fails or is manually cancelled, rerun that
 exact push run; a successful later commit does not release the earlier SHA.
+Finalization parses the merged version using Python's TOML parser rather than
+assuming a particular TOML layout or quoting style.
 
 If preparation fails after pushing a branch, inspect that branch and any PR
 before retrying. If finalization fails, rerun its failed job. If publication
@@ -88,7 +106,8 @@ the cause. Never move an existing release tag or overwrite a PyPI version.
 4. In GitHub, create a **non-prerelease** release for that tag and publish it.
    Creating a release is the deliberate publishing trigger.
 5. Monitor **Actions → Publish to PyPI**. The build job verifies the wheel
-   against the existing repository packaging checks and `twine check`.
+   against the existing repository packaging checks and `twine check`, then
+   smoke-tests an isolated installation of that exact wheel before uploading it.
    The publish job then uses OIDC to upload the same wheel to PyPI.
 6. Verify the resulting project on `https://pypi.org/project/ryan-functions/`.
 
@@ -117,6 +136,30 @@ itself does not prove downstream dependency installation or functionality.
 For build architecture, see [the root README](../README.md) and
 [`repo-scripts/build_library.py`](../repo-scripts/build_library.py).
 
+## CI checks and dependency scope
+
+Policy runs Actionlint 1.7.12 (checksum-verified) across repository workflows
+and checks documentation and logging rules. It installs the full development
+and GIS dependencies only when changed Python files require Ruff and strict
+Pyright. Hosted tests retain the full application development environment.
+The Python 3.13 compatibility job remains a separate compatibility check.
+
+Package and publication smoke checks install only their tooling plus pandas
+and Loguru, which are needed by the public imports exercised by the smoke
+script. These are focused packaging checks, not full runtime-dependency or
+GIS/application validation. The package job still verifies the retained wheel
+before rebuilding, and the builder verifies the newly built wheel before
+promotion. Publication smoke-tests the newly built wheel that is uploaded;
+it does not reuse the wheel from a separate CI run.
+
 References:
 - https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/
 - https://docs.pypi.org/trusted-publishers/using-a-publisher/
+
+## Finalization retries
+
+Finalization checks PyPI before dispatching publication. If the version already exists,
+it skips dispatch; if publication for that SHA is active, it also skips duplicate work.
+A missing version with no active run can be dispatched again after a failed attempt.
+Unexpected PyPI responses or lookup timeouts fail visibly rather than guessing. Existing
+tag/SHA and stable-release checks still apply before these recovery decisions.
