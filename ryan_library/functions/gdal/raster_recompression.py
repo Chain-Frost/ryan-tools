@@ -103,9 +103,9 @@ class StreamCopyEvidence:
 
 def snapshot_file(path: Path) -> FileSnapshot:
     """Return a stable file snapshot used before destructive replacement."""
-    resolved = path.resolve()
-    stat = resolved.stat()
-    return FileSnapshot(path=resolved, size=stat.st_size, mtime_ns=stat.st_mtime_ns)
+    absolute_path = path.absolute()
+    stat = absolute_path.stat()
+    return FileSnapshot(path=absolute_path, size=stat.st_size, mtime_ns=stat.st_mtime_ns)
 
 
 def snapshot_is_unchanged(snapshot: FileSnapshot) -> bool:
@@ -118,14 +118,14 @@ def snapshot_is_unchanged(snapshot: FileSnapshot) -> bool:
 
 def inspect_geotiff(path: Path) -> RasterInspection:
     """Inspect GeoTIFF storage and determine constrained streaming eligibility."""
-    resolved = path.resolve()
-    file_snapshot = snapshot_file(resolved)
-    with rasterio.open(resolved) as dataset:
+    absolute_path = path.absolute()
+    file_snapshot = snapshot_file(absolute_path)
+    with rasterio.open(absolute_path) as dataset:
         compression = dataset.compression.value.upper() if dataset.compression is not None else "NONE"
         overview_count = sum(len(dataset.overviews(band)) for band in range(1, dataset.count + 1))
         eligible, reason = stream_copy_eligibility(dataset)
         return RasterInspection(
-            path=resolved,
+            path=absolute_path,
             snapshot=file_snapshot,
             driver=dataset.driver,
             compression=compression,
@@ -223,8 +223,8 @@ def stream_copy_float32_geotiff(
     The output is fully reopened and checked against decoded-byte digests. The
     source is not reread for pixel verification.
     """
-    source = source.resolve()
-    output = output.resolve()
+    source = source.absolute()
+    output = output.absolute()
     if output.exists():
         message = f"Streaming output already exists: {output}"
         raise FileExistsError(message)
@@ -275,7 +275,7 @@ def verify_stream_copy_output(
     expected_compression: CompressionName = "DEFLATE",
 ) -> str | None:
     """Verify a reopened streaming output without rereading its source pixels."""
-    with rasterio.open(output.resolve()) as converted:
+    with rasterio.open(output.absolute()) as converted:
         metadata_difference = _signature_difference(
             evidence.source_signature,
             capture_raster_signature(converted),
@@ -304,8 +304,8 @@ def verify_rasters_exact(
 ) -> str | None:
     """Compare substantive metadata, masks and decoded pixel bytes exactly."""
     with (
-        rasterio.open(source.resolve()) as original,
-        rasterio.open(output.resolve()) as converted,
+        rasterio.open(source.absolute()) as original,
+        rasterio.open(output.absolute()) as converted,
     ):
         metadata_difference = _signature_difference(
             capture_raster_signature(original), capture_raster_signature(converted)
@@ -337,8 +337,8 @@ def verify_rasters_exact(
 def compare_raster_metadata(source: Path, other: Path) -> str | None:
     """Compare substantive metadata without reading complete pixel arrays."""
     with (
-        rasterio.open(source.resolve()) as original,
-        rasterio.open(other.resolve()) as candidate,
+        rasterio.open(source.absolute()) as original,
+        rasterio.open(other.absolute()) as candidate,
     ):
         return _signature_difference(capture_raster_signature(original), capture_raster_signature(candidate))
 
@@ -349,13 +349,13 @@ def stage_raster_with_dependencies(source: Path, directory: Path) -> Path:
     Each physical file is hash-checked after copying. Metadata is then compared
     between the original and staged datasets without reading raster pixels.
     """
-    source = source.resolve()
-    directory = directory.resolve()
+    source = source.absolute()
+    directory = directory.absolute()
     directory.mkdir(parents=True, exist_ok=True)
     with rasterio.open(source) as dataset:
         reported_files = tuple(dataset.files)
     physical_files = tuple(
-        (candidate if candidate.is_absolute() else source.parent / candidate).resolve()
+        (candidate if candidate.is_absolute() else source.parent / candidate).absolute()
         for candidate in (Path(name) for name in reported_files)
     )
     destinations: set[Path] = set()
@@ -379,8 +379,8 @@ def stage_raster_with_dependencies(source: Path, directory: Path) -> Path:
 
 def copy_file_with_digest(source: Path, destination: Path, *, chunk_size: int = 8 * 1024 * 1024) -> bytes:
     """Copy a file once while hashing its source bytes, then verify the copy."""
-    source = source.resolve()
-    destination = destination.resolve()
+    source = source.absolute()
+    destination = destination.absolute()
     if destination.exists():
         message = f"Copy destination already exists: {destination}"
         raise FileExistsError(message)
@@ -404,7 +404,7 @@ def copy_file_with_digest(source: Path, destination: Path, *, chunk_size: int = 
 def hash_file(path: Path, *, chunk_size: int = 8 * 1024 * 1024) -> bytes:
     """Return the SHA-256 digest of a file."""
     digest = hashlib.sha256()
-    with path.resolve().open("rb") as input_file:
+    with path.absolute().open("rb") as input_file:
         while chunk := input_file.read(chunk_size):
             digest.update(chunk)
     return digest.digest()
@@ -494,6 +494,9 @@ def _storage_difference(dataset: rasterio.io.DatasetReader, expected_compression
 
 def raster_has_external_dependencies(path: Path) -> bool:
     """Identify GDAL-reported sidecars that a TIFF-only replacement cannot safely handle."""
-    resolved = path.resolve()
-    with rasterio.open(resolved) as dataset:
-        return any(Path(name).resolve() != resolved for name in dataset.files)
+    absolute_path = path.absolute()
+    with rasterio.open(absolute_path) as dataset:
+        return any(
+            (candidate if candidate.is_absolute() else absolute_path.parent / candidate).absolute() != absolute_path
+            for candidate in (Path(name) for name in dataset.files)
+        )
