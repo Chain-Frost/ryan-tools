@@ -183,7 +183,7 @@ def prepare_batch(
             series = read_rainfall_series(input_path, column, terminal_zero=terminal_zero)
             stm_text = build_stm(model_name, series, run_increments)
             jobs.append(PreparedJob(input_path, column, output_path, stm_text, table_line=line))
-        except (ConversionError, ValueError) as exc:
+        except ValueError as exc:
             errors.append(f"line {line}: {exc}")
 
     return BatchPlan(tuple(jobs), tuple(skipped), tuple(errors))
