@@ -1,10 +1,10 @@
 """Synthetic coverage for safe GeoTIFF recompression."""
 
-from __future__ import annotations
-
 # pyright: reportMissingTypeStubs=false
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownVariableType=false
+
+from __future__ import annotations
 
 from pathlib import Path
 
@@ -84,3 +84,38 @@ def test_audit_is_read_only_and_compressed_files_are_skipped(tmp_path: Path) -> 
     assert source.read_bytes() == original
     assert recompress_geotiffs(tmp_path)[0].status == "replaced"
     assert recompress_geotiffs(tmp_path)[0].status == "skipped"
+
+
+def test_linked_tiff_is_rejected_without_changing_target(tmp_path: Path) -> None:
+    source = tmp_path / "source.tif"
+    _write_raster(source, np.ones((5, 5), dtype=np.float32))
+    alias_dir = tmp_path / "links"
+    alias_dir.mkdir()
+    alias = alias_dir / "alias.tif"
+    alias.symlink_to(source)
+    original = source.read_bytes()
+
+    result = recompress_geotiffs(alias_dir, recursive=False)[0]
+
+    assert result.status == "failed"
+    assert "symlink" in result.reason
+    assert source.read_bytes() == original
+    assert alias.is_symlink()
+
+
+def test_raster_sidecar_is_rejected_without_replacing_tiff(tmp_path: Path) -> None:
+    source = tmp_path / "sidecar.tif"
+    _write_raster(source, np.ones((5, 5), dtype=np.float32))
+    with rasterio.open(source, "r+") as dataset:
+        with rasterio.Env(GDAL_PAM_ENABLED="YES"):
+            pass
+    sidecar = tmp_path / "sidecar.tif.aux.xml"
+    sidecar.write_text("<PAMDataset><Metadata><MDI key='a'>b</MDI></Metadata></PAMDataset>")
+    original = source.read_bytes()
+
+    result = recompress_geotiffs(tmp_path, recursive=False)[0]
+
+    assert result.status == "failed"
+    assert "sidecars" in result.reason
+    assert source.read_bytes() == original
+    assert sidecar.exists()
