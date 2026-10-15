@@ -138,10 +138,10 @@ jobs:
         env:
           MPLBACKEND: Agg
         run: |
+          # The vendored run_hy8 reader requires Python 3.14; its HY-8 tests remain in the hosted 3.14 suite.
           python -m pytest `
             tests/functions/RORB/test_read_rorb_files.py `
             tests/functions/gdal/test_profiling.py `
-            tests/functions/hy8/test_run_hy8_bridge.py `
             tests/functions/test_process_12D_culverts.py `
             tests/functions/tuflow/test_logsummary_excel_append.py `
             tests/functions/tuflow/test_notebook_helpers.py `
