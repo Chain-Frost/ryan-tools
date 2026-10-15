@@ -339,7 +339,7 @@ class WorkflowRegistry:
     def _read_wrapper_version(script_path: Path) -> str | None:
         try:
             source: str = script_path.read_text(encoding="utf-8")
-        except OSError, UnicodeError:
+        except (OSError, UnicodeError):
             return None
         match: re.Match[str] | None = _WRAPPER_VERSION_PATTERN.search(source)
         return match.group(1) if match else None
