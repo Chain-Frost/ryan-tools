@@ -7,6 +7,7 @@ The maintained `ryan-tools` raster/GIS processing workflows call **GDAL through 
 - **QGIS 4** is the supported QGIS desktop/integration line.
 - **QGIS 3 compatibility is out of scope** for new raster workflow development.
 - Native Python execution is supported whenever the installed Python GDAL bindings provide the required GDAL features. An active QGIS GUI is not necessary.
+- The installed `ryan_functions` package currently requires **Python 3.13+** (prefer Python 3.14). Some QGIS 4 distributions bundle an earlier Python version. QGIS 4/GDAL support **does not imply** that their bundled Python can install this wheel; run the wrapper using a supported Python interpreter with matching `osgeo` GDAL bindings.
 - Do not assume `osgeo` is installed merely because `ryan_functions` is installed: confirm that the executing Python environment has compatible GDAL bindings.
 - The maximum raster pipeline uses `gdal.BuildVRTOptions(pixelFunction="max")`, which requires **GDAL 3.12+**. Fail clearly when that API is unavailable; no legacy GDAL fallback is needed.
 
