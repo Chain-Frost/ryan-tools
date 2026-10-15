@@ -42,12 +42,23 @@ from pathlib import Path
 
 from osgeo import gdal, ogr, osr
 
+from ryan_library.functions.gdal.raster_processing import (
+    DEFAULT_OVERVIEW_LEVELS,
+    build_external_overviews as shared_build_external_overviews,
+    build_vrt,
+    geotiff_creation_options,
+)
+from ryan_library.functions.tuflow.tuflow_result_naming import (
+    format_user_template,
+    validate_output_filename,
+)
+
 
 # ---------------------------------------------------------------------------
 # Project configuration
 # ---------------------------------------------------------------------------
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).absolute().parent
 RESULTS_DIR = SCRIPT_DIR.parent
 VERSION_NAMES = ("v06", "v07")
 
@@ -66,7 +77,7 @@ FG_COMBINED_MODEL = "FG"
 FG_COMBINED_EXTENTS = ("FG01", "FG02")
 FG_DIRECT_MODELS = ("FG03",)
 
-OVERVIEW_LEVELS = (2, 4, 8, 16, 32)
+OVERVIEW_LEVELS = DEFAULT_OVERVIEW_LEVELS
 OVERVIEW_RESAMPLING = "NEAREST"
 
 # Increment this only when the numerical processing method changes.
@@ -204,12 +215,11 @@ def discover_extent_sources(
 
 
 def output_path(version: str, model: str, aep: str, grid_type: str, fg: bool) -> Path:
-    filename = OUTPUT_TEMPLATE.format(
-        version=version,
-        model=model,
-        aep=aep,
-        grid=grid_type,
-    )
+    filename = validate_output_filename(format_user_template(
+        template=OUTPUT_TEMPLATE,
+        values={"version": version, "model": model, "aep": aep, "grid": grid_type},
+        description="TUFLOW maximum output name",
+    ))
     if fg:
         path = FG_OUTPUT_DIR / aep / filename
         return path.with_name(f"{path.stem}-clip{path.suffix}")
@@ -363,7 +373,7 @@ def file_inventory(paths: tuple[Path, ...]) -> list[dict[str, int | str]]:
         stat = path.stat()
         inventory.append(
             {
-                "path": str(path.resolve()),
+                "path": str(path.absolute()),
                 "size": stat.st_size,
                 "mtime_ns": stat.st_mtime_ns,
             }
@@ -384,7 +394,7 @@ def zone_signature(path: Path) -> str:
     stat = path.stat()
     return digest(
         {
-            "path": str(path.resolve()),
+            "path": str(path.absolute()),
             "size": stat.st_size,
             "mtime_ns": stat.st_mtime_ns,
         }
@@ -513,52 +523,36 @@ def inspect_sources(paths: tuple[Path, ...]) -> SourceInfo:
 
 
 def create_maximum_vrt(job: Job, source_info: SourceInfo) -> tuple[gdal.Dataset, str]:
+    """Build a GDAL 3.12+ maximum VRT through the shared library helper."""
     virtual_path = f"/vsimem/tuflow_max_{uuid.uuid4().hex}.vrt"
-    common: dict[str, object] = {
-        "pixelFunction": "max",
-        "srcNodata": source_info.nodata,
-        "VRTNodata": source_info.nodata,
-        "resampleAlg": gdal.GRA_NearestNeighbour,
-        "strict": True,
-    }
-    if job.target_aligned:
-        common.update(
-            xRes=source_info.x_resolution,
-            yRes=source_info.y_resolution,
-            targetAlignedPixels=True,
-        )
-    else:
-        common.update(resolution="highest")
+    try:
+        options: dict[str, object] = {
+            "source_nodata": source_info.nodata,
+            "vrt_nodata": source_info.nodata,
+            "pixel_function": "max",
+            "resample_alg": gdal.GRA_NearestNeighbour,
+            "strict": True,
+        }
+        if job.target_aligned:
+            options.update(
+                resolution="user",
+                x_res=source_info.x_resolution,
+                y_res=source_info.y_resolution,
+                target_aligned_pixels=True,
+            )
+        else:
+            options["resolution"] = "highest"
 
-    vrt = gdal.BuildVRT(
-        virtual_path,
-        [str(path) for path in job.sources],
-        options=gdal.BuildVRTOptions(**common),
-    )
-    if vrt is None:
+        # The shared helper writes and closes the VRT. Reopen it to keep the
+        # source available until the clip has been materialised.
+        build_vrt(job.sources, Path(virtual_path), **options)
+        maximum = gdal.Open(virtual_path, gdal.GA_ReadOnly)
+        if maximum is None:
+            raise RuntimeError("GDAL failed to reopen the maximum VRT.")
+        return maximum, virtual_path
+    except Exception:
         gdal.Unlink(virtual_path)
-        raise RuntimeError(gdal.GetLastErrorMsg() or "GDAL could not create maximum VRT.")
-    return vrt, virtual_path
-
-
-def geotiff_creation_options(profile: str) -> list[str]:
-    common = ["BIGTIFF=IF_SAFER", "NUM_THREADS=ALL_CPUS"]
-    if profile == "tuflow":
-        # Matches the conservative profile used by gdal_translate_TIF_ovr.py.
-        return ["COMPRESS=DEFLATE", "PREDICTOR=2", *common]
-    if profile == "efficient":
-        return [
-            "COMPRESS=ZSTD",
-            "PREDICTOR=2",
-            "ZSTD_LEVEL=9",
-            "TILED=YES",
-            "BLOCKXSIZE=512",
-            "BLOCKYSIZE=512",
-            "SPARSE_OK=TRUE",
-            *common,
-        ]
-    raise ValueError(f"Unsupported compression profile: {profile}")
-
+        raise
 
 def temporary_tif(destination: Path) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -654,55 +648,29 @@ def clip_bounds_and_crs(
 
 
 def build_external_overviews(raster: Path, profile: str) -> None:
-    config = {
-        "COMPRESS_OVERVIEW": "DEFLATE" if profile == "tuflow" else "ZSTD",
-        "PREDICTOR_OVERVIEW": "2",
-        "BIGTIFF_OVERVIEW": "IF_SAFER",
-        "GDAL_NUM_THREADS": "ALL_CPUS",
-        "SPARSE_OK_OVERVIEW": "NO" if profile == "tuflow" else "YES",
-    }
+    """Retry the shared GDAL overview helper for slow network file shares."""
     sidecar = overview_path(raster)
-    sidecar_existed_before = sidecar.is_file()
+    sidecar_existed = sidecar.is_file()
     failures: list[str] = []
-
-    # On the project network share, GDAL can occasionally return CE_Failure
-    # when an external overview is requested immediately after the source TIFF
-    # is closed. Reopening with a short backoff avoids discarding an otherwise
-    # complete maximum/clip because of that file-visibility race.
     for attempt in range(1, 4):
         if attempt > 1:
             time.sleep(float(attempt - 1))
-        gdal.ErrorReset()
-        result = gdal.CE_Failure
-        with gdal.config_options(config):
-            dataset = gdal.Open(str(raster), gdal.GA_ReadOnly)
-            if dataset is None:
-                detail = gdal.GetLastErrorMsg() or "GDAL could not reopen the raster"
-                failures.append(f"attempt {attempt}: {detail}")
-            else:
-                result = dataset.BuildOverviews(
-                    OVERVIEW_RESAMPLING,
-                    list(OVERVIEW_LEVELS),
-                )
-                dataset = None
-                detail = gdal.GetLastErrorMsg()
-                if result == gdal.CE_None and sidecar.is_file():
-                    return
-                failures.append(
-                    f"attempt {attempt}: error {result}"
-                    + (f" ({detail})" if detail else " (no GDAL detail)")
-                )
-
-        # Remove only a sidecar created by this call. Never delete a pre-existing
-        # overview merely because a refresh attempt encountered a transient error.
-        if not sidecar_existed_before:
-            sidecar.unlink(missing_ok=True)
-
+        try:
+            shared_build_external_overviews(
+                raster,
+                levels=OVERVIEW_LEVELS,
+                resampling="nearest",
+                profile=profile,
+                refresh=True,
+            )
+            return
+        except (RuntimeError, OSError) as error:
+            failures.append(f"attempt {attempt}: {error}")
+            if not sidecar_existed:
+                sidecar.unlink(missing_ok=True)
     raise RuntimeError(
-        "GDAL failed to build external overviews after 3 attempts: "
-        + "; ".join(failures)
+        "GDAL failed to build external overviews after 3 attempts: " + "; ".join(failures)
     )
-
 
 def materialize_clipped_maximum(
     maximum: gdal.Dataset,
@@ -730,7 +698,7 @@ def materialize_clipped_maximum(
         "srcNodata": source_info.nodata,
         "dstNodata": source_info.nodata,
         "multithread": True,
-        "creationOptions": geotiff_creation_options(profile),
+        "creationOptions": geotiff_creation_options(profile, threads="ALL_CPUS"),
         "warpOptions": ["NUM_THREADS=ALL_CPUS", "UNIFIED_SRC_NODATA=YES"],
     }
     if source_srs_override is not None:
