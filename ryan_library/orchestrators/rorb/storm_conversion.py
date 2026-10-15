@@ -147,10 +147,7 @@ def prepare_batch(
     seen: dict[str, int] = {}
 
     for line, row in rows:
-        cells = {
-            key: (row.get(key) or "").strip()
-            for key in ("Model", "TUFLOW_AEP", "TUFLOW_Duration", "TP")
-        }
+        cells = {key: (row.get(key) or "").strip() for key in ("Model", "TUFLOW_AEP", "TUFLOW_Duration", "TP")}
         missing = [key for key, value in cells.items() if not value]
         if missing:
             skipped.append(f"line {line}: incomplete row ({', '.join(missing)})")
