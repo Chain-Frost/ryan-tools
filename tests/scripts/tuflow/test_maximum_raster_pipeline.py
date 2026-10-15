@@ -267,3 +267,25 @@ def test_local_crs_assumption_is_not_copied_from_zone_crs(tmp_path: Path) -> Non
     assert not actual_crs.IsSame(zone_crs)
     assert bounds == (500000.0, 7600000.0, 500002.0, 7600002.0)
     maximum = None
+
+
+def test_grid_alignment_checks_cell_origin_and_resolution(tmp_path: Path) -> None:
+    matching = (500000.0, 2.0, 0.0, 7600000.0, 0.0, -2.0)
+    assert maximum_rasters.raster_grid_alignment_matches(
+        matching, (500004.0, 2.0, 0.0, 7599996.0, 0.0, -2.0),
+    )
+    assert not maximum_rasters.raster_grid_alignment_matches(
+        matching, (500001.0, 2.0, 0.0, 7600000.0, 0.0, -2.0),
+    )
+    assert not maximum_rasters.raster_grid_alignment_matches(
+        matching, (500000.0, 1.0, 0.0, 7600000.0, 0.0, -2.0),
+    )
+
+
+def test_strict_grid_alignment_rejects_offset_rasters(tmp_path: Path) -> None:
+    first, second = tmp_path / "a.tif", tmp_path / "b.tif"
+    make_raster(first, np.ones((2, 2)), origin_x=0)
+    make_raster(second, np.ones((2, 2)), origin_x=0.5)
+    assert maximum_rasters.inspect_sources((first, second), strict_alignment=False)
+    with pytest.raises(RuntimeError, match="grid resolution or origin is misaligned"):
+        maximum_rasters.inspect_sources((first, second), strict_alignment=True)
