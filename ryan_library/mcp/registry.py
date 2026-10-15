@@ -229,7 +229,7 @@ class WorkflowRegistry:
             case ExecutionKind.MODULE:
                 try:
                     available: bool = find_spec(workflow.execution.value) is not None
-                except ImportError, ModuleNotFoundError, AttributeError, ValueError:
+                except (ImportError, ModuleNotFoundError, AttributeError, ValueError):
                     available = False
                 return [sys.executable, "-m", workflow.execution.value] if available else None
             case ExecutionKind.SCRIPT:
