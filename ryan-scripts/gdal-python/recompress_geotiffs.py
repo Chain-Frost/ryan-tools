@@ -91,7 +91,7 @@ def main(
                 saved / 1024**2,
             )
             return 1 if failed else 0
-        except Exception:
+        except Exception:  # noqa: BLE001 - top-level CLI converts failures to exit status
             logger.exception("GeoTIFF audit or recompression failed.")
             return 1
 
