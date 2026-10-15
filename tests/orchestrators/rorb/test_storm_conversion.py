@@ -100,9 +100,7 @@ def test_batch_rejects_unsafe_output_template(tmp_path: Path) -> None:
     table = _table(tmp_path / "critical.csv", "GD08,01.00p,00120m,TP07")
     root = tmp_path / "TUFLOW_MLGD" / "rainfall"
     _csv(root / "GD08" / "rf_inflow" / "GD08_RF_01.00p00120m.CSV")
-    plan = prepare_batch(
-        table, bc_database=root, output_dir=tmp_path / "out", output_template="../elsewhere.stm"
-    )
+    plan = prepare_batch(table, bc_database=root, output_dir=tmp_path / "out", output_template="../elsewhere.stm")
     assert plan.errors
     assert "Unsafe output" in plan.errors[0]
 
