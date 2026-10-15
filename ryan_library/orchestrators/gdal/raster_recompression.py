@@ -48,7 +48,7 @@ def audit_geotiffs(directory: Path, *, recursive: bool = True) -> tuple[RasterIn
 
 def discover_geotiffs(directory: Path, *, recursive: bool = True) -> tuple[Path, ...]:
     """Return a stable list of TIFF files below a directory."""
-    root = directory.resolve()
+    root = directory.absolute()
     if not root.is_dir():
         message = f"Raster directory does not exist: {root}"
         raise NotADirectoryError(message)
@@ -120,7 +120,7 @@ def _recompress_one(
             inspection.snapshot.size,
         )
 
-    stage_root = staging_directory.resolve() if staging_directory else source.parent
+    stage_root = staging_directory.absolute() if staging_directory else source.parent
     stage_root.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="ryan-recompress-", dir=stage_root))
     deployed = source.with_name(f".{source.name}.ryan-{uuid.uuid4().hex}.tmp")
