@@ -526,26 +526,34 @@ def create_maximum_vrt(job: Job, source_info: SourceInfo) -> tuple[gdal.Dataset,
     """Build a GDAL 3.12+ maximum VRT through the shared library helper."""
     virtual_path = f"/vsimem/tuflow_max_{uuid.uuid4().hex}.vrt"
     try:
-        options: dict[str, object] = {
-            "source_nodata": source_info.nodata,
-            "vrt_nodata": source_info.nodata,
-            "pixel_function": "max",
-            "resample_alg": gdal.GRA_NearestNeighbour,
-            "strict": True,
-        }
         if job.target_aligned:
-            options.update(
+            build_vrt(
+                job.sources,
+                Path(virtual_path),
+                source_nodata=source_info.nodata,
+                vrt_nodata=source_info.nodata,
+                pixel_function="max",
+                resample_alg=gdal.GRA_NearestNeighbour,
+                strict=True,
                 resolution="user",
                 x_res=source_info.x_resolution,
                 y_res=source_info.y_resolution,
                 target_aligned_pixels=True,
             )
         else:
-            options["resolution"] = "highest"
+            build_vrt(
+                job.sources,
+                Path(virtual_path),
+                source_nodata=source_info.nodata,
+                vrt_nodata=source_info.nodata,
+                pixel_function="max",
+                resample_alg=gdal.GRA_NearestNeighbour,
+                strict=True,
+                resolution="highest",
+            )
 
-        # The shared helper writes and closes the VRT. Reopen it to keep the
-        # source available until the clip has been materialised.
-        build_vrt(job.sources, Path(virtual_path), **options)
+        # The shared helper closes its output. Keep the reopened VRT alive
+        # until the polygon clipping has materialised.
         maximum = gdal.Open(virtual_path, gdal.GA_ReadOnly)
         if maximum is None:
             raise RuntimeError("GDAL failed to reopen the maximum VRT.")
@@ -553,6 +561,7 @@ def create_maximum_vrt(job: Job, source_info: SourceInfo) -> tuple[gdal.Dataset,
     except Exception:
         gdal.Unlink(virtual_path)
         raise
+
 
 def temporary_tif(destination: Path) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
