@@ -141,3 +141,31 @@ def test_reject_known_different_source_crs(tmp_path: Path) -> None:
     make_raster(second, np.ones((2, 2)), origin_x=0, epsg=28351)
     with pytest.raises(RuntimeError, match="CRS differs"):
         pipeline.inspect_sources((first, second))
+
+
+def test_publish_failure_restores_previous_raster_overview_pair(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pipeline = load_pipeline()
+    destination = tmp_path / "result.tif"
+    destination_overview = pipeline.overview_path(destination)
+    temporary = tmp_path / "new.tif"
+    temporary_overview = pipeline.overview_path(temporary)
+    destination.write_bytes(b"previous-raster")
+    destination_overview.write_bytes(b"previous-overview")
+    temporary.write_bytes(b"replacement-raster")
+    temporary_overview.write_bytes(b"replacement-overview")
+
+    real_replace = pipeline.os.replace
+
+    def fail_overview_publication(source: Path, target: Path) -> None:
+        if source == temporary_overview and target == destination_overview:
+            raise PermissionError("simulated overview rename failure")
+        real_replace(source, target)
+
+    monkeypatch.setattr(pipeline.os, "replace", fail_overview_publication)
+    with pytest.raises(PermissionError, match="simulated"):
+        pipeline.publish_output(temporary, destination, build_overviews=True)
+    assert destination.read_bytes() == b"previous-raster"
+    assert destination_overview.read_bytes() == b"previous-overview"
+    assert temporary_overview.read_bytes() == b"replacement-overview"
