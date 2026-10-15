@@ -76,7 +76,7 @@ def is_notebook() -> bool:
         if shell is None:
             return False
         return type(shell).__name__ == "ZMQInteractiveShell"
-    except AttributeError, ImportError:
+    except (AttributeError, ImportError):
         return False
 
 
