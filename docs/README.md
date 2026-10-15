@@ -38,6 +38,7 @@ rg -n -i "search terms" -g "*.md" -g "!unsorted/**" -g "!vendor/run_hy8/**" -g "
 | [Logging guide](LOGGING.md) | Changing Loguru configuration, message formatting, multiprocessing or notebook logging | Canonical logging contract |
 | [Ryan Scripts guide](../ryan-scripts/README.md) | Choosing and safely running human-facing wrappers or standalone scripts | Canonical script-selection guide |
 | [Maintained wrapper standard](../ryan-scripts/WRAPPER_STANDARD.md) | Creating or changing a maintained library-backed wrapper | Canonical maintained-wrapper contract |
+| [QGIS 4 / Python GDAL support](GDAL_SUPPORT.md) | Supported GDAL runtime, compatibility and georeferencing conventions | Raster/GIS support contract |
 
 ## Local workflow and implementation guides
 
@@ -50,6 +51,7 @@ These documents stay near the code they describe so that browsing a target direc
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
 | TUFLOW project setup | [Project setup guide](../ryan-scripts/tuflow/PROJECT_SETUP.md) | Compact project initialization, canonical empty-file generation and validation evidence |
 | Native ASC_to_ASC operations | [Native ASC_to_ASC-style raster operations](ASC_TO_ASC_NATIVE_OPERATIONS.md) | Supported commands, module responsibilities, NoData policies and executable comparison |
+| TUFLOW maximum rasters | [Maximum raster pipeline](TUFLOW_MAXIMUM_PIPELINE.md) | Drop-in defaults, configurable extent groups, GDAL pixel maxima and verification limitations |
 | GDAL wrappers | [GDAL Python wrappers](../ryan-scripts/gdal-python/README.md) | Maintained GDAL workflows, recipes, mutation risks and automation catalogue |
 | Legacy GDAL | [Legacy GDAL batch files](../ryan-scripts/gdal-bat/README.md) | Mapping retained BAT entry points to maintained Python replacements |
 | Examples | [Examples index](../examples/README.md) | Choosing direct library examples instead of wrappers |

@@ -1,5 +1,7 @@
 # TUFLOW Python wrappers
 
+The [TUFLOW maximum raster pipeline](../../docs/TUFLOW_MAXIMUM_PIPELINE.md) creates cell-wise maximum rasters with Python GDAL 3.12+. It preserves the original RTIO v06/v07 and FG defaults without CLI arguments, while allowing arbitrary named source groups, project directories and output-name templates. The repository supports QGIS 4, not QGIS 3; this workflow does not invoke GDAL command-line executables.
+
 This folder contains maintained, library-backed wrappers as well as older
 standalone utilities. New and updated thin wrappers follow the repository-wide
 [`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md); versioned standalone scripts
