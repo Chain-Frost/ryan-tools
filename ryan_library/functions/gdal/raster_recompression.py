@@ -7,8 +7,6 @@ output against those digests. More complex rasters should use GDAL Translate
 and :func:`verify_rasters_exact` instead.
 """
 
-from __future__ import annotations
-
 # Pyright: Rasterio currently has no bundled type stubs.
 # pyright: reportMissingTypeStubs=false
 # pyright: reportUnknownArgumentType=false
@@ -18,6 +16,8 @@ from __future__ import annotations
 # pyright: reportAttributeAccessIssue=false
 # pyright: reportCallIssue=false
 # pyright: reportUnnecessaryContains=false
+
+from __future__ import annotations
 
 import hashlib
 import os
@@ -170,13 +170,18 @@ def stream_copy_eligibility(dataset: rasterio.io.DatasetReader) -> tuple[bool, s
             False,
             f"mask flags require explicit mask copying: {sorted(flag.name for flag in flags)}",
         )
+    if _has_colour_table(dataset):
+        return False, "band has a colour table"
+    return True, ""
+
+
+def _has_colour_table(dataset: rasterio.io.DatasetReader) -> bool:
+    """Rasterio raises ValueError for bands without a colour table."""
     try:
         dataset.colormap(1)
     except ValueError:
-        pass
-    else:
-        return False, "band has a colour table"
-    return True, ""
+        return False
+    return True
 
 
 def capture_raster_signature(dataset: rasterio.io.DatasetReader) -> RasterSignature:
@@ -224,13 +229,15 @@ def stream_copy_float32_geotiff(
     source = source.resolve()
     output = output.resolve()
     if output.exists():
-        raise FileExistsError(f"Streaming output already exists: {output}")
+        message = f"Streaming output already exists: {output}"
+        raise FileExistsError(message)
     output.parent.mkdir(parents=True, exist_ok=True)
 
     with rasterio.open(source) as original:
         eligible, reason = stream_copy_eligibility(original)
         if not eligible:
-            raise ValueError(f"Streaming copy is not eligible: {reason}")
+            message = f"Streaming copy is not eligible: {reason}"
+            raise ValueError(message)
         source_signature = capture_raster_signature(original)
         profile = dict(original.profile)
         for key in ("blockxsize", "blockysize", "compress", "tiled"):
@@ -265,7 +272,8 @@ def stream_copy_float32_geotiff(
         output, result, expected_compression=compression
     )
     if difference is not None:
-        raise RuntimeError(f"Streaming output verification failed: {difference}")
+        message = f"Streaming output verification failed: {difference}"
+        raise RuntimeError(message)
     return result
 
 
@@ -364,18 +372,17 @@ def stage_raster_with_dependencies(source: Path, directory: Path) -> Path:
     for physical_file in physical_files:
         destination = directory / physical_file.name
         if destination in destinations:
-            raise ValueError(
-                f"Raster dependencies have duplicate names: {physical_file.name}"
-            )
+            message = f"Raster dependencies have duplicate names: {physical_file.name}"
+            raise ValueError(message)
         destinations.add(destination)
         copy_file_with_digest(physical_file, destination)
     if not staged_source.is_file():
-        raise RuntimeError(
-            f"GDAL did not report the source TIFF as a physical file: {source}"
-        )
+        message = f"GDAL did not report the source TIFF as a physical file: {source}"
+        raise RuntimeError(message)
     difference = compare_raster_metadata(source, staged_source)
     if difference is not None:
-        raise RuntimeError(f"Staged raster metadata differs: {difference}")
+        message = f"Staged raster metadata differs: {difference}"
+        raise RuntimeError(message)
     return staged_source
 
 
@@ -386,7 +393,8 @@ def copy_file_with_digest(
     source = source.resolve()
     destination = destination.resolve()
     if destination.exists():
-        raise FileExistsError(f"Copy destination already exists: {destination}")
+        message = f"Copy destination already exists: {destination}"
+        raise FileExistsError(message)
     destination.parent.mkdir(parents=True, exist_ok=True)
     digest = hashlib.sha256()
     with source.open("rb") as input_file, destination.open("xb") as output_file:
@@ -399,7 +407,8 @@ def copy_file_with_digest(
     expected = digest.digest()
     if hash_file(destination, chunk_size=chunk_size) != expected:
         destination.unlink(missing_ok=True)
-        raise OSError(f"Copied file digest differs: {source} -> {destination}")
+        message = f"Copied file digest differs: {source} -> {destination}"
+        raise OSError(message)
     return expected
 
 
@@ -414,7 +423,8 @@ def hash_file(path: Path, *, chunk_size: int = 8 * 1024 * 1024) -> bytes:
 
 def _window_rows(width: int, height: int, max_window_cells: int) -> int:
     if max_window_cells < 1:
-        raise ValueError("max_window_cells must be positive")
+        message = "max_window_cells must be positive"
+        raise ValueError(message)
     return max(1, min(height, max_window_cells // max(1, width)))
 
 
