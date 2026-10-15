@@ -16,7 +16,6 @@ follow the separate restore confirmation. Restoration never overwrites files.
 from __future__ import annotations
 
 import csv
-import hashlib
 import os
 import shutil
 import sys
@@ -37,6 +36,13 @@ from rich.progress import (
     TimeRemainingColumn,
     TransferSpeedColumn,
 )
+
+from ryan_library.functions.file_verification import (
+    FileSnapshot,
+    has_linked_component,
+    snapshot_is_unchanged,
+)
+from ryan_library.functions.file_verification import hash_file as shared_hash_file
 
 # delete duplicate files below this script in TUFLOW check folders.
 
@@ -239,24 +245,13 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
 
 def file_hash(path: Path, *, on_chunk: Callable[[int], None] | None = None) -> str:
     """Hash a file using SHA-256; optionally report bytes read during the same pass."""
-    digest = hashlib.sha256()
-
-    with path.open("rb") as file:
-        while chunk := file.read(HASH_CHUNK_SIZE):
-            digest.update(chunk)
-            if on_chunk is not None:
-                on_chunk(len(chunk))
-
-    return digest.hexdigest()
+    return shared_hash_file(path, chunk_size=HASH_CHUNK_SIZE, on_chunk=on_chunk).hex()
 
 
 def matches_snapshot(path: Path, *, size_bytes: int, mtime_ns: int) -> bool:
     """Compare inexpensive metadata with the original scan; never rehash."""
-    try:
-        stat = path.stat()
-        return stat.st_size == size_bytes and stat.st_mtime_ns == mtime_ns
-    except OSError:
-        return False
+    record = FileSnapshot(path=path, size=size_bytes, mtime_ns=mtime_ns)
+    return not has_linked_component(path) and snapshot_is_unchanged(record)
 
 
 def hash_progress_display() -> Progress:

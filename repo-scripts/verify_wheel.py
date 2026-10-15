@@ -151,6 +151,20 @@ def _verify_wheel(
             msg = f"Wheel contains development or generated inputs: {forbidden_members[:10]}"
             raise ValueError(msg)
 
+        # Ensure bundled Python helpers match the source checkout, not only
+        # static resources; the retained wheel must contain newly added modules.
+        for source_directory, archive_directory in (
+            (PROJECT_ROOT / "ryan_library" / "functions", "ryan_library/functions"),
+            (PROJECT_ROOT / "ryan_library" / "orchestrators", "ryan_library/orchestrators"),
+        ):
+            _verify_source_files(
+                archive,
+                names,
+                source_directory=source_directory,
+                archive_directory=archive_directory,
+                suffixes=(".py",),
+            )
+
         _verify_source_files(
             archive,
             names,
