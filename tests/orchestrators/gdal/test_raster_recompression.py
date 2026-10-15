@@ -62,9 +62,7 @@ def test_auto_uses_translate_and_local_stage_for_other_dtype(tmp_path: Path) -> 
     stage = tmp_path / "stage"
     source_dir.mkdir()
     source = source_dir / "classes.tif"
-    _write_raster(
-        source, np.arange(100, dtype=np.uint16).reshape(10, 10), dtype="uint16"
-    )
+    _write_raster(source, np.arange(100, dtype=np.uint16).reshape(10, 10), dtype="uint16")
 
     results = recompress_geotiffs(source_dir, staging_directory=stage)
 
