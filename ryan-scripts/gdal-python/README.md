@@ -25,6 +25,12 @@ The default `auto` strategy has two paths:
   GDAL-reported sidecars are copied and file-hash checked once, then conversion
   and exact comparison occur locally.
 
+Replacement currently supports **self-contained GeoTIFFs only**. If GDAL reports
+external `.aux.xml`, `.msk`, `.ovr` or other raster dependencies, the tool
+refuses to replace the TIFF rather than risk losing or overriding metadata in
+a non-atomic sidecar update. Paths traversing symlinks or Windows junctions are
+also rejected. The audit remains read-only; handle dependent file sets manually.
+
 The audit obtains dimensions, bands, data types, CRS, transform, NoData,
 compression, masks, metadata, and overview presence from GDAL/raster headers.
 Reading every pixel is the expensive operation and is reserved for output
