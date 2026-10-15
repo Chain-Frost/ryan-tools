@@ -76,9 +76,7 @@ def infer_output_details(csv_path: Path, column_name: str) -> tuple[str, str, st
     """Extract catchment, AEP, duration in minutes and TP from a standard filename."""
     match = _CSV_NAME_RE.fullmatch(csv_path.name)
     if match is None:
-        message = (
-            f"Cannot infer filename from {csv_path.name!r}; use --output-name."
-        )
+        message = f"Cannot infer filename from {csv_path.name!r}; use --output-name."
         raise ConversionError(message)
     return (
         match["catchment"],
@@ -93,9 +91,7 @@ def infer_model_name(csv_path: Path) -> str:
     for ancestor in (csv_path, *csv_path.parents):
         if ancestor.name.upper().startswith("TUFLOW_") and len(ancestor.name) > 7:
             return ancestor.name[7:]
-    message = (
-        "Cannot infer the STM model name from a TUFLOW_* ancestor; set --model-name."
-    )
+    message = "Cannot infer the STM model name from a TUFLOW_* ancestor; set --model-name."
     raise ConversionError(message)
 
 
@@ -243,6 +239,7 @@ def read_rainfall_series(
         timestep_hours=timestep,
         values=intervals,
     )
+
 
 def _format_number(value: float) -> str:
     return "0" if value == 0 else format(value, ".10g")
