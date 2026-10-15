@@ -104,12 +104,6 @@ def _recompress_one(
     staging_directory: Path | None,
     max_window_cells: int,
 ) -> RecompressionResult:
-    if _has_linked_component(source):
-        size = source.stat().st_size
-        return RecompressionResult(
-            source, "failed", "safety", "symlink or junction in source path", size, size
-        )
-
     inspection = inspect_geotiff(source)
     if inspection.compression != "NONE":
         return RecompressionResult(
@@ -120,13 +114,9 @@ def _recompress_one(
             inspection.snapshot.size,
             inspection.snapshot.size,
         )
-    # Only the TIFF is replaced atomically; preserving external PAM/OVR/mask
-    # sidecars would require a separately verified multi-file transaction.
-    if _external_dependencies(source):
-        size = inspection.snapshot.size
-        return RecompressionResult(
-            source, "failed", "safety", "external raster sidecars require manual handling", size, size
-        )
+    safety_failure = _replacement_safety_failure(source, inspection)
+    if safety_failure is not None:
+        return safety_failure
     compression = "DEFLATE" if profile == "tuflow" else "ZSTD"
     use_stream = strategy == "stream" or (
         strategy == "auto" and profile == "tuflow" and inspection.stream_eligible
@@ -173,9 +163,7 @@ def _recompress_one(
             if difference is not None:
                 message = f"Exact verification failed: {difference}"
                 raise RuntimeError(message)
-        if _external_dependencies(output):
-            message = "compressed output uses external sidecars; replacement cancelled"
-            raise RuntimeError(message)
+        _ensure_self_contained_output(output)
         if not snapshot_is_unchanged(inspection.snapshot):
             message = "source changed during conversion"
             raise RuntimeError(message)
@@ -219,3 +207,25 @@ def _external_dependencies(path: Path) -> bool:
     """Reject sidecars that a single-file atomic replacement cannot preserve."""
     with rasterio.open(path) as dataset:
         return any(Path(name).resolve() != path.resolve() for name in dataset.files)
+
+
+def _replacement_safety_failure(
+    source: Path, inspection: RasterInspection
+) -> RecompressionResult | None:
+    """Reject inputs that a single-file atomic overwrite cannot safely handle."""
+    linked = _has_linked_component(source)
+    if linked:
+        reason = "symlink or junction in source path"
+    elif _external_dependencies(source):
+        reason = "external raster sidecars require manual handling"
+    else:
+        return None
+    size = inspection.snapshot.size
+    return RecompressionResult(source, "failed", "safety", reason, size, size)
+
+
+def _ensure_self_contained_output(output: Path) -> None:
+    """Refuse deployment of a compressed TIFF whose metadata needs sidecars."""
+    if _external_dependencies(output):
+        message = "compressed output uses external sidecars; replacement cancelled"
+        raise RuntimeError(message)
