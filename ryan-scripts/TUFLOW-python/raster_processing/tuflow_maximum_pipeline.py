@@ -102,6 +102,7 @@ def discover_jobs(
     output_template: str = OUTPUT_TEMPLATE,
     groups: tuple[SourceGroup, ...] = DEFAULT_GROUPS,
     legacy_local_crs: str = DEFAULT_LEGACY_LOCAL_CRS,
+    strict_alignment: bool = False,
 ) -> tuple[list[Job], list[str]]:
     """Keep the RTIO folder mapping while delegating discovery to the library."""
     return _discover_jobs(
@@ -109,6 +110,7 @@ def discover_jobs(
         input_root=input_root, output_root=output_root,
         output_template=output_template, groups=groups,
         legacy_local_crs=legacy_local_crs,
+        strict_alignment=strict_alignment,
     )
 
 
@@ -157,6 +159,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fg-zones", type=Path, default=FG_ZONES, help="Special output-zone GeoPackage (one layer).")
     parser.add_argument("--zone-field", default=MODEL_FIELD, help="Polygon attribute used to match model names.")
     parser.add_argument("--legacy-local-crs", default=DEFAULT_LEGACY_LOCAL_CRS, help="Assumed projected CRS for legacy GDA94_MG rasters (default EPSG:28350).")
+    parser.add_argument("--strict-grid-alignment", action="store_true", help="Reject sources whose pixel sizes or origins cannot align without resampling.")
     parser.add_argument("--output-template", default=OUTPUT_TEMPLATE, help="Filename template with version/model/aep/grid.")
     parser.add_argument(
         "--group", action="append", metavar="[main|fg:]MODEL=EXTENT1,EXTENT2",
@@ -205,6 +208,7 @@ def main() -> int:
             output_template=args.output_template,
             groups=groups,
             legacy_local_crs=args.legacy_local_crs,
+            strict_alignment=args.strict_grid_alignment,
         )
     except Exception as error:
         print(f"ERROR: {error}", file=sys.stderr)
@@ -249,6 +253,7 @@ def main() -> int:
             ("Mode", "Dry run" if args.dry_run else "Live"),
             ("Algorithm", ALGORITHM_ID),
             ("Legacy local CRS", args.legacy_local_crs),
+            ("Strict grid alignment", str(args.strict_grid_alignment)),
             ("Versions searched", ", ".join(versions)),
             ("AEPs searched", ", ".join(aeps)),
             ("Grid types", ", ".join(grid_types)),
