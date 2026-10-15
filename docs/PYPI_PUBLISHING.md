@@ -22,7 +22,11 @@ as `ryan_library` do not change.
    restrictions where available. For release-tag publishing, allow release
    tags matching `v*` if deployment restrictions are enabled.
 5. Protect release tags and restrict who can create releases. Review changes
-   to the publishing workflow before merging them.
+   to the publishing workflow before merging them. Create a tag ruleset for
+   `v*` and a branch ruleset for `main` (required PRs/status checks where
+   available). Environment deployment tag restrictions alone do not establish
+   that a tag's commit came from `main`; the workflow separately verifies
+   that the release SHA is an ancestor of `origin/main`.
 
 No PyPI password, long-lived API token or GitHub secret is required for
 Trusted Publishing.
@@ -39,7 +43,8 @@ register the publisher or create the GitHub environment on your behalf.
    in `pyproject.toml` **before creating a tag**. The existing
    `repo-scripts/build_library.py --skip-artifacts` or normal build workflow
    can advance the version; commit this change to `main`.
-3. Create and push the exact `v<version>` tag on that commit.
+3. Create and push the exact `v<version>` tag on that commit. The tagged
+   commit must be reachable from the repository's current `main` branch.
 4. In GitHub, create a **non-prerelease** release for that tag and publish it.
    Creating a release is the deliberate publishing trigger.
 5. Monitor **Actions → Publish to PyPI**. The build job verifies the wheel
