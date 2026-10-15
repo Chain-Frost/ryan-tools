@@ -45,7 +45,8 @@ def _table_path(line: str) -> tuple[str, ...] | None:
         name, child = next(iter(data.items()))
         path.append(name)
         if not isinstance(child, dict):
-            raise ValueError(f"Invalid TOML table: {line.strip()}")
+            msg = f"Invalid TOML table: {line.strip()}"
+            raise ValueError(msg)
         data = child
     return tuple(path)
 
@@ -59,7 +60,8 @@ def _value(item: Any) -> str:
         return str(item).lower()
     if isinstance(item, list):
         return "[" + ", ".join(_value(part) for part in item) + "]"
-    raise ValueError(f"Unsupported existing Codex setting: {type(item).__name__}")
+    msg = f"Unsupported existing Codex setting: {type(item).__name__}"
+    raise ValueError(msg)
 
 
 def _table(header: tuple[str, ...], data: dict[str, Any]) -> str:
@@ -72,24 +74,28 @@ def _table(header: tuple[str, ...], data: dict[str, Any]) -> str:
     ) + "\n"
 
 
-def render_config(config: str, python: Path, root: Path, profile: str) -> str:
+def render_config(config: str, python: Path, root: Path, profile: str) -> str:  # noqa: C901
     """Preserve unrelated TOML data while replacing two server registrations."""
     existing = tomllib.loads(config)
     servers: Any = existing.get("mcp_servers", {})
     if not isinstance(servers, dict):
-        raise ValueError("mcp_servers must be a TOML table")
+        msg = "mcp_servers must be a TOML table"
+        raise ValueError(msg)
 
     replacements: dict[tuple[str, ...], str] = {}
     for name, module in SERVER_MODULES.items():
         current: Any = servers.get(name, {})
         if not isinstance(current, dict):
-            raise ValueError(f"Invalid MCP entry: {name}")
+            msg = f"Invalid MCP entry: {name}"
+            raise ValueError(msg)
         extra_tables = [key for key, val in current.items() if isinstance(val, dict) and key != "env"]
         if extra_tables:
-            raise ValueError(f"Unsupported nested MCP settings in {name}: {extra_tables}")
+            msg = f"Unsupported nested MCP settings in {name}: {extra_tables}"
+            raise ValueError(msg)
         env: Any = current.get("env", {})
         if not isinstance(env, dict) or any(not isinstance(value, str) for value in env.values()):
-            raise ValueError(f"Invalid MCP environment for {name}")
+            msg = f"Invalid MCP environment for {name}"
+            raise ValueError(msg)
         fields: dict[str, Any] = {
             "command": str(python),
             "args": ["-B", "-m", module],
@@ -120,16 +126,16 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:
     encountered = {header for header, _ in sections}
     for name in SERVER_MODULES:
         if name in servers and ("mcp_servers", name) not in encountered:
-            raise ValueError(
-                f"Use [mcp_servers.{name}] rather than an inline/dotted TOML definition"
-            )
+            msg = f"Use [mcp_servers.{name}] rather than an inline/dotted TOML definition"
+            raise ValueError(msg)
     emitted: set[tuple[str, ...]] = set()
     output: list[str] = []
     for header, original in sections:
         if header in replacements:
             assert header is not None
             if header in emitted:
-                raise ValueError(f"Duplicate MCP table: {header}")
+                msg = f"Duplicate MCP table: {header}"
+                raise ValueError(msg)
             emitted.add(header)
             output.append(replacements[header].rstrip("\n") + "\n\n")
         else:
@@ -141,13 +147,15 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:
 
     updated = tomllib.loads(rendered)
     if any(updated.get(key) != val for key, val in existing.items() if key != "mcp_servers"):
-        raise ValueError("Unexpected change to unrelated Codex settings")
+        msg = "Unexpected change to unrelated Codex settings"
+        raise ValueError(msg)
     if any(
         updated["mcp_servers"].get(key) != val
         for key, val in servers.items()
         if key not in SERVER_MODULES
     ):
-        raise ValueError("Unexpected change to another MCP server")
+        msg = "Unexpected change to another MCP server"
+        raise ValueError(msg)
     return rendered
 
 
@@ -174,7 +182,8 @@ def _write(path: Path, data: str, *, dry_run: bool) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         if path.is_file() and path.read_bytes() != original:
-            raise RuntimeError("Codex configuration changed during setup")
+            msg = "Codex configuration changed during setup"
+            raise RuntimeError(msg)
         os.replace(temporary, path)
     finally:
         Path(temporary).unlink(missing_ok=True)
@@ -220,7 +229,8 @@ def main(argv: list[str] | None = None) -> int:
             if "://" not in source:
                 package = Path(source).expanduser().absolute()
                 if not (package / "pyproject.toml").is_file():
-                    raise ValueError(f"No QGIS MCP Python project found at {package}")
+                    msg = f"No QGIS MCP Python project found at {package}"
+                    raise ValueError(msg)
                 source = str(package)
             pip = [str(python), "-B", "-m", "pip", "install", "--upgrade"]
             _run([*pip, source], dry_run=args.dry_run)
