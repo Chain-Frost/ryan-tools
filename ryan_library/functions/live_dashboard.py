@@ -8,6 +8,8 @@ read queues, or decide how work items are processed. Use
 serial/multiprocessing execution wired into this dashboard.
 """
 
+from __future__ import annotations
+
 import datetime
 import time
 from collections import deque
