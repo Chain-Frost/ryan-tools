@@ -41,8 +41,9 @@ Actions PR creation is enabled; the release PR still needs human merge.
 
 ## Validation and delivery
 
-Delivery branch: `feature/automated-pypi-release`. Changes are being committed
-and pushed as a new PR against current main, following explicit user authorization.
+Delivery branch: `feature/automated-pypi-release`, committed and pushed as
+[PR #123](https://github.com/Chain-Frost/ryan-tools/pull/123) against current main,
+following explicit user authorization. Local syntax/docs checks passed after rebasing.
 Hosted execution and publication have not run; these workflows must reach main
 before they can be started. The PR supplies the exact delivery commit and CI state.
 
