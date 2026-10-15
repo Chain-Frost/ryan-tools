@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -43,12 +42,14 @@ from ryan_library.orchestrators.tuflow.maximum_rasters import (
     Job,
     SourceGroup,
     ZoneCatalog,
-    discover_jobs as _discover_jobs,
-    load_zone_catalog,
-    output_path as _output_path,
-    parse_source_group,
     execute_jobs,
+    load_zone_catalog,
+    parse_source_group,
     write_report,
+)
+from ryan_library.orchestrators.tuflow.maximum_rasters import (
+    discover_jobs as _discover_jobs,
+    output_path as _output_path,
 )
 
 # Project defaults retained verbatim for drop-in use.
