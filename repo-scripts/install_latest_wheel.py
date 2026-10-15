@@ -73,7 +73,7 @@ def _pip_commands(
             "--only-binary=fiona",
             "--only-binary=rasterio",
             "--only-binary=gdal",
-            str(wheel),
+            f"{wheel}[mcp]",
         ]
     )
     return commands
