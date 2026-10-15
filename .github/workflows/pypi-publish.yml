@@ -98,6 +98,30 @@ jobs:
           python -m twine check $wheels[0].FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Reject dependencies unsupported by PyPI
+        shell: pwsh
+        run: |
+          @'
+          import email.parser
+          import pathlib
+          import zipfile
+          from packaging.requirements import Requirement
+
+          wheels = list(pathlib.Path("dist").glob("*.whl"))
+          if len(wheels) != 1:
+              raise SystemExit("Expected exactly one wheel")
+          with zipfile.ZipFile(wheels[0]) as archive:
+              metadata = [name for name in archive.namelist() if name.endswith(".dist-info/METADATA")]
+              if len(metadata) != 1:
+                  raise SystemExit("Expected exactly one metadata file")
+              message = email.parser.BytesParser().parsebytes(archive.read(metadata[0]))
+          for value in message.get_all("Requires-Dist", []):
+              if Requirement(value).url is not None:
+                  raise SystemExit(f"PyPI rejects URL dependencies, including extras: {value}")
+          print("PyPI dependency metadata verified")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Smoke-test the distribution to be published
         shell: pwsh
         run: |

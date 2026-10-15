@@ -15,6 +15,14 @@ Enforce Actionlint in Policy, reduce unnecessary dependency installation and
 duplicate wheel verification, and smoke-test the exact publication wheel.
 Keep the four required CI jobs and the existing temporary floodway exclusions.
 
+The user subsequently requested consistent release arrangements across
+ryan-tools, ryan-culverts and run-hy8. PR #125 also adds the shared preparation
+helper and its calendar/rollback tests here. It uses Perth time, preserves the
+existing version scheme, and delegates the wheel to the existing verified builder.
+Finalization now parses TOML instead of matching its layout with a regex.
+The open-release-PR check precedes any build. New repository setups have
+separate branches and PRs; their hydraulics and independent Git state remain intact.
+
 ## Current state
 
 Policy checks all workflows using pinned Actionlint 1.7.12 with SHA-256 archive
@@ -80,3 +88,25 @@ The final handoff/settings documentation update requires a fresh hosted run;
 the PR remains unmerged. Local workflow and documentation checks are rerun
 before pushing that update. The temporary floodway exclusions remain under
 this record's next review date.
+
+## Cross-repository consistency follow-up, 2026-10-16
+
+At the user's request, PR #125 now also aligns release preparation with the
+new ryan-culverts and run-hy8 setup PRs. The common helper uses Perth calendar
+dates, preserves each existing year width and restores metadata on builder
+failure. Existing builders retain wheel verification and promotion. Added
+16 focused calendar/rollback tests here; all passed. Changed-file Ruff,
+strict Pyright and documentation checks passed. No library code or package
+metadata changed in this repository.
+
+Finalization uses Python TOML parsing. Publication rejects direct URL dependencies,
+including optional extras. Workflow JavaScript passed 13 mocked release/finalization
+scenarios locally; PowerShell parsing and Actionlint passed. The metadata gate
+accepted the retained wheel and a normal optional PyPI requirement and rejected
+a synthetic extra containing a Git URL. Existing PR #125 hosted passes predate
+these additions; require fresh final-head CI after pushing.
+
+Both new repositories have matching main/tag protections, automatic branch
+deletion, Actions PR creation and automatic tag-only pypi environments. The
+user's screenshot confirms both pending PyPI publishers. Those repositories'
+first publications remain separate from this repository's successful release.

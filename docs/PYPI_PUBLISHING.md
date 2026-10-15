@@ -53,6 +53,14 @@ The workflow uses the existing transactional builder to bump the calendar
 version and retain the verified wheel, then opens a `release/pypi-<version>`
 pull request. Only one release PR may be open at a time.
 
+The common `prepare_release.py` helper selects the date in Perth time
+(UTC+08:00), updates metadata and invokes the existing builder without another
+bump. It restores metadata if that builder fails. The two-digit year remains
+unchanged here; run-hy8 preserves its existing four-digit year to avoid a downgrade.
+All three repositories use the same helper and release lifecycle, with their
+existing package-specific verified builders and smoke checks. The existing-PR
+check runs before checkout/build to avoid wasting work on duplicate requests.
+
 Review and squash merge that PR after the four required CI checks pass.
 Successful **Python CI** on the merge commit triggers **Finalize PyPI release**,
 which creates the matching tag and GitHub Release and explicitly dispatches
@@ -78,6 +86,8 @@ PR runs still cancel superseded runs. Finalization uses the successful run's
 exact merge SHA even if `main` has advanced. Its concurrency group is also
 specific to that SHA. If main CI fails or is manually cancelled, rerun that
 exact push run; a successful later commit does not release the earlier SHA.
+Finalization parses the merged version using Python's TOML parser rather than
+assuming a particular TOML layout or quoting style.
 
 If preparation fails after pushing a branch, inspect that branch and any PR
 before retrying. If finalization fails, rerun its failed job. If publication
