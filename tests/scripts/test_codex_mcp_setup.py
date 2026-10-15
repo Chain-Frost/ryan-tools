@@ -66,7 +66,7 @@ def test_wheel_installer_includes_qgis_mcp(tmp_path: Path) -> None:
     commands = pip_commands(tmp_path / "ryan_functions-test.whl", False)
     assert len(commands) == 3
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
-    assert commands[2][-1].endswith(".whl")
+    assert commands[2][-1].endswith(".whl[mcp]")
 
 
 def test_wheel_installer_allows_local_qgis_source(tmp_path: Path) -> None:
@@ -84,3 +84,11 @@ def test_wheel_installer_supports_offline_and_recovery_paths(tmp_path: Path) -> 
     recovery = pip_commands(wheel, True)
     assert len(recovery) == 1
     assert "--no-deps" in recovery[0]
+
+
+def test_pinned_upstream_qgis_source_is_consistent() -> None:
+    upstream = cast(str, installer["QGIS_MCP_ARCHIVE"])
+    codex_source = cast(str, codex["QGIS_MCP_SOURCE"])
+    requirements = (REPO / "requirements.txt").read_text(encoding="utf-8")
+    assert upstream == codex_source
+    assert upstream in requirements
