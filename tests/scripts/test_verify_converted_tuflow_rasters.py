@@ -651,9 +651,7 @@ def test_generated_tif_mismatch_never_deletes_source(
     assert not list(tmp_path.glob(".*.conversion.tif"))
 
 
-def test_conversion_does_not_run_on_ambiguous_tif(
-    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_conversion_does_not_run_on_ambiguous_tif(tool: ModuleType, tmp_path: Path) -> None:
     src, tif = make_pair(tmp_path)
     tif.with_suffix(".tiff").write_bytes(b"another TIFF")
     assert tool.main(["--root", str(tmp_path), "--convert-missing", "--no-progress"]) == 1
