@@ -45,9 +45,11 @@ from osgeo import gdal, ogr, osr
 
 from ryan_library.functions.gdal.raster_processing import (
     DEFAULT_OVERVIEW_LEVELS,
-    build_external_overviews as shared_build_external_overviews,
     build_vrt,
     geotiff_creation_options,
+)
+from ryan_library.functions.gdal.raster_processing import (
+    build_external_overviews as shared_build_external_overviews,
 )
 from ryan_library.functions.tuflow.tuflow_result_naming import format_user_template, validate_output_filename
 
@@ -661,7 +663,7 @@ def clip_bounds_and_crs(
         msg = "Rotated maximum grids are not supported."
         raise RuntimeError(msg)
 
-    vector_dataset, layer, geometry = selected_zone_geometry(job)
+    _vector_dataset, layer, geometry = selected_zone_geometry(job)
     source_wkt = maximum.GetProjection()
     source_srs = osr.SpatialReference()
     if source_wkt:
