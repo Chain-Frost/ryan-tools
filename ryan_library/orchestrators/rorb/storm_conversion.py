@@ -59,10 +59,12 @@ def _relative_template_path(rendered: str, *, output: bool) -> Path:
         or ":" in name
         or any(char in name for char in '<>"|?*')
     ):
-        raise ConversionError(f"Unsafe {'output' if output else 'input'} template path: {rendered!r}")
+        message = f"Unsafe {'output' if output else 'input'} template path: {rendered!r}"
+        raise ConversionError(message)
     if output:
         if not name.lower().endswith(".stm"):
-            raise ConversionError(f"STM output template must end with .stm: {name!r}")
+            message = f"STM output template must end with .stm: {name!r}"
+            raise ConversionError(message)
         try:
             validate_output_filename(pieces[-1])
         except ValueError as exc:
@@ -109,10 +111,12 @@ def read_batch_rows(table_path: Path) -> list[tuple[int, dict[str, str | None]]]
             required = {"Model", "TUFLOW_AEP", "TUFLOW_Duration", "TP"}
             missing = sorted(required - set(reader.fieldnames or ()))
             if missing:
-                raise ConversionError(f"Critical-storm table missing columns: {', '.join(missing)}")
+                message = f"Critical-storm table missing columns: {', '.join(missing)}"
+                raise ConversionError(message)
             result = [(line, row) for line, row in enumerate(reader, start=2)]
     except OSError as exc:
-        raise ConversionError(f"Cannot read critical-storm table: {exc}") from exc
+        message = f"Cannot read critical-storm table: {exc}"
+        raise ConversionError(message) from exc
     return result
 
 
@@ -155,7 +159,8 @@ def prepare_batch(
         try:
             model, aep, duration = cells["Model"], cells["TUFLOW_AEP"], cells["TUFLOW_Duration"]
             if not re.fullmatch(r"\d{3,5}m", duration, re.IGNORECASE):
-                raise ConversionError(f"Invalid duration {duration!r}, expected e.g. 01440m.")
+                message = f"Invalid duration {duration!r}, expected e.g. 01440m."
+                raise ConversionError(message)
             tp = normalise_tp(cells["TP"])
             values = {
                 "model": model,
@@ -173,13 +178,16 @@ def prepare_batch(
                 template=column_template, values=values, description="rainfall column template"
             )
             if not column:
-                raise ConversionError("Rainfall column template produced an empty name.")
+                message = "Rainfall column template produced an empty name."
+                raise ConversionError(message)
             key = str(output_path).casefold()
             if key in seen:
-                raise ConversionError(f"Output duplicates critical-storm line {seen[key]}: {output_path}")
+                message = f"Output duplicates critical-storm line {seen[key]}: {output_path}"
+                raise ConversionError(message)
             seen[key] = line
             if output_path.exists() and not overwrite:
-                raise ConversionError(f"Output already exists: {output_path} (use --overwrite).")
+                message = f"Output already exists: {output_path} (use --overwrite)."
+                raise ConversionError(message)
             series = read_rainfall_series(input_path, column, terminal_zero=terminal_zero)
             stm_text = build_stm(model_name, series, run_increments)
             jobs.append(PreparedJob(input_path, column, output_path, stm_text, table_line=line))
@@ -192,10 +200,11 @@ def prepare_batch(
 def write_batch(plan: BatchPlan, *, overwrite: bool = False) -> tuple[Path, ...]:
     """Write only a fully validated plan; never write a partial *validation* batch."""
     if plan.errors:
-        raise ConversionError(
+        message = (
             f"Batch contains {len(plan.errors)} invalid conversion(s); "
             "no outputs were written. Correct errors before executing."
         )
+        raise ConversionError(message)
     outputs: list[Path] = []
     for job in plan.jobs:
         write_stm(job.output_path, job.stm_text, overwrite=overwrite)
