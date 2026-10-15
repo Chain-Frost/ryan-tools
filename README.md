@@ -1,5 +1,7 @@
 # ryan-tools
 
+> **GDAL policy:** Maintained geospatial workflows use Python `osgeo` bindings and target QGIS 4 (not QGIS 3). See [GDAL and QGIS support](docs/GDAL_SUPPORT.md). The [TUFLOW maximum pipeline](docs/TUFLOW_MAXIMUM_PIPELINE.md) retains its original RTIO project defaults and supports configurable output groups.
+
 `ryan-tools` is a collection of Python utilities for TUFLOW, RORB, 12D, GDAL, QGIS and general data-processing
 workflows. Reusable code lives in `ryan_library`; files under `ryan-scripts` are human-facing wrappers and standalone
 utilities.
