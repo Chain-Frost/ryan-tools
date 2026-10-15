@@ -5,7 +5,7 @@
 | Status | Active |
 | Owner | ChatGPT |
 | Created | 2026-10-15 |
-| Updated | 2026-10-15 |
+| Updated | 2026-10-16 |
 | Next review | 2026-10-22 |
 | Baseline | main at 00a87f0, PR #123 merged; branch ci/streamline-release-validation |
 
@@ -26,7 +26,8 @@ verification is preserved. Publication smoke-tests its wheel before artifact upl
 
 ## Next action
 
-Push a separate PR and inspect all four hosted checks. Review and merge after validation.
+Review [PR #125](https://github.com/Chain-Frost/ryan-tools/pull/125) and its final-head checks.
+Merge after validation; exercise publication smoke in a subsequent release.
 
 ## Completion criteria
 
@@ -47,8 +48,9 @@ repository: passed. This excludes the normal installation's site-packages and
 demonstrates the focused dependency boundary. No Python/package metadata changed,
 so a local package rebuild or unrelated full test suite was not required.
 
-Changes are being committed and pushed on `ci/streamline-release-validation`;
-the PR is the source for the exact delivery head and hosted checks. Publication
+Changes are committed and pushed on `ci/streamline-release-validation` as
+[PR #125](https://github.com/Chain-Frost/ryan-tools/pull/125). The PR is the source
+for the exact delivery head and hosted checks. Publication
 smoke behaviour still requires a release after this follow-up is merged.
 
 ## Related release test
@@ -59,3 +61,10 @@ succeeded and opened [PR #124](https://github.com/Chain-Frost/ryan-tools/pull/12
 for 26.10.15.5. Approved its required bot-created PR-event CI run
 38764857814. Publication test progress belongs to the
 [release record](2026-10-15-release-automation.md).
+
+### 2026-10-16
+
+PR #124 passed all four checks and merged as e37cc25. Merged current main into
+the follow-up branch to satisfy strict branch freshness. Initial PR #125
+Policy passed, including the hosted Actionlint download/checksum/run. Final-head
+hosted CI must be checked after the branch update.

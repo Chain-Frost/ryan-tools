@@ -5,7 +5,7 @@
 | Status | Active |
 | Owner | ChatGPT |
 | Created | 2026-10-15 |
-| Updated | 2026-10-15 |
+| Updated | 2026-10-16 |
 | Next review | 2026-10-22 |
 | Baseline | feature/pypi-trusted-publishing at 2d1c978; PR #122 merged as 915b0eb; clean parent worktree before edits |
 
@@ -30,7 +30,7 @@ review; no unrelated implementation was started.
 
 ## Next action
 
-Wait for PR #124 required CI, merge the release PR, then verify finalization and PyPI publication.
+Verify main CI at e37cc25, release finalization and first PyPI publication.
 Actions PR creation is enabled; the release PR still needs human merge.
 
 ## Completion criteria
@@ -109,3 +109,12 @@ for 26.10.15.5. Approved the bot-created PR-event CI run 38764857814.
 Release PR CI and publication remain pending. A separate
 [CI validation follow-up](2026-10-15-ci-validation.md) preserves the release
 test baseline and adds workflow linting and exact publication-wheel smoke checks.
+
+### 2026-10-16
+
+PR #124 head 2bdbf1b passed all four required checks and was squash merged
+as e37cc25. Await exact merge-commit CI before automatic tag/release creation.
+Removed only the `creation` restriction from tag ruleset 25169344 so the
+workflow token can create release tags. Required CI checks and restrictions
+against updating/deleting tags remain enabled; no bypass actor was added.
+Follow-up improvements are in [PR #125](https://github.com/Chain-Frost/ryan-tools/pull/125).
