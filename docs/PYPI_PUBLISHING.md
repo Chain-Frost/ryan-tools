@@ -50,6 +50,10 @@ Successful **Python CI** on the merge commit triggers **Finalize PyPI release**,
 which creates the matching tag and GitHub Release and explicitly dispatches
 **Publish to PyPI** on that tag. Ordinary PR merges do not publish releases.
 The PyPI publisher identity remains `pypi-publish.yml` / environment `pypi`.
+Both release-event and manually dispatched publication require an existing,
+published, non-draft, non-prerelease GitHub Release for the exact tag. The
+publisher checks this through GitHub's API before checkout or building;
+a bare tag, draft or prerelease cannot be published through manual dispatch.
 
 Enable **Settings → Actions → General → Allow GitHub Actions to create and
 approve pull requests** for the preparation workflow. It requests write

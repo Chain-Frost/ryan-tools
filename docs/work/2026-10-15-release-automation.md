@@ -86,3 +86,16 @@ On 2026-10-15:
 - After both fixes, Actionlint passed for all four workflows, default documentation
   checks passed for seven files and index coverage, explicit link checks passed
   for four documents, and `git diff --check` passed.
+
+## PR #123 stable-release gate review
+
+The P1 review finding was valid: manual publication dispatch bypassed the
+release-event prerelease condition. Added a GitHub API check before checkout
+and building for both trigger types. An exact-tag release must exist, be
+published and have neither draft nor prerelease status. API errors fail closed.
+Updated publishing guidance to describe the gate. Prior-head hosted CI passed
+all four jobs; the fix requires fresh CI and has not published anything.
+Local validation of this fix passed: Actionlint, default documentation checks
+(seven files and index), explicit links for both changed documents, and
+`git diff --check`. The fix is committed and pushed on PR #123; fresh hosted
+validation remains pending. Live release API gating and OIDC upload are untested.

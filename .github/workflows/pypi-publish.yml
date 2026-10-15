@@ -21,6 +21,19 @@ jobs:
       contents: read
 
     steps:
+      - name: Require a published stable GitHub Release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const tag = context.ref.slice('refs/tags/'.length);
+            const {data: release} = await github.rest.repos.getReleaseByTag({
+              ...context.repo, tag
+            });
+            if (release.tag_name !== tag || release.draft || release.prerelease || !release.published_at) {
+              throw new Error(`Tag ${tag} must have a published, non-draft, non-prerelease GitHub Release.`);
+            }
+            core.info(`Verified published stable release ${release.html_url}`);
+
       - name: Check out release revision
         uses: actions/checkout@v6
         with:
