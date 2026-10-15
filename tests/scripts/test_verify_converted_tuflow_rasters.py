@@ -397,6 +397,9 @@ def test_any_declared_crs_mismatch_blocks_deletion(
 ) -> None:
     """Reject conflicting valid CRS definitions regardless of EPSG number."""
     src, tif = make_pair(tmp_path, suffix=suffix, crs=source_crs)
+    # FLT/ASC PRJ serialization can change the authority label (WGS84 becomes OGC:CRS84).
+    with rasterio.open(src) as original:
+        declared_source_crs = str(original.crs)
     with rasterio.open(tif, "r+") as dataset:
         dataset.crs = converted_crs
     os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
@@ -406,7 +409,7 @@ def test_any_declared_crs_mismatch_blocks_deletion(
     assert not result.eligible
     assert result.status == "MISMATCH"
     assert "Declared CRS definitions differ" in result.reason
-    assert source_crs in result.reason
+    assert declared_source_crs in result.reason
     assert converted_crs in result.reason
 
 
