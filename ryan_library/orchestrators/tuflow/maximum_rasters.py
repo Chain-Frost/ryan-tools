@@ -14,11 +14,13 @@ import os
 import tempfile
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
+from loguru import logger
 from osgeo import gdal, ogr, osr
 
 from ...functions.gdal.raster_processing import (
@@ -1051,5 +1053,160 @@ def write_report(
     workbook.save(path)
     return True
 
+
+
+def execute_jobs(
+    jobs: list[Job],
+    *,
+    profile: str,
+    build_overviews: bool,
+    overwrite: bool,
+    dry_run: bool,
+    notify: Callable[[str], None] | None = None,
+    notify_error: Callable[[str], None] | None = None,
+) -> list[JobResult]:
+    """Execute planned jobs, returning per-job results without process exits.
+
+    Messages are delivered through optional callbacks; a caller decides how
+    to present them. GDAL failures in one job do not prevent other jobs.
+    """
+    def emit(message: str) -> None:
+        if notify is not None:
+            notify(message)
+        else:
+            logger.info("{}", message)
+
+    def emit_error(message: str) -> None:
+        if notify_error is not None:
+            notify_error(message)
+        else:
+            logger.error("{}", message)
+
+    results: list[JobResult] = []
+    for index, job in enumerate(jobs, start=1):
+        label = (
+            f"[{index}/{len(jobs)}] {job.version} {job.aep} "
+            f"{job.model} {job.grid_type}"
+        )
+        emit(f"\n{label}")
+        emit(f"  Sources: {len(job.sources)}")
+        emit(f"  Output : {job.output}")
+
+        if job.discovery_error:
+            emit(f"  FAILED: {job.discovery_error}")
+            results.append(
+                JobResult(
+                    job.version,
+                    job.model,
+                    job.aep,
+                    job.grid_type,
+                    job.output,
+                    len(job.sources),
+                    "FAILED",
+                    job.discovery_error,
+                )
+            )
+            continue
+
+        try:
+            action, reason, sources_hash, zones_hash = determine_action(
+                job,
+                profile,
+                build_overviews,
+                overwrite,
+            )
+            emit(f"  Action : {action} ({reason})")
+
+            if dry_run:
+                results.append(
+                    JobResult(
+                        job.version,
+                        job.model,
+                        job.aep,
+                        job.grid_type,
+                        job.output,
+                        len(job.sources),
+                        "DRY-RUN",
+                        f"Would {action}: {reason}",
+                        output_size_mb=(job.output.stat().st_size / 1e6 if job.output.is_file() else 0.0),
+                    )
+                )
+                continue
+
+            if action == "skip":
+                results.append(
+                    JobResult(
+                        job.version,
+                        job.model,
+                        job.aep,
+                        job.grid_type,
+                        job.output,
+                        len(job.sources),
+                        "SKIPPED",
+                        reason,
+                        output_size_mb=job.output.stat().st_size / 1e6,
+                    )
+                )
+                continue
+
+            if action == "overviews":
+                started = time.perf_counter()
+                build_external_overviews(job.output, profile)
+                elapsed = time.perf_counter() - started
+                results.append(
+                    JobResult(
+                        job.version,
+                        job.model,
+                        job.aep,
+                        job.grid_type,
+                        job.output,
+                        len(job.sources),
+                        "OVERVIEWS",
+                        reason,
+                        elapsed,
+                        job.output.stat().st_size / 1e6,
+                    )
+                )
+                emit(f"  OK: external overviews refreshed in {elapsed:.1f}s")
+                continue
+
+            elapsed, size_mb = run_build(
+                job,
+                profile,
+                build_overviews,
+                sources_hash,
+                zones_hash,
+            )
+            results.append(
+                JobResult(
+                    job.version,
+                    job.model,
+                    job.aep,
+                    job.grid_type,
+                    job.output,
+                    len(job.sources),
+                    "BUILT",
+                    reason,
+                    elapsed,
+                    size_mb,
+                )
+            )
+            emit(f"  OK: built {size_mb:.1f} MB in {elapsed:.1f}s")
+        except Exception as error:
+            emit_error(f"  FAILED: {error}")
+            results.append(
+                JobResult(
+                    job.version,
+                    job.model,
+                    job.aep,
+                    job.grid_type,
+                    job.output,
+                    len(job.sources),
+                    "FAILED",
+                    str(error),
+                )
+            )
+
+    return results
 
 
