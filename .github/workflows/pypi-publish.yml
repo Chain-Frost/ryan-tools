@@ -1,0 +1,97 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and verify distribution
+    if: github.event.release.prerelease == false
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out release revision
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Initialise required package submodules
+        shell: pwsh
+        run: |
+          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Validate release tag and project version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          @'
+          import os
+          import tomllib
+
+          with open("pyproject.toml", "rb") as file:
+              version = tomllib.load(file)["project"]["version"]
+          expected_tag = f"v{version}"
+          actual_tag = os.environ["RELEASE_TAG"]
+          if actual_tag != expected_tag:
+              raise SystemExit(f"Release tag {actual_tag!r} must match {expected_tag!r}")
+          print(f"Verified release {actual_tag}")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install packaging tools
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade build setuptools wheel twine
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build and verify current version
+        shell: pwsh
+        run: |
+          python repo-scripts/build_library.py --no-bump --skip-pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/verify_wheel.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m twine check dist/*.whl
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Upload verified distribution
+        uses: actions/upload-artifact@v7
+        with:
+          name: pypi-distributions
+          path: dist/ryan_functions-*.whl
+          if-no-files-found: error
+
+  publish:
+    name: Publish verified wheel
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ryan-functions
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download verified distribution
+        uses: actions/download-artifact@v8
+        with:
+          name: pypi-distributions
+          path: dist/
+
+      - name: Publish to PyPI using Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1
