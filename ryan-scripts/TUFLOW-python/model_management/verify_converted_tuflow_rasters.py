@@ -29,9 +29,9 @@ import csv
 import os
 import shutil
 import sys
-from uuid import uuid4
 from dataclasses import dataclass
 from pathlib import Path
+from uuid import uuid4
 
 import numpy as np
 import rasterio
@@ -205,7 +205,8 @@ def publish_staged_tif(staged: Path, destination: Path) -> None:
         os.link(staged, destination)
     except OSError as link_error:
         if destination.exists() or destination.is_symlink():
-            raise FileExistsError(f"Destination already exists: {destination}") from link_error
+            message = f"Destination already exists: {destination}"
+            raise FileExistsError(message) from link_error
         created = False
         try:
             with destination.open("xb") as output:
@@ -220,6 +221,25 @@ def publish_staged_tif(staged: Path, destination: Path) -> None:
             raise
 
 
+def assert_unoccupied_tif(source: Path, destination: Path) -> None:
+    """Reject any existing same-stem TIFF, including case-insensitive variants."""
+    existing, error = paired_file(destination.parent, source.stem, {".tif", ".tiff"})
+    if existing is not None or error != "Matching file not found":
+        message = f"Cannot safely create {destination}: {error or existing}"
+        raise FileExistsError(message)
+    if destination.exists() or destination.is_symlink():
+        message = f"Destination already exists: {destination}"
+        raise FileExistsError(message)
+
+
+def find_or_create_tif(source: Path, destination_dir: Path, *, convert_missing: bool) -> tuple[Path | None, str | None]:
+    """Locate the counterpart or optionally convert exactly one missing TIFF."""
+    candidate, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
+    if candidate is None and convert_missing and error in {"Matching file not found", "Destination directory does not exist"}:
+        return create_missing_tif(source, destination_dir), None
+    return candidate, error
+
+
 def create_missing_tif(source: Path, destination_dir: Path) -> Path:
     """Translate one missing FLT/ASC GeoTIFF without overwriting any existing output.
 
@@ -231,15 +251,13 @@ def create_missing_tif(source: Path, destination_dir: Path) -> Path:
     """
     destination = destination_dir / f"{source.stem}.tif"
     if has_linked_component(source) or has_linked_component(destination):
-        raise OSError("Source or output location contains a symlink or junction")
+        message = "Source or output location contains a symlink or junction"
+        raise OSError(message)
     destination_dir.mkdir(parents=True, exist_ok=True)
     if has_linked_component(destination):
-        raise OSError("Output location contains a symlink or junction")
-    existing, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
-    if existing is not None or error != "Matching file not found":
-        raise FileExistsError(f"Cannot safely create {destination}: {error or existing}")
-    if destination.exists() or destination.is_symlink():
-        raise FileExistsError(f"Destination already exists: {destination}")
+        message = "Output location contains a symlink or junction"
+        raise OSError(message)
+    assert_unoccupied_tif(source, destination)
 
     staged = destination_dir / f".{source.stem}.{uuid4().hex}.conversion.tif"
     original = snapshot(source)
@@ -247,7 +265,8 @@ def create_missing_tif(source: Path, destination_dir: Path) -> Path:
     if source.suffix.casefold() == ".flt":
         hdr, hdr_error = paired_file(source.parent, source.stem, {".hdr"})
         if hdr_error not in (None, "Matching file not found"):
-            raise OSError(f"Cannot inspect FLT header: {hdr_error}")
+            message = f"Cannot inspect FLT header: {hdr_error}"
+            raise OSError(message)
         if hdr is not None:
             header = snapshot(hdr)
 
@@ -257,12 +276,11 @@ def create_missing_tif(source: Path, destination_dir: Path) -> Path:
 
         translate_to_geotiff(source, staged, profile="tuflow")
         if not unchanged(original) or (header is not None and not unchanged(header)):
-            raise RuntimeError("Source FLT/ASC or its header changed during conversion")
+            message = "Source FLT/ASC or its header changed during conversion"
+            raise RuntimeError(message)
 
-        # Do not publish a file when a counterpart appeared during conversion.
-        existing, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
-        if existing is not None or error != "Matching file not found":
-            raise FileExistsError(f"Counterpart appeared during conversion: {error or existing}")
+        # Recheck the directory immediately before no-clobber publication.
+        assert_unoccupied_tif(source, destination)
         publish_staged_tif(staged, destination)
         print(f"CREATED: {destination}")
         return destination
@@ -284,12 +302,10 @@ def inspect_source(
     """Optionally create missing GeoTIFF and verify it against its source."""
     original = snapshot(source)
     destination_dir = tif_root / source.parent.relative_to(root)
-    candidate, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
-    if candidate is None and convert_missing and error in {"Matching file not found", "Destination directory does not exist"}:
-        try:
-            candidate = create_missing_tif(source, destination_dir)
-        except (OSError, ValueError, RuntimeError, RasterioError) as exc:
-            return Comparison(original, None, "CONVERSION_FAILED", f"Could not create GeoTIFF: {exc}")
+    try:
+        candidate, error = find_or_create_tif(source, destination_dir, convert_missing=convert_missing)
+    except (OSError, ValueError, RuntimeError, RasterioError) as exc:
+        return Comparison(original, None, "CONVERSION_FAILED", f"Could not create GeoTIFF: {exc}")
     if candidate is None:
         return Comparison(original, None, "MISSING_OR_AMBIGUOUS_TIF", error or "No GeoTIFF")
 
