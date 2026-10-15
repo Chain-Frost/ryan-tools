@@ -31,6 +31,14 @@ as `ryan_library` do not change.
 No PyPI password, long-lived API token or GitHub secret is required for
 Trusted Publishing.
 
+The configured repository policy permits only squash merges, requires the
+four CI checks on an up-to-date PR, and requires resolved review conversations.
+Required approval count remains zero for the solo-maintainer workflow. The
+maintainer's main-branch bypass is limited to PRs, and merged branches are
+automatically deleted. Release-tag creation is allowed after required CI;
+updates and deletions remain restricted. The `pypi` environment allows `v*`
+tags without a required reviewer so publication proceeds automatically.
+
 **Important:** Pending publisher configuration does **not** reserve a package
 name. Confirm the name is available or that you control the existing project.
 You must configure PyPI and GitHub yourself; the repository workflow cannot

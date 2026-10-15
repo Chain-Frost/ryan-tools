@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active |
+| Status | Complete |
 | Owner | ChatGPT |
 | Created | 2026-10-15 |
 | Updated | 2026-10-16 |
-| Next review | 2026-10-22 |
+| Next review | None |
 | Baseline | feature/pypi-trusted-publishing at 2d1c978; PR #122 merged as 915b0eb; clean parent worktree before edits |
 
 ## Outcome and scope
@@ -17,21 +17,23 @@ publisher. Preserve branch checks and the PyPI publisher identity.
 
 ## Current state
 
-Added preparation and finalization workflows, tag-scoped manual publisher
-dispatch, and recovery instructions in [publishing guidance](../PYPI_PUBLISHING.md).
-No release has been started by these changes.
+Preparation, PR-event CI, post-merge CI, tag/release creation and OIDC publication
+completed successfully for 26.10.15.5. The published PyPI wheel was downloaded,
+its SHA-256 checked against PyPI metadata, and its isolated installation smoke-tested.
+See [publishing guidance](../PYPI_PUBLISHING.md) for future releases.
 
 Temporarily deselect only the two slow floodway discharge-sweep tests from
 hosted CI, as requested. They remain runnable locally. Remove the two
 `--deselect` arguments in `.github/workflows/ci.yml` to restore them.
-Other floodway tests remain selected. Revisit this temporary exclusion at
-the next review. The existing floodway work record is already overdue for
+Other floodway tests remain selected. Revisit this temporary exclusion under
+the [CI follow-up](2026-10-15-ci-validation.md), next review 2026-10-22.
+The existing floodway work record is already overdue for
 review; no unrelated implementation was started.
 
 ## Next action
 
-Verify main CI at e37cc25, release finalization and first PyPI publication.
-Actions PR creation is enabled; the release PR still needs human merge.
+No release-automation work remains. Review PR #125 for the separate CI and
+publication-smoke improvements; they were not part of this first publication.
 
 ## Completion criteria
 
@@ -44,8 +46,8 @@ Actions PR creation is enabled; the release PR still needs human merge.
 Delivery branch: `feature/automated-pypi-release`, committed and pushed as
 [PR #123](https://github.com/Chain-Frost/ryan-tools/pull/123) against current main,
 following explicit user authorization. Local syntax/docs checks passed after rebasing.
-Hosted execution and publication have not run; these workflows must reach main
-before they can be started. The PR supplies the exact delivery commit and CI state.
+PR #123 merged as 00a87f0; release PR #124 merged as e37cc25. All hosted release
+stages passed, and 26.10.15.5 is published. Detailed run evidence follows below.
 
 On 2026-10-15:
 
@@ -118,3 +120,22 @@ Removed only the `creation` restriction from tag ruleset 25169344 so the
 workflow token can create release tags. Required CI checks and restrictions
 against updating/deleting tags remain enabled; no bypass actor was added.
 Follow-up improvements are in [PR #125](https://github.com/Chain-Frost/ryan-tools/pull/125).
+
+### First publication complete, 2026-10-16
+
+- Main CI [38765505134](https://github.com/Chain-Frost/ryan-tools/actions/runs/38765505134)
+  passed all four jobs at e37cc25.
+- Finalization [38766063930](https://github.com/Chain-Frost/ryan-tools/actions/runs/38766063930)
+  created the stable release v26.10.15.5 and dispatched publication.
+- Publication [38766089354](https://github.com/Chain-Frost/ryan-tools/actions/runs/38766089354)
+  passed both build/verification and OIDC upload jobs.
+- [PyPI 26.10.15.5](https://pypi.org/project/ryan-functions/26.10.15.5/) downloaded
+  successfully through the public PyPI index. Wheel SHA-256:
+  `f1c007ceeb47a0cb34e49134e3b3cec36a37b53078dfecf89fbb9432aea4b27e`.
+  Verified against PyPI JSON metadata.
+- Installed that downloaded wheel into a fresh target with pandas and Loguru,
+  then ran the installed-wheel smoke script using `python -S` outside the
+  checkout: passed. This does not assert full GIS/runtime dependency compatibility.
+- Applied the requested repository settings: squash only, resolve review threads,
+  automatically delete merged branches and main bypass limited to PRs. Retained
+  strict CI and zero required approvals. PyPI has no manual reviewer gate.

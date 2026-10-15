@@ -68,3 +68,15 @@ PR #124 passed all four checks and merged as e37cc25. Merged current main into
 the follow-up branch to satisfy strict branch freshness. Initial PR #125
 Policy passed, including the hosted Actionlint download/checksum/run. Final-head
 hosted CI must be checked after the branch update.
+
+PR #125 head 8319020 passed all four jobs in run 38765607825. Policy took
+73 seconds and Package 76 seconds, including a successful reduced-dependency
+installed-wheel smoke check. Repeated the minimal dependency smoke locally
+on retained wheel 26.10.15.5: passed. The first publication separately succeeded
+using main's original workflow; the new publication smoke step still needs
+this follow-up merged and a subsequent release to execute in GitHub.
+
+The final handoff/settings documentation update requires a fresh hosted run;
+the PR remains unmerged. Local workflow and documentation checks are rerun
+before pushing that update. The temporary floodway exclusions remain under
+this record's next review date.
