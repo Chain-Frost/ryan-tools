@@ -29,7 +29,9 @@ Replacement currently supports **self-contained GeoTIFFs only**. If GDAL reports
 external `.aux.xml`, `.msk`, `.ovr` or other raster dependencies, the tool
 refuses to replace the TIFF rather than risk losing or overriding metadata in
 a non-atomic sidecar update. Paths traversing symlinks or Windows junctions are
-also rejected. The audit remains read-only; handle dependent file sets manually.
+also rejected. Paths are normalised using `Path.absolute()` rather than
+`Path.resolve()` so symlink and junction components remain detectable. The
+audit remains read-only; handle dependent file sets manually.
 
 The audit obtains dimensions, bands, data types, CRS, transform, NoData,
 compression, masks, metadata, and overview presence from GDAL/raster headers.
