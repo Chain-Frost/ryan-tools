@@ -86,6 +86,69 @@ workflow-list responses explain how to configure the root.
    python -m pip install ".[mcp]"
    ```
 
+## Install both MCP servers
+
+The normal Windows wheel installation (`package_and_install.bat` or
+`install-latest-wheel.bat`) also installs the **external QGIS MCP Python
+bridge** from a pinned upstream GitHub commit. This is a separate pip installation
+step, not a dependency embedded in the published `ryan_functions` wheel.
+The developer `requirements.txt` likewise installs both the ryan-tools MCP
+extra and the pinned QGIS bridge.
+
+To use the approved local QGIS MCP source instead of downloading from GitHub:
+
+```powershell
+.\install-latest-wheel.bat --qgis-mcp-source "Q:\BGER\PER\RPRT\qgis-mcp"
+```
+
+For machines without QGIS or access to the upstream source:
+
+```powershell
+.\install-latest-wheel.bat --skip-qgis-mcp
+```
+
+The `--force-reinstall` recovery mode continues using `--no-deps`: it
+does not reinstall the QGIS bridge. `--dependencies-only` is intentionally
+limited to the binary GIS bootstrap. Direct `pip install .` installs only
+the core `ryan_functions` package; the default wheel wrapper and development
+requirements provide the two-server setup.
+
+**The QGIS desktop plugin is not installed by pip.** Install/update it in QGIS
+through Plugins > Manage and Install Plugins > QGIS MCP, then start the server
+from its dock. The Python bridge and QGIS plugin must be compatible.
+
+## Set up both servers in Codex
+
+Run this from the repository root in Windows PowerShell. The launcher uses
+`C:\Program Files\Python314\python.exe` by default and discovers the checkout
+relative to `repo-scripts`.
+
+```powershell
+.\repo-scripts\setup_codex_mcp.ps1 -DryRun
+.\repo-scripts\setup_codex_mcp.ps1
+```
+
+To install/update the Python MCP packages at the same time, run:
+
+```powershell
+.\repo-scripts\setup_codex_mcp.ps1 -Install -QgisSource "Q:\BGER\PER\RPRT\qgis-mcp"
+```
+
+Without `-QgisSource`, `-Install` uses the same pinned upstream archive as
+the wheel installer. The `-Install` option installs the checkout in editable
+mode with the MCP extra. Omitting `-Install` only updates Codex registration.
+
+The setup preserves unrelated Codex settings and MCP servers, retains QGIS
+environment settings such as `QGIS_MCP_TOKEN`, backs up
+`%USERPROFILE%\.codex\config.toml` before changes, and can be rerun.
+Set `-Python` to override the interpreter. Existing `CODEX_HOME` is
+respected by the Python utility. The default ryan-tools profile is `create`;
+use `-Profile analysis` for read-only workflow discovery.
+
+Restart Codex and check `codex mcp list`. In the running QGIS session,
+start the plugin bridge, then invoke QGIS `ping` and `diagnose`; also run
+ryan-tools `check_repo_health`.
+
 ## Running the server
 
 After installation:
