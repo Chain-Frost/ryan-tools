@@ -31,7 +31,7 @@
 1. **CI:** Ruff, strict Pyright, focused tests and package checks at the latest head. Confirm the hosted GDAL tests are actually executed; tests skipped for absent `osgeo` do not establish numerical correctness.
 2. **Installed-wheel compatibility:** the copied wrapper requires a rebuilt `ryan_functions` package containing the new `build_vrt` API and orchestrator. Bump/build/verify the retained wheel with `repo-scripts/build_library.py` on a supported machine; do not distribute the copied wrapper with an older wheel.
 3. **Real-project validation:** run the script under QGIS 4 Python GDAL 3.12+ against representative v06/v07 RTIO results and both GeoPackages. Compare cell values, validity masks, affine transforms, CRS, output paths, overview levels and report sheets with independent expected outputs.
-4. **Alignment policy:** validate whether nearest-neighbour realignment used by the original script is appropriate for all composite sources; add a warning or strict option if needed.
+4. **Alignment policy:** an opt-in `--strict-grid-alignment` setting now rejects differing pixel size/phase; the original nearest-neighbour default remains for drop-in behaviour. Confirm whether this default is appropriate on representative composite RTIO sources.
 5. **Incremental metadata:** existing source signature uses path/size/mtime, not a content hash. Check unchanged-source and changed-source reruns on the actual results.
 6. **Publication:** test interruption/recovery on the target Windows/network filesystem. The two-file TIFF/overview replacement has compensating rollback, but cannot guarantee power-loss atomicity.
 7. **Documentation:** verify all links, CLI help and logging/wrapper standard compliance, then update the PR notes.
