@@ -365,7 +365,8 @@ def build_vrt(
         msg = "Pixel-function VRTs require GDAL 3.12 or later (QGIS 4 Python GDAL environment)."
         raise RuntimeError(msg)
     if resolution == "user" and (x_res is None or y_res is None):
-        raise ValueError("User VRT resolution requires both x_res and y_res.")
+        msg = "User VRT resolution requires both x_res and y_res."
+        raise ValueError(msg)
     output = output.absolute()
     # GDAL's /vsimem/ is an in-memory virtual filesystem, not a host directory.
     if not str(output).startswith("/vsimem/"):
