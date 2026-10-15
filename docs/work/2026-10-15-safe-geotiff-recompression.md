@@ -18,8 +18,8 @@ falls back to `gdal.Translate` for all other supported rasters. Optional local s
 
 ## Current state
 
-Implementation, focused tests, documentation, MCP discovery and package validation are complete. Pull request delivery
-remains. No blockers are known.
+Implementation, focused tests, documentation, MCP discovery and package validation are complete. Pull request
+[#109](https://github.com/Chain-Frost/ryan-tools/pull/109) is open for review. No blockers are known.
 
 ## Next action
 
@@ -46,6 +46,8 @@ Validation completed on Python 3.14:
 
 Ruff could not be invoked because the locally installed `ruff.exe` is denied by Windows execution policy. Black formatted
 all modified Python files, `git diff --check` passed, and CI remains the authoritative Ruff check.
+
+Delivered on branch `feature/safe-geotiff-recompression` in pull request #109.
 
 ## Progress
 
