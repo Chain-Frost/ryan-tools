@@ -25,7 +25,8 @@ SCRIPT = (
 
 def load_pipeline():
     spec = importlib.util.spec_from_file_location("testable_tuflow_maximum_pipeline", SCRIPT)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -160,7 +161,8 @@ def test_publish_failure_restores_previous_raster_overview_pair(
 
     def fail_overview_publication(source: Path, target: Path) -> None:
         if source == temporary_overview and target == destination_overview:
-            raise PermissionError("simulated overview rename failure")
+            msg = "simulated overview rename failure"
+            raise PermissionError(msg)
         real_replace(source, target)
 
     monkeypatch.setattr(pipeline.os, "replace", fail_overview_publication)
