@@ -137,7 +137,6 @@ def test_pixel_function_is_maximum_not_last_source_mosaic(tmp_path: Path) -> Non
 
 
 def test_reject_known_different_source_crs(tmp_path: Path) -> None:
-    pipeline = load_pipeline()
     first, second = tmp_path / "a.tif", tmp_path / "b.tif"
     make_raster(first, np.ones((2, 2)), origin_x=0, epsg=28350)
     make_raster(second, np.ones((2, 2)), origin_x=0, epsg=28351)
@@ -148,7 +147,6 @@ def test_reject_known_different_source_crs(tmp_path: Path) -> None:
 def test_publish_failure_restores_previous_raster_overview_pair(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pipeline = load_pipeline()
     destination = tmp_path / "result.tif"
     destination_overview = maximum_rasters.overview_path(destination)
     temporary = tmp_path / "new.tif"
@@ -218,7 +216,6 @@ def test_shared_vrt_builder_preserves_vsimem_identifier(tmp_path: Path) -> None:
 def test_local_crs_assumption_is_not_copied_from_zone_crs(tmp_path: Path) -> None:
     from osgeo import ogr
 
-    pipeline = load_pipeline()
     maximum = gdal.GetDriverByName("MEM").Create("", 2, 2, 1, gdal.GDT_Float32)
     assert maximum is not None
     maximum.SetGeoTransform((500000.0, 1.0, 0.0, 7600002.0, 0.0, -1.0))
