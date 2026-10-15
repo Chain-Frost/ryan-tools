@@ -157,11 +157,9 @@ def stream_copy_eligibility(dataset: rasterio.io.DatasetReader) -> tuple[bool, s
         return False, "CRS is missing"
     if dataset.transform.b != 0.0 or dataset.transform.d != 0.0:
         return False, "grid transform is rotated or skewed"
-    if dataset.subdatasets:
-        return False, "dataset exposes subdatasets"
-    gcps, _gcp_crs = dataset.gcps
-    if gcps:
-        return False, "dataset uses ground-control points"
+    georeferencing_issue = _nonstandard_georeferencing(dataset)
+    if georeferencing_issue is not None:
+        return False, georeferencing_issue
     if dataset.overviews(1):
         return False, "band has overviews"
     flags = frozenset(dataset.mask_flag_enums[0])
@@ -173,6 +171,16 @@ def stream_copy_eligibility(dataset: rasterio.io.DatasetReader) -> tuple[bool, s
     if _has_colour_table(dataset):
         return False, "band has a colour table"
     return True, ""
+
+
+def _nonstandard_georeferencing(dataset: rasterio.io.DatasetReader) -> str | None:
+    """Exclude auxiliary georeferencing unsupported by the streaming writer."""
+    if dataset.subdatasets:
+        return "dataset exposes subdatasets"
+    gcps, _gcp_crs = dataset.gcps
+    if gcps:
+        return "dataset uses ground-control points"
+    return None
 
 
 def _has_colour_table(dataset: rasterio.io.DatasetReader) -> bool:
