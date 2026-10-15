@@ -541,6 +541,7 @@ def test_convert_missing_then_delete_verified_source(
     tif.unlink()
     hdr = src.with_suffix(".hdr")
     prj = src.with_suffix(".prj")
+    initial_prj_exists = prj.exists()
     assert src.exists()
     monkeypatch.setattr("builtins.input", approve_delete)
 
@@ -550,8 +551,7 @@ def test_convert_missing_then_delete_verified_source(
     assert not src.exists()
     if suffix == ".flt":
         assert not hdr.exists()
-    if prj.exists():
-        assert prj.exists()
+    assert prj.exists() == initial_prj_exists
     with rasterio.open(tif) as output:
         assert output.transform == from_origin(100, 200, 5, 5)
         assert output.crs is not None
@@ -573,9 +573,7 @@ def test_convert_missing_without_delete_preserves_source(tool: ModuleType, tmp_p
     assert rows[0]["retained_tif"] == str(tif)
 
 
-def test_convert_missing_does_not_overwrite_existing_mismatch(
-    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_convert_missing_does_not_overwrite_existing_mismatch(tool: ModuleType, tmp_path: Path) -> None:
     src, tif = make_pair(tmp_path, tif_values=np.array([[30, 2], [3, -9999]], dtype="float32"))
     existing_bytes = tif.read_bytes()
     assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
@@ -609,6 +607,7 @@ def test_failed_conversion_leaves_source_and_no_partial_output(
     tif.unlink()
 
     def fail_after_partial_write(_source: Path, output: Path, *, profile: str) -> Path:
+        assert profile == "tuflow"
         output.write_bytes(b"partial GeoTIFF")
         raise RuntimeError("simulated GDAL failure")
 
