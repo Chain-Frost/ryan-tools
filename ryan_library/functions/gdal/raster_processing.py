@@ -324,7 +324,7 @@ def build_external_overviews(
 
 def build_vrt(
     input_files: Sequence[Path],
-    output: Path,
+    output: Path | str,
     *,
     output_bounds: tuple[float, float, float, float] | None = None,
     output_srs: str | None = None,
@@ -356,7 +356,8 @@ def build_vrt(
         vrt_nodata: Optional NoData value exposed by the VRT.
 
     Returns:
-        The resolved VRT path.
+        The absolute VRT path for filesystem destinations; VSI outputs are
+        written using their exact GDAL virtual path string.
     """
     if not input_files:
         msg = "At least one input raster is required to build a VRT."
@@ -367,11 +368,15 @@ def build_vrt(
     if resolution == "user" and (x_res is None or y_res is None):
         msg = "User VRT resolution requires both x_res and y_res."
         raise ValueError(msg)
-    output = output.absolute()
-    # GDAL's /vsimem/ is an in-memory virtual filesystem, not a host directory.
-    if not str(output).startswith("/vsimem/"):
-        output.parent.mkdir(parents=True, exist_ok=True)
-    logger.debug("Building VRT {} from {} inputs", output, len(input_files))
+    # GDAL VSI paths are virtual, POSIX-looking identifiers even on Windows.
+    # Convert to a host Path only for ordinary files; Path.absolute() would
+    # corrupt "/vsimem/" into a drive-qualified Windows filesystem path.
+    output_text = str(output)
+    if not output_text.startswith("/vsi"):
+        output_path = Path(output).absolute()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_text = str(output_path)
+    logger.debug("Building VRT {} from {} inputs", output_text, len(input_files))
     options = gdal.BuildVRTOptions(
         outputBounds=output_bounds,
         outputSRS=output_srs,
@@ -386,14 +391,14 @@ def build_vrt(
         strict=strict,
     )
     with gdal.ExceptionMgr():
-        dataset = gdal.BuildVRT(str(output), [str(path.absolute()) for path in input_files], options=options)
+        dataset = gdal.BuildVRT(output_text, [str(path.absolute()) for path in input_files], options=options)
         if dataset is None:
             msg = f"GDAL could not build VRT {output}"
             raise RuntimeError(msg)
         dataset.FlushCache()
         dataset = None
-    logger.info(f"Created VRT: {output}")
-    return output
+    logger.info("Created VRT: {}", output_text)
+    return Path(output_text)
 
 
 def calculate_flood_extent(
