@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 import rasterio
 from rasterio.transform import from_origin
 
@@ -92,7 +93,10 @@ def test_linked_tiff_is_rejected_without_changing_target(tmp_path: Path) -> None
     alias_dir = tmp_path / "links"
     alias_dir.mkdir()
     alias = alias_dir / "alias.tif"
-    alias.symlink_to(source)
+    try:
+        alias.symlink_to(source)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"File symlinks unavailable: {exc}")
     original = source.read_bytes()
 
     result = recompress_geotiffs(alias_dir, recursive=False)[0]
