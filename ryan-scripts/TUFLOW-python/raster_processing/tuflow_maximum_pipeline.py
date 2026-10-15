@@ -776,15 +776,48 @@ def materialize_clipped_maximum(
 
 
 def publish_output(temporary: Path, destination: Path, build_overviews: bool) -> None:
+    """Install a raster/overview pair, restoring prior files on failure.
+
+    Two independent filesystem renames are not fully atomic. Backing up the
+    existing pair before publishing lets an ordinary exception restore the
+    previous consistent generation rather than leave a new TIFF with an old
+    overview. Hard power loss still needs manual recovery.
+    """
     temporary_overview = overview_path(temporary)
     destination_overview = overview_path(destination)
-    os.replace(temporary, destination)
-    if build_overviews:
-        if not temporary_overview.is_file():
-            raise RuntimeError(f"Temporary overview is missing: {temporary_overview}")
-        os.replace(temporary_overview, destination_overview)
-    else:
+    if not temporary.is_file():
+        raise RuntimeError(f"Temporary raster is missing: {temporary}")
+    if build_overviews and not temporary_overview.is_file():
+        raise RuntimeError(f"Temporary overview is missing: {temporary_overview}")
+
+    marker = uuid.uuid4().hex
+    raster_backup = destination.with_name(f".{destination.stem}.{marker}.bak{destination.suffix}")
+    overview_backup = Path(f"{raster_backup}.ovr")
+    backed_up_raster = False
+    backed_up_overview = False
+    try:
+        if destination.is_file():
+            os.replace(destination, raster_backup)
+            backed_up_raster = True
+        if destination_overview.is_file():
+            os.replace(destination_overview, overview_backup)
+            backed_up_overview = True
+        os.replace(temporary, destination)
+        if build_overviews:
+            os.replace(temporary_overview, destination_overview)
+    except Exception:
+        # Restore both files as a pair. If a restoration itself fails, preserve
+        # the backup paths rather than deleting valuable prior results.
+        destination.unlink(missing_ok=True)
         destination_overview.unlink(missing_ok=True)
+        if backed_up_raster:
+            os.replace(raster_backup, destination)
+        if backed_up_overview:
+            os.replace(overview_backup, destination_overview)
+        raise
+    else:
+        raster_backup.unlink(missing_ok=True)
+        overview_backup.unlink(missing_ok=True)
 
 
 def run_build(
