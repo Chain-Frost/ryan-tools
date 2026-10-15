@@ -171,3 +171,98 @@ def test_publish_failure_restores_previous_raster_overview_pair(
     assert destination.read_bytes() == b"previous-raster"
     assert destination_overview.read_bytes() == b"previous-overview"
     assert temporary_overview.read_bytes() == b"replacement-overview"
+
+
+
+def test_colliding_output_template_is_rejected_before_any_writes(tmp_path: Path) -> None:
+    pipeline = load_pipeline()
+    root = tmp_path / "results"
+    for name in ("GD01", "GD02"):
+        folder = root / "v06" / name / "01.0p" / "grids"
+        folder.mkdir(parents=True)
+        (folder / f"{name}_V_Max.tif").touch()
+    catalog = pipeline.ZoneCatalog(
+        path=tmp_path / "zones.gpkg",
+        layer_name="zones",
+        field_name="Model",
+        models={"gd01": "GD01", "gd02": "GD02"},
+    )
+    with pytest.raises(ValueError, match="Multiple maximum-raster jobs target"):
+        pipeline.discover_jobs(
+            ("v06",), ("01.0p",), ("V_Max",), None, catalog, None,
+            input_root=root, output_root=tmp_path / "out",
+            output_template="{grid}.tif", groups=(),
+        )
+    assert not (tmp_path / "out").exists()
+
+
+def test_shared_vrt_builder_preserves_vsimem_identifier(tmp_path: Path) -> None:
+    if int(gdal.VersionInfo("VERSION_NUM")) < 3120000:
+        pytest.skip("GDAL 3.12+ required")
+    path = tmp_path / "a.tif"
+    make_raster(path, np.array([[7, 8], [9, 10]]), origin_x=0)
+    vrt_name = "/vsimem/test_maximum_vrt_no_windows_drive.vrt"
+    try:
+        build_vrt([path], vrt_name, source_nodata=-9999.0, vrt_nodata=-9999.0, pixel_function="max")
+        dataset = gdal.Open(vrt_name)
+        assert dataset is not None
+        np.testing.assert_array_equal(
+            dataset.ReadAsArray(), np.array([[7, 8], [9, 10]], dtype=np.float32),
+        )
+        dataset = None
+    finally:
+        gdal.Unlink(vrt_name)
+
+
+def test_local_crs_assumption_is_not_copied_from_zone_crs(tmp_path: Path) -> None:
+    from osgeo import ogr
+
+    pipeline = load_pipeline()
+    maximum = gdal.GetDriverByName("MEM").Create("", 2, 2, 1, gdal.GDT_Float32)
+    assert maximum is not None
+    maximum.SetGeoTransform((500000.0, 1.0, 0.0, 7600002.0, 0.0, -1.0))
+    legacy = osr.SpatialReference()
+    legacy.SetLocalCS("GDA94_MG")
+    maximum.SetProjection(legacy.ExportToWkt())
+
+    source_crs = osr.SpatialReference()
+    source_crs.ImportFromEPSG(28350)
+    zone_crs = osr.SpatialReference()
+    zone_crs.ImportFromEPSG(28351)
+    source_crs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    zone_crs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+
+    ring = ogr.Geometry(ogr.wkbLinearRing)
+    for x, y in (
+        (500000, 7600000), (500002, 7600000),
+        (500002, 7600002), (500000, 7600002), (500000, 7600000),
+    ):
+        ring.AddPoint_2D(x, y)
+    polygon = ogr.Geometry(ogr.wkbPolygon)
+    polygon.AddGeometry(ring)
+    polygon.Transform(osr.CoordinateTransformation(source_crs, zone_crs))
+    path = tmp_path / "zones.gpkg"
+    data = ogr.GetDriverByName("GPKG").CreateDataSource(str(path))
+    assert data is not None
+    layer = data.CreateLayer("zones", srs=zone_crs, geom_type=ogr.wkbPolygon)
+    layer.CreateField(ogr.FieldDefn("Model", ogr.OFTString))
+    feature = ogr.Feature(layer.GetLayerDefn())
+    feature.SetField("Model", "GD01")
+    feature.SetGeometry(polygon)
+    assert layer.CreateFeature(feature) == 0
+    feature = None
+    data = None
+
+    job = pipeline.Job(
+        version="v06", model="GD01", aep="01.0p", grid_type="V_Max",
+        sources=(tmp_path / "source.tif",), output=tmp_path / "result.tif",
+        zones=pipeline.ZoneCatalog(path, "zones", "Model", {"gd01": "GD01"}),
+    )
+    bounds, assumed_wkt = pipeline.clip_bounds_and_crs(maximum, job)
+    assert assumed_wkt is not None
+    actual_crs = osr.SpatialReference()
+    actual_crs.ImportFromWkt(assumed_wkt)
+    assert actual_crs.IsSame(source_crs)
+    assert not actual_crs.IsSame(zone_crs)
+    assert bounds == (500000.0, 7600000.0, 500002.0, 7600002.0)
+    maximum = None
