@@ -39,6 +39,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from osgeo import gdal, ogr, osr
 
@@ -93,6 +94,7 @@ ALGORITHM_ID = "gdal-vrt-max-clip-v1"
 class ZoneCatalog:
     path: Path
     layer_name: str
+    field_name: str
     models: dict[str, str]
 
 
@@ -131,12 +133,49 @@ class SourceInfo:
     data_type: int
 
 
+@dataclass(frozen=True)
+class SourceGroup:
+    """A named output zone assembled from one or more source extent folders."""
+
+    model: str
+    extents: tuple[str, ...]
+    zone_set: Literal["main", "fg"] = "main"
+
+
+DEFAULT_GROUPS: tuple[SourceGroup, ...] = (
+    SourceGroup("FG", FG_COMBINED_EXTENTS, "fg"),
+    SourceGroup("FG03", ("FG03",), "fg"),
+)
+
+
+def parse_source_group(value: str) -> SourceGroup:
+    """Read a group setting: [main|fg:]OUTPUT=SOURCE1,SOURCE2."""
+    left, separator, right = value.partition("=")
+    if not separator:
+        raise ValueError(f"Invalid group {value!r}; expected [main|fg:]OUTPUT=SOURCE1,SOURCE2.")
+    prefix, colon, model = left.partition(":")
+    if colon:
+        if prefix not in {"main", "fg"}:
+            raise ValueError(f"Invalid zone set {prefix!r}; expected main or fg.")
+        zone_set: Literal["main", "fg"] = "fg" if prefix == "fg" else "main"
+    else:
+        model = left
+        zone_set = "main"
+    model = model.strip()
+    extents = tuple(part.strip() for part in right.split(","))
+    if not model or not extents or any(not part for part in extents):
+        raise ValueError(f"Invalid source group {value!r}.")
+    if len(set(name.casefold() for name in extents)) != len(extents):
+        raise ValueError(f"Duplicate source extents in group {value!r}.")
+    return SourceGroup(model=model, extents=extents, zone_set=zone_set)
+
+
 # ---------------------------------------------------------------------------
 # Discovery
 # ---------------------------------------------------------------------------
 
 
-def load_zone_catalog(path: Path) -> ZoneCatalog:
+def load_zone_catalog(path: Path, field_name: str = MODEL_FIELD) -> ZoneCatalog:
     if not path.is_file():
         raise RuntimeError(f"Output-zone GeoPackage not found: {path}")
 
@@ -150,14 +189,14 @@ def load_zone_catalog(path: Path) -> ZoneCatalog:
 
     layer = dataset.GetLayerByIndex(0)
     definition = layer.GetLayerDefn()
-    if definition.GetFieldIndex(MODEL_FIELD) < 0:
+    if definition.GetFieldIndex(field_name) < 0:
         raise RuntimeError(
-            f"Layer {layer.GetName()!r} in {path.name} has no {MODEL_FIELD!r} field."
+            f"Layer {layer.GetName()!r} in {path.name} has no {field_name!r} field."
         )
 
     models: dict[str, str] = {}
     for feature in layer:
-        value = feature.GetField(MODEL_FIELD)
+        value = feature.GetField(field_name)
         geometry = feature.GetGeometryRef()
         if value is None or not str(value).strip():
             raise RuntimeError(f"Feature {feature.GetFID()} in {path.name} has a blank Model.")
@@ -173,7 +212,7 @@ def load_zone_catalog(path: Path) -> ZoneCatalog:
     dataset = None
     if not models:
         raise RuntimeError(f"No model polygons found in {path.name}.")
-    return ZoneCatalog(path=path, layer_name=layer_name, models=models)
+    return ZoneCatalog(path=path.absolute(), layer_name=layer_name, field_name=field_name, models=models)
 
 
 def collect_inputs(grids_dir: Path, grid_type: str) -> tuple[Path, ...]:
@@ -214,16 +253,27 @@ def discover_extent_sources(
     return discovered
 
 
-def output_path(version: str, model: str, aep: str, grid_type: str, fg: bool) -> Path:
-    filename = validate_output_filename(format_user_template(
-        template=OUTPUT_TEMPLATE,
-        values={"version": version, "model": model, "aep": aep, "grid": grid_type},
-        description="TUFLOW maximum output name",
-    ))
+def output_path(
+    version: str,
+    model: str,
+    aep: str,
+    grid_type: str,
+    fg: bool,
+    *,
+    output_root: Path = SCRIPT_DIR,
+    template: str = OUTPUT_TEMPLATE,
+) -> Path:
+    filename = validate_output_filename(
+        format_user_template(
+            template=template,
+            values={"version": version, "model": model, "aep": aep, "grid": grid_type},
+            description="TUFLOW maximum output name",
+        )
+    )
     if fg:
-        path = FG_OUTPUT_DIR / aep / filename
+        path = output_root / "FG" / aep / filename
         return path.with_name(f"{path.stem}-clip{path.suffix}")
-    return SCRIPT_DIR / aep / filename
+    return output_root / aep / filename
 
 
 def discover_jobs(
@@ -232,16 +282,32 @@ def discover_jobs(
     grid_types: tuple[str, ...],
     wanted_models: set[str] | None,
     main_zones: ZoneCatalog,
-    fg_zones: ZoneCatalog,
+    fg_zones: ZoneCatalog | None,
+    *,
+    input_root: Path = RESULTS_DIR,
+    output_root: Path = SCRIPT_DIR,
+    output_template: str = OUTPUT_TEMPLATE,
+    groups: tuple[SourceGroup, ...] = DEFAULT_GROUPS,
 ) -> tuple[list[Job], list[str]]:
+    """Discover direct model zones and configurable composite output zones.
+
+    A group is a source-folder mapping, not a hard-coded FG algorithm.
+    The original FG01/FG02 and FG03 rules remain the defaults.
+    """
     jobs: list[Job] = []
     notes: list[str] = []
+    group_models: set[str] = set()
+    for group in groups:
+        key = group.model.casefold()
+        if key in group_models:
+            raise ValueError(f"Duplicate output group {group.model!r}.")
+        group_models.add(key)
 
     def wanted(model: str) -> bool:
         return wanted_models is None or model.casefold() in wanted_models
 
     for version in versions:
-        version_root = RESULTS_DIR / version
+        version_root = input_root / version
         for aep in aeps:
             extents = discover_extent_sources(version_root, aep, grid_types)
             if not extents:
@@ -249,11 +315,10 @@ def discover_jobs(
                 continue
 
             handled: set[str] = set()
-
-            # Normal GD models are clipped using the main output-zone GeoPackage.
-            for extent_key, (extent_name, _grids_dir, inputs_by_grid) in extents.items():
+            # Direct models using the main output-zone GeoPackage.
+            for extent_key, (_extent_name, _grids_dir, inputs_by_grid) in extents.items():
                 model = main_zones.models.get(extent_key)
-                if model is None or not wanted(model):
+                if model is None or not wanted(model) or model.casefold() in group_models:
                     continue
                 handled.add(extent_key)
                 for grid_type in grid_types:
@@ -261,85 +326,56 @@ def discover_jobs(
                     if sources:
                         jobs.append(
                             Job(
-                                version=version,
-                                model=model,
-                                aep=aep,
-                                grid_type=grid_type,
-                                sources=sources,
-                                output=output_path(version, model, aep, grid_type, fg=False),
+                                version=version, model=model, aep=aep,
+                                grid_type=grid_type, sources=sources,
+                                output=output_path(
+                                    version, model, aep, grid_type, fg=False,
+                                    output_root=output_root, template=output_template,
+                                ),
                                 zones=main_zones,
                             )
                         )
 
-            # Direct FG models such as FG03.
-            for configured_model in FG_DIRECT_MODELS:
-                model = fg_zones.models.get(configured_model.casefold())
-                extent = extents.get(configured_model.casefold())
-                if model is None or extent is None or not wanted(model):
+            # Any number of input extents can contribute to one output zone.
+            for group in groups:
+                zone_catalog = fg_zones if group.zone_set == "fg" else main_zones
+                if zone_catalog is None:
+                    raise ValueError(f"Group {group.model!r} needs an FG zone GeoPackage.")
+                model = zone_catalog.models.get(group.model.casefold())
+                if model is None:
+                    notes.append(f"{version} {aep}: group zone {group.model!r} missing from {zone_catalog.path}")
                     continue
-                handled.add(configured_model.casefold())
-                _extent_name, _grids_dir, inputs_by_grid = extent
+                if not wanted(model):
+                    continue
+                records = [extents.get(name.casefold()) for name in group.extents]
+                present = [record for record in records if record is not None]
+                if not present:
+                    continue
+                handled.update(name.casefold() for name in group.extents if name.casefold() in extents)
                 for grid_type in grid_types:
-                    sources = inputs_by_grid[grid_type]
-                    if sources:
-                        jobs.append(
-                            Job(
-                                version=version,
-                                model=model,
-                                aep=aep,
-                                grid_type=grid_type,
-                                sources=sources,
-                                output=output_path(version, model, aep, grid_type, fg=True),
-                                zones=fg_zones,
-                            )
-                        )
-
-            # The FG polygon represents the union maximum of FG01 and FG02.
-            fg_model = fg_zones.models.get(FG_COMBINED_MODEL.casefold())
-            fg_extent_records = [extents.get(name.casefold()) for name in FG_COMBINED_EXTENTS]
-            present_fg_records = [record for record in fg_extent_records if record is not None]
-            if fg_model is not None and present_fg_records and wanted(fg_model):
-                handled.update(
-                    name.casefold()
-                    for name in FG_COMBINED_EXTENTS
-                    if name.casefold() in extents
-                )
-                missing_extents = [
-                    name
-                    for name, record in zip(FG_COMBINED_EXTENTS, fg_extent_records)
-                    if record is None
-                ]
-                for grid_type in grid_types:
-                    sources = tuple(
-                        source
-                        for record in present_fg_records
-                        for source in record[2][grid_type]
-                    )
+                    sources = tuple(source for record in present for source in record[2][grid_type])
                     if not sources:
                         continue
-                    missing_for_grid = [
-                        name
-                        for name, record in zip(FG_COMBINED_EXTENTS, fg_extent_records)
+                    missing = [
+                        name for name, record in zip(group.extents, records, strict=True)
                         if record is None or not record[2][grid_type]
                     ]
-                    error = None
-                    if missing_extents or missing_for_grid:
-                        missing = sorted(set(missing_extents + missing_for_grid))
-                        error = (
-                            f"Combined {fg_model} {aep} maximum requires "
-                            f"{', '.join(FG_COMBINED_EXTENTS)}; missing {grid_type} "
-                            f"sources for {', '.join(missing)}."
-                        )
+                    error = (
+                        f"Combined {model} {aep} maximum requires "
+                        f"{', '.join(group.extents)}; missing {grid_type} sources for {', '.join(missing)}."
+                        if missing else None
+                    )
                     jobs.append(
                         Job(
-                            version=version,
-                            model=fg_model,
-                            aep=aep,
-                            grid_type=grid_type,
-                            sources=sources,
-                            output=output_path(version, fg_model, aep, grid_type, fg=True),
-                            zones=fg_zones,
-                            target_aligned=True,
+                            version=version, model=model, aep=aep,
+                            grid_type=grid_type, sources=sources,
+                            output=output_path(
+                                version, model, aep, grid_type,
+                                fg=(group.zone_set == "fg"),
+                                output_root=output_root, template=output_template,
+                            ),
+                            zones=zone_catalog,
+                            target_aligned=len(group.extents) > 1,
                             discovery_error=error,
                         )
                     )
@@ -351,15 +387,15 @@ def discover_jobs(
                     + ", ".join(sorted(ignored))
                 )
 
-    jobs.sort(
-        key=lambda job: (
-            job.version,
-            job.aep.casefold(),
-            job.model.casefold(),
-            job.grid_type.casefold(),
-        )
-    )
+    jobs.sort(key=lambda job: (
+        job.version, job.aep.casefold(), job.model.casefold(), job.grid_type.casefold(),
+    ))
     return jobs, notes
+
+
+# ---------------------------------------------------------------------------
+# Incremental state
+# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
@@ -585,7 +621,7 @@ def selected_zone_geometry(job: Job) -> tuple[ogr.DataSource, ogr.Layer, ogr.Geo
     if layer is None:
         raise RuntimeError(f"Layer {job.zones.layer_name!r} was not found.")
     escaped = job.model.replace("'", "''")
-    layer.SetAttributeFilter(f'"{MODEL_FIELD}" = \'{escaped}\'')
+    layer.SetAttributeFilter(f'"{job.zones.field_name}" = \'{escaped}\'')
     feature = layer.GetNextFeature()
     if feature is None:
         raise RuntimeError(f"No polygon found for Model={job.model!r}.")
@@ -702,7 +738,7 @@ def materialize_clipped_maximum(
         "resampleAlg": gdal.GRA_NearestNeighbour,
         "cutlineDSName": str(job.zones.path),
         "cutlineLayer": job.zones.layer_name,
-        "cutlineWhere": f'"{MODEL_FIELD}" = \'{escaped}\'',
+        "cutlineWhere": f'"{job.zones.field_name}" = \'{escaped}\'',
         "cropToCutline": False,
         "srcNodata": source_info.nodata,
         "dstNodata": source_info.nodata,
@@ -988,13 +1024,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--version",
         nargs="+",
-        choices=VERSION_NAMES,
         help="Only search selected version folders (default: v06 v07).",
     )
     parser.add_argument(
         "--aep",
         nargs="+",
-        choices=AEP_NAMES,
         help="Only process selected AEP folders (default: all configured AEPs).",
     )
     parser.add_argument(
@@ -1008,7 +1042,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--grid",
         nargs="+",
-        choices=GRID_TYPES,
         help="Only process selected grid types.",
     )
     parser.add_argument(
@@ -1016,6 +1049,16 @@ def parse_args() -> argparse.Namespace:
         choices=("tuflow", "efficient"),
         default="tuflow",
         help="Compression profile: conservative DEFLATE or tiled ZSTD (default: tuflow).",
+    )
+    parser.add_argument("--input-root", type=Path, default=RESULTS_DIR, help="Folder containing version subdirectories.")
+    parser.add_argument("--output-root", type=Path, default=SCRIPT_DIR, help="Output root (FG results under its FG subfolder).")
+    parser.add_argument("--main-zones", type=Path, default=MAIN_ZONES, help="Main model output-zone GeoPackage (one layer).")
+    parser.add_argument("--fg-zones", type=Path, default=FG_ZONES, help="Special output-zone GeoPackage (one layer).")
+    parser.add_argument("--zone-field", default=MODEL_FIELD, help="Polygon attribute used to match model names.")
+    parser.add_argument("--output-template", default=OUTPUT_TEMPLATE, help="Filename template with version/model/aep/grid.")
+    parser.add_argument(
+        "--group", action="append", metavar="[main|fg:]MODEL=EXTENT1,EXTENT2",
+        help="Source extents contributing to an output zone. When supplied, replaces default FG groups.",
     )
     parser.add_argument("--overwrite", action="store_true", help="Rebuild every discovered output.")
     parser.add_argument("--dry-run", action="store_true", help="Report intended actions without writing rasters.")
@@ -1042,8 +1085,12 @@ def main() -> int:
     build_overviews = not args.no_overviews
 
     try:
-        main_zones = load_zone_catalog(MAIN_ZONES)
-        fg_zones = load_zone_catalog(FG_ZONES)
+        groups = tuple(parse_source_group(value) for value in args.group) if args.group is not None else DEFAULT_GROUPS
+        main_zones = load_zone_catalog(args.main_zones.absolute(), args.zone_field)
+        fg_zones = (
+            load_zone_catalog(args.fg_zones.absolute(), args.zone_field)
+            if any(group.zone_set == "fg" for group in groups) else None
+        )
         jobs, discovery_notes = discover_jobs(
             versions,
             aeps,
@@ -1051,6 +1098,10 @@ def main() -> int:
             wanted_models,
             main_zones,
             fg_zones,
+            input_root=args.input_root.absolute(),
+            output_root=args.output_root.absolute(),
+            output_template=args.output_template,
+            groups=groups,
         )
     except Exception as error:
         print(f"ERROR: {error}", file=sys.stderr)
@@ -1061,8 +1112,8 @@ def main() -> int:
     print(f"Grid types: {', '.join(grid_types)}")
     print(f"Profile  : {args.profile}")
     print(f"Overviews: {'enabled' if build_overviews else 'disabled'}")
-    print(f"Main zones: {MAIN_ZONES}")
-    print(f"FG zones  : {FG_ZONES}")
+    print(f"Main zones: {args.main_zones.absolute()}")
+    print(f"FG zones  : {args.fg_zones.absolute() if fg_zones is not None else 'not used'}")
     print(f"Discovered {len(jobs)} output job(s).")
     for note in discovery_notes:
         print(f"  NOTE: {note}")
@@ -1201,7 +1252,7 @@ def main() -> int:
     print("\nFinished: " + ", ".join(f"{status}={count}" for status, count in sorted(counts.items())))
 
     if not args.no_report:
-        report_path = args.report or SCRIPT_DIR / REPORT_TEMPLATE.format(
+        report_path = args.report or args.output_root.absolute() / REPORT_TEMPLATE.format(
             stamp=run_started.strftime("%Y%m%d_%H%M%S")
         )
         run_info = [
@@ -1215,10 +1266,10 @@ def main() -> int:
             ("Selected models", ", ".join(args.models) if args.models else "All discovered"),
             ("Compression profile", args.profile),
             ("External overview levels", ", ".join(map(str, OVERVIEW_LEVELS)) if build_overviews else "Disabled"),
-            ("Main output root", str(SCRIPT_DIR / "<AEP>")),
-            ("FG output root", str(FG_OUTPUT_DIR / "<AEP>")),
-            ("Main model zones", str(MAIN_ZONES)),
-            ("FG model zones", str(FG_ZONES)),
+            ("Main output root", str(args.output_root.absolute() / "<AEP>")),
+            ("FG output root", str(args.output_root.absolute() / "FG" / "<AEP>")),
+            ("Main model zones", str(args.main_zones.absolute())),
+            ("FG model zones", str(args.fg_zones.absolute()) if fg_zones is not None else "not used"),
             ("Overwrite", "Yes" if args.overwrite else "No"),
             ("Jobs discovered", str(len(jobs))),
             ("Results", ", ".join(f"{key}={value}" for key, value in sorted(counts.items()))),
