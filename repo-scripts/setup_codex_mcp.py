@@ -131,8 +131,7 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
     emitted: set[tuple[str, ...]] = set()
     output: list[str] = []
     for header, original in sections:
-        if header in replacements:
-            assert header is not None
+        if header is not None and header in replacements:
             if header in emitted:
                 msg = f"Duplicate MCP table: {header}"
                 raise ValueError(msg)
@@ -184,7 +183,7 @@ def _write(path: Path, data: str, *, dry_run: bool) -> None:
         if path.is_file() and path.read_bytes() != original:
             msg = "Codex configuration changed during setup"
             raise RuntimeError(msg)
-        os.replace(temporary, path)
+        Path(temporary).replace(path)
     finally:
         Path(temporary).unlink(missing_ok=True)
     print(f"Updated {path}")
