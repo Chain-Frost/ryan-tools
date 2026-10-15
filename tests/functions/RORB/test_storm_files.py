@@ -18,7 +18,7 @@ from ryan_library.functions.RORB.storm_files import (
 
 def rainfall_csv(path: Path, times: list[float], values: list[float]) -> Path:
     body = "Event ID,RF\nTime (hour),TP07_2030_SSP3-7.0\n"
-    body += "".join(f"{t},{v}\n" for t, v in zip(times, values))
+    body += "".join(f"{t},{v}\n" for t, v in zip(times, values, strict=True))
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(body, encoding="utf-8")
     return path
@@ -60,7 +60,7 @@ def test_interior_zeros_are_not_trimmed(tmp_path: Path) -> None:
 @pytest.mark.parametrize("zero_depth", [0.01, -0.01])
 def test_nonzero_time_zero_rejected(tmp_path: Path, zero_depth: float) -> None:
     path = rainfall_csv(tmp_path / "input.csv", [0, 1], [zero_depth, 5])
-    with pytest.raises(ConversionError, match="time-zero|negative"):
+    with pytest.raises(ConversionError, match=r"time-zero|negative"):
         read_rainfall_series(path, "TP07_2030_SSP3-7.0")
 
 
