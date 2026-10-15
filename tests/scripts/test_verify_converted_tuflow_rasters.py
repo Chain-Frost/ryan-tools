@@ -491,9 +491,7 @@ def test_value_scale_and_offset_must_match(
 
 
 @pytest.mark.parametrize("suffix", [".flt", ".asc"])
-def test_regenerable_statistics_sidecar_and_tags_are_ignored(
-    tool: ModuleType, tmp_path: Path, suffix: str
-) -> None:
+def test_regenerable_statistics_sidecar_and_tags_are_ignored(tool: ModuleType, tmp_path: Path, suffix: str) -> None:
     src, tif = make_pair(tmp_path, suffix=suffix)
     # A GDAL auxiliary metadata file is permitted to contain derived statistics
     # that need not be identical between the original raster and GeoTIFF.
@@ -502,7 +500,7 @@ def test_regenerable_statistics_sidecar_and_tags_are_ignored(
         '<PAMDataset><PAMRasterBand band="1"><Metadata>'
         '<MDI key="STATISTICS_MINIMUM">0</MDI>'
         '<MDI key="STATISTICS_MAXIMUM">999</MDI>'
-        '</Metadata></PAMRasterBand></PAMDataset>',
+        "</Metadata></PAMRasterBand></PAMDataset>",
         encoding="utf-8",
     )
 
