@@ -64,6 +64,7 @@ class Job:
     target_aligned: bool = False
     discovery_error: str | None = None
     legacy_local_crs: str = DEFAULT_LEGACY_LOCAL_CRS
+    strict_alignment: bool = False
 
 
 @dataclass
@@ -246,6 +247,7 @@ def discover_jobs(
     output_template: str,
     groups: tuple[SourceGroup, ...] = (),
     legacy_local_crs: str = DEFAULT_LEGACY_LOCAL_CRS,
+    strict_alignment: bool = False,
 ) -> tuple[list[Job], list[str]]:
     """Discover direct model zones and configurable composite output zones.
 
@@ -293,6 +295,7 @@ def discover_jobs(
                                 ),
                                 zones=main_zones,
                                 legacy_local_crs=legacy_local_crs,
+                                strict_alignment=strict_alignment,
                             )
                         )
 
@@ -339,6 +342,7 @@ def discover_jobs(
                             target_aligned=len(group.extents) > 1,
                             discovery_error=error,
                             legacy_local_crs=legacy_local_crs,
+                            strict_alignment=strict_alignment,
                         )
                     )
 
@@ -463,6 +467,7 @@ def determine_action(
         "TUFLOW_MODEL_ZONE": job.model,
         "TUFLOW_AEP": job.aep,
         "TUFLOW_STORAGE_PROFILE": profile,
+        "TUFLOW_STRICT_ALIGNMENT": str(job.strict_alignment),
     }
     mismatches = [key for key, value in expected.items() if metadata.get(key) != value]
     if mismatches:
@@ -483,12 +488,30 @@ def determine_action(
 # ---------------------------------------------------------------------------
 
 
-def inspect_sources(paths: tuple[Path, ...]) -> SourceInfo:
+def raster_grid_alignment_matches(
+    reference: tuple[float, ...],
+    other: tuple[float, ...],
+) -> bool:
+    """Require identical pixel size and whole-cell origin offsets."""
+    if len(reference) != 6 or len(other) != 6:
+        return False
+    if not math.isclose(reference[1], other[1], rel_tol=0.0, abs_tol=1e-8):
+        return False
+    if not math.isclose(reference[5], other[5], rel_tol=0.0, abs_tol=1e-8):
+        return False
+    x_cells = (other[0] - reference[0]) / reference[1]
+    y_cells = (other[3] - reference[3]) / reference[5]
+    return all(math.isclose(value, round(value), rel_tol=0.0, abs_tol=1e-8) for value in (x_cells, y_cells))
+
+
+def inspect_sources(paths: tuple[Path, ...], *, strict_alignment: bool = False) -> SourceInfo:
     datasets: list[gdal.Dataset] = []
     x_resolutions: list[float] = []
     y_resolutions: list[float] = []
     nodata_values: list[float | None] = []
     data_types: list[int] = []
+    reference_transform: tuple[float, ...] | None = None
+    unaligned: list[Path] = []
 
     try:
         for path in paths:
@@ -506,6 +529,10 @@ def inspect_sources(paths: tuple[Path, ...]) -> SourceInfo:
             if transform[1] <= 0.0 or transform[5] >= 0.0:
                 msg = f"Expected a north-up raster: {path.name}"
                 raise RuntimeError(msg)
+            if reference_transform is None:
+                reference_transform = transform
+            elif not raster_grid_alignment_matches(reference_transform, transform):
+                unaligned.append(path)
 
             band = dataset.GetRasterBand(1)
             datasets.append(dataset)
@@ -531,6 +558,15 @@ def inspect_sources(paths: tuple[Path, ...]) -> SourceInfo:
         if not all(math.isclose(float(value), nodata) for value in nodata_values[1:]):
             msg = f"Source NoData values differ: {nodata_values}"
             raise RuntimeError(msg)
+        if unaligned:
+            mismatches = ", ".join(item.name for item in unaligned)
+            if strict_alignment:
+                msg = f"Source raster grid resolution or origin is misaligned: {mismatches}"
+                raise RuntimeError(msg)
+            logger.warning(
+                "Source rasters are not cell aligned; legacy nearest-neighbour sampling will be used: {}",
+                mismatches,
+            )
         if len(set(data_types)) != 1:
             names = [gdal.GetDataTypeName(value) for value in data_types]
             msg = f"Source raster data types differ: {names}"
@@ -766,6 +802,7 @@ def materialize_clipped_maximum(
     output.SetMetadataItem("TUFLOW_MODEL_ZONE", job.model)
     output.SetMetadataItem("TUFLOW_MODEL_ZONES_SOURCE", str(job.zones.path))
     output.SetMetadataItem("TUFLOW_STORAGE_PROFILE", profile)
+    output.SetMetadataItem("TUFLOW_STRICT_ALIGNMENT", str(job.strict_alignment))
     output.SetMetadataItem("TUFLOW_VERSION", job.version)
     output.SetMetadataItem("TUFLOW_AEP", job.aep)
     output.SetMetadataItem("TUFLOW_GRID_TYPE", job.grid_type)
@@ -842,7 +879,7 @@ def run_build(
     virtual_path = ""
     maximum: gdal.Dataset | None = None
     try:
-        source_info = inspect_sources(job.sources)
+        source_info = inspect_sources(job.sources, strict_alignment=job.strict_alignment)
         maximum, virtual_path = create_maximum_vrt(job, source_info)
         materialize_clipped_maximum(
             maximum,
