@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 WRAPPER_VERSION = "2026-10-15.1"
-WORKING_DIR = Path(__file__).resolve().parent
+WORKING_DIR = Path(__file__).absolute().parent
 PROFILE = "tuflow"
 STRATEGY = "auto"
 RECURSIVE = True
@@ -45,7 +45,7 @@ def main(
 ) -> int:
     """Audit by default; replace only after explicit confirmation."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    target = (working_directory or WORKING_DIR).resolve()
+    target = (working_directory or WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target):
         return 1
     with setup_logger(console_log_level="INFO"):
