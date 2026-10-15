@@ -16,10 +16,12 @@ py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
 py -3.14 -m pip install -r requirements.txt
 ```
 
-`requirements.txt` installs the repository in editable mode with its development dependencies. Python then imports the
-current checkout while developers and agents edit `ryan_library`. The dependency-only command installs binary Fiona,
-Rasterio and GDAL packages from the configured geospatial wheel index. It supersedes the former single-package batch
-installers and can be previewed with `--dry-run`.
+`requirements.txt` installs the repository in editable mode with its development and MCP dependencies, plus
+the pinned QGIS MCP Python bridge from GitHub. Python then imports the current checkout while developers and agents
+edit `ryan_library`. The dependency-only command installs binary Fiona, Rasterio and GDAL packages from the
+configured geospatial wheel index. It supersedes the former single-package batch installers and can be previewed with
+`--dry-run`. For managed or offline environments, use the local approved source with
+`repo-scripts/setup_codex_mcp.ps1 -Install -QgisSource <path>` instead of the GitHub-based requirements command.
 
 The normal user-facing Windows entry point builds and installs the package:
 
@@ -33,7 +35,10 @@ To install the newest existing wheel without rebuilding it:
 .\install-latest-wheel.bat
 ```
 
-Both commands use the user's available Python installation. Users should not need to change interpreters or activate an
+Both commands use the user's available Python installation. Standard wheel installation now installs both the
+`ryan_functions[mcp]` extra and a pinned upstream QGIS MCP Python bridge. The QGIS desktop plugin is separate and
+must still be installed in QGIS. For offline/headless machines, pass `--skip-qgis-mcp` to the wheel installer or
+`--qgis-mcp-source <path>` to use a local source. Users should not need to change interpreters or activate an
 environment before running the installed wrappers.
 
 ## VS Code interpreter and tasks
