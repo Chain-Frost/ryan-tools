@@ -1,1 +1,3 @@
--e .[dev]
+-e .[dev,mcp]
+# Upstream QGIS MCP server (external Python bridge, pinned to v0.15.1).
+qgis-mcp @ https://github.com/nkarasiak/qgis-mcp/archive/55519ebe009e7c7e06603d802f0ce931d6c9b20f.zip
