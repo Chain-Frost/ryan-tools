@@ -81,7 +81,8 @@ OVERVIEW_LEVELS = DEFAULT_OVERVIEW_LEVELS
 OVERVIEW_RESAMPLING = "NEAREST"
 
 # Increment this only when the numerical processing method changes.
-ALGORITHM_ID = "gdal-vrt-max-clip-v1"
+ALGORITHM_ID = "gdal-vrt-max-clip-v2"
+DEFAULT_LEGACY_LOCAL_CRS = "EPSG:28350"
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +109,7 @@ class Job:
     zones: ZoneCatalog
     target_aligned: bool = False
     discovery_error: str | None = None
+    legacy_local_crs: str = DEFAULT_LEGACY_LOCAL_CRS
 
 
 @dataclass
@@ -295,6 +297,7 @@ def discover_jobs(
     output_root: Path = SCRIPT_DIR,
     output_template: str = OUTPUT_TEMPLATE,
     groups: tuple[SourceGroup, ...] = DEFAULT_GROUPS,
+    legacy_local_crs: str = DEFAULT_LEGACY_LOCAL_CRS,
 ) -> tuple[list[Job], list[str]]:
     """Discover direct model zones and configurable composite output zones.
 
@@ -341,6 +344,7 @@ def discover_jobs(
                                     output_root=output_root, template=output_template,
                                 ),
                                 zones=main_zones,
+                                legacy_local_crs=legacy_local_crs,
                             )
                         )
 
@@ -386,6 +390,7 @@ def discover_jobs(
                             zones=zone_catalog,
                             target_aligned=len(group.extents) > 1,
                             discovery_error=error,
+                            legacy_local_crs=legacy_local_crs,
                         )
                     )
 
@@ -399,7 +404,24 @@ def discover_jobs(
     jobs.sort(key=lambda job: (
         job.version, job.aep.casefold(), job.model.casefold(), job.grid_type.casefold(),
     ))
+    validate_unique_outputs(jobs)
     return jobs, notes
+
+
+def validate_unique_outputs(jobs: list[Job]) -> None:
+    """Refuse ambiguous output templates before any raster can be overwritten."""
+    occupied: dict[str, Job] = {}
+    for job in jobs:
+        key = str(job.output.absolute()).casefold()
+        if previous := occupied.get(key):
+            msg = (
+                f"Multiple maximum-raster jobs target {job.output}: "
+                f"{previous.version}/{previous.model}/{previous.aep}/{previous.grid_type} "
+                f"and {job.version}/{job.model}/{job.aep}/{job.grid_type}. "
+                "Include distinguishing placeholders in the output template."
+            )
+            raise ValueError(msg)
+        occupied[key] = job
 
 
 # ---------------------------------------------------------------------------
@@ -583,7 +605,7 @@ def create_maximum_vrt(job: Job, source_info: SourceInfo) -> tuple[gdal.Dataset,
         if job.target_aligned:
             build_vrt(
                 job.sources,
-                Path(virtual_path),
+                virtual_path,
                 source_nodata=source_info.nodata,
                 vrt_nodata=source_info.nodata,
                 pixel_function="max",
@@ -597,7 +619,7 @@ def create_maximum_vrt(job: Job, source_info: SourceInfo) -> tuple[gdal.Dataset,
         else:
             build_vrt(
                 job.sources,
-                Path(virtual_path),
+                virtual_path,
                 source_nodata=source_info.nodata,
                 vrt_nodata=source_info.nodata,
                 pixel_function="max",
@@ -681,9 +703,17 @@ def clip_bounds_and_crs(
     legacy_gda94_mg = bool(source_srs.IsLocal() and source_name == "gda94_mg")
     source_srs_override: str | None = None
     if legacy_gda94_mg:
-        # TUFLOW/ASC_to_ASC rasters use correct MGA50 coordinates but sometimes
-        # carry LOCAL_CS["GDA94_MG"]. Use the polygon's EPSG definition.
-        source_srs_override = zone_srs.ExportToWkt()
+        # LOCAL_CS["GDA94_MG"] is an unresolved datum label, not a CRS.
+        # Preserve the original project's MGA50 assumption, but never copy
+        # an arbitrary output-zone CRS onto the raster coordinates.
+        assumed_srs = osr.SpatialReference()
+        if assumed_srs.SetFromUserInput(job.legacy_local_crs) != 0 or not assumed_srs.IsProjected():
+            msg = f"Invalid projected legacy raster CRS assumption: {job.legacy_local_crs!r}"
+            raise RuntimeError(msg)
+        assumed_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        if not zone_srs.IsSame(assumed_srs):
+            geometry.Transform(osr.CoordinateTransformation(zone_srs, assumed_srs))
+        source_srs_override = assumed_srs.ExportToWkt()
     elif source_srs.IsLocal():
         msg = f"Unsupported local raster CRS {source_srs.GetName()!r}; expected GDA94_MG."
         raise RuntimeError(msg)
@@ -794,7 +824,7 @@ def materialize_clipped_maximum(
     output.SetMetadataItem("TUFLOW_MAXIMUM_METHOD", "GDAL VRT pixel function max")
     output.SetMetadataItem("TUFLOW_RESAMPLING", "nearest neighbour")
     if source_srs_override is not None:
-        output.SetMetadataItem("TUFLOW_SOURCE_CRS_OVERRIDE", "GDA94_MG -> output-zone CRS")
+        output.SetMetadataItem("TUFLOW_SOURCE_CRS_OVERRIDE", f"GDA94_MG -> {job.legacy_local_crs} (assumed)")
     output.FlushCache()
     output = None
 
@@ -1120,6 +1150,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--main-zones", type=Path, default=MAIN_ZONES, help="Main model output-zone GeoPackage (one layer).")
     parser.add_argument("--fg-zones", type=Path, default=FG_ZONES, help="Special output-zone GeoPackage (one layer).")
     parser.add_argument("--zone-field", default=MODEL_FIELD, help="Polygon attribute used to match model names.")
+    parser.add_argument("--legacy-local-crs", default=DEFAULT_LEGACY_LOCAL_CRS, help="Assumed projected CRS for legacy GDA94_MG rasters (default EPSG:28350).")
     parser.add_argument("--output-template", default=OUTPUT_TEMPLATE, help="Filename template with version/model/aep/grid.")
     parser.add_argument(
         "--group", action="append", metavar="[main|fg:]MODEL=EXTENT1,EXTENT2",
@@ -1167,6 +1198,7 @@ def main() -> int:
             output_root=args.output_root.absolute(),
             output_template=args.output_template,
             groups=groups,
+            legacy_local_crs=args.legacy_local_crs,
         )
     except Exception as error:
         print(f"ERROR: {error}", file=sys.stderr)
@@ -1325,6 +1357,7 @@ def main() -> int:
             ("Run finished", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
             ("Mode", "Dry run" if args.dry_run else "Live"),
             ("Algorithm", ALGORITHM_ID),
+            ("Legacy local CRS", args.legacy_local_crs),
             ("Versions searched", ", ".join(versions)),
             ("AEPs searched", ", ".join(aeps)),
             ("Grid types", ", ".join(grid_types)),
