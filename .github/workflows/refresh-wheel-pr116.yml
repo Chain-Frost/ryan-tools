@@ -15,6 +15,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: true
+      - name: Initialise package resources
+        shell: pwsh
+        run: |
+          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
