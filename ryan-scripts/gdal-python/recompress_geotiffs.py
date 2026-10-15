@@ -58,11 +58,7 @@ def main(
                 len(uncompressed),
             )
             for item in uncompressed:
-                eligibility = (
-                    "eligible"
-                    if item.stream_eligible
-                    else item.stream_ineligible_reason
-                )
+                eligibility = "eligible" if item.stream_eligible else item.stream_ineligible_reason
                 logger.info("UNCOMPRESSED {} (stream: {})", item.path, eligibility)
             if not replace or not uncompressed:
                 return 0
@@ -79,11 +75,7 @@ def main(
             )
             replaced = sum(result.status == "replaced" for result in results)
             failed = sum(result.status == "failed" for result in results)
-            saved = sum(
-                result.original_bytes - result.final_bytes
-                for result in results
-                if result.status == "replaced"
-            )
+            saved = sum(result.original_bytes - result.final_bytes for result in results if result.status == "replaced")
             logger.info(
                 "Complete: {} replaced, {} failed, {:.2f} MiB saved",
                 replaced,
@@ -97,30 +89,22 @@ def main(
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Audit and safely recompress GeoTIFFs without overviews."
-    )
+    parser = argparse.ArgumentParser(description="Audit and safely recompress GeoTIFFs without overviews.")
     parser.add_argument("directory", nargs="?", type=Path)
     parser.add_argument(
         "--replace",
         action="store_true",
         help="Replace uncompressed sources after exact verification.",
     )
-    parser.add_argument(
-        "--yes", action="store_true", help="Confirm replacement non-interactively."
-    )
-    parser.add_argument(
-        "--strategy", choices=("auto", "stream", "translate"), default=STRATEGY
-    )
+    parser.add_argument("--yes", action="store_true", help="Confirm replacement non-interactively.")
+    parser.add_argument("--strategy", choices=("auto", "stream", "translate"), default=STRATEGY)
     parser.add_argument("--profile", choices=("tuflow", "efficient"), default=PROFILE)
     parser.add_argument(
         "--staging-directory",
         type=Path,
         help="Local workspace for safe Translate and comparison.",
     )
-    parser.add_argument(
-        "--no-recursive", action="store_false", dest="recursive", default=RECURSIVE
-    )
+    parser.add_argument("--no-recursive", action="store_false", dest="recursive", default=RECURSIVE)
     parser.add_argument("--no-pause", action="store_true")
     return parser.parse_args()
 
