@@ -17,7 +17,7 @@ validates the input and preserves rainfall depth and individual interval timing.
 from pathlib import Path
 
 WRAPPER_VERSION = "2026-10-15.1"
-DEFAULT_OUTPUT_DIR = Path(".")
+DEFAULT_OUTPUT_DIR = Path()
 DEFAULT_RUN_INCREMENTS = 200  # RORBwin 6.52 default; review routing tail.
 DEFAULT_CLIMATE_SUFFIX = "2030_SSP3-7.0"
 
@@ -64,7 +64,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--run-increments",
         type=int,
         default=None,
-        help="RORB simulation length, 1–2000 (default 200). Ensure the runoff tail fits.",
+        help="RORB simulation length, 1-2000 (default 200). Ensure the runoff tail fits.",
     )
     parser.add_argument(
         "--terminal-zero",
@@ -103,9 +103,11 @@ def main(args: argparse.Namespace) -> int:
     try:
         if args.critical_storms is not None:
             if args.input_csv is not None or args.column is not None or args.output_name is not None:
-                raise ConversionError("Batch mode cannot use input_csv, --column or --output-name.")
+                message = "Batch mode cannot use input_csv, --column or --output-name."
+                raise ConversionError(message)
             if args.bc_database is None:
-                raise ConversionError("--bc-database is required with --critical-storms.")
+                message = "--bc-database is required with --critical-storms."
+                raise ConversionError(message)
             plan = prepare_batch(
                 table_path=args.critical_storms,
                 bc_database=args.bc_database,
@@ -137,9 +139,11 @@ def main(args: argparse.Namespace) -> int:
             return 0
 
         if args.input_csv is None or args.column is None:
-            raise ConversionError("Single-file mode requires input_csv and --column.")
+            message = "Single-file mode requires input_csv and --column."
+            raise ConversionError(message)
         if args.bc_database is not None:
-            raise ConversionError("--bc-database is only used in batch mode.")
+            message = "--bc-database is only used in batch mode."
+            raise ConversionError(message)
 
         job = prepare_single(
             args.input_csv,
@@ -151,7 +155,8 @@ def main(args: argparse.Namespace) -> int:
             terminal_zero=terminal_zero,
         )
         if job.output_path.exists() and not args.overwrite:
-            raise ConversionError(f"Output exists: {job.output_path} (pass --overwrite).")
+            message = f"Output exists: {job.output_path} (pass --overwrite)."
+            raise ConversionError(message)
         print(f"Input: {job.input_csv}; column: {job.column}; output: {job.output_path}")
         if args.dry_run:
             print("Dry run: no output written.")
