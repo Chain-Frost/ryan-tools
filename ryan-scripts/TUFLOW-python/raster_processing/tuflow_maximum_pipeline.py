@@ -795,6 +795,8 @@ def publish_output(temporary: Path, destination: Path, build_overviews: bool) ->
     overview_backup = Path(f"{raster_backup}.ovr")
     backed_up_raster = False
     backed_up_overview = False
+    published_raster = False
+    published_overview = False
     try:
         if destination.is_file():
             os.replace(destination, raster_backup)
@@ -803,13 +805,17 @@ def publish_output(temporary: Path, destination: Path, build_overviews: bool) ->
             os.replace(destination_overview, overview_backup)
             backed_up_overview = True
         os.replace(temporary, destination)
+        published_raster = True
         if build_overviews:
             os.replace(temporary_overview, destination_overview)
+            published_overview = True
     except Exception:
-        # Restore both files as a pair. If a restoration itself fails, preserve
-        # the backup paths rather than deleting valuable prior results.
-        destination.unlink(missing_ok=True)
-        destination_overview.unlink(missing_ok=True)
+        # Unlink only replacements that actually reached their destination.
+        # A failure while moving an old file must not delete that old file.
+        if published_raster:
+            destination.unlink(missing_ok=True)
+        if published_overview:
+            destination_overview.unlink(missing_ok=True)
         if backed_up_raster:
             os.replace(raster_backup, destination)
         if backed_up_overview:
