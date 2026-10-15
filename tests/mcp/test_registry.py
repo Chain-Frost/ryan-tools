@@ -12,6 +12,7 @@ from ryan_library.mcp.registry import WorkflowRegistry, WorkflowRegistryError
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_GDAL_WORKFLOWS = {
+    "audit_and_recompress_geotiffs",
     "batch_vector_clip",
     "build_external_overviews",
     "calculate_stage_storage",
