@@ -194,6 +194,32 @@ def compare_rasters(
     return None, warning
 
 
+def publish_staged_tif(staged: Path, destination: Path) -> None:
+    """Publish a completed TIFF without replacing an existing destination.
+
+    Hard linking is atomic and avoids copying large rasters. On filesystems
+    such as network shares where it is unavailable, fall back to exclusive
+    creation and remove any partial copy if an I/O error occurs.
+    """
+    try:
+        os.link(staged, destination)
+    except OSError as link_error:
+        if destination.exists() or destination.is_symlink():
+            raise FileExistsError(f"Destination already exists: {destination}") from link_error
+        created = False
+        try:
+            with destination.open("xb") as output:
+                created = True
+                with staged.open("rb") as raster:
+                    shutil.copyfileobj(raster, output, length=8 * 1024 * 1024)
+                output.flush()
+                os.fsync(output.fileno())
+        except OSError:
+            if created:
+                destination.unlink(missing_ok=True)
+            raise
+
+
 def create_missing_tif(source: Path, destination_dir: Path) -> Path:
     """Translate one missing FLT/ASC GeoTIFF without overwriting any existing output.
 
@@ -237,31 +263,13 @@ def create_missing_tif(source: Path, destination_dir: Path) -> Path:
         existing, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
         if existing is not None or error != "Matching file not found":
             raise FileExistsError(f"Counterpart appeared during conversion: {error or existing}")
-        try:
-            os.link(staged, destination)
-        except OSError as link_error:
-            if destination.exists() or destination.is_symlink():
-                raise FileExistsError(f"Destination already exists: {destination}") from link_error
-            # SMB/network shares may not support hard links. Exclusive creation
-            # still prevents overwrites; clean up a partial copy on failure.
-            created = False
-            try:
-                with destination.open("xb") as output:
-                    created = True
-                    with staged.open("rb") as raster:
-                        shutil.copyfileobj(raster, output, length=8 * 1024 * 1024)
-                    output.flush()
-                    os.fsync(output.fileno())
-            except OSError:
-                if created:
-                    destination.unlink(missing_ok=True)
-                raise
-
+        publish_staged_tif(staged, destination)
         print(f"CREATED: {destination}")
         return destination
     finally:
         staged.unlink(missing_ok=True)
         Path(f"{staged}.aux.xml").unlink(missing_ok=True)
+        Path(f"{staged}.msk").unlink(missing_ok=True)
 
 
 def inspect_source(
