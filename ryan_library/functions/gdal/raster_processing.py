@@ -367,7 +367,9 @@ def build_vrt(
     if resolution == "user" and (x_res is None or y_res is None):
         raise ValueError("User VRT resolution requires both x_res and y_res.")
     output = output.absolute()
-    output.parent.mkdir(parents=True, exist_ok=True)
+    # GDAL's /vsimem/ is an in-memory virtual filesystem, not a host directory.
+    if not str(output).startswith("/vsimem/"):
+        output.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Building VRT {} from {} inputs", output, len(input_files))
     options = gdal.BuildVRTOptions(
         outputBounds=output_bounds,
