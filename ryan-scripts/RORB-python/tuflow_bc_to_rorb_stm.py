@@ -93,81 +93,96 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _run_batch(
+    args: argparse.Namespace,
+    output_dir: Path,
+    run_increments: int,
+    terminal_zero: TerminalZeroPolicy,
+) -> int:
+    if args.input_csv is not None or args.column is not None or args.output_name is not None:
+        message = "Batch mode cannot use input_csv, --column or --output-name."
+        raise ConversionError(message)
+    if args.bc_database is None:
+        message = "--bc-database is required with --critical-storms."
+        raise ConversionError(message)
+    plan = prepare_batch(
+        table_path=args.critical_storms,
+        bc_database=args.bc_database,
+        output_dir=output_dir,
+        climate_suffix=args.climate_suffix or DEFAULT_CLIMATE_SUFFIX,
+        model_name=args.model_name,
+        run_increments=run_increments,
+        terminal_zero=terminal_zero,
+        input_template=args.input_template,
+        output_template=args.output_template,
+        column_template=args.column_template,
+        overwrite=args.overwrite,
+    )
+    print(f"Valid jobs: {len(plan.jobs)}; skipped: {len(plan.skipped)}; errors: {len(plan.errors)}")
+    for skipped in plan.skipped:
+        print(f"SKIP: {skipped}")
+    for error in plan.errors:
+        print(f"ERROR: {error}", file=sys.stderr)
+    for job in plan.jobs:
+        print(f"{job.input_csv} [{job.column}] -> {job.output_path}")
+    if plan.errors:
+        print("Validation failed: no outputs written.", file=sys.stderr)
+        return 1
+    if args.dry_run:
+        print("Dry run: no outputs written.")
+        return 0
+    outputs = write_batch(plan, overwrite=args.overwrite)
+    print(f"Wrote {len(outputs)} RORB STM file(s).")
+    return 0
+
+
+def _run_single(
+    args: argparse.Namespace,
+    output_dir: Path,
+    run_increments: int,
+    terminal_zero: TerminalZeroPolicy,
+) -> int:
+    if args.input_csv is None or args.column is None:
+        message = "Single-file mode requires input_csv and --column."
+        raise ConversionError(message)
+    if args.bc_database is not None:
+        message = "--bc-database is only used in batch mode."
+        raise ConversionError(message)
+
+    job = prepare_single(
+        args.input_csv,
+        column=args.column,
+        output_dir=output_dir,
+        output_name=args.output_name,
+        model_name=args.model_name,
+        run_increments=run_increments,
+        terminal_zero=terminal_zero,
+    )
+    if job.output_path.exists() and not args.overwrite:
+        message = f"Output exists: {job.output_path} (pass --overwrite)."
+        raise ConversionError(message)
+    print(f"Input: {job.input_csv}; column: {job.column}; output: {job.output_path}")
+    if args.dry_run:
+        print("Dry run: no output written.")
+        return 0
+    write_stm(job.output_path, job.stm_text, overwrite=args.overwrite)
+    print("STM created.")
+    return 0
+
+
 def main(args: argparse.Namespace) -> int:
     output_dir: Path = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
     run_increments: int = (
         args.run_increments if args.run_increments is not None else DEFAULT_RUN_INCREMENTS
     )
     terminal_zero = cast("TerminalZeroPolicy", args.terminal_zero)
-
     try:
         if args.critical_storms is not None:
-            if args.input_csv is not None or args.column is not None or args.output_name is not None:
-                message = "Batch mode cannot use input_csv, --column or --output-name."
-                raise ConversionError(message)
-            if args.bc_database is None:
-                message = "--bc-database is required with --critical-storms."
-                raise ConversionError(message)
-            plan = prepare_batch(
-                table_path=args.critical_storms,
-                bc_database=args.bc_database,
-                output_dir=output_dir,
-                climate_suffix=args.climate_suffix or DEFAULT_CLIMATE_SUFFIX,
-                model_name=args.model_name,
-                run_increments=run_increments,
-                terminal_zero=terminal_zero,
-                input_template=args.input_template,
-                output_template=args.output_template,
-                column_template=args.column_template,
-                overwrite=args.overwrite,
-            )
-            print(f"Valid jobs: {len(plan.jobs)}; skipped: {len(plan.skipped)}; errors: {len(plan.errors)}")
-            for skipped in plan.skipped:
-                print(f"SKIP: {skipped}")
-            for error in plan.errors:
-                print(f"ERROR: {error}", file=sys.stderr)
-            for job in plan.jobs:
-                print(f"{job.input_csv} [{job.column}] -> {job.output_path}")
-            if plan.errors:
-                print("Validation failed: no outputs written.", file=sys.stderr)
-                return 1
-            if args.dry_run:
-                print("Dry run: no outputs written.")
-                return 0
-            outputs = write_batch(plan, overwrite=args.overwrite)
-            print(f"Wrote {len(outputs)} RORB STM file(s).")
-            return 0
-
-        if args.input_csv is None or args.column is None:
-            message = "Single-file mode requires input_csv and --column."
-            raise ConversionError(message)
-        if args.bc_database is not None:
-            message = "--bc-database is only used in batch mode."
-            raise ConversionError(message)
-
-        job = prepare_single(
-            args.input_csv,
-            column=args.column,
-            output_dir=output_dir,
-            output_name=args.output_name,
-            model_name=args.model_name,
-            run_increments=run_increments,
-            terminal_zero=terminal_zero,
-        )
-        if job.output_path.exists() and not args.overwrite:
-            message = f"Output exists: {job.output_path} (pass --overwrite)."
-            raise ConversionError(message)
-        print(f"Input: {job.input_csv}; column: {job.column}; output: {job.output_path}")
-        if args.dry_run:
-            print("Dry run: no output written.")
-            return 0
-        write_stm(job.output_path, job.stm_text, overwrite=args.overwrite)
-        print("STM created.")
-        return 0
+            return _run_batch(args, output_dir, run_increments, terminal_zero)
+        return _run_single(args, output_dir, run_increments, terminal_zero)
     except (ConversionError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-
 
 if __name__ == "__main__":
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
