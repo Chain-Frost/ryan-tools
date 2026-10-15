@@ -108,23 +108,8 @@ def _nominal_duration_hours(csv_path: Path) -> float | None:
     return int(match["duration"]) / 60 if match is not None else None
 
 
-def read_rainfall_series(
-    csv_path: Path,
-    column_name: str,
-    *,
-    terminal_zero: TerminalZeroPolicy = "auto",
-) -> RainfallSeries:
-    """Read uniform-step TUFLOW mm-per-interval values and map to RORB intervals.
-
-    Auto strips a *single* terminal zero only when the standard input filename
-    declares a storm duration exactly one step shorter than the CSV timespan.
-    `keep` preserves all non-initial ordinates for non-standard event layouts.
-    `drop` explicitly removes one terminal zero regardless of filename.
-    Interior dry increments are never discarded.
-    """
-    if terminal_zero not in {"auto", "keep", "drop"}:
-        message = f"Unknown terminal zero policy: {terminal_zero!r}"
-        raise ConversionError(message)
+def _read_csv_column(csv_path: Path, column_name: str) -> tuple[list[list[str]], int, int]:
+    """Locate a requested rainfall column after optional TUFLOW metadata rows."""
     try:
         with csv_path.open(encoding="utf-8-sig", newline="") as stream:
             rows = [[_clean_cell(cell) for cell in row] for row in csv.reader(stream)]
@@ -133,22 +118,27 @@ def read_rainfall_series(
         raise ConversionError(message) from exc
 
     header_pos = next(
-        (i for i, row in enumerate(rows) if row and row[0].casefold() in {"time (hour)", "time (hours)"}),
+        (index for index, row in enumerate(rows) if row and row[0].casefold() in {"time (hour)", "time (hours)"}),
         None,
     )
     if header_pos is None:
         message = "No rainfall header beginning 'Time (hour)' was found."
         raise ConversionError(message)
     header = rows[header_pos]
-    column_indices = [i for i, name in enumerate(header) if name.casefold() == column_name.casefold()]
+    column_indices = [index for index, name in enumerate(header) if name.casefold() == column_name.casefold()]
     if not column_indices:
         message = f"Rainfall column {column_name!r} not found; available: {header[1:]}"
         raise ConversionError(message)
     if len(column_indices) != 1 or column_indices[0] == 0:
         message = f"Ambiguous or invalid rainfall column {column_name!r}."
         raise ConversionError(message)
-    column_index = column_indices[0]
+    return rows, header_pos, column_indices[0]
 
+
+def _parse_csv_timesteps(
+    rows: list[list[str]], header_pos: int, column_index: int
+) -> tuple[list[float], list[float], float]:
+    """Read mm-per-interval data and validate regular time intervals."""
     times: list[float] = []
     depths: list[float] = []
     for line, row in enumerate(rows[header_pos + 1 :], start=header_pos + 2):
@@ -180,7 +170,6 @@ def read_rainfall_series(
     if not math.isclose(depths[0], 0.0, abs_tol=1e-12):
         message = "TUFLOW time-zero rainfall must be zero; it is not a RORB rainfall interval."
         raise ConversionError(message)
-
     timestep = times[1] - times[0]
     if timestep <= 0:
         message = "Rainfall times must increase."
@@ -189,8 +178,17 @@ def read_rainfall_series(
         if not math.isclose(after - before, timestep, rel_tol=1e-8, abs_tol=1e-9):
             message = f"Irregular rainfall timestep at CSV line {line}."
             raise ConversionError(message)
+    return times, depths, timestep
 
-    # TUFLOW assigns value at t_i to (t_(i-1), t_i]; t=0 is only a placeholder.
+
+def _apply_terminal_zero_policy(
+    csv_path: Path,
+    times: list[float],
+    depths: list[float],
+    timestep: float,
+    terminal_zero: TerminalZeroPolicy,
+) -> tuple[float, ...]:
+    """Remove only the TUFLOW t=0 placeholder and a documented extra terminal zero."""
     interval_depths = depths[1:]
     duration = _nominal_duration_hours(csv_path)
     if terminal_zero == "drop":
@@ -213,13 +211,32 @@ def read_rainfall_series(
     if not interval_depths:
         message = "No rainfall intervals remain after removing boundary placeholders."
         raise ConversionError(message)
+    return tuple(interval_depths)
 
+
+def read_rainfall_series(
+    csv_path: Path,
+    column_name: str,
+    *,
+    terminal_zero: TerminalZeroPolicy = "auto",
+) -> RainfallSeries:
+    """Parse one uniform-step TUFLOW rainfall hyetograph as RORB interval depths.
+
+    Auto strips one trailing zero only when the filename-defined duration is
+    exactly one increment shorter than the data's timespan. Use keep or drop
+    for non-standard files; all interior dry intervals are retained.
+    """
+    if terminal_zero not in {"auto", "keep", "drop"}:
+        message = f"Unknown terminal zero policy: {terminal_zero!r}"
+        raise ConversionError(message)
+    rows, header_pos, column_index = _read_csv_column(csv_path, column_name)
+    times, depths, timestep = _parse_csv_timesteps(rows, header_pos, column_index)
+    intervals = _apply_terminal_zero_policy(csv_path, times, depths, timestep, terminal_zero)
     return RainfallSeries(
-        column_name=header[column_index],
+        column_name=rows[header_pos][column_index],
         timestep_hours=timestep,
-        values=tuple(interval_depths),
+        values=intervals,
     )
-
 
 def _format_number(value: float) -> str:
     return "0" if value == 0 else format(value, ".10g")
