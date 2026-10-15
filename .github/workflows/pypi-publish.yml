@@ -77,7 +77,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python repo-scripts/verify_wheel.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $wheels = @(Get-ChildItem -LiteralPath dist -Filter 'ryan_functions-*.whl' -File)\n          if ($wheels.Count -ne 1) { throw 'Expected exactly one distribution wheel.' }\n          python -m twine check $wheels[0].FullName
+          $wheels = @(Get-ChildItem -LiteralPath dist -Filter 'ryan_functions-*.whl' -File)
+          if ($wheels.Count -ne 1) { throw 'Expected exactly one distribution wheel.' }
+          python -m twine check $wheels[0].FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload verified distribution
