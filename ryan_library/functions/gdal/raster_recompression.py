@@ -121,14 +121,8 @@ def inspect_geotiff(path: Path) -> RasterInspection:
     resolved = path.resolve()
     file_snapshot = snapshot_file(resolved)
     with rasterio.open(resolved) as dataset:
-        compression = (
-            dataset.compression.value.upper()
-            if dataset.compression is not None
-            else "NONE"
-        )
-        overview_count = sum(
-            len(dataset.overviews(band)) for band in range(1, dataset.count + 1)
-        )
+        compression = dataset.compression.value.upper() if dataset.compression is not None else "NONE"
+        overview_count = sum(len(dataset.overviews(band)) for band in range(1, dataset.count + 1))
         eligible, reason = stream_copy_eligibility(dataset)
         return RasterInspection(
             path=resolved,
@@ -196,9 +190,7 @@ def capture_raster_signature(dataset: rasterio.io.DatasetReader) -> RasterSignat
     """Capture metadata whose equality is required after recompression."""
     crs_wkt = dataset.crs.to_wkt() if dataset.crs is not None else None
     dataset_metadata = _capture_metadata_domains(dataset)
-    band_metadata = tuple(
-        _capture_metadata_domains(dataset, band) for band in range(1, dataset.count + 1)
-    )
+    band_metadata = tuple(_capture_metadata_domains(dataset, band) for band in range(1, dataset.count + 1))
     return RasterSignature(
         width=dataset.width,
         height=dataset.height,
@@ -212,10 +204,7 @@ def capture_raster_signature(dataset: rasterio.io.DatasetReader) -> RasterSignat
         color_interpretations=tuple(value.name for value in dataset.colorinterp),
         units=tuple(dataset.units),
         descriptions=tuple(dataset.descriptions),
-        mask_flags=tuple(
-            tuple(sorted(flag.name for flag in flags))
-            for flags in dataset.mask_flag_enums
-        ),
+        mask_flags=tuple(tuple(sorted(flag.name for flag in flags)) for flags in dataset.mask_flag_enums),
         dataset_metadata=dataset_metadata,
         band_metadata=band_metadata,
     )
@@ -268,17 +257,11 @@ def stream_copy_float32_geotiff(
                 row_count = min(rows, original.height - row_offset)
                 window = Window(0, row_offset, original.width, row_count)
                 values = original.read(1, window=window, masked=False)
-                evidence.append(
-                    WindowDigest(row_offset, row_count, _array_digest(values))
-                )
+                evidence.append(WindowDigest(row_offset, row_count, _array_digest(values)))
                 converted.write(values, 1, window=window)
 
-    result = StreamCopyEvidence(
-        source_signature=source_signature, windows=tuple(evidence)
-    )
-    difference = verify_stream_copy_output(
-        output, result, expected_compression=compression
-    )
+    result = StreamCopyEvidence(source_signature=source_signature, windows=tuple(evidence))
+    difference = verify_stream_copy_output(output, result, expected_compression=compression)
     if difference is not None:
         message = f"Streaming output verification failed: {difference}"
         raise RuntimeError(message)
@@ -306,7 +289,9 @@ def verify_stream_copy_output(
             window = Window(0, record.row_offset, converted.width, record.row_count)
             values = converted.read(1, window=window, masked=False)
             if _array_digest(values) != record.digest:
-                return f"decoded pixel bytes differ at rows {record.row_offset}-{record.row_offset + record.row_count - 1}"
+                return (
+                    f"decoded pixel bytes differ at rows {record.row_offset}-{record.row_offset + record.row_count - 1}"
+                )
     return None
 
 
@@ -355,9 +340,7 @@ def compare_raster_metadata(source: Path, other: Path) -> str | None:
         rasterio.open(source.resolve()) as original,
         rasterio.open(other.resolve()) as candidate,
     ):
-        return _signature_difference(
-            capture_raster_signature(original), capture_raster_signature(candidate)
-        )
+        return _signature_difference(capture_raster_signature(original), capture_raster_signature(candidate))
 
 
 def stage_raster_with_dependencies(source: Path, directory: Path) -> Path:
@@ -394,9 +377,7 @@ def stage_raster_with_dependencies(source: Path, directory: Path) -> Path:
     return staged_source
 
 
-def copy_file_with_digest(
-    source: Path, destination: Path, *, chunk_size: int = 8 * 1024 * 1024
-) -> bytes:
+def copy_file_with_digest(source: Path, destination: Path, *, chunk_size: int = 8 * 1024 * 1024) -> bytes:
     """Copy a file once while hashing its source bytes, then verify the copy."""
     source = source.resolve()
     destination = destination.resolve()
@@ -442,22 +423,14 @@ def _array_digest(values: np.ndarray) -> bytes:
 
 
 def _clean_tags(tags: dict[str, str]) -> tuple[tuple[str, str], ...]:
-    return tuple(
-        sorted(
-            (key, value)
-            for key, value in tags.items()
-            if not key.startswith(_STATISTICS_PREFIX)
-        )
-    )
+    return tuple(sorted((key, value) for key, value in tags.items() if not key.startswith(_STATISTICS_PREFIX)))
 
 
 def _capture_metadata_domains(
     dataset: rasterio.io.DatasetReader,
     band: int = 0,
 ) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:
-    domains: list[tuple[str, tuple[tuple[str, str], ...]]] = [
-        ("", _clean_tags(dataset.tags(band)))
-    ]
+    domains: list[tuple[str, tuple[tuple[str, str], ...]]] = [("", _clean_tags(dataset.tags(band)))]
     for namespace in sorted(dataset.tag_namespaces(band)):
         if namespace in _IGNORED_METADATA_NAMESPACES:
             continue
@@ -482,14 +455,10 @@ def _copy_raster_metadata(
         destination.update_tags(band, **source.tags(band))
         for namespace in source.tag_namespaces(band):
             if namespace not in _IGNORED_METADATA_NAMESPACES:
-                destination.update_tags(
-                    band, ns=namespace, **source.tags(band, ns=namespace)
-                )
+                destination.update_tags(band, ns=namespace, **source.tags(band, ns=namespace))
 
 
-def _signature_difference(
-    expected: RasterSignature, actual: RasterSignature
-) -> str | None:
+def _signature_difference(expected: RasterSignature, actual: RasterSignature) -> str | None:
     fields = (
         "width",
         "height",
@@ -513,12 +482,8 @@ def _signature_difference(
     return None
 
 
-def _storage_difference(
-    dataset: rasterio.io.DatasetReader, expected_compression: CompressionName
-) -> str | None:
-    compression = (
-        dataset.compression.value.upper() if dataset.compression is not None else "NONE"
-    )
+def _storage_difference(dataset: rasterio.io.DatasetReader, expected_compression: CompressionName) -> str | None:
+    compression = dataset.compression.value.upper() if dataset.compression is not None else "NONE"
     if compression != expected_compression:
         return f"compression is {compression}, expected {expected_compression}"
     for band in range(1, dataset.count + 1):
