@@ -1,5 +1,41 @@
 # GDAL Python wrappers
 
+## Safe GeoTIFF recompression
+
+`recompress_geotiffs.py` audits `.tif` and `.tiff` files recursively without
+reading all pixel values. It reports uncompressed files and changes nothing
+unless `--replace` is supplied. Replacement is atomic and happens only after
+the compressed output has passed exact decoded-pixel, validity-mask, and
+substantive-metadata checks. It never creates overviews.
+
+```bat
+python recompress_geotiffs.py "Q:\Project\Results"
+python recompress_geotiffs.py "Q:\Project\Results" --replace
+python recompress_geotiffs.py "Q:\Project\Results" --replace --yes --no-pause --staging-directory "D:\RasterStage"
+```
+
+The default `auto` strategy has two paths:
+
+- Ordinary, north-up, single-band Float32 TUFLOW GeoTIFFs use a deliberately
+  constrained streaming implementation. Each source pixel window is read once,
+  hashed as decoded bytes, written with DEFLATE, then checked after reopening
+  the output. This avoids a second source-pixel read.
+- All other inputs use the safer generic `gdal.Translate` implementation. For
+  network data, `--staging-directory` is recommended: the source and any
+  GDAL-reported sidecars are copied and file-hash checked once, then conversion
+  and exact comparison occur locally.
+
+The audit obtains dimensions, bands, data types, CRS, transform, NoData,
+compression, masks, metadata, and overview presence from GDAL/raster headers.
+Reading every pixel is the expensive operation and is reserved for output
+verification. Whole-raster RAM caching is intentionally not the generic
+default because large rasters, masks, and concurrent jobs make its memory use
+unpredictable; window digests or local-disk staging provide bounded behavior.
+
+Use `--strategy translate` to force the conservative generic path, or
+`--strategy stream` to require the narrow Float32 contract and fail every file
+outside it. Existing compressed files are skipped.
+
 These scripts are editable user-facing wrappers around reusable functionality
 installed with `ryan-tools`. They do not modify `sys.path` and therefore expect
 the current `ryan-tools` wheel (or editable package) to be installed.
