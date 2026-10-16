@@ -13,7 +13,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-10-16.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT_DIR = Path()
@@ -73,9 +73,9 @@ def check_files_in_directory(args: tuple[Path, str, str]) -> list[str]:
 
 def main(*, input_directories: PathOrList | None = None) -> int:
     if input_directories is None:
-        targets: list[Path] = [Path(DEFAULT_INPUT_DIR).resolve()]
+        targets: list[Path] = [Path(DEFAULT_INPUT_DIR).absolute()]
     else:
-        targets = [p.resolve() for p in to_path_list(input_directories)]
+        targets = [p.absolute() for p in to_path_list(input_directories)]
 
     # We just change to the first directory to satisfy the standard, but we'll scan all of them.
     targets = list(dict.fromkeys(targets))
@@ -118,7 +118,7 @@ def main(*, input_directories: PathOrList | None = None) -> int:
 
     all_missing_files: list[str] = [item for sublist in results for item in sublist]
 
-    output_file: Path = Path(DEFAULT_OUTPUT_FILE).resolve()
+    output_file: Path = Path(DEFAULT_OUTPUT_FILE).absolute()
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     try:

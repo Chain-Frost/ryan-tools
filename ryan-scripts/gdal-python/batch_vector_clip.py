@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-10-16.1"
 DEFAULT_INPUTS = [Path("input.shp")]
 DEFAULT_EXTENTS = [Path("extent.shp")]
 DEFAULT_OUTPUT_DIR: Path | None = None
@@ -134,7 +134,7 @@ def build_output_jobs(inputs: list[Path], extents: list[Path], output_dir: Path)
         for input_path in inputs
         for extent_path in extents
     ]
-    outputs = [output_path.resolve() for _, _, output_path in jobs]
+    outputs = [output_path.resolve() for _, _, output_path in jobs]  # Detect physical output aliases.
     if len(outputs) != len(set(outputs)):
         msg = "Input or extent names would create duplicate output paths"
         raise ValueError(msg)
