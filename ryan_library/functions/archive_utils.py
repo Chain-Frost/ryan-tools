@@ -7,8 +7,10 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from dataclasses import dataclass
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
 
 def find_7zip() -> Path | None:
@@ -65,10 +67,6 @@ def extract_archive(*, archive_path: Path, output_directory: Path, executable: P
         diagnostic = result.stderr.strip() or result.stdout.strip()
         msg = f"7z exit code {result.returncode}: {diagnostic}"
         raise RuntimeError(msg)
-
-
-from dataclasses import dataclass
-from typing import Literal
 
 
 @dataclass(frozen=True, slots=True)
