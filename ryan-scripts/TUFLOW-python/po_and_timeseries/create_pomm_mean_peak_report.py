@@ -16,7 +16,7 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.2"
+WRAPPER_VERSION = "2026-10-16.1"
 
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 # Toggle to include the combined POMM sheet in the Excel export.
@@ -68,7 +68,7 @@ def main(
         working_directory: Overrides the default WORKING_DIR.
     """
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    target_directory: Path = (working_directory or WORKING_DIR).resolve()
+    target_directory: Path = (working_directory or WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
 

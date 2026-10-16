@@ -212,8 +212,8 @@ def main() -> int:
 
     setup_logger(console_log_level=args.log_level, log_file=None)
 
-    inp: Path = (args.input_dir or DEFAULT_INPUT_DIR).resolve()
-    out: Path = (args.output_dir or DEFAULT_OUTPUT_DIR).resolve()
+    inp: Path = (args.input_dir or DEFAULT_INPUT_DIR).absolute()
+    out: Path = (args.output_dir or DEFAULT_OUTPUT_DIR).absolute()
     csv_fp: Path = inp / INPUT_FILE_NAME
 
     logger.info("Input dir:  {}", inp)
