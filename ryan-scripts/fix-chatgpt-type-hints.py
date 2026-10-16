@@ -60,9 +60,7 @@ def process_folders(folder_paths: list[Path]) -> None:
 
         print(f"Processing folder: {folder}")
         for file in folder.rglob("*.py"):  # Recursively find all .py files
-            if (
-                file.resolve() == script_path.resolve()
-            ):  # Compare physical identity to avoid editing this script.
+            if file.resolve() == script_path.resolve():  # Compare physical identity to avoid editing this script.
                 print(f"Skipping: {file}")
                 continue
             fix_type_hints(file_path=file)
