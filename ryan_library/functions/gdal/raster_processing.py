@@ -54,7 +54,7 @@ def read_raster_band(
         msg = "band must be one or greater."
         raise ValueError(msg)
 
-    raster_path: Path = Path(raster).resolve()
+    raster_path: Path = Path(raster).absolute()
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster_path), gdal.GA_ReadOnly)
         if dataset is None:
@@ -95,7 +95,7 @@ def read_masked_raster_band(
         msg = "band must be one or greater."
         raise ValueError(msg)
 
-    raster_path: Path = Path(raster).resolve()
+    raster_path: Path = Path(raster).absolute()
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster_path), gdal.GA_ReadOnly)
         if dataset is None:
@@ -227,11 +227,11 @@ def translate_to_geotiff(
         overwrite: Permit replacement of an existing output.
 
     Returns:
-        The resolved destination path.
+        The absolute destination path.
     """
-    source = source.resolve()
-    output = output.resolve()
-    if source == output:
+    source = source.absolute()
+    output = output.absolute()
+    if source == output or (source.exists() and output.exists() and source.samefile(output)):
         msg = f"Input and output paths are identical: {source}"
         raise ValueError(msg)
     if output.exists() and not overwrite:
@@ -286,7 +286,7 @@ def build_external_overviews(
     Returns:
         The external ``.ovr`` path.
     """
-    raster = raster.resolve()
+    raster = raster.absolute()
     overview = Path(f"{raster}.ovr")
     requested_levels: tuple[int, ...] = tuple(level for level in levels if level > 1)
     if not requested_levels:
@@ -350,7 +350,7 @@ def build_vrt(
     if not input_files:
         msg = "At least one input raster is required to build a VRT."
         raise ValueError(msg)
-    output = output.resolve()
+    output = output.absolute()
     output.parent.mkdir(parents=True, exist_ok=True)
     logger.debug("Building VRT {} from {} inputs", output, len(input_files))
     options = gdal.BuildVRTOptions(
@@ -360,7 +360,7 @@ def build_vrt(
         VRTNodata=vrt_nodata,
     )
     with gdal.ExceptionMgr():
-        dataset = gdal.BuildVRT(str(output), [str(path.resolve()) for path in input_files], options=options)
+        dataset = gdal.BuildVRT(str(output), [str(path.absolute()) for path in input_files], options=options)
         if dataset is None:
             msg = f"GDAL could not build VRT {output}"
             raise RuntimeError(msg)
@@ -397,11 +397,11 @@ def calculate_flood_extent(
         overwrite: Permit replacement of an existing mask.
 
     Returns:
-        The resolved flood-mask path.
+        The absolute flood-mask path.
     """
-    input_file = input_file.resolve()
-    output_raster = output_raster.resolve()
-    if input_file == output_raster:
+    input_file = input_file.absolute()
+    output_raster = output_raster.absolute()
+    if input_file == output_raster or (input_file.exists() and output_raster.exists() and input_file.samefile(output_raster)):
         msg = f"Input and output paths are identical: {input_file}"
         raise ValueError(msg)
     if output_raster.exists() and not overwrite:
@@ -490,8 +490,8 @@ def sieve_raster(
     if connectedness not in (4, 8):
         msg = "connectedness must be 4 or 8."
         raise ValueError(msg)
-    input_raster = input_raster.resolve()
-    output_raster = output_raster.resolve()
+    input_raster = input_raster.absolute()
+    output_raster = output_raster.absolute()
     if output_raster.exists() and not overwrite:
         msg = f"Output already exists: {output_raster}"
         raise FileExistsError(msg)
@@ -545,7 +545,7 @@ def set_raster_nodata(raster: Path, nodata: float, *, bands: Sequence[int] | Non
     Pixel values are not changed. This is equivalent to ``gdal_edit
     -a_nodata`` and therefore requires a driver that supports update access.
     """
-    raster = raster.resolve()
+    raster = raster.absolute()
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster), gdal.GA_Update)
         if dataset is None:
@@ -565,7 +565,7 @@ def set_raster_nodata(raster: Path, nodata: float, *, bands: Sequence[int] | Non
 
 def clear_raster_nodata(raster: Path, *, bands: Sequence[int] | None = None) -> Path:
     """Remove NoData metadata from selected bands without changing pixel values."""
-    raster = raster.resolve()
+    raster = raster.absolute()
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster), gdal.GA_Update)
         if dataset is None:
@@ -594,8 +594,8 @@ def create_raster_footprint(
     overwrite: bool = False,
 ) -> Path:
     """Create a valid-data footprint excluding source NoData pixels."""
-    input_raster = input_raster.resolve()
-    output_vector = output_vector.resolve()
+    input_raster = input_raster.absolute()
+    output_vector = output_vector.absolute()
     _normalized_format, format_spec = resolve_vector_format(vector_format)
     driver_name = format_spec.driver
     driver = ogr.GetDriverByName(driver_name)
@@ -621,7 +621,7 @@ def create_raster_footprint(
 
 def get_vector_extent(vector_path: Path) -> tuple[float, float, float, float]:
     """Return the combined ``(xmin, ymin, xmax, ymax)`` extent of all vector layers."""
-    vector_path = vector_path.resolve()
+    vector_path = vector_path.absolute()
     with gdal.ExceptionMgr():
         dataset = gdal.OpenEx(str(vector_path), gdal.OF_VECTOR)
         if dataset is None or dataset.GetLayerCount() < 1:
@@ -639,7 +639,7 @@ def get_vector_extent(vector_path: Path) -> tuple[float, float, float, float]:
 
 def get_raster_extent(raster: Path) -> tuple[float, float, float, float]:
     """Return an axis-aligned extent calculated from all four raster corners."""
-    raster = raster.resolve()
+    raster = raster.absolute()
     with gdal.ExceptionMgr():
         dataset = gdal.Open(str(raster), gdal.GA_ReadOnly)
         if dataset is None:
@@ -685,10 +685,10 @@ def polygonize_flood_extent(
         overwrite: Permit deletion and recreation of an existing dataset.
 
     Returns:
-        The resolved vector dataset path.
+        The absolute vector dataset path.
     """
-    input_raster = input_raster.resolve()
-    output_vector = output_vector.resolve()
+    input_raster = input_raster.absolute()
+    output_vector = output_vector.absolute()
     _normalized_format, format_spec = resolve_vector_format(vector_format)
     driver_name = format_spec.driver
     driver = ogr.GetDriverByName(driver_name)

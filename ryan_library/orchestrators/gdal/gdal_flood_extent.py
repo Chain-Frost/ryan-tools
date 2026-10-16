@@ -72,10 +72,10 @@ def main_processing(
 
         matched_files: list[Path] = sorted(
             {
-                path.resolve()
+                path.absolute()
                 for root in paths_to_process
                 for pattern in file_patterns
-                for path in (root.resolve().rglob(pattern) if recursive else root.resolve().glob(pattern))
+                for path in (root.absolute().rglob(pattern) if recursive else root.absolute().glob(pattern))
                 if path.is_file() and "_FE_" not in path.stem
             }
         )

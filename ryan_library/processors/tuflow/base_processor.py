@@ -92,7 +92,7 @@ class BaseProcessor(ABC):
 
     def __post_init__(self) -> None:
         self.file_name = self.file_path.name
-        self.resolved_file_path = self.file_path.resolve()
+        self.resolved_file_path = self.file_path.absolute()  # Preserve public attribute name for existing callers.
         self.name_parser = TuflowStringParser(file_path=self.file_path)
         if self.name_parser.data_type is None:
             msg = "data_type was not set in TuflowStringParser for self.file_path.name"
@@ -106,7 +106,7 @@ class BaseProcessor(ABC):
     def log_path(self) -> str:
         """Return the relative path from CWD if possible, else absolute path."""
         try:
-            return str(self.resolved_file_path.relative_to(Path.cwd().resolve()))
+            return str(self.resolved_file_path.relative_to(Path.cwd().absolute()))
         except ValueError:
             return str(self.resolved_file_path)
 
@@ -455,7 +455,7 @@ class BaseProcessor(ABC):
     def build_basic_info_payload(self) -> dict[str, str | NAType]:
         """Build the core metadata payload derived from the source file."""
         resolved_path: Path = self.resolved_file_path
-        cwd_resolved: Path = Path.cwd().resolve()
+        cwd_resolved: Path = Path.cwd().absolute()
         parent_path: Path = resolved_path.parent
         return {
             "internalName": self.name_parser.raw_run_code,
