@@ -67,7 +67,7 @@ DRY_AREA_HANDLING: Literal["no_plot", "ground_level"] = "no_plot"
 DISCONNECTED_LINE_HANDLING: Literal["error", "separate"] = "error"
 
 SECTION_INTERVAL_M = 50.0
-OUTPUT_DIRECTORY = Path(__file__).absolute().parent / "profile_tables_50m"
+OUTPUT_DIRECTORY = Path(__file__).resolve().parent / "profile_tables_50m"
 WORKBOOK_NAME = "water_level_profiles_50m.xlsx"
 WORD_DOCUMENT_NAME = "water_level_profile_tables_50m_word_appendix_style.docx"
 APPENDIX_TABLE_STYLE = "appendix table style"

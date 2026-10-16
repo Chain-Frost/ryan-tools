@@ -10,7 +10,7 @@ ROOTS: list[Path] = [
     Path(r"Q:\path\path]"),
 ]
 
-OUTPUT_CSV: Path = Path(__file__).absolute().parent / "higginsville_crs_audit.csv"
+OUTPUT_CSV: Path = Path(__file__).resolve().parent / "higginsville_crs_audit.csv"
 
 EXTENSIONS: set[str] = {".tif", ".tiff", ".flt", ".gpkg"}
 

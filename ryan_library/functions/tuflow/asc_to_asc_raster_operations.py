@@ -546,8 +546,9 @@ def compute_stat(
                 else:
                     selectable = np.where(eligible, adjusted_data, np.inf)
                     sorted_indexes = np.argsort(selectable, axis=0, kind="stable")
-                    upper_indexes = valid_count // 2
-                    source_indexes = np.take_along_axis(sorted_indexes, upper_indexes[np.newaxis, ...], axis=0)[0]
+                    upper_indexes: npt.NDArray[np.int64] = np.asarray(valid_count // 2, dtype=np.int64)
+                    expanded_upper_indexes: npt.NDArray[np.int64] = np.expand_dims(upper_indexes, axis=0)
+                    source_indexes = np.take_along_axis(sorted_indexes, expanded_upper_indexes, axis=0)[0]
                     statistic = np.take_along_axis(selectable, source_indexes[np.newaxis, ...], axis=0)[0]
 
                 result: npt.NDArray[np.float64] = np.asarray(

@@ -313,8 +313,8 @@ def plot_timeseries(df: pd.DataFrame) -> None:
 
 
 def main() -> None:
-    repo_root: Path = Path(__file__).absolute().parents[1]
-    data_root: Path = TUFLOW_RESULTS_ROOT.absolute()
+    repo_root: Path = Path(__file__).resolve().parents[1]
+    data_root: Path = TUFLOW_RESULTS_ROOT.resolve()
     try:
         common_root = Path(os.path.commonpath([str(repo_root), str(data_root)]))
     except ValueError:

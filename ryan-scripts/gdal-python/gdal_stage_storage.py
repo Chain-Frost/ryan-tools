@@ -52,7 +52,7 @@ def _write_csv(output_path: Path, volumes: dict[float, float]) -> None:
 
 def _write_plot(output_path: Path, dem_name: str, volumes: dict[float, float]) -> None:
     temporary_path = _temporary_output(output_path)
-    figure, axes = plt.subplots(figsize=(10, 6))
+    figure, axes = plt.subplots(figsize=(10, 6))  # pyright: ignore[reportUnknownMemberType]
     try:
         levels = list(volumes)
         volume_values = list(volumes.values())

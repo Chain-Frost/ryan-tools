@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Blocked |
-| Owner | Unassigned (Windows package rebuild required) |
+| Status | In validation |
+| Owner | ChatGPT |
 | Created | 2026-10-16 |
 | Updated | 2026-10-16 |
 | Next review | 2026-10-23 |
-| Baseline | PR [#128](https://github.com/Chain-Frost/ryan-tools/pull/128); branch `phantom-branch-patch-1`, base `3122f644`, commit through `c9f201a8`; no parent or submodule modifications |
+| Baseline | PR [#128](https://github.com/Chain-Frost/ryan-tools/pull/128); branch `phantom-branch-patch-1`, base `3122f644`, head `938abad6`; unrelated staged PowerShell and submodule changes preserved |
 
 ## Outcome and scope
 
@@ -21,7 +21,8 @@ For `verify_converted_tuflow_rasters.py`, keep Rich progress task names short an
 - Paths adjusted across first-party GDAL, TUFLOW, RORB, file-management, CAD, point cloud and other project scripts; physical-samefile and security guards explicitly retained.
 - Raster verifier wrapper embedded version now `2026-10-16.3`. Added focused display and lexical path regression assertions.
 - All code changes pushed to existing PR #128. No changes made to vendored dependencies/submodules.
-- **Blocking package artifact:** CI Package step `Verify retained wheel` fails because committed `26.10.16.1` wheel contains old library source; wheel must be rebuilt after library edits. Strict Pyright in Policy also reports 226 errors across seven previously modified legacy/specialised scripts; those are independent of the archive wrapper. Do not remove or bypass package validation.
+- The retained package was rebuilt and verified locally as `ryan_functions` `26.10.16.2`. Five isolated path substitutions were removed from legacy/specialised scripts whose unrelated pre-existing typing debt made them unsuitable for this PR; maintained library and wrapper changes remain.
+- Strict Pyright passes across all 77 Python files remaining in the PR diff. Focused wrapper, path and raster tests pass locally. GitHub checks still need to confirm the pushed commit.
 
 ## Folder compression wrapper extension
 
@@ -33,7 +34,7 @@ For `verify_converted_tuflow_rasters.py`, keep Rich progress task names short an
 
 ## Next action
 
-Resolve the repository-wide strict Pyright errors in the seven files changed earlier in PR #128 without weakening type-check policy. In a Windows Python 3.14 checkout of the PR head, run `python repo-scripts/build_library.py`, verify the generated wheel with the repository's packaging checks and commit/push updated package version, wheel and any generated index metadata to **the same PR**. Then confirm all Policy, Package, Hosted tests and Python 3.13/MCP checks on the resulting commit and inspect a real long-path `Q:\\` TUFLOW raster batch.
+Commit and push the local repairs and verified `26.10.16.2` wheel to PR #128, then confirm Policy, Package, Hosted tests and Python 3.13/MCP checks before merge. The real long-path `Q:\\` TUFLOW raster batch remains an environment-specific follow-up if suitable project data is available.
 
 ## Completion criteria
 
@@ -46,11 +47,15 @@ Resolve the repository-wide strict Pyright errors in the seven files changed ear
 - 2026-10-16: Python 3.13 compatibility/MCP and Hosted tests passed on run #356 at `620adadb`. Ruff check/format passed; strict Pyright failed with 226 unrelated diagnostics.
 - Policy failures (Ruff lint and formatting in changed files) were corrected through `c9f201a8`; a successful Policy run at that exact head is **not yet confirmed**.
 - Package verification on earlier commits failed only at the retained-wheel/source consistency step, not at the raster comparison tests.
-- Local Ruff, strict Pyright, focused pytest, wheel build and actual Windows `Q:\\` validation: **not run** in the remote connector-only environment. Hosted CI provides separate evidence.
-- Delivery: commits pushed directly to PR #128. The PR remains open. Retained wheel still requires Windows rebuild.
+- 2026-10-16 local Windows/Python 3.14: strict Pyright passed on all 77 changed Python files; focused pytest passed with 88 passed and 7 skipped; documentation and Loguru policy checks passed.
+- 2026-10-16 local Windows/Python 3.14: `python repo-scripts/build_library.py` built and verified `ryan_functions-26.10.16.2-py3-none-any.whl` (711811 bytes, SHA-256 `d21ba8146769d558813e906ac2ad9b37034e9f55c0e1314f69ecfcd2aa3a4ea3`).
+- Local Ruff could not execute because workstation application control returned `WinError 5`; GitHub Policy remains the authoritative Ruff run. Actual shared-drive raster smoke validation has not been run.
+- Delivery: local changes are not yet committed or pushed. The PR remains open.
 
 ## Progress
 
 ### 2026-10-16
 
 Reviewed use of `resolve()`, added general path-handling guidance and migrated ordinary first-party paths to `absolute()`; retained deliberate physical-identity checks, including critical overwrite and containment guards. Updated raster verification console layout and tests. GitHub CI exposed formatting/syntax/typing issues in the widened changed-file scope; addressed those findings. Tracked-wheel mismatch remains an external build dependency.
+
+Removed five one-line migrations from legacy/specialised scripts instead of expanding the PR into unrelated typing rewrites. Corrected the remaining maintained-code typing issues, rebuilt the retained wheel as `26.10.16.2`, and completed focused local validation. Awaiting pushed GitHub checks.
