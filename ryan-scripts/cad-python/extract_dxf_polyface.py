@@ -304,8 +304,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    input_path = args.input.absolute()
-    output_dir = (args.output_dir or input_path.parent).absolute()
+    input_path = args.input.resolve()
+    output_dir = (args.output_dir or input_path.parent).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     prefix = args.prefix or input_path.stem
 
