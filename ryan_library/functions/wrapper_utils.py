@@ -82,7 +82,7 @@ def print_wrapper_identity(*, wrapper_file: Path, wrapper_version: str) -> None:
     The revision is stored in the wrapper itself, so it remains available when
     that file is copied away from the repository and loses its Git history.
     """
-    print(f"Wrapper: {wrapper_file.resolve()} (version {wrapper_version})")
+    print(f"Wrapper: {wrapper_file.absolute()} (version {wrapper_version})")
 
 
 def print_wrapper_banner(
