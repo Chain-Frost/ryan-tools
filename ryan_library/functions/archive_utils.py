@@ -65,3 +65,54 @@ def extract_archive(*, archive_path: Path, output_directory: Path, executable: P
         diagnostic = result.stderr.strip() or result.stdout.strip()
         msg = f"7z exit code {result.returncode}: {diagnostic}"
         raise RuntimeError(msg)
+
+
+from dataclasses import dataclass
+from typing import Literal
+
+
+@dataclass(frozen=True, slots=True)
+class FolderCompressionJob:
+    """Picklable specification for one folder-to-7z operation."""
+
+    folder: Path
+    executable: Path
+    excluded_folders: tuple[str, ...] = ()
+    excluded_extensions: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class FolderCompressionResult:
+    """Outcome returned to the controlling process for reporting."""
+
+    folder: Path
+    archive: Path
+    status: Literal["SUCCESS", "SKIPPED", "ERROR"]
+    message: str = ""
+
+
+def compress_folder_7zip(job: FolderCompressionJob) -> FolderCompressionResult:
+    """Compress one directory, retaining its original on failure.
+
+    The output name and native 7-Zip exclusion arguments match the original
+    archive_compress_folder wrapper. Existing .7z files are never overwritten.
+    """
+    archive = job.folder.with_suffix(".7z")
+    if archive.exists():
+        return FolderCompressionResult(job.folder, archive, "SKIPPED", "Output archive already exists")
+
+    exclusions = [f"-xr!{folder}" for folder in job.excluded_folders]
+    for extension in job.excluded_extensions:
+        normalized = extension if extension.startswith(".") else f".{extension}"
+        exclusions.append(f"-xr!*{normalized}")
+
+    try:
+        create_7zip_archive(
+            executable=job.executable,
+            output_archive=archive,
+            inputs=[f"{job.folder}\\*"],
+            exclusions=exclusions,
+        )
+    except Exception as exc:
+        return FolderCompressionResult(job.folder, archive, "ERROR", str(exc))
+    return FolderCompressionResult(job.folder, archive, "SUCCESS")
