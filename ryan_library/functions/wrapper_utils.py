@@ -2,7 +2,6 @@
 """Utility functions shared by wrapper scripts."""
 
 import os
-import subprocess
 import sys
 import warnings
 from argparse import ArgumentParser, Namespace
@@ -28,6 +27,18 @@ class CommonWrapperOptions:
     working_directory: Path | None = None
 
 
+def _pause_windows_console() -> None:
+    """Wait for a console keystroke without starting CMD.EXE from a UNC directory."""
+    import msvcrt
+
+    print("Press any key to continue . . .", end="", flush=True)
+    key = msvcrt.getwch()
+    if key in ("\\x00", "\\xe0"):
+        # Arrow/function keys emit a prefix plus a second key code.
+        msvcrt.getwch()
+    print()
+
+
 def pause_console(message: str = "Press Enter to continue . . .", *, collect_before_pause: bool = True) -> None:
     """Pause an interactive console, optionally collecting garbage first.
 
@@ -44,8 +55,7 @@ def pause_console(message: str = "Press Enter to continue . . .", *, collect_bef
 
         gc.collect()
     if os.name == "nt":
-        command_interpreter = os.environ.get("COMSPEC", "cmd.exe")
-        subprocess.run([command_interpreter, "/C", "PAUSE"], check=False)
+        _pause_windows_console()
         return
     try:
         input(message)
@@ -59,9 +69,11 @@ def change_working_directory(target_dir: Path) -> bool:
     This helper never pauses or terminates the process. User-facing wrappers
     remain responsible for their own interactive pause and process exit code.
     """
+    requested_path = target_dir.absolute()
     try:
-        os.chdir(target_dir)
-        print(f"Current Working Directory: {Path.cwd()}")
+        os.chdir(requested_path)
+        # Report the requested spelling, not a filesystem-normalised UNC alias.
+        print(f"Current Working Directory: {requested_path}")
     except OSError as exc:
         print(f"Failed to change working directory to {target_dir}: {exc}")
         return False

@@ -1,7 +1,10 @@
 """Tests for the active wrapper utility functions."""
 
 import os
+import sys
 from argparse import ArgumentParser, Namespace
+
+import pytest
 from pathlib import Path
 from unittest.mock import patch
 
@@ -66,3 +69,32 @@ def test_coerce_locations_argument():
     assert wrapper_utils._coerce_locations_argument([]) is None
     assert wrapper_utils._coerce_locations_argument([""]) is None
     assert wrapper_utils._coerce_locations_argument([" a ", "b"]) == ("a", "b")
+
+
+
+def test_windows_console_pause_reads_key_without_cmd(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The Windows keypress prompt must not spawn cmd.exe from UNC directories."""
+    from types import SimpleNamespace
+
+    received: list[str] = []
+
+    def fake_getwch() -> str:
+        received.append("key")
+        return "x"
+
+    monkeypatch.setitem(sys.modules, "msvcrt", SimpleNamespace(getwch=fake_getwch))
+    wrapper_utils._pause_windows_console()
+    assert received == ["key"]
+    assert capsys.readouterr().out == "Press any key to continue . . .\\n"
+
+
+def test_change_working_directory_prints_configured_spelling(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Preserve the caller's path form even when Windows exposes a UNC alias."""
+    requested = tmp_path / "mapped_alias"
+    monkeypatch.setattr(wrapper_utils.os, "chdir", lambda _path: None)
+    assert wrapper_utils.change_working_directory(requested)
+    assert capsys.readouterr().out == f"Current Working Directory: {requested.absolute()}\\n"

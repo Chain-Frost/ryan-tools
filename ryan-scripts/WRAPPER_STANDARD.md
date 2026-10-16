@@ -158,8 +158,10 @@ if __name__ == "__main__":
 ```
 
 `pause_console()` detects redirected or non-interactive standard input and
-returns immediately for normal headless runs. `--no-pause` also protects AI,
-CI and terminal tools that allocate a pseudo-terminal.
+returns immediately for normal headless runs. On Windows it reads a console
+key directly (without invoking `cmd.exe /C PAUSE`), so UNC working directories
+do not trigger the Windows CMD network-path warning. `--no-pause` also protects
+AI, CI and terminal tools that allocate a pseudo-terminal.
 
 ## Garbage collection
 
