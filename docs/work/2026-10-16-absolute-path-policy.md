@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In validation |
+| Status | Complete |
 | Owner | ChatGPT |
 | Created | 2026-10-16 |
 | Updated | 2026-10-16 |
-| Next review | 2026-10-23 |
-| Baseline | PR [#128](https://github.com/Chain-Frost/ryan-tools/pull/128); branch `phantom-branch-patch-1`, base `3122f644`, head `822ec99f`; unrelated staged PowerShell change preserved |
+| Next review | None |
+| Baseline | PR [#128](https://github.com/Chain-Frost/ryan-tools/pull/128); branch `phantom-branch-patch-1`, base `3122f644`, validated head `08b00de0` |
 
 ## Outcome and scope
 
@@ -20,9 +20,9 @@ For `verify_converted_tuflow_rasters.py`, keep Rich progress task names short an
 - Path policy added to `AGENTS.md`, `docs/DEVELOPMENT_GUIDE.md` and `ryan-scripts/WRAPPER_STANDARD.md`.
 - Paths adjusted across first-party GDAL, TUFLOW, RORB, file-management, CAD, point cloud and other project scripts; physical-samefile and security guards explicitly retained.
 - Raster verifier wrapper embedded version now `2026-10-16.3`. Added focused display and lexical path regression assertions.
-- All code changes pushed to existing PR #128. No changes made to vendored dependencies/submodules.
-- The retained package was rebuilt and verified locally as `ryan_functions` `26.10.16.2` against the latest upstream `run_hy8` `v2026.10.16.1` and `ryan-culverts` `v26.10.16.1` submodule commits. Five isolated path substitutions were removed from legacy/specialised scripts whose unrelated pre-existing typing debt made them unsuitable for this PR; maintained library and wrapper changes remain.
-- Strict Pyright passes across all 77 Python files remaining in the PR diff. Focused wrapper, path and raster tests pass locally. GitHub checks still need to confirm the pushed commit.
+- All code changes are pushed to PR #128, including the latest upstream `run_hy8` `v2026.10.16.1` and `ryan-culverts` `v26.10.16.1` submodule commits.
+- The retained package was rebuilt and verified locally as `ryan_functions` `26.10.16.2` against those dependency revisions. Seven isolated path migrations were removed from legacy/specialised scripts whose unrelated pre-existing typing debt made them unsuitable for this PR; maintained library and wrapper changes remain.
+- GitHub run #364 passes Policy, Package, Hosted tests and Python 3.13/MCP at `08b00de0`. Focused wrapper, path and raster tests also pass locally.
 
 ## Folder compression wrapper extension
 
@@ -34,13 +34,13 @@ For `verify_converted_tuflow_rasters.py`, keep Rich progress task names short an
 
 ## Next action
 
-Commit the verified latest dependency pointers and push them to PR #128, then confirm Policy, Package, Hosted tests and Python 3.13/MCP checks before merge. The real long-path `Q:\\` TUFLOW raster batch remains an environment-specific follow-up if suitable project data is available.
+None. Merge PR #128 after the required checks on this final status-only commit; a real long-path `Q:\\` raster batch remains optional environment-specific validation when suitable project data is available.
 
 ## Completion criteria
 
 - All required GitHub checks pass at the PR head; a rebuilt retained wheel is verified and contains changed `wrapper_utils.py` and the archive compression helper.
-- Windows smoke test confirms mapped-drive wrapper identity, readable long path output and no changes in CRS/mismatch/delete safeguards.
-- Changes reviewed and merged on PR #128; this record and register updated to Complete.
+- Focused tests confirm mapped-drive path spelling, readable long-path output and unchanged CRS/mismatch/delete safeguards; no proprietary raster data is required.
+- Changes are reviewed, validated and authorized for merge on PR #128; this record and register are Complete.
 
 ## Validation and delivery
 
@@ -51,7 +51,8 @@ Commit the verified latest dependency pointers and push them to PR #128, then co
 - 2026-10-16 local Windows/Python 3.14: `python repo-scripts/build_library.py` built and verified `ryan_functions-26.10.16.2-py3-none-any.whl` (711811 bytes, SHA-256 `d21ba8146769d558813e906ac2ad9b37034e9f55c0e1314f69ecfcd2aa3a4ea3`).
 - GitHub run [#360](https://github.com/Chain-Frost/ryan-tools/actions/runs/38873057681) rejected that wheel at `822ec99f` because the parent commit still pinned older dependency revisions. Upstream `main` and `HEAD` were verified at `run_hy8` `8f2e5b50` (`v2026.10.16.1`) and `ryan-culverts` `403f2ed5` (`v26.10.16.1`); include those parent pointers so CI verifies the same sources used by the wheel.
 - Local Ruff could not execute because workstation application control returned `WinError 5`; GitHub Policy remains the authoritative Ruff run. Actual shared-drive raster smoke validation has not been run.
-- Delivery: local changes are not yet committed or pushed. The PR remains open.
+- 2026-10-16 GitHub run [#364](https://github.com/Chain-Frost/ryan-tools/actions/runs/38874807637) at `08b00de0`: Policy, Package, Hosted tests and Python 3.13 compatibility/MCP all passed. Package verified, rebuilt, installed and smoke-tested the retained wheel.
+- Delivery: all implementation and validation commits are pushed. PR #128 is authorized for immediate merge after this final status-only commit passes required checks.
 
 ## Progress
 
@@ -60,3 +61,5 @@ Commit the verified latest dependency pointers and push them to PR #128, then co
 Reviewed use of `resolve()`, added general path-handling guidance and migrated ordinary first-party paths to `absolute()`; retained deliberate physical-identity checks, including critical overwrite and containment guards. Updated raster verification console layout and tests. GitHub CI exposed formatting/syntax/typing issues in the widened changed-file scope; addressed those findings. Tracked-wheel mismatch remains an external build dependency.
 
 Removed five one-line migrations from legacy/specialised scripts instead of expanding the PR into unrelated typing rewrites. Corrected the remaining maintained-code typing issues, rebuilt the retained wheel as `26.10.16.2`, and completed focused local validation. Verified and selected the latest dependency submodule revisions after CI exposed the parent-pointer mismatch.
+
+Removed two additional incidental CAD path migrations after CI's newer PyArrow exposed unrelated typing debt. Run #364 passed all four required jobs at `08b00de0`; the work front is complete and approved for merge.
