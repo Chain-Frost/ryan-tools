@@ -7,7 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [Mapped-drive-safe paths and raster progress](2026-10-16-absolute-path-policy.md) | Blocked | Unassigned | 2026-10-16 | 2026-10-23 | Rebuild, verify and commit refreshed wheel to PR #128, then rerun CI and Windows Q: smoke test. |
+| [Mapped-drive-safe paths, raster and archive progress](2026-10-16-absolute-path-policy.md) | Blocked | Unassigned | 2026-10-16 | 2026-10-23 | Resolve strict Pyright errors in seven non-archive scripts; rebuild and commit wheel to PR #128; rerun CI and Windows Q: smoke tests. |
 | [Temporary floodway CI exclusions](2026-10-16-floodway-ci-exclusions.md) | Deferred | Unassigned | 2026-10-16 | 2026-10-22 | Review or restore the two slow sweep tests when requested or at the review date; local tests remain available. |
 | [Safe GeoTIFF recompression](2026-10-15-safe-geotiff-recompression.md) | Ready for review | ChatGPT | 2026-10-15 | 2026-10-22 | Review and merge the pull request after CI passes. |
 | [TUFLOW shared filesystem verification](2026-10-15-tuflow-shared-verification-110.md) | In validation | ChatGPT | 2026-10-15 | 2026-10-22 | Review and commit local CRS test correction and verified 26.10.15.4 wheel; confirm CI on the resulting PR #116 head before merging. |
