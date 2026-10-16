@@ -62,7 +62,7 @@ def create_grouped_mosaics(
     Returns:
         Paths to the merged GeoTIFF outputs.
     """
-    directory = directory.resolve()
+    directory = directory.absolute()
     files = sorted(
         path
         for path in directory.rglob("*.tif")

@@ -226,7 +226,7 @@ def write_file_list(file_list_path: Path, records: list[CopyRecord]) -> None:
         file.write("Source\tDestination\n")
 
         for record in records:
-            file.write(f"{record.source.resolve()}\t{record.destination.resolve()}\n")
+            file.write(f"{record.source.absolute()}\t{record.destination.absolute()}\n")
 
 
 def run_copy_job(copy_run: CopyRun, root: Path, output_dir: Path) -> int:

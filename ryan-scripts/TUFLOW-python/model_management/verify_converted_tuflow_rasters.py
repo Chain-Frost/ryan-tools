@@ -29,7 +29,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Embedded wrapper identity and editable user settings
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-10-16.3"
 ROOT_DIR = Path.cwd()
 TIF_ROOT_DIR: Path | None = None  # None means TIFs alongside FLT/ASC files
 DELETE_FILES = False  # Verification/proposal only unless set True or --delete
@@ -99,9 +99,13 @@ def source_size_summary(sources: list[Path]) -> tuple[dict[Path, int | None], in
     return sizes, sum(size for size in sizes.values() if size is not None)
 
 
-def show_file_progress(progress: Progress | None, task_id: TaskID | None, description: str) -> None:
-    """Set the active raster stage without modifying processing behaviour."""
+def show_file_progress(
+    progress: Progress | None, task_id: TaskID | None, description: str, *, detail: str | None = None
+) -> None:
+    """Update the compact progress stage, optionally printing an untruncated file path."""
     if progress is not None and task_id is not None:
+        if detail is not None:
+            progress.console.print(detail)
         progress.update(task_id, description=description, total=1, completed=0)
 
 
@@ -345,7 +349,7 @@ def inspect_source(
     show_file_progress(
         progress,
         raster_task,
-        f"Current: {source.relative_to(root)} ({format_size(original.size)}) | locating/converting GeoTIFF",
+        "Locating/converting GeoTIFF",
     )
     try:
         candidate, error, created_tif = find_or_create_tif(source, destination_dir, convert_missing=convert_missing)
@@ -375,10 +379,8 @@ def inspect_source(
     show_file_progress(
         progress,
         raster_task,
-        (
-            f"Comparing: {source.relative_to(root)} ({format_size(original.size)})"
-            f" -> {candidate.name} ({format_size(converted.size)})"
-        ),
+        "Comparing raster cells",
+        detail=f"  GeoTIFF: {candidate.relative_to(tif_root)} ({format_size(converted.size)})",
     )
     try:
         difference, warning = compare_rasters(source, candidate, progress, raster_task)
@@ -539,6 +541,8 @@ def main(argv: list[str] | None = None) -> int:
     sizes, total_bytes = source_size_summary(sources)
     unavailable = sum(size is None for size in sizes.values())
     print(f"Scanning {len(sources)} FLT/ASC raster(s) under {root}")
+    if tif_root != root:
+        print(f"GeoTIFF destination root: {tif_root}")
     print(
         f"Batch source size: {format_size(total_bytes)}"
         + (f" ({unavailable} unknown sizes)" if unavailable else "")
@@ -562,6 +566,10 @@ def main(argv: list[str] | None = None) -> int:
         processed_bytes = 0
         matched_so_far = warnings_so_far = created_so_far = 0
         for index, source in enumerate(sources, start=1):
+            if progress_enabled:
+                progress.console.print(
+                    f"[{index}/{len(sources)}] Source: {source.relative_to(root)} ({format_size(sizes[source])})"
+                )
             try:
                 result = inspect_source(
                     source,
@@ -591,13 +599,15 @@ def main(argv: list[str] | None = None) -> int:
             progress.update(cell_task, total=1, completed=1)
             if not progress_enabled or not result.eligible:
                 tif_info = (
-                    f"{result.tif.path.name} ({format_size(result.tif.size)})" if result.tif is not None else "none"
+                    f"{result.tif.path.relative_to(tif_root)} ({format_size(result.tif.size)})"
+                    if result.tif is not None
+                    else "none"
                 )
-                print(
-                    f"[{index}/{len(sources)}] {result.status}: {source.relative_to(root)}"
-                    f" ({format_size(sizes[source])}) -> {tif_info}"
-                    f" | created: {result.created_tif}" + (f" | {result.reason}" if result.reason else "")
-                )
+                print(f"[{index}/{len(sources)}] {result.status}:")
+                print(f"  Source: {source.relative_to(root)} ({format_size(sizes[source])})")
+                print(f"  GeoTIFF: {tif_info} | created: {result.created_tif}")
+                if result.reason:
+                    print(f"  Reason: {result.reason}")
 
     try:
         proposal, errors, warnings = write_reports(results, root)

@@ -59,7 +59,7 @@ def press_any_key(prompt: str = "Press any key to exit...") -> None:
 def initialize(target_dir: str | None = None) -> tuple[Path, str, str]:
     """Returns the base directory to process, plus colours.
     - If target_dir is provided, use it (must be a drive-letter path if you plan to chdir).
-    - Else use the script's folder, keeping the Q: form by using .absolute(), not .resolve().
+    - Else use the script's folder, keeping the Q: form by using .absolute() without dereferencing linked paths.
     """
     # Initialize colorama for Windows support
     init()

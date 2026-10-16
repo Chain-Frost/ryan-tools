@@ -9,7 +9,7 @@ import zipfile
 from pathlib import Path
 from typing import cast
 
-PROJECT_ROOT: Path = Path(__file__).resolve().parents[1]
+PROJECT_ROOT: Path = Path(__file__).absolute().parents[1]
 DIST_DIR: Path = PROJECT_ROOT / "dist"
 DISTRIBUTION_PREFIX: str = "ryan_functions-"
 RESOURCE_ROOT: str = "ryan_library/resources/"
@@ -244,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     project_name, version, licence, requires_python = _project_metadata()
     expected_name = f"{DISTRIBUTION_PREFIX}{version}-py3-none-any.whl"
-    wheel = args.wheel.resolve() if args.wheel is not None else retained_wheel(version)
+    wheel = args.wheel.absolute() if args.wheel is not None else retained_wheel(version)
     if not wheel.is_file():
         msg = "Build the current wheel first."
         raise FileNotFoundError(msg)

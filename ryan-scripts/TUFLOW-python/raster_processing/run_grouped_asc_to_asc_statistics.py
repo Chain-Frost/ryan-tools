@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-10-16.1"
 DEFAULT_WORKING_DIR = Path()
 DEFAULT_MODE = "max-median"
 DEFAULT_INPUT_DIRECTORIES = [Path()]
@@ -196,7 +196,7 @@ def _resolve_executable(value: str, *, dry_run: bool) -> str:
 
 def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> int:
     """Run the selected grouping workflow and return a process exit code."""
-    target_directory = (working_directory or DEFAULT_WORKING_DIR).resolve()
+    target_directory = (working_directory or DEFAULT_WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)

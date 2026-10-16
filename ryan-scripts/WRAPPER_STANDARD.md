@@ -90,7 +90,7 @@ DEFAULT_RECURSIVE = False
 parser.add_argument("--input", type=Path)
 parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=None)
 
-input_path = Path(args.input if args.input is not None else DEFAULT_INPUT).resolve()
+input_path = Path(args.input if args.input is not None else DEFAULT_INPUT).absolute()
 recursive = args.recursive if args.recursive is not None else DEFAULT_RECURSIVE
 ```
 
@@ -104,13 +104,17 @@ Keep cosmetic or highly specific terminal preferences (such as dashboard alterna
 Do not add repository-root `sys.path` changes. Copied wrappers require the
 matching `ryan-tools` wheel or editable package to be installed.
 
+## Filesystem path convention
+
+Use `.absolute()` by default for wrapper paths, working directories and user-editable inputs/outputs. Unlike `.resolve()`, this does not dereference symlinks or Windows junctions, so mapped network-drive paths remain in their user-visible form. Normalize relative CLI paths before changing the working directory; when a path is intended relative to the configured `WORKING_DIR`, join it to that directory first. Canonical physical identity and security checks may still require `.resolve()` and must not be weakened.
+
 ## Main function and exit codes
 
 `main` returns an integer suitable for `SystemExit`:
 
 ```python
 def main(*, working_directory: Path | None = None) -> int:
-    target_directory = (working_directory or WORKING_DIR).resolve()
+    target_directory = (working_directory or WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
 
@@ -154,8 +158,10 @@ if __name__ == "__main__":
 ```
 
 `pause_console()` detects redirected or non-interactive standard input and
-returns immediately for normal headless runs. `--no-pause` also protects AI,
-CI and terminal tools that allocate a pseudo-terminal.
+returns immediately for normal headless runs. On Windows it reads a console
+key directly (without invoking `cmd.exe /C PAUSE`), so UNC working directories
+do not trigger the Windows CMD network-path warning. `--no-pause` also protects
+AI, CI and terminal tools that allocate a pseudo-terminal.
 
 ## Garbage collection
 

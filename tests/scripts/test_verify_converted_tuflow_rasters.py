@@ -125,6 +125,10 @@ def test_batch_summary_displays_sizes_versions_and_outcomes(
     assert "created: False" in output
     assert "MATCH:" in output
     assert "MISMATCH:" in output
+    assert "\n  Source: " in output
+    assert "\n  GeoTIFF: " in output
+    assert "\n  Reason: " in output
+    assert " -> " not in next(line for line in output.splitlines() if line.startswith("[2/2] MISMATCH:"))
 
 
 def test_created_tif_counter_distinguishes_existing_and_new(

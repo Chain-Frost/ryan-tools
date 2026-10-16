@@ -8,7 +8,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-10-16.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path()
@@ -29,14 +29,14 @@ from ryan_library.orchestrators.rorb.ensemble_plotting import orchestrate_ensemb
 
 
 def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> int:
-    target_directory = (working_directory or Path.cwd()).resolve()
+    target_directory = (working_directory or Path.cwd()).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
 
     # Resolve parameters defensively
-    target_input = to_single_path(args.input) if args.input is not None else Path(DEFAULT_INPUT).resolve()
+    target_input = to_single_path(args.input) if args.input is not None else Path(DEFAULT_INPUT).absolute()
     target_output = (
-        to_single_path(args.output_dir) if args.output_dir is not None else Path(DEFAULT_OUTPUT_DIR).resolve()
+        to_single_path(args.output_dir) if args.output_dir is not None else Path(DEFAULT_OUTPUT_DIR).absolute()
     )
 
     target_capacity = args.capacity if args.capacity is not None else DEFAULT_CAPACITY_THRESHOLD

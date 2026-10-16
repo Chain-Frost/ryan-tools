@@ -53,7 +53,7 @@ def require_vector_driver(vector_format: str) -> tuple[VectorFormat, VectorForma
 
 def get_vector_layer_names(source: str | Path) -> list[str]:
     """Return vector layer names in source order."""
-    source_path = Path(source).resolve()
+    source_path = Path(source).absolute()
     with gdal.ExceptionMgr():  # type: ignore
         source_dataset = gdal.OpenEx(str(source_path), gdal.OF_VECTOR)  # type: ignore
         if source_dataset is None:
@@ -74,7 +74,7 @@ def get_vector_layer_names(source: str | Path) -> list[str]:
 
 def get_unique_attribute_values(source: str | Path, layer_name: str, attribute_name: str) -> list[str]:
     """Return sorted, non-empty distinct text values from one vector field."""
-    source_path = Path(source).resolve()
+    source_path = Path(source).absolute()
     with gdal.ExceptionMgr():  # type: ignore
         source_dataset = gdal.OpenEx(str(source_path), gdal.OF_VECTOR | gdal.OF_READONLY)  # type: ignore
         if source_dataset is None:
@@ -124,8 +124,8 @@ def translate_vector_dataset(
     are built together in a temporary directory before their component files are
     moved into the destination directory.
     """
-    source_path = Path(source).resolve()
-    output_path = Path(output).resolve()
+    source_path = Path(source).absolute()
+    output_path = Path(output).absolute()
     _normalized, spec = require_vector_driver(vector_format)
     if not source_path.exists():
         msg = f"Source vector dataset does not exist: {source_path}"

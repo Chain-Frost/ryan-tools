@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-10-16.1"
 DEFAULT_INPUT_DIRECTORY = Path()
 DEFAULT_PATTERNS = ["*.tif"]
 DEFAULT_RECURSIVE = False
@@ -93,7 +93,7 @@ def discover_rasters(input_directory: Path, patterns: list[str], *, recursive: b
     discovered: set[Path] = set()
     for pattern in patterns:
         matches = input_directory.rglob(pattern) if recursive else input_directory.glob(pattern)
-        discovered.update(path.resolve() for path in matches if path.is_file())
+        discovered.update(path.absolute() for path in matches if path.is_file())
     return sorted(discovered, key=lambda path: str(path).casefold())
 
 
@@ -107,8 +107,8 @@ def main(args: argparse.Namespace) -> int:
     overwrite = args.overwrite if args.overwrite is not None else DEFAULT_OVERWRITE
     workers = args.workers if args.workers is not None else DEFAULT_WORKERS
     dry_run = args.dry_run if args.dry_run is not None else DEFAULT_DRY_RUN
-    input_directory = Path(input_value).resolve()
-    target_directory = Path(args.working_directory).resolve() if args.working_directory else input_directory
+    input_directory = Path(input_value).absolute()
+    target_directory = Path(args.working_directory).absolute() if args.working_directory else input_directory
     if not change_working_directory(target_dir=target_directory):
         return 1
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
@@ -126,7 +126,7 @@ def main(args: argparse.Namespace) -> int:
         return 0
 
     jobs = [(input_path, input_path.with_suffix(f".{output_format}")) for input_path in input_files]
-    outputs = [output.resolve() for _, output in jobs]
+    outputs = [output.resolve() for _, output in jobs]  # Detect physical output aliases.
     if len(outputs) != len(set(outputs)):
         logger.error("Input patterns would create duplicate output paths.")
         return 1

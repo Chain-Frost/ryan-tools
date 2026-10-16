@@ -11,7 +11,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-10-16.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT_DIR = Path()
@@ -29,9 +29,9 @@ from ryan_library.functions.wrapper_utils import change_working_directory, pause
 
 def main(*, input_directories: PathOrList | None = None) -> int:
     if input_directories is None:
-        targets: list[Path] = [Path(DEFAULT_INPUT_DIR).resolve()]
+        targets: list[Path] = [Path(DEFAULT_INPUT_DIR).absolute()]
     else:
-        targets = [p.resolve() for p in to_path_list(input_directories)]
+        targets = [p.absolute() for p in to_path_list(input_directories)]
 
     targets = list(dict.fromkeys(targets))
     if any(not target.is_dir() for target in targets):

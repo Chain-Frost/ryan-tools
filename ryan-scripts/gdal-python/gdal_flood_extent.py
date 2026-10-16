@@ -28,10 +28,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-08-02.4"
+WRAPPER_VERSION = "2026-10-16.1"
 
 # Editable defaults for normal double-click or IDE execution.
-WORKING_DIR: Path = Path(__file__).resolve().parent
+WORKING_DIR: Path = Path(__file__).absolute().parent
 PATHS_TO_PROCESS: tuple[Path, ...] = ()
 CONSOLE_LOG_LEVEL = "INFO"
 CUTOFF_VALUES: tuple[float, ...] = (0.0,)
@@ -77,9 +77,9 @@ def main(
     """Resolve wrapper settings and run the shared flood-extent workflow."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     # Resolve every user path before chdir so relative paths retain their original meaning.
-    target_directory: Path = (working_directory or WORKING_DIR).resolve()
+    target_directory: Path = (working_directory or WORKING_DIR).absolute()
     configured_paths: tuple[Path, ...] | tuple[Path] = paths_to_process or PATHS_TO_PROCESS or (target_directory,)
-    effective_paths: tuple[Path, ...] = tuple(path.resolve() for path in configured_paths)
+    effective_paths: tuple[Path, ...] = tuple(path.absolute() for path in configured_paths)
     if not change_working_directory(target_dir=target_directory):
         return 1
 

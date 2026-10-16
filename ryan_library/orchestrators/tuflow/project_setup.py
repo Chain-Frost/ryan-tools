@@ -73,13 +73,13 @@ DEFAULT_WORKING_LAYERS: Final[tuple[WorkingLayerSpec, ...]] = (
     WorkingLayerSpec(empty_type="2d_loc", geometry_suffix="R"),
     WorkingLayerSpec(empty_type="2d_rf", geometry_suffix="R"),
 )
-DEFAULT_UTILITY_SOURCE_ROOT: Final[Path] = Path(__file__).resolve().parents[3] / "ryan-scripts" / "TUFLOW-python"
-_PACKAGED_UTILITY_SOURCE_ROOT: Final[Path] = Path(__file__).resolve().parents[3]
+DEFAULT_UTILITY_SOURCE_ROOT: Final[Path] = Path(__file__).absolute().parents[3] / "ryan-scripts" / "TUFLOW-python"
+_PACKAGED_UTILITY_SOURCE_ROOT: Final[Path] = Path(__file__).absolute().parents[3]
 DEFAULT_2D_LOC_STYLE_FILE: Final[Path] = (
-    Path(__file__).resolve().parents[3] / "qgis-resources" / "styles" / "TUFLOW" / "2d_loc_qa_check.qml"
+    Path(__file__).absolute().parents[3] / "qgis-resources" / "styles" / "TUFLOW" / "2d_loc_qa_check.qml"
 )
 _PACKAGED_2D_LOC_STYLE_FILE: Final[Path] = (
-    Path(__file__).resolve().parents[2] / "resources" / "qgis" / "tuflow" / "2d_loc_qa_check.qml"
+    Path(__file__).absolute().parents[2] / "resources" / "qgis" / "tuflow" / "2d_loc_qa_check.qml"
 )
 _PROJECT_UTILITIES: Final[tuple[ProjectUtilitySpec, ...]] = (
     ProjectUtilitySpec(Path("gis_processing/rename_geopackage_layer_to_filename.py"), "model/gis"),
@@ -116,7 +116,7 @@ def initialize_tuflow_project(
     TUFLOW executable is run directly with ``-b -nmb``; no shell is involved.
     """
     _validate_config(config)
-    project_dir: Path = config.output_dir.resolve()
+    project_dir: Path = config.output_dir.absolute()
     project_dir.mkdir(parents=True, exist_ok=True)
     _create_folders(project_dir)
     _copy_text_templates(config=config, project_dir=project_dir)
@@ -126,7 +126,7 @@ def initialize_tuflow_project(
 
     gis_dir: Path = project_dir / "model" / "gis"
     _create_projection_files(
-        prj_file=config.prj_file.resolve(),
+        prj_file=config.prj_file.absolute(),
         gis_dir=gis_dir,
         overwrite=config.overwrite,
     )
@@ -134,7 +134,7 @@ def initialize_tuflow_project(
     empties_tcf: Path = project_dir / "runs" / "Create_Empties.tcf"
     empty_dir: Path = project_dir / "empty"
     _run_tuflow_empty_generation(
-        tuflow_executable=config.tuflow_executable.resolve(),
+        tuflow_executable=config.tuflow_executable.absolute(),
         control_file=empties_tcf,
         expected_empty_dir=empty_dir,
     )
@@ -201,7 +201,7 @@ def _copy_text_templates(*, config: TuflowProjectConfig, project_dir: Path) -> N
         "<<SCENARIO_NAME>>": config.scenario_name,
         "<<PROJECTION_NAME>>": f"projection_{config.prj_file.stem}",
         "<<DATE>>": dt.datetime.now().strftime("%B %Y"),
-        "<<TUFLOW_EXE>>": str(config.tuflow_executable.resolve()),
+        "<<TUFLOW_EXE>>": str(config.tuflow_executable.absolute()),
     }
     for template_file in config.templates_dir.rglob("*"):
         if not template_file.is_file() or template_file.name == "__init__.py" or "__pycache__" in template_file.parts:

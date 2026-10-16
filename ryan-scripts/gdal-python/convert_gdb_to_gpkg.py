@@ -13,7 +13,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-10-16.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path()
@@ -46,9 +46,9 @@ def main(
     workers: int | None = None,
 ) -> int:
     targets: list[Path] = (
-        [Path(DEFAULT_INPUT).resolve()]
+        [Path(DEFAULT_INPUT).absolute()]
         if input_paths is None
-        else [path.resolve() for path in to_path_list(input_paths)]
+        else [path.absolute() for path in to_path_list(input_paths)]
     )
     if not targets:
         logger.error("At least one input path is required.")
@@ -61,9 +61,9 @@ def main(
 
     raw_output_directory: Path = to_single_path(output_directory or DEFAULT_OUTPUT_DIR)
     output_root: Path = (
-        raw_output_directory.resolve()
+        raw_output_directory.absolute()
         if raw_output_directory.is_absolute()
-        else (working_directory / raw_output_directory).resolve()
+        else (working_directory / raw_output_directory).absolute()
     )
     selected_format: str = output_format or DEFAULT_OUTPUT_FORMAT
     combine_layers: bool = DEFAULT_SINGLE_DATABASE if single_database is None else single_database
