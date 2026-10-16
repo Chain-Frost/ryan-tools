@@ -510,7 +510,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--delete", action="store_true", help="Allow deletion after typing DELETE")
     parser.add_argument("--convert-missing", action="store_true", help="Create missing GeoTIFFs before verification")
     parser.add_argument("--no-progress", action="store_true", help="Disable live raster progress")
+    parser.add_argument("--no-pause", action="store_true", help="Skip the interactive completion pause")
     args = parser.parse_args(argv)
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
     root: Path = args.root.expanduser().absolute()
     tif_root: Path = args.tif_root.expanduser().absolute() if args.tif_root is not None else root
@@ -520,7 +522,15 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"TIFF directory is missing or contains a symlink/junction: {tif_root}")
 
     sources = discover_sources(root)
+    sizes, total_bytes = source_size_summary(sources)
+    unavailable = sum(size is None for size in sizes.values())
     print(f"Scanning {len(sources)} FLT/ASC raster(s) under {root}")
+    print(
+        f"Batch source size: {format_size(total_bytes)}"
+        + (f" ({unavailable} unknown sizes)" if unavailable else "")
+        + f" | convert missing: {CONVERT_MISSING or args.convert_missing}"
+        + f" | delete: {DELETE_FILES or args.delete}"
+    )
     results: list[Comparison] = []
     progress_enabled = SHOW_PROGRESS and not args.no_progress and sys.stdout.isatty()
     with Progress(
@@ -530,9 +540,10 @@ def main(argv: list[str] | None = None) -> int:
         TimeRemainingColumn(),
         disable=not progress_enabled,
     ) as progress:
-        file_task = progress.add_task("Rasters", total=len(sources))
-        cell_task = progress.add_task("Raster rows", total=1)
-        for source in sources:
+        file_task = progress.add_task("Batch", total=len(sources))
+        cell_task = progress.add_task("Current raster", total=1)
+        processed_bytes = 0
+        for index, source in enumerate(sources, start=1):
             try:
                 result = inspect_source(
                     source,
@@ -545,24 +556,59 @@ def main(argv: list[str] | None = None) -> int:
             except OSError as exc:
                 result = Comparison(FileSnapshot(source, -1, -1), None, "ERROR", f"File inspection failed: {exc}")
             results.append(result)
-            progress.advance(file_task)
-            if not result.eligible:
-                print(f"{result.status}: {source}: {result.reason}")
+            processed_bytes += sizes[source] or 0
+            matched_so_far = sum(item.eligible for item in results)
+            warnings_so_far = sum(item.status == "MATCH_CRS_UNVERIFIED" for item in results)
+            created_so_far = sum(item.created_tif for item in results)
+            excluded_so_far = index - matched_so_far
+            progress.update(
+                file_task,
+                advance=1,
+                description=(
+                    f"Batch {format_size(processed_bytes)}/{format_size(total_bytes)}"
+                    f" | matches {matched_so_far} | CRS warnings {warnings_so_far}"
+                    f" | new TIFs {created_so_far} | excluded {excluded_so_far}"
+                ),
+            )
+            progress.update(cell_task, total=1, completed=1)
+            if not progress_enabled or not result.eligible:
+                tif_info = (
+                    f"{result.tif.path.name} ({format_size(result.tif.size)})"
+                    if result.tif is not None
+                    else "none"
+                )
+                print(
+                    f"[{index}/{len(sources)}] {result.status}: {source.relative_to(root)}"
+                    f" ({format_size(sizes[source])}) -> {tif_info}"
+                    f" | created: {result.created_tif}"
+                    + (f" | {result.reason}" if result.reason else "")
+                )
 
     try:
         proposal, errors, warnings = write_reports(results, root)
     except OSError as exc:
         print(f"Could not write reports; deletion cancelled: {exc}", file=sys.stderr)
+        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
         return 2
     matched = sum(result.eligible for result in results)
     unverified_crs = sum(result.status == "MATCH_CRS_UNVERIFIED" for result in results)
+    created_count = sum(result.created_tif for result in results)
+    created_verified = sum(result.created_tif and result.eligible for result in results)
     print(f"Verified raster contents: {matched}/{len(results)}; excluded: {len(results) - matched}")
+    print(f"Batch input size: {format_size(total_bytes)}; source files: {len(sources)}")
+    print(f"New GeoTIFFs created: {created_count}; successfully verified: {created_verified}")
+    print(f"Existing GeoTIFFs verified: {matched - created_verified}")
     print(f"Matched with unverified CRS: {unverified_crs} (eligible; review warning report)")
     print(f"Deletion proposal: {proposal}")
     print(f"Error report: {errors}")
     print(f"CRS warning report: {warnings}")
-    return finish_deletion(results, len(sources), allow_delete=DELETE_FILES or args.delete)
+    exit_code = finish_deletion(results, len(sources), allow_delete=DELETE_FILES or args.delete)
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    return exit_code
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    exit_code = main()
+    if "--no-pause" not in sys.argv[1:]:
+        pause_console()
+    raise SystemExit(exit_code)
