@@ -68,7 +68,8 @@ def test_parse_common_cli_arguments():
 
 def test_coerce_locations_argument() -> None:
     coerce_locations = cast(
-        Callable[[list[str] | None], tuple[str, ...] | None], getattr(wrapper_utils, "_coerce_locations_argument")
+        Callable[[list[str] | None], tuple[str, ...] | None],
+        getattr(wrapper_utils, "_coerce_locations_argument"),  # noqa: B009 - intentional private-helper test
     )
     assert coerce_locations(None) is None
     assert coerce_locations([]) is None
@@ -89,7 +90,10 @@ def test_windows_console_pause_reads_key_without_cmd(
         return "x"
 
     monkeypatch.setitem(sys.modules, "msvcrt", SimpleNamespace(getwch=fake_getwch))
-    pause_windows_console = cast(Callable[[], None], getattr(wrapper_utils, "_pause_windows_console"))
+    pause_windows_console = cast(
+        Callable[[], None],
+        getattr(wrapper_utils, "_pause_windows_console"),  # noqa: B009 - intentional private-helper test
+    )
     pause_windows_console()
     assert received == ["key"]
     assert capsys.readouterr().out == "Press any key to continue . . .\n"
