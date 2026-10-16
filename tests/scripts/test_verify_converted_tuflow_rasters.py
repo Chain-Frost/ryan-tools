@@ -12,6 +12,7 @@ import os
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Literal
 
 import numpy as np
 import pytest
@@ -335,7 +336,7 @@ def test_missing_source_crs_is_a_warning_not_a_mismatch(tool: ModuleType, tmp_pa
     assert src.exists()
 
 
-def test_missing_tif_crs_is_eligible_with_warning(tool: ModuleType, tmp_path: Path) -> None:
+def test_missing_tif_crs_blocks_deletion_when_source_declares_crs(tool: ModuleType, tmp_path: Path) -> None:
     src, tif = make_pair(tmp_path, suffix=".asc")
     # Recreate the GeoTIFF without a CRS, preserving the same grid and values.
     with rasterio.open(
@@ -353,9 +354,15 @@ def test_missing_tif_crs_is_eligible_with_warning(tool: ModuleType, tmp_path: Pa
     os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
 
     result = tool.inspect_source(src, tmp_path, tmp_path)
-    assert result.eligible
-    assert result.status == "MATCH_CRS_UNVERIFIED"
-    assert "GeoTIFF lacks CRS" in result.reason
+    assert not result.eligible
+    assert result.status == "MISMATCH"
+    assert "missing the declared source CRS" in result.reason
+    assert "EPSG:28350" in result.reason
+    assert tool.main(["--root", str(tmp_path), "--no-progress"]) == 1
+    assert report_rows(tmp_path / "tuflow_raster_conversion_delete_candidates.csv") == []
+    assert report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")[0]["status"] == "MISMATCH"
+    assert src.exists()
+    assert tif.exists()
 
 
 def test_missing_crs_does_not_hide_actual_pixel_mismatch(tool: ModuleType, tmp_path: Path) -> None:
@@ -374,15 +381,139 @@ def test_missing_crs_does_not_hide_actual_pixel_mismatch(tool: ModuleType, tmp_p
     assert "Pixel values differ" in result.reason
 
 
-def test_declared_conflicting_crs_still_blocks_deletion(tool: ModuleType, tmp_path: Path) -> None:
-    src, tif = make_pair(tmp_path, suffix=".flt")
+@pytest.mark.parametrize("suffix", [".flt", ".asc"])
+@pytest.mark.parametrize(
+    ("source_crs", "converted_crs"),
+    [
+        pytest.param("EPSG:28350", "EPSG:28351", id="adjacent-gda94-mga-zones"),
+        pytest.param("EPSG:28351", "EPSG:28350", id="reversed-gda94-mga-zones"),
+        pytest.param("EPSG:7850", "EPSG:7851", id="adjacent-gda2020-mga-zones"),
+        pytest.param("EPSG:28350", "EPSG:7850", id="different-gda-datums"),
+        pytest.param("EPSG:28350", "EPSG:32750", id="same-zone-different-datums"),
+        pytest.param("EPSG:4326", "EPSG:3857", id="geographic-versus-projected"),
+    ],
+)
+def test_any_declared_crs_mismatch_blocks_deletion(
+    tool: ModuleType, tmp_path: Path, suffix: str, source_crs: str, converted_crs: str
+) -> None:
+    """Reject conflicting valid CRS definitions regardless of EPSG number."""
+    src, tif = make_pair(tmp_path, suffix=suffix, crs=source_crs)
+    # FLT/ASC PRJ serialization can change the authority label (WGS84 becomes OGC:CRS84).
+    with rasterio.open(src) as original:
+        declared_source_crs = str(original.crs)
     with rasterio.open(tif, "r+") as dataset:
-        dataset.crs = "EPSG:4326"
+        dataset.crs = converted_crs
     os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
+
     result = tool.inspect_source(src, tmp_path, tmp_path)
+
     assert not result.eligible
     assert result.status == "MISMATCH"
-    assert "CRS" in result.reason
+    assert "Declared CRS definitions differ" in result.reason
+    assert declared_source_crs in result.reason
+    assert converted_crs in result.reason
+
+
+@pytest.mark.parametrize("suffix", [".flt", ".asc"])
+@pytest.mark.parametrize("crs", ["EPSG:28350", "EPSG:28351", "EPSG:7850", "EPSG:32750"])
+def test_matching_declared_crs_is_accepted_regardless_of_epsg_code(
+    tool: ModuleType, tmp_path: Path, suffix: str, crs: str
+) -> None:
+    """Equivalent source and target CRS definitions are not hardcoded to one zone."""
+    src, _tif = make_pair(tmp_path, suffix=suffix, crs=crs)
+
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+
+    assert result.eligible
+    assert result.status == "MATCH"
+
+
+@pytest.mark.parametrize("suffix", [".flt", ".asc"])
+def test_wgs84_crs84_and_epsg4326_axis_definitions_are_not_interchangeable(
+    tool: ModuleType, tmp_path: Path, suffix: str
+) -> None:
+    """Reject OGC:CRS84 source PRJ versus EPSG:4326 GeoTIFF despite the WGS84 datum."""
+    src, tif = make_pair(tmp_path, suffix=suffix, crs="EPSG:4326")
+    with rasterio.open(src) as original, rasterio.open(tif) as converted:
+        assert original.crs is not None
+        assert converted.crs is not None
+        # GDAL loads the FLT/ASC WGS84 PRJ as OGC:CRS84; axis order matters.
+        assert original.crs != converted.crs
+
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+
+    assert result.status == "MISMATCH"
+    assert not result.eligible
+    assert "Declared CRS definitions differ" in result.reason
+    assert src.exists()
+    assert tif.exists()
+
+
+@pytest.mark.parametrize("suffix", [".flt", ".asc"])
+@pytest.mark.parametrize(
+    ("origin_easting", "cell_width"),
+    [(101, 5), (100, 6)],
+    ids=["different-origin", "different-cell-size"],
+)
+def test_grid_origin_and_cell_size_are_critical(
+    tool: ModuleType, tmp_path: Path, suffix: str, origin_easting: int, cell_width: int
+) -> None:
+    src, tif = make_pair(tmp_path, suffix=suffix)
+    with rasterio.open(tif, "r+") as dataset:
+        dataset.transform = from_origin(origin_easting, 200, cell_width, 5)
+    os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
+
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+
+    assert result.status == "MISMATCH"
+    assert not result.eligible
+    assert "geotransform" in result.reason
+    assert src.exists()
+
+
+@pytest.mark.parametrize("suffix", [".flt", ".asc"])
+@pytest.mark.parametrize(
+    ("band_scale", "band_offset"),
+    [(2.0, 0.0), (1.0, 100.0)],
+    ids=["different-value-scale", "different-value-offset"],
+)
+def test_value_scale_and_offset_must_match(
+    tool: ModuleType, tmp_path: Path, suffix: str, band_scale: float, band_offset: float
+) -> None:
+    src, tif = make_pair(tmp_path, suffix=suffix)
+    with rasterio.open(tif, "r+") as dataset:
+        dataset.scales = (band_scale,)
+        dataset.offsets = (band_offset,)
+    os.utime(tif, ns=(2_000_000_000, 2_000_000_000))
+
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+
+    assert result.status == "MISMATCH"
+    assert not result.eligible
+    assert "scales or offsets" in result.reason
+    assert src.exists()
+
+
+@pytest.mark.parametrize("suffix", [".flt", ".asc"])
+def test_regenerable_statistics_sidecar_and_tags_are_ignored(tool: ModuleType, tmp_path: Path, suffix: str) -> None:
+    src, tif = make_pair(tmp_path, suffix=suffix)
+    # A GDAL auxiliary metadata file is permitted to contain derived statistics
+    # that need not be identical between the original raster and GeoTIFF.
+    sidecar = Path(str(tif) + ".aux.xml")
+    sidecar.write_text(
+        '<PAMDataset><PAMRasterBand band="1"><Metadata>'
+        '<MDI key="STATISTICS_MINIMUM">0</MDI>'
+        '<MDI key="STATISTICS_MAXIMUM">999</MDI>'
+        "</Metadata></PAMRasterBand></PAMDataset>",
+        encoding="utf-8",
+    )
+
+    result = tool.inspect_source(src, tmp_path, tmp_path)
+
+    assert result.eligible
+    assert result.status == "MATCH"
+    assert sidecar.is_file()
+    assert tif.exists()
 
 
 def test_warning_candidate_can_be_deleted_after_confirmation(
@@ -399,3 +530,165 @@ def test_warning_candidate_can_be_deleted_after_confirmation(
     assert not header.exists()
     assert tif.exists()
     assert len(report_rows(tmp_path / "tuflow_raster_conversion_warnings.csv")) == 1
+
+
+@pytest.mark.parametrize("suffix", [".asc", ".flt"])
+def test_convert_missing_then_delete_verified_source(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, suffix: str
+) -> None:
+    """A single invocation performs conversion, verification and cleanup."""
+    pytest.importorskip("osgeo")
+    src, tif = make_pair(tmp_path, suffix=suffix)
+    tif.unlink()
+    hdr = src.with_suffix(".hdr")
+    prj = src.with_suffix(".prj")
+    initial_prj_exists = prj.exists()
+    assert src.exists()
+    monkeypatch.setattr("builtins.input", approve_delete)
+
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 0
+
+    assert tif.exists()
+    assert not src.exists()
+    if suffix == ".flt":
+        assert not hdr.exists()
+    assert prj.exists() == initial_prj_exists
+    with rasterio.open(tif) as output:
+        assert output.transform == from_origin(100, 200, 5, 5)
+        assert output.crs is not None
+        assert output.read(1)[0, 0] == 1
+    assert report_rows(tmp_path / "tuflow_raster_conversion_errors.csv") == []
+
+
+def test_convert_missing_without_delete_preserves_source(tool: ModuleType, tmp_path: Path) -> None:
+    pytest.importorskip("osgeo")
+    src, tif = make_pair(tmp_path)
+    tif.unlink()
+
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--no-progress"]) == 0
+
+    assert src.exists()
+    assert tif.exists()
+    rows = report_rows(tmp_path / "tuflow_raster_conversion_delete_candidates.csv")
+    assert len(rows) == 1
+    assert rows[0]["retained_tif"] == str(tif)
+
+
+def test_convert_missing_does_not_overwrite_existing_mismatch(tool: ModuleType, tmp_path: Path) -> None:
+    src, tif = make_pair(tmp_path, tif_values=np.array([[30, 2], [3, -9999]], dtype="float32"))
+    existing_bytes = tif.read_bytes()
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+    assert tif.read_bytes() == existing_bytes
+    assert src.exists()
+    assert report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")[0]["status"] == "MISMATCH"
+
+
+def test_convert_missing_in_mirrored_directory_tree(tool: ModuleType, tmp_path: Path) -> None:
+    pytest.importorskip("osgeo")
+    root = tmp_path / "source"
+    src, tif = make_pair(root / "nested")
+    tif.unlink()
+    tif_root = tmp_path / "converted"
+    tif_root.mkdir()
+    assert tool.main(["--root", str(root), "--tif-root", str(tif_root), "--convert-missing", "--no-progress"]) == 0
+    assert src.exists()
+    assert not tif.exists()
+    assert (tif_root / "nested" / tif.name).exists()
+
+
+def test_missing_gdal_reports_conversion_failure(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Missing optional bindings still produce reports and preserve the source."""
+    src, tif = make_pair(tmp_path)
+    tif.unlink()
+    monkeypatch.delitem(sys.modules, "ryan_library.functions.gdal.raster_processing", raising=False)
+    monkeypatch.setitem(sys.modules, "osgeo", None)
+
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+
+    errors = report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")
+    assert len(errors) == 1
+    assert errors[0]["status"] == "CONVERSION_FAILED"
+    assert "osgeo" in errors[0]["reason"]
+    assert report_rows(tmp_path / "tuflow_raster_conversion_delete_candidates.csv") == []
+    assert report_rows(tmp_path / "tuflow_raster_conversion_warnings.csv") == []
+    assert src.exists()
+    assert not tif.exists()
+    assert not list(tmp_path.glob(".*.conversion.tif"))
+
+
+def test_failed_conversion_leaves_source_and_no_partial_output(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("osgeo")
+    from ryan_library.functions.gdal import raster_processing
+
+    src, tif = make_pair(tmp_path, suffix=".flt")
+    tif.unlink()
+
+    def fail_after_partial_write(_source: Path, output: Path, *, profile: str) -> Path:
+        assert profile == "tuflow"
+        output.write_bytes(b"partial GeoTIFF")
+        message = "simulated GDAL failure"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(raster_processing, "translate_to_geotiff", fail_after_partial_write)
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+
+    assert src.exists()
+    assert src.with_suffix(".hdr").exists()
+    assert not tif.exists()
+    assert not list(tmp_path.glob(".*.conversion.tif"))
+    errors = report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")
+    assert errors[0]["status"] == "CONVERSION_FAILED"
+
+
+def test_generated_tif_mismatch_never_deletes_source(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("osgeo")
+    from ryan_library.functions.gdal import raster_processing
+
+    src, tif = make_pair(tmp_path, suffix=".flt")
+    tif.unlink()
+    real_translate = raster_processing.translate_to_geotiff
+
+    def deliberately_corrupt(source: Path, output: Path, *, profile: Literal["tuflow", "efficient"]) -> Path:
+        converted = real_translate(source, output, profile=profile)
+        with rasterio.open(converted, "r+") as raster:
+            values = raster.read(1)
+            values[0, 0] = 42
+            raster.write(values, 1)
+        return converted
+
+    monkeypatch.setattr(raster_processing, "translate_to_geotiff", deliberately_corrupt)
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+
+    assert tif.exists()
+    assert src.exists()
+    assert src.with_suffix(".hdr").exists()
+    errors = report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")
+    assert errors[0]["status"] == "MISMATCH"
+    assert not list(tmp_path.glob(".*.conversion.tif"))
+
+
+def test_conversion_does_not_run_on_ambiguous_tif(tool: ModuleType, tmp_path: Path) -> None:
+    src, tif = make_pair(tmp_path)
+    tif.with_suffix(".tiff").write_bytes(b"another TIFF")
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--no-progress"]) == 1
+    assert src.exists()
+    assert tif.exists()
+    assert report_rows(tmp_path / "tuflow_raster_conversion_errors.csv")[0]["status"] == "MISSING_OR_AMBIGUOUS_TIF"
+
+
+def test_convert_and_delete_still_requires_explicit_confirmation(
+    tool: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pytest.importorskip("osgeo")
+    src, tif = make_pair(tmp_path)
+    tif.unlink()
+    monkeypatch.setattr("builtins.input", decline_delete)
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--delete", "--no-progress"]) == 1
+    assert src.exists()
+    assert tif.exists()

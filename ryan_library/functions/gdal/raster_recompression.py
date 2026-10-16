@@ -31,19 +31,13 @@ import rasterio
 from rasterio.enums import MaskFlags
 from rasterio.windows import Window
 
+from ryan_library.functions import file_verification
+from ryan_library.functions.file_verification import FileSnapshot, hash_file
+
 CompressionName = Literal["DEFLATE", "ZSTD"]
 
 _IGNORED_METADATA_NAMESPACES = frozenset({"DERIVED_SUBDATASETS", "IMAGE_STRUCTURE"})
 _STATISTICS_PREFIX = "STATISTICS_"
-
-
-@dataclass(frozen=True, slots=True)
-class FileSnapshot:
-    """Record the file properties used to detect concurrent modification."""
-
-    path: Path
-    size: int
-    mtime_ns: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,17 +97,12 @@ class StreamCopyEvidence:
 
 def snapshot_file(path: Path) -> FileSnapshot:
     """Return a stable file snapshot used before destructive replacement."""
-    absolute_path = path.absolute()
-    stat = absolute_path.stat()
-    return FileSnapshot(path=absolute_path, size=stat.st_size, mtime_ns=stat.st_mtime_ns)
+    return file_verification.snapshot_file(path)
 
 
 def snapshot_is_unchanged(snapshot: FileSnapshot) -> bool:
-    """Return whether a file still matches an earlier snapshot."""
-    try:
-        return snapshot_file(snapshot.path) == snapshot
-    except OSError:
-        return False
+    """Check whether an earlier snapshot still describes the same file."""
+    return file_verification.snapshot_is_unchanged(snapshot)
 
 
 def inspect_geotiff(path: Path) -> RasterInspection:
@@ -399,15 +388,6 @@ def copy_file_with_digest(source: Path, destination: Path, *, chunk_size: int = 
         message = f"Copied file digest differs: {source} -> {destination}"
         raise OSError(message)
     return expected
-
-
-def hash_file(path: Path, *, chunk_size: int = 8 * 1024 * 1024) -> bytes:
-    """Return the SHA-256 digest of a file."""
-    digest = hashlib.sha256()
-    with path.absolute().open("rb") as input_file:
-        while chunk := input_file.read(chunk_size):
-            digest.update(chunk)
-    return digest.digest()
 
 
 def _window_rows(width: int, height: int, max_window_cells: int) -> int:

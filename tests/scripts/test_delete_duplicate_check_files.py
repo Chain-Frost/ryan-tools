@@ -437,3 +437,31 @@ def test_sha256_progress_handles_zero_length_files(
     assert output[0].content_hash == output[1].content_hash
     assert dashboard.tasks[0].total == 0
     assert dashboard.tasks[0].fields["files_done"] == 2
+
+
+def test_symlinked_duplicate_is_not_deleted(utility: ModuleType, tmp_path: Path) -> None:
+    """Metadata can match, but a linked candidate must not pass the final unlink guard."""
+    folder = check_folder(tmp_path, "linked-model")
+    retained = folder / "retained.txt"
+    retained.write_bytes(b"identical")
+    alias = folder / "linked.txt"
+    try:
+        alias.symlink_to(retained)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"File symlinks unavailable: {exc}")
+
+    stat = alias.stat()
+    assert not utility.matches_snapshot(alias, size_bytes=stat.st_size, mtime_ns=stat.st_mtime_ns)
+    assert utility.matches_snapshot(retained, size_bytes=stat.st_size, mtime_ns=stat.st_mtime_ns)
+    action = utility.DeleteAction(
+        delete_file=alias,
+        keep_file=retained,
+        delete_mtime_ns=stat.st_mtime_ns,
+        keep_mtime_ns=retained.stat().st_mtime_ns,
+        suffix=".txt",
+        size_bytes=stat.st_size,
+        content_hash=utility.file_hash(retained),
+    )
+    assert utility.delete_duplicate_files([action]) == []
+    assert alias.is_symlink()
+    assert retained.read_bytes() == b"identical"

@@ -1,0 +1,91 @@
+name: Finalize PyPI release
+
+on:
+  workflow_run:
+    workflows: [Python CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finalize-pypi-release-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: read
+      actions: write
+    steps:
+      - name: Identify merged release PR and publish release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const sha = context.payload.workflow_run.head_sha;
+            const prs = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
+              owner, repo, commit_sha: sha
+            });
+            const pr = prs.find(p => p.merged_at && p.merge_commit_sha === sha &&
+              p.base.ref === 'main' && p.head.repo?.full_name === `${owner}/${repo}` &&
+              /^release\/pypi-(?:\d{2}|\d{4})\.\d{1,2}\.\d{1,2}\.[1-9]\d*$/.test(p.head.ref));
+            if (!pr) { core.info('No merged release PR at this CI revision.'); return; }
+            const version = pr.head.ref.slice('release/pypi-'.length);
+            const tag = `v${version}`;
+            const file = await github.rest.repos.getContent({owner, repo, path: 'pyproject.toml', ref: sha});
+            const toml = Buffer.from(file.data.content, 'base64').toString();
+            const parsed = await exec.getExecOutput('python3', [
+              '-c', 'import json,sys,tomllib; p=tomllib.loads(sys.stdin.read())["project"]; print(json.dumps({k:p[k] for k in ("name","version")}))'
+            ], {input: toml, silent: true});
+            const project = JSON.parse(parsed.stdout);
+            if (project.version !== version) {
+              throw new Error('Release branch version does not match merged project metadata.');
+            }
+            let release;
+            try { release = (await github.rest.repos.getReleaseByTag({owner, repo, tag})).data; }
+            catch (error) { if (error.status !== 404) throw error; }
+            if (!release) {
+              let existing;
+              try { existing = (await github.rest.git.getRef({owner, repo, ref: `tags/${tag}`})).data; }
+              catch (error) { if (error.status !== 404) throw error; }
+              if (existing && existing.object.sha !== sha) throw new Error('Tag points to another revision.');
+              if (!existing) await github.rest.git.createRef({owner, repo, ref: `refs/tags/${tag}`, sha});
+              release = (await github.rest.repos.createRelease({
+                owner, repo, tag_name: tag, target_commitish: sha,
+                name: tag, generate_release_notes: true, prerelease: false, draft: false
+              })).data;
+            }
+            const ref = await github.rest.git.getRef({owner, repo, ref: `tags/${tag}`});
+            if (ref.data.object.sha !== sha || release.draft || release.prerelease) {
+              throw new Error('Existing release does not match the verified stable revision.');
+            }
+            // A repeated successful CI/finalizer run must not upload the same version again.
+            const published = await fetch(
+              `https://pypi.org/pypi/${encodeURIComponent(project.name)}/${encodeURIComponent(version)}/json`,
+              {signal: AbortSignal.timeout(30_000)}
+            );
+            await published.body?.cancel();
+            if (published.ok) {
+              core.info(`Version ${version} is already on PyPI; no publication dispatched.`);
+              return;
+            }
+            if (published.status !== 404) {
+              throw new Error(`Cannot determine PyPI publication state: HTTP ${published.status}`);
+            }
+            const {data: runs} = await github.rest.actions.listWorkflowRuns({
+              owner, repo, workflow_id: 'pypi-publish.yml', head_sha: sha, per_page: 100
+            });
+            if (runs.workflow_runs.some(run => run.head_sha === sha && run.status !== 'completed')) {
+              core.info('Publication for this revision is already active; no duplicate dispatch.');
+              return;
+            }
+            // GITHUB_TOKEN release events do not trigger the publishing workflow.
+            await github.rest.actions.createWorkflowDispatch({
+              owner, repo, workflow_id: 'pypi-publish.yml', ref: tag
+            });

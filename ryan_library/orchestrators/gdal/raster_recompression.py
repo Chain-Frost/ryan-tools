@@ -11,6 +11,7 @@ from typing import Literal
 
 from loguru import logger
 
+from ryan_library.functions.file_verification import has_linked_component
 from ryan_library.functions.gdal.raster_processing import (
     RasterProfile,
     translate_to_geotiff,
@@ -153,7 +154,7 @@ def _recompress_one(
             raise RuntimeError(message)
         # Copy helper verifies the destination SHA-256; avoid hashing it again.
         copy_file_with_digest(output, deployed)
-        if not snapshot_is_unchanged(inspection.snapshot) or _has_linked_component(source):
+        if not snapshot_is_unchanged(inspection.snapshot) or has_linked_component(source):
             message = "source changed or became linked before replacement"
             raise RuntimeError(message)
         deployed.replace(source)
@@ -182,15 +183,9 @@ def _recompress_one(
         shutil.rmtree(work, ignore_errors=True)
 
 
-def _has_linked_component(path: Path) -> bool:
-    """Never overwrite a file reached via a symlink or Windows junction."""
-    return any(part.is_symlink() or part.is_junction() for part in (path, *path.parents))
-
-
 def _replacement_safety_failure(source: Path, inspection: RasterInspection) -> RecompressionResult | None:
     """Reject inputs that a single-file atomic overwrite cannot safely handle."""
-    linked = _has_linked_component(source)
-    if linked:
+    if has_linked_component(source):
         reason = "symlink or junction in source path"
     elif raster_has_external_dependencies(source):
         reason = "external raster sidecars require manual handling"
