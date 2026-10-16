@@ -22,6 +22,11 @@ SCRIPT = (
 )
 
 
+class DeleteRecord(Protocol):
+    @property
+    def delete_file(self) -> Path: ...
+
+
 class PlaceholderRecord(Protocol):
     @property
     def keep_file(self) -> Path: ...
@@ -74,13 +79,13 @@ def write_duplicates(folder: Path, *names: str, content: bytes = b"identical-sty
     return paths
 
 
-def planned_actions(utility: ModuleType, root: Path) -> tuple[list[object], list[PlaceholderRecord]]:
+def planned_actions(utility: ModuleType, root: Path) -> tuple[list[DeleteRecord], list[PlaceholderRecord]]:
     records = utility.iter_files_in_check_folders(utility.find_check_folders(root))
     hashed_records = utility.add_hashes_to_candidates(records)
     groups = utility.find_duplicate_groups(hashed_records)
     actions = utility.build_delete_actions(groups, hashed_records)
     placeholders = utility.build_placeholder_actions(actions, records)
-    return actions, cast(list[PlaceholderRecord], placeholders)
+    return cast(list[DeleteRecord], actions), cast(list[PlaceholderRecord], placeholders)
 
 
 def read_rows(path: Path) -> list[dict[str, str]]:
@@ -91,15 +96,34 @@ def read_rows(path: Path) -> list[dict[str, str]]:
 def test_find_check_folders_walks_nested_directories_only(utility: ModuleType, tmp_path: Path) -> None:
     root = tmp_path / "results"
     first = root / "GD2" / "01.0p" / "ChEcK"
-    second = root / "MLTP" / "v01" / "check"
+    second = root / "MLTP" / "v01" / "checks"
+    third = root / "misc" / "CHECKS"
     first.mkdir(parents=True)
     second.mkdir(parents=True)
+    third.mkdir(parents=True)
     unrelated = root / "logs"
     unrelated.mkdir()
     (unrelated / "check").write_text("not a directory", encoding="utf-8")
+    (unrelated / "checks").write_text("not a directory", encoding="utf-8")
     (root / "GD2" / "ordinary.txt").write_text("not a directory", encoding="utf-8")
 
-    assert utility.find_check_folders(root) == [first, second]
+    assert utility.find_check_folders(root) == sorted((first, second, third), key=lambda path: str(path).casefold())
+
+
+def test_duplicates_compare_across_check_and_checks_folders(utility: ModuleType, tmp_path: Path) -> None:
+    first = tmp_path / "GD2" / "check"
+    second = tmp_path / "MLTP" / "checks"
+    first.mkdir(parents=True)
+    second.mkdir(parents=True)
+    write_duplicates(first, "a.qml", "b.qml", content=b"same")
+    write_duplicates(second, "c.qml", "d.qml", content=b"same")
+
+    actions, placeholders = planned_actions(utility, tmp_path)
+
+    assert len(actions) == 3
+    assert len(placeholders) == 2
+    assert {placeholder.check_folder for placeholder in placeholders} == {first, second}
+    assert {action.delete_file.parent for action in actions} == {first, second}
 
 
 def test_safe_defaults(utility: ModuleType) -> None:
@@ -413,3 +437,31 @@ def test_sha256_progress_handles_zero_length_files(
     assert output[0].content_hash == output[1].content_hash
     assert dashboard.tasks[0].total == 0
     assert dashboard.tasks[0].fields["files_done"] == 2
+
+
+def test_symlinked_duplicate_is_not_deleted(utility: ModuleType, tmp_path: Path) -> None:
+    """Metadata can match, but a linked candidate must not pass the final unlink guard."""
+    folder = check_folder(tmp_path, "linked-model")
+    retained = folder / "retained.txt"
+    retained.write_bytes(b"identical")
+    alias = folder / "linked.txt"
+    try:
+        alias.symlink_to(retained)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"File symlinks unavailable: {exc}")
+
+    stat = alias.stat()
+    assert not utility.matches_snapshot(alias, size_bytes=stat.st_size, mtime_ns=stat.st_mtime_ns)
+    assert utility.matches_snapshot(retained, size_bytes=stat.st_size, mtime_ns=stat.st_mtime_ns)
+    action = utility.DeleteAction(
+        delete_file=alias,
+        keep_file=retained,
+        delete_mtime_ns=stat.st_mtime_ns,
+        keep_mtime_ns=retained.stat().st_mtime_ns,
+        suffix=".txt",
+        size_bytes=stat.st_size,
+        content_hash=utility.file_hash(retained),
+    )
+    assert utility.delete_duplicate_files([action]) == []
+    assert alias.is_symlink()
+    assert retained.read_bytes() == b"identical"

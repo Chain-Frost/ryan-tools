@@ -1,0 +1,70 @@
+name: Release to PyPI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-pypi-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check for an existing release PR
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $open = gh pr list --state open --base main --limit 1000 --json headRefName | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (@($open | Where-Object { $_.headRefName -like 'release/pypi-*' }).Count) {
+            throw 'A release PR is already open; merge or close it first.'
+          }
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - name: Initialise package submodules
+        shell: pwsh
+        run: |
+          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Build next calendar version
+        shell: pwsh
+        run: |
+          python -m pip install build packaging
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/prepare_release.py --builder repo-scripts/build_library.py --builder-arg=--no-bump --builder-arg=--skip-pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Open release PR for required PR-event CI
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $version = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $branch = "release/pypi-$version"
+          git switch -c $branch
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- pyproject.toml dist
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git commit -m "Prepare PyPI release $version"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git push origin $branch
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh pr create --base main --head $branch --title "[release] Publish $version to PyPI" --body 'Bump the calendar version and retain the verified wheel. Approve workflows to run on this bot-created PR if GitHub requests it. Review and squash merge after required PR-event CI passes. Successful main CI will create the release and dispatch PyPI publication.'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

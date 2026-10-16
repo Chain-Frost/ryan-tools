@@ -248,7 +248,7 @@ def sample_raster_along_line(
                 if method == "bilinear_masked":
                     values[~_containing_cells_are_valid(band, rows, cols)] = np.nan
             return distances, values
-    except ValueError, RasterSamplingError:
+    except (ValueError, RasterSamplingError):
         raise
     except Exception as exc:
         msg = f"Failed to sample raster {source_path}: {exc}"

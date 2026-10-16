@@ -1,0 +1,167 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and verify distribution
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false)
+    runs-on: windows-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Require a published stable GitHub Release
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const tag = context.ref.slice('refs/tags/'.length);
+            const {data: release} = await github.rest.repos.getReleaseByTag({
+              ...context.repo, tag
+            });
+            if (release.tag_name !== tag || release.draft || release.prerelease || !release.published_at) {
+              throw new Error(`Tag ${tag} must have a published, non-draft, non-prerelease GitHub Release.`);
+            }
+            core.info(`Verified published stable release ${release.html_url}`);
+
+      - name: Check out release revision
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Initialise required package submodules
+        shell: pwsh
+        run: |
+          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Verify release commit is on main
+        shell: pwsh
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git merge-base --is-ancestor "$env:GITHUB_SHA" refs/remotes/origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw "Release commit $env:GITHUB_SHA is not an ancestor of origin/main; refusing PyPI publication."
+          }
+
+      - name: Validate release tag and project version
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          @'
+          import os
+          import tomllib
+
+          with open("pyproject.toml", "rb") as file:
+              version = tomllib.load(file)["project"]["version"]
+          expected_tag = f"v{version}"
+          actual_tag = os.environ["RELEASE_TAG"]
+          if actual_tag != expected_tag:
+              raise SystemExit(f"Release tag {actual_tag!r} must match {expected_tag!r}")
+          print(f"Verified release {actual_tag}")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install packaging tools
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade build setuptools wheel twine pandas loguru
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build and verify current version
+        shell: pwsh
+        run: |
+          python repo-scripts/build_library.py --no-bump --skip-pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $wheels = @(Get-ChildItem -LiteralPath dist -Filter 'ryan_functions-*.whl' -File)
+          if ($wheels.Count -ne 1) { throw 'Expected exactly one distribution wheel.' }
+          python -m twine check $wheels[0].FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Reject dependencies unsupported by PyPI
+        shell: pwsh
+        run: |
+          @'
+          import email.parser
+          import pathlib
+          import zipfile
+          from packaging.requirements import Requirement
+
+          wheels = list(pathlib.Path("dist").glob("*.whl"))
+          if len(wheels) != 1:
+              raise SystemExit("Expected exactly one wheel")
+          with zipfile.ZipFile(wheels[0]) as archive:
+              metadata = [name for name in archive.namelist() if name.endswith(".dist-info/METADATA")]
+              if len(metadata) != 1:
+                  raise SystemExit("Expected exactly one metadata file")
+              message = email.parser.BytesParser().parsebytes(archive.read(metadata[0]))
+          for value in message.get_all("Requires-Dist", []):
+              if Requirement(value).url is not None:
+                  raise SystemExit(f"PyPI rejects URL dependencies, including extras: {value}")
+          print("PyPI dependency metadata verified")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Smoke-test the distribution to be published
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP ('pypi-wheel-' + [guid]::NewGuid().ToString('N'))
+          $wheels = @(Get-ChildItem -LiteralPath dist -Filter 'ryan_functions-*.whl' -File)
+          if ($wheels.Count -ne 1) { throw 'Expected exactly one distribution wheel.' }
+          python -m pip install --no-deps --target $target $wheels[0].FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:PYTHONPATH = $target
+          Push-Location $env:RUNNER_TEMP
+          try {
+            python "$env:GITHUB_WORKSPACE/repo-scripts/smoke_test_installed_wheel.py" --expected-root $target
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Upload verified distribution
+        uses: actions/upload-artifact@v7
+        with:
+          name: pypi-distributions
+          path: dist/ryan_functions-*.whl
+          if-no-files-found: error
+
+  publish:
+    name: Publish verified wheel
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ryan-functions
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download verified distribution
+        uses: actions/download-artifact@v8
+        with:
+          name: pypi-distributions
+          path: dist/
+
+      - name: Publish to PyPI using Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@release/v1

@@ -112,10 +112,84 @@ wrappers that use `PommPeakWrapperDefaults` and
 deprecation warning, until 31 December 2026. Replace those copied wrappers with
 the maintained versions before that date.
 
+## Verify converted FLT/ASC output rasters
+
+Use [`model_management/verify_converted_tuflow_rasters.py`](model_management/verify_converted_tuflow_rasters.py)
+to optionally **convert -> verify -> delete** legacy TUFLOW `.flt` / `.asc` outputs in a single run.
+Existing same-stem `.tif` / `.tiff` files are checked rather than overwritten. With
+`--convert-missing`, any absent GeoTIFF is generated via the existing
+`ryan_library.functions.gdal.raster_processing.translate_to_geotiff()` using the
+lossless `tuflow`/DEFLATE profile, without creating unnecessary overviews.
+The independent Rasterio comparison runs before any source deletion.
+This standalone utility uses Rasterio and NumPy (both included in the project dependencies).
+It reuses `ryan_library.functions.file_verification` for file snapshots and
+symlink/junction checks. Its semantic raster comparison remains local: only
+valid-cell values and NoData-mask locations must agree, not NoData sentinel
+values or entire decoded byte sequences.
+
+- Recursively searches below `ROOT_DIR` (default: current working directory).
+  By default the TIF must be in the same directory. Set `TIF_ROOT_DIR` or `--tif-root`
+  when converted GeoTIFFs are in a parallel folder tree with the same relative directory layout.
+  With `--convert-missing`, missing child directories in an existing TIFF root are created as needed.
+- **Optional creation:** `--convert-missing` (or `CONVERT_MISSING = True`) converts
+  only when neither `.tif` nor `.tiff` is found; existing/stale/mismatching TIFFs
+  are never overwritten, and ambiguous counterparts block conversion. GDAL writes
+  into a temporary sibling file before publishing a completed TIFF, with
+  exclusive-create fallback for network filesystems that cannot create hard links.
+  Conversion failures and exact-comparison failures leave the source intact.
+- Compares width, height, band count, **exact grid origin, cell dimensions and full
+  geotransform**, NoData validity masks and every valid cell without any tolerance
+  or resampling. Raster band scale/offset metadata must also match, because it
+  changes the interpretation of stored pixel values. Different NoData sentinels
+  are allowed only when their invalid cells coincide. These grid and pixel
+  properties are critical, non-regenerable content.
+- **If the source declares a CRS, the GeoTIFF must declare the same CRS.** For example,
+  source EPSG:28350 and GeoTIFF EPSG:28351 is a blocking mismatch. Strict CRS
+  equality is intentional: OGC:CRS84 in a source PRJ versus EPSG:4326 in a GeoTIFF
+  also fails (axis-order differences are not ignored). A GeoTIFF without
+  CRS when its source declares one is also a blocking mismatch. If the *source*
+  lacks CRS metadata (common in legacy FLT/ASC outputs without PRJ files), matching
+  pixels and geometry remain eligible under `MATCH_CRS_UNVERIFIED`, with a warning
+  that the spatial reference cannot be independently verified.
+- Computed statistics tags and regenerable auxiliary-statistics sidecars are
+  **not compared** and cannot invalidate matching pixel and grid content. The tool
+  deliberately does not require byte-identical FLT/ASC and TIFF files.
+- The GeoTIFF must have a **strictly newer modification timestamp** than the source;
+  for FLT files also newer than the paired `.hdr` header when scheduled for deletion.
+- Paths are converted to non-resolving absolute paths, not `resolve()`, and are rejected if
+  any component is a symbolic link or Windows directory junction. Nested linked folders are
+  not scanned and linked paths are rechecked before deletion.
+- Uses chunked raster reads and a Rich progress indicator, not binary file hashes.
+- Creates non-overwriting `tuflow_raster_conversion_delete_candidates.csv`,
+  `tuflow_raster_conversion_errors.csv`, and `tuflow_raster_conversion_warnings.csv`
+  in the source root. Missing-CRS cases appear in the warning CSV and are clearly marked
+  in the deletion candidates (status and warning columns), **not** in the errors CSV.
+  True mismatches are excluded and listed in the errors CSV. No per-raster placeholders.
+- **Default is validation only.** Use `--convert-missing --delete` to convert,
+  verify and clean up in one invocation. Add `--delete` or set `DELETE_FILES = True`,
+  then type exactly `DELETE` to remove confirmed matches. Before each removal it checks
+  source, GeoTIFF and associated header size and modification timestamps again.
+  This protects against ordinary changes, but does not lock files against concurrent writes.
+- For verified FLT files, the associated `.hdr` is included by default. The `.prj`,
+  `.aux.xml` and other sidecars are retained, as they can contain reusable metadata.
+  Set `DELETE_FLT_HEADERS = False` to retain FLT headers.
+
+Example from PowerShell (run verification before considering deletion):
+
+```powershell
+py -3.14 .\ryan-scripts\TUFLOW-python\model_management\verify_converted_tuflow_rasters.py --root "D:\Models\results"
+py -3.14 .\ryan-scripts\TUFLOW-python\model_management\verify_converted_tuflow_rasters.py --root "D:\Models\results" --convert-missing --delete
+```
+
+Check the candidate list, back up the source rasters and make sure model/QGIS references have
+been updated to use the GeoTIFFs. The tool does not modify references, nor does it delete
+unmatched files. This is an exact-value/georeferencing check rather than a guarantee that the
+converted files preserve every possible GDAL metadata tag.
+
 ## Duplicate check-file cleanup
 
 `model_management/delete_duplicate_check_files.py` removes byte-identical files within TUFLOW
-`check` folders, retaining one copy per unique content group. Run from the intended result/model root
+folders named `check` or `checks` (case-insensitive), retaining one copy per unique content group. Run from the intended result/model root
 or change `ROOT_DIR` in the script.
 
 - **Default `DRY_RUN = False`:** the script writes a proposal and report, then requires typing exactly
@@ -143,6 +217,9 @@ or change `ROOT_DIR` in the script.
   discovered file. Redirected/headless execution prints the completion summary without live frames.
   `rich` is included in the repo requirements; copied standalone scripts also need it installed.
 - Set `SHOW_HASH_PROGRESS = False` to disable the live display.
+- The script reuses `ryan_library.functions.file_verification.hash_file()` for streaming
+  SHA-256, with the existing 1 MiB chunks, per-chunk Rich callback and hexadecimal
+  manifests unchanged. Final metadata checks also reject symlink/junction paths.
 - SHA-256 reads candidate contents **once** during grouping. Deletion checks existence, size and
   modification time of both paths, rechecking the retained path before each unlink. It does **not**
   hash file content again. Run only on static/inactive results; metadata checks are not file locks.

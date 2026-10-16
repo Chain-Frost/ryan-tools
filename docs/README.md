@@ -65,6 +65,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Document | Relevant work |
 | --- | --- |
 | [MCP server setup](MCP_SETUP.md) | Configuring focused MCP helpers and repository-backed workflow discovery in supported AI clients |
+| [PyPI publishing](PYPI_PUBLISHING.md) | Configuring Trusted Publishing and releasing verified wheels through GitHub Actions |
 | [MCP workflow-target implementation](mcp-handoff/README.md) | Current execution-target design, wrapper-path reconciliation, validation contract and remaining staged migration |
 
 ## File-format references
@@ -89,6 +90,11 @@ but they are not current architectural policy when they conflict with the canoni
 | --- | --- |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
 | [TUFLOW culvert engine validation](work/2026-10-08-tuflow-culvert-engines-99.md) | PR #100 retained-wheel repair, numerical evidence and outstanding source-data acceptance |
+| [PyPI release automation](work/2026-10-15-release-automation.md) | Automated version PR, release finalization, publication and temporary slow-test exclusions |
+| [CI validation efficiency](work/2026-10-15-ci-validation.md) | Actionlint enforcement, focused dependencies and publication-wheel smoke validation |
+| [Temporary floodway CI exclusions](work/2026-10-16-floodway-ci-exclusions.md) | Deferred review of the two slow sweep tests temporarily excluded from hosted CI |
+| [Safe GeoTIFF recompression](work/2026-10-15-safe-geotiff-recompression.md) | Ready-for-review lossless audit, compression, verification and replacement workflow |
+| [TUFLOW shared filesystem verification](work/2026-10-15-tuflow-shared-verification-110.md) | Follow-up to PR #109: shared file snapshots, hashing, raster conversion comparison and CRS safeguards |
 | [Floodway work record](work/2026-09-13-floodway-design-87.md) | Floodway implementation and validation |
 | [Floodway research](audits/2026-09-13-floodway-design-research.md) | Source baseline |
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |

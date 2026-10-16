@@ -1,4 +1,7 @@
 # ryan_library/processors/tuflow/processor_collection.py
+
+from __future__ import annotations
+
 __lazy_modules__: list[str] = ["pandas"]
 import copy
 import json

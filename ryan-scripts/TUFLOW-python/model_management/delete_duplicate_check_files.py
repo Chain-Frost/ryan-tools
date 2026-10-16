@@ -1,4 +1,4 @@
-"""Find and optionally delete byte-identical files in TUFLOW check folders.
+"""Find and optionally delete byte-identical files in TUFLOW check/checks folders.
 
 Run from the model/result root or set ROOT_DIR. Cross-folder comparison and
 raster scanning are enabled by default. Review the proposed deletion list and
@@ -16,7 +16,6 @@ follow the separate restore confirmation. Restoration never overwrites files.
 from __future__ import annotations
 
 import csv
-import hashlib
 import os
 import shutil
 import sys
@@ -38,6 +37,13 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
+from ryan_library.functions.file_verification import (
+    FileSnapshot,
+    has_linked_component,
+    snapshot_is_unchanged,
+)
+from ryan_library.functions.file_verification import hash_file as shared_hash_file
+
 # delete duplicate files below this script in TUFLOW check folders.
 
 # ---------------------------------------------------------------------------
@@ -45,7 +51,7 @@ from rich.progress import (
 # ---------------------------------------------------------------------------
 
 ROOT_DIR = Path()
-CHECK_FOLDER_NAME = "check"
+CHECK_FOLDER_NAMES = ("check", "checks")
 
 REPORT_FILE = Path("duplicate_files_to_delete.txt")
 MANIFEST_FILE = Path("duplicate_files_manifest.csv")
@@ -183,14 +189,14 @@ def relative_or_absolute_path_from_placeholder_to_kept_file(
 
 
 def find_check_folders(root_dir: Path) -> list[Path]:
-    """Find check directories without stat-ing every file under the root."""
+    """Find check/checks directories without stat-ing every file under the root."""
     root_dir = absolute_path(root_dir)
-    target = CHECK_FOLDER_NAME.casefold()
+    targets = {name.casefold() for name in CHECK_FOLDER_NAMES}
     matches = [
         parent / name
         for parent, directory_names, _ in root_dir.walk()
         for name in directory_names
-        if name.casefold() == target
+        if name.casefold() in targets
     ]
     return sorted(matches, key=lambda path: str(path).casefold())
 
@@ -239,24 +245,13 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
 
 def file_hash(path: Path, *, on_chunk: Callable[[int], None] | None = None) -> str:
     """Hash a file using SHA-256; optionally report bytes read during the same pass."""
-    digest = hashlib.sha256()
-
-    with path.open("rb") as file:
-        while chunk := file.read(HASH_CHUNK_SIZE):
-            digest.update(chunk)
-            if on_chunk is not None:
-                on_chunk(len(chunk))
-
-    return digest.hexdigest()
+    return shared_hash_file(path, chunk_size=HASH_CHUNK_SIZE, on_chunk=on_chunk).hex()
 
 
 def matches_snapshot(path: Path, *, size_bytes: int, mtime_ns: int) -> bool:
     """Compare inexpensive metadata with the original scan; never rehash."""
-    try:
-        stat = path.stat()
-        return stat.st_size == size_bytes and stat.st_mtime_ns == mtime_ns
-    except OSError:
-        return False
+    record = FileSnapshot(path=path, size=size_bytes, mtime_ns=mtime_ns)
+    return not has_linked_component(path) and snapshot_is_unchanged(record)
 
 
 def hash_progress_display() -> Progress:
@@ -953,7 +948,7 @@ def main() -> None:
     check_folders = find_check_folders(ROOT_DIR)
 
     if not check_folders:
-        print(f"No folders named {CHECK_FOLDER_NAME!r} found under {absolute_path(ROOT_DIR)}")
+        print(f"No folders named {CHECK_FOLDER_NAMES!r} found under {absolute_path(ROOT_DIR)}")
         return
 
     records = iter_files_in_check_folders(check_folders)
