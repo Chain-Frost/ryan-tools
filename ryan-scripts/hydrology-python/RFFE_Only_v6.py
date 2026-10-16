@@ -76,7 +76,7 @@ import sys
 from collections.abc import Hashable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, Self
 
 import pandas as pd
 import requests
@@ -108,7 +108,7 @@ class Catchment:
     centroid_y: float
 
     @classmethod
-    def from_record(cls, rec: Record, idx: int) -> Catchment:
+    def from_record(cls, rec: Record, idx: int) -> Self:
         raw: str | None = rec.get("Catchment", "")
         name: str = raw.strip() if isinstance(raw, str) and raw.strip() else f"Catchment_{idx}"
         return cls(

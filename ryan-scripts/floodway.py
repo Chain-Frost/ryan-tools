@@ -205,7 +205,7 @@ def main(
             )
             print(render_floodway_envelope_markdown(envelope))
             logger.success("Floodway assessment completed; outputs: {}", resolved_output)
-        except OSError, TypeError, ValueError, RuntimeError:
+        except (OSError, TypeError, ValueError, RuntimeError):
             logger.exception("Floodway assessment failed.")
             return 1
     return 0

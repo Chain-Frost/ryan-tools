@@ -449,7 +449,7 @@ def main(
                 msg = f"Unsupported command: {command}"
                 raise ValueError(msg)
             logger.success("Culvert workflow completed; outputs: {}", resolved_output)
-        except OSError, ValueError, RuntimeError:
+        except (OSError, ValueError, RuntimeError):
             logger.exception("Culvert workflow failed.")
             return 1
     return 0

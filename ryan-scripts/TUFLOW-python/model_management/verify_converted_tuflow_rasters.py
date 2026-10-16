@@ -29,7 +29,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Embedded wrapper identity and editable user settings
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-10-16.2"
+WRAPPER_VERSION = "2026-10-16.3"
 ROOT_DIR = Path.cwd()
 TIF_ROOT_DIR: Path | None = None  # None means TIFs alongside FLT/ASC files
 DELETE_FILES = False  # Verification/proposal only unless set True or --delete
@@ -99,9 +99,13 @@ def source_size_summary(sources: list[Path]) -> tuple[dict[Path, int | None], in
     return sizes, sum(size for size in sizes.values() if size is not None)
 
 
-def show_file_progress(progress: Progress | None, task_id: TaskID | None, description: str) -> None:
-    """Set the active raster stage without modifying processing behaviour."""
+def show_file_progress(
+    progress: Progress | None, task_id: TaskID | None, description: str, *, detail: str | None = None
+) -> None:
+    """Update the compact progress stage, optionally printing an untruncated file path."""
     if progress is not None and task_id is not None:
+        if detail is not None:
+            progress.console.print(detail)
         progress.update(task_id, description=description, total=1, completed=0)
 
 
@@ -372,9 +376,12 @@ def inspect_source(
                     original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header, created_tif
                 )
 
-    if progress is not None and raster_task is not None:
-        progress.console.print(f"  GeoTIFF: {candidate.relative_to(tif_root)} ({format_size(converted.size)})")
-    show_file_progress(progress, raster_task, "Comparing raster cells")
+    show_file_progress(
+        progress,
+        raster_task,
+        "Comparing raster cells",
+        detail=f"  GeoTIFF: {candidate.relative_to(tif_root)} ({format_size(converted.size)})",
+    )
     try:
         difference, warning = compare_rasters(source, candidate, progress, raster_task)
     except (OSError, ValueError, RasterioError) as exc:

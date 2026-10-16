@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-10-16.2"
 DEFAULT_INPUTS = [Path("input.shp")]
 DEFAULT_EXTENTS = [Path("extent.shp")]
 DEFAULT_OUTPUT_DIR: Path | None = None
@@ -107,7 +107,7 @@ def clip_vector(
         _promote_dataset(temporary_path, output_path, overwrite=overwrite)
         logger.success("Created {}", output_path)
         return True
-    except OSError, RuntimeError:
+    except (OSError, RuntimeError):
         logger.exception("Could not finalise clipped output {}", output_path)
         return False
     finally:
