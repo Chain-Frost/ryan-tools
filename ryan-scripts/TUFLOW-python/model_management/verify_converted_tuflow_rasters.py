@@ -24,13 +24,28 @@ Do not run on active outputs; file metadata snapshots do not lock files.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Embedded wrapper identity and editable user settings
+# ---------------------------------------------------------------------------
+WRAPPER_VERSION = "2026-10-16.1"
+ROOT_DIR = Path.cwd()
+TIF_ROOT_DIR: Path | None = None  # None means TIFs alongside FLT/ASC files
+DELETE_FILES = False  # Verification/proposal only unless set True or --delete
+CONVERT_MISSING = False  # Opt in to creating absent GeoTIFFs with the shared GDAL converter
+DELETE_FLT_HEADERS = True  # Include .hdr paired with a verified .flt
+SHOW_PROGRESS = True
+MAX_WINDOW_CELLS = 1_000_000  # Approximate upper bound on cells per read
+REPORT_PREFIX = "tuflow_raster_conversion"
+
+# Remaining operational imports appear below user-editable defaults.
 import argparse
 import csv
 import os
 import shutil
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 from uuid import uuid4
 
 import numpy as np
@@ -44,18 +59,7 @@ from ryan_library.functions.file_verification import (
     snapshot_file,
     snapshot_is_unchanged,
 )
-
-# ---------------------------------------------------------------------------
-# User settings (CLI arguments may override the first three)
-# ---------------------------------------------------------------------------
-ROOT_DIR = Path.cwd()
-TIF_ROOT_DIR: Path | None = None  # None means TIFs alongside FLT/ASC files
-DELETE_FILES = False  # Verification/proposal only unless set True or --delete
-CONVERT_MISSING = False  # Opt in to creating absent GeoTIFFs with the shared GDAL converter
-DELETE_FLT_HEADERS = True  # Include .hdr paired with a verified .flt
-SHOW_PROGRESS = True
-MAX_WINDOW_CELLS = 1_000_000  # Approximate upper bound on cells per read
-REPORT_PREFIX = "tuflow_raster_conversion"
+from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 
 
 @dataclass(frozen=True)
@@ -65,10 +69,40 @@ class Comparison:
     status: str
     reason: str
     header: FileSnapshot | None = None
+    created_tif: bool = False
 
     @property
     def eligible(self) -> bool:
         return self.status in {"MATCH", "MATCH_CRS_UNVERIFIED"}
+
+
+def format_size(size: int | None) -> str:
+    """Show file size in binary units, or unknown when unavailable."""
+    if size is None or size < 0:
+        return "unknown"
+    amount = float(size)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if amount < 1024 or unit == "TiB":
+            return f"{int(amount)} B" if unit == "B" else f"{amount:.1f} {unit}"
+        amount /= 1024
+    return "unknown"
+
+
+def source_size_summary(sources: list[Path]) -> tuple[dict[Path, int | None], int]:
+    """Stat discovered sources for the initial batch-volume display."""
+    sizes: dict[Path, int | None] = {}
+    for source in sources:
+        try:
+            sizes[source] = source.stat().st_size
+        except OSError:
+            sizes[source] = None
+    return sizes, sum(size for size in sizes.values() if size is not None)
+
+
+def show_file_progress(progress: Progress | None, task_id: TaskID | None, description: str) -> None:
+    """Set the active raster stage without modifying processing behaviour."""
+    if progress is not None and task_id is not None:
+        progress.update(task_id, description=description, total=1, completed=0)
 
 
 def snapshot(path: Path) -> FileSnapshot:
@@ -165,7 +199,7 @@ def compare_rasters(
 
         rows = max(1, min(original.height, MAX_WINDOW_CELLS // max(1, original.width)))
         if progress is not None and task_id is not None:
-            progress.update(task_id, total=original.height * original.count, completed=0, description=source.name)
+            progress.update(task_id, total=original.height * original.count, completed=0)
 
         for band in range(1, original.count + 1):
             for y in range(0, original.height, rows):
@@ -232,16 +266,18 @@ def assert_unoccupied_tif(source: Path, destination: Path) -> None:
         raise FileExistsError(message)
 
 
-def find_or_create_tif(source: Path, destination_dir: Path, *, convert_missing: bool) -> tuple[Path | None, str | None]:
-    """Locate the counterpart or optionally convert exactly one missing TIFF."""
+def find_or_create_tif(
+    source: Path, destination_dir: Path, *, convert_missing: bool
+) -> tuple[Path | None, str | None, bool]:
+    """Locate or create a TIFF and report whether it was newly created."""
     candidate, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
     if (
         candidate is None
         and convert_missing
         and error in {"Matching file not found", "Destination directory does not exist"}
     ):
-        return create_missing_tif(source, destination_dir), None
-    return candidate, error
+        return create_missing_tif(source, destination_dir), None, True
+    return candidate, error, False
 
 
 def create_missing_tif(source: Path, destination_dir: Path) -> Path:
@@ -306,8 +342,13 @@ def inspect_source(
     """Optionally create missing GeoTIFF and verify it against its source."""
     original = snapshot(source)
     destination_dir = tif_root / source.parent.relative_to(root)
+    show_file_progress(
+        progress,
+        raster_task,
+        f"Current: {source.relative_to(root)} ({format_size(original.size)}) | locating/converting GeoTIFF",
+    )
     try:
-        candidate, error = find_or_create_tif(source, destination_dir, convert_missing=convert_missing)
+        candidate, error, created_tif = find_or_create_tif(source, destination_dir, convert_missing=convert_missing)
     except (ImportError, OSError, ValueError, RuntimeError, RasterioError) as exc:
         return Comparison(original, None, "CONVERSION_FAILED", f"Could not create GeoTIFF: {exc}")
     if candidate is None:
@@ -315,27 +356,45 @@ def inspect_source(
 
     converted = snapshot(candidate)
     if converted.mtime_ns <= original.mtime_ns:
-        return Comparison(original, converted, "TIF_NOT_NEWER", "TIF modification time is not strictly newer")
+        return Comparison(
+            original, converted, "TIF_NOT_NEWER", "TIF modification time is not strictly newer", created_tif=created_tif
+        )
 
     header: FileSnapshot | None = None
     if source.suffix.casefold() == ".flt" and DELETE_FLT_HEADERS:
         hdr, hdr_error = paired_file(source.parent, source.stem, {".hdr"})
         if hdr_error and hdr is None and hdr_error != "Matching file not found":
-            return Comparison(original, converted, "ERROR", f"FLT header: {hdr_error}")
+            return Comparison(original, converted, "ERROR", f"FLT header: {hdr_error}", created_tif=created_tif)
         if hdr is not None:
             header = snapshot(hdr)
             if converted.mtime_ns <= header.mtime_ns:
-                return Comparison(original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header)
+                return Comparison(
+                    original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header, created_tif
+                )
 
+    show_file_progress(
+        progress,
+        raster_task,
+        (
+            f"Comparing: {source.relative_to(root)} ({format_size(original.size)})"
+            f" -> {candidate.name} ({format_size(converted.size)})"
+        ),
+    )
     try:
         difference, warning = compare_rasters(source, candidate, progress, raster_task)
     except (OSError, ValueError, RasterioError) as exc:
-        return Comparison(original, converted, "ERROR", f"Raster read failed: {exc}")
+        return Comparison(original, converted, "ERROR", f"Raster read failed: {exc}", created_tif=created_tif)
 
     status = "MISMATCH" if difference is not None else "MATCH_CRS_UNVERIFIED" if warning else "MATCH"
-    result = Comparison(original, converted, status, difference or warning or "", header)
+    result = Comparison(original, converted, status, difference or warning or "", header, created_tif)
     if result.eligible and not all(unchanged(item) for item in (original, converted, header) if item is not None):
-        return Comparison(original, converted, "CHANGED_DURING_CHECK", "File metadata changed during comparison")
+        return Comparison(
+            original,
+            converted,
+            "CHANGED_DURING_CHECK",
+            "File metadata changed during comparison",
+            created_tif=created_tif,
+        )
     return result
 
 
@@ -465,7 +524,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--delete", action="store_true", help="Allow deletion after typing DELETE")
     parser.add_argument("--convert-missing", action="store_true", help="Create missing GeoTIFFs before verification")
     parser.add_argument("--no-progress", action="store_true", help="Disable live raster progress")
+    parser.add_argument("--no-pause", action="store_true", help="Skip the interactive completion pause")
     args = parser.parse_args(argv)
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
     root: Path = args.root.expanduser().absolute()
     tif_root: Path = args.tif_root.expanduser().absolute() if args.tif_root is not None else root
@@ -475,7 +536,15 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"TIFF directory is missing or contains a symlink/junction: {tif_root}")
 
     sources = discover_sources(root)
+    sizes, total_bytes = source_size_summary(sources)
+    unavailable = sum(size is None for size in sizes.values())
     print(f"Scanning {len(sources)} FLT/ASC raster(s) under {root}")
+    print(
+        f"Batch source size: {format_size(total_bytes)}"
+        + (f" ({unavailable} unknown sizes)" if unavailable else "")
+        + f" | convert missing: {CONVERT_MISSING or args.convert_missing}"
+        + f" | delete: {DELETE_FILES or args.delete}"
+    )
     results: list[Comparison] = []
     progress_enabled = SHOW_PROGRESS and not args.no_progress and sys.stdout.isatty()
     with Progress(
@@ -485,9 +554,14 @@ def main(argv: list[str] | None = None) -> int:
         TimeRemainingColumn(),
         disable=not progress_enabled,
     ) as progress:
-        file_task = progress.add_task("Rasters", total=len(sources))
-        cell_task = progress.add_task("Raster rows", total=1)
-        for source in sources:
+        file_task = progress.add_task(
+            f"Batch 0 B/{format_size(total_bytes)} | matches 0 | CRS warnings 0 | new TIFs 0 | excluded 0",
+            total=len(sources),
+        )
+        cell_task = progress.add_task("Current raster", total=1)
+        processed_bytes = 0
+        matched_so_far = warnings_so_far = created_so_far = 0
+        for index, source in enumerate(sources, start=1):
             try:
                 result = inspect_source(
                     source,
@@ -500,24 +574,56 @@ def main(argv: list[str] | None = None) -> int:
             except OSError as exc:
                 result = Comparison(FileSnapshot(source, -1, -1), None, "ERROR", f"File inspection failed: {exc}")
             results.append(result)
-            progress.advance(file_task)
-            if not result.eligible:
-                print(f"{result.status}: {source}: {result.reason}")
+            processed_bytes += sizes[source] or 0
+            matched_so_far += int(result.eligible)
+            warnings_so_far += int(result.status == "MATCH_CRS_UNVERIFIED")
+            created_so_far += int(result.created_tif)
+            excluded_so_far = index - matched_so_far
+            progress.update(
+                file_task,
+                advance=1,
+                description=(
+                    f"Batch {format_size(processed_bytes)}/{format_size(total_bytes)}"
+                    f" | matches {matched_so_far} | CRS warnings {warnings_so_far}"
+                    f" | new TIFs {created_so_far} | excluded {excluded_so_far}"
+                ),
+            )
+            progress.update(cell_task, total=1, completed=1)
+            if not progress_enabled or not result.eligible:
+                tif_info = (
+                    f"{result.tif.path.name} ({format_size(result.tif.size)})" if result.tif is not None else "none"
+                )
+                print(
+                    f"[{index}/{len(sources)}] {result.status}: {source.relative_to(root)}"
+                    f" ({format_size(sizes[source])}) -> {tif_info}"
+                    f" | created: {result.created_tif}" + (f" | {result.reason}" if result.reason else "")
+                )
 
     try:
         proposal, errors, warnings = write_reports(results, root)
     except OSError as exc:
         print(f"Could not write reports; deletion cancelled: {exc}", file=sys.stderr)
+        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
         return 2
     matched = sum(result.eligible for result in results)
     unverified_crs = sum(result.status == "MATCH_CRS_UNVERIFIED" for result in results)
+    created_count = sum(result.created_tif for result in results)
+    created_verified = sum(result.created_tif and result.eligible for result in results)
     print(f"Verified raster contents: {matched}/{len(results)}; excluded: {len(results) - matched}")
+    print(f"Batch input size: {format_size(total_bytes)}; source files: {len(sources)}")
+    print(f"New GeoTIFFs created: {created_count}; successfully verified: {created_verified}")
+    print(f"Existing GeoTIFFs verified: {matched - created_verified}")
     print(f"Matched with unverified CRS: {unverified_crs} (eligible; review warning report)")
     print(f"Deletion proposal: {proposal}")
     print(f"Error report: {errors}")
     print(f"CRS warning report: {warnings}")
-    return finish_deletion(results, len(sources), allow_delete=DELETE_FILES or args.delete)
+    exit_code = finish_deletion(results, len(sources), allow_delete=DELETE_FILES or args.delete)
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    return exit_code
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    exit_code = main()
+    if "--no-pause" not in sys.argv[1:]:
+        pause_console()
+    raise SystemExit(exit_code)

@@ -107,6 +107,61 @@ def test_asc_match_and_report_no_deletion(tool: ModuleType, tmp_path: Path) -> N
     assert not report_rows(tmp_path / "tuflow_raster_conversion_warnings.csv")
 
 
+def test_batch_summary_displays_sizes_versions_and_outcomes(
+    tool: ModuleType, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    src, tif = make_pair(tmp_path / "matched")
+    make_pair(tmp_path / "mismatch", tif_values=np.array([[42, 2], [3, -9999]], dtype="float32"))
+    assert tool.main(["--root", str(tmp_path), "--no-progress", "--no-pause"]) == 1
+    output = capsys.readouterr().out
+    assert tool.WRAPPER_VERSION in output
+    assert "Batch source size:" in output
+    assert "source files: 2" in output
+    assert "New GeoTIFFs created: 0" in output
+    assert "Existing GeoTIFFs verified: 1" in output
+    assert "Verified raster contents: 1/2; excluded: 1" in output
+    assert str(src.relative_to(tmp_path)) in output
+    assert tif.name in output
+    assert "created: False" in output
+    assert "MATCH:" in output
+    assert "MISMATCH:" in output
+
+
+def test_created_tif_counter_distinguishes_existing_and_new(
+    tool: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    source, original_tif = make_pair(tmp_path / "new")
+    existing_source, _ = make_pair(tmp_path / "existing")
+    tif_contents = original_tif.read_bytes()
+    original_tif.unlink()
+
+    def fake_create(_source: Path, directory: Path) -> Path:
+        destination = directory / "Depth.tif"
+        destination.write_bytes(tif_contents)
+        os.utime(destination, ns=(2_000_000_000, 2_000_000_000))
+        return destination
+
+    monkeypatch.setattr(tool, "create_missing_tif", fake_create)
+    assert tool.main(["--root", str(tmp_path), "--convert-missing", "--no-progress"]) == 0
+    output = capsys.readouterr().out
+    assert "New GeoTIFFs created: 1; successfully verified: 1" in output
+    assert "Existing GeoTIFFs verified: 1" in output
+    assert "created: True" in output
+    assert source.exists()
+    assert existing_source.exists()
+
+
+def test_format_size_unknown_and_binary_units(tool: ModuleType) -> None:
+    assert tool.format_size(None) == "unknown"
+    assert tool.format_size(-1) == "unknown"
+    assert tool.format_size(0) == "0 B"
+    assert tool.format_size(1024) == "1.0 KiB"
+    assert tool.format_size(1024 * 1024) == "1.0 MiB"
+
+
 def test_flt_match_includes_header_but_not_projection(tool: ModuleType, tmp_path: Path) -> None:
     src, tif = make_pair(tmp_path, suffix=".flt")
     hdr = src.with_suffix(".hdr")
