@@ -101,7 +101,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    source = args.source.expanduser().resolve()
+    source = args.source.expanduser().absolute()
     if not source.exists():
         msg = f"Source '{source}' does not exist."
         raise SystemExit(msg)

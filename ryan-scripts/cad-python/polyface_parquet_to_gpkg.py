@@ -396,7 +396,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    summary = convert(args.vertices.resolve(), args.faces.resolve(), args.output.resolve())
+    summary = convert(args.vertices.absolute(), args.faces.absolute(), args.output.absolute())
     for key, value in summary.items():
         print(f"{key}: {value}")
 

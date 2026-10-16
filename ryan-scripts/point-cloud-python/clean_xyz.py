@@ -41,7 +41,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
     p.add_argument(
         "--dir",
         type=Path,
-        default=Path(__file__).resolve().parent,
+        default=Path(__file__).absolute().parent,
         help="Directory containing .xyz files. Default: folder containing this script.",
     )
     p.add_argument(
@@ -87,7 +87,7 @@ def parse_args(argv: list[str] | None = None) -> Config:
     ns: argparse.Namespace = p.parse_args(argv)
 
     match: MatchMode = ns.match
-    root: Path = Path(ns.dir).resolve()
+    root: Path = Path(ns.dir).absolute()
     pattern: str = str(ns.glob)
     recursive: bool = bool(ns.recursive)
     workers: int = max(0, int(ns.workers))

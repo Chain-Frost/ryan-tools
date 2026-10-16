@@ -40,9 +40,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-06.1"
+WRAPPER_VERSION = "2026-10-16.1"
 
-WORKING_DIR: Path = Path(__file__).resolve().parent
+WORKING_DIR: Path = Path(__file__).absolute().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
 DEFAULT_FORMATION_FILE = Path("floodway_formation.json")
 DEFAULT_OUTPUT_DIRECTORY = Path("floodway_results")
@@ -91,12 +91,12 @@ def _select_named[T](items: Sequence[T], name: str | None, *, get_name: Callable
 
 
 def _resolve_path(base: Path, configured: Path) -> Path:
-    return configured.resolve() if configured.is_absolute() else (base / configured).resolve()
+    return configured.absolute() if configured.is_absolute() else (base / configured).absolute()
 
 
 def _output_path(base: Path, configured: Path | None) -> Path:
     output = configured or DEFAULT_OUTPUT_DIRECTORY
-    return output.resolve() if output.is_absolute() else (base / output).resolve()
+    return output.absolute() if output.is_absolute() else (base / output).absolute()
 
 
 def _write_outputs(
@@ -136,7 +136,7 @@ def main(
 ) -> int:
     """Resolve wrapper settings and execute the floodway assessment workflow."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    target_directory = (working_directory or WORKING_DIR).resolve()
+    target_directory = (working_directory or WORKING_DIR).absolute()
     project_path = _resolve_path(target_directory, project_file or DEFAULT_PROJECT_FILE)
     formation_path = _resolve_path(target_directory, formation_file or DEFAULT_FORMATION_FILE)
     resolved_output = _output_path(target_directory, output_directory)

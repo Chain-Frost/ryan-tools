@@ -23,7 +23,7 @@ from shapely.prepared import prep
 
 
 def parse_args() -> argparse.Namespace:
-    default_dir = Path(__file__).resolve().parent
+    default_dir = Path(__file__).absolute().parent
     parser = argparse.ArgumentParser(
         description="Clip LAS/LAZ files to the polygon(s) defined in clip.shp.",
     )
@@ -192,14 +192,14 @@ def clip_las_file(
 
 def main() -> None:
     args = parse_args()
-    input_dir = args.input_dir.resolve()
+    input_dir = args.input_dir.absolute()
     if args.shapefile:
         shapefile = args.shapefile
     else:
         shapefile = input_dir / "clip.shp"
-    output_dir = (args.output_dir or (input_dir / "clipped")).resolve()
+    output_dir = (args.output_dir or (input_dir / "clipped")).absolute()
 
-    clipper = PolygonClipper(shapefile.resolve())
+    clipper = PolygonClipper(shapefile.absolute())
     files = list(discover_files(input_dir, args.glob, args.also_laz))
     if not files:
         print(f"No files found in {input_dir} with pattern '{args.glob}'.", file=sys.stderr)
