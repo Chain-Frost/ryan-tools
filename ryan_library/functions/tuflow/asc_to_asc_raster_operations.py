@@ -195,7 +195,9 @@ def _source_output_paths(
         if source_legend_file is not None
         else output_path.with_name(f"{output_path.stem}_src_legend.csv")
     )
-    if source_path == output_path or (source_path.exists() and output_path.exists() and source_path.samefile(output_path)):
+    if source_path == output_path or (
+        source_path.exists() and output_path.exists() and source_path.samefile(output_path)
+    ):
         msg = "Source raster path must differ from the value raster path"
         raise ValueError(msg)
     return source_path, legend_path

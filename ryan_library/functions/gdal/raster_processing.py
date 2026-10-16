@@ -401,7 +401,9 @@ def calculate_flood_extent(
     """
     input_file = input_file.absolute()
     output_raster = output_raster.absolute()
-    if input_file == output_raster or (input_file.exists() and output_raster.exists() and input_file.samefile(output_raster)):
+    if input_file == output_raster or (
+        input_file.exists() and output_raster.exists() and input_file.samefile(output_raster)
+    ):
         msg = f"Input and output paths are identical: {input_file}"
         raise ValueError(msg)
     if output_raster.exists() and not overwrite:
