@@ -48,7 +48,7 @@ from loguru import logger
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn
 
-from ryan_library.functions.archive_utils import FolderCompressionJob, FolderCompressionResult, compress_folder_7zip, find_7zip
+from ryan_library.functions.archive_utils import FolderCompressionJob, compress_folder_7zip, find_7zip
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.path_stuff import PathOrList, to_path_list
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner

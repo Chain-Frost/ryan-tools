@@ -18,7 +18,8 @@ SCRIPT = Path(__file__).absolute().parents[2] / "ryan-scripts" / "file-managemen
 @pytest.fixture
 def wrapper() -> ModuleType:
     spec = importlib.util.spec_from_file_location("archive_compress_folder_tested", SCRIPT)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -83,8 +84,12 @@ def test_wrapper_reports_each_folder_without_tty_progress(
     monkeypatch.setattr(wrapper.multiprocessing, "Pool", InlinePool)
 
     def fake_7zip(*, executable: Path, output_archive: Path, inputs: list[str], exclusions: list[str]) -> None:
+        assert executable.exists()
+        assert inputs
+        assert exclusions
         if output_archive.stem == "second":
-            raise RuntimeError("Synthetic archive failure")
+            message = "Synthetic archive failure"
+            raise RuntimeError(message)
         output_archive.write_text("compressed", encoding="utf-8")
 
     monkeypatch.setattr(archive_utils, "create_7zip_archive", fake_7zip)

@@ -111,6 +111,6 @@ def compress_folder_7zip(job: FolderCompressionJob) -> FolderCompressionResult:
             inputs=[f"{job.folder}\\*"],
             exclusions=exclusions,
         )
-    except Exception as exc:
+    except (OSError, RuntimeError, ValueError) as exc:
         return FolderCompressionResult(job.folder, archive, "ERROR", str(exc))
     return FolderCompressionResult(job.folder, archive, "SUCCESS")
