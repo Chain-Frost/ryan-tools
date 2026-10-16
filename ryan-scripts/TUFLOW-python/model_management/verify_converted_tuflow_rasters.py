@@ -534,6 +534,8 @@ def main(argv: list[str] | None = None) -> int:
     sizes, total_bytes = source_size_summary(sources)
     unavailable = sum(size is None for size in sizes.values())
     print(f"Scanning {len(sources)} FLT/ASC raster(s) under {root}")
+    if tif_root != root:
+        print(f"GeoTIFF destination root: {tif_root}")
     print(
         f"Batch source size: {format_size(total_bytes)}"
         + (f" ({unavailable} unknown sizes)" if unavailable else "")
@@ -590,7 +592,9 @@ def main(argv: list[str] | None = None) -> int:
             progress.update(cell_task, total=1, completed=1)
             if not progress_enabled or not result.eligible:
                 tif_info = (
-                    f"{result.tif.path.name} ({format_size(result.tif.size)})" if result.tif is not None else "none"
+                    f"{result.tif.path.relative_to(tif_root)} ({format_size(result.tif.size)})"
+                    if result.tif is not None
+                    else "none"
                 )
                 print(f"[{index}/{len(sources)}] {result.status}:")
                 print(f"  Source: {source.relative_to(root)} ({format_size(sizes[source])})")

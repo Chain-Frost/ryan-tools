@@ -85,7 +85,6 @@ def test_sanitize_windows_filename(value: str, expected: str) -> None:
     assert path_stuff.sanitize_windows_filename(value, fallback="fallback") == expected
 
 
-
 def test_relative_conversion_keeps_symlink_location(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Displaying a file beneath a linked directory must not dereference its location."""
     real = tmp_path / "physical"
