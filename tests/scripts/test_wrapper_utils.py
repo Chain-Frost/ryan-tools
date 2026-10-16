@@ -104,6 +104,7 @@ def test_change_working_directory_prints_configured_spelling(
 ) -> None:
     """Preserve the caller's path form even when Windows exposes a UNC alias."""
     requested = tmp_path / "mapped_alias"
+
     def ignore_chdir(_path: str | os.PathLike[str]) -> None:
         pass
 
