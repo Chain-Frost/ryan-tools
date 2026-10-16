@@ -29,7 +29,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Embedded wrapper identity and editable user settings
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-10-16.2"
 ROOT_DIR = Path.cwd()
 TIF_ROOT_DIR: Path | None = None  # None means TIFs alongside FLT/ASC files
 DELETE_FILES = False  # Verification/proposal only unless set True or --delete
@@ -345,7 +345,7 @@ def inspect_source(
     show_file_progress(
         progress,
         raster_task,
-        f"Current: {source.relative_to(root)} ({format_size(original.size)}) | locating/converting GeoTIFF",
+        "Locating/converting GeoTIFF",
     )
     try:
         candidate, error, created_tif = find_or_create_tif(source, destination_dir, convert_missing=convert_missing)
@@ -372,14 +372,9 @@ def inspect_source(
                     original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header, created_tif
                 )
 
-    show_file_progress(
-        progress,
-        raster_task,
-        (
-            f"Comparing: {source.relative_to(root)} ({format_size(original.size)})"
-            f" -> {candidate.name} ({format_size(converted.size)})"
-        ),
-    )
+    if progress is not None and raster_task is not None:
+        progress.console.print(f"  GeoTIFF: {candidate.relative_to(tif_root)} ({format_size(converted.size)})")
+    show_file_progress(progress, raster_task, "Comparing raster cells")
     try:
         difference, warning = compare_rasters(source, candidate, progress, raster_task)
     except (OSError, ValueError, RasterioError) as exc:
@@ -562,6 +557,10 @@ def main(argv: list[str] | None = None) -> int:
         processed_bytes = 0
         matched_so_far = warnings_so_far = created_so_far = 0
         for index, source in enumerate(sources, start=1):
+            if progress_enabled:
+                progress.console.print(
+                    f"[{index}/{len(sources)}] Source: {source.relative_to(root)} ({format_size(sizes[source])})"
+                )
             try:
                 result = inspect_source(
                     source,
@@ -593,11 +592,11 @@ def main(argv: list[str] | None = None) -> int:
                 tif_info = (
                     f"{result.tif.path.name} ({format_size(result.tif.size)})" if result.tif is not None else "none"
                 )
-                print(
-                    f"[{index}/{len(sources)}] {result.status}: {source.relative_to(root)}"
-                    f" ({format_size(sizes[source])}) -> {tif_info}"
-                    f" | created: {result.created_tif}" + (f" | {result.reason}" if result.reason else "")
-                )
+                print(f"[{index}/{len(sources)}] {result.status}:")
+                print(f"  Source: {source.relative_to(root)} ({format_size(sizes[source])})")
+                print(f"  GeoTIFF: {tif_info} | created: {result.created_tif}")
+                if result.reason:
+                    print(f"  Reason: {result.reason}")
 
     try:
         proposal, errors, warnings = write_reports(results, root)

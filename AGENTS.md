@@ -30,6 +30,14 @@ into library code. Reuse must be demonstrated, not inferred solely because code 
 - Add type annotations to public functions and methods.
 - Preserve unrelated worktree and submodule changes. Do not stage or commit unless explicitly asked.
 
+### Filesystem paths
+
+- Prefer `Path.absolute()` when converting user-configured file paths, working directories, script locations, or output paths to absolute paths. Do not use `Path.resolve()` merely to make a path absolute; `resolve()` dereferences symlinks and Windows junctions and can change the path users expect to see (including mapped network-drive locations).
+- Keep source, destination, report and logging paths in the user-supplied form where possible. Preserve a path's intended base directory before `chdir`, then call `.absolute()` while that base is still valid.
+- Use `Path.resolve()` deliberately when comparing physical file identities, enforcing containment/security boundaries across links, or verifying actual installed modules. These cases require a comment or test explaining why links must be followed.
+- For destructive operations, retain separate checks against accidental same-file overwrites, symlink/junction traversal and races; switching to `.absolute()` must never weaken existing protections. Be explicit whether deduplication means identical path spelling or identical physical files.
+- Update `ryan-scripts/WRAPPER_STANDARD.md` examples and test mapped-drive/UNC and linked-path behaviour where affected.
+
 ### Logging
 
 - Prefer Loguru parameterized formatting for dynamic values at every level, including `SUCCESS`, for example
