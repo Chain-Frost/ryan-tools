@@ -83,3 +83,20 @@ def test_to_single_path_rejects_collections() -> None:
 )
 def test_sanitize_windows_filename(value: str, expected: str) -> None:
     assert path_stuff.sanitize_windows_filename(value, fallback="fallback") == expected
+
+
+
+def test_relative_conversion_keeps_symlink_location(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Displaying a file beneath a linked directory must not dereference its location."""
+    real = tmp_path / "physical"
+    real.mkdir()
+    (real / "result.tif").touch()
+    alias = tmp_path / "visible"
+    try:
+        alias.symlink_to(real, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Directory symlinks unavailable: {exc}")
+    monkeypatch.chdir(tmp_path)
+    assert path_stuff.is_relative_to_current_directory(alias / "result.tif")
+    assert path_stuff.convert_to_relative_path(alias / "result.tif") == Path("visible/result.tif")
+    assert path_stuff.convert_to_relative_path(alias / "result.tif") != Path("physical/result.tif")

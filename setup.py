@@ -14,7 +14,7 @@ class _BuildPyWithQgisStyles(build_py):
         """Build Python modules, then stage QML files from the resource submodule."""
         super().run()
 
-        project_root: Path = Path(__file__).resolve().parent
+        project_root: Path = Path(__file__).absolute().parent
         source_dir: Path = project_root / "qgis-resources" / "styles" / "TUFLOW"
         qml_files: list[Path] = sorted(source_dir.glob("*.qml"))
         if not qml_files:
