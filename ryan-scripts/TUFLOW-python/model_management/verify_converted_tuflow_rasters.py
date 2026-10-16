@@ -61,6 +61,7 @@ from ryan_library.functions.file_verification import (
 )
 from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 
+
 @dataclass(frozen=True)
 class Comparison:
     source: FileSnapshot
@@ -96,6 +97,14 @@ def source_size_summary(sources: list[Path]) -> tuple[dict[Path, int | None], in
         except OSError:
             sizes[source] = None
     return sizes, sum(size for size in sizes.values() if size is not None)
+
+
+def show_file_progress(
+    progress: Progress | None, task_id: TaskID | None, description: str
+) -> None:
+    """Set the active raster stage without modifying processing behaviour."""
+    if progress is not None and task_id is not None:
+        progress.update(task_id, description=description, total=1, completed=0)
 
 
 def snapshot(path: Path) -> FileSnapshot:
@@ -333,13 +342,11 @@ def inspect_source(
     """Optionally create missing GeoTIFF and verify it against its source."""
     original = snapshot(source)
     destination_dir = tif_root / source.parent.relative_to(root)
-    if progress is not None and raster_task is not None:
-        progress.update(
-            raster_task,
-            description=f"Current: {source.relative_to(root)} ({format_size(original.size)}) | locating/converting GeoTIFF",
-            total=1,
-            completed=0,
-        )
+    show_file_progress(
+        progress,
+        raster_task,
+        f"Current: {source.relative_to(root)} ({format_size(original.size)}) | locating/converting GeoTIFF",
+    )
     try:
         candidate, error, created_tif = find_or_create_tif(source, destination_dir, convert_missing=convert_missing)
     except (ImportError, OSError, ValueError, RuntimeError, RasterioError) as exc:
@@ -365,16 +372,14 @@ def inspect_source(
                     original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header, created_tif
                 )
 
-    if progress is not None and raster_task is not None:
-        progress.update(
-            raster_task,
-            description=(
-                f"Comparing: {source.relative_to(root)} ({format_size(original.size)})"
-                f" -> {candidate.name} ({format_size(converted.size)})"
-            ),
-            total=1,
-            completed=0,
-        )
+    show_file_progress(
+        progress,
+        raster_task,
+        (
+            f"Comparing: {source.relative_to(root)} ({format_size(original.size)})"
+            f" -> {candidate.name} ({format_size(converted.size)})"
+        ),
+    )
     try:
         difference, warning = compare_rasters(source, candidate, progress, raster_task)
     except (OSError, ValueError, RasterioError) as exc:
