@@ -71,7 +71,6 @@ def test_coerce_locations_argument():
     assert wrapper_utils._coerce_locations_argument([" a ", "b"]) == ("a", "b")
 
 
-
 def test_windows_console_pause_reads_key_without_cmd(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -87,7 +86,7 @@ def test_windows_console_pause_reads_key_without_cmd(
     monkeypatch.setitem(sys.modules, "msvcrt", SimpleNamespace(getwch=fake_getwch))
     wrapper_utils._pause_windows_console()
     assert received == ["key"]
-    assert capsys.readouterr().out == "Press any key to continue . . .\\n"
+    assert capsys.readouterr().out == "Press any key to continue . . .\n"
 
 
 def test_change_working_directory_prints_configured_spelling(
@@ -97,4 +96,4 @@ def test_change_working_directory_prints_configured_spelling(
     requested = tmp_path / "mapped_alias"
     monkeypatch.setattr(wrapper_utils.os, "chdir", lambda _path: None)
     assert wrapper_utils.change_working_directory(requested)
-    assert capsys.readouterr().out == f"Current Working Directory: {requested.absolute()}\\n"
+    assert capsys.readouterr().out == f"Current Working Directory: {requested.absolute()}\n"

@@ -33,7 +33,7 @@ def _pause_windows_console() -> None:
 
     print("Press any key to continue . . .", end="", flush=True)
     key = msvcrt.getwch()
-    if key in ("\\x00", "\\xe0"):
+    if key in ("\x00", "\xe0"):
         # Arrow/function keys emit a prefix plus a second key code.
         msvcrt.getwch()
     print()
