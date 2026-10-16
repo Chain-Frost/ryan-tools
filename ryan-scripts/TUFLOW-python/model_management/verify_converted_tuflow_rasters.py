@@ -99,9 +99,7 @@ def source_size_summary(sources: list[Path]) -> tuple[dict[Path, int | None], in
     return sizes, sum(size for size in sizes.values() if size is not None)
 
 
-def show_file_progress(
-    progress: Progress | None, task_id: TaskID | None, description: str
-) -> None:
+def show_file_progress(progress: Progress | None, task_id: TaskID | None, description: str) -> None:
     """Set the active raster stage without modifying processing behaviour."""
     if progress is not None and task_id is not None:
         progress.update(task_id, description=description, total=1, completed=0)
@@ -268,7 +266,9 @@ def assert_unoccupied_tif(source: Path, destination: Path) -> None:
         raise FileExistsError(message)
 
 
-def find_or_create_tif(source: Path, destination_dir: Path, *, convert_missing: bool) -> tuple[Path | None, str | None, bool]:
+def find_or_create_tif(
+    source: Path, destination_dir: Path, *, convert_missing: bool
+) -> tuple[Path | None, str | None, bool]:
     """Locate or create a TIFF and report whether it was newly created."""
     candidate, error = paired_file(destination_dir, source.stem, {".tif", ".tiff"})
     if (
@@ -389,7 +389,11 @@ def inspect_source(
     result = Comparison(original, converted, status, difference or warning or "", header, created_tif)
     if result.eligible and not all(unchanged(item) for item in (original, converted, header) if item is not None):
         return Comparison(
-            original, converted, "CHANGED_DURING_CHECK", "File metadata changed during comparison", created_tif=created_tif
+            original,
+            converted,
+            "CHANGED_DURING_CHECK",
+            "File metadata changed during comparison",
+            created_tif=created_tif,
         )
     return result
 
@@ -587,15 +591,12 @@ def main(argv: list[str] | None = None) -> int:
             progress.update(cell_task, total=1, completed=1)
             if not progress_enabled or not result.eligible:
                 tif_info = (
-                    f"{result.tif.path.name} ({format_size(result.tif.size)})"
-                    if result.tif is not None
-                    else "none"
+                    f"{result.tif.path.name} ({format_size(result.tif.size)})" if result.tif is not None else "none"
                 )
                 print(
                     f"[{index}/{len(sources)}] {result.status}: {source.relative_to(root)}"
                     f" ({format_size(sizes[source])}) -> {tif_info}"
-                    f" | created: {result.created_tif}"
-                    + (f" | {result.reason}" if result.reason else "")
+                    f" | created: {result.created_tif}" + (f" | {result.reason}" if result.reason else "")
                 )
 
     try:
