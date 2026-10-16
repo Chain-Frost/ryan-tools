@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 
@@ -37,7 +38,7 @@ class InlinePool:
         return None
 
     def imap_unordered(
-        self, action: object, jobs: list[archive_utils.FolderCompressionJob]
+        self, action: Callable[[archive_utils.FolderCompressionJob], archive_utils.FolderCompressionResult], jobs: list[archive_utils.FolderCompressionJob]
     ) -> list[archive_utils.FolderCompressionResult]:
         assert callable(action)
         return [action(job) for job in jobs]
@@ -78,6 +79,7 @@ def test_wrapper_reports_each_folder_without_tty_progress(
     second.mkdir()
     exe = tmp_path / "7z.exe"
     exe.touch()
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(wrapper.multiprocessing, "Pool", InlinePool)
 
     def fake_7zip(*, executable: Path, output_archive: Path, inputs: list[str], exclusions: list[str]) -> None:
@@ -100,8 +102,9 @@ def test_wrapper_reports_each_folder_without_tty_progress(
 
 
 def test_wrapper_defaults_and_invalid_worker_count(
-    wrapper: ModuleType, tmp_path: Path
+    wrapper: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.chdir(tmp_path)
     assert wrapper.DEFAULT_MAX_WORKERS is None
     assert wrapper.DEFAULT_SHOW_PROGRESS is True
     assert wrapper.DEFAULT_CONSOLE_LOG_LEVEL == "INFO"

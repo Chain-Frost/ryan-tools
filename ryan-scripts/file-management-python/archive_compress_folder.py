@@ -80,13 +80,12 @@ def main(
         if configured_working_directory is not None
         else targets[0].parent if targets[0].is_file() else targets[0]
     )
-    if not change_working_directory(target_dir=workdir):
-        return 1
-
     requested_workers = max_workers if max_workers is not None else DEFAULT_MAX_WORKERS
     if requested_workers is not None and requested_workers < 1:
         logger.error("Worker count must be at least 1, got {}.", requested_workers)
         return 2
+    if not change_working_directory(target_dir=workdir):
+        return 1
 
     folders: list[Path] = []
     invalid_count = 0
