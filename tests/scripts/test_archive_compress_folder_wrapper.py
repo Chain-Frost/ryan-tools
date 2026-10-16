@@ -39,15 +39,15 @@ class InlinePool:
         return None
 
     def imap_unordered(
-        self, action: Callable[[archive_utils.FolderCompressionJob], archive_utils.FolderCompressionResult], jobs: list[archive_utils.FolderCompressionJob]
+        self,
+        action: Callable[[archive_utils.FolderCompressionJob], archive_utils.FolderCompressionResult],
+        jobs: list[archive_utils.FolderCompressionJob],
     ) -> list[archive_utils.FolderCompressionResult]:
         assert callable(action)
         return [action(job) for job in jobs]
 
 
-def test_archive_helper_preserves_output_and_native_exclusions(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_archive_helper_preserves_output_and_native_exclusions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     source = tmp_path / "Folder.data"
     source.mkdir()
     executable = tmp_path / "7z.exe"
@@ -94,7 +94,10 @@ def test_wrapper_reports_each_folder_without_tty_progress(
 
     monkeypatch.setattr(archive_utils, "create_7zip_archive", fake_7zip)
     code = wrapper.main(
-        input_paths=[first, second], working_directory=tmp_path, seven_zip_exe=exe, max_workers=2,
+        input_paths=[first, second],
+        working_directory=tmp_path,
+        seven_zip_exe=exe,
+        max_workers=2,
         show_progress=False,
     )
     output = capsys.readouterr().out

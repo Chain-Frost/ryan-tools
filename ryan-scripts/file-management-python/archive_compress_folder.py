@@ -67,8 +67,7 @@ def main(
     """Compress the selected folders and report per-folder and batch outcomes."""
     # Resolve all caller-provided paths before any working-directory change.
     targets = [
-        path.absolute()
-        for path in to_path_list(input_paths if input_paths is not None else DEFAULT_INPUT_PATHS)
+        path.absolute() for path in to_path_list(input_paths if input_paths is not None else DEFAULT_INPUT_PATHS)
     ]
     if not targets:
         logger.error("No input directories specified.")
@@ -78,12 +77,16 @@ def main(
     workdir = (
         configured_working_directory.absolute()
         if configured_working_directory is not None
-        else targets[0].parent if targets[0].is_file() else targets[0]
+        else targets[0].parent
+        if targets[0].is_file()
+        else targets[0]
     )
     requested_workers = max_workers if max_workers is not None else DEFAULT_MAX_WORKERS
     if requested_workers is not None and requested_workers < 1:
         logger.error("Worker count must be at least 1, got {}.", requested_workers)
         return 2
+    configured_exe = seven_zip_exe if seven_zip_exe is not None else DEFAULT_7ZIP_EXE
+    explicit_exe = configured_exe.absolute() if configured_exe is not None else None
     if not change_working_directory(target_dir=workdir):
         return 1
 
@@ -99,8 +102,7 @@ def main(
         logger.error("No valid input folders to compress.")
         return 1
 
-    exe = seven_zip_exe if seven_zip_exe is not None else DEFAULT_7ZIP_EXE
-    exe = exe.absolute() if exe is not None else find_7zip()
+    exe = explicit_exe if explicit_exe is not None else find_7zip()
     if exe is None or not exe.is_file():
         logger.error("7-Zip executable not found: {}. Set DEFAULT_7ZIP_EXE or --seven-zip-exe.", exe)
         return 1
@@ -120,7 +122,9 @@ def main(
     console = Console()
     interactive = (show_progress if show_progress is not None else DEFAULT_SHOW_PROGRESS) and sys.stdout.isatty()
     console.print(f"Folders: {len(jobs)} | workers: {worker_count} | 7-Zip: {exe}", markup=False)
-    console.print(f"Excluded folders: {exclusions_folders} | excluded extensions: {exclusions_extensions}", markup=False)
+    console.print(
+        f"Excluded folders: {exclusions_folders} | excluded extensions: {exclusions_extensions}", markup=False
+    )
     if len(jobs) == 1:
         console.print(f"Processing: {jobs[0].folder}", markup=False)
         console.print(f"Output: {jobs[0].folder.with_suffix('.7z')}", markup=False)
@@ -168,24 +172,46 @@ def main(
 
 def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("-i", "--input_paths", "--input-paths", type=Path, nargs="+", default=None,
-                        help="Folders to archive; overrides DEFAULT_INPUT_PATHS.")
-    parser.add_argument("--exclude_folders", "--exclude-folders", nargs="+", default=None,
-                        help="Folder names to exclude; overrides DEFAULT_EXCLUDE_FOLDERS.")
-    parser.add_argument("--exclude_extensions", "--exclude-extensions", nargs="+", default=None,
-                        help="Extensions to exclude; overrides DEFAULT_EXCLUDE_EXTENSIONS.")
-    parser.add_argument("--working-directory", type=Path, default=None,
-                        help="Working directory; default is first source folder.")
-    parser.add_argument("--seven-zip-exe", type=Path, default=None,
-                        help="Explicit 7z.exe path; otherwise automatically discovered.")
-    parser.add_argument("--workers", type=int, default=None,
-                        help="Maximum concurrent folder compressions; defaults to CPU count.")
-    parser.add_argument("--progress", action=argparse.BooleanOptionalAction, default=None,
-                        help="Enable/disable the interactive folder progress bar.")
-    parser.add_argument("--console-log-level", default=None,
-                        help="Loguru console level, e.g. INFO or SUCCESS.")
-    parser.add_argument("--log-file", type=Path, default=None,
-                        help="Log file location; defaults to DEFAULT_LOG_FILE.")
+    parser.add_argument(
+        "-i",
+        "--input_paths",
+        "--input-paths",
+        type=Path,
+        nargs="+",
+        default=None,
+        help="Folders to archive; overrides DEFAULT_INPUT_PATHS.",
+    )
+    parser.add_argument(
+        "--exclude_folders",
+        "--exclude-folders",
+        nargs="+",
+        default=None,
+        help="Folder names to exclude; overrides DEFAULT_EXCLUDE_FOLDERS.",
+    )
+    parser.add_argument(
+        "--exclude_extensions",
+        "--exclude-extensions",
+        nargs="+",
+        default=None,
+        help="Extensions to exclude; overrides DEFAULT_EXCLUDE_EXTENSIONS.",
+    )
+    parser.add_argument(
+        "--working-directory", type=Path, default=None, help="Working directory; default is first source folder."
+    )
+    parser.add_argument(
+        "--seven-zip-exe", type=Path, default=None, help="Explicit 7z.exe path; otherwise automatically discovered."
+    )
+    parser.add_argument(
+        "--workers", type=int, default=None, help="Maximum concurrent folder compressions; defaults to CPU count."
+    )
+    parser.add_argument(
+        "--progress",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable the interactive folder progress bar.",
+    )
+    parser.add_argument("--console-log-level", default=None, help="Loguru console level, e.g. INFO or SUCCESS.")
+    parser.add_argument("--log-file", type=Path, default=None, help="Log file location; defaults to DEFAULT_LOG_FILE.")
     parser.add_argument("--no-pause", action="store_true", help="Do not wait for a console keypress after execution.")
     return parser.parse_args(argv)
 
