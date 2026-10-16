@@ -24,13 +24,28 @@ Do not run on active outputs; file metadata snapshots do not lock files.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Embedded wrapper identity and editable user settings
+# ---------------------------------------------------------------------------
+WRAPPER_VERSION = "2026-10-16.1"
+ROOT_DIR = Path.cwd()
+TIF_ROOT_DIR: Path | None = None  # None means TIFs alongside FLT/ASC files
+DELETE_FILES = False  # Verification/proposal only unless set True or --delete
+CONVERT_MISSING = False  # Opt in to creating absent GeoTIFFs with the shared GDAL converter
+DELETE_FLT_HEADERS = True  # Include .hdr paired with a verified .flt
+SHOW_PROGRESS = True
+MAX_WINDOW_CELLS = 1_000_000  # Approximate upper bound on cells per read
+REPORT_PREFIX = "tuflow_raster_conversion"
+
+# Remaining operational imports appear below user-editable defaults.
 import argparse
 import csv
 import os
 import shutil
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 from uuid import uuid4
 
 import numpy as np
@@ -45,20 +60,6 @@ from ryan_library.functions.file_verification import (
     snapshot_is_unchanged,
 )
 from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
-
-# ---------------------------------------------------------------------------
-# User settings (CLI arguments may override the first three)
-# ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-10-16.1"
-ROOT_DIR = Path.cwd()
-TIF_ROOT_DIR: Path | None = None  # None means TIFs alongside FLT/ASC files
-DELETE_FILES = False  # Verification/proposal only unless set True or --delete
-CONVERT_MISSING = False  # Opt in to creating absent GeoTIFFs with the shared GDAL converter
-DELETE_FLT_HEADERS = True  # Include .hdr paired with a verified .flt
-SHOW_PROGRESS = True
-MAX_WINDOW_CELLS = 1_000_000  # Approximate upper bound on cells per read
-REPORT_PREFIX = "tuflow_raster_conversion"
-
 
 @dataclass(frozen=True)
 class Comparison:
@@ -340,9 +341,7 @@ def inspect_source(
             completed=0,
         )
     try:
-        candidate, error, created_tif = find_or_create_tif(
-            source, destination_dir, convert_missing=convert_missing
-        )
+        candidate, error, created_tif = find_or_create_tif(source, destination_dir, convert_missing=convert_missing)
     except (ImportError, OSError, ValueError, RuntimeError, RasterioError) as exc:
         return Comparison(original, None, "CONVERSION_FAILED", f"Could not create GeoTIFF: {exc}")
     if candidate is None:
@@ -350,7 +349,9 @@ def inspect_source(
 
     converted = snapshot(candidate)
     if converted.mtime_ns <= original.mtime_ns:
-        return Comparison(original, converted, "TIF_NOT_NEWER", "TIF modification time is not strictly newer", created_tif=created_tif)
+        return Comparison(
+            original, converted, "TIF_NOT_NEWER", "TIF modification time is not strictly newer", created_tif=created_tif
+        )
 
     header: FileSnapshot | None = None
     if source.suffix.casefold() == ".flt" and DELETE_FLT_HEADERS:
@@ -360,7 +361,9 @@ def inspect_source(
         if hdr is not None:
             header = snapshot(hdr)
             if converted.mtime_ns <= header.mtime_ns:
-                return Comparison(original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header, created_tif)
+                return Comparison(
+                    original, converted, "TIF_NOT_NEWER", "TIF is not newer than its FLT header", header, created_tif
+                )
 
     if progress is not None and raster_task is not None:
         progress.update(
@@ -380,7 +383,9 @@ def inspect_source(
     status = "MISMATCH" if difference is not None else "MATCH_CRS_UNVERIFIED" if warning else "MATCH"
     result = Comparison(original, converted, status, difference or warning or "", header, created_tif)
     if result.eligible and not all(unchanged(item) for item in (original, converted, header) if item is not None):
-        return Comparison(original, converted, "CHANGED_DURING_CHECK", "File metadata changed during comparison", created_tif=created_tif)
+        return Comparison(
+            original, converted, "CHANGED_DURING_CHECK", "File metadata changed during comparison", created_tif=created_tif
+        )
     return result
 
 
@@ -540,9 +545,13 @@ def main(argv: list[str] | None = None) -> int:
         TimeRemainingColumn(),
         disable=not progress_enabled,
     ) as progress:
-        file_task = progress.add_task("Batch", total=len(sources))
+        file_task = progress.add_task(
+            f"Batch 0 B/{format_size(total_bytes)} | matches 0 | CRS warnings 0 | new TIFs 0 | excluded 0",
+            total=len(sources),
+        )
         cell_task = progress.add_task("Current raster", total=1)
         processed_bytes = 0
+        matched_so_far = warnings_so_far = created_so_far = 0
         for index, source in enumerate(sources, start=1):
             try:
                 result = inspect_source(
@@ -557,9 +566,9 @@ def main(argv: list[str] | None = None) -> int:
                 result = Comparison(FileSnapshot(source, -1, -1), None, "ERROR", f"File inspection failed: {exc}")
             results.append(result)
             processed_bytes += sizes[source] or 0
-            matched_so_far = sum(item.eligible for item in results)
-            warnings_so_far = sum(item.status == "MATCH_CRS_UNVERIFIED" for item in results)
-            created_so_far = sum(item.created_tif for item in results)
+            matched_so_far += int(result.eligible)
+            warnings_so_far += int(result.status == "MATCH_CRS_UNVERIFIED")
+            created_so_far += int(result.created_tif)
             excluded_so_far = index - matched_so_far
             progress.update(
                 file_task,
