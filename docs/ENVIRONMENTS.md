@@ -209,7 +209,7 @@ Initialise only the specific repository submodules required by the selected test
 build surfaces:
 
 ```powershell
-git submodule update --init excel-resources qgis-resources tests/test_data 
+git submodule update --init excel-resources qgis-resources tests/test_data
 git lfs pull
 ```
 
