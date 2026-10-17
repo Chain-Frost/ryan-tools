@@ -88,8 +88,8 @@ py -3.14 repo-scripts\verify_wheel.py
 ## GitHub Actions CI
 
 The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes to `main` using Windows and Python
-3.14. It has independent policy, hosted-test and package jobs so a policy failure does not hide runtime or packaging
-results.
+3.14, with a separate Python 3.13 compatibility and MCP job. Its independent jobs mean a policy failure does not hide
+runtime or packaging results.
 
 The hosted test job initialises only `qgis-resources`, `vendor/run_hy8`, `vendor/ryan_culverts` and
 `tests/test_data`. The QGIS repository is used only as test/resource data; no QGIS application is launched. The job
@@ -103,7 +103,11 @@ python -m pytest tests `
   --ignore=tests/scripts/test_promoted_utilities.py `
   --ignore=tests/scripts/test_archive_compress.py `
   -m "not gdal and not gui and not external" `
-  -rs
+  --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_detects_overtopping_and_retains_non_aep_interior_states `
+  --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_honours_explicit_minimum_bound `
+  -rs `
+  --durations=15 `
+  --junitxml=test-results/hosted-tests.xml
 ```
 
 The ignored modules import `osgeo` directly or through production modules during collection, so marker deselection alone
@@ -111,6 +115,9 @@ cannot make them a valid normal-Python hosted boundary. Rasterio/Fiona tests, na
 mocked subprocess behavior remain in the hosted set. The real 7-Zip archive integration module is deliberately
 excluded from hosted CI and remains an optional local check. Tests marked `external` require an explicitly supplied
 application or executable; the ASC_to_ASC parity tests remain local and use `ASC_TO_ASC_EXE`.
+
+Create `test-results` before running this command. The two temporary floodway deselections predate the fast-check work;
+their review is tracked in the [exclusion record](work/2026-10-16-floodway-ci-exclusions.md).
 
 The package job initialises `qgis-resources` plus the two vendored Python packages, verifies the retained wheel,
 performs a `--no-bump` rebuild, verifies the rebuilt artifact, confirms the declared version is unchanged, then
@@ -153,6 +160,21 @@ Ruff checks because release automation depends on the Python CI workflow's
 success. Leave the actual Windows tests and GIS dependency bootstrap in place
 until replacements are tested. Re-measure after several successful workflow runs before introducing
 parallel pytest workers or a prebuilt GIS environment.
+
+Verified PR #129 head `eaf4b0e` on 17 October 2026:
+[Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/39001435683) and all four
+[Python CI jobs](https://github.com/Chain-Frost/ryan-tools/actions/runs/39001435924) passed.
+Runner logs span approximately 9 seconds for the fast job, 34 seconds for Policy and 146 seconds for hosted tests.
+The fast job finished at 04:08:38 UTC, before Policy at 04:09:03 UTC and hosted tests at 04:10:56 UTC.
+This YAML/Markdown-only PR skipped conditional Ruff installation, lint/format and Pyright execution in both workflows;
+it validates early patch feedback, while a Python-changing PR is still needed to measure early Ruff feedback.
+
+Hosted installation step boundaries show approximately 3 seconds for pip upgrade, 13 seconds for GIS bootstrap and
+39 seconds for development/test dependencies. Pytest reported 1057 passed, 7 deselected and 63 warnings in 56.83 seconds,
+with the slowest test call taking 9.46 seconds. These are one run's measurements, not an overall CI speedup claim.
+Collect several Python-changing runs before choosing a setup optimization or test parallelism change: dependency setup
+and test execution remain comparable costs. Delivery and follow-up are tracked in the
+[fast-check work record](work/2026-10-17-fast-pr-checks-129.md).
 
 ## QGIS, OSGeo4W and GDAL
 
