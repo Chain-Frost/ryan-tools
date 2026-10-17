@@ -7,6 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
+| [Installed scripts, MCP and pip distribution plan](2026-10-17-installed-scripts-mcp-pip-distribution.md) | Deferred (draft PR) | Unassigned | 2026-10-17 | 2026-11-17 | Finish current PR backlog (#100, #118, #119, #120) first; then reassess packaged wrapper inventory, wheel-only MCP discovery, pip hydraulic dependencies and possible PyPI rename. No implementation or merge authorised. |
 | [Fast PR checks and hosted timing](2026-10-17-fast-pr-checks-129.md) | In validation | ChatGPT | 2026-10-17 | 2026-10-22 | Commit/push documentation, verify all five checks on the new PR #129 head, then perform the authorized squash merge. |
 | [Temporary floodway CI exclusions](2026-10-16-floodway-ci-exclusions.md) | Deferred | Unassigned | 2026-10-16 | 2026-10-22 | Review or restore the two slow sweep tests when requested or at the review date; local tests remain available. |
 | [Safe GeoTIFF recompression](2026-10-15-safe-geotiff-recompression.md) | Ready for review | ChatGPT | 2026-10-15 | 2026-10-22 | Review and merge the pull request after CI passes. |
