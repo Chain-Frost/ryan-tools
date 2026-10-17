@@ -1,0 +1,205 @@
+name: Reconcile automatic PyPI releases
+
+on:
+  workflow_run:
+    workflows: [Python CI]
+    types: [completed]
+    branches: [main]
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# GitHub concurrency keeps only one pending run, NOT a FIFO. That is safe here:
+# every invocation scans the complete main-history backlog in commit order.
+# The hourly schedule recovers lost wakeups or interrupted publication runs.
+concurrency:
+  group: auto-pypi-reconcile-${{ github.repository }
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Determine trusted checkout revision
+        id: trusted
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const {owner,repo} = context.repo;
+            let sha;
+            if (context.eventName === 'workflow_run') {
+              sha = context.payload.workflow_run.head_sha;
+            } else {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner,repo,workflow_id:'ci.yml',branch:'main',event:'push',
+                status:'success',per_page:100
+              });
+              sha = runs.data.workflow_runs[0]?.head_sha;
+            }
+            if (!sha) throw new Error('No CI-verified main source commit available.');
+            core.setOutput('sha',sha);
+      - name: Check out CI-verified release tools
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.trusted.outputs.sha }
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Python for monotonic version allocation
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Publish complete main backlog in ancestry order
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const repoName = owner + '/' + repo;
+            const stdout = async args => {
+              const output = await exec.getExecOutput('git', args, {silent:true});
+              if (output.exitCode !== 0) throw new Error('git command failed: ' + args.join(' '));
+              return output.stdout.trim();
+            };
+            await stdout(['fetch','--no-tags','origin','+refs/heads/main:refs/remotes/origin/main']);
+            const chain = (await stdout(['rev-list','--first-parent','refs/remotes/origin/main']))
+              .split(/\r?\n/).filter(Boolean); // newest first
+            const mainSet = new Set(chain);
+            const tags = (await github.paginate(github.rest.repos.listTags, {owner,repo,per_page:100}))
+              .filter(t => /^v(?:\d{2}|\d{4})\.\d+\.\d+\.[1-9]\d*$/.test(t.name));
+            const tagBySha = new Map();
+            for (const tag of tags) {
+              if (!mainSet.has(tag.commit.sha)) continue;
+              if (tagBySha.has(tag.commit.sha)) {
+                throw new Error('More than one calendar release tag points to ' + tag.commit.sha);
+              }
+              tagBySha.set(tag.commit.sha, tag.name);
+            }
+            const baseIndex = chain.findIndex(sha => tagBySha.has(sha));
+            if (baseIndex < 0) throw new Error('No previously tagged first-parent main commit; manual bootstrap required.');
+            const baseline = chain[baseIndex];
+            core.info('Last tagged main commit: ' + baseline.slice(0,12));
+            const pypiRoot = 'https://pypi.org/pypi/ryan-functions/json';
+            const pypiHistory = async () => {
+              const response = await fetch(pypiRoot, {signal:AbortSignal.timeout(30000)});
+              if (response.status === 404) return [];
+              if (!response.ok) throw new Error('PyPI history unavailable: HTTP ' + response.status);
+              return Object.keys((await response.json()).releases || {});
+            };
+            const pypiVersionExists = async version => (await pypiHistory()).includes(version);
+            const published = async tag => {
+              const response = await fetch(
+                'https://pypi.org/pypi/ryan-functions/' + encodeURIComponent(tag.slice(1)) + '/json',
+                {signal:AbortSignal.timeout(30000)});
+              await response.body?.cancel();
+              if (response.status !== 404 && !response.ok) throw new Error('PyPI version lookup failed.');
+              return response.ok;
+            };
+            const waitForPublication = async (tag,sha) => {
+              if (await published(tag)) {
+                core.info('Already published ' + tag);
+                return;
+              }
+              const {data:release} = await github.rest.repos.getReleaseByTag({owner,repo,tag});
+              if (release.draft || release.prerelease || !release.published_at) {
+                throw new Error('Missing published stable GitHub Release ' + tag);
+              }
+              let dispatched = false;
+              for (let n=0;n<180;n++) {
+                const {data:result} = await github.rest.actions.listWorkflowRuns({
+                  owner,repo,workflow_id:'pypi-publish.yml',head_sha:sha,event:'workflow_dispatch',per_page:100
+                });
+                const matching = result.workflow_runs
+                  .filter(run => run.head_branch === tag && run.head_sha === sha)
+                  .sort((a,b) => b.id - a.id);
+                const latest = matching[0];
+                if (latest?.status === 'completed' && latest.conclusion === 'success') {
+                  if (await published(tag)) {
+                    core.info('Verified on PyPI: ' + tag);
+                    return;
+                  }
+                  // The public index may lag a successful upload.
+                } else if (latest?.status === 'completed' && latest.conclusion !== 'success') {
+                  throw new Error('Publication failed for ' + tag + ': ' + latest.html_url);
+                } else if (!latest && !dispatched) {
+                  await github.rest.actions.createWorkflowDispatch({
+                    owner,repo,workflow_id:'pypi-publish.yml',ref:tag
+                  });
+                  dispatched = true;
+                  core.info('Dispatched tag-scoped publishing for ' + tag);
+                }
+                await new Promise(resolve => setTimeout(resolve, 15000));
+              }
+              throw new Error('Publication not confirmed within 45 minutes for ' + tag);
+            };
+            // If a previous release created its tag but failed publication, finish it
+            // BEFORE considering any descendant commit.
+            const baselineTag = tagBySha.get(baseline);
+            await waitForPublication(baselineTag,baseline);
+            const backlog = chain.slice(0,baseIndex).reverse(); // oldest to newest
+            core.info('Main revisions requiring reconciliation: ' + backlog.length);
+            for (const sha of backlog) {
+              const {data:ci} = await github.rest.actions.listWorkflowRuns({
+                owner,repo,workflow_id:'ci.yml',head_sha:sha,event:'push',per_page:100
+              });
+              const results = ci.workflow_runs.filter(run =>
+                run.head_sha === sha && run.head_branch === 'main' &&
+                run.event === 'push' && run.head_repository?.full_name === repoName);
+              if (!results.some(run => run.status === 'completed' && run.conclusion === 'success')) {
+                core.warning('Stopping at ' + sha.slice(0,12) +
+                  ': no successful main push CI yet. Rerun its failed CI and the scheduled reconciler will resume.');
+                break;
+              }
+              let tag = tagBySha.get(sha);
+              if (!tag) {
+                const {data:file} = await github.rest.repos.getContent({
+                  owner,repo,path:'pyproject.toml',ref:sha
+                });
+                const toml = Buffer.from(file.content,'base64').toString('utf8');
+                const part = toml.match(/^\[project\]\s*\n([\s\S]*?)(?=^\[|\s*$)/m)?.[1];
+                const sourceVersion = part?.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
+                if (!sourceVersion) throw new Error('Missing source version on ' + sha);
+                const perth = new Intl.DateTimeFormat('en-GB',{
+                  timeZone:'Australia/Perth',year:'numeric',month:'2-digit',day:'2-digit'
+                }).formatToParts(new Date());
+                const value = key => perth.find(part => part.type === key)?.value;
+                const today = [value('year'),value('month'),value('day')].join('-');
+                const input = JSON.stringify({
+                  current:sourceVersion,versions:[
+                    ...(await pypiHistory()),
+                    ...tags.map(t => t.name.slice(1))
+                  ],today
+                });
+                const planned = await exec.getExecOutput('python3',[
+                  'repo-scripts/auto_release_version.py','next'
+                ], {input,silent:true});
+                if (planned.exitCode !== 0) throw new Error('Version calculation failed for ' + sha);
+                tag = 'v' + planned.stdout.trim();
+                if (!/^v(?:\d{2}|\d{4})\.\d+\.\d+\.[1-9]\d*$/.test(tag)) {
+                  throw new Error('Version calculator returned an invalid release tag: ' + tag);
+                }
+                // Atomic reservation: an independent writer cannot claim this version twice.
+                await github.rest.git.createRef({owner,repo,ref:'refs/tags/' + tag,sha});
+                tags.push({name:tag,commit:{sha}});
+                tagBySha.set(sha,tag);
+                core.info('Reserved ' + tag + ' at verified main SHA ' + sha);
+                await github.rest.repos.createRelease({
+                  owner,repo,tag_name:tag,target_commitish:sha,name:tag,
+                  draft:false,prerelease:false,generate_release_notes:true,
+                  body:'Automatic PyPI release from successful main CI source commit ' + sha +
+                    '. Distribution metadata is stamped from the immutable tag during publication.'
+                });
+              }
+              await waitForPublication(tag,sha);
+            }
