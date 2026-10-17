@@ -11,7 +11,8 @@ import pytest
 _ROOT = Path(__file__).resolve().parents[1]
 _SCRIPT = _ROOT / "repo-scripts" / "auto_release_version.py"
 _SPEC = importlib.util.spec_from_file_location("auto_release_version", _SCRIPT)
-assert _SPEC is not None and _SPEC.loader is not None
+assert _SPEC is not None
+assert _SPEC.loader is not None
 _release = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_release)
 
