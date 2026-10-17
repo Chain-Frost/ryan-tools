@@ -25,8 +25,6 @@ SUBMODULE_PATHS: tuple[str, ...] = (
     "qgis-resources",
     "tests/test_data",
     "unsorted",
-    "vendor/run_hy8",
-    "vendor/ryan_culverts",
 )
 REPOSITORY_PREFIXES: tuple[str, ...] = (
     ".github/",
