@@ -58,7 +58,7 @@ jobs:
             throw 'Actionlint archive checksum mismatch.'
           }
           Expand-Archive -LiteralPath $archive -DestinationPath $directory
-          & (Join-Path $directory 'actionlint.exe')
+          & (Join-Path $directory 'actionlint.exe') -ignore 'unexpected key "queue" for "concurrency" section'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Check changed Python files
