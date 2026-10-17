@@ -122,6 +122,14 @@ ignore = [
     "LOG015", # standalone stdlib-logging scripts intentionally configure and use the root logger
     "N",      # legacy filenames and engineering variable names are user-facing script contracts
 ]
+"ryan-scripts/tuflow/tuflow_culvert_from_maximums.py" = [
+    "BLE001", # each crossing/scenario is isolated so later TUFLOW rows still produce auditable output
+    "C901",   # source mapping, scenario dispatch, partial-failure capture, and CSV export form one wrapper transaction
+]
+"ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py" = [
+    "BLE001", # each GIS feature/scenario is isolated so later TUFLOW features still produce auditable output
+    "C901",   # GIS mapping, scenario dispatch, partial-failure capture, and CSV export form one wrapper transaction
+]
 "ryan-scripts/gdal-python/audit_CRS.py" = [
     "BLE001", # each independent datasource audit becomes a report row so one unreadable file cannot stop the batch
 ]
