@@ -90,6 +90,24 @@ def _verify_source_files(
             raise ValueError(msg)
 
 
+def _verify_external_dependencies(metadata: str, names: set[str]) -> None:
+    """Check that external hydraulics libraries are declared but not embedded."""
+    declared_dependencies = _metadata_field(metadata, "Requires-Dist")
+    for distribution in ("run-hy8", "ryan-culverts"):
+        normalized = distribution.replace("-", "_")
+        if not any(
+            requirement.split(";", maxsplit=1)[0].split(">=", maxsplit=1)[0].strip().lower().replace("-", "_")
+            == normalized
+            for requirement in declared_dependencies
+        ):
+            msg = f"Wheel is missing the {distribution} PyPI dependency."
+            raise ValueError(msg)
+    for foreign_prefix in ("run_hy8/", "culvert_solver/"):
+        if any(name.startswith(foreign_prefix) for name in names):
+            msg = f"Wheel unexpectedly bundles upstream package {foreign_prefix}."
+            raise ValueError(msg)
+
+
 def _verify_wheel(
     wheel: Path,
     *,
@@ -126,22 +144,7 @@ def _verify_wheel(
             "ryan_library/resources/mcp/gdal_cli_tools.json",
             "ryan_library/resources/mcp/workflows.json",
         }
-        # Upstream hydraulics libraries are installed through PyPI requirements,
-        # not embedded into this distribution. Verify the declared wheel requirements.
-        declared_dependencies = _metadata_field(metadata, "Requires-Dist")
-        for distribution in ("run-hy8", "ryan-culverts"):
-            normalized = distribution.replace("-", "_")
-            if not any(
-                requirement.split(";", maxsplit=1)[0].split(">=", maxsplit=1)[0].strip().lower().replace("-", "_")
-                == normalized
-                for requirement in declared_dependencies
-            ):
-                msg = f"Wheel is missing the {distribution} PyPI dependency."
-                raise ValueError(msg)
-        for foreign_prefix in ("run_hy8/", "culvert_solver/"):
-            if any(name.startswith(foreign_prefix) for name in names):
-                msg = f"Wheel unexpectedly bundles upstream package {foreign_prefix}."
-                raise ValueError(msg)
+        _verify_external_dependencies(metadata, names)
 
         missing_members = sorted(required_members - names)
         if missing_members:
