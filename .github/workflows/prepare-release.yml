@@ -60,11 +60,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- pyproject.toml dist
+          git add -- pyproject.toml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git commit -m "Prepare PyPI release $version"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git push origin $branch
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          gh pr create --base main --head $branch --title "[release] Publish $version to PyPI" --body 'Bump the calendar version and retain the verified wheel. Approve workflows to run on this bot-created PR if GitHub requests it. Review and squash merge after required PR-event CI passes. Successful main CI will create the release and dispatch PyPI publication.'
+          gh pr create --base main --head $branch --title "[release] Publish $version to PyPI" --body 'Bump the calendar version and verify a locally generated wheel (not committed). Approve workflows to run on this bot-created PR if GitHub requests it. Review and squash merge after required PR-event CI passes. Successful main CI will create the release and dispatch PyPI publication.'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
