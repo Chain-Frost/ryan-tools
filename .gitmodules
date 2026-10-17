@@ -2,9 +2,6 @@
 	path = unsorted
 	url = https://github.com/Chain-Frost/ryan-tools-unsorted.git
 	update = none
-[submodule "vendor/run_hy8"]
-	path = vendor/run_hy8
-	url = https://github.com/Chain-Frost/run-hy8.git
 [submodule "tests/test_data"]
 	path = tests/test_data
 	url = https://github.com/Chain-Frost/ryan-tools-test-data.git
@@ -14,6 +11,3 @@
 [submodule "excel-resources"]
 	path = excel-resources
 	url = https://github.com/Chain-Frost/excel-resources.git
-[submodule "vendor/ryan_culverts"]
-	path = vendor/ryan_culverts
-	url = https://github.com/Chain-Frost/ryan-culverts.git
