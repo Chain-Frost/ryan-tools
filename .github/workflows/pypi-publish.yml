@@ -66,8 +66,11 @@ jobs:
               owner, repo, path: 'pyproject.toml', ref: sha
             });
             const toml = Buffer.from(file.content, 'base64').toString('utf8');
-            const projectPart = toml.match(/^\[project\]\s*\n([\s\S]*?)(?=^\[|\s*$)/m)?.[1];
-            const projectVersion = projectPart?.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
+            const projectHead = /^\[project\][ \t]*$/m.exec(toml);
+            if (!projectHead) throw new Error('Tagged source is missing [project] metadata.');
+            const afterProject = toml.slice(projectHead.index + projectHead[0].length);
+            const projectPart = afterProject.split(/^\[[^\r\n]+\][ \t]*$/m)[0];
+            const projectVersion = projectPart.match(/^version[ \t]*=[ \t]*"([^"]+)"/m)?.[1];
             if (!projectVersion || cmp(version, projectVersion) < 0) {
               throw new Error('Tagged release version predates the source project version.');
             }
