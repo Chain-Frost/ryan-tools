@@ -1,57 +1,59 @@
-# Automatic PyPI publication after successful main CI
+# Automatic PyPI releases from successful main CI
 
-The `.github/workflows/pypi-publish.yml` workflow is triggered by completion of
-successful **push** CI on `main`. Ordinary merges do **not** require a separate
-release PR, manual Actions dispatch or a manual GitHub Release.
+The GitHub Actions workflow `.github/workflows/auto-publish.yml`
+reconciles GitHub's durable `main` commit history after successful
+`Python CI` push runs and hourly. No release PR or manual workflow
+dispatch is required. `pypi-publish.yml` builds and publishes **on
+a release-tag ref**, which is permitted by the `pypi` environment.
 
-## Release stages
+## Processing and provenance
 
-1. Require successful `Python CI` from this repository's `main`, then verify
-   that its tested commit remains on `main` ancestry.
-2. Serialize all publication workflows using a FIFO queue (up to 100 pending
-   workflows) without canceling older releases.
-3. Read the current `pyproject.toml` version at the verified commit, the
-   complete PyPI version history and all repository Git tags. Reject unexpected
-   historical version formats rather than guessing.
-4. Select a strictly greater Perth-calendar version. Use the next revision
-   when several merges occur on the same date. Preserve the repository's
-   existing two- or four-digit calendar year width.
-5. Create a **lightweight tag at the CI-verified main commit**, then publish
-   the corresponding stable GitHub Release. The version/tag is the atomic
-   reservation and reruns reuse it.
-6. Check out the **exact verified source commit**. Stamp the version into
-   local build metadata from the tag, verify source ancestry and release
-   identity, build the wheel, check metadata and run isolated-install smoke.
-7. Compare against PyPI again directly before the Trusted Publishing upload.
-   Never upload a version equal to or older than an existing PyPI release.
-8. Upload through the existing PyPI OIDC Trusted Publisher. No tokens or
-   direct writes to protected `main` are needed.
+1. Check out release tooling from a main commit verified by successful
+   Python CI, never a newer unverified commit.
+2. Enumerate first-parent main commits since the last tagged release.
+   GitHub concurrency may replace a pending workflow run, so the
+   reconciler scans the entire backlog every time. The hourly schedule
+   recovers missed events. A CI run still in progress blocks later
+   releases. Completed unsuccessful CI runs are skipped.
+3. Process eligible source commits in ancestry order, preserving version
+   and source ordering even if newer CI finishes first.
+4. Select a Perth-calendar version strictly newer than the source
+   version, every existing PyPI version and reserved Git tags.
+5. Atomically reserve a lightweight tag on the exact verified source SHA.
+   When a tag is already present for that SHA, reuse it. If a reserved
+   tag lacks a GitHub Release, create that Release on retry.
+6. Dispatch `pypi-publish.yml` on that `v<version>` tag. The tag
+   identifies the verified source commit. Stamp version metadata into
+   the temporary build checkout; do not push changes to protected main.
+7. Build and inspect the wheel, test its installed copy, verify that
+   no equal or newer PyPI version exists, then publish through OIDC
+   Trusted Publishing. Do not advance to a later eligible commit until
+   this version's publication is confirmed.
 
-## Version provenance
+## Failure and recovery
 
-The **Git tag identifies the source code commit** and the final wheel version
-is **generated at build time** from the release tag. The `pyproject.toml` in
-that original Git commit may still show an older baseline version. This is a
-deliberate alternative to modifying protected `main` or merging release PRs.
-For reproducibility, rebuild a release through the tag-aware publishing
-workflow, not a naive `python -m build` of a raw tagged checkout. The
-published wheel's own distribution metadata is the authoritative version.
+- The former `Release to PyPI` and `Finalize PyPI release` workflows
+  are retired. This eliminates racing duplicate tag creators.
+- Existing published tags are no-ops on rerun, even if newer versions exist.
+- A missing GitHub Release after atomic tag creation is recoverable.
+- If publication fails, inspect its tag-scoped run. Fix the error and
+  rerun `Publish to PyPI` on that same tag if still newer than the
+  registry. Never retag or overwrite a published version.
+- Unknown historical versions, registry failures, tag collisions,
+  non-main source commits, and unresolved publication failures stop
+  publication rather than silently breaking version monotonicity.
+- GitHub can replace a pending reconciler wake-up, but cannot remove
+  commits from main history. The next wake-up or hourly run rescans the
+  backlog, so eligible revisions are not omitted by lossy concurrency.
 
-## Failure, duplicates and manual publishing
+## Rebuilding a historical release
 
-- A rerun checks for an existing tag pointing to the same CI commit and
-  reuses its version; a successful PyPI publication is never uploaded twice.
-- A failed upload is **not** reported as a successful release. Re-run the
-  failed publication while its reserved version is still greater than all
-  PyPI versions; otherwise reconcile the failed release and create a
-  sufficiently newer version. GitHub Releases may exist before upload.
-- Unrecognised PyPI versions, API errors, tag conflicts, CI failures,
-  superseded versions and unsupported dependency metadata all fail closed.
-- The former release-PR finalizer is still retained for backward compatibility;
-  the new automatic publisher avoids duplicate publication for release PRs.
-- Manual release dispatch must target an existing `v<version>` tag.
-- The concurrency queue holds up to 100 pending workflow runs. A larger
-  exceptional burst requires manual reconciliation.
+The release tag points at the original verified source commit. Its
+`pyproject.toml` can contain an older baseline version. The release
+workflow stamps the tag version into the publication checkout before
+building; a plain `python -m build` of an unstamped checkout is *not*
+a byte-for-byte reconstruction of the published version.
 
-Automatic publication creates immutable, permanent PyPI versions. Keep
-`main` protected by PR review/CI, and use normal PyPI release safeguards.
+No Git history rewriting or version commits to `main` are needed.
+Local `dist/` artifacts are ignored by Git and CI builds them from
+scratch.
