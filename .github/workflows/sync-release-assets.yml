@@ -29,7 +29,7 @@ jobs:
     if: >-
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'workflow_dispatch' &&
+       contains(fromJSON('["workflow_dispatch","release"]'), github.event.workflow_run.event) &&
        github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -67,6 +67,11 @@ jobs:
           normalized_project = re.sub(r"[-_.]+", "_", project).lower()
           specified = os.environ["TRIGGER_TAG"].strip()
           event = os.environ["TRIGGER_EVENT"]
+          # Some release-triggered workflow runs report the default branch, not the tag.
+          # Fall back to the deterministic published-release backfill in that case.
+          if event == "workflow_run" and not tag_pattern.fullmatch(specified):
+              print(f"Workflow run ref {specified!r} is not a version tag; scanning stable releases")
+              specified = ""
 
           def gh_json(endpoint: str) -> object:
               completed = subprocess.run(
@@ -152,6 +157,7 @@ jobs:
               tags = [
                   record["tag_name"] for record in data
                   if not record["draft"] and not record["prerelease"]
+                  and tag_pattern.fullmatch(record["tag_name"])
               ]
               for release_tag in tags:
                   sync(release_tag, allow_missing_pypi=True)
