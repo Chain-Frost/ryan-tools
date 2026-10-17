@@ -197,13 +197,22 @@ jobs:
             requirements.txt
             pyproject.toml
 
-      - name: Install development dependencies
+      # Keep the existing installation sequence but time its components independently.
+      - name: Upgrade pip
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install binary GIS dependencies
+        shell: pwsh
+        run: |
           python repo-scripts/install_latest_wheel.py --dependencies-only
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install development package and test dependencies
+        shell: pwsh
+        run: |
           python -m pip install -r requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -222,6 +231,7 @@ jobs:
             --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_detects_overtopping_and_retains_non_aep_interior_states `
             --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_honours_explicit_minimum_bound `
             -rs `
+            --durations=15 `
             --junitxml=test-results/hosted-tests.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
