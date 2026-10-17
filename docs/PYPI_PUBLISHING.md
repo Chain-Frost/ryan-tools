@@ -99,9 +99,7 @@ Once the first release succeeds:
 py -3.14 -m pip install ryan_functions
 ```
 
-The wheel includes bundled `run_hy8` and `culvert_solver` packages from
-the pinned git submodules and stages TUFLOW QML resources via `setup.py`.
-Build jobs must initialise those submodules. The project currently declares
+The wheel declares `run-hy8` and `ryan-culverts` as PyPI dependencies rather than bundling their source. The `ryan-culverts` dependency applies to Python 3.14+, until the planned 3.14-only baseline. TUFLOW QML resources are staged by `setup.py`, which still requires the `qgis-resources` submodule. The project currently declares
 `Python >=3.13`, and its metadata includes substantial geospatial
 dependencies. Confirm a fresh-environment installation on supported
 platforms before announcing broad compatibility: PyPI upload success by
