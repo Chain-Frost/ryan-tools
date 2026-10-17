@@ -32,7 +32,10 @@ No PyPI password, long-lived API token or GitHub secret is required for
 Trusted Publishing.
 
 The configured repository policy permits only squash merges, requires the
-four CI checks on an up-to-date PR, and requires resolved review conversations.
+five CI checks on an up-to-date PR, and requires resolved review conversations.
+The required contexts are `Policy`, `Hosted tests`, `Package`, `Python 3.13 compatibility and MCP`, and
+`Ruff and whitespace`, all from GitHub Actions. The last check was added to the `main only` branch ruleset
+on 17 October 2026; the `v*` tag ruleset is unchanged because Fast PR checks does not run on tag pushes.
 Required approval count remains zero for the solo-maintainer workflow. The
 maintainer's main-branch bypass is limited to PRs, and merged branches are
 automatically deleted. Release-tag creation is allowed after required CI;
@@ -61,7 +64,7 @@ All three repositories use the same helper and release lifecycle, with their
 existing package-specific verified builders and smoke checks. The existing-PR
 check runs before checkout/build to avoid wasting work on duplicate requests.
 
-Review and squash merge that PR after the four required CI checks pass.
+Review and squash merge that PR after the five required CI checks pass.
 Successful **Python CI** on the merge commit triggers **Finalize PyPI release**,
 which creates the matching tag and GitHub Release and explicitly dispatches
 **Publish to PyPI** on that tag. Ordinary PR merges do not publish releases.
