@@ -15,7 +15,7 @@ permissions:
 # Queued wake-ups can coalesce: every invocation checks the LATEST main SHA,
 # never scans historical revisions or issues a release for an older SHA.
 concurrency:
-  group: auto-pypi-reconcile-${{ github.repository }
+  group: auto-pypi-reconcile-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
@@ -73,7 +73,7 @@ jobs:
         if: steps.trusted.outputs.eligible == 'true'
         uses: actions/checkout@v6
         with:
-          ref: ${{ steps.trusted.outputs.sha }
+          ref: ${{ steps.trusted.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Python 3.14
@@ -85,7 +85,7 @@ jobs:
         if: steps.trusted.outputs.eligible == 'true'
         uses: actions/github-script@v8
         env:
-          TRUSTED_SHA: ${{ steps.trusted.outputs.sha }
+          TRUSTED_SHA: ${{ steps.trusted.outputs.sha }}
         with:
           script: |
             const {owner,repo} = context.repo;
