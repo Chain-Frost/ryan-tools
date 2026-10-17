@@ -61,7 +61,7 @@ jobs:
           & (Join-Path $directory 'actionlint.exe')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Type-check changed Python files
+      - name: Check changed Python files
         shell: pwsh
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -95,6 +95,12 @@ jobs:
           Write-Host "Type-checking changed Python files:"
           $pythonFiles | ForEach-Object { Write-Host " - $_" }
 
+          # Retain the established CI lint gate for branch protection and release automation.
+          # Fast PR checks run the same lightweight validations sooner, independently.
+          python -m ruff check $pythonFiles
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m ruff format --check $pythonFiles
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pyright $pythonFiles
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
