@@ -4,7 +4,7 @@ requires = ["setuptools>=69", "wheel"]
 
 [project]
 name = "ryan_functions"
-version = "26.10.16.2"
+version = "26.10.17.1"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 license = "SUL-1.0"
@@ -41,13 +41,6 @@ dependencies = [
   "ezdxf",
   "rich",
 ]
-description = "Collection of TUFLOW and data processing functions."
-license = "SUL-1.0"
-name = "ryan_functions"
-readme = "README.md"
-requires-python = ">=3.13"
-version = "26.10.13.3"
-
 [project.optional-dependencies]
 dev = [
   "build",

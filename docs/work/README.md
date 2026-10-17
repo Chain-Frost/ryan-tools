@@ -7,7 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [TUFLOW culvert engine migration](2026-10-08-tuflow-culvert-engines-99.md) | Blocked | Unassigned | 2026-10-08 | 2026-10-15 | Wheel 26.10.8.4 and 15 HY-8 comparisons validated against run-hy8 28e7909; locate representative Maximums, mixed 1d_nwk and blockage matrix, publish wheel and pass final-head CI. |
+| [TUFLOW culvert engine migration](2026-10-08-tuflow-culvert-engines-99.md) | Blocked | Unassigned | 2026-10-17 | 2026-10-24 | Local integration repairs and wheel 26.10.17.1 verified; 1226 tests pass and Module 03 Maximums compares in both engines. Obtain commit/push authorization, pass final-head CI, locate mixed 1d_nwk and blockage source evidence. |
 | [Fast PR checks and hosted timing](2026-10-17-fast-pr-checks-129.md) | In validation | ChatGPT | 2026-10-17 | 2026-10-22 | Commit/push documentation, verify all five checks on the new PR #129 head, then perform the authorized squash merge. |
 | [Temporary floodway CI exclusions](2026-10-16-floodway-ci-exclusions.md) | Deferred | Unassigned | 2026-10-16 | 2026-10-22 | Review or restore the two slow sweep tests when requested or at the review date; local tests remain available. |
 | [Safe GeoTIFF recompression](2026-10-15-safe-geotiff-recompression.md) | Ready for review | ChatGPT | 2026-10-15 | 2026-10-22 | Review and merge the pull request after CI passes. |
