@@ -128,8 +128,8 @@ Windows [`ci.yml`](../.github/workflows/ci.yml) on pull requests and main pushes
 Its only installed development tool is the Ruff version already pinned in
 `pyproject.toml`. It checks whitespace in the changed patch and lint/formatting
 for changed first-party Python files, without checking out submodules or installing
-GDAL/geospatial packages. Strict Pyright remains in `Policy`, with the normal
-Python 3.14/GIS dependencies. Repository documentation and logging checks, Python
+GDAL/geospatial packages. Ruff and strict Pyright also remain in `Policy`, with the normal
+Python 3.14/GIS dependencies, preserving the established release gate. Repository documentation and logging checks, Python
 3.13 compatibility, hosted tests, and wheel verification are unchanged.
 
 The fast workflow does **not** gate or precede the full workflow: it provides an
@@ -147,10 +147,11 @@ Baseline from five recent GitHub Actions runs on 16 October 2026:
 
 The existing `setup-python` pip cache reuses downloaded packages, not installed
 site-packages, so dependency installations remain costly even when pip's cache
-is warm. The first change removes Ruff from the heavyweight `Policy` job to
-avoid installing GIS dependencies just to lint changed files. Leave the actual
-Windows tests and GIS dependency bootstrap in place until replacements are
-tested. Re-measure after several successful workflow runs before introducing
+is warm. The new fast workflow needs only Ruff and produces earlier results without
+waiting for a GIS install. The existing `Policy` job deliberately retains its
+Ruff checks because release automation depends on the Python CI workflow's
+success. Leave the actual Windows tests and GIS dependency bootstrap in place
+until replacements are tested. Re-measure after several successful workflow runs before introducing
 parallel pytest workers or a prebuilt GIS environment.
 
 ## QGIS, OSGeo4W and GDAL
