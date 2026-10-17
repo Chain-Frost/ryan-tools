@@ -24,10 +24,12 @@ def calendar_version(value: str, *, year_width: int | None = None) -> tuple[int,
     """Reject noncalendar, mixed-width, and invalid historical versions."""
     match = _VERSION.fullmatch(value)
     if match is None:
-        raise ValueError(f"Unsupported published version {value!r}; expected calendar YYYY.M.D.N or YY.M.D.N.")
+        message = f"Unsupported published version {value!r}; expected calendar YYYY.M.D.N or YY.M.D.N."
+        raise ValueError(message)
     year = match["year"]
     if year_width is not None and len(year) != year_width:
-        raise ValueError(f"Historical version {value!r} has a different year width; resolve before publishing.")
+        message = f"Historical version {value!r} has a different year width; resolve before publishing."
+        raise ValueError(message)
     year_number = int(year) + (2000 if len(year) == 2 else 0)
     month, day, revision = (int(match[key]) for key in ("month", "day", "revision"))
     dt.date(year_number, month, day)
@@ -38,7 +40,8 @@ def next_version(current: str, previous: list[str], today: dt.date) -> str:
     """Return a strictly greater version than source, Git tags and ALL PyPI releases."""
     match = _VERSION.fullmatch(current)
     if match is None:
-        raise ValueError(f"Invalid source calendar version: {current!r}")
+        message = f"Invalid source calendar version: {current!r}"
+        raise ValueError(message)
     width = len(match["year"])
     baseline = max(calendar_version(item, year_width=width) for item in [current, *previous])
     today_key = (today.year, today.month, today.day)
@@ -50,14 +53,16 @@ def next_version(current: str, previous: list[str], today: dt.date) -> str:
     version = f"{year_text}.{month}.{day}.{revision}"
     if any(calendar_version(version, year_width=width) <= calendar_version(item, year_width=width)
            for item in [current, *previous]):
-        raise ValueError("The proposed release version is not strictly newer than historical versions.")
+        message = "The proposed release version is not strictly newer than historical versions."
+        raise ValueError(message)
     return version
 
 
 def _change_line(contents: str, pattern: re.Pattern[str], new: str, expected: str) -> str:
     found = list(pattern.finditer(contents))
     if len(found) != 1 or found[0][1] != expected:
-        raise ValueError(f"Expected exactly one existing version assignment matching {expected!r}.")
+        message = f"Expected exactly one existing version assignment matching {expected!r}."
+        raise ValueError(message)
     start, end = found[0].span(1)
     return contents[:start] + new + contents[end:]
 
@@ -69,12 +74,15 @@ def stamp(root: Path, version: str, marker: str | None) -> None:
     parsed = tomllib.loads(content)
     source = parsed["project"]["version"]
     if not isinstance(source, str):
-        raise TypeError("pyproject project.version must be text.")
+        message = "pyproject project.version must be text."
+        raise TypeError(message)
     if calendar_version(version, year_width=len(_VERSION.fullmatch(source)["year"]) if _VERSION.fullmatch(source) else 0) < calendar_version(source):
-        raise ValueError("Release version must not go backwards from the source checkout.")
+        message = "Release version must not go backwards from the source checkout."
+        raise ValueError(message)
     section = _PROJECT.search(content)
     if section is None:
-        raise ValueError("Missing TOML [project] section.")
+        message = "Missing TOML [project] section."
+        raise ValueError(message)
     changed = _change_line(section[2], _ASSIGNMENT, version, source)
     updated = content[:section.start(2)] + changed + content[section.end(2):]
     marker_path = root / marker if marker else None
@@ -87,7 +95,8 @@ def stamp(root: Path, version: str, marker: str | None) -> None:
     if marker_path is not None and marker_updated is not None:
         marker_path.write_text(marker_updated, encoding="utf-8")
     if tomllib.loads(project.read_text(encoding="utf-8"))["project"]["version"] != version:
-        raise ValueError("Version stamping did not take effect.")
+        message = "Version stamping did not take effect."
+        raise ValueError(message)
 
 
 def main() -> int:
@@ -103,7 +112,8 @@ def main() -> int:
         print(next_version(record["current"], record["versions"], dt.date.fromisoformat(record["today"])))
     else:
         if not args.tag.startswith("v"):
-            raise ValueError("Stable release tag must begin with v.")
+            message = "Stable release tag must begin with v."
+            raise ValueError(message)
         stamp(Path.cwd(), args.tag[1:], args.marker)
         print(f"Stamped local publication checkout for {args.tag}")
     return 0
