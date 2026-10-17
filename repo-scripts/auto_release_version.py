@@ -78,9 +78,11 @@ def stamp(root: Path, version: str, marker: str | None) -> None:
     if not isinstance(source, str):
         message = "pyproject project.version must be text."
         raise TypeError(message)
-    if calendar_version(
-        version, year_width=len(_VERSION.fullmatch(source)["year"]) if _VERSION.fullmatch(source) else 0
-    ) < calendar_version(source):
+    source_match = _VERSION.fullmatch(source)
+    if source_match is None:
+        message = f"Invalid source calendar version: {source!r}"
+        raise ValueError(message)
+    if calendar_version(version, year_width=len(source_match["year"])) < calendar_version(source):
         message = "Release version must not go backwards from the source checkout."
         raise ValueError(message)
     section = _PROJECT.search(content)
