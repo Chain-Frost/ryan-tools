@@ -50,9 +50,10 @@ register the publisher or create the GitHub environment on your behalf.
 ## Automatic release from main (default)
 
 Every **successful push CI** on `main`, including an ordinary approved PR
-merge, triggers the `Publish to PyPI` workflow. There is no manual version
-bump, separate release PR or manual workflow dispatch. Releases are queued
-instead of canceling pending publications.
+merge, wakes `Reconcile automatic PyPI releases`, which dispatches the tag-scoped
+`Publish to PyPI` workflow. There is no manual version
+bump, separate release PR or manual workflow dispatch. The hourly reconciler revisits the entire durable backlog
+instead of relying on GitHub's lossy pending-run concurrency.
 
 The release job verifies the exact CI commit is on `main`, reads the
 complete PyPI release history and repository tags, then chooses a strictly
@@ -73,23 +74,16 @@ Protected `main` is never written to or bypassed by the publisher.
 See [automatic PyPI release policy](AUTO_PYPI_RELEASES.md) for version
 provenance, retry behaviour, concurrency limits and recovery.
 
-### Optional manual/legacy release
+### Recovery and manual release tags
 
-`Actions → Release to PyPI → Run workflow` still creates a legacy
-`release/pypi-<version>` PR for compatibility. Its successful merge is
-handled by `Finalize PyPI release`; the new automatic workflow explicitly
-skips those legacy release-PR merge commits to avoid duplicates.
-
-Alternatively, publish a stable GitHub Release for an approved tag pointing
-to an ancestor of `main` and use `Publish to PyPI` on that existing tag.
-A bare tag, draft, prerelease, mismatched source commit, duplicate or
-superseded PyPI version cannot be uploaded. Avoid triggering both legacy
-and automatic publication for the same commit.
-
-On publication failure, inspect the failed job and its existing reserved
-version. A retry may reuse that tag only if it remains newer than every
-PyPI release. Never move tags, overwrite distributions or bypass publication
-guards to conceal an unsuccessful release.
+The old `Release to PyPI` preparation and `Finalize PyPI release` workflows have been
+retired to prevent duplicate release creation. The durable `Reconcile automatic PyPI
+releases` workflow processes successful `main` revisions in first-parent order,
+with an hourly reconciliation check in case of missed workflow notifications.
+It reserves a tag, creates a stable GitHub Release, and explicitly dispatches the
+existing tag-scoped `Publish to PyPI` workflow. A manual dispatch of the
+publisher on an existing tag remains possible for recovery. Do not manually
+move existing tags or reupload PyPI versions.
 
 ## Installation and scope
 
@@ -128,10 +122,9 @@ References:
 - https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/
 - https://docs.pypi.org/trusted-publishers/using-a-publisher/
 
-## Finalization retries
+## Reconciliation retries
 
-Finalization checks PyPI before dispatching publication. If the version already exists,
-it skips dispatch; if publication for that SHA is active, it also skips duplicate work.
-A missing version with no active run can be dispatched again after a failed attempt.
-Unexpected PyPI responses or lookup timeouts fail visibly rather than guessing. Existing
-tag/SHA and stable-release checks still apply before these recovery decisions.
+If a publisher fails, inspect its exact tag and run. The hourly reconciler can
+recover a reserved tag with no GitHub Release, and does not allocate newer
+versions past an unpublished earlier release. Rerun the failed tag-scoped
+publisher after correcting the cause.
