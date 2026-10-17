@@ -175,6 +175,7 @@ jobs:
       - name: Require a published stable GitHub Release
         env:
           RELEASE_TAG: ${{ needs.release.outputs.tag }}
+          RELEASE_SHA: ${{ needs.release.outputs.sha }}
         uses: actions/github-script@v8
         with:
           script: |
@@ -182,6 +183,10 @@ jobs:
             const {data: release} = await github.rest.repos.getReleaseByTag({
               ...context.repo, tag
             });
+            const ref = await github.rest.git.getRef({...context.repo, ref: 'tags/' + tag});
+            if (ref.data.object.sha !== process.env.RELEASE_SHA) {
+              throw new Error('Tag does not point to the exact CI-verified source commit.');
+            }
             if (release.tag_name !== tag || release.draft || release.prerelease || !release.published_at) {
               throw new Error(`Tag ${tag} must have a published, non-draft, non-prerelease GitHub Release.`);
             }
