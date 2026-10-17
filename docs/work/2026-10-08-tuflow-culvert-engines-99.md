@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Blocked |
+| Status | Active |
 | Owner | Unassigned |
 | Created | 2026-10-08 |
 | Updated | 2026-10-17 |
@@ -18,6 +18,24 @@ Finish validation of [PR #100](https://github.com/Chain-Frost/ryan-tools/pull/10
 
 ## Current state
 
+- Both final-review findings are corrected: Maximums reads crossing/run identifiers as text, and both wrappers
+  reject outputs referring to primary or attribute inputs by canonical path or physical file identity. Checks run
+  before input reading and again before writing; non-overwrite writes use exclusive creation. Wrapper versions are
+  `2026-10-17.1`. Focused wrapper regressions: **68 passed, 2 skipped** (symlink privileges unavailable); same-path,
+  hard-link, attribute-source protection and real Excel leading-zero selection pass. Changed-file Ruff/strict Pyright,
+  compilation, help, documentation and retained-wheel verification pass. No library/package files changed, so wheel
+  `26.10.17.1` remains current. These fixes supersede the review findings below.
+- User explicitly authorized fixing and merging PR #100. Publish this correction and merge only after all five checks
+  pass on the exact corrected head. Engineering follow-ups #102/#103 remain deferred. Dependent run-hy8 PR #6 is
+  outside this merge authorization.
+- Scope decision, 2026-10-17: remaining engineering verification in #102 and #103 is deferred and does not block
+  merging this migration. Existing model-specific blockage limitations remain; no extra model data is required for
+  the revised PR scope. Final code review and explicit manual merge authorization remain required.
+- Final review of `97fe390` confirms all five hosted checks passed (Python CI run `39035968286`, fast checks
+  `39035968347`). Two reproducible code findings require correction: default Maximums Excel type inference collapses
+  text IDs `001` and `1` before governing-row selection; `--overwrite` permits writing CSV over the input workbook.
+  The corresponding GIS output path also lacks an input/output identity guard. Reproduced using temporary copies at
+  `C:/Users/Ryan/AppData/Local/Temp/pr100-review-8w2saocr/`; no repository fixtures changed.
 - Integration repairs remove duplicate project metadata and parenthesize exception tuples in the attribute reader
   and `1d_nwk` wrapper for the declared Python 3.13 minimum. These defects are absent from current main `037cff3`.
 - Retained wheel `26.10.17.1` replaces the two conflicting retained versions. Build, source verification and isolated
@@ -32,7 +50,7 @@ Finish validation of [PR #100](https://github.com/Chain-Frost/ryan-tools/pull/10
   fixture's 162 GeoPackages / 950 layers found no `nwk` layer or `pBlockage` field. No named network source or
   blockage file, or blockage control command in the available TCF/TBC/TEF/TRD files, was found.
 - Hosted checks at old head `23cd600` all failed: four on duplicate TOML keys and one on Python 3.13 syntax.
-  Repairs are committed and pushed in `5ec678b`. New hosted verification is underway; no final-head review is claimed.
+  Repairs are committed and pushed in `5ec678b`; all checks subsequently passed at `97fe390` as recorded above.
   Keep merge manual.
 
 ### Historical 2026-10-08 state
@@ -55,14 +73,14 @@ Finish validation of [PR #100](https://github.com/Chain-Frost/ryan-tools/pull/10
 
 ## Next action
 
-Confirm all five hosted checks on the published repaired head. Obtain the mixed `1d_nwk` source and matching
-model/blockage configuration for issues #102/#103;
-the Maximums workbook can now be generated from supplied results and is no longer a missing-input blocker.
-Complete remaining inlet/material/loss and workspace checks, agree numerical acceptance tolerances and request final
-review on the published repair. Do not merge this PR or dependent run-hy8 PR #6 automatically.
+Publish the validated final-review fixes, confirm all five hosted checks on that exact head, and perform the
+user-authorized manual merge of PR #100. Remaining model-dependent work in #102/#103 stays deferred; do not merge
+dependent run-hy8 PR #6 under this authorization.
 
 ## Completion criteria
 
+- Under the 2026-10-17 revised scope, source-model engineering checks below are deferred follow-ups, not merge gates.
+- Resolve final-review correctness/safety findings and retain passing CI on the published corrected head.
 - Retained wheel and metadata delivered, with verification and isolated installed smoke passing.
 - Ruff, strict Pyright, relevant tests and every hosted CI job pass on the final published head.
 - Windows HY-8 checks in issue #102 completed with raw evidence and accepted comparison tolerances.

@@ -66,7 +66,10 @@ geometry type. Malformed length and CRS errors are reported for the affected fea
 rather than aborting an otherwise usable batch.
 
 Both migrated wrappers refuse to replace an existing result CSV unless
-`--overwrite` is supplied. Numeric `pBlockage` is applied to circular pipes in
+`--overwrite` is supplied. Even with `--overwrite`, outputs must not refer to the
+input workbook, GIS dataset or attribute source, including linked aliases of those
+files. Maximums loading preserves text crossing and run identifiers such as `001`.
+Numeric `pBlockage` is applied to circular pipes in
 both Maximums and `1d_nwk` inputs by scaling the hydraulic diameter by the square
 root of the unblocked area fraction. The original nominal diameter is retained
 separately and remains the denominator for TUFLOW HW/D targets and reported HW/D.

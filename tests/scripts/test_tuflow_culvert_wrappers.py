@@ -35,6 +35,69 @@ def _nwk_namespace() -> dict[str, Any]:
     return runpy.run_path(str(NWK_SCRIPT))
 
 
+def test_maximums_excel_preserves_distinct_numeric_text_ids(tmp_path: Path) -> None:
+    workbook = tmp_path / "maximums.xlsx"
+    pd.DataFrame(  # pyright: ignore[reportUnknownMemberType] - optional Excel engine stubs
+        [
+            {"Chan ID": "001", "Q": 1.0, "Height": 1.2, "Type": "C", "trim_runcode": "001"},
+            {"Chan ID": "1", "Q": 2.0, "Height": 1.2, "Type": "C", "trim_runcode": "1"},
+        ]
+    ).to_excel(workbook, sheet_name="Maximums", index=False)
+    select_rows = cast(
+        "Callable[[Path, str, str | None], list[dict[str, Any]]]",
+        _maximums_namespace()["_selected_rows"],
+    )
+    rows = select_rows(workbook, "Maximums", None)
+    assert {row["Chan ID"] for row in rows} == {"001", "1"}
+    selected = select_rows(workbook, "Maximums", "001")
+    assert len(selected) == 1
+    assert selected[0]["Chan ID"] == "001"
+    assert selected[0]["trim_runcode"] == "001"
+
+
+@pytest.mark.parametrize("script", [MAXIMUMS_SCRIPT, NWK_SCRIPT])
+@pytest.mark.parametrize("alias_kind", ["same-path", "hardlink", "symlink"])
+def test_wrapper_rejects_output_aliasing_input(tmp_path: Path, script: Path, alias_kind: str) -> None:
+    source = tmp_path / "input.dat"
+    source.write_bytes(b"preserve source data")
+    output = source
+    if alias_kind == "hardlink":
+        output = tmp_path / "output.csv"
+        output.hardlink_to(source)
+    elif alias_kind == "symlink":
+        output = tmp_path / "output.csv"
+        try:
+            output.symlink_to(source)
+        except OSError as exc:
+            pytest.skip(f"Symlink creation unavailable: {exc}")
+    check_output = cast("Callable[..., None]", runpy.run_path(str(script))["_ensure_output_available"])
+    with pytest.raises(ValueError, match="must not replace an input file"):
+        check_output(output, overwrite=True, input_paths=(None, source))
+    assert source.read_bytes() == b"preserve source data"
+
+
+@pytest.mark.parametrize("script", [MAXIMUMS_SCRIPT, NWK_SCRIPT])
+@pytest.mark.parametrize("protected_input", ["primary", "attributes"])
+def test_wrapper_run_refuses_to_replace_source_before_reading(
+    tmp_path: Path, script: Path, protected_input: str
+) -> None:
+    source = tmp_path / "input.dat"
+    source.write_bytes(b"preserve source data")
+    other = tmp_path / "other.dat"
+    args = SimpleNamespace(
+        engine="ryan-culverts",
+        output_csv=source,
+        overwrite=True,
+        input_workbook=source if protected_input == "primary" else other,
+        input_gis=source if protected_input == "primary" else other,
+        culvert_attributes=source if protected_input == "attributes" else None,
+    )
+    run = cast("Callable[[SimpleNamespace], int]", runpy.run_path(str(script))["run"])
+    with pytest.raises(ValueError, match="must not replace an input file"):
+        run(args)
+    assert source.read_bytes() == b"preserve source data"
+
+
 def test_maximums_mapping_uses_canonical_barrel_count_and_preserves_zero_invert() -> None:
     namespace = _maximums_namespace()
     build_definition = cast(

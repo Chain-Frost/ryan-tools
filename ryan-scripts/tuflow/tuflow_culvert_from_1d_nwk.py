@@ -10,7 +10,7 @@ Example:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-08.4"
+WRAPPER_VERSION = "2026-10-17.1"
 
 import argparse
 import csv
@@ -252,7 +252,20 @@ def _select_active_rows(rows: list[dict[str, Any]], crossing: str | None) -> lis
     return culverts
 
 
-def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
+def _ensure_output_available(
+    path: Path,
+    *,
+    overwrite: bool,
+    input_paths: tuple[Path | None, ...] = (),
+) -> None:
+    # Follow links deliberately: an output alias must never replace a physical input file.
+    output_identity = path.resolve()
+    for source in input_paths:
+        if source is None:
+            continue
+        if output_identity == source.resolve() or (path.exists() and source.exists() and path.samefile(source)):
+            msg = f"Output must not replace an input file: {source}. Choose a separate --output-csv path."
+            raise ValueError(msg)
     if path.exists() and not overwrite:
         msg = f"Output already exists: {path}. Pass --overwrite to replace it."
         raise FileExistsError(msg)
@@ -414,7 +427,11 @@ def _workspace(
 def run(args: argparse.Namespace) -> int:
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     engine = CulvertEngine(args.engine)
-    _ensure_output_available(args.output_csv, overwrite=args.overwrite)
+    _ensure_output_available(
+        args.output_csv,
+        overwrite=args.overwrite,
+        input_paths=(args.input_gis, args.culvert_attributes),
+    )
     # GeoPandas stubs leave backend keyword arguments untyped.
     layer = _resolve_layer(args.input_gis, args.layer)
     frame = gpd.read_file(args.input_gis, layer=layer)  # pyright: ignore[reportUnknownMemberType]
@@ -533,7 +550,12 @@ def run(args: argparse.Namespace) -> int:
         msg = "No output rows were produced."
         raise ValueError(msg)
     args.output_csv.parent.mkdir(parents=True, exist_ok=True)
-    with args.output_csv.open("w", newline="", encoding="utf-8") as handle:
+    _ensure_output_available(
+        args.output_csv,
+        overwrite=args.overwrite,
+        input_paths=(args.input_gis, args.culvert_attributes),
+    )
+    with args.output_csv.open("w" if args.overwrite else "x", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(output_rows[0]))
         writer.writeheader()
         writer.writerows(output_rows)

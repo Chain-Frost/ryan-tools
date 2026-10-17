@@ -10,7 +10,7 @@ Example:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-08.4"
+WRAPPER_VERSION = "2026-10-17.1"
 
 import argparse
 import csv
@@ -234,7 +234,9 @@ def _record(
 
 def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[dict[str, Any]]:
     # Pandas stubs include optional workbook types without complete typing.
-    frame = pd.read_excel(path, sheet_name=sheet_name)  # pyright: ignore[reportUnknownMemberType]
+    frame = pd.read_excel(  # pyright: ignore[reportUnknownMemberType]
+        path, sheet_name=sheet_name, dtype=dict.fromkeys(("Chan ID", "trim_runcode", "internalName", "aep_text"), str)
+    )
     required = {"Chan ID", "Q", "Height", "Type"}
     missing = required - set(frame.columns)
     if missing:
@@ -267,7 +269,20 @@ def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[di
     return cast("list[dict[str, Any]]", records)
 
 
-def _ensure_output_available(path: Path, *, overwrite: bool) -> None:
+def _ensure_output_available(
+    path: Path,
+    *,
+    overwrite: bool,
+    input_paths: tuple[Path | None, ...] = (),
+) -> None:
+    # Follow links deliberately: an output alias must never replace a physical input file.
+    output_identity = path.resolve()
+    for source in input_paths:
+        if source is None:
+            continue
+        if output_identity == source.resolve() or (path.exists() and source.exists() and path.samefile(source)):
+            msg = f"Output must not replace an input file: {source}. Choose a separate --output-csv path."
+            raise ValueError(msg)
     if path.exists() and not overwrite:
         msg = f"Output already exists: {path}. Pass --overwrite to replace it."
         raise FileExistsError(msg)
@@ -301,7 +316,11 @@ def _workspace(
 def run(args: argparse.Namespace) -> int:
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     engine = CulvertEngine(args.engine)
-    _ensure_output_available(args.output_csv, overwrite=args.overwrite)
+    _ensure_output_available(
+        args.output_csv,
+        overwrite=args.overwrite,
+        input_paths=(args.input_workbook, args.culvert_attributes),
+    )
     headwater_ratio = _headwater_ratio(args.headwater_ratio)
     rows = _selected_rows(args.input_workbook, args.sheet_name, args.crossing)
     attribute_map = load_tuflow_culvert_attributes(
@@ -430,7 +449,12 @@ def run(args: argparse.Namespace) -> int:
             )
 
     args.output_csv.parent.mkdir(parents=True, exist_ok=True)
-    with args.output_csv.open("w", newline="", encoding="utf-8") as handle:
+    _ensure_output_available(
+        args.output_csv,
+        overwrite=args.overwrite,
+        input_paths=(args.input_workbook, args.culvert_attributes),
+    )
+    with args.output_csv.open("w" if args.overwrite else "x", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(output_rows[0]))
         writer.writeheader()
         writer.writerows(output_rows)
