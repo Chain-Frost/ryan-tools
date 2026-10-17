@@ -9,6 +9,11 @@ from pathlib import Path
 
 GIS_WHEEL_INDEX: str = "https://gisidx.github.io/gwi"
 WHEEL_PATTERN: str = "ryan_functions-*.whl"
+# Fixed upstream release; do not silently advance a desktop bridge on each install.
+QGIS_MCP_ARCHIVE: str = (
+    "https://github.com/nkarasiak/qgis-mcp/archive/"
+    "55519ebe009e7c7e06603d802f0ce931d6c9b20f.zip"
+)
 
 
 def _latest_wheel(dist_dir: Path) -> Path:
@@ -36,7 +41,9 @@ def _gis_dependency_command() -> list[str]:
     ]
 
 
-def _pip_commands(wheel: Path, force_reinstall: bool) -> list[list[str]]:
+def _pip_commands(
+    wheel: Path, force_reinstall: bool, *, qgis_mcp_source: str | None = None, skip_qgis_mcp: bool = False
+) -> list[list[str]]:
     """Build the pip commands for a normal or no-dependency recovery install."""
     pip: list[str] = [sys.executable, "-m", "pip"]
     if force_reinstall:
@@ -51,8 +58,11 @@ def _pip_commands(wheel: Path, force_reinstall: bool) -> list[list[str]]:
             ]
         ]
 
-    return [
-        _gis_dependency_command(),
+    commands: list[list[str]] = [_gis_dependency_command()]
+    if not skip_qgis_mcp:
+        source: str = qgis_mcp_source or QGIS_MCP_ARCHIVE
+        commands.append([*pip, "install", "--upgrade", source])
+    commands.append(
         [
             *pip,
             "install",
@@ -63,9 +73,10 @@ def _pip_commands(wheel: Path, force_reinstall: bool) -> list[list[str]]:
             "--only-binary=fiona",
             "--only-binary=rasterio",
             "--only-binary=gdal",
-            str(wheel),
-        ],
-    ]
+            f"{wheel}[mcp]",
+        ]
+    )
+    return commands
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -86,6 +97,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print the selected wheel and pip commands without running them",
     )
+    parser.add_argument(
+        "--qgis-mcp-source",
+        help="Override the pinned upstream QGIS MCP archive with an approved local source directory or URL",
+    )
+    parser.add_argument(
+        "--skip-qgis-mcp",
+        action="store_true",
+        help="Skip the separately installed QGIS MCP bridge (use for offline/headless machines)",
+    )
     args: argparse.Namespace = parser.parse_args(argv)
 
     if args.dependencies_only and args.force_reinstall:
@@ -103,7 +123,14 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         print(f"Installing:   {wheel}")
-        commands = _pip_commands(wheel=wheel, force_reinstall=args.force_reinstall)
+        commands = _pip_commands(
+            wheel=wheel,
+            force_reinstall=args.force_reinstall,
+            qgis_mcp_source=args.qgis_mcp_source,
+            skip_qgis_mcp=args.skip_qgis_mcp,
+        )
+        if args.force_reinstall and not args.skip_qgis_mcp:
+            print("NOTE: --force-reinstall uses --no-deps and does not install QGIS MCP.")
 
     for command in commands:
         print(f"Command:      {subprocess.list2cmdline(command)}")
