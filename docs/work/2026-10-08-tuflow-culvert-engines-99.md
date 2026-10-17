@@ -7,7 +7,7 @@
 | Created | 2026-10-08 |
 | Updated | 2026-10-17 |
 | Next review | 2026-10-24 |
-| Baseline | `feature/issue-99-tuflow-culvert-engines` at `23cd6002aecc2c18216a556bf7e470159124a281`; local repairs uncommitted |
+| Baseline | `feature/issue-99-tuflow-culvert-engines`; repairs committed and pushed in `5ec678b` |
 
 ## Outcome and scope
 
@@ -31,8 +31,9 @@ Finish validation of [PR #100](https://github.com/Chain-Frost/ryan-tools/pull/10
 - Real mixed-network inputs and active blockage provenance remain unavailable. A read-only scan of the supplied
   fixture's 162 GeoPackages / 950 layers found no `nwk` layer or `pBlockage` field. No named network source or
   blockage file, or blockage control command in the available TCF/TBC/TEF/TRD files, was found.
-- Hosted checks at published head `23cd600` all failed: four on duplicate TOML keys and one on Python 3.13 syntax.
-  Local repairs are unstaged and uncommitted; no new hosted run or final-head review is claimed. Keep merge manual.
+- Hosted checks at old head `23cd600` all failed: four on duplicate TOML keys and one on Python 3.13 syntax.
+  Repairs are committed and pushed in `5ec678b`. New hosted verification is underway; no final-head review is claimed.
+  Keep merge manual.
 
 ### Historical 2026-10-08 state
 
@@ -54,8 +55,8 @@ Finish validation of [PR #100](https://github.com/Chain-Frost/ryan-tools/pull/10
 
 ## Next action
 
-Obtain commit/push authorization for the integration repairs and retained wheel, then confirm all five hosted checks
-on the repaired head. Obtain the mixed `1d_nwk` source and matching model/blockage configuration for issues #102/#103;
+Confirm all five hosted checks on the published repaired head. Obtain the mixed `1d_nwk` source and matching
+model/blockage configuration for issues #102/#103;
 the Maximums workbook can now be generated from supplied results and is no longer a missing-input blocker.
 Complete remaining inlet/material/loss and workspace checks, agree numerical acceptance tolerances and request final
 review on the published repair. Do not merge this PR or dependent run-hy8 PR #6 automatically.
@@ -159,6 +160,8 @@ The unrelated floodway work record is overdue (2026-10-13); reported without res
 
 The user authorized committing and pushing these repairs on 2026-10-17. Delivery proceeds on the existing PR branch;
 merge remains unauthorized. Final hosted verification must use the resulting published head.
+Repairs and wheel pushed in `5ec678b`; initial Python CI run `39035931139` and fast checks run `39035931188` started.
+This delivery-state documentation follow-up also requires final-head hosted verification.
 
 ### 2026-10-08: run-hy8 reference update
 
