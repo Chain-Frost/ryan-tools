@@ -31,9 +31,9 @@ jobs:
       contents: write
       pull-requests: read
     outputs:
-      tag: ${{ steps.plan.outputs.tag }
-      sha: ${{ steps.plan.outputs.sha }
-      publish: ${{ steps.plan.outputs.publish }
+      tag: ${{ steps.plan.outputs.tag }}
+      sha: ${{ steps.plan.outputs.sha }}
+      publish: ${{ steps.plan.outputs.publish }}
     steps:
       - name: Check out trusted main release tooling
         uses: actions/checkout@v6
@@ -225,7 +225,7 @@ jobs:
       - name: Stamp version from verified release tag
         shell: pwsh
         env:
-          RELEASE_TAG: ${{ needs.release.outputs.tag }
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
         run: |
           python repo-scripts/auto_release_version.py stamp "$env:RELEASE_TAG"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -334,7 +334,7 @@ jobs:
       - name: Ensure PyPI has no equal or newer version before upload
         shell: bash
         env:
-          RELEASE_TAG: ${{ needs.release.outputs.tag }
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
           PYPI_PROJECT: ryan-functions
         run: |
           python - <<'PY'
