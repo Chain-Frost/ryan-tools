@@ -1,4 +1,4 @@
-"""Smoke-test the bundled public packages from an isolated wheel install."""
+"""Smoke-test ryan-functions and separately installed PyPI dependencies."""
 
 from __future__ import annotations
 
