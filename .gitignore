@@ -21,11 +21,8 @@ pytest-cache-files-*
 
 build/
 
-# Ignore subdirectories within dist, but allow files directly inside dist.
-dist/*/
-# If dist itself contains generated files that should also be ignored,
-# replace the above with simply:
-# dist/
+# Generated wheel and source distribution artifacts (built by CI and locally)
+dist/
 
 # =============================================================================
 # Test-generated files
