@@ -104,6 +104,7 @@ def stamp(root: Path, version: str, marker: str | None) -> None:
 
 
 def main() -> int:
+    """Handle version planning and local release-checkout stamping."""
     parser = argparse.ArgumentParser(description=__doc__)
     subcommands = parser.add_subparsers(dest="command", required=True)
     subcommands.add_parser("next", help="Read {current, versions, today} JSON on stdin and emit the new version.")
