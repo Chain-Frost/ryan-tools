@@ -200,8 +200,19 @@ jobs:
               });
               core.info('Reserved new-merge release '+tag+' at '+head);
             }
+            // workflow_run chaining can be suppressed for publisher runs
+            // launched via GITHUB_TOKEN. Explicit workflow_dispatch is allowed
+            // and ensures release wheel assets are verified against PyPI.
+            const dispatchAssetSync = async releaseTag => {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,repo,workflow_id:'sync-release-assets.yml',
+                ref:'main',inputs:{tag:releaseTag}
+              });
+              core.info('Requested checksum-verified GitHub Release asset sync for '+releaseTag);
+            };
             if (await published(tag)) {
               core.info('This merge has already been published: '+tag);
+              await dispatchAssetSync(tag);
               return;
             }
             const {data:tagRef} = await github.rest.git.getRef({
@@ -233,6 +244,7 @@ jobs:
             for (let attempt=0;attempt<180;attempt++) {
               if (await published(tag)) {
                 core.info('Verified PyPI upload: '+tag);
+                await dispatchAssetSync(tag);
                 return;
               }
               const {data: runs} = await github.rest.actions.listWorkflowRuns({
