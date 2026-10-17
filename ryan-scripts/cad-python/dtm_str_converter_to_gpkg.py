@@ -41,7 +41,7 @@ import geopandas as gpd
 import pandas as pd
 from shapely.geometry import LineString, Point, Polygon
 
-SCRIPT_DIR: Path = Path(__file__).resolve().parent
+SCRIPT_DIR: Path = Path(__file__).absolute().parent
 
 # Default settings. CLI arguments can override these values.
 DEFAULT_BASE_DIR: Path = SCRIPT_DIR
@@ -805,7 +805,7 @@ def print_preview(title: str, df: pd.DataFrame) -> None:
 
 
 def run_conversion(config: ConverterConfig) -> None:
-    base_dir: Path = config.base_dir.resolve()
+    base_dir: Path = config.base_dir.absolute()
     str_file_path: Path = resolve_path(config.str_file_path, base_dir)
     dtm_file_path: Path | None = get_dtm_file_path(config, str_file_path, base_dir)
     output_dir: Path = resolve_path(config.output_dir, base_dir)

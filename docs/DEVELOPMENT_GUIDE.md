@@ -103,6 +103,12 @@ through the MCP integration. This is an assessment, not a requirement to expose 
 When MCP discovery changes, update the relevant packaged listing or resource, focused tests and
 [`MCP_SETUP.md`](MCP_SETUP.md).
 
+## Filesystem path conventions
+
+Use `Path.absolute()` by default for ordinary project paths, script/working directories, file discovery and GDAL inputs/outputs. This preserves user-visible paths (including mapped network drives) and does not dereference junctions or symlinks. Resolve relative paths against their intended base directory before changing the process working directory.
+
+Reserve `Path.resolve()` for operations that explicitly need canonical physical identity, security boundary checks, or symlink-aware containment. A lexical `.absolute()`/`.relative_to()` comparison is not a substitute for canonical containment in security checks. Do not replace physical-identity or linked-path safety checks in destructive operations; maintain or add tests for symlinks/junctions and same-file destinations. See [`../AGENTS.md`](../AGENTS.md#filesystem-paths).
+
 ## Common execution environments
 
 The sections below define the important boundaries. See [`ENVIRONMENTS.md`](ENVIRONMENTS.md) for setup commands, VS Code

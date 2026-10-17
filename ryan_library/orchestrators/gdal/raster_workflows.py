@@ -69,14 +69,14 @@ def convert_rasters(
         return []
 
     concurrency: GdalConcurrency = plan_gdal_concurrency(len(sources), workers)
-    output_root = output_directory.resolve() if output_directory is not None else directory.resolve()
+    output_root = output_directory.absolute() if output_directory is not None else directory.absolute()
     logger.info(
         f"Processing {len(sources)} raster(s) with {concurrency.workers} worker(s) and "
         f"{concurrency.threads_per_dataset} GDAL thread(s) per raster."
     )
 
     def process(source: Path) -> Path:
-        relative = source.relative_to(directory.resolve())
+        relative = source.relative_to(directory.absolute())
         output = output_root / relative.parent / f"{source.stem}{output_suffix}.tif"
         # Timestamp checks avoid recompressing large terrain rasters on routine reruns.
         needs_conversion: bool = overwrite or not output.exists() or output.stat().st_mtime < source.stat().st_mtime
@@ -129,7 +129,7 @@ def add_overviews(
         Paths to the external overview sidecars.
     """
     pattern: Literal["**/*.tif"] | Literal["*.tif"] = "**/*.tif" if recursive else "*.tif"
-    rasters: list[Path] = sorted(path for path in directory.resolve().glob(pattern) if path.is_file())
+    rasters: list[Path] = sorted(path for path in directory.absolute().glob(pattern) if path.is_file())
     if not rasters:
         logger.warning(f"No GeoTIFFs found in: {directory}")
         return []
@@ -160,7 +160,7 @@ def _find_sources(directory: Path, extensions: Sequence[str], recursive: bool) -
     }
     pattern = "**/*" if recursive else "*"
     return sorted(
-        path for path in directory.resolve().glob(pattern) if path.is_file() and path.suffix.lower() in normalized
+        path for path in directory.absolute().glob(pattern) if path.is_file() and path.suffix.lower() in normalized
     )
 
 

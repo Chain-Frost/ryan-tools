@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal, NamedTuple
 
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-10-16.1"
 
 DEFAULT_WORKING_DIR = Path()
 DEFAULT_OPERATION: Literal["max", "diff", "mean", "median", "min"] = "diff"
@@ -86,7 +86,7 @@ def resolve_configuration(args: argparse.Namespace) -> WrapperConfiguration:
 
 def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> int:
     """Resolve configuration, run one raster operation and return a process exit code."""
-    target_directory: Path = (working_directory or DEFAULT_WORKING_DIR).resolve()
+    target_directory: Path = (working_directory or DEFAULT_WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)

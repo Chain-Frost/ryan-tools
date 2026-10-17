@@ -19,7 +19,7 @@ from pathlib import Path
 from loguru import logger
 
 # Ensure the library is in the path for this example
-REPO_ROOT: Path = Path(__file__).resolve().parents[1]
+REPO_ROOT: Path = Path(__file__).absolute().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 

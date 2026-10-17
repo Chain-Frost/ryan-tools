@@ -22,9 +22,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.3"
+WRAPPER_VERSION = "2026-10-16.1"
 
-WORKING_DIR: Path = Path(__file__).resolve().parent
+WORKING_DIR: Path = Path(__file__).absolute().parent
 CONSOLE_LOG_LEVEL = "INFO"
 FILE_PATTERN = "*.tif"
 OUTPUT_BASENAME: str | None = None
@@ -66,14 +66,14 @@ def main(
 ) -> int:
     """Resolve wrapper settings and merge matching rasters through the shared library."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    target_directory: Path = (working_directory or WORKING_DIR).resolve()
+    target_directory: Path = (working_directory or WORKING_DIR).absolute()
     configured_basename: str | None = output_basename or OUTPUT_BASENAME
     default_tif: Path | None = target_directory / f"{configured_basename}.tif" if configured_basename else None
     default_vrt: Path | None = target_directory / f"{configured_basename}.vrt" if configured_basename else None
     configured_tif: Path | None = output_tif or OUTPUT_TIF or default_tif
     configured_vrt: Path | None = output_vrt or OUTPUT_VRT or default_vrt
-    resolved_tif: Path | None = configured_tif.resolve() if configured_tif else None
-    resolved_vrt: Path | None = configured_vrt.resolve() if configured_vrt else None
+    resolved_tif: Path | None = configured_tif.absolute() if configured_tif else None
+    resolved_vrt: Path | None = configured_vrt.absolute() if configured_vrt else None
     if not change_working_directory(target_dir=target_directory):
         return 1
     with setup_logger(console_log_level=console_log_level or CONSOLE_LOG_LEVEL):

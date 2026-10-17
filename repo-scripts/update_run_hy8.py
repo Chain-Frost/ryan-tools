@@ -44,9 +44,9 @@ def parse_args() -> argparse.Namespace:
 def find_repo_root(preferred: Path | None) -> Path:
     """Walk upward from the guessed location until we find a `.git` directory."""
     if preferred is not None:
-        root_candidate: Path = preferred.resolve()
+        root_candidate: Path = preferred.absolute()
     else:
-        root_candidate = Path(__file__).resolve().parent
+        root_candidate = Path(__file__).absolute().parent
 
     for path in (root_candidate, *root_candidate.parents):
         if (path / ".git").exists():

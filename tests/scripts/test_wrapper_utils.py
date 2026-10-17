@@ -1,14 +1,19 @@
 """Tests for the active wrapper utility functions."""
 
 import os
+import sys
 from argparse import ArgumentParser, Namespace
+from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
+
+import pytest
 
 from ryan_library.functions import wrapper_utils
 
 
-def test_change_working_directory_success(tmp_path):
+def test_change_working_directory_success(tmp_path: Path) -> None:
     original_directory = Path.cwd()
     try:
         assert wrapper_utils.change_working_directory(tmp_path) is True
@@ -22,14 +27,14 @@ def test_change_working_directory_failure():
         assert wrapper_utils.change_working_directory(Path("invalid")) is False
 
 
-def test_print_library_version_found(capsys):
+def test_print_library_version_found(capsys: pytest.CaptureFixture[str]) -> None:
     with patch("ryan_library.functions.wrapper_utils.version", return_value="1.0.0"):
         wrapper_utils.print_library_version("pkg")
         captured = capsys.readouterr()
         assert "pkg version: 1.0.0" in captured.out
 
 
-def test_print_library_version_not_found(capsys):
+def test_print_library_version_not_found(capsys: pytest.CaptureFixture[str]) -> None:
     with patch("ryan_library.functions.wrapper_utils.version", side_effect=ImportError):
         # wrapper_utils catches PackageNotFoundError which inherits from ImportError in recent python?
         # Actually PackageNotFoundError is from importlib.metadata
@@ -61,8 +66,48 @@ def test_parse_common_cli_arguments():
     assert options.working_directory == Path()
 
 
-def test_coerce_locations_argument():
-    assert wrapper_utils._coerce_locations_argument(None) is None
-    assert wrapper_utils._coerce_locations_argument([]) is None
-    assert wrapper_utils._coerce_locations_argument([""]) is None
-    assert wrapper_utils._coerce_locations_argument([" a ", "b"]) == ("a", "b")
+def test_coerce_locations_argument() -> None:
+    coerce_locations = cast(
+        Callable[[list[str] | None], tuple[str, ...] | None],
+        getattr(wrapper_utils, "_coerce_locations_argument"),  # noqa: B009 - intentional private-helper test
+    )
+    assert coerce_locations(None) is None
+    assert coerce_locations([]) is None
+    assert coerce_locations([""]) is None
+    assert coerce_locations([" a ", "b"]) == ("a", "b")
+
+
+def test_windows_console_pause_reads_key_without_cmd(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The Windows keypress prompt must not spawn cmd.exe from UNC directories."""
+    from types import SimpleNamespace
+
+    received: list[str] = []
+
+    def fake_getwch() -> str:
+        received.append("key")
+        return "x"
+
+    monkeypatch.setitem(sys.modules, "msvcrt", SimpleNamespace(getwch=fake_getwch))
+    pause_windows_console = cast(
+        Callable[[], None],
+        getattr(wrapper_utils, "_pause_windows_console"),  # noqa: B009 - intentional private-helper test
+    )
+    pause_windows_console()
+    assert received == ["key"]
+    assert capsys.readouterr().out == "Press any key to continue . . .\n"
+
+
+def test_change_working_directory_prints_configured_spelling(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Preserve the caller's path form even when Windows exposes a UNC alias."""
+    requested = tmp_path / "mapped_alias"
+
+    def ignore_chdir(_path: str | os.PathLike[str]) -> None:
+        pass
+
+    monkeypatch.setattr(wrapper_utils.os, "chdir", ignore_chdir)
+    assert wrapper_utils.change_working_directory(requested)
+    assert capsys.readouterr().out == f"Current Working Directory: {requested.absolute()}\n"

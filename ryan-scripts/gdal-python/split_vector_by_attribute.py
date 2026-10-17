@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-10-16.1"
 DEFAULT_INPUT = Path("input.gpkg")
 DEFAULT_OUTPUT_DIR = Path("split_output")
 DEFAULT_ATTRIBUTE = "Layer"
@@ -99,7 +99,7 @@ def process_single_value(
 
 
 def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> int:
-    target_directory = (working_directory or Path.cwd()).resolve()
+    target_directory = (working_directory or Path.cwd()).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
 

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import unquote
 
-REPO_ROOT: Path = Path(__file__).resolve().parents[1]
+REPO_ROOT: Path = Path(__file__).absolute().parents[1]
 DOCUMENTATION_INDEX: Path = REPO_ROOT / "docs" / "README.md"
 DEFAULT_DOCUMENTS: tuple[Path, ...] = (
     Path("README.md"),

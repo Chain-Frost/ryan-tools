@@ -8,6 +8,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
 | [TUFLOW culvert engine migration](2026-10-08-tuflow-culvert-engines-99.md) | Blocked | Unassigned | 2026-10-08 | 2026-10-15 | Wheel 26.10.8.4 and 15 HY-8 comparisons validated against run-hy8 28e7909; locate representative Maximums, mixed 1d_nwk and blockage matrix, publish wheel and pass final-head CI. |
+| [Fast PR checks and hosted timing](2026-10-17-fast-pr-checks-129.md) | In validation | ChatGPT | 2026-10-17 | 2026-10-22 | Commit/push documentation, verify all five checks on the new PR #129 head, then perform the authorized squash merge. |
 | [Temporary floodway CI exclusions](2026-10-16-floodway-ci-exclusions.md) | Deferred | Unassigned | 2026-10-16 | 2026-10-22 | Review or restore the two slow sweep tests when requested or at the review date; local tests remain available. |
 | [Safe GeoTIFF recompression](2026-10-15-safe-geotiff-recompression.md) | Ready for review | ChatGPT | 2026-10-15 | 2026-10-22 | Review and merge the pull request after CI passes. |
 | [TUFLOW shared filesystem verification](2026-10-15-tuflow-shared-verification-110.md) | In validation | ChatGPT | 2026-10-15 | 2026-10-22 | Review and commit local CRS test correction and verified 26.10.15.4 wheel; confirm CI on the resulting PR #116 head before merging. |
@@ -25,6 +26,7 @@ fronts.
 
 | Work front / status record | Status | Owner | Updated | Next review | Outcome |
 | --- | --- | --- | --- | --- | --- |
+| [Mapped-drive-safe paths, raster and archive progress](2026-10-16-absolute-path-policy.md) | Complete | ChatGPT | 2026-10-16 | None | PR #128 validated at `08b00de0`: all four required CI jobs passed; verified 26.10.16.2 wheel uses latest hydraulic dependency releases and is authorized for merge. |
 | [CI validation efficiency](2026-10-15-ci-validation.md) | Complete | ChatGPT | 2026-10-16 | None | PR #125 and release #126 merged; four main CI jobs and both publication jobs passed; public 26.10.16.1 wheel smoke passed. |
 | [PyPI release automation](2026-10-15-release-automation.md) | Complete | ChatGPT | 2026-10-16 | None | PRs #123/#124 merged; 26.10.15.5 published via OIDC and downloaded-wheel smoke passed. Separate improvements in PR #125. |
 | [GitHub CI implementation](2026-10-07-github-ci.md) | Complete | ChatGPT | 2026-10-07 | None | Added Windows/Python 3.14 Policy, Hosted tests and Package jobs with explicit capability boundaries. Run #7 at `ad69ef4` passed all three jobs; Hosted tests reported 937 passed and 5 deselected. PR #96 is ready for maintainer review and manual merge. |
