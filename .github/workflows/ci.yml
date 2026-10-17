@@ -282,19 +282,15 @@ jobs:
           python -m pip install build pandas loguru
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Verify retained wheel
-        shell: pwsh
-        run: |
-          python repo-scripts/verify_wheel.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Rebuild current version and verify
+      - name: Build fresh current-version wheel and verify
         shell: pwsh
         run: |
           $before = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           python repo-scripts/build_library.py --no-bump --skip-pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/verify_wheel.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $after = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
@@ -311,7 +307,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $target | Out-Null
 
           $wheel = @(Get-ChildItem -LiteralPath dist -Filter "ryan_functions-*.whl" -File)
-          if ($wheel.Count -ne 1) { throw "Expected exactly one retained ryan_functions wheel." }
+          if ($wheel.Count -ne 1) { throw "Expected exactly one freshly built ryan_functions wheel." }
 
           python -m pip install --no-deps --target $target $wheel[0].FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
