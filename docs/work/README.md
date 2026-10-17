@@ -8,7 +8,6 @@ and the handoff template. The linked record owns detailed progress; this table i
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
 | [Installed scripts, MCP and pip distribution plan](2026-10-17-installed-scripts-mcp-pip-distribution.md) | Deferred (draft PR) | Unassigned | 2026-10-17 | 2026-11-17 | Finish current PR backlog (#100, #118, #119, #120) first; then reassess packaged wrapper inventory, wheel-only MCP discovery, pip hydraulic dependencies and possible PyPI rename. No implementation or merge authorised. |
-| [TUFLOW culvert engine migration](2026-10-08-tuflow-culvert-engines-99.md) | Active | Unassigned | 2026-10-17 | 2026-10-24 | Final-review ID and source-overwrite fixes pass 68 focused tests (2 privilege skips); publish, confirm all five checks and perform authorized manual merge of PR #100. Engineering follow-ups deferred. |
 | [Temporary floodway CI exclusions](2026-10-16-floodway-ci-exclusions.md) | Deferred | Unassigned | 2026-10-16 | 2026-10-22 | Review or restore the two slow sweep tests when requested or at the review date; local tests remain available. |
 | [Safe GeoTIFF recompression](2026-10-15-safe-geotiff-recompression.md) | Ready for review | ChatGPT | 2026-10-15 | 2026-10-22 | Review and merge the pull request after CI passes. |
 | [TUFLOW shared filesystem verification](2026-10-15-tuflow-shared-verification-110.md) | In validation | ChatGPT | 2026-10-15 | 2026-10-22 | Review and commit local CRS test correction and verified 26.10.15.4 wheel; confirm CI on the resulting PR #116 head before merging. |
@@ -26,6 +25,7 @@ fronts.
 
 | Work front / status record | Status | Owner | Updated | Next review | Outcome |
 | --- | --- | --- | --- | --- | --- |
+| [TUFLOW culvert engine migration](2026-10-08-tuflow-culvert-engines-99.md) | Complete | Unassigned | 2026-10-17 | None | PR #100 squash-merged as 6283a9c after all five checks passed at 8b386d8; final-review fixes included. Engineering follow-ups #102/#103 deferred. |
 | [Fast PR checks and hosted timing](2026-10-17-fast-pr-checks-129.md) | Complete | ChatGPT | 2026-10-17 | None | All five required checks passed on a2c26dc; PR #129 squash-merged as 037cff3. Main ruleset requires Ruff and whitespace; tag ruleset unchanged. |
 | [Mapped-drive-safe paths, raster and archive progress](2026-10-16-absolute-path-policy.md) | Complete | ChatGPT | 2026-10-16 | None | PR #128 validated at `08b00de0`: all four required CI jobs passed; verified 26.10.16.2 wheel uses latest hydraulic dependency releases and is authorized for merge. |
 | [CI validation efficiency](2026-10-15-ci-validation.md) | Complete | ChatGPT | 2026-10-16 | None | PR #125 and release #126 merged; four main CI jobs and both publication jobs passed; public 26.10.16.1 wheel smoke passed. |
