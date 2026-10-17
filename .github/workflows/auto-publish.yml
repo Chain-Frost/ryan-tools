@@ -16,7 +16,7 @@ permissions:
 # every invocation scans the complete main-history backlog in commit order.
 # The hourly schedule recovers lost wakeups or interrupted publication runs.
 concurrency:
-  group: auto-pypi-reconcile-${{ github.repository }
+  group: auto-pypi-reconcile-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
@@ -54,7 +54,7 @@ jobs:
       - name: Check out CI-verified release tools
         uses: actions/checkout@v6
         with:
-          ref: ${{ steps.trusted.outputs.sha }
+          ref: ${{ steps.trusted.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Python for monotonic version allocation
