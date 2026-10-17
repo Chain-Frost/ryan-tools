@@ -121,6 +121,38 @@ artifacts.
 Real `osgeo`/GDAL integration is deliberately not claimed by this initial workflow. Run those tests in a compatible
 GDAL/QGIS/OSGeo4W environment until a reliable Python 3.14 hosted GDAL installation is established.
 
+### Fast PR checks and measured runtime (17 October 2026)
+
+[`fast-pr.yml`](../.github/workflows/fast-pr.yml) runs independently of the full
+Windows [`ci.yml`](../.github/workflows/ci.yml) on pull requests and main pushes.
+Its only installed development tool is the Ruff version already pinned in
+`pyproject.toml`. It checks whitespace in the changed patch and lint/formatting
+for changed first-party Python files, without checking out submodules or installing
+GDAL/geospatial packages. Strict Pyright remains in `Policy`, with the normal
+Python 3.14/GIS dependencies. Repository documentation and logging checks, Python
+3.13 compatibility, hosted tests, and wheel verification are unchanged.
+
+The fast workflow does **not** gate or precede the full workflow: it provides an
+earlier independent failure signal without adding to successful CI wall-clock
+time. When changing Python files, both checks must pass.
+
+Baseline from five recent GitHub Actions runs on 16 October 2026:
+
+| Job | Measured duration | Main cost |
+| --- | --- | --- |
+| Hosted tests | 2:40–3:37 | Install dependencies 60–67 s; pytest 60–104 s |
+| Policy | 1:30–2:06 | GIS package installation and static analysis |
+| Python 3.13 compatibility and MCP | 1:18–2:00 | Package and MCP dependency installation 40–74 s |
+| Package | 1:01–1:25 | Checkout, submodules, setup, and wheel prerequisites |
+
+The existing `setup-python` pip cache reuses downloaded packages, not installed
+site-packages, so dependency installations remain costly even when pip's cache
+is warm. The first change removes Ruff from the heavyweight `Policy` job to
+avoid installing GIS dependencies just to lint changed files. Leave the actual
+Windows tests and GIS dependency bootstrap in place until replacements are
+tested. Re-measure after several successful workflow runs before introducing
+parallel pytest workers or a prebuilt GIS environment.
+
 ## QGIS, OSGeo4W and GDAL
 
 QGIS and OSGeo4W can supply different Python packages, GDAL binaries, drivers and environment variables from the normal
