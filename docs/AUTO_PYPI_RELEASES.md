@@ -1,59 +1,55 @@
-# Automatic PyPI releases from successful main CI
+# Automatic PyPI release policy: new merges only
 
-The GitHub Actions workflow `.github/workflows/auto-publish.yml`
-reconciles GitHub's durable `main` commit history after successful
-`Python CI` push runs and hourly. No release PR or manual workflow
-dispatch is required. `pypi-publish.yml` builds and publishes **on
-a release-tag ref**, which is permitted by the `pypi` environment.
+The release cutover marker `.github/release-cutover.md` establishes a strict
+starting point. **Do not create releases for commits before or including that
+marker’s merge commit.** Existing Git tags, GitHub Releases and PyPI versions
+remain intact; they are considered only when allocating a newer version.
 
-## Processing and provenance
+## Normal publishing sequence
 
-1. Check out release tooling from a main commit verified by successful
-   Python CI, never a newer unverified commit.
-2. Enumerate first-parent main commits since the last tagged release.
-   GitHub concurrency may replace a pending workflow run, so the
-   reconciler scans the entire backlog every time. The hourly schedule
-   recovers missed events. A CI run still in progress blocks later
-   releases. Completed unsuccessful CI runs are skipped.
-3. Process eligible source commits in ancestry order, preserving version
-   and source ordering even if newer CI finishes first.
-4. Select a Perth-calendar version strictly newer than the source
-   version, every existing PyPI version and reserved Git tags.
-5. Atomically reserve a lightweight tag on the exact verified source SHA.
-   When a tag is already present for that SHA, reuse it. If a reserved
-   tag lacks a GitHub Release, create that Release on retry.
-6. Dispatch `pypi-publish.yml` on that `v<version>` tag. The tag
-   identifies the verified source commit. Stamp version metadata into
-   the temporary build checkout; do not push changes to protected main.
-7. Build and inspect the wheel, test its installed copy, verify that
-   no equal or newer PyPI version exists, then publish through OIDC
-   Trusted Publishing. Do not advance to a later eligible commit until
-   this version's publication is confirmed.
+1. A PR is merged into protected `main`, with its required checks passed.
+2. The post-merge `Python CI` push workflow must succeed at the **current
+   tip** of `main`.
+3. `.github/workflows/auto-publish.yml` runs using that verified commit. It
+   checks that the cutover marker was introduced earlier on first-parent
+   history, and that the commit is associated with a merged PR into `main`.
+4. Only the current verified tip is eligible. The reconciler does **not**
+   publish old untagged commits, replay earlier release failures or walk a
+   first-parent backlog. If newer merges supersede the CI run being processed,
+   the older run is skipped, rather than assigning a later PyPI version to
+   older source.
+5. Allocate a Perth-calendar version strictly greater than the source project
+   version, all existing Git release tags and all PyPI versions.
+6. Tag the current verified source SHA, create a stable GitHub Release, then
+   dispatch `pypi-publish.yml` **on that tag**. The tag-scoped job builds a
+   fresh verified wheel, stamps the release version into the temporary build
+   checkout and publishes via PyPI OIDC Trusted Publishing.
+7. The separate release-asset workflow can attach the identical PyPI wheel
+   to the GitHub Release after a successful publication.
 
-## Failure and recovery
+A burst of merges may produce fewer releases than commits: a merge that is
+superseded before its release attempt is skipped, but its code is included in
+the next released main revision.
 
-- The former `Release to PyPI` and `Finalize PyPI release` workflows
-  are retired. This eliminates racing duplicate tag creators.
-- Existing published tags are no-ops on rerun, even if newer versions exist.
-- A missing GitHub Release after atomic tag creation is recoverable.
-- If publication fails, inspect its tag-scoped run. Fix the error and
-  rerun `Publish to PyPI` on that same tag if still newer than the
-  registry. Never retag or overwrite a published version.
-- Unknown historical versions, registry failures, tag collisions,
-  non-main source commits, and unresolved publication failures stop
-  publication rather than silently breaking version monotonicity.
-- GitHub can replace a pending reconciler wake-up, but cannot remove
-  commits from main history. The next wake-up or hourly run rescans the
-  backlog, so eligible revisions are not omitted by lossy concurrency.
+## Cutover and recovery
 
-## Rebuilding a historical release
+- The marker's first addition to main history defines the cutover. The marker
+  merge itself is deliberately not a release.
+- The hourly scheduler and manual reconciliation action inspect only the
+  latest successful main CI revision. They never release older untagged
+  revisions merely because those revisions are in Git history.
+- Rerunning an already published latest tag is idempotent; no version can be
+  uploaded twice. An incomplete tag on the **current** head can be recovered.
+- An old unpublished tag from before this cutover is not backfilled. Do not
+  delete or move historical release tags, or attempt to reuse a version.
+- Source archives generated by GitHub contain the original committed
+  `pyproject.toml` baseline version, which can differ from the release
+  version stamped at build time. The verified PyPI wheel is the installable
+  versioned artifact.
+- The PyPI workflow must be allowed to deploy from `v*` tags. The
+  reconciliation job requires `contents: write` and `actions: write`
+  for tag creation and publication dispatch. Required CI checks on main
+  remain intact.
 
-The release tag points at the original verified source commit. Its
-`pyproject.toml` can contain an older baseline version. The release
-workflow stamps the tag version into the publication checkout before
-building; a plain `python -m build` of an unstamped checkout is *not*
-a byte-for-byte reconstruction of the published version.
-
-No Git history rewriting or version commits to `main` are needed.
-Local `dist/` artifacts are ignored by Git and CI builds them from
-scratch.
+This policy deliberately prioritises releasing **current code going
+forward**, rather than creating a GitHub Release for every historical merge.
