@@ -58,4 +58,4 @@ def test_mismatched_marker_leaves_project_untouched(tmp_path: Path) -> None:
     (tmp_path / "_version.py").write_text('__version__ = "26.10.16.1"\n', encoding="utf-8")
     with pytest.raises(ValueError):
         _release.stamp(tmp_path, "26.10.17.2", "_version.py")
-    assert '26.10.17.1' in project.read_text(encoding="utf-8")
+    assert "26.10.17.1" in project.read_text(encoding="utf-8")
