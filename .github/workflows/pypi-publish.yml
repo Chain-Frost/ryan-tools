@@ -11,7 +11,7 @@ permissions:
 # Repeated requests for a given tag can coalesce. The durable backlog
 # worker sequences DIFFERENT tags and cannot drop an intermediate commit.
 concurrency:
-  group: pypi-${{ github.repository }-${{ github.ref }
+  group: pypi-${{ github.repository }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -21,9 +21,9 @@ jobs:
     permissions:
       contents: read
     outputs:
-      tag: ${{ steps.plan.outputs.tag }
-      sha: ${{ steps.plan.outputs.sha }
-      publish: ${{ steps.plan.outputs.publish }
+      tag: ${{ steps.plan.outputs.tag }}
+      sha: ${{ steps.plan.outputs.sha }}
+      publish: ${{ steps.plan.outputs.publish }}
     steps:
       - name: Validate tagged release
         id: plan
