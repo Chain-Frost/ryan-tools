@@ -33,7 +33,7 @@ def test_next_is_strictly_newer(current: str, history: list[str], today: dt.date
 
 @pytest.mark.parametrize("historical", ["not-a-version", "2026.10.17.5", "26.13.1.1", "26.2.30.1"])
 def test_invalid_historical_versions_fail_closed(historical: str) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Unsupported|width|day|month"):
         _release.next_version("26.10.17.1", [historical], dt.date(2026, 10, 17))
 
 
@@ -48,7 +48,7 @@ def test_local_stamp_preserves_other_project_metadata(tmp_path: Path) -> None:
     assert 'version = "26.10.17.2"' in (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
     assert 'description = "example"' in (tmp_path / "pyproject.toml").read_text(encoding="utf-8")
     assert marker.read_text(encoding="utf-8") == '__version__ = "26.10.17.2"\n'
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="backwards"):
         _release.stamp(tmp_path, "26.10.17.1", "_version.py")
 
 
@@ -56,6 +56,6 @@ def test_mismatched_marker_leaves_project_untouched(tmp_path: Path) -> None:
     project = tmp_path / "pyproject.toml"
     project.write_text('[project]\nversion = "26.10.17.1"\n', encoding="utf-8")
     (tmp_path / "_version.py").write_text('__version__ = "26.10.16.1"\n', encoding="utf-8")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="matching"):
         _release.stamp(tmp_path, "26.10.17.2", "_version.py")
     assert "26.10.17.1" in project.read_text(encoding="utf-8")
