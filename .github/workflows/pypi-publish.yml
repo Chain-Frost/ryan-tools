@@ -4,28 +4,181 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  workflow_run:
+    workflows: [Python CI]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
 
 concurrency:
-  group: pypi-${{ github.ref }}
+  group: pypi-${{ github.repository }}
   cancel-in-progress: false
+  queue: max
 
 jobs:
+  release:
+    name: Allocate automatic release version
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }
+      sha: ${{ steps.plan.outputs.sha }
+      publish: ${{ steps.plan.outputs.publish }
+    steps:
+      - name: Check out trusted main release tooling
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Set up Python for version selection
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Reserve newest version and create stable release
+        id: plan
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const run = context.payload.workflow_run;
+            let sha;
+            let tag;
+            if (context.eventName === 'workflow_run') {
+              sha = run.head_sha;
+              const relation = await github.rest.repos.compareCommits({owner, repo, base: sha, head: 'main'});
+              if (!['identical', 'ahead'].includes(relation.data.status)) {
+                throw new Error('Successful CI commit is not on the current main ancestry.');
+              }
+              const related = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
+                owner, repo, commit_sha: sha
+              });
+              if (related.some(pr => pr.merged_at && pr.merge_commit_sha === sha &&
+                  /^release\/pypi-/.test(pr.head.ref))) {
+                core.info('Legacy release PR; existing finalization handles this commit.');
+                core.setOutput('publish', 'false');
+                return;
+              }
+              const source = await github.rest.repos.getContent({owner, repo, path: 'pyproject.toml', ref: sha});
+              const toml = Buffer.from(source.data.content, 'base64').toString('utf8');
+              const projectStart = toml.indexOf('[project]');
+              if (projectStart < 0) throw new Error('Missing [project] in pyproject.toml.');
+              const nextSection = toml.indexOf('\n[', projectStart + 9);
+              const section = toml.slice(projectStart, nextSection < 0 ? undefined : nextSection);
+              const versions = [...section.matchAll(/^version\s*=\s*"([^"]+)"\s*$/gm)];
+              const names = [...section.matchAll(/^name\s*=\s*"([^"]+)"\s*$/gm)];
+              if (versions.length !== 1 || names.length !== 1) {
+                throw new Error('Expected exactly one project name and version.');
+              }
+              const current = versions[0][1];
+              const project = names[0][1];
+              const allTags = await github.paginate(github.rest.repos.listTags, {owner, repo, per_page: 100});
+              const relevant = allTags.filter(item => /^v(?:\d{2}|\d{4})\.\d+\.\d+\.\d+$/.test(item.name));
+              const previouslyTagged = relevant.filter(item => item.commit.sha === sha);
+              if (previouslyTagged.length > 1) throw new Error('A commit has multiple calendar-version tags.');
+              const registry = await fetch('https://pypi.org/pypi/' + encodeURIComponent(project) + '/json',
+                {signal: AbortSignal.timeout(30000)});
+              let pypiVersions = [];
+              if (registry.ok) {
+                const info = await registry.json();
+                pypiVersions = Object.keys(info.releases || {});
+              } else if (registry.status !== 404) {
+                throw new Error('Cannot read PyPI versions: HTTP ' + registry.status);
+              }
+              if (previouslyTagged.length === 1) {
+                tag = previouslyTagged[0].name;
+              } else {
+                const perth = new Intl.DateTimeFormat('en-GB', {
+                  timeZone: 'Australia/Perth', year: 'numeric', month: '2-digit', day: '2-digit'
+                }).formatToParts(new Date());
+                const value = part => perth.find(p => p.type === part)?.value;
+                const today = [value('year'), value('month'), value('day')].join('-');
+                const input = JSON.stringify({
+                  current, versions: [...pypiVersions, ...relevant.map(item => item.name.slice(1))], today
+                });
+                const generated = await exec.getExecOutput('python3', [
+                  'repo-scripts/auto_release_version.py', 'next'
+                ], {input, silent: true});
+                if (generated.exitCode !== 0) throw new Error('Version allocation failed.');
+                tag = 'v' + generated.stdout.trim();
+                try {
+                  await github.rest.git.createRef({owner, repo, ref: 'refs/tags/' + tag, sha});
+                } catch (error) {
+                  throw new Error('Cannot atomically reserve release ' + tag +
+                    '; retry this CI release after reconciling competing tags: ' + error.message);
+                }
+              }
+              const tagVersion = tag.slice(1);
+              const tagParts = tagVersion.split('.').map(Number);
+              for (const previous of pypiVersions) {
+                const matched = /^(?:\d{2}|\d{4})\.\d+\.\d+\.\d+$/.test(previous);
+                if (!matched) throw new Error('Unexpected PyPI version ' + previous + '; manual reconciliation required.');
+                const numbers = previous.split('.').map(Number);
+                if (numbers.length !== 4 || numbers.some((x, i) => x > tagParts[i] &&
+                    numbers.slice(0, i).every((y, j) => y === tagParts[j]))) {
+                  throw new Error('A newer version already exists on PyPI; refusing older publish.');
+                }
+              }
+            } else {
+              if (!context.ref.startsWith('refs/tags/v')) {
+                throw new Error('Manual publication must run on an existing v-version release tag.');
+              }
+              tag = context.ref.slice('refs/tags/'.length);
+              const reference = await github.rest.git.getRef({owner, repo, ref: 'tags/' + tag});
+              sha = reference.data.object.sha;
+            }
+            let release;
+            try {
+              release = (await github.rest.repos.getReleaseByTag({owner, repo, tag})).data;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (!release) {
+              release = (await github.rest.repos.createRelease({
+                owner, repo, tag_name: tag, target_commitish: sha, name: tag,
+                generate_release_notes: true, draft: false, prerelease: false,
+                body: 'Automatically version-stamped distribution from verified main commit ' + sha +
+                  '. The wheel build updates local version metadata from the release tag without pushing main.'
+              })).data;
+            }
+            if (release.draft || release.prerelease || !release.published_at) {
+              throw new Error('Automatic publishing requires a published stable GitHub Release.');
+            }
+            const check = await fetch('https://pypi.org/pypi/' +
+              encodeURIComponent('ryan-functions') + '/' + encodeURIComponent(tag.slice(1)) +
+              '/json', {signal: AbortSignal.timeout(30000)});
+            await check.body?.cancel();
+            if (check.status !== 404 && !check.ok) throw new Error('PyPI availability failed: HTTP ' + check.status);
+            core.setOutput('tag', tag);
+            core.setOutput('sha', sha);
+            core.setOutput('publish', check.ok ? 'false' : 'true');
+            core.info(check.ok ? 'Existing published version, no upload.' : 'Reserved ' + tag + ' for ' + sha);
+
   build:
     name: Build and verify distribution
-    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false)
+    needs: [release]
+    if: needs.release.outputs.publish == 'true'
     runs-on: windows-latest
     permissions:
       contents: read
 
     steps:
       - name: Require a published stable GitHub Release
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
         uses: actions/github-script@v8
         with:
           script: |
-            const tag = context.ref.slice('refs/tags/'.length);
+            const tag = process.env.RELEASE_TAG;
             const {data: release} = await github.rest.repos.getReleaseByTag({
               ...context.repo, tag
             });
@@ -39,6 +192,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          ref: ${{ needs.release.outputs.sha }}
 
       - name: Initialise required package submodules
         shell: pwsh
@@ -58,15 +212,23 @@ jobs:
         run: |
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git merge-base --is-ancestor "$env:GITHUB_SHA" refs/remotes/origin/main
+          git merge-base --is-ancestor "$(git rev-parse HEAD)" refs/remotes/origin/main
           if ($LASTEXITCODE -ne 0) {
             throw "Release commit $env:GITHUB_SHA is not an ancestor of origin/main; refusing PyPI publication."
           }
 
+      - name: Stamp version from verified release tag
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.tag }
+        run: |
+          python repo-scripts/auto_release_version.py stamp "$env:RELEASE_TAG"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Validate release tag and project version
         shell: pwsh
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
         run: |
           @'
           import os
@@ -148,7 +310,8 @@ jobs:
 
   publish:
     name: Publish verified wheel
-    needs: build
+    needs: [release, build]
+    if: needs.release.outputs.publish == 'true'
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -162,6 +325,42 @@ jobs:
         with:
           name: pypi-distributions
           path: dist/
+
+      - name: Ensure PyPI has no equal or newer version before upload
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.release.outputs.tag }
+          PYPI_PROJECT: ryan-functions
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import urllib.error
+          import urllib.request
+
+          proposed = os.environ["RELEASE_TAG"].removeprefix("v")
+          def parts(value):
+              if not re.fullmatch(r"(?:\d{2}|\d{4})\.\d+\.\d+\.\d+", value):
+                  raise SystemExit(f"Cannot compare PyPI version {value!r}; release halted")
+              return tuple(int(component) for component in value.split("."))
+
+          url = "https://pypi.org/pypi/" + os.environ["PYPI_PROJECT"] + "/json"
+          try:
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  registry = json.load(response)
+              existing = registry["releases"]
+          except urllib.error.HTTPError as error:
+              if error.code == 404:
+                  existing = {}
+              else:
+                  raise
+          target = parts(proposed)
+          for version in existing:
+              if parts(version) >= target:
+                  raise SystemExit(f"Refusing {proposed}: PyPI already has {version}")
+          print(f"Verified {proposed} is newer than all existing PyPI releases")
+          PY
 
       - name: Publish to PyPI using Trusted Publishing
         uses: pypa/gh-action-pypi-publish@release/v1
