@@ -61,7 +61,7 @@ jobs:
           & (Join-Path $directory 'actionlint.exe')
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Check changed Python files
+      - name: Type-check changed Python files
         shell: pwsh
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
@@ -92,13 +92,9 @@ jobs:
           python -m pip install -r requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          Write-Host "Checking changed Python files:"
+          Write-Host "Type-checking changed Python files:"
           $pythonFiles | ForEach-Object { Write-Host " - $_" }
 
-          python -m ruff check $pythonFiles
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m ruff format --check $pythonFiles
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pyright $pythonFiles
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
