@@ -47,78 +47,43 @@ name. Confirm the name is available or that you control the existing project.
 You must configure PyPI and GitHub yourself; the repository workflow cannot
 register the publisher or create the GitHub environment on your behalf.
 
-## Create a release
+## Automatic release from main (default)
 
-### Automated release (recommended)
+Every **successful push CI** on `main`, including an ordinary approved PR
+merge, wakes `Reconcile automatic PyPI releases`, which dispatches the tag-scoped
+`Publish to PyPI` workflow. There is no manual version
+bump, separate release PR or manual workflow dispatch. The hourly reconciler revisits the entire durable backlog
+instead of relying on GitHub's lossy pending-run concurrency.
 
-Run **Actions → Release to PyPI → Run workflow**, selecting `main`.
-The workflow uses the existing transactional builder to bump the calendar
-version and retain the verified wheel, then opens a `release/pypi-<version>`
-pull request. Only one release PR may be open at a time.
+The release job verifies the exact CI commit is on `main`, reads the
+complete PyPI release history and repository tags, then chooses a strictly
+greater Perth-calendar version. It reserves the corresponding lightweight
+Git tag on that same tested commit. Multiple merges on the same day use
+successive revision numbers; both release selection and final upload checks
+reject an equal or older PyPI version. All unknown historical version formats
+and registry errors fail closed.
 
-The common `prepare_release.py` helper selects the date in Perth time
-(UTC+08:00), updates metadata and invokes the existing builder without another
-bump. It restores metadata if that builder fails. The two-digit year remains
-unchanged here; run-hy8 preserves its existing four-digit year to avoid a downgrade.
-All three repositories use the same helper and release lifecycle, with their
-existing package-specific verified builders and smoke checks. The existing-PR
-check runs before checkout/build to avoid wasting work on duplicate requests.
+The publisher stamps `pyproject.toml` **in its isolated publication checkout**
+to match the release tag, builds/verifies the wheel, runs isolated installed
+smoke checks and publishes with the existing OIDC Trusted Publisher. The source
+commit itself may retain an older baseline version; the tag and generated
+wheel metadata identify the published version. The tagged checkout must be
+built through the publication workflow to reproduce its version correctly.
+Protected `main` is never written to or bypassed by the publisher.
 
-Review and squash merge that PR after the five required CI checks pass.
-Successful **Python CI** on the merge commit triggers **Finalize PyPI release**,
-which creates the matching tag and GitHub Release and explicitly dispatches
-**Publish to PyPI** on that tag. Ordinary PR merges do not publish releases.
-The PyPI publisher identity remains `pypi-publish.yml` / environment `pypi`.
-Both release-event and manually dispatched publication require an existing,
-published, non-draft, non-prerelease GitHub Release for the exact tag. The
-publisher checks this through GitHub's API before checkout or building;
-a bare tag, draft or prerelease cannot be published through manual dispatch.
+See [automatic PyPI release policy](AUTO_PYPI_RELEASES.md) for version
+provenance, retry behaviour, concurrency limits and recovery.
 
-Enable **Settings → Actions → General → Allow GitHub Actions to create and
-approve pull requests** for the preparation workflow. It requests write
-permissions only for its preparation job; it does not approve or merge PRs.
-The bot-created PR triggers PR-event CI. If GitHub displays **Approve workflows
-to run**, a maintainer must approve that run before the required checks can
-complete. Preparation does not dispatch CI: manually dispatched workflow job
-checks do not satisfy PR ruleset requirements. See GitHub's
-[required-check event restrictions](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks#checks-from-some-workflow-jobs-are-not-evaluated).
+### Recovery and manual release tags
 
-Each push to `main` gets a separate CI concurrency group, so later merges
-cannot cancel or replace the release merge's running or pending validation.
-PR runs still cancel superseded runs. Finalization uses the successful run's
-exact merge SHA even if `main` has advanced. Its concurrency group is also
-specific to that SHA. If main CI fails or is manually cancelled, rerun that
-exact push run; a successful later commit does not release the earlier SHA.
-Finalization parses the merged version using Python's TOML parser rather than
-assuming a particular TOML layout or quoting style.
-
-If preparation fails after pushing a branch, inspect that branch and any PR
-before retrying. If finalization fails, rerun its failed job. If publication
-fails, rerun **Publish to PyPI** on the existing release tag after correcting
-the cause. Never move an existing release tag or overwrite a PyPI version.
-
-### Manual release
-
-1. Merge approved code and ensure the package CI checks have passed.
-2. Choose a new, unused calendar version and update the `[project]` version
-   in `pyproject.toml` **before creating a tag**. The existing
-   `repo-scripts/build_library.py --skip-artifacts` or normal build workflow
-   can advance the version; commit this change to `main`.
-3. Create and push the exact `v<version>` tag on that commit. The tagged
-   commit must be reachable from the repository's current `main` branch.
-4. In GitHub, create a **non-prerelease** release for that tag and publish it.
-   Creating a release is the deliberate publishing trigger.
-5. Monitor **Actions → Publish to PyPI**. The build job verifies the wheel
-   against the existing repository packaging checks and `twine check`, then
-   smoke-tests an isolated installation of that exact wheel before uploading it.
-   The publish job then uses OIDC to upload the same wheel to PyPI.
-6. Verify the resulting project on `https://pypi.org/project/ryan-functions/`.
-
-The workflow rejects a release tag that does not exactly match the version
-recorded in the tagged `pyproject.toml`. The publishing workflow does not bump versions,
-publish on pull requests, or publish prereleases. PyPI does not permit
-re-uploading a previously published version; advance the version for each
-release, even when correcting packaging.
+The old `Release to PyPI` preparation and `Finalize PyPI release` workflows have been
+retired to prevent duplicate release creation. The durable `Reconcile automatic PyPI
+releases` workflow processes successful `main` revisions in first-parent order,
+with an hourly reconciliation check in case of missed workflow notifications.
+It reserves a tag, creates a stable GitHub Release, and explicitly dispatches the
+existing tag-scoped `Publish to PyPI` workflow. A manual dispatch of the
+publisher on an existing tag remains possible for recovery. Do not manually
+move existing tags or reupload PyPI versions.
 
 ## Installation and scope
 
@@ -128,9 +93,7 @@ Once the first release succeeds:
 py -3.14 -m pip install ryan_functions
 ```
 
-The wheel includes bundled `run_hy8` and `culvert_solver` packages from
-the pinned git submodules and stages TUFLOW QML resources via `setup.py`.
-Build jobs must initialise those submodules. The project currently declares
+The wheel declares `run-hy8` and `ryan-culverts` as PyPI dependencies rather than bundling their source. The `ryan-culverts` dependency applies to Python 3.14+, until the planned 3.14-only baseline. TUFLOW QML resources are staged by `setup.py`, which still requires the `qgis-resources` submodule. The project currently declares
 `Python >=3.13`, and its metadata includes substantial geospatial
 dependencies. Confirm a fresh-environment installation on supported
 platforms before announcing broad compatibility: PyPI upload success by
@@ -159,10 +122,9 @@ References:
 - https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/
 - https://docs.pypi.org/trusted-publishers/using-a-publisher/
 
-## Finalization retries
+## Reconciliation retries
 
-Finalization checks PyPI before dispatching publication. If the version already exists,
-it skips dispatch; if publication for that SHA is active, it also skips duplicate work.
-A missing version with no active run can be dispatched again after a failed attempt.
-Unexpected PyPI responses or lookup timeouts fail visibly rather than guessing. Existing
-tag/SHA and stable-release checks still apply before these recovery decisions.
+If a publisher fails, inspect its exact tag and run. The hourly reconciler can
+recover a reserved tag with no GitHub Release, and does not allocate newer
+versions past an unpublished earlier release. Rerun the failed tag-scoped
+publisher after correcting the cause.

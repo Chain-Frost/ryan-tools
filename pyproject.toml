@@ -40,6 +40,9 @@ dependencies = [
   "cryptography>=3.1",
   "ezdxf",
   "rich",
+  "run-hy8>=2026.10.16.1",
+  # ryan-culverts requires 3.14; keep legacy 3.13 installs possible until baseline migration.
+  'ryan-culverts>=26.10.16.1; python_version >= "3.14"',
 ]
 [project.optional-dependencies]
 dev = [
@@ -104,16 +107,12 @@ include = [
   "vendor",
   "vendor.PyHMA",
   "vendor.PyHMA.*",
-  "run_hy8",
-  "run_hy8.*",
-  "culvert_solver",
-  "culvert_solver.*",
 ]
 namespaces = true
-where = [".", "vendor/run_hy8/src", "vendor/ryan_culverts/src", "ryan-scripts/TUFLOW-python"]
+where = [".", "ryan-scripts/TUFLOW-python"]
 
 [tool.pyright]
-extraPaths = ["vendor", "vendor/run_hy8/src", "vendor/ryan_culverts/src"]
+extraPaths = ["vendor"]
 include = ["ryan_library", "ryan-scripts"]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
