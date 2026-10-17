@@ -51,8 +51,10 @@ def next_version(current: str, previous: list[str], today: dt.date) -> str:
         year, month, day, revision = (*baseline[:3], baseline[3] + 1)
     year_text = str(year if width == 4 else year - 2000)
     version = f"{year_text}.{month}.{day}.{revision}"
-    if any(calendar_version(version, year_width=width) <= calendar_version(item, year_width=width)
-           for item in [current, *previous]):
+    if any(
+        calendar_version(version, year_width=width) <= calendar_version(item, year_width=width)
+        for item in [current, *previous]
+    ):
         message = "The proposed release version is not strictly newer than historical versions."
         raise ValueError(message)
     return version
@@ -76,7 +78,9 @@ def stamp(root: Path, version: str, marker: str | None) -> None:
     if not isinstance(source, str):
         message = "pyproject project.version must be text."
         raise TypeError(message)
-    if calendar_version(version, year_width=len(_VERSION.fullmatch(source)["year"]) if _VERSION.fullmatch(source) else 0) < calendar_version(source):
+    if calendar_version(
+        version, year_width=len(_VERSION.fullmatch(source)["year"]) if _VERSION.fullmatch(source) else 0
+    ) < calendar_version(source):
         message = "Release version must not go backwards from the source checkout."
         raise ValueError(message)
     section = _PROJECT.search(content)
@@ -84,7 +88,7 @@ def stamp(root: Path, version: str, marker: str | None) -> None:
         message = "Missing TOML [project] section."
         raise ValueError(message)
     changed = _change_line(section[2], _ASSIGNMENT, version, source)
-    updated = content[:section.start(2)] + changed + content[section.end(2):]
+    updated = content[: section.start(2)] + changed + content[section.end(2) :]
     marker_path = root / marker if marker else None
     marker_updated: str | None = None
     if marker_path is not None:
