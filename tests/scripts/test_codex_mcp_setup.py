@@ -256,7 +256,7 @@ def test_legacy_distribution_requires_migration(monkeypatch: pytest.MonkeyPatch,
 
 @pytest.mark.parametrize("key", ['"mcp_servers"', "'mcp_servers'", '"mcp_\\u0073ervers"'])
 def test_quoted_inline_root_key_is_preserved(tmp_path: Path, key: str) -> None:
-    original = f'model = "gpt-6"\\n{key} = {{ other = {{ command = "tool" }} }}\\n'
+    original = f'model = "gpt-6"\n{key} = {{ other = {{ command = "tool" }} }}\n'
     first = render(original, tmp_path / "python.exe", None, "create")
     second = render(first, tmp_path / "python.exe", None, "create")
     assert second == first
@@ -270,12 +270,12 @@ def test_quoted_inline_root_key_is_preserved(tmp_path: Path, key: str) -> None:
 def test_codex_writer_rejects_edits_after_read(tmp_path: Path) -> None:
     write = cast(Callable[..., None], codex["_write"])
     config = tmp_path / "config.toml"
-    initially_read = b'model = "older"\\n'
+    initially_read = b'model = "older"\n'
     config.write_bytes(initially_read)
-    config.write_text('model = "newer"\\n', encoding="utf-8")
+    config.write_text('model = "newer"\n', encoding="utf-8")
     with pytest.raises(RuntimeError, match="changed since setup read"):
-        write(config, 'model = "stale"\\n', dry_run=False, expected_original=initially_read)
-    assert config.read_text(encoding="utf-8") == 'model = "newer"\\n'
+        write(config, 'model = "stale"\n', dry_run=False, expected_original=initially_read)
+    assert config.read_text(encoding="utf-8") == 'model = "newer"\n'
     assert not list(tmp_path.glob("*.bak.*"))
 
 
@@ -286,39 +286,39 @@ def test_codex_writer_detects_edits_during_staged_write(
 
     write = cast(Callable[..., None], codex["_write"])
     config = tmp_path / "config.toml"
-    original = b'model = "before"\\n'
+    original = b'model = "before"\n'
     config.write_bytes(original)
     actual_fdopen = os.fdopen
 
     def concurrent_change(fd: int, mode: str):
-        config.write_text('model = "concurrent"\\n', encoding="utf-8")
+        config.write_text('model = "concurrent"\n', encoding="utf-8")
         return actual_fdopen(fd, mode)
 
     monkeypatch.setattr(os, "fdopen", concurrent_change)
     with pytest.raises(RuntimeError, match="changed during setup"):
-        write(config, 'model = "stale"\\n', dry_run=False, expected_original=original)
-    assert config.read_text(encoding="utf-8") == 'model = "concurrent"\\n'
+        write(config, 'model = "stale"\n', dry_run=False, expected_original=original)
+    assert config.read_text(encoding="utf-8") == 'model = "concurrent"\n'
 
 
 def test_codex_writer_refuses_symlink_without_replacing_it(tmp_path: Path) -> None:
     write = cast(Callable[..., None], codex["_write"])
     target = tmp_path / "managed-config.toml"
     link = tmp_path / "config.toml"
-    target.write_text('model = "managed"\\n', encoding="utf-8")
+    target.write_text('model = "managed"\n', encoding="utf-8")
     try:
         link.symlink_to(target)
     except (OSError, NotImplementedError):
         pytest.skip("Creating symbolic links is not permitted in this environment")
     with pytest.raises(ValueError, match="symlink"):
-        write(link, 'model = "unsafe"\\n', dry_run=False, expected_original=target.read_bytes())
+        write(link, 'model = "unsafe"\n', dry_run=False, expected_original=target.read_bytes())
     assert link.is_symlink()
-    assert target.read_text(encoding="utf-8") == 'model = "managed"\\n'
+    assert target.read_text(encoding="utf-8") == 'model = "managed"\n'
 
 
 def test_codex_writer_is_idempotent_for_unchanged_bytes(tmp_path: Path) -> None:
     write = cast(Callable[..., None], codex["_write"])
     config = tmp_path / "config.toml"
-    original = b'model = "kept"\\n'
+    original = b'model = "kept"\n'
     config.write_bytes(original)
     write(config, original.decode(), dry_run=False, expected_original=original)
     assert config.read_bytes() == original
