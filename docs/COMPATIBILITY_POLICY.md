@@ -24,8 +24,8 @@ The maintainer explicitly authorised removal of `ryan_functions/__init__.py` wit
 The import alias and its import hook are removed; use `ryan_library.functions` and its maintained submodules instead.
 No active internal Python callers were found. External users must update imports before upgrading.
 The PyPI distribution is renamed from `ryan_functions` to `ryan-tools`; Python imports remain under `ryan_library`.
-For an existing installation, uninstall `ryan_functions` before installing `ryan-tools`, because both distributions
-own the same `ryan_library` files. The new PyPI project needs its own Trusted Publisher configuration before publication.
+The PyPI and local-wheel installers automatically remove `ryan_functions` before installing `ryan-tools`, because both
+distributions own the same `ryan_library` files. Users installing directly with pip must uninstall the old distribution first. The new PyPI project needs its own Trusted Publisher configuration before publication.
 The separate `ryan_library.scripts` namespace and the remaining unused December compatibility
 APIs are also removed early under subsequent explicit maintainer decisions.
 

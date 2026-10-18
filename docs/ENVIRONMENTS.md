@@ -9,14 +9,16 @@ with the normal Python installation does not prove that it works inside those ap
 ## Distribution migration
 
 The distribution is now named `ryan-tools`; maintained Python imports remain `ryan_library`.
-Before upgrading an existing environment, uninstall the old distribution to avoid overlapping package ownership:
+The PyPI and local-wheel installers automatically migrate an existing `ryan_functions` installation.
+They validate the replacement first (verify the local wheel, or resolve the PyPI install with pip's `--dry-run`),
+run any dependency bootstrap commands, then uninstall the old distribution immediately before reinstalling `ryan-tools`.
+The force path retains `--no-deps`. No migration flag is needed in calling BAT files. Installer dry runs only print commands.
+When using pip directly instead of these installers, uninstall the old distribution first:
 
 ```powershell
 python -m pip uninstall ryan_functions
 ```
 
-Then install the new wheel with `install-local-wheel.bat`, or use the PyPI installer after `ryan-tools` is published.
-The installers stop before changing packages if the old distribution is still installed. Dry runs only print migration advice.
 Do not uninstall the old distribution after installing the new one: that can remove files shared by both distributions.
 The `ryan_functions` import alias is removed; replace those imports with `ryan_library.functions`.
 

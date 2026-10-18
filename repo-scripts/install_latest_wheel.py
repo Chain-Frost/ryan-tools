@@ -14,17 +14,6 @@ WHEEL_PATTERN: str = "ryan_tools-*.whl"
 QGIS_MCP_ARCHIVE: str = "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip"
 
 
-def legacy_installation_blocks_upgrade(*, dry_run: bool) -> bool:
-    """Prevent two differently named distributions from owning the same package files."""
-    try:
-        distribution("ryan_functions")
-    except PackageNotFoundError:
-        return False
-    print("Uninstall the old distribution before installing ryan-tools:")
-    print(subprocess.list2cmdline([sys.executable, "-m", "pip", "uninstall", "ryan_functions"]))
-    return not dry_run
-
-
 def _latest_wheel(dist_dir: Path) -> Path:
     """Return the most recently modified ryan-tools wheel."""
     wheels: list[Path] = list(dist_dir.glob(WHEEL_PATTERN))
@@ -88,6 +77,27 @@ def _pip_commands(
     return commands
 
 
+def migration_commands(commands: list[list[str]], *, verification_command: list[str]) -> list[list[str]]:
+    """Automatically replace the retired distribution after validating its replacement."""
+    try:
+        distribution("ryan_functions")
+    except PackageNotFoundError:
+        return commands
+    print("Migrating the legacy ryan_functions distribution to ryan-tools.")
+    uninstall = [sys.executable, "-m", "pip", "uninstall", "--yes", "ryan_functions"]
+    replacement = list(commands[-1])
+    # Removing the old owner can remove files shared with an existing new-name install.
+    if "--force-reinstall" not in replacement:
+        replacement.append("--force-reinstall")
+    return [verification_command, *commands[:-1], uninstall, replacement]
+
+
+def _migration_commands(wheel: Path, commands: list[list[str]]) -> list[list[str]]:
+    """Validate the local wheel before the one-time distribution-name migration."""
+    verify = [sys.executable, str(Path(__file__).absolute().with_name("verify_wheel.py")), str(wheel)]
+    return migration_commands(commands, verification_command=verify)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Install the latest wheel and return the first failing pip exit code."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -120,9 +130,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.dependencies_only and args.force_reinstall:
         parser.error("--dependencies-only cannot be combined with --force-reinstall")
 
-    if not args.dependencies_only and legacy_installation_blocks_upgrade(dry_run=args.dry_run):
-        return 1
-
     print(f"Using Python: {sys.executable}")
     if args.dependencies_only:
         commands: list[list[str]] = [_gis_dependency_command()]
@@ -141,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
             qgis_mcp_source=args.qgis_mcp_source,
             skip_qgis_mcp=args.skip_qgis_mcp,
         )
+        commands = _migration_commands(wheel, commands)
         if args.force_reinstall and not args.skip_qgis_mcp:
             print("NOTE: --force-reinstall uses --no-deps and does not install QGIS MCP.")
 

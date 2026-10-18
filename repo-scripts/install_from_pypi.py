@@ -12,7 +12,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from install_latest_wheel import GIS_WHEEL_INDEX, QGIS_MCP_ARCHIVE, legacy_installation_blocks_upgrade
+from install_latest_wheel import GIS_WHEEL_INDEX, QGIS_MCP_ARCHIVE, migration_commands
 from setup_codex_mcp import disable_bytecode_for_environment
 from setup_codex_mcp import main as configure_codex_mcp
 
@@ -147,17 +147,16 @@ def main(argv: list[str] | None = None) -> int:
         print("ERROR: This installer requires Python 3.13 or newer.", file=sys.stderr)
         return 1
 
-    if legacy_installation_blocks_upgrade(dry_run=args.dry_run):
-        return 1
-
     disable_bytecode = args.disable_bytecode or disable_bytecode_for_environment()
     sys.dont_write_bytecode = sys.dont_write_bytecode or disable_bytecode
     print(f"Python interpreter: {sys.executable}")
-    for command in pip_commands(
+    commands: list[list[str]] = pip_commands(
         qgis_mcp_source=args.qgis_mcp_source,
         skip_qgis_mcp=args.skip_qgis_mcp,
         disable_bytecode=disable_bytecode,
-    ):
+    )
+    commands = migration_commands(commands, verification_command=[*commands[-1], "--force-reinstall", "--dry-run"])
+    for command in commands:
         print(f"Command: {subprocess.list2cmdline(command)}", flush=True)
         if args.dry_run:
             continue
@@ -166,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ERROR: pip exited with status {result.returncode}", file=sys.stderr)
             return result.returncode
 
-    result = _configure_codex(args, disable_bytecode=disable_bytecode)
+    result: int = _configure_codex(args, disable_bytecode=disable_bytecode)
     if result:
         return result
 

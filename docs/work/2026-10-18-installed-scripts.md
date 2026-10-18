@@ -68,7 +68,6 @@ Do not uninstall it after installing the new one, since that can delete shared p
 
 Unrelated untracked `vendor/run_hy8` and `vendor/ryan_culverts` directories were preserved and not packaged.
 
-
 ## 2026-10-18 ? Bounded MCP discovery follow-up
 
 The maintainer requested smaller on-demand catalogue responses. `list_workflows` now defaults to 10 summaries,
@@ -90,7 +89,6 @@ Validation superseding the earlier artifact:
   the next page had no overlapping IDs; `raster clip` matched one workflow; health and full-catalogue totals agreed.
 - MCP documentation links passed. Changes remain unstaged/uncommitted; no hosted run or publication claimed.
 
-
 ## 2026-10-18 ? Retain Python 3.13 support for culverts
 
 The maintainer explicitly keeps Python 3.13 supported, including `ryan-culverts`; users with compatibility problems
@@ -107,7 +105,6 @@ A rerun excluding that unrelated removal check reported **83 passed, 1 deselecte
 Artifact size **1,362,577 bytes**, SHA-256 `05b2af1679a973749c4c1d9fdc1832b76d6b227e3a2388c8e12d230a0be9fce4`.
 This follow-up remains uncommitted; the preceding implementation has since been committed independently.
 
-
 ## 2026-10-18 ? Assume mandatory culvert dependency is installed
 
 At the maintainer's request, removed all six repeated `required_modules: ["culvert_solver"]` catalogue declarations
@@ -122,3 +119,53 @@ Built and verified `ryan_tools-26.10.18.4-py3-none-any.whl` (**1,362,267 bytes**
 `0db19b6637c3abcdf6d49a6bcdb64f44e72e88e87e56549409fcee5eb46cc6fa`.
 Isolated installed-wheel smoke passed on Python 3.14 outside the checkout.
 The previously recorded unrelated source-namespace test gap remains outside this change. No commit/push/publication.
+
+## 2026-10-18 ? Package-and-install migration launchers
+
+The maintainer reported that both package-and-install BATs stopped on the retired distribution guard.
+Both now pass `--replace-legacy` to the local wheel installer. The force launcher also forwards caller arguments.
+With this explicit migration choice, the installer verifies the local wheel, runs the selected dependency bootstrap
+commands, uninstalls `ryan_functions`, and reinstalls the replacement wheel. Migration forces replacement even if the
+new distribution's version is already installed, because removing the old owner may remove shared package files.
+The force path retains `--no-deps`; the normal path retains dependency installation. Without migration opt-in,
+standalone installers keep the existing guard. No old-name checks trigger after the legacy distribution is absent.
+
+Validation: **36 setup/installer tests passed, 1 symlink-permission skip**; Ruff lint/format and strict Pyright passed.
+Tests cover migration ordering, no-op when the old distribution is absent, and stopping before uninstall when wheel
+verification fails. Both force and normal migration commands were reviewed in dry runs. Documentation links and diff
+checks passed. No actual package migration was run in the user's normal environment; no commit or push performed.
+The user's pre-existing package version change and retained wheel 26.10.18.6 were preserved.
+
+## 2026-10-18 ? Default migration in the main installers
+
+The maintainer requested that migration belong to the main installer rather than calling BAT files.
+Removed `--replace-legacy` from the CLI and both package-and-install BATs. The local-wheel and PyPI installers now
+share automatic legacy-distribution migration. Local migration verifies the wheel; PyPI migration resolves the intended
+replacement with `--force-reinstall --dry-run` before any uninstall. Both remove the old owner immediately before the
+replacement install; no legacy installation means the original install commands run unchanged.
+The force BAT retains caller-argument forwarding. Direct pip migration instructions remain documented separately.
+This supersedes the preceding opt-in migration design.
+
+Validation: **35 installer/setup tests passed, 1 symlink-permission skip**; Ruff lint/format and strict Pyright passed.
+Tests exercise local migration ordering, absence of the old distribution, pre-uninstall verification failure, and default
+PyPI migration/preflight ordering. Local force and PyPI installer dry runs passed. Documentation and diff checks passed.
+No installation, version bump, wheel rebuild, commit or push performed by this follow-up; concurrent user build/version
+changes were preserved.
+
+
+## 2026-10-18 ? Live installed MCP acceptance and generic user configuration
+
+The maintainer requested a real MCP test and identified a leftover checkout override in the live Codex configuration.
+Removed only `RYAN_TOOLS_REPOSITORY_ROOT` from `C:\Users\Ryan\.codex\config.toml`, verified all other parsed
+settings were unchanged, and backed up the original as `config.toml.bak.20261018-230000-406532`.
+
+Launched the exact configured Python/module command through an MCP stdio client from the Windows temporary directory,
+outside the checkout. Installed `ryan-tools` **26.10.18.8**, MCP SDK **2.3.0**, Python **3.14.6**.
+Protocol initialization and enumeration passed: **7 tools**, **2 resources**. Health reported the installed
+`site-packages/ryan_library`, sibling `site-packages/ryan-scripts`, `repository_root: null`, profile `create`,
+**35 total / 28 visible / 28 available** workflows and no warnings.
+Default listing returned **10 of 28**; the following page had no overlapping IDs. `raster clip` search resolved an
+existing installed clipping script. Filename parsing returned Q, AEP 01.00p, duration 060m and TP01. Guidance resource
+reading passed. All **37 focused MCP tests** passed as well.
+This tests a real stdio MCP process using the configured command, not attachment of new tools to this existing chat.
+Restart Codex to reload its edited configuration. No package installation, commit, push or publication performed.

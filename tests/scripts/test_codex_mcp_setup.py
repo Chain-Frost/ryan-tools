@@ -244,16 +244,6 @@ def test_default_setup_removes_checkout_requirement(tmp_path: Path) -> None:
     assert environment["CUSTOM"] == "keep"
 
 
-@pytest.mark.parametrize("dry_run", [False, True])
-def test_legacy_distribution_requires_migration(monkeypatch: pytest.MonkeyPatch, dry_run: bool) -> None:
-    def installed_distribution(_name: str) -> object:
-        return object()
-
-    check = cast(Callable[..., bool], installer["legacy_installation_blocks_upgrade"])
-    monkeypatch.setitem(check.__globals__, "distribution", installed_distribution)
-    assert check(dry_run=dry_run) is (not dry_run)
-
-
 @pytest.mark.parametrize("key", ['"mcp_servers"', "'mcp_servers'", '"mcp_\\u0073ervers"'])
 def test_quoted_inline_root_key_is_preserved(tmp_path: Path, key: str) -> None:
     original = f'model = "gpt-6"\n{key} = {{ other = {{ command = "tool" }} }}\n'
@@ -321,3 +311,93 @@ def test_codex_writer_is_idempotent_for_unchanged_bytes(tmp_path: Path) -> None:
     write(config, original.decode(), dry_run=False, expected_original=original)
     assert config.read_bytes() == original
     assert not list(tmp_path.glob("*.bak.*"))
+
+
+@pytest.mark.parametrize("force_reinstall", [False, True])
+def test_legacy_migration_runs_dependencies_before_uninstall(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, force_reinstall: bool
+) -> None:
+    def installed_distribution(_name: str) -> object:
+        return object()
+
+    migrate = cast(Callable[..., list[list[str]] | None], installer["_migration_commands"])
+    monkeypatch.setitem(migrate.__globals__, "distribution", installed_distribution)
+    wheel = tmp_path / "ryan_tools-test.whl"
+    original = pip_commands(wheel, force_reinstall)
+    commands = migrate(wheel, original)
+    assert commands is not None
+    assert commands[0][-2].endswith("verify_wheel.py")
+    assert commands[1:-2] == original[:-1]
+    assert commands[-2][-3:] == ["uninstall", "--yes", "ryan_functions"]
+    assert "--force-reinstall" in commands[-1]
+    assert [arg for arg in commands[-1] if arg != "--force-reinstall"] == [
+        arg for arg in original[-1] if arg != "--force-reinstall"
+    ]
+
+
+def test_legacy_migration_is_skipped_after_old_distribution_is_removed(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from importlib.metadata import PackageNotFoundError
+
+    def absent_distribution(_name: str) -> object:
+        raise PackageNotFoundError
+
+    migrate = cast(Callable[..., list[list[str]] | None], installer["_migration_commands"])
+    monkeypatch.setitem(migrate.__globals__, "distribution", absent_distribution)
+    commands = pip_commands(tmp_path / "ryan_tools-test.whl", True)
+    assert migrate(tmp_path / "wheel.whl", commands) == commands
+
+
+def test_legacy_migration_stops_before_uninstall_when_wheel_verification_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import subprocess
+
+    def installed_distribution(_name: str) -> object:
+        return object()
+
+    def latest_wheel(*, dist_dir: Path) -> Path:
+        return dist_dir / "ryan_tools-test.whl"
+
+    calls: list[list[str]] = []
+
+    def fail_verification(command: list[str], *, check: bool) -> subprocess.CompletedProcess[bytes]:
+        assert check is False
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 19, stdout=b"", stderr=b"")
+
+    main_fn = cast(Callable[..., int], installer["main"])
+    monkeypatch.setitem(main_fn.__globals__, "distribution", installed_distribution)
+    monkeypatch.setitem(main_fn.__globals__, "_latest_wheel", latest_wheel)
+    monkeypatch.setattr(subprocess, "run", fail_verification)
+    assert main_fn(["--force-reinstall"]) == 19
+    assert len(calls) == 1
+    assert calls[0][-2].endswith("verify_wheel.py")
+
+
+def test_pypi_installer_migrates_automatically_after_resolution(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+
+    def installed_distribution(_name: str) -> object:
+        return object()
+
+    calls: list[list[str]] = []
+
+    def successful_command(command: list[str], *, check: bool) -> subprocess.CompletedProcess[bytes]:
+        assert check is False
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(sys, "path", [str(REPO / "repo-scripts"), *sys.path])
+    pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
+    migrate = cast(Callable[..., list[list[str]]], pypi["migration_commands"])
+    monkeypatch.setitem(migrate.__globals__, "distribution", installed_distribution)
+    monkeypatch.setattr(subprocess, "run", successful_command)
+    main_fn = cast(Callable[..., int], pypi["main"])
+    assert main_fn(["--skip-codex", "--skip-qgis-mcp"]) == 0
+    assert "--dry-run" in calls[0]
+    assert "--force-reinstall" in calls[0]
+    assert calls[-2][-3:] == ["uninstall", "--yes", "ryan_functions"]
+    assert "ryan-tools[mcp]" in calls[-1]
+    assert "--force-reinstall" in calls[-1]

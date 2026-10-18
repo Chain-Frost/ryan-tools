@@ -7,8 +7,8 @@ utilities.
 The distribution is named `ryan-tools`, while maintained imports use `ryan_library`. The wheel also installs
 `ryan-scripts` beside `ryan_library`, so MCP workflows do not require a Git checkout.
 
-When migrating from the old distribution, run `python -m pip uninstall ryan_functions` before installing
-`ryan-tools`. The removed `ryan_functions` import alias must be replaced with `ryan_library.functions`.
+The PyPI and local-wheel installers automatically migrate the old distribution. When using pip directly, run
+`python -m pip uninstall ryan_functions` before installing `ryan-tools`. The removed `ryan_functions` import alias must be replaced with `ryan_library.functions`.
 See the [migration policy](docs/COMPATIBILITY_POLICY.md#removed-ryan_functions-import-namespace--2026-10-18).
 The `ryan_library.scripts` import namespace and its six root-level forwarding aliases were retired
 on 18 October 2026. Import maintained modules directly instead (breaking change).
