@@ -774,6 +774,7 @@ def build_external_overviews(raster: Path, profile: str) -> None:
                 sidecar.unlink(missing_ok=True)
     raise RuntimeError("GDAL failed to build external overviews after 3 attempts: " + "; ".join(failures))
 
+
 def materialize_clipped_maximum(
     maximum: gdal.Dataset,
     source_info: SourceInfo,
@@ -1106,7 +1107,6 @@ def write_report(
     return True
 
 
-
 def execute_jobs(
     jobs: list[Job],
     *,
@@ -1122,6 +1122,7 @@ def execute_jobs(
     Messages are delivered through optional callbacks; a caller decides how
     to present them. GDAL failures in one job do not prevent other jobs.
     """
+
     def emit(message: str) -> None:
         if notify is not None:
             notify(message)
