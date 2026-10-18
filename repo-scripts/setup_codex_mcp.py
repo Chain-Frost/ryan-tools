@@ -150,9 +150,7 @@ def render_config(config: str, python: Path, root: Path | None, profile: str, *,
 
     # Inline TOML tables are immutable; appendable [mcp_servers.X] sections
     # would make an otherwise valid user config invalid. Keep inline form.
-    inline_root = re.compile(
-        r"""^\s*(?P<key>"(?:\\.|[^"\\])*"|'[^']*'|[A-Za-z0-9_-]+)\s*=\s*\{.*\}\s*(?:#.*)?$"""
-    )
+    inline_root = re.compile(r"""^\s*(?P<key>"(?:\\.|[^"\\])*"|'[^']*'|[A-Za-z0-9_-]+)\s*=\s*\{.*\}\s*(?:#.*)?$""")
     original_lines = config.splitlines(keepends=True)
     for index, line in enumerate(original_lines):
         if _table_path(line) is not None:
@@ -160,12 +158,12 @@ def render_config(config: str, python: Path, root: Path | None, profile: str, *,
         match = inline_root.fullmatch(line.rstrip("\r\n"))
         if match is None:
             continue
-        decoded_key: dict[str, Any] = tomllib.loads(f'{match.group("key")} = {{}}\n')
+        decoded_key: dict[str, Any] = tomllib.loads(f"{match.group('key')} = {{}}\n")
         if "mcp_servers" not in decoded_key:
             continue
         updated_servers = {**servers, **updated_entries}
         newline = "\r\n" if line.endswith("\r\n") else "\n"
-        original_lines[index] = f'{match.group("key")} = {_value(updated_servers)}{newline}'
+        original_lines[index] = f"{match.group('key')} = {_value(updated_servers)}{newline}"
         result = "".join(original_lines)
         parsed = tomllib.loads(result)
         if any(parsed.get(key) != val for key, val in existing.items() if key != "mcp_servers"):
