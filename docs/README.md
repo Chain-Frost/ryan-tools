@@ -23,7 +23,7 @@ Useful discovery commands from the repository root are:
 
 ```powershell
 git ls-files "*.md"
-rg -n -i "search terms" -g "*.md" -g "!unsorted/**" -g "!vendor/run_hy8/**" -g "!vendor/ryan_culverts/**"
+rg -n -i "search terms" -g "*.md" -g "!unsorted/**" -g "!run-hy8 (PyPI)/**" -g "!ryan-culverts (PyPI)/**"
 ```
 
 ## Canonical policy and starting points
@@ -46,6 +46,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Area | Local document | Relevant work |
 | --- | --- | --- |
 | Culvert analysis/design | [Culvert analysis and design workflow](CULVERT_WORKFLOW.md) | Project/scenario models, solver boundary, design search, rating curves, CLI and output contracts |
+| TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
 | RORB storm conversion | [TUFLOW rainfall to RORB STM](../ryan-scripts/RORB-python/README.md) | Timestep convention, batch configuration, run limits and validation requirements |
@@ -65,6 +66,9 @@ These documents stay near the code they describe so that browsing a target direc
 | Document | Relevant work |
 | --- | --- |
 | [MCP server setup](MCP_SETUP.md) | Configuring focused MCP helpers and repository-backed workflow discovery in supported AI clients |
+| [PyPI publishing](PYPI_PUBLISHING.md) | Configuring Trusted Publishing and releasing verified wheels through GitHub Actions |
+| [Automatic PyPI releases](AUTO_PYPI_RELEASES.md) | Publishing only new verified main PR merges after a defined cutover |
+| [Automatic release cutover marker](../.github/release-cutover.md) | Recording the first commit after which new merged changes become eligible for releases |
 | [MCP workflow-target implementation](mcp-handoff/README.md) | Current execution-target design, wrapper-path reconciliation, validation contract and remaining staged migration |
 
 ## File-format references
@@ -87,7 +91,15 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
+| [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
+| [TUFLOW culvert engine validation](work/2026-10-08-tuflow-culvert-engines-99.md) | PR #100 retained-wheel repair, numerical evidence and outstanding source-data acceptance |
+| [PyPI release automation](work/2026-10-15-release-automation.md) | Automated version PR, release finalization, publication and temporary slow-test exclusions |
+| [CI validation efficiency](work/2026-10-15-ci-validation.md) | Actionlint enforcement, focused dependencies and publication-wheel smoke validation |
+| [Temporary floodway CI exclusions](work/2026-10-16-floodway-ci-exclusions.md) | Deferred review of the two slow sweep tests temporarily excluded from hosted CI |
+| [Safe GeoTIFF recompression](work/2026-10-15-safe-geotiff-recompression.md) | Ready-for-review lossless audit, compression, verification and replacement workflow |
+| [TUFLOW shared filesystem verification](work/2026-10-15-tuflow-shared-verification-110.md) | Follow-up to PR #109: shared file snapshots, hashing, raster conversion comparison and CRS safeguards |
 | [Floodway work record](work/2026-09-13-floodway-design-87.md) | Floodway implementation and validation |
 | [Floodway research](audits/2026-09-13-floodway-design-research.md) | Source baseline |
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |

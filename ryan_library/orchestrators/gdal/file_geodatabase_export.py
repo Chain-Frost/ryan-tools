@@ -51,7 +51,7 @@ class _ExportTask:
 
 def discover_file_geodatabases(input_paths: PathOrList) -> list[Path]:
     """Discover unique File Geodatabase directories from explicit paths and search roots."""
-    targets = list(dict.fromkeys(path.resolve() for path in to_path_list(input_paths)))
+    targets = list(dict.fromkeys(path.absolute() for path in to_path_list(input_paths)))
     if not targets:
         msg = "At least one input path is required"
         raise ValueError(msg)
@@ -90,8 +90,8 @@ def export_file_geodatabase(
     single_database: bool = False,
 ) -> FileGeodatabaseExportResult:
     """Export one File Geodatabase as separate layer files or one database."""
-    source_path = Path(source).resolve()
-    destination_root = Path(output_root).resolve()
+    source_path = Path(source).absolute()
+    destination_root = Path(output_root).absolute()
     normalized_format, spec = require_vector_driver(output_format)
     if source_path.suffix.lower() != ".gdb" or not source_path.is_dir():
         msg = f"Source is not an existing File Geodatabase: {source_path}"
@@ -174,7 +174,7 @@ def export_file_geodatabases(
         msg = "Multiple input GDBs share a name and would use the same output location"
         raise ValueError(msg)
 
-    destination_root = Path(output_root).resolve()
+    destination_root = Path(output_root).absolute()
     destination_root.mkdir(parents=True, exist_ok=True)
     tasks = [_ExportTask(source, destination_root, normalized_format, single_database) for source in geodatabases]
     worker_limit = max(1, multiprocessing.cpu_count() // 2) if max_workers is None else max_workers

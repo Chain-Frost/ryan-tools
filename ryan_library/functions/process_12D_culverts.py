@@ -129,7 +129,7 @@ def extract_numeric[T: (int, float)](
     """
     try:
         return dtype(value)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         logger.warning(
             "Invalid {} value '{}' for culvert '{}'. Setting to {}.",
             field_name,

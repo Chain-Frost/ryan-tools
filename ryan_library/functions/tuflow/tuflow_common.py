@@ -36,10 +36,7 @@ def collect_files(
     seen_roots: set[Path] = set()
     for candidate in paths_to_process:
         path: Path = Path(candidate).expanduser()
-        try:
-            normalized: Path = path.resolve(strict=False)
-        except OSError:
-            normalized = path.absolute()
+        normalized: Path = path.absolute()
         if normalized in seen_roots:
             continue
         seen_roots.add(normalized)
@@ -171,7 +168,7 @@ def process_file(
         return proc
     except Exception:
         try:
-            log_path = str(file_path.resolve().relative_to(Path.cwd().resolve()))
+            log_path = str(file_path.absolute().relative_to(Path.cwd().absolute()))
         except ValueError:
             log_path = str(file_path)
         logger.exception(f"Error processing {log_path}")

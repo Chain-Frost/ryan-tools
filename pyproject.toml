@@ -1,58 +1,60 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
+requires = ["setuptools>=69", "wheel"]
 
 [project]
 name = "ryan_functions"
-version = "26.10.13.1"
+version = "26.10.17.1"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 license = "SUL-1.0"
 requires-python = ">=3.13"
 authors = [
-    { name = "Chain Frost", email = "chainfrost@outlook.com" },
+  {name = "Chain Frost", email = "chainfrost@outlook.com"},
 ]
 classifiers = [
-    "Programming Language :: Python :: 3.14",
-    "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3.14",
+  "Operating System :: Microsoft :: Windows",
 ]
 dependencies = [
-    "numpy",
-    "pandas",
-    "pyshp",
-    "geopandas",
-    "fiona",
-    "pyarrow",
-    "fastparquet",
-    "matplotlib",
-    "colorama",
-    "XlsxWriter",
-    "psutil",
-    "laspy[lazrs]",
-    "tqdm",
-    "rasterio",
-    "seaborn",
-    "requests",
-    "openpyxl",
-    "loguru",
-    "tabulate",
-    "pypdf",
-    "cryptography>=3.1",
-    "ezdxf",
-    "rich",
+  "numpy",
+  "pandas",
+  "pyshp",
+  "geopandas",
+  "fiona",
+  "pyarrow",
+  "fastparquet",
+  "matplotlib",
+  "colorama",
+  "XlsxWriter",
+  "psutil",
+  "laspy[lazrs]",
+  "tqdm",
+  "rasterio",
+  "seaborn",
+  "requests",
+  "openpyxl",
+  "loguru",
+  "tabulate",
+  "pypdf",
+  "cryptography>=3.1",
+  "ezdxf",
+  "rich",
+  "run-hy8>=2026.10.16.1",
+  # ryan-culverts requires 3.14; keep legacy 3.13 installs possible until baseline migration.
+  'ryan-culverts>=26.10.16.1; python_version >= "3.14"',
 ]
-
 [project.optional-dependencies]
 dev = [
-    "build",
-    "pandas-stubs",
-    "pyright",
-    "pytest",
-    "pytest-cov",
-    "ruff==0.16.6",
+  "build",
+  "pandas-stubs",
+  "pyright",
+  "pytest",
+  "pytest-cov",
+  "ruff==0.16.6",
 ]
 mcp = [
-    "mcp[cli]>=2.1,<3",
+  "mcp[cli]>=2.1,<3",
 ]
 
 [project.scripts]
@@ -69,52 +71,48 @@ include-package-data = true
 "ryan_library.resources.mcp" = ["*.json"]
 "ryan_library.resources.qgis.tuflow" = ["*.qml"]
 "ryan_library.resources.tuflow_templates" = [
-    ".gitignore",
-    "model/*.csv",
-    "model/*.tbc",
-    "model/*.tef",
-    "model/*.tgc",
-    "model/*.tsoilf",
-    "runs/*.bat",
-    "runs/*.tcf",
-    "runs/*.trd",
+  ".gitignore",
+  "model/*.csv",
+  "model/*.tbc",
+  "model/*.tef",
+  "model/*.tgc",
+  "model/*.tsoilf",
+  "runs/*.bat",
+  "runs/*.tcf",
+  "runs/*.trd",
 ]
 
 [tool.setuptools.packages.find]
-where = [".", "vendor/run_hy8/src", "vendor/ryan_culverts/src", "ryan-scripts/TUFLOW-python"]
-include = [
-    "culvert_results",
-    "culvert_results.*",
-    "gis_processing",
-    "gis_processing.*",
-    "log_processing",
-    "log_processing.*",
-    "model_management",
-    "model_management.*",
-    "po_and_timeseries",
-    "po_and_timeseries.*",
-    "raster_processing",
-    "raster_processing.*",
-    "ryan_functions",
-    "ryan_functions.*",
-    "ryan_library",
-    "ryan_library.*",
-    "vendor",
-    "vendor.PyHMA",
-    "vendor.PyHMA.*",
-    "run_hy8",
-    "run_hy8.*",
-    "culvert_solver",
-    "culvert_solver.*",
-]
 exclude = [
-    "tests",
-    "tests.*",
+  "tests",
+  "tests.*",
+]
+include = [
+  "culvert_results",
+  "culvert_results.*",
+  "gis_processing",
+  "gis_processing.*",
+  "log_processing",
+  "log_processing.*",
+  "model_management",
+  "model_management.*",
+  "po_and_timeseries",
+  "po_and_timeseries.*",
+  "raster_processing",
+  "raster_processing.*",
+  "ryan_functions",
+  "ryan_functions.*",
+  "ryan_library",
+  "ryan_library.*",
+  "vendor",
+  "vendor.PyHMA",
+  "vendor.PyHMA.*",
 ]
 namespaces = true
+where = [".", "ryan-scripts/TUFLOW-python"]
 
 [tool.pyright]
+extraPaths = ["vendor"]
+include = ["ryan_library", "ryan-scripts"]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
-include = ["ryan_library", "ryan-scripts"]
-extraPaths = ["vendor", "vendor/run_hy8/src", "vendor/ryan_culverts/src"]

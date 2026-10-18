@@ -13,7 +13,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-10-16.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path()
@@ -59,9 +59,9 @@ def main(
     exclude_extensions: list[str] | None = None,
 ) -> int:
     if input_paths is None:
-        targets: list[Path] = [Path(DEFAULT_INPUT).resolve()]
+        targets: list[Path] = [Path(DEFAULT_INPUT).absolute()]
     else:
-        targets = [p.resolve() for p in to_path_list(input_paths)]
+        targets = [p.absolute() for p in to_path_list(input_paths)]
 
     if targets:
         first_target: Path = targets[0]

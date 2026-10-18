@@ -79,6 +79,6 @@ def create_footprints_in_directory(
 
 def _find_files(directory: Path, pattern: str, recursive: bool) -> list[Path]:
     """Return sorted matching files using recursive or direct globbing."""
-    directory = directory.resolve()
+    directory = directory.absolute()
     glob_pattern: str = f"**/{pattern}" if recursive else pattern
     return sorted(path for path in directory.glob(glob_pattern) if path.is_file())

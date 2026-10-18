@@ -103,6 +103,12 @@ through the MCP integration. This is an assessment, not a requirement to expose 
 When MCP discovery changes, update the relevant packaged listing or resource, focused tests and
 [`MCP_SETUP.md`](MCP_SETUP.md).
 
+## Filesystem path conventions
+
+Use `Path.absolute()` by default for ordinary project paths, script/working directories, file discovery and GDAL inputs/outputs. This preserves user-visible paths (including mapped network drives) and does not dereference junctions or symlinks. Resolve relative paths against their intended base directory before changing the process working directory.
+
+Reserve `Path.resolve()` for operations that explicitly need canonical physical identity, security boundary checks, or symlink-aware containment. A lexical `.absolute()`/`.relative_to()` comparison is not a substitute for canonical containment in security checks. Do not replace physical-identity or linked-path safety checks in destructive operations; maintain or add tests for symlinks/junctions and same-file destinations. See [`../AGENTS.md`](../AGENTS.md#filesystem-paths).
+
 ## Common execution environments
 
 The sections below define the important boundaries. See [`ENVIRONMENTS.md`](ENVIRONMENTS.md) for setup commands, VS Code
@@ -185,8 +191,8 @@ submodule content. Pass explicit repository-relative Markdown paths to check a d
   unnecessary full datasets into memory and preserve multiprocessing or streaming behaviour where it matters.
 - Use synthetic fixtures for tests when proprietary project results cannot be committed. Do not turn one observed
   project folder hierarchy into a general contract without evidence.
-- `tests/test_data`, `excel-resources`, `qgis-resources`, `unsorted`, `vendor/run_hy8` and `vendor/ryan_culverts` are
-  submodules. Preserve their independent worktrees and do not assume that a parent-repository change includes their
+- `tests/test_data`, `excel-resources`, `qgis-resources` and `unsorted` are
+  submodules. The HY-8 and culvert solver libraries are published PyPI dependencies. Preserve their independent worktrees and do not assume that a parent-repository change includes their
   contents.
 - The `unsorted` submodule is categorically outside automated inspection and validation. Do not initialise, traverse,
   search, lint, test or otherwise check it; select required submodules explicitly instead of using recursive checkout.

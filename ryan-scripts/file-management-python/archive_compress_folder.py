@@ -1,184 +1,245 @@
-"""Compresses entire directories into single .7z archives using the external 7-Zip
-executable. Respects exclusion lists directly using 7-Zip's native -xr! flags.
-Uses multiprocessing to process multiple folders concurrently.
-"""
+"""Compress specified directories into one sibling .7z archive per directory.
 
-# moved from unsorted, not tested in production yet - 2026-08-20
+7-Zip is required. Each input directory is archived as `folder.7z` beside
+the source directory, excluding configured folder names and file extensions
+with native 7-Zip `-xr!` arguments. Existing archives are skipped (never
+overwritten). Input folders are not deleted.
+
+The default target is the current working directory. Edit the settings below
+or override them on the command line. Progress reports completed *folders*,
+not bytes within a running 7-Zip subprocess; a spinner and elapsed timer show
+that a large individual archive is still being processed.
+
+Windows example:
+    python archive_compress_folder.py -i "Q:\\BGER\\PER\\Project Results" --workers 2 --no-pause
+
+This script uses an installed `ryan_functions` package; a copied wrapper
+requires a package version containing the shared archive compression helper.
+"""
 
 from __future__ import annotations
 
-import argparse
-import multiprocessing
 from pathlib import Path
 
-# ==============================================================================
-# WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-08-20.1"
+# ---------------------------------------------------------------------------
+# Wrapper identity and editable project settings (CLI options override these)
+# ---------------------------------------------------------------------------
+WRAPPER_VERSION = "2026-10-16.2"
 
-# EDITABLE DEFAULTS
-DEFAULT_INPUT = Path()
-DEFAULT_EXCLUDE_FOLDERS: list[str] = ["xf"]
-DEFAULT_EXCLUDE_EXTENSIONS: list[str] = [".xf4", ".xmdf", ".2dm", ".dat", ".7z"]
-# ==============================================================================
+DEFAULT_INPUT_PATHS: tuple[Path, ...] = (Path.cwd(),)
+DEFAULT_WORKING_DIRECTORY: Path | None = None  # None = first input directory
+DEFAULT_EXCLUDE_FOLDERS: tuple[str, ...] = ("xf",)
+DEFAULT_EXCLUDE_EXTENSIONS: tuple[str, ...] = (".xf4", ".xmdf", ".2dm", ".dat", ".7z")
+
+DEFAULT_7ZIP_EXE: Path | None = None  # None = auto-discover 7z.exe
+DEFAULT_MAX_WORKERS: int | None = None  # None = CPU count, limited to folder count
+DEFAULT_SHOW_PROGRESS = True  # Rich progress in interactive terminals; plain text otherwise
+DEFAULT_CONSOLE_LOG_LEVEL = "INFO"
+DEFAULT_LOG_FILE: Path | None = Path("archive_compress_folder.log")
+DEFAULT_FILE_LOG_LEVEL = "DEBUG"
+# ---------------------------------------------------------------------------
+
+import argparse
+import multiprocessing
+import sys
+from collections.abc import Sequence
 
 from loguru import logger
+from rich.console import Console
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn
 
-from ryan_library.functions.archive_utils import create_7zip_archive, find_7zip
+from ryan_library.functions.archive_utils import FolderCompressionJob, compress_folder_7zip, find_7zip
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.path_stuff import PathOrList, to_path_list
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
-
-SEVEN_ZIP_EXE: Path | None = find_7zip()
-
-
-def _compress_folder(args: tuple[Path, list[str], list[str]]) -> tuple[Path, str, str]:
-    """Worker function to compress an entire folder using 7z.exe."""
-    folder_path, ex_folders, ex_extensions = args
-
-    if not SEVEN_ZIP_EXE:
-        return folder_path, "ERROR", "7-Zip executable not found on system."
-
-    output_archive: Path = folder_path.with_suffix(suffix=".7z")
-    try:
-        if output_archive.exists():
-            return folder_path, "SKIPPED", f"Output {output_archive.name} already exists"
-
-        exclusions: list[str] = []
-        for folder in ex_folders:
-            exclusions.append(f"-xr!{folder}")
-        for ext in ex_extensions:
-            ext_str: str = ext if ext.startswith(".") else f".{ext}"
-            exclusions.append(f"-xr!*{ext_str}")
-        create_7zip_archive(
-            executable=SEVEN_ZIP_EXE,
-            output_archive=output_archive,
-            inputs=[f"{folder_path}\\*"],
-            exclusions=exclusions,
-        )
-        return folder_path, "SUCCESS", ""
-    except Exception as e:
-        return folder_path, "ERROR", str(e)
 
 
 def main(
     *,
     input_paths: PathOrList | None = None,
-    exclude_folders: list[str] | None = None,
-    exclude_extensions: list[str] | None = None,
+    exclude_folders: Sequence[str] | None = None,
+    exclude_extensions: Sequence[str] | None = None,
+    working_directory: Path | None = None,
+    seven_zip_exe: Path | None = None,
+    max_workers: int | None = None,
+    show_progress: bool | None = None,
 ) -> int:
-    if input_paths is None:
-        targets: list[Path] = [Path(DEFAULT_INPUT).resolve()]
-    else:
-        targets = [p.resolve() for p in to_path_list(input_paths)]
-
-    if targets:
-        first_target: Path = targets[0]
-        working_dir: Path = first_target.parent if first_target.is_file() else first_target
-        if not change_working_directory(target_dir=working_dir):
-            return 1
-
-    all_folders_to_compress: list[Path] = []
-
-    _ex_folders: list[str] = exclude_folders if exclude_folders is not None else DEFAULT_EXCLUDE_FOLDERS
-    _ex_extensions: list[str] = exclude_extensions if exclude_extensions is not None else DEFAULT_EXCLUDE_EXTENSIONS
-
-    active_exclude_folders: list[str] = [f.lower() for f in _ex_folders]
-    active_exclude_extensions: list[str] = [e.lower() for e in _ex_extensions]
-
-    for target in targets:
-        if target.is_dir():
-            all_folders_to_compress.append(target)
-        else:
-            logger.warning("Target {} is not a directory or does not exist", target)
-
-    # Deduplicate paths
-    all_folders_to_compress = list(dict.fromkeys(all_folders_to_compress))
-
-    if not all_folders_to_compress:
-        logger.warning("No valid folders found to compress.")
-        return 0
-
-    if not SEVEN_ZIP_EXE:
-        logger.error("7-Zip executable not found in PATH or Program Files. Cannot proceed.")
+    """Compress the selected folders and report per-folder and batch outcomes."""
+    # Resolve all caller-provided paths before any working-directory change.
+    targets = [
+        path.absolute() for path in to_path_list(input_paths if input_paths is not None else DEFAULT_INPUT_PATHS)
+    ]
+    if not targets:
+        logger.error("No input directories specified.")
         return 1
 
-    logger.info("Found {} folders to compress. Starting multiprocessing pool...", len(all_folders_to_compress))
+    configured_working_directory = working_directory if working_directory is not None else DEFAULT_WORKING_DIRECTORY
+    workdir = (
+        configured_working_directory.absolute()
+        if configured_working_directory is not None
+        else targets[0].parent
+        if targets[0].is_file()
+        else targets[0]
+    )
+    requested_workers = max_workers if max_workers is not None else DEFAULT_MAX_WORKERS
+    if requested_workers is not None and requested_workers < 1:
+        logger.error("Worker count must be at least 1, got {}.", requested_workers)
+        return 2
+    configured_exe = seven_zip_exe if seven_zip_exe is not None else DEFAULT_7ZIP_EXE
+    explicit_exe = configured_exe.absolute() if configured_exe is not None else None
+    if not change_working_directory(target_dir=workdir):
+        return 1
 
-    total_success = 0
-    total_skipped = 0
-    total_errors = 0
+    folders: list[Path] = []
+    invalid_count = 0
+    for target in dict.fromkeys(targets):
+        if target.is_dir():
+            folders.append(target)
+        else:
+            invalid_count += 1
+            logger.error("Input directory does not exist or is not a directory: {}", target)
+    if not folders:
+        logger.error("No valid input folders to compress.")
+        return 1
 
-    # Pack the args for multiprocessing
-    pool_args: list[tuple[Path, list[str], list[str]]] = [
-        (f, active_exclude_folders, active_exclude_extensions) for f in all_folders_to_compress
+    exe = explicit_exe if explicit_exe is not None else find_7zip()
+    if exe is None or not exe.is_file():
+        logger.error("7-Zip executable not found: {}. Set DEFAULT_7ZIP_EXE or --seven-zip-exe.", exe)
+        return 1
+
+    worker_count = min(requested_workers or multiprocessing.cpu_count(), len(folders))
+    exclusions_folders = tuple(exclude_folders if exclude_folders is not None else DEFAULT_EXCLUDE_FOLDERS)
+    exclusions_extensions = tuple(exclude_extensions if exclude_extensions is not None else DEFAULT_EXCLUDE_EXTENSIONS)
+    jobs = [
+        FolderCompressionJob(
+            folder=folder,
+            executable=exe,
+            excluded_folders=exclusions_folders,
+            excluded_extensions=exclusions_extensions,
+        )
+        for folder in folders
     ]
+    console = Console()
+    interactive = (show_progress if show_progress is not None else DEFAULT_SHOW_PROGRESS) and sys.stdout.isatty()
+    console.print(f"Folders: {len(jobs)} | workers: {worker_count} | 7-Zip: {exe}", markup=False)
+    console.print(
+        f"Excluded folders: {exclusions_folders} | excluded extensions: {exclusions_extensions}", markup=False
+    )
+    if len(jobs) == 1:
+        console.print(f"Processing: {jobs[0].folder}", markup=False)
+        console.print(f"Output: {jobs[0].folder.with_suffix('.7z')}", markup=False)
 
-    workers: int = min(multiprocessing.cpu_count(), len(pool_args))
-    with multiprocessing.Pool(processes=workers) as pool:
-        for folder_path, status, msg in pool.imap_unordered(_compress_folder, pool_args):
-            if status == "SUCCESS":
-                logger.debug("Compressed folder {}", folder_path.name)
-                total_success += 1
-            elif status == "SKIPPED":
-                logger.debug("Skipped {}: {}", folder_path.name, msg)
-                total_skipped += 1
-            else:
-                logger.error("Failed to compress {}: {}", folder_path.name, msg)
-                total_errors += 1
+    counts: dict[str, int] = {"SUCCESS": 0, "SKIPPED": 0, "ERROR": 0}
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("Folder progress"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        console=console,
+        disable=not interactive,
+    ) as progress:
+        task = progress.add_task("Compressing folders", total=len(jobs))
+        try:
+            with multiprocessing.Pool(processes=worker_count) as pool:
+                for finished, result in enumerate(pool.imap_unordered(compress_folder_7zip, jobs), start=1):
+                    counts[result.status] += 1
+                    progress.advance(task)
+                    console.print(f"[{finished}/{len(jobs)}] {result.status}: {result.folder}", markup=False)
+                    console.print(f"  Archive: {result.archive}", markup=False)
+                    if result.message:
+                        console.print(f"  Detail: {result.message}", markup=False)
+                    logger.debug(
+                        "Folder {} -> {}: {} {}",
+                        result.folder,
+                        result.archive,
+                        result.status,
+                        result.message,
+                    )
+        except (OSError, RuntimeError, ValueError):
+            logger.exception("Archive worker pool failed.")
+            return 1
 
     logger.success(
-        "Finished: {} compressed, {} skipped, {} errors.",
-        total_success,
-        total_skipped,
-        total_errors,
+        "Archive compression complete: {} compressed, {} skipped, {} failed, {} invalid input(s).",
+        counts["SUCCESS"],
+        counts["SKIPPED"],
+        counts["ERROR"],
+        invalid_count,
     )
-    return 1 if total_errors > 0 else 0
+    return 1 if invalid_count or counts["ERROR"] else 0
 
 
-def _parse_cli_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Compresses entire folders into single .7z archives using 7-Zip.")
+def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
         "-i",
         "--input_paths",
+        "--input-paths",
         type=Path,
         nargs="+",
         default=None,
-        help="Input directories to compress.",
+        help="Folders to archive; overrides DEFAULT_INPUT_PATHS.",
     )
     parser.add_argument(
         "--exclude_folders",
-        type=str,
+        "--exclude-folders",
         nargs="+",
         default=None,
-        help="List of folder names to exclude from the search (e.g. xf).",
+        help="Folder names to exclude; overrides DEFAULT_EXCLUDE_FOLDERS.",
     )
     parser.add_argument(
         "--exclude_extensions",
-        type=str,
+        "--exclude-extensions",
         nargs="+",
         default=None,
-        help="List of file extensions to exclude (e.g. .xf4 .xmdf).",
+        help="Extensions to exclude; overrides DEFAULT_EXCLUDE_EXTENSIONS.",
     )
-    parser.add_argument("--no-pause", action="store_true", help="Do not pause the console after execution.")
-    return parser.parse_args()
+    parser.add_argument(
+        "--working-directory", type=Path, default=None, help="Working directory; default is first source folder."
+    )
+    parser.add_argument(
+        "--seven-zip-exe", type=Path, default=None, help="Explicit 7z.exe path; otherwise automatically discovered."
+    )
+    parser.add_argument(
+        "--workers", type=int, default=None, help="Maximum concurrent folder compressions; defaults to CPU count."
+    )
+    parser.add_argument(
+        "--progress",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable the interactive folder progress bar.",
+    )
+    parser.add_argument("--console-log-level", default=None, help="Loguru console level, e.g. INFO or SUCCESS.")
+    parser.add_argument("--log-file", type=Path, default=None, help="Log file location; defaults to DEFAULT_LOG_FILE.")
+    parser.add_argument("--no-pause", action="store_true", help="Do not wait for a console keypress after execution.")
+    return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
-    args: argparse.Namespace = _parse_cli_arguments()
+    cli = _parse_cli_arguments()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-
-    with setup_logger(console_log_level="SUCCESS", log_file="archive_compress_folder.log", file_log_level="DEBUG"):
-        result: int = main(
-            input_paths=args.input_paths,
-            exclude_folders=args.exclude_folders,
-            exclude_extensions=args.exclude_extensions,
-        )
-
-    print_wrapper_banner(
-        wrapper_file=Path(__file__),
-        wrapper_version=WRAPPER_VERSION,
-        leading_blank_line=True,
-    )
-    if not args.no_pause:
+    configured_log = cli.log_file if cli.log_file is not None else DEFAULT_LOG_FILE
+    log_file = str(configured_log.absolute()) if configured_log is not None else None
+    with setup_logger(
+        console_log_level=cli.console_log_level or DEFAULT_CONSOLE_LOG_LEVEL,
+        log_file=log_file,
+        file_log_level=DEFAULT_FILE_LOG_LEVEL,
+    ):
+        try:
+            exit_code = main(
+                input_paths=cli.input_paths,
+                exclude_folders=cli.exclude_folders,
+                exclude_extensions=cli.exclude_extensions,
+                working_directory=cli.working_directory,
+                seven_zip_exe=cli.seven_zip_exe,
+                max_workers=cli.workers,
+                show_progress=cli.progress,
+            )
+        except Exception:
+            logger.exception("Archive compression wrapper failed.")
+            exit_code = 1
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    if not cli.no_pause:
         pause_console()
-    raise SystemExit(result)
+    raise SystemExit(exit_code)

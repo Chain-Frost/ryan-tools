@@ -57,7 +57,7 @@ def parse_and_resolve_options(argv: Sequence[str] | None = None) -> RuntimeOptio
     if gpkg_candidate is None:
         parser.error("No GeoPackage supplied. Provide a path argument or set HARDCODED_GPKG_PATH.")
 
-    gpkg_path: Path = Path(gpkg_candidate).expanduser().resolve()
+    gpkg_path: Path = Path(gpkg_candidate).expanduser().absolute()
     return RuntimeOptions(gpkg_path=gpkg_path, layer=args.layer)
 
 

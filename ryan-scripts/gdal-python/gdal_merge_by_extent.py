@@ -21,9 +21,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.3"
+WRAPPER_VERSION = "2026-10-16.1"
 
-WORKING_DIR: Path = Path(__file__).resolve().parent
+WORKING_DIR: Path = Path(__file__).absolute().parent
 EXTENT_VECTOR: Path | None = None
 CONSOLE_LOG_LEVEL = "INFO"
 FILE_PATTERN = "*.xyz"
@@ -67,14 +67,14 @@ def main(
 ) -> int:
     """Resolve wrapper settings, select intersecting tiles, and optionally merge them."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    target_directory = (working_directory or WORKING_DIR).resolve()
+    target_directory = (working_directory or WORKING_DIR).absolute()
     configured_extent = extent_vector or EXTENT_VECTOR
     if configured_extent is None:
         print("No extent vector configured. Set EXTENT_VECTOR or pass it as the second positional argument.")
         return 1
-    resolved_extent = configured_extent.resolve()
-    resolved_tif = output_tif.resolve() if output_tif else (OUTPUT_TIF.resolve() if OUTPUT_TIF else None)
-    resolved_vrt = output_vrt.resolve() if output_vrt else (OUTPUT_VRT.resolve() if OUTPUT_VRT else None)
+    resolved_extent = configured_extent.absolute()
+    resolved_tif = output_tif.absolute() if output_tif else (OUTPUT_TIF.absolute() if OUTPUT_TIF else None)
+    resolved_vrt = output_vrt.absolute() if output_vrt else (OUTPUT_VRT.absolute() if OUTPUT_VRT else None)
     if not change_working_directory(target_dir=target_directory):
         return 1
     with setup_logger(console_log_level=console_log_level or CONSOLE_LOG_LEVEL):

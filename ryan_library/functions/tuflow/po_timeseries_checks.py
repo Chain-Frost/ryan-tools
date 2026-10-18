@@ -8,7 +8,7 @@ __lazy_modules__ = ["numpy", "pandas"]
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -404,7 +404,7 @@ def _evaluate_stability_series(
         if nonzero.size < 2:
             sign_changes = 0
         else:
-            sign_changes = int(np.sum(nonzero[1:] * nonzero[:-1] < 0))
+            sign_changes = int(np.count_nonzero(nonzero[1:] * nonzero[:-1] < 0))
 
     status: str = "UNSTABLE" if sign_changes > config.max_sign_changes else "OK"
 
@@ -526,8 +526,8 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
         values_rel: Series = values_raw - start_value
         abs_rel: Series = values_rel.abs()
         try:
-            peak_idx = int(abs_rel.idxmax(skipna=True))
-        except TypeError, ValueError:
+            peak_idx = int(cast("int | float | str", abs_rel.idxmax(skipna=True)))
+        except (TypeError, ValueError):
             peak_idx = int(np.nanargmax(abs_rel.to_numpy()))
 
         peak_rel = values_rel.iloc[peak_idx]
