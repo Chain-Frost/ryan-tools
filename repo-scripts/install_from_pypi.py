@@ -19,11 +19,7 @@ from setup_codex_mcp import main as configure_codex_mcp
 def codex_installed() -> bool:
     """Detect the Codex CLI or an existing Codex user installation."""
     home = Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex")).expanduser()
-    return (
-        shutil.which("codex") is not None
-        or (home / "config.toml").is_file()
-        or (home / "auth.json").is_file()
-    )
+    return shutil.which("codex") is not None or (home / "config.toml").is_file() or (home / "auth.json").is_file()
 
 
 def pip_commands(*, qgis_mcp_source: str | None = None, skip_qgis_mcp: bool = False) -> list[list[str]]:
