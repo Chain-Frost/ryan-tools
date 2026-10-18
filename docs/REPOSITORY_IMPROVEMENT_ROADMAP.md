@@ -68,10 +68,10 @@ Tracked upstream in [run-hy8 issue #4](https://github.com/Chain-Frost/run-hy8/is
 
 Priority: medium-low; separate upstream follow-up.
 
-`vendor/run_hy8` remains an independent submodule and the parent repository retains a maintained HY-8 bridge and
-wrapper. If duplicate TUFLOW/domain-specific demos still exist upstream and become a maintenance problem, review them
-in the `run-hy8` repository and propose removal or deprecation there. Do not modify vendored content as routine
-parent-repository cleanup.
+`run-hy8` is now an independent PyPI dependency, not a `vendor/run_hy8` submodule. The parent
+repository retains a maintained HY-8 bridge and wrapper. If duplicate TUFLOW/domain-specific demos
+still exist upstream, review them in the `run-hy8` repository; do not reintroduce vendoring as part
+of parent-repository cleanup.
 
 ### 3. Keep directory renames deferred until caller inventory
 
