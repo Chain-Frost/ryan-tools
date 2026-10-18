@@ -85,14 +85,14 @@ def test_overwrite_replaces_swapped_symlink_without_writing_its_target(
     except (OSError, NotImplementedError) as exc:
         pytest.skip(f"Host does not permit creating test symlinks: {exc}")
     probe.unlink()
-    real_replace = os.replace
+    real_replace = Path.replace
 
-    def replace_after_swap(source: os.PathLike[str] | str, destination: os.PathLike[str] | str) -> None:
+    def replace_after_swap(source: Path, destination: str | os.PathLike[str]) -> Path:
         target.unlink()
         target.symlink_to(victim)
-        real_replace(source, destination)
+        return real_replace(source, destination)
 
-    monkeypatch.setattr(installed_script_module.os, "replace", replace_after_swap)
+    monkeypatch.setattr(Path, "replace", replace_after_swap)
     result = copy_wrapper("culvert.py", tmp_path, overwrite=True)
 
     assert result == target
@@ -110,14 +110,14 @@ def test_overwrite_replaces_swapped_hardlink_without_modifying_other_file(
     victim.write_bytes(b"must not change")
     target = tmp_path / "culvert.py"
     target.write_bytes(b"previous contents")
-    real_replace = os.replace
+    real_replace = Path.replace
 
-    def replace_after_swap(source: os.PathLike[str] | str, destination: os.PathLike[str] | str) -> None:
+    def replace_after_swap(source: Path, destination: str | os.PathLike[str]) -> Path:
         target.unlink()
         os.link(victim, target)
-        real_replace(source, destination)
+        return real_replace(source, destination)
 
-    monkeypatch.setattr(installed_script_module.os, "replace", replace_after_swap)
+    monkeypatch.setattr(Path, "replace", replace_after_swap)
     copy_wrapper("culvert.py", tmp_path, overwrite=True)
     assert target.read_bytes() == (ROOT / "ryan-scripts" / "culvert.py").read_bytes()
     assert victim.read_bytes() == b"must not change"
@@ -130,7 +130,8 @@ def test_overwrite_copy_failure_preserves_original_and_cleans_staging(
     target.write_bytes(b"retain original")
 
     def failed_copy(_source: object, _destination: object) -> None:
-        raise OSError("copy failed")
+        msg = "copy failed"
+        raise OSError(msg)
 
     monkeypatch.setattr(installed_script_module.shutil, "copyfileobj", failed_copy)
     with pytest.raises(OSError, match="copy failed"):

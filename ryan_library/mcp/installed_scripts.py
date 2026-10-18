@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import shutil
 import tempfile
 from importlib.resources import files
@@ -92,7 +91,7 @@ def copy_wrapper(
             staged = Path(temporary.name)
             with source.open("rb") as original:
                 shutil.copyfileobj(original, temporary)
-        os.replace(staged, target)
+        staged.replace(target)
     finally:
         if staged is not None:
             staged.unlink(missing_ok=True)
