@@ -17,11 +17,14 @@ py -3.14 tuflow_bc_to_rorb_stm.py --critical-storms "D:\critical_storms.csv" --b
 
 For the batch table, the required column headings are `Model`,
 `TUFLOW_AEP`, `TUFLOW_Duration` and `TP`, for example
-`GD08,01.00p,00120m,TP07`. Incomplete rows are reported and skipped;
-**any invalid complete row prevents the entire validation batch from being
-written**. A filesystem failure during writing may still leave earlier files;
-the tool does not provide transaction rollback. By default existing STMs are
-not overwritten.
+`GD08,01.00p,00120m,TP07`. **Incomplete rows fail batch validation by default**,
+to avoid silently omitting design storms. Pass `--allow-incomplete` to skip
+incomplete rows with explicit warnings; even with this option, a batch with
+no valid jobs fails. Invalid complete rows also fail the entire batch.
+Malformed tables (missing/duplicate headings or extra cells) are rejected.
+No files are written if preflight validation fails. A filesystem failure during
+writing may still leave earlier files; the tool does not provide transaction
+rollback. By default existing STMs are not overwritten.
 
 Default paths are relative to the supplied `--bc-database` and
 `--output-dir` respectively:
@@ -70,8 +73,10 @@ lengths shorter than the rainfall burst.
 - The generator supports **one rainfall burst, one pluviograph and uniform
   spatial rainfall**. More complex patterns and ARR data are not added
   implicitly.
-- Regression tests assert the complete rainfall interval sequence, not just
-  the total depth, to catch the historic off-by-one issue.
+- Regression tests assert the complete rainfall interval sequence and full
+  generated STM text, not just total depth, to catch the historic off-by-one
+  issue. The included TUFLOW-format fixture is synthetic; a verified real
+  project export is still needed for final engineering acceptance.
 - Test a generated storm against a known RORBwin 6.52 reference model before
   relying on the output for design. Native execution of RORB is not part of
   the Python tests.

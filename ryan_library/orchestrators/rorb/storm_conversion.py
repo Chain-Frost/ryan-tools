@@ -113,7 +113,16 @@ def read_batch_rows(table_path: Path) -> list[tuple[int, dict[str, str | None]]]
             if missing:
                 message = f"Critical-storm table missing columns: {', '.join(missing)}"
                 raise ConversionError(message)
-            result = [(line, row) for line, row in enumerate(reader, start=2)]
+            fields = reader.fieldnames or []
+            if len(fields) != len(set(fields)):
+                message = "Critical-storm table has duplicate CSV column headings."
+                raise ConversionError(message)
+            result: list[tuple[int, dict[str, str | None]]] = []
+            for row in reader:
+                if len(row) > len(fields):
+                    message = f"Critical-storm table CSV line {reader.line_num} has extra cells."
+                    raise ConversionError(message)
+                result.append((reader.line_num, row))
     except OSError as exc:
         message = f"Cannot read critical-storm table: {exc}"
         raise ConversionError(message) from exc
@@ -133,6 +142,7 @@ def prepare_batch(
     output_template: str = DEFAULT_OUTPUT_TEMPLATE,
     column_template: str = DEFAULT_COLUMN_TEMPLATE,
     overwrite: bool = False,
+    allow_incomplete_rows: bool = False,
 ) -> BatchPlan:
     """Preflight every complete table entry; no writes occur at this stage."""
     bc_database = bc_database.absolute()
@@ -150,7 +160,11 @@ def prepare_batch(
         cells = {key: (row.get(key) or "").strip() for key in ("Model", "TUFLOW_AEP", "TUFLOW_Duration", "TP")}
         missing = [key for key, value in cells.items() if not value]
         if missing:
-            skipped.append(f"line {line}: incomplete row ({', '.join(missing)})")
+            detail = f"line {line}: incomplete row ({', '.join(missing)})"
+            if allow_incomplete_rows:
+                skipped.append(detail)
+            else:
+                errors.append(f"{detail}; use --allow-incomplete to skip.")
             continue
 
         try:
@@ -191,6 +205,8 @@ def prepare_batch(
         except ValueError as exc:
             errors.append(f"line {line}: {exc}")
 
+    if not jobs:
+        errors.append("No valid storm conversion jobs found in the critical-storm table.")
     return BatchPlan(tuple(jobs), tuple(skipped), tuple(errors))
 
 
@@ -201,6 +217,9 @@ def write_batch(plan: BatchPlan, *, overwrite: bool = False) -> tuple[Path, ...]
             f"Batch contains {len(plan.errors)} invalid conversion(s); "
             "no outputs were written. Correct errors before executing."
         )
+        raise ConversionError(message)
+    if not plan.jobs:
+        message = "Batch has no valid storm conversion jobs; no outputs were written."
         raise ConversionError(message)
     outputs: list[Path] = []
     for job in plan.jobs:

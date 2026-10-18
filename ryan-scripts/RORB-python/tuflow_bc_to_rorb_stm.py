@@ -87,6 +87,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_COLUMN_TEMPLATE,
         help="Batch rainfall column; default '{tp}_{climate_suffix}'",
     )
+    parser.add_argument(
+        "--allow-incomplete",
+        action="store_true",
+        help="Permit skipping incomplete critical-storm rows (otherwise batch validation fails)",
+    )
     parser.add_argument("--overwrite", action="store_true", help="Replace existing STM files")
     parser.add_argument("--dry-run", action="store_true", help="Validate all outputs but do not write them")
     add_no_pause_cli_argument(parser=parser)
@@ -117,6 +122,7 @@ def _run_batch(
         output_template=args.output_template,
         column_template=args.column_template,
         overwrite=args.overwrite,
+        allow_incomplete_rows=args.allow_incomplete,
     )
     print(f"Valid jobs: {len(plan.jobs)}; skipped: {len(plan.skipped)}; errors: {len(plan.errors)}")
     for skipped in plan.skipped:

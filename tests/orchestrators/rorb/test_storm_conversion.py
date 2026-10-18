@@ -46,7 +46,7 @@ def test_batch_preflights_and_uses_configured_input_layout(tmp_path: Path) -> No
     bc = tmp_path / "TUFLOW_MLGD" / "bc_dbase"
     _csv(bc / "GD08" / "rf_inflow" / "GD08_RF_01.00p00120m.CSV", extra_final=True)
     root = tmp_path / "outputs"
-    plan = prepare_batch(table, bc_database=bc, output_dir=root)
+    plan = prepare_batch(table, bc_database=bc, output_dir=root, allow_incomplete_rows=True)
     assert len(plan.jobs) == 1
     assert len(plan.skipped) == 1
     assert not plan.errors
@@ -124,3 +124,94 @@ def test_batch_prevents_overwrites_by_default(tmp_path: Path) -> None:
 
 def test_default_template_uses_rainfall_subfolder() -> None:
     assert "rf_inflow" in DEFAULT_INPUT_TEMPLATE
+
+
+def test_incomplete_rows_fail_closed_by_default(tmp_path: Path) -> None:
+    table = _table(tmp_path / "critical.csv", "GD08,01.00p,00120m,TP07", "GD09,,,TP07")
+    bc = tmp_path / "TUFLOW_MLGD" / "bc_dbase"
+    _csv(bc / "GD08" / "rf_inflow" / "GD08_RF_01.00p00120m.CSV")
+    out = tmp_path / "output"
+    plan = prepare_batch(table, bc_database=bc, output_dir=out)
+    assert len(plan.jobs) == 1
+    assert not plan.skipped
+    assert any("incomplete row" in error and "--allow-incomplete" in error for error in plan.errors)
+    with pytest.raises(ConversionError, match="no outputs"):
+        write_batch(plan)
+    assert not out.exists()
+
+
+@pytest.mark.parametrize("rows", [(), (",,,",), ("GD09,,,TP07",)])
+def test_empty_or_all_incomplete_batches_fail_even_when_skipping(
+    tmp_path: Path, rows: tuple[str, ...]
+) -> None:
+    table = _table(tmp_path / "critical.csv", *rows)
+    out = tmp_path / "output"
+    plan = prepare_batch(
+        table,
+        bc_database=tmp_path / "TUFLOW_MLGD" / "bc_dbase",
+        output_dir=out,
+        allow_incomplete_rows=True,
+    )
+    assert not plan.jobs
+    assert any("No valid storm conversion jobs" in error for error in plan.errors)
+    with pytest.raises(ConversionError, match="no outputs"):
+        write_batch(plan)
+    assert not out.exists()
+
+
+def test_write_batch_rejects_empty_plan_directly() -> None:
+    from ryan_library.orchestrators.rorb.storm_conversion import BatchPlan
+
+    with pytest.raises(ConversionError, match="no valid"):
+        write_batch(BatchPlan((), (), ()))
+
+
+@pytest.mark.parametrize(
+    "table_content, message",
+    [
+        ("Model,TUFLOW_AEP,TP\nGD08,01.00p,TP07\n", "missing columns"),
+        ("Model,TUFLOW_AEP,TUFLOW_Duration,TP,TP\n", "duplicate CSV column"),
+        ("Model,TUFLOW_AEP,TUFLOW_Duration,TP\nGD08,01.00p,00120m,TP07,EXTRA\n", "extra cells"),
+    ],
+)
+def test_malformed_critical_storm_tables_rejected(
+    tmp_path: Path, table_content: str, message: str
+) -> None:
+    table = tmp_path / "critical.csv"
+    table.write_text(table_content, encoding="utf-8")
+    with pytest.raises(ConversionError, match=message):
+        prepare_batch(table, bc_database=tmp_path / "TUFLOW_MLGD" / "bc_dbase", output_dir=tmp_path / "out")
+
+
+def test_multiple_tp_columns_and_metadata_full_stm_golden(tmp_path: Path) -> None:
+    """Synthetic, representative TUFLOW CSV with event row and extra ending zero."""
+    table = _table(tmp_path / "critical.csv", "GD08,01.00p,00120m,TP07")
+    bc = tmp_path / "TUFLOW_MLGD" / "bc_dbase"
+    rain_path = bc / "GD08" / "rf_inflow" / "GD08_RF_01.00p00120m.CSV"
+    rain_path.parent.mkdir(parents=True, exist_ok=True)
+    rain_path.write_text(
+        "Event ID,01.00p 120m,01.00p 120m\n"
+        "Time (hour),TP01_2030_SSP3-7.0,TP07_2030_SSP3-7.0\n"
+        "0,0,0\n"
+        "1,100,5\n"
+        "2,200,10\n"
+        "3,0,0\n",
+        encoding="utf-8",
+    )
+    plan = prepare_batch(table, bc_database=bc, output_dir=tmp_path / "stm")
+    assert not plan.errors
+    assert len(plan.jobs) == 1
+    expected = (
+        "MLGD\n"
+        "DESIGN\n"
+        "C time increment (hours), run increments, bursts, pluviographs, uniform flag\n"
+        "1.0,200,1,1,0,-99\n"
+        "C start and finish increment of the single rainfall burst\n"
+        "0,2\n"
+        "Pluviograph 1\n"
+        "5\n"
+        "10\n"
+        "-99\n"
+    )
+    assert plan.jobs[0].stm_text == expected
+    assert not plan.jobs[0].output_path.exists()

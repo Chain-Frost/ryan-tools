@@ -126,3 +126,22 @@ def test_stm_writer_wont_overwrite(tmp_path: Path) -> None:
     assert output.read_text(encoding="utf-8") == "first\n"
     write_stm(output, "second\n", overwrite=True)
     assert output.read_text(encoding="utf-8") == "second\n"
+
+
+def test_long_storm_needs_sufficient_run_increments(tmp_path: Path) -> None:
+    # 72 hours at 15-minute timesteps: 288 actual intervals, excluding t=0.
+    count = 288
+    path = rainfall_csv(
+        tmp_path / "GD08_RF_01.00p04320m.CSV",
+        [index * 0.25 for index in range(count + 1)],
+        [0.0, *([1.0] * count)],
+    )
+    series = read_rainfall_series(path, "TP07_2030_SSP3-7.0")
+    assert len(series.values) == count
+    assert series.depth_mm == 288.0
+    with pytest.raises(ConversionError, match="shorter than rainfall"):
+        build_stm("MLGD", series)
+    output = build_stm("MLGD", series, run_increments=400)
+    assert "\n0.25,400,1,1,0,-99\n" in output
+    assert "\n0,288\nPluviograph 1\n" in output
+    assert output.split("Pluviograph 1\n", 1)[1].splitlines() == ["1"] * count + ["-99"]
