@@ -67,7 +67,7 @@ Disposition decisions based on verified maintained files and the historical desc
 | `raster_difference_manual_list_v2.py` | `ryan-scripts/TUFLOW-python/raster_processing/run_python_raster_calculations.py` uses the shared `compute_diff`. | Already migrated; do not duplicate. |
 | `raster_difference_auto_v2.py` and `close_filenames_v1.py` | `calculate_raster_differences.py` and shared `compute_diff` handle computation. Automatic fuzzy EXG/DEV pairing and naming/cutoff behaviour have **not** been established as equivalent. | Retain one bounded discovery/pairing candidate; reuse the current engine, not another differencing implementation. |
 | `simil.py` / `simil-master/` | `vendor/simil/simil.py` with `vendor/simil/README.md` already supplies the upstream implementation. Published-wheel inclusion was not verified. | No second copy into `ryan_library/functions` planned; keep upstream provenance and licensing. |
-| `file_info_v1.py` | Existing `file_utils` (discovery), `file_verification` (metadata and SHA-256), `excel_export` and `dataframe_helpers` cover substantial parts. Distinct functionality includes document-number/revision extraction and an integrated inventory report. | **Retain useful functionality** as a library-backed inventory workflow with an optional thin wrapper. Reuse current components; do not copy the old multiprocessing/export code. MD5 support only if required for external compatibility. |
+| `file_info_v1.py` | Reusable `ryan_library/functions/file_inventory.py` provides document/revision parsing, an integrated file inventory, existing discovery and SHA-256 snapshot reuse. `ryan-scripts/file-management-python/file_inventory.py` exports CSV and Excel using existing export infrastructure. | **Implemented on PR #138**, with focused tests; historical source disposition and final CI remain to be confirmed. MD5 was not carried over (SHA-256 is used optionally). |
 | `make_vrt_list_v1.py` / `make_VRT_for_matching_v1.py` | `ryan-scripts/gdal-python/build_VRT.py` already exists; exact filtering/extent-matching parity is unverified. | Compare requirements first; add missing functionality to the maintained GDAL implementation rather than clone scripts. |
 | `dario_thinning-tif_v4.py` | `ryan-scripts/12D-python/thin-raster-terrain-for-12D_v5.py` already exists. | Review for functional overlap before any new migration; no parity claim yet. |
 | `2d_q_to_csv_v3.py` | Maintained TUFLOW PO combination workflows exist under `po_and_timeseries/`. | Check whether the 2D Q outlet-specific input/output contract is already supported; don't claim full coverage yet. |
@@ -242,10 +242,10 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 
 ### File audit
 
-- [ ] **`file_info_v1.py`** (6 KB) → reusable `ryan_library/functions/` helpers with optional `ryan-scripts/file-management-python/` wrapper
-  - Provides recursive inventory, file size/timestamps, optional MD5, document-number/revision parsing, bounded parallel processing and CSV/Excel exports.
-  - Retain document-number/revision parsing and the combined inventory/reporting workflow. Reuse existing discovery, file verification, DataFrame and Excel-export helpers; do **not** copy the original multiprocessing implementation or export code. Provide an optional thin reporting wrapper.
-  - Do not treat this as a trivial duplicate of the existing path-list script; that script does not offer metadata, revision parsing or reports.
+- [/] **`file_info_v1.py`** (6 KB) → `ryan_library/functions/file_inventory.py` and `ryan-scripts/file-management-python/file_inventory.py`
+  - Functionality implemented on PR #138: document-number and revision extraction, inventory metadata, optional streaming SHA-256 and CSV/Excel reports.
+  - Reuses maintained discovery, metadata/hash and Excel components; does not copy the legacy multiprocessing/export implementation or MD5 format.
+  - Keep `[/]` until latest CI, focused validation and legacy source disposition are complete. Do not remove the source as part of this PR.
 
 ---
 
