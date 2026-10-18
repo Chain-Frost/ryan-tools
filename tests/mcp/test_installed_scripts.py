@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
 
+from ryan_library.mcp import installed_scripts as installed_script_module
 from ryan_library.mcp.installed_scripts import available_wrappers, copy_wrapper, installed_files, main
 
 ROOT = Path(__file__).absolute().parents[2]
@@ -68,3 +70,70 @@ def test_cli_list_and_copy_dry_run(tmp_path: Path, capsys: pytest.CaptureFixture
     assert main(["copy", "culvert.py", str(tmp_path), "--dry-run"]) == 0
     assert not (tmp_path / "culvert.py").exists()
     assert "Would copy to:" in capsys.readouterr().out
+
+def test_overwrite_replaces_swapped_symlink_without_writing_its_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression for the P2 symlink-swap review finding in PR #130."""
+    victim = tmp_path / "outside.txt"
+    victim.write_bytes(b"must not change")
+    target = tmp_path / "culvert.py"
+    target.write_bytes(b"previous contents")
+    probe = tmp_path / "symlink-probe"
+    try:
+        probe.symlink_to(victim)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Host does not permit creating test symlinks: {exc}")
+    probe.unlink()
+    real_replace = os.replace
+
+    def replace_after_swap(source: os.PathLike[str] | str, destination: os.PathLike[str] | str) -> None:
+        target.unlink()
+        target.symlink_to(victim)
+        real_replace(source, destination)
+
+    monkeypatch.setattr(installed_script_module.os, "replace", replace_after_swap)
+    result = copy_wrapper("culvert.py", tmp_path, overwrite=True)
+
+    assert result == target
+    assert not target.is_symlink()
+    assert target.read_bytes() == (ROOT / "ryan-scripts" / "culvert.py").read_bytes()
+    assert victim.read_bytes() == b"must not change"
+    assert not list(tmp_path.glob(".culvert.py.*.tmp"))
+
+
+def test_overwrite_replaces_swapped_hardlink_without_modifying_other_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exercise the atomic replacement invariant where symlink creation is restricted."""
+    victim = tmp_path / "outside.txt"
+    victim.write_bytes(b"must not change")
+    target = tmp_path / "culvert.py"
+    target.write_bytes(b"previous contents")
+    real_replace = os.replace
+
+    def replace_after_swap(source: os.PathLike[str] | str, destination: os.PathLike[str] | str) -> None:
+        target.unlink()
+        os.link(victim, target)
+        real_replace(source, destination)
+
+    monkeypatch.setattr(installed_script_module.os, "replace", replace_after_swap)
+    copy_wrapper("culvert.py", tmp_path, overwrite=True)
+    assert target.read_bytes() == (ROOT / "ryan-scripts" / "culvert.py").read_bytes()
+    assert victim.read_bytes() == b"must not change"
+
+
+def test_overwrite_copy_failure_preserves_original_and_cleans_staging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "culvert.py"
+    target.write_bytes(b"retain original")
+
+    def failed_copy(_source: object, _destination: object) -> None:
+        raise OSError("copy failed")
+
+    monkeypatch.setattr(installed_script_module.shutil, "copyfileobj", failed_copy)
+    with pytest.raises(OSError, match="copy failed"):
+        copy_wrapper("culvert.py", tmp_path, overwrite=True)
+    assert target.read_bytes() == b"retain original"
+    assert not list(tmp_path.glob(".culvert.py.*.tmp"))
