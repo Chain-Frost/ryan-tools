@@ -5,13 +5,18 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import importlib.resources
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import culvert_solver
 import run_hy8
+import numpy as np
+import vendor
+import vendor.simil as vendor_simil
 
 import ryan_library
+from ryan_library.functions.geometry import find_similarity_transform
 from ryan_library.functions.path_stuff import sanitize_windows_filename
 from ryan_library.mcp.installed_scripts import available_wrappers, copy_wrapper
 from ryan_library.mcp.registry import WorkflowRegistry
@@ -71,6 +76,8 @@ def main(argv: list[str] | None = None) -> int:
             ("culvert_solver", culvert_solver.__file__),
             ("run_hy8", run_hy8.__file__),
             ("ryan_library", ryan_library.__file__),
+            ("vendor", vendor.__file__),
+            ("vendor.simil", vendor_simil.__file__),
         ):
             _require_installed_below(module_file, expected_root, package)
 
@@ -83,6 +90,18 @@ def main(argv: list[str] | None = None) -> int:
         if not resources.joinpath(relative_path).is_file():
             msg = f"Installed wheel is missing required resource {relative_path}."
             raise RuntimeError(msg)
+
+    if "vendor.PyHMA" in sys.modules:
+        msg = "Importing vendored simil unexpectedly loads PyHMA."
+        raise RuntimeError(msg)
+
+    source = np.array([[0, 0, 0], [0, 2, 2], [2, 3, 1], [3, 1, 2], [1, 1, 3]], dtype=np.float64)
+    target = np.array([[3, 7, 5], [6, 7, 2], [4.5, 4, 0.5], [6, 2.5, 3.5], [7.5, 5.5, 3.5]])
+    multiplier, rotation, translation = find_similarity_transform(source, target)
+    transformed = (multiplier * rotation @ source.T + translation).T
+    if not np.isclose(multiplier, 1.5) or not np.allclose(transformed, target, atol=1e-10):
+        msg = "Installed vendored similarity transform failed its known-control-point check."
+        raise RuntimeError(msg)
 
     if sanitize_windows_filename('a<b>:c"d/e\\f|g?h*i') != "a_b__c_d_e_f_g_h_i":
         msg = "Installed ryan_library filename sanitization failed."
