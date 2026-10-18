@@ -1,4 +1,4 @@
-"""Verify the current ryan-functions wheel and its owned package contents."""
+"""Verify the current ryan-tools wheel and its owned package contents."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import cast
 
 PROJECT_ROOT: Path = Path(__file__).absolute().parents[1]
 DIST_DIR: Path = PROJECT_ROOT / "dist"
-DISTRIBUTION_PREFIX: str = "ryan_functions-"
+DISTRIBUTION_PREFIX: str = "ryan_tools-"
 RESOURCE_ROOT: str = "ryan_library/resources/"
 
 
@@ -61,6 +61,7 @@ def _verify_source_files(
     source_directory: Path,
     archive_directory: str,
     suffixes: tuple[str, ...],
+    normalize_text: bool = True,
 ) -> None:
     """Require selected repository resources to be present and byte-identical."""
     source_files = sorted(
@@ -85,7 +86,11 @@ def _verify_source_files(
         raise ValueError(msg)
     for source_file in source_files:
         archive_name = f"{archive_directory}/{source_file.relative_to(source_directory).as_posix()}"
-        if _normalized(archive.read(archive_name)) != _normalized(source_file.read_bytes()):
+        archived = archive.read(archive_name)
+        source = source_file.read_bytes()
+        if normalize_text:
+            archived, source = _normalized(archived), _normalized(source)
+        if archived != source:
             msg = f"Packaged resource differs from repository source: {archive_name}"
             raise ValueError(msg)
 
@@ -152,6 +157,11 @@ def _verify_wheel(
             raise ValueError(msg)
 
         forbidden_prefixes = (
+            "ryan_library/scripts/",  # removed early on 2026-10-18
+            "ryan_library/functions/gdal/gdal_environment.py",
+            "ryan_library/functions/gdal/gdal_runners.py",
+            "ryan_library/functions/data_processing.py",
+            "ryan_functions/",
             "docs/",
             "excel-resources/",
             "qgis-resources/",
@@ -180,6 +190,15 @@ def _verify_wheel(
                 archive_directory=archive_directory,
                 suffixes=(".py",),
             )
+
+        _verify_source_files(
+            archive,
+            names,
+            source_directory=PROJECT_ROOT / "ryan-scripts",
+            archive_directory="ryan-scripts",
+            suffixes=(".py", ".md", ".bat", ".ps1", ".gms", ".xces"),
+            normalize_text=False,
+        )
 
         _verify_source_files(
             archive,

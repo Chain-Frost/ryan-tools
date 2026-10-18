@@ -1,10 +1,26 @@
 # Development and execution environments
 
-`ryan-tools` is installed into the user's normal Python 3.14 installation. Users are not expected to create, understand
-or activate a virtual environment. Wrappers copied into project folders use the same installed `ryan_functions` package.
+`ryan-tools` can be installed in a user's normal Python 3.13+ installation; Python 3.14 is the recommended developer/CI baseline. Users are not expected to create, understand
+or activate a virtual environment. Wrappers copied into project folders use the same installed `ryan-tools` package.
 
 Some QGIS, OSGeo4W and GDAL workflows use their application's Python or command environment instead. An operation working
 with the normal Python installation does not prove that it works inside those application environments, or conversely.
+
+## Distribution migration
+
+The distribution is now named `ryan-tools`; maintained Python imports remain `ryan_library`.
+The PyPI and local-wheel installers automatically migrate an existing `ryan_functions` installation.
+They validate the replacement first (verify the local wheel, or resolve the PyPI install with pip's `--dry-run`),
+run any dependency bootstrap commands, then uninstall the old distribution immediately before reinstalling `ryan-tools`.
+The force path retains `--no-deps`. No migration flag is needed in calling BAT files. Installer dry runs only print commands.
+When using pip directly instead of these installers, uninstall the old distribution first:
+
+```powershell
+python -m pip uninstall ryan_functions
+```
+
+Do not uninstall the old distribution after installing the new one: that can remove files shared by both distributions.
+The `ryan_functions` import alias is removed; replace those imports with `ryan_library.functions`.
 
 ## Install for repository development
 
@@ -16,25 +32,62 @@ py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
 py -3.14 -m pip install -r requirements.txt
 ```
 
-`requirements.txt` installs the repository in editable mode with its development dependencies. Python then imports the
-current checkout while developers and agents edit `ryan_library`. The dependency-only command installs binary Fiona,
-Rasterio and GDAL packages from the configured geospatial wheel index. It supersedes the former single-package batch
-installers and can be previewed with `--dry-run`.
+`requirements.txt` installs the repository in editable mode with its development and MCP dependencies, plus
+the current QGIS MCP Python bridge from upstream GitHub main. Python then imports the current checkout while developers and agents
+edit `ryan_library`. The dependency-only command installs binary Fiona, Rasterio and GDAL packages from the
+configured geospatial wheel index. It supersedes the former single-package batch installers and can be previewed with
+`--dry-run`. For managed or offline environments, use the local approved source with
+`repo-scripts/setup_codex_mcp.ps1 -Install -QgisSource <path>` instead of the GitHub-based requirements command.
 
-The normal user-facing Windows entry point builds and installs the package:
+For an end user, double-click [install-ryan-tools.bat](../install-ryan-tools.bat) (the existing
+[install-latest-wheel.bat](../install-latest-wheel.bat) is an alias):
+
+```powershell
+.\install-ryan-tools.bat
+```
+
+This installs the current published `ryan-tools[mcp]` package from PyPI
+and the upstream QGIS MCP Python bridge, using Python 3.13 or later (automatic highest-installed 3.x selection, overrideable with `RYAN_TOOLS_PYTHON`). If Codex or its VS Code extension is installed,
+the script safely configures its QGIS and ryan-tools MCP entries in the shared user-level Codex config. Without Codex,
+it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
+registration, `--skip-qgis-mcp` for headless/offline installation, or
+`--qgis-mcp-source <path>` to install the bridge from a local source.
+After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.13 and newer include `ryan-culverts`. Users who encounter dependency compatibility problems should upgrade Python. The QGIS desktop plugin
+must still be installed and started through QGIS Plugin Manager.
+
+For developers working from the checkout, keep the local verified-wheel workflow:
 
 ```powershell
 .\package_and_install.bat
+.\install-local-wheel.bat
 ```
 
-To install the newest existing wheel without rebuilding it:
+The first builds and installs the latest local wheel; the second installs an
+existing wheel without rebuilding. These commands do not replace developer
+editable installs (`pip install -r requirements.txt`).
+
+## Disable Python bytecode for the Windows user
+
+To opt out of `.pyc` writes across Python installations for your Windows user, run:
 
 ```powershell
-.\install-latest-wheel.bat
+.\disable-python-bytecode.bat
 ```
 
-Both commands use the user's available Python installation. Users should not need to change interpreters or activate an
-environment before running the installed wrappers.
+The standalone [disable-python-bytecode.bat](../disable-python-bytecode.bat) uses
+`setx PYTHONDONTWRITEBYTECODE 1` without administrator rights.
+It is not run automatically by the installer. Preview with `--dry-run`.
+Restart terminals, editors and Codex to inherit the saved setting. When called from an existing
+`cmd.exe` session, the batch file also sets the variable in that session; a parent PowerShell session
+must be restarted or use `$env:PYTHONDONTWRITEBYTECODE = '1'` for immediate effect.
+Existing `.pyc` files are retained. This controls ordinary Python import caching, not explicit compilation commands.
+
+To undo the persistent setting in PowerShell, then restart applications:
+
+```powershell
+[Environment]::SetEnvironmentVariable('PYTHONDONTWRITEBYTECODE', $null, 'User')
+Remove-Item Env:PYTHONDONTWRITEBYTECODE -ErrorAction SilentlyContinue
+```
 
 ## VS Code interpreter and tasks
 
@@ -55,7 +108,7 @@ Windows PowerShell, and an `OSGeo4W Cmd` profile is available for workflows that
 
 ## Installed package and copied wrappers
 
-Wrappers copied into project folders import the installed `ryan_functions` distribution. They do not add the repository
+Wrappers copied into project folders import the installed `ryan-tools` distribution. They do not add the repository
 to `sys.path`, so the package must be installed into the same Python installation used to run the wrapper.
 
 Maintained wrappers print both their embedded wrapper version and the installed library version. This helps distinguish

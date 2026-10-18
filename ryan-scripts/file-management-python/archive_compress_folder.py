@@ -13,7 +13,7 @@ that a large individual archive is still being processed.
 Windows example:
     python archive_compress_folder.py -i "Q:\\BGER\\PER\\Project Results" --workers 2 --no-pause
 
-This script uses an installed `ryan_functions` package; a copied wrapper
+This script uses an installed `ryan-tools` package; a copied wrapper
 requires a package version containing the shared archive compression helper.
 """
 

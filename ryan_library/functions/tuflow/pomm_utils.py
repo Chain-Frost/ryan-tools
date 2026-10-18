@@ -320,7 +320,7 @@ def _build_metadata_rows(
         "Generated at": generated_at,
         "Filename timestamp": timestamp or "not supplied",
         "Generator module": __name__,
-        "ryan_functions version": get_tools_version(package="ryan_functions"),
+        "ryan-tools version": get_tools_version(package="ryan-tools"),
         "Include POMM sheet": "Yes" if include_pomm else "No",
         f"{aep_dur_sheet_name} rows": str(len(aep_dur_max)),
         f"{aep_sheet_name} rows": str(len(aep_max)),

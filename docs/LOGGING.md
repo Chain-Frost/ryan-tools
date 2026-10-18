@@ -95,8 +95,8 @@ Run the formatting-policy check after changing logging calls:
 python repo-scripts/check_loguru_formatting.py
 ```
 
-The check covers active repository-owned Loguru code, excludes the deprecated `ryan_library/scripts` compatibility
-namespace, and ignores modules using the standard-library `logging.Logger` API.
+The check covers active repository-owned Loguru code and ignores modules using the standard-library
+`logging.Logger` API. The obsolete `ryan_library/scripts` compatibility namespace was removed.
 
 ## Multiprocessing behaviour
 

@@ -3,13 +3,11 @@
 
 import os
 import sys
-import warnings
 from argparse import ArgumentParser, Namespace
-from collections.abc import Collection, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Protocol
 
 
 @dataclass(slots=True)
@@ -80,7 +78,7 @@ def change_working_directory(target_dir: Path) -> bool:
     return True
 
 
-def print_library_version(package_name: str = "ryan_functions") -> None:
+def print_library_version(package_name: str = "ryan-tools") -> None:
     """Display the installed version of *package_name* if available."""
     try:
         print(f"{package_name} version: {version(distribution_name=package_name)}")
@@ -102,7 +100,7 @@ def print_wrapper_banner(
     wrapper_file: Path,
     wrapper_version: str,
     leading_blank_line: bool = False,
-    package_name: str = "ryan_functions",
+    package_name: str = "ryan-tools",
 ) -> None:
     """Display the wrapper identity and installed library version together.
 
@@ -236,97 +234,3 @@ def _coerce_sequence_argument(raw_values: Sequence[str] | None) -> tuple[str, ..
         return None
     normalized: tuple[str, ...] = tuple(value.strip() for value in raw_values if value.strip())
     return normalized or None
-
-
-# Deprecated POMM compatibility API. Maintained wrappers call the POMM
-# orchestrator directly; these names remain available for copied older wrappers
-# until 31 December 2026.
-_POMM_WRAPPER_COMPATIBILITY_END = "31 December 2026"
-
-
-def _warn_deprecated_pomm_wrapper_api(api_name: str) -> None:
-    warnings.warn(
-        (
-            f"ryan_library.functions.wrapper_utils.{api_name} is deprecated. "
-            "Maintained POMM wrappers now call "
-            "ryan_library.orchestrators.tuflow.pomm_max_items directly. "
-            f"Backwards compatibility is supported until {_POMM_WRAPPER_COMPATIBILITY_END}."
-        ),
-        DeprecationWarning,
-        stacklevel=3,
-    )
-
-
-class PeakReportExporter(Protocol):
-    """Legacy callable signature retained for older POMM wrappers.
-
-    .. deprecated:: 2026-12-31
-       Maintained wrappers call the POMM orchestrator directly.
-    """
-
-    def __call__(
-        self,
-        *,
-        script_directory: Path,
-        paths_to_process: Sequence[Path] | None,
-        log_level: str,
-        include_pomm: bool,
-        locations_to_include: Collection[str] | None,
-        include_data_types: Collection[str] | None,
-    ) -> None: ...
-
-
-@dataclass(slots=True, frozen=True)
-class PommPeakWrapperDefaults:
-    """Legacy default container retained for older POMM wrappers.
-
-    .. deprecated:: 2026-12-31
-       Keep editable defaults in each maintained wrapper.
-    """
-
-    console_log_level: str
-    include_pomm: bool
-    include_data_types: tuple[str, ...]
-    locations_to_include: tuple[str, ...]
-    paths_to_process: tuple[Path, ...]
-    working_directory: Path
-
-    def __post_init__(self) -> None:
-        _warn_deprecated_pomm_wrapper_api(api_name=type(self).__name__)
-
-
-def run_pomm_peak_report_wrapper(
-    *,
-    exporter: PeakReportExporter,
-    defaults: PommPeakWrapperDefaults,
-    overrides: CommonWrapperOptions,
-) -> int:
-    """Run an older POMM peak wrapper.
-
-    .. deprecated:: 2026-12-31
-       Maintained wrappers call the POMM orchestrator directly.
-    """
-    _warn_deprecated_pomm_wrapper_api(api_name=run_pomm_peak_report_wrapper.__name__)
-
-    script_directory: Path = overrides.working_directory or defaults.working_directory
-    if not change_working_directory(target_dir=script_directory):
-        return 1
-
-    effective_console_log_level: str = overrides.console_log_level or defaults.console_log_level
-    effective_data_types: tuple[str, ...] | None = overrides.data_types or defaults.include_data_types or None
-    effective_locations: tuple[str, ...] | None = overrides.locations_to_include or (
-        defaults.locations_to_include or None
-    )
-    effective_paths_to_process: tuple[Path, ...] | None = (
-        overrides.paths_to_process or defaults.paths_to_process or None
-    )
-
-    exporter(
-        script_directory=script_directory,
-        paths_to_process=effective_paths_to_process,
-        log_level=effective_console_log_level,
-        include_pomm=defaults.include_pomm,
-        locations_to_include=effective_locations,
-        include_data_types=list(effective_data_types) if effective_data_types else None,
-    )
-    return 0

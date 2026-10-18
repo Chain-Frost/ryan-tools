@@ -71,7 +71,7 @@ selected `*_empty` source layer contains any feature; it will never derive worki
 By default, the wrapper also copies a small set of maintained utilities from the repository's
 `ryan-scripts/TUFLOW-python` folder into the generated project. The orchestrator resolves this default relative to its
 own location in the ryan-tools checkout, so a copied wrapper does not resolve utility paths relative to itself. The same
-utilities are included in the `ryan_functions` wheel and are selected automatically when the repository folder is not
+utilities are included in the `ryan-tools` wheel and are selected automatically when the repository folder is not
 available. Use `--no-copy-utilities` to omit them or change the editable `DEFAULT_COPY_UTILITIES` value.
 
 Utility copying is best-effort. A missing source, an existing destination when overwrite is disabled, or another copy

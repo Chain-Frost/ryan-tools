@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from ryan_library.mcp.server import (
     MAX_COLLECTION_FILES,
     check_repo_health,
@@ -181,3 +183,59 @@ def test_tuflow_processor_guidance_resource_is_valid_json() -> None:
     ]
     assert "BaseProcessor.from_file" in guidance["python_api"]["single_file_pattern"]
     assert "get_processors_by_data_type" in guidance["python_api"]["collection_methods"]
+
+
+def test_workflow_discovery_is_paginated() -> None:
+    first = list_workflows(limit=3)
+    second = list_workflows(limit=3, offset=first["next_offset"])
+    assert first["returned_count"] == 3
+    assert first["workflow_count"] > first["returned_count"]
+    assert first["has_more"] is True
+    assert first["next_offset"] == 3
+    assert second["offset"] == 3
+    assert not {w["id"] for w in first["workflows"]} & {w["id"] for w in second["workflows"]}
+    offset = 0
+    collected: list[str] = []
+    while True:
+        page = list_workflows(limit=3, offset=offset)
+        collected.extend(w["id"] for w in page["workflows"])
+        if not page["has_more"]:
+            assert page["next_offset"] is None
+            break
+        offset = page["next_offset"]
+    assert len(collected) == len(set(collected)) == first["workflow_count"]
+
+
+def test_default_workflow_page_is_small() -> None:
+    result = list_workflows()
+    assert result["limit"] == 10
+    assert result["returned_count"] == len(result["workflows"]) <= 10
+
+
+@pytest.mark.parametrize("limit", [0, -1, 26])
+def test_invalid_workflow_page_size_is_rejected(limit: int) -> None:
+    assert "error" in list_workflows(limit=limit)
+
+
+def test_negative_workflow_offset_is_rejected() -> None:
+    assert "error" in list_workflows(offset=-1)
+
+
+def test_workflow_search_combines_case_insensitive_keywords_and_domain() -> None:
+    result = list_workflows(query="TuFlOw LOG", domain="tuflow")
+    assert result["workflow_count"] > 0
+    for workflow in result["workflows"]:
+        assert workflow["domain"] == "tuflow"
+        searchable = " ".join((workflow["id"], workflow["title"], workflow["domain"], workflow["purpose"])).casefold()
+        assert "tuflow" in searchable
+        assert "log" in searchable
+    assert list_workflows(query="no-such-workflow-xyz")["workflows"] == []
+    assert list_workflows(offset=100000)["next_offset"] is None
+
+
+def test_health_and_explicit_catalogue_are_not_truncated() -> None:
+    catalogue = json.loads(workflow_catalogue_resource())
+    assert len(catalogue["workflows"]) == catalogue["workflow_count"]
+    assert catalogue["workflow_count"] > 10
+    health = check_repo_health()
+    assert health["workflow_count_visible"] == catalogue["workflow_count"]

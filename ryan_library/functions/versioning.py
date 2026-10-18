@@ -4,7 +4,7 @@
 from importlib import metadata
 
 
-def get_tools_version(package: str = "ryan_functions") -> str:
+def get_tools_version(package: str = "ryan-tools") -> str:
     """Return the installed version of ``package`` if available."""
     try:
         return metadata.version(distribution_name=package)

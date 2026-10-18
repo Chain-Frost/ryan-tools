@@ -8,7 +8,7 @@ from setuptools.command.build_py import build_py  # pyright: ignore[reportMissin
 
 
 class _BuildPyWithQgisStyles(build_py):
-    """Copy the pinned TUFLOW QML styles into the built package."""
+    """Stage QGIS styles and the standalone script tree in the wheel."""
 
     def run(self) -> None:
         """Build Python modules, then stage QML files from the resource submodule."""
@@ -28,6 +28,14 @@ class _BuildPyWithQgisStyles(build_py):
         target_dir.mkdir(parents=True, exist_ok=True)
         for qml_file in qml_files:
             shutil.copy2(src=qml_file, dst=target_dir / qml_file.name)
+
+        scripts_source = project_root / "ryan-scripts"
+        suffixes = {".py", ".md", ".bat", ".ps1", ".gms", ".xces"}
+        for source in sorted(scripts_source.rglob("*")):
+            if source.is_file() and source.suffix.casefold() in suffixes and "__pycache__" not in source.parts:
+                destination = Path(self.build_lib) / "ryan-scripts" / source.relative_to(scripts_source)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
 
 
 if __name__ == "__main__":

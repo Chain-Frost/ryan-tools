@@ -4,11 +4,18 @@
 workflows. Reusable code lives in `ryan_library`; files under `ryan-scripts` are human-facing wrappers and standalone
 utilities.
 
-The distribution is named `ryan_functions`, while maintained imports normally use `ryan_library`.
+The distribution is named `ryan-tools`, while maintained imports use `ryan_library`. The wheel also installs
+`ryan-scripts` beside `ryan_library`, so MCP workflows do not require a Git checkout.
+
+The PyPI and local-wheel installers automatically migrate the old distribution. When using pip directly, run
+`python -m pip uninstall ryan_functions` before installing `ryan-tools`. The removed `ryan_functions` import alias must be replaced with `ryan_library.functions`.
+See the [migration policy](docs/COMPATIBILITY_POLICY.md#removed-ryan_functions-import-namespace--2026-10-18).
+The `ryan_library.scripts` import namespace and its six root-level forwarding aliases were retired
+on 18 October 2026. Import maintained modules directly instead (breaking change).
 
 ## Project status
 
-The repository targets Python 3.14. Maintained library code, orchestrators and unversioned wrappers follow the current
+The repository uses Python 3.14 for its current development and CI baseline; package metadata continues to allow Python 3.13 and newer. Maintained library code, orchestrators and unversioned wrappers follow the current
 repository standards; older standalone, versioned and compatibility files remain where they still support migration or
 narrow workflows.
 
@@ -30,8 +37,7 @@ ryan-tools/
 |   |-- classes/               # Configuration, metadata and filename parsing
 |   |-- functions/             # Reusable algorithms and focused I/O helpers
 |   |-- orchestrators/         # Complete workflow controllers
-|   |-- processors/            # Stateful processors for supported result formats
-|   `-- scripts/               # Deprecated import-compatibility wrappers
+|   `-- processors/            # Stateful processors for supported result formats
 |-- ryan-scripts/              # Human-facing wrappers and standalone utilities
 |-- docs/                      # Development guidance, plans and setup documentation
 |-- examples/                  # Example notebooks and supporting demonstrations
@@ -68,7 +74,7 @@ git -C excel-resources lfs pull
 ```
 
 The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
-`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan_functions` with pip to resolve them automatically on Python 3.14+. Until the planned Python 3.14-only migration, Python 3.13 installs omit `ryan-culverts` and therefore cannot use culvert-solver features.
+`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.13 and newer remain supported, including the `ryan-culverts` dependency. Users with installation or runtime compatibility problems should upgrade Python.
 
 Install the repository requirements into the user's normal Python 3.14 installation. `ryan-tools` does not require or
 assume that users know how to create or activate a virtual environment:
@@ -81,7 +87,7 @@ py -3.14 -m pip install -r requirements.txt
 
 `requirements.txt` installs the checkout and development tools into that Python installation. Installing the project is
 important when running wrappers copied outside the repository because they import the shared implementation from the
-installed `ryan_functions` distribution. The dependency bootstrap installs binary Fiona, Rasterio and GDAL packages
+installed `ryan-tools` distribution. The dependency bootstrap installs binary Fiona, Rasterio and GDAL packages
 from the configured geospatial wheel index, avoiding a local source build on Windows.
 
 ## Build and install
@@ -108,11 +114,20 @@ python repo-scripts/verify_wheel.py
 Windows convenience entry points are:
 
 ```powershell
+.\install-ryan-tools.bat
 .\package_and_install.bat
-.\install-latest-wheel.bat
+.\install-local-wheel.bat
 ```
 
-The first builds and installs the package; the second installs the newest existing wheel.
+`install-ryan-tools.bat` installs the latest published `ryan-tools[mcp]` release
+directly from PyPI, along with upstream QGIS MCP. If Codex is detected, it
+configures the QGIS and ryan-tools MCP servers only as needed, preserving other
+settings and backing up any changed Codex configuration. The legacy
+`install-latest-wheel.bat` name now launches that same PyPI installer.
+The installer selects the highest installed Python 3 release through the Windows launcher (minimum 3.13); override with `RYAN_TOOLS_PYTHON` to select a particular interpreter. The installer also recognises the `openai.chatgpt` Codex extension in VS Code, even without the Codex CLI.
+For developers, `package_and_install.bat` builds and installs a local wheel,
+while `install-local-wheel.bat` installs an existing local wheel without rebuilding.
+QGIS itself and its QGIS MCP desktop plugin must be installed separately.
 
 ## License
 
@@ -137,7 +152,7 @@ Run the complete suite through the repository runner:
 cmd.exe /C repo-scripts\run_tests.bat
 ```
 
-The runner configures the source and bundled HY-8 import paths, uses a repository-local base temporary directory and
+The runner uses installed PyPI hydraulic dependencies and a repository-local base temporary directory, and
 generates terminal, HTML and XML coverage reports. See the [development guide](docs/DEVELOPMENT_GUIDE.md#validation-by-change-type)
 for proportional validation expectations.
 

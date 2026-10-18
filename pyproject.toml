@@ -3,16 +3,11 @@ build-backend = "setuptools.build_meta"
 requires = ["setuptools>=69", "wheel"]
 
 [project]
-name = "ryan_functions"
-version = "26.10.17.1"
-description = "Collection of TUFLOW and data processing functions."
-readme = "README.md"
-license = "SUL-1.0"
-requires-python = ">=3.13"
 authors = [
   {name = "Chain Frost", email = "chainfrost@outlook.com"},
 ]
 classifiers = [
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Operating System :: Microsoft :: Windows",
 ]
@@ -41,9 +36,15 @@ dependencies = [
   "ezdxf",
   "rich",
   "run-hy8>=2026.10.16.1",
-  # ryan-culverts requires 3.14; keep legacy 3.13 installs possible until baseline migration.
-  'ryan-culverts>=26.10.16.1; python_version >= "3.14"',
+  'ryan-culverts>=26.10.16.1',
 ]
+description = "Collection of TUFLOW and data processing functions."
+license = "SUL-1.0"
+name = "ryan-tools"
+readme = "README.md"
+requires-python = ">=3.13"
+version = "26.10.18.8"
+
 [project.optional-dependencies]
 dev = [
   "build",
@@ -100,8 +101,6 @@ include = [
   "po_and_timeseries.*",
   "raster_processing",
   "raster_processing.*",
-  "ryan_functions",
-  "ryan_functions.*",
   "ryan_library",
   "ryan_library.*",
   "vendor",

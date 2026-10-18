@@ -4,8 +4,8 @@ TUFLOW-specific culvert ingestion and batch orchestration are owned by `ryan-too
 Hydraulic calculations are delegated to one of two independent engines:
 
 - `hy8` uses the public `run_hy8` package and the external HY-8 executable.
-- `ryan-culverts` uses the public `culvert_solver` API vendored from
-  `ryan-culverts` and does not require HY-8.
+- `ryan-culverts` uses the public `culvert_solver` API installed from
+  the independent `ryan-culverts` PyPI distribution and does not require HY-8.
 
 This replaces the TUFLOW-specific computation demos formerly kept in `run-hy8`.
 Generic HY-8 examples remain upstream.

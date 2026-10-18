@@ -1,18 +1,21 @@
-"""Install GIS dependencies or the newest locally built ryan-functions wheel."""
+"""Install GIS dependencies or the newest locally built ryan-tools wheel."""
 
 from __future__ import annotations
 
 import argparse
 import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 
 GIS_WHEEL_INDEX: str = "https://gisidx.github.io/gwi"
-WHEEL_PATTERN: str = "ryan_functions-*.whl"
+WHEEL_PATTERN: str = "ryan_tools-*.whl"
+# Install the current upstream bridge when the wheel-based developer path is used.
+QGIS_MCP_ARCHIVE: str = "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip"
 
 
 def _latest_wheel(dist_dir: Path) -> Path:
-    """Return the most recently modified ryan-functions wheel."""
+    """Return the most recently modified ryan-tools wheel."""
     wheels: list[Path] = list(dist_dir.glob(WHEEL_PATTERN))
     if not wheels:
         msg = f"No {WHEEL_PATTERN} wheel found in {dist_dir}"
@@ -36,7 +39,9 @@ def _gis_dependency_command() -> list[str]:
     ]
 
 
-def _pip_commands(wheel: Path, force_reinstall: bool) -> list[list[str]]:
+def _pip_commands(
+    wheel: Path, force_reinstall: bool, *, qgis_mcp_source: str | None = None, skip_qgis_mcp: bool = False
+) -> list[list[str]]:
     """Build the pip commands for a normal or no-dependency recovery install."""
     pip: list[str] = [sys.executable, "-m", "pip"]
     if force_reinstall:
@@ -51,8 +56,11 @@ def _pip_commands(wheel: Path, force_reinstall: bool) -> list[list[str]]:
             ]
         ]
 
-    return [
-        _gis_dependency_command(),
+    commands: list[list[str]] = [_gis_dependency_command()]
+    if not skip_qgis_mcp:
+        source: str = qgis_mcp_source or QGIS_MCP_ARCHIVE
+        commands.append([*pip, "install", "--upgrade", source])
+    commands.append(
         [
             *pip,
             "install",
@@ -63,9 +71,31 @@ def _pip_commands(wheel: Path, force_reinstall: bool) -> list[list[str]]:
             "--only-binary=fiona",
             "--only-binary=rasterio",
             "--only-binary=gdal",
-            str(wheel),
-        ],
-    ]
+            f"{wheel}[mcp]",
+        ]
+    )
+    return commands
+
+
+def migration_commands(commands: list[list[str]], *, verification_command: list[str]) -> list[list[str]]:
+    """Automatically replace the retired distribution after validating its replacement."""
+    try:
+        distribution("ryan_functions")
+    except PackageNotFoundError:
+        return commands
+    print("Migrating the legacy ryan_functions distribution to ryan-tools.")
+    uninstall = [sys.executable, "-m", "pip", "uninstall", "--yes", "ryan_functions"]
+    replacement = list(commands[-1])
+    # Removing the old owner can remove files shared with an existing new-name install.
+    if "--force-reinstall" not in replacement:
+        replacement.append("--force-reinstall")
+    return [verification_command, *commands[:-1], uninstall, replacement]
+
+
+def _migration_commands(wheel: Path, commands: list[list[str]]) -> list[list[str]]:
+    """Validate the local wheel before the one-time distribution-name migration."""
+    verify = [sys.executable, str(Path(__file__).absolute().with_name("verify_wheel.py")), str(wheel)]
+    return migration_commands(commands, verification_command=verify)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -86,6 +116,15 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print the selected wheel and pip commands without running them",
     )
+    parser.add_argument(
+        "--qgis-mcp-source",
+        help="Override the current upstream QGIS MCP archive with an approved local source directory or URL",
+    )
+    parser.add_argument(
+        "--skip-qgis-mcp",
+        action="store_true",
+        help="Skip the separately installed QGIS MCP bridge (use for offline/headless machines)",
+    )
     args: argparse.Namespace = parser.parse_args(argv)
 
     if args.dependencies_only and args.force_reinstall:
@@ -103,7 +142,15 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         print(f"Installing:   {wheel}")
-        commands = _pip_commands(wheel=wheel, force_reinstall=args.force_reinstall)
+        commands = _pip_commands(
+            wheel=wheel,
+            force_reinstall=args.force_reinstall,
+            qgis_mcp_source=args.qgis_mcp_source,
+            skip_qgis_mcp=args.skip_qgis_mcp,
+        )
+        commands = _migration_commands(wheel, commands)
+        if args.force_reinstall and not args.skip_qgis_mcp:
+            print("NOTE: --force-reinstall uses --no-deps and does not install QGIS MCP.")
 
     for command in commands:
         print(f"Command:      {subprocess.list2cmdline(command)}")
