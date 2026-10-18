@@ -71,6 +71,7 @@ def test_cli_list_and_copy_dry_run(tmp_path: Path, capsys: pytest.CaptureFixture
     assert not (tmp_path / "culvert.py").exists()
     assert "Would copy to:" in capsys.readouterr().out
 
+
 def test_overwrite_replaces_swapped_symlink_without_writing_its_target(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
