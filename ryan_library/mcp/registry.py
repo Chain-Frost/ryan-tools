@@ -286,7 +286,7 @@ class WorkflowRegistry:
                 continue
             if not profile_allows(configured=visible_profile, required=workflow.profile):
                 continue
-            searchable = " ".join((workflow.workflow_id, workflow.title, workflow.domain, workflow.purpose)).casefold()
+            searchable = f"{workflow.workflow_id} {workflow.title} {workflow.domain} {workflow.purpose}".casefold()
             if not all(term in searchable for term in terms):
                 continue
             available: bool = self._available(workflow)

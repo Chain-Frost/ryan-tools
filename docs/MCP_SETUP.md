@@ -24,6 +24,19 @@ The complete visible catalogue is also available as the read-only resource
 which Python processor factory, collection methods, registry and source files to use for queries beyond the bounded MCP
 tools.
 
+### Discover workflows in small pages
+
+`list_workflows` returns at most **10 summaries by default**, with an explicit `limit` of 1–25 and a nonnegative
+`offset`. Use `query` for case-insensitive keywords across workflow IDs, titles, domains and purposes; all supplied
+words must match. Combine it with an exact, case-insensitive `domain` filter or a lower capability `profile`.
+For example, `list_workflows(query="raster clip", limit=5)` narrows discovery before requesting details.
+
+`workflow_count` is the total number of matches, while `returned_count` is the current page size.
+When `has_more` is true, repeat the same filters and limit with `offset=next_offset`.
+The response also lists matching `domains`; call `get_workflow` only for a selected ID.
+Health counts remain complete, and the full catalogue resource is still available by explicit request.
+Script contents and the full catalogue are not included in the server's startup instructions.
+
 ### TUFLOW result queries
 
 Use `locations` for exact entity identifiers such as channel IDs or PO locations. On collections, use `data_types` for

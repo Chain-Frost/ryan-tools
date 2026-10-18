@@ -227,7 +227,8 @@ def test_workflow_search_combines_case_insensitive_keywords_and_domain() -> None
     for workflow in result["workflows"]:
         assert workflow["domain"] == "tuflow"
         searchable = " ".join((workflow["id"], workflow["title"], workflow["domain"], workflow["purpose"])).casefold()
-        assert "tuflow" in searchable and "log" in searchable
+        assert "tuflow" in searchable
+        assert "log" in searchable
     assert list_workflows(query="no-such-workflow-xyz")["workflows"] == []
     assert list_workflows(offset=100000)["next_offset"] is None
 

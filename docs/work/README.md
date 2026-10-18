@@ -7,7 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [Installed scripts and distribution rename](2026-10-18-installed-scripts.md) | Needs review | ChatGPT | 2026-10-18 | 2026-10-19 | Local wheel, 179 tests, strict types and actionlint pass; user configured pending publisher. Review/commit/push when authorised, then verify CI before release. |
+| [Installed scripts and distribution rename](2026-10-18-installed-scripts.md) | Needs review | ChatGPT | 2026-10-18 | 2026-10-19 | Wheel 26.10.18.2, 187 tests and installed pagination pass; user configured pending publisher. Review/commit/push when authorised, then verify CI before release. |
 | [PyPI release automation](2026-10-15-release-automation.md) | Needs review | Unassigned | 2026-10-18 | 2026-10-19 | PR #135 open with skip-release; verify all checks and review feedback on its latest head. No merge authorized. |
 | [TUFLOW culvert engine migration](2026-10-08-tuflow-culvert-engines-99.md) | Active | Unassigned | 2026-10-17 | 2026-10-24 | Final-review ID and source-overwrite fixes pass 68 focused tests (2 privilege skips); publish, confirm all five checks and perform authorized manual merge of PR #100. Engineering follow-ups deferred. |
 | [Fast PR checks and hosted timing](2026-10-17-fast-pr-checks-129.md) | In validation | ChatGPT | 2026-10-17 | 2026-10-22 | Commit/push documentation, verify all five checks on the new PR #129 head, then perform the authorized squash merge. |

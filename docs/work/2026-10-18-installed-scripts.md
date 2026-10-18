@@ -67,3 +67,25 @@ The retired distribution and new distribution own common package paths: uninstal
 Do not uninstall it after installing the new one, since that can delete shared package files.
 
 Unrelated untracked `vendor/run_hy8` and `vendor/ryan_culverts` directories were preserved and not packaged.
+
+
+## 2026-10-18 ? Bounded MCP discovery follow-up
+
+The maintainer requested smaller on-demand catalogue responses. `list_workflows` now defaults to 10 summaries,
+accepts a limit of 1?25 and nonnegative offset, and returns `returned_count`, `has_more` and `next_offset`.
+Case-insensitive keyword search matches all words against ID, title, domain and purpose; it combines with domain/profile
+filters. Matching domain names are returned to aid exploration. `workflow_count` remains the full match count.
+The internal registry listing, health totals and explicitly requested complete catalogue are not paginated.
+Startup instructions direct agents to narrow searches and follow pagination before fetching one workflow's details.
+
+Validation superseding the earlier artifact:
+
+- Affected MCP/packaging/setup/wrapper/POMM/uncertainty/release tests: **187 passed**, no skips.
+- Ruff lint/format and strict Pyright passed for the three files changed in this follow-up.
+- `python repo-scripts/build_library.py --skip-pip`: retained wheel **26.10.18.2**, verified.
+- Artifact: `dist/ryan_tools-26.10.18.2-py3-none-any.whl`, **1,376,217 bytes**,
+  SHA-256 `e4f25b2e67da067275aa176cdae8a6539ee1f334a59705f8f17df9c5719d5f55`.
+- Isolated target: `C:\Users\Ryan\AppData\Local\Temp\ryan-tools-pagination-igeod6lv`.
+  Installed smoke passed outside the checkout. Installed MCP returned **10 of 28** default-profile matches;
+  the next page had no overlapping IDs; `raster clip` matched one workflow; health and full-catalogue totals agreed.
+- MCP documentation links passed. Changes remain unstaged/uncommitted; no hosted run or publication claimed.
