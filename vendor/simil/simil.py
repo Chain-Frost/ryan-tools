@@ -131,9 +131,9 @@ Per point weights can be passed as a list:
 """
 
 import numpy as np
-from numpy._typing._array_like import NDArray
+from numpy.typing import NDArray
 import numpy.typing as npt
-from typing import Sequence
+from collections.abc import Sequence
 from numpy import float64, intp
 
 # =================
