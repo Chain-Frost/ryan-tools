@@ -17,29 +17,38 @@ py -3.14 -m pip install -r requirements.txt
 ```
 
 `requirements.txt` installs the repository in editable mode with its development and MCP dependencies, plus
-the pinned QGIS MCP Python bridge from GitHub. Python then imports the current checkout while developers and agents
+the current QGIS MCP Python bridge from upstream GitHub main. Python then imports the current checkout while developers and agents
 edit `ryan_library`. The dependency-only command installs binary Fiona, Rasterio and GDAL packages from the
 configured geospatial wheel index. It supersedes the former single-package batch installers and can be previewed with
 `--dry-run`. For managed or offline environments, use the local approved source with
 `repo-scripts/setup_codex_mcp.ps1 -Install -QgisSource <path>` instead of the GitHub-based requirements command.
 
-The normal user-facing Windows entry point builds and installs the package:
+For an end user, double-click `install-ryan-tools.bat` (the existing
+`install-latest-wheel.bat` is an alias):
+
+```powershell
+.\install-ryan-tools.bat
+```
+
+This installs the current published `ryan_functions[mcp]` package from PyPI
+and the upstream QGIS MCP Python bridge, using Python 3.14+. If Codex is installed,
+the script safely configures its QGIS and ryan-tools MCP entries. Without Codex,
+it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
+registration, `--skip-qgis-mcp` for headless/offline installation, or
+`--qgis-mcp-source <path>` to install the bridge from a local source.
+After updating Codex configuration, restart Codex. The QGIS desktop plugin
+must still be installed and started through QGIS Plugin Manager.
+
+For developers working from the checkout, keep the local verified-wheel workflow:
 
 ```powershell
 .\package_and_install.bat
+.\install-local-wheel.bat
 ```
 
-To install the newest existing wheel without rebuilding it:
-
-```powershell
-.\install-latest-wheel.bat
-```
-
-Both commands use the user's available Python installation. Standard wheel installation now installs both the
-`ryan_functions[mcp]` extra and a pinned upstream QGIS MCP Python bridge. The QGIS desktop plugin is separate and
-must still be installed in QGIS. For offline/headless machines, pass `--skip-qgis-mcp` to the wheel installer or
-`--qgis-mcp-source <path>` to use a local source. Users should not need to change interpreters or activate an
-environment before running the installed wrappers.
+The first builds and installs the latest local wheel; the second installs an
+existing wheel without rebuilding. These commands do not replace developer
+editable installs (`pip install -r requirements.txt`).
 
 ## VS Code interpreter and tasks
 
