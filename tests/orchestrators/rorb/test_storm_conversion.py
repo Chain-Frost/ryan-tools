@@ -1,5 +1,6 @@
 """Batch storm conversion and reusable template integration tests."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -313,8 +314,11 @@ def test_batch_rejects_windows_junction_outside_root(tmp_path: Path) -> None:
     external = tmp_path / "external"
     external.mkdir()
 
+    comspec = os.environ.get("COMSPEC")
+    if not comspec or not Path(comspec).is_absolute():
+        pytest.skip("Absolute Windows command processor path is unavailable.")
     command = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(output_root / "GD08"), str(external)],
+        [comspec, "/c", "mklink", "/J", str(output_root / "GD08"), str(external)],
         check=False,
         capture_output=True,
         text=True,
