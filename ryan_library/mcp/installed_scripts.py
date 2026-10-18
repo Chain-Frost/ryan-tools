@@ -7,6 +7,7 @@ import json
 import shutil
 from importlib.resources import files
 from pathlib import Path
+from typing import cast
 
 
 def installed_files() -> tuple[str, ...]:
@@ -15,12 +16,13 @@ def installed_files() -> tuple[str, ...]:
     raw: object = json.loads(resource.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("Invalid installed script manifest.")
-    if raw.get("schema_version") != 1:
+    metadata = cast("dict[str, object]", raw)
+    if metadata.get("schema_version") != 1:
         raise ValueError("Unsupported installed script manifest version.")
-    entries: object = raw.get("installed_files")
+    entries: object = metadata.get("installed_files")
     if not isinstance(entries, list) or not entries or not all(isinstance(item, str) for item in entries):
         raise ValueError("Invalid installed script manifest paths.")
-    return tuple(sorted(entries))
+    return tuple(sorted(cast("list[str]", entries)))
 
 
 def available_wrappers() -> tuple[str, ...]:
@@ -79,7 +81,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     try:
         copied = copy_wrapper(
-            args.script, args.destination, overwrite=args.overwrite, dry_run=args.dry_run
+            args.script,
+            args.destination,
+            overwrite=args.overwrite,
+            dry_run=args.dry_run,
         )
     except (ValueError, OSError) as exc:
         parser.error(str(exc))
