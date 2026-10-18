@@ -140,6 +140,7 @@ def test_overwrite_copy_failure_preserves_original_and_cleans_staging(
     assert target.read_bytes() == b"retain original"
     assert not list(tmp_path.glob(".culvert.py.*.tmp"))
 
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permission bits")
 @pytest.mark.parametrize("overwrite", [False, True])
 def test_copy_preserves_source_mode_for_both_paths(tmp_path: Path, overwrite: bool) -> None:

@@ -41,7 +41,6 @@ def available_wrappers() -> tuple[str, ...]:
     )
 
 
-
 def _copy_new_wrapper(source: Path, target: Path) -> None:
     """Create a new wrapper exclusively, preserving mode without path-based chmod."""
     # Exclusive opening prevents a concurrent writer from inserting a symlink.
@@ -50,6 +49,7 @@ def _copy_new_wrapper(source: Path, target: Path) -> None:
         if os.name == "posix":
             # Set permissions on the opened file, not a possibly replaced path.
             os.fchmod(copied.fileno(), stat.S_IMODE(source.stat().st_mode))
+
 
 def copy_wrapper(
     script: str,

@@ -288,6 +288,7 @@ def test_culvert_workflow_relies_on_installed_distribution_dependency(monkeypatc
     assert "missing_modules" not in detail
     assert "command_prefix" in detail
 
+
 def test_workflow_reports_provenance_and_declared_hy8_prerequisite() -> None:
     registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, repository_root=PROJECT_ROOT)
     workflow = registry.get_workflow("tuflow_culvert_evaluate_1d_nwk_hy8")
