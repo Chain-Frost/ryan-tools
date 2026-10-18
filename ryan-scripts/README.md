@@ -12,9 +12,23 @@ or the folder containing the script.
 
 ## Installed copies
 
-The wheel installs this script tree beside `ryan_library` in `site-packages`. MCP locates installed scripts automatically;
-no repository path is required. The source files in this folder remain authoritative and are copied during the build.
-Only catalogued workflows are exposed through MCP; other scripts retain their existing lifecycle and environment needs.
+The wheel installs **selected maintained scripts**, not the entire repository script tree, beside `ryan_library`
+in `site-packages`. MCP locates installed scripts automatically; no repository path is required. The reviewed
+[script manifest](../ryan_library/resources/mcp/installed_scripts.json) is the install allowlist and preserves
+the original file bytes. Other legacy, experimental and project-specific scripts remain repository-only
+until individually reviewed. Only catalogued workflows are exposed through MCP.
+
+After installing `ryan-tools`, use the copyable wrapper helper from any directory:
+
+```powershell
+ryan-scripts list
+ryan-scripts copy file-management-python/archive_compress_folder.py . --dry-run
+ryan-scripts copy file-management-python/archive_compress_folder.py .
+```
+
+The destination must already exist. An existing file is protected unless `--overwrite` is explicitly provided.
+The helper copies **one original script**, without executing it or copying external dependencies. Inspect its
+editable defaults and ensure any required library version or external applications are available before running.
 See [MCP setup](../docs/MCP_SETUP.md#installed-scripts-and-development-checkouts).
 
 ## Set up Python
