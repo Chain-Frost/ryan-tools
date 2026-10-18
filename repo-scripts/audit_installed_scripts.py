@@ -10,6 +10,7 @@ import argparse
 import ast
 import json
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, cast
@@ -20,8 +21,12 @@ DRIVE_LITERAL: re.Pattern[str] = re.compile(r"(?i)\b[A-Z]:[\\/]")
 
 def tracked_scripts(root: Path) -> tuple[str, ...]:
     """List only git-tracked script-tree files without traversing submodules."""
+    git_executable = shutil.which("git")
+    if git_executable is None:
+        msg = "git executable is required to list tracked scripts."
+        raise RuntimeError(msg)
     result = subprocess.run(
-        ["git", "ls-files", "-z", "--", "ryan-scripts"],
+        [git_executable, "ls-files", "-z", "--", "ryan-scripts"],
         cwd=root,
         check=True,
         capture_output=True,
