@@ -26,7 +26,7 @@ SERVER_MODULES: dict[str, str] = {
 }
 QGIS_MCP_SOURCE = (
     "https://github.com/nkarasiak/qgis-mcp/archive/"
-    "55519ebe009e7c7e06603d802f0ce931d6c9b20f.zip"
+    "refs/heads/main.zip"
 )
 TABLE = re.compile(r"^\s*\[(?!\[)(.+?)\]\s*(?:#.*)?$")
 ARRAY_TABLE = re.compile(r"^\s*\[\[(.+?)\]\]\s*(?:#.*)?$")
@@ -60,6 +60,12 @@ def _value(item: Any) -> str:
         return str(item).lower()
     if isinstance(item, list):
         return "[" + ", ".join(_value(part) for part in item) + "]"
+    if isinstance(item, dict):
+        entries = [
+            f"{json.dumps(key) if not re.fullmatch(r'[a-zA-Z0-9_-]+', key) else key} = {_value(value)}"
+            for key, value in item.items()
+        ]
+        return "{ " + ", ".join(entries) + " }"
     msg = f"Unsupported existing Codex setting: {type(item).__name__}"
     raise ValueError(msg)
 
@@ -83,6 +89,7 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
         raise ValueError(msg)
 
     replacements: dict[tuple[str, ...], str] = {}
+    updated_entries: dict[str, dict[str, Any]] = {}
     for name, module in SERVER_MODULES.items():
         current: Any = servers.get(name, {})
         if not isinstance(current, dict):
@@ -109,8 +116,27 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
                 RYAN_MCP_PROFILE=profile,
                 RYAN_TOOLS_REPOSITORY_ROOT=str(root),
             )
+        updated_entries[name] = {**fields, "env": environment}
         replacements[("mcp_servers", name)] = _table(("mcp_servers", name), fields)
         replacements[("mcp_servers", name, "env")] = _table(("mcp_servers", name, "env"), environment)
+
+    # Inline TOML tables are immutable; appendable [mcp_servers.X] sections
+    # would make an otherwise valid user config invalid. Keep inline form.
+    inline_root = re.compile(r"^\\s*mcp_servers\\s*=\\s*\\{.*\\}\\s*(?:#.*)?$")
+    original_lines = config.splitlines(keepends=True)
+    for index, line in enumerate(original_lines):
+        if not inline_root.fullmatch(line.rstrip("\\r\\n")):
+            continue
+        updated_servers = {**servers, **updated_entries}
+        newline = "\\r\\n" if line.endswith("\\r\\n") else "\\n"
+        original_lines[index] = f"mcp_servers = {_value(updated_servers)}{newline}"
+        result = "".join(original_lines)
+        parsed = tomllib.loads(result)
+        if any(parsed.get(key) != val for key, val in existing.items() if key != "mcp_servers"):
+            raise ValueError("Unexpected change to unrelated Codex settings")
+        if any(parsed["mcp_servers"].get(key) != val for key, val in servers.items() if key not in SERVER_MODULES):
+            raise ValueError("Unexpected change to another MCP server")
+        return result
 
     sections: list[tuple[tuple[str, ...] | None, list[str]]] = []
     path: tuple[str, ...] | None = None
