@@ -41,6 +41,16 @@ def available_wrappers() -> tuple[str, ...]:
     )
 
 
+
+def _copy_new_wrapper(source: Path, target: Path) -> None:
+    """Create a new wrapper exclusively, preserving mode without path-based chmod."""
+    # Exclusive opening prevents a concurrent writer from inserting a symlink.
+    with source.open("rb") as original, target.open("xb") as copied:
+        shutil.copyfileobj(original, copied)
+        if os.name == "posix":
+            # Set permissions on the opened file, not a possibly replaced path.
+            os.fchmod(copied.fileno(), stat.S_IMODE(source.stat().st_mode))
+
 def copy_wrapper(
     script: str,
     destination: Path,
@@ -73,12 +83,7 @@ def copy_wrapper(
     if dry_run:
         return target
     if not overwrite:
-        # Exclusive creation also rejects a symlink installed since the earlier check.
-        with source.open("rb") as original, target.open("xb") as copied:
-            shutil.copyfileobj(original, copied)
-            if os.name == "posix":
-                # Descriptor-based chmod avoids a path-swap race after exclusive creation.
-                os.fchmod(copied.fileno(), stat.S_IMODE(source.stat().st_mode))
+        _copy_new_wrapper(source, target)
         return target
 
     # A temporary file in the destination directory gives os.replace an atomic
