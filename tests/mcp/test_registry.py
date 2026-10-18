@@ -317,4 +317,3 @@ def test_script_provenance_reports_missing_checkout(tmp_path: Path, monkeypatch:
     assert detail["availability_scope"] == "entry_point_only"
     assert detail["available"] is False
     assert detail["installed_distribution_version"] is None or isinstance(detail["installed_distribution_version"], str)
-
