@@ -139,3 +139,24 @@ def test_overwrite_copy_failure_preserves_original_and_cleans_staging(
         copy_wrapper("culvert.py", tmp_path, overwrite=True)
     assert target.read_bytes() == b"retain original"
     assert not list(tmp_path.glob(".culvert.py.*.tmp"))
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permission bits")
+@pytest.mark.parametrize("overwrite", [False, True])
+def test_copy_preserves_source_mode_for_both_paths(tmp_path: Path, overwrite: bool) -> None:
+    import stat
+
+    source_root = tmp_path / "installed"
+    source_root.mkdir()
+    source = source_root / "culvert.py"
+    source.write_bytes(b"print('example')\n")
+    source.chmod(0o755)
+    destination = tmp_path / "project"
+    destination.mkdir()
+    target = destination / source.name
+    if overwrite:
+        target.write_bytes(b"old")
+        target.chmod(0o600)
+    copy_wrapper("culvert.py", destination, scripts_root=source_root, overwrite=overwrite)
+    assert stat.S_IMODE(target.stat().st_mode) == 0o755
+    assert target.read_bytes() == source.read_bytes()
+

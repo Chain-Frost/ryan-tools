@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import stat
 import tempfile
 from importlib.resources import files
 from pathlib import Path
@@ -74,6 +76,9 @@ def copy_wrapper(
         # Exclusive creation also rejects a symlink installed since the earlier check.
         with source.open("rb") as original, target.open("xb") as copied:
             shutil.copyfileobj(original, copied)
+            if os.name == "posix":
+                # Descriptor-based chmod avoids a path-swap race after exclusive creation.
+                os.fchmod(copied.fileno(), stat.S_IMODE(source.stat().st_mode))
         return target
 
     # A temporary file in the destination directory gives os.replace an atomic
@@ -91,6 +96,9 @@ def copy_wrapper(
             staged = Path(temporary.name)
             with source.open("rb") as original:
                 shutil.copyfileobj(original, temporary)
+        # NamedTemporaryFile defaults to 0600 on POSIX. Restore the source
+        # wrapper's mode before publication; the rename itself remains atomic.
+        shutil.copymode(source, staged)
         staged.replace(target)
     finally:
         if staged is not None:
