@@ -267,7 +267,7 @@ def test_local_crs_assumption_is_not_copied_from_zone_crs(tmp_path: Path) -> Non
     maximum = None
 
 
-def test_grid_alignment_checks_cell_origin_and_resolution(tmp_path: Path) -> None:
+def test_grid_alignment_checks_cell_origin_and_resolution() -> None:
     matching = (500000.0, 2.0, 0.0, 7600000.0, 0.0, -2.0)
     assert maximum_rasters.raster_grid_alignment_matches(
         matching, (500004.0, 2.0, 0.0, 7599996.0, 0.0, -2.0),
