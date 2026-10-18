@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | **Needs review — requirements restored; corrective PR pending validation** |
+| Status | **Needs review — requirements restored; corrective PR #137 pending validation** |
 | Owner | ChatGPT (corrective PR author); maintainer retains acceptance |
 | Created | 2026-10-17 |
 | Updated | 2026-10-19 |
 | Next review | On corrective PR checks/review; no later than 2026-10-26 |
 | Original requirements | [Complete 17 October baseline, preserved verbatim](../audits/2026-10-17-installed-scripts-original-requirements.md) |
 | Previous implementation | [Prematurely merged PR #130](https://github.com/Chain-Frost/ryan-tools/pull/130), squash commit `1ac42c6` |
-| Corrective branch | `fix/pr130-review-and-requirements-20261019`; **no automatic merge** |
+| Corrective branch | `fix/pr130-review-and-requirements-20261019` / [PR #137](https://github.com/Chain-Frost/ryan-tools/pull/137); **no automatic merge** |
 
 ## Controlling rule: no silent scope reductions
 
