@@ -1,0 +1,91 @@
+"""List and safely copy allowlisted human-facing wrappers from an installed wheel."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+from importlib.resources import files
+from pathlib import Path
+
+
+def installed_files() -> tuple[str, ...]:
+    """Return the reviewed wheel manifest without scanning unmaintained scripts."""
+    resource = files("ryan_library.resources.mcp").joinpath("installed_scripts.json")
+    raw: object = json.loads(resource.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("Invalid installed script manifest.")
+    if raw.get("schema_version") != 1:
+        raise ValueError("Unsupported installed script manifest version.")
+    entries: object = raw.get("installed_files")
+    if not isinstance(entries, list) or not entries or not all(isinstance(item, str) for item in entries):
+        raise ValueError("Invalid installed script manifest paths.")
+    return tuple(sorted(entries))
+
+
+def available_wrappers() -> tuple[str, ...]:
+    """List copyable scripts, excluding support documentation and package inits."""
+    return tuple(
+        item
+        for item in installed_files()
+        if Path(item).suffix.casefold() in {".py", ".bat", ".ps1"}
+        and Path(item).name != "__init__.py"
+    )
+
+
+def copy_wrapper(
+    script: str,
+    destination: Path,
+    *,
+    overwrite: bool = False,
+    dry_run: bool = False,
+    scripts_root: Path | None = None,
+) -> Path:
+    """Copy one exact allowlisted wrapper, never overwriting without permission."""
+    if script not in available_wrappers():
+        raise ValueError(f"Script is not in the installed wrapper allowlist: {script}")
+    root = scripts_root if scripts_root is not None else Path(__file__).absolute().parents[2] / "ryan-scripts"
+    source = root / script
+    if not source.is_file() or source.is_symlink():
+        raise FileNotFoundError(f"Installed wrapper is missing or a symlink: {source}")
+    target_directory = destination.expanduser().absolute()
+    if not target_directory.is_dir():
+        raise NotADirectoryError(f"Destination must be an existing directory: {target_directory}")
+    target = target_directory / Path(script).name
+    if target.exists() or target.is_symlink():
+        if not overwrite:
+            raise FileExistsError(f"Destination already exists (pass --overwrite to replace): {target}")
+        if not target.is_file() or target.is_symlink():
+            raise ValueError(f"Refusing to replace a non-file or symlink: {target}")
+    if not dry_run:
+        shutil.copy2(source, target)
+    return target
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Show installed wrappers or copy a selected original to a project directory."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    actions = parser.add_subparsers(dest="action", required=True)
+    actions.add_parser("list", help="List installed copyable scripts.")
+    copier = actions.add_parser("copy", help="Copy one original script; does not execute it.")
+    copier.add_argument("script", help="Exact script path shown by the list command.")
+    copier.add_argument("destination", type=Path, help="Existing project directory.")
+    copier.add_argument("--overwrite", action="store_true", help="Explicitly replace an existing regular file.")
+    copier.add_argument("--dry-run", action="store_true", help="Preview without writing.")
+    args = parser.parse_args(argv)
+    if args.action == "list":
+        for item in available_wrappers():
+            print(item)
+        return 0
+    try:
+        copied = copy_wrapper(
+            args.script, args.destination, overwrite=args.overwrite, dry_run=args.dry_run
+        )
+    except (ValueError, OSError) as exc:
+        parser.error(str(exc))
+    print(f"{'Would copy to' if args.dry_run else 'Copied to'}: {copied}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
