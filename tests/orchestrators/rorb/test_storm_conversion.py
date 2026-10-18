@@ -1,5 +1,7 @@
 """Batch storm conversion and reusable template integration tests."""
 
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -298,3 +300,29 @@ def test_batch_allows_configured_symlink_output_root(tmp_path: Path) -> None:
     assert len(outputs) == 1
     assert str(outputs[0]).startswith(str(root_alias))
     assert (physical_root / "GD08" / outputs[0].name).exists()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows directory junctions only")
+def test_batch_rejects_windows_junction_outside_root(tmp_path: Path) -> None:
+    """Windows junctions must be dereferenced for containment, not just symlinks."""
+    table = _table(tmp_path / "critical.csv", "GD08,01.00p,00120m,TP07")
+    bc = tmp_path / "TUFLOW_MLGD" / "bc_dbase"
+    _csv(bc / "GD08" / "rf_inflow" / "GD08_RF_01.00p00120m.CSV")
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+
+    command = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(output_root / "GD08"), str(external)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if command.returncode:
+        pytest.skip(f"Windows test runner cannot create a junction: {command.stderr or command.stdout}")
+
+    plan = prepare_batch(table, bc_database=bc, output_dir=output_root, overwrite=True)
+    assert not plan.jobs
+    assert any("escapes configured output directory" in error for error in plan.errors)
+    assert list(external.iterdir()) == []
