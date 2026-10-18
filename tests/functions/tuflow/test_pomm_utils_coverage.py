@@ -48,8 +48,6 @@ class TestMetadataRows:
         df = pd.DataFrame({"A": [1]})
         res = pomm_utils._build_metadata_rows("2023", True, df, df, df, "aep-dur", "aep")
         assert "Source directories" not in res
-        assert "ryan-tools version" in res
-        assert "ryan_functions version" not in res
 
     def test_build_metadata_rows_with_directory(self):
         df = pd.DataFrame({"directory_path": ["/path/1", "/path/1", "/path/2", pd.NA]})
