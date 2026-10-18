@@ -133,9 +133,11 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
         result = "".join(original_lines)
         parsed = tomllib.loads(result)
         if any(parsed.get(key) != val for key, val in existing.items() if key != "mcp_servers"):
-            raise ValueError("Unexpected change to unrelated Codex settings")
+            msg = "Unexpected change to unrelated Codex settings"
+            raise ValueError(msg)
         if any(parsed["mcp_servers"].get(key) != val for key, val in servers.items() if key not in SERVER_MODULES):
-            raise ValueError("Unexpected change to another MCP server")
+            msg = "Unexpected change to another MCP server"
+            raise ValueError(msg)
         return result
 
     sections: list[tuple[tuple[str, ...] | None, list[str]]] = []
