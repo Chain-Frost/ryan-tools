@@ -46,7 +46,8 @@ python tuflow_maximum_pipeline.py `
 - Each `--group` has the form `[main|fg:]OUTPUT=SOURCE1,SOURCE2,...`. If any `--group` is provided, it replaces the two default FG group mappings. All matching standalone main-zone extents are still discovered automatically.
 - `main:` means the output polygon is in the main GeoPackage; `fg:` means it is in the FG GeoPackage and receives the FG `-clip` output path pattern.
 - Group sources are exact extent subfolder names, matched without case sensitivity. Every configured extent must supply the grid type or the job reports failure; a partial aggregate is not silently accepted.
-- `--zone-field` selects the attribute used for polygon name matching; `--main-zones` and `--fg-zones` select the two supported single-layer GeoPackages.\n- `--legacy-local-crs` explicitly overrides the default `EPSG:28350` assumption when input rasters declare the legacy local name `GDA94_MG`. This assigns the declared raster coordinate system; it does **not** copy the zone polygon CRS.
+- `--zone-field` selects the attribute used for polygon name matching; `--main-zones` and `--fg-zones` select the two supported single-layer GeoPackages.
+- `--legacy-local-crs` explicitly overrides the default `EPSG:28350` assumption when input rasters declare the legacy local name `GDA94_MG`. This assigns the declared raster coordinate system; it does **not** copy the zone polygon CRS.
 - When no FG groups are configured, the FG GeoPackage is not required.
 - `--profile efficient` enables tiled ZSTD compression. `--no-overviews` disables pyramids; `--no-report` skips the Excel report. `--overwrite` and `--dry-run` retain their original meaning.
 
@@ -55,9 +56,12 @@ python tuflow_maximum_pipeline.py `
 - The VRT uses a **cell-wise maximum** for overlapping source cells, not a last-file-wins mosaic.
 - Sources must be single-band, north-up, matching-CRS rasters with compatible NoData and data types.
 - The original default permits nearest-neighbour sampling when sources have different grid geometry. Composite groups align VRT pixels to the selected source resolution. Misaligned pixel origins/resolutions are reported as warnings; add `--strict-grid-alignment` to reject them. The strictness setting is included in incremental metadata, so changing it triggers fresh validation.
+- Incremental state includes the assumed legacy source CRS and zone-name field; changing either forces a rebuild rather than reusing incorrectly referenced outputs.
 - The legacy raster-local-CRS label `GDA94_MG` is explicitly interpreted as `EPSG:28350` by default to preserve the RTIO project assumption. With another known source CRS, specify `--legacy-local-crs EPSG:...`. A differently referenced zone polygon is transformed into the assumed source CRS for clipping; the source CRS is **not** borrowed from the zone. These assumptions are not datum transformations or substitutes for CRS verification.
 - Incremental signatures are SHA-256 digests of **file paths, sizes and nanosecond modification times**, not hashes of file bytes. An unchanged fingerprint does not independently prove decoded pixel content is unchanged.
-- Normal publication errors trigger rollback of the previous GeoTIFF and external overview together. Two-file replacement is not a single atomic filesystem operation and sudden power loss may still leave backup files requiring recovery.\n- Output filename collisions are rejected across the entire job list before writes; omitting distinguishing placeholders from a custom output template is an error.
+- The wrapper prints its own version and the installed `ryan_functions` version at startup and completion; `--no-pause` disables the interactive completion pause.
+- Normal publication errors trigger rollback of the previous GeoTIFF and external overview together. Two-file replacement is not a single atomic filesystem operation and sudden power loss may still leave backup files requiring recovery.
+- Output filename collisions are rejected across the entire job list before writes; omitting distinguishing placeholders from a custom output template is an error.
 
 ## Validation status
 

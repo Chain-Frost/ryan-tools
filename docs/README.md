@@ -92,7 +92,8 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
-| [TUFLOW maximum raster PR #119 work record](work/2026-10-15-tuflow-maximum-raster-119.md) | Active refactor, correctness findings and remaining deployment/validation gates |\n| [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
+| [TUFLOW maximum raster PR #119 work record](work/2026-10-15-tuflow-maximum-raster-119.md) | Active refactor, correctness findings and remaining deployment/validation gates |
+| [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |

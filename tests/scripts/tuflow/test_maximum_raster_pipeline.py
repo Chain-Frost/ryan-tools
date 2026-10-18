@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -286,3 +287,60 @@ def test_strict_grid_alignment_rejects_offset_rasters(tmp_path: Path) -> None:
     assert maximum_rasters.inspect_sources((first, second), strict_alignment=False)
     with pytest.raises(RuntimeError, match="grid resolution or origin is misaligned"):
         maximum_rasters.inspect_sources((first, second), strict_alignment=True)
+
+
+def test_incremental_signature_tracks_legacy_crs_and_zone_field(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.tif"
+    zone = tmp_path / "zones.gpkg"
+    output = tmp_path / "maximum.tif"
+    source.write_bytes(b"source")
+    zone.write_bytes(b"zone")
+    output.write_bytes(b"previous-output")
+    catalog = maximum_rasters.ZoneCatalog(zone, "zones", "Model", {"gd01": "GD01"})
+    job = maximum_rasters.Job(
+        version="v06",
+        model="GD01",
+        aep="01.0p",
+        grid_type="V_Max",
+        sources=(source,),
+        output=output,
+        zones=catalog,
+    )
+    metadata = {
+        "TUFLOW_MAX_ALGORITHM": maximum_rasters.ALGORITHM_ID,
+        "TUFLOW_SOURCE_SIGNATURE": maximum_rasters.source_signature(job.sources),
+        "TUFLOW_ZONE_SIGNATURE": maximum_rasters.zone_signature(zone),
+        "TUFLOW_MODEL_ZONE": job.model,
+        "TUFLOW_AEP": job.aep,
+        "TUFLOW_STORAGE_PROFILE": "tuflow",
+        "TUFLOW_STRICT_ALIGNMENT": "False",
+        "TUFLOW_LEGACY_LOCAL_CRS": job.legacy_local_crs,
+        "TUFLOW_ZONE_FIELD": job.zones.field_name,
+    }
+    monkeypatch.setattr(maximum_rasters, "output_metadata", lambda _path: metadata)
+
+    unchanged = maximum_rasters.determine_action(job, "tuflow", False, False)
+    assert unchanged[0] == "skip"
+
+    other_crs = replace(job, legacy_local_crs="EPSG:28351")
+    changed_crs = maximum_rasters.determine_action(other_crs, "tuflow", False, False)
+    assert changed_crs[0] == "rebuild"
+    assert "TUFLOW_LEGACY_LOCAL_CRS" in changed_crs[1]
+
+    other_zone_field = replace(job, zones=replace(catalog, field_name="Zone"))
+    changed_zone_field = maximum_rasters.determine_action(
+        other_zone_field, "tuflow", False, False,
+    )
+    assert changed_zone_field[0] == "rebuild"
+    assert "TUFLOW_ZONE_FIELD" in changed_zone_field[1]
+
+
+def test_wrapper_supports_automation_no_pause(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pipeline = load_pipeline()
+    monkeypatch.setattr(sys, "argv", ["tuflow_maximum_pipeline.py", "--no-pause"])
+    args = pipeline.parse_args()
+    assert args.no_pause is True

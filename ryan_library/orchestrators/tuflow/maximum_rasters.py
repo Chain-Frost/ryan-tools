@@ -35,7 +35,7 @@ from ...functions.tuflow.tuflow_result_naming import format_user_template, valid
 
 MODEL_FIELD = "Model"
 DEFAULT_LEGACY_LOCAL_CRS = "EPSG:28350"
-ALGORITHM_ID = "gdal-vrt-max-clip-v2"
+ALGORITHM_ID = "gdal-vrt-max-clip-v3"
 OVERVIEW_LEVELS = DEFAULT_OVERVIEW_LEVELS
 OVERVIEW_RESAMPLING = "NEAREST"
 
@@ -468,6 +468,8 @@ def determine_action(
         "TUFLOW_AEP": job.aep,
         "TUFLOW_STORAGE_PROFILE": profile,
         "TUFLOW_STRICT_ALIGNMENT": str(job.strict_alignment),
+        "TUFLOW_LEGACY_LOCAL_CRS": job.legacy_local_crs,
+        "TUFLOW_ZONE_FIELD": job.zones.field_name,
     }
     mismatches = [key for key, value in expected.items() if metadata.get(key) != value]
     if mismatches:
@@ -803,6 +805,8 @@ def materialize_clipped_maximum(
     output.SetMetadataItem("TUFLOW_MODEL_ZONES_SOURCE", str(job.zones.path))
     output.SetMetadataItem("TUFLOW_STORAGE_PROFILE", profile)
     output.SetMetadataItem("TUFLOW_STRICT_ALIGNMENT", str(job.strict_alignment))
+    output.SetMetadataItem("TUFLOW_LEGACY_LOCAL_CRS", job.legacy_local_crs)
+    output.SetMetadataItem("TUFLOW_ZONE_FIELD", job.zones.field_name)
     output.SetMetadataItem("TUFLOW_VERSION", job.version)
     output.SetMetadataItem("TUFLOW_AEP", job.aep)
     output.SetMetadataItem("TUFLOW_GRID_TYPE", job.grid_type)

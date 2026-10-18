@@ -34,6 +34,7 @@ from pathlib import Path
 
 from osgeo import gdal, ogr
 
+from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 from ryan_library.orchestrators.tuflow.maximum_rasters import (
     ALGORITHM_ID,
     DEFAULT_LEGACY_LOCAL_CRS,
@@ -53,7 +54,7 @@ from ryan_library.orchestrators.tuflow.maximum_rasters import (
 )
 
 # Project defaults retained verbatim for drop-in use.
-WRAPPER_VERSION = "2026-10-15.1"
+WRAPPER_VERSION = "2026-10-18.1"
 SCRIPT_DIR = Path(__file__).absolute().parent
 RESULTS_DIR = SCRIPT_DIR.parent
 VERSION_NAMES = ("v06", "v07")
@@ -170,12 +171,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="Report intended actions without writing rasters.")
     parser.add_argument("--no-overviews", action="store_true", help="Do not create external .ovr pyramids.")
     parser.add_argument("--no-report", action="store_true", help="Do not create the Excel summary.")
+    parser.add_argument("--no-pause", action="store_true", help="Do not pause an interactive console on completion.")
     parser.add_argument("--report", type=Path, help="Write the Excel summary to this path.")
     return parser.parse_args()
 
 
-def main() -> int:
-    args = parse_args()
+def main(args: argparse.Namespace | None = None) -> int:
+    """Run the configured maximum-raster workflow with installed-package identity."""
+    if args is None:
+        args = parse_args()
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     gdal.UseExceptions()
     ogr.UseExceptions()
 
@@ -281,4 +286,13 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    arguments = parse_args()
+    exit_code = main(arguments)
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
+    if not arguments.no_pause:
+        pause_console()
+    raise SystemExit(exit_code)
