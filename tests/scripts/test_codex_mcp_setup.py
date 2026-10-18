@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import runpy
+import shutil
+import sys
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
@@ -116,7 +118,7 @@ def test_inline_root_existing_registration_can_be_updated(tmp_path: Path) -> Non
 def test_pypi_installer_commands_use_distribution_not_local_wheel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.syspath_prepend(str(REPO / "repo-scripts"))
+    monkeypatch.setattr(sys, "path", [str(REPO / "repo-scripts"), *sys.path])
     pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
     commands_fn = cast(Callable[..., list[list[str]]], pypi["pip_commands"])
     commands = commands_fn()
@@ -131,11 +133,12 @@ def test_pypi_installer_detects_existing_codex_configuration(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import shutil
+    def missing_codex(_command: str) -> str | None:
+        return None
 
-    monkeypatch.syspath_prepend(str(REPO / "repo-scripts"))
+    monkeypatch.setattr(sys, "path", [str(REPO / "repo-scripts"), *sys.path])
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
-    monkeypatch.setattr(shutil, "which", lambda _: None)
+    monkeypatch.setattr(shutil, "which", missing_codex)
     pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
     detected = cast(Callable[[], bool], pypi["codex_installed"])
     assert not detected()
