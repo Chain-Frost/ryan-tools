@@ -238,7 +238,22 @@ class WorkflowRegistry:
             return (self.scripts_directory / relative.relative_to("ryan-scripts")).absolute()
         return None
 
+    @staticmethod
+    def _missing_required_modules(workflow: WorkflowSpec) -> list[str]:
+        """Probe Python module availability without importing optional solver engines."""
+        missing: list[str] = []
+        for module in workflow.required_modules:
+            try:
+                available: bool = find_spec(module) is not None
+            except (ImportError, ModuleNotFoundError, AttributeError, ValueError):
+                available = False
+            if not available:
+                missing.append(module)
+        return missing
+
     def _command_prefix(self, workflow: WorkflowSpec) -> list[str] | None:
+        if self._missing_required_modules(workflow):
+            return None
         match workflow.execution.kind:
             case ExecutionKind.MODULE:
                 try:
@@ -318,7 +333,10 @@ class WorkflowRegistry:
         script_path: Path | None = self._script_path(workflow)
         command_prefix: list[str] | None = self._command_prefix(workflow)
         available: bool = command_prefix is not None
+        missing_modules: list[str] = self._missing_required_modules(workflow)
         details: dict[str, Any] = workflow.summary(available=available)
+        details["required_modules"] = list(workflow.required_modules)
+        details["missing_modules"] = missing_modules
         details.update(
             {
                 "module_name": workflow.execution.value if workflow.execution.kind is ExecutionKind.MODULE else None,
@@ -334,7 +352,9 @@ class WorkflowRegistry:
             }
         )
         if command_prefix is None:
-            if workflow.execution.kind is ExecutionKind.SCRIPT:
+            if missing_modules:
+                details["error"] = "Missing required Python modules: " + ", ".join(missing_modules)
+            elif workflow.execution.kind is ExecutionKind.SCRIPT:
                 details["error"] = (
                     "CLI script is unavailable. Reinstall the current wheel, or set "
                     f"{REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to a development checkout."

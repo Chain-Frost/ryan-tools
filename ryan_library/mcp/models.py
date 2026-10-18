@@ -96,6 +96,7 @@ class WorkflowSpec:
     lifecycle: str = "maintained"
     requires_explicit_approval: bool = False
     headless_arguments: tuple[str, ...] = ()
+    required_modules: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=_empty_metadata)
 
     @classmethod
@@ -119,6 +120,14 @@ class WorkflowSpec:
             raise ValueError(msg)
         headless_arguments: tuple[str, ...] = tuple(cast("str", item) for item in raw_headless)
 
+        raw_required: object = raw.get("required_modules", [])
+        if not isinstance(raw_required, list) or not all(
+            isinstance(item, str) and bool(item.strip()) for item in raw_required
+        ):
+            msg = "Workflow field 'required_modules' must be a list of non-empty Python module names."
+            raise ValueError(msg)
+        required_modules: tuple[str, ...] = tuple(cast("str", item).strip() for item in cast("list[object]", raw_required))
+
         known_keys: set[str] = {
             "id",
             "title",
@@ -130,6 +139,7 @@ class WorkflowSpec:
             "lifecycle",
             "requires_explicit_approval",
             "headless_arguments",
+            "required_modules",
         }
         metadata: dict[str, Any] = {}
         for key, value in raw.items():
@@ -147,6 +157,7 @@ class WorkflowSpec:
             lifecycle=str(raw.get("lifecycle", "maintained")),
             requires_explicit_approval=bool(raw.get("requires_explicit_approval", False)),
             headless_arguments=headless_arguments,
+            required_modules=required_modules,
             metadata=metadata,
         )
 

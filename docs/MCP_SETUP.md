@@ -96,7 +96,11 @@ The wheel installs `ryan-scripts` beside `ryan_library` in `site-packages`, pres
 MCP locates that sibling folder automatically; users do not need a checkout or `RYAN_TOOLS_REPOSITORY_ROOT`.
 The wheel includes Python scripts, batch/PowerShell launchers, local Markdown guides and the existing GMS/XCES files.
 Packaging a script does not make it a supported MCP workflow: the curated catalogue and capability profiles still
-control discovery, and application-specific dependencies such as QGIS, GDAL and HY-8 remain necessary.
+control discovery. Optional Python dependencies declared by a workflow, such as `culvert_solver`, are checked before
+advertising the script as available. On Python 3.13, the solver-dependent culvert and floodway workflows are hidden
+by default because `ryan-culverts` requires Python 3.14+. `include_unavailable` lists them as unavailable, and
+`get_workflow` identifies the missing module. Application-specific dependencies such as QGIS, GDAL and HY-8
+may require additional environment setup and are not executed by MCP.
 The server reports the installed folder as `scripts_directory` in health and workflow-list responses.
 
 For development, an explicit `RYAN_TOOLS_REPOSITORY_ROOT` or an automatically discovered checkout takes precedence

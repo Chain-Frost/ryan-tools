@@ -266,3 +266,58 @@ def test_explicit_checkout_precedes_installed_scripts(tmp_path: Path, monkeypatc
     registry = WorkflowRegistry(repository_root=PROJECT_ROOT, discover_repository=False)
     workflow = registry.get_workflow("culvert_analysis_design")
     assert workflow["script_path"] == str(PROJECT_ROOT / "ryan-scripts" / "culvert.py")
+
+
+def test_missing_culvert_solver_hides_only_dependent_workflows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Python 3.13 installs must not advertise scripts that immediately fail on import."""
+    from importlib.machinery import ModuleSpec
+
+    from ryan_library.mcp import registry as registry_module
+
+    original = registry_module.find_spec
+
+    def without_solver(module: str) -> ModuleSpec | None:
+        return None if module == "culvert_solver" else original(module)
+
+    monkeypatch.setattr(registry_module, "find_spec", without_solver)
+    registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
+    dependent = {
+        "culvert_analysis_design",
+        "floodway_design_assessment",
+        "tuflow_culvert_evaluate_maximums",
+        "tuflow_culvert_evaluate_maximums_hy8",
+        "tuflow_culvert_evaluate_1d_nwk",
+        "tuflow_culvert_evaluate_1d_nwk_hy8",
+    }
+    visible = {workflow["id"] for workflow in registry.list_workflows()["workflows"]}
+    assert not (visible & dependent)
+    # The ordinary TUFLOW peak-aggregation workflows do not need culvert_solver.
+    assert "tuflow_culvert_mean_peaks" in visible
+    all_rows = {item["id"]: item for item in registry.list_workflows(
+        maximum_profile=CapabilityProfile.PRIVILEGED,
+        include_unavailable=True,
+    )["workflows"]} if registry.configured_profile is CapabilityProfile.PRIVILEGED else {}
+    detail = registry.get_workflow("culvert_analysis_design")
+    assert detail["available"] is False
+    assert detail["required_modules"] == ["culvert_solver"]
+    assert detail["missing_modules"] == ["culvert_solver"]
+    assert "culvert_solver" in detail["error"]
+    assert "command_prefix" not in detail
+    assert all_rows == {}
+
+
+def test_workflow_required_modules_must_be_valid_nonempty_names() -> None:
+    raw: dict[str, object] = {
+        "id": "test_dependency",
+        "title": "Test",
+        "domain": "test",
+        "purpose": "Test optional dependency validation.",
+        "script": "ryan-scripts/culvert.py",
+        "profile": "create",
+        "mutation": "creates_outputs",
+    }
+    for invalid in ("culvert_solver", [""] , [7]):
+        with pytest.raises(ValueError, match="required_modules"):
+            WorkflowSpec.from_mapping({**raw, "required_modules": invalid})
+    valid = WorkflowSpec.from_mapping({**raw, "required_modules": ["culvert_solver"]})
+    assert valid.required_modules == ("culvert_solver",)

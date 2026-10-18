@@ -96,6 +96,9 @@
             "--no-pause"
           ]
         }
+      ],
+      "required_modules": [
+        "culvert_solver"
       ]
     },
     {
@@ -120,6 +123,9 @@
             "--no-pause"
           ]
         }
+      ],
+      "required_modules": [
+        "culvert_solver"
       ]
     },
     {
@@ -268,6 +274,9 @@
       "overwrite_default": false,
       "engine_modes": [
         "ryan-culverts"
+      ],
+      "required_modules": [
+        "culvert_solver"
       ]
     },
     {
@@ -300,7 +309,10 @@
         "hy8"
       ],
       "output_mutation": "creates_or_replaces",
-      "external_program": "HY-8"
+      "external_program": "HY-8",
+      "required_modules": [
+        "culvert_solver"
+      ]
     },
     {
       "id": "tuflow_culvert_evaluate_1d_nwk",
@@ -327,6 +339,9 @@
       "overwrite_default": false,
       "engine_modes": [
         "ryan-culverts"
+      ],
+      "required_modules": [
+        "culvert_solver"
       ]
     },
     {
@@ -359,7 +374,10 @@
         "hy8"
       ],
       "output_mutation": "creates_or_replaces",
-      "external_program": "HY-8"
+      "external_program": "HY-8",
+      "required_modules": [
+        "culvert_solver"
+      ]
     },
     {
       "id": "tuflow_timeseries_peak_check",

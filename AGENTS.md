@@ -22,8 +22,9 @@ Classify the target before changing it. Do not automatically modernise a standal
 into library code. Reuse must be demonstrated, not inferred solely because code could technically be shared.
 
 `run_hy8` and `culvert_solver` are supplied by the independent PyPI distributions `run-hy8` and
-`ryan-culverts`. Do not reintroduce `vendor/run_hy8`, `vendor/ryan_culverts`, or local `PYTHONPATH`
-overrides for these engines. Other retained `vendor` code (notably PyHMA) is a separate inventory.
+`ryan-culverts`. Both obsolete gitlinks `vendor/run_hy8` and `vendor/ryan_culverts`
+are removed alongside their `.gitmodules` entries; do not reintroduce them or local
+`PYTHONPATH` overrides. Other retained `vendor` code (notably PyHMA) is a separate inventory.
 
 ## Coding conventions
 
