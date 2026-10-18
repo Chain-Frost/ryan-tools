@@ -167,7 +167,7 @@ def test_write_batch_rejects_empty_plan_directly() -> None:
 
 
 @pytest.mark.parametrize(
-    "table_content, message",
+    ("table_content", "message"),
     [
         ("Model,TUFLOW_AEP,TP\nGD08,01.00p,TP07\n", "missing columns"),
         ("Model,TUFLOW_AEP,TUFLOW_Duration,TP,TP\n", "duplicate CSV column"),

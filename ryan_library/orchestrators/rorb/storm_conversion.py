@@ -129,6 +129,22 @@ def read_batch_rows(table_path: Path) -> list[tuple[int, dict[str, str | None]]]
     return result
 
 
+def _record_incomplete_row(
+    *,
+    missing: list[str],
+    line: int,
+    skipped: list[str],
+    errors: list[str],
+    allow_incomplete_rows: bool,
+) -> None:
+    """Skip incomplete rows only with explicit opt-in; otherwise fail preflight."""
+    detail = f"line {line}: incomplete row ({', '.join(missing)})"
+    if allow_incomplete_rows:
+        skipped.append(detail)
+    else:
+        errors.append(f"{detail}; use --allow-incomplete to skip.")
+
+
 def prepare_batch(
     table_path: Path,
     *,
@@ -160,11 +176,13 @@ def prepare_batch(
         cells = {key: (row.get(key) or "").strip() for key in ("Model", "TUFLOW_AEP", "TUFLOW_Duration", "TP")}
         missing = [key for key, value in cells.items() if not value]
         if missing:
-            detail = f"line {line}: incomplete row ({', '.join(missing)})"
-            if allow_incomplete_rows:
-                skipped.append(detail)
-            else:
-                errors.append(f"{detail}; use --allow-incomplete to skip.")
+            _record_incomplete_row(
+                missing=missing,
+                line=line,
+                skipped=skipped,
+                errors=errors,
+                allow_incomplete_rows=allow_incomplete_rows,
+            )
             continue
 
         try:
