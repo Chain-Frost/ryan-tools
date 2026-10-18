@@ -51,7 +51,6 @@ def _check_installed_wrapper_copy() -> None:
             raise RuntimeError(msg)
 
 
-
 def _check_installed_script_help() -> None:
     """Run only help for representative installed CLI wrappers, without a checkout."""
     scripts_directory = Path(ryan_library.__file__).absolute().parent.parent / "ryan-scripts"
