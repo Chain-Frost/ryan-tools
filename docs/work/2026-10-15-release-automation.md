@@ -26,8 +26,9 @@ Implementation committed as `16be7ac` and pushed to
 `origin/ci/merge-only-release-policy` with explicit user authorization on 2026-10-18.
 [PR #135](https://github.com/Chain-Frost/ryan-tools/pull/135) is open with the
 skip-release and enhancement labels and [skip release] in its title.
-Hosted CI is running; next action is to confirm all required checks on the latest
-PR head and inspect review feedback. Merging and publication are not authorized.
+Latest hosted CI and review status are maintained on the linked PR. Next action is
+to confirm all required checks on the latest PR head, then obtain merge authorization.
+Merging and publication are not authorized.
 Use title `[ci] [skip release] Publish only verified PR merges`, retain the
 skip-release PR label, and preserve [skip release] in the squash-merge commit.
 Hosted PR CI and later eligible publication remain distinct verification steps.
@@ -36,7 +37,7 @@ Hosted PR CI and later eligible publication remain distinct verification steps.
 
 Python 3.14.6, Windows, exact local tree based on 08f8e2b:
 
-- Focused release policy, calendar allocation/stamping, and preparation tests: 46 passed.
+- Focused release policy, calendar allocation/stamping, and preparation tests: 50 passed.
 - Ruff check and format on both added Python files passed; strict Pyright: zero diagnostics.
 - Default documentation check: seven files plus central-index coverage passed.
 - Explicit links check: all five touched Markdown documents passed.
@@ -59,6 +60,22 @@ Python 3.14.6, Windows, exact local tree based on 08f8e2b:
   settings, reviewers, branch protections or Trusted Publisher identity changed.
 - Actual OIDC upload under the new workflow chain is not yet verified. run-hy8
   demonstrated the skip path only; it created no tag, Release or uploaded wheel.
+
+## Review repair, 2026-10-18
+
+Addressed PR #135's P2 asset-selection finding: GitHub ignores target_commitish
+when the tag already exists, so a Release may report main instead of its tag's SHA.
+The sync workflow now resolves git/ref/tags for stable release candidates and matches
+that actual lightweight commit SHA to the triggering merge. Stale or branch-valued
+release metadata cannot hide the correct release or select a mismatched tag.
+Four regressions execute the actual workflow selection against mocked GitHub replies,
+covering matching and mismatching refs with branch/stale target_commitish metadata.
+Actionlint, Ruff, strict Pyright and focused release tests (50 passed) pass after repair.
+Changed-Python typing and documentation/link checks pass.
+Package contents and the preserved build job are unchanged, so the earlier wheel
+build and isolated-install evidence still applies. Fresh hosted CI is required for
+the repair commit. This finding was inherited from run-hy8; PR #17's skip-path proof
+remains valid, while its same asset-selector repair needs a separate follow-up.
 
 ## Historical release setup evidence
 

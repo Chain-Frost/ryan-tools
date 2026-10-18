@@ -2,8 +2,10 @@
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -93,3 +95,41 @@ def test_all_release_workflows_are_merge_only() -> None:
     assert "mainRef.object.sha !== expected" in publisher[guard:upload]
     assert "tagRef.object.sha !== expected" in publisher[guard:upload]
     assert "RELEASE_SHA: ${{ needs.release.outputs.sha }}" in publisher[guard:upload]
+
+
+@pytest.mark.parametrize(
+    ("target_commitish", "tag_sha", "expected"),
+    [
+        ("main", "verified", ["v26.10.18.1"]),
+        ("stale", "verified", ["v26.10.18.1"]),
+        ("verified", "other", []),
+        ("main", "other", []),
+    ],
+)
+def test_asset_sync_matches_resolved_tag(target_commitish: str, tag_sha: str, expected: list[str]) -> None:
+    assets = (_ROOT / ".github/workflows/sync-release-assets.yml").read_text(encoding="utf-8")
+    script = textwrap.dedent(assets.split("          python - <<'PY'\n", 1)[1].rsplit("          PY", 1)[0])
+    selection = script.split("# Only attach a wheel for the specific merged PR, never a backfill.\n", 1)[1]
+    selected: list[str] = []
+
+    def gh_json(endpoint: str) -> object:
+        if endpoint == "releases?per_page=100":
+            return [
+                {"tag_name": "v26.10.18.1", "draft": False, "prerelease": False, "target_commitish": target_commitish}
+            ]
+        assert endpoint == "git/ref/tags/v26.10.18.1"
+        return {"object": {"type": "commit", "sha": tag_sha}}
+
+    def sync(tag: str, *, allow_missing_pypi: bool) -> None:
+        assert not allow_missing_pypi
+        selected.append(tag)
+
+    namespace: dict[str, object] = {
+        "gh_json": gh_json,
+        "sync": sync,
+        "source_sha": "verified",
+        "tag_pattern": re.compile(r"v(?:\d{2}|\d{4})\.\d{1,2}\.\d{1,2}\.[1-9]\d*"),
+    }
+    # Execute the actual repository workflow selection with mocked read-only API calls.
+    exec(compile(selection, "sync-release-assets.yml", "exec"), namespace)  # noqa: S102
+    assert selected == expected

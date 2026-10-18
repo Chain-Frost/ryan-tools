@@ -167,12 +167,16 @@ jobs:
 
           # Only attach a wheel for the specific merged PR, never a backfill.
           releases = gh_json("releases?per_page=100")
-          tags = [
-              item["tag_name"] for item in releases
-              if not item["draft"] and not item["prerelease"]
-              and item["target_commitish"] == source_sha
-              and tag_pattern.fullmatch(item["tag_name"])
-          ]
+          tags = []
+          for item in releases:
+              tag = item["tag_name"]
+              if item["draft"] or item["prerelease"] or not tag_pattern.fullmatch(tag):
+                  continue
+              # target_commitish is unused when a Release's tag already exists.
+              # Resolve the immutable tag ref to identify the actual source commit.
+              tag_ref = gh_json(f"git/ref/tags/{tag}")
+              if tag_ref["object"]["type"] == "commit" and tag_ref["object"]["sha"] == source_sha:
+                  tags.append(tag)
           if len(tags) > 1:
               raise ValueError(f"Multiple releases for merged revision {source_sha}")
           if tags:
