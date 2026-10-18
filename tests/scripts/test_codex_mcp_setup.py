@@ -279,9 +279,7 @@ def test_codex_writer_rejects_edits_after_read(tmp_path: Path) -> None:
     assert not list(tmp_path.glob("*.bak.*"))
 
 
-def test_codex_writer_detects_edits_during_staged_write(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_codex_writer_detects_edits_during_staged_write(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     import os
 
     write = cast(Callable[..., None], codex["_write"])
