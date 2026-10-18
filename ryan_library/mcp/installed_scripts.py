@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
+import tempfile
 from importlib.resources import files
 from pathlib import Path
 from typing import cast
@@ -67,8 +69,33 @@ def copy_wrapper(
         if not target.is_file() or target.is_symlink():
             msg = f"Refusing to replace a non-file or symlink: {target}"
             raise ValueError(msg)
-    if not dry_run:
-        shutil.copy2(source, target)
+    if dry_run:
+        return target
+    if not overwrite:
+        # Exclusive creation also rejects a symlink installed since the earlier check.
+        with source.open("rb") as original, target.open("xb") as copied:
+            shutil.copyfileobj(original, copied)
+        return target
+
+    # A temporary file in the destination directory gives os.replace an atomic
+    # replacement target. Unlike copy2(source, target), os.replace does not
+    # follow a destination symlink swapped in after the existence checks.
+    staged: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            dir=target_directory,
+            prefix=f".{target.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temporary:
+            staged = Path(temporary.name)
+            with source.open("rb") as original:
+                shutil.copyfileobj(original, temporary)
+        os.replace(staged, target)
+    finally:
+        if staged is not None:
+            staged.unlink(missing_ok=True)
     return target
 
 
