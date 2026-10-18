@@ -22,13 +22,15 @@ a later eligible merge must still verify actual OIDC publication end to end.
 
 Worktree: `E:/Github/ryan-tools-merge-release`, branch `ci/merge-only-release-policy`,
 based on 08f8e2b. Original checkout changes are untouched.
-Implementation is locally validated. On 2026-10-18 the user explicitly authorized
-committing and pushing both policy branches and opening PRs. Delivery is in progress;
-next action is to open each policy PR and verify its exact-head hosted checks.
-Merging and publication are not part of this authorization.
+Implementation committed as `16be7ac` and pushed to
+`origin/ci/merge-only-release-policy` with explicit user authorization on 2026-10-18.
+[PR #135](https://github.com/Chain-Frost/ryan-tools/pull/135) is open with the
+skip-release and enhancement labels and [skip release] in its title.
+Hosted CI is running; next action is to confirm all required checks on the latest
+PR head and inspect review feedback. Merging and publication are not authorized.
 Use title `[ci] [skip release] Publish only verified PR merges`, retain the
 skip-release PR label, and preserve [skip release] in the squash-merge commit.
-Hosted PR CI and the later eligible publication remain to be verified after delivery.
+Hosted PR CI and later eligible publication remain distinct verification steps.
 
 ## Validation on 2026-10-18
 
