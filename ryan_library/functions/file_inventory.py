@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict
 
 from ryan_library.functions.file_utils import find_files_parallel
 from ryan_library.functions.file_verification import hash_file, snapshot_file
 
-DOCUMENT_PATTERN = re.compile(r"^(?P<number>[A-Z0-9]{1,15}(?:-[A-Z0-9]{1,15}){1,7})(?=$|[_ .-])", re.I)
-REVISION_PATTERN = re.compile(r"^_(?:(?:REV|REVISION)[_ -]*)?(?P<revision>\d+[A-Z]?)(?=$|[_ .-])", re.I)
+DOCUMENT_PATTERN = re.compile(r"^(?P<number>[A-Z0-9]{1,15}(?:-[A-Z0-9]{1,15}){1,7})(?=$|[_ .-])", re.IGNORECASE)
+REVISION_PATTERN = re.compile(r"^_(?:(?:REV|REVISION)[_ -]*)?(?P<revision>\d+[A-Z]?)(?=$|[_ .-])", re.IGNORECASE)
 
 
 class InventoryRow(TypedDict):
@@ -65,11 +65,13 @@ def collect_file_inventory(
 ) -> list[InventoryRow]:
     """Reuse shared threaded discovery and filesystem snapshots; return sorted records."""
     if not root_directories:
-        raise ValueError("At least one root directory is required")
+        message = "At least one root directory is required"
+        raise ValueError(message)
     roots = [Path(root).expanduser().absolute() for root in root_directories]
     invalid = [root for root in roots if not root.is_dir()]
     if invalid:
-        raise NotADirectoryError(f"Invalid root directory: {invalid[0]}")
+        message = f"Invalid root directory: {invalid[0]}"
+        raise NotADirectoryError(message)
     discovered = find_files_parallel(
         root_dirs=roots,
         patterns=patterns if patterns is not None else ["*"],
@@ -96,7 +98,7 @@ def collect_file_inventory(
             snapshot = snapshot_file(path)
             row["file_size_bytes"] = snapshot.size
             row["modified_utc"] = datetime.fromtimestamp(
-                snapshot.mtime_ns / 1_000_000_000, tz=timezone.utc
+                snapshot.mtime_ns / 1_000_000_000, tz=UTC
             ).isoformat(timespec="seconds")
             if include_sha256:
                 row["sha256"] = hash_file(path).hex()
