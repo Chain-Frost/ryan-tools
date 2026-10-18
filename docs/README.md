@@ -60,6 +60,8 @@ These documents stay near the code they describe so that browsing a target direc
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
 | 3D similarity transformations | [Similarity transform API](GEOMETRY_SIMILARITY.md) | Supported fit function, parameters and transform conventions |
 | Vendored algorithms | [Vendor inventory](../vendor/README.md) | Third-party PyHMA and simil source, licence, import and packaging policy |
+| Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Bundled similarity-transform implementation, usage and upstream attribution |
+| Vendored `PyHMA` | [`PyHMA` README](../vendor/PyHMA/README.md) | Hydrograph matching usage, requirements and upstream attribution |
 
 ## Integrations
 
