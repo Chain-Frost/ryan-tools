@@ -36,7 +36,6 @@ def _check_installed_scripts() -> None:
             raise RuntimeError(msg)
 
 
-
 def _check_installed_wrapper_copy() -> None:
     """Check wrapper discovery and a byte-for-byte copy from the installed wheel."""
     if "culvert.py" not in available_wrappers():

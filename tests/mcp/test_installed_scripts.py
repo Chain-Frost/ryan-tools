@@ -32,16 +32,8 @@ def test_manifest_covers_all_script_target_workflows() -> None:
     resources = ROOT / "ryan_library" / "resources" / "mcp"
     general = json.loads((resources / "workflows.json").read_text(encoding="utf-8"))
     gdal = json.loads((resources / "gdal_cli_tools.json").read_text(encoding="utf-8"))
-    expected = {
-        item["script"].removeprefix("ryan-scripts/")
-        for item in general["workflows"]
-        if "script" in item
-    }
-    expected.update(
-        "gdal-python/" + item["script"]
-        for item in gdal["tools"]
-        if "module" not in item
-    )
+    expected = {item["script"].removeprefix("ryan-scripts/") for item in general["workflows"] if "script" in item}
+    expected.update("gdal-python/" + item["script"] for item in gdal["tools"] if "module" not in item)
     assert expected <= set(installed_files())
 
 

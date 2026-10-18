@@ -252,6 +252,7 @@ def test_removed_legacy_modules_and_pomm_helpers_are_absent() -> None:
         assert not hasattr(wrapper_utils, name), f"Legacy POMM API still exposed: {name}"
     assert hasattr(wrapper_utils, "CommonWrapperOptions")  # Supported wrapper API remains available.
 
+
 def test_wheel_script_allowlist_rejects_extra_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     scripts = tmp_path / "ryan-scripts"
     scripts.mkdir()

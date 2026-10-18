@@ -96,7 +96,6 @@ def _verify_source_files(
             raise ValueError(msg)
 
 
-
 def _verify_script_allowlist(archive: zipfile.ZipFile, names: set[str]) -> None:
     """Require exact, byte-identical installed scripts from the reviewed manifest."""
     manifest = PROJECT_ROOT / "ryan_library" / "resources" / "mcp" / "installed_scripts.json"
@@ -133,6 +132,7 @@ def _verify_script_allowlist(archive: zipfile.ZipFile, names: set[str]) -> None:
         if archive.read(name) != (PROJECT_ROOT / name).read_bytes():
             msg = f"Packaged script differs from repository source: {name}"
             raise ValueError(msg)
+
 
 def _verify_external_dependencies(metadata: str, names: set[str]) -> None:
     """Check that external hydraulics libraries are declared but not embedded."""

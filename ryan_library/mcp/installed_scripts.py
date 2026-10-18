@@ -33,8 +33,7 @@ def available_wrappers() -> tuple[str, ...]:
     return tuple(
         item
         for item in installed_files()
-        if Path(item).suffix.casefold() in {".py", ".bat", ".ps1"}
-        and Path(item).name != "__init__.py"
+        if Path(item).suffix.casefold() in {".py", ".bat", ".ps1"} and Path(item).name != "__init__.py"
     )
 
 
