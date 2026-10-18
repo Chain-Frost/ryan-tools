@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
 import re
@@ -306,6 +307,46 @@ class WorkflowRegistry:
             "next_step": "Call get_workflow with an id, then run its help_command through the client shell.",
         }
 
+    def _script_source(self, workflow: WorkflowSpec) -> str:
+        """Identify the selected CLI source without claiming executable readiness."""
+        if workflow.execution.kind is not ExecutionKind.SCRIPT:
+            return "module_or_console"
+        if self.repository_root is not None:
+            return "repository_checkout"
+        if self.scripts_directory is not None:
+            return "installed_distribution"
+        return "unavailable"
+
+    @staticmethod
+    def _external_prerequisites(workflow: WorkflowSpec) -> dict[str, Any]:
+        """Describe declared external execution without guessing binary availability."""
+        program = workflow.metadata.get("external_program")
+        if isinstance(program, str) and program.strip():
+            return {
+                "status": "not_verified",
+                "declared_program": program,
+                "note": "Check the external executable and its version in the target environment before execution.",
+            }
+        if workflow.mutation is MutationKind.EXECUTES_EXTERNAL:
+            return {
+                "status": "not_declared",
+                "declared_program": None,
+                "note": "Workflow invokes an external executable but the catalogue does not identify it.",
+            }
+        return {
+            "status": "not_assessed",
+            "declared_program": None,
+            "note": "File discovery does not validate optional third-party tools or runtime imports.",
+        }
+
+    @staticmethod
+    def _installed_distribution_version() -> str | None:
+        """Read the distribution version, if installed, without importing any workflow."""
+        try:
+            return importlib.metadata.version("ryan-tools")
+        except importlib.metadata.PackageNotFoundError:
+            return None
+
     def get_workflow(self, workflow_id: str) -> dict[str, Any]:
         """Return one visible workflow and its resolved CLI discovery commands."""
         workflow: WorkflowSpec | None = self._workflows.get(workflow_id)
@@ -331,6 +372,10 @@ class WorkflowRegistry:
                 ),
                 "required_headless_arguments": list(workflow.headless_arguments),
                 "metadata": dict(workflow.metadata),
+                "script_source": self._script_source(workflow),
+                "installed_distribution_version": self._installed_distribution_version(),
+                "external_prerequisites": self._external_prerequisites(workflow),
+                "availability_scope": "entry_point_only",
             }
         )
         if command_prefix is None:
