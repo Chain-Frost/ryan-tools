@@ -12,9 +12,10 @@ or the folder containing the script.
 
 ## Installed copies
 
-The wheel installs **selected maintained scripts**, not the entire repository script tree, beside `ryan_library`
-in `site-packages`. MCP locates installed scripts automatically; no repository path is required. The reviewed
-[script manifest](../ryan_library/resources/mcp/installed_scripts.json) is the install allowlist and preserves
+The wheel currently installs **selected scripts**, not the entire repository script tree, beside `ryan_library`
+in `site-packages`. MCP locates installed scripts automatically; no repository path is required. The
+[script manifest](../ryan_library/resources/mcp/installed_scripts.json) is a **provisional** install allowlist
+pending [individual lifecycle review](../docs/audits/2026-10-19-installed-scripts-inventory.md), and preserves
 the original file bytes. Other legacy, experimental and project-specific scripts remain repository-only
 until individually reviewed. Only catalogued workflows are exposed through MCP.
 
@@ -27,6 +28,8 @@ ryan-scripts copy file-management-python/archive_compress_folder.py .
 ```
 
 The destination must already exist. An existing file is protected unless `--overwrite` is explicitly provided.
+Replacement uses an atomic destination-directory staging file so a symlink swapped into the
+destination after validation is replaced as an entry, not followed to another file.
 The helper copies **one original script**, without executing it or copying external dependencies. Inspect its
 editable defaults and ensure any required library version or external applications are available before running.
 See [MCP setup](../docs/MCP_SETUP.md#installed-scripts-and-development-checkouts).
