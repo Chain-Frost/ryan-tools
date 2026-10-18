@@ -150,14 +150,22 @@ def render_config(config: str, python: Path, root: Path | None, profile: str, *,
 
     # Inline TOML tables are immutable; appendable [mcp_servers.X] sections
     # would make an otherwise valid user config invalid. Keep inline form.
-    inline_root = re.compile(r"^\s*mcp_servers\s*=\s*\{.*\}\s*(?:#.*)?$")
+    inline_root = re.compile(
+        r"""^\s*(?P<key>"(?:\\.|[^"\\])*"|'[^']*'|[A-Za-z0-9_-]+)\s*=\s*\{.*\}\s*(?:#.*)?$"""
+    )
     original_lines = config.splitlines(keepends=True)
     for index, line in enumerate(original_lines):
-        if not inline_root.fullmatch(line.rstrip("\r\n")):
+        if _table_path(line) is not None:
+            break  # Only root assignments are candidates, not another table's keys.
+        match = inline_root.fullmatch(line.rstrip("\r\n"))
+        if match is None:
+            continue
+        decoded_key: dict[str, Any] = tomllib.loads(f'{match.group("key")} = {{}}\n')
+        if "mcp_servers" not in decoded_key:
             continue
         updated_servers = {**servers, **updated_entries}
         newline = "\r\n" if line.endswith("\r\n") else "\n"
-        original_lines[index] = f"mcp_servers = {_value(updated_servers)}{newline}"
+        original_lines[index] = f'{match.group("key")} = {_value(updated_servers)}{newline}'
         result = "".join(original_lines)
         parsed = tomllib.loads(result)
         if any(parsed.get(key) != val for key, val in existing.items() if key != "mcp_servers"):
@@ -210,19 +218,32 @@ def render_config(config: str, python: Path, root: Path | None, profile: str, *,
     return rendered
 
 
-def _write(path: Path, data: str, *, dry_run: bool) -> None:
-    original = path.read_bytes() if path.is_file() else b""
+def _write(path: Path, data: str, *, dry_run: bool, expected_original: bytes | None) -> None:
+    """Safely replace Codex settings only if the initial source has not changed.
+
+    This refuses symlinks rather than replacing a managed dotfiles link. Another
+    process can still race between the final check and the filesystem replace;
+    callers should avoid editing Codex settings simultaneously.
+    """
+    if path.is_symlink():
+        msg = f"Codex configuration is a symlink; refusing to replace it: {path}"
+        raise ValueError(msg)
+    current: bytes | None = path.read_bytes() if path.is_file() else None
+    if current != expected_original:
+        msg = "Codex configuration changed since setup read it; refusing to overwrite concurrent edits"
+        raise RuntimeError(msg)
+    original: bytes = expected_original or b""
     bom = b"\xef\xbb\xbf" if original.startswith(b"\xef\xbb\xbf") else b""
     newline = "\r\n" if b"\r\n" in original else "\n"
     encoded = bom + data.replace("\r\n", "\n").replace("\n", newline).encode("utf-8")
-    if original == encoded:
+    if expected_original == encoded:
         print(f"Already configured: {path}")
         return
     if dry_run:
         print(f"Would update: {path}")
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
+    if expected_original is not None:
         backup = path.with_name(f"{path.name}.bak.{datetime.now():%Y%m%d-%H%M%S-%f}")
         shutil.copy2(path, backup)
         print(f"Backed up existing config to {backup}")
@@ -232,8 +253,12 @@ def _write(path: Path, data: str, *, dry_run: bool) -> None:
             stream.write(encoded)
             stream.flush()
             os.fsync(stream.fileno())
-        if path.is_file() and path.read_bytes() != original:
-            msg = "Codex configuration changed during setup"
+        if path.is_symlink():
+            msg = f"Codex configuration became a symlink during setup: {path}"
+            raise RuntimeError(msg)
+        latest: bytes | None = path.read_bytes() if path.is_file() else None
+        if latest != expected_original:
+            msg = "Codex configuration changed during setup; refusing to overwrite concurrent edits"
             raise RuntimeError(msg)
         Path(temporary).replace(path)
     finally:
@@ -276,7 +301,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"Not a ryan-tools checkout: {root}")
 
     try:
-        original = config.read_text(encoding="utf-8-sig") if config.is_file() else ""
+        if config.is_symlink():
+            msg = f"Codex configuration is a symlink; refusing to replace it: {config}"
+            raise ValueError(msg)
+        original_bytes: bytes | None = config.read_bytes() if config.is_file() else None
+        original = (original_bytes or b"").decode("utf-8-sig")
         disable_bytecode = args.disable_bytecode or disable_bytecode_for_environment()
         python_flags = ["-B"] if disable_bytecode else []
         repository_root = args.repository_root.expanduser().absolute() if args.repository_root else None
@@ -309,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
             _run([*pip, source], dry_run=args.dry_run)
             _run([*pip, "-e", f"{root}[mcp]"], dry_run=args.dry_run)
 
-        _write(config, rendered, dry_run=args.dry_run)
+        _write(config, rendered, dry_run=args.dry_run, expected_original=original_bytes)
         if not args.dry_run and not args.skip_import_checks:
             for module in SERVER_MODULES.values():
                 _run([str(python), *python_flags, "-c", f"import {module}"], dry_run=False)

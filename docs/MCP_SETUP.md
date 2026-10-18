@@ -184,7 +184,9 @@ Without `-QgisSource`, `-Install` installs upstream QGIS MCP from `main`. The `-
 mode with the MCP extra. Omitting `-Install` only updates Codex registration.
 
 The setup preserves unrelated Codex settings and MCP servers, retains QGIS
-environment settings such as `QGIS_MCP_TOKEN`, backs up
+environment settings such as `QGIS_MCP_TOKEN`, refuses symlinked Codex config
+files rather than replacing dotfiles-managed links, detects edits made after
+reading or while staging the replacement, and backs up
 `%USERPROFILE%\.codex\config.toml` before changes, and can be rerun.
 Set `-Python` to override the interpreter. Existing `CODEX_HOME` is
 respected by the Python utility. The default ryan-tools profile is `create`;
