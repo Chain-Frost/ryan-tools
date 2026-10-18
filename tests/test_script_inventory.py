@@ -30,7 +30,7 @@ def test_static_audit_records_syntax_signals_without_importing() -> None:
         "import subprocess\n"
         'DEFAULT_PATH = "C:\\\\work\\\\foo"\n'
         'if __name__ == "__main__":\n'
-        '    parser = argparse.ArgumentParser()\n'
+        "    parser = argparse.ArgumentParser()\n"
         '    parser.add_argument("--no-pause")\n'
     )
     record = inventory.analyse_python(source)

@@ -55,18 +55,19 @@ def analyse_python(source: str) -> dict[str, Any]:
         and isinstance(node.test, ast.Compare)
         and isinstance(node.test.left, ast.Name)
         and node.test.left.id == "__name__"
-        and any(isinstance(comparator, ast.Constant) and comparator.value == "__main__" for comparator in node.test.comparators)
+        and any(
+            isinstance(comparator, ast.Constant) and comparator.value == "__main__"
+            for comparator in node.test.comparators
+        )
         for node in tree.body
     )
-    call_sites = sum(
-        isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)
-        for node in tree.body
-    )
+    call_sites = sum(isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) for node in tree.body)
     has_wrapper_version = any(
         isinstance(node, (ast.Assign, ast.AnnAssign))
-        and any(isinstance(target, ast.Name) and target.id == "WRAPPER_VERSION" for target in (
-            node.targets if isinstance(node, ast.Assign) else [node.target]
-        ))
+        and any(
+            isinstance(target, ast.Name) and target.id == "WRAPPER_VERSION"
+            for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
+        )
         for node in tree.body
     )
     return {
@@ -97,7 +98,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
             mcp_targets.setdefault(relative, []).append(str(workflow["id"]))
     for workflow in gdal["tools"]:
         if isinstance(workflow, dict) and isinstance(workflow.get("script"), str) and "module" not in workflow:
-            relative = f'gdal-python/{workflow["script"]}'
+            relative = f"gdal-python/{workflow['script']}"
             mcp_targets.setdefault(relative, []).append(str(workflow["id"]))
     tracked = tracked_scripts(root)
     missing_selected = sorted(selected.difference(tracked))
