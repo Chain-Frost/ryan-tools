@@ -100,30 +100,37 @@ workflow-list responses explain how to configure the root.
 
 ## Install both MCP servers
 
-The normal Windows wheel installation (`package_and_install.bat` or
-`install-latest-wheel.bat`) also installs the **external QGIS MCP Python
-bridge** from a pinned upstream GitHub commit. This is a separate pip installation
-step, not a dependency embedded in the published `ryan_functions` wheel.
-The developer `requirements.txt` likewise installs both the ryan-tools MCP
-extra and the pinned QGIS bridge.
+The recommended end-user launcher (`install-ryan-tools.bat`, also available through
+the existing `install-latest-wheel.bat`) installs the newest published
+`ryan_functions[mcp]` release **from PyPI**, without requiring a local wheel.
+It also installs the external QGIS MCP Python bridge from upstream `main`.
+If Codex is detected (CLI or existing user configuration), it automatically
+adds/refreshes the QGIS and ryan-tools MCP registrations, preserving unrelated
+settings and backing up changed configuration. If Codex is absent, no Codex
+configuration is created.
+
+`package_and_install.bat` and `install-local-wheel.bat` retain the
+local verified-wheel workflow for developers. The QGIS bridge remains a
+separate pip installation, not an embedded dependency of `ryan_functions`.
+Development `requirements.txt` installs the checkout and upstream QGIS MCP.
 
 To use the approved local QGIS MCP source instead of downloading from GitHub:
 
 ```powershell
-.\install-latest-wheel.bat --qgis-mcp-source "Q:\BGER\PER\RPRT\qgis-mcp"
+.\install-ryan-tools.bat --qgis-mcp-source "Q:\BGER\PER\RPRT\qgis-mcp"
 ```
 
 For machines without QGIS or access to the upstream source:
 
 ```powershell
-.\install-latest-wheel.bat --skip-qgis-mcp
+.\install-ryan-tools.bat --skip-qgis-mcp
 ```
 
-The `--force-reinstall` recovery mode continues using `--no-deps`: it
-does not reinstall the QGIS bridge. `--dependencies-only` is intentionally
-limited to the binary GIS bootstrap. Direct `pip install .` installs only
-the core `ryan_functions` package; the default wheel wrapper and development
-requirements provide the two-server setup.
+The developer `force-reinstall.bat` still uses a local wheel with
+`--no-deps`; `install_latest_wheel.py --dependencies-only` remains a
+binary GIS dependency bootstrap. Use `install-ryan-tools.bat --skip-codex`
+to leave Codex untouched. Skipping QGIS MCP also skips automatic Codex
+configuration; run the setup helper separately when both servers are installed.
 
 **The QGIS desktop plugin is not installed by pip.** Install/update it in QGIS
 through Plugins > Manage and Install Plugins > QGIS MCP, then start the server
@@ -146,8 +153,7 @@ To install/update the Python MCP packages at the same time, run:
 .\repo-scripts\setup_codex_mcp.ps1 -Install -QgisSource "Q:\BGER\PER\RPRT\qgis-mcp"
 ```
 
-Without `-QgisSource`, `-Install` uses the same pinned upstream archive as
-the wheel installer. The `-Install` option installs the checkout in editable
+Without `-QgisSource`, `-Install` installs upstream QGIS MCP from `main`. The `-Install` option installs the checkout in editable
 mode with the MCP extra. Omitting `-Install` only updates Codex registration.
 
 The setup preserves unrelated Codex settings and MCP servers, retains QGIS
