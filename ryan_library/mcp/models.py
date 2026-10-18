@@ -121,14 +121,14 @@ class WorkflowSpec:
         headless_arguments: tuple[str, ...] = tuple(cast("str", item) for item in raw_headless)
 
         raw_required: object = raw.get("required_modules", [])
-        if not isinstance(raw_required, list) or not all(
-            isinstance(item, str) and bool(item.strip()) for item in raw_required
-        ):
+        if not isinstance(raw_required, list):
             msg = "Workflow field 'required_modules' must be a list of non-empty Python module names."
             raise ValueError(msg)
-        required_modules: tuple[str, ...] = tuple(
-            cast("str", item).strip() for item in cast("list[object]", raw_required)
-        )
+        required_items: list[object] = cast("list[object]", raw_required)
+        if not all(isinstance(item, str) and bool(item.strip()) for item in required_items):
+            msg = "Workflow field 'required_modules' must be a list of non-empty Python module names."
+            raise ValueError(msg)
+        required_modules: tuple[str, ...] = tuple(cast("str", item).strip() for item in required_items)
 
         known_keys: set[str] = {
             "id",
