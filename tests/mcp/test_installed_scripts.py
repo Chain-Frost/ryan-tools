@@ -219,4 +219,3 @@ def test_windows_copy_preserves_read_only_attribute(tmp_path: Path, overwrite: b
         source.chmod(stat.S_IWRITE | stat.S_IREAD)
         if target.exists():
             target.chmod(stat.S_IWRITE | stat.S_IREAD)
-
