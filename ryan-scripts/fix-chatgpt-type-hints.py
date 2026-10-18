@@ -53,14 +53,14 @@ def process_folders(folder_paths: list[Path]) -> None:
     """Process all Python files in multiple folders."""
     script_path: Path = Path(__file__).absolute()  # Dynamically get the script's path
     for folder_path in folder_paths:
-        folder: Path = Path(folder_path).resolve()  # Resolve to absolute path
+        folder: Path = Path(folder_path).absolute()  # Resolve to absolute path
         if not folder.exists():
             print(f"Folder not found: {folder}")
             continue
 
         print(f"Processing folder: {folder}")
         for file in folder.rglob("*.py"):  # Recursively find all .py files
-            if file.resolve() == script_path:  # Skip the script itself
+            if file.resolve() == script_path.resolve():  # Compare physical identity to avoid editing this script.
                 print(f"Skipping: {file}")
                 continue
             fix_type_hints(file_path=file)

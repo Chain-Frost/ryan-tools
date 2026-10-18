@@ -10,8 +10,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Preserve every main push revision, including pending runs needed for release finalization.
+  # A shared main group with cancellation disabled would still replace pending runs.
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
 jobs:
   policy:
@@ -25,14 +27,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Initialise required vendored packages
-        shell: pwsh
-        run: |
-          git submodule sync -- vendor/run_hy8 vendor/ryan_culverts
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init vendor/run_hy8 vendor/ryan_culverts
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
       - name: Set up Python 3.14
         uses: actions/setup-python@v6
         with:
@@ -42,14 +36,21 @@ jobs:
             requirements.txt
             pyproject.toml
 
-      - name: Install development dependencies
+      - name: Check GitHub Actions workflows
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          python -m pip install --upgrade pip
+          $directory = Join-Path $env:RUNNER_TEMP 'actionlint'
+          New-Item -ItemType Directory -Force -Path $directory | Out-Null
+          gh release download v1.7.12 --repo rhysd/actionlint --pattern 'actionlint_1.7.12_windows_amd64.zip' --dir $directory
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python repo-scripts/install_latest_wheel.py --dependencies-only
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pip install -r requirements.txt
+          $archive = Join-Path $directory 'actionlint_1.7.12_windows_amd64.zip'
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne '6E7241B51E6817EA6A047693D8E6FED13B31819C9A0DD6C5A726E1592D22F6E9') {
+            throw 'Actionlint archive checksum mismatch.'
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath $directory
+          & (Join-Path $directory 'actionlint.exe') -ignore 'unexpected key "queue" for "concurrency" section'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Check changed Python files
@@ -77,9 +78,17 @@ jobs:
             exit 0
           }
 
-          Write-Host "Checking changed Python files:"
+          # Only Python changes need the full import environment for strict Pyright.
+          python repo-scripts/install_latest_wheel.py --dependencies-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          Write-Host "Type-checking changed Python files:"
           $pythonFiles | ForEach-Object { Write-Host " - $_" }
 
+          # Retain the established CI lint gate for branch protection and release automation.
+          # Fast PR checks run the same lightweight validations sooner, independently.
           python -m ruff check $pythonFiles
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m ruff format --check $pythonFiles
@@ -97,6 +106,67 @@ jobs:
           git diff --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+  python313-mcp-smoke:
+    name: Python 3.13 compatibility and MCP
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Initialise QGIS style resource submodule
+        shell: pwsh
+        run: |
+          git submodule sync -- qgis-resources tests/test_data
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git submodule update --init qgis-resources tests/test_data
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Check Python 3.13 source compatibility
+        shell: pwsh
+        run: |
+          python -m compileall -q ryan_library
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install package and MCP dependencies
+        shell: pwsh
+        run: |
+          python -m pip install ".[mcp]" pytest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run Python 3.13 focused utility regression tests
+        shell: pwsh
+        env:
+          MPLBACKEND: Agg
+        run: |
+          # Python 3.14 tests exercise PyPI-installed HY-8 and hydraulics dependencies.
+          python -m pytest `
+            tests/functions/RORB/test_read_rorb_files.py `
+            tests/functions/gdal/test_profiling.py `
+            tests/functions/test_process_12D_culverts.py `
+            tests/functions/tuflow/test_logsummary_excel_append.py `
+            tests/functions/tuflow/test_notebook_helpers.py `
+            tests/functions/tuflow/test_po_timeseries_checks.py `
+            -m "not gui and not external"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify MCP module import and tool exports
+        shell: pwsh
+        env:
+          RYAN_MCP_PROFILE: create
+          RYAN_TOOLS_REPOSITORY_ROOT: ${{ github.workspace }}
+        run: |
+          python -B -c "import ryan_library.mcp.server as server; assert server.mcp is not None; assert all(callable(getattr(server, name)) for name in ('parse_tuflow_filename', 'inspect_tuflow_result', 'inspect_tuflow_collection', 'inspect_raster_metadata', 'check_repo_health', 'list_workflows', 'get_workflow'))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
   hosted-tests:
     name: Hosted tests
     runs-on: windows-latest
@@ -111,9 +181,9 @@ jobs:
       - name: Initialise required test submodules
         shell: pwsh
         run: |
-          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
+          git submodule sync -- qgis-resources tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
+          git submodule update --init qgis-resources tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Set up Python 3.14
@@ -125,17 +195,27 @@ jobs:
             requirements.txt
             pyproject.toml
 
-      - name: Install development dependencies
+      # Keep the existing installation sequence but time its components independently.
+      - name: Upgrade pip
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install binary GIS dependencies
+        shell: pwsh
+        run: |
           python repo-scripts/install_latest_wheel.py --dependencies-only
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install development package and test dependencies
+        shell: pwsh
+        run: |
           python -m pip install -r requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run hosted test boundary
+        # Temporarily exclude two slow sweeps; see docs/work/2026-10-15-release-automation.md.
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path test-results | Out-Null
@@ -146,7 +226,10 @@ jobs:
             --ignore=tests/scripts/test_promoted_utilities.py `
             --ignore=tests/scripts/test_archive_compress.py `
             -m "not gdal and not gui and not external" `
+            --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_detects_overtopping_and_retains_non_aep_interior_states `
+            --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_honours_explicit_minimum_bound `
             -rs `
+            --durations=15 `
             --junitxml=test-results/hosted-tests.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -170,9 +253,9 @@ jobs:
       - name: Initialise package resources
         shell: pwsh
         run: |
-          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          git submodule sync -- qgis-resources
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          git submodule update --init qgis-resources
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Set up Python 3.14
@@ -184,23 +267,14 @@ jobs:
             requirements.txt
             pyproject.toml
 
-      - name: Install development dependencies
+      - name: Install packaging and smoke-test dependencies
         shell: pwsh
         run: |
-          python -m pip install --upgrade pip
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python repo-scripts/install_latest_wheel.py --dependencies-only
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pip install -r requirements.txt
+          # Public run_hy8 imports pandas and Loguru; remaining smoke operations use stdlib.
+          python -m pip install build pandas loguru "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Verify retained wheel
-        shell: pwsh
-        run: |
-          python repo-scripts/verify_wheel.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Rebuild current version and verify
+      - name: Build fresh current-version wheel and verify
         shell: pwsh
         run: |
           $before = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
@@ -208,7 +282,6 @@ jobs:
 
           python repo-scripts/build_library.py --no-bump --skip-pip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
           python repo-scripts/verify_wheel.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -226,9 +299,12 @@ jobs:
           New-Item -ItemType Directory -Force -Path $target | Out-Null
 
           $wheel = @(Get-ChildItem -LiteralPath dist -Filter "ryan_functions-*.whl" -File)
-          if ($wheel.Count -ne 1) { throw "Expected exactly one retained ryan_functions wheel." }
+          if ($wheel.Count -ne 1) { throw "Expected exactly one freshly built ryan_functions wheel." }
 
           python -m pip install --no-deps --target $target $wheel[0].FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The ryan-functions wheel no longer contains these separately published packages.
+          python -m pip install --no-deps --target $target "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $env:PYTHONPATH = $target

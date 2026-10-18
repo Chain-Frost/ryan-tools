@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-20.2"
+WRAPPER_VERSION = "2026-10-16.1"
 DEFAULT_WORKING_DIR = Path()
 DEFAULT_INPUT_DIRECTORY = Path()
 DEFAULT_PATTERNS = ["*.tif"]
@@ -52,7 +52,7 @@ def _write_csv(output_path: Path, volumes: dict[float, float]) -> None:
 
 def _write_plot(output_path: Path, dem_name: str, volumes: dict[float, float]) -> None:
     temporary_path = _temporary_output(output_path)
-    figure, axes = plt.subplots(figsize=(10, 6))
+    figure, axes = plt.subplots(figsize=(10, 6))  # pyright: ignore[reportUnknownMemberType]
     try:
         levels = list(volumes)
         volume_values = list(volumes.values())
@@ -72,7 +72,7 @@ def _write_plot(output_path: Path, dem_name: str, volumes: dict[float, float]) -
 
 def _discover_dems(input_directory: Path, patterns: list[str]) -> list[Path]:
     return sorted(
-        {path.resolve() for pattern in patterns for path in input_directory.glob(pattern) if path.is_file()},
+        {path.absolute() for pattern in patterns for path in input_directory.glob(pattern) if path.is_file()},
         key=lambda path: str(path).casefold(),
     )
 
@@ -87,9 +87,9 @@ def main(args: argparse.Namespace) -> int:
     create_plot = args.create_plot if args.create_plot is not None else DEFAULT_CREATE_PLOT
     overwrite = args.overwrite if args.overwrite is not None else DEFAULT_OVERWRITE
     dry_run = args.dry_run if args.dry_run is not None else DEFAULT_DRY_RUN
-    input_directory = Path(input_value).resolve()
+    input_directory = Path(input_value).absolute()
     target_directory = (
-        Path(args.working_directory).resolve() if args.working_directory else DEFAULT_WORKING_DIR.resolve()
+        Path(args.working_directory).absolute() if args.working_directory else DEFAULT_WORKING_DIR.absolute()
     )
     if not change_working_directory(target_dir=target_directory):
         return 1

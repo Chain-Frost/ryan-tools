@@ -18,9 +18,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.3"
+WRAPPER_VERSION = "2026-10-16.1"
 
-WORKING_DIR: Path = Path(__file__).resolve().parent
+WORKING_DIR: Path = Path(__file__).absolute().parent
 OUTPUT_DIRECTORY: Path | None = None
 CONSOLE_LOG_LEVEL = "INFO"
 RECURSIVE = False
@@ -53,9 +53,9 @@ def main(
 ) -> int:
     """Resolve wrapper settings and convert discovered LAZ files through the shared library."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    target_directory = (working_directory or WORKING_DIR).resolve()
+    target_directory = (working_directory or WORKING_DIR).absolute()
     configured_output = output_directory or OUTPUT_DIRECTORY or target_directory / "LAS"
-    resolved_output = configured_output.resolve()
+    resolved_output = configured_output.absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
     with setup_logger(console_log_level=console_log_level or CONSOLE_LOG_LEVEL):

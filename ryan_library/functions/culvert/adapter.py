@@ -4,6 +4,7 @@ from culvert_solver import (
     CONCRETE_BOX,
     CONCRETE_PIPE,
     CORRUGATED_STEEL,
+    SMOOTH_HDPE,
     CircularGeometry,
     CulvertBarrel,
     CulvertCrossing,
@@ -35,6 +36,7 @@ _MATERIALS: dict[CulvertMaterialName, CulvertMaterial] = {
     CulvertMaterialName.CONCRETE_BOX: CONCRETE_BOX,
     CulvertMaterialName.CONCRETE_PIPE: CONCRETE_PIPE,
     CulvertMaterialName.CORRUGATED_STEEL: CORRUGATED_STEEL,
+    CulvertMaterialName.SMOOTH_HDPE: SMOOTH_HDPE,
 }
 
 _ROADWAY_SURFACES: dict[RoadwaySurfaceName, RoadwaySurface] = {

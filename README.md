@@ -40,9 +40,6 @@ ryan-tools/
 |-- repo-scripts/              # Build, environment and repository maintenance tools
 |-- tests/                     # Unit, integration and regression tests
 |   `-- test_data/             # Required synthetic test-data submodule
-|-- vendor/
-|   |-- run_hy8/               # HY-8 submodule
-|   `-- ryan_culverts/         # Culvert hydraulics submodule
 |-- excel-resources/           # Excel workbook resources submodule
 |-- qgis-resources/            # QGIS resources submodule
 |-- unsorted/                  # Separate holding-area submodule
@@ -73,8 +70,7 @@ git -C excel-resources lfs pull
 ```
 
 The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
-`run_hy8` and `culvert_solver` are not PyPI dependencies, their `vendor/run_hy8` and `vendor/ryan_culverts` submodules
-are bundled in `ryan_functions` wheels and installed automatically as normal top-level packages.
+`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan_functions` with pip to resolve them automatically on Python 3.14+. Until the planned Python 3.14-only migration, Python 3.13 installs omit `ryan-culverts` and therefore cannot use culvert-solver features.
 
 Install the repository requirements into the user's normal Python 3.14 installation. `ryan-tools` does not require or
 assume that users know how to create or activate a virtual environment:

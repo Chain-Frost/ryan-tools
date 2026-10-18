@@ -472,7 +472,7 @@ def main(argv: list[str]) -> int:
         print(f"ERROR: XML parse failed: {e}", file=sys.stderr)
         return 2
 
-    print(f"Wrote reports to: {args.out_dir.resolve()}")
+    print(f"Wrote reports to: {args.out_dir.absolute()}")
     print(" - styles_defined.json (all style definitions; explicit overrides only)")
     print(" - styles_applied.csv (applied style IDs + counts)")
     print(" - styles_applied_summary.json (same + sample occurrences)")

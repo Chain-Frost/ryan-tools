@@ -104,7 +104,7 @@ def compute_stage_storage(
     dem_path: Path, levels: Sequence[float], nodata_value: float | None = None
 ) -> dict[float, float]:
     """Return cumulative volume below each strictly increasing water level."""
-    path = dem_path.resolve()
+    path = dem_path.absolute()
     if not path.is_file():
         msg = f"DEM does not exist: {path}"
         raise FileNotFoundError(msg)

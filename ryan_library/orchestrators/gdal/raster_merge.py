@@ -35,14 +35,14 @@ def merge_directory(
     excluded from the input list, preventing a rerun from mosaicking its own
     previous result.
     """
-    input_directory = input_directory.resolve()
+    input_directory = input_directory.absolute()
     base_name = input_directory.name or "merged"
-    resolved_tif = (output_tif or input_directory / f"{base_name}.tif").resolve()
-    resolved_vrt = (output_vrt or input_directory / f"{base_name}.vrt").resolve()
+    resolved_tif = (output_tif or input_directory / f"{base_name}.tif").absolute()
+    resolved_vrt = (output_vrt or input_directory / f"{base_name}.vrt").absolute()
     inputs = sorted(
-        path.resolve()
+        path.absolute()
         for path in input_directory.glob(file_pattern)
-        if path.is_file() and path.resolve() not in (resolved_tif, resolved_vrt)
+        if path.is_file() and path.resolve() not in (resolved_tif.resolve(), resolved_vrt.resolve())
     )
     if not inputs:
         msg = f"No files matching {file_pattern!r} found in {input_directory}"
@@ -93,7 +93,7 @@ def merge_directory_by_vector_extent(
     vector and source rasters use the same CRS. Selection uses actual GDAL
     raster extents rather than relying on a particular filename convention.
     """
-    input_directory = input_directory.resolve()
+    input_directory = input_directory.absolute()
     bounds = get_vector_extent(extent_vector)
     candidates = sorted(path for path in input_directory.glob(file_pattern) if path.is_file())
     selected = [path for path in candidates if _extents_intersect(get_raster_extent(path), bounds)]
@@ -107,8 +107,8 @@ def merge_directory_by_vector_extent(
         return selected
 
     base_name = f"{input_directory.name}_extent"
-    resolved_tif = (output_tif or input_directory / f"{base_name}.tif").resolve()
-    resolved_vrt = (output_vrt or input_directory / f"{base_name}.vrt").resolve()
+    resolved_tif = (output_tif or input_directory / f"{base_name}.tif").absolute()
+    resolved_vrt = (output_vrt or input_directory / f"{base_name}.vrt").absolute()
     if not overwrite and (resolved_tif.exists() or resolved_vrt.exists()):
         existing = resolved_tif if resolved_tif.exists() else resolved_vrt
         msg = f"Output already exists: {existing}"

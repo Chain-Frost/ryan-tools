@@ -1,10 +1,11 @@
 {
   "schema_version": "1.0",
   "catalogue": "Curated ryan-tools GDAL command-line wrappers",
-  "catalogue_updated": "2026-08-27",
+  "catalogue_updated": "2026-10-15",
   "selection_policy": "Stable, reusable workflows with recurring agent-facing value; basic and narrowly scoped wrappers remain available through normal script discovery.",
   "wrapper_versions": {
     "gdal_translate_TIF_ovr.py": "2026-08-02.4",
+    "recompress_geotiffs.py": "2026-10-15.1",
     "gdaladdo_tif_pyramids.py": "2026-08-02.4",
     "gdal_raster_footprint.py": "2026-08-02.3",
     "batch_vector_clip.py": "2026-08-20.1",
@@ -25,6 +26,25 @@
     "placeholders": "Values enclosed in braces must be replaced with real paths or values. Do not pass the braces literally."
   },
   "tools": [
+    {
+      "id": "audit_and_recompress_geotiffs",
+      "script": "recompress_geotiffs.py",
+      "purpose": "Audit GeoTIFF compression and optionally replace uncompressed files only after exact verification.",
+      "mutation": "audit_only_unless_explicit_replace",
+      "defaults": {"recursive": true, "profile": "tuflow", "strategy": "auto", "overviews": false},
+      "help_arguments": ["recompress_geotiffs.py", "--help"],
+      "scenarios": [
+        {
+          "name": "audit_only",
+          "arguments": ["recompress_geotiffs.py", "{input_directory}", "--no-pause"]
+        },
+        {
+          "name": "verified_replacement_with_local_staging",
+          "arguments": ["recompress_geotiffs.py", "{input_directory}", "--replace", "--yes", "--staging-directory", "{local_staging_directory}", "--no-pause"],
+          "note": "Explicit replacement approval is required. Local staging is recommended for generic rasters on network storage."
+        }
+      ]
+    },
     {
       "id": "translate_rasters_to_geotiff",
       "script": "gdal_translate_TIF_ovr.py",

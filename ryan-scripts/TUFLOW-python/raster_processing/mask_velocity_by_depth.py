@@ -166,7 +166,7 @@ def process_velocity_file(velocity_path: Path, depth_path: Path, threshold: floa
 
 
 def process_root(root: Path, threshold: float) -> None:
-    resolved: Path = root.expanduser().resolve()
+    resolved: Path = root.expanduser().absolute()
     if not resolved.exists():
         logger.error("Skipping {} because it does not exist.", resolved)
         return
