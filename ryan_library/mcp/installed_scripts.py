@@ -15,13 +15,16 @@ def installed_files() -> tuple[str, ...]:
     resource = files("ryan_library.resources.mcp").joinpath("installed_scripts.json")
     raw: object = json.loads(resource.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
-        raise ValueError("Invalid installed script manifest.")
+        msg = "Invalid installed script manifest."
+        raise ValueError(msg)
     metadata = cast("dict[str, object]", raw)
     if metadata.get("schema_version") != 1:
-        raise ValueError("Unsupported installed script manifest version.")
+        msg = "Unsupported installed script manifest version."
+        raise ValueError(msg)
     entries: object = metadata.get("installed_files")
     if not isinstance(entries, list) or not entries or not all(isinstance(item, str) for item in entries):
-        raise ValueError("Invalid installed script manifest paths.")
+        msg = "Invalid installed script manifest paths."
+        raise ValueError(msg)
     return tuple(sorted(cast("list[str]", entries)))
 
 
@@ -45,20 +48,25 @@ def copy_wrapper(
 ) -> Path:
     """Copy one exact allowlisted wrapper, never overwriting without permission."""
     if script not in available_wrappers():
-        raise ValueError(f"Script is not in the installed wrapper allowlist: {script}")
+        msg = f"Script is not in the installed wrapper allowlist: {script}"
+        raise ValueError(msg)
     root = scripts_root if scripts_root is not None else Path(__file__).absolute().parents[2] / "ryan-scripts"
     source = root / script
     if not source.is_file() or source.is_symlink():
-        raise FileNotFoundError(f"Installed wrapper is missing or a symlink: {source}")
+        msg = f"Installed wrapper is missing or a symlink: {source}"
+        raise FileNotFoundError(msg)
     target_directory = destination.expanduser().absolute()
     if not target_directory.is_dir():
-        raise NotADirectoryError(f"Destination must be an existing directory: {target_directory}")
+        msg = f"Destination must be an existing directory: {target_directory}"
+        raise NotADirectoryError(msg)
     target = target_directory / Path(script).name
     if target.exists() or target.is_symlink():
         if not overwrite:
-            raise FileExistsError(f"Destination already exists (pass --overwrite to replace): {target}")
+            msg = f"Destination already exists (pass --overwrite to replace): {target}"
+            raise FileExistsError(msg)
         if not target.is_file() or target.is_symlink():
-            raise ValueError(f"Refusing to replace a non-file or symlink: {target}")
+            msg = f"Refusing to replace a non-file or symlink: {target}"
+            raise ValueError(msg)
     if not dry_run:
         shutil.copy2(source, target)
     return target
