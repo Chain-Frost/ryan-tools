@@ -1249,5 +1249,3 @@ def execute_jobs(
             )
 
     return results
-
-
