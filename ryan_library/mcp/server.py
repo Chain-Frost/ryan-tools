@@ -380,6 +380,15 @@ def check_repo_health() -> dict[str, Any]:
         "workflow_count_total": REGISTRY.total_workflow_count,
         "workflow_count_visible": visible["workflow_count"],
         "workflow_count_available": available["workflow_count"],
+        "workflow_availability_scope": "entry_point_only",
+        "external_prerequisite_validation": "not_performed",
+        "active_script_source": (
+            "repository_checkout"
+            if REGISTRY.repository_root is not None
+            else "installed_distribution"
+            if REGISTRY.scripts_directory is not None
+            else "unavailable"
+        ),
         "warnings": list(REGISTRY.warnings),
     }
 
