@@ -126,7 +126,9 @@ class WorkflowSpec:
         ):
             msg = "Workflow field 'required_modules' must be a list of non-empty Python module names."
             raise ValueError(msg)
-        required_modules: tuple[str, ...] = tuple(cast("str", item).strip() for item in cast("list[object]", raw_required))
+        required_modules: tuple[str, ...] = tuple(
+            cast("str", item).strip() for item in cast("list[object]", raw_required)
+        )
 
         known_keys: set[str] = {
             "id",
