@@ -93,10 +93,10 @@ py -3.14 repo-scripts\verify_wheel.py
 ## GitHub Actions CI
 
 The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes to `main` using Windows and Python
-3.14. It has independent policy, hosted-test and package jobs so a policy failure does not hide runtime or packaging
-results.
+3.14, with a separate Python 3.13 compatibility and MCP job. Its independent jobs mean a policy failure does not hide
+runtime or packaging results.
 
-The hosted test job initialises only `qgis-resources`, `vendor/run_hy8`, `vendor/ryan_culverts` and
+The hosted test job initialises only `qgis-resources` and
 `tests/test_data`. The QGIS repository is used only as test/resource data; no QGIS application is launched. The job
 installs the repository's binary GIS dependency bootstrap, sets `MPLBACKEND=Agg`, and runs:
 
@@ -108,7 +108,11 @@ python -m pytest tests `
   --ignore=tests/scripts/test_promoted_utilities.py `
   --ignore=tests/scripts/test_archive_compress.py `
   -m "not gdal and not gui and not external" `
-  -rs
+  --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_detects_overtopping_and_retains_non_aep_interior_states `
+  --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_honours_explicit_minimum_bound `
+  -rs `
+  --durations=15 `
+  --junitxml=test-results/hosted-tests.xml
 ```
 
 The ignored modules import `osgeo` directly or through production modules during collection, so marker deselection alone
@@ -117,7 +121,10 @@ mocked subprocess behavior remain in the hosted set. The real 7-Zip archive inte
 excluded from hosted CI and remains an optional local check. Tests marked `external` require an explicitly supplied
 application or executable; the ASC_to_ASC parity tests remain local and use `ASC_TO_ASC_EXE`.
 
-The package job initialises `qgis-resources` plus the two vendored Python packages, verifies the retained wheel,
+Create `test-results` before running this command. The two temporary floodway deselections predate the fast-check work;
+their review is tracked in the [exclusion record](work/2026-10-16-floodway-ci-exclusions.md).
+
+The package job initialises `qgis-resources` and installs the two PyPI hydraulics dependencies, builds and verifies a fresh wheel,
 performs a `--no-bump` rebuild, verifies the rebuilt artifact, confirms the declared version is unchanged, then
 installs the wheel into a temporary target and runs the installed-wheel smoke test
 outside the checkout with `--expected-root`. The verified wheel and hosted JUnit report are uploaded as workflow
@@ -125,6 +132,54 @@ artifacts.
 
 Real `osgeo`/GDAL integration is deliberately not claimed by this initial workflow. Run those tests in a compatible
 GDAL/QGIS/OSGeo4W environment until a reliable Python 3.14 hosted GDAL installation is established.
+
+### Fast PR checks and measured runtime (17 October 2026)
+
+[`fast-pr.yml`](../.github/workflows/fast-pr.yml) runs independently of the full
+Windows [`ci.yml`](../.github/workflows/ci.yml) on pull requests and main pushes.
+Its only installed development tool is the Ruff version already pinned in
+`pyproject.toml`. It checks whitespace in the changed patch and lint/formatting
+for changed first-party Python files, without checking out submodules or installing
+GDAL/geospatial packages. Ruff and strict Pyright also remain in `Policy`, with the normal
+Python 3.14/GIS dependencies, preserving the established release gate. Repository documentation and logging checks, Python
+3.13 compatibility, hosted tests, and wheel verification are unchanged.
+
+The fast workflow does **not** gate or precede the full workflow: it provides an
+earlier independent failure signal without adding to successful CI wall-clock
+time. When changing Python files, both checks must pass.
+
+Baseline from five recent GitHub Actions runs on 16 October 2026:
+
+| Job | Measured duration | Main cost |
+| --- | --- | --- |
+| Hosted tests | 2:40–3:37 | Install dependencies 60–67 s; pytest 60–104 s |
+| Policy | 1:30–2:06 | GIS package installation and static analysis |
+| Python 3.13 compatibility and MCP | 1:18–2:00 | Package and MCP dependency installation 40–74 s |
+| Package | 1:01–1:25 | Checkout, submodules, setup, and wheel prerequisites |
+
+The existing `setup-python` pip cache reuses downloaded packages, not installed
+site-packages, so dependency installations remain costly even when pip's cache
+is warm. The new fast workflow needs only Ruff and produces earlier results without
+waiting for a GIS install. The existing `Policy` job deliberately retains its
+Ruff checks because release automation depends on the Python CI workflow's
+success. Leave the actual Windows tests and GIS dependency bootstrap in place
+until replacements are tested. Re-measure after several successful workflow runs before introducing
+parallel pytest workers or a prebuilt GIS environment.
+
+Verified PR #129 head `eaf4b0e` on 17 October 2026:
+[Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/39001435683) and all four
+[Python CI jobs](https://github.com/Chain-Frost/ryan-tools/actions/runs/39001435924) passed.
+Runner logs span approximately 9 seconds for the fast job, 34 seconds for Policy and 146 seconds for hosted tests.
+The fast job finished at 04:08:38 UTC, before Policy at 04:09:03 UTC and hosted tests at 04:10:56 UTC.
+This YAML/Markdown-only PR skipped conditional Ruff installation, lint/format and Pyright execution in both workflows;
+it validates early patch feedback, while a Python-changing PR is still needed to measure early Ruff feedback.
+
+Hosted installation step boundaries show approximately 3 seconds for pip upgrade, 13 seconds for GIS bootstrap and
+39 seconds for development/test dependencies. Pytest reported 1057 passed, 7 deselected and 63 warnings in 56.83 seconds,
+with the slowest test call taking 9.46 seconds. These are one run's measurements, not an overall CI speedup claim.
+Collect several Python-changing runs before choosing a setup optimization or test parallelism change: dependency setup
+and test execution remain comparable costs. Delivery and follow-up are tracked in the
+[fast-check work record](work/2026-10-17-fast-pr-checks-129.md).
 
 ## QGIS, OSGeo4W and GDAL
 
@@ -159,7 +214,7 @@ Initialise only the specific repository submodules required by the selected test
 build surfaces:
 
 ```powershell
-git submodule update --init excel-resources qgis-resources tests/test_data vendor/run_hy8 vendor/ryan_culverts
+git submodule update --init excel-resources qgis-resources tests/test_data
 git lfs pull
 ```
 
@@ -171,7 +226,7 @@ Never initialise, inspect or validate the `unsorted` submodule. Recursive submod
 would include that excluded repository.
 
 Some focused pytest runs on Windows require a pre-created repository-local base temporary directory. Environment-specific
-components, such as the bundled `run_hy8` submodule, may have additional import-path instructions in their local docs.
+components, such as the PyPI-installed `run-hy8` package, may have additional import-path instructions in their local docs.
 
 ## Domain-joined Windows machines
 

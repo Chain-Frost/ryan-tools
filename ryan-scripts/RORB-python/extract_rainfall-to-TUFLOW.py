@@ -19,7 +19,7 @@ from pandas import DataFrame
 
 HEADER_LINE_COUNT = 3
 TIME_INCREMENT_PATTERN: re.Pattern[str] = re.compile(r"Time increment \(hours\)\s*=\s*([0-9.+-Ee]+)")
-SCRIPT_DIRECTORY = Path(__file__).resolve().parent
+SCRIPT_DIRECTORY = Path(__file__).absolute().parent
 DEFAULT_OUTPUT_DIRECTORY: str | Path | None = SCRIPT_DIRECTORY / "rainfall"  # Override to save CSVs somewhere else.
 
 

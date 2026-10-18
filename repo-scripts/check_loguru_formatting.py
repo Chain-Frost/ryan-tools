@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).absolute().parents[1]
 SCAN_ROOTS = (
     REPO_ROOT / "ryan_library",
     REPO_ROOT / "ryan-scripts",

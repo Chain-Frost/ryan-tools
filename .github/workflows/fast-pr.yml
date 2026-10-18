@@ -1,0 +1,89 @@
+name: Fast PR checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Keep every main push distinct so pending lint runs cannot replace one another.
+  group: ${{ github.workflow }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.run_id || github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  fast-checks:
+    name: Ruff and whitespace
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    # Independent of Python CI: do not delay full tests with a 'needs' dependency.
+    # No GIS packages, vendored submodules or repository install are required.
+    steps:
+      - name: Checkout repository with comparison history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Validate patch and select changed Python files
+        id: changes
+        shell: pwsh
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          $base = $env:BASE_SHA
+          if (-not $base -or $base -match '^0+$') {
+            $base = git rev-parse "$env:GITHUB_SHA^"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+
+          git diff --check "$base...$env:GITHUB_SHA"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $pythonFiles = @(
+            git diff --name-only --diff-filter=ACMR "$base...$env:GITHUB_SHA" -- "*.py" |
+              Where-Object {
+                $_ -and
+                $_ -notmatch '^(vendor|tests/test_data|unsorted|qgis-resources|excel-resources)/'
+              }
+          )
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          if ($pythonFiles.Count -eq 0) {
+            Write-Host "No changed first-party Python files."
+            "has_python=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          Write-Host "Changed first-party Python files:"
+          $pythonFiles | ForEach-Object { Write-Host " - $_" }
+          # Preserve paths with spaces by writing one filename per line.
+          $pythonFiles | Set-Content -LiteralPath "$env:RUNNER_TEMP/changed_python_files.txt"
+          "has_python=true" >> $env:GITHUB_OUTPUT
+
+      - name: Install the repository-pinned Ruff
+        if: steps.changes.outputs.has_python == 'true'
+        shell: pwsh
+        run: |
+          $ruffRequirement = python -c "import tomllib; print(next(x for x in tomllib.load(open('pyproject.toml', 'rb'))['project']['optional-dependencies']['dev'] if x.startswith('ruff==')))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install $ruffRequirement
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Ruff lint and format for changed files
+        if: steps.changes.outputs.has_python == 'true'
+        shell: pwsh
+        run: |
+          $pythonFiles = @(Get-Content -LiteralPath "$env:RUNNER_TEMP/changed_python_files.txt")
+          python -m ruff check $pythonFiles
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m ruff format --check $pythonFiles
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

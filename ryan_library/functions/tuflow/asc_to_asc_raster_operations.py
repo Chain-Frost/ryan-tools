@@ -152,7 +152,7 @@ def _output_profile(reference: _RasterDataset, extra_args: list[str] | None) -> 
 
 
 def _open_inputs(stack: ExitStack, input_files: list[str]) -> tuple[list[Path], list[_RasterDataset]]:
-    paths: list[Path] = [Path(value).resolve() for value in input_files]
+    paths: list[Path] = [Path(value).absolute() for value in input_files]
     if not paths:
         msg = "At least one input raster is required"
         raise ValueError(msg)
@@ -186,16 +186,18 @@ def _source_output_paths(
 ) -> tuple[Path, Path]:
     """Return explicit or collision-safe default paths for source outputs."""
     source_path = (
-        Path(source_output_file).resolve()
+        Path(source_output_file).absolute()
         if source_output_file is not None
         else output_path.with_name(f"{output_path.stem}_src{output_path.suffix}")
     )
     legend_path = (
-        Path(source_legend_file).resolve()
+        Path(source_legend_file).absolute()
         if source_legend_file is not None
         else output_path.with_name(f"{output_path.stem}_src_legend.csv")
     )
-    if source_path == output_path:
+    if source_path == output_path or (
+        source_path.exists() and output_path.exists() and source_path.samefile(output_path)
+    ):
         msg = "Source raster path must differ from the value raster path"
         raise ValueError(msg)
     return source_path, legend_path
@@ -207,7 +209,7 @@ def source_output_paths(
     source_legend_file: str | None = None,
 ) -> tuple[Path, Path]:
     """Return the source raster and legend paths for a value raster."""
-    return _source_output_paths(Path(output_file).resolve(), source_output_file, source_legend_file)
+    return _source_output_paths(Path(output_file).absolute(), source_output_file, source_legend_file)
 
 
 def _write_source_legend(legend_path: Path, input_paths: list[Path]) -> None:
@@ -252,7 +254,7 @@ def flatten_nested_source_provenance(
 
     source_path, legend_path = source_output_paths(output_file, source_output_file, source_legend_file)
     temporary_source_path: Path = _temporary_output(source_path)
-    original_paths: list[Path] = [Path(value).resolve() for group in original_input_groups for value in group]
+    original_paths: list[Path] = [Path(value).absolute() for group in original_input_groups for value in group]
     missing_originals: list[Path] = [path for path in original_paths if not path.is_file()]
     if missing_originals:
         msg = f"Original source raster does not exist: {missing_originals[0]}"
@@ -325,7 +327,7 @@ def _chunk_windows(
 
 def compute_max(input_files: list[str], output_file: str, extra_args: list[str] | None = None) -> None:
     """Write the cell-wise maximum of one or more aligned rasters."""
-    output_path: Path = Path(output_file).resolve()
+    output_path: Path = Path(output_file).absolute()
     temporary_path: Path = _temporary_output(output_path)
     try:
         with ExitStack() as stack:
@@ -369,7 +371,7 @@ def compute_diff(
     suppresses the separate classification raster. ``combine_wd`` is a
     Python-only extension that places the classifications in the main output.
     """
-    output_path: Path = Path(output_file).resolve()
+    output_path: Path = Path(output_file).absolute()
     wet_dry_path: Path = output_path.with_name(f"{output_path.stem}_wd{output_path.suffix}")
     temporary_output: Path = _temporary_output(output_path)
     temporary_wet_dry: Path = _temporary_output(wet_dry_path)
@@ -472,7 +474,7 @@ def compute_stat(
         msg = "Source output paths cannot be supplied when write_source is False"
         raise ValueError(msg)
 
-    output_path: Path = Path(output_file).resolve()
+    output_path: Path = Path(output_file).absolute()
     temporary_path: Path = _temporary_output(output_path)
     source_path, legend_path = _source_output_paths(output_path, source_output_file, source_legend_file)
     temporary_source_path: Path = _temporary_output(source_path)
@@ -544,8 +546,9 @@ def compute_stat(
                 else:
                     selectable = np.where(eligible, adjusted_data, np.inf)
                     sorted_indexes = np.argsort(selectable, axis=0, kind="stable")
-                    upper_indexes = valid_count // 2
-                    source_indexes = np.take_along_axis(sorted_indexes, upper_indexes[np.newaxis, ...], axis=0)[0]
+                    upper_indexes: npt.NDArray[np.int64] = np.asarray(valid_count // 2, dtype=np.int64)
+                    expanded_upper_indexes: npt.NDArray[np.int64] = np.expand_dims(upper_indexes, axis=0)
+                    source_indexes = np.take_along_axis(sorted_indexes, expanded_upper_indexes, axis=0)[0]
                     statistic = np.take_along_axis(selectable, source_indexes[np.newaxis, ...], axis=0)[0]
 
                 result: npt.NDArray[np.float64] = np.asarray(

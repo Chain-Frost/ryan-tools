@@ -27,14 +27,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Initialise required vendored packages
-        shell: pwsh
-        run: |
-          git submodule sync -- vendor/run_hy8 vendor/ryan_culverts
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init vendor/run_hy8 vendor/ryan_culverts
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
       - name: Set up Python 3.14
         uses: actions/setup-python@v6
         with:
@@ -58,7 +50,7 @@ jobs:
             throw 'Actionlint archive checksum mismatch.'
           }
           Expand-Archive -LiteralPath $archive -DestinationPath $directory
-          & (Join-Path $directory 'actionlint.exe')
+          & (Join-Path $directory 'actionlint.exe') -ignore 'unexpected key "queue" for "concurrency" section'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Check changed Python files
@@ -92,9 +84,11 @@ jobs:
           python -m pip install -r requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          Write-Host "Checking changed Python files:"
+          Write-Host "Type-checking changed Python files:"
           $pythonFiles | ForEach-Object { Write-Host " - $_" }
 
+          # Retain the established CI lint gate for branch protection and release automation.
+          # Fast PR checks run the same lightweight validations sooner, independently.
           python -m ruff check $pythonFiles
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m ruff format --check $pythonFiles
@@ -121,12 +115,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Initialise package resources
+      - name: Initialise QGIS style resource submodule
         shell: pwsh
         run: |
-          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
+          git submodule sync -- qgis-resources tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
+          git submodule update --init qgis-resources tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Set up Python 3.13
@@ -153,7 +147,7 @@ jobs:
         env:
           MPLBACKEND: Agg
         run: |
-          # The vendored run_hy8 reader requires Python 3.14; its HY-8 tests remain in the hosted 3.14 suite.
+          # Python 3.14 tests exercise PyPI-installed HY-8 and hydraulics dependencies.
           python -m pytest `
             tests/functions/RORB/test_read_rorb_files.py `
             tests/functions/gdal/test_profiling.py `
@@ -187,9 +181,9 @@ jobs:
       - name: Initialise required test submodules
         shell: pwsh
         run: |
-          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
+          git submodule sync -- qgis-resources tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts tests/test_data
+          git submodule update --init qgis-resources tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Set up Python 3.14
@@ -201,13 +195,22 @@ jobs:
             requirements.txt
             pyproject.toml
 
-      - name: Install development dependencies
+      # Keep the existing installation sequence but time its components independently.
+      - name: Upgrade pip
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install binary GIS dependencies
+        shell: pwsh
+        run: |
           python repo-scripts/install_latest_wheel.py --dependencies-only
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install development package and test dependencies
+        shell: pwsh
+        run: |
           python -m pip install -r requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -226,6 +229,7 @@ jobs:
             --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_detects_overtopping_and_retains_non_aep_interior_states `
             --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_honours_explicit_minimum_bound `
             -rs `
+            --durations=15 `
             --junitxml=test-results/hosted-tests.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
@@ -249,9 +253,9 @@ jobs:
       - name: Initialise package resources
         shell: pwsh
         run: |
-          git submodule sync -- qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          git submodule sync -- qgis-resources
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init qgis-resources vendor/run_hy8 vendor/ryan_culverts
+          git submodule update --init qgis-resources
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Set up Python 3.14
@@ -267,22 +271,18 @@ jobs:
         shell: pwsh
         run: |
           # Public run_hy8 imports pandas and Loguru; remaining smoke operations use stdlib.
-          python -m pip install build pandas loguru
+          python -m pip install build pandas loguru "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Verify retained wheel
-        shell: pwsh
-        run: |
-          python repo-scripts/verify_wheel.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Rebuild current version and verify
+      - name: Build fresh current-version wheel and verify
         shell: pwsh
         run: |
           $before = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           python repo-scripts/build_library.py --no-bump --skip-pip
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/verify_wheel.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $after = python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
@@ -299,9 +299,12 @@ jobs:
           New-Item -ItemType Directory -Force -Path $target | Out-Null
 
           $wheel = @(Get-ChildItem -LiteralPath dist -Filter "ryan_functions-*.whl" -File)
-          if ($wheel.Count -ne 1) { throw "Expected exactly one retained ryan_functions wheel." }
+          if ($wheel.Count -ne 1) { throw "Expected exactly one freshly built ryan_functions wheel." }
 
           python -m pip install --no-deps --target $target $wheel[0].FullName
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The ryan-functions wheel no longer contains these separately published packages.
+          python -m pip install --no-deps --target $target "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $env:PYTHONPATH = $target

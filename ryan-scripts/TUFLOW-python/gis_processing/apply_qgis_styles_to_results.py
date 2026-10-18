@@ -8,10 +8,10 @@ Users can define custom QML overrides in the `user_qml_overrides` dictionary wit
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.1"
+WRAPPER_VERSION = "2026-10-16.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
-WORKING_DIR: Path = Path(__file__).resolve().parent
+WORKING_DIR: Path = Path(__file__).absolute().parent
 
 # User Overrides: Define your custom QML paths here
 user_qml_overrides: dict[str, str] = {

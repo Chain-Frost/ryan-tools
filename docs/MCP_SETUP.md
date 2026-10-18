@@ -65,6 +65,18 @@ The `floodway_design_assessment` workflow exposes the maintained floodway wrappe
 separate versioned floodway-formation JSON/TOML definition and creating scenario plus governing-envelope outputs.
 Hydrograph and closure-duration processing is deliberately excluded from that workflow.
 
+The `tuflow_culvert_evaluate_maximums` and `tuflow_culvert_evaluate_1d_nwk` workflows expose the maintained
+TUFLOW culvert evaluation wrappers through the native `ryan-culverts` engine under the default `create` profile.
+Their companion `tuflow_culvert_evaluate_maximums_hy8` and `tuflow_culvert_evaluate_1d_nwk_hy8` entries expose
+the external HY-8 engine only under the `privileged` profile, declare `executes_external`, and require explicit
+approval. Both wrappers refuse to replace an existing CSV unless `--overwrite` is supplied. Retained HY-8
+workspaces are also refused when their run directory already exists unless the same explicit overwrite choice is
+provided. The wrappers also accept an optional per-crossing CSV or vector/1d_nwk
+attribute source for explicit material and loss values; this is resolved by the
+wrapper at execution time rather than inferred from Manning roughness. The HY-8
+catalogue entries retain `creates_or_replaces` as output-mutation metadata while
+external execution remains the governing privileged safety classification.
+
 ## Repository workflow resolution
 
 Catalogued workflows target human-facing repository scripts. The server resolves a checkout in this order:

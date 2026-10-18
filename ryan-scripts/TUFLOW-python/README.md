@@ -114,6 +114,18 @@ the maintained versions before that date.
 
 ## Verify converted FLT/ASC output rasters
 
+The tool reports the embedded wrapper revision and the installed `ryan_functions`
+package version at startup and completion. It also displays total source data
+size, overall file-count progress, processed source volume, active source and
+GeoTIFF sizes, and the current comparison. Live counters track verified matches,
+CRS warnings, newly created TIFFs, and excluded files. Non-interactive output
+reports each file's relative path, sizes, result, and whether its GeoTIFF was
+created in the current run. The completion summary distinguishes verified
+existing GeoTIFFs from newly generated and verified GeoTIFFs. Batch sizes are
+on-disk source file sizes, **not bytes actually read or written**. Use
+`--no-pause` for scheduled or unattended execution.
+
+
 Use [`model_management/verify_converted_tuflow_rasters.py`](model_management/verify_converted_tuflow_rasters.py)
 to optionally **convert -> verify -> delete** legacy TUFLOW `.flt` / `.asc` outputs in a single run.
 Existing same-stem `.tif` / `.tiff` files are checked rather than overwritten. With

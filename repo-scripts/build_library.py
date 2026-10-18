@@ -21,7 +21,7 @@ import tomllib
 from pathlib import Path
 from typing import cast
 
-PROJECT_ROOT: Path = Path(__file__).resolve().parents[1]
+PROJECT_ROOT: Path = Path(__file__).absolute().parents[1]
 PROJECT_PATH: Path = PROJECT_ROOT / "pyproject.toml"
 DIST_DIR: Path = PROJECT_ROOT / "dist"
 DISTRIBUTION_PREFIX: str = "ryan_functions-"

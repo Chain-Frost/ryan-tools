@@ -24,8 +24,8 @@ def convert_laz_to_las(
     Chunked transfer avoids loading the complete point cloud into memory and
     preserves the source header, point format, scales, offsets, and VLRs.
     """
-    source = source.resolve()
-    output = output.resolve()
+    source = source.absolute()
+    output = output.absolute()
     if output.exists() and not overwrite:
         msg = f"Output already exists: {output}"
         raise FileExistsError(msg)
@@ -51,8 +51,8 @@ def convert_laz_directory(
     overwrite: bool = False,
 ) -> list[Path]:
     """Convert all LAZ files in a directory to LAS with bounded concurrency."""
-    source_directory = source_directory.resolve()
-    output_directory = output_directory.resolve()
+    source_directory = source_directory.absolute()
+    output_directory = output_directory.absolute()
     pattern = "**/*.laz" if recursive else "*.laz"
     sources = sorted(path for path in source_directory.glob(pattern) if path.is_file())
     if not sources:

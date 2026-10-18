@@ -25,10 +25,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.4"
+WRAPPER_VERSION = "2026-10-16.1"
 
 # Editable defaults for normal double-click or IDE execution.
-WORKING_DIR: Path = Path(__file__).resolve().parent
+WORKING_DIR: Path = Path(__file__).absolute().parent
 CONSOLE_LOG_LEVEL = "INFO"
 PROFILE: RasterProfile = "tuflow"
 SOURCE_EXTENSIONS: tuple[str, ...] = ("flt", "asc", "rst", "xyz")
@@ -73,9 +73,9 @@ def main(
     """Resolve wrapper settings and run the shared raster-conversion workflow."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     # Resolve before chdir so relative CLI paths remain relative to the launch directory.
-    target_directory = (working_directory or WORKING_DIR).resolve()
+    target_directory = (working_directory or WORKING_DIR).absolute()
     configured_output_directory = output_directory or OUTPUT_DIRECTORY
-    resolved_output_directory = configured_output_directory.resolve() if configured_output_directory else None
+    resolved_output_directory = configured_output_directory.absolute() if configured_output_directory else None
     if not change_working_directory(target_dir=target_directory):
         return 1
 

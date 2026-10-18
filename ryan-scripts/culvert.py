@@ -52,9 +52,9 @@ from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
-WRAPPER_VERSION = "2026-10-06.4"
+WRAPPER_VERSION = "2026-10-16.1"
 
-WORKING_DIR: Path = Path(__file__).resolve().parent
+WORKING_DIR: Path = Path(__file__).absolute().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
 DEFAULT_OUTPUT_DIRECTORY = Path("culvert_results")
 DEFAULT_RATING_POINTS = 11
@@ -132,7 +132,7 @@ def _select_named[T](items: Sequence[T], name: str | None, *, get_name: Callable
 
 def _output_path(base: Path, configured: Path | None) -> Path:
     output = configured or DEFAULT_OUTPUT_DIRECTORY
-    return output.resolve() if output.is_absolute() else (base / output).resolve()
+    return output.absolute() if output.is_absolute() else (base / output).absolute()
 
 
 def _write_scenario_outputs(results: Sequence[ScenarioResult], output_directory: Path) -> None:
@@ -362,12 +362,12 @@ def main(
 ) -> int:
     """Resolve wrapper settings and execute the requested shared culvert workflow."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    target_directory = (working_directory or WORKING_DIR).resolve()
+    target_directory = (working_directory or WORKING_DIR).absolute()
     configured_project = project_file or DEFAULT_PROJECT_FILE
     project_path = (
-        configured_project.resolve()
+        configured_project.absolute()
         if configured_project.is_absolute()
-        else (target_directory / configured_project).resolve()
+        else (target_directory / configured_project).absolute()
     )
     resolved_output = _output_path(target_directory, output_directory)
     if not change_working_directory(target_dir=target_directory):
@@ -449,7 +449,7 @@ def main(
                 msg = f"Unsupported command: {command}"
                 raise ValueError(msg)
             logger.success("Culvert workflow completed; outputs: {}", resolved_output)
-        except OSError, ValueError, RuntimeError:
+        except (OSError, ValueError, RuntimeError):
             logger.exception("Culvert workflow failed.")
             return 1
     return 0

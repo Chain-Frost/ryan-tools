@@ -16,7 +16,7 @@ from urllib.parse import unquote, urlparse
 from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, LargeZipFile, ZipFile
 
-WRAPPER_VERSION = "2026-08-20.2"
+WRAPPER_VERSION = "2026-10-16.1"
 DEFAULT_WORKING_DIR = Path()
 
 from loguru import logger
@@ -85,11 +85,11 @@ def resolve_file_source(project_path: Path, source: str) -> Path | None:
 
     if not candidate.is_absolute():
         candidate = project_path.parent / candidate
-    return candidate.resolve()
+    return candidate.absolute()
 
 
 def main(*, working_directory: Path | None = None) -> int:
-    target_directory = (working_directory or DEFAULT_WORKING_DIR).resolve()
+    target_directory = (working_directory or DEFAULT_WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
 

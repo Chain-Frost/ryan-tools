@@ -1,0 +1,186 @@
+name: Attach verified PyPI wheels to GitHub Releases
+
+on:
+  workflow_run:
+    workflows: [Publish to PyPI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-assets-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Attach PyPI-verified wheels
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Attach missing wheels only after PyPI upload
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PYPI_PROJECT: ryan-functions
+          TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python - <<'PY'
+          """Attach verified PyPI wheel bytes, without rebuilding or mutating tags."""
+          import hashlib
+          import json
+          import os
+          import pathlib
+          import re
+          import subprocess
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          tag_pattern = re.compile(r"v(?:\d{2}|\d{4})\.\d{1,2}\.\d{1,2}\.[1-9]\d*")
+          repo = os.environ["GITHUB_REPOSITORY"]
+          project = os.environ["PYPI_PROJECT"]
+          normalized_project = re.sub(r"[-_.]+", "_", project).lower()
+          source_sha = os.environ["TRIGGER_SHA"].strip()
+
+          def gh_json(endpoint: str) -> object:
+              completed = subprocess.run(
+                  ["gh", "api", f"repos/{repo}/{endpoint}"],
+                  capture_output=True, text=True, check=True,
+              )
+              return json.loads(completed.stdout)
+
+          def pypi_release(version: str) -> dict | None:
+              url = (
+                  f"https://pypi.org/pypi/{urllib.parse.quote(project, safe='')}/"
+                  f"{urllib.parse.quote(version, safe='')}/json"
+              )
+              try:
+                  with urllib.request.urlopen(url, timeout=30) as response:
+                      return json.load(response)
+              except urllib.error.HTTPError as error:
+                  if error.code == 404:
+                      return None
+                  raise
+
+          def is_post_cutover(tag: str) -> bool:
+              """Accept only tags after the migration merge, not the merge itself."""
+              tag_ref = gh_json(f"git/ref/tags/{tag}")
+              if tag_ref["object"]["type"] != "commit":
+                  raise ValueError(f"{tag}: expected a lightweight source commit tag")
+              source_sha = tag_ref["object"]["sha"]
+              ancestry = gh_json(f"compare/{source_sha}...main")
+              if ancestry["status"] not in {"ahead", "identical"}:
+                  raise ValueError(f"{tag}: source commit is not in main history")
+              source_commit = gh_json(f"commits/{source_sha}")
+              parents = source_commit["parents"]
+              if not parents:
+                  return False
+              # The migration introduces the marker on its own commit; only
+              # later first-parent main revisions already have it in the parent.
+              parent_sha = parents[0]["sha"]
+              marker = subprocess.run(
+                  ["gh", "api", "--silent",
+                   f"repos/{repo}/contents/.github/release-cutover.md?ref={parent_sha}"],
+                  capture_output=True, text=True, check=False,
+              )
+              if marker.returncode == 0:
+                  return True
+              if "HTTP 404" in marker.stderr:
+                  return False
+              raise RuntimeError(
+                  f"Unable to verify release cutover at {parent_sha}: {marker.stderr}"
+              )
+
+          def sync(tag: str, *, allow_missing_pypi: bool) -> None:
+              if not tag_pattern.fullmatch(tag):
+                  raise ValueError(f"Invalid stable GitHub release tag: {tag!r}")
+              if not is_post_cutover(tag):
+                  print(f"{tag}: predates the release cutover; leaving existing release untouched")
+                  return
+              version = tag.removeprefix("v")
+              release = gh_json(f"releases/tags/{tag}")
+              if release["draft"] or release["prerelease"] or release["tag_name"] != tag:
+                  raise ValueError(f"Not a published stable GitHub Release: {tag}")
+              registry = pypi_release(version)
+              if registry is None:
+                  if allow_missing_pypi:
+                      print(f"{tag}: not on PyPI; no wheel assets will be attached")
+                      return
+                  raise ValueError(f"{tag}: no matching published PyPI version")
+              if registry["info"]["version"] != version:
+                  raise ValueError(f"{tag}: PyPI JSON reported another version")
+              wheel_files = [
+                  record for record in registry["urls"]
+                  if record["filename"].lower().endswith(".whl")
+              ]
+              if not wheel_files:
+                  raise ValueError(f"{tag}: PyPI has no wheel distribution")
+              existing = {asset["name"]: asset for asset in release["assets"]}
+              for record in wheel_files:
+                  name = record["filename"]
+                  if pathlib.PurePath(name).name != name or "\\" in name:
+                      raise ValueError("Unsafe wheel filename supplied by PyPI")
+                  components = name.lower().split("-")
+                  if len(components) < 5 or components[0] != normalized_project or components[1] != version:
+                      raise ValueError(f"Unexpected project/version wheel filename {name!r}")
+                  expected = record["digests"]["sha256"].lower()
+                  found = existing.get(name)
+                  if found is not None:
+                      if found.get("digest") == f"sha256:{expected}":
+                          print(f"{tag}: verified existing GitHub asset {name}")
+                          continue
+                      raise ValueError(
+                          f"{tag}: asset {name} already exists but its SHA256 is missing or mismatched; "
+                          "manual review required (never overwrite an existing artifact)"
+                      )
+                  source = urllib.parse.urlsplit(record["url"])
+                  if source.scheme != "https" or source.netloc != "files.pythonhosted.org":
+                      raise ValueError(f"Untrusted PyPI file source for {name}")
+                  with urllib.request.urlopen(record["url"], timeout=60) as response:
+                      contents = response.read()
+                  actual = hashlib.sha256(contents).hexdigest()
+                  if actual != expected or len(contents) != record["size"]:
+                      raise ValueError(f"{tag}: PyPI wheel SHA256/size mismatch for {name}")
+                  pathlib.Path(name).write_bytes(contents)
+                  try:
+                      subprocess.run(
+                          ["gh", "release", "upload", tag, name, "--repo", repo],
+                          check=True,
+                      )
+                  finally:
+                      pathlib.Path(name).unlink(missing_ok=True)
+                  print(f"{tag}: attached PyPI-verified wheel {name}, SHA256 {actual}")
+
+          # Only attach a wheel for the specific merged PR, never a backfill.
+          releases = gh_json("releases?per_page=100")
+          tags = []
+          for item in releases:
+              tag = item["tag_name"]
+              if item["draft"] or item["prerelease"] or not tag_pattern.fullmatch(tag):
+                  continue
+              # target_commitish is unused when a Release's tag already exists.
+              # Resolve the immutable tag ref to identify the actual source commit.
+              tag_ref = gh_json(f"git/ref/tags/{tag}")
+              if tag_ref["object"]["type"] == "commit" and tag_ref["object"]["sha"] == source_sha:
+                  tags.append(tag)
+          if len(tags) > 1:
+              raise ValueError(f"Multiple releases for merged revision {source_sha}")
+          if tags:
+              sync(tags[0], allow_missing_pypi=False)
+          else:
+              print(f"No release for merge {source_sha}; no assets to sync")
+          PY

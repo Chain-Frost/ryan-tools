@@ -115,7 +115,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.dependencies_only:
         commands: list[list[str]] = [_gis_dependency_command()]
     else:
-        project_root: Path = Path(__file__).resolve().parents[1]
+        project_root: Path = Path(__file__).absolute().parents[1]
         try:
             wheel: Path = _latest_wheel(dist_dir=project_root / "dist")
         except FileNotFoundError as error:

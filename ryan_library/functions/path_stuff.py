@@ -37,7 +37,7 @@ _WINDOWS_RESERVED_NAMES: set[str] = {
 
 
 def _load_network_mappings() -> dict[str, str]:
-    config_path: Path = Path(__file__).resolve().parents[1] / "classes" / "path_mappings.json"
+    config_path: Path = Path(__file__).absolute().parents[1] / "classes" / "path_mappings.json"
     if config_path.exists():
         try:
             with config_path.open(encoding="utf-8") as f:
@@ -53,7 +53,7 @@ network_drive_mapping: dict[str, str] = _load_network_mappings()
 
 
 def is_relative_to_current_directory(user_path: Path) -> bool:
-    """Check if the user_path is relative to the current working directory.
+    """Check lexical containment in the current directory without following links.
 
     Args:
         user_path (Path): The path to check.
@@ -65,8 +65,8 @@ def is_relative_to_current_directory(user_path: Path) -> bool:
     current_directory: Path = Path.cwd()
 
     try:
-        # Resolve the user path and check if it's within the current directory
-        user_path.resolve().relative_to(current_directory.resolve())
+        # Compare lexical paths for display; do not dereference Windows junctions or symlinks.
+        user_path.absolute().relative_to(current_directory.absolute())
         return True
     except ValueError:
         return False
@@ -108,7 +108,7 @@ def convert_to_relative_path(user_path: Path, network_mapping: dict[str, str] | 
     if is_relative_to_current_directory(user_path):
         # Return the relative path from the current directory
         try:
-            rel_path = user_path.resolve().relative_to(current_directory.resolve())
+            rel_path = user_path.absolute().relative_to(current_directory.absolute())
             logger.debug("Converting to relative path: {}", rel_path)
             return rel_path
         except ValueError:
@@ -116,7 +116,7 @@ def convert_to_relative_path(user_path: Path, network_mapping: dict[str, str] | 
             return user_path
     else:
         # Return the absolute path if not within the current directory
-        abs_path = user_path.resolve()
+        abs_path = user_path.absolute()
         logger.debug("Returning absolute path: {}", abs_path)
         return abs_path
 
