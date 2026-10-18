@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import runpy
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
 
-def _wrapper() -> dict[str, object]:
+def _wrapper() -> dict[str, Any]:
     path = Path(__file__).parents[2] / "ryan-scripts" / "file-management-python" / "file_inventory.py"
     return runpy.run_path(str(path))
 
