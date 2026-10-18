@@ -90,3 +90,53 @@ def test_pinned_upstream_qgis_source_is_consistent() -> None:
     requirements = (REPO / "requirements.txt").read_text(encoding="utf-8")
     assert upstream == codex_source
     assert upstream in requirements
+
+
+def test_inline_root_mcp_servers_preserved_and_idempotent(tmp_path: Path) -> None:
+    original = 'model = "gpt-6"\nmcp_servers = { other = { command = "other-tool" } }\n'
+    first = render(original, tmp_path / "python.exe", tmp_path, "create")
+    second = render(first, tmp_path / "python.exe", tmp_path, "create")
+    assert first == second
+    data = tomllib.loads(first)
+    assert data["model"] == "gpt-6"
+    assert data["mcp_servers"]["other"]["command"] == "other-tool"
+    assert data["mcp_servers"]["qgis"]["args"] == ["-B", "-m", "qgis_mcp.server"]
+    assert data["mcp_servers"]["ryan-tools"]["args"] == ["-B", "-m", "ryan_library.mcp.server"]
+
+
+def test_inline_root_existing_registration_can_be_updated(tmp_path: Path) -> None:
+    original = 'mcp_servers = { qgis = { command = "old" }, other = { command = "keep" } }\n'
+    rendered = render(original, tmp_path / "python.exe", tmp_path, "analysis")
+    data = tomllib.loads(rendered)["mcp_servers"]
+    assert data["qgis"]["command"] == str(tmp_path / "python.exe")
+    assert data["other"]["command"] == "keep"
+    assert data["ryan-tools"]["env"]["RYAN_MCP_PROFILE"] == "analysis"
+
+
+def test_pypi_installer_commands_use_distribution_not_local_wheel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.syspath_prepend(str(REPO / "repo-scripts"))
+    pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
+    commands_fn = cast(Callable[..., list[list[str]]], pypi["pip_commands"])
+    commands = commands_fn()
+    assert "fiona" in commands[0]
+    assert "nkarasiak/qgis-mcp" in commands[1][-1]
+    assert commands[-1][-1] == "ryan_functions[mcp]"
+    assert all(not any(".whl" in argument for argument in command) for command in commands)
+    assert len(commands_fn(skip_qgis_mcp=True)) == 2
+
+
+def test_pypi_installer_detects_existing_codex_configuration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import shutil
+
+    monkeypatch.syspath_prepend(str(REPO / "repo-scripts"))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    monkeypatch.setattr(shutil, "which", lambda _: None)
+    pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
+    detected = cast(Callable[[], bool], pypi["codex_installed"])
+    assert not detected()
+    (tmp_path / "config.toml").write_text("", encoding="utf-8")
+    assert detected()
