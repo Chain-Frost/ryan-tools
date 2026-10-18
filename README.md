@@ -108,11 +108,19 @@ python repo-scripts/verify_wheel.py
 Windows convenience entry points are:
 
 ```powershell
+.\install-ryan-tools.bat
 .\package_and_install.bat
-.\install-latest-wheel.bat
+.\install-local-wheel.bat
 ```
 
-The first builds and installs the package; the second installs the newest existing wheel.
+`install-ryan-tools.bat` installs the latest published `ryan_functions[mcp]` release
+directly from PyPI, along with upstream QGIS MCP. If Codex is detected, it
+configures the QGIS and ryan-tools MCP servers only as needed, preserving other
+settings and backing up any changed Codex configuration. The legacy
+`install-latest-wheel.bat` name now launches that same PyPI installer.
+For developers, `package_and_install.bat` builds and installs a local wheel,
+while `install-local-wheel.bat` installs an existing local wheel without rebuilding.
+QGIS itself and its QGIS MCP desktop plugin must be installed separately.
 
 ## License
 
