@@ -67,10 +67,11 @@ Disposition decisions based on verified maintained files and the historical desc
 | `raster_difference_manual_list_v2.py` | `ryan-scripts/TUFLOW-python/raster_processing/run_python_raster_calculations.py` uses the shared `compute_diff`. | Already migrated; do not duplicate. |
 | `raster_difference_auto_v2.py` and `close_filenames_v1.py` | `calculate_raster_differences.py` and shared `compute_diff` handle computation. Automatic fuzzy EXG/DEV pairing and naming/cutoff behaviour have **not** been established as equivalent. | Retain one bounded discovery/pairing candidate; reuse the current engine, not another differencing implementation. |
 | `simil.py` / `simil-master/` | `vendor/simil/simil.py` with `vendor/simil/README.md` already supplies the upstream implementation. Published-wheel inclusion was not verified. | No second copy into `ryan_library/functions` planned; keep upstream provenance and licensing. |
-| `file_info_v1.py` | Existing `file_utils` (discovery), `file_verification` (metadata and SHA-256), `excel_export` and `dataframe_helpers` cover substantial parts. Distinct functionality includes document-number/revision extraction and an integrated inventory report. | **Library-backed workflow candidate**, not a standalone-script-only port: add focused reusable parsing/inventory helpers *if required*, and an optional thin wrapper; preserve MD5 only if its compatibility purpose is documented. |
+| `file_info_v1.py` | Existing `file_utils` (discovery), `file_verification` (metadata and SHA-256), `excel_export` and `dataframe_helpers` cover substantial parts. Distinct functionality includes document-number/revision extraction and an integrated inventory report. | **Retain useful functionality** as a library-backed inventory workflow with an optional thin wrapper. Reuse current components; do not copy the old multiprocessing/export code. MD5 support only if required for external compatibility. |
 | `make_vrt_list_v1.py` / `make_VRT_for_matching_v1.py` | `ryan-scripts/gdal-python/build_VRT.py` already exists; exact filtering/extent-matching parity is unverified. | Compare requirements first; add missing functionality to the maintained GDAL implementation rather than clone scripts. |
 | `dario_thinning-tif_v4.py` | `ryan-scripts/12D-python/thin-raster-terrain-for-12D_v5.py` already exists. | Review for functional overlap before any new migration; no parity claim yet. |
 | `2d_q_to_csv_v3.py` | Maintained TUFLOW PO combination workflows exist under `po_and_timeseries/`. | Check whether the 2D Q outlet-specific input/output contract is already supported; don't claim full coverage yet. |
+| `calculate_volumes_and_plot.py` / `refactored_calculate_volumes_and_plot.py` | Replaced by `ryan_library/functions/gdal/stage_storage.py` and `ryan-scripts/gdal-python/gdal_stage_storage.py`, which calculate DEM stage-storage and optionally export CSV and plots. | **Already migrated** and tested; no second port. Historical production-use caution still applies. |
 
 **Cleanup risk to reconcile before closing entries:** `ryan-tools-unsorted` PR #1 proposes removing
 `close_filenames_v1.py`, `las-coverage.py`, `rainfall-import.py` and `dario_thinning-tif_v4.py`,
@@ -79,9 +80,29 @@ because historical source code was removed. Record explicit `[-]` (not planned) 
 a narrowly specified unmet requirement if the behaviour is still wanted. Do not inspect the parent
 repository's `unsorted` submodule to resolve those questions.
 
-Small, project-specific and already-covered scripts are *not* automatic migration obligations. Keep useful
-reference material recoverable in history; add maintenance and tests only where the functionality is
-worth supporting. Remaining unchecked entries below are candidates for future selection, not commitments.
+### Selection standard: preserve utility, not legacy code
+
+The unsorted scripts are generally **unmaintained reference implementations**, not quality baselines. Do not move
+or modernise one merely because it exists. For each remaining candidate:
+
+1. **Reuse** maintained functionality first. Close out duplicate migration proposals without copying another script.
+2. **Retain** distinctive, reusable functionality with demonstrated value; extract focused library functions and use
+   an optional thin wrapper, rather than reproducing legacy architecture, multiprocessing, formatting or bugs.
+3. **Do not migrate** small, project-specific, obsolete, low-value or readily recreated utilities. Their repository
+   history is sufficient reference if the task arises again, when a better implementation can be written to current
+   requirements. Mark `[-]` when this choice is made; source deletion is not a prerequisite for *not planned*.
+4. **Do not impose exact legacy parity by default.** Validate current requirements, engineering behaviour and
+   important outputs of chosen replacements. Preserve historical formatting or incidental quirks only where users
+   specifically require compatibility.
+5. **Avoid maintenance burden.** Adding code to `ryan_library` entails reusable design, focused tests, type checking,
+   documentation and long-term support; a trivial standalone one-off rarely merits that cost.
+
+For `file_info_v1.py`, **retain document-number/revision parsing and the combined file-inventory workflow**;
+reuse existing library discovery, metadata, hashing and export tools rather than copying the old multiprocessing
+or export implementation. A thin wrapper can expose the combined operation to users.
+
+Remaining unchecked entries below are **historical candidates**, not commitments or evidence that future
+implementation is needed. The migration stays deferred; this disposition review alone does not authorise code work.
 
 ---
 
@@ -223,7 +244,7 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 
 - [ ] **`file_info_v1.py`** (6 KB) → reusable `ryan_library/functions/` helpers with optional `ryan-scripts/file-management-python/` wrapper
   - Provides recursive inventory, file size/timestamps, optional MD5, document-number/revision parsing, bounded parallel processing and CSV/Excel exports.
-  - Reuse existing discovery, file verification, DataFrame and Excel-export helpers; extract only genuinely missing library functionality (notably document/revision filename parsing). Keep an optional thin reporting wrapper if the end-to-end workflow is needed.
+  - Retain document-number/revision parsing and the combined inventory/reporting workflow. Reuse existing discovery, file verification, DataFrame and Excel-export helpers; do **not** copy the original multiprocessing implementation or export code. Provide an optional thin reporting wrapper.
   - Do not treat this as a trivial duplicate of the existing path-list script; that script does not offer metadata, revision parsing or reports.
 
 ---
@@ -265,8 +286,8 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
   - Rainfall gauge data import and processing.
 - [ ] **`2d_q_to_csv_v3.py`** (6 KB) → `ryan-scripts/tuflow-python/`
   - Combines TUFLOW 2D Q outlet CSVs. Related to PO combine workflow.
-- [ ] **`esdat_to_water.py`** (2.8 KB) → `ryan-scripts/other/`
-  - ESDat environmental chemistry CSV → cleaned Excel. Domain-specific.
+- [-] **`esdat_to_water.py`** (2.8 KB) → no migration planned
+  - Domain-specific CSV-to-Excel conversion; rebuild to current schema and project requirements if needed.
 
 ### Project-specific candidates
 
@@ -277,20 +298,21 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
 
 - [ ] **`TUFLOW_Circular_Velocity_v2-incomplete.py`** (17.7 KB) → `ryan-scripts/TUFLOW-python/`
   - Circular culvert velocity checker using 1d_Cmx results. Substantial logic but marked incomplete.
-- [ ] **`wrb_wrr_check.py`** (0.9 KB) → `ryan-scripts/TUFLOW-python/`
-  - Checks for matching `.wrb`/`.wrr` boundary result files.
+- [-] **`wrb_wrr_check.py`** (0.9 KB) → no migration planned
+  - Trivial `.wrb`/`.wrr` file-pair check; readily recreated if needed, without a new maintained wrapper.
 
 ### Plotting / visualisation
 
 - [ ] **`Plot_Profiles.py`** (5.7 KB) → `ryan-scripts/TUFLOW-python/` or `plotting/`
   - WSE profile plotting from ArcMap StackProfile exports. Template for reuse.
-- [ ] **`Burn_Timestep_v2.py`** (2 KB) → `ryan-scripts/other/`
-  - PIL-based time label overlay on animation frames. Pairs with `ffmpeg_merge.bat`.
+- [-] **`Burn_Timestep_v2.py`** (2 KB) → no migration planned
+  - Small image-label operation; straightforward to recreate with current image/video tooling if needed.
 
 ### Volume calculation
 
 - [x] **`calculate_volumes_and_plot.py`** / **`refactored_calculate_volumes_and_plot.py`** → `ryan-scripts/gdal-python/gdal_stage_storage.py`
-  - Shared stage-storage calculation with a thin CSV/plot wrapper.
+  - Replaced by shared `ryan_library/functions/gdal/stage_storage.py` and a thin CSV/optional-plot wrapper; no additional port needed.
+  - The maintained implementation includes projected-metre CRS validation, NoData and exact cell-area volume calculations, with focused tests.
 
 ### asc_to_asc batch grouping
 
@@ -365,8 +387,8 @@ These are too small to warrant a formal upgrade or are reference/parameter files
 - [x] **`convert_gdb.bat`** → `ryan-scripts/gdal-python/convert_gdb_to_gpkg.py`
   - The replacement is tracked and supports selectable vector formats and per-layer or combined-database output. Source
     disposition was finalised in `c7ef077`.
-- [ ] **`gdal_calc_simple.bat`**
-  - No direct replacement is identified. It was deleted in `c7ef077` and remains recoverable from submodule history.
+- [-] **`gdal_calc_simple.bat`**
+  - A simple GDAL command template does not justify a maintained replacement; it was deleted in `c7ef077` and is recoverable from historical source if needed.
 - [/] **`asc2asc_diff_for_multiple_aeps_2.bat`** and **`asc2asc_max_median_for_multiple_durations.bat`**
   - Both sources were deleted in `c7ef077`. Include their historical behaviour in the remaining executable parity review.
 
