@@ -2,7 +2,7 @@
 # Optional -Install updates the external servers. QGIS plugin installation is separate.
 [CmdletBinding()]
 param(
-    [string]$Python = 'C:\Program Files\Python314\python.exe',
+    [string]$Python = '',
     [string]$QgisSource = '',
     [ValidateSet('core', 'analysis', 'create', 'privileged')]
     [string]$Profile = 'create',
@@ -15,8 +15,26 @@ $ErrorActionPreference = 'Stop'
 $scriptFile = Join-Path $PSScriptRoot 'setup_codex_mcp.py'
 $repoRoot = (Get-Item -LiteralPath (Join-Path $PSScriptRoot '..')).FullName
 
-if (-not (Test-Path -LiteralPath $Python -PathType Leaf)) {
-    throw "Python 3.14 interpreter not found: $Python. Pass -Python to override."
+if (-not $Python) {
+    $launcher = Get-Command 'py' -ErrorAction SilentlyContinue
+    if ($launcher) {
+        $Python = (& $launcher.Source -3 -c 'import sys; print(sys.executable)' 2>$null)
+        if ($LASTEXITCODE -ne 0) { $Python = '' }
+    }
+    if (-not $Python) {
+        $fallback = Get-Command 'python' -ErrorAction SilentlyContinue
+        if ($fallback) {
+            $Python = (& $fallback.Source -c 'import sys; print(sys.executable)' 2>$null)
+            if ($LASTEXITCODE -ne 0) { $Python = '' }
+        }
+    }
+}
+if (-not $Python -or -not (Test-Path -LiteralPath $Python -PathType Leaf)) {
+    throw "Python interpreter not found. Install Python 3.13 or newer, or pass -Python."
+}
+& $Python -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 13) else 1)' *> $null
+if ($LASTEXITCODE -ne 0) {
+    throw "Python 3.13 or newer is required for setup. Interpreter: $Python"
 }
 
 $argsList = @(
