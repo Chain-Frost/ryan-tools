@@ -280,7 +280,10 @@ def test_missing_culvert_solver_hides_only_dependent_workflows(monkeypatch: pyte
         return None if module == "culvert_solver" else original(module)
 
     monkeypatch.setattr(registry_module, "find_spec", without_solver)
-    registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
+    registry = WorkflowRegistry(
+        configured_profile=CapabilityProfile.PRIVILEGED,
+        repository_root=PROJECT_ROOT,
+    )
     dependent = {
         "culvert_analysis_design",
         "floodway_design_assessment",
@@ -291,19 +294,19 @@ def test_missing_culvert_solver_hides_only_dependent_workflows(monkeypatch: pyte
     }
     visible = {workflow["id"] for workflow in registry.list_workflows()["workflows"]}
     assert not (visible & dependent)
-    # The ordinary TUFLOW peak-aggregation workflows do not need culvert_solver.
+    # Ordinary TUFLOW peak aggregation does not depend on culvert_solver.
     assert "tuflow_culvert_mean_peaks" in visible
-    all_rows = {item["id"]: item for item in registry.list_workflows(
-        maximum_profile=CapabilityProfile.PRIVILEGED,
-        include_unavailable=True,
-    )["workflows"]} if registry.configured_profile is CapabilityProfile.PRIVILEGED else {}
+    all_rows = {
+        item["id"]: item
+        for item in registry.list_workflows(include_unavailable=True)["workflows"]
+    }
+    assert all(not all_rows[workflow_id]["available"] for workflow_id in dependent)
     detail = registry.get_workflow("culvert_analysis_design")
     assert detail["available"] is False
     assert detail["required_modules"] == ["culvert_solver"]
     assert detail["missing_modules"] == ["culvert_solver"]
     assert "culvert_solver" in detail["error"]
     assert "command_prefix" not in detail
-    assert all_rows == {}
 
 
 def test_workflow_required_modules_must_be_valid_nonempty_names() -> None:
@@ -316,7 +319,7 @@ def test_workflow_required_modules_must_be_valid_nonempty_names() -> None:
         "profile": "create",
         "mutation": "creates_outputs",
     }
-    for invalid in ("culvert_solver", [""] , [7]):
+    for invalid in ("culvert_solver", [""], [7]):
         with pytest.raises(ValueError, match="required_modules"):
             WorkflowSpec.from_mapping({**raw, "required_modules": invalid})
     valid = WorkflowSpec.from_mapping({**raw, "required_modules": ["culvert_solver"]})
