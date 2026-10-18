@@ -24,10 +24,7 @@ SERVER_MODULES: dict[str, str] = {
     "qgis": "qgis_mcp.server",
     "ryan-tools": "ryan_library.mcp.server",
 }
-QGIS_MCP_SOURCE = (
-    "https://github.com/nkarasiak/qgis-mcp/archive/"
-    "refs/heads/main.zip"
-)
+QGIS_MCP_SOURCE = "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip"
 TABLE = re.compile(r"^\s*\[(?!\[)(.+?)\]\s*(?:#.*)?$")
 ARRAY_TABLE = re.compile(r"^\s*\[\[(.+?)\]\]\s*(?:#.*)?$")
 
@@ -74,10 +71,13 @@ def _table(header: tuple[str, ...], data: dict[str, Any]) -> str:
     def key(name: str) -> str:
         return name if re.fullmatch(r"[a-zA-Z0-9_-]+", name) else json.dumps(name)
 
-    return "\n".join(
-        [f"[{'.'.join(key(part) for part in header)}]"]
-        + [f"{key(field)} = {_value(value)}" for field, value in data.items()]
-    ) + "\n"
+    return (
+        "\n".join(
+            [f"[{'.'.join(key(part) for part in header)}]"]
+            + [f"{key(field)} = {_value(value)}" for field, value in data.items()]
+        )
+        + "\n"
+    )
 
 
 def render_config(config: str, python: Path, root: Path, profile: str) -> str:  # noqa: C901
@@ -176,11 +176,7 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
     if any(updated.get(key) != val for key, val in existing.items() if key != "mcp_servers"):
         msg = "Unexpected change to unrelated Codex settings"
         raise ValueError(msg)
-    if any(
-        updated["mcp_servers"].get(key) != val
-        for key, val in servers.items()
-        if key not in SERVER_MODULES
-    ):
+    if any(updated["mcp_servers"].get(key) != val for key, val in servers.items() if key not in SERVER_MODULES):
         msg = "Unexpected change to another MCP server"
         raise ValueError(msg)
     return rendered
