@@ -257,8 +257,8 @@ def test_legacy_distribution_requires_migration(monkeypatch: pytest.MonkeyPatch,
 @pytest.mark.parametrize("key", ['"mcp_servers"', "'mcp_servers'", '"mcp_\\u0073ervers"'])
 def test_quoted_inline_root_key_is_preserved(tmp_path: Path, key: str) -> None:
     original = f'model = "gpt-6"\n{key} = {{ other = {{ command = "tool" }} }}\n'
-    first = render(original, tmp_path / "python.exe", None, "create")
-    second = render(first, tmp_path / "python.exe", None, "create")
+    first = render(original, tmp_path / "python.exe", tmp_path, "create")
+    second = render(first, tmp_path / "python.exe", tmp_path, "create")
     assert second == first
     assert f"{key} =" in first
     decoded = tomllib.loads(first)
