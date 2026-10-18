@@ -991,7 +991,8 @@ def write_report(
 
     summary_sheet = workbook.active
     if summary_sheet is None:
-        raise RuntimeError("New workbook has no active summary sheet.")
+        message = "New workbook has no active summary sheet."
+        raise RuntimeError(message)
     summary_sheet.title = "Summary"
     grouped: dict[tuple[str, str, str], dict[str, int]] = {}
     for result in results:
