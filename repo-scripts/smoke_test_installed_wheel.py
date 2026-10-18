@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import importlib.resources
+import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -46,6 +48,26 @@ def _check_installed_wrapper_copy() -> None:
         source = Path(ryan_library.__file__).absolute().parent.parent / "ryan-scripts" / "culvert.py"
         if target.read_bytes() != source.read_bytes():
             msg = "Installed wrapper copy differs from the packaged source."
+            raise RuntimeError(msg)
+
+
+
+def _check_installed_script_help() -> None:
+    """Run only help for representative installed CLI wrappers, without a checkout."""
+    scripts_directory = Path(ryan_library.__file__).absolute().parent.parent / "ryan-scripts"
+    for relative in ("culvert.py", "floodway.py"):
+        script = scripts_directory / relative
+        result = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            msg = f"Installed {relative} --help failed (exit {result.returncode}): {result.stderr[-500:]}"
             raise RuntimeError(msg)
 
 
@@ -97,6 +119,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _check_installed_scripts()
     _check_installed_wrapper_copy()
+    _check_installed_script_help()
 
     print(f"Installed-wheel smoke test passed for ryan-tools {installed_version}.")
     return 0
