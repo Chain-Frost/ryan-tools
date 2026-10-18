@@ -189,7 +189,6 @@ def test_publish_failure_restores_previous_raster_overview_pair(
     assert temporary_overview.read_bytes() == b"replacement-overview"
 
 
-
 def test_colliding_output_template_is_rejected_before_any_writes(tmp_path: Path) -> None:
     pipeline = load_pipeline()
     root = tmp_path / "results"
