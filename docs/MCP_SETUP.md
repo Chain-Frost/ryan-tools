@@ -107,6 +107,12 @@ For development, an explicit `RYAN_TOOLS_REPOSITORY_ROOT` or an automatically di
 over the installed scripts. Checkout discovery checks the package source tree, then the working directory and its parents.
 If a selected checkout is missing a script, MCP reports it unavailable rather than silently running a wheel copy.
 The MCP server returns commands and metadata; it does not execute scripts.
+`get_workflow` also returns the selected `script_source`, `installed_distribution_version` and
+`external_prerequisites` status. `check_repo_health` labels availability as
+`entry_point_only` and external executable validation as `not_performed`.
+A discoverable script is not proof that HY-8/TUFLOW/GDAL/QGIS binaries are present
+or that its CLI works; verify those in the real application environment before running.
+
 
 ## Prerequisites
 
