@@ -342,9 +342,7 @@ def test_installed_culvert_script_requires_solver(tmp_path: Path, monkeypatch: p
     registry = WorkflowRegistry(discover_repository=False)
     assert registry.repository_root is None
     assert registry.scripts_directory == scripts
-    assert "culvert_analysis_design" not in {
-        item["id"] for item in registry.list_workflows()["workflows"]
-    }
+    assert "culvert_analysis_design" not in {item["id"] for item in registry.list_workflows()["workflows"]}
     detail = registry.get_workflow("culvert_analysis_design")
     assert detail["script_path"] == str(scripts / "culvert.py")
     assert detail["available"] is False
