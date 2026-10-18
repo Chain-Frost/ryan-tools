@@ -26,7 +26,8 @@ def find_similarity_transform(
     Input point rows must each have three coordinates, with at least two
     distinct source points. Corresponding source/target points share a row.
     If `weights` is supplied, provide one nonnegative weight per control
-    point; the upstream solver handles numerical validation.
+    point. The upstream solver validates weight dimensions but does not
+    guarantee rejection of all nonfinite or negative weights.
 
     Returns a dimensionless multiplier, a (3, 3) rotation matrix and a
     (3, 1) translation vector. Transform an (n, 3) source array with

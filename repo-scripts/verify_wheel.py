@@ -139,9 +139,9 @@ def _verify_script_allowlist(archive: zipfile.ZipFile, names: set[str]) -> None:
 
 
 def _verify_external_dependencies(metadata: str, names: set[str]) -> None:
-    """Check that external hydraulics libraries are declared but not embedded."""
+    """Check declared third-party requirements and separately published engines."""
     declared_dependencies = _metadata_field(metadata, "Requires-Dist")
-    for distribution in ("run-hy8", "ryan-culverts"):
+    for distribution in ("run-hy8", "ryan-culverts", "scipy", "bottleneck"):
         normalized = distribution.replace("-", "_")
         if not any(
             requirement.split(";", maxsplit=1)[0].split(">=", maxsplit=1)[0].strip().lower().replace("-", "_")
