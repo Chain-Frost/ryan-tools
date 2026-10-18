@@ -93,9 +93,41 @@ jobs:
                       return None
                   raise
 
+          def is_post_cutover(tag: str) -> bool:
+              """Accept only tags after the migration merge, not the merge itself."""
+              tag_ref = gh_json(f"git/ref/tags/{tag}")
+              if tag_ref["object"]["type"] != "commit":
+                  raise ValueError(f"{tag}: expected a lightweight source commit tag")
+              source_sha = tag_ref["object"]["sha"]
+              ancestry = gh_json(f"compare/{source_sha}...main")
+              if ancestry["status"] not in {"ahead", "identical"}:
+                  raise ValueError(f"{tag}: source commit is not in main history")
+              source_commit = gh_json(f"commits/{source_sha}")
+              parents = source_commit["parents"]
+              if not parents:
+                  return False
+              # The migration introduces the marker on its own commit; only
+              # later first-parent main revisions already have it in the parent.
+              parent_sha = parents[0]["sha"]
+              marker = subprocess.run(
+                  ["gh", "api", "--silent",
+                   f"repos/{repo}/contents/.github/release-cutover.md?ref={parent_sha}"],
+                  capture_output=True, text=True, check=False,
+              )
+              if marker.returncode == 0:
+                  return True
+              if "HTTP 404" in marker.stderr:
+                  return False
+              raise RuntimeError(
+                  f"Unable to verify release cutover at {parent_sha}: {marker.stderr}"
+              )
+
           def sync(tag: str, *, allow_missing_pypi: bool) -> None:
               if not tag_pattern.fullmatch(tag):
                   raise ValueError(f"Invalid stable GitHub release tag: {tag!r}")
+              if not is_post_cutover(tag):
+                  print(f"{tag}: predates the release cutover; leaving existing release untouched")
+                  return
               version = tag.removeprefix("v")
               release = gh_json(f"releases/tags/{tag}")
               if release["draft"] or release["prerelease"] or release["tag_name"] != tag:
