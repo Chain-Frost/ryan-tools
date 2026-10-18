@@ -50,7 +50,7 @@ the script safely configures its QGIS and ryan-tools MCP entries in the shared u
 it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
 registration, `--skip-qgis-mcp` for headless/offline installation, or
 `--qgis-mcp-source <path>` to install the bridge from a local source.
-After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.13 installs exclude `ryan-culverts`; newer Python versions such as 3.15 require their own compatible binary GIS dependencies. The QGIS desktop plugin
+After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.13 and newer include `ryan-culverts`. Users who encounter dependency compatibility problems should upgrade Python. The QGIS desktop plugin
 must still be installed and started through QGIS Plugin Manager.
 
 For developers working from the checkout, keep the local verified-wheel workflow:

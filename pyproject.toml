@@ -3,12 +3,6 @@ build-backend = "setuptools.build_meta"
 requires = ["setuptools>=69", "wheel"]
 
 [project]
-name = "ryan-tools"
-version = "26.10.18.2"
-description = "Collection of TUFLOW and data processing functions."
-readme = "README.md"
-license = "SUL-1.0"
-requires-python = ">=3.13"
 authors = [
   {name = "Chain Frost", email = "chainfrost@outlook.com"},
 ]
@@ -42,9 +36,15 @@ dependencies = [
   "ezdxf",
   "rich",
   "run-hy8>=2026.10.16.1",
-  # ryan-culverts requires 3.14; keep legacy 3.13 installs possible until baseline migration.
-  'ryan-culverts>=26.10.16.1; python_version >= "3.14"',
+  'ryan-culverts>=26.10.16.1',
 ]
+description = "Collection of TUFLOW and data processing functions."
+license = "SUL-1.0"
+name = "ryan-tools"
+readme = "README.md"
+requires-python = ">=3.13"
+version = "26.10.18.4"
+
 [project.optional-dependencies]
 dev = [
   "build",

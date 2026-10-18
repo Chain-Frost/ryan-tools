@@ -268,8 +268,7 @@ def test_explicit_checkout_precedes_installed_scripts(tmp_path: Path, monkeypatc
     assert workflow["script_path"] == str(PROJECT_ROOT / "ryan-scripts" / "culvert.py")
 
 
-def test_missing_culvert_solver_hides_only_dependent_workflows(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Python 3.13 installs must not advertise scripts that immediately fail on import."""
+def test_culvert_workflow_relies_on_installed_distribution_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
     from importlib.machinery import ModuleSpec
 
     from ryan_library.mcp import registry as registry_module
@@ -277,74 +276,14 @@ def test_missing_culvert_solver_hides_only_dependent_workflows(monkeypatch: pyte
     original = registry_module.find_spec
 
     def without_solver(module: str) -> ModuleSpec | None:
-        return None if module == "culvert_solver" else original(module)
+        if module == "culvert_solver":
+            pytest.fail("Script discovery must not probe the mandatory culvert dependency")
+        return original(module)
 
     monkeypatch.setattr(registry_module, "find_spec", without_solver)
-    registry = WorkflowRegistry(
-        configured_profile=CapabilityProfile.PRIVILEGED,
-        repository_root=PROJECT_ROOT,
-    )
-    dependent = {
-        "culvert_analysis_design",
-        "floodway_design_assessment",
-        "tuflow_culvert_evaluate_maximums",
-        "tuflow_culvert_evaluate_maximums_hy8",
-        "tuflow_culvert_evaluate_1d_nwk",
-        "tuflow_culvert_evaluate_1d_nwk_hy8",
-    }
-    visible = {workflow["id"] for workflow in registry.list_workflows()["workflows"]}
-    assert not (visible & dependent)
-    # Ordinary TUFLOW peak aggregation does not depend on culvert_solver.
-    assert "tuflow_culvert_mean_peaks" in visible
-    all_rows = {item["id"]: item for item in registry.list_workflows(include_unavailable=True)["workflows"]}
-    assert all(not all_rows[workflow_id]["available"] for workflow_id in dependent)
+    registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
     detail = registry.get_workflow("culvert_analysis_design")
-    assert detail["available"] is False
-    assert detail["required_modules"] == ["culvert_solver"]
-    assert detail["missing_modules"] == ["culvert_solver"]
-    assert "culvert_solver" in detail["error"]
-    assert "command_prefix" not in detail
-
-
-def test_workflow_required_modules_must_be_valid_nonempty_names() -> None:
-    raw: dict[str, object] = {
-        "id": "test_dependency",
-        "title": "Test",
-        "domain": "test",
-        "purpose": "Test optional dependency validation.",
-        "script": "ryan-scripts/culvert.py",
-        "profile": "create",
-        "mutation": "creates_outputs",
-    }
-    for invalid in ("culvert_solver", [""], [7]):
-        with pytest.raises(ValueError, match="required_modules"):
-            WorkflowSpec.from_mapping({**raw, "required_modules": invalid})
-    valid = WorkflowSpec.from_mapping({**raw, "required_modules": ["culvert_solver"]})
-    assert valid.required_modules == ("culvert_solver",)
-
-
-def test_installed_culvert_script_requires_solver(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """An installed script is not runnable merely because its file exists."""
-    from importlib.machinery import ModuleSpec
-
-    from ryan_library.mcp import registry as registry_module
-
-    scripts = tmp_path / "ryan-scripts"
-    scripts.mkdir()
-    (scripts / "culvert.py").write_text('WRAPPER_VERSION = "installed"\n', encoding="utf-8")
-    monkeypatch.setattr(registry_module, "installed_scripts_directory", lambda: scripts)
-    original = registry_module.find_spec
-
-    def without_solver(module: str) -> ModuleSpec | None:
-        return None if module == "culvert_solver" else original(module)
-
-    monkeypatch.setattr(registry_module, "find_spec", without_solver)
-    registry = WorkflowRegistry(discover_repository=False)
-    assert registry.repository_root is None
-    assert registry.scripts_directory == scripts
-    assert "culvert_analysis_design" not in {item["id"] for item in registry.list_workflows()["workflows"]}
-    detail = registry.get_workflow("culvert_analysis_design")
-    assert detail["script_path"] == str(scripts / "culvert.py")
-    assert detail["available"] is False
-    assert detail["missing_modules"] == ["culvert_solver"]
-    assert "command_prefix" not in detail
+    assert detail["available"] is True
+    assert "required_modules" not in detail
+    assert "missing_modules" not in detail
+    assert "command_prefix" in detail

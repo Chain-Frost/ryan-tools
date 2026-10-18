@@ -89,3 +89,36 @@ Validation superseding the earlier artifact:
   Installed smoke passed outside the checkout. Installed MCP returned **10 of 28** default-profile matches;
   the next page had no overlapping IDs; `raster clip` matched one workflow; health and full-catalogue totals agreed.
 - MCP documentation links passed. Changes remain unstaged/uncommitted; no hosted run or publication claimed.
+
+
+## 2026-10-18 ? Retain Python 3.13 support for culverts
+
+The maintainer explicitly keeps Python 3.13 supported, including `ryan-culverts`; users with compatibility problems
+can upgrade Python. The current dependency declaration is unconditional (`ryan-culverts>=26.10.16.1`), and the package
+baseline stays `>=3.13`. Corrected README, environment and MCP documentation that previously excluded solver features
+on 3.13. Runtime missing-module checks remain independent of Python version.
+
+Validation: documentation links passed; wheel `26.10.18.3` built and verified. Its METADATA confirms `Requires-Python:
+>=3.13` and an unconditional culvert dependency. Isolated installed-wheel smoke passed on Python 3.14.
+No direct Python 3.13 runtime validation was performed in this follow-up.
+Focused tests initially reported **83 passed, 1 failed**: `test_removed_script_aliases_are_not_exposed` sees the leftover
+source `ryan_library/scripts` directory as an importable namespace after separately requested removal work.
+A rerun excluding that unrelated removal check reported **83 passed, 1 deselected**. The source directory was preserved.
+Artifact size **1,362,577 bytes**, SHA-256 `05b2af1679a973749c4c1d9fdc1832b76d6b227e3a2388c8e12d230a0be9fce4`.
+This follow-up remains uncommitted; the preceding implementation has since been committed independently.
+
+
+## 2026-10-18 ? Assume mandatory culvert dependency is installed
+
+At the maintainer's request, removed all six repeated `required_modules: ["culvert_solver"]` catalogue declarations
+and the generic per-workflow dependency-probing schema/registry code used only by those declarations.
+MCP relies on the unconditional `ryan-culverts` distribution dependency. Script discovery checks the script path;
+module execution targets still check their own entry module and external console targets still check their executable.
+Updated documentation and replaced the removed probing tests with a regression check that mandatory culvert imports
+are not probed during script discovery.
+
+Validation: **37 MCP tests passed**; scoped Ruff lint/format and strict Pyright passed; MCP documentation links passed.
+Built and verified `ryan_tools-26.10.18.4-py3-none-any.whl` (**1,362,267 bytes**), SHA-256
+`0db19b6637c3abcdf6d49a6bcdb64f44e72e88e87e56549409fcee5eb46cc6fa`.
+Isolated installed-wheel smoke passed on Python 3.14 outside the checkout.
+The previously recorded unrelated source-namespace test gap remains outside this change. No commit/push/publication.

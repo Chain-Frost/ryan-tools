@@ -74,7 +74,7 @@ git -C excel-resources lfs pull
 ```
 
 The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
-`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.13 installations omit `ryan-culverts` (which requires 3.14+) and cannot use culvert-solver features. Later Python releases such as 3.15 remain eligible under package metadata, subject to available compatible dependencies.
+`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.13 and newer remain supported, including the `ryan-culverts` dependency. Users with installation or runtime compatibility problems should upgrade Python.
 
 Install the repository requirements into the user's normal Python 3.14 installation. `ryan-tools` does not require or
 assume that users know how to create or activate a virtual environment:
