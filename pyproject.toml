@@ -13,6 +13,7 @@ authors = [
   {name = "Chain Frost", email = "chainfrost@outlook.com"},
 ]
 classifiers = [
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Operating System :: Microsoft :: Windows",
 ]
