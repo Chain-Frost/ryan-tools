@@ -30,7 +30,7 @@ def test_new_config_contains_both_mcp_servers(tmp_path: Path) -> None:
 def test_codex_setup_preserves_unrelated_configuration_and_is_repeatable(tmp_path: Path) -> None:
     config = (
         'model = "gpt-6"\n'
-        '[features]\nfoo = true\n'
+        "[features]\nfoo = true\n"
         '[mcp_servers.other]\ncommand = "other-tool"\n'
         '[mcp_servers.qgis]\ncommand = "old"\nargs = ["old"]\nstartup_timeout_sec = 45\n'
         '[mcp_servers.qgis.env]\nQGIS_MCP_TOKEN = "keep-me"\n'
@@ -128,7 +128,8 @@ def test_pypi_installer_commands_use_distribution_not_local_wheel(
 
 
 def test_pypi_installer_detects_existing_codex_configuration(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import shutil
 
