@@ -43,7 +43,7 @@ license = "SUL-1.0"
 name = "ryan-tools"
 readme = "README.md"
 requires-python = ">=3.13"
-version = "26.10.18.4"
+version = "26.10.18.5"
 
 [project.optional-dependencies]
 dev = [
