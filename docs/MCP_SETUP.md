@@ -92,7 +92,7 @@ external execution remains the governing privileged safety classification.
 
 ## Installed scripts and development checkouts
 
-The wheel installs **selected maintained** `ryan-scripts` files beside `ryan_library` in `site-packages`, preserving their original relative layout. The authoritative [wheel script manifest](../ryan_library/resources/mcp/installed_scripts.json) lists the selected files; legacy and unreviewed scripts remain repository-only.
+The wheel installs **selected maintained** `ryan-scripts` files beside `ryan_library` in `site-packages`, preserving their original relative layout. The [wheel script manifest](../ryan_library/resources/mcp/installed_scripts.json) lists the current, **provisionally selected** files (see the [outstanding individual audit](audits/2026-10-19-installed-scripts-inventory.md)); legacy and unreviewed scripts remain repository-only.
 MCP locates that sibling folder automatically; users do not need a checkout or `RYAN_TOOLS_REPOSITORY_ROOT`.
 The selected wheel files include Python wrappers and their required local documentation; the full source tree (including historical BAT/GMS/XCES helpers) is **not** installed automatically. To inspect or copy one installed wrapper without executing it, use `ryan-scripts list` and `ryan-scripts copy <relative-script-path> <existing-project-directory> [--dry-run]`. Existing targets require explicit `--overwrite`.
 Packaging a script does not make it a supported MCP workflow: the curated catalogue and capability profiles still
