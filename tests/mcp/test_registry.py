@@ -296,10 +296,7 @@ def test_missing_culvert_solver_hides_only_dependent_workflows(monkeypatch: pyte
     assert not (visible & dependent)
     # Ordinary TUFLOW peak aggregation does not depend on culvert_solver.
     assert "tuflow_culvert_mean_peaks" in visible
-    all_rows = {
-        item["id"]: item
-        for item in registry.list_workflows(include_unavailable=True)["workflows"]
-    }
+    all_rows = {item["id"]: item for item in registry.list_workflows(include_unavailable=True)["workflows"]}
     assert all(not all_rows[workflow_id]["available"] for workflow_id in dependent)
     detail = registry.get_workflow("culvert_analysis_design")
     assert detail["available"] is False
