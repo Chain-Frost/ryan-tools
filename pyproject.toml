@@ -60,6 +60,7 @@ mcp = [
 
 [project.scripts]
 ryan-mcp = "ryan_library.mcp.server:main"
+ryan-scripts = "ryan_library.mcp.installed_scripts:main"
 
 [project.urls]
 Repository = "https://github.com/Chain-Frost/ryan-tools"

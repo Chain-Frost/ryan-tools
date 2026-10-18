@@ -6,12 +6,14 @@ import argparse
 import importlib.metadata
 import importlib.resources
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import culvert_solver
 import run_hy8
 
 import ryan_library
 from ryan_library.functions.path_stuff import sanitize_windows_filename
+from ryan_library.mcp.installed_scripts import available_wrappers, copy_wrapper
 from ryan_library.mcp.registry import WorkflowRegistry
 
 
@@ -31,6 +33,19 @@ def _check_installed_scripts() -> None:
     for workflow in registry.list_workflows(include_unavailable=True)["workflows"]:
         if workflow["execution_kind"] == "script" and not workflow["available"]:
             msg = f"Installed wheel is missing catalogued script {workflow['id']}."
+            raise RuntimeError(msg)
+
+
+def _check_installed_wrapper_copy() -> None:
+    """Check wrapper discovery and a byte-for-byte copy from the installed wheel."""
+    if "culvert.py" not in available_wrappers():
+        msg = "Installed wheel cannot enumerate its curated wrappers."
+        raise RuntimeError(msg)
+    with TemporaryDirectory(prefix="ryan-tools-script-copy-") as directory:
+        target = copy_wrapper("culvert.py", Path(directory))
+        source = Path(ryan_library.__file__).absolute().parent.parent / "ryan-scripts" / "culvert.py"
+        if target.read_bytes() != source.read_bytes():
+            msg = "Installed wrapper copy differs from the packaged source."
             raise RuntimeError(msg)
 
 
@@ -81,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
         raise RuntimeError(msg)
 
     _check_installed_scripts()
+    _check_installed_wrapper_copy()
 
     print(f"Installed-wheel smoke test passed for ryan-tools {installed_version}.")
     return 0

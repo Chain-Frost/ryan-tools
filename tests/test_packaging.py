@@ -251,3 +251,38 @@ def test_removed_legacy_modules_and_pomm_helpers_are_absent() -> None:
     for name in ("PeakReportExporter", "PommPeakWrapperDefaults", "run_pomm_peak_report_wrapper"):
         assert not hasattr(wrapper_utils, name), f"Legacy POMM API still exposed: {name}"
     assert hasattr(wrapper_utils, "CommonWrapperOptions")  # Supported wrapper API remains available.
+
+
+def test_wheel_script_allowlist_rejects_extra_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    scripts = tmp_path / "ryan-scripts"
+    scripts.mkdir()
+    (scripts / "culvert.py").write_bytes(b"maintained")
+    catalog = tmp_path / "ryan_library" / "resources" / "mcp"
+    catalog.mkdir(parents=True)
+    (catalog / "installed_scripts.json").write_text(
+        '{"schema_version":1,"installed_files":["culvert.py"]}', encoding="utf-8"
+    )
+    monkeypatch.setattr(verify_wheel, "PROJECT_ROOT", tmp_path)
+    wheel = tmp_path / "test.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("ryan-scripts/culvert.py", b"maintained")
+        archive.writestr("ryan-scripts/unsorted-python/legacy.py", b"unreviewed")
+    with zipfile.ZipFile(wheel) as archive, pytest.raises(ValueError, match="unexpected"):
+        verify_wheel._verify_script_allowlist(archive, set(archive.namelist()))
+
+
+def test_wheel_script_allowlist_checks_bytes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    scripts = tmp_path / "ryan-scripts"
+    scripts.mkdir()
+    (scripts / "culvert.py").write_bytes(b"maintained")
+    catalog = tmp_path / "ryan_library" / "resources" / "mcp"
+    catalog.mkdir(parents=True)
+    (catalog / "installed_scripts.json").write_text(
+        '{"schema_version":1,"installed_files":["culvert.py"]}', encoding="utf-8"
+    )
+    monkeypatch.setattr(verify_wheel, "PROJECT_ROOT", tmp_path)
+    wheel = tmp_path / "test.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("ryan-scripts/culvert.py", b"stale")
+    with zipfile.ZipFile(wheel) as archive, pytest.raises(ValueError, match="differs from repository"):
+        verify_wheel._verify_script_allowlist(archive, set(archive.namelist()))

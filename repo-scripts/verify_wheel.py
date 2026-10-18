@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import tomllib
 import zipfile
 from pathlib import Path
@@ -92,6 +93,48 @@ def _verify_source_files(
             archived, source = _normalized(archived), _normalized(source)
         if archived != source:
             msg = f"Packaged resource differs from repository source: {archive_name}"
+            raise ValueError(msg)
+
+
+def _verify_script_allowlist(archive: zipfile.ZipFile, names: set[str]) -> None:
+    """Require exact, byte-identical installed scripts from the reviewed manifest."""
+    manifest = PROJECT_ROOT / "ryan_library" / "resources" / "mcp" / "installed_scripts.json"
+    raw_policy: object = json.loads(manifest.read_text(encoding="utf-8"))
+    if not isinstance(raw_policy, dict):
+        msg = "Invalid installed_scripts.json manifest."
+        raise ValueError(msg)
+    policy = cast("dict[str, object]", raw_policy)
+    raw_files: object = policy.get("installed_files")
+    files = cast("list[object]", raw_files) if isinstance(raw_files, list) else []
+    if (
+        policy.get("schema_version") != 1
+        or not files
+        or not all(isinstance(item, str) for item in files)
+        or len(files) != len(set(files))
+    ):
+        msg = "Invalid installed_scripts.json manifest."
+        raise ValueError(msg)
+    expected: set[str] = set()
+    for relative in cast("list[str]", files):
+        path = Path(relative)
+        if path.is_absolute() or not path.parts or ".." in path.parts:
+            msg = f"Unsafe installed script: {relative}"
+            raise ValueError(msg)
+        source = PROJECT_ROOT / "ryan-scripts" / path
+        if not source.is_file() or source.is_symlink():
+            msg = f"Missing or symlinked source script: {source}"
+            raise ValueError(msg)
+        expected.add(f"ryan-scripts/{path.as_posix()}")
+
+    actual = {name for name in names if name.startswith("ryan-scripts/") and not name.endswith("/")}
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unexpected = sorted(actual - expected)
+        msg = f"Wheel script allowlist mismatch: missing={missing}, unexpected={unexpected}"
+        raise ValueError(msg)
+    for name in sorted(expected):
+        if archive.read(name) != (PROJECT_ROOT / name).read_bytes():
+            msg = f"Packaged script differs from repository source: {name}"
             raise ValueError(msg)
 
 
@@ -191,14 +234,7 @@ def _verify_wheel(
                 suffixes=(".py",),
             )
 
-        _verify_source_files(
-            archive,
-            names,
-            source_directory=PROJECT_ROOT / "ryan-scripts",
-            archive_directory="ryan-scripts",
-            suffixes=(".py", ".md", ".bat", ".ps1", ".gms", ".xces"),
-            normalize_text=False,
-        )
+        _verify_script_allowlist(archive, names)
 
         _verify_source_files(
             archive,

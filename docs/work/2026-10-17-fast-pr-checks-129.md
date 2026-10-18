@@ -1,13 +1,14 @@
 # Fast PR checks and hosted timing, PR #129
 
-- Status: In validation
+- Status: Complete
 - Owner: ChatGPT
 - Updated: 2026-10-17
-- Next review: 2026-10-22
+- Next review: None; future timing analysis requires a separately selected follow-up
 - Scope: Independent Windows/Python 3.14 patch and Ruff feedback, retaining the Python CI release gates and test boundary.
 - Delivery: Existing implementation committed and pushed on `ci/fast-pr-checks-20261017` at `eaf4b0e`;
-  [PR #129](https://github.com/Chain-Frost/ryan-tools/pull/129) remains open and unmerged.
-  Documentation corrections and this status record are included in the authorized follow-up commit.
+  Documentation follow-up `a2c26dc` was pushed and validated, then
+  [PR #129](https://github.com/Chain-Frost/ryan-tools/pull/129) was squash-merged as `037cff3`
+  on 2026-10-17 at 18:46 Perth time. The final completion update is carried with the existing draft planning PR #130.
 
 ## Implementation and validation
 
@@ -34,9 +35,14 @@ the observed timings. The guide owns the measurements; this record owns delivery
 
 ## Next action and completion criteria
 
-The user authorized commit, push and squash merge on 2026-10-17 once ready. Obtain fresh hosted checks on the follow-up
-commit and merge only after all five required checks pass and reviews are resolved. The runs above cover the previous
-head; final delivery evidence will be recorded after merge.
+The user authorized commit, push and squash merge on 2026-10-17 once ready. All five required checks passed on
+`a2c26dc490711ae8db283192a5d7f06dd4cefb39`, and GitHub reported CLEAN before the head-guarded squash merge.
+[Python CI 39025862987](https://github.com/Chain-Frost/ryan-tools/actions/runs/39025862987) passed Policy (44 s),
+Package (75 s), Python 3.13/MCP (139 s) and Hosted tests (220 s).
+[Fast checks 39025862995](https://github.com/Chain-Frost/ryan-tools/actions/runs/39025862995) passed in 16 s.
+Hosted pytest reported 1057 passed, 7 deselected and 63 warnings in 98.95 s. No skips were reported.
+Local documentation/index, explicit five-document links and patch whitespace checks passed before commit.
+No implementation work remains for this PR; post-merge main CI is distinct from this verified PR evidence.
 Exercise the fast Ruff branch on a Python-changing PR and collect several timings before deciding whether dependency
 installation or selected test parallelism should be optimized. Do not infer overall CI wall-clock savings.
 
