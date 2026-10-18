@@ -28,8 +28,15 @@ class InventoryRow(TypedDict):
 
 
 INVENTORY_COLUMNS: tuple[str, ...] = (
-    "filename", "document_number", "revision", "description", "filepath",
-    "modified_utc", "file_size_bytes", "sha256", "error",
+    "filename",
+    "document_number",
+    "revision",
+    "description",
+    "filepath",
+    "modified_utc",
+    "file_size_bytes",
+    "sha256",
+    "error",
 )
 
 
@@ -48,11 +55,11 @@ def parse_document_filename(filename: str) -> DocumentIdentity:
     match = DOCUMENT_PATTERN.match(stem)
     if match is None:
         return DocumentIdentity(number=None, revision=None, description=stem)
-    remainder = stem[match.end():]
+    remainder = stem[match.end() :]
     revision_match = REVISION_PATTERN.match(remainder)
     revision = revision_match.group("revision") if revision_match else None
     if revision_match:
-        remainder = remainder[revision_match.end():]
+        remainder = remainder[revision_match.end() :]
     return DocumentIdentity(match.group("number"), revision, remainder.strip(" _-"))
 
 
@@ -97,9 +104,9 @@ def collect_file_inventory(
         try:
             snapshot = snapshot_file(path)
             row["file_size_bytes"] = snapshot.size
-            row["modified_utc"] = datetime.fromtimestamp(
-                snapshot.mtime_ns / 1_000_000_000, tz=UTC
-            ).isoformat(timespec="seconds")
+            row["modified_utc"] = datetime.fromtimestamp(snapshot.mtime_ns / 1_000_000_000, tz=UTC).isoformat(
+                timespec="seconds"
+            )
             if include_sha256:
                 row["sha256"] = hash_file(path).hex()
         except (OSError, ValueError) as error:
