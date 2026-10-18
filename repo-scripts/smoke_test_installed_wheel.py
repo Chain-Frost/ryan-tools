@@ -5,16 +5,16 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import importlib.resources
-from tempfile import TemporaryDirectory
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import culvert_solver
 import run_hy8
 
 import ryan_library
 from ryan_library.functions.path_stuff import sanitize_windows_filename
-from ryan_library.mcp.registry import WorkflowRegistry
 from ryan_library.mcp.installed_scripts import available_wrappers, copy_wrapper
+from ryan_library.mcp.registry import WorkflowRegistry
 
 
 def _require_installed_below(module_file: str | None, expected_root: Path, package: str) -> None:
