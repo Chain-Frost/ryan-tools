@@ -91,7 +91,7 @@ workflow-list responses explain how to configure the root.
 
 ## Prerequisites
 
-1. Python 3.14+ with the `ryan_functions` package installed.
+1. Python 3.13+ with the `ryan_functions` package installed (Python 3.14+ required for `ryan-culverts` features).
 2. Install the MCP extra:
 
    ```bat
@@ -104,7 +104,7 @@ The recommended end-user launcher (`install-ryan-tools.bat`, also available thro
 the existing `install-latest-wheel.bat`) installs the newest published
 `ryan_functions[mcp]` release **from PyPI**, without requiring a local wheel.
 It also installs the external QGIS MCP Python bridge from upstream `main`.
-If Codex is detected (CLI or existing user configuration), it automatically
+If Codex is detected (CLI, existing user configuration, or the OpenAI `openai.chatgpt` VS Code extension), it automatically
 adds/refreshes the QGIS and ryan-tools MCP registrations, preserving unrelated
 settings and backing up changed configuration. If Codex is absent, no Codex
 configuration is created.
@@ -138,9 +138,10 @@ from its dock. The Python bridge and QGIS plugin must be compatible.
 
 ## Set up both servers in Codex
 
-Run this from the repository root in Windows PowerShell. The launcher uses
-`C:\Program Files\Python314\python.exe` by default and discovers the checkout
-relative to `repo-scripts`.
+Run this from the repository root in Windows PowerShell. The launcher selects
+an available Python 3.13+ interpreter by default and discovers the checkout
+relative to `repo-scripts`. The user-level Codex config is shared with the
+Codex extension in VS Code; restart or reload the extension after changes.
 
 ```powershell
 .\repo-scripts\setup_codex_mcp.ps1 -DryRun
