@@ -1,4 +1,4 @@
-"""Smoke-test ryan-functions and separately installed PyPI dependencies."""
+"""Smoke-test ryan-tools and separately installed PyPI dependencies."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import run_hy8
 
 import ryan_library
 from ryan_library.functions.path_stuff import sanitize_windows_filename
+from ryan_library.mcp.registry import WorkflowRegistry
 
 
 def _require_installed_below(module_file: str | None, expected_root: Path, package: str) -> None:
@@ -19,6 +20,18 @@ def _require_installed_below(module_file: str | None, expected_root: Path, packa
     if module_file is None or not Path(module_file).resolve().is_relative_to(expected_root):
         msg = f"{package} resolved outside the expected install root: {module_file}"
         raise RuntimeError(msg)
+
+
+def _check_installed_scripts() -> None:
+    """Require every catalogued script to resolve without a checkout."""
+    registry = WorkflowRegistry(discover_repository=False, configured_profile="privileged")
+    if registry.repository_root is not None or registry.scripts_directory is None:
+        msg = "Installed wheel cannot locate its sibling ryan-scripts directory without a checkout."
+        raise RuntimeError(msg)
+    for workflow in registry.list_workflows(include_unavailable=True)["workflows"]:
+        if workflow["execution_kind"] == "script" and not workflow["available"]:
+            msg = f"Installed wheel is missing catalogued script {workflow['id']}."
+            raise RuntimeError(msg)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -31,8 +44,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    installed_version = importlib.metadata.version("ryan_functions")
-    metadata = importlib.metadata.metadata("ryan_functions")
+    installed_version = importlib.metadata.version("ryan-tools")
+    metadata = importlib.metadata.metadata("ryan-tools")
     if metadata["Requires-Python"] != ">=3.13":
         msg = "Installed wheel does not declare the supported Python baseline."
         raise RuntimeError(msg)
@@ -67,7 +80,9 @@ def main(argv: list[str] | None = None) -> int:
         msg = "Installed run_hy8 public API is incomplete."
         raise RuntimeError(msg)
 
-    print(f"Installed-wheel smoke test passed for ryan_functions {installed_version}.")
+    _check_installed_scripts()
+
+    print(f"Installed-wheel smoke test passed for ryan-tools {installed_version}.")
     return 0
 
 

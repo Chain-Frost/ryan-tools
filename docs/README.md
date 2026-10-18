@@ -90,6 +90,7 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |

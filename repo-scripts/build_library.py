@@ -24,7 +24,7 @@ from typing import cast
 PROJECT_ROOT: Path = Path(__file__).absolute().parents[1]
 PROJECT_PATH: Path = PROJECT_ROOT / "pyproject.toml"
 DIST_DIR: Path = PROJECT_ROOT / "dist"
-DISTRIBUTION_PREFIX: str = "ryan_functions-"
+DISTRIBUTION_PREFIX: str = "ryan_tools-"
 CALENDAR_VERSION: re.Pattern[str] = re.compile(
     r"^(?P<year>\d{2})\.(?P<month>\d{1,2})\.(?P<day>\d{1,2})\.(?P<revision>[1-9]\d*)$"
 )
@@ -135,7 +135,11 @@ def _run_verification(wheel: Path) -> int:
 def clean_generated_build_state() -> None:
     """Remove only setuptools' known generated directories before a build."""
     project_root = PROJECT_ROOT.resolve()
-    for directory in (PROJECT_ROOT / "build", PROJECT_ROOT / "ryan_functions.egg-info"):
+    for directory in (
+        PROJECT_ROOT / "build",
+        PROJECT_ROOT / "ryan_tools.egg-info",
+        PROJECT_ROOT / "ryan_functions.egg-info",
+    ):
         resolved = directory.resolve()
         if resolved.parent != project_root:
             msg = f"Refusing to remove generated path outside the project root: {resolved}"

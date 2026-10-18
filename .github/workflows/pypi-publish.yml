@@ -125,7 +125,7 @@ jobs:
               throw new Error('Tagged release version predates the source project version.');
             }
             const response = await fetch(
-              'https://pypi.org/pypi/ryan-functions/json', {signal: AbortSignal.timeout(30000)}
+              'https://pypi.org/pypi/ryan-tools/json', {signal: AbortSignal.timeout(30000)}
             );
             let history = {};
             if (response.ok) history = (await response.json()).releases || {};
@@ -238,7 +238,7 @@ jobs:
         run: |
           python repo-scripts/build_library.py --no-bump --skip-pip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $wheels = @(Get-ChildItem -LiteralPath dist -Filter 'ryan_functions-*.whl' -File)
+          $wheels = @(Get-ChildItem -LiteralPath dist -Filter 'ryan_tools-*.whl' -File)
           if ($wheels.Count -ne 1) { throw 'Expected exactly one distribution wheel.' }
           python -m twine check $wheels[0].FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -271,7 +271,7 @@ jobs:
         shell: pwsh
         run: |
           $target = Join-Path $env:RUNNER_TEMP ('pypi-wheel-' + [guid]::NewGuid().ToString('N'))
-          $wheels = @(Get-ChildItem -LiteralPath dist -Filter 'ryan_functions-*.whl' -File)
+          $wheels = @(Get-ChildItem -LiteralPath dist -Filter 'ryan_tools-*.whl' -File)
           if ($wheels.Count -ne 1) { throw 'Expected exactly one distribution wheel.' }
           python -m pip install --no-deps --target $target $wheels[0].FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -291,7 +291,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: pypi-distributions
-          path: dist/ryan_functions-*.whl
+          path: dist/ryan_tools-*.whl
           if-no-files-found: error
 
   publish:
@@ -301,7 +301,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/ryan-functions
+      url: https://pypi.org/p/ryan-tools
     permissions:
       contents: read
       id-token: write
@@ -317,7 +317,7 @@ jobs:
         shell: bash
         env:
           RELEASE_TAG: ${{ needs.release.outputs.tag }}
-          PYPI_PROJECT: ryan-functions
+          PYPI_PROJECT: ryan-tools
         run: |
           python - <<'PY'
           import json

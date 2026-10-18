@@ -1,12 +1,20 @@
-# Publishing ryan_functions to PyPI
+# Publishing ryan-tools to PyPI
 
-The repository is `Chain-Frost/ryan-tools`; the PyPI distribution is
-`ryan-functions` and its import package remains `ryan_library`.
+The repository is `Chain-Frost/ryan-tools`, the current PyPI distribution is
+[`ryan-tools`](https://pypi.org/project/ryan-tools/), and the Python import
+package remains `ryan_library`. The former distribution `ryan-functions` is a
+separate PyPI project and its existing Trusted Publisher is **not** sufficient
+to publish `ryan-tools`. Uninstall the former distribution before installing
+the renamed package because both own `ryan_library` files.
 
 ## Prerequisites
 
-The PyPI Trusted Publisher must be configured for `Chain-Frost`, the
-repository's `pypi-publish.yml` workflow and GitHub environment `pypi`.
+Register a **new Trusted Publisher for the `ryan-tools` PyPI project** (or
+confirm its pending-publisher registration is active). Use GitHub owner
+`Chain-Frost`, repository `ryan-tools`, workflow filename `pypi-publish.yml`,
+and environment `pypi`. The existing `ryan-functions` publisher must not be
+assumed to authorize the new project. Verify the registration is accepted
+before merging a PR that is intended to publish.
 The `pypi` environment must permit deployment from the protected `main`
 branch (not solely from `v*` tags). Chained `workflow_run` jobs execute
 on the default branch, even though the publisher independently validates
@@ -21,8 +29,11 @@ gh api -X POST "repos/$repo/environments/pypi/deployment-branch-policies" -f nam
 ```
 
 The POST is needed only if a `main` branch rule is absent. Preserve the
-`pypi` environment name and the existing PyPI Trusted Publisher workflow
-registration (`pypi-publish.yml`); no new publisher registration is required.
+GitHub environment name `pypi` and the workflow filename `pypi-publish.yml`.
+**Project-specific migration:** configure/activate the separate `ryan-tools`
+Trusted Publisher registration in PyPI even if the existing `ryan-functions`
+project still has its own publisher. A pending-publisher record must be
+verified against `ryan-tools` rather than treated as an automatic migration.
 
 Required PR review and CI checks on protected `main` remain enabled.
 The automatic release reconciler requires permission to create release tags
@@ -48,7 +59,7 @@ retain the label until completion. The opt-out is checked before allocating
 a tag and independently by the publisher. CI and MkDocs Pages still run.
 
 The publisher checks the source SHA, project metadata, GitHub Release and
-PyPI version history, builds and verifies a fresh wheel, and uploads it using
+**`ryan-tools`** PyPI version history, builds and verifies a fresh wheel, and uploads it using
 OIDC. The separate wheel-asset workflow attaches the byte-for-byte verified
 PyPI wheel to GitHub Releases. No wheels should be committed into `dist/`.
 

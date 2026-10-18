@@ -7,6 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
+| [Installed scripts and distribution rename](2026-10-18-installed-scripts.md) | Needs review | ChatGPT | 2026-10-18 | 2026-10-19 | Installed MCP 26.10.18.8 passes live stdio checks without checkout override; 37 tests pass. Restart Codex to reload config; review local edits. |
 | [PyPI release automation](2026-10-15-release-automation.md) | Needs review | Unassigned | 2026-10-18 | 2026-10-19 | PR #135 open with skip-release; verify all checks and review feedback on its latest head. No merge authorized. |
 | [TUFLOW culvert engine migration](2026-10-08-tuflow-culvert-engines-99.md) | Active | Unassigned | 2026-10-17 | 2026-10-24 | Final-review ID and source-overwrite fixes pass 68 focused tests (2 privilege skips); publish, confirm all five checks and perform authorized manual merge of PR #100. Engineering follow-ups deferred. |
 | [Fast PR checks and hosted timing](2026-10-17-fast-pr-checks-129.md) | In validation | ChatGPT | 2026-10-17 | 2026-10-22 | Commit/push documentation, verify all five checks on the new PR #129 head, then perform the authorized squash merge. |
@@ -17,7 +18,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 | [Floodway design and reporting workflow](2026-09-13-floodway-design-87.md) | Needs review | Unassigned | 2026-10-06 | 2026-10-13 | Current PR head a90bbae checked; local lint repairs and verified 26.10.6.2 wheel unstaged. Review and commit repairs; historical full-suite failures tracked in #95. |
 | [Repository improvement backlog](../REPOSITORY_IMPROVEMENT_ROADMAP.md) | Deferred | Unassigned | 2026-10-06 | 2027-04-05 | No repository-wide improvement task is selected. If a maintainer selects a bounded opportunity earlier, register that implementation front separately; otherwise do not surface this backlog as due before the review date. |
 | [Unsorted migration](../UNSORTED_UPGRADE_ROADMAP.md) | Deferred | Unassigned | 2026-10-07 | 2027-04-05 | Migration remains incomplete but is not actively progressed. Resume only when explicitly selected; otherwise do not surface it as due before the review date. |
-| [Scheduled compatibility removals](../COMPATIBILITY_POLICY.md) | Deferred | Unassigned | 2026-09-06 | 2027-01-04 | Support runs through 2026-12-31; then verify callers and select removals using the inventory. |
+| [Early compatibility removals](../COMPATIBILITY_POLICY.md) | Implemented; awaiting PR merge | ChatGPT | 2026-10-18 | PR #120 validation | Deleted unused scripts, GDAL/data-processing modules and POMM shim APIs; review CI and breaking-change release notes. |
 
 Initial register created on 2026-09-06 from the roadmap review. These are known follow-ups, not an exhaustive audit or
 an instruction to start them all. Existing staged code changes are not inferred to be separately authorized work

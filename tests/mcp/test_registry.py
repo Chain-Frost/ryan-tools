@@ -195,7 +195,7 @@ def test_missing_repository_script_does_not_hide_working_module() -> None:
 
     assert listing["workflow_count"] > 0
     assert missing_details["available"] is False
-    assert "Repository CLI script is unavailable" in missing_details["error"]
+    assert "CLI script is unavailable" in missing_details["error"]
 
 
 def test_packaged_gdal_catalogue_is_available_without_repository_checkout() -> None:
@@ -237,3 +237,53 @@ def test_workflow_requires_exactly_one_explicit_execution_target() -> None:
 
     with pytest.raises(ValueError, match="exactly one execution target"):
         WorkflowSpec.from_mapping(raw)
+
+
+def test_installed_scripts_work_without_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.mcp import registry as registry_module
+
+    scripts = tmp_path / "ryan-scripts"
+    wrapper = scripts / "TUFLOW-python" / "log_processing" / "create_log_summary_report.py"
+    wrapper.parent.mkdir(parents=True)
+    wrapper.write_text('WRAPPER_VERSION = "installed"\n', encoding="utf-8")
+    monkeypatch.setattr(registry_module, "installed_scripts_directory", lambda: scripts)
+    registry = WorkflowRegistry(discover_repository=False)
+    workflow = registry.get_workflow("tuflow_log_summary")
+    assert registry.repository_root is None
+    assert workflow["available"] is True
+    assert workflow["command_prefix"] == [sys.executable, str(wrapper)]
+    assert workflow["wrapper_version"] == "installed"
+    assert registry.list_workflows()["scripts_directory"] == str(scripts)
+    assert not registry.warnings
+
+
+def test_explicit_checkout_precedes_installed_scripts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.mcp import registry as registry_module
+
+    scripts = tmp_path / "ryan-scripts"
+    scripts.mkdir()
+    monkeypatch.setattr(registry_module, "installed_scripts_directory", lambda: scripts)
+    registry = WorkflowRegistry(repository_root=PROJECT_ROOT, discover_repository=False)
+    workflow = registry.get_workflow("culvert_analysis_design")
+    assert workflow["script_path"] == str(PROJECT_ROOT / "ryan-scripts" / "culvert.py")
+
+
+def test_culvert_workflow_relies_on_installed_distribution_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+    from importlib.machinery import ModuleSpec
+
+    from ryan_library.mcp import registry as registry_module
+
+    original = registry_module.find_spec
+
+    def without_solver(module: str) -> ModuleSpec | None:
+        if module == "culvert_solver":
+            pytest.fail("Script discovery must not probe the mandatory culvert dependency")
+        return original(module)
+
+    monkeypatch.setattr(registry_module, "find_spec", without_solver)
+    registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
+    detail = registry.get_workflow("culvert_analysis_design")
+    assert detail["available"] is True
+    assert "required_modules" not in detail
+    assert "missing_modules" not in detail
+    assert "command_prefix" in detail

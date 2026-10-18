@@ -35,7 +35,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          PYPI_PROJECT: ryan-functions
+          PYPI_PROJECT: ryan-tools
           TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           python - <<'PY'

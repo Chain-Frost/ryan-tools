@@ -1,3 +1,3 @@
 @echo off
-call "%~dp0install-latest-wheel.bat" --force-reinstall %*
+call "%~dp0install-local-wheel.bat" --force-reinstall %*
 exit /b %ERRORLEVEL%

@@ -11,7 +11,8 @@ matrix.
 - `ryan_library/processors`: stateful handlers for supported file and result formats.
 - `ryan_library/orchestrators`: complete workflow coordination, including discovery, processing, logging and export.
 - `ryan-scripts`: human-facing maintained wrappers, project-specific entry points and older standalone utilities.
-- `ryan_library/scripts` and `ryan_functions`: deprecated import-compatibility namespaces; do not add new behaviour.
+- `ryan_library/scripts` and legacy GDAL/data-processing and POMM shim APIs: removed on 2026-10-18; do not recreate these obsolete compatibility boundaries.
+- `ryan_functions`: removed import alias; use `ryan_library.functions`. The distribution is named `ryan-tools`.
 - `vendor`, `tests/test_data`, `excel-resources`, `qgis-resources` and `unsorted`: vendored content or submodules; preserve
   their independent state.
 - `unsorted` is excluded from all automated work. Do not initialise, inspect, traverse, search, lint, test, validate or
@@ -19,6 +20,11 @@ matrix.
 
 Classify the target before changing it. Do not automatically modernise a standalone, project-specific or legacy script
 into library code. Reuse must be demonstrated, not inferred solely because code could technically be shared.
+
+`run_hy8` and `culvert_solver` are supplied by the independent PyPI distributions `run-hy8` and
+`ryan-culverts`. Both obsolete gitlinks `vendor/run_hy8` and `vendor/ryan_culverts`
+are removed alongside their `.gitmodules` entries; do not reintroduce them or local
+`PYTHONPATH` overrides. Other retained `vendor` code (notably PyHMA) is a separate inventory.
 
 ## Coding conventions
 
