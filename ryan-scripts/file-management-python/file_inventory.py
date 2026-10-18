@@ -8,9 +8,9 @@ from __future__ import annotations
 from pathlib import Path
 
 WRAPPER_VERSION = "2026-10-19.1"
-DEFAULT_INPUT_DIRECTORIES: list[Path] = [Path(".")]
+DEFAULT_INPUT_DIRECTORIES: list[Path] = [Path()]
 DEFAULT_PATTERNS: list[str] = ["*"]
-DEFAULT_OUTPUT_DIRECTORY = Path(".")
+DEFAULT_OUTPUT_DIRECTORY = Path()
 DEFAULT_OUTPUT_BASENAME = "file_inventory"
 DEFAULT_RECURSIVE = True
 DEFAULT_INCLUDE_SHA256 = False
