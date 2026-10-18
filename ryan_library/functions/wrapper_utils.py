@@ -3,9 +3,8 @@
 
 import os
 import sys
-import warnings
 from argparse import ArgumentParser, Namespace
-from collections.abc import Collection, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
