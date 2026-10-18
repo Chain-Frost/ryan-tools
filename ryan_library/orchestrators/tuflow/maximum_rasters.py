@@ -25,6 +25,7 @@ from osgeo import gdal, ogr, osr
 
 from ...functions.gdal.raster_processing import (
     DEFAULT_OVERVIEW_LEVELS,
+    RasterProfile,
     build_vrt,
     geotiff_creation_options,
 )
@@ -38,6 +39,8 @@ DEFAULT_LEGACY_LOCAL_CRS = "EPSG:28350"
 ALGORITHM_ID = "gdal-vrt-max-clip-v3"
 OVERVIEW_LEVELS = DEFAULT_OVERVIEW_LEVELS
 OVERVIEW_RESAMPLING = "NEAREST"
+
+type ReportCell = str | int | float | datetime | None
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -443,7 +446,7 @@ def output_metadata(path: Path) -> dict[str, str]:
     dataset = gdal.Open(str(path), gdal.GA_ReadOnly)
     if dataset is None:
         return {}
-    metadata = dataset.GetMetadata() or {}
+    metadata: dict[str, str] = dataset.GetMetadata() or {}
     dataset = None
     return metadata
 
@@ -572,11 +575,12 @@ def inspect_sources(paths: tuple[Path, ...], *, strict_alignment: bool = False) 
                 msg = f"Source raster CRS differs: {path.name}"
                 raise RuntimeError(msg)
 
-        if any(value is None for value in nodata_values):
+        valid_nodata = [value for value in nodata_values if value is not None]
+        if len(valid_nodata) != len(nodata_values):
             msg = "Every source raster must define a NoData value."
             raise RuntimeError(msg)
-        nodata = float(nodata_values[0])
-        if not all(math.isclose(float(value), nodata) for value in nodata_values[1:]):
+        nodata = valid_nodata[0]
+        if not all(math.isclose(value, nodata) for value in valid_nodata[1:]):
             msg = f"Source NoData values differ: {nodata_values}"
             raise RuntimeError(msg)
         if unaligned:
@@ -751,7 +755,7 @@ def clip_bounds_and_crs(
     return bounds, source_srs_override
 
 
-def build_external_overviews(raster: Path, profile: str) -> None:
+def build_external_overviews(raster: Path, profile: RasterProfile) -> None:
     """Retry the shared GDAL overview helper for slow network file shares."""
     sidecar = overview_path(raster)
     sidecar_existed = sidecar.is_file()
@@ -780,7 +784,7 @@ def materialize_clipped_maximum(
     source_info: SourceInfo,
     job: Job,
     destination: Path,
-    profile: str,
+    profile: RasterProfile,
     sources_hash: str,
     zones_hash: str,
 ) -> None:
@@ -891,7 +895,7 @@ def publish_output(temporary: Path, destination: Path, build_overviews: bool) ->
 
 def run_build(
     job: Job,
-    profile: str,
+    profile: RasterProfile,
     build_overviews: bool,
     sources_hash: str,
     zones_hash: str,
@@ -962,24 +966,24 @@ def write_report(
     def table(
         worksheet: Worksheet,
         headers: Sequence[str],
-        rows: Sequence[Sequence[str | int | float | datetime | None]],
+        rows: Sequence[Sequence[ReportCell]],
         widths: Sequence[int],
         status_column: int | None = None,
     ) -> None:
-        worksheet.append(headers)
+        worksheet.append(list(headers))
         for index, _header in enumerate(headers, start=1):
             cell = worksheet.cell(1, index)
             cell.fill = header_fill
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center", wrap_text=True)
         for row in rows:
-            worksheet.append(row)
+            worksheet.append(list(row))
         for row_index in range(2, worksheet.max_row + 1):
             status = worksheet.cell(row_index, status_column).value if status_column is not None else None
             for column_index in range(1, len(headers) + 1):
                 cell = worksheet.cell(row_index, column_index)
                 cell.font = body_font
-                if status in status_fills:
+                if isinstance(status, str) and status in status_fills:
                     cell.fill = status_fills[status]
         for index, width in enumerate(widths, start=1):
             worksheet.column_dimensions[get_column_letter(index)].width = width
@@ -1067,7 +1071,7 @@ def write_report(
     )
 
     inputs_sheet = workbook.create_sheet("Input Rasters")
-    input_rows = []
+    input_rows: list[list[ReportCell]] = []
     for job in jobs:
         for source in job.sources:
             stat = source.stat()
@@ -1120,7 +1124,7 @@ def write_report(
 def execute_jobs(
     jobs: list[Job],
     *,
-    profile: str,
+    profile: RasterProfile,
     build_overviews: bool,
     overwrite: bool,
     dry_run: bool,
