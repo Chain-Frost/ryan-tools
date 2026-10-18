@@ -287,3 +287,34 @@ def test_culvert_workflow_relies_on_installed_distribution_dependency(monkeypatc
     assert "required_modules" not in detail
     assert "missing_modules" not in detail
     assert "command_prefix" in detail
+
+def test_workflow_reports_provenance_and_declared_hy8_prerequisite() -> None:
+    registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, repository_root=PROJECT_ROOT)
+    workflow = registry.get_workflow("tuflow_culvert_evaluate_1d_nwk_hy8")
+    assert workflow["script_source"] == "repository_checkout"
+    assert workflow["availability_scope"] == "entry_point_only"
+    assert workflow["external_prerequisites"]["status"] == "not_verified"
+    assert workflow["external_prerequisites"]["declared_program"] == "HY-8"
+    assert workflow["requires_explicit_approval"] is True
+
+
+def test_external_workflow_missing_program_metadata_is_reported() -> None:
+    registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, repository_root=PROJECT_ROOT)
+    workflow = registry.get_workflow("run_tuflow_batch")
+    assert workflow["external_prerequisites"]["status"] == "not_declared"
+    assert workflow["external_prerequisites"]["declared_program"] is None
+
+
+def test_script_provenance_reports_missing_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.mcp import registry as registry_module
+
+    scripts = tmp_path / "ryan-scripts"
+    scripts.mkdir()
+    monkeypatch.setattr(registry_module, "installed_scripts_directory", lambda: scripts)
+    registry = WorkflowRegistry(discover_repository=False)
+    detail = registry.get_workflow("culvert_analysis_design")
+    assert detail["script_source"] == "installed_distribution"
+    assert detail["availability_scope"] == "entry_point_only"
+    assert detail["available"] is False
+    assert detail["installed_distribution_version"] is None or isinstance(detail["installed_distribution_version"], str)
+
