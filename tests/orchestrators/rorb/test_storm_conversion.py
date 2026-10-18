@@ -141,9 +141,7 @@ def test_incomplete_rows_fail_closed_by_default(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("rows", [(), (",,,",), ("GD09,,,TP07",)])
-def test_empty_or_all_incomplete_batches_fail_even_when_skipping(
-    tmp_path: Path, rows: tuple[str, ...]
-) -> None:
+def test_empty_or_all_incomplete_batches_fail_even_when_skipping(tmp_path: Path, rows: tuple[str, ...]) -> None:
     table = _table(tmp_path / "critical.csv", *rows)
     out = tmp_path / "output"
     plan = prepare_batch(
@@ -174,9 +172,7 @@ def test_write_batch_rejects_empty_plan_directly() -> None:
         ("Model,TUFLOW_AEP,TUFLOW_Duration,TP\nGD08,01.00p,00120m,TP07,EXTRA\n", "extra cells"),
     ],
 )
-def test_malformed_critical_storm_tables_rejected(
-    tmp_path: Path, table_content: str, message: str
-) -> None:
+def test_malformed_critical_storm_tables_rejected(tmp_path: Path, table_content: str, message: str) -> None:
     table = tmp_path / "critical.csv"
     table.write_text(table_content, encoding="utf-8")
     with pytest.raises(ConversionError, match=message):
