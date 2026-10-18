@@ -36,6 +36,20 @@ def _check_installed_scripts() -> None:
             raise RuntimeError(msg)
 
 
+
+def _check_installed_wrapper_copy() -> None:
+    """Check wrapper discovery and a byte-for-byte copy from the installed wheel."""
+    if "culvert.py" not in available_wrappers():
+        msg = "Installed wheel cannot enumerate its curated wrappers."
+        raise RuntimeError(msg)
+    with TemporaryDirectory(prefix="ryan-tools-script-copy-") as directory:
+        target = copy_wrapper("culvert.py", Path(directory))
+        source = Path(ryan_library.__file__).absolute().parent.parent / "ryan-scripts" / "culvert.py"
+        if target.read_bytes() != source.read_bytes():
+            msg = "Installed wrapper copy differs from the packaged source."
+            raise RuntimeError(msg)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Verify metadata, import locations, resources and small public operations."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -83,15 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         raise RuntimeError(msg)
 
     _check_installed_scripts()
-    if "culvert.py" not in available_wrappers():
-        msg = "Installed wheel cannot enumerate its curated wrappers."
-        raise RuntimeError(msg)
-    with TemporaryDirectory(prefix="ryan-tools-script-copy-") as directory:
-        target = copy_wrapper("culvert.py", Path(directory))
-        source = Path(ryan_library.__file__).absolute().parent.parent / "ryan-scripts" / "culvert.py"
-        if target.read_bytes() != source.read_bytes():
-            msg = "Installed wrapper copy differs from the packaged source."
-            raise RuntimeError(msg)
+    _check_installed_wrapper_copy()
 
     print(f"Installed-wheel smoke test passed for ryan-tools {installed_version}.")
     return 0
