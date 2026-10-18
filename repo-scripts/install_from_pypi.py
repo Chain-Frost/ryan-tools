@@ -16,10 +16,48 @@ from install_latest_wheel import GIS_WHEEL_INDEX, QGIS_MCP_ARCHIVE
 from setup_codex_mcp import main as configure_codex_mcp
 
 
+def _vscode_codex_installed() -> bool:
+    """Find the OpenAI Codex VS Code extension, including extension-only setups."""
+    folders = [
+        Path(os.environ.get("VSCODE_EXTENSIONS", str(Path.home() / ".vscode" / "extensions"))),
+        Path.home() / ".vscode-insiders" / "extensions",
+    ]
+    for folder in folders:
+        if folder.is_dir() and any(folder.glob("openai.chatgpt-*")):
+            return True
+    for editor in ("code", "code-insiders"):
+        executable = shutil.which(editor)
+        if executable is None:
+            continue
+        try:
+            result = subprocess.run(
+                [executable, "--list-extensions"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=10,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if result.returncode == 0 and "openai.chatgpt" in result.stdout.casefold().splitlines():
+            return True
+    return False
+
+
 def codex_installed() -> bool:
-    """Detect the Codex CLI or an existing Codex user installation."""
+    """Detect the CLI, an existing Codex home, or the OpenAI VS Code extension."""
     home = Path(os.environ.get("CODEX_HOME") or (Path.home() / ".codex")).expanduser()
-    return shutil.which("codex") is not None or (home / "config.toml").is_file() or (home / "auth.json").is_file()
+    return (
+        shutil.which("codex") is not None
+        or (home / "config.toml").is_file()
+        or (home / "auth.json").is_file()
+        or _vscode_codex_installed()
+    )
+
+
+def supported_python(major: int, minor: int) -> bool:
+    """Reject Python 3.12 and below without limiting future Python minors."""
+    return (major, minor) >= (3, 13)
 
 
 def pip_commands(*, qgis_mcp_source: str | None = None, skip_qgis_mcp: bool = False) -> list[list[str]]:
@@ -67,8 +105,8 @@ def main(argv: list[str] | None = None) -> int:
         help="ryan-tools MCP capability profile when configuring Codex",
     )
     args = parser.parse_args(argv)
-    if sys.version_info < (3, 14):
-        print("ERROR: This installer requires Python 3.14 or newer.", file=sys.stderr)
+    if not supported_python(sys.version_info.major, sys.version_info.minor):
+        print("ERROR: This installer requires Python 3.13 or newer.", file=sys.stderr)
         return 1
 
     print(f"Python interpreter: {sys.executable}")
