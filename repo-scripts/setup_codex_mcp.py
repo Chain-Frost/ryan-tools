@@ -122,13 +122,13 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
 
     # Inline TOML tables are immutable; appendable [mcp_servers.X] sections
     # would make an otherwise valid user config invalid. Keep inline form.
-    inline_root = re.compile(r"^\\s*mcp_servers\\s*=\\s*\\{.*\\}\\s*(?:#.*)?$")
+    inline_root = re.compile(r"^\s*mcp_servers\s*=\s*\{.*\}\s*(?:#.*)?$")
     original_lines = config.splitlines(keepends=True)
     for index, line in enumerate(original_lines):
-        if not inline_root.fullmatch(line.rstrip("\\r\\n")):
+        if not inline_root.fullmatch(line.rstrip("\r\n")):
             continue
         updated_servers = {**servers, **updated_entries}
-        newline = "\\r\\n" if line.endswith("\\r\\n") else "\\n"
+        newline = "\r\n" if line.endswith("\r\n") else "\n"
         original_lines[index] = f"mcp_servers = {_value(updated_servers)}{newline}"
         result = "".join(original_lines)
         parsed = tomllib.loads(result)
