@@ -1,4 +1,85 @@
-# PyPI release automation
+# Merge-only PyPI release policy follow-up, 2026-10-18
+
+Status: Needs review. Owner: Unassigned. Next review: 2026-10-19.
+
+## Current work
+
+Port run-hy8 PR #17's verified release opt-out to this repository. Only successful
+post-merge Python CI for the latest actual PR merge into main may initiate release
+creation. Remove periodic, manual and release-published entry points. Preserve the
+existing builder, version format, package metadata and PyPI Trusted Publisher identity.
+Add skip-release label and case-insensitive [skip release] merge-message opt-outs,
+plus exact main/tag SHA checks immediately before upload.
+
+run-hy8 PR #17 merged as d34e0f047bc7a4a30a53d7353369bbb337625c33.
+Post-merge CI 39104620810 and Pages 39104620894 succeeded. Release decision
+39104751133 logged "PR #17: release explicitly skipped." Publisher 39104763708
+skipped both build and upload; asset sync 39104773672 completed with no release.
+No tag or GitHub Release points to that merge. This verifies the opt-out path;
+a later eligible merge must still verify actual OIDC publication end to end.
+
+## Delivery and next action
+
+Worktree: `E:/Github/ryan-tools-merge-release`, branch `ci/merge-only-release-policy`,
+based on 08f8e2b. Original checkout changes are untouched.
+Implementation committed as `16be7ac` and pushed to
+`origin/ci/merge-only-release-policy` with explicit user authorization on 2026-10-18.
+[PR #135](https://github.com/Chain-Frost/ryan-tools/pull/135) is open with the
+skip-release and enhancement labels and [skip release] in its title.
+Latest hosted CI and review status are maintained on the linked PR. Next action is
+to confirm all required checks on the latest PR head, then obtain merge authorization.
+Merging and publication are not authorized.
+Use title `[ci] [skip release] Publish only verified PR merges`, retain the
+skip-release PR label, and preserve [skip release] in the squash-merge commit.
+Hosted PR CI and later eligible publication remain distinct verification steps.
+
+## Validation on 2026-10-18
+
+Python 3.14.6, Windows, exact local tree based on 08f8e2b:
+
+- Focused release policy, calendar allocation/stamping, and preparation tests: 50 passed.
+- Ruff check and format on both added Python files passed; strict Pyright: zero diagnostics.
+- Default documentation check: seven files plus central-index coverage passed.
+- Explicit links check: all five touched Markdown documents passed.
+- Full unrelated application/GIS suite and Python 3.13 run were not run for this port.
+- No-bump build and verifier passed for ryan_functions-26.10.17.1-py3-none-any.whl,
+  547261 bytes, SHA-256 e3ecd74f664effe7305e193e870c19a7f88a34b27945a73e796ffac1dda9f7c0.
+- Isolated target install and installed-wheel smoke passed outside the source tree with
+  public run-hy8 2026.10.18.2 and ryan-culverts 26.10.18.3 in the same target.
+- Required test_data and qgis-resources submodules initialized only in the new worktree;
+  unsorted was not initialized or inspected.
+- Existing unrelated floodway work remains overdue for review (2026-10-13); no work
+  on that front was undertaken.
+- Checksum-verified Actionlint 1.7.12 passed across workflows.
+- Every embedded PowerShell block parses; both embedded Python shell blocks compile.
+- The publisher build job is text-identical to main, preserving repository-specific
+  submodules, version stamping, build and installed-wheel checks.
+- Diff whitespace checks passed; package metadata and declared versions are unchanged.
+- The pypi environment was inspected as custom v* tag-only, then given a specific main
+  branch deployment rule. Re-read confirms both main (branch) and v* (tag); no other
+  settings, reviewers, branch protections or Trusted Publisher identity changed.
+- Actual OIDC upload under the new workflow chain is not yet verified. run-hy8
+  demonstrated the skip path only; it created no tag, Release or uploaded wheel.
+
+## Review repair, 2026-10-18
+
+Addressed PR #135's P2 asset-selection finding: GitHub ignores target_commitish
+when the tag already exists, so a Release may report main instead of its tag's SHA.
+The sync workflow now resolves git/ref/tags for stable release candidates and matches
+that actual lightweight commit SHA to the triggering merge. Stale or branch-valued
+release metadata cannot hide the correct release or select a mismatched tag.
+Four regressions execute the actual workflow selection against mocked GitHub replies,
+covering matching and mismatching refs with branch/stale target_commitish metadata.
+Actionlint, Ruff, strict Pyright and focused release tests (50 passed) pass after repair.
+Changed-Python typing and documentation/link checks pass.
+Package contents and the preserved build job are unchanged, so the earlier wheel
+build and isolated-install evidence still applies. Fresh hosted CI is required for
+the repair commit. This finding was inherited from run-hy8; PR #17's skip-path proof
+remains valid, while its same asset-selector repair needs a separate follow-up.
+
+## Historical release setup evidence
+
+## Original PyPI release setup
 
 | Field | Value |
 | --- | --- |

@@ -94,7 +94,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
 | [TUFLOW culvert engine validation](work/2026-10-08-tuflow-culvert-engines-99.md) | PR #100 retained-wheel repair, numerical evidence and outstanding source-data acceptance |
-| [PyPI release automation](work/2026-10-15-release-automation.md) | Automated version PR, release finalization, publication and temporary slow-test exclusions |
+| [PyPI release automation](work/2026-10-15-release-automation.md) | Merge-only release policy, release opt-outs, validation and historical publication evidence |
 | [CI validation efficiency](work/2026-10-15-ci-validation.md) | Actionlint enforcement, focused dependencies and publication-wheel smoke validation |
 | [Temporary floodway CI exclusions](work/2026-10-16-floodway-ci-exclusions.md) | Deferred review of the two slow sweep tests temporarily excluded from hosted CI |
 | [Safe GeoTIFF recompression](work/2026-10-15-safe-geotiff-recompression.md) | Ready-for-review lossless audit, compression, verification and replacement workflow |

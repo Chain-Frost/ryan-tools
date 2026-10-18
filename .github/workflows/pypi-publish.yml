@@ -1,21 +1,26 @@
 name: Publish to PyPI
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
+  workflow_run:
+    workflows: [Release new verified main merges]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
 
-# Repeated requests for a given tag can coalesce. The durable backlog
-# worker sequences DIFFERENT tags and cannot drop an intermediate commit.
+# Each trusted release decision selects only its corresponding merged main SHA.
 concurrency:
-  group: pypi-${{ github.repository }}-${{ github.ref }}
+  group: pypi-${{ github.repository }}
   cancel-in-progress: false
 
 jobs:
   release:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'workflow_run' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     name: Validate stable tag and publication state
     runs-on: ubuntu-latest
     permissions:
@@ -31,10 +36,54 @@ jobs:
         with:
           script: |
             const {owner, repo} = context.repo;
-            if (!/^refs\/tags\/v(?:\d{2}|\d{4})\.\d+\.\d+\.[1-9]\d*$/.test(context.ref)) {
-              throw new Error('PyPI publication requires an existing stable calendar-version tag.');
+            const source = context.payload.workflow_run.head_sha;
+            const {data: mainRef} = await github.rest.git.getRef({
+              owner,repo,ref:'heads/main'
+            });
+            if (mainRef.object.sha !== source) {
+              core.info('Release decision source is no longer the main tip.');
+              core.setOutput('publish','false');
+              return;
             }
-            const tag = context.ref.slice('refs/tags/'.length);
+            const prs = await github.paginate(
+              github.rest.repos.listPullRequestsAssociatedWithCommit,
+              {owner,repo,commit_sha:source,per_page:100}
+            );
+            const merge = prs.find(pr => pr.merged_at &&
+              pr.merge_commit_sha === source && pr.base.ref === 'main' &&
+              pr.base.repo?.full_name === owner + '/' + repo);
+            if (!merge) {
+              core.info('No merged PR is associated with the verified main tip.');
+              core.setOutput('publish','false');
+              return;
+            }
+            const {data: pr} = await github.rest.pulls.get({
+              owner,repo,pull_number:merge.number
+            });
+            if (pr.merge_commit_sha !== source || !pr.merged_at) {
+              throw new Error('Merge identity mismatch.');
+            }
+            const {data: commit} = await github.rest.repos.getCommit({
+              owner,repo,ref:source
+            });
+            if (pr.labels.some(label => label.name.toLowerCase() === 'skip-release') ||
+                /\[skip release\]/i.test(commit.commit.message)) {
+              core.info('Release opt-out retained by publisher.');
+              core.setOutput('publish','false');
+              return;
+            }
+            const tags = await github.paginate(
+              github.rest.repos.listTags,{owner,repo,per_page:100}
+            );
+            const matching = tags.filter(t => t.commit.sha === source &&
+              /^v(?:\d{2}|\d{4})\.\d+\.\d+\.[1-9]\d*$/.test(t.name));
+            if (!matching.length) {
+              core.info('No stable release tag created for this merged PR.');
+              core.setOutput('publish','false');
+              return;
+            }
+            if (matching.length !== 1) throw new Error('Ambiguous release tags.');
+            const tag = matching[0].name;
             const version = tag.slice(1);
             const numeric = value => {
               if (!/^(?:\d{2}|\d{4})\.\d{1,2}\.\d{1,2}\.[1-9]\d*$/.test(value)) {
@@ -56,6 +105,7 @@ jobs:
             const {data: gitTag} = await github.rest.git.getRef({owner, repo, ref: 'tags/' + tag});
             if (gitTag.object.type !== 'commit') throw new Error('Expected a lightweight source commit tag.');
             const sha = gitTag.object.sha;
+            if (sha !== source) throw new Error('Release tag/source mismatch.');
             const {data: ancestry} = await github.rest.repos.compareCommits({
               owner, repo, base: sha, head: 'main'
             });
@@ -253,6 +303,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/ryan-functions
     permissions:
+      contents: read
       id-token: write
 
     steps:
@@ -297,6 +348,30 @@ jobs:
                   raise SystemExit(f"Refusing {proposed}: PyPI already has {version}")
           print(f"Verified {proposed} is newer than all existing PyPI releases")
           PY
+
+      - name: Refuse superseded main merge immediately before upload
+        uses: actions/github-script@v8
+        env:
+          RELEASE_SHA: ${{ needs.release.outputs.sha }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        with:
+          script: |
+            const {owner, repo} = context.repo;
+            const expected = process.env.RELEASE_SHA;
+            const {data: mainRef} = await github.rest.git.getRef({
+              owner,repo,ref:'heads/main'
+            });
+            if (mainRef.object.sha !== expected) {
+              throw new Error('Refusing PyPI upload: main moved from verified merge ' +
+                expected + ' to ' + mainRef.object.sha);
+            }
+            const {data: tagRef} = await github.rest.git.getRef({
+              owner,repo,ref:'tags/' + process.env.RELEASE_TAG
+            });
+            if (tagRef.object.type !== 'commit' || tagRef.object.sha !== expected) {
+              throw new Error('Refusing PyPI upload: release tag moved or does not match merge.');
+            }
+            core.info('Immediately pre-upload: exact main and release tag SHA ' + expected);
 
       - name: Publish to PyPI using Trusted Publishing
         uses: pypa/gh-action-pypi-publish@release/v1
