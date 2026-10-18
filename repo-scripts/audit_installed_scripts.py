@@ -87,18 +87,20 @@ def analyse_python(source: str) -> dict[str, Any]:
 def audit_repository(root: Path) -> dict[str, Any]:
     """Compare the selected wheel catalogue with all tracked script paths."""
     resources = root / "ryan_library" / "resources" / "mcp"
-    policy = json.loads((resources / "installed_scripts.json").read_text(encoding="utf-8"))
-    general = json.loads((resources / "workflows.json").read_text(encoding="utf-8"))
-    gdal = json.loads((resources / "gdal_cli_tools.json").read_text(encoding="utf-8"))
+    policy = cast("dict[str, object]", json.loads((resources / "installed_scripts.json").read_text(encoding="utf-8")))
+    general = cast("dict[str, object]", json.loads((resources / "workflows.json").read_text(encoding="utf-8")))
+    gdal = cast("dict[str, object]", json.loads((resources / "gdal_cli_tools.json").read_text(encoding="utf-8")))
     selected = set(cast("list[str]", policy["installed_files"]))
     mcp_targets: dict[str, list[str]] = {}
-    for workflow in general["workflows"]:
-        if isinstance(workflow, dict) and isinstance(workflow.get("script"), str):
-            relative: str = workflow["script"].removeprefix("ryan-scripts/")
+    for workflow in cast("list[dict[str, object]]", general["workflows"]):
+        script = workflow.get("script")
+        if isinstance(script, str):
+            relative = script.removeprefix("ryan-scripts/")
             mcp_targets.setdefault(relative, []).append(str(workflow["id"]))
-    for workflow in gdal["tools"]:
-        if isinstance(workflow, dict) and isinstance(workflow.get("script"), str) and "module" not in workflow:
-            relative = f"gdal-python/{workflow['script']}"
+    for workflow in cast("list[dict[str, object]]", gdal["tools"]):
+        script = workflow.get("script")
+        if isinstance(script, str) and "module" not in workflow:
+            relative = f"gdal-python/{script}"
             mcp_targets.setdefault(relative, []).append(str(workflow["id"]))
     tracked = tracked_scripts(root)
     missing_selected = sorted(selected.difference(tracked))
