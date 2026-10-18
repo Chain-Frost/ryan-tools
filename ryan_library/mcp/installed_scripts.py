@@ -49,6 +49,10 @@ def _copy_new_wrapper(source: Path, target: Path) -> None:
         if os.name == "posix":
             # Set permissions on the opened file, not a possibly replaced path.
             os.fchmod(copied.fileno(), stat.S_IMODE(source.stat().st_mode))
+        else:
+            # Windows chmod/copy-mode is path-based; preserve its read-only bit
+            # while the exclusively created file is still open.
+            shutil.copymode(source, target)
 
 
 def copy_wrapper(
@@ -86,28 +90,22 @@ def copy_wrapper(
         _copy_new_wrapper(source, target)
         return target
 
-    # A temporary file in the destination directory gives os.replace an atomic
-    # replacement target. Unlike copy2(source, target), os.replace does not
-    # follow a destination symlink swapped in after the existence checks.
-    staged: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb",
-            dir=target_directory,
-            prefix=f".{target.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as temporary:
-            staged = Path(temporary.name)
-            with source.open("rb") as original:
-                shutil.copyfileobj(original, temporary)
-        # NamedTemporaryFile defaults to 0600 on POSIX. Restore the source
-        # wrapper's mode before publication; the rename itself remains atomic.
-        shutil.copymode(source, staged)
+    # Keep staging inaccessible to other POSIX users in a private 0700
+    # directory. The parent still shares the target filesystem for atomic
+    # publication, but an untrusted peer cannot swap the staging entry.
+    with tempfile.TemporaryDirectory(dir=target_directory, prefix=f".{target.name}.stage-") as staging_directory:
+        staged = Path(staging_directory) / target.name
+        with source.open("rb") as original, staged.open("xb") as temporary:
+            shutil.copyfileobj(original, temporary)
+            if os.name == "posix":
+                # Set source mode on the *open descriptor*; path-based copymode
+                # could follow a replaced staging symlink after close.
+                os.fchmod(temporary.fileno(), stat.S_IMODE(source.stat().st_mode))
+            else:
+                # Preserve the Windows read-only attribute before publishing.
+                shutil.copymode(source, staged)
+        # Replaces the target directory entry without following target symlinks.
         staged.replace(target)
-    finally:
-        if staged is not None:
-            staged.unlink(missing_ok=True)
     return target
 
 
