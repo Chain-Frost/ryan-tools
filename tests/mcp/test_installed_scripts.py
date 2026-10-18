@@ -159,4 +159,3 @@ def test_copy_preserves_source_mode_for_both_paths(tmp_path: Path, overwrite: bo
     copy_wrapper("culvert.py", destination, scripts_root=source_root, overwrite=overwrite)
     assert stat.S_IMODE(target.stat().st_mode) == 0o755
     assert target.read_bytes() == source.read_bytes()
-
