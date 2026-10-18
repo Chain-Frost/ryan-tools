@@ -162,9 +162,7 @@ def test_copy_preserves_source_mode_for_both_paths(tmp_path: Path, overwrite: bo
     assert target.read_bytes() == source.read_bytes()
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX private-directory permissions")
-def test_staging_is_private_and_mode_set_before_publication(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_staging_is_private_and_mode_set_before_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """P2: an untrusted peer cannot swap staged entries in a shared directory."""
     import stat
 
