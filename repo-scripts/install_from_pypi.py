@@ -160,10 +160,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Command: {subprocess.list2cmdline(command)}", flush=True)
         if args.dry_run:
             continue
-        result = subprocess.run(command, check=False)
-        if result.returncode:
-            print(f"ERROR: pip exited with status {result.returncode}", file=sys.stderr)
-            return result.returncode
+        completed: subprocess.CompletedProcess[bytes] = subprocess.run(command, check=False)
+        if completed.returncode:
+            print(f"ERROR: pip exited with status {completed.returncode}", file=sys.stderr)
+            return completed.returncode
 
     result: int = _configure_codex(args, disable_bytecode=disable_bytecode)
     if result:
