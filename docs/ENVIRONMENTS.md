@@ -1,6 +1,6 @@
 # Development and execution environments
 
-`ryan-tools` is installed into the user's normal Python 3.14 installation. Users are not expected to create, understand
+`ryan-tools` can be installed in a user's normal Python 3.13+ installation; Python 3.14 is the recommended developer/CI baseline. Users are not expected to create, understand
 or activate a virtual environment. Wrappers copied into project folders use the same installed `ryan_functions` package.
 
 Some QGIS, OSGeo4W and GDAL workflows use their application's Python or command environment instead. An operation working
@@ -31,12 +31,12 @@ For an end user, double-click `install-ryan-tools.bat` (the existing
 ```
 
 This installs the current published `ryan_functions[mcp]` package from PyPI
-and the upstream QGIS MCP Python bridge, using Python 3.14+. If Codex is installed,
-the script safely configures its QGIS and ryan-tools MCP entries. Without Codex,
+and the upstream QGIS MCP Python bridge, using Python 3.13 or later (automatic highest-installed 3.x selection, overrideable with `RYAN_TOOLS_PYTHON`). If Codex or its VS Code extension is installed,
+the script safely configures its QGIS and ryan-tools MCP entries in the shared user-level Codex config. Without Codex,
 it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
 registration, `--skip-qgis-mcp` for headless/offline installation, or
 `--qgis-mcp-source <path>` to install the bridge from a local source.
-After updating Codex configuration, restart Codex. The QGIS desktop plugin
+After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.13 installs exclude `ryan-culverts`; newer Python versions such as 3.15 require their own compatible binary GIS dependencies. The QGIS desktop plugin
 must still be installed and started through QGIS Plugin Manager.
 
 For developers working from the checkout, keep the local verified-wheel workflow:
