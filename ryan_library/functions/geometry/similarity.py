@@ -35,7 +35,8 @@ def find_similarity_transform(
 
     With `estimate_scale=False`, `initial_scale` fixes the multiplier.
     A negative initial scale requests reflection as supported upstream.
-    Both input and output use the caller's coordinate units and frame.
+    The returned coordinates and translation use the target frame; input
+    points use the source frame. Each point set must have consistent units.
     This is not a CRS transformation and does not perform reprojection.
 
     The numerical method is delegated to `vendor.simil`; no duplicate

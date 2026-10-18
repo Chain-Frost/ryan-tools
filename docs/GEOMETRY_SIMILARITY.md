@@ -22,6 +22,6 @@ np.testing.assert_allclose(transformed, target, atol=1e-10)
 
 The returned multiplier is dimensionless; `rotation` is 3×3 and `translation` is 3×1. Input arrays are N×3, with matching row correspondence. Use `weights=[...]` for per-point weighting. `estimate_scale=False, initial_scale=1.0` fixes a unit scale; `initial_scale=-1.0` allows the upstream solver's reflected solution.
 
-These coordinates are in the **same engineering frame** and units. This solver neither reprojects geographic CRS coordinates nor accounts for geodesy; do not substitute it for GDAL/PROJ CRS transformations. A fitted scale is not necessarily a rigid-body-only transform.
+Source and target control points may be in different local engineering frames. Keep units internally consistent within each point set; the fitted multiplier, rotation and translation map the source frame to the target frame. This solver neither reprojects geographic CRS coordinates nor accounts for geodesy; do not substitute it for GDAL/PROJ CRS transformations. A fitted scale is not necessarily a rigid-body-only transform.
 
 The upstream implementation requires NumPy, is maintained under [vendor/simil](../vendor/simil/README.md), and retains its own [MIT licence](../vendor/simil/LICENSE). The corresponding PyHMA vendor module remains separately importable without a first-party public algorithm wrapper; see [vendor inventory](../vendor/README.md).
