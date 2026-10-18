@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import importlib.resources
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -53,6 +54,11 @@ def _check_installed_wrapper_copy() -> None:
 
 def _check_installed_script_help() -> None:
     """Run only help for representative installed CLI wrappers, without a checkout."""
+    if importlib.util.find_spec("geopandas") is None:
+        # The isolated wheel smoke intentionally uses --no-deps. Do not claim
+        # full CLI readiness when runtime GIS dependencies are absent.
+        print("CLI --help not exercised: isolated --no-deps environment lacks geopandas.")
+        return
     scripts_directory = Path(ryan_library.__file__).absolute().parent.parent / "ryan-scripts"
     for relative in ("culvert.py", "floodway.py"):
         script = scripts_directory / relative
