@@ -18,7 +18,7 @@ import tempfile
 import tomllib
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 SERVER_MODULES: dict[str, str] = {
     "qgis": "qgis_mcp.server",
@@ -44,7 +44,7 @@ def _table_path(line: str) -> tuple[str, ...] | None:
         if not isinstance(child, dict):
             msg = f"Invalid TOML table: {line.strip()}"
             raise ValueError(msg)
-        data = child
+        data = cast(dict[str, Any], child)
     return tuple(path)
 
 
@@ -56,11 +56,13 @@ def _value(item: Any) -> str:
     if isinstance(item, (int, float)):
         return str(item).lower()
     if isinstance(item, list):
-        return "[" + ", ".join(_value(part) for part in item) + "]"
+        items = cast(list[Any], item)
+        return "[" + ", ".join(_value(part) for part in items) + "]"
     if isinstance(item, dict):
+        fields = cast(dict[str, Any], item)
         entries = [
             f"{json.dumps(key) if not re.fullmatch(r'[a-zA-Z0-9_-]+', key) else key} = {_value(value)}"
-            for key, value in item.items()
+            for key, value in fields.items()
         ]
         return "{ " + ", ".join(entries) + " }"
     msg = f"Unsupported existing Codex setting: {type(item).__name__}"
@@ -82,34 +84,41 @@ def _table(header: tuple[str, ...], data: dict[str, Any]) -> str:
 
 def render_config(config: str, python: Path, root: Path, profile: str) -> str:  # noqa: C901
     """Preserve unrelated TOML data while replacing two server registrations."""
-    existing = tomllib.loads(config)
-    servers: Any = existing.get("mcp_servers", {})
-    if not isinstance(servers, dict):
+    existing = cast(dict[str, Any], tomllib.loads(config))
+    raw_servers: Any = existing.get("mcp_servers", {})
+    if not isinstance(raw_servers, dict):
         msg = "mcp_servers must be a TOML table"
         raise ValueError(msg)
+    servers = cast(dict[str, Any], raw_servers)
 
     replacements: dict[tuple[str, ...], str] = {}
     updated_entries: dict[str, dict[str, Any]] = {}
     for name, module in SERVER_MODULES.items():
-        current: Any = servers.get(name, {})
-        if not isinstance(current, dict):
+        raw_current: Any = servers.get(name, {})
+        if not isinstance(raw_current, dict):
             msg = f"Invalid MCP entry: {name}"
             raise ValueError(msg)
+        current = cast(dict[str, Any], raw_current)
         extra_tables = [key for key, val in current.items() if isinstance(val, dict) and key != "env"]
         if extra_tables:
             msg = f"Unsupported nested MCP settings in {name}: {extra_tables}"
             raise ValueError(msg)
-        env: Any = current.get("env", {})
-        if not isinstance(env, dict) or any(not isinstance(value, str) for value in env.values()):
+        raw_env: Any = current.get("env", {})
+        if not isinstance(raw_env, dict):
             msg = f"Invalid MCP environment for {name}"
             raise ValueError(msg)
+        env = cast(dict[str, Any], raw_env)
+        if any(not isinstance(value, str) for value in env.values()):
+            msg = f"Invalid MCP environment for {name}"
+            raise ValueError(msg)
+        safe_env = cast(dict[str, str], env)
         fields: dict[str, Any] = {
             "command": str(python),
             "args": ["-B", "-m", module],
             **{key: val for key, val in current.items() if key not in ("command", "args", "env")},
             "enabled": True,
         }
-        environment: dict[str, str] = {**env, "PYTHONDONTWRITEBYTECODE": "1"}
+        environment: dict[str, str] = {**safe_env, "PYTHONDONTWRITEBYTECODE": "1"}
         if name == "ryan-tools":
             environment.update(
                 PYTHONUTF8="1",
@@ -131,7 +140,7 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
         newline = "\r\n" if line.endswith("\r\n") else "\n"
         original_lines[index] = f"mcp_servers = {_value(updated_servers)}{newline}"
         result = "".join(original_lines)
-        parsed = tomllib.loads(result)
+        parsed = cast(dict[str, Any], tomllib.loads(result))
         if any(parsed.get(key) != val for key, val in existing.items() if key != "mcp_servers"):
             msg = "Unexpected change to unrelated Codex settings"
             raise ValueError(msg)
@@ -172,7 +181,7 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
         if header not in emitted:
             rendered = rendered.rstrip("\n") + "\n\n" + text
 
-    updated = tomllib.loads(rendered)
+    updated = cast(dict[str, Any], tomllib.loads(rendered))
     if any(updated.get(key) != val for key, val in existing.items() if key != "mcp_servers"):
         msg = "Unexpected change to unrelated Codex settings"
         raise ValueError(msg)
