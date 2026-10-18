@@ -8,7 +8,7 @@ The distribution is named `ryan_functions`, while maintained imports normally us
 
 ## Project status
 
-The repository targets Python 3.14. Maintained library code, orchestrators and unversioned wrappers follow the current
+The repository uses Python 3.14 for its current development and CI baseline; package metadata continues to allow Python 3.13 and newer. Maintained library code, orchestrators and unversioned wrappers follow the current
 repository standards; older standalone, versioned and compatibility files remain where they still support migration or
 narrow workflows.
 
@@ -68,7 +68,7 @@ git -C excel-resources lfs pull
 ```
 
 The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
-`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan_functions` with pip to resolve them automatically on Python 3.14+. Until the planned Python 3.14-only migration, Python 3.13 installs omit `ryan-culverts` and therefore cannot use culvert-solver features.
+`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan_functions` with pip to resolve supported dependencies automatically. Python 3.13 installations omit `ryan-culverts` (which requires 3.14+) and cannot use culvert-solver features. Later Python releases such as 3.15 remain eligible under package metadata, subject to available compatible dependencies.
 
 Install the repository requirements into the user's normal Python 3.14 installation. `ryan-tools` does not require or
 assume that users know how to create or activate a virtual environment:
@@ -118,6 +118,7 @@ directly from PyPI, along with upstream QGIS MCP. If Codex is detected, it
 configures the QGIS and ryan-tools MCP servers only as needed, preserving other
 settings and backing up any changed Codex configuration. The legacy
 `install-latest-wheel.bat` name now launches that same PyPI installer.
+The installer selects the highest installed Python 3 release through the Windows launcher (minimum 3.13); override with `RYAN_TOOLS_PYTHON` to select a particular interpreter. The installer also recognises the `openai.chatgpt` Codex extension in VS Code, even without the Codex CLI.
 For developers, `package_and_install.bat` builds and installs a local wheel,
 while `install-local-wheel.bat` installs an existing local wheel without rebuilding.
 QGIS itself and its QGIS MCP desktop plugin must be installed separately.
