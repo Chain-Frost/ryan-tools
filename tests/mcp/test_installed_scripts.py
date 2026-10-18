@@ -160,3 +160,63 @@ def test_copy_preserves_source_mode_for_both_paths(tmp_path: Path, overwrite: bo
     copy_wrapper("culvert.py", destination, scripts_root=source_root, overwrite=overwrite)
     assert stat.S_IMODE(target.stat().st_mode) == 0o755
     assert target.read_bytes() == source.read_bytes()
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX private-directory permissions")
+def test_staging_is_private_and_mode_set_before_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P2: an untrusted peer cannot swap staged entries in a shared directory."""
+    import stat
+
+    source_root = tmp_path / "installed"
+    source_root.mkdir()
+    source = source_root / "culvert.py"
+    source.write_bytes(b"example contents")
+    source.chmod(0o754)
+    destination = tmp_path / "shared"
+    destination.mkdir()
+    target = destination / "culvert.py"
+    target.write_bytes(b"old copy")
+    target.chmod(0o600)
+    real_replace = Path.replace
+
+    def inspect_before_publish(staged: Path, replacement: str | os.PathLike[str]) -> Path:
+        assert staged.parent.parent == destination
+        assert stat.S_IMODE(staged.parent.stat().st_mode) == 0o700
+        assert stat.S_IMODE(staged.stat().st_mode) == 0o754
+        assert not staged.is_symlink()
+        assert staged.read_bytes() == source.read_bytes()
+        return real_replace(staged, replacement)
+
+    monkeypatch.setattr(Path, "replace", inspect_before_publish)
+    copy_wrapper("culvert.py", destination, overwrite=True, scripts_root=source_root)
+    assert target.read_bytes() == b"example contents"
+    assert stat.S_IMODE(target.stat().st_mode) == 0o754
+    assert not list(destination.glob(".culvert.py.stage-*"))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows read-only attributes")
+@pytest.mark.parametrize("overwrite", [False, True])
+def test_windows_copy_preserves_read_only_attribute(tmp_path: Path, overwrite: bool) -> None:
+    """P2: preserve the source read-only attribute for both Windows copy paths."""
+    import stat
+
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    source = source_root / "culvert.py"
+    source.write_bytes(b"readonly")
+    destination = tmp_path / "project"
+    destination.mkdir()
+    target = destination / "culvert.py"
+    if overwrite:
+        target.write_bytes(b"previous writable copy")
+    source.chmod(stat.S_IREAD)
+    try:
+        copy_wrapper("culvert.py", destination, overwrite=overwrite, scripts_root=source_root)
+        assert not bool(target.stat().st_mode & stat.S_IWRITE)
+        assert target.read_bytes() == source.read_bytes()
+    finally:
+        source.chmod(stat.S_IWRITE | stat.S_IREAD)
+        if target.exists():
+            target.chmod(stat.S_IWRITE | stat.S_IREAD)
+
