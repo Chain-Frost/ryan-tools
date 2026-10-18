@@ -35,9 +35,11 @@ class _BuildPyWithQgisStyles(build_py):
         policy = json.loads(manifest.read_text(encoding="utf-8"))
         entries = policy.get("installed_files")
         if policy.get("schema_version") != 1 or not isinstance(entries, list) or not entries:
-            raise RuntimeError(f"Invalid installed script manifest: {manifest}")
+            msg = f"Invalid installed script manifest: {manifest}"
+            raise RuntimeError(msg)
         if not all(isinstance(item, str) for item in entries) or len(entries) != len(set(entries)):
-            raise RuntimeError(f"Duplicate or invalid script paths in {manifest}")
+            msg = f"Duplicate or invalid script paths in {manifest}"
+            raise RuntimeError(msg)
 
         # A previous build may have staged additional scripts. Remove only the
         # build output copy, never the authoritative source tree.
@@ -47,10 +49,12 @@ class _BuildPyWithQgisStyles(build_py):
         for item in entries:
             relative = Path(item)
             if relative.is_absolute() or not relative.parts or ".." in relative.parts:
-                raise RuntimeError(f"Unsafe installed script manifest path: {item}")
+                msg = f"Unsafe installed script manifest path: {item}"
+                raise RuntimeError(msg)
             source = scripts_source / relative
             if not source.is_file() or source.is_symlink():
-                raise RuntimeError(f"Missing or symlinked installed script: {source}")
+                msg = f"Missing or symlinked installed script: {source}"
+                raise RuntimeError(msg)
             destination = target_root / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
