@@ -3,6 +3,7 @@
 import json
 import shutil
 from pathlib import Path
+from typing import cast
 
 from setuptools import setup  # pyright: ignore[reportMissingModuleSource]
 from setuptools.command.build_py import build_py  # pyright: ignore[reportMissingModuleSource]
@@ -32,9 +33,14 @@ class _BuildPyWithQgisStyles(build_py):
 
         scripts_source = project_root / "ryan-scripts"
         manifest = project_root / "ryan_library" / "resources" / "mcp" / "installed_scripts.json"
-        policy = json.loads(manifest.read_text(encoding="utf-8"))
-        entries = policy.get("installed_files")
-        if policy.get("schema_version") != 1 or not isinstance(entries, list) or not entries:
+        raw_policy: object = json.loads(manifest.read_text(encoding="utf-8"))
+        if not isinstance(raw_policy, dict):
+            msg = f"Invalid installed script manifest: {manifest}"
+            raise RuntimeError(msg)
+        policy = cast("dict[str, object]", raw_policy)
+        raw_entries: object = policy.get("installed_files")
+        entries = cast("list[object]", raw_entries) if isinstance(raw_entries, list) else []
+        if policy.get("schema_version") != 1 or not entries:
             msg = f"Invalid installed script manifest: {manifest}"
             raise RuntimeError(msg)
         if not all(isinstance(item, str) for item in entries) or len(entries) != len(set(entries)):
@@ -46,7 +52,7 @@ class _BuildPyWithQgisStyles(build_py):
         target_root = Path(self.build_lib) / "ryan-scripts"
         if target_root.exists():
             shutil.rmtree(target_root)
-        for item in entries:
+        for item in cast("list[str]", entries):
             relative = Path(item)
             if relative.is_absolute() or not relative.parts or ".." in relative.parts:
                 msg = f"Unsafe installed script manifest path: {item}"

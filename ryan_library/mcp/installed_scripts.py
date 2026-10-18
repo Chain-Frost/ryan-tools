@@ -21,8 +21,9 @@ def installed_files() -> tuple[str, ...]:
     if metadata.get("schema_version") != 1:
         msg = "Unsupported installed script manifest version."
         raise ValueError(msg)
-    entries: object = metadata.get("installed_files")
-    if not isinstance(entries, list) or not entries or not all(isinstance(item, str) for item in entries):
+    raw_entries: object = metadata.get("installed_files")
+    entries = cast("list[object]", raw_entries) if isinstance(raw_entries, list) else []
+    if not entries or not all(isinstance(item, str) for item in entries):
         msg = "Invalid installed script manifest paths."
         raise ValueError(msg)
     return tuple(sorted(cast("list[str]", entries)))

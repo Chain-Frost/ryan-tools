@@ -99,11 +99,15 @@ def _verify_source_files(
 def _verify_script_allowlist(archive: zipfile.ZipFile, names: set[str]) -> None:
     """Require exact, byte-identical installed scripts from the reviewed manifest."""
     manifest = PROJECT_ROOT / "ryan_library" / "resources" / "mcp" / "installed_scripts.json"
-    policy = json.loads(manifest.read_text(encoding="utf-8"))
-    files = policy.get("installed_files")
+    raw_policy: object = json.loads(manifest.read_text(encoding="utf-8"))
+    if not isinstance(raw_policy, dict):
+        msg = "Invalid installed_scripts.json manifest."
+        raise ValueError(msg)
+    policy = cast("dict[str, object]", raw_policy)
+    raw_files: object = policy.get("installed_files")
+    files = cast("list[object]", raw_files) if isinstance(raw_files, list) else []
     if (
         policy.get("schema_version") != 1
-        or not isinstance(files, list)
         or not files
         or not all(isinstance(item, str) for item in files)
         or len(files) != len(set(files))
@@ -111,7 +115,7 @@ def _verify_script_allowlist(archive: zipfile.ZipFile, names: set[str]) -> None:
         msg = "Invalid installed_scripts.json manifest."
         raise ValueError(msg)
     expected: set[str] = set()
-    for relative in files:
+    for relative in cast("list[str]", files):
         path = Path(relative)
         if path.is_absolute() or not path.parts or ".." in path.parts:
             msg = f"Unsafe installed script: {relative}"
