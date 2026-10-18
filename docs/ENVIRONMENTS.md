@@ -91,7 +91,7 @@ The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes
 3.14, with a separate Python 3.13 compatibility and MCP job. Its independent jobs mean a policy failure does not hide
 runtime or packaging results.
 
-The hosted test job initialises only `qgis-resources`, `vendor/run_hy8`, `vendor/ryan_culverts` and
+The hosted test job initialises only `qgis-resources` and
 `tests/test_data`. The QGIS repository is used only as test/resource data; no QGIS application is launched. The job
 installs the repository's binary GIS dependency bootstrap, sets `MPLBACKEND=Agg`, and runs:
 
@@ -119,7 +119,7 @@ application or executable; the ASC_to_ASC parity tests remain local and use `ASC
 Create `test-results` before running this command. The two temporary floodway deselections predate the fast-check work;
 their review is tracked in the [exclusion record](work/2026-10-16-floodway-ci-exclusions.md).
 
-The package job initialises `qgis-resources` plus the two vendored Python packages, verifies the retained wheel,
+The package job initialises `qgis-resources` and installs the two PyPI hydraulics dependencies, builds and verifies a fresh wheel,
 performs a `--no-bump` rebuild, verifies the rebuilt artifact, confirms the declared version is unchanged, then
 installs the wheel into a temporary target and runs the installed-wheel smoke test
 outside the checkout with `--expected-root`. The verified wheel and hosted JUnit report are uploaded as workflow
@@ -209,7 +209,7 @@ Initialise only the specific repository submodules required by the selected test
 build surfaces:
 
 ```powershell
-git submodule update --init excel-resources qgis-resources tests/test_data vendor/run_hy8 vendor/ryan_culverts
+git submodule update --init excel-resources qgis-resources tests/test_data
 git lfs pull
 ```
 
@@ -221,7 +221,7 @@ Never initialise, inspect or validate the `unsorted` submodule. Recursive submod
 would include that excluded repository.
 
 Some focused pytest runs on Windows require a pre-created repository-local base temporary directory. Environment-specific
-components, such as the bundled `run_hy8` submodule, may have additional import-path instructions in their local docs.
+components, such as the PyPI-installed `run-hy8` package, may have additional import-path instructions in their local docs.
 
 ## Domain-joined Windows machines
 

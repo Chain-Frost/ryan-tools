@@ -191,8 +191,8 @@ submodule content. Pass explicit repository-relative Markdown paths to check a d
   unnecessary full datasets into memory and preserve multiprocessing or streaming behaviour where it matters.
 - Use synthetic fixtures for tests when proprietary project results cannot be committed. Do not turn one observed
   project folder hierarchy into a general contract without evidence.
-- `tests/test_data`, `excel-resources`, `qgis-resources`, `unsorted`, `vendor/run_hy8` and `vendor/ryan_culverts` are
-  submodules. Preserve their independent worktrees and do not assume that a parent-repository change includes their
+- `tests/test_data`, `excel-resources`, `qgis-resources` and `unsorted` are
+  submodules. The HY-8 and culvert solver libraries are published PyPI dependencies. Preserve their independent worktrees and do not assume that a parent-repository change includes their
   contents.
 - The `unsorted` submodule is categorically outside automated inspection and validation. Do not initialise, traverse,
   search, lint, test or otherwise check it; select required submodules explicitly instead of using recursive checkout.

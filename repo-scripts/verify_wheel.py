@@ -1,4 +1,4 @@
-"""Verify the current ryan-functions wheel and its bundled package contents."""
+"""Verify the current ryan-functions wheel and its owned package contents."""
 
 from __future__ import annotations
 
@@ -90,6 +90,24 @@ def _verify_source_files(
             raise ValueError(msg)
 
 
+def _verify_external_dependencies(metadata: str, names: set[str]) -> None:
+    """Check that external hydraulics libraries are declared but not embedded."""
+    declared_dependencies = _metadata_field(metadata, "Requires-Dist")
+    for distribution in ("run-hy8", "ryan-culverts"):
+        normalized = distribution.replace("-", "_")
+        if not any(
+            requirement.split(";", maxsplit=1)[0].split(">=", maxsplit=1)[0].strip().lower().replace("-", "_")
+            == normalized
+            for requirement in declared_dependencies
+        ):
+            msg = f"Wheel is missing the {distribution} PyPI dependency."
+            raise ValueError(msg)
+    for foreign_prefix in ("run_hy8/", "culvert_solver/"):
+        if any(name.startswith(foreign_prefix) for name in names):
+            msg = f"Wheel unexpectedly bundles upstream package {foreign_prefix}."
+            raise ValueError(msg)
+
+
 def _verify_wheel(
     wheel: Path,
     *,
@@ -121,15 +139,13 @@ def _verify_wheel(
             raise ValueError(msg)
 
         required_members = {
-            "culvert_solver/__init__.py",
-            "culvert_solver/py.typed",
-            "run_hy8/__init__.py",
-            "run_hy8/py.typed",
             "ryan_library/__init__.py",
             "ryan_library/py.typed",
             "ryan_library/resources/mcp/gdal_cli_tools.json",
             "ryan_library/resources/mcp/workflows.json",
         }
+        _verify_external_dependencies(metadata, names)
+
         missing_members = sorted(required_members - names)
         if missing_members:
             msg = f"Wheel is missing required package members: {missing_members}"
@@ -192,20 +208,6 @@ def _verify_wheel(
             source_directory=PROJECT_ROOT / "qgis-resources" / "styles" / "TUFLOW",
             archive_directory=f"{RESOURCE_ROOT}qgis/tuflow".rstrip("/"),
             suffixes=(".qml",),
-        )
-        _verify_source_files(
-            archive,
-            names,
-            source_directory=PROJECT_ROOT / "vendor" / "run_hy8" / "src" / "run_hy8",
-            archive_directory="run_hy8",
-            suffixes=(".py", ".typed"),
-        )
-        _verify_source_files(
-            archive,
-            names,
-            source_directory=PROJECT_ROOT / "vendor" / "ryan_culverts" / "src" / "culvert_solver",
-            archive_directory="culvert_solver",
-            suffixes=(".py", ".typed"),
         )
 
 

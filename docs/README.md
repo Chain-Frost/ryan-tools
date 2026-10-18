@@ -23,7 +23,7 @@ Useful discovery commands from the repository root are:
 
 ```powershell
 git ls-files "*.md"
-rg -n -i "search terms" -g "*.md" -g "!unsorted/**" -g "!vendor/run_hy8/**" -g "!vendor/ryan_culverts/**"
+rg -n -i "search terms" -g "*.md" -g "!unsorted/**" -g "!run-hy8 (PyPI)/**" -g "!ryan-culverts (PyPI)/**"
 ```
 
 ## Canonical policy and starting points
@@ -66,6 +66,8 @@ These documents stay near the code they describe so that browsing a target direc
 | --- | --- |
 | [MCP server setup](MCP_SETUP.md) | Configuring focused MCP helpers and repository-backed workflow discovery in supported AI clients |
 | [PyPI publishing](PYPI_PUBLISHING.md) | Configuring Trusted Publishing and releasing verified wheels through GitHub Actions |
+| [Automatic PyPI releases](AUTO_PYPI_RELEASES.md) | Publishing only new verified main PR merges after a defined cutover |
+| [Automatic release cutover marker](../.github/release-cutover.md) | Recording the first commit after which new merged changes become eligible for releases |
 | [MCP workflow-target implementation](mcp-handoff/README.md) | Current execution-target design, wrapper-path reconciliation, validation contract and remaining staged migration |
 
 ## File-format references
