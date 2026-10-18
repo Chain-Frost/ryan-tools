@@ -4,7 +4,12 @@
 workflows. Reusable code lives in `ryan_library`; files under `ryan-scripts` are human-facing wrappers and standalone
 utilities.
 
-The distribution is named `ryan_functions`, while maintained imports normally use `ryan_library`.
+The distribution is named `ryan-tools`, while maintained imports use `ryan_library`. The wheel also installs
+`ryan-scripts` beside `ryan_library`, so MCP workflows do not require a Git checkout.
+
+When migrating from the old distribution, run `python -m pip uninstall ryan_functions` before installing
+`ryan-tools`. The removed `ryan_functions` import alias must be replaced with `ryan_library.functions`.
+See the [migration policy](docs/COMPATIBILITY_POLICY.md#removed-ryan_functions-import-namespace--2026-10-18).
 
 ## Project status
 
@@ -68,7 +73,7 @@ git -C excel-resources lfs pull
 ```
 
 The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
-`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan_functions` with pip to resolve supported dependencies automatically. Python 3.13 installations omit `ryan-culverts` (which requires 3.14+) and cannot use culvert-solver features. Later Python releases such as 3.15 remain eligible under package metadata, subject to available compatible dependencies.
+`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.13 installations omit `ryan-culverts` (which requires 3.14+) and cannot use culvert-solver features. Later Python releases such as 3.15 remain eligible under package metadata, subject to available compatible dependencies.
 
 Install the repository requirements into the user's normal Python 3.14 installation. `ryan-tools` does not require or
 assume that users know how to create or activate a virtual environment:
@@ -81,7 +86,7 @@ py -3.14 -m pip install -r requirements.txt
 
 `requirements.txt` installs the checkout and development tools into that Python installation. Installing the project is
 important when running wrappers copied outside the repository because they import the shared implementation from the
-installed `ryan_functions` distribution. The dependency bootstrap installs binary Fiona, Rasterio and GDAL packages
+installed `ryan-tools` distribution. The dependency bootstrap installs binary Fiona, Rasterio and GDAL packages
 from the configured geospatial wheel index, avoiding a local source build on Windows.
 
 ## Build and install
@@ -113,7 +118,7 @@ Windows convenience entry points are:
 .\install-local-wheel.bat
 ```
 
-`install-ryan-tools.bat` installs the latest published `ryan_functions[mcp]` release
+`install-ryan-tools.bat` installs the latest published `ryan-tools[mcp]` release
 directly from PyPI, along with upstream QGIS MCP. If Codex is detected, it
 configures the QGIS and ryan-tools MCP servers only as needed, preserving other
 settings and backing up any changed Codex configuration. The legacy

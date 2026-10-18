@@ -11,7 +11,8 @@ matrix.
 - `ryan_library/processors`: stateful handlers for supported file and result formats.
 - `ryan_library/orchestrators`: complete workflow coordination, including discovery, processing, logging and export.
 - `ryan-scripts`: human-facing maintained wrappers, project-specific entry points and older standalone utilities.
-- `ryan_library/scripts` and `ryan_functions`: deprecated import-compatibility namespaces; do not add new behaviour.
+- `ryan_library/scripts`: deprecated import-compatibility namespace; do not add new behaviour.
+- `ryan_functions`: removed import alias; use `ryan_library.functions`. The distribution is named `ryan-tools`.
 - `vendor`, `tests/test_data`, `excel-resources`, `qgis-resources` and `unsorted`: vendored content or submodules; preserve
   their independent state.
 - `unsorted` is excluded from all automated work. Do not initialise, inspect, traverse, search, lint, test, validate or

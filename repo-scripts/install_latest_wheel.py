@@ -1,20 +1,32 @@
-"""Install GIS dependencies or the newest locally built ryan-functions wheel."""
+"""Install GIS dependencies or the newest locally built ryan-tools wheel."""
 
 from __future__ import annotations
 
 import argparse
 import subprocess
 import sys
+from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 
 GIS_WHEEL_INDEX: str = "https://gisidx.github.io/gwi"
-WHEEL_PATTERN: str = "ryan_functions-*.whl"
+WHEEL_PATTERN: str = "ryan_tools-*.whl"
 # Install the current upstream bridge when the wheel-based developer path is used.
 QGIS_MCP_ARCHIVE: str = "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip"
 
 
+def legacy_installation_blocks_upgrade(*, dry_run: bool) -> bool:
+    """Prevent two differently named distributions from owning the same package files."""
+    try:
+        distribution("ryan_functions")
+    except PackageNotFoundError:
+        return False
+    print("Uninstall the old distribution before installing ryan-tools:")
+    print(subprocess.list2cmdline([sys.executable, "-m", "pip", "uninstall", "ryan_functions"]))
+    return not dry_run
+
+
 def _latest_wheel(dist_dir: Path) -> Path:
-    """Return the most recently modified ryan-functions wheel."""
+    """Return the most recently modified ryan-tools wheel."""
     wheels: list[Path] = list(dist_dir.glob(WHEEL_PATTERN))
     if not wheels:
         msg = f"No {WHEEL_PATTERN} wheel found in {dist_dir}"
@@ -107,6 +119,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dependencies_only and args.force_reinstall:
         parser.error("--dependencies-only cannot be combined with --force-reinstall")
+
+    if not args.dependencies_only and legacy_installation_blocks_upgrade(dry_run=args.dry_run):
+        return 1
 
     print(f"Using Python: {sys.executable}")
     if args.dependencies_only:

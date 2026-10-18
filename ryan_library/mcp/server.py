@@ -25,13 +25,16 @@ from .registry import WorkflowRegistry, WorkflowRegistryError
 REGISTRY = WorkflowRegistry()
 MAX_SAMPLE_ROWS = 20
 MAX_COLLECTION_FILES = 50
+DEFAULT_WORKFLOW_LIMIT = 10
+MAX_WORKFLOW_LIMIT = 25
 TUFLOW_PROCESSOR_GUIDANCE_URI = "ryan-tools://guidance/tuflow-processors"
 
 if MCPServer is not None:
     mcp = MCPServer(
         "ryan-tools",
         instructions=(
-            "Use list_workflows to discover enabled ryan-tools CLI workflows, then call get_workflow for the selected "
+            "Use list_workflows with query or domain to discover a small page of CLI workflows; follow next_offset "
+            "for more matches, then call get_workflow for the selected "
             "id. Review its help_command, mutation metadata, paths, and approval requirement before running the returned "
             "CLI command through the client shell. Use inspect_tuflow_result or inspect_tuflow_collection for bounded, "
             "read-only result queries, and consult the TUFLOW processor guidance resource for advanced Python analysis. "
@@ -318,16 +321,38 @@ def list_workflows(
     domain: str | None = None,
     profile: str | None = None,
     include_unavailable: bool = False,
+    query: str | None = None,
+    limit: int = DEFAULT_WORKFLOW_LIMIT,
+    offset: int = 0,
 ) -> dict[str, Any]:
-    """List CLI workflows enabled by the configured MCP profile; optionally filter by domain or lower profile."""
+    """Search workflow summaries by keywords/domain. Returns 10 by default (max 25); use next_offset for more."""
+    if type(limit) is not int or not 1 <= limit <= MAX_WORKFLOW_LIMIT:
+        return {"error": f"limit must be an integer between 1 and {MAX_WORKFLOW_LIMIT}."}
+    if type(offset) is not int or offset < 0:
+        return {"error": "offset must be a nonnegative integer."}
     try:
-        return REGISTRY.list_workflows(
+        listing = REGISTRY.list_workflows(
             domain=domain,
+            query=query,
             maximum_profile=profile,
             include_unavailable=include_unavailable,
         )
     except WorkflowRegistryError as error:
         return {"error": str(error)}
+    matches: list[dict[str, Any]] = listing["workflows"]
+    page = matches[offset : offset + limit]
+    next_offset = offset + len(page)
+    has_more = next_offset < len(matches)
+    listing.update(
+        workflows=page,
+        returned_count=len(page),
+        limit=limit,
+        offset=offset,
+        has_more=has_more,
+        next_offset=next_offset if has_more else None,
+        next_step="Narrow query/domain, follow next_offset, or call get_workflow with a returned id.",
+    )
+    return listing
 
 
 def get_workflow(workflow_id: str) -> dict[str, Any]:
@@ -343,11 +368,12 @@ def check_repo_health() -> dict[str, Any]:
     return {
         "python_version": sys.version,
         "python_executable": sys.executable,
-        "ryan_library_version": _distribution_version("ryan_functions"),
+        "ryan_library_version": _distribution_version("ryan-tools"),
         "mcp_sdk_version": _distribution_version("mcp"),
         "package_directory": str(package_directory),
         "root_directory": str(package_directory),
         "repository_root": str(REGISTRY.repository_root) if REGISTRY.repository_root else None,
+        "scripts_directory": str(REGISTRY.scripts_directory) if REGISTRY.scripts_directory else None,
         "configured_profile": REGISTRY.configured_profile.value,
         "catalogue_schema_version": REGISTRY.schema_version,
         "catalogue_updated": REGISTRY.catalogue_updated,

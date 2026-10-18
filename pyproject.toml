@@ -3,8 +3,8 @@ build-backend = "setuptools.build_meta"
 requires = ["setuptools>=69", "wheel"]
 
 [project]
-name = "ryan_functions"
-version = "26.10.17.1"
+name = "ryan-tools"
+version = "26.10.18.1"
 description = "Collection of TUFLOW and data processing functions."
 readme = "README.md"
 license = "SUL-1.0"
@@ -101,8 +101,6 @@ include = [
   "po_and_timeseries.*",
   "raster_processing",
   "raster_processing.*",
-  "ryan_functions",
-  "ryan_functions.*",
   "ryan_library",
   "ryan_library.*",
   "vendor",

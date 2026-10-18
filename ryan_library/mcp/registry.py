@@ -79,6 +79,14 @@ def _load_json_object(text: str, *, source: str) -> dict[str, Any]:
     return cast("dict[str, Any]", raw)
 
 
+def installed_scripts_directory() -> Path | None:
+    """Locate wheel scripts beside the imported package, independently of a checkout."""
+    package_parent = Path(__file__).absolute().parents[2]
+    directory = package_parent / "ryan-scripts"
+    # A source tree is handled by checkout discovery, not advertised as wheel content.
+    return directory if directory.is_dir() and not _looks_like_repository(package_parent) else None
+
+
 def _load_packaged_workflows() -> tuple[str, str | None, list[WorkflowSpec]]:
     resource: Traversable = files("ryan_library.resources.mcp").joinpath("workflows.json")
     raw_catalogue: dict[str, Any] = _load_json_object(
@@ -202,14 +210,15 @@ class WorkflowRegistry:
             raise WorkflowRegistryError(msg) from exc
 
         self.repository_root: Path | None = resolve_repository_root(repository_root, discover=discover_repository)
+        self.scripts_directory: Path | None = installed_scripts_directory()
         self.schema_version, self.catalogue_updated, packaged_workflows = _load_packaged_workflows()
         self.warnings: list[str] = []
 
         workflows: list[WorkflowSpec] = [*packaged_workflows, *_load_gdal_workflows()]
-        if self.repository_root is None:
+        if self.repository_root is None and self.scripts_directory is None:
             self.warnings.append(
-                f"No ryan-tools checkout found. Set {REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to expose repository-only "
-                "CLI scripts; installed module workflows remain available."
+                "No installed ryan-scripts folder or checkout found. Reinstall the current wheel, or set "
+                f"{REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} for a development checkout."
             )
 
         self._workflows: dict[str, WorkflowSpec] = {}
@@ -220,9 +229,14 @@ class WorkflowRegistry:
             self._workflows[workflow.workflow_id] = workflow
 
     def _script_path(self, workflow: WorkflowSpec) -> Path | None:
-        if workflow.execution.kind is not ExecutionKind.SCRIPT or self.repository_root is None:
+        if workflow.execution.kind is not ExecutionKind.SCRIPT:
             return None
-        return (self.repository_root / Path(workflow.execution.value)).absolute()
+        relative = Path(workflow.execution.value)
+        if self.repository_root is not None:
+            return (self.repository_root / relative).absolute()
+        if self.scripts_directory is not None:
+            return (self.scripts_directory / relative.relative_to("ryan-scripts")).absolute()
+        return None
 
     def _command_prefix(self, workflow: WorkflowSpec) -> list[str] | None:
         match workflow.execution.kind:
@@ -259,16 +273,21 @@ class WorkflowRegistry:
         self,
         *,
         domain: str | None = None,
+        query: str | None = None,
         maximum_profile: CapabilityProfile | str | None = None,
         include_unavailable: bool = False,
     ) -> dict[str, Any]:
-        """Return visible workflow summaries, optionally filtered by domain and profile."""
+        """Return matching summaries for internal use; the MCP tool paginates its response."""
         visible_profile: CapabilityProfile = self._maximum_profile(maximum_profile)
+        terms = (query or "").casefold().split()
         summaries: list[dict[str, Any]] = []
         for workflow in sorted(self._workflows.values(), key=lambda item: (item.domain, item.title, item.workflow_id)):
             if domain is not None and workflow.domain.casefold() != domain.casefold():
                 continue
             if not profile_allows(configured=visible_profile, required=workflow.profile):
+                continue
+            searchable = " ".join((workflow.workflow_id, workflow.title, workflow.domain, workflow.purpose)).casefold()
+            if not all(term in searchable for term in terms):
                 continue
             available: bool = self._available(workflow)
             if not available and not include_unavailable:
@@ -279,7 +298,9 @@ class WorkflowRegistry:
             "configured_profile": self.configured_profile.value,
             "maximum_profile": visible_profile.value,
             "repository_root": str(self.repository_root) if self.repository_root else None,
+            "scripts_directory": str(self.scripts_directory) if self.scripts_directory else None,
             "workflow_count": len(summaries),
+            "domains": sorted({item["domain"] for item in summaries}),
             "workflows": summaries,
             "warnings": list(self.warnings),
             "next_step": "Call get_workflow with an id, then run its help_command through the client shell.",
@@ -315,8 +336,8 @@ class WorkflowRegistry:
         if command_prefix is None:
             if workflow.execution.kind is ExecutionKind.SCRIPT:
                 details["error"] = (
-                    f"Repository CLI script is unavailable. Set {REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to a "
-                    "ryan-tools checkout."
+                    "CLI script is unavailable. Reinstall the current wheel, or set "
+                    f"{REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to a development checkout."
                 )
             else:
                 details["error"] = (

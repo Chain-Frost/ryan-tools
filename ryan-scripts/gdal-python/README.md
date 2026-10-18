@@ -57,7 +57,7 @@ with Shapefile available as an option.
 
 Each wrapper contains a `WRAPPER_VERSION` in `YYYY-MM-DD.N` form and prints it
 with the resolved path of the running file. That identity remains with a
-wrapper copied into a job folder. The separately printed `ryan_functions`
+wrapper copied into a job folder. The separately printed `ryan-tools`
 version identifies the installed shared library that performs the work. Both
 identities are printed at the start and end of processing, so the closing
 details remain visible after lengthy output and beside the interactive pause.

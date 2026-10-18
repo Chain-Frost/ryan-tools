@@ -1,10 +1,24 @@
 # Development and execution environments
 
 `ryan-tools` can be installed in a user's normal Python 3.13+ installation; Python 3.14 is the recommended developer/CI baseline. Users are not expected to create, understand
-or activate a virtual environment. Wrappers copied into project folders use the same installed `ryan_functions` package.
+or activate a virtual environment. Wrappers copied into project folders use the same installed `ryan-tools` package.
 
 Some QGIS, OSGeo4W and GDAL workflows use their application's Python or command environment instead. An operation working
 with the normal Python installation does not prove that it works inside those application environments, or conversely.
+
+## Distribution migration
+
+The distribution is now named `ryan-tools`; maintained Python imports remain `ryan_library`.
+Before upgrading an existing environment, uninstall the old distribution to avoid overlapping package ownership:
+
+```powershell
+python -m pip uninstall ryan_functions
+```
+
+Then install the new wheel with `install-local-wheel.bat`, or use the PyPI installer after `ryan-tools` is published.
+The installers stop before changing packages if the old distribution is still installed. Dry runs only print migration advice.
+Do not uninstall the old distribution after installing the new one: that can remove files shared by both distributions.
+The `ryan_functions` import alias is removed; replace those imports with `ryan_library.functions`.
 
 ## Install for repository development
 
@@ -23,14 +37,14 @@ configured geospatial wheel index. It supersedes the former single-package batch
 `--dry-run`. For managed or offline environments, use the local approved source with
 `repo-scripts/setup_codex_mcp.ps1 -Install -QgisSource <path>` instead of the GitHub-based requirements command.
 
-For an end user, double-click `install-ryan-tools.bat` (the existing
-`install-latest-wheel.bat` is an alias):
+For an end user, double-click [install-ryan-tools.bat](../install-ryan-tools.bat) (the existing
+[install-latest-wheel.bat](../install-latest-wheel.bat) is an alias):
 
 ```powershell
 .\install-ryan-tools.bat
 ```
 
-This installs the current published `ryan_functions[mcp]` package from PyPI
+This installs the current published `ryan-tools[mcp]` package from PyPI
 and the upstream QGIS MCP Python bridge, using Python 3.13 or later (automatic highest-installed 3.x selection, overrideable with `RYAN_TOOLS_PYTHON`). If Codex or its VS Code extension is installed,
 the script safely configures its QGIS and ryan-tools MCP entries in the shared user-level Codex config. Without Codex,
 it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
@@ -49,6 +63,29 @@ For developers working from the checkout, keep the local verified-wheel workflow
 The first builds and installs the latest local wheel; the second installs an
 existing wheel without rebuilding. These commands do not replace developer
 editable installs (`pip install -r requirements.txt`).
+
+## Disable Python bytecode for the Windows user
+
+To opt out of `.pyc` writes across Python installations for your Windows user, run:
+
+```powershell
+.\disable-python-bytecode.bat
+```
+
+The standalone [disable-python-bytecode.bat](../disable-python-bytecode.bat) uses
+`setx PYTHONDONTWRITEBYTECODE 1` without administrator rights.
+It is not run automatically by the installer. Preview with `--dry-run`.
+Restart terminals, editors and Codex to inherit the saved setting. When called from an existing
+`cmd.exe` session, the batch file also sets the variable in that session; a parent PowerShell session
+must be restarted or use `$env:PYTHONDONTWRITEBYTECODE = '1'` for immediate effect.
+Existing `.pyc` files are retained. This controls ordinary Python import caching, not explicit compilation commands.
+
+To undo the persistent setting in PowerShell, then restart applications:
+
+```powershell
+[Environment]::SetEnvironmentVariable('PYTHONDONTWRITEBYTECODE', $null, 'User')
+Remove-Item Env:PYTHONDONTWRITEBYTECODE -ErrorAction SilentlyContinue
+```
 
 ## VS Code interpreter and tasks
 
@@ -69,7 +106,7 @@ Windows PowerShell, and an `OSGeo4W Cmd` profile is available for workflows that
 
 ## Installed package and copied wrappers
 
-Wrappers copied into project folders import the installed `ryan_functions` distribution. They do not add the repository
+Wrappers copied into project folders import the installed `ryan-tools` distribution. They do not add the repository
 to `sys.path`, so the package must be installed into the same Python installation used to run the wrapper.
 
 Maintained wrappers print both their embedded wrapper version and the installed library version. This helps distinguish

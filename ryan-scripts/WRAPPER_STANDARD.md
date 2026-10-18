@@ -59,7 +59,7 @@ print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSIO
 ```
 
 This tells a user which copied wrapper file is running and which installed
-`ryan_functions` package supplies its implementation.
+`ryan-tools` package supplies its implementation.
 
 Print the same two identities again after `main()` returns. The opening banner
 records what is about to run; the closing banner remains visible beside the

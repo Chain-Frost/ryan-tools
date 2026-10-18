@@ -20,7 +20,7 @@ if errorlevel 1 (
         endlocal & exit /b 1
     )
 )
-call %PYTHON_CMD% -B "%~dp0repo-scripts\install_from_pypi.py" %*
+call %PYTHON_CMD% "%~dp0repo-scripts\install_from_pypi.py" %*
 set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" echo Installer failed. See messages above.
 pause

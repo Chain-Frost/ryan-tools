@@ -71,7 +71,7 @@ visually separated from processing output without repeating three statements
 in every wrapper.
 
 The wrapper version identifies the copied entry-point file; the separately
-installed `ryan_functions` version identifies the shared implementation.
+installed `ryan-tools` version identifies the shared implementation.
 Interactive completion uses `pause_console()`, which collects unreachable
 Python objects immediately before waiting. Redirected/headless runs do not
 pause, and `--no-pause` explicitly disables the wait for automation.
@@ -114,7 +114,7 @@ the maintained versions before that date.
 
 ## Verify converted FLT/ASC output rasters
 
-The tool reports the embedded wrapper revision and the installed `ryan_functions`
+The tool reports the embedded wrapper revision and the installed `ryan-tools`
 package version at startup and completion. It also displays total source data
 size, overall file-count progress, processed source volume, active source and
 GeoTIFF sizes, and the current comparison. Live counters track verified matches,

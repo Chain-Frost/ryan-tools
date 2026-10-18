@@ -56,7 +56,7 @@ def _find_templates_dir() -> Path:
     repository_dir: Path = Path(__file__).absolute().parents[2] / "ryan_library" / "resources" / "tuflow_templates"
     if repository_dir.is_dir():
         return repository_dir
-    msg = f"TUFLOW templates not found at {installed_dir} or {repository_dir}. Rebuild and install ryan_functions."
+    msg = f"TUFLOW templates not found at {installed_dir} or {repository_dir}. Rebuild and install ryan-tools."
     raise FileNotFoundError(msg)
 
 

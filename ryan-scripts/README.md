@@ -10,6 +10,13 @@ utilities retained for reference. Read the module docstring at the top of a Pyth
 docstring identifies whether the script uses command-line arguments, editable settings, the current working directory,
 or the folder containing the script.
 
+## Installed copies
+
+The wheel installs this script tree beside `ryan_library` in `site-packages`. MCP locates installed scripts automatically;
+no repository path is required. The source files in this folder remain authoritative and are copied during the build.
+Only catalogued workflows are exposed through MCP; other scripts retain their existing lifecycle and environment needs.
+See [MCP setup](../docs/MCP_SETUP.md#installed-scripts-and-development-checkouts).
+
 ## Set up Python
 
 The repository targets Python 3.14. From the repository root, install the project and its dependencies into the user's

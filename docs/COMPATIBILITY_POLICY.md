@@ -18,6 +18,16 @@ unknown external use must be resolved rather than inferred from static absence. 
 support decision. Registration did not run compatibility tests or change API deadlines. This handoff is uncommitted
 documentation only; no implementation or publishing work is claimed.
 
+## Removed `ryan_functions` import namespace ? 2026-10-18
+
+The maintainer explicitly authorised removal of `ryan_functions/__init__.py` with the installed-script packaging change.
+The import alias and its import hook are removed; use `ryan_library.functions` and its maintained submodules instead.
+No active internal Python callers were found. External users must update imports before upgrading.
+The PyPI distribution is renamed from `ryan_functions` to `ryan-tools`; Python imports remain under `ryan_library`.
+For an existing installation, uninstall `ryan_functions` before installing `ryan-tools`, because both distributions
+own the same `ryan_library` files. The new PyPI project needs its own Trusted Publisher configuration before publication.
+This removal does not change the support deadlines for the other compatibility modules below.
+
 ## Compatibility Inventory
 
 | Legacy Module / Import Path | Supported Replacement | Warning Category | Support Deadline | Known Callers |

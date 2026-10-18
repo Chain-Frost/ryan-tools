@@ -50,8 +50,8 @@ Set the maximum profile with `RYAN_MCP_PROFILE`. A tool call cannot request a pr
 Workflows declare their lifecycle and mutation class, and privileged workflows also declare that explicit approval is
 required.
 
-The generic workflow catalogue and authoritative curated GDAL metadata are packaged with `ryan_functions`. Catalogued
-workflows resolve through their existing maintained repository wrappers so their CLI behavior has one source of truth.
+The generic workflow catalogue and authoritative curated GDAL metadata are packaged with `ryan-tools`. Catalogued
+workflows resolve through their existing maintained wrappers so their CLI behavior has one source of truth.
 The `culvert_analysis_design` workflow exposes the maintained solve, analyse, compare, design, rating and saved-report
 commands, plus a bounded or seeded `uncertainty_study` scenario, as output-creating hydraulic workflows.
 Project-driven scenarios require an explicit versioned JSON or TOML path; saved-report rendering consumes existing
@@ -77,21 +77,23 @@ wrapper at execution time rather than inferred from Manning roughness. The HY-8
 catalogue entries retain `creates_or_replaces` as output-mutation metadata while
 external execution remains the governing privileged safety classification.
 
-## Repository workflow resolution
+## Installed scripts and development checkouts
 
-Catalogued workflows target human-facing repository scripts. The server resolves a checkout in this order:
+The wheel installs `ryan-scripts` beside `ryan_library` in `site-packages`, preserving the source folder structure.
+MCP locates that sibling folder automatically; users do not need a checkout or `RYAN_TOOLS_REPOSITORY_ROOT`.
+The wheel includes Python scripts, batch/PowerShell launchers, local Markdown guides and the existing GMS/XCES files.
+Packaging a script does not make it a supported MCP workflow: the curated catalogue and capability profiles still
+control discovery, and application-specific dependencies such as QGIS, GDAL and HY-8 remain necessary.
+The server reports the installed folder as `scripts_directory` in health and workflow-list responses.
 
-1. The explicit `RYAN_TOOLS_REPOSITORY_ROOT` environment variable.
-2. The source tree containing the imported package during repository development.
-3. The current directory or one of its parents.
-
-When no checkout is found, the MCP server still starts and its focused direct helpers remain available. Catalogued
-workflows are reported as unavailable, while their packaged discovery metadata remains inspectable. Health and
-workflow-list responses explain how to configure the root.
+For development, an explicit `RYAN_TOOLS_REPOSITORY_ROOT` or an automatically discovered checkout takes precedence
+over the installed scripts. Checkout discovery checks the package source tree, then the working directory and its parents.
+If a selected checkout is missing a script, MCP reports it unavailable rather than silently running a wheel copy.
+The MCP server returns commands and metadata; it does not execute scripts.
 
 ## Prerequisites
 
-1. Python 3.13+ with the `ryan_functions` package installed (Python 3.14+ required for `ryan-culverts` features).
+1. Python 3.13+ with the `ryan-tools` package installed (Python 3.14+ required for `ryan-culverts` features).
 2. Install the MCP extra:
 
    ```bat
@@ -102,7 +104,7 @@ workflow-list responses explain how to configure the root.
 
 The recommended end-user launcher (`install-ryan-tools.bat`, also available through
 the existing `install-latest-wheel.bat`) installs the newest published
-`ryan_functions[mcp]` release **from PyPI**, without requiring a local wheel.
+`ryan-tools[mcp]` release **from PyPI**, without requiring a local wheel.
 It also installs the external QGIS MCP Python bridge from upstream `main`.
 If Codex is detected (CLI, existing user configuration, or the OpenAI `openai.chatgpt` VS Code extension), it automatically
 adds/refreshes the QGIS and ryan-tools MCP registrations, preserving unrelated
@@ -111,7 +113,7 @@ configuration is created.
 
 `package_and_install.bat` and `install-local-wheel.bat` retain the
 local verified-wheel workflow for developers. The QGIS bridge remains a
-separate pip installation, not an embedded dependency of `ryan_functions`.
+separate pip installation, not an embedded dependency of `ryan-tools`.
 Development `requirements.txt` installs the checkout and upstream QGIS MCP.
 
 To use the approved local QGIS MCP source instead of downloading from GitHub:
@@ -169,7 +171,17 @@ environment settings such as `QGIS_MCP_TOKEN`, backs up
 `%USERPROFILE%\.codex\config.toml` before changes, and can be rerun.
 Set `-Python` to override the interpreter. Existing `CODEX_HOME` is
 respected by the Python utility. The default ryan-tools profile is `create`;
-use `-Profile analysis` for read-only workflow discovery.
+use `-Profile analysis` for read-only workflow discovery. Setup no longer writes a checkout path by default and removes
+a previous generated `RYAN_TOOLS_REPOSITORY_ROOT`. Use `--repository-root <path>` with the Python helper or
+`-RepositoryRoot <path>` with the PowerShell helper to explicitly select a development checkout.
+
+Bytecode suppression defaults to off. Setup automatically disables `.pyc` writes when `USERDNSDOMAIN`,
+`USERDOMAIN` or the host DNS suffix identifies `bge-resources.com` (including the `BGER` domain).
+For other restricted environments, pass `--disable-bytecode` to `install-ryan-tools.bat` or
+`setup_codex_mcp.py`, or `-DisableBytecode` to `setup_codex_mcp.ps1`.
+This adds `-B` and `PYTHONDONTWRITEBYTECODE = "1"` to both MCP registrations.
+Rerunning setup outside BGE without the flag removes these bytecode restrictions from both registrations;
+unrelated environment settings are preserved. If domain/DNS detection is unavailable, use the explicit flag.
 
 Restart Codex and check `codex mcp list`. In the running QGIS session,
 start the plugin bridge, then invoke QGIS `ping` and `diagnose`; also run
@@ -205,7 +217,7 @@ PYTHONUTF8 = '1'
 RYAN_MCP_PROFILE = 'create'
 ```
 
-During the staged migration, add `RYAN_TOOLS_REPOSITORY_ROOT` when repository-only workflows are needed:
+For an optional development checkout override, add `RYAN_TOOLS_REPOSITORY_ROOT`:
 
 ```toml
 RYAN_TOOLS_REPOSITORY_ROOT = 'E:\Library\Automation\ryan-tools'
@@ -244,5 +256,5 @@ The MCP server never invokes the returned command itself.
 | A repository workflow is unavailable | Set `RYAN_TOOLS_REPOSITORY_ROOT` to a checkout containing `pyproject.toml` and `ryan-scripts`. Installed-module workflows do not need it. |
 | A workflow is unknown under `create` | It may be privileged; inspect the packaged catalogue and explicitly opt into `privileged` if appropriate. |
 | A GDAL repository wrapper is unavailable | Configure the repository root. The packaged GDAL catalogue remains discoverable, but its existing wrappers require the checkout. |
-| Script imports fail | Install the matching `ryan_functions` package version used by the checkout. |
+| Script imports fail | Install the matching `ryan-tools` package version used by the checkout. |
 | Changes do not appear in the client | Restart the MCP client so it reloads tool definitions and environment variables. |

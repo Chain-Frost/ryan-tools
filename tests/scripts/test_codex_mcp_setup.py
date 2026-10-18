@@ -23,8 +23,8 @@ def test_new_config_contains_both_mcp_servers(tmp_path: Path) -> None:
     python = tmp_path / "python.exe"
     result = tomllib.loads(render("", python, tmp_path, "create"))
     servers = result["mcp_servers"]
-    assert servers["qgis"]["args"] == ["-B", "-m", "qgis_mcp.server"]
-    assert servers["ryan-tools"]["args"] == ["-B", "-m", "ryan_library.mcp.server"]
+    assert servers["qgis"]["args"] == ["-m", "qgis_mcp.server"]
+    assert servers["ryan-tools"]["args"] == ["-m", "ryan_library.mcp.server"]
     assert servers["ryan-tools"]["env"]["RYAN_TOOLS_REPOSITORY_ROOT"] == str(tmp_path)
     assert all(item["command"] == str(python) for item in servers.values())
 
@@ -63,7 +63,7 @@ def test_invalid_dotted_definition_rejected(tmp_path: Path) -> None:
 
 
 def test_wheel_installer_includes_qgis_mcp(tmp_path: Path) -> None:
-    commands = pip_commands(tmp_path / "ryan_functions-test.whl", False)
+    commands = pip_commands(tmp_path / "ryan_tools-test.whl", False)
     assert len(commands) == 3
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
     assert commands[2][-1].endswith(".whl[mcp]")
@@ -71,7 +71,7 @@ def test_wheel_installer_includes_qgis_mcp(tmp_path: Path) -> None:
 
 def test_wheel_installer_allows_local_qgis_source(tmp_path: Path) -> None:
     commands = pip_commands(
-        tmp_path / "ryan_functions-test.whl",
+        tmp_path / "ryan_tools-test.whl",
         False,
         qgis_mcp_source=r"Q:\BGER\PER\RPRT\qgis-mcp",
     )
@@ -79,7 +79,7 @@ def test_wheel_installer_allows_local_qgis_source(tmp_path: Path) -> None:
 
 
 def test_wheel_installer_supports_offline_and_recovery_paths(tmp_path: Path) -> None:
-    wheel = tmp_path / "ryan_functions-test.whl"
+    wheel = tmp_path / "ryan_tools-test.whl"
     assert len(pip_commands(wheel, False, skip_qgis_mcp=True)) == 2
     recovery = pip_commands(wheel, True)
     assert len(recovery) == 1
@@ -102,8 +102,8 @@ def test_inline_root_mcp_servers_preserved_and_idempotent(tmp_path: Path) -> Non
     data = tomllib.loads(first)
     assert data["model"] == "gpt-6"
     assert data["mcp_servers"]["other"]["command"] == "other-tool"
-    assert data["mcp_servers"]["qgis"]["args"] == ["-B", "-m", "qgis_mcp.server"]
-    assert data["mcp_servers"]["ryan-tools"]["args"] == ["-B", "-m", "ryan_library.mcp.server"]
+    assert data["mcp_servers"]["qgis"]["args"] == ["-m", "qgis_mcp.server"]
+    assert data["mcp_servers"]["ryan-tools"]["args"] == ["-m", "ryan_library.mcp.server"]
 
 
 def test_inline_root_existing_registration_can_be_updated(tmp_path: Path) -> None:
@@ -124,7 +124,7 @@ def test_pypi_installer_commands_use_distribution_not_local_wheel(
     commands = commands_fn()
     assert "fiona" in commands[0]
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
-    assert commands[-1][-1] == "ryan_functions[mcp]"
+    assert commands[-1][-1] == "ryan-tools[mcp]"
     assert all(not any(".whl" in argument for argument in command) for command in commands)
     assert len(commands_fn(skip_qgis_mcp=True)) == 2
 
@@ -136,8 +136,13 @@ def test_pypi_installer_detects_existing_codex_configuration(
     def missing_codex(_command: str) -> str | None:
         return None
 
+    def isolated_home(_cls: type[Path]) -> Path:
+        return tmp_path
+
     monkeypatch.setattr(sys, "path", [str(REPO / "repo-scripts"), *sys.path])
     monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    monkeypatch.setenv("VSCODE_EXTENSIONS", str(tmp_path / "extensions"))
+    monkeypatch.setattr(Path, "home", classmethod(isolated_home))
     monkeypatch.setattr(shutil, "which", missing_codex)
     pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
     detected = cast(Callable[[], bool], pypi["codex_installed"])
@@ -182,3 +187,68 @@ def test_vscode_codex_extension_detected_without_codex_cli(
     detected = cast(Callable[[], bool], pypi["codex_installed"])
     (extensions / "openai.chatgpt-26.1").mkdir()
     assert detected()
+
+
+@pytest.mark.parametrize("disabled", [False, True])
+def test_bytecode_policy_updates_existing_registrations(tmp_path: Path, disabled: bool) -> None:
+    render_policy = cast(Callable[..., str], codex["render_config"])
+    original = (
+        '[mcp_servers.qgis]\ncommand = "old"\nargs = ["-B", "-m", "old"]\n'
+        '[mcp_servers.qgis.env]\nPYTHONDONTWRITEBYTECODE = "1"\nQGIS_MCP_TOKEN = "keep"\n'
+    )
+    result = render_policy(original, tmp_path / "python.exe", tmp_path, "create", disable_bytecode=disabled)
+    servers = tomllib.loads(result)["mcp_servers"]
+    for server in servers.values():
+        assert ("-B" in server["args"]) is disabled
+        assert (server["env"].get("PYTHONDONTWRITEBYTECODE") == "1") is disabled
+    assert servers["qgis"]["env"]["QGIS_MCP_TOKEN"].startswith("keep")
+    assert render_policy(result, tmp_path / "python.exe", tmp_path, "create", disable_bytecode=disabled) == result
+
+
+@pytest.mark.parametrize(
+    ("dns_domain", "domain", "fqdn", "expected"),
+    [
+        ("", "", "home.local", False),
+        ("BGE-RESOURCES.COM", "", "home.local", True),
+        ("", "BGER", "home.local", True),
+        ("", "", "desktop.bge-resources.com", True),
+        ("", "", "desktop.bge-resources.com.example.org", False),
+    ],
+)
+def test_bge_bytecode_detection(
+    monkeypatch: pytest.MonkeyPatch, dns_domain: str, domain: str, fqdn: str, expected: bool
+) -> None:
+    import socket
+
+    monkeypatch.setenv("USERDNSDOMAIN", dns_domain)
+    monkeypatch.setenv("USERDOMAIN", domain)
+    monkeypatch.setattr(socket, "getfqdn", lambda: fqdn)
+    detect = cast(Callable[[], bool], codex["disable_bytecode_for_environment"])
+    assert detect() is expected
+
+
+def test_pypi_installer_bytecode_option(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "path", [str(REPO / "repo-scripts"), *sys.path])
+    pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
+    commands = cast(Callable[..., list[list[str]]], pypi["pip_commands"])
+    assert all("-B" not in command for command in commands())
+    assert all("-B" in command for command in commands(disable_bytecode=True))
+
+
+def test_default_setup_removes_checkout_requirement(tmp_path: Path) -> None:
+    render_installed = cast(Callable[..., str], codex["render_config"])
+    original = '[mcp_servers.ryan-tools]\ncommand = "old"\n[mcp_servers.ryan-tools.env]\nRYAN_TOOLS_REPOSITORY_ROOT = "old-checkout"\nCUSTOM = "keep"\n'
+    result = tomllib.loads(render_installed(original, tmp_path / "python.exe", None, "create"))
+    environment = result["mcp_servers"]["ryan-tools"]["env"]
+    assert "RYAN_TOOLS_REPOSITORY_ROOT" not in environment
+    assert environment["CUSTOM"] == "keep"
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_legacy_distribution_requires_migration(monkeypatch: pytest.MonkeyPatch, dry_run: bool) -> None:
+    def installed_distribution(_name: str) -> object:
+        return object()
+
+    check = cast(Callable[..., bool], installer["legacy_installation_blocks_upgrade"])
+    monkeypatch.setitem(check.__globals__, "distribution", installed_distribution)
+    assert check(dry_run=dry_run) is (not dry_run)

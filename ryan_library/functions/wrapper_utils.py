@@ -80,7 +80,7 @@ def change_working_directory(target_dir: Path) -> bool:
     return True
 
 
-def print_library_version(package_name: str = "ryan_functions") -> None:
+def print_library_version(package_name: str = "ryan-tools") -> None:
     """Display the installed version of *package_name* if available."""
     try:
         print(f"{package_name} version: {version(distribution_name=package_name)}")
@@ -102,7 +102,7 @@ def print_wrapper_banner(
     wrapper_file: Path,
     wrapper_version: str,
     leading_blank_line: bool = False,
-    package_name: str = "ryan_functions",
+    package_name: str = "ryan-tools",
 ) -> None:
     """Display the wrapper identity and installed library version together.
 

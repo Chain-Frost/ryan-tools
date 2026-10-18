@@ -4,11 +4,13 @@
 param(
     [string]$Python = '',
     [string]$QgisSource = '',
+    [string]$RepositoryRoot = '',
     [ValidateSet('core', 'analysis', 'create', 'privileged')]
     [string]$Profile = 'create',
     [switch]$Install,
     [switch]$DryRun,
-    [switch]$SkipImportChecks
+    [switch]$SkipImportChecks,
+    [switch]$DisableBytecode
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,15 +40,17 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $argsList = @(
-    '-B', $scriptFile,
+    $scriptFile,
     '--python', $Python,
     '--ryan-root', $repoRoot,
     '--profile', $Profile
 )
 if ($QgisSource) { $argsList += @('--qgis-source', $QgisSource) }
+if ($RepositoryRoot) { $argsList += @('--repository-root', $RepositoryRoot) }
 if ($Install) { $argsList += '--install' }
 if ($DryRun) { $argsList += '--dry-run' }
 if ($SkipImportChecks) { $argsList += '--skip-import-checks' }
+if ($DisableBytecode) { $argsList += '--disable-bytecode' }
 
 & $Python @argsList
 exit $LASTEXITCODE

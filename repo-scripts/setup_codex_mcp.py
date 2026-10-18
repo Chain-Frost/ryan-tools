@@ -12,6 +12,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -82,7 +83,21 @@ def _table(header: tuple[str, ...], data: dict[str, Any]) -> str:
     )
 
 
-def render_config(config: str, python: Path, root: Path, profile: str) -> str:  # noqa: C901
+def disable_bytecode_for_environment() -> bool:
+    """Recognise the BGE domain from Windows domain settings or the host DNS suffix."""
+    domains = [os.environ.get("USERDNSDOMAIN", ""), os.environ.get("USERDOMAIN", "")]
+    try:
+        domains.append(socket.getfqdn())
+    except OSError:
+        pass
+    return any(
+        (domain := value.strip().casefold().rstrip(".")) in {"bger", "bge-resources", "bge-resources.com"}
+        or domain.endswith(".bge-resources.com")
+        for value in domains
+    )
+
+
+def render_config(config: str, python: Path, root: Path | None, profile: str, *, disable_bytecode: bool = False) -> str:  # noqa: C901
     """Preserve unrelated TOML data while replacing two server registrations."""
     existing = tomllib.loads(config)
     raw_servers: Any = existing.get("mcp_servers", {})
@@ -114,17 +129,21 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
         safe_env = cast(dict[str, str], env)
         fields: dict[str, Any] = {
             "command": str(python),
-            "args": ["-B", "-m", module],
+            "args": [*(["-B"] if disable_bytecode else []), "-m", module],
             **{key: val for key, val in current.items() if key not in ("command", "args", "env")},
             "enabled": True,
         }
-        environment: dict[str, str] = {**safe_env, "PYTHONDONTWRITEBYTECODE": "1"}
+        environment = {key: value for key, value in safe_env.items() if key != "PYTHONDONTWRITEBYTECODE"}
         if name == "ryan-tools":
             environment.update(
                 PYTHONUTF8="1",
                 RYAN_MCP_PROFILE=profile,
-                RYAN_TOOLS_REPOSITORY_ROOT=str(root),
             )
+            environment.pop("RYAN_TOOLS_REPOSITORY_ROOT", None)
+            if root is not None:
+                environment["RYAN_TOOLS_REPOSITORY_ROOT"] = str(root)
+        if disable_bytecode:
+            environment["PYTHONDONTWRITEBYTECODE"] = "1"
         updated_entries[name] = {**fields, "env": environment}
         replacements[("mcp_servers", name)] = _table(("mcp_servers", name), fields)
         replacements[("mcp_servers", name, "env")] = _table(("mcp_servers", name, "env"), environment)
@@ -232,12 +251,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--python", type=Path, default=Path(sys.executable))
     parser.add_argument("--ryan-root", type=Path, default=Path(__file__).absolute().parents[1])
+    parser.add_argument("--repository-root", type=Path, help="Optional development checkout override for MCP")
     parser.add_argument("--qgis-source", default=QGIS_MCP_SOURCE)
     parser.add_argument("--profile", choices=("core", "analysis", "create", "privileged"), default="create")
     parser.add_argument("--config", type=Path)
     parser.add_argument("--install", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--skip-import-checks", action="store_true")
+    parser.add_argument(
+        "--disable-bytecode", action="store_true", help="Disable .pyc writes (automatic on the BGE domain)"
+    )
     args = parser.parse_args(argv)
 
     python: Path = args.python.expanduser().absolute()
@@ -254,9 +277,26 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         original = config.read_text(encoding="utf-8-sig") if config.is_file() else ""
-        rendered = render_config(original, python, root, args.profile)
+        disable_bytecode = args.disable_bytecode or disable_bytecode_for_environment()
+        python_flags = ["-B"] if disable_bytecode else []
+        repository_root = args.repository_root.expanduser().absolute() if args.repository_root else None
+        rendered = render_config(original, python, repository_root, args.profile, disable_bytecode=disable_bytecode)
 
         if args.install:
+            _run(
+                [
+                    str(python),
+                    *python_flags,
+                    "-c",
+                    (
+                        "import importlib.metadata as m, sys; "
+                        "old = next(m.distributions(name='ryan_functions'), None); "
+                        "sys.exit('Uninstall ryan_functions before installing ryan-tools: "
+                        "python -m pip uninstall ryan_functions' if old is not None else 0)"
+                    ),
+                ],
+                dry_run=args.dry_run,
+            )
             source: str = args.qgis_source
             if "://" not in source:
                 package = Path(source).expanduser().absolute()
@@ -264,14 +304,15 @@ def main(argv: list[str] | None = None) -> int:
                     msg = f"No QGIS MCP Python project found at {package}"
                     raise ValueError(msg)
                 source = str(package)
-            pip = [str(python), "-B", "-m", "pip", "install", "--upgrade"]
+            pip = [str(python), *python_flags, "-m", "pip", "install", "--upgrade"]
+            pip.extend(["--no-compile"] if disable_bytecode else [])
             _run([*pip, source], dry_run=args.dry_run)
             _run([*pip, "-e", f"{root}[mcp]"], dry_run=args.dry_run)
 
         _write(config, rendered, dry_run=args.dry_run)
         if not args.dry_run and not args.skip_import_checks:
             for module in SERVER_MODULES.values():
-                _run([str(python), "-B", "-c", f"import {module}"], dry_run=False)
+                _run([str(python), *python_flags, "-c", f"import {module}"], dry_run=False)
 
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError, tomllib.TOMLDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

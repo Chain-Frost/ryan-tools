@@ -71,7 +71,7 @@ def test_replace_project_version_changes_only_project_section(tmp_path: Path) ->
 def _prepare_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path, str]:
     """Create and configure a minimal package workspace for a builder test."""
     project = tmp_path / "pyproject.toml"
-    original = '[project]\nname = "ryan_functions"\nversion = "26.9.13.1"\n'
+    original = '[project]\nname = "ryan-tools"\nversion = "26.9.13.1"\n'
     project.write_text(original, encoding="utf-8")
     dist_dir = tmp_path / "dist"
     dist_dir.mkdir()
@@ -83,7 +83,7 @@ def _prepare_project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[P
 
 def test_failed_build_restores_version_and_retains_wheel(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project, dist_dir, original = _prepare_project(tmp_path, monkeypatch)
-    previous_wheel = dist_dir / "ryan_functions-26.9.13.1-py3-none-any.whl"
+    previous_wheel = dist_dir / "ryan_tools-26.9.13.1-py3-none-any.whl"
     previous_wheel.write_bytes(b"previous wheel")
 
     def failed_build(_output_dir: Path) -> int:
@@ -102,11 +102,11 @@ def test_failed_verification_restores_version_and_retains_wheel(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     project, dist_dir, original = _prepare_project(tmp_path, monkeypatch)
-    previous_wheel = dist_dir / "ryan_functions-26.9.13.1-py3-none-any.whl"
+    previous_wheel = dist_dir / "ryan_tools-26.9.13.1-py3-none-any.whl"
     previous_wheel.write_bytes(b"previous wheel")
 
     def successful_build(output_dir: Path) -> int:
-        (output_dir / "ryan_functions-26.9.13.2-py3-none-any.whl").write_bytes(b"candidate")
+        (output_dir / "ryan_tools-26.9.13.2-py3-none-any.whl").write_bytes(b"candidate")
         return 0
 
     def failed_verification(_wheel: Path) -> int:
@@ -128,7 +128,7 @@ def test_no_bump_builds_current_version_without_changing_metadata(
     project, dist_dir, original = _prepare_project(tmp_path, monkeypatch)
 
     def successful_build(output_dir: Path) -> int:
-        (output_dir / "ryan_functions-26.9.13.1-py3-none-any.whl").write_bytes(b"candidate")
+        (output_dir / "ryan_tools-26.9.13.1-py3-none-any.whl").write_bytes(b"candidate")
         return 0
 
     def successful_verification(_wheel: Path) -> int:
@@ -141,31 +141,31 @@ def test_no_bump_builds_current_version_without_changing_metadata(
 
     assert status == 0
     assert project.read_text(encoding="utf-8") == original
-    assert (dist_dir / "ryan_functions-26.9.13.1-py3-none-any.whl").read_bytes() == b"candidate"
+    assert (dist_dir / "ryan_tools-26.9.13.1-py3-none-any.whl").read_bytes() == b"candidate"
 
 
 def test_promote_wheel_keeps_only_new_project_distribution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     dist_dir = tmp_path / "dist"
     dist_dir.mkdir()
-    (dist_dir / "ryan_functions-26.9.13.1-py3-none-any.whl").write_bytes(b"old")
-    (dist_dir / "ryan_functions-26.9.13.1.tar.gz").write_bytes(b"old source")
+    (dist_dir / "ryan_tools-26.9.13.1-py3-none-any.whl").write_bytes(b"old")
+    (dist_dir / "ryan_tools-26.9.13.1.tar.gz").write_bytes(b"old source")
     unrelated = dist_dir / "other_package-1-py3-none-any.whl"
     unrelated.write_bytes(b"unrelated")
-    staged = tmp_path / "ryan_functions-26.9.13.2-py3-none-any.whl"
+    staged = tmp_path / "ryan_tools-26.9.13.2-py3-none-any.whl"
     staged.write_bytes(b"new")
     monkeypatch.setattr(build_library, "DIST_DIR", dist_dir)
 
     promoted = build_library.promote_wheel(staged)
 
     assert promoted.read_bytes() == b"new"
-    assert [path.name for path in dist_dir.glob("ryan_functions-*")] == [promoted.name]
+    assert [path.name for path in dist_dir.glob("ryan_tools-*")] == [promoted.name]
     assert unrelated.read_bytes() == b"unrelated"
 
 
 def test_retained_wheel_must_match_project_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     dist_dir = tmp_path / "dist"
     dist_dir.mkdir()
-    (dist_dir / "ryan_functions-26.9.13.1-py3-none-any.whl").write_bytes(b"stale")
+    (dist_dir / "ryan_tools-26.9.13.1-py3-none-any.whl").write_bytes(b"stale")
     monkeypatch.setattr(verify_wheel, "DIST_DIR", dist_dir)
 
     with pytest.raises(ValueError, match=r"does not match project version 26\.9\.13\.2"):
@@ -175,8 +175,8 @@ def test_retained_wheel_must_match_project_version(tmp_path: Path, monkeypatch: 
 def test_exactly_one_retained_project_wheel_is_required(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     dist_dir = tmp_path / "dist"
     dist_dir.mkdir()
-    (dist_dir / "ryan_functions-26.9.13.1-py3-none-any.whl").write_bytes(b"old")
-    (dist_dir / "ryan_functions-26.9.13.2-py3-none-any.whl").write_bytes(b"current")
+    (dist_dir / "ryan_tools-26.9.13.1-py3-none-any.whl").write_bytes(b"old")
+    (dist_dir / "ryan_tools-26.9.13.2-py3-none-any.whl").write_bytes(b"current")
     monkeypatch.setattr(verify_wheel, "DIST_DIR", dist_dir)
 
     with pytest.raises(ValueError, match="exactly one retained project wheel under dist/, found 2"):
@@ -200,4 +200,23 @@ def test_wheel_resource_verification_normalizes_text_newlines(tmp_path: Path) ->
             source_directory=source_directory,
             archive_directory="package/resources",
             suffixes=(".bat",),
+        )
+
+
+def test_wheel_script_verification_preserves_non_utf8_bytes(tmp_path: Path) -> None:
+    source_directory = tmp_path / "source"
+    source_directory.mkdir()
+    content = b"legacy \xa2\r\n"
+    (source_directory / "legacy.gms").write_bytes(content)
+    wheel = tmp_path / "example.whl"
+    with zipfile.ZipFile(wheel, "w") as archive:
+        archive.writestr("ryan-scripts/legacy.gms", content)
+    with zipfile.ZipFile(wheel) as archive:
+        verify_wheel._verify_source_files(
+            archive,
+            set(archive.namelist()),
+            source_directory=source_directory,
+            archive_directory="ryan-scripts",
+            suffixes=(".gms",),
+            normalize_text=False,
         )
