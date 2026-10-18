@@ -166,6 +166,26 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `unsorted-python/export_water_level_profile_tables_50m.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-python/plot_water_level_profiles.py` | No | No | Not assessed | Not assessed | Not assessed |
 
+
+## Generate reproducible static evidence
+
+Run from the repository root, without executing any candidate script:
+
+```powershell
+python repo-scripts/audit_installed_scripts.py --check --output script-inventory-audit.json
+```
+
+The output enumerates Git-tracked files only (never traverses submodules), whether
+they are included in the current wheel or targeted by MCP, and Python AST signals
+including syntax status, top-level call expressions, main guard, embedded wrapper
+version, argparse/no-pause literals, `__file__` references, absolute drive literals
+and subprocess imports. The `--check` option rejects manifest/catalogue paths
+missing from the tracked tree; it does **not** mark scripts as safe.
+
+Static indicators are only an input to the manual file-by-file assessment.
+Unparsed/legacy scripts remain marked pending; no heuristic automatically
+moves a script into/out of the wheel or MCP catalogue.
+
 ## Required disposition before calling the inventory complete
 
 For each executable row, record an owner/reviewer and evidence-backed lifecycle and
