@@ -295,10 +295,36 @@ def output_filename(csv_path: Path, column_name: str, *, override: str | None = 
         raise ConversionError(str(exc)) from exc
 
 
-def write_stm(path: Path, content: str, *, overwrite: bool = False) -> None:
+def validate_stm_output_path(path: Path, output_root: Path) -> None:
+    """Check physical containment without changing the user-visible path.
+
+    Path.resolve() is intentional here: security containment must follow
+    symlinks and Windows junctions, unlike ordinary Path.absolute() handling.
+    """
+    try:
+        root_real = output_root.resolve()
+        target_real = path.resolve()
+        linked_file = path.is_symlink()
+    except (OSError, RuntimeError) as exc:
+        message = f"Cannot verify STM output path {path}: {exc}"
+        raise ConversionError(message) from exc
+    if not target_real.is_relative_to(root_real):
+        message = f"STM output escapes configured output directory: {path} (target: {target_real})"
+        raise ConversionError(message)
+    if linked_file:
+        message = f"STM output is a symbolic link and cannot be overwritten safely: {path}"
+        raise ConversionError(message)
+
+
+def write_stm(path: Path, content: str, *, overwrite: bool = False, output_root: Path | None = None) -> None:
     """Create a storm file without racing past the no-overwrite option."""
+    if output_root is not None:
+        validate_stm_output_path(path, output_root)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
+        # Recheck after directory creation, immediately before the file is opened.
+        if output_root is not None:
+            validate_stm_output_path(path, output_root)
         with path.open("w" if overwrite else "x", encoding="utf-8", newline="\n") as stream:
             stream.write(content)
     except FileExistsError as exc:

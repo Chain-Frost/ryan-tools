@@ -211,3 +211,90 @@ def test_multiple_tp_columns_and_metadata_full_stm_golden(tmp_path: Path) -> Non
     )
     assert plan.jobs[0].stm_text == expected
     assert not plan.jobs[0].output_path.exists()
+
+
+def _symlink_or_skip(link: Path, target: Path, *, is_directory: bool = True) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=is_directory)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"Creating symbolic links is unavailable on this test machine: {exc}")
+
+
+def test_batch_rejects_symlinked_subdirectory_outside_root(tmp_path: Path) -> None:
+    table = _table(tmp_path / "critical.csv", "GD08,01.00p,00120m,TP07")
+    bc = tmp_path / "TUFLOW_MLGD" / "bc_dbase"
+    _csv(bc / "GD08" / "rf_inflow" / "GD08_RF_01.00p00120m.CSV")
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    _symlink_or_skip(output_root / "GD08", external)
+
+    plan = prepare_batch(table, bc_database=bc, output_dir=output_root, overwrite=True)
+    assert not plan.jobs
+    assert any("escapes configured output directory" in error for error in plan.errors)
+    assert list(external.iterdir()) == []
+
+
+def test_batch_rechecks_symlink_created_after_preflight(tmp_path: Path) -> None:
+    table = _table(tmp_path / "critical.csv", "GD08,01.00p,00120m,TP07")
+    bc = tmp_path / "TUFLOW_MLGD" / "bc_dbase"
+    _csv(bc / "GD08" / "rf_inflow" / "GD08_RF_01.00p00120m.CSV")
+    output_root = tmp_path / "output"
+    plan = prepare_batch(table, bc_database=bc, output_dir=output_root, overwrite=True)
+    assert not plan.errors
+    output_root.mkdir()
+    external = tmp_path / "external"
+    external.mkdir()
+    _symlink_or_skip(output_root / "GD08", external)
+
+    with pytest.raises(ConversionError, match="escapes configured output directory"):
+        write_batch(plan, overwrite=True)
+    assert list(external.iterdir()) == []
+
+
+def test_batch_rejects_symlinked_output_file_even_with_overwrite(tmp_path: Path) -> None:
+    table = _table(tmp_path / "critical.csv", "GD08,01.00p,00120m,TP07")
+    bc = tmp_path / "TUFLOW_MLGD" / "bc_dbase"
+    _csv(bc / "GD08" / "rf_inflow" / "GD08_RF_01.00p00120m.CSV")
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    destination = output_root / "GD08" / "Storm_GD08_01p_120m_tp07.stm"
+    destination.parent.mkdir()
+    original = output_root / "existing.stm"
+    original.write_text("must remain unchanged", encoding="utf-8")
+    _symlink_or_skip(destination, original, is_directory=False)
+
+    plan = prepare_batch(table, bc_database=bc, output_dir=output_root, overwrite=True)
+    assert any("symbolic link" in error for error in plan.errors)
+    assert original.read_text(encoding="utf-8") == "must remain unchanged"
+
+
+def test_single_rejects_linked_output_filename(tmp_path: Path) -> None:
+    rainfall = _csv(tmp_path / "TUFLOW_MLGD" / "GD08_RF_01.00p00120m.CSV")
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    external = tmp_path / "external.stm"
+    external.write_text("unchanged", encoding="utf-8")
+    _symlink_or_skip(output_root / "Storm_GD08_01p_120m_tp07.stm", external, is_directory=False)
+
+    with pytest.raises(ConversionError, match="escapes configured output directory"):
+        prepare_single(rainfall, column="TP07_2030_SSP3-7.0", output_dir=output_root)
+    assert external.read_text(encoding="utf-8") == "unchanged"
+
+
+def test_batch_allows_configured_symlink_output_root(tmp_path: Path) -> None:
+    table = _table(tmp_path / "critical.csv", "GD08,01.00p,00120m,TP07")
+    bc = tmp_path / "TUFLOW_MLGD" / "bc_dbase"
+    _csv(bc / "GD08" / "rf_inflow" / "GD08_RF_01.00p00120m.CSV")
+    physical_root = tmp_path / "physical"
+    physical_root.mkdir()
+    root_alias = tmp_path / "alias"
+    _symlink_or_skip(root_alias, physical_root)
+
+    plan = prepare_batch(table, bc_database=bc, output_dir=root_alias)
+    assert not plan.errors
+    outputs = write_batch(plan)
+    assert len(outputs) == 1
+    assert str(outputs[0]).startswith(str(root_alias))
+    assert (physical_root / "GD08" / outputs[0].name).exists()

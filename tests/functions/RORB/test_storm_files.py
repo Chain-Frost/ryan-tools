@@ -145,3 +145,19 @@ def test_long_storm_needs_sufficient_run_increments(tmp_path: Path) -> None:
     assert "\n0.25,400,1,1,0,-99\n" in output
     assert "\n0,288\nPluviograph 1\n" in output
     assert output.split("Pluviograph 1\n", 1)[1].splitlines() == ["1"] * count + ["-99"]
+
+
+def test_writer_rechecks_target_after_directory_creation(tmp_path: Path) -> None:
+    """Passing the output root prevents a linked leaf from being overwritten."""
+    output_root = tmp_path / "output"
+    output_root.mkdir()
+    destination = output_root / "result.stm"
+    original = output_root / "existing.stm"
+    original.write_text("protected", encoding="utf-8")
+    try:
+        destination.symlink_to(original)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Creating symbolic links is unavailable: {exc}")
+    with pytest.raises(ConversionError, match="symbolic link"):
+        write_stm(destination, "new contents\n", overwrite=True, output_root=output_root)
+    assert original.read_text(encoding="utf-8") == "protected"

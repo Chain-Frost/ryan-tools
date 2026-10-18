@@ -19,6 +19,7 @@ from ryan_library.functions.RORB.storm_files import (
     normalise_tp,
     output_filename,
     read_rainfall_series,
+    validate_stm_output_path,
     write_stm,
 )
 from ryan_library.functions.tuflow.tuflow_result_naming import (
@@ -38,6 +39,7 @@ class PreparedJob:
     output_path: Path
     stm_text: str
     table_line: int | None = None
+    output_root: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,7 +102,10 @@ def prepare_single(
     selected_model = model_name if model_name is not None else infer_model_name(input_csv)
     filename = output_filename(input_csv, series.column_name, override=output_name)
     text = build_stm(selected_model, series, run_increments)
-    return PreparedJob(input_csv, series.column_name, output_dir.absolute() / filename, text)
+    output_dir = output_dir.absolute()
+    output_path = output_dir / filename
+    validate_stm_output_path(output_path, output_dir)
+    return PreparedJob(input_csv, series.column_name, output_path, text, output_root=output_dir)
 
 
 def read_batch_rows(table_path: Path) -> list[tuple[int, dict[str, str | None]]]:
@@ -203,6 +208,7 @@ def prepare_batch(
             }
             input_path = bc_database / _render_path(input_template, values, output=False)
             output_path = output_dir / _render_path(output_template, values, output=True)
+            validate_stm_output_path(output_path, output_dir)
             column = format_user_template(
                 template=column_template, values=values, description="rainfall column template"
             )
@@ -219,7 +225,7 @@ def prepare_batch(
                 raise ConversionError(message)
             series = read_rainfall_series(input_path, column, terminal_zero=terminal_zero)
             stm_text = build_stm(model_name, series, run_increments)
-            jobs.append(PreparedJob(input_path, column, output_path, stm_text, table_line=line))
+            jobs.append(PreparedJob(input_path, column, output_path, stm_text, table_line=line, output_root=output_dir))
         except ValueError as exc:
             errors.append(f"line {line}: {exc}")
 
@@ -241,6 +247,9 @@ def write_batch(plan: BatchPlan, *, overwrite: bool = False) -> tuple[Path, ...]
         raise ConversionError(message)
     outputs: list[Path] = []
     for job in plan.jobs:
-        write_stm(job.output_path, job.stm_text, overwrite=overwrite)
+        if job.output_root is None:
+            message = f"Output root is not recorded for STM job: {job.output_path}"
+            raise ConversionError(message)
+        write_stm(job.output_path, job.stm_text, overwrite=overwrite, output_root=job.output_root)
         outputs.append(job.output_path)
     return tuple(outputs)

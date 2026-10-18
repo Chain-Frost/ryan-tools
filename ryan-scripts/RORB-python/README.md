@@ -35,7 +35,14 @@ Default paths are relative to the supplied `--bc-database` and
 
 Use `--input-template`, `--output-template`, `--column-template` and
 `--climate-suffix` to support other directory layouts and climate columns.
-Template outputs must stay inside the output root.
+Template outputs must stay inside the output root. Both preflight and writing
+follow symlinks and Windows junctions **only for physical containment checks**;
+ordinary displayed paths retain their original drive/path spelling. A linked
+output directory that redirects outside the configured root is rejected, as is
+an STM output filename that is itself a symlink. The output root itself may be
+a symlink or junction intentionally selected by the user. Avoid changing
+directory links while a batch is writing; filesystem mutations are not
+transactional or immune to concurrent link changes.
 
 ## Rainfall increment interpretation
 

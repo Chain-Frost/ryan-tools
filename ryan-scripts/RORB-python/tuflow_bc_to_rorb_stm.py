@@ -171,7 +171,7 @@ def _run_single(
     if args.dry_run:
         print("Dry run: no output written.")
         return 0
-    write_stm(job.output_path, job.stm_text, overwrite=args.overwrite)
+    write_stm(job.output_path, job.stm_text, overwrite=args.overwrite, output_root=job.output_root)
     print("STM created.")
     return 0
 
