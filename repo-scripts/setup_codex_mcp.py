@@ -84,7 +84,7 @@ def _table(header: tuple[str, ...], data: dict[str, Any]) -> str:
 
 def render_config(config: str, python: Path, root: Path, profile: str) -> str:  # noqa: C901
     """Preserve unrelated TOML data while replacing two server registrations."""
-    existing = cast(dict[str, Any], tomllib.loads(config))
+    existing = tomllib.loads(config)
     raw_servers: Any = existing.get("mcp_servers", {})
     if not isinstance(raw_servers, dict):
         msg = "mcp_servers must be a TOML table"
@@ -140,7 +140,7 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
         newline = "\r\n" if line.endswith("\r\n") else "\n"
         original_lines[index] = f"mcp_servers = {_value(updated_servers)}{newline}"
         result = "".join(original_lines)
-        parsed = cast(dict[str, Any], tomllib.loads(result))
+        parsed = tomllib.loads(result)
         if any(parsed.get(key) != val for key, val in existing.items() if key != "mcp_servers"):
             msg = "Unexpected change to unrelated Codex settings"
             raise ValueError(msg)
@@ -181,7 +181,7 @@ def render_config(config: str, python: Path, root: Path, profile: str) -> str:  
         if header not in emitted:
             rendered = rendered.rstrip("\n") + "\n\n" + text
 
-    updated = cast(dict[str, Any], tomllib.loads(rendered))
+    updated = tomllib.loads(rendered)
     if any(updated.get(key) != val for key, val in existing.items() if key != "mcp_servers"):
         msg = "Unexpected change to unrelated Codex settings"
         raise ValueError(msg)
