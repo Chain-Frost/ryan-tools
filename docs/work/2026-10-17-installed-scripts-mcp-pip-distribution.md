@@ -56,7 +56,7 @@ preferred development environment. Any future move to 3.14-only needs its own de
 
 | ID | Requirement (full wording in preserved baseline) | Status and remaining acceptance |
 | --- | --- | --- |
-| A1 | Inventory every source script by domain, owner, lifecycle, dependencies, invocation, headless behavior, mutation and external application | **Not completed.** The [file-by-file audit ledger](../audits/2026-10-19-installed-scripts-inventory.md) enumerates current paths without inventing review findings; fill evidence for each executable |
+| A1 | Inventory every source script by domain, owner, lifecycle, dependencies, invocation, headless behavior, mutation and external application | **Partially implemented.** The [file-by-file audit ledger](../audits/2026-10-19-installed-scripts-inventory.md) enumerates current paths and the new `repo-scripts/audit_installed_scripts.py` safely generates syntax/import/headless/path signals without executing wrappers. Manual owner/lifecycle/invocation and acceptance remain outstanding |
 | A2 | Independently classify packaged maintained, packaged not MCP, or repository-only | **Not completed.** Current manifest is provisional; individual disposition/evidence still required |
 | A3 | Prioritize TUFLOW/GDAL/hydraulic/RORB/archive and other representative maintained workflows | Partially implemented; 33 catalogue script paths currently represented, not a guarantee that all useful maintained scripts were assessed |
 | A4 | Exclude unverified/obsolete/project-specific and repo maintenance material | Partially implemented; verifier excludes repo maintenance files and an allowlist exists, but individual lifecycle decisions were not justified |
@@ -82,12 +82,12 @@ preferred development environment. Any future move to 3.14-only needs its own de
 | C1 | Reuse existing MCP server, registry, models and JSONs | Implemented, bounded source inspection |
 | C2 | Installed wheel selection for users, explicit checkout precedence for development | Implemented, verification incomplete on mixed environments |
 | C3 | Explicit module/script/console execution targets | Implemented, catalogue validation still needed per target |
-| C4 | Command/help/scenarios, wrapper and installed version, external prerequisites and approval diagnostics | **Partially implemented**: paths/help/scenarios/version/approval metadata exist, but external prerequisite and source/wheel reporting are not comprehensively verified |
+| C4 | Command/help/scenarios, wrapper and installed version, external prerequisites and approval diagnostics | **Partially implemented**: paths/help/scenarios/version/approval metadata exist; PR #137 now reports script provenance, installed distribution version and explicit `not_verified`/`not_declared` external prerequisite state. Runtime executable/version checks and comprehensive per-workflow assessments are outstanding |
 | C5 | Small curated discovery/read-only surface; no indiscriminate command publication | Implemented, bounded hosted tests |
 | C6 | Safe capability categorization for overwrites/deletes/external programs and flag escalation | Partially implemented; catalog metadata present, per-workflow destructive-flag review incomplete |
 | C7 | Safe defaults, preview/dry run, confirmation and useful agent-facing failures | Partially implemented; test each exposed workflow and sensitive flag |
 | C8 | Reconcile all actual workflow catalogue entries; classify dead/unavailable truthfully | Catalogue script target file presence is tested, **not** equivalent to runtime capability checks or full CLI validation |
-| C9 | Distinguish installed/repository sources, absent external applications and distribution versions in `check_repo_health` | **Partially implemented**; explicitly verify diagnostics for missing tools, external programs and source selection |
+| C9 | Distinguish installed/repository sources, absent external applications and distribution versions in `check_repo_health` | **Partially implemented**; PR #137 adds `workflow_availability_scope=entry_point_only`, `external_prerequisite_validation=not_performed`, and `active_script_source`. Verify actual external binaries and installed/checkout contexts separately |
 | C10 | Direct `run_workflow` execution requires separate reviewed design | Retained as **separate future decision**, not quietly removed; no automatic execution authorized |
 
 ## Workstream D — hydraulic pip migration
@@ -134,7 +134,7 @@ in `ryan_library/mcp/installed_scripts.py`. It remained unresolved at merge.
 The corrective PR changes copying to use exclusive creation when not overwriting, and to stage a temporary file in
 the destination directory followed by `os.replace` when overwriting. The latter replaces the destination **entry**
 without following a symlink swapped in after validation. Regression tests simulate symlink and hard-link swaps,
-as well as a failed staging copy. Comment/thread closure must follow a verified code fix; do not dismiss feedback
+as well as a failed staging copy. Review on PR #137 additionally identified POSIX permissions loss from temporary-file mode `0600`; this is addressed by copying the source mode to the staged file before atomic replacement and testing both copy paths. Comment/thread closure must follow a verified code fix; do not dismiss feedback
 or mark a thread resolved merely because a PR merged.
 
 ## Required review process
