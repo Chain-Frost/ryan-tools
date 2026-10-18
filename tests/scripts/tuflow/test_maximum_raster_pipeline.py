@@ -84,8 +84,14 @@ def test_default_group_discovery_and_missing_source_is_error(tmp_path: Path) -> 
     main = maximum_rasters.ZoneCatalog(tmp_path / "main.gpkg", "zones", "Model", {"gd01": "GD01"})
     fg = maximum_rasters.ZoneCatalog(tmp_path / "fg.gpkg", "zones", "Model", {"fg": "FG", "fg03": "FG03"})
     jobs, _ = pipeline.discover_jobs(
-        ("v06",), ("01.0p",), ("d_HR_Max",), None, main, fg,
-        input_root=results_root, output_root=tmp_path / "out",
+        ("v06",),
+        ("01.0p",),
+        ("d_HR_Max",),
+        None,
+        main,
+        fg,
+        input_root=results_root,
+        output_root=tmp_path / "out",
     )
     assert [job.model for job in jobs] == ["FG", "FG03", "GD01"]
     combined = next(job for job in jobs if job.model == "FG")
@@ -105,8 +111,14 @@ def test_custom_non_fg_composite_discovery(tmp_path: Path) -> None:
         (folder / f"grid_{extent}_h_HR_Max.tif").touch()
     main = maximum_rasters.ZoneCatalog(tmp_path / "zones.gpkg", "zones", "Area", {"west": "WEST"})
     jobs, _ = pipeline.discover_jobs(
-        ("v09",), ("02.0p",), ("h_HR_Max",), None, main, None,
-        input_root=results_root, output_root=tmp_path / "out",
+        ("v09",),
+        ("02.0p",),
+        ("h_HR_Max",),
+        None,
+        main,
+        None,
+        input_root=results_root,
+        output_root=tmp_path / "out",
         output_template="{model}_{version}_{aep}_{grid}.tif",
         groups=(pipeline.SourceGroup("WEST", ("A", "B")),),
     )
@@ -125,14 +137,17 @@ def test_pixel_function_is_maximum_not_last_source_mosaic(tmp_path: Path) -> Non
     make_raster(second, np.array([[9, 3], [1, 10]]), origin_x=1)
     result = tmp_path / "maximum.vrt"
     build_vrt(
-        [first, second], result, source_nodata=-9999.0, vrt_nodata=-9999.0,
-        pixel_function="max", resolution="highest", strict=True,
+        [first, second],
+        result,
+        source_nodata=-9999.0,
+        vrt_nodata=-9999.0,
+        pixel_function="max",
+        resolution="highest",
+        strict=True,
     )
     dataset = gdal.Open(str(result))
     assert dataset is not None
-    np.testing.assert_array_equal(
-        dataset.ReadAsArray(), np.array([[2, 9, 3], [5, 7, 10]], dtype=np.float32)
-    )
+    np.testing.assert_array_equal(dataset.ReadAsArray(), np.array([[2, 9, 3], [5, 7, 10]], dtype=np.float32))
     assert dataset.GetGeoTransform() == (0.0, 1.0, 0.0, 2.0, 0.0, -1.0)
     dataset = None
 
@@ -146,7 +161,8 @@ def test_reject_known_different_source_crs(tmp_path: Path) -> None:
 
 
 def test_publish_failure_restores_previous_raster_overview_pair(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     destination = tmp_path / "result.tif"
     destination_overview = maximum_rasters.overview_path(destination)
@@ -189,9 +205,16 @@ def test_colliding_output_template_is_rejected_before_any_writes(tmp_path: Path)
     )
     with pytest.raises(ValueError, match="Multiple maximum-raster jobs target"):
         pipeline.discover_jobs(
-            ("v06",), ("01.0p",), ("V_Max",), None, catalog, None,
-            input_root=root, output_root=tmp_path / "out",
-            output_template="{grid}.tif", groups=(),
+            ("v06",),
+            ("01.0p",),
+            ("V_Max",),
+            None,
+            catalog,
+            None,
+            input_root=root,
+            output_root=tmp_path / "out",
+            output_template="{grid}.tif",
+            groups=(),
         )
     assert not (tmp_path / "out").exists()
 
@@ -207,7 +230,8 @@ def test_shared_vrt_builder_preserves_vsimem_identifier(tmp_path: Path) -> None:
         dataset = gdal.Open(vrt_name)
         assert dataset is not None
         np.testing.assert_array_equal(
-            dataset.ReadAsArray(), np.array([[7, 8], [9, 10]], dtype=np.float32),
+            dataset.ReadAsArray(),
+            np.array([[7, 8], [9, 10]], dtype=np.float32),
         )
         dataset = None
     finally:
@@ -233,8 +257,11 @@ def test_local_crs_assumption_is_not_copied_from_zone_crs(tmp_path: Path) -> Non
 
     ring = ogr.Geometry(ogr.wkbLinearRing)
     for x, y in (
-        (500000, 7600000), (500002, 7600000),
-        (500002, 7600002), (500000, 7600002), (500000, 7600000),
+        (500000, 7600000),
+        (500002, 7600000),
+        (500002, 7600002),
+        (500000, 7600002),
+        (500000, 7600000),
     ):
         ring.AddPoint_2D(x, y)
     polygon = ogr.Geometry(ogr.wkbPolygon)
@@ -253,8 +280,12 @@ def test_local_crs_assumption_is_not_copied_from_zone_crs(tmp_path: Path) -> Non
     data = None
 
     job = maximum_rasters.Job(
-        version="v06", model="GD01", aep="01.0p", grid_type="V_Max",
-        sources=(tmp_path / "source.tif",), output=tmp_path / "result.tif",
+        version="v06",
+        model="GD01",
+        aep="01.0p",
+        grid_type="V_Max",
+        sources=(tmp_path / "source.tif",),
+        output=tmp_path / "result.tif",
         zones=maximum_rasters.ZoneCatalog(path, "zones", "Model", {"gd01": "GD01"}),
     )
     bounds, assumed_wkt = maximum_rasters.clip_bounds_and_crs(maximum, job)
@@ -270,13 +301,16 @@ def test_local_crs_assumption_is_not_copied_from_zone_crs(tmp_path: Path) -> Non
 def test_grid_alignment_checks_cell_origin_and_resolution() -> None:
     matching = (500000.0, 2.0, 0.0, 7600000.0, 0.0, -2.0)
     assert maximum_rasters.raster_grid_alignment_matches(
-        matching, (500004.0, 2.0, 0.0, 7599996.0, 0.0, -2.0),
+        matching,
+        (500004.0, 2.0, 0.0, 7599996.0, 0.0, -2.0),
     )
     assert not maximum_rasters.raster_grid_alignment_matches(
-        matching, (500001.0, 2.0, 0.0, 7600000.0, 0.0, -2.0),
+        matching,
+        (500001.0, 2.0, 0.0, 7600000.0, 0.0, -2.0),
     )
     assert not maximum_rasters.raster_grid_alignment_matches(
-        matching, (500000.0, 1.0, 0.0, 7600000.0, 0.0, -2.0),
+        matching,
+        (500000.0, 1.0, 0.0, 7600000.0, 0.0, -2.0),
     )
 
 
@@ -290,7 +324,8 @@ def test_strict_grid_alignment_rejects_offset_rasters(tmp_path: Path) -> None:
 
 
 def test_incremental_signature_tracks_legacy_crs_and_zone_field(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     source = tmp_path / "source.tif"
     zone = tmp_path / "zones.gpkg"
@@ -331,7 +366,10 @@ def test_incremental_signature_tracks_legacy_crs_and_zone_field(
 
     other_zone_field = replace(job, zones=replace(catalog, field_name="Zone"))
     changed_zone_field = maximum_rasters.determine_action(
-        other_zone_field, "tuflow", False, False,
+        other_zone_field,
+        "tuflow",
+        False,
+        False,
     )
     assert changed_zone_field[0] == "rebuild"
     assert "TUFLOW_ZONE_FIELD" in changed_zone_field[1]

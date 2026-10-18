@@ -89,7 +89,13 @@ def output_path(
 ) -> Path:
     """Maintain the original copied-wrapper output defaults."""
     return _output_path(
-        version, model, aep, grid_type, fg, output_root=output_root, template=template,
+        version,
+        model,
+        aep,
+        grid_type,
+        fg,
+        output_root=output_root,
+        template=template,
     )
 
 
@@ -110,9 +116,16 @@ def discover_jobs(
 ) -> tuple[list[Job], list[str]]:
     """Keep the RTIO folder mapping while delegating discovery to the library."""
     return _discover_jobs(
-        versions, aeps, grid_types, wanted_models, main_zones, fg_zones,
-        input_root=input_root, output_root=output_root,
-        output_template=output_template, groups=groups,
+        versions,
+        aeps,
+        grid_types,
+        wanted_models,
+        main_zones,
+        fg_zones,
+        input_root=input_root,
+        output_root=output_root,
+        output_template=output_template,
+        groups=groups,
         legacy_local_crs=legacy_local_crs,
         strict_alignment=strict_alignment,
     )
@@ -157,16 +170,35 @@ def parse_args() -> argparse.Namespace:
         default="tuflow",
         help="Compression profile: conservative DEFLATE or tiled ZSTD (default: tuflow).",
     )
-    parser.add_argument("--input-root", type=Path, default=RESULTS_DIR, help="Folder containing version subdirectories.")
-    parser.add_argument("--output-root", type=Path, default=SCRIPT_DIR, help="Output root (FG results under its FG subfolder).")
-    parser.add_argument("--main-zones", type=Path, default=MAIN_ZONES, help="Main model output-zone GeoPackage (one layer).")
+    parser.add_argument(
+        "--input-root", type=Path, default=RESULTS_DIR, help="Folder containing version subdirectories."
+    )
+    parser.add_argument(
+        "--output-root", type=Path, default=SCRIPT_DIR, help="Output root (FG results under its FG subfolder)."
+    )
+    parser.add_argument(
+        "--main-zones", type=Path, default=MAIN_ZONES, help="Main model output-zone GeoPackage (one layer)."
+    )
     parser.add_argument("--fg-zones", type=Path, default=FG_ZONES, help="Special output-zone GeoPackage (one layer).")
     parser.add_argument("--zone-field", default=MODEL_FIELD, help="Polygon attribute used to match model names.")
-    parser.add_argument("--legacy-local-crs", default=DEFAULT_LEGACY_LOCAL_CRS, help="Assumed projected CRS for legacy GDA94_MG rasters (default EPSG:28350).")
-    parser.add_argument("--strict-grid-alignment", action="store_true", help="Reject sources whose pixel sizes or origins cannot align without resampling.")
-    parser.add_argument("--output-template", default=OUTPUT_TEMPLATE, help="Filename template with version/model/aep/grid.")
+
     parser.add_argument(
-        "--group", action="append", metavar="[main|fg:]MODEL=EXTENT1,EXTENT2",
+        "--legacy-local-crs",
+        default=DEFAULT_LEGACY_LOCAL_CRS,
+        help="Assumed projected CRS for legacy GDA94_MG rasters (default EPSG:28350).",
+    )
+    parser.add_argument(
+        "--strict-grid-alignment",
+        action="store_true",
+        help="Reject sources whose pixel sizes or origins cannot align without resampling.",
+    )
+    parser.add_argument(
+        "--output-template", default=OUTPUT_TEMPLATE, help="Filename template with version/model/aep/grid."
+    )
+    parser.add_argument(
+        "--group",
+        action="append",
+        metavar="[main|fg:]MODEL=EXTENT1,EXTENT2",
         help="Source extents contributing to an output zone. When supplied, replaces default FG groups.",
     )
     parser.add_argument("--overwrite", action="store_true", help="Rebuild every discovered output.")
@@ -190,11 +222,7 @@ def main(args: argparse.Namespace | None = None) -> int:
     versions = tuple(args.version or VERSION_NAMES)
     aeps = tuple(dict.fromkeys(args.aep or DEFAULT_AEPS))
     grid_types = tuple(args.grid or GRID_TYPES)
-    wanted_models = (
-        {value.casefold() for value in args.models}
-        if args.models
-        else None
-    )
+    wanted_models = {value.casefold() for value in args.models} if args.models else None
     build_overviews = not args.no_overviews
 
     try:
@@ -202,7 +230,8 @@ def main(args: argparse.Namespace | None = None) -> int:
         main_zones = load_zone_catalog(args.main_zones.absolute(), args.zone_field)
         fg_zones = (
             load_zone_catalog(args.fg_zones.absolute(), args.zone_field)
-            if any(group.zone_set == "fg" for group in groups) else None
+            if any(group.zone_set == "fg" for group in groups)
+            else None
         )
         jobs, discovery_notes = discover_jobs(
             versions,

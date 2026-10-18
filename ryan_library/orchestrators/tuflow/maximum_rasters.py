@@ -198,10 +198,7 @@ def discover_extent_sources(
         grids_dir = extent_dir / aep / "grids"
         if not extent_dir.is_dir() or not grids_dir.is_dir():
             continue
-        inputs_by_grid = {
-            grid_type: collect_inputs(grids_dir, grid_type)
-            for grid_type in grid_types
-        }
+        inputs_by_grid = {grid_type: collect_inputs(grids_dir, grid_type) for grid_type in grid_types}
         if any(inputs_by_grid.values()):
             discovered[extent_dir.name.casefold()] = (
                 extent_dir.name,
@@ -287,11 +284,19 @@ def discover_jobs(
                     if sources:
                         jobs.append(
                             Job(
-                                version=version, model=model, aep=aep,
-                                grid_type=grid_type, sources=sources,
+                                version=version,
+                                model=model,
+                                aep=aep,
+                                grid_type=grid_type,
+                                sources=sources,
                                 output=output_path(
-                                    version, model, aep, grid_type, fg=False,
-                                    output_root=output_root, template=output_template,
+                                    version,
+                                    model,
+                                    aep,
+                                    grid_type,
+                                    fg=False,
+                                    output_root=output_root,
+                                    template=output_template,
                                 ),
                                 zones=main_zones,
                                 legacy_local_crs=legacy_local_crs,
@@ -321,22 +326,31 @@ def discover_jobs(
                     if not sources:
                         continue
                     missing = [
-                        name for name, record in zip(group.extents, records, strict=True)
+                        name
+                        for name, record in zip(group.extents, records, strict=True)
                         if record is None or not record[2][grid_type]
                     ]
                     error = (
                         f"Combined {model} {aep} maximum requires "
                         f"{', '.join(group.extents)}; missing {grid_type} sources for {', '.join(missing)}."
-                        if missing else None
+                        if missing
+                        else None
                     )
                     jobs.append(
                         Job(
-                            version=version, model=model, aep=aep,
-                            grid_type=grid_type, sources=sources,
+                            version=version,
+                            model=model,
+                            aep=aep,
+                            grid_type=grid_type,
+                            sources=sources,
                             output=output_path(
-                                version, model, aep, grid_type,
+                                version,
+                                model,
+                                aep,
+                                grid_type,
                                 fg=(group.zone_set == "fg"),
-                                output_root=output_root, template=output_template,
+                                output_root=output_root,
+                                template=output_template,
                             ),
                             zones=zone_catalog,
                             target_aligned=len(group.extents) > 1,
@@ -353,9 +367,14 @@ def discover_jobs(
                     + ", ".join(sorted(ignored))
                 )
 
-    jobs.sort(key=lambda job: (
-        job.version, job.aep.casefold(), job.model.casefold(), job.grid_type.casefold(),
-    ))
+    jobs.sort(
+        key=lambda job: (
+            job.version,
+            job.aep.casefold(),
+            job.model.casefold(),
+            job.grid_type.casefold(),
+        )
+    )
     validate_unique_outputs(jobs)
     return jobs, notes
 
@@ -650,7 +669,7 @@ def selected_zone_geometry(job: Job) -> tuple[ogr.DataSource, ogr.Layer, ogr.Geo
         msg = f"Layer {job.zones.layer_name!r} was not found."
         raise RuntimeError(msg)
     escaped = job.model.replace("'", "''")
-    layer.SetAttributeFilter(f'"{job.zones.field_name}" = \'{escaped}\'')
+    layer.SetAttributeFilter(f"\"{job.zones.field_name}\" = '{escaped}'")
     feature = layer.GetNextFeature()
     if feature is None:
         msg = f"No polygon found for Model={job.model!r}."
@@ -753,9 +772,7 @@ def build_external_overviews(raster: Path, profile: str) -> None:
             failures.append(f"attempt {attempt}: {error}")
             if not sidecar_existed:
                 sidecar.unlink(missing_ok=True)
-    raise RuntimeError(
-        "GDAL failed to build external overviews after 3 attempts: " + "; ".join(failures)
-    )
+    raise RuntimeError("GDAL failed to build external overviews after 3 attempts: " + "; ".join(failures))
 
 def materialize_clipped_maximum(
     maximum: gdal.Dataset,
@@ -778,7 +795,7 @@ def materialize_clipped_maximum(
         "resampleAlg": gdal.GRA_NearestNeighbour,
         "cutlineDSName": str(job.zones.path),
         "cutlineLayer": job.zones.layer_name,
-        "cutlineWhere": f'"{job.zones.field_name}" = \'{escaped}\'',
+        "cutlineWhere": f"\"{job.zones.field_name}\" = '{escaped}'",
         "cropToCutline": False,
         "srcNodata": source_info.nodata,
         "dstNodata": source_info.nodata,
@@ -950,11 +967,7 @@ def write_report(
         for row in rows:
             worksheet.append(row)
         for row_index in range(2, worksheet.max_row + 1):
-            status = (
-                worksheet.cell(row_index, status_column).value
-                if status_column is not None
-                else None
-            )
+            status = worksheet.cell(row_index, status_column).value if status_column is not None else None
             for column_index in range(1, len(headers) + 1):
                 cell = worksheet.cell(row_index, column_index)
                 cell.font = body_font
@@ -964,9 +977,7 @@ def write_report(
             worksheet.column_dimensions[get_column_letter(index)].width = width
         worksheet.freeze_panes = "A2"
         if worksheet.max_row >= 2:
-            worksheet.auto_filter.ref = (
-                f"A1:{get_column_letter(len(headers))}{worksheet.max_row}"
-            )
+            worksheet.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{worksheet.max_row}"
 
     workbook = Workbook()
 
@@ -1125,10 +1136,7 @@ def execute_jobs(
 
     results: list[JobResult] = []
     for index, job in enumerate(jobs, start=1):
-        label = (
-            f"[{index}/{len(jobs)}] {job.version} {job.aep} "
-            f"{job.model} {job.grid_type}"
-        )
+        label = f"[{index}/{len(jobs)}] {job.version} {job.aep} {job.model} {job.grid_type}"
         emit(f"\n{label}")
         emit(f"  Sources: {len(job.sources)}")
         emit(f"  Output : {job.output}")

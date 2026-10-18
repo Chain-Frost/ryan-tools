@@ -24,13 +24,13 @@
 - Replaced implicit zone-CRS inheritance for local raster labels with explicit EPSG:28350 default; changed `ALGORITHM_ID` to invalidate prior unsafe incremental signatures.
 - Added rollback for ordinary GeoTIFF/overview rename failures (power-loss atomicity is not guaranteed).
 - Added synthetic tests for default naming, generic groups, missing FG inputs, GDAL pixel maxima, CRS errors, output collisions, VSI handling and rollback.
-- Reconciled branch with `main`, corrected the package version to 26.10.18.1, added CRS/zone-field incremental invalidation, and brought the copied wrapper's version banners and `--no-pause` into compliance. Fixed literal Markdown newline escapes.
+- Reconciled branch with `main`, kept the `main` source package baseline 26.10.17.1 for the auto-release system, added CRS/zone-field incremental invalidation, and brought the copied wrapper's version banners and `--no-pause` into compliance. Fixed literal Markdown newline escapes.
 - Added `docs/GDAL_SUPPORT.md` and `docs/TUFLOW_MAXIMUM_PIPELINE.md` and indexed them.
 
 ## Remaining merge gates
 
 1. **CI:** Ruff, strict Pyright, focused tests and package checks at the latest head. Confirm the hosted GDAL tests are actually executed; tests skipped for absent `osgeo` do not establish numerical correctness.
-2. **Installed-wheel compatibility:** the copied wrapper requires a matching `ryan_functions` package containing the new `build_vrt` API and orchestrator. The repository's updated release automation no longer tracks a wheel in Git: build and verify a 26.10.18.1 wheel in the supported CI/Windows packaging flow, and smoke-test the copied wrapper against that installed wheel. Do not distribute the copied wrapper with an older package.
+2. **Installed-wheel compatibility:** the copied wrapper requires a matching `ryan_functions` package containing the new `build_vrt` API and orchestrator. The repository's updated release automation no longer tracks a wheel in Git: build and verify a matching source wheel in CI; the automatic release allocator will select an unused version newer than v26.10.18.2 in the supported CI/Windows packaging flow, and smoke-test the copied wrapper against that installed wheel. Do not distribute the copied wrapper with an older package.
 3. **Real-project validation:** run the script under QGIS 4 Python GDAL 3.12+ against representative v06/v07 RTIO results and both GeoPackages. Compare cell values, validity masks, affine transforms, CRS, output paths, overview levels and report sheets with independent expected outputs.
 4. **Alignment policy:** an opt-in `--strict-grid-alignment` setting now rejects differing pixel size/phase; the original nearest-neighbour default remains for drop-in behaviour. Confirm whether this default is appropriate on representative composite RTIO sources.
 5. **Incremental metadata:** existing source signature uses path/size/mtime, not a content hash. Check unchanged-source and changed-source reruns on the actual results.
