@@ -10,10 +10,7 @@ from pathlib import Path
 GIS_WHEEL_INDEX: str = "https://gisidx.github.io/gwi"
 WHEEL_PATTERN: str = "ryan_functions-*.whl"
 # Install the current upstream bridge when the wheel-based developer path is used.
-QGIS_MCP_ARCHIVE: str = (
-    "https://github.com/nkarasiak/qgis-mcp/archive/"
-    "refs/heads/main.zip"
-)
+QGIS_MCP_ARCHIVE: str = "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip"
 
 
 def _latest_wheel(dist_dir: Path) -> Path:
