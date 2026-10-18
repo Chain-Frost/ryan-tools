@@ -353,6 +353,7 @@ def test_incremental_signature_tracks_legacy_crs_and_zone_field(
         "TUFLOW_LEGACY_LOCAL_CRS": job.legacy_local_crs,
         "TUFLOW_ZONE_FIELD": job.zones.field_name,
     }
+
     def fake_output_metadata(_path: Path) -> dict[str, str]:
         return metadata
 
