@@ -324,3 +324,32 @@ def test_workflow_required_modules_must_be_valid_nonempty_names() -> None:
             WorkflowSpec.from_mapping({**raw, "required_modules": invalid})
     valid = WorkflowSpec.from_mapping({**raw, "required_modules": ["culvert_solver"]})
     assert valid.required_modules == ("culvert_solver",)
+
+
+def test_installed_culvert_script_requires_solver(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An installed script is not runnable merely because its file exists."""
+    from importlib.machinery import ModuleSpec
+
+    from ryan_library.mcp import registry as registry_module
+
+    scripts = tmp_path / "ryan-scripts"
+    scripts.mkdir()
+    (scripts / "culvert.py").write_text('WRAPPER_VERSION = "installed"\n', encoding="utf-8")
+    monkeypatch.setattr(registry_module, "installed_scripts_directory", lambda: scripts)
+    original = registry_module.find_spec
+
+    def without_solver(module: str) -> ModuleSpec | None:
+        return None if module == "culvert_solver" else original(module)
+
+    monkeypatch.setattr(registry_module, "find_spec", without_solver)
+    registry = WorkflowRegistry(discover_repository=False)
+    assert registry.repository_root is None
+    assert registry.scripts_directory == scripts
+    assert "culvert_analysis_design" not in {
+        item["id"] for item in registry.list_workflows()["workflows"]
+    }
+    detail = registry.get_workflow("culvert_analysis_design")
+    assert detail["script_path"] == str(scripts / "culvert.py")
+    assert detail["available"] is False
+    assert detail["missing_modules"] == ["culvert_solver"]
+    assert "command_prefix" not in detail
