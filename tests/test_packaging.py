@@ -220,3 +220,19 @@ def test_wheel_script_verification_preserves_non_utf8_bytes(tmp_path: Path) -> N
             suffixes=(".gms",),
             normalize_text=False,
         )
+
+
+def test_removed_script_aliases_are_not_exposed() -> None:
+    """Deprecated script aliases and their package must be absent."""
+    import ryan_library
+
+    for alias in (
+        "tuflow_culverts_merge",
+        "tuflow_culverts_timeseries",
+        "tuflow_logsummary",
+        "tuflow_results_styling",
+        "pomm_combine",
+        "closure_durations",
+    ):
+        assert not hasattr(ryan_library, alias), f"Removed alias still present: {alias}"
+    assert importlib.util.find_spec("ryan_library.scripts") is None

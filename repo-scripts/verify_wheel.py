@@ -157,6 +157,7 @@ def _verify_wheel(
             raise ValueError(msg)
 
         forbidden_prefixes = (
+            "ryan_library/scripts/",  # removed early on 2026-10-18
             "ryan_functions/",
             "docs/",
             "excel-resources/",

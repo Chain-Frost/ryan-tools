@@ -31,7 +31,7 @@ folder README and Git history before deciding to restructure it.
 | Maintained wrapper | Unversioned files under `ryan-scripts` | Human-editable entry point around library behaviour. Preserve editable defaults, CLI overrides, banners, working-directory handling, exit codes and optional pause. |
 | Standalone utility | Commonly under `ryan-scripts` | A useful but narrow script that may reasonably remain self-contained. Improve it proportionally; do not move it into the library without a demonstrated reuse case. |
 | Project-specific script | `ryan-scripts` or a project checkout | Encodes project naming, paths, globs or output templates. Keep those choices visible rather than presenting them as universal library rules. |
-| Legacy or compatibility code | `ryan_library/scripts`, versioned scripts | Preserves old imports or behaviour. Do not add new features here; migrate active callers to maintained APIs. |
+| Legacy or compatibility code | Versioned scripts and explicitly retained compatibility modules | Keeps narrowly scoped old behaviour. `ryan_library/scripts` was removed on 2026-10-18; do not restore it. |
 | Experimental or reference code | `ryan-scripts/python-not-polished`, files labelled accordingly | Example, incomplete or superseded material without a stability promise. Review carefully before operational use. |
 | Vendored or submodule content | `vendor`, `tests/test_data`, resource and holding-area submodules | Independently maintained code or data. Do not refactor it as if it were ordinary first-party package code. |
 
@@ -68,8 +68,8 @@ The layers have distinct responsibilities:
 - Processors own the state and lifecycle associated with supported file formats.
 - Classes and configuration registries own shared domain models and authoritative metadata.
 
-Reusable library code must not import human-facing wrappers. New code must not use the deprecated
-`ryan_library.scripts` compatibility namespace. The removed `ryan_functions` alias must not be reintroduced.
+Reusable library code must not import human-facing wrappers. The removed `ryan_library.scripts`
+namespace and the removed `ryan_functions` alias must not be reintroduced.
 
 ## Where new code belongs
 

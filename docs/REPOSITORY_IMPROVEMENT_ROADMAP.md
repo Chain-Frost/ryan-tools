@@ -29,7 +29,7 @@ backlog; a selected implementation project should have its own linked status rec
 | Resource extraction | QGIS and Excel resources are separate pinned submodules; `setup.py` stages required QML resources into the package. No history rewrite is planned. |
 | Maintained wrappers | [Wrapper standard](../ryan-scripts/WRAPPER_STANDARD.md) and shared wrapper utilities establish CLI, editable defaults, logging and process-boundary behavior. This does not certify every legacy script. |
 | Documentation foundation | Architecture, environments, logging and the central documentation index are established. |
-| Package import repairs | [Package initializer](../ryan_library/__init__.py) has explicit lazy legacy aliases; [compatibility initializer](../ryan_functions/__init__.py) forwards requested modules lazily instead of importing every discovered module. The 26.10.6.3 package was transactionally built and installed-package smoke-tested during issue #91 / PR #94 validation; that evidence does not replace a future bounded lifecycle audit of every legacy namespace. |
+| Package import repairs | Historical lazy script aliases and the `ryan_functions` alias were removed from the PR #120 branch (2026-10-18), leaving maintained direct imports in `ryan_library`. The prior 26.10.6.3 smoke test validated the old interface, not this breaking removal. |
 | Logging pipeline | [Implementation outcome](audits/2026-08-08-logging-pipeline-implementation-plan.md#implementation-outcome) records independent thresholds, queue context, deterministic shutdown, notebook setup, AST policy checks and Windows validation. Current implementation retains these mechanisms; historical test results are not a fresh run. |
 | Compatibility inventory | [Compatibility policy](COMPATIBILITY_POLICY.md) records replacements and deadlines. Remaining inventory reconciliation is listed below. |
 | Lifecycle decisions | `data_processing.py` is deprecated through 2026-12-31; `tkinter_utils.py` is absent; [missing-run analysis](../ryan_library/orchestrators/tuflow/tlf_missing_runs.py) has an orchestrator; the [HY-8 wrapper](../ryan-scripts/tuflow/tuflow_to_hy8.py) calls the bridge. These are no longer simply undecided removal/experimental candidates. |
@@ -97,18 +97,17 @@ defects should get their own bounded work record rather than reopening completed
   be treated as part of the general repository-improvement backlog unless explicitly resumed.
 - **README implementation-plan disposition:** resolved by retaining `implementation_plan.md` at the repository root as
   indexed historical evidence. Moving it solely for tidiness would add churn without improving discovery.
-- **Scheduled compatibility removals:** tracked independently in the
-  [compatibility policy](COMPATIBILITY_POLICY.md), with its own review date after the support period. It is not part of
-  this deferred opportunity review.
+- **Scheduled compatibility removals:** the scripts namespace was brought forward and retired in PR #120
+  on 2026-10-18. Other deprecations remain tracked in the
+  [compatibility policy](COMPATIBILITY_POLICY.md) with their existing deadlines.
 
 ## Scheduled compatibility removal
 
-After 2026-12-31, review `ryan_library.scripts`, the deprecated GDAL environment/runners modules, `data_processing`
-and associated aliases against the [compatibility inventory](COMPATIBILITY_POLICY.md). Confirm callers have migrated,
-then remove expired code with documentation, focused checks and wheel-content verification. The inventory owns exact
-deadlines and replacements. Other namespaces require an explicit support decision; do not infer a deadline for them.
-
-This work is deferred until the support date, with a review scheduled for 2027-01-04 in the work register.
+`ryan_library.scripts` was brought forward for removal in PR #120 on 2026-10-18. After 2026-12-31,
+review the separate deprecated GDAL environment/runners modules, `data_processing`, and
+POMM wrapper-compatibility APIs against the [compatibility inventory](COMPATIBILITY_POLICY.md).
+Verify remaining callers before removing expired code. The unrelated deprecation deadlines
+are unchanged and the scheduled review remains 2027-01-04.
 
 ## Out of scope or deferred proposals
 

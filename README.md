@@ -10,6 +10,8 @@ The distribution is named `ryan-tools`, while maintained imports use `ryan_libra
 When migrating from the old distribution, run `python -m pip uninstall ryan_functions` before installing
 `ryan-tools`. The removed `ryan_functions` import alias must be replaced with `ryan_library.functions`.
 See the [migration policy](docs/COMPATIBILITY_POLICY.md#removed-ryan_functions-import-namespace--2026-10-18).
+The `ryan_library.scripts` import namespace and its six root-level forwarding aliases were retired
+on 18 October 2026. Import maintained modules directly instead (breaking change).
 
 ## Project status
 
@@ -35,8 +37,7 @@ ryan-tools/
 |   |-- classes/               # Configuration, metadata and filename parsing
 |   |-- functions/             # Reusable algorithms and focused I/O helpers
 |   |-- orchestrators/         # Complete workflow controllers
-|   |-- processors/            # Stateful processors for supported result formats
-|   `-- scripts/               # Deprecated import-compatibility wrappers
+|   `-- processors/            # Stateful processors for supported result formats
 |-- ryan-scripts/              # Human-facing wrappers and standalone utilities
 |-- docs/                      # Development guidance, plans and setup documentation
 |-- examples/                  # Example notebooks and supporting demonstrations
@@ -151,7 +152,7 @@ Run the complete suite through the repository runner:
 cmd.exe /C repo-scripts\run_tests.bat
 ```
 
-The runner configures the source and bundled HY-8 import paths, uses a repository-local base temporary directory and
+The runner uses installed PyPI hydraulic dependencies and a repository-local base temporary directory, and
 generates terminal, HTML and XML coverage reports. See the [development guide](docs/DEVELOPMENT_GUIDE.md#validation-by-change-type)
 for proportional validation expectations.
 

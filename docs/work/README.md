@@ -18,7 +18,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 | [Floodway design and reporting workflow](2026-09-13-floodway-design-87.md) | Needs review | Unassigned | 2026-10-06 | 2026-10-13 | Current PR head a90bbae checked; local lint repairs and verified 26.10.6.2 wheel unstaged. Review and commit repairs; historical full-suite failures tracked in #95. |
 | [Repository improvement backlog](../REPOSITORY_IMPROVEMENT_ROADMAP.md) | Deferred | Unassigned | 2026-10-06 | 2027-04-05 | No repository-wide improvement task is selected. If a maintainer selects a bounded opportunity earlier, register that implementation front separately; otherwise do not surface this backlog as due before the review date. |
 | [Unsorted migration](../UNSORTED_UPGRADE_ROADMAP.md) | Deferred | Unassigned | 2026-10-07 | 2027-04-05 | Migration remains incomplete but is not actively progressed. Resume only when explicitly selected; otherwise do not surface it as due before the review date. |
-| [Scheduled compatibility removals](../COMPATIBILITY_POLICY.md) | Deferred | Unassigned | 2026-09-06 | 2027-01-04 | Support runs through 2026-12-31; then verify callers and select removals using the inventory. |
+| [Scheduled compatibility removals](../COMPATIBILITY_POLICY.md) | Deferred (remaining APIs) | Unassigned | 2026-10-18 | 2027-01-04 | Scripts namespace retired early in PR #120; other GDAL/data-processing/POMM compatibility deadlines remain 2026-12-31. |
 
 Initial register created on 2026-09-06 from the roadmap review. These are known follow-ups, not an exhaustive audit or
 an instruction to start them all. Existing staged code changes are not inferred to be separately authorized work
