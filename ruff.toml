@@ -104,6 +104,15 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
+"ryan-scripts/TUFLOW-python/raster_processing/tuflow_maximum_pipeline.py" = [
+    "BLE001", # CLI error boundary emits a nonzero status instead of a traceback
+]
+"ryan_library/orchestrators/tuflow/maximum_rasters.py" = [
+    "C901",   # output-zone discovery, report formatting and per-job operation preserve source workflow
+    "BLE001", # each independent raster job can fail without hiding subsequent results
+    "SIM115", # temporary TIFF filename is released before GDAL opens it
+    "PTH105", # coordinated publication and rollback use os.replace consistently
+]
 "ryan-scripts/TUFLOW-python/**/*.py" = [
     "ERA001", # mutable wrappers intentionally keep commented configuration examples for users
 ]

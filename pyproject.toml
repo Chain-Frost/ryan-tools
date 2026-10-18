@@ -112,6 +112,7 @@ namespaces = true
 where = [".", "ryan-scripts/TUFLOW-python"]
 
 [tool.pyright]
+stubPath = "typings"
 extraPaths = ["vendor"]
 include = ["ryan_library", "ryan-scripts"]
 pythonVersion = "3.14"

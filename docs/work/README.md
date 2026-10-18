@@ -7,6 +7,8 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
+| [TUFLOW maximum raster pipeline](2026-10-15-tuflow-maximum-raster-119.md) | Implementation / validation pending | ChatGPT | 2026-10-15 | 2026-10-16 | Address latest PR #119 CI, verify QGIS 4 GDAL maximum pixels and copied-wrapper wheel, then real-project v06/v07 regressions. |
+| [Culvert analysis/design workflow](2026-09-13-culvert-workflow-80.md) | Ready for final validation | ChatGPT | 2026-09-14 | After final validation rerun | Re-run Ruff, strict Pyright, focused pytest, wrapper/documentation checks and package verification after the final provenance/export follow-up; merge PR #86 only after those checks pass. |
 | [TUFLOW culvert engine migration](2026-10-08-tuflow-culvert-engines-99.md) | Active | Unassigned | 2026-10-17 | 2026-10-24 | Final-review ID and source-overwrite fixes pass 68 focused tests (2 privilege skips); publish, confirm all five checks and perform authorized manual merge of PR #100. Engineering follow-ups deferred. |
 | [Fast PR checks and hosted timing](2026-10-17-fast-pr-checks-129.md) | In validation | ChatGPT | 2026-10-17 | 2026-10-22 | Commit/push documentation, verify all five checks on the new PR #129 head, then perform the authorized squash merge. |
 | [Temporary floodway CI exclusions](2026-10-16-floodway-ci-exclusions.md) | Deferred | Unassigned | 2026-10-16 | 2026-10-22 | Review or restore the two slow sweep tests when requested or at the review date; local tests remain available. |
