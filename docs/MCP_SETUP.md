@@ -140,8 +140,15 @@ from its dock. The Python bridge and QGIS plugin must be compatible.
 
 Run this from the repository root in Windows PowerShell. The launcher selects
 an available Python 3.13+ interpreter by default and discovers the checkout
-relative to `repo-scripts`. The user-level Codex config is shared with the
-Codex extension in VS Code; restart or reload the extension after changes.
+relative to `repo-scripts`. For Codex running **natively on Windows**, the
+user-level Codex config is shared with the extension in VS Code; restart or
+reload the extension after changes.
+
+**WSL exception:** If VS Code is configured to run Codex inside WSL, the
+Windows batch installer configures the Windows Python and Codex environment,
+not WSL's separate interpreter or `~/.codex/config.toml`. Set up both
+servers in WSL explicitly instead and verify the active config using the
+Codex sidebar's Settings > Open config.toml.
 
 ```powershell
 .\repo-scripts\setup_codex_mcp.ps1 -DryRun
