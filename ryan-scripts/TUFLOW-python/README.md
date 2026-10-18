@@ -105,12 +105,12 @@ py -3.14 .\po_and_timeseries\combine_pomm_results.py --export-mode parquet --no-
 
 ## POMM peak wrapper migration
 
-The maintained mean and median POMM peak wrappers call
-`ryan_library.orchestrators.tuflow.pomm_max_items` directly. Older copied
-wrappers that use `PommPeakWrapperDefaults` and
-`run_pomm_peak_report_wrapper()` from `wrapper_utils` remain supported, with a
-deprecation warning, until 31 December 2026. Replace those copied wrappers with
-the maintained versions before that date.
+The maintained mean and median POMM peak wrappers use
+`ryan_library.orchestrators.tuflow.pomm_max_items` directly. The deprecated
+`PommPeakWrapperDefaults`, `PeakReportExporter` and `run_pomm_peak_report_wrapper`
+helpers were removed from `ryan_library.functions.wrapper_utils` on 18 October
+2026. Older copied wrappers using these helpers must be replaced by maintained
+versions under `ryan-scripts/TUFLOW-python` before upgrading.
 
 ## Verify converted FLT/ASC output rasters
 

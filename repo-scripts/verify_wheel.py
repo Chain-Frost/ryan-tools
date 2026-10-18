@@ -158,6 +158,9 @@ def _verify_wheel(
 
         forbidden_prefixes = (
             "ryan_library/scripts/",  # removed early on 2026-10-18
+            "ryan_library/functions/gdal/gdal_environment.py",
+            "ryan_library/functions/gdal/gdal_runners.py",
+            "ryan_library/functions/data_processing.py",
             "ryan_functions/",
             "docs/",
             "excel-resources/",

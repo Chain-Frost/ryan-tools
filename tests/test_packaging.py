@@ -236,3 +236,18 @@ def test_removed_script_aliases_are_not_exposed() -> None:
     ):
         assert not hasattr(ryan_library, alias), f"Removed alias still present: {alias}"
     assert importlib.util.find_spec("ryan_library.scripts") is None
+
+
+def test_removed_legacy_modules_and_pomm_helpers_are_absent() -> None:
+    """Retired compatibility APIs are not present in newly built installs."""
+    from ryan_library.functions import wrapper_utils
+
+    for module in (
+        "ryan_library.functions.gdal.gdal_environment",
+        "ryan_library.functions.gdal.gdal_runners",
+        "ryan_library.functions.data_processing",
+    ):
+        assert importlib.util.find_spec(module) is None, f"Legacy module still importable: {module}"
+    for name in ("PeakReportExporter", "PommPeakWrapperDefaults", "run_pomm_peak_report_wrapper"):
+        assert not hasattr(wrapper_utils, name), f"Legacy POMM API still exposed: {name}"
+    assert hasattr(wrapper_utils, "CommonWrapperOptions")  # Supported wrapper API remains available.

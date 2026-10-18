@@ -201,11 +201,6 @@ ignore = [
 "repo-scripts/**/*.py" = [
     "INP001", # repository maintenance commands are standalone scripts rather than an importable package
 ]
-"ryan_library/functions/data_processing.py" = [
-    "BLE001", # deprecated safe_apply intentionally converts arbitrary callable failures to None
-    "E402",   # deprecated module emits its warning before loading the compatibility implementation
-    "N802",   # deprecated public name remains available until the documented removal date
-]
 "ryan_library/functions/pandas/median_calc.py" = [
     "N806",   # TP and AEP are established hydrology abbreviations in calculation variables
 ]

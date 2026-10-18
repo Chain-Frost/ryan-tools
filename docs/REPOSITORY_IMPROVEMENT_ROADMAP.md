@@ -32,7 +32,7 @@ backlog; a selected implementation project should have its own linked status rec
 | Package import repairs | Historical lazy script aliases and the `ryan_functions` alias were removed from the PR #120 branch (2026-10-18), leaving maintained direct imports in `ryan_library`. The prior 26.10.6.3 smoke test validated the old interface, not this breaking removal. |
 | Logging pipeline | [Implementation outcome](audits/2026-08-08-logging-pipeline-implementation-plan.md#implementation-outcome) records independent thresholds, queue context, deterministic shutdown, notebook setup, AST policy checks and Windows validation. Current implementation retains these mechanisms; historical test results are not a fresh run. |
 | Compatibility inventory | [Compatibility policy](COMPATIBILITY_POLICY.md) records replacements and deadlines. Remaining inventory reconciliation is listed below. |
-| Lifecycle decisions | `data_processing.py` is deprecated through 2026-12-31; `tkinter_utils.py` is absent; [missing-run analysis](../ryan_library/orchestrators/tuflow/tlf_missing_runs.py) has an orchestrator; the [HY-8 wrapper](../ryan-scripts/tuflow/tuflow_to_hy8.py) calls the bridge. These are no longer simply undecided removal/experimental candidates. |
+| Lifecycle decisions | `data_processing.py` was removed early in PR #120; `tkinter_utils.py` is absent; [missing-run analysis](../ryan_library/orchestrators/tuflow/tlf_missing_runs.py) has an orchestrator; the [HY-8 wrapper](../ryan-scripts/tuflow/tuflow_to_hy8.py) calls the bridge. These are no longer simply undecided removal/experimental candidates. |
 | PO/POMM combination | Both maintained orchestrators use [shared workflow coordination](../ryan_library/orchestrators/tuflow/_combination_workflow.py) and expose `export_results`. |
 | Timeseries checks | Notebook helpers and the peak/stability orchestrators reuse `po_timeseries_checks`; wider notebook collection/orchestration consolidation still requires assessment. |
 | Root document cleanup | The former testing architecture/task documents and logging checklist are absent. The completed [README implementation plan](../implementation_plan.md) is deliberately retained at the repository root as indexed historical implementation evidence; no archival move is pending. |
@@ -97,17 +97,17 @@ defects should get their own bounded work record rather than reopening completed
   be treated as part of the general repository-improvement backlog unless explicitly resumed.
 - **README implementation-plan disposition:** resolved by retaining `implementation_plan.md` at the repository root as
   indexed historical evidence. Moving it solely for tidiness would add churn without improving discovery.
-- **Scheduled compatibility removals:** the scripts namespace was brought forward and retired in PR #120
-  on 2026-10-18. Other deprecations remain tracked in the
-  [compatibility policy](COMPATIBILITY_POLICY.md) with their existing deadlines.
+- **Scheduled compatibility removals:** all previously December-dated unused script, GDAL,
+  data-processing and POMM wrapper compatibility APIs were brought forward for removal
+  in PR #120 on 2026-10-18. See [compatibility policy](COMPATIBILITY_POLICY.md).
 
-## Scheduled compatibility removal
+## Early compatibility removal
 
-`ryan_library.scripts` was brought forward for removal in PR #120 on 2026-10-18. After 2026-12-31,
-review the separate deprecated GDAL environment/runners modules, `data_processing`, and
-POMM wrapper-compatibility APIs against the [compatibility inventory](COMPATIBILITY_POLICY.md).
-Verify remaining callers before removing expired code. The unrelated deprecation deadlines
-are unchanged and the scheduled review remains 2027-01-04.
+The unused `ryan_library.scripts` namespace, deprecated GDAL environment/runners adapters,
+`data_processing`, and legacy POMM wrapper helpers were removed from PR #120 on
+18 October 2026. The maintainer explicitly authorised an early breaking release after
+checking maintained code callers. See [compatibility policy](COMPATIBILITY_POLICY.md).
+No remaining December 2026 removals are scheduled by this inventory.
 
 ## Out of scope or deferred proposals
 
