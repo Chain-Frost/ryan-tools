@@ -9,10 +9,10 @@ from pathlib import Path
 
 GIS_WHEEL_INDEX: str = "https://gisidx.github.io/gwi"
 WHEEL_PATTERN: str = "ryan_functions-*.whl"
-# Fixed upstream release; do not silently advance a desktop bridge on each install.
+# Install the current upstream bridge when the wheel-based developer path is used.
 QGIS_MCP_ARCHIVE: str = (
     "https://github.com/nkarasiak/qgis-mcp/archive/"
-    "55519ebe009e7c7e06603d802f0ce931d6c9b20f.zip"
+    "refs/heads/main.zip"
 )
 
 
@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--qgis-mcp-source",
-        help="Override the pinned upstream QGIS MCP archive with an approved local source directory or URL",
+        help="Override the current upstream QGIS MCP archive with an approved local source directory or URL",
     )
     parser.add_argument(
         "--skip-qgis-mcp",
