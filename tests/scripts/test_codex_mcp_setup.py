@@ -144,3 +144,41 @@ def test_pypi_installer_detects_existing_codex_configuration(
     assert not detected()
     (tmp_path / "config.toml").write_text("", encoding="utf-8")
     assert detected()
+
+
+def test_pypi_installer_python_support_is_open_ended(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "path", [str(REPO / "repo-scripts"), *sys.path])
+    pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
+    supported = cast(Callable[[int, int], bool], pypi["supported_python"])
+    assert not supported(3, 12)
+    assert supported(3, 13)
+    assert supported(3, 14)
+    assert supported(3, 15)
+    assert supported(3, 16)
+
+
+def test_pypi_batch_launcher_accepts_supported_versions() -> None:
+    script = (REPO / "install-latest-wheel.bat").read_text(encoding="utf-8")
+    assert 'set "PYTHON_CMD=py -3"' in script
+    assert "RYAN_TOOLS_PYTHON" in script
+    assert "sys.version_info >= (3, 13)" in script
+    assert "py -3.14" not in script
+
+
+def test_vscode_codex_extension_detected_without_codex_cli(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def missing_executable(_command: str) -> str | None:
+        return None
+
+    extensions = tmp_path / "vscode-extensions"
+    extensions.mkdir()
+    monkeypatch.setenv("VSCODE_EXTENSIONS", str(extensions))
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
+    monkeypatch.setattr(shutil, "which", missing_executable)
+    monkeypatch.setattr(sys, "path", [str(REPO / "repo-scripts"), *sys.path])
+    pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
+    detected = cast(Callable[[], bool], pypi["codex_installed"])
+    (extensions / "openai.chatgpt-26.1").mkdir()
+    assert detected()
