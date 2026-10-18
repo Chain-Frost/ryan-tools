@@ -24,3 +24,7 @@ The maintained `ryan-tools` raster/GIS processing workflows call **GDAL through 
 ## Verification
 
 Use Ruff, strict Pyright, the existing synthetic GDAL/raster tests and an end-to-end run under the supported QGIS 4/Python GDAL environment. CI without `osgeo` cannot verify actual GDAL operations; report such tests as skipped, not passed raster validation.
+
+## Static typing of SWIG GDAL bindings
+
+The installed GDAL Python wheel contains generated SWIG interfaces without complete static type information. The repository provides a narrow `typings/osgeo` bridge for Pyright that marks the external GDAL/OGR/OSR boundary as dynamic (`Any`), rather than treating the SWIG-generated members as `Unknown`. All first-party code remains subject to the repository's strict Pyright policy, including function signatures, flow checks and metadata types. This bridge is **not a full GDAL API specification** and cannot prove C extension call signatures; the GDAL 3.12+ synthetic raster tests and real RTIO data validation remain necessary.

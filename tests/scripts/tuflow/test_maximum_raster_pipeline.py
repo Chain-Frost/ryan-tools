@@ -353,7 +353,10 @@ def test_incremental_signature_tracks_legacy_crs_and_zone_field(
         "TUFLOW_LEGACY_LOCAL_CRS": job.legacy_local_crs,
         "TUFLOW_ZONE_FIELD": job.zones.field_name,
     }
-    monkeypatch.setattr(maximum_rasters, "output_metadata", lambda _path: metadata)
+    def fake_output_metadata(_path: Path) -> dict[str, str]:
+        return metadata
+
+    monkeypatch.setattr(maximum_rasters, "output_metadata", fake_output_metadata)
 
     unchanged = maximum_rasters.determine_action(job, "tuflow", False, False)
     assert unchanged[0] == "skip"

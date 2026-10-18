@@ -14,7 +14,7 @@ import os
 import tempfile
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -943,6 +943,7 @@ def write_report(
         from openpyxl import Workbook
         from openpyxl.styles import Alignment, Font, PatternFill
         from openpyxl.utils import get_column_letter
+        from openpyxl.worksheet.worksheet import Worksheet
     except ImportError:
         print("! openpyxl is not installed; the Excel summary was skipped.")
         return False
@@ -958,7 +959,13 @@ def write_report(
         "DRY-RUN": PatternFill("solid", fgColor="DDEBF7"),
     }
 
-    def table(worksheet, headers, rows, widths, status_column=None):
+    def table(
+        worksheet: Worksheet,
+        headers: Sequence[str],
+        rows: Sequence[Sequence[str | int | float | datetime | None]],
+        widths: Sequence[int],
+        status_column: int | None = None,
+    ) -> None:
         worksheet.append(headers)
         for index, _header in enumerate(headers, start=1):
             cell = worksheet.cell(1, index)
@@ -983,6 +990,8 @@ def write_report(
     workbook = Workbook()
 
     summary_sheet = workbook.active
+    if summary_sheet is None:
+        raise RuntimeError("New workbook has no active summary sheet.")
     summary_sheet.title = "Summary"
     grouped: dict[tuple[str, str, str], dict[str, int]] = {}
     for result in results:
