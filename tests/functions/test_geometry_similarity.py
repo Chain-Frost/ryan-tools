@@ -1,0 +1,62 @@
+"""Focused tests for the vendored 3D transform and hydrograph import boundary."""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+
+import numpy as np
+import pytest
+
+from ryan_library.functions.geometry import find_similarity_transform
+
+SOURCE = np.array(
+    [[0, 0, 0], [0, 2, 2], [2, 3, 1], [3, 1, 2], [1, 1, 3]],
+    dtype=np.float64,
+)
+TARGET = np.array(
+    [[3, 7, 5], [6, 7, 2], [4.5, 4, 0.5], [6, 2.5, 3.5], [7.5, 5.5, 3.5]],
+    dtype=np.float64,
+)
+
+
+def test_similarity_solver_recovers_known_transform() -> None:
+    """Reconstruct the upstream worked example without altering the algorithm."""
+    scale, rotation, translation = find_similarity_transform(SOURCE, TARGET)
+    assert scale == pytest.approx(1.5, abs=1e-10)
+    assert rotation.shape == (3, 3)
+    assert translation.shape == (3, 1)
+    np.testing.assert_allclose((scale * rotation @ SOURCE.T + translation).T, TARGET, atol=1e-10)
+
+
+def test_similarity_fixed_scale_and_weights() -> None:
+    """Forward caller options to the source numerical implementation."""
+    scale, rotation, translation = find_similarity_transform(
+        SOURCE, TARGET, weights=[100, 20, 2, 20, 50], estimate_scale=False, initial_scale=1.25
+    )
+    assert scale == pytest.approx(1.25)
+    assert np.isfinite(rotation).all()
+    assert np.isfinite(translation).all()
+
+
+def test_similarity_rejects_insufficient_control_points() -> None:
+    """Preserve upstream input validation without replacing its solver."""
+    with pytest.raises(ValueError, match="two distinct source points"):
+        find_similarity_transform([[1.0, 2.0, 3.0]], [[2.0, 3.0, 4.0]])
+
+
+def test_vendor_imports_are_independent_and_pyhma_runs() -> None:
+    """Only explicit HMA access should load its additional scientific stack."""
+    code = """
+import sys
+from vendor.simil import find
+assert callable(find)
+assert 'vendor.PyHMA' not in sys.modules
+from vendor import HMA
+import numpy as np
+assert HMA is __import__('vendor.PyHMA', fromlist=['HMA']).HMA
+q = np.array([1., 2., 4., 3., 1.])
+score = HMA(q, q).calc_dense2()
+assert np.isclose(score, 1.0), score
+"""
+    subprocess.run([sys.executable, "-c", code], check=True, capture_output=True, text=True, timeout=60)
