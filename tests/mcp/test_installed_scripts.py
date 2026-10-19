@@ -57,6 +57,31 @@ def test_copy_is_byte_identical_and_does_not_overwrite(tmp_path: Path) -> None:
     assert target.read_bytes() == source.read_bytes()
 
 
+@pytest.mark.parametrize(
+    "script",
+    [
+        "RORB-python/RORB-find-closure-durations.py",
+        "TUFLOW-python/culvert_results/combine_culvert_maximums.py",
+        "TUFLOW-python/model_management/verify_converted_tuflow_rasters.py",
+        "TUFLOW-python/po_and_timeseries/plot_water_level_profiles.py",
+        "file-management-python/archive_compress_folder.py",
+        "gdal-python/gdal_merge.py",
+        "gdal-python/recompress_geotiffs.py",
+        "tuflow/tuflow_culvert_from_1d_nwk.py",
+    ],
+)
+def test_copy_preserves_entire_original_wrapper_including_editable_defaults(
+    script: str, tmp_path: Path
+) -> None:
+    """Original-file copy must not rewrite defaults, identity, help or flags."""
+    assert script in available_wrappers()
+    source = ROOT / "ryan-scripts" / script
+    result = copy_wrapper(script, tmp_path)
+    assert result.name == source.name
+    assert result.read_bytes() == source.read_bytes()
+    assert b"WRAPPER_VERSION" in result.read_bytes()
+
+
 def test_copy_refuses_unlisted_scripts_and_nonexistent_directory(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="not in the installed"):
         copy_wrapper("python-not-polished/hydrograph_extract_rorb_csv-opt2_132.py", tmp_path)
