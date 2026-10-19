@@ -2,7 +2,7 @@
 
 **Status: incomplete review.** This ledger records all 146 tracked source files under `ryan-scripts/`
 at `1ac42c6`, excluding submodules. It does not enter or inspect the `unsorted` submodule.
-There are **83 selected wheel files**, **63 excluded source files** and
+There are **81 selected wheel files**, **65 excluded source files** and
 **33 distinct existing MCP script paths**. These counts are inventory evidence,
 **not proof** that every source file is maintained, safe to import, or correctly excluded.
 
@@ -12,7 +12,7 @@ dependencies/sibling resources, invocation and `--help`, headless `--no-pause`, 
 external software, Windows/mapped/UNC compatibility and output/exit semantics.
 No file is marked *reviewed* without those assessments and supporting tests.
 
-**Current wheel selection remains provisional** pending audit. The previous PR #130 made the selection
+**Current wheel selection remains provisional** pending audit and application-specific validation. The previous PR #130 made the selection
 without completing this inventory. “Yes” means currently in the install manifest; “No” means source is
 available in the repository but excluded from the wheel. MCP “Yes” denotes a catalogue reference,
 **not** guaranteed runtime readiness.
@@ -89,8 +89,8 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `file-management-python/archive_compress_folder.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `file-management-python/archive_compress_individual.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `file-management-python/archive_extract.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `file-management-python/copy_file.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `file-management-python/copy_folder.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `file-management-python/copy_file.py` | No | No | Repository-only: unguarded import executes Win32 share connection | No safe CLI/help; editable settings run on import | Network copy/credentials, overwrite and external Windows MPR; unsafe for installed wrapper |
+| `file-management-python/copy_folder.py` | No | No | Repository-only: unguarded import executes Win32 share connection | No safe CLI/help; editable settings run on import | Network copy/credentials, overwrite and external Windows MPR; unsafe for installed wrapper |
 | `file-management-python/list_files_recursive.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `file-management-python/rename-msg-files-argparse-folder.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `fix-chatgpt-type-hints.py` | No | No | Not assessed | Not assessed | Not assessed |
@@ -185,6 +185,28 @@ missing from the tracked tree; it does **not** mark scripts as safe.
 Static indicators are only an input to the manual file-by-file assessment.
 Unparsed/legacy scripts remain marked pending; no heuristic automatically
 moves a script into/out of the wheel or MCP catalogue.
+
+## Review evidence added in PR #137
+
+- The wheel manifest now excludes `file-management-python/copy_file.py` and
+  `file-management-python/copy_folder.py`. Both execute authentication and
+  network copy operations during import. The original editable scripts are
+  retained in the repository, but they are **not installed nor MCP exposed**.
+- `repo-scripts/audit_installed_scripts.py --check` now inspects the tracked
+  146-file inventory and rejects selected Python scripts with missing main
+  guards, syntax problems or detected import-time mutators. The test suite
+  verifies every selected Python row, plus both excluded network copy scripts.
+- The existing `ryan-scripts list` and `ryan-scripts copy` operations expose
+  a narrower *original-file* wrapper selection than the wheel file count:
+  `README.md`, package `__init__.py` and other companion documentation are
+  distributed resources, not human-facing executable wrappers.
+- The separate MCP catalogues currently reference 33 distinct script paths.
+  An installed script is **not automatically MCP-catalogued**.
+- Static checks do not validate original defaults, CLI output/exit codes,
+  external binaries, GDAL/QGIS/TUFLOW/HY-8 calculations or network paths.
+  These require per-workflow tests or external application acceptance. Legacy
+  scripts without an argparse interface should not be advertised as supporting
+  `--help` or `--no-pause` merely because they are packaged.
 
 ## Required disposition before calling the inventory complete
 
