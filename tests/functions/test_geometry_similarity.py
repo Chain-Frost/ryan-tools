@@ -131,9 +131,7 @@ def test_similarity_accepts_zero_weight_controls_with_sufficient_active_geometry
 
 @pytest.mark.parametrize("disabled_input", ["source", "target", "both"])
 @pytest.mark.parametrize("estimate_scale", [False, True])
-def test_similarity_excludes_nonfinite_zero_weight_coordinates(
-    disabled_input: str, estimate_scale: bool
-) -> None:
+def test_similarity_excludes_nonfinite_zero_weight_coordinates(disabled_input: str, estimate_scale: bool) -> None:
     """Disabled NaN and infinity placeholders never reach the numerical solver."""
     from vendor.simil import find as vendor_find
 
@@ -147,14 +145,10 @@ def test_similarity_excludes_nonfinite_zero_weight_coordinates(
     if disabled_input in ("target", "both"):
         target[3] = [np.nan, np.inf, -np.inf]
 
-    baseline = vendor_find(
-        SOURCE[active], TARGET[active], alpha_0=weights[active], scale=estimate_scale, lambda_0=1.5
-    )
+    baseline = vendor_find(SOURCE[active], TARGET[active], alpha_0=weights[active], scale=estimate_scale, lambda_0=1.5)
     for solution in (
         vendor_find(source, target, alpha_0=weights, scale=estimate_scale, lambda_0=1.5),
-        find_similarity_transform(
-            source, target, weights=weights, estimate_scale=estimate_scale, initial_scale=1.5
-        ),
+        find_similarity_transform(source, target, weights=weights, estimate_scale=estimate_scale, initial_scale=1.5),
     ):
         assert np.isfinite(solution[0])
         assert solution[0] == pytest.approx(baseline[0], abs=1e-10)
