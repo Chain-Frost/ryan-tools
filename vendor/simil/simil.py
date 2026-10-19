@@ -131,9 +131,9 @@ Per point weights can be passed as a list:
 """
 
 import numpy as np
-from numpy._typing._array_like import NDArray
+from numpy.typing import NDArray
 import numpy.typing as npt
-from typing import Sequence
+from collections.abc import Sequence
 from numpy import float64, intp
 
 # =================
@@ -284,7 +284,8 @@ def find(
         The function will check that there are as many target points
         as source points.
     alpha_0 : array_like, optional
-        Per point weights.
+        Per-point finite, nonnegative weights (zero disables a control).
+        At least two distinct source points must have positive weights.
         If provided, the function will try to cast to a numpy array with
         shape: ``(n,)``.
     scale : boolean, optional
@@ -323,7 +324,10 @@ def find(
 
     n = source_coords.shape[1]
 
-    if n == 1 or (source_coords[None, 0] == source_coords).all():
+    # Compare complete control points (columns), not their x/y/z coordinate rows.
+    # The old broadcast comparison rejected valid controls on x=y=z and
+    # allowed truly repeated XYZ points into the eigensolver.
+    if n < 2 or np.all(source_coords == source_coords[:, :1]):
         err_msg = "There are not two distinct source points."
         raise ValueError(err_msg)
 
@@ -353,6 +357,29 @@ def find(
 
     if alpha_0_arr.shape != (n,):
         err_msg = "There are not as many alpha_0 coefficients as " "control points."
+        raise ValueError(err_msg)
+
+    # Only finite nonnegative weights are valid. Zero-weight controls do not
+    # contribute to the fit and must not count towards its minimum geometry.
+    if not np.all(np.isfinite(alpha_0_arr)) or np.any(alpha_0_arr < 0):
+        err_msg = "alpha_0 weights must be finite and nonnegative."
+        raise ValueError(err_msg)
+
+    active_controls = alpha_0_arr > 0
+    weighted_source_coords = source_coords[:, active_controls]
+    if weighted_source_coords.shape[1] < 2 or np.all(weighted_source_coords == weighted_source_coords[:, :1]):
+        err_msg = "At least two distinct source points must have positive alpha_0 weights."
+        raise ValueError(err_msg)
+
+    # Remove inactive source/target point pairs and weights *before* numerical
+    # operations. Multiplying zero weights by NaN/Inf still contaminates sums.
+    source_coords = weighted_source_coords
+    target_coords = target_coords[:, active_controls]
+    alpha_0_arr = alpha_0_arr[active_controls]
+    n = source_coords.shape[1]
+
+    if not np.isfinite(source_coords).all() or not np.isfinite(target_coords).all():
+        err_msg = "Positively weighted source and target coordinates must be finite."
         raise ValueError(err_msg)
 
     lambda_0_float = float(lambda_0)

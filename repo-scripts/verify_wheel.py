@@ -139,9 +139,9 @@ def _verify_script_allowlist(archive: zipfile.ZipFile, names: set[str]) -> None:
 
 
 def _verify_external_dependencies(metadata: str, names: set[str]) -> None:
-    """Check that external hydraulics libraries are declared but not embedded."""
+    """Check declared third-party requirements and separately published engines."""
     declared_dependencies = _metadata_field(metadata, "Requires-Dist")
-    for distribution in ("run-hy8", "ryan-culverts"):
+    for distribution in ("run-hy8", "ryan-culverts", "scipy", "bottleneck"):
         normalized = distribution.replace("-", "_")
         if not any(
             requirement.split(";", maxsplit=1)[0].split(">=", maxsplit=1)[0].strip().lower().replace("-", "_")
@@ -189,6 +189,15 @@ def _verify_wheel(
         required_members = {
             "ryan_library/__init__.py",
             "ryan_library/py.typed",
+            "vendor/__init__.py",
+            "vendor/README.md",
+            "vendor/simil/__init__.py",
+            "vendor/simil/simil.py",
+            "vendor/simil/LICENSE",
+            "vendor/simil/README.md",
+            "vendor/PyHMA/__init__.py",
+            "vendor/PyHMA/LICENSE",
+            "vendor/PyHMA/README.md",
             "ryan_library/resources/mcp/gdal_cli_tools.json",
             "ryan_library/resources/mcp/workflows.json",
         }
@@ -225,13 +234,14 @@ def _verify_wheel(
         for source_directory, archive_directory in (
             (PROJECT_ROOT / "ryan_library" / "functions", "ryan_library/functions"),
             (PROJECT_ROOT / "ryan_library" / "orchestrators", "ryan_library/orchestrators"),
+            (PROJECT_ROOT / "vendor", "vendor"),
         ):
             _verify_source_files(
                 archive,
                 names,
                 source_directory=source_directory,
                 archive_directory=archive_directory,
-                suffixes=(".py",),
+                suffixes=("", ".py", ".md") if archive_directory == "vendor" else (".py",),
             )
 
         _verify_script_allowlist(archive, names)
