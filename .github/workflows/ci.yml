@@ -32,6 +32,9 @@ jobs:
       - name: Install focused test dependency
         run: python -m pip install pytest
 
+      - name: Check every installed-script static inventory entry
+        run: python repo-scripts/audit_installed_scripts.py --check --output "${{ runner.temp }}/installed-scripts-audit.json"
+
       - name: Test descriptor-based staging and cleanup
         # The regular hosted suite runs on Windows, where these POSIX-only
         # regression tests would otherwise be skipped. These tests need no
