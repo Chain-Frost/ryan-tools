@@ -129,6 +129,63 @@ def test_similarity_accepts_zero_weight_controls_with_sufficient_active_geometry
         np.testing.assert_allclose((scale * rotation @ SOURCE.T + translation).T, TARGET, atol=1e-10)
 
 
+@pytest.mark.parametrize("disabled_input", ["source", "target", "both"])
+@pytest.mark.parametrize("estimate_scale", [False, True])
+def test_similarity_excludes_nonfinite_zero_weight_coordinates(
+    disabled_input: str, estimate_scale: bool
+) -> None:
+    """Disabled NaN and infinity placeholders never reach the numerical solver."""
+    from vendor.simil import find as vendor_find
+
+    source = SOURCE.copy()
+    target = TARGET.copy()
+    weights = np.array([1.0, 0.0, 2.0, 0.0, 3.0])
+    active = weights > 0
+
+    if disabled_input in ("source", "both"):
+        source[1] = [np.nan, np.inf, -np.inf]
+    if disabled_input in ("target", "both"):
+        target[3] = [np.nan, np.inf, -np.inf]
+
+    baseline = vendor_find(
+        SOURCE[active], TARGET[active], alpha_0=weights[active], scale=estimate_scale, lambda_0=1.5
+    )
+    for solution in (
+        vendor_find(source, target, alpha_0=weights, scale=estimate_scale, lambda_0=1.5),
+        find_similarity_transform(
+            source, target, weights=weights, estimate_scale=estimate_scale, initial_scale=1.5
+        ),
+    ):
+        assert np.isfinite(solution[0])
+        assert solution[0] == pytest.approx(baseline[0], abs=1e-10)
+        np.testing.assert_allclose(solution[1], baseline[1], atol=1e-10)
+        np.testing.assert_allclose(solution[2], baseline[2], atol=1e-10)
+        np.testing.assert_allclose(
+            (solution[0] * solution[1] @ SOURCE[active].T + solution[2]).T,
+            TARGET[active],
+            atol=1e-10,
+        )
+
+
+@pytest.mark.parametrize("nonfinite", [np.nan, np.inf, -np.inf])
+@pytest.mark.parametrize("invalid_input", ["source", "target"])
+def test_similarity_rejects_nonfinite_positive_weight_coordinates(nonfinite: float, invalid_input: str) -> None:
+    """Non-finite active coordinates fail explicitly instead of reaching eigenvalue computation."""
+    from vendor.simil import find as vendor_find
+
+    source = SOURCE.copy()
+    target = TARGET.copy()
+    if invalid_input == "source":
+        source[0, 0] = nonfinite
+    else:
+        target[0, 0] = nonfinite
+    weights = [1.0, 0.0, 2.0, 0.0, 3.0]
+    with pytest.raises(ValueError, match="coordinates must be finite"):
+        vendor_find(source, target, alpha_0=weights)
+    with pytest.raises(ValueError, match="coordinates must be finite"):
+        find_similarity_transform(source, target, weights=weights)
+
+
 def test_vendor_imports_are_independent_and_pyhma_runs() -> None:
     """Only explicit HMA access should load its additional scientific stack."""
     code = """

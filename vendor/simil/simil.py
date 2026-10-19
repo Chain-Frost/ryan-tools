@@ -365,9 +365,21 @@ def find(
         err_msg = "alpha_0 weights must be finite and nonnegative."
         raise ValueError(err_msg)
 
-    weighted_source_coords = source_coords[:, alpha_0_arr > 0]
+    active_controls = alpha_0_arr > 0
+    weighted_source_coords = source_coords[:, active_controls]
     if weighted_source_coords.shape[1] < 2 or np.all(weighted_source_coords == weighted_source_coords[:, :1]):
         err_msg = "At least two distinct source points must have positive alpha_0 weights."
+        raise ValueError(err_msg)
+
+    # Remove inactive source/target point pairs and weights *before* numerical
+    # operations. Multiplying zero weights by NaN/Inf still contaminates sums.
+    source_coords = weighted_source_coords
+    target_coords = target_coords[:, active_controls]
+    alpha_0_arr = alpha_0_arr[active_controls]
+    n = source_coords.shape[1]
+
+    if not np.isfinite(source_coords).all() or not np.isfinite(target_coords).all():
+        err_msg = "Positively weighted source and target coordinates must be finite."
         raise ValueError(err_msg)
 
     lambda_0_float = float(lambda_0)

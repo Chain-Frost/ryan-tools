@@ -49,6 +49,10 @@ Confirm new control-point regressions, request a fresh Codex review and resolve 
 
 ## Progress
 
+### 2026-10-19 — Exclude zero-weight coordinates from numerical solver
+
+Address the third Codex P2 review finding: remove inactive source/target coordinate pairs and their weights before the numerical matrix operations. This prevents NaN/Inf placeholders in ignored controls from poisoning otherwise valid fits. Reject nonfinite positively weighted coordinates with ValueError. Add direct vendor/public API regression tests for NaN/Inf disabled rows, identical active-subset fits, fixed/estimated scales, and nonfinite active rows. Preserve the solver's mathematical method. Await latest-head CI and another Codex review; do not merge or publish.
+
 ### 2026-10-19 — Weighted-control Codex follow-up
 
 Reject negative/nonfinite weights and require two distinct positively weighted source controls. Allow zero-weight controls only where active geometry remains sufficient. Add direct vendor and public API regressions. Preserve the numerical fitting algorithm. CI and Codex re-review pending; no merge authorised.
