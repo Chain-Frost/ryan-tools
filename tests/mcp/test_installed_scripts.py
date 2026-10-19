@@ -333,7 +333,7 @@ def test_posix_rejects_destination_owned_by_another_user_even_if_not_peer_writab
     target = destination / "culvert.py"
     target.write_bytes(b"original wrapper")
     original_stat = destination.stat()
-    caller_uid = os.geteuid()
+    caller_uid = original_stat.st_uid
     foreign_uid = caller_uid + 1
     assert foreign_uid not in {0, caller_uid}
     actual_fstat = os.fstat
