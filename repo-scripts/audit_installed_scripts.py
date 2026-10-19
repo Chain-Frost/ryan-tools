@@ -232,8 +232,10 @@ def render_markdown(report: dict[str, Any]) -> str:
         "A positive AST signal does **not** establish CLI runtime safety, external",
         "software readiness, original-default parity, or maintainer acceptance.",
         "",
-        f"Tracked: **{report['tracked_file_count']}**; selected wheel files: **{report['selected_file_count']}**; "
-        f"MCP script paths: **{report['mcp_script_target_count']}**.",
+        (
+            f"Tracked: **{report['tracked_file_count']}**; selected wheel files: **{report['selected_file_count']}**; "
+            f"MCP script paths: **{report['mcp_script_target_count']}**."
+        ),
         "",
         "| Source file | Distribution | MCP | Guard / version | CLI flags | Import / environment signals |",
         "| --- | --- | --- | --- | --- | --- |",
