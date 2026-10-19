@@ -1,12 +1,12 @@
 # Unsorted → ryan-tools Upgrade Roadmap
 
-## Current handoff — 2026-10-07
+## Current handoff — 2026-10-19
 
 | Field | Value |
 | --- | --- |
 | Status | Deferred |
 | Owner | Unassigned |
-| Updated | 2026-10-07 |
+| Updated | 2026-10-19 |
 | Next review | 2027-04-05 |
 | Baseline for registration | Historical migration record; migration remains incomplete but is not being actively progressed |
 
@@ -32,7 +32,7 @@ When upgrading and moving a script from `unsorted/` to `ryan-scripts/`, apply th
    - Third-party imports (`from loguru import logger`, `osgeo`, etc.)
    - `ryan_library` imports (relative within the package; absolute from wrappers and external callers)
    - `main()` and `_parse_cli_arguments()`
-2. **Defensive Pathing**: Wrap `DEFAULT_*` variables in `Path(...)` inside `main()` rather than typing them strictly, so users can lazily edit defaults as strings without breaking `.resolve()` or `.mkdir()` calls.
+2. **Defensive Pathing**: Wrap editable path defaults in `Path(...)` at the wrapper boundary so users may supply strings or `Path` objects. Prefer `Path.absolute()` for ordinary file paths to preserve mapped-drive and user-visible paths; use `Path.resolve()` only when physical identity or symlink-aware security checks are required, as specified in `AGENTS.md`.
 3. **Flexible Inputs**: Use `to_path_list` or `to_single_path` from `ryan_library.functions.path_stuff` at the wrapper/library boundary when a public callable accepts path-like values. Let `argparse` define the CLI's scalar or repeated-input shape explicitly.
 4. **No Print Statements**: Replace all `print()` with `loguru` parameterised logging (`logger.info("Processed {} files", count)`).
 5. **Execution Boundary**: Prefer supported Python APIs when they provide the required behaviour. Use `subprocess` for external command-line tools when that is their supported interface, with explicit arguments, return-code handling and captured diagnostics. Bound concurrent child processes to avoid oversubscription.
@@ -51,6 +51,58 @@ Status key: `[ ]` not started · `[/]` in progress · `[x]` done · `[-]` won't 
 
 Use `[x]` only after the replacement is tracked, its focused validation is complete, and the source disposition in the
 `unsorted` submodule has been finalised. An untracked replacement or an uncommitted source deletion remains `[/]`.
+
+## Focused disposition reconciliation — 19 October 2026
+
+This is a **documentation-only, parent-repository review**, expressly requested before the next general review.
+It does not restart the deferred migration, inspect the `unsorted` submodule through parent-repository automation,
+validate untested parity, or authorise deletions in either repository. A source-cleanup proposal exists in
+[`ryan-tools-unsorted` PR #1](https://github.com/Chain-Frost/ryan-tools-unsorted/pull/1); it is a **different
+repository and PR** from this roadmap. Its proposed deletions must not be interpreted as completed migrations.
+
+Disposition decisions based on verified maintained files and the historical descriptions below:
+
+| Candidate | Maintained implementation / gap | Current disposition |
+| --- | --- | --- |
+| `raster_difference_manual_list_v2.py` | `ryan-scripts/TUFLOW-python/raster_processing/run_python_raster_calculations.py` uses the shared `compute_diff`. | Already migrated; do not duplicate. |
+| `raster_difference_auto_v2.py` and `close_filenames_v1.py` | `calculate_raster_differences.py` and shared `compute_diff` handle computation. Automatic fuzzy EXG/DEV pairing and naming/cutoff behaviour have **not** been established as equivalent. | Retain one bounded discovery/pairing candidate; reuse the current engine, not another differencing implementation. |
+| `simil.py` / `simil-master/` | `vendor/simil/simil.py` with `vendor/simil/README.md` already supplies the upstream implementation. Published-wheel inclusion was not verified. | No second copy into `ryan_library/functions` planned; keep upstream provenance and licensing. |
+| `file_info_v1.py` | Reusable `ryan_library/functions/file_inventory.py` provides document/revision parsing, an integrated file inventory, existing discovery and SHA-256 snapshot reuse. `ryan-scripts/file-management-python/file_inventory.py` exports CSV and Excel using existing export infrastructure. | **Implemented on PR #138**, with focused tests; historical source disposition and final CI remain to be confirmed. MD5 was not carried over (SHA-256 is used optionally). |
+| `make_vrt_list_v1.py` / `make_VRT_for_matching_v1.py` | `ryan-scripts/gdal-python/build_VRT.py` already exists; exact filtering/extent-matching parity is unverified. | Compare requirements first; add missing functionality to the maintained GDAL implementation rather than clone scripts. |
+| `dario_thinning-tif_v4.py` | `ryan-scripts/12D-python/thin-raster-terrain-for-12D_v5.py` already exists. | Review for functional overlap before any new migration; no parity claim yet. |
+| `2d_q_to_csv_v3.py` | Maintained TUFLOW PO combination workflows exist under `po_and_timeseries/`. | Check whether the 2D Q outlet-specific input/output contract is already supported; don't claim full coverage yet. |
+| `calculate_volumes_and_plot.py` / `refactored_calculate_volumes_and_plot.py` | Replaced by `ryan_library/functions/gdal/stage_storage.py` and `ryan-scripts/gdal-python/gdal_stage_storage.py`, which calculate DEM stage-storage and optionally export CSV and plots. | **Already migrated** and tested; no second port. Historical production-use caution still applies. |
+
+**Cleanup risk to reconcile before closing entries:** `ryan-tools-unsorted` PR #1 proposes removing
+`close_filenames_v1.py`, `las-coverage.py`, `rainfall-import.py` and `dario_thinning-tif_v4.py`,
+among other files. Their deletion may be intentional, but no checklist entry becomes `[x]` merely
+because historical source code was removed. Record explicit `[-]` (not planned) decisions, or retain
+a narrowly specified unmet requirement if the behaviour is still wanted. Do not inspect the parent
+repository's `unsorted` submodule to resolve those questions.
+
+### Selection standard: preserve utility, not legacy code
+
+The unsorted scripts are generally **unmaintained reference implementations**, not quality baselines. Do not move
+or modernise one merely because it exists. For each remaining candidate:
+
+1. **Reuse** maintained functionality first. Close out duplicate migration proposals without copying another script.
+2. **Retain** distinctive, reusable functionality with demonstrated value; extract focused library functions and use
+   an optional thin wrapper, rather than reproducing legacy architecture, multiprocessing, formatting or bugs.
+3. **Do not migrate** small, project-specific, obsolete, low-value or readily recreated utilities. Their repository
+   history is sufficient reference if the task arises again, when a better implementation can be written to current
+   requirements. Mark `[-]` when this choice is made; source deletion is not a prerequisite for *not planned*.
+4. **Do not impose exact legacy parity by default.** Validate current requirements, engineering behaviour and
+   important outputs of chosen replacements. Preserve historical formatting or incidental quirks only where users
+   specifically require compatibility.
+5. **Avoid maintenance burden.** Adding code to `ryan_library` entails reusable design, focused tests, type checking,
+   documentation and long-term support; a trivial standalone one-off rarely merits that cost.
+
+For `file_info_v1.py`, **retain document-number/revision parsing and the combined file-inventory workflow**;
+reuse existing library discovery, metadata, hashing and export tools rather than copying the old multiprocessing
+or export implementation. A thin wrapper can expose the combined operation to users.
+
+Remaining unchecked entries below are **historical candidates**, not commitments or evidence that future
+implementation is needed. The migration stays deferred; this disposition review alone does not authorise code work.
 
 ---
 
@@ -142,12 +194,13 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 
 ### Raster differencing suite
 
-- [ ] **`raster_difference_auto_v2.py`** (16 KB) → `ryan-scripts/gdal-python/`
-  - Auto-discovers EXG↔DEV raster pairs using fuzzy filename matching, runs GDAL diff, applies cutoff.
-  - Depends on `close_filenames_v1.py` for the matching logic.
-- [ ] **`close_filenames_v1.py`** (9 KB) → `ryan_library/functions/`
-  - Fuzzy filename matcher that strips AEP/duration/scenario tokens to pair rasters.
-  - Reusable logic — should be a library function that other scripts can import.
+- [ ] **`raster_difference_auto_v2.py`** (16 KB) → extend maintained `ryan-scripts/TUFLOW-python/raster_processing/calculate_raster_differences.py`
+  - Auto-discovers EXG↔DEV raster pairs using fuzzy filename matching, runs raster differences and applies a cutoff.
+  - Difference calculation is already covered by the maintained wrapper and shared `compute_diff`; only discovery, matching, cutoff and legacy output-contract parity remain to be assessed.
+  - Depends on filename-matching behaviour historically represented by `close_filenames_v1.py`; avoid a second computation engine.
+- [ ] **`close_filenames_v1.py`** (9 KB) → possible matching helper in `ryan_library/functions/`
+  - Historical fuzzy filename matcher strips AEP/duration/scenario tokens to pair rasters.
+  - Only retain or reimplement a focused library helper if automatic raster discovery needs behaviour not provided by existing parsers; the legacy source is proposed for deletion in `ryan-tools-unsorted` PR #1.
 - [x] **`raster_difference_manual_list_v2.py`** (7.6 KB) → `ryan-scripts/TUFLOW-python/raster_processing/run_python_raster_calculations.py`
   - Manual file-pair version of raster differencing using `rasterio`.
   - Uses the maintained native ASC_to_ASC-style API after focused alignment, NoData and output-safety validation.
@@ -182,15 +235,17 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 
 - [x] **`gdalwarp_clip_to_polygon.py`** (2 KB) → `ryan-scripts/gdal-python/gdalwarp_clip_to_polygon.py`
   - Clips TIFs to a polygon shapefile using `osgeo.gdal.Warp()`. Modernised to remove `os.system()` and use `argparse`.
-- [ ] **`make_vrt_list_v1.py`** (6.5 KB) → `ryan-scripts/gdal-python/`
-  - Builds VRT with filtering. Extends/complements existing `build_VRT.py`.
+- [ ] **`make_vrt_list_v1.py`** (6.5 KB) → requirements check against `ryan-scripts/gdal-python/build_VRT.py`
+  - Builds VRT with filtering. First check whether existing `build_VRT.py` already meets the required filtering behaviour; only add missing capabilities.
 - [x] **`ogr2ogr_clipper.bat`** → `ryan-scripts/gdal-python/batch_vector_clip.py`
   - Bounded parallel clipping with checked failures, temporary outputs and collision validation.
 
 ### File audit
 
-- [ ] **`file_info_v1.py`** (6 KB) → `ryan-scripts/file-management-python/`
-  - Recursive file metadata (name, size, date, ext) → Excel export.
+- [/] **`file_info_v1.py`** (6 KB) → `ryan_library/functions/file_inventory.py` and `ryan-scripts/file-management-python/file_inventory.py`
+  - Functionality implemented on PR #138: document-number and revision extraction, inventory metadata, optional streaming SHA-256 and CSV/Excel reports.
+  - Reuses maintained discovery, metadata/hash and Excel components; does not copy the legacy multiprocessing/export implementation or MD5 format.
+  - Keep `[/]` until latest CI, focused validation and legacy source disposition are complete. Do not remove the source as part of this PR.
 
 ---
 
@@ -204,10 +259,11 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
   - Finds `.flt` files with no matching `.tif`. Modernised with `pathlib` and `argparse`.
 - [x] **`tif-to-csv-valid-only_v3.py`** (2.2 KB) → `ryan-scripts/gdal-python/gdal_raster_to_xyz.py`
   - Uses bounded `gdal2xyz` workers, deterministic discovery and partial-output cleanup.
-- [ ] **`dario_thinning-tif_v4.py`** (4.4 KB) → `ryan-scripts/12D-python/` or `gdal-python/`
-  - GeoTIFF → thinned XYZ CSV for 12D import.
-- [ ] **`make_VRT_for_matching_v1.py`** (2.9 KB) → merge into `make_vrt_list_v1.py`
-  - VRT builder for matching raster extents before differencing. Might fold into the main VRT tool.
+- [ ] **`dario_thinning-tif_v4.py`** (4.4 KB) → review overlap with `ryan-scripts/12D-python/thin-raster-terrain-for-12D_v5.py`
+  - GeoTIFF → thinned XYZ CSV for 12D import. Do not migrate a duplicate until input/output and thinning parity are checked.
+  - Source deletion is proposed in `ryan-tools-unsorted` PR #1; record an explicit not-planned disposition if replacement is unnecessary.
+- [ ] **`make_VRT_for_matching_v1.py`** (2.9 KB) → extend existing `build_VRT.py` only if needed
+  - VRT builder for matching raster extents before differencing; confirm alignment/extent requirements before deciding whether any implementation is missing.
 
 ### 3D / mesh geometry
 
@@ -216,8 +272,9 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
 
 ### Coordinate transforms
 
-- [ ] **`simil.py`** + **`simil-master/`** (11 KB) → `ryan_library/functions/`
-  - 6-parameter conformal similarity transformation solver. Maths-heavy, reusable.
+- [-] **`simil.py`** + **`simil-master/`** (11 KB) → no additional library migration planned
+  - The upstream 3D similarity-transform solver is already vendored in `vendor/simil/simil.py` with an upstream README and licence reference.
+  - This is a *won't-duplicate* disposition, not a claim that historical source was deleted or wheel packaging verified.
 - [ ] **`translate_las_MGA94Z50_to_YMG_v1-80.py`** (4 KB) → `ryan-scripts/point-cloud-python/`
   - LAS coordinate translation via laspy. Reference for mine-grid transforms.
 - [ ] **`params_6param_PHG_rough.py`** / **`params_david_cosmos_6param_noZ-reverse.py`** → keep as reference data
@@ -229,8 +286,8 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
   - Rainfall gauge data import and processing.
 - [ ] **`2d_q_to_csv_v3.py`** (6 KB) → `ryan-scripts/tuflow-python/`
   - Combines TUFLOW 2D Q outlet CSVs. Related to PO combine workflow.
-- [ ] **`esdat_to_water.py`** (2.8 KB) → `ryan-scripts/other/`
-  - ESDat environmental chemistry CSV → cleaned Excel. Domain-specific.
+- [-] **`esdat_to_water.py`** (2.8 KB) → no migration planned
+  - Domain-specific CSV-to-Excel conversion; rebuild to current schema and project requirements if needed.
 
 ### Project-specific candidates
 
@@ -241,20 +298,21 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
 
 - [ ] **`TUFLOW_Circular_Velocity_v2-incomplete.py`** (17.7 KB) → `ryan-scripts/TUFLOW-python/`
   - Circular culvert velocity checker using 1d_Cmx results. Substantial logic but marked incomplete.
-- [ ] **`wrb_wrr_check.py`** (0.9 KB) → `ryan-scripts/TUFLOW-python/`
-  - Checks for matching `.wrb`/`.wrr` boundary result files.
+- [-] **`wrb_wrr_check.py`** (0.9 KB) → no migration planned
+  - Trivial `.wrb`/`.wrr` file-pair check; readily recreated if needed, without a new maintained wrapper.
 
 ### Plotting / visualisation
 
 - [ ] **`Plot_Profiles.py`** (5.7 KB) → `ryan-scripts/TUFLOW-python/` or `plotting/`
   - WSE profile plotting from ArcMap StackProfile exports. Template for reuse.
-- [ ] **`Burn_Timestep_v2.py`** (2 KB) → `ryan-scripts/other/`
-  - PIL-based time label overlay on animation frames. Pairs with `ffmpeg_merge.bat`.
+- [-] **`Burn_Timestep_v2.py`** (2 KB) → no migration planned
+  - Small image-label operation; straightforward to recreate with current image/video tooling if needed.
 
 ### Volume calculation
 
 - [x] **`calculate_volumes_and_plot.py`** / **`refactored_calculate_volumes_and_plot.py`** → `ryan-scripts/gdal-python/gdal_stage_storage.py`
-  - Shared stage-storage calculation with a thin CSV/plot wrapper.
+  - Replaced by shared `ryan_library/functions/gdal/stage_storage.py` and a thin CSV/optional-plot wrapper; no additional port needed.
+  - The maintained implementation includes projected-metre CRS validation, NoData and exact cell-area volume calculations, with focused tests.
 
 ### asc_to_asc batch grouping
 
@@ -329,8 +387,8 @@ These are too small to warrant a formal upgrade or are reference/parameter files
 - [x] **`convert_gdb.bat`** → `ryan-scripts/gdal-python/convert_gdb_to_gpkg.py`
   - The replacement is tracked and supports selectable vector formats and per-layer or combined-database output. Source
     disposition was finalised in `c7ef077`.
-- [ ] **`gdal_calc_simple.bat`**
-  - No direct replacement is identified. It was deleted in `c7ef077` and remains recoverable from submodule history.
+- [-] **`gdal_calc_simple.bat`**
+  - A simple GDAL command template does not justify a maintained replacement; it was deleted in `c7ef077` and is recoverable from historical source if needed.
 - [/] **`asc2asc_diff_for_multiple_aeps_2.bat`** and **`asc2asc_max_median_for_multiple_durations.bat`**
   - Both sources were deleted in `c7ef077`. Include their historical behaviour in the remaining executable parity review.
 
