@@ -7,6 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
+| [Vendor simil and PyHMA integration](2026-10-19-vendor-integration.md) | Needs review | ChatGPT | 2026-10-19 | 2026-10-21 | PR #139: verify exact-head CI, review numerical and wheel verification, then obtain maintainer approval. No merge authorised. |
 | [Installed scripts and distribution rename](2026-10-18-installed-scripts.md) | Needs review | ChatGPT | 2026-10-18 | 2026-10-19 | Installed MCP 26.10.18.8 passes live stdio checks without checkout override; 37 tests pass. Restart Codex to reload config; review local edits. |
 | [Installed scripts and MCP requirement traceability](2026-10-17-installed-scripts-mcp-pip-distribution.md) | Needs review | ChatGPT | 2026-10-19 | 2026-10-26 | Corrective draft PR #137: validate P2 atomic-copy fix; close review finding from merged #130 only after tests; finish original A–F requirements and 146-file lifecycle audit. PRs #118/#119 independent. |
 | [PyPI release automation](2026-10-15-release-automation.md) | Needs review | Unassigned | 2026-10-18 | 2026-10-19 | PR #135 open with skip-release; verify all checks and review feedback on its latest head. No merge authorized. |

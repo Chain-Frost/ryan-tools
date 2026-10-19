@@ -58,7 +58,10 @@ These documents stay near the code they describe so that browsing a target direc
 | DataFrame examples | [DataFrame examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
 | Rock-protection lookup data | [Outlet rock-protection data](../ryan_library/functions/data/README.md) | Source, interpretation and limits of the bundled multi-pipe lookup tables |
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
-| Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Source algorithm, usage and licence for the vendored similarity-transform implementation |
+| 3D similarity transformations | [Similarity transform API](GEOMETRY_SIMILARITY.md) | Supported fit function, parameters and transform conventions |
+| Vendored algorithms | [Vendor inventory](../vendor/README.md) | Third-party PyHMA and simil source, licence, import and packaging policy |
+| Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Bundled similarity-transform implementation, usage and upstream attribution |
+| Vendored `PyHMA` | [`PyHMA` README](../vendor/PyHMA/README.md) | Hydrograph matching usage, requirements and upstream attribution |
 
 ## Integrations
 
@@ -90,6 +93,7 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licensing, typed similarity API and wheel verification |
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements traceability](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130 correction: original requirements A–F retained with implementation and validation gaps |
 | [Original installed-scripts requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Complete, unedited 17 October requirement baseline preserved after premature #130 merge |
