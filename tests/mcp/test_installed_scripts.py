@@ -210,7 +210,7 @@ def test_staging_is_private_and_mode_set_before_publication(tmp_path: Path, monk
         assert dst_dir_fd is not None
         assert stat.S_IMODE(os.fstat(src_dir_fd).st_mode) == 0o700
         assert stat.S_IMODE(os.stat(source_name, dir_fd=src_dir_fd).st_mode) == 0o754
-        assert os.fstat(src_dir_fd).st_uid == os.geteuid()
+        assert os.fstat(src_dir_fd).st_uid == destination.stat().st_uid
         assert source_name == replacement_name == target.name
         real_replace(source_name, replacement_name, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
 
