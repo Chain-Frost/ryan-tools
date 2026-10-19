@@ -86,10 +86,7 @@ def _replace_wrapper_posix(source: Path, target: Path) -> None:
         try:
             staging_fd = os.open(staging_name, directory_flags, dir_fd=destination_fd)
             staging_stat = os.fstat(staging_fd)
-            if (
-                staging_stat.st_uid != current_uid
-                or stat.S_IMODE(staging_stat.st_mode) != 0o700
-            ):
+            if staging_stat.st_uid != current_uid or stat.S_IMODE(staging_stat.st_mode) != 0o700:
                 msg = f"Staging directory must be private and owned by this user: {staging_name}"
                 raise PermissionError(msg)
 
@@ -131,6 +128,7 @@ def _replace_wrapper_posix(source: Path, target: Path) -> None:
                 os.rmdir(staging_name, dir_fd=destination_fd)
     finally:
         os.close(destination_fd)
+
 
 def copy_wrapper(
     script: str,
