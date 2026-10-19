@@ -35,6 +35,69 @@ def tracked_scripts(root: Path) -> tuple[str, ...]:
     return tuple(sorted(path.removeprefix("ryan-scripts/") for path in items if path.startswith("ryan-scripts/")))
 
 
+# Effects that must not happen merely because an installed wrapper is imported.
+# Keep this list deliberately narrow: a generic call such as Path() or a
+# logger constructor is not equivalent to executing a copy/delete operation.
+UNSAFE_IMPORT_CALLS: frozenset[str] = frozenset(
+    {
+        "WNetAddConnection2W",
+        "WNetCancelConnection2W",
+        "copy",
+        "copy2",
+        "copyfile",
+        "copytree",
+        "rmtree",
+        "remove",
+        "unlink",
+        "replace",
+        "rename",
+        "mkdir",
+        "makedirs",
+        "Popen",
+        "run",
+        "check_call",
+        "check_output",
+        "system",
+    }
+)
+
+
+def _call_name(node: ast.Call) -> str:
+    """Return the final callable identifier without evaluating the call."""
+    current: ast.expr = node.func
+    if isinstance(current, ast.Name):
+        return current.id
+    if isinstance(current, ast.Attribute):
+        return current.attr
+    return "<dynamic>"
+
+
+def _import_time_call_names(module: ast.Module) -> list[str]:
+    """Flag calls outside functions, classes and the `__main__` guard."""
+    found: set[str] = set()
+
+    def examine(node: ast.AST) -> None:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            return
+        if isinstance(node, ast.If) and isinstance(node.test, ast.Compare):
+            if (
+                isinstance(node.test.left, ast.Name)
+                and node.test.left.id == "__name__"
+                and any(isinstance(v, ast.Constant) and v.value == "__main__" for v in node.test.comparators)
+            ):
+                return
+        if isinstance(node, ast.Call):
+            name = _call_name(node)
+            if name in UNSAFE_IMPORT_CALLS:
+                found.add(name)
+        for child in ast.iter_child_nodes(node):
+            examine(child)
+
+    for statement in module.body:
+        examine(statement)
+    return sorted(found)
+
+
 def analyse_python(source: str) -> dict[str, Any]:
     """Inspect syntax only; never import or execute a script."""
     try:
@@ -70,8 +133,11 @@ def analyse_python(source: str) -> dict[str, Any]:
         )
         for node in tree.body
     )
+    unsafe_calls = _import_time_call_names(tree)
     return {
         "parse_status": "ok",
+        "import_time_mutation_calls": unsafe_calls,
+        "import_time_mutation_risk": bool(unsafe_calls),
         "imports": sorted(imports),
         "main_guard": guarded,
         "wrapper_version_declared": has_wrapper_version,
@@ -105,6 +171,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
     tracked = tracked_scripts(root)
     missing_selected = sorted(selected.difference(tracked))
     missing_mcp = sorted(set(mcp_targets).difference(selected))
+    unsafe_selected: list[dict[str, str]] = []
     items: list[dict[str, Any]] = []
     for relative in tracked:
         path = root / "ryan-scripts" / relative
@@ -123,6 +190,16 @@ def audit_repository(root: Path) -> dict[str, Any]:
                 entry["parse_status"] = "undecodable_python"
         else:
             entry["parse_status"] = "non_python"
+        if entry["in_wheel"] and path.suffix.lower() == ".py" and path.name != "__init__.py":
+            reasons: list[str] = []
+            if entry.get("parse_status") != "ok":
+                reasons.append("not valid or decodable Python")
+            if entry.get("main_guard") is not True:
+                reasons.append("no protected __main__ entry point")
+            if entry.get("import_time_mutation_risk"):
+                reasons.append("potential import-time mutation: " + ", ".join(entry["import_time_mutation_calls"]))
+            if reasons:
+                unsafe_selected.append({"path": relative, "reason": "; ".join(reasons)})
         items.append(entry)
     return {
         "schema_version": 1,
@@ -132,6 +209,7 @@ def audit_repository(root: Path) -> dict[str, Any]:
         "mcp_script_target_count": len(mcp_targets),
         "missing_selected": missing_selected,
         "mcp_targets_not_selected": missing_mcp,
+        "unsafe_selected": unsafe_selected,
         "files": items,
     }
 
@@ -141,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=PROJECT_ROOT)
     parser.add_argument("--output", type=Path, help="Write JSON report here instead of stdout.")
-    parser.add_argument("--check", action="store_true", help="Fail if wheel/MCP references are missing.")
+    parser.add_argument("--check", action="store_true", help="Fail on missing wheel/MCP paths or unsafe selected Python entry points.")
     args = parser.parse_args(argv)
     report = audit_repository(args.root.absolute())
     payload = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
@@ -152,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(payload, encoding="utf-8")
         print(f"Wrote {report['tracked_file_count']} static inventory records to {target}")
-    if args.check and (report["missing_selected"] or report["mcp_targets_not_selected"]):
+    if args.check and (report["missing_selected"] or report["mcp_targets_not_selected"] or report["unsafe_selected"]):
         return 1
     return 0
 
