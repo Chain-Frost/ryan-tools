@@ -323,7 +323,10 @@ def find(
 
     n = source_coords.shape[1]
 
-    if n == 1 or (source_coords[None, 0] == source_coords).all():
+    # Compare complete control points (columns), not their x/y/z coordinate rows.
+    # The old broadcast comparison rejected valid controls on x=y=z and
+    # allowed truly repeated XYZ points into the eigensolver.
+    if n < 2 or np.all(source_coords == source_coords[:, :1]):
         err_msg = "There are not two distinct source points."
         raise ValueError(err_msg)
 

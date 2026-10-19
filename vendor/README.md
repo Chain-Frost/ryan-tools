@@ -10,7 +10,7 @@ These modules are third-party sources retained in `ryan-tools` for specialized a
 Each component includes a copy of the required upstream license text. Original upstream commit identifiers were not recorded when these files were first imported; do not assume they match current upstream HEAD. Compare and record an upstream revision before attempting to refresh either implementation.
 
 Local integration adjustments:
-- `simil`: public `numpy.typing.NDArray` and `collections.abc.Sequence` imports; added package initializer for stable imports.
+- `simil`: public `numpy.typing.NDArray` and `collections.abc.Sequence` imports; added package initializer for stable imports; fixed the complete-point uniqueness precondition (no change to the fitting algorithm).
 - `PyHMA`: algorithm remains upstream-derived and unmodified. Its import requirements (`scipy`, `bottleneck`, NumPy, pandas and matplotlib) are supplied by `ryan-tools` dependencies.
 - `vendor.__init__`: preserves `from vendor import HMA` as a lazy compatibility import without importing PyHMA when using `simil`.
 

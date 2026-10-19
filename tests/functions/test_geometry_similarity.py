@@ -45,6 +45,40 @@ def test_similarity_rejects_insufficient_control_points() -> None:
         find_similarity_transform([[1.0, 2.0, 3.0]], [[2.0, 3.0, 4.0]])
 
 
+@pytest.mark.parametrize(
+    "source_points",
+    [
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]],
+        [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]],
+    ],
+)
+def test_similarity_accepts_distinct_points_with_matching_xyz_axes(source_points: list[list[float]]) -> None:
+    """Distinct XYZ controls must not be confused with equal coordinate axes."""
+    source = np.asarray(source_points, dtype=np.float64)
+    target = source + np.array([3.0, 7.0, 5.0])
+
+    multiplier, rotation, translation = find_similarity_transform(
+        source, target, estimate_scale=False, initial_scale=1.0
+    )
+
+    assert multiplier == pytest.approx(1.0)
+    np.testing.assert_allclose((multiplier * rotation @ source.T + translation).T, target, atol=1e-10)
+
+
+@pytest.mark.parametrize("count", [2, 3])
+def test_similarity_rejects_duplicate_source_points_before_eigensolver(count: int) -> None:
+    """Identical complete control points fail consistently in the vendor and public APIs."""
+    source = [[1.0, 2.0, 3.0]] * count
+    target = [[2.0 + i, 3.0 + i, 4.0 + i] for i in range(count)]
+    from vendor.simil import find as vendor_find
+
+    with pytest.raises(ValueError, match="two distinct source points"):
+        vendor_find(source, target)
+
+    with pytest.raises(ValueError, match="two distinct source points"):
+        find_similarity_transform(source, target)
+
+
 def test_vendor_imports_are_independent_and_pyhma_runs() -> None:
     """Only explicit HMA access should load its additional scientific stack."""
     code = """

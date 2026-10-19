@@ -23,11 +23,12 @@ Improve integration for the retained `vendor/simil/simil.py` and `vendor/PyHMA/_
 - Both MIT licenses and source/usage documentation are shipped as package data. The original upstream source revisions are unknown; documentation records that limitation.
 - Wheel verifier checks vendored Python, README and licence files byte-for-byte.
 - Focused tests cover the upstream transform worked example, fixed-scale and weighted inputs, invalid points, lazy imports and PyHMA identity-score smoke.
+- Codex P2 finding on incorrect source-point uniqueness is addressed by a narrow vendor precondition correction and public/vendor regression tests for diagonal and duplicated controls; re-review and exact-head CI are required.
 - Latest PR checks must be inspected after all commits; do not treat an earlier green run as exact-head evidence.
 
 ## Next action
 
-Review all checks against the latest PR commit. If a failure occurs, inspect its logs and fix on this branch. If checks pass, perform maintainer review of API fit and Python 3.14 compatibility before marking this integration complete.
+Confirm new control-point regressions, request a fresh Codex review and resolve the original P2 review thread after verification. Review all checks against the latest PR commit. If a failure occurs, inspect its logs and fix on this branch. If checks pass, perform maintainer review of API fit and Python 3.14 compatibility before marking this integration complete.
 
 ## Completion criteria
 
@@ -47,6 +48,10 @@ Review all checks against the latest PR commit. If a failure occurs, inspect its
 - Delivery: changes committed to branch, draft PR #139 open. The base repository `main` has not been modified.
 
 ## Progress
+
+### 2026-10-19 — Codex P2 follow-up
+
+Corrected the vendored source-point distinctness predicate to compare complete XYZ point columns instead of coordinate rows. Added two- and three-point diagonal controls and duplicate-source regression cases for both public and vendor imports. Awaiting exact-head CI and independent Codex re-review. No merge authorised.
 
 ### 2026-10-19
 
