@@ -64,3 +64,53 @@ def test_manifest_catalogue_and_tracked_sources_remain_accounted_for() -> None:
     culvert = next(entry for entry in records if entry["path"] == "culvert.py")
     assert culvert["in_wheel"] is True
     assert "culvert_analysis_design" in culvert["mcp_workflow_ids"]
+
+
+def test_import_time_mutation_detection_does_not_execute_script() -> None:
+    """A network-copy script must never enter the ordinary wheel allowlist."""
+    unguarded = (
+        "import shutil\n"
+        "from pathlib import Path\n"
+        "source = Path('input.dat')\n"
+        "shutil.copy2(source, Path('output.dat'))\n"
+    )
+    unsafe = inventory.analyse_python(unguarded)
+    assert unsafe["import_time_mutation_risk"] is True
+    assert unsafe["import_time_mutation_calls"] == ["copy2"]
+    assert unsafe["main_guard"] is False
+
+    guarded = (
+        "import shutil\n"
+        "def main():\n"
+        "    shutil.copy2('input.dat', 'output.dat')\n"
+        "if __name__ == '__main__':\n"
+        "    main()\n"
+    )
+    safe = inventory.analyse_python(guarded)
+    assert safe["import_time_mutation_risk"] is False
+    assert safe["main_guard"] is True
+
+
+def test_selected_installed_python_has_guard_and_no_import_time_mutation() -> None:
+    """Assess every packaged Python file, not just representative wrappers."""
+    report = inventory.audit_repository(ROOT)
+    assert report["unsafe_selected"] == []
+    records = report["files"]
+    installed = [r for r in records if r["in_wheel"] and r["path"].endswith(".py")]
+    assert installed
+    for record in installed:
+        assert record["parse_status"] == "ok", record["path"]
+        if not record["path"].endswith("/__init__.py"):
+            assert record["main_guard"], record["path"]
+        assert not record["import_time_mutation_risk"], record["path"]
+
+
+def test_import_executing_network_copy_scripts_are_repository_only() -> None:
+    """Keep original editable scripts while excluding unsafe import side effects."""
+    report = inventory.audit_repository(ROOT)
+    for filename in ("file-management-python/copy_file.py", "file-management-python/copy_folder.py"):
+        row = next(item for item in report["files"] if item["path"] == filename)
+        assert not row["in_wheel"]
+        assert not row["mcp_workflow_ids"]
+        assert row["main_guard"] is False
+        assert row["import_time_mutation_risk"] is True
