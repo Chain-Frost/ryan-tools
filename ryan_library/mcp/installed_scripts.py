@@ -55,7 +55,6 @@ def _copy_new_wrapper(source: Path, target: Path) -> None:
             shutil.copymode(source, target)
 
 
-
 def _replace_wrapper_posix(source: Path, target: Path, staging_directory: Path) -> None:
     """Publish the genuine staged inode using directory descriptors.
 
