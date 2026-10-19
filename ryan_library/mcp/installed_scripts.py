@@ -63,15 +63,16 @@ def _replace_wrapper_posix(source: Path, target: Path, staging_directory: Path) 
     the child *pathname* at publication would then trust a substituted entry.
     Both publication paths are therefore relative to opened directories.
     """
-    directory_flags: int = (
-        os.O_RDONLY | cast("int", vars(os)["O_DIRECTORY"]) | cast("int", vars(os)["O_NOFOLLOW"])
-    )
+    directory_flags: int = os.O_RDONLY | cast("int", vars(os)["O_DIRECTORY"]) | cast("int", vars(os)["O_NOFOLLOW"])
     destination_fd = os.open(target.parent, directory_flags)
     try:
         staging_fd = os.open(staging_directory, directory_flags)
         try:
             staging_stat = os.fstat(staging_fd)
-            if staging_stat.st_uid != cast("Callable[[], int]", vars(os)["geteuid"])() or stat.S_IMODE(staging_stat.st_mode) != 0o700:
+            if (
+                staging_stat.st_uid != cast("Callable[[], int]", vars(os)["geteuid"])()
+                or stat.S_IMODE(staging_stat.st_mode) != 0o700
+            ):
                 msg = f"Staging directory must be private and owned by this user: {staging_directory}"
                 raise PermissionError(msg)
 
