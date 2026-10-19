@@ -284,7 +284,8 @@ def find(
         The function will check that there are as many target points
         as source points.
     alpha_0 : array_like, optional
-        Per point weights.
+        Per-point finite, nonnegative weights (zero disables a control).
+        At least two distinct source points must have positive weights.
         If provided, the function will try to cast to a numpy array with
         shape: ``(n,)``.
     scale : boolean, optional
@@ -356,6 +357,17 @@ def find(
 
     if alpha_0_arr.shape != (n,):
         err_msg = "There are not as many alpha_0 coefficients as " "control points."
+        raise ValueError(err_msg)
+
+    # Only finite nonnegative weights are valid. Zero-weight controls do not
+    # contribute to the fit and must not count towards its minimum geometry.
+    if not np.all(np.isfinite(alpha_0_arr)) or np.any(alpha_0_arr < 0):
+        err_msg = "alpha_0 weights must be finite and nonnegative."
+        raise ValueError(err_msg)
+
+    weighted_source_coords = source_coords[:, alpha_0_arr > 0]
+    if weighted_source_coords.shape[1] < 2 or np.all(weighted_source_coords == weighted_source_coords[:, :1]):
+        err_msg = "At least two distinct source points must have positive alpha_0 weights."
         raise ValueError(err_msg)
 
     lambda_0_float = float(lambda_0)

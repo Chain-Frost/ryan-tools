@@ -79,6 +79,56 @@ def test_similarity_rejects_duplicate_source_points_before_eigensolver(count: in
         find_similarity_transform(source, target)
 
 
+@pytest.mark.parametrize(
+    ("weights", "match"),
+    [
+        ([1.0, 0.0], "two distinct source points must have positive"),
+        ([0.0, 0.0], "two distinct source points must have positive"),
+        ([-1.0, 1.0], "weights must be finite and nonnegative"),
+        ([float("nan"), 1.0], "weights must be finite and nonnegative"),
+        ([float("inf"), 1.0], "weights must be finite and nonnegative"),
+        ([float("-inf"), 1.0], "weights must be finite and nonnegative"),
+    ],
+)
+def test_similarity_rejects_invalid_two_point_weights(weights: list[float], match: str) -> None:
+    """Reject an underdetermined or invalid weighted fit in both import paths."""
+    from vendor.simil import find as vendor_find
+
+    source = [[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]]
+    target = [[2.0, 3.0, 4.0], [3.0, 4.0, 5.0]]
+    with pytest.raises(ValueError, match=match):
+        vendor_find(source, target, alpha_0=weights)
+    with pytest.raises(ValueError, match=match):
+        find_similarity_transform(source, target, weights=weights)
+
+
+def test_similarity_rejects_duplicate_positive_weighted_controls() -> None:
+    """An ignored distinct control does not rescue repeated active coordinates."""
+    from vendor.simil import find as vendor_find
+
+    source = [[1.0, 2.0, 3.0], [1.0, 2.0, 3.0], [2.0, 3.0, 4.0]]
+    target = [[4.0, 5.0, 6.0], [4.0, 5.0, 6.0], [5.0, 6.0, 7.0]]
+    weights = [1.0, 2.0, 0.0]
+    with pytest.raises(ValueError, match="two distinct source points must have positive"):
+        vendor_find(source, target, alpha_0=weights)
+    with pytest.raises(ValueError, match="two distinct source points must have positive"):
+        find_similarity_transform(source, target, weights=weights)
+
+
+def test_similarity_accepts_zero_weight_controls_with_sufficient_active_geometry() -> None:
+    """Unused controls are valid when enough distinct positively weighted points remain."""
+    from vendor.simil import find as vendor_find
+
+    weights = [1.0, 0.0, 1.0, 0.0, 1.0]
+    for solver in (
+        lambda: vendor_find(SOURCE, TARGET, alpha_0=weights),
+        lambda: find_similarity_transform(SOURCE, TARGET, weights=weights),
+    ):
+        scale, rotation, translation = solver()
+        assert scale == pytest.approx(1.5, abs=1e-10)
+        np.testing.assert_allclose((scale * rotation @ SOURCE.T + translation).T, TARGET, atol=1e-10)
+
+
 def test_vendor_imports_are_independent_and_pyhma_runs() -> None:
     """Only explicit HMA access should load its additional scientific stack."""
     code = """

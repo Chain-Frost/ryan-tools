@@ -24,7 +24,7 @@ Improve integration for the retained `vendor/simil/simil.py` and `vendor/PyHMA/_
 - Wheel verifier checks vendored Python, README and licence files byte-for-byte.
 - Focused tests cover the upstream transform worked example, fixed-scale and weighted inputs, invalid points, lazy imports and PyHMA identity-score smoke.
 - Codex P2 finding on incorrect source-point uniqueness is addressed by a narrow vendor precondition correction and public/vendor regression tests for diagonal and duplicated controls; re-review and exact-head CI are required.
-- Latest PR checks must be inspected after all commits; do not treat an earlier green run as exact-head evidence.
+- The second Codex P2 finding identified zero/invalid weights causing degenerate fits. This update validates finite nonnegative weights and at least two distinct positively weighted controls in the vendor entry point, and tests both public and vendor entry points. Exact-head CI and another Codex review are required.
 
 ## Next action
 
@@ -48,6 +48,10 @@ Confirm new control-point regressions, request a fresh Codex review and resolve 
 - Delivery: changes committed to branch, draft PR #139 open. The base repository `main` has not been modified.
 
 ## Progress
+
+### 2026-10-19 — Weighted-control Codex follow-up
+
+Reject negative/nonfinite weights and require two distinct positively weighted source controls. Allow zero-weight controls only where active geometry remains sufficient. Add direct vendor and public API regressions. Preserve the numerical fitting algorithm. CI and Codex re-review pending; no merge authorised.
 
 ### 2026-10-19 — Codex P2 follow-up
 
