@@ -70,9 +70,7 @@ def test_copy_is_byte_identical_and_does_not_overwrite(tmp_path: Path) -> None:
         "tuflow/tuflow_culvert_from_1d_nwk.py",
     ],
 )
-def test_copy_preserves_entire_original_wrapper_including_editable_defaults(
-    script: str, tmp_path: Path
-) -> None:
+def test_copy_preserves_entire_original_wrapper_including_editable_defaults(script: str, tmp_path: Path) -> None:
     """Original-file copy must not rewrite defaults, identity, help or flags."""
     assert script in available_wrappers()
     source = ROOT / "ryan-scripts" / script
