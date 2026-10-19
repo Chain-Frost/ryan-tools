@@ -99,6 +99,25 @@ def _import_time_call_names(module: ast.Module) -> list[str]:
     return sorted(found)
 
 
+def _editable_setting_names(module: ast.Module) -> list[str]:
+    """Identify editable constants without exposing sensitive configured values."""
+    names: set[str] = set()
+    for statement in module.body:
+        if isinstance(statement, ast.Assign):
+            targets = statement.targets
+        elif isinstance(statement, ast.AnnAssign):
+            targets = [statement.target]
+        else:
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name) and (
+                target.id.startswith("DEFAULT_")
+                or target.id in {"WORKING_DIR", "PATHS_TO_PROCESS", "INPUT_DIR", "OUTPUT_DIR"}
+            ):
+                names.add(target.id)
+    return sorted(names)
+
+
 def analyse_python(source: str) -> dict[str, Any]:
     """Inspect syntax only; never import or execute a script."""
     try:
@@ -135,6 +154,7 @@ def analyse_python(source: str) -> dict[str, Any]:
         for node in tree.body
     )
     unsafe_calls = _import_time_call_names(tree)
+    callable_names = {_call_name(node) for node in ast.walk(tree) if isinstance(node, ast.Call)}
     return {
         "parse_status": "ok",
         "import_time_mutation_calls": unsafe_calls,
@@ -148,6 +168,13 @@ def analyse_python(source: str) -> dict[str, Any]:
         "absolute_drive_literal": any(DRIVE_LITERAL.search(value) is not None for value in literals),
         "top_level_call_expressions": call_sites,
         "subprocess_imported": "subprocess" in imports,
+        "editable_setting_names": _editable_setting_names(tree),
+        "wrapper_banner_called": "print_wrapper_banner" in callable_names,
+        "system_exit_called": "SystemExit" in callable_names or "exit" in callable_names,
+        "dry_run_literal": "--dry-run" in literals,
+        "destructive_option_literals": sorted(
+            literals.intersection({"--delete", "--replace", "--overwrite", "--yes", "--force"})
+        ),
     }
 
 
@@ -237,8 +264,8 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"MCP script paths: **{report['mcp_script_target_count']}**."
         ),
         "",
-        "| Source file | Distribution | MCP | Guard / version | CLI flags | Import / environment signals |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| Source file | Distribution | MCP | Guard / version | CLI / safety flags | Defaults / exit / banner | Import / environment signals |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for entry in report["files"]:
         path = str(entry["path"]).replace("|", "\\|").replace("`", "")
@@ -248,6 +275,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             context = str(entry.get("parse_status", "unknown"))
             signals = "Non-Python/resource or requires separate review"
             flags = "—"
+            behavior = "N/A"
         else:
             guarded = "guard" if entry["main_guard"] else "NO GUARD"
             version = "version" if entry["wrapper_version_declared"] else "no version"
@@ -255,6 +283,14 @@ def render_markdown(report: dict[str, Any]) -> str:
             flags = "argparse" if entry["argparse_imported"] else "no argparse"
             if entry["no_pause_literal"]:
                 flags += "; no-pause"
+            if entry["dry_run_literal"]:
+                flags += "; dry-run"
+            if entry["destructive_option_literals"]:
+                flags += "; " + ", ".join(entry["destructive_option_literals"])
+            settings = entry["editable_setting_names"]
+            behavior = f"{len(settings)} visible defaults"
+            behavior += "; SystemExit" if entry["system_exit_called"] else "; exit unverified"
+            behavior += "; banner" if entry["wrapper_banner_called"] else "; no banner"
             details: list[str] = []
             if entry["import_time_mutation_risk"]:
                 details.append("UNSAFE IMPORT: " + ", ".join(entry["import_time_mutation_calls"]))
@@ -267,7 +303,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             if entry["top_level_call_expressions"]:
                 details.append(f"module call expressions={entry['top_level_call_expressions']}")
             signals = ", ".join(details) if details else "no flagged static signals"
-        rows.append(f"| `{path}` | {wheel} | {mcp} | {context} | {flags} | {signals} |")
+        rows.append(f"| `{path}` | {wheel} | {mcp} | {context} | {flags} | {behavior} | {signals} |")
     rows.extend(
         [
             "",
