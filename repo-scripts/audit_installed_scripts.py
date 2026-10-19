@@ -290,7 +290,6 @@ def _markdown_row(entry: dict[str, Any]) -> str:
     return f"| `{path}` | {wheel} | {mcp} | {context} | {flags} | {behavior} | {signals} |"
 
 
-
 def render_markdown(report: dict[str, Any]) -> str:
     """Produce per-file evidence for review, without claiming engineering approval."""
     rows: list[str] = [
