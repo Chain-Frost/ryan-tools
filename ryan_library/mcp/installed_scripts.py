@@ -78,7 +78,7 @@ def _replace_wrapper_posix(source: Path, target: Path, staging_directory: Path) 
             # Open relative to the verified directory inode, not the pathname.
             staged_fd = os.open(
                 target.name,
-                os.O_WRONLY | os.O_CREAT | os.O_EXCL | cast("int", getattr(os, "O_NOFOLLOW")),
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | cast("int", vars(os)["O_NOFOLLOW"]),
                 0o600,
                 dir_fd=staging_fd,
             )
