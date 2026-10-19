@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import shutil
 import stat
 import tempfile
@@ -56,27 +57,42 @@ def _copy_new_wrapper(source: Path, target: Path) -> None:
             shutil.copymode(source, target)
 
 
-def _replace_wrapper_posix(source: Path, target: Path, staging_directory: Path) -> None:
-    """Publish the genuine staged inode using directory descriptors.
+def _replace_wrapper_posix(source: Path, target: Path) -> None:
+    """Publish and clean up staged files through verified directory descriptors.
 
-    A peer can rename a private child directory in a writable parent; using
-    the child *pathname* at publication would then trust a substituted entry.
-    Both publication paths are therefore relative to opened directories.
+    Never recurse through a staging pathname during cleanup: another user can
+    rename a child directory in an unsafe writable parent. POSIX staging and
+    publication are relative to the already-open destination and stage dirs.
     """
     directory_flags: int = os.O_RDONLY | cast("int", vars(os)["O_DIRECTORY"]) | cast("int", vars(os)["O_NOFOLLOW"])
     destination_fd = os.open(target.parent, directory_flags)
     try:
-        staging_fd = os.open(staging_directory, directory_flags)
+        destination_stat = os.fstat(destination_fd)
+        current_uid = cast("Callable[[], int]", vars(os)["geteuid"])()
+        # A non-sticky, peer-writable directory lets another user swap our
+        # staging entry between identity checking and rmdir. A sticky parent
+        # is safe only if its owner is the caller or root.
+        if destination_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH) and (
+            not destination_stat.st_mode & stat.S_ISVTX or destination_stat.st_uid not in {0, current_uid}
+        ):
+            msg = f"Refusing atomic overwrite in an unsafe peer-writable directory: {target.parent}"
+            raise PermissionError(msg)
+
+        # mkdir via dirfd prevents redirecting the parent pathname while
+        # staging; a random name also avoids collisions with existing entries.
+        staging_name = f".{target.name}.stage-{secrets.token_hex(16)}"
+        os.mkdir(staging_name, mode=0o700, dir_fd=destination_fd)
+        staging_fd: int | None = None
         try:
+            staging_fd = os.open(staging_name, directory_flags, dir_fd=destination_fd)
             staging_stat = os.fstat(staging_fd)
             if (
-                staging_stat.st_uid != cast("Callable[[], int]", vars(os)["geteuid"])()
+                staging_stat.st_uid != current_uid
                 or stat.S_IMODE(staging_stat.st_mode) != 0o700
             ):
-                msg = f"Staging directory must be private and owned by this user: {staging_directory}"
+                msg = f"Staging directory must be private and owned by this user: {staging_name}"
                 raise PermissionError(msg)
 
-            # Open relative to the verified directory inode, not the pathname.
             staged_fd = os.open(
                 target.name,
                 os.O_WRONLY | os.O_CREAT | os.O_EXCL | cast("int", vars(os)["O_NOFOLLOW"]),
@@ -86,14 +102,35 @@ def _replace_wrapper_posix(source: Path, target: Path, staging_directory: Path) 
             with os.fdopen(staged_fd, "wb") as temporary, source.open("rb") as original:
                 shutil.copyfileobj(original, temporary)
                 os.fchmod(temporary.fileno(), stat.S_IMODE(os.fstat(original.fileno()).st_mode))
-            # Even if the stage directory's pathname is swapped, the source
-            # entry below is resolved in the original, already-open directory.
             os.replace(target.name, target.name, src_dir_fd=staging_fd, dst_dir_fd=destination_fd)
         finally:
-            os.close(staging_fd)
+            if staging_fd is not None:
+                try:
+                    # If publication failed, unlink only our staged file from
+                    # the originally opened directory, not a swapped pathname.
+                    try:
+                        os.unlink(target.name, dir_fd=staging_fd)
+                    except FileNotFoundError:
+                        pass
+
+                    # If the name now refers to something else, leave it
+                    # untouched. os.rmdir is nonrecursive even if a rename
+                    # occurs later; the parent mode guard prevents peer swaps.
+                    try:
+                        current = os.stat(staging_name, dir_fd=destination_fd, follow_symlinks=False)
+                    except FileNotFoundError:
+                        pass
+                    else:
+                        if (current.st_dev, current.st_ino) == (staging_stat.st_dev, staging_stat.st_ino):
+                            os.rmdir(staging_name, dir_fd=destination_fd)
+                finally:
+                    os.close(staging_fd)
+            else:
+                # Opening the new stage failed. A nonrecursive rmdir cannot
+                # descend into a substituted directory or follow a symlink.
+                os.rmdir(staging_name, dir_fd=destination_fd)
     finally:
         os.close(destination_fd)
-
 
 def copy_wrapper(
     script: str,
@@ -130,13 +167,13 @@ def copy_wrapper(
         _copy_new_wrapper(source, target)
         return target
 
-    with tempfile.TemporaryDirectory(dir=target_directory, prefix=f".{target.name}.stage-") as staging_directory:
-        staged = Path(staging_directory) / target.name
-        if os.name == "posix":
-            _replace_wrapper_posix(source, target, Path(staging_directory))
-        else:
-            # Windows does not support fd-relative os.replace. Preserve the
-            # original cross-platform copy behavior and read-only attribute.
+    if os.name == "posix":
+        _replace_wrapper_posix(source, target)
+    else:
+        # Windows does not support fd-relative os.replace. Retain the normal
+        # TemporaryDirectory lifecycle and source read-only attribute there.
+        with tempfile.TemporaryDirectory(dir=target_directory, prefix=f".{target.name}.stage-") as staging_directory:
+            staged = Path(staging_directory) / target.name
             with source.open("rb") as original, staged.open("xb") as temporary:
                 shutil.copyfileobj(original, temporary)
             shutil.copymode(source, staged)
