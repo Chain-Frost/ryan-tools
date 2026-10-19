@@ -5,13 +5,18 @@ from __future__ import annotations
 import argparse
 import importlib.metadata
 import importlib.resources
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import culvert_solver
+import numpy as np
 import run_hy8
 
 import ryan_library
+import vendor
+import vendor.simil as vendor_simil
+from ryan_library.functions.geometry import find_similarity_transform
 from ryan_library.functions.path_stuff import sanitize_windows_filename
 from ryan_library.mcp.installed_scripts import available_wrappers, copy_wrapper
 from ryan_library.mcp.registry import WorkflowRegistry
@@ -49,6 +54,21 @@ def _check_installed_wrapper_copy() -> None:
             raise RuntimeError(msg)
 
 
+def _check_vendored_similarity() -> None:
+    """Verify the installed simil algorithm without loading PyHMA."""
+    if "vendor.PyHMA" in sys.modules:
+        msg = "Importing vendored simil unexpectedly loads PyHMA."
+        raise RuntimeError(msg)
+
+    source = np.array([[0, 0, 0], [0, 2, 2], [2, 3, 1], [3, 1, 2], [1, 1, 3]], dtype=np.float64)
+    target = np.array([[3, 7, 5], [6, 7, 2], [4.5, 4, 0.5], [6, 2.5, 3.5], [7.5, 5.5, 3.5]])
+    multiplier, rotation, translation = find_similarity_transform(source, target)
+    transformed = (multiplier * rotation @ source.T + translation).T
+    if not np.isclose(multiplier, 1.5) or not np.allclose(transformed, target, atol=1e-10):
+        msg = "Installed vendored similarity transform failed its known-control-point check."
+        raise RuntimeError(msg)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Verify metadata, import locations, resources and small public operations."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -71,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
             ("culvert_solver", culvert_solver.__file__),
             ("run_hy8", run_hy8.__file__),
             ("ryan_library", ryan_library.__file__),
+            ("vendor", vendor.__file__),
+            ("vendor.simil", vendor_simil.__file__),
         ):
             _require_installed_below(module_file, expected_root, package)
 
@@ -97,6 +119,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _check_installed_scripts()
     _check_installed_wrapper_copy()
+    _check_vendored_similarity()
 
     print(f"Installed-wheel smoke test passed for ryan-tools {installed_version}.")
     return 0

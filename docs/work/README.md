@@ -5,6 +5,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 ## Open work
 
+| [Vendor simil and PyHMA integration](2026-10-19-vendor-integration.md) | Needs review | ChatGPT | 2026-10-19 | 2026-10-21 | PR #139: verify exact-head CI, review numerical and wheel verification, then obtain maintainer approval. No merge authorised. |
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
 | [Installed scripts and distribution rename](2026-10-18-installed-scripts.md) | Needs review | ChatGPT | 2026-10-18 | 2026-10-19 | Installed MCP 26.10.18.8 passes live stdio checks without checkout override; 37 tests pass. Restart Codex to reload config; review local edits. |
