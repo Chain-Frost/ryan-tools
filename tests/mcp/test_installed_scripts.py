@@ -86,14 +86,26 @@ def test_overwrite_replaces_swapped_symlink_without_writing_its_target(
     except (OSError, NotImplementedError) as exc:
         pytest.skip(f"Host does not permit creating test symlinks: {exc}")
     probe.unlink()
-    real_replace = Path.replace
+    if os.name == "posix":
+        real_replace = os.replace
 
-    def replace_after_swap(source: Path, destination: str | os.PathLike[str]) -> Path:
-        target.unlink()
-        target.symlink_to(victim)
-        return real_replace(source, destination)
+        def replace_after_swap(
+            source: str, destination: str, *, src_dir_fd: int | None = None, dst_dir_fd: int | None = None
+        ) -> None:
+            target.unlink()
+            target.symlink_to(victim)
+            real_replace(source, destination, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
 
-    monkeypatch.setattr(Path, "replace", replace_after_swap)
+        monkeypatch.setattr(os, "replace", replace_after_swap)
+    else:
+        real_path_replace = Path.replace
+
+        def path_replace_after_swap(source: Path, destination: str | os.PathLike[str]) -> Path:
+            target.unlink()
+            target.symlink_to(victim)
+            return real_path_replace(source, destination)
+
+        monkeypatch.setattr(Path, "replace", path_replace_after_swap)
     result = copy_wrapper("culvert.py", tmp_path, overwrite=True)
 
     assert result == target
@@ -111,14 +123,26 @@ def test_overwrite_replaces_swapped_hardlink_without_modifying_other_file(
     victim.write_bytes(b"must not change")
     target = tmp_path / "culvert.py"
     target.write_bytes(b"previous contents")
-    real_replace = Path.replace
+    if os.name == "posix":
+        real_replace = os.replace
 
-    def replace_after_swap(source: Path, destination: str | os.PathLike[str]) -> Path:
-        target.unlink()
-        os.link(victim, target)
-        return real_replace(source, destination)
+        def replace_after_swap(
+            source: str, destination: str, *, src_dir_fd: int | None = None, dst_dir_fd: int | None = None
+        ) -> None:
+            target.unlink()
+            os.link(victim, target)
+            real_replace(source, destination, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
 
-    monkeypatch.setattr(Path, "replace", replace_after_swap)
+        monkeypatch.setattr(os, "replace", replace_after_swap)
+    else:
+        real_path_replace = Path.replace
+
+        def path_replace_after_swap(source: Path, destination: str | os.PathLike[str]) -> Path:
+            target.unlink()
+            os.link(victim, target)
+            return real_path_replace(source, destination)
+
+        monkeypatch.setattr(Path, "replace", path_replace_after_swap)
     copy_wrapper("culvert.py", tmp_path, overwrite=True)
     assert target.read_bytes() == (ROOT / "ryan-scripts" / "culvert.py").read_bytes()
     assert victim.read_bytes() == b"must not change"
@@ -177,20 +201,65 @@ def test_staging_is_private_and_mode_set_before_publication(tmp_path: Path, monk
     target = destination / "culvert.py"
     target.write_bytes(b"old copy")
     target.chmod(0o600)
-    real_replace = Path.replace
+    real_replace = os.replace
 
-    def inspect_before_publish(staged: Path, replacement: str | os.PathLike[str]) -> Path:
-        assert staged.parent.parent == destination
-        assert stat.S_IMODE(staged.parent.stat().st_mode) == 0o700
-        assert stat.S_IMODE(staged.stat().st_mode) == 0o754
-        assert not staged.is_symlink()
-        assert staged.read_bytes() == source.read_bytes()
-        return real_replace(staged, replacement)
+    def inspect_before_publish(
+        source_name: str, replacement_name: str, *, src_dir_fd: int | None = None, dst_dir_fd: int | None = None
+    ) -> None:
+        assert src_dir_fd is not None
+        assert dst_dir_fd is not None
+        assert stat.S_IMODE(os.fstat(src_dir_fd).st_mode) == 0o700
+        assert stat.S_IMODE(os.stat(source_name, dir_fd=src_dir_fd).st_mode) == 0o754
+        assert os.fstat(src_dir_fd).st_uid == os.geteuid()
+        assert source_name == replacement_name == target.name
+        real_replace(source_name, replacement_name, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
 
-    monkeypatch.setattr(Path, "replace", inspect_before_publish)
+    monkeypatch.setattr(os, "replace", inspect_before_publish)
     copy_wrapper("culvert.py", destination, overwrite=True, scripts_root=source_root)
     assert target.read_bytes() == b"example contents"
     assert stat.S_IMODE(target.stat().st_mode) == 0o754
+    assert not list(destination.glob(".culvert.py.stage-*"))
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX dirfd-based atomic publication")
+def test_staging_directory_rename_does_not_publish_substituted_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A renamed staging directory must not change the source of publication."""
+    source_root = tmp_path / "installed"
+    source_root.mkdir()
+    source = source_root / "culvert.py"
+    source.write_bytes(b"genuine script contents")
+    destination = tmp_path / "shared"
+    destination.mkdir()
+    target = destination / "culvert.py"
+    target.write_bytes(b"old contents")
+    victim = tmp_path / "outside.txt"
+    victim.write_bytes(b"unchanged victim")
+    real_replace = os.replace
+
+    def relocate_stage_before_publish(
+        source_name: str, destination_name: str, *, src_dir_fd: int | None = None, dst_dir_fd: int | None = None
+    ) -> None:
+        assert src_dir_fd is not None
+        assert dst_dir_fd is not None
+        stage = next(destination.glob(".culvert.py.stage-*"))
+        relocated = destination / "renamed-staging-directory"
+        stage.rename(relocated)
+        stage.symlink_to(victim)
+        try:
+            assert source_name == destination_name == "culvert.py"
+            # Publication must use the open directory fd instead of 'stage'.
+            real_replace(source_name, destination_name, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
+        finally:
+            stage.unlink()
+            relocated.rename(stage)
+
+    monkeypatch.setattr(os, "replace", relocate_stage_before_publish)
+    copy_wrapper("culvert.py", destination, overwrite=True, scripts_root=source_root)
+    assert not target.is_symlink()
+    assert target.read_bytes() == b"genuine script contents"
+    assert victim.read_bytes() == b"unchanged victim"
     assert not list(destination.glob(".culvert.py.stage-*"))
 
 
