@@ -320,6 +320,43 @@ def test_posix_rejects_nonsticky_peer_writable_overwrite_destination(tmp_path: P
         destination.chmod(0o700)
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX directory ownership security")
+def test_posix_rejects_destination_owned_by_another_user_even_if_not_peer_writable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P2: a foreign owner can change 0755 permissions and rename stage entries."""
+    import stat
+
+    destination = tmp_path / "foreign-owner"
+    destination.mkdir()
+    destination.chmod(0o755)
+    target = destination / "culvert.py"
+    target.write_bytes(b"original wrapper")
+    original_stat = destination.stat()
+    caller_uid = os.geteuid()
+    foreign_uid = caller_uid + 1
+    assert foreign_uid not in {0, caller_uid}
+    actual_fstat = os.fstat
+
+    def spoof_destination_owner(fd: int) -> os.stat_result:
+        observed = actual_fstat(fd)
+        if stat.S_ISDIR(observed.st_mode) and (
+            observed.st_dev,
+            observed.st_ino,
+        ) == (original_stat.st_dev, original_stat.st_ino):
+            values = list(observed)
+            values[4] = foreign_uid  # POSIX stat tuple index for st_uid
+            return os.stat_result(values)
+        return observed
+
+    monkeypatch.setattr(os, "fstat", spoof_destination_owner)
+    with pytest.raises(PermissionError, match="untrusted-owner"):
+        copy_wrapper("culvert.py", destination, overwrite=True)
+
+    assert target.read_bytes() == b"original wrapper"
+    assert not list(destination.glob(".culvert.py.stage-*"))
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows read-only attributes")
 @pytest.mark.parametrize("overwrite", [False, True])
 def test_windows_copy_preserves_read_only_attribute(tmp_path: Path, overwrite: bool) -> None:
