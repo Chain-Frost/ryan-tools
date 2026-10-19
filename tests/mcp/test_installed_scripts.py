@@ -264,7 +264,6 @@ def test_staging_directory_rename_does_not_publish_substituted_symlink(
     assert not list(destination.glob(".culvert.py.stage-*"))
 
 
-
 @pytest.mark.skipif(os.name != "posix", reason="POSIX fd-based staging cleanup")
 def test_overwrite_cleanup_does_not_delete_substituted_directory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
