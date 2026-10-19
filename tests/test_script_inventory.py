@@ -114,3 +114,16 @@ def test_import_executing_network_copy_scripts_are_repository_only() -> None:
         assert not row["mcp_workflow_ids"]
         assert row["main_guard"] is False
         assert row["import_time_mutation_risk"] is True
+
+
+def test_markdown_audit_lists_every_tracked_source_and_protects_status_words() -> None:
+    """Reviewable evidence must cover every file, including non-Python resources."""
+    report = inventory.audit_repository(ROOT)
+    markdown = inventory.render_markdown(report)
+    rows = [line for line in markdown.splitlines() if line.startswith("| `")]
+    assert len(rows) == report["tracked_file_count"]
+    assert "`file-management-python/copy_file.py` | repo-only" in markdown
+    assert "`file-management-python/copy_folder.py` | repo-only" in markdown
+    assert "UNSAFE IMPORT" in markdown
+    assert "does **not** establish CLI runtime safety" in markdown
+    assert str(report["selected_file_count"]) in markdown
