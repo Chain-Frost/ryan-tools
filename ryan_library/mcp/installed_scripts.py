@@ -55,6 +55,43 @@ def _copy_new_wrapper(source: Path, target: Path) -> None:
             shutil.copymode(source, target)
 
 
+
+def _replace_wrapper_posix(source: Path, target: Path, staging_directory: Path) -> None:
+    """Publish the genuine staged inode using directory descriptors.
+
+    A peer can rename a private child directory in a writable parent; using
+    the child *pathname* at publication would then trust a substituted entry.
+    Both publication paths are therefore relative to opened directories.
+    """
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    destination_fd = os.open(target.parent, directory_flags)
+    try:
+        staging_fd = os.open(staging_directory, directory_flags)
+        try:
+            staging_stat = os.fstat(staging_fd)
+            if staging_stat.st_uid != os.geteuid() or stat.S_IMODE(staging_stat.st_mode) != 0o700:
+                msg = f"Staging directory must be private and owned by this user: {staging_directory}"
+                raise PermissionError(msg)
+
+            # Open relative to the verified directory inode, not the pathname.
+            staged_fd = os.open(
+                target.name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+                dir_fd=staging_fd,
+            )
+            with os.fdopen(staged_fd, "wb") as temporary, source.open("rb") as original:
+                shutil.copyfileobj(original, temporary)
+                os.fchmod(temporary.fileno(), stat.S_IMODE(os.fstat(original.fileno()).st_mode))
+            # Even if the stage directory's pathname is swapped, the source
+            # entry below is resolved in the original, already-open directory.
+            os.replace(target.name, target.name, src_dir_fd=staging_fd, dst_dir_fd=destination_fd)
+        finally:
+            os.close(staging_fd)
+    finally:
+        os.close(destination_fd)
+
+
 def copy_wrapper(
     script: str,
     destination: Path,
@@ -90,22 +127,17 @@ def copy_wrapper(
         _copy_new_wrapper(source, target)
         return target
 
-    # Keep staging inaccessible to other POSIX users in a private 0700
-    # directory. The parent still shares the target filesystem for atomic
-    # publication, but an untrusted peer cannot swap the staging entry.
     with tempfile.TemporaryDirectory(dir=target_directory, prefix=f".{target.name}.stage-") as staging_directory:
         staged = Path(staging_directory) / target.name
-        with source.open("rb") as original, staged.open("xb") as temporary:
-            shutil.copyfileobj(original, temporary)
-            if os.name == "posix":
-                # Set source mode on the *open descriptor*; path-based copymode
-                # could follow a replaced staging symlink after close.
-                os.fchmod(temporary.fileno(), stat.S_IMODE(source.stat().st_mode))
-            else:
-                # Preserve the Windows read-only attribute before publishing.
-                shutil.copymode(source, staged)
-        # Replaces the target directory entry without following target symlinks.
-        staged.replace(target)
+        if os.name == "posix":
+            _replace_wrapper_posix(source, target, Path(staging_directory))
+        else:
+            # Windows does not support fd-relative os.replace. Preserve the
+            # original cross-platform copy behavior and read-only attribute.
+            with source.open("rb") as original, staged.open("xb") as temporary:
+                shutil.copyfileobj(original, temporary)
+            shutil.copymode(source, staged)
+            staged.replace(target)
     return target
 
 
