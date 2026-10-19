@@ -163,6 +163,7 @@ def test_overwrite_copy_failure_preserves_original_and_cleans_staging(
         copy_wrapper("culvert.py", tmp_path, overwrite=True)
     assert target.read_bytes() == b"retain original"
     assert not list(tmp_path.glob(".culvert.py.*.tmp"))
+    assert not list(tmp_path.glob(".culvert.py.stage-*"))
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX permission bits")
@@ -261,6 +262,62 @@ def test_staging_directory_rename_does_not_publish_substituted_symlink(
     assert target.read_bytes() == b"genuine script contents"
     assert victim.read_bytes() == b"unchanged victim"
     assert not list(destination.glob(".culvert.py.stage-*"))
+
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX fd-based staging cleanup")
+def test_overwrite_cleanup_does_not_delete_substituted_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """P1 regression: do not recursively delete an unrelated replacement directory."""
+    source_root = tmp_path / "installed"
+    source_root.mkdir()
+    source = source_root / "culvert.py"
+    source.write_bytes(b"original staged wrapper")
+    destination = tmp_path / "shared"
+    destination.mkdir()
+    target = destination / "culvert.py"
+    target.write_bytes(b"previous contents")
+    substituted = destination / "unrelated-directory"
+    (substituted / "nested").mkdir(parents=True)
+    protected = substituted / "nested" / "keep.txt"
+    protected.write_bytes(b"must survive")
+    real_replace = os.replace
+
+    def replace_after_directory_substitution(
+        source_name: str, destination_name: str, *, src_dir_fd: int | None = None, dst_dir_fd: int | None = None
+    ) -> None:
+        assert src_dir_fd is not None and dst_dir_fd is not None
+        staged_directory = next(destination.glob(".culvert.py.stage-*"))
+        relocated = destination / "renamed-genuine-staging"
+        staged_directory.rename(relocated)
+        substituted.rename(staged_directory)
+        real_replace(source_name, destination_name, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
+
+    monkeypatch.setattr(os, "replace", replace_after_directory_substitution)
+    copy_wrapper("culvert.py", destination, overwrite=True, scripts_root=source_root)
+    assert target.read_bytes() == b"original staged wrapper"
+    assert protected.exists() is False  # The original location was renamed.
+    substituted_stage = next(destination.glob(".culvert.py.stage-*"))
+    assert (substituted_stage / "nested" / "keep.txt").read_bytes() == b"must survive"
+    assert (destination / "renamed-genuine-staging").is_dir()
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX directory security")
+def test_posix_rejects_nonsticky_peer_writable_overwrite_destination(tmp_path: Path) -> None:
+    """Reject directories where another user can race the final rmdir."""
+    destination = tmp_path / "unsafe"
+    destination.mkdir()
+    target = destination / "culvert.py"
+    target.write_bytes(b"do not overwrite")
+    destination.chmod(0o777)
+    try:
+        with pytest.raises(PermissionError, match="unsafe peer-writable"):
+            copy_wrapper("culvert.py", destination, overwrite=True)
+        assert target.read_bytes() == b"do not overwrite"
+        assert not list(destination.glob(".culvert.py.stage-*"))
+    finally:
+        destination.chmod(0o700)
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows read-only attributes")
