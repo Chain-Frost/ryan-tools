@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "selection_policy": "Explicit wheel allowlist. A file is installed only after maintaining/reviewing it; MCP exposure is separately curated in the workflow catalogues. Repository-only files remain in source control.",
+  "selection_policy": "Explicit, provisional wheel allowlist requiring per-file validation. Import-time destructive/network scripts are repository-only; MCP exposure is separately curated. Keep unverified scripts out of the wheel until reviewed.",
   "installed_files": [
     "README.md",
     "RORB-python/RORB-find-closure-durations.py",
@@ -50,8 +50,6 @@
     "file-management-python/archive_compress_folder.py",
     "file-management-python/archive_compress_individual.py",
     "file-management-python/archive_extract.py",
-    "file-management-python/copy_file.py",
-    "file-management-python/copy_folder.py",
     "file-management-python/list_files_recursive.py",
     "floodway.py",
     "gdal-python/README.md",
