@@ -69,13 +69,15 @@ def _replace_wrapper_posix(source: Path, target: Path) -> None:
     try:
         destination_stat = os.fstat(destination_fd)
         current_uid = cast("Callable[[], int]", vars(os)["geteuid"])()
-        # A non-sticky, peer-writable directory lets another user swap our
-        # staging entry between identity checking and rmdir. A sticky parent
-        # is safe only if its owner is the caller or root.
-        if destination_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH) and (
-            not destination_stat.st_mode & stat.S_ISVTX or destination_stat.st_uid not in {0, current_uid}
-        ):
-            msg = f"Refusing atomic overwrite in an unsafe peer-writable directory: {target.parent}"
+        # The directory owner can rename entries or change its permissions
+        # regardless of the current group/other write bits (even at 0755).
+        # Only the caller and root are trusted owners. A peer-writable parent
+        # additionally needs the sticky bit to protect our staging entry.
+        trusted_owner = destination_stat.st_uid in {0, current_uid}
+        peer_writable = bool(destination_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH))
+        sticky = bool(destination_stat.st_mode & stat.S_ISVTX)
+        if not trusted_owner or (peer_writable and not sticky):
+            msg = f"Refusing atomic overwrite in an unsafe peer-writable or untrusted-owner directory: {target.parent}"
             raise PermissionError(msg)
 
         # mkdir via dirfd prevents redirecting the parent pathname while
