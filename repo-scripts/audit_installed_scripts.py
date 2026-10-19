@@ -79,13 +79,14 @@ def _import_time_call_names(module: ast.Module) -> list[str]:
     def examine(node: ast.AST) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             return
-        if isinstance(node, ast.If) and isinstance(node.test, ast.Compare):
-            if (
-                isinstance(node.test.left, ast.Name)
-                and node.test.left.id == "__name__"
-                and any(isinstance(v, ast.Constant) and v.value == "__main__" for v in node.test.comparators)
-            ):
-                return
+        if (
+            isinstance(node, ast.If)
+            and isinstance(node.test, ast.Compare)
+            and isinstance(node.test.left, ast.Name)
+            and node.test.left.id == "__name__"
+            and any(isinstance(v, ast.Constant) and v.value == "__main__" for v in node.test.comparators)
+        ):
+            return
         if isinstance(node, ast.Call):
             name = _call_name(node)
             if name in UNSAFE_IMPORT_CALLS:
@@ -150,6 +151,21 @@ def analyse_python(source: str) -> dict[str, Any]:
     }
 
 
+def _selected_script_risks(relative: str, entry: dict[str, Any]) -> list[str]:
+    """Return fail-closed packaging risks without judging domain accuracy."""
+    path = Path(relative)
+    if not entry["in_wheel"] or path.suffix.casefold() != ".py" or path.name == "__init__.py":
+        return []
+    reasons: list[str] = []
+    if entry.get("parse_status") != "ok":
+        reasons.append("not valid or decodable Python")
+    if entry.get("main_guard") is not True:
+        reasons.append("no protected __main__ entry point")
+    if entry.get("import_time_mutation_risk"):
+        reasons.append("potential import-time mutation: " + ", ".join(entry["import_time_mutation_calls"]))
+    return reasons
+
+
 def audit_repository(root: Path) -> dict[str, Any]:
     """Compare the selected wheel catalogue with all tracked script paths."""
     resources = root / "ryan_library" / "resources" / "mcp"
@@ -190,16 +206,9 @@ def audit_repository(root: Path) -> dict[str, Any]:
                 entry["parse_status"] = "undecodable_python"
         else:
             entry["parse_status"] = "non_python"
-        if entry["in_wheel"] and path.suffix.lower() == ".py" and path.name != "__init__.py":
-            reasons: list[str] = []
-            if entry.get("parse_status") != "ok":
-                reasons.append("not valid or decodable Python")
-            if entry.get("main_guard") is not True:
-                reasons.append("no protected __main__ entry point")
-            if entry.get("import_time_mutation_risk"):
-                reasons.append("potential import-time mutation: " + ", ".join(entry["import_time_mutation_calls"]))
-            if reasons:
-                unsafe_selected.append({"path": relative, "reason": "; ".join(reasons)})
+        reasons = _selected_script_risks(relative, entry)
+        if reasons:
+            unsafe_selected.append({"path": relative, "reason": "; ".join(reasons)})
         items.append(entry)
     return {
         "schema_version": 1,
