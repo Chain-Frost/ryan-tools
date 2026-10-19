@@ -223,17 +223,89 @@ def audit_repository(root: Path) -> dict[str, Any]:
     }
 
 
+def render_markdown(report: dict[str, Any]) -> str:
+    """Produce per-file evidence for review, without claiming engineering approval."""
+    rows: list[str] = [
+        "# Installed-script source review evidence",
+        "",
+        "Machine-produced, non-executing review of tracked `ryan-scripts/` files.",
+        "A positive AST signal does **not** establish CLI runtime safety, external",
+        "software readiness, original-default parity, or maintainer acceptance.",
+        "",
+        f"Tracked: **{report['tracked_file_count']}**; selected wheel files: **{report['selected_file_count']}**; "
+        f"MCP script paths: **{report['mcp_script_target_count']}**.",
+        "",
+        "| Source file | Distribution | MCP | Guard / version | CLI flags | Import / environment signals |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for entry in report["files"]:
+        path = str(entry["path"]).replace("|", "\\|").replace("`", "")
+        wheel = "wheel" if entry["in_wheel"] else "repo-only"
+        mcp = ", ".join(entry["mcp_workflow_ids"]) if entry["mcp_workflow_ids"] else "—"
+        if entry.get("parse_status") != "ok":
+            context = str(entry.get("parse_status", "unknown"))
+            signals = "Non-Python/resource or requires separate review"
+            flags = "—"
+        else:
+            guarded = "guard" if entry["main_guard"] else "NO GUARD"
+            version = "version" if entry["wrapper_version_declared"] else "no version"
+            context = guarded + "; " + version
+            flags = "argparse" if entry["argparse_imported"] else "no argparse"
+            if entry["no_pause_literal"]:
+                flags += "; no-pause"
+            details: list[str] = []
+            if entry["import_time_mutation_risk"]:
+                details.append("UNSAFE IMPORT: " + ", ".join(entry["import_time_mutation_calls"]))
+            if entry["absolute_drive_literal"]:
+                details.append("drive literal")
+            if entry["file_relative_reference"]:
+                details.append("__file__ use")
+            if entry["subprocess_imported"]:
+                details.append("subprocess")
+            if entry["top_level_call_expressions"]:
+                details.append(f"module call expressions={entry['top_level_call_expressions']}")
+            signals = ", ".join(details) if details else "no flagged static signals"
+        rows.append(f"| `{path}` | {wheel} | {mcp} | {context} | {flags} | {signals} |")
+    rows.extend(
+        [
+            "",
+            "## Blocking installed-file structural findings",
+            "",
+            *[
+                f"- `{issue['path']}`: {issue['reason']}"
+                for issue in report["unsafe_selected"]
+            ],
+        ]
+    )
+    if not report["unsafe_selected"]:
+        rows.append("None detected by this conservative static policy.")
+    rows.extend(
+        [
+            "",
+            "## Required acceptance outside static analysis",
+            "",
+            "Assess every retained wrapper's true defaults, --help, --no-pause,",
+            "exit codes, overwrite behavior, output artifacts and dependent resources;",
+            "validate external applications and long/mapped/UNC network paths in",
+            "the supported engineering environments before claiming full parity.",
+            "",
+        ]
+    )
+    return "\n".join(rows)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Export auditable, reproducible signals without changing source files."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=PROJECT_ROOT)
-    parser.add_argument("--output", type=Path, help="Write JSON report here instead of stdout.")
+    parser.add_argument("--output", type=Path, help="Write report here instead of stdout.")
+    parser.add_argument("--format", choices=("json", "markdown"), default="json")
     parser.add_argument(
         "--check", action="store_true", help="Fail on missing wheel/MCP paths or unsafe selected Python entry points."
     )
     args = parser.parse_args(argv)
     report = audit_repository(args.root.absolute())
-    payload = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+    payload = render_markdown(report) if args.format == "markdown" else json.dumps(report, indent=2, ensure_ascii=False) + "\n"
     if args.output is None:
         print(payload, end="")
     else:
