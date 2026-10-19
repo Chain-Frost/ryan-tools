@@ -273,10 +273,7 @@ def render_markdown(report: dict[str, Any]) -> str:
             "",
             "## Blocking installed-file structural findings",
             "",
-            *[
-                f"- `{issue['path']}`: {issue['reason']}"
-                for issue in report["unsafe_selected"]
-            ],
+            *[f"- `{issue['path']}`: {issue['reason']}" for issue in report["unsafe_selected"]],
         ]
     )
     if not report["unsafe_selected"]:
@@ -307,7 +304,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     report = audit_repository(args.root.absolute())
-    payload = render_markdown(report) if args.format == "markdown" else json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+    payload = (
+        render_markdown(report)
+        if args.format == "markdown"
+        else json.dumps(report, indent=2, ensure_ascii=False) + "\n"
+    )
     if args.output is None:
         print(payload, end="")
     else:
