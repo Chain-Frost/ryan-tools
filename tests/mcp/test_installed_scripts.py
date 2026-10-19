@@ -287,7 +287,8 @@ def test_overwrite_cleanup_does_not_delete_substituted_directory(
     def replace_after_directory_substitution(
         source_name: str, destination_name: str, *, src_dir_fd: int | None = None, dst_dir_fd: int | None = None
     ) -> None:
-        assert src_dir_fd is not None and dst_dir_fd is not None
+        assert src_dir_fd is not None
+        assert dst_dir_fd is not None
         staged_directory = next(destination.glob(".culvert.py.stage-*"))
         relocated = destination / "renamed-genuine-staging"
         staged_directory.rename(relocated)
