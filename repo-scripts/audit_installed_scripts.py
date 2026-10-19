@@ -250,6 +250,47 @@ def audit_repository(root: Path) -> dict[str, Any]:
     }
 
 
+def _markdown_row(entry: dict[str, Any]) -> str:
+    """Format one statically inspected script without implying runtime approval."""
+    path = str(entry["path"]).replace("|", "\\|").replace("`", "")
+    wheel = "wheel" if entry["in_wheel"] else "repo-only"
+    mcp = ", ".join(entry["mcp_workflow_ids"]) if entry["mcp_workflow_ids"] else "—"
+    if entry.get("parse_status") != "ok":
+        context = str(entry.get("parse_status", "unknown"))
+        signals = "Non-Python/resource or requires separate review"
+        flags = "—"
+        behavior = "N/A"
+    else:
+        guarded = "guard" if entry["main_guard"] else "NO GUARD"
+        version = "version" if entry["wrapper_version_declared"] else "no version"
+        context = guarded + "; " + version
+        flags = "argparse" if entry["argparse_imported"] else "no argparse"
+        if entry["no_pause_literal"]:
+            flags += "; no-pause"
+        if entry["dry_run_literal"]:
+            flags += "; dry-run"
+        if entry["destructive_option_literals"]:
+            flags += "; " + ", ".join(entry["destructive_option_literals"])
+        settings = entry["editable_setting_names"]
+        behavior = f"{len(settings)} visible defaults"
+        behavior += "; SystemExit" if entry["system_exit_called"] else "; exit unverified"
+        behavior += "; banner" if entry["wrapper_banner_called"] else "; no banner"
+        details: list[str] = []
+        if entry["import_time_mutation_risk"]:
+            details.append("UNSAFE IMPORT: " + ", ".join(entry["import_time_mutation_calls"]))
+        if entry["absolute_drive_literal"]:
+            details.append("drive literal")
+        if entry["file_relative_reference"]:
+            details.append("__file__ use")
+        if entry["subprocess_imported"]:
+            details.append("subprocess")
+        if entry["top_level_call_expressions"]:
+            details.append(f"module call expressions={entry['top_level_call_expressions']}")
+        signals = ", ".join(details) if details else "no flagged static signals"
+    return f"| `{path}` | {wheel} | {mcp} | {context} | {flags} | {behavior} | {signals} |"
+
+
+
 def render_markdown(report: dict[str, Any]) -> str:
     """Produce per-file evidence for review, without claiming engineering approval."""
     rows: list[str] = [
@@ -268,42 +309,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for entry in report["files"]:
-        path = str(entry["path"]).replace("|", "\\|").replace("`", "")
-        wheel = "wheel" if entry["in_wheel"] else "repo-only"
-        mcp = ", ".join(entry["mcp_workflow_ids"]) if entry["mcp_workflow_ids"] else "—"
-        if entry.get("parse_status") != "ok":
-            context = str(entry.get("parse_status", "unknown"))
-            signals = "Non-Python/resource or requires separate review"
-            flags = "—"
-            behavior = "N/A"
-        else:
-            guarded = "guard" if entry["main_guard"] else "NO GUARD"
-            version = "version" if entry["wrapper_version_declared"] else "no version"
-            context = guarded + "; " + version
-            flags = "argparse" if entry["argparse_imported"] else "no argparse"
-            if entry["no_pause_literal"]:
-                flags += "; no-pause"
-            if entry["dry_run_literal"]:
-                flags += "; dry-run"
-            if entry["destructive_option_literals"]:
-                flags += "; " + ", ".join(entry["destructive_option_literals"])
-            settings = entry["editable_setting_names"]
-            behavior = f"{len(settings)} visible defaults"
-            behavior += "; SystemExit" if entry["system_exit_called"] else "; exit unverified"
-            behavior += "; banner" if entry["wrapper_banner_called"] else "; no banner"
-            details: list[str] = []
-            if entry["import_time_mutation_risk"]:
-                details.append("UNSAFE IMPORT: " + ", ".join(entry["import_time_mutation_calls"]))
-            if entry["absolute_drive_literal"]:
-                details.append("drive literal")
-            if entry["file_relative_reference"]:
-                details.append("__file__ use")
-            if entry["subprocess_imported"]:
-                details.append("subprocess")
-            if entry["top_level_call_expressions"]:
-                details.append(f"module call expressions={entry['top_level_call_expressions']}")
-            signals = ", ".join(details) if details else "no flagged static signals"
-        rows.append(f"| `{path}` | {wheel} | {mcp} | {context} | {flags} | {behavior} | {signals} |")
+        rows.append(_markdown_row(entry))
     rows.extend(
         [
             "",
