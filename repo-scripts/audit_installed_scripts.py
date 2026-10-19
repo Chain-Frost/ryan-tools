@@ -228,7 +228,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=PROJECT_ROOT)
     parser.add_argument("--output", type=Path, help="Write JSON report here instead of stdout.")
-    parser.add_argument("--check", action="store_true", help="Fail on missing wheel/MCP paths or unsafe selected Python entry points.")
+    parser.add_argument(
+        "--check", action="store_true", help="Fail on missing wheel/MCP paths or unsafe selected Python entry points."
+    )
     args = parser.parse_args(argv)
     report = audit_repository(args.root.absolute())
     payload = json.dumps(report, indent=2, ensure_ascii=False) + "\n"
