@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from ryan_library.functions.tuflow.codemeter import CodeMeterAllocation, CodeMeterSnapshot
 from ryan_library.orchestrators.tuflow.tuflow_user_activity import (
+    SimulationReportRow,
     TlfInspection,
     TuflowActivityReport,
     _deduplicate_starts,  # pyright: ignore[reportPrivateUsage]
@@ -219,8 +220,6 @@ def test_terminal_links_and_full_model_names() -> None:
         source=Path("global.log"),
     )
     assert record is not None
-    from ryan_library.orchestrators.tuflow.tuflow_user_activity import SimulationReportRow
-
     start_row = SimulationReportRow(
         user="Engineer.Name",
         record=record,
@@ -245,3 +244,110 @@ def test_terminal_links_and_full_model_names() -> None:
     assert "\x1b]8;;" not in plain
     assert "\x1b]8;;file:///Q:/TUFLOW_Blacksmith/" in linked
     assert "\x1b]8;;" in linked
+
+
+
+def test_completed_runtime_is_shown_alongside_age_in_starts_table(tmp_path: Path) -> None:
+    now = datetime.now().replace(second=0, microsecond=0)
+    user_dir = tmp_path / "Engineer"
+    user_dir.mkdir()
+    first_start = now - timedelta(minutes=20)
+    first_end = first_start + timedelta(minutes=3)
+    second_start = now - timedelta(minutes=10)
+    third_start = now - timedelta(minutes=5)
+    lines = [
+        f'{first_start:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
+        'Started: CompletedFromLog x.tcf "Q:\\CompletedFromLog.tlf"',
+        f'{first_end:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
+        'Tot: 0:02:05 CT Finished: CompletedFromLog "Q:\\CompletedFromLog.tlf"',
+        f'{second_start:%Y-%b-%d %H:%M} Don: 0001 LOC 2/2 HOST Build: test '
+        'Started: CompletedFromTLF x.tcf "Q:\\CompletedFromTLF.tlf"',
+        f'{third_start:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
+        'Started: StillRunning x.tcf "Q:\\StillRunning.tlf"',
+    ]
+    (user_dir / "All Simulations.log").write_text("\n".join(lines), encoding="utf-8")
+    snapshot = CodeMeterSnapshot(products=(), allocations=(), denials=(), warnings=())
+
+    def fake_tlf(path: Path | None) -> TlfInspection:
+        if path is not None and "StillRunning" in str(path):
+            return TlfInspection(status="INCOMPLETE", runtime_seconds=950)
+        return TlfInspection(status="COMPLETE", runtime_seconds=180)
+
+    with (
+        patch(
+            "ryan_library.orchestrators.tuflow.tuflow_user_activity.fetch_codemeter_snapshot",
+            return_value=snapshot,
+        ),
+        patch(
+            "ryan_library.orchestrators.tuflow.tuflow_user_activity.inspect_tlf",
+            side_effect=fake_tlf,
+        ),
+    ):
+        report = build_activity_report(
+            log_root=tmp_path, recent_hours=24, codemeter_url="http://localhost:22352"
+        )
+
+    by_model = {row.record.model: row for row in report.starts}
+    assert by_model["CompletedFromLog"].runtime_seconds == 125
+    assert by_model["CompletedFromLog"].status == "COMPLETED"
+    assert by_model["CompletedFromTLF"].runtime_seconds == 180
+    assert by_model["StillRunning"].runtime_seconds is None
+    console = render_activity_report(report)
+    starts_section = console.split("SELECTED SIMULATION STARTS", maxsplit=1)[1].split(
+        "MATCHING SIMULATION COMPLETIONS", maxsplit=1
+    )[0]
+    assert "RUNTIME" in starts_section.splitlines()[1]
+    log_row = next(line for line in starts_section.splitlines() if "CompletedFromLog" in line)
+    tlf_row = next(line for line in starts_section.splitlines() if "CompletedFromTLF" in line)
+    running_row = next(line for line in starts_section.splitlines() if "StillRunning" in line)
+    assert "2m 05s" in log_row
+    assert "3m 00s" in tlf_row
+    assert "950" not in running_row
+
+
+def test_tlf_fallback_searches_seven_days_for_oldest_active(tmp_path: Path) -> None:
+    now = datetime.now().replace(second=0, microsecond=0)
+    user_dir = tmp_path / "Engineer"
+    user_dir.mkdir()
+    models = [
+        ("Oldest", 44), ("Predecessor", 42), ("RunningOld", 30),
+        ("NewerA", 4), ("NewerB", 3), ("NewerC", 2), ("NewerD", 1),
+    ]
+    lines: list[tuple[datetime, str]] = []
+    for seat, (model, age) in enumerate(models, start=1):
+        started = now - timedelta(hours=age)
+        lines.append(
+            (
+                started,
+                f'{started:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test '
+                f'Started: {model} x.tcf "Q:\\{model}.tlf"',
+            )
+        )
+        if model != "RunningOld":
+            finished = started + timedelta(minutes=12)
+            lines.append(
+                (
+                    finished,
+                    f'{finished:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test '
+                    f'Tot: 0:12:00 CT Finished: {model} "Q:\\{model}.tlf"',
+                )
+            )
+    lines.sort(key=lambda item: item[0])
+    (user_dir / "All Simulations.log").write_text(
+        "\n".join(line for _, line in lines), encoding="utf-8"
+    )
+
+    def fake_inspect(path: Path | None) -> TlfInspection:
+        return TlfInspection(
+            status="INCOMPLETE" if path is not None and "RunningOld" in str(path) else "COMPLETE"
+        )
+
+    with patch(
+        "ryan_library.orchestrators.tuflow.tuflow_user_activity.inspect_tlf",
+        side_effect=fake_inspect,
+    ):
+        report = build_activity_report(log_root=tmp_path, recent_hours=24, codemeter_url=None)
+    assert [row.record.model for row in report.starts] == [
+        "NewerD", "NewerC", "NewerB", "NewerA", "RunningOld", "Predecessor", "Oldest"
+    ]
+    assert report.starts[4].status == "POSSIBLY RUNNING"
