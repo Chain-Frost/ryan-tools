@@ -62,7 +62,7 @@ def _run_installed_wrapper(
     relative: str, work: Path, expected_root: Path, *arguments: str
 ) -> subprocess.CompletedProcess[str]:
     """Copy from the wheel and execute outside the checkout, importing only its installed library."""
-    script = copy_wrapper(relative, work)
+    script = copy_wrapper(relative, work, overwrite=True)
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(expected_root)
     environment["PYTHONNOUSERSITE"] = "1"
