@@ -6,14 +6,14 @@ from unittest.mock import patch
 
 from ryan_library.functions.tuflow.codemeter import CodeMeterAllocation, CodeMeterSnapshot
 from ryan_library.orchestrators.tuflow.tuflow_user_activity import (
-    _deduplicate_starts,  # pyright: ignore[reportPrivateUsage]
     TlfInspection,
     TuflowActivityReport,
+    _deduplicate_starts,  # pyright: ignore[reportPrivateUsage]
     build_activity_report,
-    render_activity_report,
     inspect_tlf,
     parse_activity_line,
     read_user_activity,
+    render_activity_report,
 )
 
 
