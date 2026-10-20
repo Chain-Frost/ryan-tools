@@ -181,9 +181,7 @@ def read_user_activity(user_directory: Path, *, activity_since: datetime) -> Use
                             record = replace(
                                 record,
                                 model=(
-                                    matching_start.model
-                                    if record.model.startswith("(not recorded")
-                                    else record.model
+                                    matching_start.model if record.model.startswith("(not recorded") else record.model
                                 ),
                                 tlf_path=record.tlf_path or matching_start.tlf_path,
                             )
@@ -317,14 +315,22 @@ def _deduplicate_starts(entries: Iterable[tuple[str, ActivityRecord]]) -> list[t
     for user, record in entries:
         if record.tlf_path is not None:
             key = (
-                "path", user.casefold(), str(record.tlf_path).casefold(),
-                record.timestamp.isoformat(), record.machine.casefold(),
-                record.licence_origin, record.seat,
+                "path",
+                user.casefold(),
+                str(record.tlf_path).casefold(),
+                record.timestamp.isoformat(),
+                record.machine.casefold(),
+                record.licence_origin,
+                record.seat,
             )
         else:
             key = (
-                "fallback", user.casefold(), record.machine.casefold(),
-                record.licence_origin, record.seat, record.model.casefold(),
+                "fallback",
+                user.casefold(),
+                record.machine.casefold(),
+                record.licence_origin,
+                record.seat,
+                record.model.casefold(),
                 record.timestamp.isoformat(),
             )
         existing = newest.get(key)
@@ -338,8 +344,12 @@ def _deduplicate_completions(entries: Iterable[tuple[str, ActivityRecord]]) -> l
     for user, record in entries:
         path_or_model = str(record.tlf_path).casefold() if record.tlf_path is not None else record.model.casefold()
         key = (
-            user.casefold(), record.timestamp.isoformat(), record.machine.casefold(),
-            record.licence_origin, record.seat, path_or_model,
+            user.casefold(),
+            record.timestamp.isoformat(),
+            record.machine.casefold(),
+            record.licence_origin,
+            record.seat,
+            path_or_model,
         )
         unique[key] = (user, record)
     return sorted(unique.values(), key=lambda item: item[1].timestamp, reverse=True)
@@ -462,9 +472,7 @@ def build_activity_report(
         except OSError as exc:
             workflow_warnings.append(f"CodeMeter WebAdmin is unavailable at {codemeter_url}: {exc}")
 
-    access_warnings = tuple(
-        f"{activity.user}: {activity.error}" for activity in activities if activity.error
-    )
+    access_warnings = tuple(f"{activity.user}: {activity.error}" for activity in activities if activity.error)
     return TuflowActivityReport(
         checked_at=checked_at,
         log_root=absolute_log_root,
@@ -677,9 +685,7 @@ def render_activity_report(report: TuflowActivityReport) -> str:  # noqa: C901
             lines.append("No no-more-licences events were recorded in this period.")
 
     lines.extend(("", "PROJECT AND TUFLOW LOG PATHS"))
-    path_rows = _deduplicate_starts(
-        (row.user, row.record) for row in (*report.starts, *report.completions)
-    )
+    path_rows = _deduplicate_starts((row.user, row.record) for row in (*report.starts, *report.completions))
     if path_rows:
         for index, (user, record) in enumerate(path_rows, start=1):
             project_folder = find_project_folder(record.tlf_path)
