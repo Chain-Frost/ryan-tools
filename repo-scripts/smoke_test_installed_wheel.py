@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import os
 import importlib.metadata
 import importlib.resources
 import importlib.util
@@ -54,6 +56,97 @@ def _check_installed_wrapper_copy() -> None:
         if target.read_bytes() != source.read_bytes():
             msg = "Installed wrapper copy differs from the packaged source."
             raise RuntimeError(msg)
+
+
+def _run_installed_wrapper(
+    relative: str, work: Path, expected_root: Path, *arguments: str
+) -> subprocess.CompletedProcess[str]:
+    """Copy from the wheel and execute outside the checkout, importing only its installed library."""
+    script = copy_wrapper(relative, work)
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(expected_root)
+    environment["PYTHONNOUSERSITE"] = "1"
+    environment.pop("RYAN_TOOLS_REPOSITORY_ROOT", None)
+    return subprocess.run(
+        [sys.executable, str(script), *arguments],
+        cwd=work,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+        stdin=subprocess.DEVNULL,
+    )
+
+
+def _check_installed_wrapper_behaviour(expected_root: Path) -> None:
+    """Run nondestructive CLI/output/exit checks on wrappers copied from the *installed wheel*."""
+    with TemporaryDirectory(prefix="ryan-tools-wheel-behaviour-") as temporary:
+        work = Path(temporary)
+        input_dir = work / "input"
+        input_dir.mkdir()
+        (input_dir / "ABC-001_Rev2.txt").write_text("one", encoding="utf-8")
+        (input_dir / "XYZ-002_Rev1.txt").write_text("two", encoding="utf-8")
+        output_dir = work / "output"
+
+        inventory = _run_installed_wrapper(
+            "file-management-python/file_inventory.py",
+            work,
+            expected_root,
+            str(input_dir),
+            "--output-directory",
+            str(output_dir),
+            "--basename",
+            "wheel-inventory",
+            "--no-excel",
+            "--no-pause",
+        )
+        if inventory.returncode != 0:
+            msg = f"Wheel-installed file_inventory.py CSV export failed: {(inventory.stdout + inventory.stderr)[-1000:]}"
+            raise RuntimeError(msg)
+        exported = output_dir / "wheel-inventory.csv"
+        if not exported.is_file() or (output_dir / "wheel-inventory.xlsx").exists():
+            msg = "Wheel-installed file_inventory.py did not honour output/default overrides."
+            raise RuntimeError(msg)
+        with exported.open(encoding="utf-8-sig", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        if len(rows) != 2 or {row["filename"] for row in rows} != {"ABC-001_Rev2.txt", "XYZ-002_Rev1.txt"}:
+            msg = "Wheel-installed file_inventory.py returned unexpected CSV records."
+            raise RuntimeError(msg)
+
+        invalid = _run_installed_wrapper(
+            "file-management-python/file_inventory.py",
+            work,
+            expected_root,
+            "--basename",
+            "invalid/subdirectory",
+            "--no-excel",
+            "--no-pause",
+        )
+        if invalid.returncode != 2 or (work / "invalid").exists():
+            msg = f"Wheel-installed file inventory validation/exit contract failed: {invalid.returncode}"
+            raise RuntimeError(msg)
+
+        listing = _run_installed_wrapper(
+            "file-management-python/list_files_recursive.py",
+            work,
+            expected_root,
+            "--input_directories",
+            str(input_dir),
+            "--no-pause",
+        )
+        listing_path = input_dir / "filenames.txt"
+        if listing.returncode != 0 or not listing_path.is_file():
+            msg = f"Wheel-installed recursive listing failed: {(listing.stdout + listing.stderr)[-1000:]}"
+            raise RuntimeError(msg)
+        lines = listing_path.read_text(encoding="utf-8").splitlines()
+        if str(input_dir / "ABC-001_Rev2.txt") not in lines or str(input_dir / "XYZ-002_Rev1.txt") not in lines:
+            msg = "Wheel-installed recursive listing has missing source paths."
+            raise RuntimeError(msg)
+
+        print("Wheel-only wrapper behaviour passed: CSV, invalid input exit, file listing.")
 
 
 def _check_vendored_similarity() -> None:
@@ -145,6 +238,8 @@ def main(argv: list[str] | None = None) -> int:
 
     _check_installed_scripts()
     _check_installed_wrapper_copy()
+    if args.expected_root is not None:
+        _check_installed_wrapper_behaviour(args.expected_root.resolve())
     _check_installed_script_help()
     _check_vendored_similarity()
 
