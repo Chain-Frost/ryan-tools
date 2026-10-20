@@ -520,7 +520,7 @@ def test_tsf_live_time_reads_progress_and_ignores_invalid_or_finished_summaries(
     tlf = tmp_path / "Long_Model_Name.tlf"
     tsf = tlf.with_suffix(".tsf")
     record = parse_activity_line(
-        f'{now - timedelta(minutes=15):%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
+        f"{now - timedelta(minutes=15):%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test "
         f'Started: Long_Model_Name x.tcf "{tlf}"',
         source=tmp_path / "global.log",
     )
@@ -570,17 +570,14 @@ def test_live_tsf_values_are_reported_only_for_active_start(tmp_path: Path) -> N
     finished_tlf = tmp_path / "Finished.tlf"
     log_lines = [
         (
-            f'{completed_started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
+            f"{completed_started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test "
             f'Started: Finished x.tcf "{finished_tlf}"'
         ),
         (
-            f'{completed_started + timedelta(minutes=4):%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
+            f"{completed_started + timedelta(minutes=4):%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test "
             f'Tot: 0:04:00 CT Finished: Finished "{finished_tlf}"'
         ),
-        (
-            f'{active_started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
-            f'Started: Running x.tcf "{running_tlf}"'
-        ),
+        (f'{active_started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test Started: Running x.tcf "{running_tlf}"'),
     ]
     (user_dir / "All Simulations.log").write_text("\n".join(log_lines), encoding="utf-8")
     for tlf in (running_tlf, finished_tlf):
@@ -643,8 +640,7 @@ def test_tsf_timestamp_predating_start_is_not_reported(tmp_path: Path) -> None:
     tsf = tlf.with_suffix(".tsf")
     started = now - timedelta(minutes=5)
     record = parse_activity_line(
-        f'{started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
-        f'Started: Reused x.tcf "{tlf}"',
+        f'{started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test Started: Reused x.tcf "{tlf}"',
         source=tmp_path / "global.log",
     )
     assert record is not None
