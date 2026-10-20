@@ -1,6 +1,7 @@
 """Focused tests for integrated TUFLOW user activity reporting."""
 
 from datetime import datetime, timedelta
+from os import utime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -512,6 +513,8 @@ def test_active_codemeter_process_does_not_rematch_to_terminated_start(tmp_path:
         assert process.simulation.record.model == "RunningModel"
         assert process.simulation.status == "POSSIBLY RUNNING"
         assert {row.status for row in report.terminations} == {"INTERRUPTED", "UNSTABLE"}
+
+
 def test_tsf_live_time_reads_progress_and_ignores_invalid_or_finished_summaries(tmp_path: Path) -> None:
     now = datetime.now().replace(second=0, microsecond=0)
     tlf = tmp_path / "Long_Model_Name.tlf"
@@ -643,8 +646,6 @@ def test_tsf_timestamp_predating_start_is_not_reported(tmp_path: Path) -> None:
         "Simulation Status == Started\nSimulation Time (h) == 22\nSimulation End Time (h) == 48\n",
         encoding="utf-8",
     )
-    from os import utime
-
     old = (started - timedelta(minutes=8)).timestamp()
     utime(tsf, (old, old))
     assert read_simulation_progress(record) is None
