@@ -95,7 +95,7 @@ def _database_layer_exists(path: Path, layer: str) -> bool:
         return False
 
 
-def check_simulation_inputs(
+def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across TUFLOW input families
     tcf: Path,
     runs: Sequence[RunRequest],
     *,
