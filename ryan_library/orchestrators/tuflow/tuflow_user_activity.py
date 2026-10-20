@@ -360,6 +360,10 @@ def _parse_tsf_progress_fields(fields: dict[str, str]) -> SimulationProgress | N
         return None
     if not math.isfinite(model_time) or not math.isfinite(end_time):
         return None
+    # TSFs can be read while the solver updates them. Never display an
+    # impossible model-time/end-time pair, even if Start Time is missing.
+    if model_time > end_time and not math.isclose(model_time, end_time, rel_tol=0, abs_tol=1e-6):
+        return None
     if start_time is not None and (
         not math.isfinite(start_time) or end_time <= start_time or model_time < start_time - 0.01
     ):
