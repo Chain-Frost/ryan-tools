@@ -71,10 +71,10 @@ def test_mixed_firms_never_leak_other_product_links_or_denials() -> None:
             "<tr><td>47</td><td>Other Software</td><td>0x1</td><td>9</td><td>5</td><td>4</td></tr></table>",
         )
         + """
-    )
 <a href="/license_monitoring/license_monitoring_details.html?FirmCode=777&amp;ProductCode=47">47</a>
 <a href="/license_monitoring/license_monitoring_details.html?FirmCode=777&amp;ProductCode=20">20</a>
 """
+    )
     products, urls = codemeter.parse_license_monitoring_html(mixed_html, firm_code=101139)
     # 20 is ambiguous across firms and cannot safely supply a quantity.
     assert [item.product_code for item in products] == [99]
