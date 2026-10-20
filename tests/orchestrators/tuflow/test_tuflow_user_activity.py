@@ -30,12 +30,7 @@ def test_concurrent_starts_remain_independent_when_one_finishes(tmp_path: Path) 
 
 def test_inspect_tlf_uses_completion_and_gpu_parser() -> None:
     fixture = (
-        Path("tests")
-        / "test_data"
-        / "tuflow"
-        / "TUFLOW_Example_Model_Dataset"
-        / "log"
-        / "EG00_001.tlf"
+        Path("tests") / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "log" / "EG00_001.tlf"
     ).absolute()
 
     inspection = inspect_tlf(fixture)
@@ -57,9 +52,7 @@ def test_network_and_other_documented_licence_origins() -> None:
         ("TUT", "TUT", "-"),
     ):
         record = parse_activity_line(
-            '2026-Oct-20 09:00  Don: 0001 '
-            + marker
-            + ' HOST Build: 2026.0 Started: Model_A model.tcf "Q:\\\\A.tlf"',
+            "2026-Oct-20 09:00  Don: 0001 " + marker + ' HOST Build: 2026.0 Started: Model_A model.tcf "Q:\\\\A.tlf"',
             source=source,
         )
         assert record is not None, marker
@@ -73,10 +66,7 @@ def test_network_simulation_start_and_completion_are_reported(tmp_path: Path) ->
     user_directory.mkdir()
     lines = (
         '2026-Oct-20 09:00 Don: 0001 NWK 01/20 HOST Build: test Started: Model_A x.tcf "Q:\\A.tlf"',
-        (
-            '2026-Oct-20 09:50 Don: 0001 NWK 01/20 HOST Build: test Tot: 0:50:00 CT '
-            'Finished:Model_A x.tcf "Q:\\A.tlf"'
-        ),
+        ('2026-Oct-20 09:50 Don: 0001 NWK 01/20 HOST Build: test Tot: 0:50:00 CT Finished:Model_A x.tcf "Q:\\A.tlf"'),
     )
     (user_directory / "_ All TUFLOW Simulations.log").write_text("\n".join(lines), encoding="utf-8")
 
