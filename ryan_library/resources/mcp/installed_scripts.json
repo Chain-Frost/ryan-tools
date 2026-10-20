@@ -19,6 +19,7 @@
     "TUFLOW-python/gis_processing/split_network_layers_by_culvert_id.py",
     "TUFLOW-python/log_processing/__init__.py",
     "TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py",
+    "TUFLOW-python/log_processing/check_tuflow_user_activity.py",
     "TUFLOW-python/log_processing/create_log_summary_report.py",
     "TUFLOW-python/model_management/__init__.py",
     "TUFLOW-python/model_management/collect_result_and_check_files.py",

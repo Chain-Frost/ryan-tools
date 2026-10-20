@@ -103,6 +103,58 @@ py -3.14 .\log_processing\create_log_summary_report.py --working-directory "D:\M
 py -3.14 .\po_and_timeseries\combine_pomm_results.py --export-mode parquet --no-pause
 ```
 
+## Check recent TUFLOW user activity
+
+[`log_processing/check_tuflow_user_activity.py`](log_processing/check_tuflow_user_activity.py) is a read-only,
+library-backed utility that checks each user folder below `%ProgramData%\TUFLOW\log`. It identifies distinct
+simulation starts, including overlapping runs, instead of relying on the latest event for each user. The default
+lookback is 24 hours, and the maximum searchable history is seven days (`--recent-hours 168`).
+
+```powershell
+py -3.14 .\ryan-scripts\TUFLOW-python\log_processing\check_tuflow_user_activity.py
+py -3.14 .\ryan-scripts\TUFLOW-python\log_processing\check_tuflow_user_activity.py --recent-hours 48
+```
+
+For each start, the utility reads the quoted `.tlf` with the maintained TUFLOW parser. A valid completion footer is
+labelled `COMPLETED`; an accessible TLF without that footer is `POSSIBLY RUNNING`; missing or inaccessible TLFs remain
+`UNKNOWN`. Global-log `Interrupted` and `UNSTABLE` records are recorded as **distinct terminal states**, not
+successful completions or potentially active runs, even if the TLF remains incomplete. A separate terminations table
+shows their status and any recorded elapsed runtime. Each TLF is assessed independently, so one model finishing does
+not imply that another model owned by the same user has stopped. The tables include the computer, licence seat and parsed GPU device IDs. The simulation-starts
+table displays both AGE (elapsed time since the run started) and RUNTIME (the measured duration of a completed run).
+RUNTIME comes from its matching completion event where available, otherwise the completed TLF; interrupted or
+unstable runs show their reported terminal elapsed time if one was logged; still-running runs show `-`.
+Matching completions retain their own runtime column, and a final details section prints the full inferred TUFLOW
+project folder and TLF path. Use `--log-root` to inspect a non-default copy of the licence-log tree.
+
+The default console report shows active simulations, every start since the oldest active simulation, and two earlier
+starts as context. It shows the matching completed/interrupted/unstable terminal records and paths only. If no active simulation can be matched,
+it shows the three latest starts. A run may predate the usual 24-hour window; the utility checks available logs
+up to seven days back to find its start and predecessors. `POSSIBLY RUNNING` from a TLF is not proof of an active
+CodeMeter allocation. Use `--all-history` to restore the full output for the configured `--recent-hours` period.
+
+The `MODEL` column displays the full filename rather than truncating it at 48 characters. The project folder and
+TLF paths in the final section can be opened from terminal hyperlinks. Windows Terminal receives OSC 8 links
+automatically where supported; VS Code's terminal can usually Ctrl+click the plain Windows paths through its native
+file-link detection. Use `--hyperlinks` to force OSC 8 links, or `--no-hyperlinks` to print plain paths.
+Redirected output and other non-OSC terminals get plain readable paths by default.
+
+By default, the wrapper also reads local CodeMeter WebAdmin at `http://localhost:22352`. It reports current TUFLOW
+product utilisation, each active user's process ID, first and last access, licence allocation handles, recent
+no-more-licences events, and the recent simulation whose start time most closely matches each active process. Known
+TUFLOW product codes are 20 (Local), 21 (Local Threads), 22 (Local Multiple Domains), and 26 (Local GPU). Any product
+code not recognised by the Python mapping is shown as a warning instead of being silently guessed. Use
+`--no-codemeter` when WebAdmin is unavailable or `--codemeter-url` to select another local endpoint.
+
+CodeMeter quantities, allocations, and denial events are filtered to TUFLOW Firm Code `101139`. The report
+uses a live WebAdmin snapshot and the existing event log; **CodeMeter License Tracking does not need to be
+activated**, and this utility creates no tracking database or background service. Events older than WebAdmin's
+retained history may not be available.
+
+The reusable Python function `fetch_codemeter_snapshot()` also accepts `firm_code`, `product_codes`, and
+`product_names` for other vendors. Product codes are scoped by firm; when different firms share a product code,
+unattributable quantity rows are suppressed with a warning rather than reported against the wrong vendor.
+
 ## POMM peak wrapper migration
 
 The maintained mean and median POMM peak wrappers use
