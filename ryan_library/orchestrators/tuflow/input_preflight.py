@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import csv
 import sqlite3
-from importlib import import_module
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from importlib import import_module
 from pathlib import Path
 from typing import Literal, Protocol, cast
 
 import pandas as pd
-
 from loguru import logger
 
 IssueStatus = Literal["missing", "unresolved"]
@@ -164,7 +163,7 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
         raise RuntimeError(message) from exc
 
     # Import dynamically because PyTUFLOW is an optional extra, not a core requirement.
-    factory = cast(_ModelFactory, getattr(module, "TCF"))
+    factory = cast(_ModelFactory, module.TCF)
     report = PreflightReport(run_count=len(runs))
     cache: dict[tuple[str, str], bool] = {}
     model: _Model = factory(str(tcf.absolute()))
