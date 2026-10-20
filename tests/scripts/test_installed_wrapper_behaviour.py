@@ -1,8 +1,9 @@
-"""Safe installed-wrapper behavioral smoke tests without engineering project data.
+"""Source-tree behavior regressions; isolated wheel acceptance runs separately.
 
-These scripts are copied into disposable folders, emulating an end-user copying
-a standalone wrapper out of the wheel without a Git checkout. Only explicit
-read-only or disposable-output workflows are executed.
+These tests copy source-tree wrappers into disposable directories to protect
+their behavior during development. They do not validate wheel packaging.
+The package CI job performs independent executable checks against an isolated
+installed wheel in `repo-scripts/smoke_test_installed_wheel.py`.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ ROOT = Path(__file__).absolute().parents[2] / "ryan-scripts"
 
 
 def _run_copied_wrapper(relative: str, work: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    """Run a copied file in a sandbox; do not rely on repository-relative imports."""
+    """Run a source-tree wrapper on disposable data; do not claim wheel isolation."""
     source = ROOT / relative
     target = work / source.name
     shutil.copy2(source, target)

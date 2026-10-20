@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import argparse
 import csv
-import os
 import importlib.metadata
 import importlib.resources
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
