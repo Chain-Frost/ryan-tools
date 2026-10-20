@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from itertools import islice
 from pathlib import Path
-import re
 from typing import Any
 
 from ryan_library.functions.parse_tlf import get_log_lines, is_complete_tlf, search_for_completion, search_from_top
@@ -17,7 +17,6 @@ from ryan_library.functions.tuflow.codemeter import (
     CodeMeterSnapshot,
     fetch_codemeter_snapshot,
 )
-
 
 MAX_RECENT_HOURS = 7 * 24
 TIMESTAMP_FORMAT = "%Y-%b-%d %H:%M"
@@ -151,7 +150,7 @@ def parse_activity_line(line: str, *, source: Path) -> ActivityRecord | None:
     )
 
 
-def read_user_activity(user_directory: Path, *, activity_since: datetime) -> UserActivity:
+def read_user_activity(user_directory: Path, *, activity_since: datetime) -> UserActivity:  # noqa: C901
     """Read recent starts and completions from one global-log user folder."""
     recent_starts: list[ActivityRecord] = []
     recent_completions: list[ActivityRecord] = []
@@ -210,7 +209,7 @@ def collect_user_activity(log_root: Path, *, activity_since: datetime) -> list[U
     return [read_user_activity(path, activity_since=activity_since) for path in user_directories]
 
 
-def inspect_tlf(tlf_path: Path | None) -> TlfInspection:
+def inspect_tlf(tlf_path: Path | None) -> TlfInspection:  # noqa: C901
     """Inspect one TLF with the parsing functions used by ``TLFProcessor``."""
     if tlf_path is None:
         return TlfInspection(status="NO TLF PATH")
@@ -537,7 +536,7 @@ def _recent_denials(
     return [denial for denial in denials if _local_naive(denial.timestamp) >= since]
 
 
-def render_activity_report(report: TuflowActivityReport) -> str:
+def render_activity_report(report: TuflowActivityReport) -> str:  # noqa: C901
     """Render a console report without mutating external state."""
     lines = [
         f"TUFLOW user activity from: {report.log_root}",
