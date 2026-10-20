@@ -129,7 +129,6 @@ def test_markdown_audit_lists_every_tracked_source_and_protects_status_words() -
     assert str(report["selected_file_count"]) in markdown
 
 
-
 def test_only_exact_main_equality_is_a_protected_entry_point() -> None:
     """Inverted and chained comparisons cannot conceal import-time writes."""
     unsafe_conditions = (
@@ -139,20 +138,12 @@ def test_only_exact_main_equality_is_a_protected_entry_point() -> None:
         'not (__name__ == "__main__")',
     )
     for expression in unsafe_conditions:
-        source = (
-            "import shutil\n"
-            f"if {expression}:\n"
-            "    shutil.copy2('source', 'destination')\n"
-        )
+        source = f"import shutil\nif {expression}:\n    shutil.copy2('source', 'destination')\n"
         record = inventory.analyse_python(source)
         assert record["main_guard"] is False, expression
         assert record["import_time_mutation_calls"] == ["copy2"], expression
 
-    reversed_check = (
-        'import shutil\n'
-        'if "__main__" == __name__:\n'
-        '    shutil.copy2("input", "output")\n'
-    )
+    reversed_check = 'import shutil\nif "__main__" == __name__:\n    shutil.copy2("input", "output")\n'
     safe = inventory.analyse_python(reversed_check)
     assert safe["main_guard"] is True
     assert safe["import_time_mutation_risk"] is False

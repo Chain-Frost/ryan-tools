@@ -104,7 +104,9 @@ def _check_installed_wrapper_behaviour(expected_root: Path) -> None:
             "--no-pause",
         )
         if inventory.returncode != 0:
-            msg = f"Wheel-installed file_inventory.py CSV export failed: {(inventory.stdout + inventory.stderr)[-1000:]}"
+            msg = (
+                f"Wheel-installed file_inventory.py CSV export failed: {(inventory.stdout + inventory.stderr)[-1000:]}"
+            )
             raise RuntimeError(msg)
         exported = output_dir / "wheel-inventory.csv"
         if not exported.is_file() or (output_dir / "wheel-inventory.xlsx").exists():
