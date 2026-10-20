@@ -10,6 +10,8 @@ USAGE
 """
 
 
+WRAPPER_VERSION = "2026-10-21.1"
+
 # ========= USER PARAMETERS ====== ***** EDIT ONLY THIS FUNCTION *****
 def get_parameters() -> Parameters:
     from pathlib import Path
@@ -57,6 +59,9 @@ def get_parameters() -> Parameters:
         pending_head_rows=10,
         pending_tail_rows=10,
         write_results_csv=True,
+        preflight_check=False,  # Validate exact run inputs before launch (requires optional PyTUFLOW)
+        preflight_check_gpkg_layers=True,
+        preflight_report_csv=Path("run_tuflow_simulations_preflight.csv"),
     )
 
     # Build and validate
@@ -99,6 +104,10 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from ryan_library.functions.tuflow.run_flags import extract_flag_pairs, extract_run_flags
+from ryan_library.functions.wrapper_utils import print_wrapper_banner
+from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_simulation_inputs
+
 
 ###############################################################################
 # =============================== DATA CLASSES ============================== #
@@ -131,6 +140,9 @@ class CoreParameters:
         pending_head_rows:      Number of earliest blocked finished rows to show.
         pending_tail_rows:      Number of latest blocked finished rows to show.
         write_results_csv:      If True -> write <script>_results.csv in ordered static print order.
+        preflight_check:        Validate exact input dependencies before launch.
+        preflight_check_gpkg_layers: Verify layers referenced inside GeoPackages.
+        preflight_report_csv:   Path of the preflight issues CSV.
     """
 
     tcf: Path
@@ -154,6 +166,9 @@ class CoreParameters:
     pending_head_rows: int = 25
     pending_tail_rows: int = 25
     write_results_csv: bool = True
+    preflight_check: bool = False
+    preflight_check_gpkg_layers: bool = True
+    preflight_report_csv: Path = Path("run_tuflow_simulations_preflight.csv")
 
     # ---- Defaults map (for styled dumps) ----
     # IMPORTANT: mark as ClassVar so dataclasses ignores it (avoids mutable-default error).
@@ -176,6 +191,9 @@ class CoreParameters:
         "pending_head_rows": 25,
         "pending_tail_rows": 25,
         "write_results_csv": True,
+        "preflight_check": False,
+        "preflight_check_gpkg_layers": True,
+        "preflight_report_csv": Path("run_tuflow_simulations_preflight.csv"),
     }
 
     def dump(self) -> None:
@@ -227,6 +245,9 @@ class CoreParameters:
             ("pending_head_rows", self.pending_head_rows),
             ("pending_tail_rows", self.pending_tail_rows),
             ("write_results_csv", self.write_results_csv),
+            ("preflight_check", self.preflight_check),
+            ("preflight_check_gpkg_layers", self.preflight_check_gpkg_layers),
+            ("preflight_report_csv", self.preflight_report_csv),
         ]
         for name, val in items:
             # For "(effective)" label, look up original key for default styling comparison
@@ -701,13 +722,8 @@ def _strip_pu_flags(line: str) -> str:
 
 
 def _extract_flag_pairs_in_order(line: str) -> list[tuple[FlagKey, FlagVal]]:
-    out: list[tuple[FlagKey, FlagVal]] = []
-    for m in _FLAG_PAIR_RE.finditer(string=line):
-        k = m.group("key").lower().strip()
-        v = m.group("val").strip()
-        if v:
-            out.append((k, v))
-    return out
+    """Reuse the shared parser used by the preflight checker."""
+    return extract_flag_pairs(line)
 
 
 def _canonical_key(combo: Combo) -> tuple[tuple[str, str], ...]:
@@ -1186,7 +1202,7 @@ def launch_simulations(
             if s.process and s.process.poll() is None:
                 console.print(f"Terminating simulation {s.index} (PID {s.process.pid})")
                 s.process.terminate()
-        if core.pause_on_finish:
+        if core.pause_on_finish and "--no-pause" not in sys.argv:
             _pause_on_windows()
         sys.exit(1)
 
@@ -1492,6 +1508,12 @@ def run_dashboard_demo() -> None:
 
 # ================================== MAIN ================================== #
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print("run_tuflow_simulations.py [--preflight] [--preflight-only] [--no-pause] [--demo-dashboard]")
+        print("  --preflight       Validate all input files before simulations are launched.")
+        print("  --preflight-only  Export commands, validate inputs and exit without running TUFLOW.")
+        print("  --no-pause        Exit without interactive pause for automation or CI.")
+        return
     if "--demo-dashboard" in sys.argv:
         run_dashboard_demo()
         return
@@ -1511,6 +1533,7 @@ def main() -> None:
     os.chdir(path=script_dir)
     logging.info("Working dir: %s", script_dir)
 
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     params: Parameters = get_parameters()
     core: CoreParameters = params.core_params
 
@@ -1559,6 +1582,35 @@ def main() -> None:
             tcf=core.tcf,
         )
 
+    preflight_enabled: bool = core.preflight_check or "--preflight" in sys.argv or "--preflight-only" in sys.argv
+    if preflight_enabled:
+        requests: list[RunRequest] = [
+            RunRequest(index=sim.index, flags=extract_run_flags(sim.args_for_python)) for sim in sims
+        ]
+        report = check_simulation_inputs(
+            core.tcf,
+            requests,
+            check_gpkg_layers=core.preflight_check_gpkg_layers,
+        )
+        report_path = report.write_csv(core.preflight_report_csv)
+        logging.info(
+            "Input preflight: %d runs, %d unique paths, %d issues, %d affected runs; report: %s",
+            report.run_count, len(report.checked_paths), len(report.issues), report.affected_runs, report_path,
+        )
+        for issue in report.issues[:20]:
+            logging.error(
+                "Run %d %s %s: %s (%s)",
+                issue.run_index, issue.status, issue.origin, issue.reference, issue.detail,
+            )
+        if not report.passed:
+            raise RuntimeError(
+                f"Preflight blocked launch: {len(report.issues)} issue(s) affecting {report.affected_runs} run(s)."
+            )
+
+    if "--preflight-only" in sys.argv:
+        logging.info("Preflight-only mode: no simulations launched.")
+        return
+
     if not core.run_simulations:
         logging.info("run_simulations=False -> exiting after exporting commands.txt")
         return
@@ -1571,7 +1623,7 @@ def main() -> None:
         run_post_script(script_path=core.next_run_file)
 
     logging.info("All finished.")
-    if core.pause_on_finish:
+    if core.pause_on_finish and "--no-pause" not in sys.argv:
         _pause_on_windows()
 
 
@@ -1580,5 +1632,8 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         logging.critical("An error occurred: %s", e, exc_info=True)
-        _pause_on_windows()
+        if "--no-pause" not in sys.argv and "--preflight-only" not in sys.argv:
+            _pause_on_windows()
         sys.exit(1)
+    finally:
+        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
