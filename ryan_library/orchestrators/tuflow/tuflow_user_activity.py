@@ -376,7 +376,7 @@ def _group_codemeter_processes(
         grouped.setdefault((_normalise_user(allocation.user), allocation.process_id), []).append(allocation)
 
     rows: list[CodeMeterProcessRow] = []
-    used_simulations: set[tuple[str, str]] = set()
+    used_simulations: set[tuple[str, str, datetime]] = set()
     for (normalized_user, process_id), process_allocations in grouped.items():
         first_values = [item.first_access for item in process_allocations if item.first_access is not None]
         last_values = [item.last_access for item in process_allocations if item.last_access is not None]
@@ -388,7 +388,11 @@ def _group_codemeter_processes(
             candidates = [row for row in candidates if _start_distance_seconds(row, reference_time) <= 10 * 60]
         match = None
         for candidate in candidates:
-            identity = (candidate.user.casefold(), str(candidate.record.tlf_path).casefold())
+            identity = (
+                candidate.user.casefold(),
+                str(candidate.record.tlf_path).casefold(),
+                candidate.record.timestamp,
+            )
             if identity not in used_simulations:
                 match = candidate
                 used_simulations.add(identity)
@@ -497,12 +501,17 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
     }
     # Only report completions belonging to the displayed starts. Matching a
     # TLF path alone is unsafe when a simulation is restarted into the same log.
-    selected_completions = [
-        (user, record)
-        for user, record in all_completions
-        if record.started_at is not None
-        and (user.casefold(), record.started_at, str(record.tlf_path).casefold()) in selected_keys
-    ]
+    if all_history:
+        selected_completions = [
+            (user, record) for user, record in all_completions if record.timestamp >= activity_since
+        ]
+    else:
+        selected_completions = [
+            (user, record)
+            for user, record in all_completions
+            if record.started_at is not None
+            and (user.casefold(), record.started_at, str(record.tlf_path).casefold()) in selected_keys
+        ]
     start_rows = tuple(
         SimulationReportRow(
             user=user,
