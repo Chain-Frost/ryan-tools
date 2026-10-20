@@ -570,8 +570,21 @@ def _format_runtime(runtime_seconds: int | None) -> str:
     return f"{seconds}s"
 
 
-def _truncate(value: str, *, width: int = 48) -> str:
-    return value if len(value) <= width else f"{value[: width - 3]}..."
+def _file_link(path: Path | None, *, hyperlinks: bool) -> str:
+    """Return an OSC 8 link to a Windows path, or its readable plain-text form."""
+    if path is None:
+        return "(not recorded)"
+    display_path = str(path).replace("\x1b", "").replace("\r", "").replace("\n", "")
+    if not hyperlinks:
+        return display_path
+    windows_path = PureWindowsPath(display_path)
+    if not windows_path.is_absolute():
+        return display_path
+    try:
+        uri = windows_path.as_uri()
+    except ValueError:
+        return display_path
+    return f"\x1b]8;;{uri}\x1b\\{display_path}\x1b]8;;\x1b\\"
 
 
 def _table(rows: Iterable[tuple[str, ...]], *, headers: tuple[str, ...]) -> list[str]:
@@ -605,7 +618,9 @@ def _recent_denials(
     return [denial for denial in denials if _local_naive(denial.timestamp) >= since]
 
 
-def render_activity_report(report: TuflowActivityReport) -> str:  # noqa: C901
+def render_activity_report(  # noqa: C901
+    report: TuflowActivityReport, *, hyperlinks: bool = False
+) -> str:
     """Render a console report without mutating external state."""
     lines = [
         f"TUFLOW user activity from: {report.log_root}",
@@ -614,6 +629,7 @@ def render_activity_report(report: TuflowActivityReport) -> str:  # noqa: C901
             f"Window: last {report.recent_hours:g} hours (maximum 168). Each simulation is assessed independently; "
             "another model's completion does not affect it."
         ),
+        report.selection_summary,
         "",
         "CODEMETER CURRENT LICENCE UTILISATION",
     ]
@@ -652,7 +668,7 @@ def render_activity_report(report: TuflowActivityReport) -> str:  # noqa: C901
                     process.last_access.strftime("%Y-%m-%d %H:%M:%S") if process.last_access else "-",
                     simulation.inspection.gpu_device_ids if simulation else "-",
                     simulation.status if simulation else "UNMATCHED",
-                    _truncate(simulation.record.model) if simulation else "(no matching recent start)",
+                    simulation.record.model if simulation else "(no matching recent start)",
                     ", ".join(f"{item.product_code}:H{item.handle_id}" for item in process.allocations),
                 )
             )
@@ -674,7 +690,7 @@ def render_activity_report(report: TuflowActivityReport) -> str:  # noqa: C901
     else:
         lines.append("No active CodeMeter TUFLOW allocations were found.")
 
-    lines.extend(("", f"RECENT SIMULATION STARTS (LAST {report.recent_hours:g} HOURS)"))
+    lines.extend(("", "SELECTED SIMULATION STARTS"))
     if report.starts:
         lines.extend(
             _table(
@@ -688,7 +704,7 @@ def render_activity_report(report: TuflowActivityReport) -> str:  # noqa: C901
                         f"{row.record.licence_origin} {row.record.seat}".strip(),
                         row.inspection.gpu_device_ids,
                         tlf_status_for_record(row.record, row.inspection),
-                        _truncate(row.record.model),
+                        row.record.model,
                     )
                     for row in report.starts
                 ),
@@ -698,7 +714,7 @@ def render_activity_report(report: TuflowActivityReport) -> str:  # noqa: C901
     else:
         lines.append("No simulation starts were recorded in this period.")
 
-    lines.extend(("", f"RECENT COMPLETIONS (LAST {report.recent_hours:g} HOURS)"))
+    lines.extend(("", "MATCHING SIMULATION COMPLETIONS"))
     if report.completions:
         lines.extend(
             _table(
@@ -753,8 +769,8 @@ def render_activity_report(report: TuflowActivityReport) -> str:  # noqa: C901
             lines.extend(
                 (
                     f"[{index}] {user} — {record.model}",
-                    f"    Project: {project_folder if project_folder is not None else '(not identified)'}",
-                    f"    TLF:     {record.tlf_path if record.tlf_path is not None else '(not recorded)'}",
+                    f"    Project: {_file_link(project_folder, hyperlinks=hyperlinks)}",
+                    f"    TLF:     {_file_link(record.tlf_path, hyperlinks=hyperlinks)}",
                 )
             )
     else:
