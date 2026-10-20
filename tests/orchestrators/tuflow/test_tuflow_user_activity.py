@@ -113,17 +113,15 @@ def test_compact_report_keeps_two_starts_before_oldest_active_model(tmp_path: Pa
     event_lines: list[tuple[datetime, str]] = []
     for seat, (model, hours_ago) in enumerate(models, start=1):
         started = now - timedelta(hours=hours_ago)
-        prefix = f'{started:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test '
+        prefix = f"{started:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test "
         path = f"Q:\\TUFLOW_Project\\results\\Log\\{model}.tlf"
         event_lines.append((started, f'{prefix}Started: {model} test.tcf "{path}"'))
         if not model.startswith("Running"):
             finished = started + timedelta(minutes=20)
-            prefix = f'{finished:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test '
+            prefix = f"{finished:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test "
             event_lines.append((finished, f'{prefix}Tot: 0:20:00 CT Finished: {model} "{path}"'))
     event_lines.sort(key=lambda item: item[0])
-    (user_dir / "All TUFLOW Simulations.log").write_text(
-        "\n".join(line for _, line in event_lines), encoding="utf-8"
-    )
+    (user_dir / "All TUFLOW Simulations.log").write_text("\n".join(line for _, line in event_lines), encoding="utf-8")
 
     snapshot = CodeMeterSnapshot(
         products=(),
@@ -157,22 +155,31 @@ def test_compact_report_keeps_two_starts_before_oldest_active_model(tmp_path: Pa
             side_effect=inspect_mock,
         ),
     ):
-        report = build_activity_report(
-            log_root=tmp_path, recent_hours=2, codemeter_url="http://localhost:22352"
-        )
+        report = build_activity_report(log_root=tmp_path, recent_hours=2, codemeter_url="http://localhost:22352")
         full = build_activity_report(
-            log_root=tmp_path, recent_hours=24, codemeter_url="http://localhost:22352",
+            log_root=tmp_path,
+            recent_hours=24,
+            codemeter_url="http://localhost:22352",
             all_history=True,
         )
 
     assert [row.record.model for row in report.starts] == [
-        "Newest", "RunningNew", "CompletedNew", "RunningOld", "Older3", "Older2"
-    ]
-    assert [row.record.model for row in report.completions] == [
-        "Newest", "CompletedNew", "Older3", "Older2"
+        "Newest",
+        "RunningNew",
+        "CompletedNew",
+        "RunningOld",
+        "Older3",
+        "Older2",
+    assert [row.record.model for row in report.completions] == ["Newest", "CompletedNew", "Older3", "Older2"]
     ]
     assert [row.record.model for row in full.starts] == [
-        "Newest", "RunningNew", "CompletedNew", "RunningOld", "Older3", "Older2", "Oldest"
+        "Newest",
+        "RunningNew",
+        "CompletedNew",
+        "RunningOld",
+        "Older3",
+        "Older2",
+        "Oldest",
     ]
     assert len(report.codemeter_processes) == 2
     assert all(row.simulation is not None for row in report.codemeter_processes)
@@ -183,7 +190,7 @@ def test_no_active_codemeter_allocations_limits_to_latest_three(tmp_path: Path) 
     user_dir = tmp_path / "Engineer.Name"
     user_dir.mkdir()
     lines = [
-        f'{now - timedelta(hours=i):%Y-%b-%d %H:%M} Don: 0001 LOC {i}/8 HOST '
+        f"{now - timedelta(hours=i):%Y-%b-%d %H:%M} Don: 0001 LOC {i}/8 HOST "
         f'Build: test Started: Model_{i} test.tcf "Q:\\Model_{i}.tlf"'
         for i in range(1, 6)
     ]
@@ -207,7 +214,7 @@ def test_terminal_links_and_full_model_names() -> None:
     long_name = "Blacksmith_v14_WeelMLTP_EXG_20.00p_0720m_TP07_CC_32M"
     timestamp = datetime(2026, 10, 20, 15, 27)
     record = parse_activity_line(
-        f'2026-Oct-20 15:27 Don: 0001 NWK 1/2 HOST Build: test Started: {long_name} '
+        f"2026-Oct-20 15:27 Don: 0001 NWK 1/2 HOST Build: test Started: {long_name} "
         f'test.tcf "Q:\\TUFLOW_Blacksmith\\results\\Log\\{long_name}.tlf"',
         source=Path("global.log"),
     )
