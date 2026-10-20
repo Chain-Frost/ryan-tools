@@ -91,6 +91,15 @@ def _check_installed_wrapper_behaviour(expected_root: Path) -> None:
         (input_dir / "XYZ-002_Rev1.txt").write_text("two", encoding="utf-8")
         output_dir = work / "output"
 
+        for wrapper in (
+            "file-management-python/file_inventory.py",
+            "file-management-python/list_files_recursive.py",
+        ):
+            help_result = _run_installed_wrapper(wrapper, work, expected_root, "--help")
+            if help_result.returncode != 0 or "usage:" not in help_result.stdout.lower():
+                msg = f"Wheel-installed {wrapper} failed --help: {(help_result.stdout + help_result.stderr)[-700:]}"
+                raise RuntimeError(msg)
+
         inventory = _run_installed_wrapper(
             "file-management-python/file_inventory.py",
             work,
@@ -148,7 +157,7 @@ def _check_installed_wrapper_behaviour(expected_root: Path) -> None:
             msg = "Wheel-installed recursive listing has missing source paths."
             raise RuntimeError(msg)
 
-        print("Wheel-only wrapper behaviour passed: CSV, invalid input exit, file listing.")
+        print("Wheel-only wrapper behaviour passed: help, CSV, invalid input exit, file listing.")
 
 
 def _check_vendored_similarity() -> None:
