@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
@@ -73,6 +74,15 @@ class TlfInspection:
 
 
 @dataclass(frozen=True, slots=True)
+class SimulationProgress:
+    """Last reported simulated time, end time and progress from the TSF."""
+
+    model_time_hours: float
+    end_time_hours: float
+    percentage_complete: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class SimulationReportRow:
     """One simulation with independently inspected TLF state."""
 
@@ -81,6 +91,7 @@ class SimulationReportRow:
     inspection: TlfInspection
     status: str
     runtime_seconds: int | None = None
+    progress: SimulationProgress | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -295,6 +306,65 @@ def inspect_tlf(tlf_path: Path | None) -> TlfInspection:  # noqa: C901
         gpu_device_ids=gpu_device_ids,
         runtime_seconds=runtime_seconds,
         modified_at=modified_at,
+    )
+
+
+def read_simulation_progress(record: ActivityRecord) -> SimulationProgress | None:
+    """Read last known model time from the companion .tsf of a live run.
+
+    The TUFLOW summary is updated as the model advances. It is independent
+    of CodeMeter, which identifies the process but holds no model-time data.
+    Incomplete, stale or non-running summaries are deliberately ignored.
+    """
+    if record.tlf_path is None:
+        return None
+    tsf_path = record.tlf_path.with_suffix(".tsf")
+    try:
+        file_stat = tsf_path.stat()
+        if datetime.fromtimestamp(file_stat.st_mtime) < record.timestamp - timedelta(minutes=2):
+            return None
+        # TSF files are small key/value reports; cap reads to avoid large
+        # accidental or malformed files while the solver is writing.
+        with tsf_path.open("r", encoding="utf-8-sig", errors="replace") as stream:
+            content = stream.read(128 * 1024)
+    except (OSError, OverflowError, ValueError):
+        return None
+
+    fields: dict[str, str] = {}
+    for line in content.splitlines():
+        if "==" not in line:
+            continue
+        key, value = line.split("==", maxsplit=1)
+        fields[key.strip().casefold()] = value.strip().strip('"')
+
+    if fields.get("simulation status", "").casefold() not in {"started", "running"}:
+        return None
+    # A recycled TSF must not be attributed to an unrelated TLF. Compare
+    # filenames rather than full paths (mapped drives and UNC may differ).
+    reported_tlf = fields.get("tuflow log file")
+    if reported_tlf is not None and PureWindowsPath(reported_tlf).name.casefold() != record.tlf_path.name.casefold():
+        return None
+    try:
+        model_time = float(fields["simulation time (h)"])
+        end_time = float(fields["simulation end time (h)"])
+        start_value = fields.get("simulation start time (h)")
+        start_time = float(start_value) if start_value is not None else None
+        percent_value = fields.get("percentage complete (%)")
+        percent = float(percent_value) if percent_value is not None else None
+    except (KeyError, ValueError):
+        return None
+    if not math.isfinite(model_time) or not math.isfinite(end_time):
+        return None
+    if start_time is not None and (
+        not math.isfinite(start_time) or end_time <= start_time or model_time < start_time - 0.01
+    ):
+        return None
+    if percent is not None and (not math.isfinite(percent) or not 0 <= percent <= 100):
+        percent = None
+    return SimulationProgress(
+        model_time_hours=model_time,
+        end_time_hours=end_time,
+        percentage_complete=percent,
     )
 
 
@@ -565,6 +635,12 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         if record.started_at is not None
     }
 
+    active_start_keys = {
+        (user.casefold(), record.timestamp, str(record.tlf_path).casefold())
+        for user, record in all_starts
+        if record in active_starts
+    }
+
     def start_row(user: str, record: ActivityRecord) -> SimulationReportRow:
         inspection = inspection_for(record)
         completion = completion_by_start.get((user.casefold(), record.timestamp, str(record.tlf_path).casefold()))
@@ -582,12 +658,19 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
                 runtime_seconds = completion.runtime_seconds
             elif tlf_status_for_record(record, inspection) == "COMPLETE":
                 runtime_seconds = inspection.runtime_seconds
+        key = (user.casefold(), record.timestamp, str(record.tlf_path).casefold())
+        progress = (
+            read_simulation_progress(record)
+            if key in active_start_keys and status not in {"COMPLETED", "INTERRUPTED", "UNSTABLE"}
+            else None
+        )
         return SimulationReportRow(
             user=user,
             record=record,
             inspection=inspection,
             status=status,
             runtime_seconds=runtime_seconds,
+            progress=progress,
         )
 
     start_rows = tuple(start_row(user, record) for user, record in selected_starts)
@@ -654,6 +737,14 @@ def _format_runtime(runtime_seconds: int | None) -> str:
     if minutes:
         return f"{minutes}m {seconds:02d}s"
     return f"{seconds}s"
+
+
+def _format_sim_hours(hours: float | None) -> str:
+    return f"{hours:.3f}h" if hours is not None else "-"
+
+
+def _format_sim_percent(percentage: float | None) -> str:
+    return f"{percentage:.1f}%" if percentage is not None else "-"
 
 
 def _file_link(path: Path | None, *, hyperlinks: bool) -> str:
@@ -752,6 +843,11 @@ def render_activity_report(  # noqa: C901
                     process.last_access.strftime("%Y-%m-%d %H:%M:%S") if process.last_access else "-",
                     simulation.inspection.gpu_device_ids if simulation else "-",
                     simulation.status if simulation else "UNMATCHED",
+                    _format_sim_hours(simulation.progress.model_time_hours if simulation and simulation.progress else None),
+                    _format_sim_hours(simulation.progress.end_time_hours if simulation and simulation.progress else None),
+                    _format_sim_percent(
+                        simulation.progress.percentage_complete if simulation and simulation.progress else None
+                    ),
                     simulation.record.model if simulation else "(no matching recent start)",
                     ", ".join(f"{item.product_code}:H{item.handle_id}" for item in process.allocations),
                 )
@@ -766,6 +862,9 @@ def render_activity_report(  # noqa: C901
                     "LAST ACCESS",
                     "GPU ID",
                     "TLF STATUS",
+                    "SIM TIME",
+                    "SIM END",
+                    "PROGRESS",
                     "MODEL",
                     "LICENCE:HANDLE",
                 ),
@@ -789,11 +888,17 @@ def render_activity_report(  # noqa: C901
                         f"{row.record.licence_origin} {row.record.seat}".strip(),
                         row.inspection.gpu_device_ids,
                         tlf_status_for_record(row.record, row.inspection),
+                        _format_sim_hours(row.progress.model_time_hours if row.progress else None),
+                        _format_sim_hours(row.progress.end_time_hours if row.progress else None),
+                        _format_sim_percent(row.progress.percentage_complete if row.progress else None),
                         row.record.model,
                     )
                     for row in report.starts
                 ),
-                headers=("STATUS", "USER", "STARTED", "AGE", "RUNTIME", "MACHINE", "LICENCE", "GPU ID", "TLF", "MODEL"),
+                headers=(
+                    "STATUS", "USER", "STARTED", "AGE", "RUNTIME", "MACHINE", "LICENCE",
+                    "GPU ID", "TLF", "SIM TIME", "SIM END", "PROGRESS", "MODEL",
+                ),
             )
         )
     else:
