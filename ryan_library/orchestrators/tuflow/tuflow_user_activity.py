@@ -78,6 +78,7 @@ class SimulationReportRow:
     record: ActivityRecord
     inspection: TlfInspection
     status: str
+    runtime_seconds: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -513,15 +514,36 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
             if record.started_at is not None
             and (user.casefold(), record.started_at, str(record.tlf_path).casefold()) in selected_keys
         ]
-    start_rows = tuple(
-        SimulationReportRow(
+    # Global completion events carry the observed runtime and the paired
+    # start timestamp. Prefer that measurement over a TLF path that may be
+    # reused by a later simulation.
+    completion_by_start = {
+        (user.casefold(), record.started_at, str(record.tlf_path).casefold()): record
+        for user, record in all_completions
+        if record.started_at is not None
+    }
+
+    def start_row(user: str, record: ActivityRecord) -> SimulationReportRow:
+        inspection = inspection_for(record)
+        completion = completion_by_start.get(
+            (user.casefold(), record.timestamp, str(record.tlf_path).casefold())
+        )
+        status = "COMPLETED" if completion is not None else simulation_status(record, inspection)
+        runtime_seconds = None
+        if status == "COMPLETED":
+            if completion is not None and completion.runtime_seconds is not None:
+                runtime_seconds = completion.runtime_seconds
+            elif tlf_status_for_record(record, inspection) == "COMPLETE":
+                runtime_seconds = inspection.runtime_seconds
+        return SimulationReportRow(
             user=user,
             record=record,
-            inspection=inspection_for(record),
-            status=simulation_status(record, inspection_for(record)),
+            inspection=inspection,
+            status=status,
+            runtime_seconds=runtime_seconds,
         )
-        for user, record in selected_starts
-    )
+
+    start_rows = tuple(start_row(user, record) for user, record in selected_starts)
     completion_rows = tuple(
         SimulationReportRow(user=user, record=record, inspection=inspection_for(record), status="COMPLETED")
         for user, record in selected_completions
@@ -701,6 +723,7 @@ def render_activity_report(  # noqa: C901
                         row.user,
                         row.record.timestamp.strftime("%Y-%m-%d %H:%M"),
                         _format_age(row.record.timestamp, now=report.checked_at),
+                        _format_runtime(row.runtime_seconds),
                         row.record.machine,
                         f"{row.record.licence_origin} {row.record.seat}".strip(),
                         row.inspection.gpu_device_ids,
@@ -709,7 +732,7 @@ def render_activity_report(  # noqa: C901
                     )
                     for row in report.starts
                 ),
-                headers=("STATUS", "USER", "STARTED", "AGE", "MACHINE", "LICENCE", "GPU ID", "TLF", "MODEL"),
+                headers=("STATUS", "USER", "STARTED", "AGE", "RUNTIME", "MACHINE", "LICENCE", "GPU ID", "TLF", "MODEL"),
             )
         )
     else:
@@ -724,7 +747,11 @@ def render_activity_report(  # noqa: C901
                         row.user,
                         row.record.timestamp.strftime("%Y-%m-%d %H:%M"),
                         _format_age(row.record.timestamp, now=report.checked_at),
-                        _format_runtime(row.record.runtime_seconds or row.inspection.runtime_seconds),
+                        _format_runtime(
+                            row.record.runtime_seconds
+                            if row.record.runtime_seconds is not None
+                            else row.inspection.runtime_seconds
+                        ),
                         row.record.machine,
                         f"{row.record.licence_origin} {row.record.seat}".strip(),
                         row.inspection.gpu_device_ids,
