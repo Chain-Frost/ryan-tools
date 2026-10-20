@@ -106,9 +106,9 @@ py -3.14 .\po_and_timeseries\combine_pomm_results.py --export-mode parquet --no-
 ## Check recent TUFLOW user activity
 
 [`log_processing/check_tuflow_user_activity.py`](log_processing/check_tuflow_user_activity.py) is a read-only,
-library-backed utility that checks each user folder below `%ProgramData%\TUFLOW\log`. It reports every distinct
-simulation start in the selected period rather than assuming that a user's latest event represents all of their
-concurrent runs. The default lookback is 24 hours, and the maximum searchable history is seven days (`--recent-hours 168`).
+library-backed utility that checks each user folder below `%ProgramData%\TUFLOW\log`. It identifies distinct
+simulation starts, including overlapping runs, instead of relying on the latest event for each user. The default
+lookback is 24 hours, and the maximum searchable history is seven days (`--recent-hours 168`).
 
 ```powershell
 py -3.14 .\ryan-scripts\TUFLOW-python\log_processing\check_tuflow_user_activity.py
@@ -133,7 +133,6 @@ TLF paths in the final section can be opened from terminal hyperlinks. Windows T
 automatically where supported; VS Code's terminal can usually Ctrl+click the plain Windows paths through its native
 file-link detection. Use `--hyperlinks` to force OSC 8 links, or `--no-hyperlinks` to print plain paths.
 Redirected output and other non-OSC terminals get plain readable paths by default.
-
 
 By default, the wrapper also reads local CodeMeter WebAdmin at `http://localhost:22352`. It reports current TUFLOW
 product utilisation, each active user's process ID, first and last access, licence allocation handles, recent
