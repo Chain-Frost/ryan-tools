@@ -82,7 +82,7 @@ if __name__ == "__main__":
                 else DEFAULT_CHECK_GPKG_LAYERS
             ),
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - human-facing wrapper error boundary
         print(f"Input preflight failed: {exc}")
         code = 1
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
