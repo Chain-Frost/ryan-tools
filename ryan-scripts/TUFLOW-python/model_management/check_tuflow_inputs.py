@@ -1,4 +1,4 @@
-"""Check every required TUFLOW input for a proposed set of runs, without running TUFLOW.
+r"""Check every required TUFLOW input for a proposed set of runs, without running TUFLOW.
 
 Configure DEFAULT_TCF and DEFAULT_COMMANDS near the top, or override them:
     python check_tuflow_inputs.py --tcf "runs\model_~e1~_~e2~.tcf" --runs run_tuflow_simulations_commands.txt --no-pause
