@@ -15,7 +15,6 @@ from __future__ import annotations
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
 # pyright: reportUnknownArgumentType=false, reportUnknownParameterType=false
 # pyright: reportMissingTypeStubs=false, reportAttributeAccessIssue=false
-
 import argparse
 import csv
 import fnmatch
