@@ -552,6 +552,11 @@ def test_tsf_live_time_reads_progress_and_ignores_invalid_or_finished_summaries(
     )
     assert read_simulation_progress(record) is None
     tsf.write_text(
+        "Simulation Status == Started\nSimulation Time (h) == 12\nSimulation End Time (h) == 48\n",
+        encoding="utf-8",
+    )
+    assert read_simulation_progress(record) is None  # Missing TSF model identity
+    tsf.write_text(
         "Simulation Status == Started\nSimulation Time (h) == nan\nSimulation End Time (h) == 48\n",
         encoding="utf-8",
     )
@@ -657,3 +662,40 @@ def test_tsf_timestamp_predating_start_is_not_reported(tmp_path: Path) -> None:
     old = (started - timedelta(minutes=8)).timestamp()
     utime(tsf, (old, old))
     assert read_simulation_progress(record) is None
+
+
+
+def test_reused_tlf_path_only_gives_progress_to_latest_active_start(tmp_path: Path) -> None:
+    """An abandoned start cannot inherit the rerun's live TSF progress."""
+    now = datetime.now().replace(second=0, microsecond=0)
+    user_dir = tmp_path / "Engineer"
+    user_dir.mkdir()
+    log_path = tmp_path / "TUFLOW_Catchment" / "results" / "Log" / "Repeated.tlf"
+    log_path.parent.mkdir(parents=True)
+    old_start = now - timedelta(minutes=50)
+    new_start = now - timedelta(minutes=12)
+    lines = [
+        f'{old_start:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test Started: Repeated x.tcf "{log_path}"',
+        f'{new_start:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test Started: Repeated x.tcf "{log_path}"',
+    ]
+    (user_dir / "All Simulations.log").write_text("\n".join(lines), encoding="utf-8")
+    log_path.with_suffix(".tsf").write_text(
+        f'TUFLOW Log File == "{log_path}"\n'
+        "Simulation Status == Started\n"
+        "Simulation Time (h) == 8\n"
+        "Simulation End Time (h) == 48\n"
+        "Percentage Complete (%) == 16.6667\n",
+        encoding="utf-8",
+    )
+    with patch(
+        "ryan_library.orchestrators.tuflow.tuflow_user_activity.inspect_tlf",
+        return_value=TlfInspection(status="INCOMPLETE"),
+    ):
+        report = build_activity_report(log_root=tmp_path, recent_hours=24, codemeter_url=None)
+    assert len(report.starts) == 2
+    newest, older = report.starts
+    assert newest.record.timestamp == new_start
+    assert older.record.timestamp == old_start
+    assert newest.progress is not None
+    assert newest.progress.model_time_hours == 8
+    assert older.progress is None
