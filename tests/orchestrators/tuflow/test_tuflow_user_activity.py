@@ -386,8 +386,7 @@ def test_interrupted_and_unstable_logs_are_terminal_not_completed_or_active(tmp_
             lines.append(
                 (
                     ended,
-                    f'{end_prefix}Ini: 0:00:01 CT Tot: 0:00:58 CT Interrupted: {name} '
-                    f'model.tcf "Q:\\{name}.tlf"',
+                    f'{end_prefix}Ini: 0:00:01 CT Tot: 0:00:58 CT Interrupted: {name} model.tcf "Q:\\{name}.tlf"',
                 )
             )
         elif name.startswith("Unstable"):
