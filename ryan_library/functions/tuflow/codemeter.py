@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from html.parser import HTMLParser
-import re
 from types import MappingProxyType
 from urllib.parse import parse_qs, urljoin, urlparse
 from urllib.request import urlopen
-
 
 KNOWN_TUFLOW_PRODUCT_NAMES = MappingProxyType(
     {
