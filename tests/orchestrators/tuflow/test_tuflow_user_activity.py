@@ -369,7 +369,6 @@ def test_tlf_fallback_searches_seven_days_for_oldest_active(tmp_path: Path) -> N
     assert report.starts[4].status == "POSSIBLY RUNNING"
 
 
-
 def test_interrupted_and_unstable_logs_are_terminal_not_completed_or_active(tmp_path: Path) -> None:
     now = datetime.now().replace(second=0, microsecond=0)
     user_dir = tmp_path / "Engineer"
@@ -395,9 +394,7 @@ def test_interrupted_and_unstable_logs_are_terminal_not_completed_or_active(tmp_
             # Some logs omit timing and the colon after the status.
             lines.append((ended, f'{end_prefix}UNSTABLE model.tcf "Q:\\{name}.tlf"'))
     lines.sort(key=lambda item: item[0])
-    (user_dir / "_ All TUFLOW Simulations.log").write_text(
-        "\n".join(line for _, line in lines), encoding="utf-8"
-    )
+    (user_dir / "_ All TUFLOW Simulations.log").write_text("\n".join(line for _, line in lines), encoding="utf-8")
 
     with patch(
         "ryan_library.orchestrators.tuflow.tuflow_user_activity.inspect_tlf",
@@ -428,13 +425,12 @@ def test_interrupted_and_unstable_logs_are_terminal_not_completed_or_active(tmp_
 
 def test_terminal_parser_does_not_relabel_timed_interruption_as_finished() -> None:
     interrupted = parse_activity_line(
-        '2026-Oct-20 09:00 Don: 0001 LOC 1/2 HOST Build: test '
+        "2026-Oct-20 09:00 Don: 0001 LOC 1/2 HOST Build: test "
         'Ini: 0:00:10 CT Tot: 0:05:30 CT Interrupted: X "Q:\\X.tlf"',
         source=Path("global.log"),
     )
     unstable = parse_activity_line(
-        '2026-Oct-20 09:01 Don: 0001 LOC 1/2 HOST Build: test '
-        'UNSTABLE "Q:\\X.tlf"',
+        '2026-Oct-20 09:01 Don: 0001 LOC 1/2 HOST Build: test UNSTABLE "Q:\\X.tlf"',
         source=Path("global.log"),
     )
     assert interrupted is not None
