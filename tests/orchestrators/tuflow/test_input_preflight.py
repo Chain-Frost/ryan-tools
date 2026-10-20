@@ -105,7 +105,7 @@ def test_unresolved_context_fails_closed(tmp_path: Path, monkeypatch: pytest.Mon
         def __init__(self, path: str) -> None:
             pass
 
-        def context(self, flags: str) -> None:
+        def context(self, _flags: str) -> None:
             message = "Unknown scenario"
             raise ValueError(message)
 
