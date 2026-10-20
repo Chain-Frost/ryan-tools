@@ -406,7 +406,7 @@ def _group_codemeter_processes(
     return tuple(sorted(rows, key=lambda row: row.first_access or datetime.min, reverse=True))
 
 
-def build_activity_report(
+def build_activity_report(  # noqa: C901 - selection, matching and TLF inspection
     *,
     log_root: Path,
     recent_hours: float,
@@ -728,7 +728,7 @@ def render_activity_report(  # noqa: C901
                         f"{row.record.licence_origin} {row.record.seat}".strip(),
                         row.inspection.gpu_device_ids,
                         tlf_status_for_record(row.record, row.inspection),
-                        _truncate(row.record.model),
+                        row.record.model,
                     )
                     for row in report.completions
                 ),
