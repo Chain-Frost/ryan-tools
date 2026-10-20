@@ -15,16 +15,12 @@ def test_concurrent_starts_remain_independent_when_one_finishes(tmp_path: Path) 
     user_directory = tmp_path / "Engineer.Name"
     user_directory.mkdir()
     global_log = user_directory / "_ All TUFLOW Simulations.log"
-    global_log.write_text(
-        "\n".join(
-            (
-                '2026-Oct-20 09:00  Don: 0001 LOC 1/2 HOST Build: test Started: Model_A x.tcf "Q:\\A.tlf"',
-                '2026-Oct-20 09:01  Don: 0001 LOC 2/2 HOST Build: test Started: Model_B x.tcf "Q:\\B.tlf"',
-                '2026-Oct-20 10:00  Don: 0001 LOC 1/2 HOST Build: test Tot: 1:00:00 CT Finished: Model_A "Q:\\A.tlf"',
-            )
-        ),
-        encoding="utf-8",
+    lines = (
+        '2026-Oct-20 09:00  Don: 0001 LOC 1/2 HOST Build: test Started: Model_A x.tcf "Q:\\A.tlf"',
+        '2026-Oct-20 09:01  Don: 0001 LOC 2/2 HOST Build: test Started: Model_B x.tcf "Q:\\B.tlf"',
+        '2026-Oct-20 10:00  Don: 0001 LOC 1/2 HOST Build: test Tot: 1:00:00 CT Finished: Model_A "Q:\\A.tlf"',
     )
+    global_log.write_text("\n".join(lines), encoding="utf-8")
 
     activity = read_user_activity(user_directory, activity_since=datetime(2026, 10, 20, 8, 0))
 
@@ -75,14 +71,13 @@ def test_network_and_other_documented_licence_origins() -> None:
 def test_network_simulation_start_and_completion_are_reported(tmp_path: Path) -> None:
     user_directory = tmp_path / "Network.User"
     user_directory.mkdir()
-    (user_directory / "_ All TUFLOW Simulations.log").write_text(
-        "\n".join((
-            '2026-Oct-20 09:00 Don: 0001 NWK 01/20 HOST Build: test Started: Model_A x.tcf "Q:\\\\A.tlf"',
-            '2026-Oct-20 09:50 Don: 0001 NWK 01/20 HOST Build: test Tot: 0:50:00 CT '
-            'Finished:Model_A x.tcf "Q:\\\\A.tlf"',
-        )),
-        encoding="utf-8",
+    lines = (
+        '2026-Oct-20 09:00 Don: 0001 NWK 01/20 HOST Build: test Started: Model_A x.tcf "Q:\\A.tlf"',
+        '2026-Oct-20 09:50 Don: 0001 NWK 01/20 HOST Build: test Tot: 0:50:00 CT '
+        'Finished:Model_A x.tcf "Q:\\A.tlf"',
     )
+    (user_directory / "_ All TUFLOW Simulations.log").write_text("\n".join(lines), encoding="utf-8")
+
     activity = read_user_activity(user_directory, activity_since=datetime(2026, 10, 20, 8))
     assert len(activity.recent_starts) == 1
     assert len(activity.recent_completions) == 1
@@ -99,5 +94,6 @@ def test_repeated_simulations_of_same_model_are_not_deduplicated() -> None:
         '2026-Oct-20 10:00 Don: 0001 LOC 1/2 HOST Build: test Started: Model_A x.tcf "Q:\\\\A.tlf"',
         source=Path("b.log"),
     )
-    assert first is not None and second is not None
+    assert first is not None
+    assert second is not None
     assert len(_deduplicate_starts([("USER", first), ("USER", second), ("USER", first)])) == 2
