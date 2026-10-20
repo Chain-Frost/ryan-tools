@@ -28,7 +28,8 @@ LICENCE_PATTERN = re.compile(
     r"(?P<seat>\d+\s*/\s*\d+)?\s+(?P<machine>\S+)\s+Build:",
     re.IGNORECASE,
 )
-NAMED_EVENT_PATTERN = re.compile(r"\b(?P<event>Started|Finished):\s*(?P<model>\S+)", re.IGNORECASE)
+NAMED_EVENT_PATTERN = re.compile(r"\b(?P<event>Started|Finished|Interrupted|UNSTABLE):\s*(?P<model>\S+)", re.IGNORECASE)
+TERMINATION_PATTERN = re.compile(r"\b(?P<event>Interrupted|UNSTABLE)\b", re.IGNORECASE)
 RUNTIME_PATTERN = re.compile(r"\bTot:\s+(?P<hours>\d+):(?P<minutes>\d{2}):(?P<seconds>\d{2})\s+CT\b")
 QUOTED_TLF_PATTERN = re.compile(r'"(?P<path>[^"]+\.tlf)"\s*$', re.IGNORECASE)
 
@@ -57,6 +58,7 @@ class UserActivity:
     user: str
     recent_starts: tuple[ActivityRecord, ...] = ()
     recent_completions: tuple[ActivityRecord, ...] = ()
+    recent_terminations: tuple[ActivityRecord, ...] = ()
     error: str = ""
 
 
@@ -107,6 +109,7 @@ class TuflowActivityReport:
     access_warnings: tuple[str, ...]
     workflow_warnings: tuple[str, ...]
     selection_summary: str = ""
+    terminations: tuple[SimulationReportRow, ...] = ()
 
 
 def parse_activity_line(line: str, *, source: Path) -> ActivityRecord | None:
@@ -121,9 +124,15 @@ def parse_activity_line(line: str, *, source: Path) -> ActivityRecord | None:
         return None
 
     named_event = NAMED_EVENT_PATTERN.search(line)
+    terminal_marker = TERMINATION_PATTERN.search(line)
     if named_event is not None:
         event = named_event.group("event").upper()
         model = named_event.group("model")
+    elif terminal_marker is not None:
+        # Some builds omit the model-name separator or the optional timing.
+        # Keep the termination event and recover the name from its start.
+        event = terminal_marker.group("event").upper()
+        model = "(not recorded by this TUFLOW build)"
     elif " Ini:" in line and " Tot:" in line:
         event = "FINISHED"
         model = "(not recorded by this TUFLOW build)"
@@ -158,6 +167,7 @@ def read_user_activity(user_directory: Path, *, activity_since: datetime) -> Use
     """Read recent starts and completions from one global-log user folder."""
     recent_starts: list[ActivityRecord] = []
     recent_completions: list[ActivityRecord] = []
+    recent_terminations: list[ActivityRecord] = []
     errors: list[str] = []
     try:
         log_files = sorted(user_directory.glob("*.log"), key=lambda path: path.name.casefold())
@@ -179,7 +189,7 @@ def read_user_activity(user_directory: Path, *, activity_since: datetime) -> Use
                         active_by_seat[seat_key] = record
                         if record.timestamp >= activity_since:
                             recent_starts.append(record)
-                    elif record.event == "FINISHED":
+                    elif record.event in {"FINISHED", "INTERRUPTED", "UNSTABLE"}:
                         matching_start = active_by_seat.pop(seat_key, None)
                         if matching_start is not None:
                             record = replace(
@@ -191,7 +201,10 @@ def read_user_activity(user_directory: Path, *, activity_since: datetime) -> Use
                                 tlf_path=record.tlf_path or matching_start.tlf_path,
                             )
                         if record.timestamp >= activity_since:
-                            recent_completions.append(record)
+                            if record.event == "FINISHED":
+                                recent_completions.append(record)
+                            else:
+                                recent_terminations.append(record)
         except OSError as exc:
             errors.append(f"{log_file.name}: {exc}")
 
@@ -199,6 +212,7 @@ def read_user_activity(user_directory: Path, *, activity_since: datetime) -> Use
         user=user_directory.name,
         recent_starts=tuple(sorted(recent_starts, key=lambda record: record.timestamp, reverse=True)),
         recent_completions=tuple(sorted(recent_completions, key=lambda record: record.timestamp, reverse=True)),
+        recent_terminations=tuple(sorted(recent_terminations, key=lambda record: record.timestamp, reverse=True)),
         error="; ".join(errors),
     )
 
