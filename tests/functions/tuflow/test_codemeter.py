@@ -1,6 +1,7 @@
 """Focused tests for CodeMeter WebAdmin parsing."""
 
 from unittest.mock import patch
+
 from ryan_library.functions.tuflow import codemeter
 
 
