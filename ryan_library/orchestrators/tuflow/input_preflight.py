@@ -8,14 +8,58 @@ from __future__ import annotations
 
 import csv
 import sqlite3
+from importlib import import_module
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Protocol, cast
+
+import pandas as pd
 
 from loguru import logger
 
 IssueStatus = Literal["missing", "unresolved"]
+
+
+class _Input(Protocol):
+    """Minimal read-only input surface used from optional PyTUFLOW."""
+
+    @property
+    def files(self) -> list[Path]: ...
+
+    @property
+    def has_missing_files(self) -> bool: ...
+
+
+class _Database(Protocol):
+    """Resolved PyTUFLOW BC database exposed through its pandas representation."""
+
+    @property
+    def fpath(self) -> Path: ...
+
+    @property
+    def df(self) -> pd.DataFrame: ...
+
+
+class _Context(Protocol):
+    """Scenario/event-resolved PyTUFLOW control-file context."""
+
+    def find_input(self, lhs: str | None = None) -> list[_Input]: ...
+
+    def bc_dbase(self) -> _Database | None: ...
+
+
+class _Model(Protocol):
+    """TUFLOW project control file with a context resolution method."""
+
+    def context(self, flags: str) -> _Context: ...
+
+
+class _ModelFactory(Protocol):
+    """Constructor returned dynamically by the optional PyTUFLOW package."""
+
+    def __call__(self, path: str) -> _Model: ...
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,7 +129,7 @@ def _database_layer_exists(path: Path, layer: str) -> bool:
     if not layer:
         return True
     try:
-        with sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True) as connection:
+        with sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True) as connection:
             row = connection.execute(
                 "SELECT 1 FROM gpkg_contents WHERE lower(table_name) = lower(?)",
                 (layer,),
@@ -114,14 +158,16 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
         message = "No simulations were supplied for input preflight"
         raise ValueError(message)
     try:
-        from pytuflow import TCF
+        module = import_module("pytuflow")
     except ImportError as exc:
-        message = "PyTUFLOW is required; install with: python -m pip install pytuflow>=1.2"
+        message = "PyTUFLOW is required; install with: python -m pip install 'pytuflow>=1.2'"
         raise RuntimeError(message) from exc
 
+    # Import dynamically because PyTUFLOW is an optional extra, not a core requirement.
+    factory = cast(_ModelFactory, getattr(module, "TCF"))
     report = PreflightReport(run_count=len(runs))
     cache: dict[tuple[str, str], bool] = {}
-    model = TCF(str(tcf.absolute()))
+    model: _Model = factory(str(tcf.absolute()))
 
     def add_issue(run: RunRequest, status: IssueStatus, origin: str, reference: str, detail: str) -> None:
         report.issues.append(
@@ -163,7 +209,7 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
             continue
 
         try:
-            inputs: Iterable[object] = context.find_input()
+            inputs: Iterable[_Input] = context.find_input()
             for inp in inputs:
                 origin = str(inp)
                 try:
@@ -209,7 +255,7 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
             continue
 
         try:
-            df = bc_database.df
+            df: pd.DataFrame = bc_database.df
             source_column = next((column for column in df.columns if str(column).strip().lower() == "source"), None)
             if source_column is None:
                 add_issue(run, "unresolved", "BC Database", str(database_path), "No Source column found")
