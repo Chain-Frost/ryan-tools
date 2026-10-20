@@ -65,6 +65,8 @@ def test_copy_is_byte_identical_and_does_not_overwrite(tmp_path: Path) -> None:
         "TUFLOW-python/model_management/verify_converted_tuflow_rasters.py",
         "TUFLOW-python/po_and_timeseries/plot_water_level_profiles.py",
         "file-management-python/archive_compress_folder.py",
+        "file-management-python/file_inventory.py",
+        "TUFLOW-python/log_processing/check_tuflow_user_activity.py",
         "gdal-python/gdal_merge.py",
         "gdal-python/recompress_geotiffs.py",
         "tuflow/tuflow_culvert_from_1d_nwk.py",

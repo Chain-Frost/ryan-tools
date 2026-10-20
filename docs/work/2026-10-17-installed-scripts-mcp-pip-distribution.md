@@ -20,8 +20,8 @@ not permanent restrictions on future authorized work.
 
 **Merged PR #130 did not prove that the original scope was complete.** It implemented a manifest and a copy helper,
 and several other requirements were already implemented in PR #120, but it prematurely converted incomplete
-validation into optional follow-ups and declared 81 files "reviewed" without per-file assessments.
-The manifest currently installs 81 files and excludes 65 source-tree files; inclusion/exclusion is **provisional**.
+validation into optional follow-ups and declared 83 files "reviewed" without per-file assessments.
+The manifest currently installs 83 files and excludes 66 source-tree files; inclusion/exclusion is **provisional**.
 Neither "not included in the wheel" nor "included in the wheel" proves a file's lifecycle or operational safety.
 
 The requirement to finish/merge PRs #118 and #119 before PR #130 **was specifically removed by the maintainer**.
@@ -40,8 +40,8 @@ preferred development environment. Any future move to 3.14-only needs its own de
 
 ## 19 October A/B validation correction — open PR #137
 
-- Count reconciliation: **146 tracked source files**, **81 currently selected wheel files**,
-  **65 repository-only files** and **33 distinct MCP script paths**. The last
+- Count reconciliation: **149 tracked source files**, **83 currently selected wheel files**,
+  **66 repository-only files** and **33 distinct MCP script paths**. The last
   number is catalogue exposure, not all installed scripts.
 - Discovered two mistakenly packaged scripts with **import-time Windows
   authentication and file-copy side effects**:
@@ -49,7 +49,7 @@ preferred development environment. Any future move to 3.14-only needs its own de
   `file-management-python/copy_folder.py`. Their original editable versions
   remain in the repository, but both are removed from the wheel manifest and
   remain out of the MCP catalogue.
-- The non-executing 146-file AST inventory now detects import-time mutation
+- The non-executing 149-file AST inventory now detects import-time mutation
   calls; its `--check` gate fails on any selected Python wrapper missing a
   protected entry point, failing parse, or containing detected dangerous
   import-time calls. The current selected-script audit runs in Linux CI as
@@ -69,6 +69,14 @@ preferred development environment. Any future move to 3.14-only needs its own de
   installed wheel, publishing workflows and upgrade documentation. Remaining
   optional client-specific desktop install verification does **not** require
   revisiting the distribution rename in this PR.
+
+## October 2026 resumed validation (PR #137 latest main integration)
+
+- Corrected the malformed wheel manifest after merging main: removed 34 duplicate entries, preserved both deliberately excluded unguarded network-copy scripts as repository-only, and retained the newly introduced protected file-inventory wrapper.
+- Merged current main including the read-only TUFLOW user-activity wrapper and standalone shapefile converter. The selection is **83 unique wheel files**, **66 repository-only files**, with **149 tracked files**. The 33 distinct MCP script paths remain a separate curated set.
+- Added **copied-wrapper end-to-end tests** covering disposable file-inventory CSV output, read-only GeoTIFF audit, recursive file listing and missing RORB input handling; expanded --help coverage to 17 safe wrappers. The audit report remains static evidence, not blanket runtime certification.
+- No hydraulic parity retesting is requested here: `ryan-culverts` owns HY-8 validation. PyPI naming/distribution rollout is previously implemented and does not need reimplementation.
+- Project-specific Windows network drive, QGIS/TUFLOW execution and maintainer per-file lifecycle decisions remain explicit acceptance gates for A/B, not silently waived.
 
 ## Original non-negotiable decisions (D1–D9)
 
@@ -100,7 +108,7 @@ preferred development environment. Any future move to 3.14-only needs its own de
 | ID | Requirement | Status and remaining acceptance |
 | --- | --- | --- |
 | B1 | Stable original-script wheel strategy and resource handling | Implemented, verification incomplete: sibling `ryan-scripts` staging exists; validate layout, package resource metadata and supported install platforms |
-| B2 | **Only individually allowlisted maintained wrappers**, with companion resources | Partially implemented: 81-file allowlist and exact member checks pass; individual lifecycle/resource review incomplete |
+| B2 | **Only individually allowlisted maintained wrappers**, with companion resources | Partially implemented: 83-file allowlist and exact member checks pass; individual lifecycle/resource review incomplete |
 | B3 | Location resolver independent of cwd, checkout and PYTHONPATH | Implemented, bounded no-checkout wheel smoke passes; cross-install/source selection cases need additional evidence |
 | B4 | Checkout development precedence and explicit diagnostics without stale wheel execution | Partially implemented in MCP registry; test selected checkout, wheel version/source differences and diagnostics |
 | B5 | CLI help/no-pause/defaults/error codes/no implicit destructive behavior | Not verified for every packaged script |

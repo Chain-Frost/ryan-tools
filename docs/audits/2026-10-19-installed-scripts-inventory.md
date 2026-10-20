@@ -1,8 +1,7 @@
 # Per-file installed-script inventory — evidence ledger (2026-10-19)
 
-**Status: incomplete review.** This ledger records all 146 tracked source files under `ryan-scripts/`
-at `1ac42c6`, excluding submodules. It does not enter or inspect the `unsorted` submodule.
-There are **81 selected wheel files**, **65 excluded source files** and
+**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **149** Git-tracked source files under `ryan-scripts/` on PR #137 after incorporating main. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
+There are **83 selected wheel files**, **66 excluded source files** and
 **33 distinct existing MCP script paths**. These counts are inventory evidence,
 **not proof** that every source file is maintained, safe to import, or correctly excluded.
 
@@ -54,6 +53,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `TUFLOW-python/gis_processing/split_network_layers_by_culvert_id.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-python/log_processing/__init__.py` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
 | `TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `TUFLOW-python/log_processing/check_tuflow_user_activity.py` | Yes | No | Provisional: protected main and embedded version; inspect local configuration | argparse help/no-pause; external environment still unverified | Read-only ProgramData TUFLOW logs, local CodeMeter optional; verify on Windows |
 | `TUFLOW-python/log_processing/create_log_summary_report.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-python/model_management/__init__.py` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
 | `TUFLOW-python/model_management/collect_result_and_check_files.py` | Yes | No | Not assessed | Not assessed | Not assessed |
@@ -91,6 +91,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `file-management-python/archive_extract.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `file-management-python/copy_file.py` | No | No | Repository-only: unguarded import executes Win32 share connection | No safe CLI/help; editable settings run on import | Network copy/credentials, overwrite and external Windows MPR; unsafe for installed wrapper |
 | `file-management-python/copy_folder.py` | No | No | Repository-only: unguarded import executes Win32 share connection | No safe CLI/help; editable settings run on import | Network copy/credentials, overwrite and external Windows MPR; unsafe for installed wrapper |
+| `file-management-python/file_inventory.py` | Yes | No | Provisional: protected main and embedded version | argparse help/no-pause and CSV smoke; originals preserved | Project data filesystem and optional Excel output; runtime checks retained in CI |
 | `file-management-python/list_files_recursive.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `file-management-python/rename-msg-files-argparse-folder.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `fix-chatgpt-type-hints.py` | No | No | Not assessed | Not assessed | Not assessed |
@@ -163,6 +164,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `unsorted-bat/dir.bat` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-bat/dir_recursive.bat` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-bat/shutdown-a.bat` | No | No | Not assessed | Not assessed | Not assessed |
+| `unsorted-python/convert_shapefiles_to_gpkg.py` | No | No | Standalone unreviewed, repository-only | Standalone CLI/interface to assess before promoting | GDAL/Fiona/TUFLOW template GeoPackages required |
 | `unsorted-python/export_water_level_profile_tables_50m.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-python/plot_water_level_profiles.py` | No | No | Not assessed | Not assessed | Not assessed |
 
@@ -196,6 +198,7 @@ moves a script into/out of the wheel or MCP catalogue.
   146-file inventory and rejects selected Python scripts with missing main
   guards, syntax problems or detected import-time mutators. The test suite
   verifies every selected Python row, plus both excluded network copy scripts.
+- The new `file_inventory.py` wrapper is selected after a protected-entry-point review and disposable CSV test. The new read-only TUFLOW activity wrapper from merged main is also selected, with Windows/CodeMeter acceptance pending.
 - The existing `ryan-scripts list` and `ryan-scripts copy` operations expose
   a narrower *original-file* wrapper selection than the wheel file count:
   `README.md`, package `__init__.py` and other companion documentation are
