@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-20.1"
+WRAPPER_VERSION = "2026-10-20.2"
 
 DEFAULT_LOG_ROOT = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "TUFLOW" / "log"
 DEFAULT_RECENT_HOURS = 24.0
@@ -49,6 +49,8 @@ class WrapperOptions:
     codemeter_timeout_seconds: float
     console_log_level: str
     no_pause: bool
+    all_history: bool
+    hyperlinks: bool | None
 
 
 def _recent_hours(value: str) -> float:
@@ -70,6 +72,13 @@ def _positive_float(value: str) -> float:
     return number
 
 
+def _use_hyperlinks(requested: bool | None) -> bool:
+    """Prefer native VS Code path detection; enable OSC 8 for Windows Terminal."""
+    if requested is not None:
+        return requested
+    return sys.stdout.isatty() and bool(os.environ.get("WT_SESSION"))
+
+
 def main(
     *,
     log_root: Path = DEFAULT_LOG_ROOT,
@@ -77,6 +86,8 @@ def main(
     codemeter_url: str | None = DEFAULT_CODEMETER_URL,
     codemeter_timeout_seconds: float = DEFAULT_CODEMETER_TIMEOUT_SECONDS,
     console_log_level: str = DEFAULT_CONSOLE_LOG_LEVEL,
+    all_history: bool = False,
+    hyperlinks: bool | None = None,
 ) -> int:
     """Build and print the integrated read-only activity report."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
@@ -87,11 +98,12 @@ def main(
             recent_hours=recent_hours,
             codemeter_url=codemeter_url,
             codemeter_timeout_seconds=codemeter_timeout_seconds,
+            all_history=all_history,
         )
     except (FileNotFoundError, OSError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
-    print(render_activity_report(report))
+    print(render_activity_report(report, hyperlinks=_use_hyperlinks(hyperlinks)))
     return 0
 
 
@@ -131,6 +143,17 @@ def _parse_arguments() -> WrapperOptions:
         "--console-log-level",
         help=f"Loguru console level used by TLF parsing (default: {DEFAULT_CONSOLE_LOG_LEVEL}).",
     )
+    parser.add_argument(
+        "--all-history",
+        action="store_true",
+        help="Display every start/completion within --recent-hours rather than compact active context.",
+    )
+    parser.add_argument(
+        "--hyperlinks",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Force OSC 8 clickable paths on/off (default: auto for Windows Terminal).",
+    )
     add_no_pause_cli_argument(parser=parser)
     args = parser.parse_args()
     check_codemeter = DEFAULT_CHECK_CODEMETER if args.codemeter is None else bool(args.codemeter)
@@ -142,6 +165,8 @@ def _parse_arguments() -> WrapperOptions:
         codemeter_timeout_seconds=args.codemeter_timeout or DEFAULT_CODEMETER_TIMEOUT_SECONDS,
         console_log_level=args.console_log_level or DEFAULT_CONSOLE_LOG_LEVEL,
         no_pause=bool(args.no_pause),
+        all_history=bool(args.all_history),
+        hyperlinks=args.hyperlinks,
     )
 
 
@@ -153,6 +178,8 @@ if __name__ == "__main__":
         codemeter_url=options.codemeter_url,
         codemeter_timeout_seconds=options.codemeter_timeout_seconds,
         console_log_level=options.console_log_level,
+        all_history=options.all_history,
+        hyperlinks=options.hyperlinks,
     )
     print_wrapper_banner(
         wrapper_file=Path(__file__),
