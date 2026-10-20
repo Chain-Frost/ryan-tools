@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 from ryan_library.functions.tuflow import codemeter
 
-
 MONITORING_HTML = """
 <table>
   <tr><th>Product Code</th><th>Name</th><th>Feature Map</th><th>License Quantity</th>
