@@ -601,7 +601,16 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
     )
     codemeter_processes: tuple[CodeMeterProcessRow, ...] = ()
     if codemeter is not None:
-        codemeter_processes = _group_codemeter_processes(codemeter.allocations, starts=start_rows)
+        # Preserve the same eligibility as the preliminary CodeMeter match.
+        # The displayed start rows also contain failed and completed runs for
+        # context; they must not steal an allocation from a surviving run.
+        eligible_starts = tuple(
+            row
+            for row in start_rows
+            if (row.user.casefold(), row.record.timestamp, str(row.record.tlf_path).casefold())
+            not in closed_start_keys
+        )
+        codemeter_processes = _group_codemeter_processes(codemeter.allocations, starts=eligible_starts)
 
     access_warnings = tuple(f"{activity.user}: {activity.error}" for activity in activities if activity.error)
     summary = (
