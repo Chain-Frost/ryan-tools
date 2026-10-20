@@ -13,6 +13,7 @@ from __future__ import annotations
 
 WRAPPER_VERSION = "2026-10-21.1"
 
+
 # ========= USER PARAMETERS ====== ***** EDIT ONLY THIS FUNCTION *****
 def get_parameters() -> Parameters:
     from pathlib import Path
@@ -1596,15 +1597,25 @@ def main() -> None:
         report_path = report.write_csv(core.preflight_report_csv)
         logging.info(
             "Input preflight: %d runs, %d unique paths, %d issues, %d affected runs; report: %s",
-            report.run_count, len(report.checked_paths), len(report.issues), report.affected_runs, report_path,
+            report.run_count,
+            len(report.checked_paths),
+            len(report.issues),
+            report.affected_runs,
+            report_path,
         )
         for issue in report.issues[:20]:
             logging.error(
                 "Run %d %s %s: %s (%s)",
-                issue.run_index, issue.status, issue.origin, issue.reference, issue.detail,
+                issue.run_index,
+                issue.status,
+                issue.origin,
+                issue.reference,
+                issue.detail,
             )
         if not report.passed:
-            message = f"Preflight blocked launch: {len(report.issues)} issue(s) affecting {report.affected_runs} run(s)."
+            message = (
+                f"Preflight blocked launch: {len(report.issues)} issue(s) affecting {report.affected_runs} run(s)."
+            )
             raise RuntimeError(message)
 
     if "--preflight-only" in sys.argv:
