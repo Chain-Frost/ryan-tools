@@ -556,6 +556,12 @@ def test_tsf_live_time_reads_progress_and_ignores_invalid_or_finished_summaries(
         encoding="utf-8",
     )
     assert read_simulation_progress(record) is None
+    # An impossible model time must fail even when start time is missing.
+    tsf.write_text(
+        "Simulation Status == Started\nSimulation Time (h) == 49\nSimulation End Time (h) == 48\n",
+        encoding="utf-8",
+    )
+    assert read_simulation_progress(record) is None
     tsf.unlink()
     assert read_simulation_progress(record) is None
 
