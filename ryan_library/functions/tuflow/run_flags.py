@@ -41,7 +41,7 @@ def extract_flag_pairs(line: str) -> list[tuple[str, str]]:
     return [(match.group("key").lower(), match.group("value")) for match in _PAIR_PATTERN.finditer(line)]
 
 
-def read_run_commands(path: Path) -> list[dict[str, str]]:
+def read_run_commands(path: Path) -> list[dict[str, str]]:  # noqa: C901 - validate complete launcher command lines
     """Read exact simulation combinations from launcher-exported batch commands.
 
     Requires at least one event/scenario switch on each simulation line.
