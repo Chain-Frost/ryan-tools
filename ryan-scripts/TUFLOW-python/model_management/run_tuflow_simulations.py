@@ -9,6 +9,7 @@ USAGE
 4. Demo dashboard without TUFLOW: python run_tuflow_simulations.py --demo-dashboard
 """
 
+from __future__ import annotations
 
 WRAPPER_VERSION = "2026-10-21.1"
 
@@ -1603,9 +1604,8 @@ def main() -> None:
                 issue.run_index, issue.status, issue.origin, issue.reference, issue.detail,
             )
         if not report.passed:
-            raise RuntimeError(
-                f"Preflight blocked launch: {len(report.issues)} issue(s) affecting {report.affected_runs} run(s)."
-            )
+            message = f"Preflight blocked launch: {len(report.issues)} issue(s) affecting {report.affected_runs} run(s)."
+            raise RuntimeError(message)
 
     if "--preflight-only" in sys.argv:
         logging.info("Preflight-only mode: no simulations launched.")
