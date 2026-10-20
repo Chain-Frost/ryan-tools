@@ -23,10 +23,12 @@ MAX_RECENT_HOURS = 7 * 24
 TIMESTAMP_FORMAT = "%Y-%b-%d %H:%M"
 TIMESTAMP_PATTERN = re.compile(r"^(?P<timestamp>\d{4}-[A-Za-z]{3}-\d{2}\s+\d{2}:\d{2})")
 LICENCE_PATTERN = re.compile(
-    r"\bDon:\s+(?P<donation>\S+)\s+LOC\s+(?P<seat>\d+/\d+)\s+(?P<machine>\S+)",
+    r"\b(?:Don:\s+(?P<donation>\S+)\s+)?"
+    r"(?P<origin>LOC|NWK|HalcS|HalcN|XP|TUT)\s*"
+    r"(?P<seat>\d+\s*/\s*\d+)?\s+(?P<machine>\S+)\s+Build:",
     re.IGNORECASE,
 )
-NAMED_EVENT_PATTERN = re.compile(r"\b(?P<event>Started|Finished):\s+(?P<model>\S+)", re.IGNORECASE)
+NAMED_EVENT_PATTERN = re.compile(r"\b(?P<event>Started|Finished):\s*(?P<model>\S+)", re.IGNORECASE)
 RUNTIME_PATTERN = re.compile(r"\bTot:\s+(?P<hours>\d+):(?P<minutes>\d{2}):(?P<seconds>\d{2})\s+CT\b")
 QUOTED_TLF_PATTERN = re.compile(r'"(?P<path>[^"]+\.tlf)"\s*$', re.IGNORECASE)
 
@@ -44,6 +46,7 @@ class ActivityRecord:
     runtime_seconds: int | None
     tlf_path: Path | None
     source: Path
+    licence_origin: str = "LOC"
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,13 +140,14 @@ def parse_activity_line(line: str, *, source: Path) -> ActivityRecord | None:
     return ActivityRecord(
         timestamp=timestamp,
         event=event,
-        donation=licence_match.group("donation"),
+        donation=licence_match.group("donation") or "-",
         machine=licence_match.group("machine"),
-        seat=licence_match.group("seat"),
+        seat=(licence_match.group("seat") or "-").replace(" ", ""),
         model=model,
         runtime_seconds=runtime_seconds,
         tlf_path=Path(path_match.group("path")) if path_match is not None else None,
         source=source,
+        licence_origin=licence_match.group("origin").upper(),
     )
 
 
@@ -160,14 +164,14 @@ def read_user_activity(user_directory: Path, *, activity_since: datetime) -> Use
         return UserActivity(user=user_directory.name, error="No .log files found")
 
     for log_file in log_files:
-        active_by_seat: dict[tuple[str, str, str], ActivityRecord] = {}
+        active_by_seat: dict[tuple[str, str, str, str], ActivityRecord] = {}
         try:
             with log_file.open("r", encoding="utf-8", errors="replace") as stream:
                 for line in stream:
                     record = parse_activity_line(line, source=log_file)
                     if record is None:
                         continue
-                    seat_key = (record.donation, record.machine, record.seat)
+                    seat_key = (record.donation, record.machine, record.licence_origin, record.seat)
                     if record.event == "STARTED":
                         active_by_seat[seat_key] = record
                         if record.timestamp >= activity_since:
@@ -313,9 +317,17 @@ def _deduplicate_starts(entries: Iterable[tuple[str, ActivityRecord]]) -> list[t
     newest: dict[tuple[str, ...], tuple[str, ActivityRecord]] = {}
     for user, record in entries:
         if record.tlf_path is not None:
-            key = ("path", str(record.tlf_path).casefold())
+            key = (
+                "path", user.casefold(), str(record.tlf_path).casefold(),
+                record.timestamp.isoformat(), record.machine.casefold(),
+                record.licence_origin, record.seat,
+            )
         else:
-            key = ("fallback", user.casefold(), record.machine.casefold(), record.seat, record.model.casefold())
+            key = (
+                "fallback", user.casefold(), record.machine.casefold(),
+                record.licence_origin, record.seat, record.model.casefold(),
+                record.timestamp.isoformat(),
+            )
         existing = newest.get(key)
         if existing is None or record.timestamp > existing[1].timestamp:
             newest[key] = (user, record)
@@ -326,7 +338,10 @@ def _deduplicate_completions(entries: Iterable[tuple[str, ActivityRecord]]) -> l
     unique: dict[tuple[str, ...], tuple[str, ActivityRecord]] = {}
     for user, record in entries:
         path_or_model = str(record.tlf_path).casefold() if record.tlf_path is not None else record.model.casefold()
-        key = (user.casefold(), record.timestamp.isoformat(), record.machine.casefold(), record.seat, path_or_model)
+        key = (
+            user.casefold(), record.timestamp.isoformat(), record.machine.casefold(),
+            record.licence_origin, record.seat, path_or_model,
+        )
         unique[key] = (user, record)
     return sorted(unique.values(), key=lambda item: item[1].timestamp, reverse=True)
 
@@ -602,14 +617,14 @@ def render_activity_report(report: TuflowActivityReport) -> str:
                         row.record.timestamp.strftime("%Y-%m-%d %H:%M"),
                         _format_age(row.record.timestamp, now=report.checked_at),
                         row.record.machine,
-                        row.record.seat,
+                        f"{row.record.licence_origin} {row.record.seat}".strip(),
                         row.inspection.gpu_device_ids,
                         tlf_status_for_record(row.record, row.inspection),
                         _truncate(row.record.model),
                     )
                     for row in report.starts
                 ),
-                headers=("STATUS", "USER", "STARTED", "AGE", "MACHINE", "SEAT", "GPU ID", "TLF", "MODEL"),
+                headers=("STATUS", "USER", "STARTED", "AGE", "MACHINE", "LICENCE", "GPU ID", "TLF", "MODEL"),
             )
         )
     else:
@@ -626,14 +641,14 @@ def render_activity_report(report: TuflowActivityReport) -> str:
                         _format_age(row.record.timestamp, now=report.checked_at),
                         _format_runtime(row.record.runtime_seconds or row.inspection.runtime_seconds),
                         row.record.machine,
-                        row.record.seat,
+                        f"{row.record.licence_origin} {row.record.seat}".strip(),
                         row.inspection.gpu_device_ids,
                         tlf_status_for_record(row.record, row.inspection),
                         _truncate(row.record.model),
                     )
                     for row in report.completions
                 ),
-                headers=("USER", "FINISHED", "AGE", "RUNTIME", "MACHINE", "SEAT", "GPU ID", "TLF", "MODEL"),
+                headers=("USER", "FINISHED", "AGE", "RUNTIME", "MACHINE", "LICENCE", "GPU ID", "TLF", "MODEL"),
             )
         )
     else:
