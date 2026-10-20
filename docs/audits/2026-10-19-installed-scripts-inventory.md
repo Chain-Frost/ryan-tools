@@ -195,7 +195,7 @@ moves a script into/out of the wheel or MCP catalogue.
   network copy operations during import. The original editable scripts are
   retained in the repository, but they are **not installed nor MCP exposed**.
 - `repo-scripts/audit_installed_scripts.py --check` now inspects the tracked
-  146-file inventory and rejects selected Python scripts with missing main
+  149-file inventory and rejects selected Python scripts with missing main
   guards, syntax problems or detected import-time mutators. The test suite
   verifies every selected Python row, plus both excluded network copy scripts.
 - The new `file_inventory.py` wrapper is selected after a protected-entry-point review and disposable CSV test. The new read-only TUFLOW activity wrapper from merged main is also selected, with Windows/CodeMeter acceptance pending.
