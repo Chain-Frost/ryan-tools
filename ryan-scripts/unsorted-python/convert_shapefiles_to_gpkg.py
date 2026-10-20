@@ -321,12 +321,12 @@ def verify_output(source_path: Path, template_dir: Path) -> Result:  # noqa: C90
     return result
 
 
-def convert_one(
+def convert_one(  # noqa: C901 - multi-stage vector conversion
     source_path: Path,
     template_dir: Path,
     overwrite: bool,
     dry_run: bool,
-) -> Result:  # noqa: C901 - conversion, atomic output, and cleanup in one transaction
+) -> Result:
     stem_parts = source_path.stem.split("_")
     result = Result(status="ERROR", source=str(source_path))
     if len(stem_parts) < 2:
