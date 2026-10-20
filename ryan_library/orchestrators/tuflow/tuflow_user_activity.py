@@ -344,6 +344,11 @@ def read_simulation_progress(record: ActivityRecord) -> SimulationProgress | Non
     reported_tlf = fields.get("tuflow log file")
     if reported_tlf is not None and PureWindowsPath(reported_tlf).name.casefold() != record.tlf_path.name.casefold():
         return None
+    return _parse_tsf_progress_fields(fields)
+
+
+def _parse_tsf_progress_fields(fields: dict[str, str]) -> SimulationProgress | None:
+    """Validate numeric TSF progress fields without guessing missing values."""
     try:
         model_time = float(fields["simulation time (h)"])
         end_time = float(fields["simulation end time (h)"])
@@ -635,11 +640,7 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         if record.started_at is not None
     }
 
-    active_start_keys = {
-        (user.casefold(), record.timestamp, str(record.tlf_path).casefold())
-        for user, record in all_starts
-        if record in active_starts
-    }
+    active_records = set(active_starts)
 
     def start_row(user: str, record: ActivityRecord) -> SimulationReportRow:
         inspection = inspection_for(record)
@@ -658,10 +659,9 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
                 runtime_seconds = completion.runtime_seconds
             elif tlf_status_for_record(record, inspection) == "COMPLETE":
                 runtime_seconds = inspection.runtime_seconds
-        key = (user.casefold(), record.timestamp, str(record.tlf_path).casefold())
         progress = (
             read_simulation_progress(record)
-            if key in active_start_keys and status not in {"COMPLETED", "INTERRUPTED", "UNSTABLE"}
+            if record in active_records and status not in {"COMPLETED", "INTERRUPTED", "UNSTABLE"}
             else None
         )
         return SimulationReportRow(
