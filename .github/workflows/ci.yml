@@ -308,7 +308,7 @@ jobs:
         shell: pwsh
         run: |
           # Public run_hy8 imports pandas and Loguru; remaining smoke operations use stdlib.
-          python -m pip install build pandas loguru "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
+          python -m pip install build pandas loguru openpyxl "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build fresh current-version wheel and verify
