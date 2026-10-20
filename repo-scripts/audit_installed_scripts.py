@@ -72,6 +72,26 @@ def _call_name(node: ast.Call) -> str:
     return "<dynamic>"
 
 
+def _is_main_guard(test: ast.expr) -> bool:
+    """Accept only a standalone equality check against the Python entry-point name."""
+    if not isinstance(test, ast.Compare) or len(test.ops) != 1 or not isinstance(test.ops[0], ast.Eq):
+        return False
+    if len(test.comparators) != 1:
+        return False
+    left, right = test.left, test.comparators[0]
+    return (
+        isinstance(left, ast.Name)
+        and left.id == "__name__"
+        and isinstance(right, ast.Constant)
+        and right.value == "__main__"
+    ) or (
+        isinstance(right, ast.Name)
+        and right.id == "__name__"
+        and isinstance(left, ast.Constant)
+        and left.value == "__main__"
+    )
+
+
 def _import_time_call_names(module: ast.Module) -> list[str]:
     """Flag calls outside functions, classes and the `__main__` guard."""
     found: set[str] = set()
@@ -79,13 +99,12 @@ def _import_time_call_names(module: ast.Module) -> list[str]:
     def examine(node: ast.AST) -> None:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             return
-        if (
-            isinstance(node, ast.If)
-            and isinstance(node.test, ast.Compare)
-            and isinstance(node.test.left, ast.Name)
-            and node.test.left.id == "__name__"
-            and any(isinstance(v, ast.Constant) and v.value == "__main__" for v in node.test.comparators)
-        ):
+        if isinstance(node, ast.If) and _is_main_guard(node.test):
+            # Only the true branch is protected. The else branch executes on
+            # normal import and must still be checked for side effects.
+            examine(node.test)
+            for statement in node.orelse:
+                examine(statement)
             return
         if isinstance(node, ast.Call):
             name = _call_name(node)
@@ -133,17 +152,7 @@ def analyse_python(source: str) -> dict[str, Any]:
             imports.add(node.module.split(".", maxsplit=1)[0])
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
             literals.add(node.value)
-    guarded = any(
-        isinstance(node, ast.If)
-        and isinstance(node.test, ast.Compare)
-        and isinstance(node.test.left, ast.Name)
-        and node.test.left.id == "__name__"
-        and any(
-            isinstance(comparator, ast.Constant) and comparator.value == "__main__"
-            for comparator in node.test.comparators
-        )
-        for node in tree.body
-    )
+    guarded = any(isinstance(node, ast.If) and _is_main_guard(node.test) for node in tree.body)
     call_sites = sum(isinstance(node, ast.Expr) and isinstance(node.value, ast.Call) for node in tree.body)
     has_wrapper_version = any(
         isinstance(node, (ast.Assign, ast.AnnAssign))
