@@ -342,7 +342,7 @@ def read_simulation_progress(record: ActivityRecord) -> SimulationProgress | Non
     # A recycled TSF must not be attributed to an unrelated TLF. Compare
     # filenames rather than full paths (mapped drives and UNC may differ).
     reported_tlf = fields.get("tuflow log file")
-    if reported_tlf is not None and PureWindowsPath(reported_tlf).name.casefold() != record.tlf_path.name.casefold():
+    if not reported_tlf or PureWindowsPath(reported_tlf).name.casefold() != record.tlf_path.name.casefold():
         return None
     return _parse_tsf_progress_fields(fields)
 
@@ -644,7 +644,18 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         if record.started_at is not None
     }
 
-    active_records = set(active_starts)
+    # A reused TLF path may represent several historic starts without
+    # terminal records. The companion TSF belongs only to the newest viable
+    # start, not all earlier entries pointing at the same physical log.
+    latest_progress_by_tlf: dict[str, ActivityRecord] = {}
+    for active_record in active_starts:
+        if active_record.tlf_path is None:
+            continue
+        key = PureWindowsPath(str(active_record.tlf_path)).as_posix().casefold()
+        current = latest_progress_by_tlf.get(key)
+        if current is None or active_record.timestamp > current.timestamp:
+            latest_progress_by_tlf[key] = active_record
+    active_records = set(latest_progress_by_tlf.values())
 
     def start_row(user: str, record: ActivityRecord) -> SimulationReportRow:
         inspection = inspection_for(record)
