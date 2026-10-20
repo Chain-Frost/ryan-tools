@@ -118,8 +118,11 @@ py -3.14 .\ryan-scripts\TUFLOW-python\log_processing\check_tuflow_user_activity.
 For each start, the utility reads the quoted `.tlf` with the maintained TUFLOW parser. A valid completion footer is
 labelled `COMPLETED`; an accessible TLF without that footer is `POSSIBLY RUNNING`; missing or inaccessible TLFs remain
 `UNKNOWN`. Each TLF is assessed independently, so one model finishing does not imply that another model owned by the
-same user has stopped. The tables include the computer, licence seat and parsed GPU device IDs. Recent completions show
-their elapsed runtime, and a final details section prints the full inferred TUFLOW project folder and TLF path. Use
+same user has stopped. The tables include the computer, licence seat and parsed GPU device IDs. The simulation-starts
+table displays both AGE (elapsed time since the run started) and RUNTIME (the measured duration of a completed run).
+RUNTIME comes from its matching completion event where available, otherwise the completed TLF; incomplete runs
+show `-`. Matching completions retain their own runtime column, and a final details section prints the full
+inferred TUFLOW project folder and TLF path. Use
 `--log-root` to inspect a non-default copy of the licence-log tree.
 
 The default console report shows active simulations, every start since the oldest active simulation, and two earlier
