@@ -48,6 +48,7 @@ requires-python = ">=3.13"
 version = "26.10.20.3"
 
 [project.optional-dependencies]
+tuflow-preflight = ["pytuflow>=1.2,<2"]
 dev = [
   "build",
   "pandas-stubs",
