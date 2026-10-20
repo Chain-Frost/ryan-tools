@@ -1,7 +1,6 @@
 """Focused tests for CodeMeter WebAdmin parsing."""
 
 from unittest.mock import patch
-
 from ryan_library.functions.tuflow import codemeter
 
 
@@ -110,7 +109,8 @@ def test_other_vendor_firm_and_product_codes_are_configurable() -> None:
             return other_html
         if url.endswith("events.html"):
             return EVENTS_HTML
-        assert "FirmCode=777" in url and "ProductCode=31" in url
+        assert "FirmCode=777" in url
+        assert "ProductCode=31" in url
         return DETAIL_HTML
 
     with patch.object(codemeter, "_fetch_text", side_effect=fake_fetch):
