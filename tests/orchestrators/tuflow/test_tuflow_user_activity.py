@@ -246,7 +246,6 @@ def test_terminal_links_and_full_model_names() -> None:
     assert "\x1b]8;;" in linked
 
 
-
 def test_completed_runtime_is_shown_alongside_age_in_starts_table(tmp_path: Path) -> None:
     now = datetime.now().replace(second=0, microsecond=0)
     user_dir = tmp_path / "Engineer"
@@ -257,19 +256,19 @@ def test_completed_runtime_is_shown_alongside_age_in_starts_table(tmp_path: Path
     third_start = now - timedelta(minutes=5)
     lines = [
         (
-            f'{first_start:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
+            f"{first_start:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test "
             'Started: CompletedFromLog x.tcf "Q:\\CompletedFromLog.tlf"'
         ),
         (
-            f'{first_end:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
+            f"{first_end:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test "
             'Tot: 0:02:05 CT Finished: CompletedFromLog "Q:\\CompletedFromLog.tlf"'
         ),
         (
-            f'{second_start:%Y-%b-%d %H:%M} Don: 0001 LOC 2/2 HOST Build: test '
+            f"{second_start:%Y-%b-%d %H:%M} Don: 0001 LOC 2/2 HOST Build: test "
             'Started: CompletedFromTLF x.tcf "Q:\\CompletedFromTLF.tlf"'
         ),
         (
-            f'{third_start:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
+            f"{third_start:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test "
             'Started: StillRunning x.tcf "Q:\\StillRunning.tlf"'
         ),
     ]
@@ -291,9 +290,7 @@ def test_completed_runtime_is_shown_alongside_age_in_starts_table(tmp_path: Path
             side_effect=fake_tlf,
         ),
     ):
-        report = build_activity_report(
-            log_root=tmp_path, recent_hours=24, codemeter_url="http://localhost:22352"
-        )
+        report = build_activity_report(log_root=tmp_path, recent_hours=24, codemeter_url="http://localhost:22352")
 
     by_model = {row.record.model: row for row in report.starts}
     assert by_model["CompletedFromLog"].runtime_seconds == 125
@@ -318,8 +315,13 @@ def test_tlf_fallback_searches_seven_days_for_oldest_active(tmp_path: Path) -> N
     user_dir = tmp_path / "Engineer"
     user_dir.mkdir()
     models = [
-        ("Oldest", 44), ("Predecessor", 42), ("RunningOld", 30),
-        ("NewerA", 4), ("NewerB", 3), ("NewerC", 2), ("NewerD", 1),
+        ("Oldest", 44),
+        ("Predecessor", 42),
+        ("RunningOld", 30),
+        ("NewerA", 4),
+        ("NewerB", 3),
+        ("NewerC", 2),
+        ("NewerD", 1),
     ]
     lines: list[tuple[datetime, str]] = []
     for seat, (model, age) in enumerate(models, start=1):
@@ -328,7 +330,7 @@ def test_tlf_fallback_searches_seven_days_for_oldest_active(tmp_path: Path) -> N
             (
                 started,
                 (
-                    f'{started:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test '
+                    f"{started:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test "
                     f'Started: {model} x.tcf "Q:\\{model}.tlf"'
                 ),
             )
@@ -339,20 +341,16 @@ def test_tlf_fallback_searches_seven_days_for_oldest_active(tmp_path: Path) -> N
                 (
                     finished,
                     (
-                        f'{finished:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test '
+                        f"{finished:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test "
                         f'Tot: 0:12:00 CT Finished: {model} "Q:\\{model}.tlf"'
                     ),
                 )
             )
     lines.sort(key=lambda item: item[0])
-    (user_dir / "All Simulations.log").write_text(
-        "\n".join(line for _, line in lines), encoding="utf-8"
-    )
+    (user_dir / "All Simulations.log").write_text("\n".join(line for _, line in lines), encoding="utf-8")
 
     def fake_inspect(path: Path | None) -> TlfInspection:
-        return TlfInspection(
-            status="INCOMPLETE" if path is not None and "RunningOld" in str(path) else "COMPLETE"
-        )
+        return TlfInspection(status="INCOMPLETE" if path is not None and "RunningOld" in str(path) else "COMPLETE")
 
     with patch(
         "ryan_library.orchestrators.tuflow.tuflow_user_activity.inspect_tlf",
@@ -360,6 +358,12 @@ def test_tlf_fallback_searches_seven_days_for_oldest_active(tmp_path: Path) -> N
     ):
         report = build_activity_report(log_root=tmp_path, recent_hours=24, codemeter_url=None)
     assert [row.record.model for row in report.starts] == [
-        "NewerD", "NewerC", "NewerB", "NewerA", "RunningOld", "Predecessor", "Oldest"
+        "NewerD",
+        "NewerC",
+        "NewerB",
+        "NewerA",
+        "RunningOld",
+        "Predecessor",
+        "Oldest",
     ]
     assert report.starts[4].status == "POSSIBLY RUNNING"
