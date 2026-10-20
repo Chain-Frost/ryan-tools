@@ -24,7 +24,7 @@ import shutil
 import sys
 import tempfile
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from osgeo import ogr, osr
@@ -215,6 +215,9 @@ def find_template_layer(dataset: ogr.DataSource, source_geometry: int) -> ogr.La
 def spatial_transform(source_layer: ogr.Layer, target_layer: ogr.Layer):
     source_srs = source_layer.GetSpatialRef()
     target_srs = target_layer.GetSpatialRef()
+    if (source_srs is None) != (target_srs is None):
+        msg = "source and template/output must both have a CRS, or both have no CRS"
+        raise ValueError(msg)
     if source_srs is None or target_srs is None or source_srs.IsSame(target_srs):
         return None
     source_srs = source_srs.Clone()
@@ -295,9 +298,14 @@ def verify_output(source_path: Path, template_dir: Path) -> Result:  # noqa: C90
         output_srs is not None and not output_srs.IsSame(template_srs)
     ):
         issues.append("output CRS differs from template")
+    try:
+        transform = spatial_transform(source_layer, output_layer)
+    except (RuntimeError, ValueError) as exc:
+        transform = None
+        issues.append(f"source/output CRS cannot be reconciled: {exc}")
     if output_layer.GetFeatureCount() != source_layer.GetFeatureCount():
         issues.append(f"feature count {output_layer.GetFeatureCount()} != {source_layer.GetFeatureCount()}")
-    elif output_defn.GetFieldCount() == len(source_indexes):
+    elif output_defn.GetFieldCount() == len(source_indexes) and not issues:
         source_layer.ResetReading()
         output_layer.ResetReading()
         for row_number, (source_feature, output_feature) in enumerate(
@@ -322,6 +330,22 @@ def verify_output(source_path: Path, template_dir: Path) -> Result:  # noqa: C90
                     break
             if issues:
                 break
+            source_geometry = source_feature.GetGeometryRef()
+            output_geometry = output_feature.GetGeometryRef()
+            if (source_geometry is None) != (output_geometry is None):
+                issues.append(f"row {row_number}: geometry presence differs")
+                break
+            if source_geometry is not None and output_geometry is not None:
+                expected_geometry = source_geometry.Clone()
+                try:
+                    if transform is not None:
+                        expected_geometry.Transform(transform)
+                    if not expected_geometry.Equals(output_geometry):
+                        issues.append(f"row {row_number}: geometry differs")
+                        break
+                except RuntimeError as exc:
+                    issues.append(f"row {row_number}: geometry comparison failed: {exc}")
+                    break
     result.status = "VERIFIED" if not issues else "ERROR"
     result.message = "all output checks passed" if not issues else "; ".join(issues)
     return result
@@ -493,13 +517,13 @@ def convert_one(  # noqa: C901 - multi-stage vector conversion
 def write_report(path: Path, results: list[Result]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8-sig") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(asdict(results[0]).keys()))
+        writer = csv.DictWriter(stream, fieldnames=[field.name for field in fields(Result)])
         writer.writeheader()
         writer.writerows(asdict(result) for result in results)
 
 
 def parse_args() -> argparse.Namespace:
-    script_dir = Path(__file__).resolve().parent
+    script_dir = Path(__file__).absolute().parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--source-dir",
@@ -559,7 +583,10 @@ def main() -> int:
     counts: dict[str, int] = {}
     for result in results:
         counts[result.status] = counts.get(result.status, 0) + 1
-    print("SUMMARY " + ", ".join(f"{key}={value}" for key, value in sorted(counts.items())))
+    if not results and args.verify_only:
+        print("SUMMARY no matching existing GPKG output files found for verification")
+    else:
+        print("SUMMARY " + ", ".join(f"{key}={value}" for key, value in sorted(counts.items())))
     print(f"REPORT {args.report}")
     return 1 if counts.get("ERROR", 0) else 0
 
