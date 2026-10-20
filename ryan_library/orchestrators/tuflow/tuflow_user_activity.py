@@ -427,9 +427,7 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
     activity_since = checked_at - timedelta(hours=recent_hours)
     # The last seven days are available for an active simulation which started
     # before the requested window, and for the two starts preceding that run.
-    activities = collect_user_activity(
-        absolute_log_root, activity_since=checked_at - timedelta(hours=MAX_RECENT_HOURS)
-    )
+    activities = collect_user_activity(absolute_log_root, activity_since=checked_at - timedelta(hours=MAX_RECENT_HOURS))
     all_starts = _deduplicate_starts(
         (activity.user, record) for activity in activities for record in activity.recent_starts
     )
@@ -442,9 +440,7 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
     codemeter: CodeMeterSnapshot | None = None
     if codemeter_url:
         try:
-            codemeter = fetch_codemeter_snapshot(
-                base_url=codemeter_url, timeout_seconds=codemeter_timeout_seconds
-            )
+            codemeter = fetch_codemeter_snapshot(base_url=codemeter_url, timeout_seconds=codemeter_timeout_seconds)
             workflow_warnings.extend(codemeter.warnings)
         except OSError as exc:
             workflow_warnings.append(f"CodeMeter WebAdmin is unavailable at {codemeter_url}: {exc}")
@@ -497,8 +493,7 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         reason = "Three latest starts; no active simulation was matched"
 
     selected_keys = {
-        (user.casefold(), record.timestamp, str(record.tlf_path).casefold())
-        for user, record in selected_starts
+        (user.casefold(), record.timestamp, str(record.tlf_path).casefold()) for user, record in selected_starts
     }
     # Only report completions belonging to the displayed starts. Matching a
     # TLF path alone is unsafe when a simulation is restarted into the same log.
@@ -518,9 +513,7 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         for user, record in selected_starts
     )
     completion_rows = tuple(
-        SimulationReportRow(
-            user=user, record=record, inspection=inspection_for(record), status="COMPLETED"
-        )
+        SimulationReportRow(user=user, record=record, inspection=inspection_for(record), status="COMPLETED")
         for user, record in selected_completions
     )
     codemeter_processes: tuple[CodeMeterProcessRow, ...] = ()
