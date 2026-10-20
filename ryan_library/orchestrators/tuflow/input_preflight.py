@@ -135,9 +135,7 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
             )
         )
 
-    def inspect_file(
-        run: RunRequest, file: object, origin: str, *, base: Path, require_layer: bool = True
-    ) -> None:
+    def inspect_file(run: RunRequest, file: object, origin: str, *, base: Path, require_layer: bool = True) -> None:
         raw = str(getattr(file, "dbpath", file))
         if not raw or raw == "." or "<<" in raw or ">>" in raw or any(char in raw for char in "*?"):
             add_issue(run, "unresolved", origin, raw, "Unexpanded variable, wildcard or unsupported reference")
@@ -184,7 +182,9 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
                     add_issue(run, "unresolved", origin, "", f"Could not evaluate missing-file state: {exc}")
                     continue
                 if missing_flag and not files:
-                    add_issue(run, "unresolved", origin, "", "Input reports missing dependencies without a resolved path")
+                    add_issue(
+                        run, "unresolved", origin, "", "Input reports missing dependencies without a resolved path"
+                    )
         except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
             add_issue(run, "unresolved", "Control-file traversal", str(tcf), str(exc))
 
