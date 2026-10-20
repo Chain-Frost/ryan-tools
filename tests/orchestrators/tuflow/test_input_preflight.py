@@ -106,7 +106,8 @@ def test_unresolved_context_fails_closed(tmp_path: Path, monkeypatch: pytest.Mon
             pass
 
         def context(self, flags: str) -> None:
-            raise ValueError("Unknown scenario")
+            message = "Unknown scenario"
+            raise ValueError(message)
 
     monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=BrokenTCF))
     report = check_simulation_inputs(tcf, [RunRequest(index=1, flags={"s1": "BAD"})])
@@ -127,7 +128,7 @@ def test_missing_geopackage_layer(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         lyrname = "missing_layer"
 
     class Input:
-        files = [GpkgPath()]
+        files = (GpkgPath(),)
         has_missing_files = False
         parent = types.SimpleNamespace(fpath=tcf)
 
@@ -145,7 +146,7 @@ def test_missing_geopackage_layer(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
         def __init__(self, path: str) -> None:
             pass
 
-        def context(self, flags: str) -> Context:
+        def context(self, _flags: str) -> Context:
             return Context()
 
     monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
