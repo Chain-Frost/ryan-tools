@@ -37,6 +37,9 @@ folder README and Git history before deciding to restructure it.
 
 Versioned script filenames normally identify standalone snapshots. Maintained library-backed wrappers use descriptive,
 unversioned filenames and an embedded wrapper version. See [`../ryan-scripts/WRAPPER_STANDARD.md`](../ryan-scripts/WRAPPER_STANDARD.md).
+Actively maintained standalone utilities instead follow the
+[minimal standalone standard](../ryan-scripts/README.md#minimal-standard-for-maintained-standalone-scripts);
+they may keep all their processing in one file and have no mandatory `ryan_library` dependency.
 
 ## Architecture and dependency direction
 
