@@ -81,7 +81,7 @@ def test_mixed_firms_never_leak_other_product_links_or_denials() -> None:
 
     events = EVENTS_HTML.replace(
         "</textarea>",
-        "\\n2026-10-19T22:41:24.234+08:00 Entry (777:47) not found - Event WB0212 "
+        "\n2026-10-19T22:41:24.234+08:00 Entry (777:47) not found - Event WB0212 "
         "(NO MORE LICENSES), Request IP-Address local(IPv6)(ts)(OTHER\\\\USER) with UserLimit"
         "</textarea>",
     )
