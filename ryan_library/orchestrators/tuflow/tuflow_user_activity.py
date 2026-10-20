@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from itertools import islice
 from pathlib import Path, PureWindowsPath
 from typing import Any
+from urllib.parse import quote
 
 from ryan_library.functions.parse_tlf import get_log_lines, is_complete_tlf, search_for_completion, search_from_top
 from ryan_library.functions.tuflow.codemeter import (
@@ -582,10 +583,8 @@ def _file_link(path: Path | None, *, hyperlinks: bool) -> str:
     windows_path = PureWindowsPath(display_path)
     if not windows_path.is_absolute():
         return display_path
-    try:
-        uri = windows_path.as_uri()
-    except ValueError:
-        return display_path
+    prefix = "file:" if windows_path.drive.startswith("\\\\") else "file:///"
+    uri = prefix + quote(windows_path.as_posix(), safe="/:")
     return f"\x1b]8;;{uri}\x1b\\{display_path}\x1b]8;;\x1b\\"
 
 
