@@ -170,8 +170,8 @@ def test_compact_report_keeps_two_starts_before_oldest_active_model(tmp_path: Pa
         "RunningOld",
         "Older3",
         "Older2",
-    assert [row.record.model for row in report.completions] == ["Newest", "CompletedNew", "Older3", "Older2"]
     ]
+    assert [row.record.model for row in report.completions] == ["Newest", "CompletedNew", "Older3", "Older2"]
     assert [row.record.model for row in full.starts] == [
         "Newest",
         "RunningNew",
