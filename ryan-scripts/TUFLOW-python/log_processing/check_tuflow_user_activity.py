@@ -27,8 +27,8 @@ DEFAULT_CHECK_CODEMETER = True
 DEFAULT_CONSOLE_LOG_LEVEL = "WARNING"
 
 import argparse
-from dataclasses import dataclass
 import sys
+from dataclasses import dataclass
 
 from ryan_library.functions.loguru_helpers import configure_serial_logging
 from ryan_library.functions.wrapper_utils import add_no_pause_cli_argument, pause_console, print_wrapper_banner
@@ -54,16 +54,19 @@ class WrapperOptions:
 def _recent_hours(value: str) -> float:
     number = float(value)
     if number <= 0:
-        raise argparse.ArgumentTypeError("must be greater than zero")
+        message = "must be greater than zero"
+        raise argparse.ArgumentTypeError(message)
     if number > MAX_RECENT_HOURS:
-        raise argparse.ArgumentTypeError(f"must not exceed {MAX_RECENT_HOURS} hours (7 days)")
+        message = f"must not exceed {MAX_RECENT_HOURS} hours (7 days)"
+        raise argparse.ArgumentTypeError(message)
     return number
 
 
 def _positive_float(value: str) -> float:
     number = float(value)
     if number <= 0:
-        raise argparse.ArgumentTypeError("must be greater than zero")
+        message = "must be greater than zero"
+        raise argparse.ArgumentTypeError(message)
     return number
 
 
