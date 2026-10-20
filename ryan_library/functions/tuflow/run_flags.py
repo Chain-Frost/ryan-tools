@@ -23,12 +23,15 @@ def extract_run_flags(tokens: Sequence[str]) -> dict[str, str]:
             continue
         key = match.group("key").lower()
         if index + 1 >= len(tokens) or not tokens[index + 1].strip():
-            raise ValueError(f"Run switch -{key} has no value")
+            message = f"Run switch -{key} has no value"
+            raise ValueError(message)
         value = tokens[index + 1].strip().strip('"')
         if value.startswith("-"):
-            raise ValueError(f"Run switch -{key} has an invalid value: {value}")
+            message = f"Run switch -{key} has an invalid value: {value}"
+            raise ValueError(message)
         if key in flags and flags[key] != value:
-            raise ValueError(f"Conflicting values for -{key}: {flags[key]} and {value}")
+            message = f"Conflicting values for -{key}: {flags[key]} and {value}"
+            raise ValueError(message)
         flags[key] = value
     return flags
 
@@ -45,7 +48,8 @@ def read_run_commands(path: Path) -> list[dict[str, str]]:
     Silently ignores SET/PAUSE/REM lines and empty/comment lines.
     """
     if not path.is_file():
-        raise FileNotFoundError(f"Run commands file does not exist: {path}")
+        message = f"Run commands file does not exist: {path}"
+        raise FileNotFoundError(message)
     runs: list[dict[str, str]] = []
     for line_number, raw in enumerate(path.read_text(encoding="utf-8-sig").splitlines(), start=1):
         line = raw.strip()
@@ -58,15 +62,19 @@ def read_run_commands(path: Path) -> list[dict[str, str]]:
             continue
         switches = [token for token in line.split() if _FLAG_PATTERN.fullmatch(token)]
         if len(pairs) != len(switches):
-            raise ValueError(f"Malformed event/scenario switch on line {line_number} of {path}")
+            message = f"Malformed event/scenario switch on line {line_number} of {path}"
+            raise ValueError(message)
         flags: dict[str, str] = {}
         for key, value in pairs:
             if value.startswith("-"):
-                raise ValueError(f"Missing value for -{key} on line {line_number}")
+                message = f"Missing value for -{key} on line {line_number}"
+                raise ValueError(message)
             if key in flags and flags[key] != value:
-                raise ValueError(f"Conflicting -{key} values on line {line_number}")
+                message = f"Conflicting -{key} values on line {line_number}"
+                raise ValueError(message)
             flags[key] = value.strip('"')
         runs.append(flags)
     if not runs:
-        raise ValueError(f"No event/scenario combinations found in {path}")
+        message = f"No event/scenario combinations found in {path}"
+        raise ValueError(message)
     return runs
