@@ -454,6 +454,9 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
     all_completions = _deduplicate_completions(
         (activity.user, record) for activity in activities for record in activity.recent_completions
     )
+    all_terminations = _deduplicate_completions(
+        (activity.user, record) for activity in activities for record in activity.recent_terminations
+    )
     recent_starts = [(user, record) for user, record in all_starts if record.timestamp >= activity_since]
 
     workflow_warnings: list[str] = []
@@ -475,11 +478,12 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
             inspection_cache[key] = inspect_tlf(record.tlf_path)
         return inspection_cache[key]
 
-    # A completed run cannot be a TLF-only active candidate even when its
-    # TLF has since been reused or has an incomplete final footer.
-    completed_start_keys = {
+    # Completed, interrupted, and unstable runs are all terminal. Never
+    # regard an incomplete TLF belonging to any of them as evidence of
+    # an ongoing simulation.
+    closed_start_keys = {
         (user.casefold(), record.started_at, str(record.tlf_path).casefold())
-        for user, record in all_completions
+        for user, record in (*all_completions, *all_terminations)
         if record.started_at is not None
     }
     active_starts: list[ActivityRecord] = []
@@ -495,6 +499,7 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
                 status="UNKNOWN",
             )
             for user, record in all_starts
+            if (user.casefold(), record.timestamp, str(record.tlf_path).casefold()) not in closed_start_keys
         )
         processes = _group_codemeter_processes(codemeter.allocations, starts=preliminary_rows)
         active_starts = [row.simulation.record for row in processes if row.simulation is not None]
@@ -505,7 +510,7 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         active_starts = [
             record
             for user, record in all_starts
-            if (user.casefold(), record.timestamp, str(record.tlf_path).casefold()) not in completed_start_keys
+            if (user.casefold(), record.timestamp, str(record.tlf_path).casefold()) not in closed_start_keys
             and simulation_status(record, inspection_for(record)) == "POSSIBLY RUNNING"
         ]
 
@@ -524,16 +529,25 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
     selected_keys = {
         (user.casefold(), record.timestamp, str(record.tlf_path).casefold()) for user, record in selected_starts
     }
-    # Only report completions belonging to the displayed starts. Matching a
-    # TLF path alone is unsafe when a simulation is restarted into the same log.
+    # Match terminal records by their recorded start, not merely by TLF
+    # path (which can be reused by a subsequent simulation).
     if all_history:
         selected_completions = [
             (user, record) for user, record in all_completions if record.timestamp >= activity_since
+        ]
+        selected_terminations = [
+            (user, record) for user, record in all_terminations if record.timestamp >= activity_since
         ]
     else:
         selected_completions = [
             (user, record)
             for user, record in all_completions
+            if record.started_at is not None
+            and (user.casefold(), record.started_at, str(record.tlf_path).casefold()) in selected_keys
+        ]
+        selected_terminations = [
+            (user, record)
+            for user, record in all_terminations
             if record.started_at is not None
             and (user.casefold(), record.started_at, str(record.tlf_path).casefold()) in selected_keys
         ]
@@ -545,13 +559,25 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         for user, record in all_completions
         if record.started_at is not None
     }
+    termination_by_start = {
+        (user.casefold(), record.started_at, str(record.tlf_path).casefold()): record
+        for user, record in all_terminations
+        if record.started_at is not None
+    }
 
     def start_row(user: str, record: ActivityRecord) -> SimulationReportRow:
         inspection = inspection_for(record)
         completion = completion_by_start.get((user.casefold(), record.timestamp, str(record.tlf_path).casefold()))
-        status = "COMPLETED" if completion is not None else simulation_status(record, inspection)
+        termination = termination_by_start.get((user.casefold(), record.timestamp, str(record.tlf_path).casefold()))
+        status = (
+            termination.event
+            if termination is not None
+            else ("COMPLETED" if completion is not None else simulation_status(record, inspection))
+        )
         runtime_seconds = None
-        if status == "COMPLETED":
+        if termination is not None:
+            runtime_seconds = termination.runtime_seconds
+        elif status == "COMPLETED":
             if completion is not None and completion.runtime_seconds is not None:
                 runtime_seconds = completion.runtime_seconds
             elif tlf_status_for_record(record, inspection) == "COMPLETE":
@@ -569,6 +595,10 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         SimulationReportRow(user=user, record=record, inspection=inspection_for(record), status="COMPLETED")
         for user, record in selected_completions
     )
+    termination_rows = tuple(
+        SimulationReportRow(user=user, record=record, inspection=inspection_for(record), status=record.event)
+        for user, record in selected_terminations
+    )
     codemeter_processes: tuple[CodeMeterProcessRow, ...] = ()
     if codemeter is not None:
         codemeter_processes = _group_codemeter_processes(codemeter.allocations, starts=start_rows)
@@ -576,7 +606,8 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
     access_warnings = tuple(f"{activity.user}: {activity.error}" for activity in activities if activity.error)
     summary = (
         f"{reason}. Displaying {len(start_rows)} start(s) and "
-        f"{len(completion_rows)} matching completion(s). "
+        f"{len(completion_rows)} matching completion(s), "
+        f"{len(termination_rows)} interruption/instability termination(s). "
         "Use --all-history to show all records within --recent-hours."
     )
     return TuflowActivityReport(
@@ -590,6 +621,7 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         access_warnings=access_warnings,
         workflow_warnings=tuple(workflow_warnings),
         selection_summary=summary,
+        terminations=termination_rows,
     )
 
 
