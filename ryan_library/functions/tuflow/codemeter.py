@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from html.parser import HTMLParser
@@ -139,13 +140,43 @@ def _integer(value: str) -> int | None:
     return int(match.group()) if match is not None else None
 
 
+def _monitoring_detail_links(
+    parser: _TableParser, *, firm_code: int
+) -> tuple[dict[int, str], set[int]]:
+    """Select this firm's detail URLs and find codes shared with other firms."""
+    detail_urls: dict[int, str] = {}
+    foreign_codes: set[int] = set()
+    for href in parser.links:
+        if not urlparse(href).path.endswith("license_monitoring_details.html"):
+            continue
+        query = parse_qs(urlparse(href).query)
+        try:
+            link_firm = int(query["FirmCode"][0])
+            product_code = int(query["ProductCode"][0])
+        except (KeyError, ValueError, IndexError):
+            continue
+        if link_firm == firm_code:
+            detail_urls[product_code] = href
+        else:
+            foreign_codes.add(product_code)
+    return detail_urls, foreign_codes
+
+
 def parse_license_monitoring_html(
     html_text: str,
     *,
     firm_code: int = 101139,
+    product_codes: Collection[int] | None = None,
+    product_names: Mapping[int, str] | None = None,
 ) -> tuple[tuple[CodeMeterProductUsage, ...], dict[int, str]]:
-    """Parse product quantities and detail-page links from the monitoring page."""
+    """Parse firm-scoped quantities, excluding rows ambiguous across firms."""
     parser = _parse_html(html_text)
+    detail_urls, foreign_codes = _monitoring_detail_links(parser, firm_code=firm_code)
+    if product_codes is not None:
+        detail_urls = {code: href for code, href in detail_urls.items() if code in product_codes}
+    names = product_names if product_names is not None else (
+        KNOWN_TUFLOW_PRODUCT_NAMES if firm_code == 101139 else {}
+    )
     products: list[CodeMeterProductUsage] = []
     for table in parser.tables:
         if not table or "Product Code" not in table[0] or "License Quantity" not in table[0]:
@@ -159,29 +190,21 @@ def parse_license_monitoring_html(
             if code_match is None or total is None or available is None:
                 continue
             product_code = int(code_match.group("code"))
+            # Product codes are only unique within a firm. If two firms use
+            # the same code, the unscoped quantity row cannot be attributed.
+            if product_code not in detail_urls or product_code in foreign_codes:
+                continue
             products.append(
                 CodeMeterProductUsage(
                     firm_code=firm_code,
                     product_code=product_code,
-                    name=row[1] or KNOWN_TUFLOW_PRODUCT_NAMES.get(product_code, "Unknown product"),
+                    name=row[1] or names.get(product_code, "Unknown product"),
                     total=total,
                     used=max(0, total - available),
                     available=available,
                 )
             )
-
-    detail_urls: dict[int, str] = {}
-    for href in parser.links:
-        if "license_monitoring_details.html" not in href:
-            continue
-        query = parse_qs(urlparse(href).query)
-        try:
-            product_code = int(query["ProductCode"][0])
-        except (KeyError, ValueError):
-            continue
-        detail_urls[product_code] = href
     return tuple(sorted(products, key=lambda item: item.product_code)), detail_urls
-
 
 def parse_product_detail_html(
     html_text: str,
@@ -227,7 +250,12 @@ def _parse_webadmin_datetime(value: str) -> datetime | None:
         return None
 
 
-def parse_events_html(html_text: str) -> tuple[CodeMeterLicenseDenial, ...]:
+def parse_events_html(
+    html_text: str,
+    *,
+    firm_code: int | None = None,
+    product_codes: Collection[int] | None = None,
+) -> tuple[CodeMeterLicenseDenial, ...]:
     """Parse no-more-licences events from the WebAdmin event textarea."""
     parser = _parse_html(html_text)
     denials: list[CodeMeterLicenseDenial] = []
@@ -241,12 +269,18 @@ def parse_events_html(html_text: str) -> tuple[CodeMeterLicenseDenial, ...]:
                 timestamp = datetime.fromisoformat(timestamp_match.group("timestamp"))
             except ValueError:
                 continue
+            event_firm_code = int(denial_match.group("firm_code"))
+            event_product_code = int(denial_match.group("product_code"))
+            if firm_code is not None and event_firm_code != firm_code:
+                continue
+            if product_codes is not None and event_product_code not in product_codes:
+                continue
             denials.append(
                 CodeMeterLicenseDenial(
                     timestamp=timestamp,
                     user=denial_match.group("user"),
-                    firm_code=int(denial_match.group("firm_code")),
-                    product_code=int(denial_match.group("product_code")),
+                    firm_code=event_firm_code,
+                    product_code=event_product_code,
                 )
             )
     return tuple(sorted(denials, key=lambda item: item.timestamp, reverse=True))
@@ -262,25 +296,40 @@ def fetch_codemeter_snapshot(
     *,
     base_url: str,
     timeout_seconds: float = 5.0,
+    firm_code: int = 101139,
+    product_codes: Collection[int] | None = None,
+    product_names: Mapping[int, str] | None = None,
 ) -> CodeMeterSnapshot:
-    """Fetch current CodeMeter products, allocations, and denial events."""
+    """Fetch firm-scoped CodeMeter data; defaults target TUFLOW."""
+
     normalized_base_url = f"{base_url.rstrip('/')}/"
     monitoring_html = _fetch_text(
         urljoin(normalized_base_url, "license_monitoring.html"),
         timeout_seconds=timeout_seconds,
     )
-    products, detail_urls = parse_license_monitoring_html(monitoring_html)
+    names = product_names if product_names is not None else (
+        KNOWN_TUFLOW_PRODUCT_NAMES if firm_code == 101139 else {}
+    )
+    products, detail_urls = parse_license_monitoring_html(
+        monitoring_html, firm_code=firm_code, product_codes=product_codes, product_names=names
+    )
     product_by_code = {item.product_code: item for item in products}
     warnings: list[str] = []
+    _, foreign_codes = _monitoring_detail_links(_parse_html(monitoring_html), firm_code=firm_code)
+    for product_code in sorted(foreign_codes & detail_urls.keys()):
+        warnings.append(
+            f"Firm {firm_code} product {product_code}: ambiguous quantities (shared product code with "
+            "another firm); allocations are still firm-scoped."
+        )
     allocations: list[CodeMeterAllocation] = []
 
     for product_code, relative_url in sorted(detail_urls.items()):
         product_name = product_by_code.get(
             product_code,
             CodeMeterProductUsage(
-                firm_code=101139,
+                firm_code=firm_code,
                 product_code=product_code,
-                name="Unknown product",
+                name=names.get(product_code, "Unknown product"),
                 total=0,
                 used=0,
                 available=0,
@@ -307,7 +356,7 @@ def fetch_codemeter_snapshot(
             urljoin(normalized_base_url, "diagnosis/events.html"),
             timeout_seconds=timeout_seconds,
         )
-        denials = parse_events_html(events_html)
+        denials = parse_events_html(events_html, firm_code=firm_code, product_codes=product_codes)
     except OSError as exc:
         denials = ()
         warnings.append(f"Could not read CodeMeter events: {exc}")
@@ -318,11 +367,12 @@ def fetch_codemeter_snapshot(
         | {item.product_code for item in allocations}
         | {item.product_code for item in denials}
     )
-    for product_code in sorted(discovered_codes - KNOWN_TUFLOW_PRODUCT_NAMES.keys()):
+    for product_code in sorted(discovered_codes - names.keys()):
         discovered_name = product_by_code.get(product_code)
         name_text = discovered_name.name if discovered_name is not None else "name unavailable"
         warnings.append(
-            f"Unknown CodeMeter product code {product_code} ({name_text}); add it to KNOWN_TUFLOW_PRODUCT_NAMES."
+            f"Unknown CodeMeter product code {product_code} for firm {firm_code} ({name_text}); "
+            "supply product_names if this code is expected."
         )
 
     return CodeMeterSnapshot(
