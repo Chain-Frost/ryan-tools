@@ -412,8 +412,9 @@ def build_activity_report(
     recent_hours: float,
     codemeter_url: str | None,
     codemeter_timeout_seconds: float = 5.0,
+    all_history: bool = False,
 ) -> TuflowActivityReport:
-    """Build a read-only TUFLOW and CodeMeter activity snapshot."""
+    """Show active simulations and their two predecessors, without tracking history."""
     if recent_hours <= 0 or recent_hours > MAX_RECENT_HOURS:
         msg = f"recent_hours must be greater than zero and no more than {MAX_RECENT_HOURS}"
         raise ValueError(msg)
@@ -424,13 +425,29 @@ def build_activity_report(
 
     checked_at = datetime.now()
     activity_since = checked_at - timedelta(hours=recent_hours)
-    activities = collect_user_activity(absolute_log_root, activity_since=activity_since)
-    starts = _deduplicate_starts(
+    # The last seven days are available for an active simulation which started
+    # before the requested window, and for the two starts preceding that run.
+    activities = collect_user_activity(
+        absolute_log_root, activity_since=checked_at - timedelta(hours=MAX_RECENT_HOURS)
+    )
+    all_starts = _deduplicate_starts(
         (activity.user, record) for activity in activities for record in activity.recent_starts
     )
-    completions = _deduplicate_completions(
+    all_completions = _deduplicate_completions(
         (activity.user, record) for activity in activities for record in activity.recent_completions
     )
+    recent_starts = [(user, record) for user, record in all_starts if record.timestamp >= activity_since]
+
+    workflow_warnings: list[str] = []
+    codemeter: CodeMeterSnapshot | None = None
+    if codemeter_url:
+        try:
+            codemeter = fetch_codemeter_snapshot(
+                base_url=codemeter_url, timeout_seconds=codemeter_timeout_seconds
+            )
+            workflow_warnings.extend(codemeter.warnings)
+        except OSError as exc:
+            workflow_warnings.append(f"CodeMeter WebAdmin is unavailable at {codemeter_url}: {exc}")
 
     inspection_cache: dict[str, TlfInspection] = {}
 
@@ -442,6 +459,55 @@ def build_activity_report(
             inspection_cache[key] = inspect_tlf(record.tlf_path)
         return inspection_cache[key]
 
+    active_starts: list[ActivityRecord] = []
+    if codemeter is not None and codemeter.allocations:
+        # Match CodeMeter against all available starts BEFORE opening TLFs.
+        # Older concurrent runs must not disappear just because they are older
+        # than the default 24-hour reporting window.
+        preliminary_rows = tuple(
+            SimulationReportRow(
+                user=user,
+                record=record,
+                inspection=TlfInspection(status="NOT INSPECTED"),
+                status="UNKNOWN",
+            )
+            for user, record in all_starts
+        )
+        processes = _group_codemeter_processes(codemeter.allocations, starts=preliminary_rows)
+        active_starts = [row.simulation.record for row in processes if row.simulation is not None]
+    elif codemeter is None:
+        # CodeMeter is unavailable/disabled: use the TLF as a less-reliable
+        # fallback. Never present an incomplete TLF as proof of a live process.
+        active_starts = [
+            record
+            for _, record in recent_starts
+            if simulation_status(record, inspection_for(record)) == "POSSIBLY RUNNING"
+        ]
+
+    if all_history:
+        selected_starts = recent_starts
+        reason = f"All starts from the requested {recent_hours:g}-hour window"
+    elif active_starts:
+        oldest_start = min(record.timestamp for record in active_starts)
+        relevant_count = sum(1 for _, record in all_starts if record.timestamp >= oldest_start)
+        selected_starts = all_starts[: relevant_count + 2]
+        reason = "Every start since the oldest active/possibly running run, plus two earlier starts"
+    else:
+        selected_starts = recent_starts[:3]
+        reason = "Three latest starts; no active simulation was matched"
+
+    selected_keys = {
+        (user.casefold(), record.timestamp, str(record.tlf_path).casefold())
+        for user, record in selected_starts
+    }
+    # Only report completions belonging to the displayed starts. Matching a
+    # TLF path alone is unsafe when a simulation is restarted into the same log.
+    selected_completions = [
+        (user, record)
+        for user, record in all_completions
+        if record.started_at is not None
+        and (user.casefold(), record.started_at, str(record.tlf_path).casefold()) in selected_keys
+    ]
     start_rows = tuple(
         SimulationReportRow(
             user=user,
@@ -449,33 +515,24 @@ def build_activity_report(
             inspection=inspection_for(record),
             status=simulation_status(record, inspection_for(record)),
         )
-        for user, record in starts
+        for user, record in selected_starts
     )
     completion_rows = tuple(
         SimulationReportRow(
-            user=user,
-            record=record,
-            inspection=inspection_for(record),
-            status="COMPLETED",
+            user=user, record=record, inspection=inspection_for(record), status="COMPLETED"
         )
-        for user, record in completions
+        for user, record in selected_completions
     )
-
-    workflow_warnings: list[str] = []
-    codemeter = None
     codemeter_processes: tuple[CodeMeterProcessRow, ...] = ()
-    if codemeter_url:
-        try:
-            codemeter = fetch_codemeter_snapshot(
-                base_url=codemeter_url,
-                timeout_seconds=codemeter_timeout_seconds,
-            )
-            workflow_warnings.extend(codemeter.warnings)
-            codemeter_processes = _group_codemeter_processes(codemeter.allocations, starts=start_rows)
-        except OSError as exc:
-            workflow_warnings.append(f"CodeMeter WebAdmin is unavailable at {codemeter_url}: {exc}")
+    if codemeter is not None:
+        codemeter_processes = _group_codemeter_processes(codemeter.allocations, starts=start_rows)
 
     access_warnings = tuple(f"{activity.user}: {activity.error}" for activity in activities if activity.error)
+    summary = (
+        f"{reason}. Displaying {len(start_rows)} start(s) and "
+        f"{len(completion_rows)} matching completion(s). "
+        "Use --all-history to show all records within --recent-hours."
+    )
     return TuflowActivityReport(
         checked_at=checked_at,
         log_root=absolute_log_root,
@@ -486,6 +543,7 @@ def build_activity_report(
         codemeter_processes=codemeter_processes,
         access_warnings=access_warnings,
         workflow_warnings=tuple(workflow_warnings),
+        selection_summary=summary,
     )
 
 
