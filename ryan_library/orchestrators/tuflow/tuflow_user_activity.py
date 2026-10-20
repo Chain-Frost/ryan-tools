@@ -819,6 +819,42 @@ def render_activity_report(  # noqa: C901
     else:
         lines.append("No completions were recorded in this period.")
 
+    lines.extend(("", "INTERRUPTED AND UNSTABLE SIMULATION TERMINATIONS"))
+    if report.terminations:
+        lines.extend(
+            _table(
+                (
+                    (
+                        row.status,
+                        row.user,
+                        row.record.timestamp.strftime("%Y-%m-%d %H:%M"),
+                        _format_age(row.record.timestamp, now=report.checked_at),
+                        _format_runtime(row.record.runtime_seconds),
+                        row.record.machine,
+                        f"{row.record.licence_origin} {row.record.seat}".strip(),
+                        row.inspection.gpu_device_ids,
+                        tlf_status_for_record(row.record, row.inspection),
+                        row.record.model,
+                    )
+                    for row in report.terminations
+                ),
+                headers=(
+                    "STATUS",
+                    "USER",
+                    "ENDED",
+                    "AGE",
+                    "RUNTIME",
+                    "MACHINE",
+                    "LICENCE",
+                    "GPU ID",
+                    "TLF",
+                    "MODEL",
+                ),
+            )
+        )
+    else:
+        lines.append("No interrupted or unstable runs were recorded among the selected simulations.")
+
     if report.codemeter is not None:
         since = report.checked_at - timedelta(hours=report.recent_hours)
         denials = _recent_denials(report.codemeter.denials, since=since)
@@ -843,7 +879,9 @@ def render_activity_report(  # noqa: C901
             lines.append("No no-more-licences events were recorded in this period.")
 
     lines.extend(("", "PROJECT AND TUFLOW LOG PATHS"))
-    path_rows = _deduplicate_starts((row.user, row.record) for row in (*report.starts, *report.completions))
+    path_rows = _deduplicate_starts(
+        (row.user, row.record) for row in (*report.starts, *report.completions, *report.terminations)
+    )
     if path_rows:
         for index, (user, record) in enumerate(path_rows, start=1):
             project_folder = find_project_folder(record.tlf_path)
