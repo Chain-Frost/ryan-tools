@@ -43,6 +43,7 @@ class Result:
     geometry: str = ""
     feature_count: int | str = ""
     message: str = ""
+    warning: str = ""
 
 
 def open_vector(path: Path | str, update: bool = False) -> ogr.DataSource | None:
@@ -212,13 +213,26 @@ def find_template_layer(dataset: ogr.DataSource, source_geometry: int) -> ogr.La
     return matches[0] if len(matches) == 1 else None
 
 
+def crs_warning(source_layer: ogr.Layer, target_layer: ogr.Layer) -> str:
+    """Report the deliberate assumption when a source lacks CRS metadata."""
+    if source_layer.GetSpatialRef() is not None:
+        return ""
+    if target_layer.GetSpatialRef() is None:
+        return "WARNING: source and template have no CRS; coordinates remain unreferenced"
+    return "WARNING: source has no CRS; assuming template CRS without transforming coordinates"
+
+
 def spatial_transform(source_layer: ogr.Layer, target_layer: ogr.Layer):
     source_srs = source_layer.GetSpatialRef()
     target_srs = target_layer.GetSpatialRef()
-    if (source_srs is None) != (target_srs is None):
-        msg = "source and template/output must both have a CRS, or both have no CRS"
+    if source_srs is None:
+        # TUFLOW data must already share a coordinate system. If a shapefile
+        # has no .prj, attach the template CRS rather than inventing a transform.
+        return None
+    if target_srs is None:
+        msg = "template/output has no CRS while source CRS is defined"
         raise ValueError(msg)
-    if source_srs is None or target_srs is None or source_srs.IsSame(target_srs):
+    if source_srs.IsSame(target_srs):
         return None
     source_srs = source_srs.Clone()
     target_srs = target_srs.Clone()
@@ -251,6 +265,7 @@ def verify_output(source_path: Path, template_dir: Path) -> Result:  # noqa: C90
         return result
     result.template_layer = template_layer.GetName()
     result.geometry = ogr.GeometryTypeToName(template_layer.GetLayerDefn().GetGeomType())
+    result.warning = crs_warning(source_layer, template_layer)
     issues: list[str] = []
     if output_ds.GetLayerCount() != 1:
         issues.append(f"output layer count {output_ds.GetLayerCount()} != 1")
@@ -398,6 +413,7 @@ def convert_one(  # noqa: C901 - multi-stage vector conversion
         result.message = f"template has no unique layer matching {result.geometry}"
         return result
     result.template_layer = template_layer.GetName()
+    result.warning = crs_warning(source_layer, template_layer)
 
     schema_issues = compare_schema(source_layer, template_layer)
     schema_issues.extend(validate_string_lengths(source_layer, template_layer))
@@ -577,7 +593,8 @@ def main() -> int:
         else:
             result = convert_one(source, args.template_dir, args.overwrite, args.dry_run)
         results.append(result)
-        print(f"{result.status:24} {source} -- {result.message}", flush=True)
+        warning_text = f"; {result.warning}" if result.warning else ""
+        print(f"{result.status:24} {source} -- {result.message}{warning_text}", flush=True)
     write_report(args.report, results)
 
     counts: dict[str, int] = {}
