@@ -76,7 +76,7 @@ def test_network_simulation_start_and_completion_are_reported(tmp_path: Path) ->
     user_directory = tmp_path / "Network.User"
     user_directory.mkdir()
     (user_directory / "_ All TUFLOW Simulations.log").write_text(
-        "\\n".join((
+        "\n".join((
             '2026-Oct-20 09:00 Don: 0001 NWK 01/20 HOST Build: test Started: Model_A x.tcf "Q:\\\\A.tlf"',
             '2026-Oct-20 09:50 Don: 0001 NWK 01/20 HOST Build: test Tot: 0:50:00 CT '
             'Finished:Model_A x.tcf "Q:\\\\A.tlf"',
