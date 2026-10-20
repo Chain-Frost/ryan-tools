@@ -108,7 +108,7 @@ py -3.14 .\po_and_timeseries\combine_pomm_results.py --export-mode parquet --no-
 [`log_processing/check_tuflow_user_activity.py`](log_processing/check_tuflow_user_activity.py) is a read-only,
 library-backed utility that checks each user folder below `%ProgramData%\TUFLOW\log`. It reports every distinct
 simulation start in the selected period rather than assuming that a user's latest event represents all of their
-concurrent runs. The default window is 24 hours and the enforced maximum is seven days (`--recent-hours 168`).
+concurrent runs. The default lookback is 24 hours, and the maximum searchable history is seven days (`--recent-hours 168`).
 
 ```powershell
 py -3.14 .\ryan-scripts\TUFLOW-python\log_processing\check_tuflow_user_activity.py
@@ -121,6 +121,19 @@ labelled `COMPLETED`; an accessible TLF without that footer is `POSSIBLY RUNNING
 same user has stopped. The tables include the computer, licence seat and parsed GPU device IDs. Recent completions show
 their elapsed runtime, and a final details section prints the full inferred TUFLOW project folder and TLF path. Use
 `--log-root` to inspect a non-default copy of the licence-log tree.
+
+The default console report shows active simulations, every start since the oldest active simulation, and two earlier
+starts as context. It shows the matching completion records and paths only. If no active simulation can be matched,
+it shows the three latest starts. A run may predate the usual 24-hour window; the utility checks available logs
+up to seven days back to find its start and predecessors. `POSSIBLY RUNNING` from a TLF is not proof of an active
+CodeMeter allocation. Use `--all-history` to restore the full output for the configured `--recent-hours` period.
+
+The `MODEL` column displays the full filename rather than truncating it at 48 characters. The project folder and
+TLF paths in the final section can be opened from terminal hyperlinks. Windows Terminal receives OSC 8 links
+automatically where supported; VS Code's terminal can usually Ctrl+click the plain Windows paths through its native
+file-link detection. Use `--hyperlinks` to force OSC 8 links, or `--no-hyperlinks` to print plain paths.
+Redirected output and other non-OSC terminals get plain readable paths by default.
+
 
 By default, the wrapper also reads local CodeMeter WebAdmin at `http://localhost:22352`. It reports current TUFLOW
 product utilisation, each active user's process ID, first and last access, licence allocation handles, recent
