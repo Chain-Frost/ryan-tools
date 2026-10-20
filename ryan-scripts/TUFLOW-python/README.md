@@ -103,6 +103,32 @@ py -3.14 .\log_processing\create_log_summary_report.py --working-directory "D:\M
 py -3.14 .\po_and_timeseries\combine_pomm_results.py --export-mode parquet --no-pause
 ```
 
+## Check recent TUFLOW user activity
+
+[`log_processing/check_tuflow_user_activity.py`](log_processing/check_tuflow_user_activity.py) is a read-only,
+library-backed utility that checks each user folder below `%ProgramData%\TUFLOW\log`. It reports every distinct
+simulation start in the selected period rather than assuming that a user's latest event represents all of their
+concurrent runs. The default window is 24 hours and the enforced maximum is seven days (`--recent-hours 168`).
+
+```powershell
+py -3.14 .\ryan-scripts\TUFLOW-python\log_processing\check_tuflow_user_activity.py
+py -3.14 .\ryan-scripts\TUFLOW-python\log_processing\check_tuflow_user_activity.py --recent-hours 48
+```
+
+For each start, the utility reads the quoted `.tlf` with the maintained TUFLOW parser. A valid completion footer is
+labelled `COMPLETED`; an accessible TLF without that footer is `POSSIBLY RUNNING`; missing or inaccessible TLFs remain
+`UNKNOWN`. Each TLF is assessed independently, so one model finishing does not imply that another model owned by the
+same user has stopped. The tables include the computer, licence seat and parsed GPU device IDs. Recent completions show
+their elapsed runtime, and a final details section prints the full inferred TUFLOW project folder and TLF path. Use
+`--log-root` to inspect a non-default copy of the licence-log tree.
+
+By default, the wrapper also reads local CodeMeter WebAdmin at `http://localhost:22352`. It reports current TUFLOW
+product utilisation, each active user's process ID, first and last access, licence allocation handles, recent
+no-more-licences events, and the recent simulation whose start time most closely matches each active process. Known
+TUFLOW product codes are 20 (Local), 21 (Local Threads), 22 (Local Multiple Domains), and 26 (Local GPU). Any product
+code not recognised by the Python mapping is shown as a warning instead of being silently guessed. Use
+`--no-codemeter` when WebAdmin is unavailable or `--codemeter-url` to select another local endpoint.
+
 ## POMM peak wrapper migration
 
 The maintained mean and median POMM peak wrappers use
