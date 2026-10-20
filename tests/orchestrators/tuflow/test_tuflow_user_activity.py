@@ -367,3 +367,80 @@ def test_tlf_fallback_searches_seven_days_for_oldest_active(tmp_path: Path) -> N
         "Oldest",
     ]
     assert report.starts[4].status == "POSSIBLY RUNNING"
+
+
+
+def test_interrupted_and_unstable_logs_are_terminal_not_completed_or_active(tmp_path: Path) -> None:
+    now = datetime.now().replace(second=0, microsecond=0)
+    user_dir = tmp_path / "Engineer"
+    user_dir.mkdir()
+    lines: list[tuple[datetime, str]] = []
+    models = ["InterruptedOld", "UnstableOld", "InterruptedRecent", "UnstableRecent", "StillRunning"]
+    for index, name in enumerate(models):
+        started = now - timedelta(minutes=50 - 10 * index)
+        prefix = f"{started:%Y-%b-%d %H:%M} Don: 0001 NWK 01/05 HOST Build: test "
+        lines.append((started, f'{prefix}Started: {name} model.tcf "Q:\\{name}.tlf"'))
+        if name.startswith("Interrupted"):
+            ended = started + timedelta(minutes=1)
+            end_prefix = f"{ended:%Y-%b-%d %H:%M} Don: 0001 NWK 01/05 HOST Build: test "
+            lines.append(
+                (
+                    ended,
+                    f'{end_prefix}Ini: 0:00:01 CT Tot: 0:00:58 CT Interrupted: {name} '
+                    f'model.tcf "Q:\\{name}.tlf"',
+                )
+            )
+        elif name.startswith("Unstable"):
+            ended = started + timedelta(minutes=2)
+            end_prefix = f"{ended:%Y-%b-%d %H:%M} Don: 0001 NWK 01/05 HOST Build: test "
+            # Some logs omit timing and the colon after the status.
+            lines.append((ended, f'{end_prefix}UNSTABLE model.tcf "Q:\\{name}.tlf"'))
+    lines.sort(key=lambda item: item[0])
+    (user_dir / "_ All TUFLOW Simulations.log").write_text(
+        "\n".join(line for _, line in lines), encoding="utf-8"
+    )
+
+    with patch(
+        "ryan_library.orchestrators.tuflow.tuflow_user_activity.inspect_tlf",
+        return_value=TlfInspection(status="INCOMPLETE", runtime_seconds=9999),
+    ):
+        report = build_activity_report(log_root=tmp_path, recent_hours=24, codemeter_url=None)
+        full = build_activity_report(log_root=tmp_path, recent_hours=24, codemeter_url=None, all_history=True)
+
+    assert [row.record.model for row in report.starts] == [
+        "StillRunning",
+        "UnstableRecent",
+        "InterruptedRecent",
+    ]
+    assert [row.status for row in report.starts] == ["POSSIBLY RUNNING", "UNSTABLE", "INTERRUPTED"]
+    assert [row.record.model for row in report.terminations] == ["UnstableRecent", "InterruptedRecent"]
+    assert [row.status for row in report.terminations] == ["UNSTABLE", "INTERRUPTED"]
+    assert len(report.completions) == 0
+    assert report.starts[1].runtime_seconds is None
+    assert report.starts[2].runtime_seconds == 58
+    assert len(full.terminations) == 4
+
+    rendered = render_activity_report(report)
+    assert "INTERRUPTED AND UNSTABLE SIMULATION TERMINATIONS" in rendered
+    assert "58s" in rendered
+    assert "COMPLETED" not in rendered
+    assert "9999" not in rendered
+
+
+def test_terminal_parser_does_not_relabel_timed_interruption_as_finished() -> None:
+    interrupted = parse_activity_line(
+        '2026-Oct-20 09:00 Don: 0001 LOC 1/2 HOST Build: test '
+        'Ini: 0:00:10 CT Tot: 0:05:30 CT Interrupted: X "Q:\\X.tlf"',
+        source=Path("global.log"),
+    )
+    unstable = parse_activity_line(
+        '2026-Oct-20 09:01 Don: 0001 LOC 1/2 HOST Build: test '
+        'UNSTABLE "Q:\\X.tlf"',
+        source=Path("global.log"),
+    )
+    assert interrupted is not None
+    assert interrupted.event == "INTERRUPTED"
+    assert interrupted.runtime_seconds == 330
+    assert unstable is not None
+    assert unstable.event == "UNSTABLE"
+    assert unstable.model.startswith("(not recorded")
