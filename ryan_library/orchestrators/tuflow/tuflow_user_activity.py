@@ -607,8 +607,7 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         eligible_starts = tuple(
             row
             for row in start_rows
-            if (row.user.casefold(), row.record.timestamp, str(row.record.tlf_path).casefold())
-            not in closed_start_keys
+            if (row.user.casefold(), row.record.timestamp, str(row.record.tlf_path).casefold()) not in closed_start_keys
         )
         codemeter_processes = _group_codemeter_processes(codemeter.allocations, starts=eligible_starts)
 
