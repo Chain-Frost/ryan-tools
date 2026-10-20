@@ -1,0 +1,108 @@
+"""Safe installed-wrapper behavioral smoke tests without engineering project data.
+
+These scripts are copied into disposable folders, emulating an end-user copying
+a standalone wrapper out of the wheel without a Git checkout. Only explicit
+read-only or disposable-output workflows are executed.
+"""
+
+from __future__ import annotations
+
+import csv
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).absolute().parents[2] / "ryan-scripts"
+
+
+def _run_copied_wrapper(relative: str, work: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    """Run a copied file in a sandbox; do not rely on repository-relative imports."""
+    source = ROOT / relative
+    target = work / source.name
+    shutil.copy2(source, target)
+    return subprocess.run(
+        [sys.executable, str(target), *args],
+        cwd=work,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+        stdin=subprocess.DEVNULL,
+    )
+
+
+def test_copied_rorb_wrapper_reports_missing_input_without_creating_output(tmp_path: Path) -> None:
+    """A missing input is a clean nonzero result and must not create output data."""
+    missing = tmp_path / "missing-input.parquet"
+    output_dir = tmp_path / "unused-output"
+    result = _run_copied_wrapper(
+        "RORB-python/plot_ensemble_results.py",
+        tmp_path,
+        "--input",
+        str(missing),
+        "--output-dir",
+        str(output_dir),
+        "--no-pause",
+    )
+    assert result.returncode == 1, result.stderr[-2000:]
+    assert not output_dir.exists()
+    assert not missing.exists()
+
+
+def test_copied_file_inventory_respects_cli_defaults_and_writes_expected_csv(tmp_path: Path) -> None:
+    """End-to-end, nondestructive CSV export with an explicit input/output."""
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    (inputs / "ABC-001 Rev2.txt").write_text("first", encoding="utf-8")
+    (inputs / "XYZ-002 Rev1.txt").write_text("second", encoding="utf-8")
+    output = tmp_path / "reports"
+    result = _run_copied_wrapper(
+        "file-management-python/file_inventory.py",
+        tmp_path,
+        str(inputs),
+        "--output-directory",
+        str(output),
+        "--basename",
+        "inventory-smoke",
+        "--no-excel",
+        "--no-pause",
+    )
+    assert result.returncode == 0, (result.stdout + result.stderr)[-2000:]
+    csv_file = output / "inventory-smoke.csv"
+    assert csv_file.is_file()
+    assert not (output / "inventory-smoke.xlsx").exists()
+    with csv_file.open(encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 2
+    assert all(row for row in rows)
+
+
+def test_copied_file_list_wrapper_writes_only_disposable_output(tmp_path: Path) -> None:
+    """The original wrapper retains its editable default output filename."""
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    first = inputs / "model-01.txt"
+    first.write_text("one", encoding="utf-8")
+    result = _run_copied_wrapper(
+        "file-management-python/list_files_recursive.py",
+        tmp_path,
+        "--input_directories",
+        str(inputs),
+        "--no-pause",
+    )
+    assert result.returncode == 0, (result.stdout + result.stderr)[-2000:]
+    listing = inputs / "filenames.txt"
+    assert listing.is_file()
+    assert str(first) in listing.read_text(encoding="utf-8")
+
+
+def test_copied_geotiff_compressor_is_read_only_by_default(tmp_path: Path) -> None:
+    """No replacement flag means auditing an empty folder creates no rasters."""
+    work = tmp_path / "rasters"
+    work.mkdir()
+    result = _run_copied_wrapper("gdal-python/recompress_geotiffs.py", tmp_path, str(work), "--no-pause")
+    assert result.returncode == 0, (result.stdout + result.stderr)[-2000:]
+    assert list(work.iterdir()) == []
