@@ -171,8 +171,8 @@ def parse_license_monitoring_html(
     detail_urls, foreign_codes = _monitoring_detail_links(parser, firm_code=firm_code)
     if product_codes is not None:
         detail_urls = {code: href for code, href in detail_urls.items() if code in product_codes}
-    names: Mapping[int, str] = product_names if product_names is not None else (
-        KNOWN_TUFLOW_PRODUCT_NAMES if firm_code == 101139 else {}
+    names: Mapping[int, str] = (
+        product_names if product_names is not None else (KNOWN_TUFLOW_PRODUCT_NAMES if firm_code == 101139 else {})
     )
     products: list[CodeMeterProductUsage] = []
     for table in parser.tables:
@@ -305,8 +305,8 @@ def fetch_codemeter_snapshot(
         urljoin(normalized_base_url, "license_monitoring.html"),
         timeout_seconds=timeout_seconds,
     )
-    names: Mapping[int, str] = product_names if product_names is not None else (
-        KNOWN_TUFLOW_PRODUCT_NAMES if firm_code == 101139 else {}
+    names: Mapping[int, str] = (
+        product_names if product_names is not None else (KNOWN_TUFLOW_PRODUCT_NAMES if firm_code == 101139 else {})
     )
     products, detail_urls = parse_license_monitoring_html(
         monitoring_html, firm_code=firm_code, product_codes=product_codes, product_names=names
