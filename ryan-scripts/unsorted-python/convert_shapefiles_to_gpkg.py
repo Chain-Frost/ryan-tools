@@ -10,6 +10,12 @@ schema is not compatible with the selected template layer.
 
 from __future__ import annotations
 
+# The OSGeo GDAL Python bindings currently lack compatible static typing.
+# Limit only GDAL-derived unknown-type diagnostics to this standalone converter.
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+# pyright: reportUnknownArgumentType=false, reportUnknownParameterType=false
+# pyright: reportMissingTypeStubs=false, reportAttributeAccessIssue=false
+
 import argparse
 import csv
 import fnmatch
