@@ -256,14 +256,22 @@ def test_completed_runtime_is_shown_alongside_age_in_starts_table(tmp_path: Path
     second_start = now - timedelta(minutes=10)
     third_start = now - timedelta(minutes=5)
     lines = [
-        f'{first_start:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
-        'Started: CompletedFromLog x.tcf "Q:\\CompletedFromLog.tlf"',
-        f'{first_end:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
-        'Tot: 0:02:05 CT Finished: CompletedFromLog "Q:\\CompletedFromLog.tlf"',
-        f'{second_start:%Y-%b-%d %H:%M} Don: 0001 LOC 2/2 HOST Build: test '
-        'Started: CompletedFromTLF x.tcf "Q:\\CompletedFromTLF.tlf"',
-        f'{third_start:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
-        'Started: StillRunning x.tcf "Q:\\StillRunning.tlf"',
+        (
+            f'{first_start:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
+            'Started: CompletedFromLog x.tcf "Q:\\CompletedFromLog.tlf"'
+        ),
+        (
+            f'{first_end:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
+            'Tot: 0:02:05 CT Finished: CompletedFromLog "Q:\\CompletedFromLog.tlf"'
+        ),
+        (
+            f'{second_start:%Y-%b-%d %H:%M} Don: 0001 LOC 2/2 HOST Build: test '
+            'Started: CompletedFromTLF x.tcf "Q:\\CompletedFromTLF.tlf"'
+        ),
+        (
+            f'{third_start:%Y-%b-%d %H:%M} Don: 0001 LOC 1/2 HOST Build: test '
+            'Started: StillRunning x.tcf "Q:\\StillRunning.tlf"'
+        ),
     ]
     (user_dir / "All Simulations.log").write_text("\n".join(lines), encoding="utf-8")
     snapshot = CodeMeterSnapshot(products=(), allocations=(), denials=(), warnings=())
@@ -319,8 +327,10 @@ def test_tlf_fallback_searches_seven_days_for_oldest_active(tmp_path: Path) -> N
         lines.append(
             (
                 started,
-                f'{started:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test '
-                f'Started: {model} x.tcf "Q:\\{model}.tlf"',
+                (
+                    f'{started:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test '
+                    f'Started: {model} x.tcf "Q:\\{model}.tlf"'
+                ),
             )
         )
         if model != "RunningOld":
@@ -328,8 +338,10 @@ def test_tlf_fallback_searches_seven_days_for_oldest_active(tmp_path: Path) -> N
             lines.append(
                 (
                     finished,
-                    f'{finished:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test '
-                    f'Tot: 0:12:00 CT Finished: {model} "Q:\\{model}.tlf"',
+                    (
+                        f'{finished:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test '
+                        f'Tot: 0:12:00 CT Finished: {model} "Q:\\{model}.tlf"'
+                    ),
                 )
             )
     lines.sort(key=lambda item: item[0])
