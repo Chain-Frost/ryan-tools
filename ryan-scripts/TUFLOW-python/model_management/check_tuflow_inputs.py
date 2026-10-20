@@ -77,9 +77,7 @@ if __name__ == "__main__":
             commands=options.runs if options.runs is not None else DEFAULT_COMMANDS,
             report=options.report if options.report is not None else DEFAULT_REPORT,
             check_gpkg_layers=(
-                options.check_gpkg_layers
-                if options.check_gpkg_layers is not None
-                else DEFAULT_CHECK_GPKG_LAYERS
+                options.check_gpkg_layers if options.check_gpkg_layers is not None else DEFAULT_CHECK_GPKG_LAYERS
             ),
         )
     except Exception as exc:  # noqa: BLE001 - human-facing wrapper error boundary
