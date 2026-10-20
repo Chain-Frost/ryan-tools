@@ -65,10 +65,13 @@ def test_snapshot_warns_about_unknown_product_code() -> None:
 
 
 def test_mixed_firms_never_leak_other_product_links_or_denials() -> None:
-    mixed_html = MONITORING_HTML.replace(
-        "</table>",
-        "<tr><td>47</td><td>Other Software</td><td>0x1</td><td>9</td><td>5</td><td>4</td></tr></table>",
-    ) + """
+    mixed_html = (
+        MONITORING_HTML.replace(
+            "</table>",
+            "<tr><td>47</td><td>Other Software</td><td>0x1</td><td>9</td><td>5</td><td>4</td></tr></table>",
+        )
+        + """
+    )
 <a href="/license_monitoring/license_monitoring_details.html?FirmCode=777&amp;ProductCode=47">47</a>
 <a href="/license_monitoring/license_monitoring_details.html?FirmCode=777&amp;ProductCode=20">20</a>
 """
