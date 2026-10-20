@@ -534,9 +534,7 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
 
     def start_row(user: str, record: ActivityRecord) -> SimulationReportRow:
         inspection = inspection_for(record)
-        completion = completion_by_start.get(
-            (user.casefold(), record.timestamp, str(record.tlf_path).casefold())
-        )
+        completion = completion_by_start.get((user.casefold(), record.timestamp, str(record.tlf_path).casefold()))
         status = "COMPLETED" if completion is not None else simulation_status(record, inspection)
         runtime_seconds = None
         if status == "COMPLETED":
