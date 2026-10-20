@@ -461,6 +461,13 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
             inspection_cache[key] = inspect_tlf(record.tlf_path)
         return inspection_cache[key]
 
+    # A completed run cannot be a TLF-only active candidate even when its
+    # TLF has since been reused or has an incomplete final footer.
+    completed_start_keys = {
+        (user.casefold(), record.started_at, str(record.tlf_path).casefold())
+        for user, record in all_completions
+        if record.started_at is not None
+    }
     active_starts: list[ActivityRecord] = []
     if codemeter is not None and codemeter.allocations:
         # Match CodeMeter against all available starts BEFORE opening TLFs.
@@ -478,12 +485,14 @@ def build_activity_report(  # noqa: C901 - selection, matching and TLF inspectio
         processes = _group_codemeter_processes(codemeter.allocations, starts=preliminary_rows)
         active_starts = [row.simulation.record for row in processes if row.simulation is not None]
     elif codemeter is None:
-        # CodeMeter is unavailable/disabled: use the TLF as a less-reliable
-        # fallback. Never present an incomplete TLF as proof of a live process.
+        # CodeMeter is unavailable/disabled: search the retained seven-day
+        # history, not just --recent-hours. Skip runs whose completion was
+        # recorded in the global log; avoid inspecting all completed TLFs.
         active_starts = [
             record
-            for _, record in recent_starts
-            if simulation_status(record, inspection_for(record)) == "POSSIBLY RUNNING"
+            for user, record in all_starts
+            if (user.casefold(), record.timestamp, str(record.tlf_path).casefold()) not in completed_start_keys
+            and simulation_status(record, inspection_for(record)) == "POSSIBLY RUNNING"
         ]
 
     if all_history:
