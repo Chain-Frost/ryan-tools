@@ -60,7 +60,6 @@ class _ModelFactory(Protocol):
     def __call__(self, path: str) -> _Model: ...
 
 
-
 @dataclass(frozen=True, slots=True)
 class RunRequest:
     """One proposed TUFLOW run, matching the launcher's event/scenario flags."""
