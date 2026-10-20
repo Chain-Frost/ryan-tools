@@ -843,8 +843,12 @@ def render_activity_report(  # noqa: C901
                     process.last_access.strftime("%Y-%m-%d %H:%M:%S") if process.last_access else "-",
                     simulation.inspection.gpu_device_ids if simulation else "-",
                     simulation.status if simulation else "UNMATCHED",
-                    _format_sim_hours(simulation.progress.model_time_hours if simulation and simulation.progress else None),
-                    _format_sim_hours(simulation.progress.end_time_hours if simulation and simulation.progress else None),
+                    _format_sim_hours(
+                        simulation.progress.model_time_hours if simulation and simulation.progress else None
+                    ),
+                    _format_sim_hours(
+                        simulation.progress.end_time_hours if simulation and simulation.progress else None
+                    ),
                     _format_sim_percent(
                         simulation.progress.percentage_complete if simulation and simulation.progress else None
                     ),
@@ -896,8 +900,19 @@ def render_activity_report(  # noqa: C901
                     for row in report.starts
                 ),
                 headers=(
-                    "STATUS", "USER", "STARTED", "AGE", "RUNTIME", "MACHINE", "LICENCE",
-                    "GPU ID", "TLF", "SIM TIME", "SIM END", "PROGRESS", "MODEL",
+                    "STATUS",
+                    "USER",
+                    "STARTED",
+                    "AGE",
+                    "RUNTIME",
+                    "MACHINE",
+                    "LICENCE",
+                    "GPU ID",
+                    "TLF",
+                    "SIM TIME",
+                    "SIM END",
+                    "PROGRESS",
+                    "MODEL",
                 ),
             )
         )
