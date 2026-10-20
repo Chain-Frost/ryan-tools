@@ -201,6 +201,7 @@ def parse_license_monitoring_html(
             )
     return tuple(sorted(products, key=lambda item: item.product_code)), detail_urls
 
+
 def parse_product_detail_html(
     html_text: str,
     *,
