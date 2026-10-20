@@ -664,7 +664,6 @@ def test_tsf_timestamp_predating_start_is_not_reported(tmp_path: Path) -> None:
     assert read_simulation_progress(record) is None
 
 
-
 def test_reused_tlf_path_only_gives_progress_to_latest_active_start(tmp_path: Path) -> None:
     """An abandoned start cannot inherit the rerun's live TSF progress."""
     now = datetime.now().replace(second=0, microsecond=0)
