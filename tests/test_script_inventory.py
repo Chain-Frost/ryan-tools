@@ -127,3 +127,61 @@ def test_markdown_audit_lists_every_tracked_source_and_protects_status_words() -
     assert "UNSAFE IMPORT" in markdown
     assert "does **not** establish CLI runtime safety" in markdown
     assert str(report["selected_file_count"]) in markdown
+
+
+
+def test_only_exact_main_equality_is_a_protected_entry_point() -> None:
+    """Inverted and chained comparisons cannot conceal import-time writes."""
+    unsafe_conditions = (
+        '__name__ != "__main__"',
+        '__name__ == "__main__" == "__main__"',
+        '__name__ in ("__main__", "imported")',
+        'not (__name__ == "__main__")',
+    )
+    for expression in unsafe_conditions:
+        source = (
+            "import shutil\n"
+            f"if {expression}:\n"
+            "    shutil.copy2('source', 'destination')\n"
+        )
+        record = inventory.analyse_python(source)
+        assert record["main_guard"] is False, expression
+        assert record["import_time_mutation_calls"] == ["copy2"], expression
+
+    reversed_check = (
+        'import shutil\n'
+        'if "__main__" == __name__:\n'
+        '    shutil.copy2("input", "output")\n'
+    )
+    safe = inventory.analyse_python(reversed_check)
+    assert safe["main_guard"] is True
+    assert safe["import_time_mutation_risk"] is False
+
+
+def test_import_time_else_branch_is_audited_even_with_genuine_main_guard() -> None:
+    """The `else` of a real main guard executes when imported."""
+    source = (
+        "import shutil\n"
+        'if __name__ == "__main__":\n'
+        '    print("CLI only")\n'
+        "else:\n"
+        "    shutil.copy2('source', 'destination')\n"
+    )
+    record = inventory.analyse_python(source)
+    assert record["main_guard"] is True
+    assert record["import_time_mutation_risk"] is True
+    assert record["import_time_mutation_calls"] == ["copy2"]
+
+
+def test_nested_import_side_effect_is_not_protected_by_inner_equality() -> None:
+    """Only the guard body may be excluded; unrelated branches stay visible."""
+    source = (
+        "import shutil\n"
+        "if __name__ != '__main__':\n"
+        "    if __name__ == '__main__':\n"
+        "        print('impossible')\n"
+        "    shutil.copy2('source', 'destination')\n"
+    )
+    record = inventory.analyse_python(source)
+    assert record["main_guard"] is False
+    assert record["import_time_mutation_calls"] == ["copy2"]
