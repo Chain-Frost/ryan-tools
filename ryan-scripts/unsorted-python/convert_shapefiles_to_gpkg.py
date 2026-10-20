@@ -19,7 +19,7 @@ import shutil
 import sys
 import tempfile
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from osgeo import ogr, osr
@@ -148,7 +148,7 @@ def validate_string_lengths(source_layer: ogr.Layer, template_layer: ogr.Layer) 
     }
     if not constrained:
         return []
-    maxima = {index: 0 for index in constrained}
+    maxima = dict.fromkeys(constrained, 0)
     source_layer.ResetReading()
     for feature in source_layer:
         for index in constrained:
@@ -219,7 +219,7 @@ def spatial_transform(source_layer: ogr.Layer, target_layer: ogr.Layer):
     return osr.CoordinateTransformation(source_srs, target_srs)
 
 
-def verify_output(source_path: Path, template_dir: Path) -> Result:
+def verify_output(source_path: Path, template_dir: Path) -> Result:  # noqa: C901 - multi-stage vector validation
     output_path = source_path.with_suffix(".gpkg")
     result = Result(status="ERROR", source=str(source_path), output=str(output_path))
     parts = source_path.stem.split("_")
@@ -252,7 +252,7 @@ def verify_output(source_path: Path, template_dir: Path) -> Result:
     output_defn = output_layer.GetLayerDefn()
     template_defn = template_layer.GetLayerDefn()
     source_defn = source_layer.GetLayerDefn()
-    source_indexes, dropped_indexes = source_field_mapping(source_defn, template_layer)
+    source_indexes, _ = source_field_mapping(source_defn, template_layer)
     if output_layer.GetFIDColumn() != template_layer.GetFIDColumn():
         issues.append(
             f"output FID column {output_layer.GetFIDColumn()!r} != template FID "
@@ -296,7 +296,7 @@ def verify_output(source_path: Path, template_dir: Path) -> Result:
     elif output_defn.GetFieldCount() == len(source_indexes):
         source_layer.ResetReading()
         output_layer.ResetReading()
-        for row_number, (source_feature, output_feature) in enumerate(zip(source_layer, output_layer), start=1):
+        for row_number, (source_feature, output_feature) in enumerate(zip(source_layer, output_layer, strict=True), start=1):
             for output_index, source_index in enumerate(source_indexes):
                 source_null = not source_feature.IsFieldSetAndNotNull(source_index)
                 output_null = not output_feature.IsFieldSetAndNotNull(output_index)
@@ -326,7 +326,7 @@ def convert_one(
     template_dir: Path,
     overwrite: bool,
     dry_run: bool,
-) -> Result:
+) -> Result:  # noqa: C901 - conversion, atomic output, and cleanup in one transaction
     stem_parts = source_path.stem.split("_")
     result = Result(status="ERROR", source=str(source_path))
     if len(stem_parts) < 2:
@@ -392,7 +392,8 @@ def convert_one(
         shutil.copy2(template_path, temp_path)
         output_ds = open_vector(temp_path, update=True)
         if output_ds is None:
-            raise RuntimeError("copied template could not be opened for update")
+            message = "copied template could not be opened for update"
+            raise RuntimeError(message)
 
         selected_name = result.template_layer
         for index in range(output_ds.GetLayerCount() - 1, -1, -1):
@@ -400,16 +401,19 @@ def convert_one(
                 output_ds.DeleteLayer(index)
         output_layer = output_ds.GetLayerByName(selected_name)
         if output_layer is None:
-            raise RuntimeError("selected template layer was lost while removing other layers")
+            message = "selected template layer was lost while removing other layers"
+            raise RuntimeError(message)
         if output_layer.Rename(source_path.stem) != ogr.OGRERR_NONE:
-            raise RuntimeError("could not rename the template layer")
+            message = "could not rename the template layer"
+            raise RuntimeError(message)
         output_layer = output_ds.GetLayerByName(source_path.stem)
         template_field_count = output_layer.GetLayerDefn().GetFieldCount()
         source_indexes, dropped_indexes = source_field_mapping(source_defn, output_layer)
         for source_index in source_indexes[template_field_count:]:
             extra_field = source_defn.GetFieldDefn(source_index)
             if output_layer.CreateField(extra_field) != ogr.OGRERR_NONE:
-                raise RuntimeError(f"could not append source field {extra_field.GetName()!r}")
+                message = f"could not append source field {extra_field.GetName()!r}"
+                raise RuntimeError(message)
         transform = spatial_transform(source_layer, output_layer)
 
         output_layer.StartTransaction()
@@ -437,7 +441,8 @@ def convert_one(
                         geometry.Transform(transform)
                     output_feature.SetGeometry(geometry)
                 if output_layer.CreateFeature(output_feature) != ogr.OGRERR_NONE:
-                    raise RuntimeError(f"failed while writing source feature {source_feature.GetFID()}")
+                    message = f"failed while writing source feature {source_feature.GetFID()}"
+                    raise RuntimeError(message)
             output_layer.CommitTransaction()
         except Exception:
             output_layer.RollbackTransaction()
@@ -449,10 +454,12 @@ def convert_one(
         template_ds = None
         source_ds = None
         if written_count != int(result.feature_count):
-            raise RuntimeError(
-                f"feature count verification failed: {written_count} written, " f"{result.feature_count} expected"
+            message = (
+                f"feature count verification failed: {written_count} written, "
+                f"{result.feature_count} expected"
             )
-        os.replace(temp_path, output_path)
+            raise RuntimeError(message)
+        temp_path.replace(output_path)
         result.status = "CONVERTED"
         extra_count = len(source_indexes) - template_field_count
         dropped_names = [source_defn.GetFieldDefn(index).GetName() for index in dropped_indexes]
@@ -463,7 +470,7 @@ def convert_one(
             "and feature count verified"
         )
         return result
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - batch utility records per-file failures
         result.status = "ERROR"
         result.message = str(exc)
         return result
