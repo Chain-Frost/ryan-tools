@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from itertools import islice
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from ryan_library.functions.parse_tlf import get_log_lines, is_complete_tlf, search_for_completion, search_from_top
@@ -46,6 +46,7 @@ class ActivityRecord:
     tlf_path: Path | None
     source: Path
     licence_origin: str = "LOC"
+    started_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +104,7 @@ class TuflowActivityReport:
     codemeter_processes: tuple[CodeMeterProcessRow, ...]
     access_warnings: tuple[str, ...]
     workflow_warnings: tuple[str, ...]
+    selection_summary: str = ""
 
 
 def parse_activity_line(line: str, *, source: Path) -> ActivityRecord | None:
@@ -180,6 +182,7 @@ def read_user_activity(user_directory: Path, *, activity_since: datetime) -> Use
                         if matching_start is not None:
                             record = replace(
                                 record,
+                                started_at=matching_start.timestamp,
                                 model=(
                                     matching_start.model if record.model.startswith("(not recorded") else record.model
                                 ),
