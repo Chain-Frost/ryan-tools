@@ -121,7 +121,7 @@ def compare_schema(source_layer: ogr.Layer, template_layer: ogr.Layer) -> list[s
     issues: list[str] = []
     if source_defn.GetFieldCount() < template_defn.GetFieldCount():
         issues.append(
-            f"field count {source_defn.GetFieldCount()} != " f"minimum template count {template_defn.GetFieldCount()}"
+            f"field count {source_defn.GetFieldCount()} != minimum template count {template_defn.GetFieldCount()}"
         )
     for index in range(min(source_defn.GetFieldCount(), template_defn.GetFieldCount())):
         source_field = source_defn.GetFieldDefn(index)
@@ -269,7 +269,7 @@ def verify_output(source_path: Path, template_dir: Path) -> Result:  # noqa: C90
         issues.append("required output fields differ from the template definitions")
     if output_defn.GetFieldCount() != len(source_indexes):
         issues.append(
-            f"output field count {output_defn.GetFieldCount()} != retained source field " f"count {len(source_indexes)}"
+            f"output field count {output_defn.GetFieldCount()} != retained source field count {len(source_indexes)}"
         )
     else:
         for output_index in range(template_count, output_defn.GetFieldCount()):
@@ -282,8 +282,7 @@ def verify_output(source_path: Path, template_dir: Path) -> Result:  # noqa: C90
                 or (source_field.GetType() == ogr.OFTString and source_field.GetWidth() != output_field.GetWidth())
             ):
                 issues.append(
-                    f"trailing field {output_index + 1} {output_field.GetName()!r} "
-                    "does not match the source definition"
+                    f"trailing field {output_index + 1} {output_field.GetName()!r} does not match the source definition"
                 )
     output_srs = output_layer.GetSpatialRef()
     template_srs = template_layer.GetSpatialRef()
@@ -292,11 +291,13 @@ def verify_output(source_path: Path, template_dir: Path) -> Result:  # noqa: C90
     ):
         issues.append("output CRS differs from template")
     if output_layer.GetFeatureCount() != source_layer.GetFeatureCount():
-        issues.append(f"feature count {output_layer.GetFeatureCount()} != " f"{source_layer.GetFeatureCount()}")
+        issues.append(f"feature count {output_layer.GetFeatureCount()} != {source_layer.GetFeatureCount()}")
     elif output_defn.GetFieldCount() == len(source_indexes):
         source_layer.ResetReading()
         output_layer.ResetReading()
-        for row_number, (source_feature, output_feature) in enumerate(zip(source_layer, output_layer, strict=True), start=1):
+        for row_number, (source_feature, output_feature) in enumerate(
+            zip(source_layer, output_layer, strict=True), start=1
+        ):
             for output_index, source_index in enumerate(source_indexes):
                 source_null = not source_feature.IsFieldSetAndNotNull(source_index)
                 output_null = not output_feature.IsFieldSetAndNotNull(output_index)
@@ -454,10 +455,7 @@ def convert_one(  # noqa: C901 - multi-stage vector conversion
         template_ds = None
         source_ds = None
         if written_count != int(result.feature_count):
-            message = (
-                f"feature count verification failed: {written_count} written, "
-                f"{result.feature_count} expected"
-            )
+            message = f"feature count verification failed: {written_count} written, {result.feature_count} expected"
             raise RuntimeError(message)
         temp_path.replace(output_path)
         result.status = "CONVERTED"
