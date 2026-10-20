@@ -27,7 +27,7 @@ def test_read_exported_run_commands(tmp_path: Path) -> None:
         'set "TCF=model_~e1~.tcf"\n'
         'START /LOW /WAIT "" "%TUFLOW_EXE%" -b -e1 01.0p -s1 EXG "%TCF%"\n'
         'START /LOW /WAIT "" "%TUFLOW_EXE%" -b -e1 20.0p -s1 DEV "%TCF%"\n'
-        'Pause\n',
+        "Pause\n",
         encoding="utf-8",
     )
     assert read_run_commands(commands) == [
