@@ -129,6 +129,15 @@ TUFLOW product codes are 20 (Local), 21 (Local Threads), 22 (Local Multiple Doma
 code not recognised by the Python mapping is shown as a warning instead of being silently guessed. Use
 `--no-codemeter` when WebAdmin is unavailable or `--codemeter-url` to select another local endpoint.
 
+CodeMeter quantities, allocations, and denial events are filtered to TUFLOW Firm Code `101139`. The report
+uses a live WebAdmin snapshot and the existing event log; **CodeMeter License Tracking does not need to be
+activated**, and this utility creates no tracking database or background service. Events older than WebAdmin's
+retained history may not be available.
+
+The reusable Python function `fetch_codemeter_snapshot()` also accepts `firm_code`, `product_codes`, and
+`product_names` for other vendors. Product codes are scoped by firm; when different firms share a product code,
+unattributable quantity rows are suppressed with a warning rather than reported against the wrong vendor.
+
 ## POMM peak wrapper migration
 
 The maintained mean and median POMM peak wrappers use
