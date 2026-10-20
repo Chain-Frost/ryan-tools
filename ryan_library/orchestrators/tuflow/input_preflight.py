@@ -97,8 +97,8 @@ class PreflightReport:
     """Collected input issues and unique path checks for a set of simulations."""
 
     run_count: int
-    issues: list[PreflightIssue] = field(default_factory=list)
-    checked_paths: set[str] = field(default_factory=set)
+    issues: list[PreflightIssue] = field(default_factory=list[PreflightIssue])
+    checked_paths: set[str] = field(default_factory=set[str])
 
     @property
     def passed(self) -> bool:
