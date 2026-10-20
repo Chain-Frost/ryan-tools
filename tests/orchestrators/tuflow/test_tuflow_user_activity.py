@@ -439,3 +439,73 @@ def test_terminal_parser_does_not_relabel_timed_interruption_as_finished() -> No
     assert unstable is not None
     assert unstable.event == "UNSTABLE"
     assert unstable.model.startswith("(not recorded")
+def test_active_codemeter_process_does_not_rematch_to_terminated_start(tmp_path: Path) -> None:
+    """A failed start closer to first access must not steal a live allocation."""
+    now = datetime.now().replace(second=0, microsecond=0)
+    user_dir = tmp_path / "Engineer"
+    user_dir.mkdir()
+    running_at = now - timedelta(minutes=30)
+    interrupted_at = now - timedelta(minutes=25)
+    unstable_at = now - timedelta(minutes=23)
+    events = [
+        (running_at, 1, 'Started: RunningModel x.tcf "Q:\\RunningModel.tlf"'),
+        (interrupted_at, 2, 'Started: InterruptedModel x.tcf "Q:\\InterruptedModel.tlf"'),
+        (
+            interrupted_at + timedelta(minutes=1),
+            2,
+            'Tot: 0:01:00 CT Interrupted: InterruptedModel "Q:\\InterruptedModel.tlf"',
+        ),
+        (unstable_at, 3, 'Started: UnstableModel x.tcf "Q:\\UnstableModel.tlf"'),
+        (
+            unstable_at + timedelta(minutes=1),
+            3,
+            'UNSTABLE "Q:\\UnstableModel.tlf"',
+        ),
+    ]
+    lines = [
+        f"{stamp:%Y-%b-%d %H:%M} Don: 0001 NWK {seat}/8 HOST Build: test {event}"
+        for stamp, seat, event in sorted(events, key=lambda item: item[0])
+    ]
+    (user_dir / "All Simulations.log").write_text("\n".join(lines), encoding="utf-8")
+    snapshot = CodeMeterSnapshot(
+        products=(),
+        allocations=(
+            CodeMeterAllocation(
+                handle_id=7,
+                user=r"BGER\Engineer",
+                process_id=6543,
+                product_code=26,
+                product_name="TUFLOW GPU",
+                first_access=interrupted_at + timedelta(seconds=30),
+                last_access=now,
+            ),
+        ),
+        denials=(),
+        warnings=(),
+    )
+    with (
+        patch(
+            "ryan_library.orchestrators.tuflow.tuflow_user_activity.fetch_codemeter_snapshot",
+            return_value=snapshot,
+        ),
+        patch(
+            "ryan_library.orchestrators.tuflow.tuflow_user_activity.inspect_tlf",
+            return_value=TlfInspection(status="INCOMPLETE"),
+        ),
+    ):
+        compact = build_activity_report(log_root=tmp_path, recent_hours=24, codemeter_url="localhost")
+        full = build_activity_report(log_root=tmp_path, recent_hours=24, codemeter_url="localhost", all_history=True)
+
+    for report in (compact, full):
+        assert {row.record.model: row.status for row in report.starts} == {
+            "RunningModel": "POSSIBLY RUNNING",
+            "InterruptedModel": "INTERRUPTED",
+            "UnstableModel": "UNSTABLE",
+        }
+        assert len(report.codemeter_processes) == 1
+        process = report.codemeter_processes[0]
+        assert process.process_id == 6543
+        assert process.simulation is not None
+        assert process.simulation.record.model == "RunningModel"
+        assert process.simulation.status == "POSSIBLY RUNNING"
+        assert {row.status for row in report.terminations} == {"INTERRUPTED", "UNSTABLE"}
