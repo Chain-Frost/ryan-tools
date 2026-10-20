@@ -108,13 +108,16 @@ def check_simulation_inputs(
     control files and input data are never modified.
     """
     if not tcf.is_file():
-        raise FileNotFoundError(f"TUFLOW control file not found: {tcf}")
+        message = f"TUFLOW control file not found: {tcf}"
+        raise FileNotFoundError(message)
     if not runs:
-        raise ValueError("No simulations were supplied for input preflight")
+        message = "No simulations were supplied for input preflight"
+        raise ValueError(message)
     try:
         from pytuflow import TCF
     except ImportError as exc:
-        raise RuntimeError("PyTUFLOW is required; install with: python -m pip install pytuflow>=1.2") from exc
+        message = "PyTUFLOW is required; install with: python -m pip install pytuflow>=1.2"
+        raise RuntimeError(message) from exc
 
     report = PreflightReport(run_count=len(runs))
     cache: dict[tuple[str, str], bool] = {}
@@ -157,7 +160,7 @@ def check_simulation_inputs(
     for run in runs:
         try:
             context = model.context(run.arguments)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
             add_issue(run, "unresolved", "TCF context", str(tcf), f"Could not resolve run: {exc}")
             continue
 
@@ -167,7 +170,7 @@ def check_simulation_inputs(
                 origin = str(inp)
                 try:
                     files = list(inp.files)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
                     add_issue(run, "unresolved", origin, "", f"Could not enumerate input files: {exc}")
                     continue
                 parent = getattr(inp, "parent", None)
@@ -177,12 +180,12 @@ def check_simulation_inputs(
                     inspect_file(run, file, origin, base=base)
                 try:
                     missing_flag = bool(inp.has_missing_files)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
                     add_issue(run, "unresolved", origin, "", f"Could not evaluate missing-file state: {exc}")
                     continue
                 if missing_flag and not files:
                     add_issue(run, "unresolved", origin, "", "Input reports missing dependencies without a resolved path")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
             add_issue(run, "unresolved", "Control-file traversal", str(tcf), str(exc))
 
         # PyTUFLOW does not expose BC source CSVs as ordinary control-file
@@ -194,7 +197,7 @@ def check_simulation_inputs(
             if context.find_input(lhs="BC Database"):
                 add_issue(run, "unresolved", "BC Database", str(tcf), "Could not resolve active BC database")
             continue
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
             add_issue(run, "unresolved", "BC Database", str(tcf), f"Could not load BC database: {exc}")
             continue
 
@@ -220,7 +223,7 @@ def check_simulation_inputs(
                     float(raw)
                 except ValueError:
                     inspect_file(run, raw, f"BC source: {name}", base=database_path.parent, require_layer=False)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
             add_issue(run, "unresolved", "BC Database", str(database_path), f"Could not inspect BC sources: {exc}")
 
     logger.info(
