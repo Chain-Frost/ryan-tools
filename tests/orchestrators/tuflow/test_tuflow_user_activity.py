@@ -556,17 +556,30 @@ def test_tsf_live_time_reads_progress_and_ignores_invalid_or_finished_summaries(
         encoding="utf-8",
     )
     assert read_simulation_progress(record) is None  # Missing TSF model identity
+    # Invalid numbers must reach numeric validation, not fail TSF identity first.
     tsf.write_text(
+        f'TUFLOW Log File == "{tlf}"\n'
         "Simulation Status == Started\nSimulation Time (h) == nan\nSimulation End Time (h) == 48\n",
         encoding="utf-8",
     )
     assert read_simulation_progress(record) is None
     # An impossible model time must fail even when start time is missing.
     tsf.write_text(
+        f'TUFLOW Log File == "{tlf}"\n'
         "Simulation Status == Started\nSimulation Time (h) == 49\nSimulation End Time (h) == 48\n",
         encoding="utf-8",
     )
     assert read_simulation_progress(record) is None
+    # Boundary case: time at the configured end is numerically valid.
+    tsf.write_text(
+        f'TUFLOW Log File == "{tlf}"\n'
+        "Simulation Status == Started\nSimulation Time (h) == 48\nSimulation End Time (h) == 48\n",
+        encoding="utf-8",
+    )
+    final_progress = read_simulation_progress(record)
+    assert final_progress is not None
+    assert final_progress.model_time_hours == 48
+    assert final_progress.end_time_hours == 48
     tsf.unlink()
     assert read_simulation_progress(record) is None
 
