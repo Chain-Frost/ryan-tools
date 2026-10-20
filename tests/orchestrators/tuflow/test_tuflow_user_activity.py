@@ -439,6 +439,8 @@ def test_terminal_parser_does_not_relabel_timed_interruption_as_finished() -> No
     assert unstable is not None
     assert unstable.event == "UNSTABLE"
     assert unstable.model.startswith("(not recorded")
+
+
 def test_active_codemeter_process_does_not_rematch_to_terminated_start(tmp_path: Path) -> None:
     """A failed start closer to first access must not steal a live allocation."""
     now = datetime.now().replace(second=0, microsecond=0)
