@@ -268,7 +268,8 @@ def verify_output(source_path: Path, template_dir: Path) -> Result:  # noqa: C90
     result.warning = crs_warning(source_layer, template_layer)
     issues: list[str] = []
     if output_ds.GetLayerCount() != 1:
-        issues.append(f"output layer count {output_ds.GetLayerCount()} != 1")
+        result.message = f"output layer count {output_ds.GetLayerCount()} != 1"
+        return result
     output_layer = output_ds.GetLayerByIndex(0)
     if output_layer.GetName() != source_path.stem:
         issues.append(f"output layer name {output_layer.GetName()!r} != source stem")
@@ -421,6 +422,14 @@ def convert_one(  # noqa: C901 - multi-stage vector conversion
     if schema_issues:
         result.status = "SKIPPED_ATTRIBUTES"
         result.message = "; ".join(schema_issues)
+        return result
+    try:
+        # Check the same CRS policy for a dry-run as for an actual conversion.
+        # A source without CRS metadata is allowed; the template CRS is
+        # assigned without transforming coordinates and a warning is emitted.
+        spatial_transform(source_layer, template_layer)
+    except (RuntimeError, ValueError) as exc:
+        result.message = f"source/template CRS cannot be reconciled: {exc}"
         return result
     if dry_run:
         result.status = "READY"
