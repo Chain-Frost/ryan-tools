@@ -14,8 +14,8 @@ from ryan_library.orchestrators.tuflow.tuflow_user_activity import (
     build_activity_report,
     inspect_tlf,
     parse_activity_line,
-    read_user_activity,
     read_simulation_progress,
+    read_user_activity,
     render_activity_report,
 )
 
@@ -569,12 +569,18 @@ def test_live_tsf_values_are_reported_only_for_active_start(tmp_path: Path) -> N
     running_tlf = tmp_path / "Running.tlf"
     finished_tlf = tmp_path / "Finished.tlf"
     log_lines = [
-        f'{completed_started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
-        f'Started: Finished x.tcf "{finished_tlf}"',
-        f'{completed_started + timedelta(minutes=4):%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
-        f'Tot: 0:04:00 CT Finished: Finished "{finished_tlf}"',
-        f'{active_started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
-        f'Started: Running x.tcf "{running_tlf}"',
+        (
+            f'{completed_started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
+            f'Started: Finished x.tcf "{finished_tlf}"'
+        ),
+        (
+            f'{completed_started + timedelta(minutes=4):%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
+            f'Tot: 0:04:00 CT Finished: Finished "{finished_tlf}"'
+        ),
+        (
+            f'{active_started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test '
+            f'Started: Running x.tcf "{running_tlf}"'
+        ),
     ]
     (user_dir / "All Simulations.log").write_text("\n".join(log_lines), encoding="utf-8")
     for tlf in (running_tlf, finished_tlf):
