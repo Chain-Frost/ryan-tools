@@ -113,6 +113,19 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
                 for alias in statement.names:
                     if alias.name in UNSAFE_IMPORT_CALLS:
                         self.aliases[alias.asname or alias.name] = alias.name
+        # Also record simple module-scope bindings to mutators. This is
+        # conservative static evidence, not a full Python data-flow analysis.
+        for statement in module.body:
+            if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
+                continue
+            target = statement.targets[0]
+            value = statement.value
+            if not isinstance(target, ast.Name):
+                continue
+            if isinstance(value, ast.Attribute) and value.attr in UNSAFE_IMPORT_CALLS:
+                self.aliases[target.id] = value.attr
+            elif isinstance(value, ast.Name) and value.id in self.aliases:
+                self.aliases[target.id] = self.aliases[value.id]
 
     def _visit_function_signature(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         for expression in (*node.args.defaults, *node.args.kw_defaults):
