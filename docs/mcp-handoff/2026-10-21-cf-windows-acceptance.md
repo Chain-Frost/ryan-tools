@@ -27,7 +27,7 @@ Expected: the supporting branch is checked out; Python is 3.13+; repository chec
 python -m ruff check ryan_library/mcp/ tests/mcp/
 python -m ruff format --check ryan_library/mcp/ tests/mcp/
 python -m pyright ryan_library/mcp/models.py ryan_library/mcp/registry.py
-python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_catalogue_contracts.py tests/mcp/test_engineering_paths.py
+python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_catalogue_contracts.py tests/mcp/test_engineering_paths.py tests/mcp/test_external_program_discovery.py
 python repo-scripts/check_documentation.py docs/mcp-handoff/2026-10-21-cf-target-assessment.md docs/mcp-handoff/2026-10-21-cf-windows-acceptance.md docs/MCP_SETUP.md
 ```
 
@@ -112,6 +112,15 @@ Remove-Item Env:RYAN_CF_UNC_ROOT
 Expected: both forms preserve their user-visible spelling through `Path.absolute()`, copy bytes match, and no overwrite occurs without permission. Run from the same authenticated Windows session used for actual engineering tools; a mapped drive visible in an interactive session may not exist for a service/scheduled task. Repeat on a local SSD to separate share latency/permissions from code defects.
 
 ## 6. Discover installed engineering executables without running simulations
+
+The non-executing Python helper uses explicit configuration before PATH, and
+reports only `path_found_unverified` or `not_found`. It never launches programs.
+For example:
+
+```powershell
+python -c "from ryan_library.mcp.engineering import locate_external_program; print(locate_external_program('gdalinfo'))"
+```
+
 
 ```powershell
 Get-Command gdalinfo.exe, ogrinfo.exe, ogr2ogr.exe, qgis_process.exe -ErrorAction SilentlyContinue |
