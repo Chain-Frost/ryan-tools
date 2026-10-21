@@ -31,7 +31,7 @@ def make_network_gpkg(path: Path, *, geometry: str = "LINESTRING", attributes: i
                 ("QO", "Gate_Control | operated.csv"),
                 ("Q", "Curve_A"),
                 ("C", "ignored.csv"),
-                ("M", ""),
+                ("C", ""),
             ):
                 db.execute(
                     'INSERT INTO "1d_nwk_test" (attr_1, attr_10) VALUES (?, ?)',
@@ -87,16 +87,16 @@ def test_unexpanded_attribute_variables_fail_closed(tmp_path: Path) -> None:
     assert "Unexpanded" in result[(gpkg, "1d_nwk_test")].detail
 
 
-@pytest.mark.parametrize("source", ["M", "Q"])
-def test_missing_or_blank_attribute_values_do_not_invent_files(tmp_path: Path, source: str) -> None:
+@pytest.mark.parametrize("source", ["M", "Q", "QO"])
+def test_blank_active_matrix_or_curve_values_fail_closed(tmp_path: Path, source: str) -> None:
     gpkg = tmp_path / "network.gpkg"
     make_network_gpkg(gpkg)
     with sqlite3.connect(gpkg) as db:
         db.execute('DELETE FROM "1d_nwk_test" WHERE attr_1 <> ?', (source,))
         db.execute('UPDATE "1d_nwk_test" SET attr_10 = NULL')
     result, _ = inspect_gis_attribute_sources({(gpkg, "1d_nwk_test")})
-    assert result[(gpkg, "1d_nwk_test")].status == "present"
-    assert not result[(gpkg, "1d_nwk_test")].sources
+    assert result[(gpkg, "1d_nwk_test")].status == "unresolved"
+    assert "blank" in result[(gpkg, "1d_nwk_test")].detail
 
 
 def test_network_ignore_y_t_skips_stale_m_and_qo_sources(tmp_path: Path) -> None:
