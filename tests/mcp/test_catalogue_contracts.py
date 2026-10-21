@@ -134,12 +134,22 @@ def test_default_profile_hides_all_in_place_deleting_and_external_workflows() ->
     )
 
 
-def test_unsafe_legacy_entrypoints_never_advertise_a_help_command() -> None:
+def test_unsafe_legacy_entrypoints_never_advertise_a_help_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "site-packages" / "ryan-scripts"
+    targets = _all_catalogue_scripts()
+    for workflow_id in ("run_tuflow_batch", "delete_duplicate_tuflow_files"):
+        wrapper = root / Path(targets[workflow_id]).relative_to("ryan-scripts")
+        wrapper.parent.mkdir(parents=True, exist_ok=True)
+        wrapper.write_text("# synthetic and never run\\n", encoding="utf-8")
+
+    monkeypatch.setattr(registry_module, "installed_scripts_directory", lambda: root)
     registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, discover_repository=False)
     for workflow_id in ("run_tuflow_batch", "delete_duplicate_tuflow_files"):
         details = registry.get_workflow(workflow_id)
+        assert details["available"] is True
         assert details["profile"] == "privileged"
         assert details["requires_explicit_approval"] is True
         assert details["metadata"]["help_safe"] is False
-    # Neither operation is safe to probe by executing the script with --help.
-    # In a synthetic installed layout it would have no command_prefix at all.
+        assert details["help_command"] is None
