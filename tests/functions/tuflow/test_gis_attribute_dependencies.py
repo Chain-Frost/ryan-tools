@@ -167,7 +167,6 @@ def test_qo_without_control_separator_fails_closed(tmp_path: Path) -> None:
     assert "QO" in result[(gpkg, "1d_nwk_test")].detail
 
 
-
 def make_network_shapefile(path: Path) -> None:
     """Build a real Shapefile with attributes but no stored feature geometry."""
     import shapefile
