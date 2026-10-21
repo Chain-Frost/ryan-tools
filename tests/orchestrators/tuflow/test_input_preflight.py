@@ -782,3 +782,70 @@ def test_literal_brackets_in_parent_folder_do_not_trigger_wildcard_scan(
     assert report.passed
     assert report.directories_scanned == 0
     assert report.checked_paths == {str(data)}
+
+
+def test_output_variable_assignments_are_not_input_dependencies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Assignments with path-like RHS remain out of the required-file graph."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    source = tmp_path / "real_input.csv"
+    source.touch()
+
+    class Input:
+        def __init__(self, lhs: str, path: Path) -> None:
+            self.lhs = lhs
+            self.files = (path,)
+            self.has_missing_files = not path.exists()
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            if lhs:
+                return []
+            return [
+                Input("Set Variable OutputBase", tmp_path / "uncreated_results"),
+                Input("Set Variable OutputRoot", tmp_path / "other_uncreated_results"),
+                Input("Set Variable XMDFBase", tmp_path / "uncreated.xmdf"),
+                Input("Set Variable InputRaster", tmp_path / "not_directly_read.tif"),
+                Input("Read File", source),
+            ]
+
+        def bc_dbase(self) -> None:
+            return None
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str) -> Context:
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "Q100"})])
+    assert report.passed, report.issues
+    assert report.checked_paths == {str(source)}
+
+
+@pytest.mark.skipif(
+    os.environ.get("RYAN_TEST_DEFERRED_PYTUFLOW") != "1",
+    reason="The nested output-variable regression requires the updated fork",
+)
+def test_real_deferred_output_root_variables_do_not_block_preflight(tmp_path: Path) -> None:
+    """Resolve real nested output variables without treating destinations as source files."""
+    tcf = tmp_path / "model.tcf"
+    (tmp_path / "existing.csv").touch()
+    tcf.write_text(
+        "Set Variable OutputBase == results\n"
+        "Set Variable OutputRoot == ..\\<<OutputBase>>\n"
+        "Set Variable XMDFBase == exports/report.xmdf\n"
+        "Output Folder == <<OutputRoot>>\n"
+        "Read File == existing.csv\n",
+        encoding="utf-8",
+    )
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "Q100"})])
+    assert report.passed, report.issues
+    assert report.checked_paths == {str(tmp_path / "existing.csv")}
