@@ -107,3 +107,42 @@ def test_copied_geotiff_compressor_is_read_only_by_default(tmp_path: Path) -> No
     result = _run_copied_wrapper("gdal-python/recompress_geotiffs.py", tmp_path, str(work), "--no-pause")
     assert result.returncode == 0, (result.stdout + result.stderr)[-2000:]
     assert list(work.iterdir()) == []
+
+
+def test_copied_file_inventory_rejects_output_traversal_before_creating_reports(tmp_path: Path) -> None:
+    """Reject a report basename containing a parent path without touching input files."""
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    original = inputs / "ABC-001 Rev2.txt"
+    original.write_bytes(b"original-content")
+    reports = tmp_path / "reports"
+    result = _run_copied_wrapper(
+        "file-management-python/file_inventory.py",
+        tmp_path,
+        str(inputs),
+        "--output-directory",
+        str(reports),
+        "--basename",
+        "../outside",
+        "--no-excel",
+        "--no-pause",
+    )
+    assert result.returncode == 2, (result.stdout + result.stderr)[-2000:]
+    assert original.read_bytes() == b"original-content"
+    assert not reports.exists()
+    assert not (tmp_path / "outside.csv").exists()
+
+
+def test_copied_file_list_rejects_missing_input_without_writing_output(tmp_path: Path) -> None:
+    """Invalid input directories must not produce a misleading successful file list."""
+    missing = tmp_path / "missing-input"
+    result = _run_copied_wrapper(
+        "file-management-python/list_files_recursive.py",
+        tmp_path,
+        "--input_directories",
+        str(missing),
+        "--no-pause",
+    )
+    assert result.returncode == 1, (result.stdout + result.stderr)[-2000:]
+    assert not missing.exists()
+    assert not (missing / "filenames.txt").exists()
