@@ -212,6 +212,12 @@ def _command_name(input_command: object) -> str:
     return " ".join(str(lhs).casefold().split())
 
 
+def _is_non_input_command(input_command: object) -> bool:
+    """Assignment RHS strings are not inputs even when they resemble files."""
+    name = _command_name(input_command)
+    return name in _NON_INPUT_FILE_COMMANDS or name.startswith("set variable ")
+
+
 def _collect_references(  # noqa: C901 - event-aware collection and BC source traversal
     tcf: Path,
     runs: Sequence[RunRequest],
@@ -286,7 +292,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         try:
             inputs = context.find_input()
             for inp in inputs:
-                if _command_name(inp) in _NON_INPUT_FILE_COMMANDS:
+                if _is_non_input_command(inp):
                     continue
                 origin = str(inp)
                 if deferred_supported:
