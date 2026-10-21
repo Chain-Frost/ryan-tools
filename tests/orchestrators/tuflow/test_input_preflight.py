@@ -733,3 +733,49 @@ def test_real_pytuflow_event_sources_and_materials(tmp_path: Path) -> None:
     )
     assert report.passed, report.issues
     assert len(report.checked_paths) == 5
+
+
+def test_literal_brackets_in_parent_folder_do_not_trigger_wildcard_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Windows-legal bracket characters in an ancestor are literal model paths."""
+    folder = tmp_path / "model[stage]01"
+    folder.mkdir()
+    tcf = folder / "model.tcf"
+    tcf.touch()
+    data = folder / "rainfall.csv"
+    data.touch()
+
+    class Input:
+        lhs = "Read File"
+        file_references = (
+            types.SimpleNamespace(
+                path_pattern=data, base_directory=folder, origin="Read File",
+                layer_pattern=None, unresolved_variables=(),
+                requires_attribute_scan=False, requires_database_scan=False,
+            ),
+        )
+
+        def __str__(self) -> str:
+            return "Read File == rainfall.csv"
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [] if lhs else [Input()]
+
+        def deferred_database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return ()
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "Q100"})])
+    assert report.passed
+    assert report.directories_scanned == 0
+    assert report.checked_paths == {str(data)}
