@@ -41,7 +41,7 @@ def test_gdal_catalogue_is_folded_into_generic_workflows() -> None:
     workflow_ids = {workflow["id"] for workflow in listing["workflows"]}
     # The recompression catalogue includes --replace --yes: it is privileged,
     # even though invoking the wrapper without that flag performs an audit.
-    assert workflow_ids == EXPECTED_GDAL_WORKFLOWS - {"audit_and_recompress_geotiffs"}
+    assert workflow_ids == EXPECTED_GDAL_WORKFLOWS - {"audit_and_recompress_geotiffs", "batch_vector_clip"}
 
 
 def test_privileged_profile_does_not_add_uncatalogued_gdal_wrappers() -> None:
@@ -53,6 +53,12 @@ def test_privileged_profile_does_not_add_uncatalogued_gdal_wrappers() -> None:
     listing = registry.list_workflows(domain="gdal")
     workflow_ids = {workflow["id"] for workflow in listing["workflows"]}
     assert workflow_ids == EXPECTED_GDAL_WORKFLOWS
+    clipping = registry.get_workflow("batch_vector_clip")
+    assert clipping["profile"] == "privileged"
+    assert clipping["mutation"] == "executes_external"
+    assert clipping["requires_explicit_approval"] is True
+    assert clipping["external_prerequisites"]["status"] == "not_verified"
+    assert clipping["external_prerequisites"]["declared_program"] == "ogr2ogr"
 
 
 def test_repository_workflow_is_unavailable_without_repository_checkout() -> None:
@@ -206,7 +212,7 @@ def test_packaged_gdal_catalogue_is_available_without_repository_checkout() -> N
     listing = registry.list_workflows(domain="gdal", include_unavailable=True)
     workflows = {workflow["id"]: workflow for workflow in listing["workflows"]}
 
-    assert set(workflows) == EXPECTED_GDAL_WORKFLOWS - {"audit_and_recompress_geotiffs"}
+    assert set(workflows) == EXPECTED_GDAL_WORKFLOWS - {"audit_and_recompress_geotiffs", "batch_vector_clip"}
     assert workflows["translate_rasters_to_geotiff"]["available"] is False
     assert workflows["translate_rasters_to_geotiff"]["execution_kind"] == "script"
 
