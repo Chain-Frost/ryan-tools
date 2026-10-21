@@ -115,7 +115,9 @@ def _load_packaged_workflows() -> tuple[str, str | None, list[WorkflowSpec]]:
 
 
 def _gdal_mutation(raw_mutation: str, *, requires_explicit_approval: bool) -> tuple[CapabilityProfile, MutationKind]:
-    if requires_explicit_approval or raw_mutation == "in_place":
+    # This GDAL workflow exposes --replace --yes in its scenarios. A
+    # read-only default does not make the whole discoverable workflow safe.
+    if requires_explicit_approval or raw_mutation in {"in_place", "audit_only_unless_explicit_replace"}:
         return CapabilityProfile.PRIVILEGED, MutationKind.IN_PLACE
     if "replace" in raw_mutation:
         return CapabilityProfile.CREATE, MutationKind.CREATES_OR_REPLACES
@@ -148,8 +150,10 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
         if not all(isinstance(value, str) and value for value in (tool_id, script_name, purpose)):
             continue
 
-        requires_approval: bool = bool(raw_tool.get("requires_explicit_approval", False))
         raw_mutation: str = str(raw_tool.get("mutation", "creates_outputs"))
+        requires_approval: bool = bool(raw_tool.get("requires_explicit_approval", False)) or (
+            raw_mutation == "audit_only_unless_explicit_replace"
+        )
         profile, mutation = _gdal_mutation(raw_mutation, requires_explicit_approval=requires_approval)
         metadata: dict[str, Any] = {
             "defaults": raw_tool.get("defaults", {}),
@@ -167,10 +171,7 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
         if isinstance(module_name, str) and module_name:
             execution = ExecutionTarget(kind=ExecutionKind.MODULE, value=module_name)
         else:
-            execution = ExecutionTarget(
-                kind=ExecutionKind.SCRIPT,
-                value=f"ryan-scripts/gdal-python/{script_name}",
-            )
+            execution = ExecutionTarget.from_mapping({"script": f"ryan-scripts/gdal-python/{script_name}"})
 
         workflows.append(
             WorkflowSpec(
