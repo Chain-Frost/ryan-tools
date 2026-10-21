@@ -37,13 +37,27 @@ In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: exact-head CI a
 ## Validation and delivery
 
 New focused tests accompany the implementation. GitHub hosted CI and native Windows/PyTUFLOW installation,
-large model performance, standard package dependency installation and actual HPC control file checks remain to be verified.
+standard package dependency installation and additional HPC control-file edge cases remain to be verified.
 Do not merge until validation and review are complete.
+
+On 2026-10-21, a representative Q-drive model supplied through its existing launcher and 440-command export passed
+the corrected checkout with 63 unique inputs and no issues. PyTUFLOW 1.2.6 took 1.06 seconds to parse the model,
+160.40 seconds to resolve all run contexts and 0.06 seconds for the deduplicated inventory (two directory scans and
+11 direct file checks). The benchmark exposed that PyTUFLOW presents `BC Event Source` variable assignments as
+pipe-joined pseudo-paths; these are now excluded from file checks, while resolved BC database `Source` files remain
+validated separately. A focused regression test covers that distinction.
+
+Focused validation after the fix passed 28 preflight/launcher tests, the Loguru policy check and documentation link
+checks. A no-bump build produced and verified the 26.10.21.1 wheel (SHA-256
+`2d009ee77bfc6b4dcc417099b2af81588329e1e63bfe4677256f8c5eb1e6d4e4`); reinstalling that wheel and checking one
+representative run found 20 unique inputs and no issues. Ruff and strict Pyright could not be rerun locally because
+the corporate network-share execution policy rejected both executables with Windows error 5; exact-head CI remains
+the authoritative pending static-analysis check.
 
 ## Next action
 
-Run exact-head Ruff, formatting, Pyright, focused pytest, wrapper --help, and Windows-based representative
-model checks; address any review comments before requesting merge.
+Run exact-head CI and complete the remaining Windows dependency/wheel and input-edge-case checks; address any review
+comments before requesting merge.
 
 **Performance validation required:** PyTUFLOW retains its initial control-file/BC database build state,
 but each `TCF.context()` creates run-state inputs that can glob the same files and open GIS layers again.

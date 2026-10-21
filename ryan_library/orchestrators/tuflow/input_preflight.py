@@ -138,9 +138,13 @@ class _FileReference:
     layer: str = ""
 
 
-# Output paths are destinations, not source inputs: TUFLOW may create them.
-_OUTPUT_COMMANDS = frozenset(
+# Commands whose resolved values are not source-file dependencies.
+_NON_INPUT_FILE_COMMANDS = frozenset(
     {
+        # Event-source commands assign event values to variables. PyTUFLOW
+        # currently exposes pipe-delimited assignments through ``files`` as a
+        # single pseudo-path, but neither side is an input file.
+        "bc event source",
         "output folder",
         "log folder",
         "write check files",
@@ -203,7 +207,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         try:
             inputs = context.find_input()
             for inp in inputs:
-                if _command_name(inp) in _OUTPUT_COMMANDS:
+                if _command_name(inp) in _NON_INPUT_FILE_COMMANDS:
                     continue
                 origin = str(inp)
                 try:

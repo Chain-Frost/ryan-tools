@@ -190,6 +190,43 @@ def test_output_directories_are_not_required_inputs(tmp_path: Path, monkeypatch:
     assert report.checked_paths == set()
 
 
+def test_bc_event_source_assignment_is_not_treated_as_a_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """BC Event Source maps event variables; its pipe-delimited value is not a path."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+
+    class EventSourceInput:
+        lhs = "BC Event Source"
+        files = (tmp_path / "05.00p | 05.00p",)
+        parent = types.SimpleNamespace(fpath=tcf)
+        has_missing_files = True
+
+        def __str__(self) -> str:
+            return "BC Event Source == 05.00p | 05.00p"
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[EventSourceInput]:
+            return [] if lhs else [EventSourceInput()]
+
+        def bc_dbase(self) -> None:
+            return None
+
+    class FakeTCF:
+        def __init__(self, path: str) -> None:
+            pass
+
+        def context(self, _flags: str) -> Context:
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "05.00p"})])
+
+    assert report.passed
+    assert report.checked_paths == set()
+
+
 def test_identical_files_are_collected_before_one_network_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """500 model contexts sharing eight files require one parent listing."""
     tcf = tmp_path / "model.tcf"
