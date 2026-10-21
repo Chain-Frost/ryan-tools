@@ -21,7 +21,9 @@ from ryan_library.functions.tuflow.run_flags import extract_flag_pairs
 from ryan_library.orchestrators.tuflow.input_preflight import (
     PreflightReport,
     RunRequest,
+    _FileReference,  # pyright: ignore[reportPrivateUsage] - temporary in-repository diagnostic
     _collect_references,  # pyright: ignore[reportPrivateUsage] - temporary in-repository diagnostic
+    _materialise_attribute_references,  # pyright: ignore[reportPrivateUsage] - temporary diagnostic
     check_simulation_inputs,
 )
 
@@ -117,9 +119,16 @@ def collect(tcf: Path, runs: list[RunRequest], mode: str, factory: Any) -> tuple
     if failures:
         msg = "Wildcard materialisation failed"
         raise ValueError(msg)
-    if any(ref.scan_attributes for ref in references):
-        msg = "Attribute inputs require complete secondary materialisation before parity"
-        raise ValueError(msg)
+    # Share the production attribute materialiser: both Shapefile and
+    # GeoPackage secondary references retain the originating run and command.
+    # Unsupported attribute forms still become collection issues and cannot
+    # be accepted as parity merely because a partial file set matches.
+    materialised = [
+        _FileReference(ref.run, ref.origin, path, ref.layer, ref.scan_attributes, ref.database_kind)
+        for ref in references
+        for path in expanded.get(ref.path, (ref.path,))
+    ]
+    references = _materialise_attribute_references(materialised, report)
     keys: set[tuple[Any, ...]] = set()
     unique: dict[Path, set[str]] = {}
     for ref in references:
