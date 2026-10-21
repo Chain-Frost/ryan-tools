@@ -746,3 +746,51 @@ commit.** The short-lived diagnostic runner/CI sweep may still be removed
 before ryan-tools merge, but **do not delete the permanent archive in
 ryan-tools-test-data**. Verify the final ryan-tools CI uses the permanent
 submodule commit before merging PR #143.
+
+
+## Typed upstream source integration and Windows example sweep (22 October 2026)
+
+Agent 1 integrated PyTUFLOW supporting PR #2 typed cached source API into
+ryan-tools PR #143 on the opt-in Windows/Python 3.13 consumer workflow.
+Production PyPI dependency stays unchanged. The pinned test revision was
+PyTUFLOW `336efdea7f9c9d8ca27515284b042f48804f2bac`.
+
+**Read-only CI [run 39663958589](https://github.com/Chain-Frost/ryan-tools/actions/runs/39663958589)** checked all 161 TCFs, 174 run combinations and their archive hashes
+using the permanent `tests/test_data` submodule. Exact identity parity plus
+public preflight accepted **151 TCFs / 164 runs**; **10 TCFs / 10 runs**
+remained unresolved. This supersedes the previous
+140 TCFs /153 accepted runs (21 unresolved). The Windows CI saved
+`tuflow-example-full-replay` artifact `12375333756`, including complete
+per-case `results.json` and issue CSVs. No TUFLOW executable ran.
+
+The ten cases are:
+- EG03_011: eager/deferred primary identities match, but Rasterio sees a
+  valid NetCDF **container without bands**; a subsequent change checks
+  GDAL subdataset metadata without reading pixels, pending exact-head CI.
+- EG03_012: all **41 rainfall grid files** match physically; only origin
+  `Read Grid RF` versus `rainfall source: time` differs. The downstream
+  source's actual owning command now provides the origin; pending retest.
+- EG11_006 and EG11_009: deferred-only **active Q/P depth-discharge
+  curve Source files**; verify eager completeness, do not delete real sources.
+- EG15_007 and EG15_008: deferred-only active pit-inlet `aa` curve Source;
+  verify whether eager omits valid secondary file dependencies.
+- EG17_001, EG17_002, EG17_003 and EG18_002: deferred-only AD BC Source
+  records (and an AD Global GIS source in EG18_002); review whether eager
+  omits legitimate AD dependencies. These are not missing file reports.
+
+The first integration attempt produced false deferred extras by adding
+**every** pit-inlet database Source row, including those not referenced by
+any GIS feature. Agent 1 changed this to only materialise active GIS IDs
+using the matching pit-inlet or depth-discharge Name/Source database,
+retaining per-run missing/ambiguous errors. The targeted
+EG02_014/EG04_004 Windows parity replay now passes (run 39663958589).
+The shared raster stage opens each distinct file once (plus GDAL NetCDF
+subdataset metadata if required) after run-context construction; invalid
+headers are unresolved, not silently accepted.
+
+A precise [upstream handoff](https://github.com/phantom-branch/PyTuflow/pull/2#issuecomment-6325186159)
+provides all ten cases and reasons. The next gate is a complete Windows
+174-run retest against latest downstream and reviewed upstream SHAs,
+followed by native P/B, 42-run and Higginsville parity. Do not claim an
+actual speedup or merge upstream/downstream until complete supported-input
+parity and CI are established.
