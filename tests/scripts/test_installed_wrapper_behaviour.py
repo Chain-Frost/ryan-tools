@@ -15,6 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).absolute().parents[2] / "ryan-scripts"
 
 
@@ -212,3 +214,39 @@ def test_copied_file_inventory_nonrecursive_excludes_nested_files(tmp_path: Path
         rows = list(csv.DictReader(stream))
     assert [row["filename"] for row in rows] == ["A-001.txt"]
     assert (nested / "B-002.txt").read_bytes() == b"nested"
+
+# These wrappers use the shared --working-directory and --no-pause contract.
+# In particular, they should fail before entering their processing orchestrators.
+@pytest.mark.parametrize(
+    "relative",
+    (
+        "RORB-python/RORB-find-closure-durations.py",
+        "TUFLOW-python/culvert_results/combine_culvert_timeseries.py",
+        "TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py",
+        "TUFLOW-python/log_processing/create_log_summary_report.py",
+    ),
+)
+def test_copied_common_cli_rejects_missing_working_directory(relative: str, tmp_path: Path) -> None:
+    missing = tmp_path / "missing model folder"
+    result = _run_copied_wrapper(
+        relative,
+        tmp_path,
+        "--working-directory",
+        str(missing),
+        "--no-pause",
+    )
+    assert result.returncode == 1, f"{relative}: {(result.stdout + result.stderr)[-2000:]}"
+    assert not missing.exists()
+
+
+@pytest.mark.parametrize(
+    "relative",
+    (
+        "RORB-python/RORB-find-closure-durations.py",
+        "TUFLOW-python/culvert_results/combine_culvert_timeseries.py",
+        "TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py",
+    ),
+)
+def test_copied_common_cli_rejects_unknown_option_without_processing(relative: str, tmp_path: Path) -> None:
+    result = _run_copied_wrapper(relative, tmp_path, "--not-a-valid-option", "--no-pause")
+    assert result.returncode == 2, f"{relative}: {(result.stdout + result.stderr)[-2000:]}"
