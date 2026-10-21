@@ -14,6 +14,11 @@ includes safe automated checks, an isolated-wheel discovery probe and opt-in
 mapped-drive/UNC/QGIS/GDAL/TUFLOW/HY-8 checks. These do **not** imply that
 an installed executable has been tested or that a real model has run.
 
+The `batch_vector_clip` wrapper launches `ogr2ogr` subprocesses and therefore
+is also `privileged`, requires explicit approval and reports the executable
+as declared but unverified. Its `--overwrite` option requires separate
+output-preservation review; do not use it on production sources.
+
 For GDAL recompression, the curated workflow includes a source-replacing
 `--replace --yes` scenario and therefore now requires the `privileged` profile
 and explicit approval. Users can continue to invoke the underlying audit-only
