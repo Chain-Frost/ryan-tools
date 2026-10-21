@@ -210,8 +210,14 @@ def main() -> int:
                 except Exception as exc:  # noqa: BLE001 - record each failure and continue the diagnostic sweep
                     row[mode] = {"error": str(exc)}
             if len(identities) == 2:
-                row["missing"] = len(identities["eager"] - identities["deferred"])
-                row["extra"] = len(identities["deferred"] - identities["eager"])
+                eager_only = identities["eager"] - identities["deferred"]
+                deferred_only = identities["deferred"] - identities["eager"]
+                row["missing"] = len(eager_only)
+                row["extra"] = len(deferred_only)
+                # Store complete identity mismatches so an apparent pass with
+                # equal counts cannot hide wrong owning commands or GIS layers.
+                row["eager_only_identities"] = [list(value) for value in sorted(eager_only)]
+                row["deferred_only_identities"] = [list(value) for value in sorted(deferred_only)]
             try:
                 report = check_simulation_inputs(tcf, runs)
                 report.write_csv(output / f"{tcf.stem}-issues.csv")
