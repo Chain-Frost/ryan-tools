@@ -95,8 +95,19 @@ def _is_main_guard(test: ast.expr) -> bool:
 class _ImportTimeMutationVisitor(ast.NodeVisitor):
     """Walk only expressions and statements that can execute during import."""
 
-    def __init__(self) -> None:
+    def __init__(self, module: ast.Module) -> None:
         self.names: set[str] = set()
+        # Resolve direct imports without running the candidate. Aliased calls such
+        # as `from shutil import copy2 as cp; cp(...)` must not bypass the scan.
+        self.aliases: dict[str, str] = {}
+        for statement in module.body:
+            if isinstance(statement, ast.ImportFrom) and statement.module in {
+                "shutil", "os", "subprocess", "pathlib"
+            }:
+                for alias in statement.names:
+                    if alias.name in UNSAFE_IMPORT_CALLS:
+                        self.aliases[alias.asname or alias.name] = alias.name
+
 
     def _visit_function_signature(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         self.visit(node.args)
@@ -136,6 +147,8 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
     def visit_Call(self, node: ast.Call) -> None:
         """Record known mutating calls and inspect their nested arguments."""
         name = _call_name(node)
+        if isinstance(node.func, ast.Name):
+            name = self.aliases.get(node.func.id, name)
         if name in UNSAFE_IMPORT_CALLS:
             self.names.add(name)
         self.generic_visit(node)
@@ -143,7 +156,7 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
 
 def _import_time_call_names(module: ast.Module) -> list[str]:
     """Conservatively find import-time calls, without importing any script."""
-    visitor = _ImportTimeMutationVisitor()
+    visitor = _ImportTimeMutationVisitor(module)
     visitor.visit(module)
     return sorted(visitor.names)
 
