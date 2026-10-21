@@ -1037,3 +1037,36 @@ def test_deferred_q_curve_ids_resolve_through_pit_database_without_false_paths(
     assert missing.affected_runs == 3
     assert all("has no entry" in issue.detail for issue in missing.issues)
     assert not any("Kerb_A" in item for item in missing.checked_paths)
+
+
+@pytest.mark.skipif(
+    os.environ.get("RYAN_TEST_DEFERRED_PYTUFLOW") != "1",
+    reason="Real deferred material/soils parity requires pinned PyTUFLOW fork",
+)
+def test_real_deferred_materials_and_soils_are_primary_inputs(tmp_path: Path) -> None:
+    """Recognised inline tables keep their primary files and no invented paths."""
+    tcf = tmp_path / "model.tcf"
+    mat = tmp_path / "materials.csv"
+    soils = tmp_path / "soils.tsoilf"
+    tcf.write_text(
+        "Read Materials File == materials.csv | 0.8\n"
+        "Read Soil File == soils.tsoilf\n",
+        encoding="utf-8",
+    )
+    mat.write_text(
+        "Material ID,Manning's n,Rainfall Losses\n"
+        '1,"0.05, 0.1, 0.1, 0.05",0\n',
+        encoding="utf-8",
+    )
+    soils.write_text("1,ILCL,12,1.2\n", encoding="utf-8")
+    report = check_simulation_inputs(
+        tcf,
+        [RunRequest(1, {"e1": "Q100"}), RunRequest(2, {"e1": "Q20"})],
+    )
+    assert report.passed, report.issues
+    assert report.checked_paths == {str(mat), str(soils)}
+
+    soils.write_text("1,CUSTOM,parameters\n", encoding="utf-8")
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "Q100"})])
+    assert not report.passed
+    assert any(issue.status == "unresolved" for issue in report.issues)
