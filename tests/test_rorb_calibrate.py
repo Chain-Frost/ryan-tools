@@ -139,3 +139,16 @@ def test_archived_csv_time_mismatch_rejected(tmp_path: Path) -> None:
         ]
     ) == 1
     assert not (tmp_path / "analysis").exists()
+
+
+def test_archived_score_dry_run_has_no_filesystem_side_effects(tmp_path: Path) -> None:
+    archived = tmp_path / "historic.out"
+    archived.write_text("Inc Time Hyd001 Hyd002\n1 0 1 2\n2 1 4 3\n")
+    target = tmp_path / "analysis"
+    assert calibration.main(
+        [
+            "--score-output", str(archived), "--sim-column", "Hyd001",
+            "--obs-column", "Hyd002", "--dry-run", "--plots", "--output", str(target),
+        ]
+    ) == 0
+    assert not target.exists()
