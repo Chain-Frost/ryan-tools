@@ -297,8 +297,12 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
                     connections += 1
                     for selector in selected:
                         results[(path, selector)] = AttributeInspection(
-                            "present", sources, identifiers,
-                            network_identifiers=identifiers if re.match(r"^1d_nwk[eb]?_", path.stem, re.IGNORECASE) else (),
+                            "present",
+                            sources,
+                            identifiers,
+                            network_identifiers=identifiers
+                            if re.match(r"^1d_nwk[eb]?_", path.stem, re.IGNORECASE)
+                            else (),
                             pit_identifiers=identifiers if re.match(r"^1d_pit_", path.stem, re.IGNORECASE) else (),
                         )
                 except (OSError, ValueError, UnicodeError, shapefile.ShapefileException) as exc:
@@ -344,17 +348,32 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
                                 scanned[name] = _scan_layer(connection, name, available[name], path)
                         sources = tuple(sorted({source for name in matches for source in scanned[name][0]}))
                         identifiers = tuple(sorted({identifier for name in matches for identifier in scanned[name][1]}))
-                        network = tuple(sorted({
-                            item for name in matches if re.match(r"^1d_nwk[eb]?_", name, re.IGNORECASE)
-                            for item in scanned[name][1]
-                        }))
-                        pits = tuple(sorted({
-                            item for name in matches if re.match(r"^1d_pit_", name, re.IGNORECASE)
-                            for item in scanned[name][1]
-                        }))
+                        network = tuple(
+                            sorted(
+                                {
+                                    item
+                                    for name in matches
+                                    if re.match(r"^1d_nwk[eb]?_", name, re.IGNORECASE)
+                                    for item in scanned[name][1]
+                                }
+                            )
+                        )
+                        pits = tuple(
+                            sorted(
+                                {
+                                    item
+                                    for name in matches
+                                    if re.match(r"^1d_pit_", name, re.IGNORECASE)
+                                    for item in scanned[name][1]
+                                }
+                            )
+                        )
                         results[key] = AttributeInspection(
-                            "present", sources, identifiers,
-                            network_identifiers=network, pit_identifiers=pits,
+                            "present",
+                            sources,
+                            identifiers,
+                            network_identifiers=network,
+                            pit_identifiers=pits,
                         )
                     except (sqlite3.DatabaseError, ValueError, OSError) as exc:
                         results[key] = AttributeInspection("unresolved", detail=f"Cannot inspect GIS attributes: {exc}")
