@@ -45,7 +45,15 @@ class _BoundaryDatabase:
     def df(self) -> DataFrame: ...
 
 
+class _DeferredDatabaseSource:
+    database_path: Path
+    database_kind: str
+    entry_name: str
+    path_pattern: Path
+
+
 class _TCFRunState:
+    def deferred_database_sources(self) -> tuple[_DeferredDatabaseSource, ...]: ...
     def find_input(self, filter_by: str | None = ..., lhs: str | None = ...) -> list[_ResolvedInput]: ...
 
     def bc_dbase(self) -> _BoundaryDatabase: ...
