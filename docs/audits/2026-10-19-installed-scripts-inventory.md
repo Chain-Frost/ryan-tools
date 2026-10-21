@@ -76,26 +76,26 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `TUFLOW-python/raster_processing/mask_velocity_by_depth.py` | Yes | No | Source inspected; selected project-specific in-place raster transform; owner acceptance pending | Guarded configured main; no argparse/no-pause and interactive/headless exit unverified | Default Q: target directories; copies source to *_original backup then replaces velocity TIFF with depth-masked raster; resampling and repeat-run integrity critical |
 | `TUFLOW-python/raster_processing/run_asc_to_asc_maximum_searches.py` | Yes | No | Source inspected; selected native raster max wrapper; owner acceptance pending | Argparse common flags, dry-run, worker override and guarded no-pause; help acceptance already tested | Native ASC_to_ASC max jobs from template axes and glob; executable discovery, duplicates, outputs and process concurrency unverified |
 | `TUFLOW-python/raster_processing/run_asc_to_asc_mean_then_maximum.py` | Yes | No | Source inspected; selected native raster mean/max wrapper; owner acceptance pending | Argparse common flags, dry-run/strictness/worker flags and no-pause; representative help already tested | Per-duration TP mean then duration max via native raster tool; minimum contributing value, ensemble assumptions, result parity unverified |
-| `TUFLOW-python/raster_processing/run_asc_to_asc_median_then_maximum.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/raster_processing/run_python_raster_calculations.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `TUFLOW-python/raster_processing/run_asc_to_asc_median_then_maximum.py` | Yes | No | Selected native TP-median/duration-max wrapper; source inspected; owner acceptance pending | Guarded argparse/common CLI, --dry-run and source-output controls; behaviour unverified | Native ASC_to_ASC dependency; upper median, filenames, grouping and source rasters require engineering parity |
+| `TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py` | Yes | Yes | Selected experimental grouped native raster utility; source inspected; owner pending | Argparse dry-run/executable/worker controls; no original CLI parity evidence | Launches asc_to_asc_w64.exe via subprocess; group matching, output collisions and native tool availability need tests |
+| `TUFLOW-python/raster_processing/run_python_raster_calculations.py` | Yes | No | Selected experimental Python raster operator; source inspected; owner pending | Guarded argparse --no-pause; hard-coded sample default after.tif/before.tif; parity unverified | Computes max/diff/mean/median/min via library; exact nodata and source output parity to ASC_to_ASC pending |
 | `WRAPPER_STANDARD.md` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
 | `cad-python/dtm_str_converter_to_gpkg.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `cad-python/extract_dxf_polyface.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `cad-python/polyface_parquet_to_gpkg.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `cad-python/process_arch_d.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `culvert.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `docx-python/word_style_audit.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `file-management-python/archive_compress_folder.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `file-management-python/archive_compress_individual.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `file-management-python/archive_extract.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `culvert.py` | Yes | Yes | Selected maintained culvert CLI; source inspected; owner acceptance pending | Argparse subcommands with --no-pause; --help already smoke-tested; full original defaults unverified | Calls independent culvert_solver and ryan_library; writes design/rating/scenario/uncertainty reports; engineering parity owned separately |
+| `docx-python/word_style_audit.py` | Yes | No | Selected self-contained DOCX report utility; source inspected; owner pending | Argparse positional DOCX and --out-dir; hard-coded local path currently overrides CLI supplied path | Reads zipped WordprocessingML and writes JSON/CSV summaries; verify explicit CLI precedence and output fidelity (backlog) |
+| `file-management-python/archive_compress_folder.py` | Yes | No | Selected 7-Zip folder compressor; source inspected; owner pending | Argparse input/workers/no-pause; --help in smoke matrix; output/exit contract unverified | Writes sibling .7z without replacing existing archives or deleting inputs; installed 7z, exclusions and staging acceptance needed |
+| `file-management-python/archive_compress_individual.py` | Yes | No | Selected individual-file 7-Zip compressor; source inspected; owner pending | Argparse/no-pause and editable globs; original selection and failures unverified | 7-Zip and multiprocessing required; verify exclusions, one archive per file, existing destination and source integrity |
+| `file-management-python/archive_extract.py` | Yes | No | Selected archive extraction utility; source inspected; owner pending | Argparse/no-pause; input set and failure reporting not acceptance-tested | Multiprocessing extraction to temporary then final folder; clears pre-existing temporary output; traversal/symlink safety requires tests |
 | `file-management-python/copy_file.py` | No | No | Repository-only: unguarded import executes Win32 share connection | No safe CLI/help; editable settings run on import | Network copy/credentials, overwrite and external Windows MPR; unsafe for installed wrapper |
 | `file-management-python/copy_folder.py` | No | No | Repository-only: unguarded import executes Win32 share connection | No safe CLI/help; editable settings run on import | Network copy/credentials, overwrite and external Windows MPR; unsafe for installed wrapper |
 | `file-management-python/file_inventory.py` | Yes | No | Provisional installed; guarded main and embedded version; owner pending | Copied-wrapper CSV export, traversal rejection (exit 2), SHA-256/Unicode, file filtering and `--no-recursive` regression coverage; no-pause exercised | Input bytes preserved on tested paths; `--no-excel` verified; default Excel production workflow, network paths and error cases still unverified |
 | `file-management-python/list_files_recursive.py` | Yes | No | Provisional installed; guarded main/version; owner pending | Copied-wrapper recursive text listing with `--no-pause`: success; missing directory returns exit 1 and creates no output | Original `filenames.txt` output in input directory checked; output permissions, UNC, long paths and resource parity outstanding |
 | `file-management-python/rename-msg-files-argparse-folder.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `fix-chatgpt-type-hints.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `floodway.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `floodway.py` | Yes | Yes | Selected maintained floodway design CLI; source inspected; owner acceptance pending | Argparse project/formation/sweep overrides with --no-pause; help smoke tested | Uses ryan_library and independent culvert_solver; writes floodway envelope/scenario reports; HY-8/engineering validation separate |
 | `gdal-bat/LAZ-to-LAS.bat` | No | No | Not assessed | Not assessed | Not assessed |
 | `gdal-bat/README.md` | No | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
 | `gdal-bat/gdal_edit_Set_nodata.bat` | No | No | Not assessed | Not assessed | Not assessed |
@@ -105,28 +105,28 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `gdal-bat/gdal_merge_xyz_extent.bat` | No | No | Not assessed | Not assessed | Not assessed |
 | `gdal-bat/gdal_raster_footprint.bat` | No | No | Not assessed | Not assessed | Not assessed |
 | `gdal-python/README.md` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
-| `gdal-python/audit_CRS.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/batch_vector_clip.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `gdal-python/build_VRT.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/check_flt_tif.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/convert_gdb_to_gpkg.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_flood_extent.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_merge.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_merge_by_extent.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_raster_footprint.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_raster_to_xyz.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_retile_wrapper.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_set_nodata.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_stage_storage.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_translate_TIF_ovr.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_unset_nodata.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdal_vector_translate.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdaladdo_tif_pyramids.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `gdal-python/gdalwarp_clip_to_polygon.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `gdal-python/laz_to_las.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `gdal-python/audit_CRS.py` | Yes | No | Selected standalone CRS audit; source inspected; packaging decision pending | Configured ROOTS and OUTPUT_CSV with project placeholder, protected main; no argv/no-pause | osgeo.gdal/ogr/osr required; scans spatial files and writes CSV; output uses .resolve() and needs QGIS/OSGeo4W validation |
+| `gdal-python/batch_vector_clip.py` | Yes | Yes | Selected experimental GDAL vector clipping; source inspected; owner pending | Argparse --dry-run/no-pause/overwrite control; no synthetic geometry acceptance | Invokes ogr2ogr with bounded workers and staged outputs; validate multi-file format/overwrite/CRS and fail-safe cleanup |
+| `gdal-python/build_VRT.py` | Yes | No | Selected grouped raster mosaic wrapper; source inspected; owner pending | Argparse/guard/no-pause; script notes uncertain historical intent; defaults not validated | Splits filenames into groups and produces merged GeoTIFF plus VRT/overviews; review grouping and file selection |
+| `gdal-python/check_flt_tif.py` | Yes | No | Selected FLT/TIFF presence and recency audit; source inspected; owner pending | Argparse/no-pause; editable extensions and report filename; exit/report not yet tested | Compares presence/mtime in directory trees and writes missing_tifs.txt; need sample filesystem parity and timestamp edge cases |
+| `gdal-python/convert_gdb_to_gpkg.py` | Yes | No | Selected FileGDB export wrapper; source inspected; owner pending | Argparse/no-pause, format and --single-database mode; GDB output not tested | Uses GDAL-backed vector conversion; layer identity, CRS, feature counts and driver availability need QGIS/OSGeo4W checks |
+| `gdal-python/gdal_flood_extent.py` | Yes | No | Selected raster flood extent wrapper; source inspected; owner pending | Guarded argparse/no-pause with cutoff, input band and vector format; no output acceptance | GDAL threshold/sieve creates mask TIFF and extent GPKG/SHP; verify CRS, nodata and cutoff polygon topology |
+| `gdal-python/gdal_merge.py` | Yes | No | Selected raster mosaic wrapper; source inspected; owner pending | Guarded argparse/no-pause, output VRT/TIF/srs/nodata; --help tested | Combines rasters to VRT and TIFF and optional overviews; spatial alignment, source format and creation profile acceptance |
+| `gdal-python/gdal_merge_by_extent.py` | Yes | No | Selected extent-filtered raster mosaic; source inspected; owner pending | Argparse list-only and no-pause; no representative input/output acceptance | Selects tiles by actual bounds without reprojection; input raster and vector CRS must match; crop/mosaic parity needed |
+| `gdal-python/gdal_raster_footprint.py` | Yes | Yes | Selected valid-data footprint wrapper; source inspected; owner pending | Argparse/no-pause with vector-format and recursion; output parity untested | GDAL nodata/mask boundary to GPKG/SHP; multipart geometries and footprint schema require acceptance |
+| `gdal-python/gdal_raster_to_xyz.py` | Yes | No | Selected gdal2xyz streaming wrapper; source inspected; owner pending | Argparse dry-run/overwrite/no-pause and workers; output and failure parity not tested | Runs osgeo_utils.gdal2xyz in subprocess; overwrite unlinks destination before replacing staged result; record atomicity review |
+| `gdal-python/gdal_retile_wrapper.py` | Yes | No | Selected GDAL raster retile wrapper; source inspected; owner pending | Argparse/no-pause with tile size and overlap defaults; original outputs unverified | External gdal_retile.py or osgeo_utils required; tile boundaries, resampling and nodata QA pending |
+| `gdal-python/gdal_set_nodata.py` | Yes | No | Selected in-place NoData metadata editor; source inspected; owner pending | Argparse/no-pause; operation mutates selected raster bands, no read-only default | Changes raster metadata without resampling; require explicit opt-in/backup decision and GDAL band metadata test |
+| `gdal-python/gdal_stage_storage.py` | Yes | Yes | Selected experimental stage-storage utility; source inspected; owner pending | Argparse dry-run/overwrite and configured elevation-step; plot/exit acceptance unverified | NumPy/Matplotlib DEM volume curves and CSV/plot export; validate cell area, nodata/units and staged overwrite |
+| `gdal-python/gdal_translate_TIF_ovr.py` | Yes | Yes | Selected raster conversion/overview wrapper; source inspected; owner pending | Argparse/no-pause, profile, source extensions and optional compression; format parity unverified | GDAL translations from FLT/ASC/RST/XYZ to TIFF and pyramids; preserve CRS/NoData/georeferencing |
+| `gdal-python/gdal_unset_nodata.py` | Yes | No | Selected raster NoData metadata clearer; source inspected; owner pending | Argparse/no-pause, editable source roots; in-place operation needs decision | Calls clear_raster_nodata for selected TIFs; transparencies and existing pixel values require GIS QA |
+| `gdal-python/gdal_vector_translate.py` | Yes | No | Selected GDAL vector translation utility; source inspected; owner pending | Guarded argparse/no-pause with source/target CRS and layer; input/output failure tests absent | Translates source vector to GPKG/other format; validate CRS transforms, layer naming, overwrite behavior |
+| `gdal-python/gdaladdo_tif_pyramids.py` | Yes | Yes | Selected GeoTIFF pyramid builder; source inspected; owner pending | Argparse/no-pause with refresh/resampling controls; no physical result checks | GDAL creates external .tif.ovr sidecars; verify source read-only behaviour and overview level/profile |
+| `gdal-python/gdalwarp_clip_to_polygon.py` | Yes | Yes | Selected GDAL raster clipper; source inspected; owner pending | Argparse/no-pause with editable EPSG:28350 and clipping polygon; output parity unverified | Calls GDAL Warp and replaces staged outputs; CRS compatibility, NoData, rotation and overwrite safety need QA |
+| `gdal-python/laz_to_las.py` | Yes | No | Selected streaming point-cloud converter; source inspected; owner pending | Argparse/no-pause with recursive, worker and overwrite flags; no sample LAS acceptance | Uses laspy chunked LAZ-to-LAS processing; point counts/classification/CRS scales and nested output fidelity unverified |
 | `gdal-python/recompress_geotiffs.py` | Yes | Yes | Provisional installed/MCP; guarded main/version; owner pending | Copied-wrapper default audit of empty disposable directory with `--no-pause` returns success without changing TIFFs | `--replace`/GDAL backend and real raster output comparison not exercised here; externally validated compression behaviour pending |
-| `gdal-python/split_vector_by_attribute.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `gdal-python/vacuum_geopackages.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `gdal-python/split_vector_by_attribute.py` | Yes | Yes | Selected attribute-based vector splitter; source inspected; owner pending | Argparse/no-pause, layer/attribute/format and workers; no synthetic layer test | Sanitises output filenames and filters SQL by attribute; need collision/Unicode/null values and CRS check |
+| `gdal-python/vacuum_geopackages.py` | Yes | No | Selected SQLite in-place GeoPackage compactor; source inspected; owner pending | Argparse/no-pause; no explicit dry-run/backup/approval switch before VACUUM | Performs SQLite VACUUM directly on every top-level GPKG; confirm opt-in policy, database integrity and lock behavior |
 | `hydrology-python/ARF-calcs.py` | No | No | Source inspected; provisional repository-only reference/calculation utility; owner pending | Protected example `__main__` with plotting; no standalone argparse/no-pause or tested CLI exit | Pandas/Matplotlib regional ARF parameters; validate formula, domain, provenance and plots against ARR before distribution |
 | `hydrology-python/EAS.py` | No | No | Source inspected; provisional repository-only educational example; owner pending | Protected example `__main__`; no argparse/no-pause or tested CLI exit | NumPy/SciPy/Shapely/Matplotlib equal-area-slope demo; saves visual plots; hydrological parity/input-domain checks needed |
 | `hydrology-python/RFFE_Only_v6.py` | No | No | Source inspected; provisional repository-only network client; owner pending | Guarded argparse CLI; no-pause and errors not yet accepted | Requests/Pandas/Loguru + ryan_library; batch HTTP POST to RFFE URL; live external service and raw/combined CSV outputs unverified |
@@ -134,9 +134,9 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `hydrology-python/aep_ari_conversions.py` | No | No | Source inspected; provisional repository-only pure helper; owner pending | No CLI or `__main__` (library-like); numerical round-trip/domain pytest covers functions, not installed execution | Only math dependency; AEP/ARI formula and invalid finite-domain behavior tested in `test_repository_only_hydrology.py`; hydrological design acceptance pending |
 | `hydrology-python/combine_ifds_v2.py` | No | No | Source inspected; provisional repository-only legacy BOM CSV combiner; owner pending | Guarded `__main__`; no argparse/no-pause or tested exit contract | Reads script-adjacent IFD CSV variants; writes combined AEP lookup CSV; CSV schema and current BOM download parity unverified |
 | `misc-python/heic_to_jpeg.py` | No | No | Source inspected; provisional repository-only photo utility; owner pending | Guarded argparse CLI; optional dependency import can raise `SystemExit`; help not portable without `pillow-heif` | Pillow and pillow-heif, multiprocessing and filesystem copies/conversions; default placeholder P: paths; EXIF/GPS integrity and overwrite policy unverified |
-| `misc-python/remove_excel_protection.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `misc-python/remove_excel_protection.py` | Yes | Yes | Selected standalone Excel ZIP/XML editor; source inspected; owner pending | Argparse/no-pause with separate unprotected output dir; input/output contract untested | Rewrites .xlsx/.xlsm ZIP XML protection flags; test macro/relationships/style preservation and no source overwrite |
 | `other/PDFXChangeEditorSettings_250206.xces` | No | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
-| `other/audit_qgis_projects.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `other/audit_qgis_projects.py` | Yes | Yes | Selected read-only QGIS .qgz datasource audit; source inspected; owner pending | Argparse common execution flags and guarded main; no output parity evidence | Parses QGZ XML/URI filesystem references; UNC, provider URI, relative path and missing-layer detection need fixtures |
 | `other/shapefile-explorer-types.ps1` | No | No | Not assessed | Not assessed | Not assessed |
 | `pdf-python/break_pdf_signatures.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `pdf-python/ocg_clean_file.py` | No | No | Not assessed | Not assessed | Not assessed |
@@ -154,11 +154,11 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `raster-python/tif_to_xyz_drop_na_v2.py` | No | No | Source inspected; provisional repository-only chunked converter; owner pending | Guarded main, fixed worker defaults; unconditional `pause_console()`; no headless support | Rasterio/NumPy/ryan_library GDAL; chunked XYZ CSV, fixed working/output folders; spatial sampling/nodata output not verified |
 | `repair-folder-permissions.ps1` | No | No | Not assessed | Not assessed | Not assessed |
 | `tuflow/PROJECT_SETUP.md` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
-| `tuflow/find_missing_tlf_runs.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `tuflow/init_tuflow_project.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `tuflow/tuflow_culvert_from_1d_nwk.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `tuflow/tuflow_culvert_from_maximums.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `tuflow/tuflow_to_hy8.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `tuflow/find_missing_tlf_runs.py` | Yes | No | Selected missing-TLF run audit; source inspected; owner pending | Argparse common flags/no-pause; script notes workflow not tested | Uses ryan_library orchestrator for expected event/duration/TP tracking; verify calendar and missing runs with synthetic table |
+| `tuflow/init_tuflow_project.py` | Yes | No | Selected TUFLOW project initialiser; source inspected; owner pending | Argparse --overwrite/--prj/--tuflow-exe/no-pause; help tested | Creates project templates and asks external TUFLOW for canonical GIS schemas; overwrite and executable readiness require local acceptance |
+| `tuflow/tuflow_culvert_from_1d_nwk.py` | Yes | Yes | Selected culvert 1d_nwk capacity checker; source inspected; owner pending | Argparse engine choice, selected GIS layer and outputs; help/exit parity unverified | GeoPandas reads 1d_nwk; uses HY-8 or ryan-culverts and temporary workspaces; hydraulic and CRS/attribute parity pending |
+| `tuflow/tuflow_culvert_from_maximums.py` | Yes | Yes | Selected maximums-workbook culvert checker; source inspected; owner pending | Argparse engine choice and outputs; no end-to-end workbook test | Pandas Maximums Excel with geometry/hydraulic fields, HY-8 or ryan-culverts; compare numerical parity and missing fields |
+| `tuflow/tuflow_to_hy8.py` | Yes | No | Selected TUFLOW Maximums to HY-8 project bridge; source inspected; owner pending | Argparse common no-pause and guarded main; help tested | Uses run-hy8 and shape-limited culvert mappings; validate circular/box geometry and HY-8 project import |
 | `unsorted-bat/VACUUM.BAT` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-bat/del_xf.bat` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-bat/dir.bat` | No | No | Not assessed | Not assessed | Not assessed |
@@ -168,6 +168,23 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `unsorted-python/export_water_level_profile_tables_50m.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-python/plot_water_level_profiles.py` | No | No | Not assessed | Not assessed | Not assessed |
 
+
+## Bounded selected-source inspections — remaining installed scripts (22 October)
+
+The last **37 wheel-selected** entries with no source-inspection evidence have
+now been read individually. This includes GDAL/raster conversion, 7-Zip
+compression/extraction, DOCX reporting, culvert/floodway, TUFLOW project
+initialisation and assorted file/format maintenance tools. Together with the
+preceding 30 installed and 28 repository-only inspections, **95 of 149 source
+paths** now have bounded individual source evidence. The other **54 paths**
+remain unassessed, mostly repository-only resources and legacy utilities.
+
+This source inspection establishes no full CLI/output/engineering acceptance.
+Potential fixes and missing test evidence are tracked in the
+[script remediation backlog](2026-10-22-script-remediation-backlog.md). Work
+requiring external 7-Zip, GDAL/OSGeo4W, HY-8 or TUFLOW binaries is explicitly
+left for controlled acceptance; wrapper defaults/installed-wheel parity remain
+separate validation tasks. Do not alter the 83-file wheel selection automatically.
 
 ## Bounded selected-source inspections — PO/POMM and raster workflows
 
