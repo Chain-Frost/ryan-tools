@@ -1142,7 +1142,6 @@ def test_deferred_shapefile_network_attribute_sources_checked_once_per_run_group
     assert all("hydrograph.csv" in issue.reference for issue in failed.issues)
 
 
-
 def test_typed_rainfall_ad_bc_and_gis_table_links_bulk_inventory(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -1158,8 +1157,14 @@ def test_typed_rainfall_ad_bc_and_gis_table_links_bulk_inventory(
     rainfall_index.write_text("Time,Rainfall_File\n0,rainfall.tif\n", encoding="utf-8")
     rainfall = tmp_path / "rainfall.tif"
     with rasterio.open(
-        rainfall, "w", driver="GTiff", height=1, width=1, count=1,
-        dtype="float32", transform=from_origin(1, 2, 1, 1),
+        rainfall,
+        "w",
+        driver="GTiff",
+        height=1,
+        width=1,
+        count=1,
+        dtype="float32",
+        transform=from_origin(1, 2, 1, 1),
     ) as dataset:
         dataset.write(np.ones((1, 1), dtype=np.float32), 1)
     ad_database = tmp_path / "ad_bc.csv"
@@ -1179,11 +1184,16 @@ def test_typed_rainfall_ad_bc_and_gis_table_links_bulk_inventory(
             self.lhs = lhs
             self.file_references = (
                 types.SimpleNamespace(
-                    path_pattern=path, base_directory=tmp_path, origin=lhs,
-                    layer_pattern=None, unresolved_variables=(),
+                    path_pattern=path,
+                    base_directory=tmp_path,
+                    origin=lhs,
+                    layer_pattern=None,
+                    unresolved_variables=(),
                     requires_database_scan=kind in {"rainfall", "ad_bc"},
-                    requires_attribute_scan=gis, database_kind=kind,
-                    requires_table_link_scan=gis, requires_raster_metadata_scan=False,
+                    requires_attribute_scan=gis,
+                    database_kind=kind,
+                    requires_table_link_scan=gis,
+                    requires_raster_metadata_scan=False,
                 ),
             )
 
@@ -1207,14 +1217,24 @@ def test_typed_rainfall_ad_bc_and_gis_table_links_bulk_inventory(
         def deferred_database_sources(self) -> tuple[types.SimpleNamespace, ...]:
             return (
                 types.SimpleNamespace(
-                    database_path=rainfall_index, database_kind="rainfall", entry_name="0",
-                    path_pattern=rainfall, owning_command="Read Grid RF",
-                    owner_control_file=tcf, layer_pattern=None, requires_raster_metadata_scan=True,
+                    database_path=rainfall_index,
+                    database_kind="rainfall",
+                    entry_name="0",
+                    path_pattern=rainfall,
+                    owning_command="Read Grid RF",
+                    owner_control_file=tcf,
+                    layer_pattern=None,
+                    requires_raster_metadata_scan=True,
                 ),
                 types.SimpleNamespace(
-                    database_path=ad_database, database_kind="ad_bc", entry_name="B",
-                    path_pattern=hydrograph, owning_command="AD BC Database",
-                    owner_control_file=tcf, layer_pattern=None, requires_raster_metadata_scan=False,
+                    database_path=ad_database,
+                    database_kind="ad_bc",
+                    entry_name="B",
+                    path_pattern=hydrograph,
+                    owning_command="AD BC Database",
+                    owner_control_file=tcf,
+                    layer_pattern=None,
+                    requires_raster_metadata_scan=False,
                 ),
             )
 
@@ -1233,8 +1253,12 @@ def test_typed_rainfall_ad_bc_and_gis_table_links_bulk_inventory(
     assert report.raster_files_scanned == 1
     assert report.attribute_databases_scanned == 1
     assert report.checked_paths == {
-        str(rainfall_index), str(rainfall), str(ad_database),
-        str(hydrograph), str(xs), str(section),
+        str(rainfall_index),
+        str(rainfall),
+        str(ad_database),
+        str(hydrograph),
+        str(xs),
+        str(section),
     }
 
     hydrograph.unlink()
@@ -1244,9 +1268,7 @@ def test_typed_rainfall_ad_bc_and_gis_table_links_bulk_inventory(
     assert sum("ad_hydro.csv" in issue.reference for issue in failed.issues) == 2
 
 
-def test_unknown_deferred_database_kind_remains_unresolved(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_unknown_deferred_database_kind_remains_unresolved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """An unimplemented valid database role cannot silently pass."""
     tcf = tmp_path / "model.tcf"
     tcf.touch()
@@ -1257,10 +1279,14 @@ def test_unknown_deferred_database_kind_remains_unresolved(
         lhs = "Unknown Database"
         file_references = (
             types.SimpleNamespace(
-                path_pattern=unknown, base_directory=tmp_path,
-                origin="Unknown Database", layer_pattern=None,
-                unresolved_variables=(), requires_database_scan=True,
-                requires_attribute_scan=False, database_kind="unknown",
+                path_pattern=unknown,
+                base_directory=tmp_path,
+                origin="Unknown Database",
+                layer_pattern=None,
+                unresolved_variables=(),
+                requires_database_scan=True,
+                requires_attribute_scan=False,
+                database_kind="unknown",
             ),
         )
 
