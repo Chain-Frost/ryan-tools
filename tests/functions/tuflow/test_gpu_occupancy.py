@@ -32,6 +32,7 @@ def test_only_live_matching_engines_with_explicit_gpu_flags(monkeypatch: pytest.
         FakeProcess(30, "TUFLOW_iSP_w64.exe", ["Q:\\TUFLOW_iSP_w64.exe", "run.tcf"]),
         FakeProcess(40, "python.exe", ["python", "run_tuflow_simulations.py"]),
     ]
+
     def fake_process_iter(**_kwargs: object) -> Iterator[Any]:
         return iter(processes)
 
