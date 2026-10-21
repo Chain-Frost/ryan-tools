@@ -190,9 +190,7 @@ def test_output_directories_are_not_required_inputs(tmp_path: Path, monkeypatch:
     assert report.checked_paths == set()
 
 
-def test_bc_event_source_assignment_is_not_treated_as_a_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_bc_event_source_assignment_is_not_treated_as_a_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """BC Event Source maps event variables; its pipe-delimited value is not a path."""
     tcf = tmp_path / "model.tcf"
     tcf.touch()
@@ -333,9 +331,7 @@ def test_missing_input_in_dense_directory_maps_to_only_affected_runs(
     assert report.issues[0].reference.endswith("rain_DEV.csv")
 
 
-def test_deferred_collection_never_accesses_eager_files(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_deferred_collection_never_accesses_eager_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Repeated deferred contexts describe files without materialising any input."""
     tcf = tmp_path / "model.tcf"
     tcf.touch()
@@ -355,9 +351,13 @@ def test_deferred_collection_never_accesses_eager_files(
         def file_references(self) -> tuple[types.SimpleNamespace, ...]:
             return (
                 types.SimpleNamespace(
-                    path_pattern=source, base_directory=tmp_path, origin="Read File",
-                    layer_pattern=None, unresolved_variables=(),
-                    requires_attribute_scan=False, requires_database_scan=False,
+                    path_pattern=source,
+                    base_directory=tmp_path,
+                    origin="Read File",
+                    layer_pattern=None,
+                    unresolved_variables=(),
+                    requires_attribute_scan=False,
+                    requires_database_scan=False,
                 ),
             )
 
@@ -409,9 +409,13 @@ def test_deferred_wildcards_are_expanded_once_and_missing_patterns_fail(
         def __init__(self, pattern_: Path) -> None:
             self.file_references = (
                 types.SimpleNamespace(
-                    path_pattern=pattern_, base_directory=tmp_path,
-                    origin="Read File", layer_pattern=None, unresolved_variables=(),
-                    requires_attribute_scan=False, requires_database_scan=False,
+                    path_pattern=pattern_,
+                    base_directory=tmp_path,
+                    origin="Read File",
+                    layer_pattern=None,
+                    unresolved_variables=(),
+                    requires_attribute_scan=False,
+                    requires_database_scan=False,
                 ),
             )
 
@@ -437,9 +441,7 @@ def test_deferred_wildcards_are_expanded_once_and_missing_patterns_fail(
             return Context(pattern if "EXG" in flags else tmp_path / "absent_*.csv")
 
     monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
-    report = check_simulation_inputs(
-        tcf, [RunRequest(1, {"s1": "EXG"}), RunRequest(2, {"s1": "DEV"})]
-    )
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"s1": "EXG"}), RunRequest(2, {"s1": "DEV"})])
     assert report.run_count == 2
     assert report.affected_runs == 1
     assert report.issues[0].run_index == 2
@@ -448,9 +450,7 @@ def test_deferred_wildcards_are_expanded_once_and_missing_patterns_fail(
     assert report.checked_paths == {str(tmp_path / "rain_01.csv"), str(tmp_path / "rain_02.csv")}
 
 
-def test_deferred_geopackage_layer_pattern_and_attribute_guard(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_deferred_geopackage_layer_pattern_and_attribute_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tcf = tmp_path / "model.tcf"
     tcf.touch()
     gpkg = tmp_path / "model.gpkg"
@@ -464,9 +464,13 @@ def test_deferred_geopackage_layer_pattern_and_attribute_guard(
         def __init__(self, *, scan_attributes: bool = False) -> None:
             self.file_references = (
                 types.SimpleNamespace(
-                    path_pattern=gpkg, base_directory=tmp_path, origin="Read GIS Code",
-                    layer_pattern="2d_code_*", unresolved_variables=(),
-                    requires_attribute_scan=scan_attributes, requires_database_scan=False,
+                    path_pattern=gpkg,
+                    base_directory=tmp_path,
+                    origin="Read GIS Code",
+                    layer_pattern="2d_code_*",
+                    unresolved_variables=(),
+                    requires_attribute_scan=scan_attributes,
+                    requires_database_scan=False,
                 ),
             )
 
@@ -505,9 +509,7 @@ def test_deferred_geopackage_layer_pattern_and_attribute_guard(
     assert "attribute" in guarded.issues[0].detail.lower()
 
 
-def test_deferred_unresolved_variables_are_never_probed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_deferred_unresolved_variables_are_never_probed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tcf = tmp_path / "model.tcf"
     tcf.touch()
 
@@ -516,9 +518,12 @@ def test_deferred_unresolved_variables_are_never_probed(
         file_references = (
             types.SimpleNamespace(
                 path_pattern=tmp_path / "rain_<<MISSING>>.csv",
-                base_directory=tmp_path, origin="Read File", layer_pattern=None,
+                base_directory=tmp_path,
+                origin="Read File",
+                layer_pattern=None,
                 unresolved_variables=("<<MISSING>>",),
-                requires_attribute_scan=False, requires_database_scan=False,
+                requires_attribute_scan=False,
+                requires_database_scan=False,
             ),
         )
 
