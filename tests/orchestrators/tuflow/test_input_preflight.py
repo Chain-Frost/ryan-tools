@@ -155,7 +155,6 @@ def test_missing_geopackage_layer(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     assert check_simulation_inputs(tcf, [run], check_gpkg_layers=False).passed
 
 
-
 def test_output_directories_are_not_required_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Neither an absent output directory nor a directory on disk is a missing input."""
     tcf = tmp_path / "model.tcf"
@@ -191,9 +190,7 @@ def test_output_directories_are_not_required_inputs(tmp_path: Path, monkeypatch:
     assert report.checked_paths == set()
 
 
-def test_identical_files_are_collected_before_one_network_scan(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_identical_files_are_collected_before_one_network_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """500 model contexts sharing eight files require one parent listing."""
     tcf = tmp_path / "model.tcf"
     tcf.touch()
