@@ -248,6 +248,23 @@ class WorkflowRegistry:
             return (self.scripts_directory / relative.relative_to("ryan-scripts")).absolute()
         return None
 
+    def _script_has_linked_component(self, script_path: Path) -> bool:
+        """Reject symlinked or junction-linked wrapper entries without dereferencing user paths."""
+        root = self.repository_root / "ryan-scripts" if self.repository_root is not None else self.scripts_directory
+        if root is None:
+            return False
+        root = root.absolute()
+        current = script_path.absolute()
+        if current != root and root not in current.parents:
+            return True
+        while True:
+            if current.is_symlink() or current.is_junction():
+                return True
+            if current == root:
+                break
+            current = current.parent
+        return False
+
     def _command_prefix(self, workflow: WorkflowSpec) -> list[str] | None:
         match workflow.execution.kind:
             case ExecutionKind.MODULE:
@@ -258,7 +275,9 @@ class WorkflowRegistry:
                 return [sys.executable, "-m", workflow.execution.value] if available else None
             case ExecutionKind.SCRIPT:
                 script_path: Path | None = self._script_path(workflow)
-                return [sys.executable, str(script_path)] if script_path is not None and script_path.is_file() else None
+                if script_path is None or self._script_has_linked_component(script_path):
+                    return None
+                return [sys.executable, str(script_path)] if script_path.is_file() else None
             case ExecutionKind.CONSOLE_SCRIPT:
                 executable: str | None = shutil.which(workflow.execution.value)
                 return [executable] if executable is not None else None
@@ -389,10 +408,13 @@ class WorkflowRegistry:
         )
         if command_prefix is None:
             if workflow.execution.kind is ExecutionKind.SCRIPT:
-                details["error"] = (
-                    "CLI script is unavailable. Reinstall the current wheel, or set "
-                    f"{REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to a development checkout."
-                )
+                if script_path is not None and self._script_has_linked_component(script_path):
+                    details["error"] = "Refusing linked or junction-traversing CLI script path: " + str(script_path)
+                else:
+                    details["error"] = (
+                        "CLI script is unavailable. Reinstall the current wheel, or set "
+                        f"{REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to a development checkout."
+                    )
             else:
                 details["error"] = (
                     f"Installed {workflow.execution.kind.value} target is unavailable: {workflow.execution.value}"
