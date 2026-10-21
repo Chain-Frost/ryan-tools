@@ -18,6 +18,7 @@ import pandas as pd
 from loguru import logger
 
 from ...functions.tuflow.dependency_index import check_unique_dependencies, expand_file_patterns
+from ...functions.tuflow.gis_attribute_dependencies import inspect_gis_attribute_sources
 
 IssueStatus = Literal["missing", "unresolved"]
 
@@ -147,6 +148,7 @@ class PreflightReport:
     checked_paths: set[str] = field(default_factory=set[str])
     directories_scanned: int = 0
     individually_checked: int = 0
+    attribute_databases_scanned: int = 0
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
@@ -183,6 +185,7 @@ class _FileReference:
     origin: str
     path: Path
     layer: str = ""
+    scan_attributes: bool = False
 
 
 # Commands whose resolved values are not source-file dependencies.
@@ -241,6 +244,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         require_layer: bool = True,
         layer_override: str | None = None,
         allow_pattern: bool = False,
+        scan_attributes: bool = False,
     ) -> None:
         raw = str(getattr(source, "dbpath", source)).strip()
         if (
@@ -259,10 +263,10 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         layer = str(getattr(source, "lyrname", "") or "") if require_layer and path.suffix.casefold() == ".gpkg" else ""
         if layer_override is not None and path.suffix.casefold() == ".gpkg":
             layer = layer_override
-        key = (run.index, origin, path, layer)
+        key = (run.index, origin, path, layer, scan_attributes)
         if key not in seen:
             seen.add(key)
-            references.append(_FileReference(run, origin, path, layer))
+            references.append(_FileReference(run, origin, path, layer, scan_attributes))
         if not any(char in path.name for char in "*?["):
             unique.setdefault(path, set())
             if layer:
@@ -311,14 +315,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                                     f"Unresolved PyTUFLOW variables: {', '.join(ref.unresolved_variables)}",
                                 )
                                 continue
-                            if ref.requires_attribute_scan:
-                                add_issue(
-                                    run,
-                                    ref.origin,
-                                    str(ref.path_pattern),
-                                    "GIS attribute-linked dependencies require deferred inspection",
-                                )
-                            if ref.requires_database_scan and not (
+                             if ref.requires_database_scan and not (
                                 database_sources_available
                                 and _command_name(inp) in {"bc database", "read materials file"}
                             ):
@@ -335,6 +332,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                                 ref.base_directory,
                                 layer_override=ref.layer_pattern or "",
                                 allow_pattern=True,
+                                scan_attributes=ref.requires_attribute_scan,
                             )
                     except Exception as exc:  # noqa: BLE001 - incomplete references must fail closed
                         add_issue(run, origin, "", f"Could not collect deferred file references: {exc}")
@@ -490,11 +488,74 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
                 )
                 continue
             for path in expanded[ref.path]:
-                materialised.append(_FileReference(ref.run, ref.origin, path, ref.layer))
+                materialised.append(_FileReference(ref.run, ref.origin, path, ref.layer, ref.scan_attributes))
                 unique_paths.setdefault(path, set())
                 if ref.layer:
                     unique_paths[path].add(ref.layer)
         references = materialised
+
+    # Inspect each distinct GIS attribute-bearing GeoPackage/layer once.
+    # This is a deliberate read-only bulk phase, never inside a run context.
+    scan_references = [ref for ref in references if ref.scan_attributes]
+    if scan_references:
+        requests = {(ref.path, ref.layer) for ref in scan_references}
+        inspected, scan_count = inspect_gis_attribute_sources(requests)
+        report.attribute_databases_scanned = scan_count
+        extra_references: list[_FileReference] = []
+        for ref in scan_references:
+            result = inspected[(ref.path, ref.layer)]
+            if result.status != "present":
+                report.issues.append(
+                    PreflightIssue(
+                        ref.run.index, ref.run.description, "unresolved",
+                        ref.origin, f"{ref.path} >> {ref.layer}", result.detail,
+                    )
+                )
+                continue
+            for path in result.sources:
+                extra_references.append(
+                    _FileReference(ref.run, f"GIS attribute: {ref.origin}", path)
+                )
+
+        # File-valued GIS attributes may themselves contain wildcard paths.
+        # Expand those patterns once across all simulations, not once per run.
+        extra_patterns = {
+            ref.path for ref in extra_references
+            if any(char in ref.path.name for char in "*?[")
+        }
+        if extra_patterns:
+            expanded, failures, extra_scans = expand_file_patterns(
+                extra_patterns, maximum_directory_entries=maximum_directory_entries
+            )
+            report.directories_scanned += extra_scans
+            extra_materialised: list[_FileReference] = []
+            for ref in extra_references:
+                if ref.path not in extra_patterns:
+                    extra_materialised.append(ref)
+                    continue
+                if ref.path in failures:
+                    problem = failures[ref.path]
+                    report.issues.append(
+                        PreflightIssue(
+                            ref.run.index, ref.run.description,
+                            "missing" if problem.status == "missing" else "unresolved",
+                            ref.origin, str(ref.path), problem.detail,
+                        )
+                    )
+                    continue
+                extra_materialised.extend(
+                    _FileReference(ref.run, ref.origin, path)
+                    for path in expanded[ref.path]
+                )
+            extra_references = extra_materialised
+
+        distinct_extra = {
+            (ref.run.index, ref.origin, ref.path, ref.layer): ref
+            for ref in extra_references
+        }
+        for ref in distinct_extra.values():
+            references.append(ref)
+            unique_paths.setdefault(ref.path, set())
 
     # Phase 2: stat or list only distinct required paths, with one GeoPackage
     # query per database for all of its requested layers.
