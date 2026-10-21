@@ -721,8 +721,11 @@ instruction to store reusable test inputs in
 The ZIP, SHA-256 member manifest, and original 161-case baseline now live
 at `tests/test_data/tuflow/example_input_preflight/` through the already
 supported test-data submodule. The ryan-tools PR #143 submodule gitlink was
-updated to test-data commit `3589290cd41974e240b555f8e3ceb2a51aec2951`
-and the three duplicates were deleted from the ryan-tools branch.
+initially updated to test-data feature commit `3589290cd41974e240b555f8e3ceb2a51aec2951`;
+after [test-data PR #1 was squash-merged](https://github.com/Chain-Frost/ryan-tools-test-data/pull/1),
+it was repinned to permanent `main` commit `d2dae3ecf9a7ed306e1340de54a8d12ca9f53f58`
+in ryan-tools commit `d7e18809fdc10fa0d63fd166e5839a1c222b4b6d`.
+The three duplicates were deleted from the ryan-tools branch.
 The Python read-only diagnostic runner remains temporarily at
 `tests/fixtures/tuflow_example_repro/run_checks.py`, but now reads
 the bundle from the shared test-data directory.
@@ -738,9 +741,8 @@ bytes are 20,134,068. There is no runtime decompression per run;
 the harness extracts once before contexts are constructed. Keep the
 archive zipped in Git to avoid 1,464 checkout metadata/file operations.
 
-The test-data PR must be merged to `main` before or alongside ryan-tools
-PR #143, and the ryan-tools submodule gitlink must then be updated to
-the resulting permanent test-data commit (especially if PR #1 is squash-merged
-and its original SHA is no longer reachable). The short-lived diagnostic
-runner/CI sweep may still be removed before ryan-tools merge, but **do
-not delete the permanent archive in ryan-tools-test-data**.
+**Test-data PR #1 is merged and the gitlink points to its final `main`
+commit.** The short-lived diagnostic runner/CI sweep may still be removed
+before ryan-tools merge, but **do not delete the permanent archive in
+ryan-tools-test-data**. Verify the final ryan-tools CI uses the permanent
+submodule commit before merging PR #143.
