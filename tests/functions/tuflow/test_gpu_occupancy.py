@@ -52,11 +52,12 @@ def test_missing_access_cannot_be_classified_as_free(monkeypatch: pytest.MonkeyP
 
 def test_no_gpu_flags_means_assignment_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeProcess:
-        info: dict[str, object] = {
-            "pid": 5,
-            "name": "TUFLOW_GPU_w64.exe",
-            "cmdline": ["TUFLOW_GPU_w64.exe", "-b", "model.tcf"],
-        }
+        def __init__(self) -> None:
+            self.info: dict[str, object] = {
+                "pid": 5,
+                "name": "TUFLOW_GPU_w64.exe",
+                "cmdline": ["TUFLOW_GPU_w64.exe", "-b", "model.tcf"],
+            }
 
     monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", lambda **_kwargs: iter([FakeProcess()]))
     result = gpu_occupancy.local_gpu_occupancy()
