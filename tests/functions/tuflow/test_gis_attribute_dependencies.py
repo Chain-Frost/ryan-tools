@@ -38,9 +38,7 @@ def make_network_gpkg(path: Path, *, geometry: str = "LINESTRING", attributes: i
 def test_network_m_and_q_paths_are_discovered_without_geometries(tmp_path: Path) -> None:
     gpkg = tmp_path / "network.gpkg"
     make_network_gpkg(gpkg)
-    result, opens = inspect_gis_attribute_sources(
-        {(gpkg, "1d_nwk_test"), (gpkg, "1d_nwk_*")}
-    )
+    result, opens = inspect_gis_attribute_sources({(gpkg, "1d_nwk_test"), (gpkg, "1d_nwk_*")})
     expected = {
         tmp_path / "operational.csv",
         tmp_path / "section.csv",
