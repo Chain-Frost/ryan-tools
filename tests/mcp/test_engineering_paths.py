@@ -7,7 +7,6 @@ They only create and remove their own temporary directory on the chosen share.
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -122,16 +121,3 @@ def test_opt_in_network_share_copy(variable: str, tmp_path: Path) -> None:
         assert str(copied).casefold().startswith(str(root.absolute()).casefold())
 
 
-@pytest.mark.parametrize("program", ["gdalinfo", "ogrinfo", "qgis_process", "TUFLOWHPC", "HY8.exe"])
-def test_executable_discovery_is_non_executing(
-    program: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    # Finding a program on PATH is not evidence that it launches or is licensed.
-    executable = tmp_path / "tool with spaces.exe"
-    executable.write_bytes(b"synthetic-not-an-executable")
-    def fake_which(name: str) -> str | None:
-        return str(executable) if name == program else None
-
-    monkeypatch.setattr(shutil, "which", fake_which)
-    assert shutil.which(program) == str(executable)
-    assert executable.read_bytes() == b"synthetic-not-an-executable"
