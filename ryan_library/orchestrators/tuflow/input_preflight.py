@@ -7,6 +7,7 @@ references plus source files in the active BC database. Never runs TUFLOW.
 from __future__ import annotations
 
 import csv
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -99,6 +100,9 @@ class PreflightReport:
     checked_paths: set[str] = field(default_factory=set[str])
     directories_scanned: int = 0
     individually_checked: int = 0
+    parse_seconds: float = 0.0
+    context_seconds: float = 0.0
+    inventory_seconds: float = 0.0
 
     @property
     def passed(self) -> bool:
@@ -293,20 +297,27 @@ def check_simulation_inputs(
 
     factory = cast(_ModelFactory, TCF)
     report = PreflightReport(run_count=len(runs))
+    start = time.perf_counter()
     model: _Model = factory(str(tcf.absolute()))
+    report.parse_seconds = time.perf_counter() - start
 
-    # Phase 1: one model parse, all run contexts and event-resolved BC sources.
+    # Phase 1: PyTUFLOW run-state resolution; this can itself access files.
+    # Time it separately from the explicit deduplicated filesystem inventory.
+    start = time.perf_counter()
     references, unique_paths = _collect_references(tcf.absolute(), runs, model, report)
+    report.context_seconds = time.perf_counter() - start
 
     # Phase 2: stat or list only distinct required paths, with one GeoPackage
     # query per database for all of its requested layers.
     if not check_gpkg_layers:
         unique_paths = {path: set[str]() for path in unique_paths}
+    start = time.perf_counter()
     inventory = check_unique_dependencies(
         unique_paths,
         scan_threshold=directory_scan_threshold,
         maximum_directory_entries=maximum_directory_entries,
     )
+    report.inventory_seconds = time.perf_counter() - start
     report.checked_paths.update(str(path) for path in unique_paths)
     report.directories_scanned = inventory.directories_scanned
     report.individually_checked = inventory.individually_checked
@@ -335,12 +346,16 @@ def check_simulation_inputs(
             )
 
     logger.info(
-        "Preflight: {} runs, {} unique input files, {} directory scans, {} direct checks, {} issues across {} runs",
+        "Preflight: {} runs, {} unique files, {} scans, {} direct checks, {} issues across {} runs; "
+        "PyTUFLOW parse {:.2f}s, contexts {:.2f}s, inventory {:.2f}s",
         report.run_count,
         len(report.checked_paths),
         report.directories_scanned,
         report.individually_checked,
         len(report.issues),
         report.affected_runs,
+        report.parse_seconds,
+        report.context_seconds,
+        report.inventory_seconds,
     )
     return report
