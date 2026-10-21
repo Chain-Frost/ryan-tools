@@ -82,7 +82,7 @@ def test_synthetic_rorb_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 def test_score_archived_output_without_rorb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Archived reports can be checked even when Windows denies RORB_CMD launch."""
     archived = tmp_path / "historic.out"
-    archived.write_text("Inc Time Hyd001 Hyd002\\n1 0 1 2\\n2 1 4 3\\n".replace("\\n", "\n"))
+    archived.write_text("Inc Time Hyd001 Hyd002\n1 0 1 2\n2 1 4 3\n")
 
     def prohibited_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
         raise AssertionError("Offline scoring must not launch RORB_CMD")
@@ -138,3 +138,4 @@ def test_archived_csv_time_mismatch_rejected(tmp_path: Path) -> None:
             "--observed-csv", str(observed), "--output", str(tmp_path / "analysis"),
         ]
     ) == 1
+    assert not (tmp_path / "analysis").exists()
