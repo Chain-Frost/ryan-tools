@@ -82,6 +82,43 @@ def _run_installed_wrapper(
     )
 
 
+def _check_installed_po_labels(expected_root: Path, work: Path) -> None:
+    """Exercise a copied wheel's PO label CLI with disposable SQLite records."""
+    # Exercise a pure-stdlib GIS-labelled wrapper from the installed wheel,
+    # without relying on a source checkout or proprietary project data.
+    # This is deliberately a SQLite/GPKG-like fixture, not GDAL acceptance.
+    po_source = work / "2d_po_wheel_café.gpkg"
+    with sqlite3.connect(po_source) as connection:
+        connection.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
+        connection.execute("INSERT INTO gpkg_contents VALUES ('2d_po_wheel', 'features')")
+        connection.execute('CREATE TABLE "2d_po_wheel" (fid INTEGER PRIMARY KEY, Label TEXT, Comment TEXT)')
+        connection.execute(
+            'INSERT INTO "2d_po_wheel" VALUES (?, ?, ?)',
+            (1, "PO_Installed", "wheel fixture"),
+        )
+    unchanged = po_source.read_bytes()
+    po_result = _run_installed_wrapper(
+        "TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py",
+        work,
+        expected_root,
+        str(po_source),
+        "--layer",
+        "2d_po_wheel",
+    )
+    po_output = po_source.with_suffix(".txt")
+    if po_result.returncode != 0 or not po_output.is_file():
+        msg = f"Wheel-installed 2d_po label export failed: {(po_result.stdout + po_result.stderr)[-1000:]}"
+        raise RuntimeError(msg)
+    text_output = po_output.read_text(encoding="utf-8")
+    if "'PO_Installed'," not in text_output or "# wheel fixture" not in text_output:
+        msg = "Wheel-installed 2d_po label export had unexpected records."
+        raise RuntimeError(msg)
+    if po_source.read_bytes() != unchanged:
+        msg = "Wheel-installed 2d_po label export modified its input."
+        raise RuntimeError(msg)
+
+
+
 def _check_installed_wrapper_behaviour(expected_root: Path) -> None:
     """Run nondestructive CLI/output/exit checks on wrappers copied from the *installed wheel*."""
     with TemporaryDirectory(prefix="ryan-tools-wheel-behaviour-") as temporary:
@@ -158,38 +195,7 @@ def _check_installed_wrapper_behaviour(expected_root: Path) -> None:
             msg = "Wheel-installed recursive listing has missing source paths."
             raise RuntimeError(msg)
 
-        # Exercise a pure-stdlib GIS-labelled wrapper from the installed wheel,
-        # without relying on a source checkout or proprietary project data.
-        # This is deliberately a SQLite/GPKG-like fixture, not GDAL acceptance.
-        po_source = work / "2d_po_wheel_café.gpkg"
-        with sqlite3.connect(po_source) as connection:
-            connection.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
-            connection.execute("INSERT INTO gpkg_contents VALUES ('2d_po_wheel', 'features')")
-            connection.execute('CREATE TABLE "2d_po_wheel" (fid INTEGER PRIMARY KEY, Label TEXT, Comment TEXT)')
-            connection.execute(
-                'INSERT INTO "2d_po_wheel" VALUES (?, ?, ?)',
-                (1, "PO_Installed", "wheel fixture"),
-            )
-        unchanged = po_source.read_bytes()
-        po_result = _run_installed_wrapper(
-            "TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py",
-            work,
-            expected_root,
-            str(po_source),
-            "--layer",
-            "2d_po_wheel",
-        )
-        po_output = po_source.with_suffix(".txt")
-        if po_result.returncode != 0 or not po_output.is_file():
-            msg = f"Wheel-installed 2d_po label export failed: {(po_result.stdout + po_result.stderr)[-1000:]}"
-            raise RuntimeError(msg)
-        text_output = po_output.read_text(encoding="utf-8")
-        if "'PO_Installed'," not in text_output or "# wheel fixture" not in text_output:
-            msg = "Wheel-installed 2d_po label export had unexpected records."
-            raise RuntimeError(msg)
-        if po_source.read_bytes() != unchanged:
-            msg = "Wheel-installed 2d_po label export modified its input."
-            raise RuntimeError(msg)
+        _check_installed_po_labels(expected_root, work)
 
         print("Wheel-only wrapper behaviour passed: help, CSV, invalid input exit, file listing, 2d_po labels.")
 
