@@ -286,7 +286,7 @@ def check_simulation_inputs(
         message = "No simulations were supplied for input preflight"
         raise ValueError(message)
     try:
-        from pytuflow import TCF
+        from pytuflow import TCF  # pyright: ignore[reportMissingTypeStubs] - PyTUFLOW 1.2 lacks stubs
     except ImportError as exc:
         message = "PyTUFLOW is missing; reinstall with: python -m pip install --upgrade ryan-tools"
         raise RuntimeError(message) from exc
@@ -301,7 +301,7 @@ def check_simulation_inputs(
     # Phase 2: stat or list only distinct required paths, with one GeoPackage
     # query per database for all of its requested layers.
     if not check_gpkg_layers:
-        unique_paths = {path: set() for path in unique_paths}
+        unique_paths = {path: set[str]() for path in unique_paths}
     inventory = check_unique_dependencies(
         unique_paths,
         scan_threshold=directory_scan_threshold,
