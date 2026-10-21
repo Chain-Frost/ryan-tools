@@ -140,7 +140,36 @@ qgis_process --version
 
 Expected: version/provenance evidence for GDAL/OGR/QGIS 4, TUFLOW, HY-8. `Get-Command` and `Test-Path` detect paths only; `VersionInfo` can be blank. HY-8/TUFLOW binaries are **not invoked** by this section. Run the GDAL commands in the relevant OSGeo4W/QGIS shell if the standard shell lacks them; record which Python interpreter and DLL path were used. QGIS 4 Python plugin validation must be performed within QGIS 4's own Python environment (not assumed compatible with the user's standard Python 3.14).
 
-## 7. External functional acceptance (authorised disposable copies only)
+## 7. Opt-in real GDAL/OGR subprocess acceptance
+
+This is an executable-backed test, unlike the mocked file-path probes above.
+It creates a six-cell ASCII DEM and two-feature GeoJSON in pytest temporary
+directories with spaces and Unicode filenames. With the actual GDAL/OGR programs
+available, it converts the raster to GeoTIFF, clips vector features, checks
+the data/NoData values and feature count, then deliberately supplies missing
+inputs and asserts non-zero exits and preserved input bytes.
+
+**Run only in the intended QGIS 4/OSGeo4W shell on a disposable test machine.**
+Nothing runs unless the environment flag is set.
+
+```powershell
+$env:RYAN_CF_GDAL_ACCEPTANCE = '1'
+# Optional if these binaries are not on PATH:
+# $env:RYAN_CF_GDAL_BIN_DIR = 'C:\OSGeo4W\bin'
+python -m pytest -q tests/mcp/test_real_gdal_acceptance.py -rs
+Remove-Item Env:RYAN_CF_GDAL_ACCEPTANCE
+Remove-Item Env:RYAN_CF_GDAL_BIN_DIR -ErrorAction SilentlyContinue
+```
+
+Expected: **2 real-tool tests passed**, no skipped tests after opt-in.
+A missing configured GDAL/OGR executable is a test failure, not a skip.
+Keep `-rs` output, the active PATH and GDAL/OGR versions as acceptance evidence.
+A successful test establishes only these synthetic GDAL/OGR operations; it
+does not establish QGIS 4 desktop plugin, TUFLOW, HY-8, large-file or network
+storage acceptance. Run the same tests with `TMP`/`TEMP` directed to a
+dedicated network-share scratch directory only when the share is authorised.
+
+## 8. External functional acceptance (authorised disposable copies only)
 
 | Tool | Acceptance action | Evidence / failure criteria |
 | --- | --- | --- |
@@ -160,7 +189,7 @@ For each external tool also deliberately test missing executable, invalid input,
 | Python 3.13 and 3.14 focused checks | Pending respective interpreters | Versions and pytest/Ruff/Pyright output |
 | SSD spaces, Unicode, long paths | Pending Windows run | Path names, hashes, return codes |
 | Mapped and UNC share | Pending authorised share | Root paths (redact sensitive information), timings, hashes |
-| QGIS 4 and GDAL/OGR | Pending real app | Versions, smoke fixtures, outputs |
+| QGIS 4 and GDAL/OGR | Pending opt-in real-tool test | Versioned binaries and two synthetic tests from Section 7 |
 | TUFLOW and HY-8 | Pending licensed real app | Baselines, complete logs, numerical comparisons |
 | Data preservation under failure | Synthetic tests only | Real tool failure hashes still pending |
 
