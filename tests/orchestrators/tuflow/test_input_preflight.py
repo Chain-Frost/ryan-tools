@@ -870,8 +870,14 @@ def test_real_deferred_nested_control_dependencies_are_not_silently_omitted(tmp_
     from rasterio.transform import from_origin
 
     with rasterio.open(
-        tmp_path / "terrain.tif", "w", driver="GTiff", width=1,
-        height=1, count=1, dtype="float32", transform=from_origin(0, 1, 1, 1),
+        tmp_path / "terrain.tif",
+        "w",
+        driver="GTiff",
+        width=1,
+        height=1,
+        count=1,
+        dtype="float32",
+        transform=from_origin(0, 1, 1, 1),
     ) as dataset:
         dataset.write(np.ones((1, 1), dtype=np.float32), 1)
     (tmp_path / children[0]).write_text(
