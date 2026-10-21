@@ -958,16 +958,16 @@ def test_deferred_network_attribute_files_are_scanned_once_for_440_runs(
     assert all("section.csv" in issue.reference for issue in missing.issues)
 
 
-def test_deferred_q_curve_ids_resolve_through_pit_database_without_false_paths(
+def test_deferred_q_curve_ids_resolve_through_depth_discharge_without_false_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Repeated Q channel identifiers yield one cached CSV lookup, not fake paths."""
     tcf = tmp_path / "model.tcf"
     tcf.touch()
     gpkg = tmp_path / "1d_nwk_q.gpkg"
-    pit_database = tmp_path / "pit_inlet.csv"
+    depth_database = tmp_path / "depth_discharge.csv"
     (tmp_path / "curve_source.csv").touch()
-    pit_database.write_text(
+    depth_database.write_text(
         "Name,Source,Column 1,Column 2\nKerb_A,curve_source.csv,Depth,Flow\n",
         encoding="utf-8",
     )
@@ -1008,7 +1008,7 @@ def test_deferred_q_curve_ids_resolve_through_pit_database_without_false_paths(
         def find_input(self, lhs: str | None = None) -> list[Input]:
             inputs = [
                 Input("Read GIS Network", gpkg, "1d_nwk_q", None),
-                Input("Pit Inlet Database", pit_database, None, "pit_inlet"),
+                Input("Depth Discharge Database", depth_database, None, "depth_discharge"),
             ]
             return [item for item in inputs if item.lhs.casefold() == lhs.casefold()] if lhs else inputs
 
@@ -1028,10 +1028,10 @@ def test_deferred_q_curve_ids_resolve_through_pit_database_without_false_paths(
     report = check_simulation_inputs(tcf, runs)
     assert report.passed, report.issues
     assert report.attribute_databases_scanned == 1
-    assert report.checked_paths == {str(gpkg), str(pit_database), str(tmp_path / "curve_source.csv")}
+    assert report.checked_paths == {str(gpkg), str(depth_database), str(tmp_path / "curve_source.csv")}
     assert all("Kerb_A" not in item for item in report.checked_paths)
 
-    pit_database.write_text("Name,Source\nOther,other.csv\n", encoding="utf-8")
+    depth_database.write_text("Name,Source\nOther,other.csv\n", encoding="utf-8")
     missing = check_simulation_inputs(tcf, runs)
     assert not missing.passed
     assert missing.affected_runs == 3
