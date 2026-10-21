@@ -29,9 +29,7 @@ def test_executable_location_is_not_readiness(program: str, tmp_path: Path) -> N
     assert fake.read_bytes() == b"synthetic file, not a runnable application"
 
 
-def test_missing_configured_executable_does_not_fall_back_to_path(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_missing_configured_executable_does_not_fall_back_to_path(tmp_path: Path) -> None:
     not_installed = tmp_path / "Missing HY-8.exe"
 
     def do_not_search(_program: str) -> str | None:
