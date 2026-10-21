@@ -61,7 +61,7 @@ def get_parameters() -> Parameters:
         pending_head_rows=10,
         pending_tail_rows=10,
         write_results_csv=True,
-        preflight_check=False,  # Validate exact run inputs before launch (requires optional PyTUFLOW)
+        preflight_check=False,  # Validate exact run inputs before launch (PyTUFLOW installed with ryan-tools)
         preflight_check_gpkg_layers=True,
         preflight_report_csv=Path("run_tuflow_simulations_preflight.csv"),
     )

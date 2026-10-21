@@ -3,7 +3,7 @@ r"""Check every required TUFLOW input for a proposed set of runs, without runnin
 Configure DEFAULT_TCF and DEFAULT_COMMANDS near the top, or override them:
     python check_tuflow_inputs.py --tcf "runs\model_~e1~_~e2~.tcf" --runs run_tuflow_simulations_commands.txt --no-pause
 
-Requires installed ryan-tools and optional PyTUFLOW (pip install pytuflow).
+Requires installed ryan-tools, which includes PyTUFLOW as a normal dependency.
 The commands file should come from run_tuflow_simulations.py and contain the
 exact -e* and -s* combinations planned for execution.
 """

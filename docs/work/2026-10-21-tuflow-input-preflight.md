@@ -13,7 +13,7 @@ In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: exact-head CI a
 
 ## Decisions
 
-- PyTUFLOW is optional, not a required runtime dependency for the whole ryan-tools distribution.
+- PyTUFLOW is a required runtime dependency of ryan-tools, installed with the normal package; no optional extra.
 - Reuse the launcher's exact deduplicated Simulation objects for integrated checks.
 - Extract reusable run-flag parsing into ryan_library, while retaining the launcher scheduling/dashboard logic.
 - Keep checks read-only; write only a finding CSV; fail closed on unresolved references.
@@ -31,7 +31,7 @@ In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: exact-head CI a
 ## Validation and delivery
 
 New focused tests accompany the implementation. GitHub hosted CI and native Windows/PyTUFLOW installation,
-large model performance, optional package extra and actual HPC control file checks remain to be verified.
+large model performance, standard package dependency installation and actual HPC control file checks remain to be verified.
 Do not merge until validation and review are complete.
 
 ## Next action

@@ -21,7 +21,7 @@ IssueStatus = Literal["missing", "unresolved"]
 
 
 class _Input(Protocol):
-    """Minimal read-only input surface used from optional PyTUFLOW."""
+    """Minimal read-only input surface used from PyTUFLOW."""
 
     @property
     def files(self) -> list[Path]: ...
@@ -55,7 +55,7 @@ class _Model(Protocol):
 
 
 class _ModelFactory(Protocol):
-    """Constructor returned dynamically by the optional PyTUFLOW package."""
+    """Constructor returned dynamically by the PyTUFLOW package."""
 
     def __call__(self, path: str) -> _Model: ...
 
@@ -145,7 +145,7 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
 ) -> PreflightReport:
     """Check every active file input and BC source for all proposed runs.
 
-    The PyTUFLOW dependency is optional until invoked. Missing, unparseable or
+    PyTUFLOW is installed with ryan-tools and loaded only when invoked. Missing, unparseable or
     unresolved inputs fail closed and are returned in the report. The model
     control files and input data are never modified.
     """
@@ -158,10 +158,10 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
     try:
         module = import_module("pytuflow")
     except ImportError as exc:
-        message = "PyTUFLOW is required; install with: python -m pip install 'pytuflow>=1.2'"
+        message = "PyTUFLOW is missing; reinstall with: python -m pip install --upgrade ryan-tools"
         raise RuntimeError(message) from exc
 
-    # Import dynamically because PyTUFLOW is an optional extra, not a core requirement.
+    # Import dynamically so workflows not using preflight need not load PyTUFLOW at startup.
     factory = cast(_ModelFactory, module.TCF)
     report = PreflightReport(run_count=len(runs))
     cache: dict[tuple[str, str], bool] = {}

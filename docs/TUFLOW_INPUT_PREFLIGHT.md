@@ -11,12 +11,13 @@ guarantee a successful hydraulic simulation.
 
 ## Install
 
-Install the maintained package and the optional parser library using your normal Python 3.14 installation:
+Install the maintained package using your normal Python 3.14 installation:
 
-    python -m pip install --upgrade "ryan-tools[tuflow-preflight]"
+    python -m pip install --upgrade ryan-tools
 
-The default ryan-tools installation does not install PyTUFLOW. The installed package is required for copied wrappers;
-do not insert checkout paths into sys.path.
+PyTUFLOW is a standard `ryan-tools` dependency and installs automatically, including when using the repository
+`requirements.txt` (`-e .[dev,mcp]`). No separate extra or manual PyTUFLOW installation is needed. The installed
+package is required for copied wrappers; do not insert checkout paths into sys.path.
 
 ## Launcher integration
 
