@@ -133,7 +133,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `hydrology-python/RFFE_Only_v6_standalone.py` | No | No | Source inspected; provisional repository-only alternative client; owner pending | Guarded argparse CLI; no-pause and errors not yet accepted | Standalone Requests/Pandas/Loguru variant; batch HTTP POST and CSV exports; confirm duplication and API security before lifecycle decision |
 | `hydrology-python/aep_ari_conversions.py` | No | No | Source inspected; provisional repository-only pure helper; owner pending | No CLI or `__main__` (library-like); numerical round-trip/domain pytest covers functions, not installed execution | Only math dependency; AEP/ARI formula and invalid finite-domain behavior tested in `test_repository_only_hydrology.py`; hydrological design acceptance pending |
 | `hydrology-python/combine_ifds_v2.py` | No | No | Source inspected; provisional repository-only legacy BOM CSV combiner; owner pending | Guarded `__main__`; no argparse/no-pause or tested exit contract | Reads script-adjacent IFD CSV variants; writes combined AEP lookup CSV; CSV schema and current BOM download parity unverified |
-| `misc-python/heic_to_jpeg.py` | No | No | Not assessed | Not assessed | Not assessed |
+| `misc-python/heic_to_jpeg.py` | No | No | Source inspected; provisional repository-only photo utility; owner pending | Guarded argparse CLI; optional dependency import can raise `SystemExit`; help not portable without `pillow-heif` | Pillow and pillow-heif, multiprocessing and filesystem copies/conversions; default placeholder P: paths; EXIF/GPS integrity and overwrite policy unverified |
 | `misc-python/remove_excel_protection.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `other/PDFXChangeEditorSettings_250206.xces` | No | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
 | `other/audit_qgis_projects.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
@@ -143,15 +143,15 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `pdf-python/ocg_clean_file_alternative.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `pdf-python/pypdf_decrypt.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `pdf-python/remove_pdf_restrictions.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `point-cloud-python/clean_xyz.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `point-cloud-python/clip_las_to_polygon.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `point-cloud-python/parallel-reorder-xyz-updated.py` | No | No | Not assessed | Not assessed | Not assessed |
+| `point-cloud-python/clean_xyz.py` | No | No | Source inspected; keep repository-only until destructive in-place behaviour accepted; owner pending | Guarded argparse CLI with worker options; no validated dry-run/backup or no-pause contract | Atomically replaces affected XYZ files in place; no backup/dry-run; test on copied data before promotion |
+| `point-cloud-python/clip_las_to_polygon.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded argparse CLI; error codes and no-pause contract untested | Fiona/laspy/Shapely/NumPy; clips LAS/LAZ using shapefile, creates outputs and temporary files; uses `.resolve()` default; CRS/chunking need validation |
+| `point-cloud-python/parallel-reorder-xyz-updated.py` | No | No | Source inspected; provisional repository-only project utility; owner pending | Guarded project-default main; no argparse/no-pause or tested exit semantics | Hard-coded working directory; pandas/NumPy/multiprocessing; fills missing XY with -9999 and writes `*_mod.xyz`; grid order/data parity unverified |
 | `powershell/date_to_front_of_msg_v3.ps1` | No | No | Not assessed | Not assessed | Not assessed |
 | `powershell/self-signing.ps1` | No | No | Not assessed | Not assessed | Not assessed |
 | `python-not-polished/hydrograph_extract_rorb_csv-opt2_132.py` | No | No | Source inspected; provisional repository-only project experiment; owner pending | Guarded `main()` followed by blocking Enter prompt; no argparse/no-pause; cannot run headless unchanged | Script-adjacent Opt2 RORB CSV inputs; writes timestamped Excel and plots; filename assumptions and output parity require project-data validation |
-| `raster-python/square_raster_cells.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `raster-python/tif_to_xyz_drop_na_v1.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `raster-python/tif_to_xyz_drop_na_v2.py` | No | No | Not assessed | Not assessed | Not assessed |
+| `raster-python/square_raster_cells.py` | No | No | Source inspected; provisional repository-only bespoke raster utility; owner pending | Guarded main, editable file/cell-size constants; no argparse/no-pause/exit acceptance | Rasterio and ryan_library GDAL reader; changes raster extent while retaining array size; spatial output requires explicit GIS QA |
+| `raster-python/tif_to_xyz_drop_na_v1.py` | No | No | Source inspected; provisional repository-only legacy converter; owner pending | Guarded main, fixed parallel defaults; unconditional Windows shell pause; no headless support | Rasterio/Pandas/NumPy; in-memory raster-to-XYZ CSV and threads; hard-coded working/output folders, output and pause need review |
+| `raster-python/tif_to_xyz_drop_na_v2.py` | No | No | Source inspected; provisional repository-only chunked converter; owner pending | Guarded main, fixed worker defaults; unconditional `pause_console()`; no headless support | Rasterio/NumPy/ryan_library GDAL; chunked XYZ CSV, fixed working/output folders; spatial sampling/nodata output not verified |
 | `repair-folder-permissions.ps1` | No | No | Not assessed | Not assessed | Not assessed |
 | `tuflow/PROJECT_SETUP.md` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
 | `tuflow/find_missing_tlf_runs.py` | Yes | No | Not assessed | Not assessed | Not assessed |
@@ -168,6 +168,16 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `unsorted-python/export_water_level_profile_tables_50m.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-python/plot_water_level_profiles.py` | No | No | Not assessed | Not assessed | Not assessed |
 
+
+## Bounded individual source inspections — point-cloud, raster and image group
+
+Seven additional repository-only sources have been inspected, taking the
+bounded source-inspection tranche to **28 files**. The mutable
+`point-cloud-python/clean_xyz.py` replaces XYZ data without a backup or
+dry-run, the two legacy TIFF-to-XYZ converters pause unconditionally, and
+`misc-python/heic_to_jpeg.py` may raise at import when optional imaging
+dependencies are missing. They remain excluded from wheel/MCP promotion.
+No destructive workflow was executed or approved in this source audit.
 
 ## Bounded individual source inspections — legacy hydrology/RORB group
 
