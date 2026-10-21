@@ -115,8 +115,12 @@ def _load_packaged_workflows() -> tuple[str, str | None, list[WorkflowSpec]]:
 
 
 def _gdal_mutation(raw_mutation: str, *, requires_explicit_approval: bool) -> tuple[CapabilityProfile, MutationKind]:
-    # This GDAL workflow exposes --replace --yes in its scenarios. A
-    # read-only default does not make the whole discoverable workflow safe.
+    # An external process must remain privileged even if its output is new
+    # rather than in-place. Profile controls discovery, not actual execution.
+    if raw_mutation == "executes_external":
+        return CapabilityProfile.PRIVILEGED, MutationKind.EXECUTES_EXTERNAL
+    # Recompression exposes --replace --yes; an audit-only default does
+    # not make the whole catalogue entry safe at create capability.
     if requires_explicit_approval or raw_mutation in {"in_place", "audit_only_unless_explicit_replace"}:
         return CapabilityProfile.PRIVILEGED, MutationKind.IN_PLACE
     if "replace" in raw_mutation:
@@ -151,9 +155,10 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
             continue
 
         raw_mutation: str = str(raw_tool.get("mutation", "creates_outputs"))
-        requires_approval: bool = bool(raw_tool.get("requires_explicit_approval", False)) or (
-            raw_mutation == "audit_only_unless_explicit_replace"
-        )
+        requires_approval: bool = bool(raw_tool.get("requires_explicit_approval", False)) or raw_mutation in {
+            "audit_only_unless_explicit_replace",
+            "executes_external",
+        }
         profile, mutation = _gdal_mutation(raw_mutation, requires_explicit_approval=requires_approval)
         metadata: dict[str, Any] = {
             "defaults": raw_tool.get("defaults", {}),
@@ -162,6 +167,9 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
             "agent_guidance": agent_guidance,
             "scenario_program": script_name,
         }
+        external_program: Any = raw_tool.get("external_program")
+        if isinstance(external_program, str) and external_program.strip():
+            metadata["external_program"] = external_program
         if isinstance(wrapper_versions, Mapping):
             typed_wrapper_versions: Mapping[str, Any] = cast("Mapping[str, Any]", wrapper_versions)
             metadata["catalogue_wrapper_version"] = typed_wrapper_versions.get(script_name)
