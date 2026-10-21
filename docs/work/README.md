@@ -5,10 +5,10 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 ## Open work
 
-| [Vendor simil and PyHMA integration](2026-10-19-vendor-integration.md) | Needs review | ChatGPT | 2026-10-19 | 2026-10-21 | PR #139: verify exact-head CI, review numerical and wheel verification, then obtain maintainer approval. No merge authorised. |
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [TUFLOW proposed-run input preflight](2026-10-21-tuflow-input-preflight.md) | In validation | ChatGPT | 2026-10-21 | Fix output-variable regressions | Exclude output-path variables and support nested output-root expansion, then rerun the 42-run model without a workaround and complete exact-head CI. |
+| [Vendor simil and PyHMA integration](2026-10-19-vendor-integration.md) | Needs review | ChatGPT | 2026-10-19 | 2026-10-21 | PR #139: verify exact-head CI, review numerical and wheel verification, then obtain maintainer approval. No merge authorised. |
+| [TUFLOW proposed-run input preflight](2026-10-21-tuflow-input-preflight.md) | In validation | ChatGPT | 2026-10-21 | Local model validation | Verify bulk GIS attribute and Pit/Depth Discharge Database dependencies on Higginsville runs 1/221/440, then all 440 if matching; rerun original 42-run model unchanged, address Codex review and confirm exact-head CI. No merge until validated. |
 | [Installed scripts and distribution rename](2026-10-18-installed-scripts.md) | Needs review | ChatGPT | 2026-10-18 | 2026-10-19 | Installed MCP 26.10.18.8 passes live stdio checks without checkout override; 37 tests pass. Restart Codex to reload config; review local edits. |
 | [Installed scripts, MCP and pip distribution plan](2026-10-17-installed-scripts-mcp-pip-distribution.md) | In validation (PR #130) | ChatGPT | 2026-10-19 | Exact-head CI | Finish curated script allowlist and copy-helper validation, refresh PR, then review for merge. PRs #118/#119 are independent and not blockers. |
 | [PyPI release automation](2026-10-15-release-automation.md) | Needs review | Unassigned | 2026-10-18 | 2026-10-19 | PR #135 open with skip-release; verify all checks and review feedback on its latest head. No merge authorized. |
