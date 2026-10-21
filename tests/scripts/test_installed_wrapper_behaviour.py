@@ -215,6 +215,7 @@ def test_copied_file_inventory_nonrecursive_excludes_nested_files(tmp_path: Path
     assert [row["filename"] for row in rows] == ["A-001.txt"]
     assert (nested / "B-002.txt").read_bytes() == b"nested"
 
+
 # These wrappers use the shared --working-directory and --no-pause contract.
 # In particular, they should fail before entering their processing orchestrators.
 @pytest.mark.parametrize(
