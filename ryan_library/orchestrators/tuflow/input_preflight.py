@@ -47,6 +47,22 @@ class _DeferredReference(Protocol):
     def requires_database_scan(self) -> bool: ...
 
 
+class _DeferredDatabaseSource(Protocol):
+    """A secondary source resolved by PyTUFLOW's cached database parser."""
+
+    @property
+    def database_path(self) -> Path: ...
+
+    @property
+    def database_kind(self) -> str: ...
+
+    @property
+    def entry_name(self) -> str: ...
+
+    @property
+    def path_pattern(self) -> Path: ...
+
+
 class _Input(Protocol):
     """Minimal read-only input surface used from PyTUFLOW."""
 
@@ -76,6 +92,8 @@ class _Context(Protocol):
     def find_input(self, lhs: str | None = None) -> list[_Input]: ...
 
     def bc_dbase(self) -> _Database | None: ...
+
+    def deferred_database_sources(self) -> tuple[_DeferredDatabaseSource, ...]: ...
 
 
 class _Model(Protocol):
@@ -272,6 +290,11 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                     continue
                 origin = str(inp)
                 if deferred_supported:
+                    # The provisional PyTUFLOW database API owns BC and
+                    # material row classification and event substitutions.
+                    # Older fork builds remain unresolved rather than being
+                    # guessed by this consumer.
+                    database_sources_available = callable(getattr(context, "deferred_database_sources", None))
                     try:
                         for ref in inp.file_references:
                             if ref.unresolved_variables:
@@ -289,7 +312,10 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                                     str(ref.path_pattern),
                                     "GIS attribute-linked dependencies require deferred inspection",
                                 )
-                            if ref.requires_database_scan and _command_name(inp) != "bc database":
+                            if ref.requires_database_scan and not (
+                                database_sources_available
+                                and _command_name(inp) in {"bc database", "read materials file"}
+                            ):
                                 add_issue(
                                     run,
                                     ref.origin,
@@ -328,6 +354,36 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                         add_issue(run, origin, "", f"Could not inspect unresolved input: {exc}")
         except Exception as exc:  # noqa: BLE001 - parser traversal errors fail closed
             add_issue(run, "Control-file traversal", str(tcf), f"Could not read model inputs: {exc}")
+
+        if deferred_supported:
+            # Only invoke this deliberate database materialisation stage after
+            # collecting the syntactic references for this specific run.
+            source_reader = getattr(context, "deferred_database_sources", None)
+            if callable(source_reader):
+                try:
+                    for source in context.deferred_database_sources():
+                        if source.database_kind not in {"bc", "materials"}:
+                            message = f"Unsupported deferred database kind: {source.database_kind}"
+                            raise ValueError(message)
+                        add_file(
+                            run,
+                            source.path_pattern,
+                            f"{source.database_kind} source: {source.entry_name}",
+                            source.database_path.parent,
+                            require_layer=False,
+                            allow_pattern=True,
+                        )
+                except Exception as exc:  # noqa: BLE001 - incomplete databases cannot pass preflight
+                    add_issue(run, "Database sources", str(tcf), f"Could not inspect deferred databases: {exc}")
+            else:
+                # Early versions of the fork defer BC parsing but expose no
+                # supported way to enumerate its event-dependent source rows.
+                try:
+                    if context.find_input(lhs="BC Database"):
+                        add_issue(run, "BC Database", str(tcf), "Deferred BC source API is unavailable")
+                except Exception as exc:  # noqa: BLE001 - fail closed if presence cannot be established
+                    add_issue(run, "BC Database", str(tcf), f"Cannot identify deferred BC database: {exc}")
+            continue
 
         # PyTUFLOW resolves the BC database's event-dependent Source column.
         # Collect the Source values now, but do not stat() the files yet.
