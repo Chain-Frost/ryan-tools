@@ -33,7 +33,7 @@ def test_copy_preserves_source_and_handles_special_names(tmp_path: Path, directo
     source = _source(tmp_path)
     destination = tmp_path / directory_name
     destination.mkdir()
-    copied = copy_wrapper(SCRIPT, destination, scripts_root=source.parents[2])
+    copied = copy_wrapper(SCRIPT, destination, scripts_root=source.parents[1])
     assert copied.read_bytes() == CONTENT
     assert source.read_bytes() == CONTENT
     assert copied.parent == destination.absolute()
@@ -49,7 +49,7 @@ def test_copy_failure_is_non_destructive(tmp_path: Path) -> None:
     before_destination = existing.read_bytes()
 
     with pytest.raises(FileExistsError, match="--overwrite"):
-        copy_wrapper(SCRIPT, destination, scripts_root=source.parents[2])
+        copy_wrapper(SCRIPT, destination, scripts_root=source.parents[1])
     assert source.read_bytes() == before_source
     assert existing.read_bytes() == before_destination
     assert list(destination.iterdir()) == [existing]
@@ -59,7 +59,7 @@ def test_copy_dry_run_does_not_write(tmp_path: Path) -> None:
     source = _source(tmp_path)
     destination = tmp_path / "preview"
     destination.mkdir()
-    copied = copy_wrapper(SCRIPT, destination, scripts_root=source.parents[2], dry_run=True)
+    copied = copy_wrapper(SCRIPT, destination, scripts_root=source.parents[1], dry_run=True)
     assert copied == destination / source.name
     assert list(destination.iterdir()) == []
     assert source.read_bytes() == CONTENT
@@ -94,7 +94,7 @@ def test_opt_in_windows_long_path(tmp_path: Path) -> None:
     while len(str(destination)) < 280:
         destination /= "a_long_unicode_path_測試_0123456789"
     destination.mkdir(parents=True)
-    copied = copy_wrapper(SCRIPT, destination, scripts_root=source.parents[2])
+    copied = copy_wrapper(SCRIPT, destination, scripts_root=source.parents[1])
     assert len(str(copied)) > 260
     assert copied.read_bytes() == CONTENT
     assert source.read_bytes() == CONTENT
@@ -112,11 +112,11 @@ def test_opt_in_network_share_copy(variable: str, tmp_path: Path) -> None:
 
     with tempfile.TemporaryDirectory(prefix="ryan-cf-acceptance-", dir=root) as temporary:
         destination = Path(temporary)
-        copied = copy_wrapper(SCRIPT, destination, scripts_root=source.parents[2])
+        copied = copy_wrapper(SCRIPT, destination, scripts_root=source.parents[1])
         assert copied.read_bytes() == CONTENT
         assert source.read_bytes() == CONTENT
         with pytest.raises(FileExistsError):
-            copy_wrapper(SCRIPT, destination, scripts_root=source.parents[2])
+            copy_wrapper(SCRIPT, destination, scripts_root=source.parents[1])
         assert copied.read_bytes() == CONTENT
         # Path.absolute retains the user-facing mapped drive/UNC spelling.
         assert str(copied).casefold().startswith(str(root.absolute()).casefold())
@@ -129,7 +129,9 @@ def test_executable_discovery_is_non_executing(
     # Finding a program on PATH is not evidence that it launches or is licensed.
     executable = tmp_path / "tool with spaces.exe"
     executable.write_bytes(b"synthetic-not-an-executable")
-    original_which = shutil.which
-    monkeypatch.setattr(shutil, "which", lambda name: str(executable) if name == program else original_which(name))
+    def fake_which(name: str) -> str | None:
+        return str(executable) if name == program else None
+
+    monkeypatch.setattr(shutil, "which", fake_which)
     assert shutil.which(program) == str(executable)
     assert executable.read_bytes() == b"synthetic-not-an-executable"
