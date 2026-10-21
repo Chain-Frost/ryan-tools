@@ -446,10 +446,18 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                         if kind == "soils":
                             message = "Unexpected file source from inline soils database"
                             raise ValueError(message)
+                        if kind in {"pit_inlet", "depth_discharge"}:
+                            # These cached database rows describe *possible*
+                            # curves, not files required by every simulation.
+                            # Only the identifiers found in active GIS features
+                            # are materialised by _materialise_attribute_references.
+                            # Adding all rows here generates false dependencies
+                            # for unused inlet and depth/discharge curves.
+                            continue
                         add_file(
                             run,
                             source.path_pattern,
-                            f"{getattr(source, 'owning_command', '') or kind} source: {source.entry_name}",
+                            f"{kind} source: {source.entry_name}",
                             getattr(source, "owner_control_file", None).parent
                             if getattr(source, "owner_control_file", None)
                             else source.database_path.parent,
