@@ -1331,6 +1331,7 @@ def test_unknown_deferred_database_kind_remains_unresolved(tmp_path: Path, monke
     assert not report.passed
     assert any("Unsupported deferred database materialisation" in issue.detail for issue in report.issues)
 
+
 def test_unused_pit_database_rows_do_not_create_false_file_requirements(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
