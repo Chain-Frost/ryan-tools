@@ -11,6 +11,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import shutil
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -251,3 +252,51 @@ def test_copied_common_cli_rejects_missing_working_directory(relative: str, tmp_
 def test_copied_common_cli_rejects_unknown_option_without_processing(relative: str, tmp_path: Path) -> None:
     result = _run_copied_wrapper(relative, tmp_path, "--not-a-valid-option", "--no-pause")
     assert result.returncode == 2, f"{relative}: {(result.stdout + result.stderr)[-2000:]}"
+
+
+def test_copied_po_label_list_reads_synthetic_sqlite_layer_without_mutating_input(tmp_path: Path) -> None:
+    """The selected PO label script uses a small disposable SQLite/GPKG-like fixture."""
+    gpkg = tmp_path / "2d_po_café.gpkg"
+    with sqlite3.connect(gpkg) as connection:
+        connection.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
+        connection.execute("INSERT INTO gpkg_contents VALUES ('2d_po_example', 'features')")
+        connection.execute('CREATE TABLE "2d_po_example" (fid INTEGER PRIMARY KEY, Label TEXT, Comment TEXT)')
+        connection.executemany(
+            'INSERT INTO "2d_po_example" (fid, Label, Comment) VALUES (?, ?, ?)',
+            [
+                (3, "O'Hare", " name\nwith note "),
+                (1, "PO_01", " upstream "),
+                (2, "  ", "ignored"),
+            ],
+        )
+    original = gpkg.read_bytes()
+    result = _run_copied_wrapper(
+        "TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py",
+        tmp_path,
+        str(gpkg),
+        "--layer",
+        "2d_po_example",
+    )
+    assert result.returncode == 0, (result.stdout + result.stderr)[-2000:]
+    output = gpkg.with_suffix(".txt")
+    assert output.is_file()
+    content = output.read_text(encoding="utf-8")
+    assert "'PO_01'," in content
+    assert '"O\'Hare",' in content
+    assert "# name with note" in content
+    assert "ignored" not in content
+    assert content.index("'PO_01',") < content.index("O'Hare")
+    assert gpkg.read_bytes() == original
+
+
+def test_copied_po_label_list_missing_input_fails_without_creating_files(tmp_path: Path) -> None:
+    """A missing input should return nonzero rather than silently creating a database."""
+    missing = tmp_path / "missing 2d_po.gpkg"
+    result = _run_copied_wrapper(
+        "TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py",
+        tmp_path,
+        str(missing),
+    )
+    assert result.returncode != 0, (result.stdout + result.stderr)[-2000:]
+    assert not missing.exists()
+    assert not missing.with_suffix(".txt").exists()
