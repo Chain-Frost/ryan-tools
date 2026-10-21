@@ -91,13 +91,24 @@ def test_score_archived_output_without_rorb(tmp_path: Path, monkeypatch: pytest.
 
     monkeypatch.setattr(calibration.subprocess, "run", prohibited_run)
     root = tmp_path / "analysis"
-    assert calibration.main(
-        [
-            "--score-output", str(archived),
-            "--sim-column", "Hyd001", "--obs-column", "Hyd002",
-            "--rorb", "missing_RORB_CMD.exe", "--output", str(root), "--no-pause",
-        ]
-    ) == 0
+    assert (
+        calibration.main(
+            [
+                "--score-output",
+                str(archived),
+                "--sim-column",
+                "Hyd001",
+                "--obs-column",
+                "Hyd002",
+                "--rorb",
+                "missing_RORB_CMD.exe",
+                "--output",
+                str(root),
+                "--no-pause",
+            ]
+        )
+        == 0
+    )
     scores = next(root.glob("archived_*/metrics.csv"))
     with scores.open(newline="") as stream:
         record = next(csv.DictReader(stream))
@@ -111,21 +122,28 @@ def test_archived_score_with_measured_flow_csv(tmp_path: Path) -> None:
     archived.write_text("Inc Time Hyd001 Hyd002\n1 0 1 80\n2 1 4 90\n")
     observed = tmp_path / "gauge.csv"
     observed.write_text("Time,Flow\n0,2\n1,3\n")
-    assert calibration.main(
-        [
-            "--score-output", str(archived), "--sim-column", "Hyd001",
-            "--observed-csv", str(observed), "--output", str(tmp_path / "analysis"),
-        ]
-    ) == 0
+    assert (
+        calibration.main(
+            [
+                "--score-output",
+                str(archived),
+                "--sim-column",
+                "Hyd001",
+                "--observed-csv",
+                str(observed),
+                "--output",
+                str(tmp_path / "analysis"),
+            ]
+        )
+        == 0
+    )
 
 
 def test_archived_score_requires_explicit_reference(tmp_path: Path) -> None:
     archived = tmp_path / "historic.out"
     archived.write_text("Inc Time Hyd001 Hyd002\n1 0 1 2\n2 1 3 4\n")
     output = tmp_path / "analysis"
-    assert calibration.main(
-        ["--score-output", str(archived), "--sim-column", "Hyd001", "--output", str(output)]
-    ) == 1
+    assert calibration.main(["--score-output", str(archived), "--sim-column", "Hyd001", "--output", str(output)]) == 1
     assert not output.exists()
 
 
@@ -134,12 +152,21 @@ def test_archived_csv_time_mismatch_rejected(tmp_path: Path) -> None:
     archived.write_text("Inc Time Hyd001 Hyd002\n1 0 1 2\n2 1 4 3\n")
     observed = tmp_path / "gauge.csv"
     observed.write_text("Time,Flow\n0,2\n1.5,3\n")
-    assert calibration.main(
-        [
-            "--score-output", str(archived), "--sim-column", "Hyd001",
-            "--observed-csv", str(observed), "--output", str(tmp_path / "analysis"),
-        ]
-    ) == 1
+    assert (
+        calibration.main(
+            [
+                "--score-output",
+                str(archived),
+                "--sim-column",
+                "Hyd001",
+                "--observed-csv",
+                str(observed),
+                "--output",
+                str(tmp_path / "analysis"),
+            ]
+        )
+        == 1
+    )
     assert not (tmp_path / "analysis").exists()
 
 
@@ -147,10 +174,21 @@ def test_archived_score_dry_run_has_no_filesystem_side_effects(tmp_path: Path) -
     archived = tmp_path / "historic.out"
     archived.write_text("Inc Time Hyd001 Hyd002\n1 0 1 2\n2 1 4 3\n")
     target = tmp_path / "analysis"
-    assert calibration.main(
-        [
-            "--score-output", str(archived), "--sim-column", "Hyd001",
-            "--obs-column", "Hyd002", "--dry-run", "--plots", "--output", str(target),
-        ]
-    ) == 0
+    assert (
+        calibration.main(
+            [
+                "--score-output",
+                str(archived),
+                "--sim-column",
+                "Hyd001",
+                "--obs-column",
+                "Hyd002",
+                "--dry-run",
+                "--plots",
+                "--output",
+                str(target),
+            ]
+        )
+        == 0
+    )
     assert not target.exists()
