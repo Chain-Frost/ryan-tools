@@ -13,11 +13,13 @@ import os
 import re
 import sqlite3
 from collections import defaultdict
-from collections.abc import Collection
+from collections.abc import Collection, Iterable, Sequence
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+import shapefile
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +83,97 @@ def _attribute_file_paths(value: str, *, network_m: bool, parent: Path) -> tuple
     return tuple(paths)
 
 
+def _scan_file_reference_rows(  # noqa: C901 - common TUFLOW network/pit rules for all GIS storage formats
+    rows: Iterable[Sequence[object]],
+    *,
+    layer: str,
+    geometry_type: str,
+    parent: Path,
+) -> tuple[tuple[Path, ...], tuple[str, ...]]:
+    """Interpret selected attributes identically for Shapefiles and GeoPackages.
+
+    Provider readers own field positioning, file opening and geometry metadata.
+    This function alone owns TUFLOW channel-type and ignore-flag semantics.
+    """
+    network = bool(re.match(r"^1d_nwk[eb]?_", layer, flags=re.IGNORECASE))
+    pit = bool(re.match(r"^1d_pit_", layer, flags=re.IGNORECASE))
+    if network and geometry_type.casefold() not in {"linestring", "multilinestring"}:
+        if geometry_type.casefold() != "geometry":
+            return (), ()  # Known non-line geometries cannot contain line channels.
+        message = "Mixed or unknown network geometry requires feature-level inspection"
+        raise ValueError(message)
+
+    sources: set[Path] = set()
+    database_identifiers: set[str] = set()
+    for row in rows:
+        value = row[-1]
+        if network and isinstance(row[1], str) and row[1].strip().casefold() in {"y", "t"}:
+            continue
+        kind = row[0].strip().upper() if (network or pit) and isinstance(row[0], str) else ""
+        if value is None or value == "":
+            if (network and kind in {"M", "Q", "QO", "P"}) or (pit and kind in {"Q", "VPI", "I"}):
+                message = f"Required inlet matrix or curve identifier is blank in {layer}"
+                raise ValueError(message)
+            continue
+        if not isinstance(value, str):
+            message = f"Non-text GIS file-reference attribute in {layer}"
+            raise ValueError(message)
+        if network:
+            if kind in {"Q", "P"}:
+                database_identifiers.add(value.strip())
+                continue
+            if kind == "QO":
+                if "|" not in value:
+                    message = f"QO channel lacks control ID and matrix file delimiter in {layer}"
+                    raise ValueError(message)
+                sources.update(_attribute_file_paths(value, network_m=False, parent=parent))
+                continue
+            if kind != "M":
+                # Other channels use Inlet_Type for control names or unused
+                # values. They are not direct file paths.
+                continue
+        elif pit:
+            if kind in {"Q", "VPI", "I"}:
+                database_identifiers.add(value.strip())
+            # Other pit types do not use Inlet_Type to reference a file.
+            continue
+        sources.update(_attribute_file_paths(value, network_m=network, parent=parent))
+    return tuple(sorted(sources)), tuple(sorted(database_identifiers))
+
+
+def _scan_shapefile(path: Path) -> tuple[tuple[Path, ...], tuple[str, ...]]:
+    """Read only Shapefile DBF attributes; inspect SHP geometry from its header.
+
+    pyshp's iterRecords() reads DBF rows, not feature geometries. The single
+    Shapefile stem is its logical layer, mirroring GeoPackage layer naming.
+    """
+    with closing(shapefile.Reader(str(path))) as reader:
+        layer = path.stem
+        index = _file_field_index(layer)
+        if index is None:
+            message = f"Unsupported GIS attribute-linked layer type: {layer}"
+            raise ValueError(message)
+        fields = reader.fields[1:]  # Omit the DBF deletion flag.
+        if len(fields) <= index or (re.match(r"^1d_(nwk[eb]?|pit)_", layer, flags=re.IGNORECASE) and len(fields) <= 2):
+            message = f"Required file-reference attribute index {index} absent from {layer}"
+            raise ValueError(message)
+        network = bool(re.match(r"^1d_nwk[eb]?_", layer, flags=re.IGNORECASE))
+        pit = bool(re.match(r"^1d_pit_", layer, flags=re.IGNORECASE))
+        if reader.shapeType in {shapefile.POLYLINE, shapefile.POLYLINEM, shapefile.POLYLINEZ}:
+            geometry_type = "LINESTRING"
+        elif reader.shapeType == shapefile.NULL:
+            geometry_type = "GEOMETRY"
+        else:
+            geometry_type = "OTHER"
+        if network:
+            selected = ((record[1], record[2], record[index]) for record in reader.iterRecords())
+        elif pit:
+            selected = ((record[1], record[index]) for record in reader.iterRecords())
+        else:
+            selected = ((record[index],) for record in reader.iterRecords())
+        return _scan_file_reference_rows(selected, layer=layer, geometry_type=geometry_type, parent=path.parent)
+
+
 def _scan_layer(  # noqa: C901 - safety-critical channel classification
     connection: sqlite3.Connection, layer: str, geometry_type: str, path: Path
 ) -> tuple[tuple[Path, ...], tuple[str, ...]]:
@@ -130,43 +223,9 @@ def _scan_layer(  # noqa: C901 - safety-critical channel classification
     else:
         sql = f"SELECT {field} FROM {quoted}"  # noqa: S608
 
-    sources: set[Path] = set()
-    database_identifiers: set[str] = set()
-    for row in connection.execute(sql):
-        value = row[-1]
-        if network and isinstance(row[1], str) and row[1].strip().casefold() in {"y", "t"}:
-            continue
-        kind = row[0].strip().upper() if (network or pit) and isinstance(row[0], str) else ""
-        if value is None or value == "":
-            if (network and kind in {"M", "Q", "QO", "P"}) or (pit and kind in {"Q", "VPI", "I"}):
-                message = f"Required inlet matrix or curve identifier is blank in {layer}"
-                raise ValueError(message)
-            continue
-        if not isinstance(value, str):
-            message = f"Non-text GIS file-reference attribute in {layer}"
-            raise ValueError(message)
-        if network:
-            if kind in {"Q", "P"}:
-                database_identifiers.add(value.strip())
-                continue
-            if kind == "QO":
-                if "|" not in value:
-                    message = f"QO channel lacks control ID and matrix file delimiter in {layer}"
-                    raise ValueError(message)
-                sources.update(_attribute_file_paths(value, network_m=False, parent=path.parent))
-                continue
-            if kind != "M":
-                # Other channels use Inlet_Type for control names or unused
-                # values. They are not direct file paths.
-                continue
-        elif pit:
-            if kind in {"Q", "VPI", "I"}:
-                database_identifiers.add(value.strip())
-            # Other pit types do not use Inlet_Type to reference a file.
-            continue
-        sources.update(_attribute_file_paths(value, network_m=network, parent=path.parent))
-    return tuple(sorted(sources)), tuple(sorted(database_identifiers))
-
+    return _scan_file_reference_rows(
+        connection.execute(sql), layer=layer, geometry_type=geometry_type, parent=path.parent
+    )
 
 def read_pit_inlet_database(path: Path) -> dict[str, Path]:
     """Map depth-discharge curve names to Source CSVs using the TUFLOW schema.
@@ -203,9 +262,9 @@ def read_pit_inlet_database(path: Path) -> dict[str, Path]:
 def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspection and error routing
     requests: Collection[tuple[Path, str]],
 ) -> tuple[dict[tuple[Path, str], AttributeInspection], int]:
-    """Scan distinct GeoPackage/layer patterns, one read-only open per GeoPackage.
+    """Scan distinct GIS files and layer selectors, one read-only open per source.
 
-    A wildcard or 'all' layer selector is expanded from gpkg_contents and all
+    A wildcard or 'all' selector is matched against each provider's layers. All
     matched layers are inspected. Any unknown layer or schema fails closed.
     """
     grouped: dict[Path, set[str]] = defaultdict(set)
@@ -215,10 +274,34 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
     results: dict[tuple[Path, str], AttributeInspection] = {}
     connections = 0
     for path, selectors in grouped.items():
+        if path.suffix.casefold() == ".shp":
+            # One DBF scan per physical Shapefile, regardless of run count
+            # or how many selectors refer to its single logical layer.
+            selected = [
+                selector
+                for selector in selectors
+                if not selector or selector.casefold() == "all" or fnmatch.fnmatchcase(path.stem.casefold(), selector.casefold())
+            ]
+            for selector in selectors - set(selected):
+                results[(path, selector)] = AttributeInspection(
+                    "unresolved", detail=f"Shapefile layer {path.stem!r} does not match selector {selector!r}"
+                )
+            if selected:
+                try:
+                    sources, identifiers = _scan_shapefile(path)
+                    connections += 1
+                    for selector in selected:
+                        results[(path, selector)] = AttributeInspection("present", sources, identifiers)
+                except (OSError, ValueError, UnicodeError, shapefile.ShapefileException) as exc:
+                    for selector in selected:
+                        results[(path, selector)] = AttributeInspection(
+                            "unresolved", detail=f"Cannot inspect Shapefile attributes: {exc}"
+                        )
+            continue
         if path.suffix.casefold() != ".gpkg":
             for selector in selectors:
                 results[(path, selector)] = AttributeInspection(
-                    "unresolved", detail="GIS attribute scan currently supports GeoPackage sources only"
+                    "unresolved", detail=f"GIS attribute scan does not support {path.suffix or 'unknown'} sources"
                 )
             continue
         try:
