@@ -115,7 +115,7 @@ API provides `deferred_database_sources()` with event-resolved secondary
 rather than rebuilding eager per-run database contexts. The ryan-tools
 consumer uses the new method when present, leaves older forks fail-closed
 and keeps all resulting source files in the shared deduplicated inventory.
-The validation workflow is pinned to `071dcd74246abeec4c248066eac89692751952b8`.
+The validation workflow is pinned to `35e70ad0c086cd7ae04c49e8e2363ec543c8706b`.
 Python tests now cover per-run BC source differences, numeric-only material
 databases, unavailable API behaviour, Windows-legal literal wildcard-like
 folder names, and an opt-in real-fork end-to-end fixture.
