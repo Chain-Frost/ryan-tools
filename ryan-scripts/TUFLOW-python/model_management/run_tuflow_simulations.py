@@ -1673,8 +1673,7 @@ def main() -> None:
             report_path,
         )
         logging.info(
-            "Preflight timing: PyTUFLOW parse %.2fs, run-context resolution %.2fs, "
-            "deduplicated file inventory %.2fs",
+            "Preflight timing: PyTUFLOW parse %.2fs, run-context resolution %.2fs, deduplicated file inventory %.2fs",
             report.parse_seconds,
             report.context_seconds,
             report.inventory_seconds,
