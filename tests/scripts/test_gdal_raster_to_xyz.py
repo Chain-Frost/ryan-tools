@@ -69,9 +69,7 @@ def test_staged_overwrite_preserves_old_output_on_promotion_failure(
     assert not staged.exists()
 
 
-def test_staged_overwrite_promotes_successful_conversion(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_staged_overwrite_promotes_successful_conversion(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Once staging succeeds, the new result atomically replaces the old bytes."""
     source = tmp_path / "terrain.tif"
     source.write_bytes(b"source")
