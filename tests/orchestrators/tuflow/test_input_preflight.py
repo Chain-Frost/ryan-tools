@@ -1330,3 +1330,93 @@ def test_unknown_deferred_database_kind_remains_unresolved(tmp_path: Path, monke
     report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "A"})])
     assert not report.passed
     assert any("Unsupported deferred database materialisation" in issue.detail for issue in report.issues)
+
+
+
+def test_unused_pit_database_rows_do_not_create_false_file_requirements(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only active GIS pit identifiers materialise curve Source files."""
+    import shapefile
+
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    pit_database = tmp_path / "pit_inlets.csv"
+    pit_database.write_text(
+        "Name,Source\nAA,active_curve.csv\nBB,unused_curve.csv\n",
+        encoding="utf-8",
+    )
+    active = tmp_path / "active_curve.csv"
+    active.touch()
+    shp = tmp_path / "1d_pit_example.shp"
+    with shapefile.Writer(str(shp), shapeType=shapefile.POINT) as writer:
+        for i in range(4):
+            writer.field(f"attr_{i}", "C", size=80)
+        writer.null()
+        writer.record("p1", "Q", "", "AA")
+
+    class Input:
+        def __init__(self, lhs: str, path: Path, kind: str | None, scan: bool) -> None:
+            self.lhs = lhs
+            self.file_references = (
+                types.SimpleNamespace(
+                    path_pattern=path,
+                    base_directory=tmp_path,
+                    origin=lhs,
+                    layer_pattern=None,
+                    unresolved_variables=(),
+                    requires_attribute_scan=scan,
+                    requires_database_scan=kind is not None,
+                    database_kind=kind,
+                ),
+            )
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            inputs = [
+                Input("Pit Inlet Database", pit_database, "pit_inlet", False),
+                Input("Read GIS Pit", shp, None, True),
+            ]
+            return [inp for inp in inputs if inp.lhs.casefold() == lhs.casefold()] if lhs else inputs
+
+        def deferred_database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return tuple(
+                types.SimpleNamespace(
+                    database_path=pit_database,
+                    database_kind="pit_inlet",
+                    entry_name=name,
+                    path_pattern=tmp_path / filename,
+                    owning_command="Pit Inlet Database",
+                    owner_control_file=tcf,
+                    layer_pattern=None,
+                    requires_raster_metadata_scan=False,
+                )
+                for name, filename in (
+                    ("AA", "active_curve.csv"),
+                    ("BB", "unused_curve.csv"),
+                )
+            )
+
+    class Model:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=Model))
+    runs = [RunRequest(1, {"e1": "A"}), RunRequest(2, {"e1": "B"})]
+    report = check_simulation_inputs(tcf, runs)
+    assert report.passed, report.issues
+    assert report.checked_paths == {str(pit_database), str(shp), str(active)}
+    assert report.attribute_databases_scanned == 1
+
+    active.unlink()
+    missing = check_simulation_inputs(tcf, runs)
+    assert not missing.passed
+    assert len(missing.issues) == 2
+    assert all("active_curve.csv" in issue.reference for issue in missing.issues)
