@@ -117,10 +117,10 @@ def _scan_layer(  # noqa: C901 - feature schema, channel and field validation
     second = _quote_identifier(str(attrs[1])) if network else ""
     # Each SQL identifier came from SQLite metadata and was double-quoted by
     # _quote_identifier; values are never interpolated into SQL statements.
-    sql = (  # noqa: S608 - quoted database-sourced identifiers only
-        f"SELECT {second}, {field} FROM {quoted}"
+    sql = (
+        f"SELECT {second}, {field} FROM {quoted}"  # noqa: S608 - identifiers safely double-quoted
         if network
-        else f"SELECT {field} FROM {quoted}"
+        else f"SELECT {field} FROM {quoted}"  # noqa: S608 - identifiers safely double-quoted
     )
     sources: set[Path] = set()
     for row in connection.execute(sql):
