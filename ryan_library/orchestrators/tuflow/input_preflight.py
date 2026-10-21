@@ -220,7 +220,10 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     ) -> None:
         raw = str(getattr(source, "dbpath", source)).strip()
         if (
-            not raw or raw == "." or "<<" in raw or ">>" in raw
+            not raw
+            or raw == "."
+            or "<<" in raw
+            or ">>" in raw
             or (not allow_pattern and any(char in raw for char in "*?["))
         ):
             add_issue(run, origin, raw, "Unexpanded variable, wildcard or unsupported reference")
@@ -255,7 +258,8 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         try:
             context = (
                 model.context(run.arguments, file_resolution="deferred")
-                if deferred_supported else model.context(run.arguments)
+                if deferred_supported
+                else model.context(run.arguments)
             )
         except Exception as exc:  # noqa: BLE001 - parser errors must fail closed
             add_issue(run, "TCF context", str(tcf), f"Could not resolve run: {exc}")
@@ -272,23 +276,33 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                         for ref in inp.file_references:
                             if ref.unresolved_variables:
                                 add_issue(
-                                    run, ref.origin, str(ref.path_pattern),
+                                    run,
+                                    ref.origin,
+                                    str(ref.path_pattern),
                                     f"Unresolved PyTUFLOW variables: {', '.join(ref.unresolved_variables)}",
                                 )
                                 continue
                             if ref.requires_attribute_scan:
                                 add_issue(
-                                    run, ref.origin, str(ref.path_pattern),
+                                    run,
+                                    ref.origin,
+                                    str(ref.path_pattern),
                                     "GIS attribute-linked dependencies require deferred inspection",
                                 )
                             if ref.requires_database_scan and _command_name(inp) != "bc database":
                                 add_issue(
-                                    run, ref.origin, str(ref.path_pattern),
+                                    run,
+                                    ref.origin,
+                                    str(ref.path_pattern),
                                     "Database-linked dependencies require deferred inspection",
                                 )
                             add_file(
-                                run, ref.path_pattern, ref.origin or origin, ref.base_directory,
-                                layer_override=ref.layer_pattern or "", allow_pattern=True,
+                                run,
+                                ref.path_pattern,
+                                ref.origin or origin,
+                                ref.base_directory,
+                                layer_override=ref.layer_pattern or "",
+                                allow_pattern=True,
                             )
                     except Exception as exc:  # noqa: BLE001 - incomplete references must fail closed
                         add_issue(run, origin, "", f"Could not collect deferred file references: {exc}")
@@ -408,7 +422,9 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
                 failure = failures[ref.path]
                 status: IssueStatus = "missing" if failure.status == "missing" else "unresolved"
                 report.issues.append(
-                    PreflightIssue(ref.run.index, ref.run.description, status, ref.origin, str(ref.path), failure.detail)
+                    PreflightIssue(
+                        ref.run.index, ref.run.description, status, ref.origin, str(ref.path), failure.detail
+                    )
                 )
                 continue
             for path in expanded[ref.path]:
