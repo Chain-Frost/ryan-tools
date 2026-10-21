@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+from contextlib import closing
 import importlib.metadata
 import importlib.resources
 import importlib.util
@@ -88,7 +89,7 @@ def _check_installed_po_labels(expected_root: Path, work: Path) -> None:
     # without relying on a source checkout or proprietary project data.
     # This is deliberately a SQLite/GPKG-like fixture, not GDAL acceptance.
     po_source = work / "2d_po_wheel_café.gpkg"
-    with sqlite3.connect(po_source) as connection:
+    with closing(sqlite3.connect(po_source)) as connection:
         connection.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
         connection.execute("INSERT INTO gpkg_contents VALUES ('2d_po_wheel', 'features')")
         connection.execute('CREATE TABLE "2d_po_wheel" (fid INTEGER PRIMARY KEY, Label TEXT, Comment TEXT)')
@@ -96,6 +97,7 @@ def _check_installed_po_labels(expected_root: Path, work: Path) -> None:
             'INSERT INTO "2d_po_wheel" VALUES (?, ?, ?)',
             (1, "PO_Installed", "wheel fixture"),
         )
+        connection.commit()
     unchanged = po_source.read_bytes()
     po_result = _run_installed_wrapper(
         "TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py",
