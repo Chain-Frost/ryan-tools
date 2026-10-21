@@ -351,3 +351,27 @@ def test_class_alias_scope_does_not_corrupt_module_bindings() -> None:
         "import shutil\nclass Container:\n    copier = shutil.copy2\n    copier('a', 'b')\n"
     )
     assert class_body["import_time_mutation_calls"] == ["copy2"]
+
+
+
+def test_individual_lifecycle_ledger_tracks_manifest_and_mcp_targets() -> None:
+    """No tracked source may silently vanish or be mislabeled when manifests change."""
+    report = inventory.audit_repository(ROOT)
+    ledger = (ROOT / "docs" / "audits" / "2026-10-19-installed-scripts-inventory.md").read_text(encoding="utf-8")
+    parsed: dict[str, list[str]] = {}
+    for line in ledger.splitlines():
+        if not line.startswith("| \`"):
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        assert len(cells) == 6, line
+        path = cells[0].strip("\`")
+        assert path not in parsed, f"Duplicate source in audit ledger: {path}"
+        parsed[path] = cells
+
+    expected = {entry["path"]: entry for entry in report["files"]}
+    assert set(parsed) == set(expected), "Ledger must list every tracked source exactly once"
+    for path, entry in expected.items():
+        cells = parsed[path]
+        assert cells[1] == ("Yes" if entry["in_wheel"] else "No"), path
+        assert cells[2] == ("Yes" if entry["mcp_workflow_ids"] else "No"), path
+        assert all(cells[i] for i in (3, 4, 5)), path
