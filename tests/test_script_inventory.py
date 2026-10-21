@@ -178,7 +178,6 @@ def test_nested_import_side_effect_is_not_protected_by_inner_equality() -> None:
     assert record["import_time_mutation_calls"] == ["copy2"]
 
 
-
 def test_function_definition_time_mutations_are_flagged_without_execution() -> None:
     """Defaults, decorators and annotations evaluate before the function runs."""
     expressions = (
@@ -218,10 +217,7 @@ def test_class_definition_time_mutations_are_flagged_without_execution() -> None
         assert report["import_time_mutation_calls"] == ["copy2"], expression
 
     safe = inventory.analyse_python(
-        "import shutil\n"
-        "class Model:\n"
-        "    def method(self):\n"
-        "        shutil.copy2('source', 'destination')\n"
+        "import shutil\nclass Model:\n    def method(self):\n        shutil.copy2('source', 'destination')\n"
     )
     assert safe["import_time_mutation_risk"] is False
 

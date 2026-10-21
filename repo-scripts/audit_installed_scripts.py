@@ -147,6 +147,7 @@ def _import_time_call_names(module: ast.Module) -> list[str]:
     visitor.visit(module)
     return sorted(visitor.names)
 
+
 def _editable_setting_names(module: ast.Module) -> list[str]:
     """Identify editable constants without exposing sensitive configured values."""
     names: set[str] = set()
