@@ -442,12 +442,12 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                         add_file(
                             run,
                             source.path_pattern,
-                            f"{source.owning_command or kind} source: {source.entry_name}",
-                            source.owner_control_file.parent
-                            if source.owner_control_file
+                            f"{getattr(source, 'owning_command', '') or kind} source: {source.entry_name}",
+                            getattr(source, "owner_control_file", None).parent
+                            if getattr(source, "owner_control_file", None)
                             else source.database_path.parent,
                             require_layer=False,
-                            layer_override=source.layer_pattern or "",
+                            layer_override=getattr(source, "layer_pattern", None) or "",
                             allow_pattern=True,
                             database_kind=f"source:{kind}",
                             scan_raster_metadata=getattr(source, "requires_raster_metadata_scan", False),
