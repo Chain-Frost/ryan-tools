@@ -376,6 +376,11 @@ def main(argv: list[str] | None = None) -> int:
                 hma_weight=args.hma_weight,
                 hma_window=args.hma_window,
             )
+            if args.dry_run:
+                print(f"Offline preflight passed: {report_file}")
+                print(f"RMSE: {metrics['rmse']:.6g} | NSE: {metrics['nse']:.6g}")
+                print("No output files created.")
+                return 0
             output_parent = args.output.absolute()
             output_parent.mkdir(parents=True, exist_ok=True)
             archive_root = output_parent / f"archived_{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
