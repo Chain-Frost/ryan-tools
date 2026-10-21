@@ -18,19 +18,19 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 
 | Source path relative to `ryan-scripts/` | In wheel | MCP target | Owner/lifecycle & import audit | CLI/headless/exit audit | Dependencies/mutation/external evidence |
 | --- | --- | --- | --- | --- | --- |
-| `12D-python/generate_culvert_lines.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `12D-python/generate_culvert_polygons.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `12D-python/thin-raster-terrain-for-12D_v5.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `12D-python/tif-to-LAS-valid-only_v6.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `12D-python/tif-to-csv-valid-only_v6.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `12D-python/tif-to-csv-valid-only_v6a.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `AutoCAD-python/dwg-polygons-txt-to-csv.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `AutoCAD-python/dwg-to-points.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `AutoCAD-python/group-by-entity-colour-and-dissolve.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `AutoCAD-python/group-by-entity-colour-and-dissolve3.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `AutoCAD-python/group-by-entity-colour.py` | No | No | Not assessed | Not assessed | Not assessed |
+| `12D-python/generate_culvert_lines.py` | No | No | Source inspected; provisional repository-only; maintainer owner pending | Guarded `main()`; no argparse/help/no-pause or tested exit contract | Hard-coded Q: project CSV; `process_12D_culverts`, GeoPandas/Shapely; writes `culvert_geometries.gpkg` (28350); representative data and output acceptance needed |
+| `12D-python/generate_culvert_polygons.py` | No | No | Source inspected; provisional repository-only; experimental geometry; owner pending | Guarded `main()`; no argparse/help/no-pause or tested exit contract | Hard-coded Q: project CSV; GeoPandas/Shapely; writes two shapefiles into working directory; top-level logger setup; CAD/GIS geometry acceptance needed |
+| `12D-python/thin-raster-terrain-for-12D_v5.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; no argparse/help/no-pause or tested exit contract | Looks for exact `main-section-clip.tif` beside script; writes `thinned-data4` there; Rasterio, NumPy, pandas, multiprocessing; high-volume output not accepted |
+| `12D-python/tif-to-LAS-valid-only_v6.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; no argparse/help/no-pause or tested exit contract | Hard-coded P: network raster source; laspy and shared terrain processor; writes LAS 1.2 tiles or full LAS; scales, coordinates and outputs need acceptance |
+| `12D-python/tif-to-csv-valid-only_v6.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; no argparse/help/no-pause or tested exit contract | Script-adjacent TIFF input/output; writes `csv_processing.log` to working directory; shared terrain processor; configured tiling and outputs unverified |
+| `12D-python/tif-to-csv-valid-only_v6a.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; no argparse/help/no-pause or tested exit contract | Script-adjacent TIFF input/output; 0.001 XYZ rounding; shared terrain processor; output and logging acceptance outstanding |
+| `AutoCAD-python/dwg-polygons-txt-to-csv.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded entry; editable constants, not an argparse CLI; exit/output untested | Hard-coded C: input/output; standard-library text-export parser writes deduplicated XYZ CSV; project format and error handling need test fixtures |
+| `AutoCAD-python/dwg-to-points.py` | No | No | Source inspected; possible general-purpose CLI candidate; maintain repo-only pending tests | Argparse help advertised; `--force` for existing outputs; CLI/output/exit parity not yet tested | ezdxf + pyarrow; DXF mesh to Parquet and optional XYZ; explicit input/output and overwrite contract require disposable-data test |
+| `AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; editable project configuration; no tested help/no-pause or exit contract | ezdxf + Shapely; dissolves entities into hatches and writes DXF; tolerance and CAD geometry require manual review |
+| `AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; editable project configuration; no tested help/no-pause or exit contract | ezdxf/Shapely/Dask distributed; parallel chunk dissolve into hatches; CAD output and worker dependencies unverified |
+| `AutoCAD-python/group-by-entity-colour-and-dissolve.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; hard-coded project invocation; no help/no-pause or tested exit contract | Hard-coded UNC working directory and input/output DXF; ezdxf + Shapely; geometry fidelity and network path unverified |
+| `AutoCAD-python/group-by-entity-colour-and-dissolve3.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; editable project invocation; no help/no-pause or tested exit contract | ezdxf + Shapely; colour-group dissolve with tolerance; CAD geometry and output conditions unverified |
+| `AutoCAD-python/group-by-entity-colour.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; hard-coded project invocation; no help/no-pause or tested exit contract | Hard-coded UNC working directory; ezdxf layer grouping to output DXF; network and CAD fidelity unverified |
 | `GlobalMapper/DXF-to-float_v1.gms` | No | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
 | `README.md` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
 | `RORB-python/RORB-find-closure-durations.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
@@ -168,6 +168,21 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `unsorted-python/export_water_level_profile_tables_50m.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-python/plot_water_level_profiles.py` | No | No | Not assessed | Not assessed | Not assessed |
 
+
+## Bounded individual source inspections — 12D and AutoCAD group
+
+Thirteen **repository-only** Python files (six 12D and seven AutoCAD) have been
+read to establish initial lifecycle evidence in the corresponding ledger rows.
+Their existing exclusion is retained: the majority are project-configured
+utilities without a general-purpose installed CLI; one DXF conversion script
+has an argparse interface but still lacks a tested packaging decision.
+
+This is **source inspection**, not complete A/B acceptance. The named owner,
+original output/default parity, import-time runtime behaviour, headless exit
+semantics and relevant 12d/CAD/GDAL/QGIS integration tests remain unverified.
+No source files were deleted, imported for analysis, or added to the wheel.
+Maintainers should explicitly approve future promotion, retirement or ownership
+changes, particularly for project-specific scripts with fixed network paths.
 
 ## Generate reproducible static evidence
 
