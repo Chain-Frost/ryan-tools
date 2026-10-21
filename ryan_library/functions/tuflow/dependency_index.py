@@ -38,7 +38,6 @@ class FileInventory:
     individually_checked: int
 
 
-
 def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded scan error paths
     patterns: Collection[Path], *, maximum_directory_entries: int = 50000
 ) -> tuple[dict[Path, tuple[Path, ...]], dict[Path, DependencyResult], int]:
@@ -73,7 +72,8 @@ def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded
                             )
                         break
                     matching = [
-                        pattern for pattern in siblings
+                        pattern
+                        for pattern in siblings
                         if fnmatch.fnmatchcase(entry.name.casefold(), pattern.name.casefold())
                     ]
                     if matching:
@@ -81,7 +81,9 @@ def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded
                             is_file = entry.is_file(follow_symlinks=True)
                         except OSError as exc:
                             for pattern in siblings:
-                                failures[pattern] = DependencyResult("unresolved", f"Cannot inspect wildcard match: {exc}")
+                                failures[pattern] = DependencyResult(
+                                    "unresolved", f"Cannot inspect wildcard match: {exc}"
+                                )
                             break
                         if is_file:
                             for pattern in matching:
@@ -163,9 +165,9 @@ def _geopackage_layers(path: Path, layers: Collection[str]) -> dict[str, Depende
         return {layer: DependencyResult("unresolved", f"Cannot inspect GeoPackage layers: {exc}") for layer in layers}
     return {
         layer: DependencyResult("present")
-        if (any(char in layer for char in "*?[") and any(
-            fnmatch.fnmatchcase(name, layer.casefold()) for name in names
-        )) or (layer.casefold() == "all" and bool(names)) or layer.casefold() in names
+        if (any(char in layer for char in "*?[") and any(fnmatch.fnmatchcase(name, layer.casefold()) for name in names))
+        or (layer.casefold() == "all" and bool(names))
+        or layer.casefold() in names
         else DependencyResult("missing", f"GeoPackage layer does not exist: {layer}")
         for layer in layers
     }
