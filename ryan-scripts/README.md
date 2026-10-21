@@ -114,7 +114,7 @@ log messages, prompts, and failures remain visible.
 | `misc-python` | Small maintained utilities that do not belong to a domain-specific workflow. |
 | `pdf-python`, `docx-python` | PDF and Word document utilities. |
 | `point-cloud-python`, `raster-python` | XYZ/LAS and raster conversion or cleanup. |
-| `RORB-python` | RORB rainfall, hydrograph, peak, and closure-period processing. |
+| `RORB-python` | RORB rainfall, hydrograph, peak, closure-period processing and [TUFLOW rainfall-to-STM conversion](RORB-python/README.md). |
 | `TUFLOW-python` | TUFLOW result processing, GIS preparation, copying, and model checks; see its README for maintained-wrapper and shared-CLI conventions. |
 | `tuflow` | Standard TUFLOW project initialization; see the [project setup guide](tuflow/PROJECT_SETUP.md). |
 | `powershell`, `GlobalMapper` | PowerShell helpers and Global Mapper scripts. |
