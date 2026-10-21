@@ -45,7 +45,9 @@ def inspect_raster_metadata(paths: Collection[Path]) -> tuple[dict[Path, Depende
                     results[path] = (
                         DependencyResult("present")
                         if valid
-                        else DependencyResult("unresolved", "Raster subdatasets have no usable grid dimensions or bands")
+                        else DependencyResult(
+                            "unresolved", "Raster subdatasets have no usable grid dimensions or bands"
+                        )
                     )
                 else:
                     results[path] = DependencyResult("unresolved", "Raster has no usable grid dimensions or bands")
