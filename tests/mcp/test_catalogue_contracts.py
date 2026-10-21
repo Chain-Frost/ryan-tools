@@ -132,3 +132,14 @@ def test_default_profile_hides_all_in_place_deleting_and_external_workflows() ->
         item["mutation"] not in {"in_place", "deletes", "executes_external"}
         for item in listing["workflows"]
     )
+
+
+def test_unsafe_legacy_entrypoints_never_advertise_a_help_command() -> None:
+    registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, discover_repository=False)
+    for workflow_id in ("run_tuflow_batch", "delete_duplicate_tuflow_files"):
+        details = registry.get_workflow(workflow_id)
+        assert details["profile"] == "privileged"
+        assert details["requires_explicit_approval"] is True
+        assert details["metadata"]["help_safe"] is False
+    # Neither operation is safe to probe by executing the script with --help.
+    # In a synthetic installed layout it would have no command_prefix at all.
