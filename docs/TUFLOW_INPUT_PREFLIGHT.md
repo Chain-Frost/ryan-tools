@@ -94,13 +94,16 @@ exceeding the scan cap fails closed as unresolved. GeoPackage layer patterns (in
 may require a separate directory scan before the ordinary exact-file inventory;
 they are not yet guaranteed to share one scan.
 
-The validated fork now exposes `deferred_database_sources()`: it uses cached,
-initially parsed BC and materials database rows and PyTUFLOW's event/scenario
-translation to describe secondary source-file patterns. The consumer adds those
-patterns to the shared file inventory, without calling the eager
-`context.bc_dbase()` accessor or `input.files` in deferred mode. Unknown database
-kinds, unavailable APIs and unresolved database rows **fail closed**.
-Numeric-only materials CSVs are no longer unconditionally marked unresolved.
+The upstream supporting fork exposes `deferred_database_sources()`: it uses
+cached, initially parsed hydraulic BC, AD BC, AD Global, materials, soils,
+rainfall, pit/depth-discharge and cross-section database rows with
+event/scenario translation. Their typed secondary path/layer references
+are added to the single bulk inventory. Unknown database kinds, missing
+cached source APIs, ambiguous declarations and unresolved rows still
+**fail closed**, without eager `context.bc_dbase()` or `input.files`
+calls in deferred mode. Numeric materials and supported inline soils
+do not create fictitious filenames. Complete activation-scoped BC
+association still requires validation.
 
 **GIS attribute-linked files (new in PR #143):** after aggregating all contexts,
 the checker scans each distinct file-valued **Shapefile or GeoPackage** source
@@ -116,8 +119,8 @@ separately times this stage and counts distinct GIS-source opens.
 
 **Channel and pit semantics:** In a `1d_nwk` layer, normal `Q` and
 `P` values (and `1d_pit` `Q`/`VPI` identifiers) identify curves in the
-active `Pit Inlet Database` or `Depth Discharge Database`, rather than
-filenames in the GIS folder. The checker resolves those identifiers through
+`Depth Discharge Database` (network Q/P) or `Pit Inlet Database`
+(pit features), rather than filenames in the GIS folder. The checker resolves those identifiers through
 the documented `Name`/`Source` CSV fields and checks the referenced Source
 files, caching each database by path. `QO` checks only the matrix filename
 after its control ID; `M` checks matrix files. `1d_nwk` features with an
@@ -131,8 +134,10 @@ geometry and unexpanded GIS attribute variables remain **unresolved**, not
 passed. Shapefile and GeoPackage field rules intentionally match for the
 same element types, but the synthetic tests do not establish parity for all
 real-world geometries, specialised model files or TUFLOW engine behaviour.
-The example-model sweep must be rerun before claiming the previously
-unsupported 112 Shapefile findings are resolved. The original 440-run Higginsville
+The original shared-attribute Windows sweep eliminated the 112 unsupported
+Shapefile-format findings, but complete parity for supported database
+types, model-specific curve activity and all GIS element schemas remains
+an explicit merge gate. The original 440-run Higginsville
 benchmark established *file/layer parity* before this feature was added, not
 a passing attribute scan. Repeat the local benchmark against the new revision
 and test the separate 42-run output-variable model before merging.
@@ -140,10 +145,17 @@ and test the separate 42-run output-variable model before merging.
 The normal `ryan-tools` package still depends on published `pytuflow>=1.2,<2`.
 When that installation lacks `file_resolution`, the previous eager discovery remains
 available with a warning. For integration validation, the dedicated `.github/workflows/deferred-pytuflow-consumer.yml`
-installs the fork pinned at `1c300a7013522f177de07e68f27f3824a3ba8177`
-on Windows/Python 3.13, sets `RYAN_TEST_DEFERRED_PYTUFLOW=1`, and exercises the
-real API through a gated smoke test. Do not replace the production PyPI dependency
+pins CI-tested supporting PyTUFLOW PR #2 commit
+`336efdea7f9c9d8ca27515284b042f48804f2bac`
+on Windows/Python 3.13, sets `RYAN_TEST_DEFERRED_PYTUFLOW=1` and checks
+typed sources, shared GIS/raster inspection and the full read-only
+example-model diagnostics. Do not replace the production PyPI dependency
 with an unreleased GitHub branch.
+
+The checker separately reports shared GIS attribute and unique raster-metadata
+opens/timings. The raster header phase uses read-only Rasterio/GDAL inspection
+after context construction, never pixel-array reads. Unreadable or invalid
+raster headers are unresolved rather than considered passing.
 
 The checker reports separate timings for initial parse, context/reference collection
 and the shared inventory. Repeat the representative 440-run network-drive test with
@@ -159,7 +171,7 @@ a model context cannot be parsed, the run **fails preflight** rather than being 
 - Full context resolution includes the supplied -e1..-e9 and -s1..-s9 switches and nested control files.
 - Missing event-specific boundary source CSVs are checked from the resolved BC database Source column.
 - GIS databases are checked for existence; when enabled, a referenced GeoPackage layer name must be present.
-- Supported GeoPackage file-valued GIS attributes are scanned once per distinct database/layer and checked across all affected simulations; unsupported cases fail closed.
+- Supported Shapefile and GeoPackage GIS attributes share one TUFLOW element classifier and are scanned once per distinct source/layer across simulations; unsupported cases fail closed.
 - Missing and unresolved dependencies have distinct issue statuses.
 - File wildcard/variable references that cannot be expanded are reported as unresolved.
 - Only files referenced by PyTUFLOW's recognised input commands and BC Source entries are covered. Input files
