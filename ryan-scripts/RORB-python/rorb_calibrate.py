@@ -364,23 +364,35 @@ def main(argv: list[str] | None = None) -> int:
                 if args.observed_csv
                 else None
             )
-            # Check the source file before creating an output directory.
-            parse_hydrographs(report_file)
-            output_parent = args.output.absolute()
-            output_parent.mkdir(parents=True, exist_ok=True)
-            archive_root = output_parent / f"archived_{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
-            archive_root.mkdir()
+            # Score before writing anything, so invalid sources leave no output folder.
             metrics = evaluate_output(
                 report_file,
                 sim_column=args.sim_column,
                 obs_column=args.obs_column,
                 observed=reference,
-                plots=args.plots,
-                plot_path=archive_root / "hydrograph.png",
+                plots=False,
+                plot_path=report_file,
                 hma=args.hma,
                 hma_weight=args.hma_weight,
                 hma_window=args.hma_window,
             )
+            output_parent = args.output.absolute()
+            output_parent.mkdir(parents=True, exist_ok=True)
+            archive_root = output_parent / f"archived_{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
+            archive_root.mkdir()
+            if args.plots:
+                # Repeat the lightweight parsing/scoring for plot creation only.
+                evaluate_output(
+                    report_file,
+                    sim_column=args.sim_column,
+                    obs_column=args.obs_column,
+                    observed=reference,
+                    plots=True,
+                    plot_path=archive_root / "hydrograph.png",
+                    hma=False,
+                    hma_weight=args.hma_weight,
+                    hma_window=args.hma_window,
+                )
             row: dict[str, str | float] = {
                 "source_file": str(report_file),
                 "modelled_column": args.sim_column,
