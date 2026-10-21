@@ -174,7 +174,7 @@ def main() -> int:
     parser.add_argument("--tcf", action="append", help="TCF filename to select; repeat for multiple cases")
     parser.add_argument("--output", type=Path, help="Report directory; default is a new temporary directory")
     options = parser.parse_args()
-    bundle = Path(__file__).absolute().parent
+    bundle = Path(__file__).absolute().parents[2] / "test_data" / "tuflow" / "example_input_preflight"
     print(f"Verified {verify_bundle(bundle)} archive members")
     if options.verify_only:
         return 0
