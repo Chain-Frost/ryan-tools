@@ -19,6 +19,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: false
+      - name: Initialise required test-data submodule
+        run: git submodule update --init tests/test_data
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
