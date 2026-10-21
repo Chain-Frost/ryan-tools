@@ -849,3 +849,32 @@ def test_real_deferred_output_root_variables_do_not_block_preflight(tmp_path: Pa
     report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "Q100"})])
     assert report.passed, report.issues
     assert report.checked_paths == {str(tmp_path / "2d_code.shp")}
+
+
+@pytest.mark.skipif(
+    os.environ.get("RYAN_TEST_DEFERRED_PYTUFLOW") != "1",
+    reason="Nested control-file coverage needs the pinned deferred fork",
+)
+def test_real_deferred_nested_control_dependencies_are_not_silently_omitted(tmp_path: Path) -> None:
+    """Complete nested TGC/TBC/ECF file coverage is a required preflight contract."""
+    tcf = tmp_path / "model.tcf"
+    children = ("geometry.tgc", "boundary.tbc", "pipes.ecf")
+    sources = ("2d_code.shp", "terrain.tif", "2d_bc.shp", "1d_code.shp")
+    for source in sources:
+        (tmp_path / source).touch()
+    (tmp_path / children[0]).write_text(
+        "Read GIS Code == 2d_code.shp\nRead GRID Zpts == terrain.tif\n",
+        encoding="utf-8",
+    )
+    (tmp_path / children[1]).write_text("Read GIS Code == 2d_bc.shp\n", encoding="utf-8")
+    (tmp_path / children[2]).write_text("Read GIS Code == 1d_code.shp\n", encoding="utf-8")
+    tcf.write_text(
+        "Geometry Control File == geometry.tgc\n"
+        "BC Control File == boundary.tbc\n"
+        "ESTRY Control File == pipes.ecf\n",
+        encoding="utf-8",
+    )
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "Q100"})])
+    assert report.passed, report.issues
+    expected_paths = {str(tmp_path / name) for name in (*children, *sources)}
+    assert report.checked_paths == expected_paths
