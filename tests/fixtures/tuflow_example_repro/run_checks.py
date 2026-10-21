@@ -21,8 +21,8 @@ from ryan_library.functions.tuflow.run_flags import extract_flag_pairs
 from ryan_library.orchestrators.tuflow.input_preflight import (
     PreflightReport,
     RunRequest,
-    _FileReference,  # pyright: ignore[reportPrivateUsage] - temporary in-repository diagnostic
     _collect_references,  # pyright: ignore[reportPrivateUsage] - temporary in-repository diagnostic
+    _FileReference,  # pyright: ignore[reportPrivateUsage] - temporary in-repository diagnostic
     _materialise_attribute_references,  # pyright: ignore[reportPrivateUsage] - temporary diagnostic
     check_simulation_inputs,
 )
