@@ -44,3 +44,10 @@ Do not merge until validation and review are complete.
 
 Run exact-head Ruff, formatting, Pyright, focused pytest, wrapper --help, and Windows-based representative
 model checks; address any review comments before requesting merge.
+
+**Performance validation required:** PyTUFLOW retains its initial control-file/BC database build state,
+but each `TCF.context()` creates run-state inputs that can glob the same files and open GIS layers again.
+The two-phase inventory reduces repeated checks *after* context resolution; it does not eliminate
+PyTUFLOW's internal network access. Inspect phase timings on 500 representative runs, and do not claim
+single-pass filesystem I/O until run-state activity is measured or an upstream supported cache is introduced.
+Avoid intrusive monkeypatches of PyTUFLOW's private internals.
