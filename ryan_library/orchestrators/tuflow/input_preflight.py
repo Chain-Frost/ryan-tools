@@ -242,7 +242,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             or raw == "."
             or "<<" in raw
             or ">>" in raw
-            or (not allow_pattern and any(char in raw for char in "*?["))
+            or (not allow_pattern and any(char in Path(raw).name for char in "*?["))
         ):
             add_issue(run, origin, raw, "Unexpanded variable, wildcard or unsupported reference")
             return
@@ -257,7 +257,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         if key not in seen:
             seen.add(key)
             references.append(_FileReference(run, origin, path, layer))
-        if not any(char in str(path) for char in "*?["):
+        if not any(char in path.name for char in "*?["):
             unique.setdefault(path, set())
             if layer:
                 unique[path].add(layer)
@@ -463,7 +463,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
 
     # Expand each distinct wildcard pattern once. A missing, oversized or
     # unsupported directory fails only the runs that reference that pattern.
-    patterns = {ref.path for ref in references if any(char in str(ref.path) for char in "*?[")}
+    patterns = {ref.path for ref in references if any(char in ref.path.name for char in "*?[")}
     if patterns:
         expanded, failures, wildcard_scans = expand_file_patterns(
             patterns, maximum_directory_entries=maximum_directory_entries
