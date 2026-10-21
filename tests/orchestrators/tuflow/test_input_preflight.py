@@ -1049,13 +1049,11 @@ def test_real_deferred_materials_and_soils_are_primary_inputs(tmp_path: Path) ->
     mat = tmp_path / "materials.csv"
     soils = tmp_path / "soils.tsoilf"
     tcf.write_text(
-        "Read Materials File == materials.csv | 0.8\n"
-        "Read Soil File == soils.tsoilf\n",
+        "Read Materials File == materials.csv | 0.8\nRead Soil File == soils.tsoilf\n",
         encoding="utf-8",
     )
     mat.write_text(
-        "Material ID,Manning's n,Rainfall Losses\n"
-        '1,"0.05, 0.1, 0.1, 0.05",0\n',
+        'Material ID,Manning\'s n,Rainfall Losses\n1,"0.05, 0.1, 0.1, 0.05",0\n',
         encoding="utf-8",
     )
     soils.write_text("1,ILCL,12,1.2\n", encoding="utf-8")
