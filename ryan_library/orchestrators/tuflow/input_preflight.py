@@ -149,6 +149,7 @@ class PreflightReport:
     directories_scanned: int = 0
     individually_checked: int = 0
     attribute_databases_scanned: int = 0
+    attribute_seconds: float = 0.0
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
@@ -496,6 +497,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
 
     # Inspect each distinct GIS attribute-bearing GeoPackage/layer once.
     # This is a deliberate read-only bulk phase, never inside a run context.
+    attribute_started = time.perf_counter()
     scan_references = [ref for ref in references if ref.scan_attributes]
     if scan_references:
         requests = {(ref.path, ref.layer) for ref in scan_references}
@@ -552,6 +554,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
         for ref in distinct_extra.values():
             references.append(ref)
             unique_paths.setdefault(ref.path, set())
+    report.attribute_seconds = time.perf_counter() - attribute_started
 
     # Phase 2: stat or list only distinct required paths, with one GeoPackage
     # query per database for all of its requested layers.
@@ -592,16 +595,19 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
             )
 
     logger.info(
-        "Preflight: {} runs, {} unique files, {} scans, {} direct checks, {} issues across {} runs; "
-        "PyTUFLOW parse {:.2f}s, contexts {:.2f}s, inventory {:.2f}s",
+        "Preflight: {} runs, {} unique files, {} directory scans, {} attribute GeoPackage opens, "
+        "{} direct checks, {} issues across {} runs; "
+        "PyTUFLOW parse {:.2f}s, contexts {:.2f}s, GIS attributes {:.2f}s, inventory {:.2f}s",
         report.run_count,
         len(report.checked_paths),
         report.directories_scanned,
+        report.attribute_databases_scanned,
         report.individually_checked,
         len(report.issues),
         report.affected_runs,
         report.parse_seconds,
         report.context_seconds,
+        report.attribute_seconds,
         report.inventory_seconds,
     )
     return report
