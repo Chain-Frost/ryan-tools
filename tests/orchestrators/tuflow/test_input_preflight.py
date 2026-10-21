@@ -1140,3 +1140,149 @@ def test_deferred_shapefile_network_attribute_sources_checked_once_per_run_group
     assert failed.affected_runs == 3
     assert len(failed.issues) == 3
     assert all("hydrograph.csv" in issue.reference for issue in failed.issues)
+
+
+
+def test_typed_rainfall_ad_bc_and_gis_table_links_bulk_inventory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A supported upstream typed reference creates a real checked dependency."""
+    import numpy as np
+    import rasterio
+    import shapefile
+    from rasterio.transform import from_origin
+
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    rainfall_index = tmp_path / "rainfall.csv"
+    rainfall_index.write_text("Time,Rainfall_File\n0,rainfall.tif\n", encoding="utf-8")
+    rainfall = tmp_path / "rainfall.tif"
+    with rasterio.open(
+        rainfall, "w", driver="GTiff", height=1, width=1, count=1,
+        dtype="float32", transform=from_origin(1, 2, 1, 1),
+    ) as dataset:
+        dataset.write(np.ones((1, 1), dtype=np.float32), 1)
+    ad_database = tmp_path / "ad_bc.csv"
+    ad_database.write_text("Name,Source\nB,ad_hydro.csv\n", encoding="utf-8")
+    hydrograph = tmp_path / "ad_hydro.csv"
+    hydrograph.touch()
+    xs = tmp_path / "1d_xs_example.shp"
+    with shapefile.Writer(str(xs), shapeType=shapefile.POLYLINE) as writer:
+        writer.field("source", "C", size=100)
+        writer.null()
+        writer.record("section.csv")
+    section = tmp_path / "section.csv"
+    section.touch()
+
+    class Input:
+        def __init__(self, lhs: str, path: Path, *, kind: str, gis: bool = False) -> None:
+            self.lhs = lhs
+            self.file_references = (
+                types.SimpleNamespace(
+                    path_pattern=path, base_directory=tmp_path, origin=lhs,
+                    layer_pattern=None, unresolved_variables=(),
+                    requires_database_scan=kind in {"rainfall", "ad_bc"},
+                    requires_attribute_scan=gis, database_kind=kind,
+                    requires_table_link_scan=gis, requires_raster_metadata_scan=False,
+                ),
+            )
+
+        @property
+        def files(self) -> None:
+            msg = "Deferred mode must never inspect eager files"
+            raise AssertionError(msg)
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            inputs = [
+                Input("Read Grid RF", rainfall_index, kind="rainfall"),
+                Input("AD BC Database", ad_database, kind="ad_bc"),
+                Input("Read GIS Table Links", xs, kind="gis_table_links", gis=True),
+            ]
+            return [item for item in inputs if item.lhs.casefold() == lhs.casefold()] if lhs else inputs
+
+        def deferred_database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return (
+                types.SimpleNamespace(
+                    database_path=rainfall_index, database_kind="rainfall", entry_name="0",
+                    path_pattern=rainfall, owning_command="Read Grid RF",
+                    owner_control_file=tcf, layer_pattern=None, requires_raster_metadata_scan=True,
+                ),
+                types.SimpleNamespace(
+                    database_path=ad_database, database_kind="ad_bc", entry_name="B",
+                    path_pattern=hydrograph, owning_command="AD BC Database",
+                    owner_control_file=tcf, layer_pattern=None, requires_raster_metadata_scan=False,
+                ),
+            )
+
+    class Model:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=Model))
+    runs = [RunRequest(1, {"e1": "A"}), RunRequest(2, {"e1": "B"})]
+    report = check_simulation_inputs(tcf, runs)
+    assert report.passed, report.issues
+    assert report.raster_files_scanned == 1
+    assert report.attribute_databases_scanned == 1
+    assert report.checked_paths == {
+        str(rainfall_index), str(rainfall), str(ad_database),
+        str(hydrograph), str(xs), str(section),
+    }
+
+    hydrograph.unlink()
+    failed = check_simulation_inputs(tcf, runs)
+    assert not failed.passed
+    assert failed.affected_runs == 2
+    assert sum("ad_hydro.csv" in issue.reference for issue in failed.issues) == 2
+
+
+def test_unknown_deferred_database_kind_remains_unresolved(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unimplemented valid database role cannot silently pass."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    unknown = tmp_path / "other.csv"
+    unknown.touch()
+
+    class Input:
+        lhs = "Unknown Database"
+        file_references = (
+            types.SimpleNamespace(
+                path_pattern=unknown, base_directory=tmp_path,
+                origin="Unknown Database", layer_pattern=None,
+                unresolved_variables=(), requires_database_scan=True,
+                requires_attribute_scan=False, database_kind="unknown",
+            ),
+        )
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [] if lhs else [Input()]
+
+        def deferred_database_sources(self) -> tuple[object, ...]:
+            return ()
+
+    class Model:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=Model))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "A"})])
+    assert not report.passed
+    assert any("Unsupported deferred database materialisation" in issue.detail for issue in report.issues)
