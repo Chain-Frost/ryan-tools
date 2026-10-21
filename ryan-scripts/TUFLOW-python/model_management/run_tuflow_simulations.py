@@ -1672,6 +1672,13 @@ def main() -> None:
             report.affected_runs,
             report_path,
         )
+        logging.info(
+            "Preflight timing: PyTUFLOW parse %.2fs, run-context resolution %.2fs, "
+            "deduplicated file inventory %.2fs",
+            report.parse_seconds,
+            report.context_seconds,
+            report.inventory_seconds,
+        )
         for issue in report.issues[:20]:
             logging.error(
                 "Run %d %s %s: %s (%s)",
