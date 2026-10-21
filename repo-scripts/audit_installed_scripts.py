@@ -105,27 +105,42 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
             and any(alias.name == "annotations" for alias in statement.names)
             for statement in module.body
         )
-        # Resolve direct imports without running the candidate. Aliased calls such
-        # as `from shutil import copy2 as cp; cp(...)` must not bypass the scan.
+        # Bind aliases in statement order to account for later reassignment.
         self.aliases: dict[str, str] = {}
-        for statement in module.body:
-            if isinstance(statement, ast.ImportFrom) and statement.module in {"shutil", "os", "subprocess", "pathlib"}:
-                for alias in statement.names:
-                    if alias.name in UNSAFE_IMPORT_CALLS:
-                        self.aliases[alias.asname or alias.name] = alias.name
-        # Also record simple module-scope bindings to mutators. This is
-        # conservative static evidence, not a full Python data-flow analysis.
-        for statement in module.body:
-            if not isinstance(statement, ast.Assign) or len(statement.targets) != 1:
-                continue
-            target = statement.targets[0]
-            value = statement.value
-            if not isinstance(target, ast.Name):
-                continue
-            if isinstance(value, ast.Attribute) and value.attr in UNSAFE_IMPORT_CALLS:
-                self.aliases[target.id] = value.attr
-            elif isinstance(value, ast.Name) and value.id in self.aliases:
-                self.aliases[target.id] = self.aliases[value.id]
+
+    def _remember_binding(self, target: ast.expr, value: ast.expr | None) -> None:
+        if not isinstance(target, ast.Name):
+            return
+        if isinstance(value, ast.Attribute) and value.attr in UNSAFE_IMPORT_CALLS:
+            self.aliases[target.id] = value.attr
+        elif isinstance(value, ast.Name) and value.id in self.aliases:
+            self.aliases[target.id] = self.aliases[value.id]
+        else:
+            self.aliases.pop(target.id, None)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        if node.module in {"shutil", "os", "subprocess", "pathlib"}:
+            for alias in node.names:
+                name = alias.asname or alias.name
+                if alias.name in UNSAFE_IMPORT_CALLS:
+                    self.aliases[name] = alias.name
+                else:
+                    self.aliases.pop(name, None)
+        else:
+            for alias in node.names:
+                self.aliases.pop(alias.asname or alias.name, None)
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        self.visit(node.value)
+        for target in node.targets:
+            self._remember_binding(target, node.value)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if node.value is not None:
+            self.visit(node.value)
+            self._remember_binding(node.target, node.value)
+        if not self.deferred_annotations:
+            self.visit(node.annotation)
 
     def _visit_function_signature(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         for expression in (*node.args.defaults, *node.args.kw_defaults):
@@ -141,7 +156,7 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
                 self.visit(node.args.kwarg.annotation)
             if node.returns is not None:
                 self.visit(node.returns)
-        for expression in (*node.decorator_list, *node.type_params):
+        for expression in node.decorator_list:
             self.visit(expression)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -158,7 +173,7 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         """Decorators, bases, keywords and class body are evaluated immediately."""
-        for expression in (*node.decorator_list, *node.bases, *node.keywords, *node.type_params):
+        for expression in (*node.decorator_list, *node.bases, *node.keywords):
             self.visit(expression)
         for statement in node.body:
             self.visit(statement)
