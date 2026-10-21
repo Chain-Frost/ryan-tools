@@ -454,13 +454,12 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                             # Adding all rows here generates false dependencies
                             # for unused inlet and depth/discharge curves.
                             continue
+                        owner_file: Path | None = getattr(source, "owner_control_file", None)
                         add_file(
                             run,
                             source.path_pattern,
                             f"{kind} source: {source.entry_name}",
-                            getattr(source, "owner_control_file", None).parent
-                            if getattr(source, "owner_control_file", None)
-                            else source.database_path.parent,
+                            owner_file.parent if owner_file is not None else source.database_path.parent,
                             require_layer=False,
                             layer_override=getattr(source, "layer_pattern", None) or "",
                             allow_pattern=True,
