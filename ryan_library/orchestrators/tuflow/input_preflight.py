@@ -298,7 +298,9 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         if key not in seen:
             seen.add(key)
             references.append(
-                _FileReference(run, origin, path, layer, scan_attributes, database_kind, scan_raster_metadata, scan_table_links)
+                _FileReference(
+                    run, origin, path, layer, scan_attributes, database_kind, scan_raster_metadata, scan_table_links
+                )
             )
         if not any(char in path.name for char in "*?["):
             unique.setdefault(path, set())
@@ -360,7 +362,9 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                                 "cross_section",
                                 "rainfall",
                             }
-                            if ref.requires_database_scan and not (database_sources_available and kind in supported_kinds):
+                            if ref.requires_database_scan and not (
+                                database_sources_available and kind in supported_kinds
+                            ):
                                 add_issue(
                                     run,
                                     ref.origin,
@@ -420,8 +424,15 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                     for source in context.deferred_database_sources():
                         kind = source.database_kind
                         if kind not in {
-                            "bc", "materials", "soils", "ad_bc", "ad_global",
-                            "pit_inlet", "depth_discharge", "cross_section", "rainfall",
+                            "bc",
+                            "materials",
+                            "soils",
+                            "ad_bc",
+                            "ad_global",
+                            "pit_inlet",
+                            "depth_discharge",
+                            "cross_section",
+                            "rainfall",
                         }:
                             message = f"Unsupported deferred database kind: {kind}"
                             raise ValueError(message)
@@ -433,7 +444,8 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                             source.path_pattern,
                             f"{source.owning_command or kind} source: {source.entry_name}",
                             source.owner_control_file.parent
-                            if source.owner_control_file else source.database_path.parent,
+                            if source.owner_control_file
+                            else source.database_path.parent,
                             require_layer=False,
                             layer_override=source.layer_pattern or "",
                             allow_pattern=True,
@@ -678,8 +690,14 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
             for path in expanded[ref.path]:
                 materialised.append(
                     _FileReference(
-                        ref.run, ref.origin, path, ref.layer, ref.scan_attributes, ref.database_kind,
-                        ref.scan_raster_metadata, ref.scan_table_links,
+                        ref.run,
+                        ref.origin,
+                        path,
+                        ref.layer,
+                        ref.scan_attributes,
+                        ref.database_kind,
+                        ref.scan_raster_metadata,
+                        ref.scan_table_links,
                     )
                 )
                 unique_paths.setdefault(path, set())
@@ -708,8 +726,12 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
             if result.status != "present":
                 report.issues.append(
                     PreflightIssue(
-                        ref.run.index, ref.run.description, "unresolved",
-                        ref.origin, str(ref.path), result.detail,
+                        ref.run.index,
+                        ref.run.description,
+                        "unresolved",
+                        ref.origin,
+                        str(ref.path),
+                        result.detail,
                     )
                 )
     report.raster_seconds = time.perf_counter() - raster_started
