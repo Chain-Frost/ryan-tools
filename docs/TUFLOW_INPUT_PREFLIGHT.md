@@ -99,10 +99,28 @@ initially parsed BC and materials database rows and PyTUFLOW's event/scenario
 translation to describe secondary source-file patterns. The consumer adds those
 patterns to the shared file inventory, without calling the eager
 `context.bc_dbase()` accessor or `input.files` in deferred mode. Unknown database
-kinds, unavailable APIs, unresolved database rows and GIS attribute-linked
-references **fail closed**. Numeric-only materials CSVs are no longer
-unconditionally marked unresolved when the new API succeeds. Full parity for
-nested/attribute-linked and unsupported database files remains to be established.
+kinds, unavailable APIs and unresolved database rows **fail closed**.
+Numeric-only materials CSVs are no longer unconditionally marked unresolved.
+
+**GIS attribute-linked files (new in PR #143):** after aggregating all contexts,
+the checker scans each distinct file-valued GeoPackage/layer only once. The
+read-only SQLite reader selects the specific file-reference attribute columns,
+without loading geometries, and reproduces the supported PyTUFLOW file-column
+positions for `1d_nwk`, `1d_pit`, `1d_xs`, `1d_tab`, `1d_xz`, `1d_bg`,
+`1d_lc`, `1d_cs`, `1d_hw` and `1d_na` layers. A `1d_nwk` M/Q line channel
+may supply secondary filenames. Those paths (including filename wildcards)
+are added to the single shared file inventory and checked for every affected
+run. The report separately times this GIS attribute stage and counts its
+GeoPackage opens. This scanner does not read the geometry blobs.
+
+**Limits:** Shapefile/MIF attribute scans, unknown layer types, mixed/unknown
+network geometry, unexpanded GIS attribute variables and unsupported database
+schemas remain **unresolved**, not passed. Geopackage attribute validation
+does not establish full TUFLOW engine command validity; unrecognised/specialised
+source formats require further validation. The original 440-run Higginsville
+benchmark established *file/layer parity* before this feature was added, not
+a passing attribute scan. Repeat the local benchmark against the new revision
+and test the separate 42-run output-variable model before merging.
 
 The normal `ryan-tools` package still depends on published `pytuflow>=1.2,<2`.
 When that installation lacks `file_resolution`, the previous eager discovery remains
@@ -126,6 +144,7 @@ a model context cannot be parsed, the run **fails preflight** rather than being 
 - Full context resolution includes the supplied -e1..-e9 and -s1..-s9 switches and nested control files.
 - Missing event-specific boundary source CSVs are checked from the resolved BC database Source column.
 - GIS databases are checked for existence; when enabled, a referenced GeoPackage layer name must be present.
+- Supported GeoPackage file-valued GIS attributes are scanned once per distinct database/layer and checked across all affected simulations; unsupported cases fail closed.
 - Missing and unresolved dependencies have distinct issue statuses.
 - File wildcard/variable references that cannot be expanded are reported as unresolved.
 - Only files referenced by PyTUFLOW's recognised input commands and BC Source entries are covered. Input files
