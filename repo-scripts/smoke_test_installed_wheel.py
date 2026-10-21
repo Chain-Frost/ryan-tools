@@ -118,7 +118,6 @@ def _check_installed_po_labels(expected_root: Path, work: Path) -> None:
         raise RuntimeError(msg)
 
 
-
 def _check_installed_wrapper_behaviour(expected_root: Path) -> None:
     """Run nondestructive CLI/output/exit checks on wrappers copied from the *installed wheel*."""
     with TemporaryDirectory(prefix="ryan-tools-wheel-behaviour-") as temporary:
