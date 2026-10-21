@@ -27,7 +27,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, cast
 
-SCRIPT_VERSION = "2026-10-21.1"
+SCRIPT_VERSION = "2026-10-21.2"
 HEADER = re.compile(r"\bInc\s+Time\b", re.IGNORECASE)
 
 
@@ -174,6 +174,57 @@ def plot_hydrograph(path: Path, time: list[float], observed: list[float], simula
     plt.close(fig)
 
 
+def evaluate_output(
+    output_file: Path,
+    *,
+    sim_column: str,
+    obs_column: str | None,
+    observed: tuple[list[float], list[float]] | None,
+    plots: bool,
+    plot_path: Path,
+    hma: bool,
+    hma_weight: float,
+    hma_window: int,
+) -> dict[str, float]:
+    """Score a RORB output identically for archived and newly executed runs."""
+    data = parse_hydrographs(output_file)
+    if sim_column not in data:
+        raise ValueError(f"Modelled column {sim_column!r} missing; available: {list(data)}")
+    if observed is None:
+        if not obs_column or obs_column not in data:
+            raise ValueError(f"Observed column {obs_column!r} missing; available: {list(data)}")
+        if obs_column == sim_column:
+            raise ValueError("Modelled and observed columns must differ")
+        observed_flow = data[obs_column]
+    else:
+        reference_time, observed_flow = observed
+        if len(reference_time) != len(data["Time"]) or any(
+            not math.isclose(a, b, rel_tol=0, abs_tol=1e-6)
+            for a, b in zip(reference_time, data["Time"], strict=True)
+        ):
+            raise ValueError("Observed CSV times differ from RORB times; no implicit interpolation")
+    simulated = data[sim_column]
+    metrics = score(observed_flow, simulated, data["Time"])
+    if hma:
+        import numpy as np
+        from vendor.PyHMA import HMA
+
+        matching = HMA(
+            np.asarray(observed_flow),
+            np.asarray(simulated),
+            b=hma_weight,  # pyright: ignore[reportArgumentType] -- upstream accepts numeric weights
+            max_lag=hma_window,
+            max_lead=hma_window,
+            measure="nse",
+            keep_internals=False,
+            calc_rays=False,
+        )
+        metrics["hma"] = cast(float, matching.calc_dense2())
+    if plots:
+        plot_hydrograph(plot_path, data["Time"], observed_flow, simulated)
+    return metrics
+
+
 def run_one(
     index: int,
     case: Combination,
@@ -223,39 +274,19 @@ def run_one(
         outputs = sorted(run_dir.glob("*.out"))
         if len(outputs) != 1:
             raise RuntimeError(f"Expected exactly one .out in isolated run directory, found {len(outputs)}")
-        data = parse_hydrographs(outputs[0])
-        if sim_column not in data:
-            raise ValueError(f"Modelled column {sim_column!r} missing; available: {list(data)}")
-        if observed is None:
-            if obs_column not in data:
-                raise ValueError(f"Observed column {obs_column!r} missing; available: {list(data)}")
-            observed_flow = data[obs_column]
-        else:
-            reference_time, observed_flow = observed
-            if len(reference_time) != len(data["Time"]) or any(
-                not math.isclose(a, b, rel_tol=0, abs_tol=1e-6)
-                for a, b in zip(reference_time, data["Time"], strict=True)
-            ):
-                raise ValueError("Observed CSV times differ from RORB times; no implicit interpolation")
-        simulated = data[sim_column]
-        result.update(score(observed_flow, simulated, data["Time"]))
-        if hma:
-            import numpy as np
-            from vendor.PyHMA import HMA
-
-            matching = HMA(
-                np.asarray(observed_flow),
-                np.asarray(simulated),
-                b=hma_weight,  # pyright: ignore[reportArgumentType] -- upstream accepts numeric weights
-                max_lag=hma_window,
-                max_lead=hma_window,
-                measure="nse",
-                keep_internals=False,
-                calc_rays=False,
+        result.update(
+            evaluate_output(
+                outputs[0],
+                sim_column=sim_column,
+                obs_column=obs_column,
+                observed=observed,
+                plots=plots,
+                plot_path=run_dir / "hydrograph.png",
+                hma=hma,
+                hma_weight=hma_weight,
+                hma_window=hma_window,
             )
-            result["hma"] = cast(float, matching.calc_dense2())
-        if plots:
-            plot_hydrograph(run_dir / "hydrograph.png", data["Time"], observed_flow, simulated)
+        )
         result["status"] = "success"
     except Exception as exc:
         result["error"] = f"{type(exc).__name__}: {exc}"
@@ -278,6 +309,10 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--obs-time", default="Time", help="Time column of observed CSV")
     p.add_argument("--obs-flow", default="Flow", help="Flow column of observed CSV")
     p.add_argument("--inspect-output", type=Path, help="List columns of existing RORB .out and exit")
+    p.add_argument(
+        "--score-output", type=Path,
+        help="Score an archived RORB .out without launching RORB_CMD or requiring .catg/.stm",
+    )
     p.add_argument("--output", type=Path, default=Path("rorb_calibration"), help="Output parent folder")
     p.add_argument("--workers", type=int, default=1, help="RORB processes; 1 safest for licence/shared files")
     p.add_argument("--timeout", type=float, default=1800, help="Seconds per RORB process")
@@ -307,6 +342,58 @@ def main(argv: list[str] | None = None) -> int:
             data = parse_hydrographs(args.inspect_output.absolute())
             print(f"Columns: {', '.join(data)} | Rows: {len(data['Time'])}")
             print("Column names alone do not establish observed/modelled provenance.")
+            return 0
+        if args.score_output:
+            # The archived-report mode deliberately never invokes RORB_CMD.
+            # Retain exactly the same comparison path as active calibration.
+            if not args.sim_column:
+                raise ValueError("--sim-column required to score an archived report")
+            if (args.obs_column is None) == (args.observed_csv is None):
+                raise ValueError("Provide exactly one of --obs-column or --observed-csv")
+            if args.obs_column == args.sim_column:
+                raise ValueError("Modelled and observed columns must differ")
+            if args.hma and (
+                args.hma_window < 1 or not math.isfinite(args.hma_weight) or args.hma_weight <= 0
+            ):
+                raise ValueError("PyHMA window and weight must be positive")
+            report_file = args.score_output.absolute()
+            if not report_file.is_file():
+                raise FileNotFoundError(f"Archived report not found: {report_file}")
+            reference = (
+                csv_observations(args.observed_csv.absolute(), args.obs_time, args.obs_flow)
+                if args.observed_csv
+                else None
+            )
+            # Check the source file before creating an output directory.
+            parse_hydrographs(report_file)
+            output_parent = args.output.absolute()
+            output_parent.mkdir(parents=True, exist_ok=True)
+            archive_root = output_parent / f"archived_{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}"
+            archive_root.mkdir()
+            metrics = evaluate_output(
+                report_file,
+                sim_column=args.sim_column,
+                obs_column=args.obs_column,
+                observed=reference,
+                plots=args.plots,
+                plot_path=archive_root / "hydrograph.png",
+                hma=args.hma,
+                hma_weight=args.hma_weight,
+                hma_window=args.hma_window,
+            )
+            row: dict[str, str | float] = {
+                "source_file": str(report_file),
+                "modelled_column": args.sim_column,
+                "observed_source": str(args.observed_csv.absolute()) if args.observed_csv else str(args.obs_column),
+                **metrics,
+            }
+            with (archive_root / "metrics.csv").open("w", newline="", encoding="utf-8") as stream:
+                writer = csv.DictWriter(stream, fieldnames=list(row))
+                writer.writeheader()
+                writer.writerow(row)
+            print(f"Archived output scored without RORB_CMD: {report_file}")
+            print(f"RMSE: {metrics['rmse']:.6g} | NSE: {metrics['nse']:.6g}")
+            print(f"Results: {archive_root / 'metrics.csv'}")
             return 0
         if not args.catg or not args.stm:
             p.error("--catg and --stm are required unless --inspect-output is used")
