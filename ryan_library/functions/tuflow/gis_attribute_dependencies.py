@@ -227,6 +227,7 @@ def _scan_layer(
         connection.execute(sql), layer=layer, geometry_type=geometry_type, parent=path.parent
     )
 
+
 def read_pit_inlet_database(path: Path) -> dict[str, Path]:
     """Map depth-discharge curve names to Source CSVs using the TUFLOW schema.
 
@@ -280,7 +281,9 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
             selected = [
                 selector
                 for selector in selectors
-                if not selector or selector.casefold() == "all" or fnmatch.fnmatchcase(path.stem.casefold(), selector.casefold())
+                if not selector
+                or selector.casefold() == "all"
+                or fnmatch.fnmatchcase(path.stem.casefold(), selector.casefold())
             ]
             for selector in selectors - set(selected):
                 results[(path, selector)] = AttributeInspection(
