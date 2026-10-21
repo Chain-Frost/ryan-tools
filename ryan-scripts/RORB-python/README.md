@@ -9,11 +9,37 @@ The RORB folder contains standalone or library-backed utilities for RORB storm d
 The installed-format parser and historic Pilgangoora output were validated locally on 2026-10-21. The retained report
 explicitly labels `Hyd001` as calculated and `Hyd002` as actual at the Turner River gauging station, and the retained
 storm file contains the corresponding measured `TurnerRvr-Flow` hydrograph. This provenance is specific to that input;
-other projects must still verify their own labels and source data. The current Codex execution context denied launch
+other projects must still verify their own labels and source data. The local Codex execution context denied launch
 of the installed unsigned RORB_CMD before it started, so a newly generated executable-level comparison remains
 outstanding.
 
 It generates a Cartesian product of **Kc × IL × CL/RoC**, writes an isolated RORB .par per combination, launches RORB_CMD, parses the returned labelled hydrograph table, and ranks successful simulations by *correctly calculated* RMSE. It also reports NSE, signed mean bias, modelled/observed peak flows and peak times, and optional PyHMA scores and hydrograph PNGs.
+
+### Score archived output without running RORB_CMD
+
+When command-line execution is blocked (for example by Windows application control), the original `.out` can
+still be analysed using the **same scoring function** as a newly generated run. This requires no executable and
+no `.catg` or `.stm` input. For the independently verified *Pilgangoora* 15/10/5 report only, the local
+hydrograph summary identifies `Hyd001` as calculated and `Hyd002` as observed:
+
+```powershell
+py -3.14 .\ryan-scripts\RORB-python\rorb_calibrate.py `
+    --score-output "Q:\model\historic_case.out" `
+    --sim-column Hyd001 --obs-column Hyd002 `
+    --output "Q:\model\calibration_review" --plots --no-pause
+```
+
+Replace the example output and input paths with local paths, and **do not reuse those column assumptions on
+unverified models**. This creates a separate timestamped `archived_*` folder containing `metrics.csv` and
+`hydrograph.png` (with `--plots`). Invalid columns or mismatched observation timestamps are rejected before
+creating output folders. The archived single-case values reported by local validation are RMSE **95.12064 m³/s**,
+MSE **9047.93614 (m³/s)²**, modelled peak **467.856 m³/s** at **5.75 h** and observed peak
+**101.09 m³/s** at **11.5 h**. Use these as regression references, allowing for the archived report's numerical
+precision. RORB_CMD executable output and working-directory behaviour are **not** validated by offline scoring.
+
+For an external reference instead of a hydrograph column, replace `--obs-column` with
+`--observed-csv "Q:\model\gauge.csv"` (columns `Time,Flow` by default), and explicitly confirm the time
+reference and flow units. No automatic interpolation, resampling or unit conversion occurs.
 
 ### Local verification sequence
 
