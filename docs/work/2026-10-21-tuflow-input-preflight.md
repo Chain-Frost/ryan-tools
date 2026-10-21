@@ -265,3 +265,15 @@ Direct checker `--help` now passes, superseding the earlier missing-module failu
 in the temporary directory also passes `--help` from that directory without a checkout path override.
 This verifies installed-module discovery, not a complete installed-wheel model smoke or eager/deferred parity.
 The earlier fork native-import warnings and deferred schema blockers remain separate open findings.
+
+### Reconcile local and remote PR branch (2026-10-21)
+
+Resolved the interrupted merge of `65ab0c1` into local `473f168`, preserving the local P/B evidence
+and incoming pit/depth database regression. Consolidated the duplicate preflight register entries into
+one dated row retaining both validation fronts. Then merged remote `8b32955`, including its database
+scan guard precedence correction. Local merge commits are `5c5a604` and `7da687e`.
+Applied Ruff formatting to the two integrated Python files; no runtime behaviour was changed locally.
+Focused preflight/GIS tests: **29 passed, 4 deferred-fork tests skipped**. Ruff lint and format checks
+and default documentation validation pass. No package rebuild, native model rerun or hosted CI was
+performed for this merge reconciliation. The branch contains the fetched remote head and retains
+the local testing commit. Changes are committed locally; no push or PR merge is authorised by this record.

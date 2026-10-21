@@ -968,8 +968,7 @@ def test_deferred_q_curve_ids_resolve_through_pit_database_without_false_paths(
     pit_database = tmp_path / "pit_inlet.csv"
     (tmp_path / "curve_source.csv").touch()
     pit_database.write_text(
-        "Name,Source,Column 1,Column 2\n"
-        "Kerb_A,curve_source.csv,Depth,Flow\n",
+        "Name,Source,Column 1,Column 2\nKerb_A,curve_source.csv,Depth,Flow\n",
         encoding="utf-8",
     )
     with sqlite3.connect(gpkg) as db:

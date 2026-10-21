@@ -583,9 +583,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
                             )
                         )
                         continue
-                    extra_references.append(
-                        _FileReference(ref.run, f"Pit/Depth Discharge: {identifier}", linked)
-                    )
+                    extra_references.append(_FileReference(ref.run, f"Pit/Depth Discharge: {identifier}", linked))
 
         # File-valued GIS attributes may themselves contain wildcard paths.
         # Expand those patterns once across all simulations, not once per run.
