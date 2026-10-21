@@ -10,7 +10,6 @@ import csv
 import sqlite3
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from importlib import import_module
 from pathlib import Path
 from typing import Literal, Protocol, cast
 
@@ -156,13 +155,13 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
         message = "No simulations were supplied for input preflight"
         raise ValueError(message)
     try:
-        module = import_module("pytuflow")
+        from pytuflow import TCF
     except ImportError as exc:
         message = "PyTUFLOW is missing; reinstall with: python -m pip install --upgrade ryan-tools"
         raise RuntimeError(message) from exc
 
-    # Import dynamically so workflows not using preflight need not load PyTUFLOW at startup.
-    factory = cast(_ModelFactory, module.TCF)
+    # Keep the import local so the launcher does not initialise PyTUFLOW unless preflight is requested.
+    factory = cast(_ModelFactory, TCF)
     report = PreflightReport(run_count=len(runs))
     cache: dict[tuple[str, str], bool] = {}
     model: _Model = factory(str(tcf.absolute()))

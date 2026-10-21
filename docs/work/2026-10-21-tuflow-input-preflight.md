@@ -17,7 +17,9 @@ In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: exact-head CI a
 - Reuse the launcher's exact deduplicated Simulation objects for integrated checks.
 - Extract reusable run-flag parsing into ryan_library, while retaining the launcher scheduling/dashboard logic.
 - Keep checks read-only; write only a finding CSV; fail closed on unresolved references.
-- Enable integrated checks only when explicitly requested until real-model validation passes.
+- Enable integrated input checks only when explicitly requested until real-model validation passes.
+- Warn by default at each simulation launch if a live local TUFLOW process is confirmed to use an overlapping GPU.
+  Unknown device assignments are reported as uncertain, not silently assumed free; warnings do not block launches.
 
 ## Acceptance criteria
 
@@ -25,6 +27,8 @@ In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: exact-head CI a
 - Missing BC Source CSV for one event is reported only for its affected proposed runs.
 - Recursively inspect model input references; check GeoPackage layer names when enabled.
 - Return non-zero and prevent batch launch for missing/unresolved dependencies.
+- Warn on confirmed overlapping -puN GPU assignments (external and same-launcher processes) without blocking or changing GPU schedules.
+- Do not falsely classify a running TUFLOW process with no explicit GPU flag as using a known GPU.
 - Provide --no-pause and --help on both wrappers.
 - Document limitations, install and regression testing; verify current Python 3.14 wheel.
 
