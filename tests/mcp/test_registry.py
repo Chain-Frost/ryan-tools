@@ -39,7 +39,9 @@ def test_gdal_catalogue_is_folded_into_generic_workflows() -> None:
 
     listing = registry.list_workflows(domain="gdal")
     workflow_ids = {workflow["id"] for workflow in listing["workflows"]}
-    assert workflow_ids == EXPECTED_GDAL_WORKFLOWS
+    # The recompression catalogue includes --replace --yes: it is privileged,
+    # even though invoking the wrapper without that flag performs an audit.
+    assert workflow_ids == EXPECTED_GDAL_WORKFLOWS - {"audit_and_recompress_geotiffs"}
 
 
 def test_privileged_profile_does_not_add_uncatalogued_gdal_wrappers() -> None:
