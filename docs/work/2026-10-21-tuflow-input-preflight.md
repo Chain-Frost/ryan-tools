@@ -395,3 +395,34 @@ them to the repository. This record retains only anonymised results. Documentati
 checks pass; no source/test changes, package rebuild or hosted CI were needed for this measurement.
 The record/register changes remain uncommitted. Next action: resolve the deferred schema blockers,
 prove equivalent per-run file/layer coverage, then repeat the same local benchmark before comparing speed.
+
+
+## Local SSD P/B materials and soils parity gate
+
+New local Windows Python 3.14 measurements on an SSD (three warm-cache trials
+per eager/deferred mode) show P: 4 runs, eager median **1.22 s**, deferred
+**0.95 s**; B: 240 runs, eager **57.93 s**, deferred **45.22 s**.
+**Both deferred outputs are incomplete** due to materials/soils and must not
+be reported as performance gains. In B, roughly **98.8%** of eager time
+was spent in context resolution, not final file checks. The local record
+has 49 lines of uncommitted changes that the local agent should reconcile
+and commit separately without overwriting their working tree.
+
+In PyTUFLOW PR #1, deferred cached-row materialisation now recognises
+scalar values, inline depth/Manning's-n pairs and external materials
+sources, and checks soil methods NONE, ILCL, GA, HO, CO and SCS with
+event/scenario variable expansion. Unsupported/malformed cases remain
+fail-closed rather than silently skipping a potential dependency.
+The ryan-tools collector recognises soils as a deliberately inspected
+database type and always retains the primary materials/soils file
+checks. Tests cover valid and malformed forms, an external material
+source, a soil method matrix, and downstream preflight.
+
+**Overall contract:** deferred mode must discover *every* input that
+eager PyTUFLOW supports, not merely the three benchmark models.
+Comparison keys must include run/event/scenario, originating command,
+physical path, GeoPackage layer and attribute-derived secondary inputs.
+Keep outstanding database/GIS schemas unresolved until their deferred
+resolver and parity regressions exist. Model P/B workarounds or suppressing
+diagnostics are not acceptable. No merge, PyPI change or claimed benchmark
+speedup until complete materialised parity and exact-head CI.
