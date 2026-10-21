@@ -310,3 +310,59 @@ def test_lazy_type_parameter_bounds_do_not_trigger_import_time_mutation() -> Non
     record = inventory.analyse_python(source)
     assert record["parse_status"] == "ok"
     assert record["import_time_mutation_risk"] is False
+
+
+def test_conditional_aliases_preserve_possible_mutations() -> None:
+    """Platform branches must not erase an unsafe alias from another branch."""
+    unsafe = inventory.analyse_python(
+        "import shutil\nimport sys\n"
+        "if sys.platform == 'win32':\n"
+        "    copier = shutil.copy2\n"
+        "else:\n"
+        "    copier = print\n"
+        "copier('a', 'b')\n"
+    )
+    assert unsafe["import_time_mutation_calls"] == ["copy2"]
+
+    safe = inventory.analyse_python(
+        "import shutil\n"
+        "copier = shutil.copy2\n"
+        "if True:\n"
+        "    copier = print\n"
+        "else:\n"
+        "    copier = len\n"
+        "copier('safe')\n"
+    )
+    assert safe["import_time_mutation_risk"] is False
+
+    retained = inventory.analyse_python(
+        "import shutil\ncopier = shutil.copy2\n"
+        "if unknown_condition:\n    copier = print\n"
+        "copier('a', 'b')\n"
+    )
+    assert retained["import_time_mutation_calls"] == ["copy2"]
+
+
+def test_class_alias_scope_does_not_corrupt_module_bindings() -> None:
+    """Class-local rebinding must not hide a module-level unsafe callable."""
+    unsafe = inventory.analyse_python(
+        "import shutil\ncopier = shutil.copy2\n"
+        "class Container:\n    copier = print\n"
+        "copier('a', 'b')\n"
+    )
+    assert unsafe["import_time_mutation_calls"] == ["copy2"]
+
+    safe = inventory.analyse_python(
+        "import shutil\ncopier = print\n"
+        "class Container:\n    copier = shutil.copy2\n"
+        "copier('safe')\n"
+    )
+    assert safe["import_time_mutation_risk"] is False
+
+    class_body = inventory.analyse_python(
+        "import shutil\n"
+        "class Container:\n"
+        "    copier = shutil.copy2\n"
+        "    copier('a', 'b')\n"
+    )
+    assert class_body["import_time_mutation_calls"] == ["copy2"]
