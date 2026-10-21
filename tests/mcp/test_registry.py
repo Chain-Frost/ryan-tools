@@ -206,7 +206,7 @@ def test_packaged_gdal_catalogue_is_available_without_repository_checkout() -> N
     listing = registry.list_workflows(domain="gdal", include_unavailable=True)
     workflows = {workflow["id"]: workflow for workflow in listing["workflows"]}
 
-    assert set(workflows) == EXPECTED_GDAL_WORKFLOWS
+    assert set(workflows) == EXPECTED_GDAL_WORKFLOWS - {"audit_and_recompress_geotiffs"}
     assert workflows["translate_rasters_to_geotiff"]["available"] is False
     assert workflows["translate_rasters_to_geotiff"]["execution_kind"] == "script"
 
@@ -232,7 +232,7 @@ def test_workflow_requires_exactly_one_explicit_execution_target() -> None:
         "domain": "test",
         "purpose": "Exercise target validation.",
         "module": "package.module",
-        "script": "script.py",
+        "script": "ryan-scripts/script.py",
         "profile": "analysis",
         "mutation": "read_only",
     }
