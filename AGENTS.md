@@ -68,6 +68,7 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
 - Keep pausing, banners, CLI parsing, working-directory selection and `SystemExit` at the wrapper process boundary.
 - Library helpers and orchestrators must not pause the console or terminate the interpreter.
 - Follow [`ryan-scripts/WRAPPER_STANDARD.md`](ryan-scripts/WRAPPER_STANDARD.md) for maintained library-backed wrappers.
+- For actively maintained self-contained scripts, follow the [minimal standalone standard](ryan-scripts/README.md#minimal-standard-for-maintained-standalone-scripts), retaining independent execution and avoiding an unnecessary library split.
 - Do not add repository-root `sys.path` manipulation to copied wrappers; require the matching package installation.
 
 ## Testing and validation
