@@ -2,7 +2,7 @@
 
 **Status:** Scoping complete; production changes **not implemented**. New draft PR branch `feat/tuflow-batch-preflight-optimisation` targets `feat/tuflow-run-preflight` (ryan-tools PR #143), **not `main`**.
 
-**Date:** 2026-10-22. **Owner:** ChatGPT. **Next review:** after PyTUFLOW PR #3's batch API and outstanding PR #143 feature-parity gates progress.
+**Date:** 2026-10-22. **Owner:** ChatGPT. **Next review:** after PyTUFLOW PR #5's batch API and outstanding PR #143 feature-parity gates progress.
 
 ## Why this is separate from PR #143
 
@@ -10,7 +10,7 @@ PR #143 owns the read-only event/scenario-sensitive dependency checker and its e
 
 Existing same-fork local SSD observation: Model B 240 runs spent 41.835 seconds constructing deferred contexts; the deduplicated final physical inventory spent approximately 0.029 seconds (one ordered run pair). This locates the likely bottleneck, but does not establish an optimised performance result. Current 174-run example parity remains incomplete.
 
-**Dependency:** PyTUFLOW PR #3, initially based on PyTUFLOW #2, supplies the opt-in batch dependency API. PyTUFLOW owns command parsing, conditional scopes, variable lineage, safe memoisation and reusable compiled expressions. ryan-tools must *not* implement a second TUFLOW parser or repeat that context-resolution logic.
+**Dependency:** PyTUFLOW PR #5, initially based on PyTUFLOW #2, supplies the opt-in batch dependency API. PyTUFLOW owns command parsing, conditional scopes, variable lineage, safe memoisation and reusable compiled expressions. ryan-tools must *not* implement a second TUFLOW parser or repeat that context-resolution logic.
 
 ## Work package A — baseline, accounting and contract tests
 
@@ -68,13 +68,13 @@ Existing same-fork local SSD observation: Model B 240 runs spent 41.835 seconds 
 
 ## Stacking and retargeting
 
-- PyTUFLOW: #2 -> #1; new #3 -> #2. Merge #2 into #1 and retarget #3 to #1; merge #1 into `master` and retarget #3 to `master`.
-- ryan-tools: new optimisation PR -> #143. After upstream #3 is available and parity/benchmark gates pass, decide whether to merge optimisation into #143 (single release) or keep it stacked until #143 itself merges; no automatic merge.
+- PyTUFLOW: #2 -> #1; new #5 -> #2. Merge #2 into #1 and retarget #3 to #1; merge #1 into `master` and retarget #3 to `master`.
+- ryan-tools: new optimisation PR -> #143. After upstream #5 is available and parity/benchmark gates pass, decide whether to merge optimisation into #143 (single release) or keep it stacked until #143 itself merges; no automatic merge.
 - Do not repin `pyproject.toml` to a development fork by default, bypass published dependency policy, or modify the global Python installation to conceal incompatibilities. Keep isolated CI/local source injection clearly identified by commit.
 - Do not delete temporary reproduction fixtures from #143's own branch as part of this PR; coordinate their required removal with #143's existing clean-up gate.
 
 ## Work status and immediate next action
 
 - Planning-only branch and draft PR; **no optimiser production code exists yet**.
-- Next: profile individual contexts and establish the batch API contract with the PyTUFLOW #3 author; implement adapter only after the upstream shape is stable.
+- Next: profile individual contexts and establish the batch API contract with the PyTUFLOW #5 author; implement adapter only after the upstream shape is stable.
 - Existing release/default-on preflight remains blocked by #143 parity and native validation; do not interpret this supporting PR as release authorisation.
