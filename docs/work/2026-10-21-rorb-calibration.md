@@ -25,12 +25,21 @@ Use a maintained standalone script under ryan-scripts/RORB-python, without a pre
 - Real RORB_CMD execution remains blocked in the current Codex execution context (`WinError 5: Access is denied`)
   before the installed executable starts; no RORB output is produced by that attempt.
 - Local RORB files, RORB_CMD manual/version and old outputs are available to the maintainer's local agent.
+- An offline `--score-output` mode now evaluates archived RORB outputs without launching RORB_CMD, using
+  the same parser/score logic as active runs. Supports output PNG/CSV, external measured data, `--dry-run`, and
+  validation before any new output directory is created. The active run CSV also includes Kc, m, loss model,
+  measured-flow source, calculated-flow column and exact discovered .out path.
+- Five additional synthetic test cases were committed for archived-mode scoring, measured CSV inputs, no-write
+  invalid input and dry-run. These newly committed changes **have not yet been rerun** under Python 3.14,
+  Ruff or Pyright. Earlier local validation covered the prior head only.
 
 ## Next action
 
-Local maintainer: launch the installed unsigned `C:\Program Files\RORBWin\RORB_CMD.exe` from a permitted interactive
-context, then rerun the already-prepared single 15/10/5 combination from local copied inputs with one worker. Compare
-its output and metrics with the archived case before widening the parameter sweep.
+Local maintainer: first use `--score-output` on the verified archived 15/10/5 `.out` to confirm
+RMSE 95.12064, peaks and plot using the new shared scoring path; run the focused Python 3.14 tests, Ruff and Pyright
+on the current PR head. Then launch the installed unsigned `C:\Program Files\RORBWin\RORB_CMD.exe` from a permitted
+interactive context, rerun one actual 15/10/5 simulation with one worker and compare the new `.out` and metrics
+with the archive before widening the parameter sweep.
 
 ## Completion criteria
 
@@ -67,3 +76,12 @@ unconfirmed.
 ### 2026-10-21
 
 Generalised the original fixed-path Calibrate_v5.py approach, replaced fragile automatic Hyd001/Hyd002 assumptions, added a documented local test workflow and tests. Awaiting the local RORB_CMD implementation/output check.
+
+### 2026-10-21 — follow-up coding
+
+Extended the draft to support offline scoring of historic RORB outputs, sharing the exact scoring pipeline with
+live runs so numerical comparisons can proceed even when Windows application controls block RORB_CMD. Added
+synthetic regression tests and included RORB exponent, loss model, reference provenance and generated report path
+in the sweep CSV for traceability. Changes committed to PR #145. No fresh executable-level run, Python 3.14,
+Ruff, strict Pyright or focused pytest validation has been performed on these follow-up commits; this remains
+a local-acceptance blocker rather than an assumed pass.
