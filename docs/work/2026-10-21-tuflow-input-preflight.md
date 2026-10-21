@@ -658,3 +658,56 @@ new Shapefile tests), analyse the new full example sweep against the original
 coordinate table-link/rainfall-grid/AD BC parser work with Agent 2 on
 PyTUFLOW PR #1. A matching partial inventory is never an accepted pass.
 Do not merge, publish or launch TUFLOW simulations.
+
+
+## Verified Shapefile/GeoPackage full example sweep (2026-10-22)
+
+The read-only Windows/Python 3.13 CI replay on [run 39638190458](https://github.com/Chain-Frost/ryan-tools/actions/runs/39638190458)
+used the pinned deferred fork, verified archive checksums and shared
+TUFLOW element-type GIS attribute classifier. Complete per-case
+results.json and 161 per-TCF issue CSVs are attached as GitHub Actions
+artifact tuflow-example-full-replay (artifact ID 12363572383).
+
+**Full matrix: 161 TCFs, 174 exact batch-defined runs.**
+
+- **140 TCFs / 153 runs accepted**, up from 107 TCFs / 119 runs:
+  **33 additional TCFs and 34 runs** now meet fully materialised
+  eager/deferred parity and read-only preflight.
+- **21 TCFs / 21 runs unresolved**, down from 54 TCFs / 55 runs.
+- None of the previous 112 unsupported-Shapefile-format findings remain.
+  Both Shapefile DBF and GeoPackage SQLite use identical recognised TUFLOW
+  element/field logic, including matrix CSVs, network/pit curve identifiers,
+  and network Ignore=Y/T handling.
+- **17 remaining TCFs** have 18 database-linked findings (12 table links,
+  two rainfall grids, four AD BC databases); four overlapping cases
+  additionally report ambiguous active BC inputs.
+- Four further cases fail strict eager/deferred provenance comparison
+  without a deferred preflight finding: EG11_006 (1 missing, 1 extra),
+  EG11_009 (0 missing, 1 extra), EG15_007 and EG15_008
+  (1 missing, 1 extra each). Eager's erroneous interpretation of the
+  curve identifier aa as a filename contributes to three cases;
+  do not create a fictitious file to satisfy parity.
+
+The real EG02_014 case now passes eager/deferred identity comparison and
+public read-only preflight: 31 unique inputs, zero issues. EG04_004 now
+scans its Shapefile attributes but remains unresolved for upstream
+Read GIS Table Links. No TUFLOW simulation was launched.
+
+The temporary diagnostic harness now materialises secondary GIS inputs
+through the same production code, including owning-command origin. The
+Windows pinned-fork consumer focused tests passed 41 cases on run
+39637338154. The full results in the attached Actions artifact are the
+authority for currently accepted and unresolved examples.
+
+**Ownership and next actions:** Agent 1 owns ryan-tools format-shared
+GIS attribute inspection, deduplicated inventory and fixture harness.
+Agent 2 owns PyTUFLOW PR #1's table-link, rainfall-grid and AD BC
+classification/handling, plus erroneous eager identifier resolution.
+See the upstream coordination comment 6321743535.
+
+Before PR #143 merges, restore parity in the remaining supported-input
+cases and repeat real/CI regression checks. Then delete the entire
+branch-only tests/fixtures/tuflow_example_repro directory, related
+workflow replay steps and its central docs-index row. Keep durable
+synthetic regressions and this anonymised validation record.
+No merge, default-on preflight, PyPI release or TUFLOW engine launch is authorised.
