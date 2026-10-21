@@ -237,29 +237,29 @@ def test_documentation_indexes_track_live_inventory_counts() -> None:
 def test_aliased_mutating_import_is_detected_without_execution() -> None:
     """Renaming a dangerous imported function must not evade import checks."""
     unsafe = inventory.analyse_python(
-        "from shutil import copy2 as cp\\n"
-        "cp('source', 'destination')\\n"
-        "if __name__ == '__main__':\\n"
-        "    pass\\n"
+        "from shutil import copy2 as cp\n"
+        "cp('source', 'destination')\n"
+        "if __name__ == '__main__':\n"
+        "    pass\n"
     )
     assert unsafe["main_guard"] is True
     assert unsafe["import_time_mutation_calls"] == ["copy2"]
     assert unsafe["import_time_mutation_risk"] is True
 
     safe = inventory.analyse_python(
-        "from shutil import copy2 as cp\\n"
-        "def main():\\n"
-        "    cp('source', 'destination')\\n"
-        "if __name__ == '__main__':\\n"
-        "    main()\\n"
+        "from shutil import copy2 as cp\n"
+        "def main():\n"
+        "    cp('source', 'destination')\n"
+        "if __name__ == '__main__':\n"
+        "    main()\n"
     )
     assert safe["import_time_mutation_risk"] is False
 
     # Similarly named local helpers must not be treated as shutil imports.
     unrelated = inventory.analyse_python(
-        "def helper():\\n"
-        "    pass\\n"
-        "helper()\\n"
+        "def helper():\n"
+        "    pass\n"
+        "helper()\n"
     )
     assert unrelated["import_time_mutation_risk"] is False
 
@@ -267,18 +267,18 @@ def test_aliased_mutating_import_is_detected_without_execution() -> None:
 def test_postponed_annotations_are_not_misclassified_as_import_effects() -> None:
     """Future-annotations avoid eager annotation calls on Python 3.13."""
     source = (
-        "from __future__ import annotations\\n"
-        "import shutil\\n"
-        "def f(value: shutil.copy2('a', 'b')) -> shutil.copy2('a', 'b'):\\n"
-        "    pass\\n"
+        "from __future__ import annotations\n"
+        "import shutil\n"
+        "def f(value: shutil.copy2('a', 'b')) -> shutil.copy2('a', 'b'):\n"
+        "    pass\n"
     )
     deferred = inventory.analyse_python(source)
     assert deferred["import_time_mutation_risk"] is False
 
-    eager = inventory.analyse_python(source.replace("from __future__ import annotations\\n", ""))
+    eager = inventory.analyse_python(source.replace("from __future__ import annotations\n", ""))
     assert eager["import_time_mutation_calls"] == ["copy2"]
 
     defaults = inventory.analyse_python(
-        source + "def g(value=shutil.copy2('a', 'b')):\\n    pass\\n"
+        source + "def g(value=shutil.copy2('a', 'b')):\n    pass\n"
     )
     assert defaults["import_time_mutation_calls"] == ["copy2"]
