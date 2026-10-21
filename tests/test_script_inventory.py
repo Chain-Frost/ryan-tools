@@ -210,9 +210,7 @@ def test_class_definition_time_mutations_are_flagged_without_execution() -> None
         "@shutil.copy2('source', 'destination')\nclass Model:\n    pass\n",
         "class Model(shutil.copy2('source', 'destination')):\n    pass\n",
         "class Model(metaclass=shutil.copy2('source', 'destination')):\n    pass\n",
-        "class Model:\n"
-        "    def method(self, value=shutil.copy2('source', 'destination')):\n"
-        "        pass\n",
+        "class Model:\n    def method(self, value=shutil.copy2('source', 'destination')):\n        pass\n",
     )
     for expression in expressions:
         report = inventory.analyse_python("import shutil\n" + expression)

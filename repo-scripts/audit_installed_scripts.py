@@ -92,50 +92,60 @@ def _is_main_guard(test: ast.expr) -> bool:
     )
 
 
-def _import_time_call_names(module: ast.Module) -> list[str]:
-    """Flag calls outside functions, classes and the `__main__` guard."""
-    found: set[str] = set()
+class _ImportTimeMutationVisitor(ast.NodeVisitor):
+    """Walk only expressions and statements that can execute during import."""
 
-    def examine(node: ast.AST) -> None:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            # Bodies execute only when called, but decorators, defaults,
-            # annotations and type parameters run while defining the function.
-            examine(node.args)
-            if node.returns is not None:
-                examine(node.returns)
-            for expression in (*node.decorator_list, *node.type_params):
-                examine(expression)
-            return
-        if isinstance(node, ast.Lambda):
-            # Lambda defaults are evaluated at construction, not its body.
-            examine(node.args)
-            return
-        if isinstance(node, ast.ClassDef):
-            # Class bases, decorators and its body execute when defined;
-            # function bodies inside the class remain deferred as above.
-            for expression in (*node.decorator_list, *node.bases, *node.keywords, *node.type_params):
-                examine(expression)
-            for statement in node.body:
-                examine(statement)
-            return
-        if isinstance(node, ast.If) and _is_main_guard(node.test):
-            # Only the true branch is protected. The else branch executes on
-            # normal import and must still be checked for side effects.
-            examine(node.test)
+    def __init__(self) -> None:
+        self.names: set[str] = set()
+
+    def _visit_function_signature(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        self.visit(node.args)
+        if node.returns is not None:
+            self.visit(node.returns)
+        for expression in (*node.decorator_list, *node.type_params):
+            self.visit(expression)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """Function signatures evaluate at definition time; bodies do not."""
+        self._visit_function_signature(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        """Async functions have the same definition-time evaluation rule."""
+        self._visit_function_signature(node)
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        """Lambda defaults are evaluated, whereas the expression body is deferred."""
+        self.visit(node.args)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        """Decorators, bases, keywords and class body are evaluated immediately."""
+        for expression in (*node.decorator_list, *node.bases, *node.keywords, *node.type_params):
+            self.visit(expression)
+        for statement in node.body:
+            self.visit(statement)
+
+    def visit_If(self, node: ast.If) -> None:
+        """Skip only the true branch of a genuine `__main__` guard."""
+        if _is_main_guard(node.test):
+            self.visit(node.test)
             for statement in node.orelse:
-                examine(statement)
+                self.visit(statement)
             return
-        if isinstance(node, ast.Call):
-            name = _call_name(node)
-            if name in UNSAFE_IMPORT_CALLS:
-                found.add(name)
-        for child in ast.iter_child_nodes(node):
-            examine(child)
+        self.generic_visit(node)
 
-    for statement in module.body:
-        examine(statement)
-    return sorted(found)
+    def visit_Call(self, node: ast.Call) -> None:
+        """Record known mutating calls and inspect their nested arguments."""
+        name = _call_name(node)
+        if name in UNSAFE_IMPORT_CALLS:
+            self.names.add(name)
+        self.generic_visit(node)
 
+
+def _import_time_call_names(module: ast.Module) -> list[str]:
+    """Conservatively find import-time calls, without importing any script."""
+    visitor = _ImportTimeMutationVisitor()
+    visitor.visit(module)
+    return sorted(visitor.names)
 
 def _editable_setting_names(module: ast.Module) -> list[str]:
     """Identify editable constants without exposing sensitive configured values."""
