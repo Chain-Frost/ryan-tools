@@ -577,7 +577,7 @@ def test_real_pytuflow_deferred_context_smoke(tmp_path: Path) -> None:
     assert any(issue.status == "missing" and "missing_code.shp" in issue.reference for issue in report.issues)
 
 
-def test_deferred_bc_sources_and_materials_are_resolved_without_eager_accessor(
+def test_deferred_bc_sources_and_materials_are_resolved_without_eager_accessor(  # noqa: C901 - contained protocol fakes
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """One event-specific source is missing; numeric materials introduce no secondary file."""
