@@ -442,75 +442,19 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     return references, unique
 
 
-def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-level result routing
-    tcf: Path,
-    runs: Sequence[RunRequest],
+def _materialise_attribute_references(
+    references: list[_FileReference],
+    report: PreflightReport,
     *,
-    check_gpkg_layers: bool = True,
-    directory_scan_threshold: int = 8,
     maximum_directory_entries: int = 50000,
-) -> PreflightReport:
-    """Resolve all dependencies first, then check each unique file only once.
+) -> list[_FileReference]:
+    """Bulk-inspect GIS attribute sources with full per-run provenance.
 
-    Dense input directories are listed once (bounded to avoid huge network
-    scans); sparse directories use direct metadata checks. Filesystem results
-    are then mapped back onto every run that needs each file. Output locations
-    are not treated as required inputs. The checker does not launch TUFLOW.
+    This shared stage is used by normal preflight and temporary differential
+    diagnostics. It must never suppress partial inspection failures.
     """
-    if not tcf.is_file():
-        message = f"TUFLOW control file not found: {tcf}"
-        raise FileNotFoundError(message)
-    if not runs:
-        message = "No simulations were supplied for input preflight"
-        raise ValueError(message)
-    # Import only on demand; PyTUFLOW is a required ryan-tools dependency.
-    from pytuflow import TCF
-
-    factory = cast(_ModelFactory, TCF)
-    report = PreflightReport(run_count=len(runs))
-    start = time.perf_counter()
-    model: _Model = factory(str(tcf.absolute()))
-    report.parse_seconds = time.perf_counter() - start
-
-    # Phase 1: PyTUFLOW run-state resolution; this can itself access files.
-    # Time it separately from the explicit deduplicated filesystem inventory.
-    start = time.perf_counter()
-    references, unique_paths = _collect_references(tcf.absolute(), runs, model, report)
-    report.context_seconds = time.perf_counter() - start
-
-    # Expand each distinct wildcard pattern once. A missing, oversized or
-    # unsupported directory fails only the runs that reference that pattern.
-    patterns = {ref.path for ref in references if any(char in ref.path.name for char in "*?[")}
-    if patterns:
-        expanded, failures, wildcard_scans = expand_file_patterns(
-            patterns, maximum_directory_entries=maximum_directory_entries
-        )
-        report.directories_scanned += wildcard_scans
-        materialised: list[_FileReference] = []
-        for ref in references:
-            if ref.path not in patterns:
-                materialised.append(ref)
-                continue
-            if ref.path in failures:
-                failure = failures[ref.path]
-                status: IssueStatus = "missing" if failure.status == "missing" else "unresolved"
-                report.issues.append(
-                    PreflightIssue(
-                        ref.run.index, ref.run.description, status, ref.origin, str(ref.path), failure.detail
-                    )
-                )
-                continue
-            for path in expanded[ref.path]:
-                materialised.append(
-                    _FileReference(ref.run, ref.origin, path, ref.layer, ref.scan_attributes, ref.database_kind)
-                )
-                unique_paths.setdefault(path, set())
-                if ref.layer:
-                    unique_paths[path].add(ref.layer)
-        references = materialised
-
-    # Inspect each distinct GIS attribute-bearing GeoPackage/layer once.
-    # This is a deliberate read-only bulk phase, never inside a run context.
+    # Inspect each distinct GIS attribute-bearing layer only once.
+    # Read-only bulk phase; invoke only after resolving all run contexts.
     attribute_started = time.perf_counter()
     scan_references = [ref for ref in references if ref.scan_attributes]
     pit_databases: dict[int, set[Path]] = {}
@@ -620,8 +564,83 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
         distinct_extra = {(ref.run.index, ref.origin, ref.path, ref.layer): ref for ref in extra_references}
         for ref in distinct_extra.values():
             references.append(ref)
-            unique_paths.setdefault(ref.path, set())
     report.attribute_seconds = time.perf_counter() - attribute_started
+    return references
+
+def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-level result routing
+    tcf: Path,
+    runs: Sequence[RunRequest],
+    *,
+    check_gpkg_layers: bool = True,
+    directory_scan_threshold: int = 8,
+    maximum_directory_entries: int = 50000,
+) -> PreflightReport:
+    """Resolve all dependencies first, then check each unique file only once.
+
+    Dense input directories are listed once (bounded to avoid huge network
+    scans); sparse directories use direct metadata checks. Filesystem results
+    are then mapped back onto every run that needs each file. Output locations
+    are not treated as required inputs. The checker does not launch TUFLOW.
+    """
+    if not tcf.is_file():
+        message = f"TUFLOW control file not found: {tcf}"
+        raise FileNotFoundError(message)
+    if not runs:
+        message = "No simulations were supplied for input preflight"
+        raise ValueError(message)
+    # Import only on demand; PyTUFLOW is a required ryan-tools dependency.
+    from pytuflow import TCF
+
+    factory = cast(_ModelFactory, TCF)
+    report = PreflightReport(run_count=len(runs))
+    start = time.perf_counter()
+    model: _Model = factory(str(tcf.absolute()))
+    report.parse_seconds = time.perf_counter() - start
+
+    # Phase 1: PyTUFLOW run-state resolution; this can itself access files.
+    # Time it separately from the explicit deduplicated filesystem inventory.
+    start = time.perf_counter()
+    references, unique_paths = _collect_references(tcf.absolute(), runs, model, report)
+    report.context_seconds = time.perf_counter() - start
+
+    # Expand each distinct wildcard pattern once. A missing, oversized or
+    # unsupported directory fails only the runs that reference that pattern.
+    patterns = {ref.path for ref in references if any(char in ref.path.name for char in "*?[")}
+    if patterns:
+        expanded, failures, wildcard_scans = expand_file_patterns(
+            patterns, maximum_directory_entries=maximum_directory_entries
+        )
+        report.directories_scanned += wildcard_scans
+        materialised: list[_FileReference] = []
+        for ref in references:
+            if ref.path not in patterns:
+                materialised.append(ref)
+                continue
+            if ref.path in failures:
+                failure = failures[ref.path]
+                status: IssueStatus = "missing" if failure.status == "missing" else "unresolved"
+                report.issues.append(
+                    PreflightIssue(
+                        ref.run.index, ref.run.description, status, ref.origin, str(ref.path), failure.detail
+                    )
+                )
+                continue
+            for path in expanded[ref.path]:
+                materialised.append(
+                    _FileReference(ref.run, ref.origin, path, ref.layer, ref.scan_attributes, ref.database_kind)
+                )
+                unique_paths.setdefault(path, set())
+                if ref.layer:
+                    unique_paths[path].add(ref.layer)
+        references = materialised
+
+    references = _materialise_attribute_references(
+        references, report, maximum_directory_entries=maximum_directory_entries
+    )
+    for ref in references:
+        unique_paths.setdefault(ref.path, set())
+        if ref.layer:
+            unique_paths[ref.path].add(ref.layer)
 
     # Phase 2: stat or list only distinct required paths, with one GeoPackage
     # query per database for all of its requested layers.
