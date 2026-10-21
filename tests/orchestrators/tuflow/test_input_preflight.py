@@ -876,3 +876,83 @@ def test_real_deferred_nested_control_dependencies_are_not_silently_omitted(tmp_
     assert report.passed, report.issues
     expected_paths = {str(tmp_path / name) for name in (*children, *sources)}
     assert report.checked_paths == expected_paths
+
+
+def test_deferred_network_attribute_files_are_scanned_once_for_440_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only one GIS attribute database open is needed for all 440 contexts."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    gpkg = tmp_path / "1d_nwk_example.gpkg"
+    with sqlite3.connect(gpkg) as db:
+        db.execute("CREATE TABLE gpkg_geometry_columns(table_name TEXT, column_name TEXT, geometry_type_name TEXT)")
+        db.execute("CREATE TABLE gpkg_contents(table_name TEXT)")
+        db.execute("INSERT INTO gpkg_geometry_columns VALUES ('1d_nwk_example','geom','LINESTRING')")
+        db.execute("INSERT INTO gpkg_contents VALUES ('1d_nwk_example')")
+        attrs = ", ".join(f"attr_{index} TEXT" for index in range(11))
+        db.execute(f'CREATE TABLE "1d_nwk_example" (fid INTEGER PRIMARY KEY, geom BLOB, {attrs})')
+        db.execute(
+            'INSERT INTO "1d_nwk_example" (attr_1, attr_10) VALUES (?, ?)',
+            ("M", "operation.csv | section.csv"),
+        )
+    for file in ("operation.csv", "section.csv"):
+        (tmp_path / file).touch()
+
+    class Input:
+        lhs = "Read GIS Network"
+        file_references = (
+            types.SimpleNamespace(
+                path_pattern=gpkg,
+                base_directory=tmp_path,
+                origin="Read GIS Network",
+                layer_pattern="1d_nwk_example",
+                unresolved_variables=(),
+                requires_attribute_scan=True,
+                requires_database_scan=False,
+            ),
+        )
+
+        @property
+        def files(self) -> None:
+            message = "Never call eager input.files during deferred inspection"
+            raise AssertionError(message)
+
+        def __str__(self) -> str:
+            return "Read GIS Network == 1d_nwk_example.gpkg"
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [] if lhs else [Input()]
+
+        def deferred_database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return ()
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    runs = [RunRequest(index, {"e1": f"TP{index:03d}"}) for index in range(1, 441)]
+    report = check_simulation_inputs(tcf, runs)
+    assert report.passed, report.issues
+    assert report.run_count == 440
+    assert report.attribute_databases_scanned == 1
+    assert report.affected_runs == 0
+    assert report.checked_paths == {
+        str(gpkg),
+        str(tmp_path / "operation.csv"),
+        str(tmp_path / "section.csv"),
+    }
+
+    (tmp_path / "section.csv").unlink()
+    missing = check_simulation_inputs(tcf, runs[:3])
+    assert not missing.passed
+    assert missing.attribute_databases_scanned == 1
+    assert missing.affected_runs == 3
+    assert len(missing.issues) == 3
+    assert all("section.csv" in issue.reference for issue in missing.issues)
