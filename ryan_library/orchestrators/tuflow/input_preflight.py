@@ -355,7 +355,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     return references, unique
 
 
-def check_simulation_inputs(
+def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-level result routing
     tcf: Path,
     runs: Sequence[RunRequest],
     *,
