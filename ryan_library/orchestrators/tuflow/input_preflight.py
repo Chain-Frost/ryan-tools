@@ -289,11 +289,8 @@ def check_simulation_inputs(
     if not runs:
         message = "No simulations were supplied for input preflight"
         raise ValueError(message)
-    try:
-        from pytuflow import TCF  # pyright: ignore[reportMissingTypeStubs] - PyTUFLOW 1.2 lacks stubs
-    except ImportError as exc:
-        message = "PyTUFLOW is missing; reinstall with: python -m pip install --upgrade ryan-tools"
-        raise RuntimeError(message) from exc
+    # Import only on demand; PyTUFLOW is a required ryan-tools dependency.
+    from pytuflow import TCF
 
     factory = cast(_ModelFactory, TCF)
     report = PreflightReport(run_count=len(runs))
