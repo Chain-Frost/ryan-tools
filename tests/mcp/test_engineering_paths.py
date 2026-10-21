@@ -119,5 +119,3 @@ def test_opt_in_network_share_copy(variable: str, tmp_path: Path) -> None:
         assert copied.read_bytes() == CONTENT
         # Path.absolute retains the user-facing mapped drive/UNC spelling.
         assert str(copied).casefold().startswith(str(root.absolute()).casefold())
-
-
