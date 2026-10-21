@@ -58,7 +58,9 @@ def test_real_qgis4_python_provider_reads_synthetic_vector(tmp_path: Path) -> No
     python = os.environ.get("RYAN_CF_QGIS_PYTHON") or sys.executable
     env = os.environ.copy()
     env.setdefault("QT_QPA_PLATFORM", "offscreen")
-    result = subprocess.run([python, "-c", code, str(source)], text=True, capture_output=True, env=env, check=False, timeout=90)
+    result = subprocess.run(
+        [python, "-c", code, str(source)], text=True, capture_output=True, env=env, check=False, timeout=90
+    )
     assert result.returncode == 0, (
         "QGIS 4 Python/provider integration failed; use a configured QGIS/OSGeo4W environment. "
         f"stdout={result.stdout}, stderr={result.stderr}"
