@@ -216,7 +216,7 @@ def test_shapefile_is_read_once_for_multiple_layer_selectors(tmp_path: Path, mon
     shp = tmp_path / "1d_nwk_example.shp"
     make_network_shapefile(shp)
 
-    def disallow_shapes(*args: object, **kwargs: object) -> None:
+    def disallow_shapes(*_args: object, **_kwargs: object) -> None:
         msg = "Geometry must not be loaded when only attributes are required"
         raise AssertionError(msg)
 
