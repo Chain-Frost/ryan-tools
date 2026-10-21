@@ -107,7 +107,7 @@ nested/attribute-linked and unsupported database files remains to be established
 The normal `ryan-tools` package still depends on published `pytuflow>=1.2,<2`.
 When that installation lacks `file_resolution`, the previous eager discovery remains
 available with a warning. For integration validation, the dedicated `.github/workflows/deferred-pytuflow-consumer.yml`
-installs the fork pinned at `3a3cfa898955b413abfec92709758c3f26e55c77`
+installs the fork pinned at `1c300a7013522f177de07e68f27f3824a3ba8177`
 on Windows/Python 3.13, sets `RYAN_TEST_DEFERRED_PYTUFLOW=1`, and exercises the
 real API through a gated smoke test. Do not replace the production PyPI dependency
 with an unreleased GitHub branch.
