@@ -45,20 +45,25 @@ def test_staged_overwrite_preserves_old_output_on_promotion_failure(
         capture_output: bool,
     ) -> subprocess.CompletedProcess[str]:
         assert arguments[-1] == str(staged)
-        assert not check and text and capture_output
+        assert not check
+        assert text
+        assert capture_output
         staged.write_bytes(b"new-output")
         return subprocess.CompletedProcess(args=arguments, returncode=0, stdout="", stderr="")
 
     def fail_promotion(self: Path, destination: str | Path) -> Path:
         assert self == staged
         assert destination == output
-        raise OSError("injected failed promotion")
+        message = "injected failed promotion"
+        raise OSError(message)
 
     monkeypatch.setattr(wrapper, "_temporary_output", lambda _: staged)
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(Path, "replace", fail_promotion)
 
-    assert not cast("bool", wrapper.convert_raster(source, output, csv_output=True, skip_nodata=True, overwrite=True, dry_run=False))
+    assert not cast(
+        "bool", wrapper.convert_raster(source, output, csv_output=True, skip_nodata=True, overwrite=True, dry_run=False)
+    )
     assert source.read_bytes() == b"source"
     assert output.read_bytes() == b"old-output"
     assert not staged.exists()
@@ -82,14 +87,18 @@ def test_staged_overwrite_promotes_successful_conversion(
         capture_output: bool,
     ) -> subprocess.CompletedProcess[str]:
         assert arguments[-1] == str(staged)
-        assert not check and text and capture_output
+        assert not check
+        assert text
+        assert capture_output
         staged.write_bytes(b"new-output")
         return subprocess.CompletedProcess(args=arguments, returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(wrapper, "_temporary_output", lambda _: staged)
     monkeypatch.setattr(subprocess, "run", fake_run)
 
-    assert cast("bool", wrapper.convert_raster(source, output, csv_output=True, skip_nodata=True, overwrite=True, dry_run=False))
+    assert cast(
+        "bool", wrapper.convert_raster(source, output, csv_output=True, skip_nodata=True, overwrite=True, dry_run=False)
+    )
     assert source.read_bytes() == b"source"
     assert output.read_bytes() == b"new-output"
     assert not staged.exists()
