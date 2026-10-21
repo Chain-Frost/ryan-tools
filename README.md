@@ -125,8 +125,12 @@ configures the QGIS and ryan-tools MCP servers only as needed, preserving other
 settings and backing up any changed Codex configuration. The legacy
 `install-latest-wheel.bat` name now launches that same PyPI installer.
 The installer selects the highest installed Python 3 release through the Windows launcher (minimum 3.13); override with `RYAN_TOOLS_PYTHON` to select a particular interpreter. The installer also recognises the `openai.chatgpt` Codex extension in VS Code, even without the Codex CLI.
-For developers, `package_and_install.bat` builds and installs a local wheel,
-while `install-local-wheel.bat` installs an existing local wheel without rebuilding.
+For developers, `package_and_install.bat` builds and installs a local wheel, including
+installing or updating its dependencies and the QGIS MCP bridge.
+`package_and_force-install.bat` builds locally and forcibly reinstalls only that wheel
+with `--no-deps`, leaving dependency installation to the normal installer.
+Both use the local `dist/` wheel for `ryan-tools`; dependencies may still be downloaded.
+`install-local-wheel.bat` installs an existing local wheel without rebuilding.
 QGIS itself and its QGIS MCP desktop plugin must be installed separately.
 
 ## License

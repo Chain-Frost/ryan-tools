@@ -9,7 +9,7 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: exact-head CI and Windows engineering smoke checks.
+In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: 2026-10-22; resolve the P/B database findings and repeat parity checks.
 
 ## Decisions
 
@@ -187,3 +187,81 @@ schema-specific exceptions. Do not claim the overall preflight passes
 until the local report has no missing/unresolved requirements.
 Run the separate 42-run output-variable model unchanged. No merge or
 automatic enforcement until local and CI gates complete.
+
+## P and B Windows smoke checks (2026-10-21)
+
+Tested consumer head `a550e86304f752f31932c73821e8a3c801db3431` with normal Windows Python 3.14.6.
+The supplied `E:\Github\PyTuflow` checkout is on master at `cf908cc`, without the deferred API.
+Its local Git object store also contains the workflow-pinned fork commit
+`1c300a7013522f177de07e68f27f3824a3ba8177`; a `git archive` of that exact commit was extracted
+under the temporary validation directory and imported only in the test process. Neither the checkout,
+installed packages nor project files were changed. This is source-import evidence, not installed-fork wheel evidence.
+
+The run-variable dictionaries and TCF paths were extracted using Python AST from the supplied launchers;
+their parameter products produced four P and 240 B requests. Neither launcher's main function,
+simulation execution, command export nor post-run hooks were called. Representative indices were 1/3/4
+and 1/121/240 respectively, followed by the full products to count affected runs. The full deferred checks
+were diagnostic runs despite the representative failures; they do not establish the parity acceptance gate.
+
+| Model / mode | Runs | Unique paths | Findings | Parse / contexts / inventory seconds |
+| --- | --- | --- | --- | --- |
+| P / pinned deferred | 4 | 16 | 8 unresolved across all runs | 0.200 / 0.307 / 0.002 |
+| B / pinned deferred | 240 | 20 | 480 unresolved across all runs | 0.229 / 23.776 / 0.005 |
+| P / installed eager 1.2.6 (rerun) | 4 | 18 | 0 | 0.261 / 0.640 / 0.001 |
+| B / installed eager 1.2.6 (rerun) | 240 | 22 | 240 missing-path findings | 0.257 / 35.300 / 0.004 |
+
+Each deferred run reports unsupported `Read Soils File` database inspection and a material database
+error for the numeric list `0.05, 0.1, 0.1, 0.05`. The latter aborts secondary database collection;
+do not infer complete BC coverage or compare these incomplete inventories as dependency parity.
+Both models require upstream schema support before deferred acceptance. No attribute GeoPackage scans
+were requested by these models, so this does not validate the outstanding Higginsville attribute gate.
+P additionally emitted a projection-reading warning for its PRJ input.
+
+The original eager comparison used PyTUFLOW 1.1.10 and is superseded by a full rerun with verified
+installed **PyTUFLOW 1.2.6**, satisfying `pytuflow>=1.2,<2`. The table reports the corrected rerun.
+B's reported missing BC source still retains literal `~AEP~` and `~DUR~` placeholders in 1.2.6.
+This demonstrates unresolved substitution, rather than proving the intended event-specific rainfall file
+is absent. No project edits or workarounds were used. P passes all four runs; B fails closed on all 240.
+
+Focused verification:
+
+- A process-local fork import with `RYAN_TEST_DEFERRED_PYTUFLOW=1` and
+  `pytest -q -ra tests/orchestrators/tuflow/test_input_preflight.py tests/functions/tuflow/test_gis_attribute_dependencies.py`:
+  **28 passed, 1 warning**. Native imports also emitted Windows exception diagnostic `0xc0000139` involving
+  h5py and a NumPy binary-size warning, although pytest exited zero. Treat native dependency health as unresolved.
+- `python -m pytest -q -ra tests/functions/tuflow/test_gpu_occupancy.py tests/scripts/test_run_tuflow_simulations.py tests/scripts/tuflow/test_rename_geopackage_layer_to_filename.py`:
+  **25 passed**.
+- Direct checker `--help` failed with `ModuleNotFoundError` for the new `run_flags` module in the existing
+  installed ryan-tools. The source tests import this checkout; this failure confirms the installed package
+  is not a matching PR build. No global installation was changed to conceal that gap.
+
+Local reports, JSON summaries and reproduction scripts are in
+`C:\Users\Ryan\AppData\Local\Temp\ryan-preflight-20261021` (`validate.py`, `eager.py`, `eager-all.py`,
+`focused.py`); these are temporary, untracked artifacts and include project-specific paths.
+No TUFLOW executable was started. No commit, push, merge or PR comment was requested or performed.
+Only this status record and its register row were edited; unrelated submodule state was preserved.
+A concurrent `pyproject.toml` version change from `26.10.21.1` to `26.10.21.2` appeared during validation;
+this session did not make that change and preserved it. The recorded smoke results apply to the consumer
+source at the stated head, not to a newly built wheel.
+
+**Next action:** address numeric material lists and soils support in the upstream deferred API, rerun
+the representative models with the required supported PyTUFLOW version, then compare materialised
+per-run path/layer inventories. Matching installed-wheel/dependency and copied-wrapper smoke,
+native-library health, mapped-drive copied-GeoPackage exercise, Higginsville attribute validation,
+the separate 42-run model and exact-head CI remain open. These local smoke results do not approve merge.
+
+### Correct-version eager rerun (2026-10-21)
+
+Verified installed PyTUFLOW 1.2.6 and ryan-tools 26.10.21.2; consumer source head remains `a550e86`.
+Ran `python "$env:TEMP/ryan-preflight-20261021/eager-1.2.6.py"` on Windows Python 3.14.6 for
+all four P and 240 B runs. The reproduction script asserts PyTUFLOW's distribution version before
+importing project data, uses the installed eager parser, and imports the current consumer checkout.
+Reports are `P-eager-1.2.6-all.csv`, `B-eager-1.2.6-all.csv` and `eager-1.2.6-all-summary.json` beside
+that script. No TUFLOW process was launched. The corrected results supersede the earlier 1.1.10 evidence.
+
+`python -m pytest -q -ra tests/orchestrators/tuflow/test_input_preflight.py tests/functions/tuflow/test_gis_attribute_dependencies.py`
+with the published 1.2.6 package: **24 passed, 4 skipped** (the four real deferred-fork tests).
+Direct checker `--help` now passes, superseding the earlier missing-module failure. A copy of the checker
+in the temporary directory also passes `--help` from that directory without a checkout path override.
+This verifies installed-module discovery, not a complete installed-wheel model smoke or eager/deferred parity.
+The earlier fork native-import warnings and deferred schema blockers remain separate open findings.
