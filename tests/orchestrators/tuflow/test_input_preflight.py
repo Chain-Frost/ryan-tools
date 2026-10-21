@@ -153,3 +153,147 @@ def test_missing_geopackage_layer(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     run = RunRequest(index=1, flags={"e1": "01.0p"})
     assert check_simulation_inputs(tcf, [run]).issues[0].status == "missing"
     assert check_simulation_inputs(tcf, [run], check_gpkg_layers=False).passed
+
+
+
+def test_output_directories_are_not_required_inputs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Neither an absent output directory nor a directory on disk is a missing input."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    output_path = tmp_path / "results" / "future_run"
+
+    class OutputInput:
+        lhs = "Output Folder"
+        files = (output_path,)
+        parent = types.SimpleNamespace(fpath=tcf)
+        has_missing_files = True
+
+        def __str__(self) -> str:
+            return "Output Folder == ..\\results\\future_run"
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[OutputInput]:
+            return [] if lhs else [OutputInput()]
+
+        def bc_dbase(self) -> None:
+            return None
+
+    class FakeTCF:
+        def __init__(self, path: str) -> None:
+            pass
+
+        def context(self, _flags: str) -> Context:
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "01.0p"})])
+    assert report.passed
+    assert report.checked_paths == set()
+
+
+def test_identical_files_are_collected_before_one_network_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """500 model contexts sharing eight files require one parent listing."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    inputs = tuple(tmp_path / f"input_{index}.csv" for index in range(8))
+    for file in inputs[:-1]:
+        file.touch()
+
+    class Input:
+        lhs = "Read GIS"
+        parent = types.SimpleNamespace(fpath=tcf)
+        has_missing_files = False
+        files = inputs
+
+        def __str__(self) -> str:
+            return "Read GIS == shared files"
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [] if lhs else [Input()]
+
+        def bc_dbase(self) -> None:
+            return None
+
+    class FakeTCF:
+        def __init__(self, path: str) -> None:
+            pass
+
+        def context(self, _flags: str) -> Context:
+            return Context()
+
+    from ryan_library.functions.tuflow import dependency_index
+
+    real_scan = dependency_index.os.scandir
+    scanned: list[Path] = []
+
+    def recording_scan(path: Path) -> object:
+        scanned.append(Path(path))
+        return real_scan(path)
+
+    monkeypatch.setattr(dependency_index.os, "scandir", recording_scan)
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+
+    runs = [RunRequest(index=i, flags={"e1": f"TP{i:03d}"}) for i in range(1, 501)]
+    report = check_simulation_inputs(tcf, runs)
+    assert not report.passed
+    assert report.run_count == 500
+    assert len(report.checked_paths) == 8
+    assert report.directories_scanned == 1
+    assert report.individually_checked == 0
+    assert scanned == [tmp_path]
+    assert len(report.issues) == 500
+    assert report.affected_runs == 500
+    assert {issue.reference for issue in report.issues} == {str(inputs[-1])}
+
+
+def test_missing_input_in_dense_directory_maps_to_only_affected_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Shared files are scanned once; an event-specific missing source affects only its run."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    shared = tuple(tmp_path / f"common_{index}.tif" for index in range(8))
+    for file in shared:
+        file.touch()
+
+    class Input:
+        lhs = "Read GRID"
+        parent = types.SimpleNamespace(fpath=tcf)
+        has_missing_files = False
+
+        def __init__(self, event: str) -> None:
+            self.files = (*shared, tmp_path / f"rain_{event}.csv")
+
+        def __str__(self) -> str:
+            return "Read GRID == shared and rainfall files"
+
+    class Context:
+        def __init__(self, event: str) -> None:
+            self.event = event
+
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [] if lhs else [Input(self.event)]
+
+        def bc_dbase(self) -> None:
+            return None
+
+    class FakeTCF:
+        def __init__(self, path: str) -> None:
+            pass
+
+        def context(self, flags: str) -> Context:
+            return Context("EXG" if "EXG" in flags else "DEV")
+
+    (tmp_path / "rain_EXG.csv").touch()
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    report = check_simulation_inputs(
+        tcf,
+        [RunRequest(1, {"s1": "EXG"}), RunRequest(2, {"s1": "DEV"})],
+    )
+    assert report.directories_scanned == 1
+    assert report.affected_runs == 1
+    assert report.issues[0].run_index == 2
+    assert report.issues[0].reference.endswith("rain_DEV.csv")
