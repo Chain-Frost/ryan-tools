@@ -9,6 +9,7 @@ installed wheel in `repo-scripts/smoke_test_installed_wheel.py`.
 from __future__ import annotations
 
 import csv
+from contextlib import closing
 import hashlib
 import shutil
 import sqlite3
@@ -257,7 +258,7 @@ def test_copied_common_cli_rejects_unknown_option_without_processing(relative: s
 def test_copied_po_label_list_reads_synthetic_sqlite_layer_without_mutating_input(tmp_path: Path) -> None:
     """The selected PO label script uses a small disposable SQLite/GPKG-like fixture."""
     gpkg = tmp_path / "2d_po_café.gpkg"
-    with sqlite3.connect(gpkg) as connection:
+    with closing(sqlite3.connect(gpkg)) as connection:
         connection.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
         connection.execute("INSERT INTO gpkg_contents VALUES ('2d_po_example', 'features')")
         connection.execute('CREATE TABLE "2d_po_example" (fid INTEGER PRIMARY KEY, Label TEXT, Comment TEXT)')
@@ -269,6 +270,7 @@ def test_copied_po_label_list_reads_synthetic_sqlite_layer_without_mutating_inpu
                 (2, "  ", "ignored"),
             ],
         )
+        connection.commit()
     original = gpkg.read_bytes()
     result = _run_copied_wrapper(
         "TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py",
