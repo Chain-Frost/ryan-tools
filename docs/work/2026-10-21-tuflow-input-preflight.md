@@ -711,3 +711,36 @@ branch-only tests/fixtures/tuflow_example_repro directory, related
 workflow replay steps and its central docs-index row. Keep durable
 synthetic regressions and this anonymised validation record.
 No merge, default-on preflight, PyPI release or TUFLOW engine launch is authorised.
+
+
+## Dataset transferred to dedicated test-data repository (2026-10-22)
+
+The earlier **branch-only archive location is superseded** by the user's
+instruction to store reusable test inputs in
+[ryan-tools-test-data PR #1](https://github.com/Chain-Frost/ryan-tools-test-data/pull/1).
+The ZIP, SHA-256 member manifest, and original 161-case baseline now live
+at `tests/test_data/tuflow/example_input_preflight/` through the already
+supported test-data submodule. The ryan-tools PR #143 submodule gitlink was
+updated to test-data commit `3589290cd41974e240b555f8e3ceb2a51aec2951`
+and the three duplicates were deleted from the ryan-tools branch.
+The Python read-only diagnostic runner remains temporarily at
+`tests/fixtures/tuflow_example_repro/run_checks.py`, but now reads
+the bundle from the shared test-data directory.
+
+The transferred archive Git blob is byte-identical to the source
+(`b29f38ff4d6179ca3e2dbba92b807a44427ffe5d`); its SHA-256
+is `e374c8e072679fc6c4dc11e63b270caa1101b6aebb84d70060872cdd1b0aa7d6`.
+[Test-data transfer CI](https://github.com/Chain-Frost/ryan-tools-test-data/actions/runs/39656816536)
+recomputed **all 1,464 member checksums** and measured **0.198 s
+one-time extraction on a hosted Linux SSD** (this is not a Windows or
+network-drive benchmark). ZIP size is 15,137,122 bytes; extracted input
+bytes are 20,134,068. There is no runtime decompression per run;
+the harness extracts once before contexts are constructed. Keep the
+archive zipped in Git to avoid 1,464 checkout metadata/file operations.
+
+The test-data PR must be merged to `main` before or alongside ryan-tools
+PR #143, and the ryan-tools submodule gitlink must then be updated to
+the resulting permanent test-data commit (especially if PR #1 is squash-merged
+and its original SHA is no longer reachable). The short-lived diagnostic
+runner/CI sweep may still be removed before ryan-tools merge, but **do
+not delete the permanent archive in ryan-tools-test-data**.
