@@ -94,10 +94,7 @@ def _scan_layer(  # noqa: C901 - feature schema, channel and field validation
         message = "Mixed or unknown network geometry requires feature-level inspection"
         raise ValueError(message)
     quoted = _quote_identifier(layer)
-    columns = [
-        (name, pk)
-        for _, name, _, _, _, pk in connection.execute(f"PRAGMA table_info({quoted})")
-    ]
+    columns = [(name, pk) for _, name, _, _, _, pk in connection.execute(f"PRAGMA table_info({quoted})")]
     geom_names = {
         str(name).casefold()
         for (name,) in connection.execute(
@@ -182,9 +179,9 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
                 for selector in selectors:
                     key = (path, selector)
                     matches = [
-                        name for name in available
-                        if selector.casefold() == "all"
-                        or fnmatch.fnmatchcase(name.casefold(), selector.casefold())
+                        name
+                        for name in available
+                        if selector.casefold() == "all" or fnmatch.fnmatchcase(name.casefold(), selector.casefold())
                     ]
                     if not matches:
                         results[key] = AttributeInspection(
