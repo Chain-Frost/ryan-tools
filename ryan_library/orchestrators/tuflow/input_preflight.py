@@ -7,14 +7,15 @@ references plus source files in the active BC database. Never runs TUFLOW.
 from __future__ import annotations
 
 import csv
-import sqlite3
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol, cast
 
 import pandas as pd
 from loguru import logger
+
+from ...functions.tuflow.dependency_index import check_unique_dependencies
 
 IssueStatus = Literal["missing", "unresolved"]
 
@@ -96,6 +97,8 @@ class PreflightReport:
     run_count: int
     issues: list[PreflightIssue] = field(default_factory=list[PreflightIssue])
     checked_paths: set[str] = field(default_factory=set[str])
+    directories_scanned: int = 0
+    individually_checked: int = 0
 
     @property
     def passed(self) -> bool:
@@ -121,32 +124,162 @@ class PreflightReport:
         return destination
 
 
-def _database_layer_exists(path: Path, layer: str) -> bool:
-    """Check a GeoPackage layer with SQLite without requiring GDAL or QGIS."""
-    if not layer:
-        return True
-    try:
-        with sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True) as connection:
-            row = connection.execute(
-                "SELECT 1 FROM gpkg_contents WHERE lower(table_name) = lower(?)",
-                (layer,),
-            ).fetchone()
-        return row is not None
-    except (sqlite3.DatabaseError, OSError):
-        return False
 
 
-def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across TUFLOW input families
+@dataclass(frozen=True, slots=True)
+class _FileReference:
+    """A required path and the particular simulation/command that needs it."""
+
+    run: RunRequest
+    origin: str
+    path: Path
+    layer: str = ""
+
+
+# Output paths are destinations, not source inputs: TUFLOW may create them.
+_OUTPUT_COMMANDS = frozenset(
+    {
+        "output folder",
+        "log folder",
+        "write check files",
+        "check files output folder",
+        "1d output folder",
+        "2d output folder",
+        "output folder 1d",
+        "output folder 2d",
+    }
+)
+
+
+def _command_name(input_command: object) -> str:
+    """Prefer PyTUFLOW's LHS, with a conservative fallback for test doubles."""
+    lhs = getattr(input_command, "lhs", None)
+    if lhs is None:
+        lhs = str(input_command).split("==", maxsplit=1)[0]
+    return " ".join(str(lhs).casefold().split())
+
+
+def _collect_references(
+    tcf: Path,
+    runs: Sequence[RunRequest],
+    model: _Model,
+    report: PreflightReport,
+) -> tuple[list[_FileReference], dict[Path, set[str]]]:
+    """Phase 1: resolve all run-specific inputs without existence checking."""
+    references: list[_FileReference] = []
+    unique: dict[Path, set[str]] = {}
+    seen: set[tuple[int, str, Path, str]] = set()
+
+    def add_issue(run: RunRequest, origin: str, reference: str, detail: str) -> None:
+        report.issues.append(PreflightIssue(run.index, run.description, "unresolved", origin, reference, detail))
+
+    def add_file(run: RunRequest, source: object, origin: str, base: Path, *, require_layer: bool = True) -> None:
+        raw = str(getattr(source, "dbpath", source)).strip()
+        if not raw or raw == "." or "<<" in raw or ">>" in raw or any(char in raw for char in "*?"):
+            add_issue(run, origin, raw, "Unexpanded variable, wildcard or unsupported reference")
+            return
+        path = Path(raw)
+        if not path.is_absolute():
+            path = base / path
+        path = path.absolute()
+        layer = str(getattr(source, "lyrname", "") or "") if require_layer and path.suffix.casefold() == ".gpkg" else ""
+        key = (run.index, origin, path, layer)
+        if key not in seen:
+            seen.add(key)
+            references.append(_FileReference(run, origin, path, layer))
+        unique.setdefault(path, set())
+        if layer:
+            unique[path].add(layer)
+
+    for run in runs:
+        try:
+            context = model.context(run.arguments)
+        except Exception as exc:  # noqa: BLE001 - parser errors must fail closed
+            add_issue(run, "TCF context", str(tcf), f"Could not resolve run: {exc}")
+            continue
+
+        try:
+            inputs = context.find_input()
+            for inp in inputs:
+                if _command_name(inp) in _OUTPUT_COMMANDS:
+                    continue
+                origin = str(inp)
+                try:
+                    files = list(inp.files)
+                except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW errors fail closed
+                    add_issue(run, origin, "", f"Could not enumerate input files: {exc}")
+                    continue
+                parent = getattr(inp, "parent", None)
+                owning_file = getattr(parent, "fpath", None)
+                base = Path(owning_file).parent if owning_file else tcf.parent
+                for file in files:
+                    add_file(run, file, origin, base)
+                # Avoid triggering PyTUFLOW's file checks for every run and
+                # every file. Only query its missing-file property for inputs
+                # where no path was exposed.
+                if not files:
+                    try:
+                        if inp.has_missing_files:
+                            add_issue(run, origin, "", "Input has missing dependencies with no resolved file path")
+                    except Exception as exc:  # noqa: BLE001 - cannot certify missing references
+                        add_issue(run, origin, "", f"Could not inspect unresolved input: {exc}")
+        except Exception as exc:  # noqa: BLE001 - parser traversal errors fail closed
+            add_issue(run, "Control-file traversal", str(tcf), f"Could not read model inputs: {exc}")
+
+        # PyTUFLOW resolves the BC database's event-dependent Source column.
+        # Collect the Source values now, but do not stat() the files yet.
+        try:
+            database = context.bc_dbase()
+        except (LookupError, ValueError):
+            try:
+                has_database = bool(context.find_input(lhs="BC Database"))
+            except Exception as exc:  # noqa: BLE001 - cannot establish whether the database is optional
+                add_issue(run, "BC Database", str(tcf), f"Cannot determine active BC database: {exc}")
+            else:
+                if has_database:
+                    add_issue(run, "BC Database", str(tcf), "Could not resolve active BC database")
+            continue
+        except Exception as exc:  # noqa: BLE001 - parser errors must fail closed
+            add_issue(run, "BC Database", str(tcf), f"Could not load BC database: {exc}")
+            continue
+
+        if database is None:
+            continue
+        database_path = Path(database.fpath).absolute()
+        add_file(run, database_path, "BC Database", tcf.parent, require_layer=False)
+        try:
+            frame: pd.DataFrame = database.df
+            source_column = next((col for col in frame.columns if str(col).strip().casefold() == "source"), None)
+            if source_column is None:
+                add_issue(run, "BC Database", str(database_path), "No Source column found")
+                continue
+            for name, row in frame.iterrows():
+                raw = str(row[source_column]).strip()
+                if raw.casefold() in {"", "nan", "none"}:
+                    continue
+                try:
+                    float(raw)  # Numeric constant, not a file path.
+                except ValueError:
+                    add_file(run, raw, f"BC source: {name}", database_path.parent, require_layer=False)
+        except Exception as exc:  # noqa: BLE001 - source list must be complete
+            add_issue(run, "BC Database", str(database_path), f"Could not enumerate BC sources: {exc}")
+    return references, unique
+
+
+def check_simulation_inputs(
     tcf: Path,
     runs: Sequence[RunRequest],
     *,
     check_gpkg_layers: bool = True,
+    directory_scan_threshold: int = 8,
+    maximum_directory_entries: int = 50000,
 ) -> PreflightReport:
-    """Check every active file input and BC source for all proposed runs.
+    """Resolve all dependencies first, then check each unique file only once.
 
-    PyTUFLOW is installed with ryan-tools and loaded only when invoked. Missing, unparseable or
-    unresolved inputs fail closed and are returned in the report. The model
-    control files and input data are never modified.
+    Dense input directories are listed once (bounded to avoid huge network
+    scans); sparse directories use direct metadata checks. Filesystem results
+    are then mapped back onto every run that needs each file. Output locations
+    are not treated as required inputs. The checker does not launch TUFLOW.
     """
     if not tcf.is_file():
         message = f"TUFLOW control file not found: {tcf}"
@@ -155,124 +288,60 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
         message = "No simulations were supplied for input preflight"
         raise ValueError(message)
     try:
-        from pytuflow import TCF  # pyright: ignore[reportMissingTypeStubs]
+        from pytuflow import TCF
     except ImportError as exc:
         message = "PyTUFLOW is missing; reinstall with: python -m pip install --upgrade ryan-tools"
         raise RuntimeError(message) from exc
 
-    # Keep the import local so the launcher does not initialise PyTUFLOW unless preflight is requested.
     factory = cast(_ModelFactory, TCF)
     report = PreflightReport(run_count=len(runs))
-    cache: dict[tuple[str, str], bool] = {}
     model: _Model = factory(str(tcf.absolute()))
 
-    def add_issue(run: RunRequest, status: IssueStatus, origin: str, reference: str, detail: str) -> None:
-        report.issues.append(
-            PreflightIssue(
-                run_index=run.index,
-                flags=run.description,
-                status=status,
-                origin=origin,
-                reference=reference,
-                detail=detail,
+    # Phase 1: one model parse, all run contexts and event-resolved BC sources.
+    references, unique_paths = _collect_references(tcf.absolute(), runs, model, report)
+
+    # Phase 2: stat or list only distinct required paths, with one GeoPackage
+    # query per database for all of its requested layers.
+    if not check_gpkg_layers:
+        unique_paths = {path: set() for path in unique_paths}
+    inventory = check_unique_dependencies(
+        unique_paths,
+        scan_threshold=directory_scan_threshold,
+        maximum_directory_entries=maximum_directory_entries,
+    )
+    report.checked_paths.update(str(path) for path in unique_paths)
+    report.directories_scanned = inventory.directories_scanned
+    report.individually_checked = inventory.individually_checked
+
+    # Phase 3: map results back to affected simulations and source commands.
+    for reference in references:
+        result = inventory.files[reference.path]
+        if result.status == "present" and reference.layer and check_gpkg_layers:
+            result = inventory.layers.get(
+                (reference.path, reference.layer),
+                result,
             )
-        )
-
-    def inspect_file(run: RunRequest, file: object, origin: str, *, base: Path, require_layer: bool = True) -> None:
-        raw = str(getattr(file, "dbpath", file))
-        if not raw or raw == "." or "<<" in raw or ">>" in raw or any(char in raw for char in "*?"):
-            add_issue(run, "unresolved", origin, raw, "Unexpanded variable, wildcard or unsupported reference")
-            return
-        path = Path(raw)
-        if not path.is_absolute():
-            path = base / path
-        path = path.absolute()
-        layer = str(getattr(file, "lyrname", "") or "") if require_layer and check_gpkg_layers else ""
-        if path.suffix.lower() != ".gpkg":
-            layer = ""
-        key = (str(path).casefold(), layer.casefold())
-        if key not in cache:
-            cache[key] = path.is_file() and (not layer or _database_layer_exists(path, layer))
-        report.checked_paths.add(str(path))
-        if not cache[key]:
-            detail = f"Missing GeoPackage layer {layer}" if path.is_file() and layer else "Input file does not exist"
-            add_issue(run, "missing", origin, f"{path} >> {layer}" if layer else str(path), detail)
-
-    for run in runs:
-        try:
-            context = model.context(run.arguments)
-        except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
-            add_issue(run, "unresolved", "TCF context", str(tcf), f"Could not resolve run: {exc}")
-            continue
-
-        try:
-            inputs: Iterable[_Input] = context.find_input()
-            for inp in inputs:
-                origin = str(inp)
-                try:
-                    files = list(inp.files)
-                except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
-                    add_issue(run, "unresolved", origin, "", f"Could not enumerate input files: {exc}")
-                    continue
-                parent = getattr(inp, "parent", None)
-                owning_file = getattr(parent, "fpath", None)
-                base = Path(owning_file).parent if owning_file else tcf.absolute().parent
-                for file in files:
-                    inspect_file(run, file, origin, base=base)
-                try:
-                    missing_flag = bool(inp.has_missing_files)
-                except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
-                    add_issue(run, "unresolved", origin, "", f"Could not evaluate missing-file state: {exc}")
-                    continue
-                if missing_flag and not files:
-                    add_issue(
-                        run, "unresolved", origin, "", "Input reports missing dependencies without a resolved path"
-                    )
-        except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
-            add_issue(run, "unresolved", "Control-file traversal", str(tcf), str(exc))
-
-        # PyTUFLOW does not expose BC source CSVs as ordinary control-file
-        # commands. Inspect the resolved database's Source column separately.
-        try:
-            bc_database = context.bc_dbase()
-        except (LookupError, ValueError):
-            # Models with no BC Database are valid (e.g. direct GIS boundaries).
-            if context.find_input(lhs="BC Database"):
-                add_issue(run, "unresolved", "BC Database", str(tcf), "Could not resolve active BC database")
-            continue
-        except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
-            add_issue(run, "unresolved", "BC Database", str(tcf), f"Could not load BC database: {exc}")
-            continue
-
-        if bc_database is None:
-            continue
-        database_path = Path(bc_database.fpath).absolute()
-        inspect_file(run, database_path, "BC Database", base=tcf.absolute().parent, require_layer=False)
-        if not database_path.is_file():
-            continue
-
-        try:
-            df: pd.DataFrame = bc_database.df
-            source_column = next((column for column in df.columns if str(column).strip().lower() == "source"), None)
-            if source_column is None:
-                add_issue(run, "unresolved", "BC Database", str(database_path), "No Source column found")
-                continue
-            for name, row in df.iterrows():
-                raw = str(row[source_column]).strip()
-                if raw.lower() in {"", "nan", "none"}:
-                    continue
-                # Numeric constant BC values do not refer to a source file.
-                try:
-                    float(raw)
-                except ValueError:
-                    inspect_file(run, raw, f"BC source: {name}", base=database_path.parent, require_layer=False)
-        except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW exceptions must be reported as unresolved
-            add_issue(run, "unresolved", "BC Database", str(database_path), f"Could not inspect BC sources: {exc}")
+        if result.status != "present":
+            name = str(reference.path)
+            if reference.layer:
+                name = f"{name} >> {reference.layer}"
+            report.issues.append(
+                PreflightIssue(
+                    reference.run.index,
+                    reference.run.description,
+                    result.status,
+                    reference.origin,
+                    name,
+                    result.detail,
+                )
+            )
 
     logger.info(
-        "Preflight: {} runs, {} unique files, {} issues affecting {} runs",
+        "Preflight: {} runs, {} unique input files, {} directory scans, {} direct checks, {} issues across {} runs",
         report.run_count,
         len(report.checked_paths),
+        report.directories_scanned,
+        report.individually_checked,
         len(report.issues),
         report.affected_runs,
     )
