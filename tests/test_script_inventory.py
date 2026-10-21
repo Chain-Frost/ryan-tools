@@ -295,19 +295,13 @@ def test_import_time_local_mutator_bindings_are_flagged() -> None:
 
 
 def test_annotated_alias_and_rebinding_use_statement_order() -> None:
-    unsafe = inventory.analyse_python(
-        "import shutil\ncopier: object = shutil.copy2\ncopier('a', 'b')\n"
-    )
+    unsafe = inventory.analyse_python("import shutil\ncopier: object = shutil.copy2\ncopier('a', 'b')\n")
     assert unsafe["import_time_mutation_calls"] == ["copy2"]
 
-    rebound = inventory.analyse_python(
-        "import shutil\ncopier = shutil.copy2\ncopier = print\ncopier('safe')\n"
-    )
+    rebound = inventory.analyse_python("import shutil\ncopier = shutil.copy2\ncopier = print\ncopier('safe')\n")
     assert rebound["import_time_mutation_risk"] is False
 
-    second = inventory.analyse_python(
-        "import shutil\ncopier = print\ncopier = shutil.copy2\ncopier('a', 'b')\n"
-    )
+    second = inventory.analyse_python("import shutil\ncopier = print\ncopier = shutil.copy2\ncopier('a', 'b')\n")
     assert second["import_time_mutation_calls"] == ["copy2"]
 
 
