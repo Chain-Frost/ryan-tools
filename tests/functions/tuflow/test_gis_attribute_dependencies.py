@@ -123,7 +123,9 @@ def test_pit_inlet_identifiers_are_not_treated_as_paths(tmp_path: Path) -> None:
     with sqlite3.connect(gpkg) as db:
         db.execute("CREATE TABLE gpkg_geometry_columns(table_name TEXT, column_name TEXT, geometry_type_name TEXT)")
         db.execute("INSERT INTO gpkg_geometry_columns VALUES ('1d_pit_test', 'geom', 'POINT')")
-        db.execute('CREATE TABLE "1d_pit_test" (fid INTEGER PRIMARY KEY, geom BLOB, id TEXT, type TEXT, network TEXT, inlet TEXT)')
+        db.execute(
+            'CREATE TABLE "1d_pit_test" (fid INTEGER PRIMARY KEY, geom BLOB, id TEXT, type TEXT, network TEXT, inlet TEXT)'
+        )
         for kind, inlet in (("Q", "Kerb_Inlet_A"), ("VPI", "Grated"), ("R", "Unused")):
             db.execute('INSERT INTO "1d_pit_test" (type, inlet) VALUES (?, ?)', (kind, inlet))
     results, opens = inspect_gis_attribute_sources({(gpkg, "1d_pit_test")})
