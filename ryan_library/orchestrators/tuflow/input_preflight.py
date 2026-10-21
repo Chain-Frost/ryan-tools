@@ -351,6 +351,13 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                                 )
                                 continue
                             kind = getattr(ref, "database_kind", None)
+                            if kind is None:
+                                # Compatibility with earlier fork builds whose
+                                # BC/material references predate the typed field.
+                                kind = {
+                                    "bc database": "bc",
+                                    "read materials file": "materials",
+                                }.get(_command_name(inp))
                             supported_kinds = {
                                 "bc",
                                 "materials",
