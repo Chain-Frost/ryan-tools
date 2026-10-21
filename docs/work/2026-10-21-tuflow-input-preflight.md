@@ -97,3 +97,31 @@ Keep this PR open and preflight opt-in until those checks are satisfied.
 Normal dependency remains `pytuflow>=1.2,<2`; no GitHub fork URL is published
 in package metadata. Next action: inspect CI failures, then add integration
 tests using a pinned fork commit and verify real-model coverage.
+
+
+## 440-run evidence and deferred database follow-up — 21 October 2026
+
+Local Higginsville Windows/Python 3.14.5 validation on mapped `Q:` storage
+(compare [PR #143 discussion](https://github.com/Chain-Frost/ryan-tools/pull/143#issuecomment-6310509970)):
+for 440 runs, eager dependency generation took **269.356 s** versus
+**26.011 s** deferred (about **10.35× faster**). The earlier fork revision
+`6784162` reported **880 unresolved findings**: 440 material-database
+dependencies and 440 unavailable active BC databases. Its nine raw deferred
+path tokens could not yet be compared to the 63 materialised eager paths.
+
+The new upstream [PyTUFLOW PR #1](https://github.com/phantom-branch/PyTuflow/pull/1)
+API provides `deferred_database_sources()` with event-resolved secondary
+`bc`/`materials` references from cached, parsed database rows, explicitly
+rather than rebuilding eager per-run database contexts. The ryan-tools
+consumer uses the new method when present, leaves older forks fail-closed
+and keeps all resulting source files in the shared deduplicated inventory.
+The validation workflow is pinned to `071dcd74246abeec4c248066eac89692751952b8`.
+Python tests now cover per-run BC source differences, numeric-only material
+databases, unavailable API behaviour, Windows-legal literal wildcard-like
+folder names, and an opt-in real-fork end-to-end fixture.
+
+**Open gates:** confirm exact-head CI and real-model BC/material parity, then
+rerun the actual 440-run inventory and compare materialised file/layer
+dependencies per run; complete GIS attribute-linked sources and unsupported
+database schemas (fail closed until then). No TUFLOW executable launch, merge,
+or PyPI dependency replacement is authorised.
