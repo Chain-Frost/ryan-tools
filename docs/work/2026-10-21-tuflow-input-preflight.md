@@ -26,6 +26,8 @@ In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: exact-head CI a
 - No TUFLOW process started from preflight-only or standalone checker.
 - Missing BC Source CSV for one event is reported only for its affected proposed runs.
 - Recursively inspect model input references; check GeoPackage layer names when enabled.
+- First gather all run-to-file dependencies, then deduplicate files and use bounded shared-directory scans for dense inputs.
+- Exclude output directories and write-only commands from required-file checks.
 - Return non-zero and prevent batch launch for missing/unresolved dependencies.
 - Warn on confirmed overlapping -puN GPU assignments (external and same-launcher processes) without blocking or changing GPU schedules.
 - Do not falsely classify a running TUFLOW process with no explicit GPU flag as using a known GPU.

@@ -41,6 +41,7 @@ def main(
     output = result.write_csv(report)
     print(
         f"Preflight: {result.run_count} run(s), {len(result.checked_paths)} unique input path(s), "
+        f"{result.directories_scanned} directory scan(s), {result.individually_checked} direct file check(s), "
         f"{len(result.issues)} issue(s), {result.affected_runs} affected run(s)"
     )
     print(f"Issues CSV: {output}")

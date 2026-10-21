@@ -62,8 +62,18 @@ It uses the exact run combinations in the exported commands file. Alternatively 
     python check_tuflow_inputs.py --tcf "runs\MODEL_01_~s1~_~e1~_~e2~.tcf" --runs run_tuflow_simulations_commands.txt --report input_preflight.csv --no-pause
 
 The CSV lists one missing/unresolved dependency per affected run. A single missing BC source may therefore appear
-for multiple runs. The console reports total proposed runs, unique file paths, issues and affected runs. For large
-batches, file existence and GeoPackage layer checks are cached across runs.
+for multiple runs. The console reports total proposed runs, unique file paths, issues and affected runs.
+
+For large batches, the checker first resolves the complete run-to-file dependency graph. It then deduplicates required
+paths and scans each parent directory with at least 8 unique required files **once**, capped at 50,000 directory entries.
+Sparse or exceptionally large directories use one targeted existence check per unique file. Referenced GeoPackage
+layers are queried together using one read-only connection per GeoPackage. Results are mapped back to every affected
+run and TUFLOW command, without repeat network file checks. These limits may be tuned through the library API;
+the default avoids recursive network-drive scans. Output Folder, Log Folder and Write Check Files locations are
+excluded because TUFLOW creates these destinations.
+
+Network performance depends on filesystem layout, latency and number of entries per directory; a complete recursive
+directory listing is deliberately avoided.
 
 The checker intentionally leaves model data untouched and writes only the report CSV. If an input is unresolved or
 a model context cannot be parsed, the run **fails preflight** rather than being silently considered valid.
@@ -77,7 +87,7 @@ a model context cannot be parsed, the run **fails preflight** rather than being 
 - File wildcard/variable references that cannot be expanded are reported as unresolved.
 - Only files referenced by PyTUFLOW's recognised input commands and BC Source entries are covered. Input files
   referenced by specialised commands or unsupported data formats may need additional handlers.
-- An empty or invalid run list is rejected. Output files which the engine will create are not required.
+- An empty or invalid run list is rejected. Output directories and files which the engine will create are not required.
 - The preflight reports cannot substitute for running TUFLOW with -x to check full input validity.
 - PyTUFLOW compatibility with the user's project-specific variables and current TUFLOW engine is still subject to
   real-model Windows validation. Do not enable preflight by default until that is complete.

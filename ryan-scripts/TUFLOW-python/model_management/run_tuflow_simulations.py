@@ -1662,9 +1662,12 @@ def main() -> None:
         )
         report_path = report.write_csv(core.preflight_report_csv)
         logging.info(
-            "Input preflight: %d runs, %d unique paths, %d issues, %d affected runs; report: %s",
+            "Input preflight: %d runs, %d unique paths, %d directory scans, %d direct checks, "
+            "%d issues, %d affected runs; report: %s",
             report.run_count,
             len(report.checked_paths),
+            report.directories_scanned,
+            report.individually_checked,
             len(report.issues),
             report.affected_runs,
             report_path,
