@@ -353,18 +353,17 @@ def test_class_alias_scope_does_not_corrupt_module_bindings() -> None:
     assert class_body["import_time_mutation_calls"] == ["copy2"]
 
 
-
 def test_individual_lifecycle_ledger_tracks_manifest_and_mcp_targets() -> None:
     """No tracked source may silently vanish or be mislabeled when manifests change."""
     report = inventory.audit_repository(ROOT)
     ledger = (ROOT / "docs" / "audits" / "2026-10-19-installed-scripts-inventory.md").read_text(encoding="utf-8")
     parsed: dict[str, list[str]] = {}
     for line in ledger.splitlines():
-        if not line.startswith("| \`"):
+        if not line.startswith("| `"):
             continue
         cells = [cell.strip() for cell in line.strip("|").split("|")]
         assert len(cells) == 6, line
-        path = cells[0].strip("\`")
+        path = cells[0].strip("`")
         assert path not in parsed, f"Duplicate source in audit ledger: {path}"
         parsed[path] = cells
 
