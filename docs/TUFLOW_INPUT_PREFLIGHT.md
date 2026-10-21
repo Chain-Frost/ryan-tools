@@ -103,15 +103,16 @@ kinds, unavailable APIs and unresolved database rows **fail closed**.
 Numeric-only materials CSVs are no longer unconditionally marked unresolved.
 
 **GIS attribute-linked files (new in PR #143):** after aggregating all contexts,
-the checker scans each distinct file-valued GeoPackage/layer only once. The
-read-only SQLite reader selects the specific file-reference attribute columns,
-without loading geometries, and reproduces the supported PyTUFLOW file-column
-positions for `1d_nwk`, `1d_pit`, `1d_xs`, `1d_tab`, `1d_xz`, `1d_bg`,
-`1d_lc`, `1d_cs`, `1d_hw` and `1d_na` layers. A `1d_nwk` M/Q line channel
-may supply secondary filenames. Those paths (including filename wildcards)
-are added to the single shared file inventory and checked for every affected
-run. The report separately times this GIS attribute stage and counts its
-GeoPackage opens. This scanner does not read the geometry blobs.
+the checker scans each distinct file-valued **Shapefile or GeoPackage** source
+once. The reader accesses only relevant DBF/SQLite attribute fields, using
+**identical TUFLOW element-type rules for both formats**: `1d_nwk`, `1d_pit`,
+`1d_xs`, `1d_tab`, `1d_xz`, `1d_bg`, `1d_lc`, `1d_cs`, `1d_hw` and
+`1d_na`. Shapefiles use pyshp's attribute-only `iterRecords()` reader and
+their single stem-named logical layer; GeoPackages use read-only SQLite and
+support layer selectors. Neither format reads feature geometries.
+Secondary file paths, including filename wildcards, enter one shared
+file inventory and are checked for all affected simulations. The report
+separately times this stage and counts distinct GIS-source opens.
 
 **Channel and pit semantics:** In a `1d_nwk` layer, normal `Q` and
 `P` values (and `1d_pit` `Q`/`VPI` identifiers) identify curves in the
@@ -124,11 +125,14 @@ after its control ID; `M` checks matrix files. `1d_nwk` features with an
 dependencies. Missing, duplicate or ambiguous curve identifiers, invalid
 database schemas and blank required active identifiers fail closed.
 
-**Limits:** Shapefile/MIF attribute scans, unknown layer types, mixed/unknown
-network geometry, unexpanded GIS attribute variables and unsupported database
-schemas remain **unresolved**, not passed. Geopackage attribute validation
-does not establish full TUFLOW engine command validity; unrecognised/specialised
-source formats require further validation. The original 440-run Higginsville
+**Limits:** MIF and other unsupported GIS formats, unknown TUFLOW
+element types, missing/unsupported attribute schemas, mixed/unknown network
+geometry and unexpanded GIS attribute variables remain **unresolved**, not
+passed. Shapefile and GeoPackage field rules intentionally match for the
+same element types, but the synthetic tests do not establish parity for all
+real-world geometries, specialised model files or TUFLOW engine behaviour.
+The example-model sweep must be rerun before claiming the previously
+unsupported 112 Shapefile findings are resolved. The original 440-run Higginsville
 benchmark established *file/layer parity* before this feature was added, not
 a passing attribute scan. Repeat the local benchmark against the new revision
 and test the separate 42-run output-variable model before merging.
