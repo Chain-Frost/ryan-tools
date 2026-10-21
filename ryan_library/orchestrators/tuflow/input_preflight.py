@@ -507,22 +507,21 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
             if result.status != "present":
                 report.issues.append(
                     PreflightIssue(
-                        ref.run.index, ref.run.description, "unresolved",
-                        ref.origin, f"{ref.path} >> {ref.layer}", result.detail,
+                        ref.run.index,
+                        ref.run.description,
+                        "unresolved",
+                        ref.origin,
+                        f"{ref.path} >> {ref.layer}",
+                        result.detail,
                     )
                 )
                 continue
             for path in result.sources:
-                extra_references.append(
-                    _FileReference(ref.run, f"GIS attribute: {ref.origin}", path)
-                )
+                extra_references.append(_FileReference(ref.run, f"GIS attribute: {ref.origin}", path))
 
         # File-valued GIS attributes may themselves contain wildcard paths.
         # Expand those patterns once across all simulations, not once per run.
-        extra_patterns = {
-            ref.path for ref in extra_references
-            if any(char in ref.path.name for char in "*?[")
-        }
+        extra_patterns = {ref.path for ref in extra_references if any(char in ref.path.name for char in "*?[")}
         if extra_patterns:
             expanded, failures, extra_scans = expand_file_patterns(
                 extra_patterns, maximum_directory_entries=maximum_directory_entries
@@ -537,22 +536,19 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
                     problem = failures[ref.path]
                     report.issues.append(
                         PreflightIssue(
-                            ref.run.index, ref.run.description,
+                            ref.run.index,
+                            ref.run.description,
                             "missing" if problem.status == "missing" else "unresolved",
-                            ref.origin, str(ref.path), problem.detail,
+                            ref.origin,
+                            str(ref.path),
+                            problem.detail,
                         )
                     )
                     continue
-                extra_materialised.extend(
-                    _FileReference(ref.run, ref.origin, path)
-                    for path in expanded[ref.path]
-                )
+                extra_materialised.extend(_FileReference(ref.run, ref.origin, path) for path in expanded[ref.path])
             extra_references = extra_materialised
 
-        distinct_extra = {
-            (ref.run.index, ref.origin, ref.path, ref.layer): ref
-            for ref in extra_references
-        }
+        distinct_extra = {(ref.run.index, ref.origin, ref.path, ref.layer): ref for ref in extra_references}
         for ref in distinct_extra.values():
             references.append(ref)
             unique_paths.setdefault(ref.path, set())
