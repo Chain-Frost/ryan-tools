@@ -102,9 +102,11 @@ PyTUFLOW for nested/attribute-linked files is not yet established.
 
 The normal `ryan-tools` package still depends on published `pytuflow>=1.2,<2`.
 When that installation lacks `file_resolution`, the previous eager discovery remains
-available with a warning. For development, install the fork at a pinned reviewed commit
-in a separate test environment; do not replace the production PyPI dependency with an
-unreleased GitHub branch.
+available with a warning. For integration validation, the dedicated `.github/workflows/deferred-pytuflow-consumer.yml`
+installs the fork pinned at `6784162da7ed0389ae8efafa6af138d10deecaeb`
+on Windows/Python 3.13, sets `RYAN_TEST_DEFERRED_PYTUFLOW=1`, and exercises the
+real API through a gated smoke test. Do not replace the production PyPI dependency
+with an unreleased GitHub branch.
 
 The checker reports separate timings for initial parse, context/reference collection
 and the shared inventory. Repeat the representative 440-run network-drive test with
