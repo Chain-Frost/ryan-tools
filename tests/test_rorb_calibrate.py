@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "ryan-scripts" / "RORB-python"))
-import rorb_calibrate as calibration  # noqa: E402
+import rorb_calibrate as calibration
 
 
 def test_parameter_ranges() -> None:
@@ -85,7 +85,9 @@ def test_score_archived_output_without_rorb(tmp_path: Path, monkeypatch: pytest.
     archived.write_text("Inc Time Hyd001 Hyd002\n1 0 1 2\n2 1 4 3\n")
 
     def prohibited_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
-        raise AssertionError("Offline scoring must not launch RORB_CMD")
+        del args, kwargs
+        message = "Offline scoring must not launch RORB_CMD"
+        raise AssertionError(message)
 
     monkeypatch.setattr(calibration.subprocess, "run", prohibited_run)
     root = tmp_path / "analysis"
