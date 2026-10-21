@@ -8,8 +8,8 @@ path checks instead. Never traverse a model tree or the entire network drive.
 from __future__ import annotations
 
 import os
-import stat
 import sqlite3
+import stat
 from collections import defaultdict
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
@@ -100,7 +100,7 @@ def _geopackage_layers(path: Path, layers: Collection[str]) -> dict[str, Depende
     }
 
 
-def check_unique_dependencies(
+def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fallback and layer checks
     requirements: Mapping[Path, Collection[str]],
     *,
     scan_threshold: int = 8,
