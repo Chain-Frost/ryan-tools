@@ -42,3 +42,20 @@ jobs:
           Write-Host "Example replay exit code: $diagnosticExit (1 is expected while other input categories remain unresolved)"
           python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); print(json.dumps(rows,indent=2)); assert len(rows)==2; assert next(row for row in rows if row["tcf"]=="EG02_014.tcf")["accepted_parity"]; assert not any("GIS attribute scan currently supports GeoPackage sources only" in issue for row in rows for issue in row.get("preflight_reasons",{}))' (Join-Path $report "results.json")
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Full archived example sweep (temporary diagnostic; remove before merge)
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "tuflow-example-full-replay"
+          python -m tests.fixtures.tuflow_example_repro.run_checks --output $report
+          $diagnosticExit = $LASTEXITCODE
+          Write-Host "Complete example replay exit code: $diagnosticExit (incomplete supported categories are expected)"
+          python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); passed=sum(bool(row.get("accepted_parity")) for row in rows); print(f"Full replay: {passed} accepted, {len(rows)-passed} unresolved, {sum(row["runs"] for row in rows)} run combinations"); assert len(rows)==161' (Join-Path $report "results.json")
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Save complete temporary example results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tuflow-example-full-replay
+          path: ${{ runner.temp }}/tuflow-example-full-replay
+          if-no-files-found: warn
