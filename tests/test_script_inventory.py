@@ -325,20 +325,12 @@ def test_conditional_aliases_preserve_possible_mutations() -> None:
     assert unsafe["import_time_mutation_calls"] == ["copy2"]
 
     safe = inventory.analyse_python(
-        "import shutil\n"
-        "copier = shutil.copy2\n"
-        "if True:\n"
-        "    copier = print\n"
-        "else:\n"
-        "    copier = len\n"
-        "copier('safe')\n"
+        "import shutil\ncopier = shutil.copy2\nif True:\n    copier = print\nelse:\n    copier = len\ncopier('safe')\n"
     )
     assert safe["import_time_mutation_risk"] is False
 
     retained = inventory.analyse_python(
-        "import shutil\ncopier = shutil.copy2\n"
-        "if unknown_condition:\n    copier = print\n"
-        "copier('a', 'b')\n"
+        "import shutil\ncopier = shutil.copy2\nif unknown_condition:\n    copier = print\ncopier('a', 'b')\n"
     )
     assert retained["import_time_mutation_calls"] == ["copy2"]
 
@@ -346,23 +338,16 @@ def test_conditional_aliases_preserve_possible_mutations() -> None:
 def test_class_alias_scope_does_not_corrupt_module_bindings() -> None:
     """Class-local rebinding must not hide a module-level unsafe callable."""
     unsafe = inventory.analyse_python(
-        "import shutil\ncopier = shutil.copy2\n"
-        "class Container:\n    copier = print\n"
-        "copier('a', 'b')\n"
+        "import shutil\ncopier = shutil.copy2\nclass Container:\n    copier = print\ncopier('a', 'b')\n"
     )
     assert unsafe["import_time_mutation_calls"] == ["copy2"]
 
     safe = inventory.analyse_python(
-        "import shutil\ncopier = print\n"
-        "class Container:\n    copier = shutil.copy2\n"
-        "copier('safe')\n"
+        "import shutil\ncopier = print\nclass Container:\n    copier = shutil.copy2\ncopier('safe')\n"
     )
     assert safe["import_time_mutation_risk"] is False
 
     class_body = inventory.analyse_python(
-        "import shutil\n"
-        "class Container:\n"
-        "    copier = shutil.copy2\n"
-        "    copier('a', 'b')\n"
+        "import shutil\nclass Container:\n    copier = shutil.copy2\n    copier('a', 'b')\n"
     )
     assert class_body["import_time_mutation_calls"] == ["copy2"]
