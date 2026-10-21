@@ -9,6 +9,7 @@ installed wheel in `repo-scripts/smoke_test_installed_wheel.py`.
 from __future__ import annotations
 
 import csv
+import hashlib
 import shutil
 import subprocess
 import sys
@@ -146,3 +147,68 @@ def test_copied_file_list_rejects_missing_input_without_writing_output(tmp_path:
     assert result.returncode == 1, (result.stdout + result.stderr)[-2000:]
     assert not missing.exists()
     assert not (missing / "filenames.txt").exists()
+
+
+def test_copied_file_inventory_hashes_unicode_filename_without_modifying_input(tmp_path: Path) -> None:
+    """SHA-256 and UTF-8 filenames survive the copied-wrapper CSV workflow."""
+    inputs = tmp_path / "input files"
+    inputs.mkdir()
+    original = inputs / "ABC-001_Rev2_café.txt"
+    payload = "terrain, résumé\n".encode()
+    original.write_bytes(payload)
+    (inputs / "not-an-input.bin").write_bytes(b"untouched")
+    reports = tmp_path / "reports"
+
+    result = _run_copied_wrapper(
+        "file-management-python/file_inventory.py",
+        tmp_path,
+        str(inputs),
+        "--pattern",
+        "*.txt",
+        "--output-directory",
+        str(reports),
+        "--basename",
+        "sha-audit",
+        "--sha256",
+        "--no-excel",
+        "--no-pause",
+    )
+    assert result.returncode == 0, (result.stdout + result.stderr)[-2000:]
+    with (reports / "sha-audit.csv").open(encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["filename"] == original.name
+    assert row["document_number"] == "ABC-001"
+    assert row["revision"] == "2"
+    assert row["sha256"] == hashlib.sha256(payload).hexdigest()
+    assert row["file_size_bytes"] == str(len(payload))
+    assert row["error"] == ""
+    assert original.read_bytes() == payload
+    assert not (reports / "sha-audit.xlsx").exists()
+
+
+def test_copied_file_inventory_nonrecursive_excludes_nested_files(tmp_path: Path) -> None:
+    """The explicit nonrecursive flag must override the embedded recursive default."""
+    inputs = tmp_path / "inputs"
+    nested = inputs / "nested"
+    nested.mkdir(parents=True)
+    (inputs / "A-001.txt").write_bytes(b"root")
+    (nested / "B-002.txt").write_bytes(b"nested")
+    reports = tmp_path / "reports"
+
+    result = _run_copied_wrapper(
+        "file-management-python/file_inventory.py",
+        tmp_path,
+        str(inputs),
+        "--no-recursive",
+        "--output-directory",
+        str(reports),
+        "--no-excel",
+        "--no-pause",
+    )
+    assert result.returncode == 0, (result.stdout + result.stderr)[-2000:]
+    with (reports / "file_inventory.csv").open(encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert [row["filename"] for row in rows] == ["A-001.txt"]
+    assert (nested / "B-002.txt").read_bytes() == b"nested"
