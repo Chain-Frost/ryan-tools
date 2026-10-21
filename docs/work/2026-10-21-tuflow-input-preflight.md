@@ -47,6 +47,17 @@ the corrected checkout with 63 unique inputs and no issues. PyTUFLOW 1.2.6 took 
 pipe-joined pseudo-paths; these are now excluded from file checks, while resolved BC database `Source` files remain
 validated separately. A focused regression test covers that distinction.
 
+A second Q-drive model check against a supplied 42-run critical-storm batch file found two additional output-command
+edge cases. All 42 active runs failed context construction when PyTUFLOW 1.2.6 expanded the nested
+`Set Variable OutputRoot == ..\<<OutputBase>>` assignment but retained the closing `>>`, which it then interpreted as
+a database layer delimiter on a directory path. A temporary sibling TCF that replaced the nested output roots with
+inert static destinations allowed context resolution, but the inventory then incorrectly treated `Set Variable
+OutputBase` and `Set Variable XMDFBase` values as required inputs. Commenting only those output-only assignments in
+the temporary copy produced a successful input-only check: 42 runs, 202 unique inputs, eight directory scans, 135
+direct checks and no issues; parse/context/inventory times were 4.57/113.77/0.73 seconds. The real TCF and batch file
+were not modified, and the temporary TCF was removed. This smoke check used the available Python 3.13.14 interpreter
+with PyTUFLOW 1.2.6 isolated in a temporary target because Python 3.14 and PyTUFLOW were not installed locally.
+
 Focused validation after the fix passed 28 preflight/launcher tests, the Loguru policy check and documentation link
 checks. A no-bump build produced and verified the 26.10.21.1 wheel (SHA-256
 `2d009ee77bfc6b4dcc417099b2af81588329e1e63bfe4677256f8c5eb1e6d4e4`); reinstalling that wheel and checking one
@@ -56,8 +67,10 @@ the authoritative pending static-analysis check.
 
 ## Next action
 
-Run exact-head CI and complete the remaining Windows dependency/wheel and input-edge-case checks; address any review
-comments before requesting merge.
+Exclude output-path variable assignments before PyTUFLOW file iteration and handle nested output-root variables during
+context construction, with focused regressions for both observed forms. Then rerun this 42-run model without a TCF
+workaround, run exact-head CI and complete the remaining Python 3.14 dependency/wheel and input-edge-case checks;
+address any review comments before requesting merge.
 
 **Performance validation required:** PyTUFLOW retains its initial control-file/BC database build state,
 but each `TCF.context()` creates run-state inputs that can glob the same files and open GIS layers again.
