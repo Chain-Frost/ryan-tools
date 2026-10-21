@@ -519,10 +519,10 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
     # Read-only bulk phase; invoke only after resolving all run contexts.
     attribute_started = time.perf_counter()
     scan_references = [ref for ref in references if ref.scan_attributes]
-    pit_databases: dict[int, set[Path]] = {}
+    curve_databases: dict[tuple[int, str], set[Path]] = {}
     for ref in references:
-        if ref.database_kind == "pit_inlet":
-            pit_databases.setdefault(ref.run.index, set()).add(ref.path)
+        if ref.database_kind in {"pit_inlet", "depth_discharge"}:
+            curve_databases.setdefault((ref.run.index, ref.database_kind), set()).add(ref.path)
     pit_database_cache: dict[Path, dict[str, Path] | str] = {}
     if scan_references:
         requests = {(ref.path, ref.layer) for ref in scan_references}
@@ -545,8 +545,15 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                 continue
             for path in result.sources:
                 extra_references.append(_FileReference(ref.run, f"GIS attribute: {ref.origin}", path))
-            if result.identifiers:
-                available = pit_databases.get(ref.run.index, set())
+            # Resolve source identifiers using the database type that owns
+            # this GIS element, never interpreting a curve ID as a filename.
+            for identifiers, database_kind in (
+                (result.network_identifiers, "depth_discharge"),
+                (result.pit_identifiers, "pit_inlet"),
+            ):
+                if not identifiers:
+                    continue
+                available = curve_databases.get((ref.run.index, database_kind), set())
                 if len(available) != 1:
                     report.issues.append(
                         PreflightIssue(
@@ -555,7 +562,7 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                             "unresolved",
                             ref.origin,
                             str(ref.path),
-                            "Pit/Depth Discharge Database is absent or ambiguous for GIS identifiers",
+                            f"{database_kind} database is absent or ambiguous for GIS curve identifiers",
                         )
                     )
                     continue
@@ -565,8 +572,8 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                         pit_database_cache[database_path] = read_pit_inlet_database(database_path)
                     except (OSError, UnicodeError, ValueError) as exc:
                         pit_database_cache[database_path] = str(exc)
-                mappings = pit_database_cache[database_path]
-                if isinstance(mappings, str):
+                mapping = pit_database_cache[database_path]
+                if isinstance(mapping, str):
                     report.issues.append(
                         PreflightIssue(
                             ref.run.index,
@@ -574,12 +581,12 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                             "unresolved",
                             ref.origin,
                             str(database_path),
-                            f"Could not resolve pit inlet database: {mappings}",
+                            f"Cannot resolve {database_kind} database: {mapping}",
                         )
                     )
                     continue
-                for identifier in result.identifiers:
-                    linked = mappings.get(identifier.casefold())
+                for identifier in identifiers:
+                    linked = mapping.get(identifier.casefold())
                     if linked is None:
                         report.issues.append(
                             PreflightIssue(
@@ -588,11 +595,13 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                                 "unresolved",
                                 ref.origin,
                                 str(database_path),
-                                f"Pit/Depth Discharge Database has no entry for {identifier!r}",
+                                f"{database_kind} database has no entry for {identifier!r}",
                             )
                         )
                         continue
-                    extra_references.append(_FileReference(ref.run, f"Pit/Depth Discharge: {identifier}", linked))
+                    extra_references.append(
+                        _FileReference(ref.run, f"{database_kind} curve: {identifier}", linked)
+                    )
 
         # File-valued GIS attributes may themselves contain wildcard paths.
         # Expand those patterns once across all simulations, not once per run.
