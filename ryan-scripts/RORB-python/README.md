@@ -6,6 +6,13 @@ The RORB folder contains standalone or library-backed utilities for RORB storm d
 
 [rorb_calibrate.py](rorb_calibrate.py) is a maintained **standalone, locally validated prototype** generalised from an older Pilgangoora parameter-sweep script. It requires a locally installed and licensed version of RORB_CMD.exe; RORB_CMD is **not** distributed with ryan-tools. The original project .catg/.stm files and results are not committed.
 
+The installed-format parser and historic Pilgangoora output were validated locally on 2026-10-21. The retained report
+explicitly labels `Hyd001` as calculated and `Hyd002` as actual at the Turner River gauging station, and the retained
+storm file contains the corresponding measured `TurnerRvr-Flow` hydrograph. This provenance is specific to that input;
+other projects must still verify their own labels and source data. The current Codex execution context denied launch
+of the installed unsigned RORB_CMD before it started, so a newly generated executable-level comparison remains
+outstanding.
+
 It generates a Cartesian product of **Kc × IL × CL/RoC**, writes an isolated RORB .par per combination, launches RORB_CMD, parses the returned labelled hydrograph table, and ranks successful simulations by *correctly calculated* RMSE. It also reports NSE, signed mean bias, modelled/observed peak flows and peak times, and optional PyHMA scores and hydrograph PNGs.
 
 ### Local verification sequence
@@ -50,8 +57,12 @@ Set `--loss-model 2` for IL/RoC and adjust continuing-loss values accordingly. O
 
 ### Limitations and local acceptance
 
-- **Unverified RORB interface.** No RORB_CMD binary or representative historic .out was available for executable-level testing. Filename generation, .par syntax, absolute paths, working-directory behaviour and table format require local verification.
-- A labelled RORB column cannot on its own establish provenance. Do not use calibration statistics until independently proving the observed series is genuinely measured flow.
+- **Partially verified RORB interface.** The installed command manual, historic parameter/output filenames and real
+  output table were checked, and the real output parses successfully. The current execution context blocked a fresh
+  RORB_CMD process before startup, so absolute-path execution and new output placement still require executable-level
+  proof.
+- A labelled RORB column cannot on its own establish provenance. The Pilgangoora source was independently established;
+  do not transfer its `Hyd001`/`Hyd002` mapping to another model without equivalent source evidence.
 - The parser rejects absent or multiple hydrograph tables. If the installed RORB version produces an alternative layout, the local agent should supply a de-identified sample and update the parser with tests.
 - A separate observed CSV is supported only when its series and numerical time steps exactly align with the model. No interpolation, lag correction or unit conversion occurs.
 - PyHMA scoring is optional and may need numerical and version validation for the local Python/RORB versions.

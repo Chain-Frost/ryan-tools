@@ -25,7 +25,7 @@ from decimal import Decimal, InvalidOperation
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from statistics import mean
-from typing import Any
+from typing import Any, cast
 
 SCRIPT_VERSION = "2026-10-21.1"
 HEADER = re.compile(r"\bInc\s+Time\b", re.IGNORECASE)
@@ -166,11 +166,11 @@ def plot_hydrograph(path: Path, time: list[float], observed: list[float], simula
     from matplotlib import pyplot as plt
 
     fig, ax = plt.subplots()
-    ax.plot(time, observed, label="Observed")
-    ax.plot(time, simulated, label="Calculated")
+    ax.plot(time, observed, label="Observed")  # pyright: ignore[reportUnknownMemberType]
+    ax.plot(time, simulated, label="Calculated")  # pyright: ignore[reportUnknownMemberType]
     ax.set(xlabel="RORB time", ylabel="Flow (m³/s)")
-    ax.legend()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
+    ax.legend()  # pyright: ignore[reportUnknownMemberType]
+    fig.savefig(path, dpi=150, bbox_inches="tight")  # pyright: ignore[reportUnknownMemberType]
     plt.close(fig)
 
 
@@ -246,14 +246,14 @@ def run_one(
             matching = HMA(
                 np.asarray(observed_flow),
                 np.asarray(simulated),
-                b=hma_weight,
+                b=hma_weight,  # pyright: ignore[reportArgumentType] -- upstream accepts numeric weights
                 max_lag=hma_window,
                 max_lead=hma_window,
                 measure="nse",
                 keep_internals=False,
                 calc_rays=False,
             )
-            result["hma"] = float(matching.calc_dense2())
+            result["hma"] = cast(float, matching.calc_dense2())
         if plots:
             plot_hydrograph(run_dir / "hydrograph.png", data["Time"], observed_flow, simulated)
         result["status"] = "success"
@@ -286,7 +286,9 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--hma", action="store_true", help="Also calculate optional vendored PyHMA match index")
     p.add_argument("--hma-weight", type=float, default=4.0, help="PyHMA timing-error weight (default: 4)")
     p.add_argument("--hma-window", type=int, default=50, help="PyHMA maximum lead/lag in time increments")
-    p.add_argument("--dry-run", "--preflight", action="store_true", help="Validate inputs/parameters; do not execute RORB")
+    p.add_argument(
+        "--dry-run", "--preflight", action="store_true", help="Validate inputs/parameters; do not execute RORB"
+    )
     p.add_argument("--no-pause", action="store_true", help="Noninteractive mode; accepted for wrapper compatibility")
     p.add_argument("--version", action="version", version=f"%(prog)s {SCRIPT_VERSION}")
     return p
@@ -326,8 +328,9 @@ def main(argv: list[str] | None = None) -> int:
         if run_count > args.max_runs:
             raise ValueError(f"{run_count} runs exceeds --max-runs {args.max_runs}")
         runs = [Combination(kc, il, cont) for kc, il, cont in itertools.product(kcs, ils, continuing)]
-        exe = Path(args.rorb)
-        path_on_system = shutil.which(args.rorb)
+        rorb_value = str(args.rorb)
+        exe = Path(rorb_value)
+        path_on_system: str | None = shutil.which(rorb_value)
         executable = exe.absolute() if exe.is_file() else Path(path_on_system).absolute() if path_on_system else None
         print(f"Catchment: {catg}\nStorm: {stm}\nRORB executable: {executable or 'NOT FOUND'}")
         print(f"Runs: {len(runs)} | workers: {args.workers} | loss model: {args.loss_model}")

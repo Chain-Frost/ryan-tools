@@ -5,7 +5,7 @@
 | Status | In local validation |
 | Owner | ChatGPT / local maintainer agent |
 | Created | 2026-10-21 |
-| Updated | 2026-10-21 |
+| Updated | 2026-10-21 (local validation) |
 | Next review | 2026-10-28 |
 | Baseline | main; feature/rorb-parameter-calibration-20261021 |
 
@@ -20,12 +20,17 @@ Use a maintained standalone script under ryan-scripts/RORB-python, without a pre
 - Standalone calibration CLI and RORB parameter generation added.
 - Dedicated per-run directories, isolated logs, ranked CSV, opt-in plots and PyHMA.
 - Read-only output inspection, side-effect-free dry run, observed CSV alternative, input checks and run-count safeguards.
-- Synthetic validation completed; **real RORB_CMD compatibility and observed hydrograph provenance are not yet validated**.
+- Synthetic validation completed. The archived installed-format output parses successfully, and its hydrograph summary
+  plus the storm-file source data establish `Hyd001` as calculated and `Hyd002` as actual Turner River flow.
+- Real RORB_CMD execution remains blocked in the current Codex execution context (`WinError 5: Access is denied`)
+  before the installed executable starts; no RORB output is produced by that attempt.
 - Local RORB files, RORB_CMD manual/version and old outputs are available to the maintainer's local agent.
 
 ## Next action
 
-Local agent: execute the local validation procedure in ryan-scripts/RORB-python/README.md, identify RORB_CMD and the correct hydrograph provenance, run a single combination with one worker, and report any .par/.out/parser differences as PR comments (prefer anonymised excerpts over uploading sensitive files). Fix the adapter and rerun targeted tests before widening the parameter sweep.
+Local maintainer: launch the installed unsigned `C:\Program Files\RORBWin\RORB_CMD.exe` from a permitted interactive
+context, then rerun the already-prepared single 15/10/5 combination from local copied inputs with one worker. Compare
+its output and metrics with the archived case before widening the parameter sweep.
 
 ## Completion criteria
 
@@ -38,6 +43,24 @@ Local agent: execute the local validation procedure in ryan-scripts/RORB-python/
 ## Validation and delivery
 
 2026-10-21: Six focused synthetic tests passed on Python 3.13.5. Compiled source; checked --help, --version and missing-executable preflight (nonzero). Python 3.14, Ruff, strict Pyright and **RORB_CMD execution were not available** in the current environment. Changes committed/pushed to feature/rorb-parameter-calibration-20261021. No PyPI release or merge authorised.
+
+2026-10-21 local validation: Python 3.14.5 compilation, `--help`, `--version`, no-write dry run and archived-output
+inspection passed. The archived 15/10/5 report parsed as 289 rows with `Inc`, `Time` and `Hyd001` through `Hyd007`.
+Its hydrograph summary explicitly identifies `Hyd001` as calculated and `Hyd002` as actual at TurnerRvr-Flow; the
+storm file contains the corresponding `TurnerRvr-Flow` hydrograph data. Inputs were copied byte-for-byte to
+`C:\Temp\rorb-pr145-20261021`; nothing was written to the historic `P:` project. The generated local parameter file
+matches the historic 15/10/5 values and uses absolute local input paths. Both normal subprocess launch and hidden
+`Start-Process` launch of the installed unsigned RORB_CMD were denied before execution (`WinError 5`), so the real
+output, plot and metric comparison remain blocked. Strict Pyright exposed typing defects in the draft and
+they were corrected locally. Strict Pyright then passed with zero findings, Python 3.14 compilation passed, and all six
+focused tests passed using a local pytest runtime directory (the repository-root cache folders remain inaccessible).
+The archived case produces RMSE 95.12064, MSE 9047.93614, peaks 467.856 at 5.75 h calculated and 101.09 at 11.5 h
+actual; this confirms the historic CSV's rounded `RMSE` value 9048 was MSE. A 35,888-byte local comparison PNG was
+generated from the archived output. Ruff could not launch in the current application-control context. The existing
+`qgis-resources` submodule worktree change was unrelated and preserved.
+The installed bundle includes RORB v6.52 release notes and a 2025 RORB_CMD binary without embedded version metadata,
+while its command-line documentation still states that it is based on v6.31; exact RORB_CMD version therefore remains
+unconfirmed.
 
 ## Progress
 
