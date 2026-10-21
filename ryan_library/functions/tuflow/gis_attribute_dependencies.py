@@ -174,7 +174,7 @@ def _scan_shapefile(path: Path) -> tuple[tuple[Path, ...], tuple[str, ...]]:
         return _scan_file_reference_rows(selected, layer=layer, geometry_type=geometry_type, parent=path.parent)
 
 
-def _scan_layer(  # noqa: C901 - safety-critical channel classification
+def _scan_layer(
     connection: sqlite3.Connection, layer: str, geometry_type: str, path: Path
 ) -> tuple[tuple[Path, ...], tuple[str, ...]]:
     """Read only file-valued attributes; return database identifiers separately.
