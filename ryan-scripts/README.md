@@ -10,6 +10,36 @@ utilities retained for reference. Read the module docstring at the top of a Pyth
 docstring identifies whether the script uses command-line arguments, editable settings, the current working directory,
 or the folder containing the script.
 
+## Minimal standard for maintained standalone scripts
+
+This is the **lighter alternative** to [the full wrapper standard](WRAPPER_STANDARD.md) for active, self-contained
+scripts (including narrow GIS utilities). It does not apply retroactively to archived/versioned snapshots,
+experimental examples or third-party code. Do not split working standalone logic into `ryan_library` merely to
+satisfy a wrapper layout.
+
+When creating or materially updating an actively maintained standalone script:
+
+1. **Identify it:** begin with a concise docstring covering purpose, inputs, outputs, dependencies and an example.
+   Keep a visible `SCRIPT_VERSION = "YYYY-MM-DD.N"` near the top, updated when script behaviour changes. This
+   embedded revision identifies the *contents*, not the filesystem modification timestamp (which changes on copy).
+2. **Report versions:** show the script filename/revision on execution; report Python and relevant tool versions
+   (e.g. GDAL for an OGR converter). If helpful, show the installed `ryan-tools` version using
+   `importlib.metadata.version("ryan-tools")`, with `PackageNotFoundError` handled as
+   `not installed (standalone)`. **Never make ryan-tools a compulsory dependency solely for the banner.**
+   For `argparse` scripts, a simple `--version` option is useful.
+3. **Make execution clear:** use `--help` for CLI tools, explicit inputs or obvious editable defaults, and
+   consistent exit codes (`0` success, `1` processing/validation error; `argparse` uses `2` for invalid
+   arguments). Do not add an interactive pause when the script already runs headlessly.
+4. **Protect data:** preserve `--dry-run` where provided; require an explicit option for replacement or other
+   destructive operations. Keep paths user-visible with `Path.absolute()` unless canonical resolution is needed.
+5. **Validate proportionately:** compile and format modified files, check `--help`/`--version` and a focused
+   smoke test in the appropriate runtime (QGIS/OSGeo4W for scripts that require GDAL). Do not demand
+   a library package build or broad test-suite run for an isolated standalone change.
+
+A standalone script does **not** need `WRAPPER_VERSION`, `print_wrapper_banner()`, Loguru configuration,
+`ryan_library` imports, a second closing banner, `--no-pause`, or a library/orchestrator split unless its
+actual workflow warrants those features. For reusable maintained entry points, use the full wrapper standard instead.
+
 ## Installed copies
 
 The wheel currently installs **selected scripts**, not the entire repository script tree, beside `ryan_library`
