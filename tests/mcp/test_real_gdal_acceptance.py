@@ -43,8 +43,7 @@ def test_real_gdal_ascii_to_geotiff_and_failing_input_preservation(tmp_path: Pat
     folder.mkdir()
     source = folder / "input elevation_é.asc"
     source.write_text(
-        "ncols 3\nnrows 2\nxllcorner 500000\nyllcorner 7500000\n"
-        "cellsize 10\nNODATA_value -9999\n1 2 3\n4 -9999 6\n",
+        "ncols 3\nnrows 2\nxllcorner 500000\nyllcorner 7500000\ncellsize 10\nNODATA_value -9999\n1 2 3\n4 -9999 6\n",
         encoding="ascii",
     )
     before = source.read_bytes()
