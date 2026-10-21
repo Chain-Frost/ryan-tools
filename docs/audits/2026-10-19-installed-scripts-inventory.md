@@ -37,7 +37,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `RORB-python/extract_rainfall-to-TUFLOW.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `RORB-python/hydrograph_extract_rorb_csv.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `RORB-python/plot_ensemble_results.py` | Yes | Yes | Provisional installed/MCP; source-tree error-path test only; owner pending | Copied-wrapper missing Parquet input with `--no-pause`: exit 1; output directory not created; help in selected smoke matrix | RORB/Parquet/plotting dependencies and valid result/plot parity unverified |
-| `RORB-python/rorb-peaks_v2.py` | No | No | Not assessed | Not assessed | Not assessed |
+| `RORB-python/rorb-peaks_v2.py` | No | No | Source inspected; repository-only required due import-time effects; owner pending | No protected entry; no argparse/help/no-pause or safe import semantics | On import changes working directory, recursively reads RORB `.out`, may raise, and writes `processed_output.csv`; never auto-import or wheel-promote |
 | `TUFLOW-bat/asc2asc_max_by_search.bat` | No | No | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-bat/asc_to_asc-DIFF.bat` | No | No | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-bat/asc_to_asc-MAX.bat` | No | No | Not assessed | Not assessed | Not assessed |
@@ -127,12 +127,12 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `gdal-python/recompress_geotiffs.py` | Yes | Yes | Provisional installed/MCP; guarded main/version; owner pending | Copied-wrapper default audit of empty disposable directory with `--no-pause` returns success without changing TIFFs | `--replace`/GDAL backend and real raster output comparison not exercised here; externally validated compression behaviour pending |
 | `gdal-python/split_vector_by_attribute.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `gdal-python/vacuum_geopackages.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `hydrology-python/ARF-calcs.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `hydrology-python/EAS.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `hydrology-python/RFFE_Only_v6.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `hydrology-python/RFFE_Only_v6_standalone.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `hydrology-python/aep_ari_conversions.py` | No | No | Not assessed | Not assessed | Not assessed |
-| `hydrology-python/combine_ifds_v2.py` | No | No | Not assessed | Not assessed | Not assessed |
+| `hydrology-python/ARF-calcs.py` | No | No | Source inspected; provisional repository-only reference/calculation utility; owner pending | Protected example `__main__` with plotting; no standalone argparse/no-pause or tested CLI exit | Pandas/Matplotlib regional ARF parameters; validate formula, domain, provenance and plots against ARR before distribution |
+| `hydrology-python/EAS.py` | No | No | Source inspected; provisional repository-only educational example; owner pending | Protected example `__main__`; no argparse/no-pause or tested CLI exit | NumPy/SciPy/Shapely/Matplotlib equal-area-slope demo; saves visual plots; hydrological parity/input-domain checks needed |
+| `hydrology-python/RFFE_Only_v6.py` | No | No | Source inspected; provisional repository-only network client; owner pending | Guarded argparse CLI; no-pause and errors not yet accepted | Requests/Pandas/Loguru + ryan_library; batch HTTP POST to RFFE URL; live external service and raw/combined CSV outputs unverified |
+| `hydrology-python/RFFE_Only_v6_standalone.py` | No | No | Source inspected; provisional repository-only alternative client; owner pending | Guarded argparse CLI; no-pause and errors not yet accepted | Standalone Requests/Pandas/Loguru variant; batch HTTP POST and CSV exports; confirm duplication and API security before lifecycle decision |
+| `hydrology-python/aep_ari_conversions.py` | No | No | Source inspected; provisional repository-only pure helper; owner pending | No CLI or `__main__` (library-like); numerical round-trip/domain pytest covers functions, not installed execution | Only math dependency; AEP/ARI formula and invalid finite-domain behavior tested in `test_repository_only_hydrology.py`; hydrological design acceptance pending |
+| `hydrology-python/combine_ifds_v2.py` | No | No | Source inspected; provisional repository-only legacy BOM CSV combiner; owner pending | Guarded `__main__`; no argparse/no-pause or tested exit contract | Reads script-adjacent IFD CSV variants; writes combined AEP lookup CSV; CSV schema and current BOM download parity unverified |
 | `misc-python/heic_to_jpeg.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `misc-python/remove_excel_protection.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `other/PDFXChangeEditorSettings_250206.xces` | No | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
@@ -148,7 +148,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `point-cloud-python/parallel-reorder-xyz-updated.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `powershell/date_to_front_of_msg_v3.ps1` | No | No | Not assessed | Not assessed | Not assessed |
 | `powershell/self-signing.ps1` | No | No | Not assessed | Not assessed | Not assessed |
-| `python-not-polished/hydrograph_extract_rorb_csv-opt2_132.py` | No | No | Not assessed | Not assessed | Not assessed |
+| `python-not-polished/hydrograph_extract_rorb_csv-opt2_132.py` | No | No | Source inspected; provisional repository-only project experiment; owner pending | Guarded `main()` followed by blocking Enter prompt; no argparse/no-pause; cannot run headless unchanged | Script-adjacent Opt2 RORB CSV inputs; writes timestamped Excel and plots; filename assumptions and output parity require project-data validation |
 | `raster-python/square_raster_cells.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `raster-python/tif_to_xyz_drop_na_v1.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `raster-python/tif_to_xyz_drop_na_v2.py` | No | No | Not assessed | Not assessed | Not assessed |
@@ -168,6 +168,22 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `unsorted-python/export_water_level_profile_tables_50m.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-python/plot_water_level_profiles.py` | No | No | Not assessed | Not assessed | Not assessed |
 
+
+## Bounded individual source inspections — legacy hydrology/RORB group
+
+Eight additional **repository-only** Python files have source-specific
+lifecycle evidence above, bringing this source-inspected tranche to
+**21 files** (six 12D, seven AutoCAD, eight hydrology/RORB). The unguarded
+`RORB-python/rorb-peaks_v2.py` performs input scanning, may raise, and writes
+CSV at import time; its repository-only disposition must be preserved.
+The AEP/ARI mathematical helper is deliberately not promoted to the wheel;
+`tests/scripts/test_repository_only_hydrology.py` adds bounded pure numerical
+tests of that source file's formula and invalid-input contract.
+
+The two RFFE variants contact an external HTTP service and require deliberate
+duplication, transport, ownership, and environment review before any lifecycle
+promotion. The source checks do not validate live RFFE responses, ARR design
+methods, performance, or other output parity; maintainers retain final approval.
 
 ## Bounded installed-wrapper behaviour evidence
 
