@@ -36,7 +36,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `RORB-python/RORB-find-closure-durations.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `RORB-python/extract_rainfall-to-TUFLOW.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `RORB-python/hydrograph_extract_rorb_csv.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `RORB-python/plot_ensemble_results.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `RORB-python/plot_ensemble_results.py` | Yes | Yes | Provisional installed/MCP; source-tree error-path test only; owner pending | Copied-wrapper missing Parquet input with `--no-pause`: exit 1; output directory not created; help in selected smoke matrix | RORB/Parquet/plotting dependencies and valid result/plot parity unverified |
 | `RORB-python/rorb-peaks_v2.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-bat/asc2asc_max_by_search.bat` | No | No | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-bat/asc_to_asc-DIFF.bat` | No | No | Not assessed | Not assessed | Not assessed |
@@ -91,8 +91,8 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `file-management-python/archive_extract.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `file-management-python/copy_file.py` | No | No | Repository-only: unguarded import executes Win32 share connection | No safe CLI/help; editable settings run on import | Network copy/credentials, overwrite and external Windows MPR; unsafe for installed wrapper |
 | `file-management-python/copy_folder.py` | No | No | Repository-only: unguarded import executes Win32 share connection | No safe CLI/help; editable settings run on import | Network copy/credentials, overwrite and external Windows MPR; unsafe for installed wrapper |
-| `file-management-python/file_inventory.py` | Yes | No | Provisional: protected main and embedded version | argparse help/no-pause and CSV smoke; originals preserved | Project data filesystem and optional Excel output; runtime checks retained in CI |
-| `file-management-python/list_files_recursive.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `file-management-python/file_inventory.py` | Yes | No | Provisional installed; guarded main and embedded version; owner pending | Copied-wrapper CSV export, traversal rejection (exit 2), SHA-256/Unicode, file filtering and `--no-recursive` regression coverage; no-pause exercised | Input bytes preserved on tested paths; `--no-excel` verified; default Excel production workflow, network paths and error cases still unverified |
+| `file-management-python/list_files_recursive.py` | Yes | No | Provisional installed; guarded main/version; owner pending | Copied-wrapper recursive text listing with `--no-pause`: success; missing directory returns exit 1 and creates no output | Original `filenames.txt` output in input directory checked; output permissions, UNC, long paths and resource parity outstanding |
 | `file-management-python/rename-msg-files-argparse-folder.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `fix-chatgpt-type-hints.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `floodway.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
@@ -124,7 +124,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `gdal-python/gdaladdo_tif_pyramids.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `gdal-python/gdalwarp_clip_to_polygon.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `gdal-python/laz_to_las.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `gdal-python/recompress_geotiffs.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `gdal-python/recompress_geotiffs.py` | Yes | Yes | Provisional installed/MCP; guarded main/version; owner pending | Copied-wrapper default audit of empty disposable directory with `--no-pause` returns success without changing TIFFs | `--replace`/GDAL backend and real raster output comparison not exercised here; externally validated compression behaviour pending |
 | `gdal-python/split_vector_by_attribute.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `gdal-python/vacuum_geopackages.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `hydrology-python/ARF-calcs.py` | No | No | Not assessed | Not assessed | Not assessed |
@@ -168,6 +168,17 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `unsorted-python/export_water_level_profile_tables_50m.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-python/plot_water_level_profiles.py` | No | No | Not assessed | Not assessed | Not assessed |
 
+
+## Bounded installed-wrapper behaviour evidence
+
+Four selected wrappers have named source-tree subprocess regressions in
+`tests/scripts/test_installed_wrapper_behaviour.py`. These tests run
+disposable data with `--no-pause`. The existing isolated-wheel smoke is a
+**separate** package gate and does not prove all resources or external tools.
+The ledger above now distinguishes verified safe/error paths from outstanding
+original-default, Excel, GDAL, RORB plotting and Windows network acceptance.
+Neither a passing smoke test nor a successful source inspection constitutes
+maintainer sign-off for the wrapper's complete original behaviour.
 
 ## Bounded individual source inspections — 12D and AutoCAD group
 
