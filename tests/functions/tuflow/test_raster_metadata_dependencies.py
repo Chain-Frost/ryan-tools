@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import rasterio
 import pytest
+import rasterio
 from rasterio.transform import from_origin
 
 from ryan_library.functions.tuflow.raster_metadata_dependencies import inspect_raster_metadata
