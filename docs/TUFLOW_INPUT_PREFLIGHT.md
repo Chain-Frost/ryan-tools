@@ -113,6 +113,17 @@ are added to the single shared file inventory and checked for every affected
 run. The report separately times this GIS attribute stage and counts its
 GeoPackage opens. This scanner does not read the geometry blobs.
 
+**Channel and pit semantics:** In a `1d_nwk` layer, normal `Q` and
+`P` values (and `1d_pit` `Q`/`VPI` identifiers) identify curves in the
+active `Pit Inlet Database` or `Depth Discharge Database`, rather than
+filenames in the GIS folder. The checker resolves those identifiers through
+the documented `Name`/`Source` CSV fields and checks the referenced Source
+files, caching each database by path. `QO` checks only the matrix filename
+after its control ID; `M` checks matrix files. `1d_nwk` features with an
+`Ignore` attribute of `Y` or `T` (case-insensitive) contribute no file
+dependencies. Missing, duplicate or ambiguous curve identifiers, invalid
+database schemas and blank required active identifiers fail closed.
+
 **Limits:** Shapefile/MIF attribute scans, unknown layer types, mixed/unknown
 network geometry, unexpanded GIS attribute variables and unsupported database
 schemas remain **unresolved**, not passed. Geopackage attribute validation
