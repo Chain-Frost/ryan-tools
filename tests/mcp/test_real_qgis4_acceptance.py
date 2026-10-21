@@ -58,7 +58,7 @@ def test_real_qgis4_python_provider_reads_synthetic_vector(tmp_path: Path) -> No
     python = os.environ.get("RYAN_CF_QGIS_PYTHON") or sys.executable
     env = os.environ.copy()
     env.setdefault("QT_QPA_PLATFORM", "offscreen")
-    result = subprocess.run([python, "-c", code, str(source)], text=True, capture_output=True, env=env, timeout=90)
+    result = subprocess.run([python, "-c", code, str(source)], text=True, capture_output=True, env=env, check=False, timeout=90)
     assert result.returncode == 0, (
         "QGIS 4 Python/provider integration failed; use a configured QGIS/OSGeo4W environment. "
         f"stdout={result.stdout}, stderr={result.stderr}"
@@ -74,7 +74,7 @@ def test_real_qgis4_process_executable_version() -> None:
     candidate = Path(command).expanduser().absolute()
     if not candidate.is_file():
         pytest.fail(f"Configured QGIS process executable missing: {candidate}")
-    result = subprocess.run([str(candidate), "--version"], text=True, capture_output=True, timeout=60)
+    result = subprocess.run([str(candidate), "--version"], text=True, capture_output=True, check=False, timeout=60)
     output = result.stdout + result.stderr
     assert result.returncode == 0, f"qgis_process --version failed: {output}"
     assert re.search(r"\b4\.\d+", output), f"QGIS 4 version not confirmed: {output}"
