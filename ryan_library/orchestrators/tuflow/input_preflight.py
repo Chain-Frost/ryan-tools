@@ -442,7 +442,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     return references, unique
 
 
-def _materialise_attribute_references(
+def _materialise_attribute_references(  # noqa: C901 - database joins and explicit fail-closed diagnostics
     references: list[_FileReference],
     report: PreflightReport,
     *,
@@ -562,8 +562,7 @@ def _materialise_attribute_references(
             extra_references = extra_materialised
 
         distinct_extra = {(ref.run.index, ref.origin, ref.path, ref.layer): ref for ref in extra_references}
-        for ref in distinct_extra.values():
-            references.append(ref)
+        references.extend(distinct_extra.values())
     report.attribute_seconds = time.perf_counter() - attribute_started
     return references
 
