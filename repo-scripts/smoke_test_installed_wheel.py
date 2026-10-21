@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-from contextlib import closing
 import importlib.metadata
 import importlib.resources
 import importlib.util
@@ -12,6 +11,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
