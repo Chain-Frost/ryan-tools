@@ -1070,7 +1070,6 @@ def test_real_deferred_materials_and_soils_are_primary_inputs(tmp_path: Path) ->
     assert any(issue.status == "unresolved" for issue in report.issues)
 
 
-
 def test_deferred_shapefile_network_attribute_sources_checked_once_per_run_group(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
