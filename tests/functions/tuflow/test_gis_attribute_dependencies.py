@@ -53,6 +53,8 @@ def test_network_m_qo_files_and_q_curve_names_are_distinguished(tmp_path: Path) 
     assert set(result[(gpkg, "1d_nwk_test")].sources) == expected
     assert set(result[(gpkg, "1d_nwk_*")].sources) == expected
     assert result[(gpkg, "1d_nwk_test")].identifiers == ("Curve_A",)
+    assert result[(gpkg, "1d_nwk_test")].network_identifiers == ("Curve_A",)
+    assert not result[(gpkg, "1d_nwk_test")].pit_identifiers
 
 
 def test_unknown_or_insufficient_gis_schema_fails_closed(tmp_path: Path) -> None:
@@ -133,6 +135,8 @@ def test_pit_inlet_identifiers_are_not_treated_as_paths(tmp_path: Path) -> None:
     assert results[(gpkg, "1d_pit_test")].status == "present"
     assert results[(gpkg, "1d_pit_test")].sources == ()
     assert results[(gpkg, "1d_pit_test")].identifiers == ("Grated", "Kerb_Inlet_A")
+    assert results[(gpkg, "1d_pit_test")].pit_identifiers == ("Grated", "Kerb_Inlet_A")
+    assert not results[(gpkg, "1d_pit_test")].network_identifiers
 
 
 def test_pit_inlet_database_maps_curve_ids_to_source_files(tmp_path: Path) -> None:
@@ -201,6 +205,7 @@ def test_shapefile_and_geopackage_use_identical_network_attribute_rules(tmp_path
     assert eager.status == deferred.status == "present"
     assert eager.sources == deferred.sources
     assert eager.identifiers == deferred.identifiers == ("Curve_A",)
+    assert eager.network_identifiers == deferred.network_identifiers == ("Curve_A",)
     assert set(deferred.sources) == {
         tmp_path / "operational.csv",
         tmp_path / "section.csv",
