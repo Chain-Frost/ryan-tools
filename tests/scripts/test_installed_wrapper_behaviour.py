@@ -219,12 +219,12 @@ def test_copied_file_inventory_nonrecursive_excludes_nested_files(tmp_path: Path
 # In particular, they should fail before entering their processing orchestrators.
 @pytest.mark.parametrize(
     "relative",
-    (
+    [
         "RORB-python/RORB-find-closure-durations.py",
         "TUFLOW-python/culvert_results/combine_culvert_timeseries.py",
         "TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py",
         "TUFLOW-python/log_processing/create_log_summary_report.py",
-    ),
+    ],
 )
 def test_copied_common_cli_rejects_missing_working_directory(relative: str, tmp_path: Path) -> None:
     missing = tmp_path / "missing model folder"
@@ -241,11 +241,11 @@ def test_copied_common_cli_rejects_missing_working_directory(relative: str, tmp_
 
 @pytest.mark.parametrize(
     "relative",
-    (
+    [
         "RORB-python/RORB-find-closure-durations.py",
         "TUFLOW-python/culvert_results/combine_culvert_timeseries.py",
         "TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py",
-    ),
+    ],
 )
 def test_copied_common_cli_rejects_unknown_option_without_processing(relative: str, tmp_path: Path) -> None:
     result = _run_copied_wrapper(relative, tmp_path, "--not-a-valid-option", "--no-pause")
