@@ -33,9 +33,9 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `AutoCAD-python/group-by-entity-colour.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; hard-coded project invocation; no help/no-pause or tested exit contract | Hard-coded UNC working directory; ezdxf layer grouping to output DXF; network and CAD fidelity unverified |
 | `GlobalMapper/DXF-to-float_v1.gms` | No | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
 | `README.md` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
-| `RORB-python/RORB-find-closure-durations.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `RORB-python/extract_rainfall-to-TUFLOW.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `RORB-python/hydrograph_extract_rorb_csv.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `RORB-python/RORB-find-closure-durations.py` | Yes | Yes | Source inspected; selected library-backed RORB wrapper; maintainer acceptance pending | Argparse common execution overrides/thresholds; guarded entry and no-pause; existing help coverage, new failure tests pending CI | Reads batch.out/hydrographs recursively via closure orchestrator; emits CSV/Parquet summaries; threshold and dataset parity not established |
+| `RORB-python/extract_rainfall-to-TUFLOW.py` | Yes | No | Source inspected; provisional installed, manually configured RORB converter; acceptance pending | Guarded main; edits directory and start/end rows in source; no argparse/no-pause or tested exit code | Reads RORB .out tables and writes *_Rainfall.csv; script-adjacent default output and row/heading interpretation need real RORB data checks |
+| `RORB-python/hydrograph_extract_rorb_csv.py` | Yes | No | Source inspected; provisional installed RORB plot utility; acceptance pending | Guarded main followed by unconditional Enter pause; no argparse/no-pause; headless parity not satisfied | Requires naming-specific hydrograph CSV input beside script; timestamped Excel/PNG outputs, column parsing and plot labels unverified |
 | `RORB-python/plot_ensemble_results.py` | Yes | Yes | Provisional installed/MCP; source-tree error-path test only; owner pending | Copied-wrapper missing Parquet input with `--no-pause`: exit 1; output directory not created; help in selected smoke matrix | RORB/Parquet/plotting dependencies and valid result/plot parity unverified |
 | `RORB-python/rorb-peaks_v2.py` | No | No | Source inspected; repository-only required due import-time effects; owner pending | No protected entry; no argparse/help/no-pause or safe import semantics | On import changes working directory, recursively reads RORB `.out`, may raise, and writes `processed_output.csv`; never auto-import or wheel-promote |
 | `TUFLOW-bat/asc2asc_max_by_search.bat` | No | No | Not assessed | Not assessed | Not assessed |
@@ -43,28 +43,28 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `TUFLOW-bat/asc_to_asc-MAX.bat` | No | No | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-python/README.md` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
 | `TUFLOW-python/culvert_results/__init__.py` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
-| `TUFLOW-python/culvert_results/combine_culvert_maximums.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/culvert_results/combine_culvert_timeseries.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/culvert_results/create_mean_culvert_peak_report.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/culvert_results/create_median_culvert_peak_report.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `TUFLOW-python/culvert_results/combine_culvert_maximums.py` | Yes | Yes | Source inspected; selected maintained library-backed wrapper; owner sign-off pending | Argparse common flags, guarded main, embedded version and no-pause; existing help test only | Orchestrator merges culvert maximum CSVs and optional raw result types to Excel/Parquet; workbook content/format unverified |
+| `TUFLOW-python/culvert_results/combine_culvert_timeseries.py` | Yes | Yes | Source inspected; selected maintained library-backed wrapper; owner sign-off pending | Argparse common flags and no-pause; help/invalid-directory tests added, CI pending | Orchestrator combines culvert Q/V/H/CF/Chan/EOF CSVs; editable Excel default and path selection; result/data-type output parity pending |
+| `TUFLOW-python/culvert_results/create_mean_culvert_peak_report.py` | Yes | Yes | Source inspected; selected library-backed mean report; acceptance pending | Argparse common options, guarded main and no-pause; help test added, CI pending | Culvert mean peak summary via shared orchestrator; default result filters, Excel/raw output and engineering aggregation unverified |
+| `TUFLOW-python/culvert_results/create_median_culvert_peak_report.py` | Yes | Yes | Source inspected; selected library-backed median report; acceptance pending | Argparse common options, guarded main and no-pause; help test added, CI pending | Culvert median peak summary via shared orchestrator; expected TP/duration aggregation and outputs unverified |
 | `TUFLOW-python/gis_processing/__init__.py` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
-| `TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/gis_processing/rename_geopackage_layer_to_filename.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/gis_processing/split_network_layers_by_culvert_id.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py` | Yes | No | Source inspected; selected library-backed GIS styling wrapper; acceptance pending | Argparse execution flags/guarded main/no-pause; help and safe failure-path tests added, CI pending | Loads packaged QML or custom overrides and applies styles; QGIS/GDAL operations and raster/vector styling acceptance outstanding |
+| `TUFLOW-python/gis_processing/rename_geopackage_layer_to_filename.py` | Yes | No | Source inspected; selected but legacy destructive standalone; promotion merits review | No argparse/no-pause; Windows completion keypress, no reliable process exit on caught failures | GeoPandas/pyogrio read and rebuild single-layer GPKG then move over original; back up data; layer metadata and overwrite parity unverified |
+| `TUFLOW-python/gis_processing/split_network_layers_by_culvert_id.py` | Yes | No | Source inspected; selected bespoke GIS converter; acceptance pending | Guarded project-specific main, no argparse/no-pause, output error handling untested | Uses Fiona/GeoPandas and fixed network/boundary fields to write many shapefiles and .trd includes; geospatial integrity unverified |
 | `TUFLOW-python/log_processing/__init__.py` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
-| `TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py` | Yes | Yes | Source inspected; selected workbook mutation wrapper; acceptance pending | Argparse common flags and guarded no-pause; help test added, CI pending | Hard-coded default Q: results folder/master workbook; appends only new rows via orchestrator; deduplication, original workbook integrity unverified |
 | `TUFLOW-python/log_processing/check_tuflow_user_activity.py` | Yes | No | Provisional: protected main and embedded version; inspect local configuration | argparse help/no-pause; external environment still unverified | Read-only ProgramData TUFLOW logs, local CodeMeter optional; verify on Windows |
-| `TUFLOW-python/log_processing/create_log_summary_report.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `TUFLOW-python/log_processing/create_log_summary_report.py` | Yes | Yes | Source inspected; selected library-backed summary wrapper; acceptance pending | Argparse common flags, guarded no-pause; help and invalid working-directory tests added, CI pending | Parses TUFLOW log files recursively through orchestrator; generated summary schema, missing log cases, and live dashboard unverified |
 | `TUFLOW-python/model_management/__init__.py` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
-| `TUFLOW-python/model_management/collect_result_and_check_files.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/model_management/delete_duplicate_check_files.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/model_management/run_tuflow_simulations.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/model_management/verify_converted_tuflow_rasters.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `TUFLOW-python/model_management/collect_result_and_check_files.py` | Yes | No | Source inspected; selected bespoke file collector; acceptance pending | Guarded main, editable RUNS patterns but no argparse/no-pause, return code contract untested | Copies result/check matches into TFfiles_ext_tmp and refuses existing target; basename collision/volume/network QA outstanding |
+| `TUFLOW-python/model_management/delete_duplicate_check_files.py` | Yes | Yes | Source inspected; selected high-risk cleanup utility; acceptance pending | Guarded main, DRY_RUN and typed DELETE controls, no standard argparse/no-pause | Hashes/deletes duplicates, leaves audit placeholders/manifests; retention/rollback/permission and full destructive acceptance not established |
+| `TUFLOW-python/model_management/run_tuflow_simulations.py` | Yes | Yes | Source inspected; selected Windows TUFLOW runner; acceptance pending | Guarded CLI with demo dashboard; editable get_parameters, no standard help/no-pause parity established | Windows TUFLOW executable and subprocess scheduling, model flags/priority/GPU settings; real TUFLOW and licence acceptance necessary |
+| `TUFLOW-python/model_management/verify_converted_tuflow_rasters.py` | Yes | No | Source inspected; selected raster verification/cleanup utility; acceptance pending | Argparse --root/--tif-root/no-pause; read-only default; help already tested | Rasterio exact raster/CRS/nodata comparisons; convert-missing and typed DELETE can mutate files; benchmark and validation required |
 | `TUFLOW-python/po_and_timeseries/__init__.py` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
-| `TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/po_and_timeseries/check_po_timeseries_peaks.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/po_and_timeseries/check_timeseries_stability.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/po_and_timeseries/combine_po_results.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py` | Yes | Yes | Source inspected; selected library-backed PO threshold wrapper; acceptance pending | Argparse common flags and guarded no-pause; help test added, CI pending | TUFLOW PO Flow CSV closure durations to Excel/Parquet through orchestrator; thresholds/results unverified |
+| `TUFLOW-python/po_and_timeseries/check_po_timeseries_peaks.py` | Yes | Yes | Source inspected; selected library-backed PO peak checker; acceptance pending | Argparse common flags, guarded no-pause; help test added, CI pending | Compares peaks in TUFLOW PO CSV via orchestrator; data-type selection and engineering tolerances need validation |
+| `TUFLOW-python/po_and_timeseries/check_timeseries_stability.py` | Yes | Yes | Source inspected; selected stability-report wrapper; acceptance pending | Argparse common options, additional report option, no-pause; help test added, CI pending | PO/1D Q time-series rolling tolerance calculations and report exports; model timestep thresholds/parity unverified |
+| `TUFLOW-python/po_and_timeseries/combine_po_results.py` | Yes | Yes | Source inspected; selected library-backed PO combiner; acceptance pending | Argparse common filtering, guarded no-pause; help test added, CI pending | Merges TUFLOW PO CSV by filename/time and configurable filters; Excel/Parquet schemas and original defaults unverified |
 | `TUFLOW-python/po_and_timeseries/combine_pomm_results.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-python/po_and_timeseries/create_pomm_median_peak_report.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
@@ -168,6 +168,22 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `unsorted-python/export_water_level_profile_tables_50m.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-python/plot_water_level_profiles.py` | No | No | Not assessed | Not assessed | Not assessed |
 
+
+## Bounded individual source inspections — selected RORB and TUFLOW wrappers
+
+Twenty additional **wheel-selected** source files were individually read and
+given specific behavioural/dependency evidence in the rows above. These
+include seven RORB/culvert wrappers, three TUFLOW GIS scripts, two log
+processing scripts, four model-management scripts and four PO/series utilities.
+Their lifecycle status is **provisional**, not maintainer approval.
+
+The highest-risk selected scripts in this tranche include a GeoPackage
+rebuild/replace operation, duplicate-file deletion, batch file collection,
+master-workbook mutation and launching TUFLOW executables. Existing manifest
+membership is preserved while their safety, original defaults and engineering
+output acceptance are examined. The additional CLI-help and invalid-input
+subprocess regressions are tracked separately, and **do not establish**
+full installed-wheel parity or real TUFLOW/GDAL/QGIS application readiness.
 
 ## Bounded individual source inspections — point-cloud, raster and image group
 
