@@ -39,7 +39,7 @@ class FileInventory:
 
 
 
-def expand_file_patterns(
+def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded scan error paths
     patterns: Collection[Path], *, maximum_directory_entries: int = 50000
 ) -> tuple[dict[Path, tuple[Path, ...]], dict[Path, DependencyResult], int]:
     """Expand nonrecursive wildcard filenames with one bounded scan per directory.
@@ -48,7 +48,8 @@ def expand_file_patterns(
     remains unresolved. No unbounded walk or recursive glob is attempted.
     """
     if maximum_directory_entries < 1:
-        raise ValueError("maximum_directory_entries must be positive")
+        message = "maximum_directory_entries must be positive"
+        raise ValueError(message)
     by_parent: dict[Path, list[Path]] = defaultdict(list)
     expanded: dict[Path, tuple[Path, ...]] = {}
     failures: dict[Path, DependencyResult] = {}
