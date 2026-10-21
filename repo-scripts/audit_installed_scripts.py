@@ -109,9 +109,7 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
         # as `from shutil import copy2 as cp; cp(...)` must not bypass the scan.
         self.aliases: dict[str, str] = {}
         for statement in module.body:
-            if isinstance(statement, ast.ImportFrom) and statement.module in {
-                "shutil", "os", "subprocess", "pathlib"
-            }:
+            if isinstance(statement, ast.ImportFrom) and statement.module in {"shutil", "os", "subprocess", "pathlib"}:
                 for alias in statement.names:
                     if alias.name in UNSAFE_IMPORT_CALLS:
                         self.aliases[alias.asname or alias.name] = alias.name
