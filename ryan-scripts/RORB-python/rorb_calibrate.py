@@ -215,8 +215,7 @@ def evaluate_output(
     else:
         reference_time, observed_flow = observed
         if len(reference_time) != len(data["Time"]) or any(
-            not math.isclose(a, b, rel_tol=0, abs_tol=1e-6)
-            for a, b in zip(reference_time, data["Time"], strict=True)
+            not math.isclose(a, b, rel_tol=0, abs_tol=1e-6) for a, b in zip(reference_time, data["Time"], strict=True)
         ):
             message = "Observed CSV times differ from RORB times; no implicit interpolation"
             raise ValueError(message)
@@ -336,7 +335,8 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--obs-flow", default="Flow", help="Flow column of observed CSV")
     p.add_argument("--inspect-output", type=Path, help="List columns of existing RORB .out and exit")
     p.add_argument(
-        "--score-output", type=Path,
+        "--score-output",
+        type=Path,
         help="Score an archived RORB .out without launching RORB_CMD or requiring .catg/.stm",
     )
     p.add_argument("--output", type=Path, default=Path("rorb_calibration"), help="Output parent folder")
@@ -381,9 +381,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901 -- standalone CLI 
             if args.obs_column == args.sim_column:
                 message = "Modelled and observed columns must differ"
                 raise ValueError(message)
-            if args.hma and (
-                args.hma_window < 1 or not math.isfinite(args.hma_weight) or args.hma_weight <= 0
-            ):
+            if args.hma and (args.hma_window < 1 or not math.isfinite(args.hma_weight) or args.hma_weight <= 0):
                 message = "PyHMA window and weight must be positive"
                 raise ValueError(message)
             report_file = args.score_output.absolute()
@@ -491,9 +489,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901 -- standalone CLI 
             message = "Modelled and observed columns must differ"
             raise ValueError(message)
         observed = (
-            csv_observations(args.observed_csv.absolute(), args.obs_time, args.obs_flow)
-            if args.observed_csv
-            else None
+            csv_observations(args.observed_csv.absolute(), args.obs_time, args.obs_flow) if args.observed_csv else None
         )
         output_parent = args.output.absolute()
         output_parent.mkdir(parents=True, exist_ok=True)
@@ -531,9 +527,26 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901 -- standalone CLI 
                 print(f"[{len(cases)}/{len(jobs)}] {case_result['status']}: run {case_result['run']}")
         cases.sort(key=lambda row: (row["status"] != "success", row.get("rmse", math.inf), row["run"]))
         fields = [
-            "run", "kc", "m", "loss_model", "il", "continuing", "modelled_column", "observed_source",
-            "status", "error", "directory", "output_report", "rmse", "nse", "bias", "observed_peak",
-            "simulated_peak", "observed_peak_time", "simulated_peak_time", "hma",
+            "run",
+            "kc",
+            "m",
+            "loss_model",
+            "il",
+            "continuing",
+            "modelled_column",
+            "observed_source",
+            "status",
+            "error",
+            "directory",
+            "output_report",
+            "rmse",
+            "nse",
+            "bias",
+            "observed_peak",
+            "simulated_peak",
+            "observed_peak_time",
+            "simulated_peak_time",
+            "hma",
         ]
         with (root / "results.csv").open("w", newline="", encoding="utf-8") as stream:
             writer = csv.DictWriter(stream, fieldnames=fields)
