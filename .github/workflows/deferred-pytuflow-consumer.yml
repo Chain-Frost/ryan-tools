@@ -46,6 +46,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Full archived example sweep (temporary diagnostic; remove before merge)
+        if: ${{ !cancelled() }}
         shell: pwsh
         run: |
           $report = Join-Path $env:RUNNER_TEMP "tuflow-example-full-replay"
