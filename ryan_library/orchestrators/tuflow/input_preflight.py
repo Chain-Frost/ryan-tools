@@ -566,6 +566,7 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
     report.attribute_seconds = time.perf_counter() - attribute_started
     return references
 
+
 def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-level result routing
     tcf: Path,
     runs: Sequence[RunRequest],
