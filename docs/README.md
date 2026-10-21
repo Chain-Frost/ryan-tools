@@ -63,6 +63,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Vendored algorithms | [Vendor inventory](../vendor/README.md) | Third-party PyHMA and simil source, licence, import and packaging policy |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Bundled similarity-transform implementation, usage and upstream attribution |
 | Vendored `PyHMA` | [`PyHMA` README](../vendor/PyHMA/README.md) | Hydrograph matching usage, requirements and upstream attribution |
+| Temporary TUFLOW example fixtures | [Branch-only reproduction bundle](../tests/fixtures/tuflow_example_repro/README.md) | Input archive, checksums, per-case baseline and read-only runner; remove before final PR merge |
 
 ## Integrations
 

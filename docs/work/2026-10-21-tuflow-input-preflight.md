@@ -9,7 +9,7 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: 2026-10-22; P/B eager checks and B rainfall column checks pass; complete deferred parity and remaining PR gates.
+In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; example reproduction bundle is temporary branch-only data; resolve the recorded feature gaps and remove the bundle before final merge.
 
 ## Decisions
 
@@ -426,3 +426,199 @@ Keep outstanding database/GIS schemas unresolved until their deferred
 resolver and parity regressions exist. Model P/B workarounds or suppressing
 diagnostics are not acceptable. No merge, PyPI change or claimed benchmark
 speedup until complete materialised parity and exact-head CI.
+
+## Updated local fork: P/B parity restored (2026-10-21)
+
+Consumer/PR head `a60ba0cc11c06e51395f400a8d0c95100331f37c`; clean local PyTUFLOW checkout
+`65f24fa96bbb93f5e836c3391be8837fa0048092`. Imported the supplied checkout explicitly in isolated
+test processes; no global installation, source or project files changed. The consumer CI workflow
+pins `f965314c2a5df68a3f5ada016b02607513d783c1`, so local source evidence and CI dependency identity
+are recorded separately. Both checkouts report PyTUFLOW 1.2.6; commit provenance distinguishes the fork.
+
+The material-list and soils errors are resolved on these models. Full public deferred preflight:
+**P: 4 runs, 17 unique files, zero findings; B: 240 runs, 32 unique files, zero findings**.
+Physical-identity comparison follows links deliberately and deduplicates aliases; these figures
+must not be interpreted as missing files solely by comparison with older lexical-path counts.
+
+Representative gates (P runs 1/3/4; B 1/121/240) passed before full comparison. Then compared
+every run using the same updated fork in explicit eager and deferred modes. Keys contain run index,
+event/scenario flags, originating command name, canonical physical path and GeoPackage layer.
+Command names are compared without their RHS because eager string rendering includes the assignment,
+whereas deferred reference origins expose its LHS. Wildcard filenames/layers are materialised before
+comparison. No attribute-linked requests occur in P/B; the harness refuses parity if such inputs
+appear without complete secondary materialisation.
+
+| Model | Runs | Matching run/command/path/layer entries | Physical files | Missing / extra |
+| --- | --- | --- | --- | --- |
+| P | 4 | 68 | 17 | 0 / 0 |
+| B | 240 | 4,560 | 32 | 0 / 0 |
+
+All modes report zero collection issues. The earlier incomplete deferred P/B inventory result is
+superseded for this updated dependency and consumer. This is P/B parity, not proof that all eager
+features or the remaining GIS/database schemas are supported across arbitrary models.
+
+### Same-fork local SSD timing
+
+After the concurrent correctness checks finished, ran **one sequential eager/deferred pair per
+model** against this same fork, on the same local SSD with existing filesystem caches. Fresh model
+objects per mode, P then B, eager before deferred. Reported totals sum timed parse, context/reference
+collection and unique physical-file/layer inventory phases. They exclude Python/package startup,
+report writing and the separate parity-key/wildcard materialisation work. Public preflight was also
+run separately above. These phase totals are not interchangeable with the older three-trial full-call
+medians, and one ordered pair does not establish a stable performance gain.
+
+| Model / mode | Parse seconds | Contexts seconds | Inventory seconds | Measured phase total seconds |
+| --- | --- | --- | --- | --- |
+| P / eager | 0.471 | 0.706 | 0.00163 | 1.178 |
+| P / deferred | 0.445 | 0.451 | 0.00164 | 0.898 |
+| B / eager | 0.666 | 52.482 | 0.02881 | 53.177 |
+| B / deferred | 0.642 | 41.835 | 0.02897 | 42.507 |
+
+Both inventories pass and the benchmark pair independently repeats zero missing/extra parity.
+No network data access, cold-cache measurement or I/O-operation instrumentation is claimed.
+P retains the known projection-reading warning.
+
+### Validation, artifacts and delivery
+
+- Current local fork imported before pytest, with `RYAN_TEST_DEFERRED_PYTUFLOW=1`:
+  `tests/orchestrators/tuflow/test_input_preflight.py` and
+  `tests/functions/tuflow/test_gis_attribute_dependencies.py`: **35 passed, zero skipped**.
+- Exact PR head `a60ba0c`: six hosted checks completed successfully, verified with `gh pr view`:
+  fork-consumer-smoke, Ruff and whitespace, Policy, Python 3.13 compatibility and MCP, Hosted tests,
+  Package. [Python CI run](https://github.com/Chain-Frost/ryan-tools/actions/runs/39626059450),
+  [fork smoke run](https://github.com/Chain-Frost/ryan-tools/actions/runs/39626059430).
+- Reproduction scripts in the existing temporary validation directory: `updated_parity.py`,
+  `updated_preflight.py`, `updated_benchmark.py`. Evidence: `updated-local/parity.json`,
+  per-project difference JSON files, `updated-local/benchmark-single.json`,
+  `updated-local-preflight-summary.json` and issue CSVs. All private paths remain outside the repository.
+- Only this record/register changed, left uncommitted. No package rebuild, global install, push,
+  PR comment or merge performed. Installed-fork wheel smoke, the other model/GIS attribute gates,
+  and broad eager-feature parity remain open; successful P/B validation does not authorise merge.
+
+## Tutorial-set eager/deferred check (2026-10-21)
+
+Checked the existing `tests/test_data/tuflow/tutorials` checkout, fixture commit
+`b604b20ea62a61f1aa8e4837dc7e4ebd155430a4`, without changing its files or Git state.
+Consumer `a60ba0c`, PyTUFLOW source checkout `65f24fa`, Windows Python 3.14.6.
+The 11 `_run_Mxx_HPC.bat` files specify **21 simulation TCFs and 33 exact run combinations**.
+Most TCFs use an empty run context; Module 8 supplies nine scenario combinations and Module 9
+supplies six event combinations. Batch commands were read, never executed. The additional
+`Create_Empties.tcf` is setup-only and was explicitly excluded from simulation parity.
+
+**Fixture completeness blocks acceptance:** all 11 module folders lack their referenced `model`
+directories, and required BC databases are also absent. The fixture contains run controls/results,
+not a complete runnable tutorial input set. Both eager and deferred inventories find missing inputs
+in every one of the 33 proposed runs. Deferred full preflight fails all runs with **306 findings:
+273 missing dependencies and 33 unresolved active BC databases**. No simulation was launched.
+
+The eager collector produces zero collection exceptions but its independent file/layer inventory
+still fails every case. Its lack of collection exceptions is not a pass. Raw partial dependency
+sets differ across modes for all 21 TCFs; missing nested controls, spatial databases and BC tables
+prevent materialising their actual dependencies, so neither real input parity nor a deferred
+regression can be established from this incomplete fixture. No performance claim is made.
+
+Temporary reproduction: `python "$env:TEMP/ryan-preflight-20261021/tutorial_check.py"`.
+The diagnostic harness exits zero after recording all cases; acceptance is carried by the JSON/CSV
+results, which are failures. Evidence: `tutorial-check/results.json`, per-TCF difference JSON and
+preflight CSV files, plus `tutorial-check.log` in the existing temporary directory. The harness
+checks physical file/layer identities in both modes and runs the public deferred preflight.
+
+Next action: populate a complete tutorial input set containing the referenced model controls,
+GIS/DEM layers, material files, BC databases and source data, then repeat the same 33 cases.
+No automatic download, submodule update, fixture repair, source change or package build was performed.
+Only this record/register were updated and remain uncommitted. P/B's previously verified parity
+remains separate; this tutorial attempt does not close the broader feature-parity gate.
+
+## Complete example-model dataset sweep (2026-10-21)
+
+Tested `E:\temp\TUFLOW_Example_Model_Dataset\TUFLOW`, which includes model/GIS and BC inputs,
+using consumer `a60ba0c` and local PyTUFLOW `65f24fa`, Windows Python 3.14.6. Read all example
+batch files, ignored comments/SET lines, deduplicated their TCF/flag combinations and included every
+remaining unparameterised TCF with an empty context. No batch file or TUFLOW executable was run.
+Coverage: **161 TCFs, 174 distinct runs**; parameters are supplied only where defined in the batches.
+The SHA-256 over sorted relative names and raw bytes of the 183 TCF/batch files is
+`c48d1783cf94dfa16abdc71a17f13f71f440a9b257ee26470c37edf65d0103e8` (NUL separators).
+
+**107 TCFs / 119 runs pass** public deferred preflight, both independent physical file/layer
+inventories, and exact eager/deferred run/flags/command/path/layer dependency comparison.
+**54 TCFs / 55 runs remain unresolved**. No case was accepted merely because two partial sets
+matched. Attribute-bearing cases are explicitly excluded from accepted parity until their secondary
+dependencies are completely materialised; no passing case requested an attribute scan.
+
+The [per-TCF results matrix](2026-10-21-example-model-parity.csv) records all 161 cases, run counts,
+collection/inventory issues, comparison counts and full public preflight reasons. A blank comparison
+means parity was deliberately not attempted past an unsupported attribute source, not zero differences.
+The 134 public deferred findings break down as follows (overlapping TCFs):
+
+| Limitation | Finding count | Detail |
+| --- | --- | --- |
+| Attribute-linked sources outside GeoPackage | 112 | All observed sources are Shapefiles; the current shared attribute scanner supports GeoPackage only. |
+| Unsupported deferred database-linked command | 18 | 12 `Read GIS Table Links`, two `Read Grid RF`, four `AD BC Database`. |
+| Multiple BC database inputs | 4 | EG17_001/002/003 and EG18_002: the resolver reports ambiguous BC inputs rather than choosing a database. |
+
+The eager baseline has its own failures and is not universal acceptance evidence:
+
+- EG03_011 fails context construction with `'NoneType' object has no attribute 'resolve'`.
+- EG03_012 fails context construction with `Length of indexer and values mismatch`.
+- EG11_006 and EG15_007/008 expose the bare network/pit identifier `aa` as a missing filesystem
+  path; do not conclude those are genuine missing project input files without identifier lookup.
+- EG17_001/002/003 and EG18_002 also report that the active BC database cannot be resolved.
+- The other 152 TCFs have no eager collection or file/layer inventory finding. That alone does not
+  make their unsupported deferred counterparts pass.
+
+Next implementation fronts are Shapefile attribute-linked discovery with the same row/geometry and
+identifier semantics as GeoPackage, deferred table-link/rainfall-grid resolution, and distinguishing
+AD BC databases from hydraulic BC databases. Add supported resolvers and parity regressions rather
+than suppressing diagnostics. Investigate the two eager rainfall-grid exceptions independently.
+This dataset adds broad coverage but does not close the overall eager-feature parity gate.
+
+Temporary reproduction: `python "$env:TEMP/ryan-preflight-20261021/example_check.py"`.
+Evidence under the existing temporary directory: `example-check/results.json`, `summary.json`,
+per-TCF difference JSON and issue CSV files, `example-check.log`; diagnostic script
+`example_eager_diagnostics.py` confirms the three `aa` path reports. The harness exits zero after
+recording all cases, while individual acceptance remains explicit in the matrix. No timing claim
+is made for this correctness sweep. Input files were only read; neither dataset nor submodules were
+changed. Status/register and the new results matrix remain uncommitted, with no source/package,
+push or merge changes. Documentation and whitespace checks pass.
+
+## Temporary branch-only example input bundle (2026-10-22)
+
+At the user's explicit request, packaged a self-contained reproduction set in
+[`tests/fixtures/tuflow_example_repro`](../../tests/fixtures/tuflow_example_repro/README.md),
+outside the independently maintained test-data submodule. It includes only the user-supplied
+TUFLOW example dataset, with no confidential project inputs. Archive: **1,464 files, 19.2 MiB
+uncompressed / 14.4 MiB compressed**. The archive preserves original source bytes for run controls,
+GIS, grids, BC and pit databases, plus the one restart file required as input by EG06_004.
+General results/logs, generated `xf` caches, executables, spreadsheets and copied project scripts
+are excluded. Real rasters are retained because empty text files would invalidate metadata parsing.
+The archive and each member have SHA-256 checksums; candidate input bytes were checked for the
+confidential identifiers before packaging. The manifest records source provenance without claiming
+independent verification of an upstream dataset release.
+
+The bundle contains a per-case baseline, manifest, README and read-only module runner. Run from
+the repository root:
+
+```powershell
+python -m tests.fixtures.tuflow_example_repro.run_checks --verify-only
+python -m tests.fixtures.tuflow_example_repro.run_checks --pytuflow-checkout E:\Github\PyTuflow --output "$env:TEMP\tuflow-example-reports"
+```
+
+Use repeated `--tcf` arguments to select specific examples. Extraction uses a fresh temporary
+directory and enforces physical containment; reports are retained separately. No batch command
+or TUFLOW executable is ever run. The complete baseline intentionally returns exit one because
+unsupported cases remain unresolved. This diagnostic runner uses the consumer's private collector
+and is not a new supported library API or MCP workflow.
+
+Validation: archive/member integrity, module help and compilation, Ruff lint/format, strict Pyright
+on the runner, documentation links/index and whitespace checks pass. Full extracted-data sweep
+matches the original matrix exactly: 161 TCFs / 174 runs, 107 TCFs / 119 runs accepted and
+54 TCFs / 55 runs unresolved, with zero per-case acceptance differences. Exit one is expected for
+the unresolved baseline, rather than an extraction or harness failure. No package
+build is needed because package source/metadata are unchanged. The source dataset and test-data
+submodule are unmodified. This fixture commit also retains the preceding local validation notes
+and complete example matrix from the same work front.
+
+**Removal requirement:** delete the entire temporary fixture directory and its central documentation
+index row before final PR merge; retain appropriate synthetic regressions and durable validation
+notes. This is a temporary upload to `feat/tuflow-run-preflight`, not merge authorisation. The user
+explicitly authorises committing and pushing this reproduction bundle on that existing branch.
