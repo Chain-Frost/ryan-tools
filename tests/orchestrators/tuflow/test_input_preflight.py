@@ -956,3 +956,85 @@ def test_deferred_network_attribute_files_are_scanned_once_for_440_runs(
     assert missing.affected_runs == 3
     assert len(missing.issues) == 3
     assert all("section.csv" in issue.reference for issue in missing.issues)
+
+
+def test_deferred_q_curve_ids_resolve_through_pit_database_without_false_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Repeated Q channel identifiers yield one cached CSV lookup, not fake paths."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    gpkg = tmp_path / "1d_nwk_q.gpkg"
+    pit_database = tmp_path / "pit_inlet.csv"
+    (tmp_path / "curve_source.csv").touch()
+    pit_database.write_text(
+        "Name,Source,Column 1,Column 2\n"
+        "Kerb_A,curve_source.csv,Depth,Flow\n",
+        encoding="utf-8",
+    )
+    with sqlite3.connect(gpkg) as db:
+        db.execute("CREATE TABLE gpkg_geometry_columns(table_name TEXT, column_name TEXT, geometry_type_name TEXT)")
+        db.execute("CREATE TABLE gpkg_contents(table_name TEXT)")
+        db.execute("INSERT INTO gpkg_geometry_columns VALUES ('1d_nwk_q', 'geom', 'LINESTRING')")
+        db.execute("INSERT INTO gpkg_contents VALUES ('1d_nwk_q')")
+        fields = ", ".join(f"attr_{index} TEXT" for index in range(11))
+        db.execute(f'CREATE TABLE "1d_nwk_q" (fid INTEGER PRIMARY KEY, geom BLOB, {fields})')
+        db.execute('INSERT INTO "1d_nwk_q" (attr_1, attr_10) VALUES (?, ?)', ("Q", "Kerb_A"))
+
+    class Input:
+        def __init__(self, lhs: str, source: Path, layer: str | None, kind: str | None) -> None:
+            self.lhs = lhs
+            self.file_references = (
+                types.SimpleNamespace(
+                    path_pattern=source,
+                    base_directory=tmp_path,
+                    origin=lhs,
+                    layer_pattern=layer,
+                    unresolved_variables=(),
+                    requires_attribute_scan=layer is not None,
+                    requires_database_scan=kind is not None,
+                    database_kind=kind,
+                ),
+            )
+
+        @property
+        def files(self) -> None:
+            message = "Never inspect eager .files in deferred mode"
+            raise AssertionError(message)
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            inputs = [
+                Input("Read GIS Network", gpkg, "1d_nwk_q", None),
+                Input("Pit Inlet Database", pit_database, None, "pit_inlet"),
+            ]
+            return [item for item in inputs if item.lhs.casefold() == lhs.casefold()] if lhs else inputs
+
+        def deferred_database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return ()
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    runs = [RunRequest(index, {"e1": str(index)}) for index in range(1, 4)]
+    report = check_simulation_inputs(tcf, runs)
+    assert report.passed, report.issues
+    assert report.attribute_databases_scanned == 1
+    assert report.checked_paths == {str(gpkg), str(pit_database), str(tmp_path / "curve_source.csv")}
+    assert all("Kerb_A" not in item for item in report.checked_paths)
+
+    pit_database.write_text("Name,Source\nOther,other.csv\n", encoding="utf-8")
+    missing = check_simulation_inputs(tcf, runs)
+    assert not missing.passed
+    assert missing.affected_runs == 3
+    assert all("has no entry" in issue.detail for issue in missing.issues)
+    assert not any("Kerb_A" in item for item in missing.checked_paths)
