@@ -125,3 +125,31 @@ rerun the actual 440-run inventory and compare materialised file/layer
 dependencies per run; complete GIS attribute-linked sources and unsupported
 database schemas (fail closed until then). No TUFLOW executable launch, merge,
 or PyPI dependency replacement is authorised.
+
+
+## Nested control-file completeness — 21 October 2026
+
+New local Higginsville parity evidence is recorded on PyTUFLOW PR #1, comment
+6311680970. Representative runs 1, 221 and 440 showed 57 eager versus 30
+deferred run/path/layer entries, with nine nested GIS/DEM dependencies omitted
+from every run (21 versus 12 physical unique paths). The BC and materials
+source API behaved correctly, but the preflight falsely passed with incomplete
+nested TGC/TBC/ECF traversal. Therefore the 440-run parity gate remains blocked.
+
+Upstream PyTUFLOW now keeps an in-memory original-path index for parsed nested
+controls, compares those paths against context-specific references (including
+mapped-drive/UNC aliases), and raises for any unmatched or ambiguous cached
+child instead of silently omitting it. Deferred GeoPackage references without
+an explicit layer now include the conventional stem-named default layer.
+Regression tests cover TGC/TBC/ECF nested GIS and raster input traversal,
+alias paths, missing parsed children, duplicate literal matches and wrong
+scenario folder matches.
+
+The current upstream pin is `1c300a7013522f177de07e68f27f3824a3ba8177`.
+Its deferred test workflow passed Linux Python 3.12/3.13 and Windows
+Python 3.12. This is *synthetic validation*, not confirmation that the nine
+real Higginsville references are now restored. The consumer has a gated
+end-to-end nested-tree test as well. Recheck runs 1, 221 and 440 against
+materialised eager/deferred file-and-layer identities on Windows Python 3.14,
+then run all 440 only if the representative parity gate passes. Preflight
+remains opt-in; do not merge or switch the production dependency.
