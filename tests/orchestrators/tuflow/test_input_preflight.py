@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+import os
 import sqlite3
 import sys
 import types
@@ -556,3 +558,20 @@ def test_deferred_unresolved_variables_are_never_probed(tmp_path: Path, monkeypa
     assert not report.passed
     assert report.issues[0].status == "unresolved"
     assert report.checked_paths == set()
+
+
+@pytest.mark.skipif(
+    os.environ.get("RYAN_TEST_DEFERRED_PYTUFLOW") != "1",
+    reason="The real fork integration test requires the pinned deferred PyTUFLOW checkout",
+)
+def test_real_pytuflow_deferred_context_smoke(tmp_path: Path) -> None:
+    """Exercise the fork's actual context/reference API, not only protocol fakes."""
+    from pytuflow import TCF
+
+    assert "file_resolution" in inspect.signature(TCF.context).parameters
+    tcf = tmp_path / "model.tcf"
+    tcf.write_text("Read GIS Code == missing_code.shp\n", encoding="utf-8")
+
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "01.0p"})])
+    assert not report.passed
+    assert any(issue.status == "missing" and "missing_code.shp" in issue.reference for issue in report.issues)
