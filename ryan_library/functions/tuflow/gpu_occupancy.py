@@ -70,7 +70,11 @@ def local_gpu_occupancy(*, exclude_pids: Collection[int] = ()) -> GpuOccupancySn
                 if not isinstance(pid_value, int) or pid_value in excluded:
                     continue
                 command_value = info.get("cmdline")
-                command = tuple(str(arg) for arg in command_value) if isinstance(command_value, list | tuple) else ()
+                command = (
+                    tuple(str(arg) for arg in cast(Sequence[object], command_value))
+                    if isinstance(command_value, list | tuple)
+                    else ()
+                )
                 if not _is_tuflow_executable(str(info.get("name") or ""), command):
                     continue
                 if not command:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import pytest
@@ -31,7 +32,10 @@ def test_only_live_matching_engines_with_explicit_gpu_flags(monkeypatch: pytest.
         FakeProcess(30, "TUFLOW_iSP_w64.exe", ["Q:\\TUFLOW_iSP_w64.exe", "run.tcf"]),
         FakeProcess(40, "python.exe", ["python", "run_tuflow_simulations.py"]),
     ]
-    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", lambda **_kwargs: iter(processes))
+    def fake_process_iter(**_kwargs: object) -> Iterator[Any]:
+        return iter(processes)
+
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
     found = gpu_occupancy.local_gpu_occupancy(exclude_pids={20})
     assert found.assigned == (gpu_occupancy.TuflowGpuProcess(pid=10, gpu_ids=frozenset({0})),)
     assert found.unknown_pids == (30,)
@@ -44,7 +48,10 @@ def test_missing_access_cannot_be_classified_as_free(monkeypatch: pytest.MonkeyP
         def info(self) -> dict[str, object]:
             raise gpu_occupancy.psutil.AccessDenied(pid=99)
 
-    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", lambda **_kwargs: iter([RestrictedProcess()]))
+    def fake_process_iter(**_kwargs: object) -> Iterator[RestrictedProcess]:
+        return iter([RestrictedProcess()])
+
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
     found = gpu_occupancy.local_gpu_occupancy()
     assert not found.assigned
     assert found.inspection_incomplete
@@ -59,7 +66,10 @@ def test_no_gpu_flags_means_assignment_unknown(monkeypatch: pytest.MonkeyPatch) 
                 "cmdline": ["TUFLOW_GPU_w64.exe", "-b", "model.tcf"],
             }
 
-    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", lambda **_kwargs: iter([FakeProcess()]))
+    def fake_process_iter(**_kwargs: object) -> Iterator[FakeProcess]:
+        return iter([FakeProcess()])
+
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
     result = gpu_occupancy.local_gpu_occupancy()
     assert result.assigned == ()
     assert result.unknown_pids == (5,)

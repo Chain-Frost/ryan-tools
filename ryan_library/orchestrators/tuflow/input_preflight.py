@@ -155,7 +155,7 @@ def check_simulation_inputs(  # noqa: C901 - explicit fail-closed checks across 
         message = "No simulations were supplied for input preflight"
         raise ValueError(message)
     try:
-        from pytuflow import TCF
+        from pytuflow import TCF  # pyright: ignore[reportMissingTypeStubs]
     except ImportError as exc:
         message = "PyTUFLOW is missing; reinstall with: python -m pip install --upgrade ryan-tools"
         raise RuntimeError(message) from exc
