@@ -75,6 +75,21 @@ excluded because TUFLOW creates these destinations.
 Network performance depends on filesystem layout, latency and number of entries per directory; a complete recursive
 directory listing is deliberately avoided.
 
+**Important PyTUFLOW limitation:** A single `TCF(path)` instance is built once and reused, so its parsed TCF,
+TGC/TBC and BC database build-state definitions are held in memory. However, `model.context(...)` constructs
+new run-state objects for each of the requested simulations. PyTUFLOW's file-input resolution can invoke
+`iter_files()` and `TuflowPath.glob()` again, and its GIS input handling can reopen layers to inspect
+geometry or attributes. The post-resolution unique-file inventory therefore does **not** guarantee that
+all network I/O occurred only once. PyTUFLOW does not currently expose a documented public API to
+disable these per-context filesystem searches or inject a shared path/glob cache.
+
+The checker reports separate timings for PyTUFLOW's initial parse, all run-context resolutions and the
+post-resolution unique-file inventory. For ~500 events, compare these phases on a representative network-drive
+model before merging. If context resolution dominates, consider an upstream PyTUFLOW opt-in
+`resolve_file_references=False`/shared-inventory API or a separately engineered metadata-only resolver with
+tests against TUFLOW itself. Avoid monkeypatching internal PyTUFLOW functions or caching full GIS/raster
+contents without a bounded memory policy; neither has been implemented by this PR.
+
 The checker intentionally leaves model data untouched and writes only the report CSV. If an input is unresolved or
 a model context cannot be parsed, the run **fails preflight** rather than being silently considered valid.
 
