@@ -7,6 +7,7 @@ path checks instead. Never traverse a model tree or the entire network drive.
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import sqlite3
 import stat
@@ -35,6 +36,73 @@ class FileInventory:
     layers: Mapping[tuple[Path, str], DependencyResult]
     directories_scanned: int
     individually_checked: int
+
+
+def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded scan error paths
+    patterns: Collection[Path], *, maximum_directory_entries: int = 50000
+) -> tuple[dict[Path, tuple[Path, ...]], dict[Path, DependencyResult], int]:
+    """Expand nonrecursive wildcard filenames with one bounded scan per directory.
+
+    A wildcard in the parent directory, an over-limit listing or any I/O error
+    remains unresolved. No unbounded walk or recursive glob is attempted.
+    """
+    if maximum_directory_entries < 1:
+        message = "maximum_directory_entries must be positive"
+        raise ValueError(message)
+    by_parent: dict[Path, list[Path]] = defaultdict(list)
+    expanded: dict[Path, tuple[Path, ...]] = {}
+    failures: dict[Path, DependencyResult] = {}
+    scans = 0
+    for pattern in set(patterns):
+        if any(char in str(pattern.parent) for char in "*?["):
+            failures[pattern] = DependencyResult("unresolved", "Wildcard parent directories are not supported")
+        else:
+            by_parent[pattern.parent].append(pattern)
+
+    for parent, siblings in by_parent.items():
+        found: dict[Path, list[Path]] = {pattern: [] for pattern in siblings}
+        try:
+            with os.scandir(parent) as entries:
+                scans += 1
+                for index, entry in enumerate(entries):
+                    if index >= maximum_directory_entries:
+                        for pattern in siblings:
+                            failures[pattern] = DependencyResult(
+                                "unresolved", "Wildcard directory exceeds the bounded scan limit"
+                            )
+                        break
+                    matching = [
+                        pattern
+                        for pattern in siblings
+                        if fnmatch.fnmatchcase(entry.name.casefold(), pattern.name.casefold())
+                    ]
+                    if matching:
+                        try:
+                            is_file = entry.is_file(follow_symlinks=True)
+                        except OSError as exc:
+                            for pattern in siblings:
+                                failures[pattern] = DependencyResult(
+                                    "unresolved", f"Cannot inspect wildcard match: {exc}"
+                                )
+                            break
+                        if is_file:
+                            for pattern in matching:
+                                found[pattern].append(parent / entry.name)
+        except FileNotFoundError:
+            for pattern in siblings:
+                failures[pattern] = DependencyResult("missing", "Wildcard parent directory does not exist")
+        except OSError as exc:
+            for pattern in siblings:
+                failures[pattern] = DependencyResult("unresolved", f"Cannot scan wildcard directory: {exc}")
+        for pattern in siblings:
+            if pattern in failures:
+                continue
+            matches = tuple(sorted(found[pattern]))
+            if matches:
+                expanded[pattern] = matches
+            else:
+                failures[pattern] = DependencyResult("missing", "No input files match wildcard pattern")
+    return expanded, failures, scans
 
 
 def _individual_file(path: Path) -> DependencyResult:
@@ -97,7 +165,9 @@ def _geopackage_layers(path: Path, layers: Collection[str]) -> dict[str, Depende
         return {layer: DependencyResult("unresolved", f"Cannot inspect GeoPackage layers: {exc}") for layer in layers}
     return {
         layer: DependencyResult("present")
-        if layer.casefold() in names
+        if (any(char in layer for char in "*?[") and any(fnmatch.fnmatchcase(name, layer.casefold()) for name in names))
+        or (layer.casefold() == "all" and bool(names))
+        or layer.casefold() in names
         else DependencyResult("missing", f"GeoPackage layer does not exist: {layer}")
         for layer in layers
     }

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+import os
 import sqlite3
 import sys
 import types
@@ -190,9 +192,7 @@ def test_output_directories_are_not_required_inputs(tmp_path: Path, monkeypatch:
     assert report.checked_paths == set()
 
 
-def test_bc_event_source_assignment_is_not_treated_as_a_file(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_bc_event_source_assignment_is_not_treated_as_a_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """BC Event Source maps event variables; its pipe-delimited value is not a path."""
     tcf = tmp_path / "model.tcf"
     tcf.touch()
@@ -331,3 +331,247 @@ def test_missing_input_in_dense_directory_maps_to_only_affected_runs(
     assert report.affected_runs == 1
     assert report.issues[0].run_index == 2
     assert report.issues[0].reference.endswith("rain_DEV.csv")
+
+
+def test_deferred_collection_never_accesses_eager_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Repeated deferred contexts describe files without materialising any input."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    source = tmp_path / "rainfall.csv"
+    source.touch()
+    calls: list[str] = []
+
+    class DeferredInput:
+        lhs = "Read File"
+
+        @property
+        def files(self) -> None:
+            message = "Deferred input.files must never be accessed"
+            raise AssertionError(message)
+
+        @property
+        def file_references(self) -> tuple[types.SimpleNamespace, ...]:
+            return (
+                types.SimpleNamespace(
+                    path_pattern=source,
+                    base_directory=tmp_path,
+                    origin="Read File",
+                    layer_pattern=None,
+                    unresolved_variables=(),
+                    requires_attribute_scan=False,
+                    requires_database_scan=False,
+                ),
+            )
+
+        def __str__(self) -> str:
+            return "Read File == rainfall.csv"
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[DeferredInput]:
+            return [] if lhs else [DeferredInput()]
+
+        def bc_dbase(self) -> None:
+            return None
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            calls.append(flags)
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    runs = [RunRequest(i, {"e1": f"TP{i:03d}"}) for i in range(1, 441)]
+    report = check_simulation_inputs(tcf, runs)
+    assert report.passed
+    assert report.run_count == 440
+    assert len(calls) == 440
+    assert report.checked_paths == {str(source)}
+
+
+def test_deferred_wildcards_are_expanded_once_and_missing_patterns_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    for name in ("rain_01.csv", "rain_02.csv"):
+        (tmp_path / name).touch()
+    pattern = tmp_path / "rain_*.csv"
+
+    class DeferredInput:
+        lhs = "Read File"
+
+        @property
+        def files(self) -> None:
+            message = "No eager resolution"
+            raise AssertionError(message)
+
+        def __init__(self, pattern_: Path) -> None:
+            self.file_references = (
+                types.SimpleNamespace(
+                    path_pattern=pattern_,
+                    base_directory=tmp_path,
+                    origin="Read File",
+                    layer_pattern=None,
+                    unresolved_variables=(),
+                    requires_attribute_scan=False,
+                    requires_database_scan=False,
+                ),
+            )
+
+        def __str__(self) -> str:
+            return "Read File == rain_*.csv"
+
+    class Context:
+        def __init__(self, pattern_: Path) -> None:
+            self.pattern = pattern_
+
+        def find_input(self, lhs: str | None = None) -> list[DeferredInput]:
+            return [] if lhs else [DeferredInput(self.pattern)]
+
+        def bc_dbase(self) -> None:
+            return None
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context(pattern if "EXG" in flags else tmp_path / "absent_*.csv")
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"s1": "EXG"}), RunRequest(2, {"s1": "DEV"})])
+    assert report.run_count == 2
+    assert report.affected_runs == 1
+    assert report.issues[0].run_index == 2
+    assert report.issues[0].status == "missing"
+    assert report.directories_scanned == 1
+    assert report.checked_paths == {str(tmp_path / "rain_01.csv"), str(tmp_path / "rain_02.csv")}
+
+
+def test_deferred_geopackage_layer_pattern_and_attribute_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    gpkg = tmp_path / "model.gpkg"
+    with sqlite3.connect(gpkg) as db:
+        db.execute("CREATE TABLE gpkg_contents(table_name TEXT)")
+        db.execute("INSERT INTO gpkg_contents VALUES ('2d_code_001')")
+
+    class Input:
+        lhs = "Read GIS Code"
+
+        def __init__(self, *, scan_attributes: bool = False) -> None:
+            self.file_references = (
+                types.SimpleNamespace(
+                    path_pattern=gpkg,
+                    base_directory=tmp_path,
+                    origin="Read GIS Code",
+                    layer_pattern="2d_code_*",
+                    unresolved_variables=(),
+                    requires_attribute_scan=scan_attributes,
+                    requires_database_scan=False,
+                ),
+            )
+
+        @property
+        def files(self) -> None:
+            message = "No eager GIS attribute inspection"
+            raise AssertionError(message)
+
+        def __str__(self) -> str:
+            return "Read GIS Code == model.gpkg >> 2d_code_*"
+
+    class Context:
+        def __init__(self, scan: bool) -> None:
+            self.scan = scan
+
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [] if lhs else [Input(scan_attributes=self.scan)]
+
+        def bc_dbase(self) -> None:
+            return None
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context("DEV" in flags)
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"s1": "EXG"})])
+    assert report.passed
+    guarded = check_simulation_inputs(tcf, [RunRequest(2, {"s1": "DEV"})])
+    assert not guarded.passed
+    assert guarded.issues[0].status == "unresolved"
+    assert "attribute" in guarded.issues[0].detail.lower()
+
+
+def test_deferred_unresolved_variables_are_never_probed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+
+    class Input:
+        lhs = "Read File"
+        file_references = (
+            types.SimpleNamespace(
+                path_pattern=tmp_path / "rain_<<MISSING>>.csv",
+                base_directory=tmp_path,
+                origin="Read File",
+                layer_pattern=None,
+                unresolved_variables=("<<MISSING>>",),
+                requires_attribute_scan=False,
+                requires_database_scan=False,
+            ),
+        )
+
+        @property
+        def files(self) -> None:
+            message = "Never access input.files"
+            raise AssertionError(message)
+
+        def __str__(self) -> str:
+            return "Read File == rain_<<MISSING>>.csv"
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [] if lhs else [Input()]
+
+        def bc_dbase(self) -> None:
+            return None
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, flags: str, *, file_resolution: str | None = None) -> Context:
+            assert flags
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "01.0p"})])
+    assert not report.passed
+    assert report.issues[0].status == "unresolved"
+    assert report.checked_paths == set()
+
+
+@pytest.mark.skipif(
+    os.environ.get("RYAN_TEST_DEFERRED_PYTUFLOW") != "1",
+    reason="The real fork integration test requires the pinned deferred PyTUFLOW checkout",
+)
+def test_real_pytuflow_deferred_context_smoke(tmp_path: Path) -> None:
+    """Exercise the fork's actual context/reference API, not only protocol fakes."""
+    from pytuflow import TCF
+
+    assert "file_resolution" in inspect.signature(TCF.context).parameters
+    tcf = tmp_path / "model.tcf"
+    tcf.write_text("Read GIS Code == missing_code.shp\n", encoding="utf-8")
+
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "01.0p"})])
+    assert not report.passed
+    assert any(issue.status == "missing" and "missing_code.shp" in issue.reference for issue in report.issues)

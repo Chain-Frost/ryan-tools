@@ -78,3 +78,22 @@ The two-phase inventory reduces repeated checks *after* context resolution; it d
 PyTUFLOW's internal network access. Inspect phase timings on 500 representative runs, and do not claim
 single-pass filesystem I/O until run-state activity is measured or an upstream supported cache is introduced.
 Avoid intrusive monkeypatches of PyTUFLOW's private internals.
+
+
+## Deferred PyTUFLOW integration — 21 October 2026
+
+Integration commenced against [phantom-branch/PyTuflow PR #1](https://github.com/phantom-branch/PyTuflow/pull/1).
+The consumer now detects whether PyTUFLOW exposes the `file_resolution` keyword,
+uses `context(flags, file_resolution="deferred")` and immutable `file_references`
+when available, and preserves the published-package eager fallback. A bounded,
+nonrecursive, shared wildcard scan and wildcard/ALL GeoPackage-layer selection are
+included. Pending GIS attribute scans and non-BC database-linked dependencies are
+reported unresolved instead of being silently ignored.
+
+**Validation status:** focused mock-based integration tests and a Windows fork-consumer smoke workflow added. The smoke workflow installs pinned PyTUFLOW commit `6784162da7ed0389ae8efafa6af138d10deecaeb` independently of normal PyPI packaging. Exact-head CI,
+native installed-fork tests, eager/deferred dependency parity, 440-run Windows
+network-drive benchmark and complete attribute/database bulk inspection remain.
+Keep this PR open and preflight opt-in until those checks are satisfied.
+Normal dependency remains `pytuflow>=1.2,<2`; no GitHub fork URL is published
+in package metadata. Next action: inspect CI failures, then add integration
+tests using a pinned fork commit and verify real-model coverage.

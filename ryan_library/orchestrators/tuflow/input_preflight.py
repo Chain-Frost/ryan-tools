@@ -7,6 +7,7 @@ references plus source files in the active BC database. Never runs TUFLOW.
 from __future__ import annotations
 
 import csv
+import inspect
 import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -16,9 +17,34 @@ from typing import Literal, Protocol, cast
 import pandas as pd
 from loguru import logger
 
-from ...functions.tuflow.dependency_index import check_unique_dependencies
+from ...functions.tuflow.dependency_index import check_unique_dependencies, expand_file_patterns
 
 IssueStatus = Literal["missing", "unresolved"]
+
+
+class _DeferredReference(Protocol):
+    """Syntax-only file dependency returned by the PyTUFLOW deferred API."""
+
+    @property
+    def path_pattern(self) -> Path: ...
+
+    @property
+    def base_directory(self) -> Path: ...
+
+    @property
+    def layer_pattern(self) -> str | None: ...
+
+    @property
+    def origin(self) -> str: ...
+
+    @property
+    def unresolved_variables(self) -> tuple[str, ...]: ...
+
+    @property
+    def requires_attribute_scan(self) -> bool: ...
+
+    @property
+    def requires_database_scan(self) -> bool: ...
 
 
 class _Input(Protocol):
@@ -29,6 +55,9 @@ class _Input(Protocol):
 
     @property
     def has_missing_files(self) -> bool: ...
+
+    @property
+    def file_references(self) -> tuple[_DeferredReference, ...]: ...
 
 
 class _Database(Protocol):
@@ -52,7 +81,7 @@ class _Context(Protocol):
 class _Model(Protocol):
     """TUFLOW project control file with a context resolution method."""
 
-    def context(self, flags: str) -> _Context: ...
+    def context(self, flags: str, *, file_resolution: str | None = None) -> _Context: ...
 
 
 class _ModelFactory(Protocol):
@@ -179,9 +208,24 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     def add_issue(run: RunRequest, origin: str, reference: str, detail: str) -> None:
         report.issues.append(PreflightIssue(run.index, run.description, "unresolved", origin, reference, detail))
 
-    def add_file(run: RunRequest, source: object, origin: str, base: Path, *, require_layer: bool = True) -> None:
+    def add_file(
+        run: RunRequest,
+        source: object,
+        origin: str,
+        base: Path,
+        *,
+        require_layer: bool = True,
+        layer_override: str | None = None,
+        allow_pattern: bool = False,
+    ) -> None:
         raw = str(getattr(source, "dbpath", source)).strip()
-        if not raw or raw == "." or "<<" in raw or ">>" in raw or any(char in raw for char in "*?"):
+        if (
+            not raw
+            or raw == "."
+            or "<<" in raw
+            or ">>" in raw
+            or (not allow_pattern and any(char in raw for char in "*?["))
+        ):
             add_issue(run, origin, raw, "Unexpanded variable, wildcard or unsupported reference")
             return
         path = Path(raw)
@@ -189,17 +233,34 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             path = base / path
         path = path.absolute()
         layer = str(getattr(source, "lyrname", "") or "") if require_layer and path.suffix.casefold() == ".gpkg" else ""
+        if layer_override is not None and path.suffix.casefold() == ".gpkg":
+            layer = layer_override
         key = (run.index, origin, path, layer)
         if key not in seen:
             seen.add(key)
             references.append(_FileReference(run, origin, path, layer))
-        unique.setdefault(path, set())
-        if layer:
-            unique[path].add(layer)
+        if not any(char in str(path) for char in "*?["):
+            unique.setdefault(path, set())
+            if layer:
+                unique[path].add(layer)
+
+    # Older PyPI builds have no deferred API. Keep the existing eager collector
+    # until the validated upstream feature is released; never probe support by
+    # calling context() and catching a parser TypeError.
+    try:
+        deferred_supported = "file_resolution" in inspect.signature(model.context).parameters
+    except (TypeError, ValueError):
+        deferred_supported = False
+    if not deferred_supported:
+        logger.warning("Installed PyTUFLOW has no deferred API; falling back to eager reference discovery")
 
     for run in runs:
         try:
-            context = model.context(run.arguments)
+            context = (
+                model.context(run.arguments, file_resolution="deferred")
+                if deferred_supported
+                else model.context(run.arguments)
+            )
         except Exception as exc:  # noqa: BLE001 - parser errors must fail closed
             add_issue(run, "TCF context", str(tcf), f"Could not resolve run: {exc}")
             continue
@@ -210,6 +271,42 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                 if _command_name(inp) in _NON_INPUT_FILE_COMMANDS:
                     continue
                 origin = str(inp)
+                if deferred_supported:
+                    try:
+                        for ref in inp.file_references:
+                            if ref.unresolved_variables:
+                                add_issue(
+                                    run,
+                                    ref.origin,
+                                    str(ref.path_pattern),
+                                    f"Unresolved PyTUFLOW variables: {', '.join(ref.unresolved_variables)}",
+                                )
+                                continue
+                            if ref.requires_attribute_scan:
+                                add_issue(
+                                    run,
+                                    ref.origin,
+                                    str(ref.path_pattern),
+                                    "GIS attribute-linked dependencies require deferred inspection",
+                                )
+                            if ref.requires_database_scan and _command_name(inp) != "bc database":
+                                add_issue(
+                                    run,
+                                    ref.origin,
+                                    str(ref.path_pattern),
+                                    "Database-linked dependencies require deferred inspection",
+                                )
+                            add_file(
+                                run,
+                                ref.path_pattern,
+                                ref.origin or origin,
+                                ref.base_directory,
+                                layer_override=ref.layer_pattern or "",
+                                allow_pattern=True,
+                            )
+                    except Exception as exc:  # noqa: BLE001 - incomplete references must fail closed
+                        add_issue(run, origin, "", f"Could not collect deferred file references: {exc}")
+                    continue
                 try:
                     files = list(inp.files)
                 except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW errors fail closed
@@ -272,7 +369,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     return references, unique
 
 
-def check_simulation_inputs(
+def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-level result routing
     tcf: Path,
     runs: Sequence[RunRequest],
     *,
@@ -308,6 +405,35 @@ def check_simulation_inputs(
     references, unique_paths = _collect_references(tcf.absolute(), runs, model, report)
     report.context_seconds = time.perf_counter() - start
 
+    # Expand each distinct wildcard pattern once. A missing, oversized or
+    # unsupported directory fails only the runs that reference that pattern.
+    patterns = {ref.path for ref in references if any(char in str(ref.path) for char in "*?[")}
+    if patterns:
+        expanded, failures, wildcard_scans = expand_file_patterns(
+            patterns, maximum_directory_entries=maximum_directory_entries
+        )
+        report.directories_scanned += wildcard_scans
+        materialised: list[_FileReference] = []
+        for ref in references:
+            if ref.path not in patterns:
+                materialised.append(ref)
+                continue
+            if ref.path in failures:
+                failure = failures[ref.path]
+                status: IssueStatus = "missing" if failure.status == "missing" else "unresolved"
+                report.issues.append(
+                    PreflightIssue(
+                        ref.run.index, ref.run.description, status, ref.origin, str(ref.path), failure.detail
+                    )
+                )
+                continue
+            for path in expanded[ref.path]:
+                materialised.append(_FileReference(ref.run, ref.origin, path, ref.layer))
+                unique_paths.setdefault(path, set())
+                if ref.layer:
+                    unique_paths[path].add(ref.layer)
+        references = materialised
+
     # Phase 2: stat or list only distinct required paths, with one GeoPackage
     # query per database for all of its requested layers.
     if not check_gpkg_layers:
@@ -320,7 +446,7 @@ def check_simulation_inputs(
     )
     report.inventory_seconds = time.perf_counter() - start
     report.checked_paths.update(str(path) for path in unique_paths)
-    report.directories_scanned = inventory.directories_scanned
+    report.directories_scanned += inventory.directories_scanned
     report.individually_checked = inventory.individually_checked
 
     # Phase 3: map results back to affected simulations and source commands.

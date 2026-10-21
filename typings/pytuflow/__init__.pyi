@@ -11,7 +11,25 @@ from pathlib import Path
 from pandas import DataFrame
 
 
+class _DeferredFileReference:
+    """Subset of the fork's immutable PyTUFLOW deferred-reference contract."""
+
+    base_directory: Path
+    expanded_value: str
+    path_pattern: Path
+    layer_pattern: str | None
+    origin: str
+    requires_directory_scan: bool
+    requires_layer_scan: bool
+    requires_attribute_scan: bool
+    requires_database_scan: bool
+    unresolved_variables: tuple[str, ...]
+
+
 class _ResolvedInput:
+    @property
+    def file_references(self) -> tuple[_DeferredFileReference, ...]: ...
+
     @property
     def files(self) -> list[Path]: ...
 
@@ -36,4 +54,6 @@ class _TCFRunState:
 class TCF:
     def __init__(self, fpath: str | PathLike[str] | None = ..., **kwargs: object) -> None: ...
 
-    def context(self, run_context: str | dict[str, str] = ...) -> _TCFRunState: ...
+    def context(
+        self, run_context: str | dict[str, str] = ..., *, file_resolution: str | None = ...
+    ) -> _TCFRunState: ...
