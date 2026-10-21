@@ -6,9 +6,18 @@ name (for example, ``1d_nwk``). The matching ``<type>_empty.gpkg`` is copied,
 the layer with the source geometry type is retained, and source features are
 inserted into that template layer. A source is skipped when its attribute
 schema is not compatible with the selected template layer.
+
+Requires the GDAL/OGR Python bindings; ryan-tools is optional.
+Examples:
+    python convert_shapefiles_to_gpkg.py --help
+    python convert_shapefiles_to_gpkg.py --version
+    python convert_shapefiles_to_gpkg.py --dry-run
 """
 
 from __future__ import annotations
+
+# Embedded revision survives copying the file; update on meaningful edits.
+SCRIPT_VERSION = "2026-10-20.1"
 
 # The OSGeo GDAL Python bindings currently lack compatible static typing.
 # Limit only GDAL-derived unknown-type diagnostics to this standalone converter.
@@ -25,11 +34,30 @@ import sys
 import tempfile
 import time
 from dataclasses import asdict, dataclass, fields
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from osgeo import ogr, osr
+from osgeo import gdal, ogr, osr
 
 ogr.UseExceptions()
+
+
+def ryan_tools_version() -> str:
+    """Report the optional installed package without importing it."""
+    try:
+        return version("ryan-tools")
+    except PackageNotFoundError:
+        return "not installed (standalone)"
+
+
+def script_identity() -> str:
+    """Display reproducible script and environment versions."""
+    return (
+        f"{Path(__file__).name} v{SCRIPT_VERSION} | "
+        f"Python {sys.version.split()[0]} | "
+        f"GDAL {gdal.VersionInfo('RELEASE_NAME')} | "
+        f"ryan-tools {ryan_tools_version()}"
+    )
 
 
 @dataclass
@@ -550,6 +578,7 @@ def write_report(path: Path, results: list[Result]) -> None:
 def parse_args() -> argparse.Namespace:
     script_dir = Path(__file__).absolute().parent
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", action="version", version=script_identity())
     parser.add_argument(
         "--source-dir",
         type=Path,
@@ -585,6 +614,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    print(script_identity(), flush=True)
     sources = sorted(args.source_dir.rglob("*.shp"), key=lambda path: str(path).casefold())
     if args.include:
         sources = [

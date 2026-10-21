@@ -2,7 +2,9 @@
 
 This document defines the preferred structure for maintained, library-backed
 scripts under `ryan-scripts`. It does not apply retroactively to archived or
-versioned standalone utilities.
+versioned standalone utilities. For actively maintained *self-contained* scripts,
+use the [minimal standalone standard](README.md#minimal-standard-for-maintained-standalone-scripts)
+instead; do not force a library-backed wrapper architecture merely for consistency.
 
 ## Purpose
 

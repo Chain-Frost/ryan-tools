@@ -1,6 +1,7 @@
 """Focused tests for integrated TUFLOW user activity reporting."""
 
 from datetime import datetime, timedelta
+from os import utime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -13,6 +14,7 @@ from ryan_library.orchestrators.tuflow.tuflow_user_activity import (
     build_activity_report,
     inspect_tlf,
     parse_activity_line,
+    read_simulation_progress,
     read_user_activity,
     render_activity_report,
 )
@@ -511,3 +513,201 @@ def test_active_codemeter_process_does_not_rematch_to_terminated_start(tmp_path:
         assert process.simulation.record.model == "RunningModel"
         assert process.simulation.status == "POSSIBLY RUNNING"
         assert {row.status for row in report.terminations} == {"INTERRUPTED", "UNSTABLE"}
+
+
+def test_tsf_live_time_reads_progress_and_ignores_invalid_or_finished_summaries(tmp_path: Path) -> None:
+    now = datetime.now().replace(second=0, microsecond=0)
+    tlf = tmp_path / "Long_Model_Name.tlf"
+    tsf = tlf.with_suffix(".tsf")
+    record = parse_activity_line(
+        f"{now - timedelta(minutes=15):%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test "
+        f'Started: Long_Model_Name x.tcf "{tlf}"',
+        source=tmp_path / "global.log",
+    )
+    assert record is not None
+    tsf.write_text(
+        f'TUFLOW Log File == "{tlf}"\n'
+        "Simulation Status == Started\n"
+        "Simulation Start Time (h) == 0.\n"
+        "Simulation Time (h) == 12.375\n"
+        "Simulation End Time (h) == 48.\n"
+        "Percentage Complete (%) == 25.78125\n",
+        encoding="utf-8",
+    )
+    progress = read_simulation_progress(record)
+    assert progress is not None
+    assert progress.model_time_hours == 12.375
+    assert progress.end_time_hours == 48.0
+    assert progress.percentage_complete == 25.78125
+
+    # The summary may be present even after a run has finished or crashed.
+    tsf.write_text(tsf.read_text().replace("Status == Started", "Status == UNSTABLE"), encoding="utf-8")
+    assert read_simulation_progress(record) is None
+    tsf.write_text(tsf.read_text().replace("Status == UNSTABLE", "Status == Finished"), encoding="utf-8")
+    assert read_simulation_progress(record) is None
+    tsf.write_text(
+        'TUFLOW Log File == "Q:\\Wrong_Model.tlf"\n'
+        "Simulation Status == Started\nSimulation Time (h) == 1\nSimulation End Time (h) == 48\n",
+        encoding="utf-8",
+    )
+    assert read_simulation_progress(record) is None
+    tsf.write_text(
+        "Simulation Status == Started\nSimulation Time (h) == 12\nSimulation End Time (h) == 48\n",
+        encoding="utf-8",
+    )
+    assert read_simulation_progress(record) is None  # Missing TSF model identity
+    # Invalid numbers must reach numeric validation, not fail TSF identity first.
+    tsf.write_text(
+        f'TUFLOW Log File == "{tlf}"\n'
+        "Simulation Status == Started\nSimulation Time (h) == nan\nSimulation End Time (h) == 48\n",
+        encoding="utf-8",
+    )
+    assert read_simulation_progress(record) is None
+    # An impossible model time must fail even when start time is missing.
+    tsf.write_text(
+        f'TUFLOW Log File == "{tlf}"\n'
+        "Simulation Status == Started\nSimulation Time (h) == 49\nSimulation End Time (h) == 48\n",
+        encoding="utf-8",
+    )
+    assert read_simulation_progress(record) is None
+    # Boundary case: time at the configured end is numerically valid.
+    tsf.write_text(
+        f'TUFLOW Log File == "{tlf}"\n'
+        "Simulation Status == Started\nSimulation Time (h) == 48\nSimulation End Time (h) == 48\n",
+        encoding="utf-8",
+    )
+    final_progress = read_simulation_progress(record)
+    assert final_progress is not None
+    assert final_progress.model_time_hours == 48
+    assert final_progress.end_time_hours == 48
+    tsf.unlink()
+    assert read_simulation_progress(record) is None
+
+
+def test_live_tsf_values_are_reported_only_for_active_start(tmp_path: Path) -> None:
+    now = datetime.now().replace(second=0, microsecond=0)
+    user_dir = tmp_path / "Engineer"
+    user_dir.mkdir()
+    active_started = now - timedelta(minutes=15)
+    completed_started = now - timedelta(minutes=35)
+    running_tlf = tmp_path / "Running.tlf"
+    finished_tlf = tmp_path / "Finished.tlf"
+    log_lines = [
+        (
+            f"{completed_started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test "
+            f'Started: Finished x.tcf "{finished_tlf}"'
+        ),
+        (
+            f"{completed_started + timedelta(minutes=4):%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test "
+            f'Tot: 0:04:00 CT Finished: Finished "{finished_tlf}"'
+        ),
+        (f'{active_started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test Started: Running x.tcf "{running_tlf}"'),
+    ]
+    (user_dir / "All Simulations.log").write_text("\n".join(log_lines), encoding="utf-8")
+    for tlf in (running_tlf, finished_tlf):
+        tlf.with_suffix(".tsf").write_text(
+            f'TUFLOW Log File == "{tlf}"\n'
+            "Simulation Status == Started\n"
+            "Simulation Start Time (h) == 0\n"
+            "Simulation Time (h) == 21.50\n"
+            "Simulation End Time (h) == 48.00\n"
+            "Percentage Complete (%) == 44.79\n",
+            encoding="utf-8",
+        )
+    snapshot = CodeMeterSnapshot(
+        products=(),
+        allocations=(
+            CodeMeterAllocation(
+                handle_id=10,
+                user=r"BGER\Engineer",
+                process_id=9876,
+                product_code=26,
+                product_name="TUFLOW GPU",
+                first_access=active_started,
+                last_access=now,
+            ),
+        ),
+        denials=(),
+        warnings=(),
+    )
+    with (
+        patch(
+            "ryan_library.orchestrators.tuflow.tuflow_user_activity.fetch_codemeter_snapshot",
+            return_value=snapshot,
+        ),
+        patch(
+            "ryan_library.orchestrators.tuflow.tuflow_user_activity.inspect_tlf",
+            return_value=TlfInspection(status="INCOMPLETE"),
+        ),
+    ):
+        report = build_activity_report(log_root=tmp_path, recent_hours=24, codemeter_url="localhost")
+    by_model = {row.record.model: row for row in report.starts}
+    assert by_model["Running"].progress is not None
+    assert by_model["Running"].progress.model_time_hours == 21.5
+    assert by_model["Finished"].status == "COMPLETED"
+    assert by_model["Finished"].progress is None
+    assert len(report.codemeter_processes) == 1
+    assert report.codemeter_processes[0].simulation is not None
+    assert report.codemeter_processes[0].simulation.progress == by_model["Running"].progress
+    rendered = render_activity_report(report)
+    assert "SIM TIME" in rendered
+    assert "SIM END" in rendered
+    assert "PROGRESS" in rendered
+    assert "21.500h" in rendered
+    assert "48.000h" in rendered
+    assert "44.8%" in rendered
+
+
+def test_tsf_timestamp_predating_start_is_not_reported(tmp_path: Path) -> None:
+    now = datetime.now().replace(second=0, microsecond=0)
+    tlf = tmp_path / "Reused.tlf"
+    tsf = tlf.with_suffix(".tsf")
+    started = now - timedelta(minutes=5)
+    record = parse_activity_line(
+        f'{started:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test Started: Reused x.tcf "{tlf}"',
+        source=tmp_path / "global.log",
+    )
+    assert record is not None
+    tsf.write_text(
+        "Simulation Status == Started\nSimulation Time (h) == 22\nSimulation End Time (h) == 48\n",
+        encoding="utf-8",
+    )
+    old = (started - timedelta(minutes=8)).timestamp()
+    utime(tsf, (old, old))
+    assert read_simulation_progress(record) is None
+
+
+def test_reused_tlf_path_only_gives_progress_to_latest_active_start(tmp_path: Path) -> None:
+    """An abandoned start cannot inherit the rerun's live TSF progress."""
+    now = datetime.now().replace(second=0, microsecond=0)
+    user_dir = tmp_path / "Engineer"
+    user_dir.mkdir()
+    log_path = tmp_path / "TUFLOW_Catchment" / "results" / "Log" / "Repeated.tlf"
+    log_path.parent.mkdir(parents=True)
+    old_start = now - timedelta(minutes=50)
+    new_start = now - timedelta(minutes=12)
+    lines = [
+        f'{old_start:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test Started: Repeated x.tcf "{log_path}"',
+        f'{new_start:%Y-%b-%d %H:%M} Don: 0001 NWK 1/2 HOST Build: test Started: Repeated x.tcf "{log_path}"',
+    ]
+    (user_dir / "All Simulations.log").write_text("\n".join(lines), encoding="utf-8")
+    log_path.with_suffix(".tsf").write_text(
+        f'TUFLOW Log File == "{log_path}"\n'
+        "Simulation Status == Started\n"
+        "Simulation Time (h) == 8\n"
+        "Simulation End Time (h) == 48\n"
+        "Percentage Complete (%) == 16.6667\n",
+        encoding="utf-8",
+    )
+    with patch(
+        "ryan_library.orchestrators.tuflow.tuflow_user_activity.inspect_tlf",
+        return_value=TlfInspection(status="INCOMPLETE"),
+    ):
+        report = build_activity_report(log_root=tmp_path, recent_hours=24, codemeter_url=None)
+    assert len(report.starts) == 2
+    newest, older = report.starts
+    assert newest.record.timestamp == new_start
+    assert older.record.timestamp == old_start
+    assert newest.progress is not None
+    assert newest.progress.model_time_hours == 8
+    assert older.progress is None

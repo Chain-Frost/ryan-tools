@@ -127,6 +127,22 @@ unstable runs show their reported terminal elapsed time if one was logged; still
 Matching completions retain their own runtime column, and a final details section prints the full inferred TUFLOW
 project folder and TLF path. Use `--log-root` to inspect a non-default copy of the licence-log tree.
 
+### Model progress for running simulations
+
+For a run matched to an active CodeMeter allocation, or identified as possibly running by its TLF when CodeMeter
+is unavailable, the report reads the companion **`.tsf`** summary beside its `.tlf`. Both the
+**ACTIVE CODEMETER TUFLOW PROCESSES** and **SELECTED SIMULATION STARTS** tables display:
+
+- **SIM TIME** — last reported simulation time, in model hours (e.g. `21.500h`).
+- **SIM END** — configured simulation end time, in model hours (e.g. `48.000h`).
+- **PROGRESS** — percentage complete reported by TUFLOW (e.g. `44.8%`).
+
+These are *simulated* hours, not actual hours elapsed or a prediction of the wall-clock finish time. The values are
+a read-only snapshot of the last TSF update, not a continuously advancing clock. If the TSF is missing, incomplete,
+contains invalid time values, belongs to a different model or predates the start, the cells show `-`.
+Completions, interruptions and unstable runs never show active model progress, even if an old TSF still says
+`Started`. No TCF parsing or guessed simulation end time is used.
+
 The default console report shows active simulations, every start since the oldest active simulation, and two earlier
 starts as context. It shows the matching completed/interrupted/unstable terminal records and paths only. If no active simulation can be matched,
 it shows the three latest starts. A run may predate the usual 24-hour window; the utility checks available logs

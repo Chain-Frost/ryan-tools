@@ -36,7 +36,7 @@ rg -n -i "search terms" -g "*.md" -g "!unsorted/**" -g "!run-hy8 (PyPI)/**" -g "
 | [Work tracking](WORK_TRACKING.md) | Recording concurrent projects, resumable handoffs and review dates | Canonical status and handoff convention |
 | [Development and execution environments](ENVIRONMENTS.md) | Selecting Python, VS Code, installed-wheel, QGIS/OSGeo4W or headless execution | Canonical environment guide |
 | [Logging guide](LOGGING.md) | Changing Loguru configuration, message formatting, multiprocessing or notebook logging | Canonical logging contract |
-| [Ryan Scripts guide](../ryan-scripts/README.md) | Choosing and safely running human-facing wrappers or standalone scripts | Canonical script-selection guide |
+| [Ryan Scripts guide](../ryan-scripts/README.md) | Choosing and safely running scripts, including the minimal standalone script standard | Canonical script-selection and standalone-script guidance |
 | [Maintained wrapper standard](../ryan-scripts/WRAPPER_STANDARD.md) | Creating or changing a maintained library-backed wrapper | Canonical maintained-wrapper contract |
 
 ## Local workflow and implementation guides
