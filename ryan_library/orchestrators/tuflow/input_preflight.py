@@ -606,9 +606,7 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                             )
                         )
                         continue
-                    extra_references.append(
-                        _FileReference(ref.run, f"{database_kind} curve: {identifier}", linked)
-                    )
+                    extra_references.append(_FileReference(ref.run, f"{database_kind} curve: {identifier}", linked))
 
         # File-valued GIS attributes may themselves contain wildcard paths.
         # Expand those patterns once across all simulations, not once per run.
