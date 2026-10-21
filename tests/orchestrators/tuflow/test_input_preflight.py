@@ -664,9 +664,13 @@ def test_deferred_legacy_fork_without_database_api_fails_closed(
         lhs = "BC Database"
         file_references = (
             types.SimpleNamespace(
-                path_pattern=bc, base_directory=tmp_path, origin="BC Database",
-                layer_pattern=None, unresolved_variables=(),
-                requires_attribute_scan=False, requires_database_scan=True,
+                path_pattern=bc,
+                base_directory=tmp_path,
+                origin="BC Database",
+                layer_pattern=None,
+                unresolved_variables=(),
+                requires_attribute_scan=False,
+                requires_database_scan=True,
             ),
         )
 
@@ -716,21 +720,16 @@ def test_real_pytuflow_event_sources_and_materials(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     (tmp_path / "materials.csv").write_text(
-        "Material ID,Manning's n,Rainfall Losses,Land Use Hazard ID,SRF,Fraction Impervious\n"
-        "1,0.03,0,0,0,0\n",
+        "Material ID,Manning's n,Rainfall Losses,Land Use Hazard ID,SRF,Fraction Impervious\n1,0.03,0,0,0,0\n",
         encoding="utf-8",
     )
     tcf.write_text(
-        "Event File == events.tef\n"
-        "BC Database == bc_dbase.csv\n"
-        "Read Materials File == materials.csv | 0.8\n",
+        "Event File == events.tef\nBC Database == bc_dbase.csv\nRead Materials File == materials.csv | 0.8\n",
         encoding="utf-8",
     )
     (tmp_path / "100yr_001.csv").touch()
     (tmp_path / "PMFyr_001.csv").touch()
-    report = check_simulation_inputs(
-        tcf, [RunRequest(1, {"e1": "Q100"}), RunRequest(2, {"e1": "QPMF"})]
-    )
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "Q100"}), RunRequest(2, {"e1": "QPMF"})])
     assert report.passed, report.issues
     assert len(report.checked_paths) == 5
 
@@ -750,9 +749,13 @@ def test_literal_brackets_in_parent_folder_do_not_trigger_wildcard_scan(
         lhs = "Read File"
         file_references = (
             types.SimpleNamespace(
-                path_pattern=data, base_directory=folder, origin="Read File",
-                layer_pattern=None, unresolved_variables=(),
-                requires_attribute_scan=False, requires_database_scan=False,
+                path_pattern=data,
+                base_directory=folder,
+                origin="Read File",
+                layer_pattern=None,
+                unresolved_variables=(),
+                requires_attribute_scan=False,
+                requires_database_scan=False,
             ),
         )
 
