@@ -72,7 +72,10 @@ def _directory_results(paths: Collection[Path], *, maximum_entries: int) -> dict
                     try:
                         matches[name] = entry.is_file(follow_symlinks=True)
                     except OSError as exc:
-                        return {path: DependencyResult("unresolved", f"Cannot inspect directory entry: {exc}") for path in paths}
+                        return {
+                            path: DependencyResult("unresolved", f"Cannot inspect directory entry: {exc}")
+                            for path in paths
+                        }
     except FileNotFoundError:
         return {path: DependencyResult("missing", "Parent input directory does not exist") for path in paths}
     except OSError as exc:
@@ -93,9 +96,9 @@ def _geopackage_layers(path: Path, layers: Collection[str]) -> dict[str, Depende
     except (OSError, sqlite3.DatabaseError) as exc:
         return {layer: DependencyResult("unresolved", f"Cannot inspect GeoPackage layers: {exc}") for layer in layers}
     return {
-        layer: DependencyResult("present") if layer.casefold() in names else DependencyResult(
-            "missing", f"GeoPackage layer does not exist: {layer}"
-        )
+        layer: DependencyResult("present")
+        if layer.casefold() in names
+        else DependencyResult("missing", f"GeoPackage layer does not exist: {layer}")
         for layer in layers
     }
 
