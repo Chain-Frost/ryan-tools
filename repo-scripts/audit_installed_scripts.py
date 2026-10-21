@@ -97,38 +97,42 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
 
     def __init__(self, module: ast.Module) -> None:
         self.names: set[str] = set()
-        # Keep Python 3.13 semantics unless the source explicitly postpones
-        # annotation evaluation. The wheel still supports Python 3.13.
+        # A name can refer to a mutator on one conditional path and a safe
+        # callable on another. Union the possible dangerous bindings.
+        self.aliases: dict[str, frozenset[str]] = {}
         self.deferred_annotations = any(
             isinstance(statement, ast.ImportFrom)
             and statement.module == "__future__"
             and any(alias.name == "annotations" for alias in statement.names)
             for statement in module.body
         )
-        # Bind aliases in statement order to account for later reassignment.
-        self.aliases: dict[str, str] = {}
 
     def _remember_binding(self, target: ast.expr, value: ast.expr | None) -> None:
         if not isinstance(target, ast.Name):
             return
         if isinstance(value, ast.Attribute) and value.attr in UNSAFE_IMPORT_CALLS:
-            self.aliases[target.id] = value.attr
+            self.aliases[target.id] = frozenset({value.attr})
         elif isinstance(value, ast.Name) and value.id in self.aliases:
             self.aliases[target.id] = self.aliases[value.id]
         else:
             self.aliases.pop(target.id, None)
 
+    def _visit_statements(self, statements: list[ast.stmt]) -> None:
+        for statement in statements:
+            self.visit(statement)
+
+    def visit_Import(self, node: ast.Import) -> None:
+        for alias in node.names:
+            self.aliases.pop(alias.asname or alias.name.split(".", maxsplit=1)[0], None)
+
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        if node.module in {"shutil", "os", "subprocess", "pathlib"}:
-            for alias in node.names:
-                name = alias.asname or alias.name
-                if alias.name in UNSAFE_IMPORT_CALLS:
-                    self.aliases[name] = alias.name
-                else:
-                    self.aliases.pop(name, None)
-        else:
-            for alias in node.names:
-                self.aliases.pop(alias.asname or alias.name, None)
+        trusted = node.module in {"shutil", "os", "subprocess", "pathlib"}
+        for alias in node.names:
+            name = alias.asname or alias.name
+            if trusted and alias.name in UNSAFE_IMPORT_CALLS:
+                self.aliases[name] = frozenset({alias.name})
+            else:
+                self.aliases.pop(name, None)
 
     def visit_Assign(self, node: ast.Assign) -> None:
         self.visit(node.value)
@@ -141,6 +145,10 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
             self._remember_binding(node.target, node.value)
         if not self.deferred_annotations:
             self.visit(node.annotation)
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        self.visit(node.value)
+        self._remember_binding(node.target, None)
 
     def _visit_function_signature(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         for expression in (*node.args.defaults, *node.args.kw_defaults):
@@ -162,37 +170,55 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """Function signatures evaluate at definition time; bodies do not."""
         self._visit_function_signature(node)
+        self.aliases.pop(node.name, None)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         """Async functions have the same definition-time evaluation rule."""
         self._visit_function_signature(node)
+        self.aliases.pop(node.name, None)
 
     def visit_Lambda(self, node: ast.Lambda) -> None:
         """Lambda defaults are evaluated, whereas the expression body is deferred."""
         self.visit(node.args)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        """Decorators, bases, keywords and class body are evaluated immediately."""
+        """Class bodies execute at import but bind names in a separate namespace."""
         for expression in (*node.decorator_list, *node.bases, *node.keywords):
             self.visit(expression)
-        for statement in node.body:
-            self.visit(statement)
+        enclosing = self.aliases
+        self.aliases = dict(enclosing)
+        try:
+            self._visit_statements(node.body)
+        finally:
+            self.aliases = enclosing
+        self.aliases.pop(node.name, None)
 
     def visit_If(self, node: ast.If) -> None:
-        """Skip only the true branch of a genuine `__main__` guard."""
+        """Scan conditional paths independently; merge possible alias bindings."""
+        self.visit(node.test)
         if _is_main_guard(node.test):
-            self.visit(node.test)
-            for statement in node.orelse:
-                self.visit(statement)
+            # Its true branch is not executed when the module is imported.
+            self._visit_statements(node.orelse)
             return
-        self.generic_visit(node)
+        before = dict(self.aliases)
+        self._visit_statements(node.body)
+        true_aliases = self.aliases
+        self.aliases = dict(before)
+        self._visit_statements(node.orelse)
+        false_aliases = self.aliases
+        merged: dict[str, frozenset[str]] = {}
+        for name in true_aliases.keys() | false_aliases.keys():
+            possible = true_aliases.get(name, frozenset()) | false_aliases.get(name, frozenset())
+            if possible:
+                merged[name] = possible
+        self.aliases = merged
 
     def visit_Call(self, node: ast.Call) -> None:
         """Record known mutating calls and inspect their nested arguments."""
         name = _call_name(node)
-        if isinstance(node.func, ast.Name):
-            name = self.aliases.get(node.func.id, name)
-        if name in UNSAFE_IMPORT_CALLS:
+        if isinstance(node.func, ast.Name) and node.func.id in self.aliases:
+            self.names.update(self.aliases[node.func.id])
+        elif name in UNSAFE_IMPORT_CALLS:
             self.names.add(name)
         self.generic_visit(node)
 
