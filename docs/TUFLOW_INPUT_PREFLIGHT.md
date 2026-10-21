@@ -75,20 +75,42 @@ excluded because TUFLOW creates these destinations.
 Network performance depends on filesystem layout, latency and number of entries per directory; a complete recursive
 directory listing is deliberately avoided.
 
-**Important PyTUFLOW limitation:** A single `TCF(path)` instance is built once and reused, so its parsed TCF,
-TGC/TBC and BC database build-state definitions are held in memory. However, `model.context(...)` constructs
-new run-state objects for each of the requested simulations. PyTUFLOW's file-input resolution can invoke
-`iter_files()` and `TuflowPath.glob()` again, and its GIS input handling can reopen layers to inspect
-geometry or attributes. The post-resolution unique-file inventory therefore does **not** guarantee that
-all network I/O occurred only once. PyTUFLOW does not currently expose a documented public API to
-disable these per-context filesystem searches or inject a shared path/glob cache.
+### Deferred PyTUFLOW integration (development)
 
-The checker reports separate timings for PyTUFLOW's initial parse, all run-context resolutions and the
-post-resolution unique-file inventory. For ~500 events, compare these phases on a representative network-drive
-model before merging. If context resolution dominates, consider an upstream PyTUFLOW opt-in
-`resolve_file_references=False`/shared-inventory API or a separately engineered metadata-only resolver with
-tests against TUFLOW itself. Avoid monkeypatching internal PyTUFLOW functions or caching full GIS/raster
-contents without a bounded memory policy; neither has been implemented by this PR.
+When installed PyTUFLOW implements the provisional API in
+[phantom-branch/PyTuflow PR #1](https://github.com/phantom-branch/PyTuflow/pull/1),
+the preflight calls `model.context(flags, file_resolution="deferred")` and reads
+`input.file_references`, **never** `input.files`. Per-context path globbing and initial GIS
+inspection can therefore be avoided by the upstream implementation. Context parsing still
+has its original initial model-tree I/O; the checker still inspects the active BC database
+for event-specific Source files. These operations are separately timed, not claimed to be
+zero-I/O.
+
+The checker aggregates file patterns across all runs, expands each wildcard filename
+pattern by a bounded, nonrecursive directory listing, and validates distinct resolved
+files using the existing shared inventory. A wildcard in a parent directory or a listing
+exceeding the scan cap fails closed as unresolved. GeoPackage layer patterns (including
+`>> all`) are checked through a read-only query per distinct GeoPackage. Wildcard scans
+may require a separate directory scan before the ordinary exact-file inventory;
+they are not yet guaranteed to share one scan.
+
+**Incomplete dependency materialisation remains a blocker:** references marked as
+needing GIS attribute inspection or non-BC database-linked source inspection produce
+unresolved preflight findings rather than a false passing result. BC database Source rows
+are processed separately using the active event context. Full parity against eager
+PyTUFLOW for nested/attribute-linked files is not yet established.
+
+The normal `ryan-tools` package still depends on published `pytuflow>=1.2,<2`.
+When that installation lacks `file_resolution`, the previous eager discovery remains
+available with a warning. For development, install the fork at a pinned reviewed commit
+in a separate test environment; do not replace the production PyPI dependency with an
+unreleased GitHub branch.
+
+The checker reports separate timings for initial parse, context/reference collection
+and the shared inventory. Repeat the representative 440-run network-drive test with
+the pinned fork, compare dependencies against eager resolution, and measure I/O
+operations and elapsed time before merging. Avoid monkeypatching upstream internals
+or caching whole GIS/raster datasets.
 
 The checker intentionally leaves model data untouched and writes only the report CSV. If an input is unresolved or
 a model context cannot be parsed, the run **fails preflight** rather than being silently considered valid.
