@@ -348,7 +348,8 @@ def test_deferred_collection_never_accesses_eager_files(
 
         @property
         def files(self) -> None:
-            raise AssertionError("Deferred input.files must never be accessed")
+            message = "Deferred input.files must never be accessed"
+            raise AssertionError(message)
 
         @property
         def file_references(self) -> tuple[types.SimpleNamespace, ...]:
@@ -402,7 +403,8 @@ def test_deferred_wildcards_are_expanded_once_and_missing_patterns_fail(
 
         @property
         def files(self) -> None:
-            raise AssertionError("No eager resolution")
+            message = "No eager resolution"
+            raise AssertionError(message)
 
         def __init__(self, pattern_: Path) -> None:
             self.file_references = (
@@ -470,7 +472,8 @@ def test_deferred_geopackage_layer_pattern_and_attribute_guard(
 
         @property
         def files(self) -> None:
-            raise AssertionError("No eager GIS attribute inspection")
+            message = "No eager GIS attribute inspection"
+            raise AssertionError(message)
 
         def __str__(self) -> str:
             return "Read GIS Code == model.gpkg >> 2d_code_*"
@@ -521,7 +524,8 @@ def test_deferred_unresolved_variables_are_never_probed(
 
         @property
         def files(self) -> None:
-            raise AssertionError("Never access input.files")
+            message = "Never access input.files"
+            raise AssertionError(message)
 
         def __str__(self) -> str:
             return "Read File == rain_<<MISSING>>.csv"
@@ -538,6 +542,8 @@ def test_deferred_unresolved_variables_are_never_probed(
             pass
 
         def context(self, flags: str, *, file_resolution: str | None = None) -> Context:
+            assert flags
+            assert file_resolution == "deferred"
             return Context()
 
     monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
