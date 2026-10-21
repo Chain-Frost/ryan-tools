@@ -65,17 +65,17 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `TUFLOW-python/po_and_timeseries/check_po_timeseries_peaks.py` | Yes | Yes | Source inspected; selected library-backed PO peak checker; acceptance pending | Argparse common flags, guarded no-pause; help test added, CI pending | Compares peaks in TUFLOW PO CSV via orchestrator; data-type selection and engineering tolerances need validation |
 | `TUFLOW-python/po_and_timeseries/check_timeseries_stability.py` | Yes | Yes | Source inspected; selected stability-report wrapper; acceptance pending | Argparse common options, additional report option, no-pause; help test added, CI pending | PO/1D Q time-series rolling tolerance calculations and report exports; model timestep thresholds/parity unverified |
 | `TUFLOW-python/po_and_timeseries/combine_po_results.py` | Yes | Yes | Source inspected; selected library-backed PO combiner; acceptance pending | Argparse common filtering, guarded no-pause; help test added, CI pending | Merges TUFLOW PO CSV by filename/time and configurable filters; Excel/Parquet schemas and original defaults unverified |
-| `TUFLOW-python/po_and_timeseries/combine_pomm_results.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/po_and_timeseries/create_pomm_median_peak_report.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/po_and_timeseries/plot_po_scenario_timeseries.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/po_and_timeseries/plot_water_level_profiles.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
+| `TUFLOW-python/po_and_timeseries/combine_pomm_results.py` | Yes | Yes | Source inspected; selected library-backed POMM combiner; owner acceptance pending | Argparse common options/guarded main/no-pause; original CLI and defaults not yet test-accepted | Orchestrator merges POMM and RLL_Qmx CSV to Excel/Parquet; event/TP filtering, location parsing and outputs unverified |
+| `TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py` | Yes | Yes | Source inspected; selected maintained mean peak report; owner acceptance pending | Argparse common options/guarded no-pause; representative help already tested | Creates timestamped mean-peaks Excel from POMM/RLL_Qmx; aggregation, input discovery and workbook schema unverified |
+| `TUFLOW-python/po_and_timeseries/create_pomm_median_peak_report.py` | Yes | Yes | Source inspected; selected maintained median peak report; owner acceptance pending | Argparse common options/guarded no-pause; original defaults and CLI behaviour not yet test-accepted | Creates timestamped median-peaks Excel from POMM/RLL_Qmx; ensemble statistics and output schema unverified |
+| `TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py` | Yes | No | Source inspected; selected self-contained GeoPackage label utility; owner acceptance pending | Argparse path/options with protected main; no general no-pause or tested exit/output contract | Reads SQLite/GPKG labels and comments; SQL quoting/feature filtering and expected label mapping require synthetic GPKG QA |
+| `TUFLOW-python/po_and_timeseries/plot_po_scenario_timeseries.py` | Yes | No | Source inspected; selected project-specific plotting workflow; owner acceptance pending | Guarded main, editable Q: paths, no general argparse/help or no-pause; headless behaviour unverified | Parses TUFLOW PO CSV or Parquet cache, writes cache, opens interactive Matplotlib; scenario filters and user settings tied to project |
+| `TUFLOW-python/po_and_timeseries/plot_water_level_profiles.py` | Yes | Yes | Source inspected; selected configurable GIS profile wrapper; owner acceptance pending | Argparse input/spacing/output flags, guard and no-pause; representative help already tested | Project-default E: GPKG/terrain/water level TIFFs; profile-line CRS/resampling, no-overwrite PNG and 300 dpi QA unverified |
 | `TUFLOW-python/raster_processing/__init__.py` | Yes | No | Resource/companion; verify dependencies | N/A | Check packaging / consumers |
-| `TUFLOW-python/raster_processing/calculate_raster_differences.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/raster_processing/mask_velocity_by_depth.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/raster_processing/run_asc_to_asc_maximum_searches.py` | Yes | No | Not assessed | Not assessed | Not assessed |
-| `TUFLOW-python/raster_processing/run_asc_to_asc_mean_then_maximum.py` | Yes | No | Not assessed | Not assessed | Not assessed |
+| `TUFLOW-python/raster_processing/calculate_raster_differences.py` | Yes | No | Source inspected; selected raster-difference executable; owner acceptance pending | Argparse with -change/--no-change, -b/--no-pause; CLI and output contract not yet accepted | Uses Rasterio and ryan_library diff processing, optionally compares native ASC_to_ASC; wet/dry/nodata, grid alignment and output QA needed |
+| `TUFLOW-python/raster_processing/mask_velocity_by_depth.py` | Yes | No | Source inspected; selected project-specific in-place raster transform; owner acceptance pending | Guarded configured main; no argparse/no-pause and interactive/headless exit unverified | Default Q: target directories; copies source to *_original backup then replaces velocity TIFF with depth-masked raster; resampling and repeat-run integrity critical |
+| `TUFLOW-python/raster_processing/run_asc_to_asc_maximum_searches.py` | Yes | No | Source inspected; selected native raster max wrapper; owner acceptance pending | Argparse common flags, dry-run, worker override and guarded no-pause; help acceptance already tested | Native ASC_to_ASC max jobs from template axes and glob; executable discovery, duplicates, outputs and process concurrency unverified |
+| `TUFLOW-python/raster_processing/run_asc_to_asc_mean_then_maximum.py` | Yes | No | Source inspected; selected native raster mean/max wrapper; owner acceptance pending | Argparse common flags, dry-run/strictness/worker flags and no-pause; representative help already tested | Per-duration TP mean then duration max via native raster tool; minimum contributing value, ensemble assumptions, result parity unverified |
 | `TUFLOW-python/raster_processing/run_asc_to_asc_median_then_maximum.py` | Yes | No | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py` | Yes | Yes | Not assessed | Not assessed | Not assessed |
 | `TUFLOW-python/raster_processing/run_python_raster_calculations.py` | Yes | No | Not assessed | Not assessed | Not assessed |
@@ -168,6 +168,20 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `unsorted-python/export_water_level_profile_tables_50m.py` | No | No | Not assessed | Not assessed | Not assessed |
 | `unsorted-python/plot_water_level_profiles.py` | No | No | Not assessed | Not assessed | Not assessed |
 
+
+## Bounded selected-source inspections — PO/POMM and raster workflows
+
+Ten more **wheel-selected** wrappers were individually inspected, in addition
+to the prior twenty selected RORB/TUFLOW sources. The current selected-source
+inspection tranche therefore covers **30 files**, with original output/CLI
+acceptance still pending. The new tranche includes TUFLOW result combiners,
+mean/median reports, an independent SQLite GeoPackage reader, project-specific
+scenario plots, water-level profiles and native raster processing.
+
+Potentially consequential behaviours include project-configured paths, an
+interactive plotting workflow, a velocity-masking utility that replaces TIFFs
+after creating backups, and native ASC_to_ASC jobs. Source inspection alone
+does **not** verify those operations. No wheel selection was changed.
 
 ## Bounded individual source inspections — selected RORB and TUFLOW wrappers
 
