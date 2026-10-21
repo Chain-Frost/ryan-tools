@@ -442,6 +442,7 @@
       "script": "ryan-scripts/TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py",
       "profile": "privileged",
       "mutation": "executes_external",
+      "external_program": "asc_to_asc_w64.exe",
       "requires_explicit_approval": true,
       "headless_arguments": [
         "--no-pause"
@@ -455,6 +456,7 @@
       "script": "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py",
       "profile": "privileged",
       "mutation": "executes_external",
+      "external_program": "TUFLOW executable configured by wrapper",
       "requires_explicit_approval": true,
       "help_safe": false
     },
