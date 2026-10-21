@@ -77,7 +77,7 @@ nonrecursive, shared wildcard scan and wildcard/ALL GeoPackage-layer selection a
 included. Pending GIS attribute scans and non-BC database-linked dependencies are
 reported unresolved instead of being silently ignored.
 
-**Validation status:** focused mock-based integration tests added; exact-head CI,
+**Validation status:** focused mock-based integration tests and a Windows fork-consumer smoke workflow added. The smoke workflow installs pinned PyTUFLOW commit `6784162da7ed0389ae8efafa6af138d10deecaeb` independently of normal PyPI packaging. Exact-head CI,
 native installed-fork tests, eager/deferred dependency parity, 440-run Windows
 network-drive benchmark and complete attribute/database bulk inspection remain.
 Keep this PR open and preflight opt-in until those checks are satisfied.
