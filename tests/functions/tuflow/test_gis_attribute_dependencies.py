@@ -165,3 +165,125 @@ def test_qo_without_control_separator_fails_closed(tmp_path: Path) -> None:
     result, _ = inspect_gis_attribute_sources({(gpkg, "1d_nwk_test")})
     assert result[(gpkg, "1d_nwk_test")].status == "unresolved"
     assert "QO" in result[(gpkg, "1d_nwk_test")].detail
+
+
+
+def make_network_shapefile(path: Path) -> None:
+    """Build a real Shapefile with attributes but no stored feature geometry."""
+    import shapefile
+
+    with shapefile.Writer(str(path), shapeType=shapefile.POLYLINE) as writer:
+        for index in range(11):
+            writer.field(f"attr_{index}", "C", size=120)
+        for channel, ignore, value in (
+            ("M", "", "operational.csv | section.csv"),
+            ("QO", "", "Gate_Control | operated.csv"),
+            ("Q", "", "Curve_A"),
+            ("M", "Y", "not_required.csv"),
+            ("QO", "t", "Gate | stale.csv"),
+            ("C", "", "ignored.csv"),
+        ):
+            attrs = [""] * 11
+            attrs[1], attrs[2], attrs[10] = channel, ignore, value
+            writer.null()
+            writer.record(*attrs)
+
+
+def test_shapefile_and_geopackage_use_identical_network_attribute_rules(tmp_path: Path) -> None:
+    """Same 1d_nwk semantics must not depend on the GIS container format."""
+    gpkg = tmp_path / "network.gpkg"
+    shp = tmp_path / "1d_nwk_test.shp"
+    make_network_gpkg(gpkg)
+    make_network_shapefile(shp)
+    results, opens = inspect_gis_attribute_sources({(gpkg, "1d_nwk_test"), (shp, "")})
+    assert opens == 2
+    eager = results[(gpkg, "1d_nwk_test")]
+    deferred = results[(shp, "")]
+    assert eager.status == deferred.status == "present"
+    assert eager.sources == deferred.sources
+    assert eager.identifiers == deferred.identifiers == ("Curve_A",)
+    assert set(deferred.sources) == {
+        tmp_path / "operational.csv",
+        tmp_path / "section.csv",
+        tmp_path / "operated.csv",
+    }
+
+
+def test_shapefile_is_read_once_for_multiple_layer_selectors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The DBF is opened once and geometry features are never loaded."""
+    import shapefile
+
+    shp = tmp_path / "1d_nwk_example.shp"
+    make_network_shapefile(shp)
+
+    def disallow_shapes(*args: object, **kwargs: object) -> None:
+        msg = "Geometry must not be loaded when only attributes are required"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(shapefile.Reader, "iterShapes", disallow_shapes)
+    monkeypatch.setattr(shapefile.Reader, "iterShapeRecords", disallow_shapes)
+    results, opens = inspect_gis_attribute_sources(
+        {(shp, ""), (shp, "1d_nwk_*"), (shp, "all"), (shp, "1d_xs_not_present")}
+    )
+    assert opens == 1
+    for selector in ("", "all", "1d_nwk_*"):
+        assert results[(shp, selector)].status == "present"
+        assert results[(shp, selector)].identifiers == ("Curve_A",)
+    assert results[(shp, "1d_xs_not_present")].status == "unresolved"
+
+
+def test_shapefile_attribute_schema_fail_closed(tmp_path: Path) -> None:
+    """Missing DBF, unknown field layout and unexpected geometry never pass."""
+    import shapefile
+
+    shp = tmp_path / "1d_nwk_incomplete.shp"
+    with shapefile.Writer(str(shp), shapeType=shapefile.POLYLINE) as writer:
+        writer.field("attr_0", "C")
+        writer.null()
+        writer.record("ABC")
+    results, _ = inspect_gis_attribute_sources({(shp, "")})
+    assert results[(shp, "")].status == "unresolved"
+    assert "index" in results[(shp, "")].detail
+
+    shp.with_suffix(".dbf").unlink()
+    results, _ = inspect_gis_attribute_sources({(shp, "")})
+    assert results[(shp, "")].status == "unresolved"
+
+
+def test_shapefile_pit_identifiers_use_same_rule_as_geopackage(tmp_path: Path) -> None:
+    """Shapefile Q/VPI pits produce database identifiers, not guessed paths."""
+    import shapefile
+
+    shp = tmp_path / "1d_pit_test.shp"
+    with shapefile.Writer(str(shp), shapeType=shapefile.POINT) as writer:
+        for index in range(4):
+            writer.field(f"attr_{index}", "C", size=80)
+        for kind, value in (("Q", "Kerb_A"), ("VPI", "Grate_B"), ("R", "Ignore")):
+            writer.null()
+            writer.record("id", kind, "", value)
+    result, opens = inspect_gis_attribute_sources({(shp, "")})
+    assert opens == 1
+    assert result[(shp, "")].status == "present"
+    assert result[(shp, "")].sources == ()
+    assert result[(shp, "")].identifiers == ("Grate_B", "Kerb_A")
+
+
+def test_shapefile_xs_file_attribute_matches_geopackage(tmp_path: Path) -> None:
+    """Non-network file-bearing TUFLOW elements get the same first-field rule."""
+    import shapefile
+
+    shp = tmp_path / "1d_xs_example.shp"
+    with shapefile.Writer(str(shp), shapeType=shapefile.POLYLINE) as writer:
+        writer.field("source", "C", size=100)
+        writer.null()
+        writer.record("section.csv")
+    gpkg = tmp_path / "xs.gpkg"
+    with sqlite3.connect(gpkg) as db:
+        db.execute("CREATE TABLE gpkg_geometry_columns(table_name TEXT, column_name TEXT, geometry_type_name TEXT)")
+        db.execute("INSERT INTO gpkg_geometry_columns VALUES ('1d_xs_example','geom','LINESTRING')")
+        db.execute('CREATE TABLE "1d_xs_example" (fid INTEGER PRIMARY KEY, geom BLOB, source TEXT)')
+        db.execute('INSERT INTO "1d_xs_example" (source) VALUES ("section.csv")')
+    result, opens = inspect_gis_attribute_sources({(shp, ""), (gpkg, "1d_xs_example")})
+    assert opens == 2
+    assert result[(shp, "")].sources == result[(gpkg, "1d_xs_example")].sources
+    assert result[(shp, "")].sources == (tmp_path / "section.csv",)
