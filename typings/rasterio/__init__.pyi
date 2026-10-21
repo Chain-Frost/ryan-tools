@@ -7,6 +7,7 @@ class Dataset:
     width: int
     height: int
     count: int
+    subdatasets: tuple[str, ...]
 
     def __enter__(self) -> Self: ...
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None: ...
