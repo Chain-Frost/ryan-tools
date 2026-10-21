@@ -114,7 +114,6 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
                     if alias.name in UNSAFE_IMPORT_CALLS:
                         self.aliases[alias.asname or alias.name] = alias.name
 
-
     def _visit_function_signature(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         for expression in (*node.args.defaults, *node.args.kw_defaults):
             if expression is not None:
