@@ -232,3 +232,33 @@ def test_documentation_indexes_track_live_inventory_counts() -> None:
     work = (ROOT / "docs" / "work" / "README.md").read_text(encoding="utf-8")
     assert f"All {tracked} source paths; {selected} selected and {excluded} excluded" in docs
     assert f"{tracked}-file lifecycle audit" in work
+
+
+def test_aliased_mutating_import_is_detected_without_execution() -> None:
+    """Renaming a dangerous imported function must not evade import checks."""
+    unsafe = inventory.analyse_python(
+        "from shutil import copy2 as cp\\n"
+        "cp('source', 'destination')\\n"
+        "if __name__ == '__main__':\\n"
+        "    pass\\n"
+    )
+    assert unsafe["main_guard"] is True
+    assert unsafe["import_time_mutation_calls"] == ["copy2"]
+    assert unsafe["import_time_mutation_risk"] is True
+
+    safe = inventory.analyse_python(
+        "from shutil import copy2 as cp\\n"
+        "def main():\\n"
+        "    cp('source', 'destination')\\n"
+        "if __name__ == '__main__':\\n"
+        "    main()\\n"
+    )
+    assert safe["import_time_mutation_risk"] is False
+
+    # Similarly named local helpers must not be treated as shutil imports.
+    unrelated = inventory.analyse_python(
+        "def helper():\\n"
+        "    pass\\n"
+        "helper()\\n"
+    )
+    assert unrelated["import_time_mutation_risk"] is False
