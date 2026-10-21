@@ -1,6 +1,63 @@
 # Workstream F — Windows engineering acceptance (21 October 2026)
 
-**Status:** repeatable test plan only; real Windows/engineering acceptance is **not** claimed. These steps require a Windows host, an installed Python 3.13 or 3.14, a disposable local SSD location and optionally a writable test share. No model simulations should be started by these probes. Do **not** point destructive commands at live project inputs.
+**Status:** bounded Windows acceptance executed on 22 October 2026; see evidence below. Complete engineering acceptance remains open. These steps require a Windows host, an installed Python 3.13 or 3.14, a disposable local SSD location and optionally a writable test share. No model simulations should be started by these probes. Do **not** point destructive commands at live project inputs.
+
+## Windows execution evidence — 22 October 2026
+
+Tested supporting [PR #146](https://github.com/Chain-Frost/ryan-tools/pull/146),
+branch `work/pr137-mcp-engineering-cf-20261021`, commit
+`20cf28a91a1bc59e76ce42da9366299f07a354b3`. This advances the checklist's original
+plan-only status; complete engineering acceptance remains open.
+
+| Check | Result |
+| --- | --- |
+| Python 3.14.6, all `tests/mcp` with long-path, mapped/UNC, GDAL and QGIS opt-ins | **98 passed, 10 skipped** in 3.70 s; three Windows symlink privilege skips and seven POSIX-only skips |
+| Local long paths | Passed with `LongPathsEnabled=1`; spaces, Unicode and >260-character copy paths exercised |
+| Authorised share | Both `T:\temp` and `\\StrandServer\tuflow-agil-share\temp` passed; unique temporary children cleaned up |
+| Real GDAL/OGR | Two tests passed using GDAL 3.13.3: translation, clipping, missing-input failures and unchanged source bytes |
+| Real QGIS | Two tests passed using QGIS 4.2.3, Qt 6.11.1 and its Python 3.12.14: synthetic OGR provider and CLI version |
+| Isolated wheel | Passed from unrelated scratch directory with `python -I`, no checkout discovery: 35 records, 33 targets, 83 selected files |
+| Ruff lint / format | Passed; 14 files already formatted |
+| Scoped strict Pyright | `models.py` and `registry.py`: zero errors/warnings |
+| Documentation | Three-document `--links-only` check passed; original full command reports abbreviated catalogue paths and external/config paths as unresolved |
+| QGIS MCP bridge | Retry after user enabled MCP: `ping` passed; `diagnose` returned degraded due to server 0.15.2 / plugin 0.15.1 mismatch. Desktop copied-GeoPackage probe passed |
+| Python 3.13 local | Not run; user explicitly removed this local check from scope |
+| Hosted CI | All six checks passed at tested head, including hosted Python 3.13; run 39638586619 and Ruff run 39638586518 |
+| TUFLOW / HY-8 | Files located only; no licence check, simulation or hydraulic comparison performed |
+
+The current-version wheel is `ryan_tools-26.10.20.3-py3-none-any.whl`, SHA-256
+`6248494fdc5105013e863ca6067689cbe1ab869c1e775cfae704d26657f587d6`.
+It was built with `python -m pip wheel --no-deps --wheel-dir <scratch>/wheel .`
+and installed with `--no-deps --target <scratch>/site`. The initial
+`--no-build-isolation` attempt could not import setuptools; build isolation
+succeeded without changing the global installation or declared version.
+This probe proves packaging/discovery, not dependency-complete wrapper execution.
+
+Scratch evidence is retained at
+`C:\Users\Ryan\AppData\Local\Temp\ryan-cf-acceptance-20261022-20cf28a`:
+wheel, isolated site, `blank/probe.py`, and `all-checks.cmd`. The latter initializes
+`o4w_env.bat` and `qt6_env.bat`, sets QGIS prefix/plugin/Python paths, clears
+`PYTHONHOME` and `PYTHONEXECUTABLE` for the Python 3.14 pytest parent, and configures
+the separate QGIS child to use `C:\OSGeo4W\apps\Python312\python.exe`.
+All six filesystem/GIS opt-in variables from Sections 4, 5, 7 and 8 are enabled.
+Run that command file from this repository root to reproduce `python -m pytest -q tests/mcp -ra`.
+
+Environment troubleshooting matters: passing multiline `-c` code through
+`python-qgis.bat` produced empty stdout and failed the provider assertion; the
+initialized direct interpreter passed. Retaining OSGeo4W's `PYTHONHOME` initially
+caused a Python standard-library mismatch, and retaining `PYTHONEXECUTABLE`
+misdirected a subprocess; clearing both resolved these runner failures.
+No test or product code was changed to obtain the passes.
+
+Installed hydraulic dependencies: `ryan-culverts 26.10.18.3` and
+`run-hy8 2026.10.18.2`. HY-8 file version is 8.0.1.2 at
+`C:\Program Files\HY-8 8.00\HY864.exe`; TUFLOW executables exist under
+`C:\TUFLOW\tuflow-2026.3` but have no reported Windows file version.
+These are discovery evidence only. Outstanding: MCP version alignment and full project
+acceptance, licensed TUFLOW/HY-8 baselines, real-tool read-only/interruption failure
+cases, and full workflow parity. Network tests exercised wrapper copying, not
+GDAL/QGIS processing over the share. No merge, publication or project simulation
+was performed; documentation evidence is committed separately from the tested code; not pushed.
 
 ## 1. Prerequisites and recorded environment
 
@@ -219,3 +276,20 @@ For each external tool also deliberately test missing executable, invalid input,
 | Data preservation under failure | Synthetic tests only | Real tool failure hashes still pending |
 
 **No merge or PyPI publishing** is authorised by this checklist. Keep source inputs and engineering runs separate from the metadata-only MCP discovery service.
+
+### Desktop MCP retry ? 22 October 2026
+
+After the user enabled QGIS MCP, `ping` returned `pong=true`. `diagnose`
+confirmed QGIS 4.2.3, Python 3.12.15, Qt 6.11.0 and healthy processing providers
+(including GDAL, native and TUFLOW), with one connected client. Overall status
+was **degraded** because server/client 0.15.2 differs from plugin 0.15.1.
+No plugin installation, cache clearing or restart was attempted.
+
+A synthetic GeoPackage was generated in a unique temporary folder, copied,
+and read through the actual desktop OGR provider via MCP: valid, one feature,
+EPSG:4326, SHA-256 unchanged after reading. Project filename, dirty state and
+registered layers were unchanged. The desktop had no loaded project/layers.
+Retained fixture: `C:\Users\Ryan\AppData\Local\Temp\ryan-cf-desktop-5ov4synv\copied.gpkg`;
+SHA-256 `9f7aa9fd20dd20943c81b8f51ae4ce3a51dd040c1e732a588a928563b8b57377`.
+This passes bounded desktop bridge/provider acceptance; version alignment,
+real-project styling/interaction and licensed hydraulic checks remain open.
