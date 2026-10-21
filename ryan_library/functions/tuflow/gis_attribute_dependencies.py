@@ -7,6 +7,7 @@ Unsupported sources/schemas remain unresolved rather than silently passing.
 
 from __future__ import annotations
 
+import csv
 import fnmatch
 import os
 import re
@@ -25,6 +26,7 @@ class AttributeInspection:
 
     status: Literal["present", "unresolved"]
     sources: tuple[Path, ...] = ()
+    identifiers: tuple[str, ...] = ()
     detail: str = ""
 
 
@@ -79,18 +81,25 @@ def _attribute_file_paths(value: str, *, network_m: bool, parent: Path) -> tuple
     return tuple(paths)
 
 
-def _scan_layer(  # noqa: C901 - feature schema, channel and field validation
+def _scan_layer(  # noqa: C901 - safety-critical channel classification
     connection: sqlite3.Connection, layer: str, geometry_type: str, path: Path
-) -> tuple[Path, ...]:
-    """Read only relevant attribute fields; do not fetch geometry blobs."""
+) -> tuple[tuple[Path, ...], tuple[str, ...]]:
+    """Read only file-valued attributes; return database identifiers separately.
+
+    TUFLOW 1d_nwk Q and P channels and 1d_pit Q/VPI pits use an inlet
+    identifier from the ECF Pit Inlet / Depth Discharge Database. M and QO
+    channel matrices instead name files directly. Ignored network rows
+    must never introduce input dependencies.
+    """
     index = _file_field_index(layer)
     if index is None:
         message = f"Unsupported GIS attribute-linked layer type: {layer}"
         raise ValueError(message)
     network = bool(re.match(r"^1d_nwk[eb]?_", layer, flags=re.IGNORECASE))
+    pit = bool(re.match(r"^1d_pit_", layer, flags=re.IGNORECASE))
     if network and geometry_type.casefold() not in {"linestring", "multilinestring"}:
         if geometry_type.casefold() != "geometry":
-            return ()  # A known non-line geometry cannot be an M/Q network channel.
+            return (), ()
         message = "Mixed or unknown network geometry requires feature-level inspection"
         raise ValueError(message)
     quoted = _quote_identifier(layer)
@@ -105,41 +114,87 @@ def _scan_layer(  # noqa: C901 - feature schema, channel and field validation
     if not geom_names:
         message = f"GeoPackage layer geometry column is unavailable: {layer}"
         raise ValueError(message)
-    # OGR attributes exclude the GeoPackage feature ID and geometry column.
     attrs = [name for name, pk in columns if not pk and str(name).casefold() not in geom_names]
-    if len(attrs) <= index or (network and len(attrs) <= 1):
+    if len(attrs) <= index or ((network or pit) and len(attrs) <= 2):
         message = f"Required file-reference attribute index {index} absent from {layer}"
         raise ValueError(message)
     field = _quote_identifier(str(attrs[index]))
-    second = _quote_identifier(str(attrs[1])) if network else ""
-    # Each SQL identifier came from SQLite metadata and was double-quoted by
-    # _quote_identifier; values are never interpolated into SQL statements.
-    sql = (
-        f"SELECT {second}, {field} FROM {quoted}"  # noqa: S608 - identifiers safely double-quoted
-        if network
-        else f"SELECT {field} FROM {quoted}"  # noqa: S608 - identifiers safely double-quoted
-    )
+    if network:
+        ignored = _quote_identifier(str(attrs[2]))
+        channel_type = _quote_identifier(str(attrs[1]))
+        # All identifiers are sourced from PRAGMA metadata and safely quoted.
+        sql = f"SELECT {channel_type}, {ignored}, {field} FROM {quoted}"  # noqa: S608
+    elif pit:
+        channel_type = _quote_identifier(str(attrs[1]))
+        sql = f"SELECT {channel_type}, {field} FROM {quoted}"  # noqa: S608
+    else:
+        sql = f"SELECT {field} FROM {quoted}"  # noqa: S608
+
     sources: set[Path] = set()
+    database_identifiers: set[str] = set()
     for row in connection.execute(sql):
-        candidate_value = row[-1]
-        if candidate_value is None or candidate_value == "":
+        value = row[-1]
+        if network and isinstance(row[1], str) and row[1].strip().casefold() in {"y", "t"}:
             continue
-        if not isinstance(candidate_value, str):
+        if value is None or value == "":
+            continue
+        if not isinstance(value, str):
             message = f"Non-text GIS file-reference attribute in {layer}"
             raise ValueError(message)
-        is_m = False
+        kind = row[0].strip().upper() if (network or pit) and isinstance(row[0], str) else ""
         if network:
-            channel = row[0]
-            if channel is None:
+            if kind in {"Q", "P"}:
+                database_identifiers.add(value.strip())
                 continue
-            if not isinstance(channel, str):
-                message = f"Invalid network channel type in {layer}"
+            if kind == "QO":
+                if "|" not in value:
+                    message = f"QO channel lacks control ID and matrix file delimiter in {layer}"
+                    raise ValueError(message)
+                sources.update(_attribute_file_paths(value, network_m=False, parent=path.parent))
+                continue
+            if kind != "M":
+                # Other channels use Inlet_Type for control names or unused
+                # values. They are not direct file paths.
+                continue
+        elif pit:
+            if kind in {"Q", "VPI", "I"}:
+                database_identifiers.add(value.strip())
+            # Other pit types do not use Inlet_Type to reference a file.
+            continue
+        sources.update(_attribute_file_paths(value, network_m=network, parent=path.parent))
+    return tuple(sorted(sources)), tuple(sorted(database_identifiers))
+
+
+def read_pit_inlet_database(path: Path) -> dict[str, Path]:
+    """Map depth-discharge curve names to Source CSVs using the TUFLOW schema.
+
+    Table 5.27: first column is Name, second is Source. Database CSVs are
+    read only once by the caller and are never modified. Reject ambiguous
+    or unsupported tables rather than guessing at curve file dependencies.
+    """
+    with path.open(newline="", encoding="utf-8-sig") as stream:
+        reader = csv.DictReader(stream)
+        fields = reader.fieldnames or []
+        if len(fields) < 2 or fields[0].strip().casefold() != "name" or fields[1].strip().casefold() != "source":
+            message = f"Pit inlet database needs Name and Source columns: {path}"
+            raise ValueError(message)
+        mapping: dict[str, Path] = {}
+        for row in reader:
+            name = str(row.get(fields[0]) or "").strip()
+            source = str(row.get(fields[1]) or "").strip()
+            if not name or not source or "<<" in source or ">>" in source:
+                message = f"Invalid pit inlet database entry in {path}: {name!r}"
                 raise ValueError(message)
-            if not channel.casefold().startswith(("m", "q")):
-                continue
-            is_m = channel.casefold().startswith("m")
-        sources.update(_attribute_file_paths(candidate_value, network_m=is_m, parent=path.parent))
-    return tuple(sorted(sources))
+            key = name.casefold()
+            if key in mapping:
+                message = f"Duplicate pit inlet identifier in {path}: {name}"
+                raise ValueError(message)
+            paths = _attribute_file_paths(source, network_m=False, parent=path.parent)
+            if len(paths) != 1:
+                message = f"Invalid pit inlet Source reference in {path}: {name}"
+                raise ValueError(message)
+            mapping[key] = paths[0]
+        return mapping
 
 
 def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspection and error routing
@@ -175,7 +230,7 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
                 if not available:
                     message = "No vector layer metadata in GeoPackage"
                     raise ValueError(message)
-                scanned: dict[str, tuple[Path, ...]] = {}
+                scanned: dict[str, tuple[tuple[Path, ...], tuple[str, ...]]] = {}
                 for selector in selectors:
                     key = (path, selector)
                     matches = [
@@ -192,8 +247,9 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
                         for name in matches:
                             if name not in scanned:
                                 scanned[name] = _scan_layer(connection, name, available[name], path)
-                        sources = tuple(sorted({source for name in matches for source in scanned[name]}))
-                        results[key] = AttributeInspection("present", sources)
+                        sources = tuple(sorted({source for name in matches for source in scanned[name][0]}))
+                        identifiers = tuple(sorted({identifier for name in matches for identifier in scanned[name][1]}))
+                        results[key] = AttributeInspection("present", sources, identifiers)
                     except (sqlite3.DatabaseError, ValueError, OSError) as exc:
                         results[key] = AttributeInspection("unresolved", detail=f"Cannot inspect GIS attributes: {exc}")
         except (sqlite3.DatabaseError, OSError, ValueError) as exc:
