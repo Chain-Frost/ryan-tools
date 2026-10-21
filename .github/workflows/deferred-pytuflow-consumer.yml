@@ -33,3 +33,12 @@ jobs:
         run: python -m pip install --no-deps --force-reinstall "git+https://github.com/phantom-branch/PyTuflow.git@f965314c2a5df68a3f5ada016b02607513d783c1"
       - name: Verify fork deferred API and consumer regression tests
         run: python -m pytest -q tests/orchestrators/tuflow/test_input_preflight.py tests/functions/tuflow/test_gis_attribute_dependencies.py
+      - name: Replay archived Shapefile examples without launching TUFLOW
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "tuflow-example-shapefile-replay"
+          python -m tests.fixtures.tuflow_example_repro.run_checks --tcf EG02_014.tcf --tcf EG04_004.tcf --output $report
+          $diagnosticExit = $LASTEXITCODE
+          Write-Host "Example replay exit code: $diagnosticExit (1 is expected while other input categories remain unresolved)"
+          python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); print(json.dumps(rows,indent=2)); assert len(rows)==2; assert not any("GIS attribute scan currently supports GeoPackage sources only" in issue for row in rows for issue in row.get("preflight_reasons",{}))' (Join-Path $report "results.json")
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
