@@ -794,3 +794,41 @@ provides all ten cases and reasons. The next gate is a complete Windows
 followed by native P/B, 42-run and Higginsville parity. Do not claim an
 actual speedup or merge upstream/downstream until complete supported-input
 parity and CI are established.
+
+
+## Final checked Windows 174-run result after NetCDF and rainfall origin corrections
+
+Latest checked [Windows full example workflow 39666504925](https://github.com/Chain-Frost/ryan-tools/actions/runs/39666504925)
+with pinned supporting PyTUFLOW PR #2 commit
+`336efdea7f9c9d8ca27515284b042f48804f2bac`:
+**153 of 161 TCFs / 166 of 174 runs accepted**, eight remaining
+one-run cases. This supersedes the prior 151/161 TCF and 164/174 run
+result. All focused pinned-fork/SHAPE/GPKG and 174-run diagnostics,
+strict Pyright, Ruff, hosted tests, Python 3.13 compatibility and
+wheel build passed. The archived results are in Actions artifact
+`tuflow-example-full-replay` ID `12376903658`.
+
+The two new accepted TCFs demonstrate:
+- EG03_011: NetCDF root container with no standalone raster bands is
+  valid if GDAL lists subdatasets and a subdataset has valid header
+  dimensions and bands. Shared metadata checks read the header only;
+  they do not read arrays.
+- EG03_012: all 41 secondary rainfall FLT paths already matched eager.
+  Normalising the deferred source's owner to its actual
+  `Read Grid RF` command fixes the extraneous row-named origins.
+
+All eight remaining mismatches are **deferred-only** (zero eager-only):
+EG11_006 and EG11_009 each have one Q/P depth-discharge curve CSV;
+EG15_007/008 each have one active pit inlet curve CSV; EG17_001/002/003
+each have four AD BC source entries; EG18_002 has two AD BC source
+entries and one AD Global GIS source. Public preflight passes all eight,
+but the strict eager/deferred identity oracle finds additions.
+**Do not remove physically required files merely to satisfy eager**:
+confirm upstream eager completeness, active GIS identifier/BC declaration
+semantics and genuine source ownership against TUFLOW documentation.
+The [precise upstream handoff](https://github.com/phantom-branch/PyTuflow/pull/2#issuecomment-6325405340)
+tracks each case.
+
+No results validate the native P (4), B (240), 42-run output-variable
+or Higginsville (440) models on their current revisions. No speedup,
+merger, published dependency upgrade or solver invocation is authorised.
