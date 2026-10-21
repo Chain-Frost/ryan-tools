@@ -57,7 +57,8 @@ def test_console_paths_are_relative_and_failures_distinct(
     def list_layers(path: str) -> list[list[str]]:
         stem = Path(path).stem
         if stem == "inspect_error":
-            raise OSError("inspection error")
+            message = "inspection error"
+            raise OSError(message)
         if stem == "empty":
             return []
         if stem == "multiple":
@@ -76,7 +77,8 @@ def test_console_paths_are_relative_and_failures_distinct(
     def read_file(*, filename: str) -> FakeGeoDataFrame:
         reads.append(filename)
         if Path(filename).stem == "read_error":
-            raise OSError("read error")
+            message = "read error"
+            raise OSError(message)
         return FakeGeoDataFrame()
 
     def move(*, src: str, dst: str) -> None:
