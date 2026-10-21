@@ -44,9 +44,7 @@ def test_raster_metadata_invalid_file_fails_closed(tmp_path: Path) -> None:
     assert "Cannot inspect raster" in results[invalid].detail
 
 
-def test_netcdf_container_with_raster_subdataset_is_valid(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_netcdf_container_with_raster_subdataset_is_valid(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """NetCDF root datasets can expose bands only through GDAL subdatasets."""
     from typing import Self
 
