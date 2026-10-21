@@ -40,5 +40,5 @@ jobs:
           python -m tests.fixtures.tuflow_example_repro.run_checks --tcf EG02_014.tcf --tcf EG04_004.tcf --output $report
           $diagnosticExit = $LASTEXITCODE
           Write-Host "Example replay exit code: $diagnosticExit (1 is expected while other input categories remain unresolved)"
-          python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); print(json.dumps(rows,indent=2)); assert len(rows)==2; assert not any("GIS attribute scan currently supports GeoPackage sources only" in issue for row in rows for issue in row.get("preflight_reasons",{}))' (Join-Path $report "results.json")
+          python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); print(json.dumps(rows,indent=2)); assert len(rows)==2; assert next(row for row in rows if row["tcf"]=="EG02_014.tcf")["accepted_parity"]; assert not any("GIS attribute scan currently supports GeoPackage sources only" in issue for row in rows for issue in row.get("preflight_reasons",{}))' (Join-Path $report "results.json")
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
