@@ -622,3 +622,39 @@ and complete example matrix from the same work front.
 index row before final PR merge; retain appropriate synthetic regressions and durable validation
 notes. This is a temporary upload to `feat/tuflow-run-preflight`, not merge authorisation. The user
 explicitly authorises committing and pushing this reproduction bundle on that existing branch.
+
+
+## Shared Shapefile and GeoPackage attribute discovery (2026-10-22)
+
+Agent 1's changes in PR #143 now route both Shapefile DBF and GeoPackage
+SQLite attributes through the **same TUFLOW element classifier**. Supported
+element families are `1d_nwk`, `1d_pit`, `1d_xs`, `1d_tab`, `1d_xz`,
+`1d_bg`, `1d_lc`, `1d_cs`, `1d_hw`, and `1d_na`. The shared classifier
+handles M/QO matrix CSVs, Q/P and pit curve identifiers, network Ignore=Y/T,
+blank required fields and unsupported schemas consistently across containers.
+Shapefile inspection reads only DBF records via pyshp and SHP header geometry
+type, not per-feature geometries. GeoPackages continue to use read-only SQLite.
+Unique files are scanned only once across run contexts, and missing linked
+files are routed back to every affected simulation. The console read count
+now says **attribute GIS-source opens**, not GeoPackage-only connections.
+A narrow local pyshp typing surface preserves strict Pyright checks.
+
+The temporary fixture's **EG02_014** was checked on the Windows pinned-fork
+CI consumer (run 39637338154): full eager/deferred materialised parity and
+read-only preflight passed, 31 unique input files and 0 issues. Previously
+its three Shapefile attribute references were unsupported. **EG04_004**
+now inspects its Shapefile attributes but remains UNRESOLVED because
+`Read GIS Table Links` has no complete upstream deferred resolver.
+The temporary harness now reuses the production GIS-attribute materialiser,
+retains original owning-command provenance for derived references and
+tolerates the Windows GDAL temporary-file lock during archive cleanup.
+Its full 161-TCF/174-run read-only replay is provisionally enabled in
+the pinned-fork Windows workflow, with per-model diagnostic JSON/CSV as an
+artifact. This step and the entire example bundle must be removed before merge.
+
+**Remaining gates:** verify exact-head CI (including strict Pyright and
+new Shapefile tests), analyse the new full example sweep against the original
+119 accepted runs, correct any remaining reader/schema defects, and
+coordinate table-link/rainfall-grid/AD BC parser work with Agent 2 on
+PyTUFLOW PR #1. A matching partial inventory is never an accepted pass.
+Do not merge, publish or launch TUFLOW simulations.
