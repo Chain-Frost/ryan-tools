@@ -681,7 +681,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
             )
 
     logger.info(
-        "Preflight: {} runs, {} unique files, {} directory scans, {} attribute GeoPackage opens, "
+        "Preflight: {} runs, {} unique files, {} directory scans, {} attribute GIS-source opens, "
         "{} direct checks, {} issues across {} runs; "
         "PyTUFLOW parse {:.2f}s, contexts {:.2f}s, GIS attributes {:.2f}s, inventory {:.2f}s",
         report.run_count,
