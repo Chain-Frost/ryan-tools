@@ -9,7 +9,7 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: 2026-10-22; resolve the P/B database findings and repeat parity checks.
+In validation. Owner: ChatGPT. Updated: 2026-10-21. Next review: 2026-10-22; P/B eager checks and B rainfall column checks pass; complete deferred parity and remaining PR gates.
 
 ## Decisions
 
@@ -277,3 +277,121 @@ Focused preflight/GIS tests: **29 passed, 4 deferred-fork tests skipped**. Ruff 
 and default documentation validation pass. No package rebuild, native model rerun or hosted CI was
 performed for this merge reconciliation. The branch contains the fetched remote head and retains
 the local testing commit. Changes are committed locally; no push or PR merge is authorised by this record.
+
+### P/B rerun after project corrections (2026-10-21)
+
+At consumer head `c5d61c8`, reran the complete current launcher parameter products with installed
+PyTUFLOW 1.2.6 on Windows Python 3.14.6. Both projects pass the eager file preflight:
+
+| Project | Runs | Unique files | Findings | Parse / contexts / inventory seconds |
+| --- | --- | --- | --- | --- |
+| P | 4 | 18 | 0 | 0.463 / 0.683 / 0.001 |
+| B | 240 | 33 | 0 | 0.677 / 50.613 / 0.006 |
+
+B now uses the recognised `Event File` command. Its AEP/duration source substitution no longer
+produces the earlier 240 missing-path findings. This supersedes the earlier eager failure for B;
+the earlier observations describe the previous project configuration, not a substitution defect
+established in published PyTUFLOW. The separate upstream synthetic investigation also identifies
+the previous `BC Event File` spelling as unrecognised by the tested parser.
+
+PyTUFLOW still warns `Event "EnsembleILCL" not found in event database` for B, despite a textual
+definition in its event file; this warning is not included in the consumer finding count. A passing
+file preflight therefore does not certify complete event recognition or engine validity. Investigate
+that discrepancy separately. P retains its projection-reading warning. No GIS attribute databases
+were scanned, and the deferred schema/parity and other real-model gates remain open.
+
+Reproduction: `python "$env:TEMP/ryan-preflight-20261021/recheck.py"`; reports are
+`P-eager-1.2.6-recheck.csv`, `B-eager-1.2.6-recheck.csv` and
+`eager-1.2.6-recheck-summary.json` in the same temporary directory.
+Focused preflight/GIS tests at this head: **30 passed, 4 deferred-fork tests skipped**.
+No TUFLOW process was started and no project files were edited by this session.
+Only the status record and register were updated, left uncommitted; no build, push or merge performed.
+
+### B event warning diagnosed (2026-10-21)
+
+The `EnsembleILCL` definition in B's event file contains `BC BC Event Source`, with a duplicated
+`BC`. PyTUFLOW 1.2.6 ignores that unrecognised command. Its model event database is populated from
+recognised event-source assignments; therefore this definition contributes no recognised event entry
+and `Context.load_events()` warns that the selected event is absent.
+
+Direct inspection of the run-state BC database for runs 1/121/240 confirms that source file paths
+resolve, but the selected rainfall columns remain `TP01_~CC~`, `TP01_~CC~` and `TP10_~CC~`.
+The earlier zero-finding file preflight does not validate these column selections. Its documented
+scope excludes time-series column/content validation; it must not be reported as full model acceptance.
+
+A synthetic TCF/TEF/BC reproduction with PyTUFLOW 1.2.6 confirms that changing only
+`BC BC Event Source` to `BC Event Source` removes the event warning and expands the selected
+column from `TP01_~CC~` to `TP01_test`. The fixture includes another valid event definition so the
+event database is nonempty, matching the real-model warning path. Without any recognised events,
+PyTUFLOW skips event loading and leaves the token unresolved without that warning.
+Reproduction command: `python "$env:TEMP/ryan-preflight-20261021/reproduce_event_typo.py"`.
+Real-model diagnostic scripts `investigate_event.py` and `investigate_columns.py` are alongside it.
+
+No real project or PyTUFLOW source files were edited. Next action: correct the duplicated keyword
+in B's event file, then verify resolved rainfall column names against the actual CSV headers for
+the intended events and rerun preflight. Deferred and other PR validation gates remain open.
+
+### Corrected B event assignment verified (2026-10-21)
+
+The project owner corrected B's duplicated keyword. With installed PyTUFLOW 1.2.6, all 240 B
+contexts now resolve without the unknown-event warning. All **480 selected time/rainfall column
+checks** across **12 distinct CSV files** match the actual time-series headers, including the resolved
+climate-change suffix. ARR CSV files contain metadata before the header; verification explicitly
+located the `Time (hour)` header rather than treating the first metadata row as column names.
+
+Repeated complete eager preflight: **P: 4 runs, 18 files, zero findings; B: 240 runs, 33 files,
+zero findings**. B parse/context/inventory times: 0.672/48.618/0.004 seconds. P's projection warning
+remains separate. No TUFLOW execution or simulation-data/engine acceptance is claimed.
+Temporary evidence: `corrected_event.py`, `verify_columns.py`, `verify_arr_headers.py`,
+`B-column-recheck-corrected.json` and `eager-1.2.6-corrected-event-summary.json` in the previously
+recorded temporary validation directory. This session did not edit project files. Status updates
+remain uncommitted; deferred schema/parity, other model and package/CI gates remain open.
+
+### Local SSD benchmark (2026-10-21)
+
+Storage is **local SSD, no network**, as specified by the project owner. These measurements must
+not be presented as mapped-drive/network performance. Windows 10 build 19045, Python 3.14.6,
+16 logical CPUs; consumer head `c5d61c8a1394133ae995086ce4f316c0ec067e46`.
+Eager uses installed published PyTUFLOW 1.2.6. Deferred uses the isolated source archive of the
+workflow-pinned fork `1c300a7013522f177de07e68f27f3824a3ba8177`, with shared installed dependencies.
+
+Three trials per mode, each in a fresh Python process, sequentially with alternating mode order:
+eager/deferred, deferred/eager, eager/deferred. Each process checks P then B using the exact current
+launcher parameter products. Existing OS/filesystem caches were retained; this is a warm-cache
+benchmark, not a cold-storage test. The timed call includes model parsing, all run contexts and
+the deduplicated inventory; Python startup, package import and CSV report writing are excluded.
+No TUFLOW execution, project changes, private upstream monkeypatches or global package changes.
+
+| Project / mode | Runs | Median total seconds | Total range seconds | Median parse / contexts / inventory seconds | Unique files | Findings |
+| --- | --- | --- | --- | --- | --- | --- |
+| P / published eager | 4 | 1.224 | 1.219–1.244 | 0.494 / 0.728 / 0.00145 | 18 | 0 |
+| B / published eager | 240 | 57.933 | 57.847–58.458 | 0.693 / 57.227 / 0.00455 | 33 | 0 |
+| P / pinned deferred, incomplete | 4 | 0.952 | 0.924–0.960 | 0.483 / 0.470 / 0.00198 | 16 | 8 unresolved |
+| B / pinned deferred, incomplete | 240 | 45.221 | 44.980–46.527 | 0.669 / 44.528 / 0.00496 | 20 | 480 unresolved |
+
+Each phase median is computed independently, so phase medians need not sum exactly to the median total.
+Inventoried path sets, run counts and finding counts were stable across all three repetitions in each
+mode. **Dependency parity fails:** deferred omits two unique inventoried files for P and 13 for B,
+with no additional inventoried files relative to eager. Every deferred run reports unsupported soils
+inspection and the numeric material-list exception, aborting complete secondary database collection.
+These incomplete timings do not establish an equivalent-workload speedup. Per-run/layer parity is
+not claimed; it must be checked after those schema limitations are addressed. The published eager
+baseline passes all 244 runs. B's context construction accounts for about 98.8% of its eager time;
+the final shared file inventory takes only milliseconds on this SSD. No I/O call counting or cache
+flushing was performed. P's known projection-reading warning persists.
+
+Reproduction and full local evidence are under
+`C:\Users\Ryan\AppData\Local\Temp\ryan-preflight-20261021\ssd-benchmark`:
+`run.py`, `worker.py`, `summarise.py`, `environment.json`, `summary.json`, six trial logs/JSON files
+and per-project issue CSVs. Commands:
+
+```powershell
+python "$env:TEMP/ryan-preflight-20261021/ssd-benchmark/run.py"
+python "$env:TEMP/ryan-preflight-20261021/ssd-benchmark/summarise.py"
+```
+
+Temporary trial JSON/logs and reproduction scripts contain confidential project paths; do not add
+them to the repository. This record retains only anonymised results. Documentation/link and whitespace
+checks pass; no source/test changes, package rebuild or hosted CI were needed for this measurement.
+The record/register changes remain uncommitted. Next action: resolve the deferred schema blockers,
+prove equivalent per-run file/layer coverage, then repeat the same local benchmark before comparing speed.
