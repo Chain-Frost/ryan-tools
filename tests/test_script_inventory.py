@@ -273,3 +273,22 @@ def test_postponed_annotations_are_not_misclassified_as_import_effects() -> None
 
     defaults = inventory.analyse_python(source + "def g(value=shutil.copy2('a', 'b')):\n    pass\n")
     assert defaults["import_time_mutation_calls"] == ["copy2"]
+
+
+def test_import_time_local_mutator_bindings_are_flagged() -> None:
+    """Simple module-level aliases are not a bypass for the static safety gate."""
+    cases = (
+        "import shutil\ncopier = shutil.copy2\ncopier('a', 'b')\n",
+        "from shutil import copy2 as first\nsecond = first\nsecond('a', 'b')\n",
+        "import shutil\ncopier = shutil.copy2\nclass A:\n    copier('a', 'b')\n",
+    )
+    for source in cases:
+        record = inventory.analyse_python(source)
+        assert record["parse_status"] == "ok"
+        assert record["import_time_mutation_calls"] == ["copy2"]
+
+    guarded = inventory.analyse_python(
+        "import shutil\ncopier = shutil.copy2\ndef main():\n"
+        "    copier('a', 'b')\nif __name__ == '__main__':\n    main()\n"
+    )
+    assert guarded["import_time_mutation_risk"] is False
