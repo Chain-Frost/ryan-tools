@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import gc
 import hashlib
 import importlib
 import json
@@ -145,7 +146,10 @@ def collect(tcf: Path, runs: list[RunRequest], mode: str, factory: Any) -> tuple
             # Resolve deliberately to compare physical files across path aliases and linked paths.
             physical = path.resolve()
             unique.setdefault(physical, set()).update(layer for layer in layers if layer)
-            origin = " ".join(ref.origin.split("==", 1)[0].casefold().split())
+            owner = ref.origin
+            if owner.casefold().startswith("gis attribute: "):
+                owner = owner[len("GIS attribute: ") :]
+            origin = " ".join(owner.split("==", 1)[0].casefold().split())
             for layer in layers:
                 keys.add((ref.run.index, ref.run.description, origin, str(physical).casefold(), layer.casefold()))
     inventory = check_unique_dependencies(unique)
@@ -182,7 +186,10 @@ def main() -> int:
     output = options.output.absolute() if options.output else Path(tempfile.mkdtemp(prefix="tuflow-example-reports-"))
     output.mkdir(parents=True, exist_ok=True)
     rows: list[dict[str, Any]] = []
-    with tempfile.TemporaryDirectory(prefix="tuflow-example-inputs-") as temporary:
+    # PyTUFLOW/GDAL may keep native handles alive until garbage collection.
+    # On Windows, tolerate the rare still-locked temporary example file;
+    # all original inputs and diagnostic reports are outside this folder.
+    with tempfile.TemporaryDirectory(prefix="tuflow-example-inputs-", ignore_cleanup_errors=True) as temporary:
         base = Path(temporary)
         extract_bundle(bundle, base)
         cases = discover_cases(base)
@@ -225,6 +232,8 @@ def main() -> int:
             rows.append(row)
             (output / "results.json").write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
             print(f"{tcf.name}: {'PASS' if row['accepted_parity'] else 'UNRESOLVED'}", flush=True)
+        # PyTUFLOW/pyogrio may hold GDAL objects until their finalizers run.
+        gc.collect()
     print(f"Reports: {output}")
     return 0 if rows and all(row["accepted_parity"] for row in rows) else 1
 
