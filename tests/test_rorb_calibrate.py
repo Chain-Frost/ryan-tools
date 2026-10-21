@@ -45,9 +45,12 @@ def test_preflight_does_not_write(tmp_path: Path) -> None:
     catg.write_text("a")
     stm.write_text("b")
     out = tmp_path / "results"
-    assert calibration.main(
-        ["--catg", str(catg), "--stm", str(stm), "--rorb", sys.executable, "--output", str(out), "--dry-run"]
-    ) == 0
+    assert (
+        calibration.main(
+            ["--catg", str(catg), "--stm", str(stm), "--rorb", sys.executable, "--output", str(out), "--dry-run"]
+        )
+        == 0
+    )
     assert not out.exists()
 
 
@@ -64,13 +67,31 @@ def test_synthetic_rorb_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(calibration.subprocess, "run", fake_run)
     out = tmp_path / "results"
-    assert calibration.main(
-        [
-            "--catg", str(catg), "--stm", str(stm), "--rorb", sys.executable,
-            "--output", str(out), "--kc", "15", "--il", "10",
-            "--continuing", "5", "--sim-column", "Hyd001", "--obs-column", "Hyd002",
-        ]
-    ) == 0
+    assert (
+        calibration.main(
+            [
+                "--catg",
+                str(catg),
+                "--stm",
+                str(stm),
+                "--rorb",
+                sys.executable,
+                "--output",
+                str(out),
+                "--kc",
+                "15",
+                "--il",
+                "10",
+                "--continuing",
+                "5",
+                "--sim-column",
+                "Hyd001",
+                "--obs-column",
+                "Hyd002",
+            ]
+        )
+        == 0
+    )
     results = next(out.glob("*/results.csv"))
     with results.open(newline="") as stream:
         records = list(csv.DictReader(stream))
