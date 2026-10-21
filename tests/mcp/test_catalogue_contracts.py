@@ -20,11 +20,7 @@ from ryan_library.mcp.registry import WorkflowRegistry
 def _all_catalogue_scripts() -> dict[str, str]:
     registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, discover_repository=False)
     listing = registry.list_workflows(include_unavailable=True)
-    return {
-        item["id"]: item["execution_target"]
-        for item in listing["workflows"]
-        if item["execution_kind"] == "script"
-    }
+    return {item["id"]: item["execution_target"] for item in listing["workflows"] if item["execution_kind"] == "script"}
 
 
 def test_all_curated_script_targets_are_in_the_wheel_selection() -> None:
@@ -128,10 +124,7 @@ def test_replace_and_delete_workflows_require_privileged_approval() -> None:
 def test_default_profile_hides_all_in_place_deleting_and_external_workflows() -> None:
     registry = WorkflowRegistry(configured_profile=CapabilityProfile.CREATE, discover_repository=False)
     listing = registry.list_workflows(include_unavailable=True)
-    assert all(
-        item["mutation"] not in {"in_place", "deletes", "executes_external"}
-        for item in listing["workflows"]
-    )
+    assert all(item["mutation"] not in {"in_place", "deletes", "executes_external"} for item in listing["workflows"])
 
 
 def test_unsafe_legacy_entrypoints_never_advertise_a_help_command(
