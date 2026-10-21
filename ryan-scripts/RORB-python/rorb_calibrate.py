@@ -238,6 +238,7 @@ def run_one(
     sim_column: str,
     obs_column: str | None,
     observed: tuple[list[float], list[float]] | None,
+    observed_source: str,
     plots: bool,
     hma: bool,
     hma_weight: float,
@@ -253,7 +254,7 @@ def run_one(
         "il": str(case.il),
         "continuing": str(case.continuing),
         "modelled_column": sim_column,
-        "observed_source": str(obs_column) if observed is None else "external CSV",
+        "observed_source": observed_source,
         "status": "failed",
         "error": "",
         "directory": str(run_dir),
@@ -278,6 +279,7 @@ def run_one(
         outputs = sorted(run_dir.glob("*.out"))
         if len(outputs) != 1:
             raise RuntimeError(f"Expected exactly one .out in isolated run directory, found {len(outputs)}")
+        result["output_report"] = str(outputs[0])
         result.update(
             evaluate_output(
                 outputs[0],
@@ -479,6 +481,7 @@ def main(argv: list[str] | None = None) -> int:
                     sim_column=args.sim_column,
                     obs_column=args.obs_column,
                     observed=observed,
+                    observed_source=str(args.observed_csv.absolute()) if args.observed_csv else str(args.obs_column),
                     plots=args.plots,
                     hma=args.hma,
                     hma_weight=args.hma_weight,
@@ -494,7 +497,7 @@ def main(argv: list[str] | None = None) -> int:
         cases.sort(key=lambda row: (row["status"] != "success", row.get("rmse", math.inf), row["run"]))
         fields = [
             "run", "kc", "m", "loss_model", "il", "continuing", "modelled_column", "observed_source",
-            "status", "error", "directory", "rmse", "nse", "bias", "observed_peak",
+            "status", "error", "directory", "output_report", "rmse", "nse", "bias", "observed_peak",
             "simulated_peak", "observed_peak_time", "simulated_peak_time", "hma",
         ]
         with (root / "results.csv").open("w", newline="", encoding="utf-8") as stream:
