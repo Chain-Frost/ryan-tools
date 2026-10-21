@@ -1068,3 +1068,76 @@ def test_real_deferred_materials_and_soils_are_primary_inputs(tmp_path: Path) ->
     report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "Q100"})])
     assert not report.passed
     assert any(issue.status == "unresolved" for issue in report.issues)
+
+
+
+def test_deferred_shapefile_network_attribute_sources_checked_once_per_run_group(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Shapefile network dependencies use the same batched checks as GeoPackages."""
+    import shapefile
+
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    source = tmp_path / "1d_nwk_test.shp"
+    with shapefile.Writer(str(source), shapeType=shapefile.POLYLINE) as writer:
+        for field_index in range(11):
+            writer.field(f"attr_{field_index}", "C", size=90)
+        values = [""] * 11
+        values[1], values[10] = "QO", "Gate_A | hydrograph.csv"
+        writer.null()
+        writer.record(*values)
+    linked = tmp_path / "hydrograph.csv"
+    linked.touch()
+
+    class Input:
+        lhs = "Read GIS Network"
+        file_references = (
+            types.SimpleNamespace(
+                path_pattern=source,
+                base_directory=tmp_path,
+                origin="Read GIS Network",
+                layer_pattern=None,
+                unresolved_variables=(),
+                requires_attribute_scan=True,
+                requires_database_scan=False,
+            ),
+        )
+
+        @property
+        def files(self) -> None:
+            msg = "Deferred input must not use eager .files"
+            raise AssertionError(msg)
+
+        def __str__(self) -> str:
+            return "Read GIS Network == 1d_nwk_test.shp"
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [] if lhs else [Input()]
+
+        def deferred_database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return ()
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    runs = [RunRequest(index, {"e1": str(index)}) for index in range(1, 25)]
+    report = check_simulation_inputs(tcf, runs)
+    assert report.passed, report.issues
+    assert report.attribute_databases_scanned == 1
+    assert report.checked_paths == {str(source), str(linked)}
+
+    linked.unlink()
+    failed = check_simulation_inputs(tcf, runs[:3])
+    assert not failed.passed
+    assert failed.attribute_databases_scanned == 1
+    assert failed.affected_runs == 3
+    assert len(failed.issues) == 3
+    assert all("hydrograph.csv" in issue.reference for issue in failed.issues)
