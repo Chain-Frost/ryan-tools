@@ -869,9 +869,7 @@ def test_real_deferred_nested_control_dependencies_are_not_silently_omitted(tmp_
     (tmp_path / children[1]).write_text("Read GIS Code == 2d_bc.shp\n", encoding="utf-8")
     (tmp_path / children[2]).write_text("Read GIS Code == 1d_code.shp\n", encoding="utf-8")
     tcf.write_text(
-        "Geometry Control File == geometry.tgc\n"
-        "BC Control File == boundary.tbc\n"
-        "ESTRY Control File == pipes.ecf\n",
+        "Geometry Control File == geometry.tgc\nBC Control File == boundary.tbc\nESTRY Control File == pipes.ecf\n",
         encoding="utf-8",
     )
     report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "Q100"})])
