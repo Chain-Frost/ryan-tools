@@ -231,7 +231,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     """Phase 1: resolve all run-specific inputs without existence checking."""
     references: list[_FileReference] = []
     unique: dict[Path, set[str]] = {}
-    seen: set[tuple[int, str, Path, str]] = set()
+    seen: set[tuple[int, str, Path, str, bool]] = set()
 
     def add_issue(run: RunRequest, origin: str, reference: str, detail: str) -> None:
         report.issues.append(PreflightIssue(run.index, run.description, "unresolved", origin, reference, detail))
