@@ -575,3 +575,117 @@ def test_real_pytuflow_deferred_context_smoke(tmp_path: Path) -> None:
     report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "01.0p"})])
     assert not report.passed
     assert any(issue.status == "missing" and "missing_code.shp" in issue.reference for issue in report.issues)
+
+
+def test_deferred_bc_sources_and_materials_are_resolved_without_eager_accessor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One event-specific source is missing; numeric materials introduce no secondary file."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    bc = tmp_path / "bc_dbase.csv"
+    mat = tmp_path / "materials.csv"
+    for path in (bc, mat, tmp_path / "hydro_01.csv"):
+        path.touch()
+
+    class Input:
+        def __init__(self, name: str, path: Path) -> None:
+            self.lhs = name
+            self.file_references = (
+                types.SimpleNamespace(
+                    path_pattern=path,
+                    base_directory=tmp_path,
+                    origin=name,
+                    layer_pattern=None,
+                    unresolved_variables=(),
+                    requires_attribute_scan=False,
+                    requires_database_scan=True,
+                ),
+            )
+
+        @property
+        def files(self) -> None:
+            message = "Deferred input.files must not be materialised"
+            raise AssertionError(message)
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def __init__(self, event: str) -> None:
+            self.event = event
+
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            inputs = [Input("BC Database", bc), Input("Read Materials File", mat)]
+            return [item for item in inputs if item.lhs.casefold() == lhs.casefold()] if lhs else inputs
+
+        def bc_dbase(self) -> None:
+            message = "No eager BC database accessor in deferred mode"
+            raise AssertionError(message)
+
+        def deferred_database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return (
+                types.SimpleNamespace(
+                    database_path=bc,
+                    database_kind="bc",
+                    entry_name="catchment",
+                    path_pattern=tmp_path / f"hydro_{self.event}.csv",
+                ),
+            )
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context("01" if "01.0p" in flags else "20")
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    runs = [RunRequest(1, {"e1": "01.0p"}), RunRequest(2, {"e1": "20.0p"})]
+    report = check_simulation_inputs(tcf, runs)
+    assert report.affected_runs == 1
+    assert len(report.issues) == 1
+    assert report.issues[0].run_index == 2
+    assert report.issues[0].status == "missing"
+    assert len(report.checked_paths) == 4
+
+
+def test_deferred_legacy_fork_without_database_api_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A partially updated PyTUFLOW must never certify a BC database."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    bc = tmp_path / "bc_dbase.csv"
+    bc.touch()
+
+    class Input:
+        lhs = "BC Database"
+        file_references = (
+            types.SimpleNamespace(
+                path_pattern=bc, base_directory=tmp_path, origin="BC Database",
+                layer_pattern=None, unresolved_variables=(),
+                requires_attribute_scan=False, requires_database_scan=True,
+            ),
+        )
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [Input()] if lhs is None or lhs.casefold() == "bc database" else []
+
+    class FakeTCF:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=FakeTCF))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "01.0p"})])
+    assert not report.passed
+    assert any(issue.status == "unresolved" for issue in report.issues)
