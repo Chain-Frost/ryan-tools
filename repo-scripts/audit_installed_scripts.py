@@ -97,7 +97,26 @@ def _import_time_call_names(module: ast.Module) -> list[str]:
     found: set[str] = set()
 
     def examine(node: ast.AST) -> None:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            # Bodies execute only when called, but decorators, defaults,
+            # annotations and type parameters run while defining the function.
+            examine(node.args)
+            if node.returns is not None:
+                examine(node.returns)
+            for expression in (*node.decorator_list, *node.type_params):
+                examine(expression)
+            return
+        if isinstance(node, ast.Lambda):
+            # Lambda defaults are evaluated at construction, not its body.
+            examine(node.args)
+            return
+        if isinstance(node, ast.ClassDef):
+            # Class bases, decorators and its body execute when defined;
+            # function bodies inside the class remain deferred as above.
+            for expression in (*node.decorator_list, *node.bases, *node.keywords, *node.type_params):
+                examine(expression)
+            for statement in node.body:
+                examine(statement)
             return
         if isinstance(node, ast.If) and _is_main_guard(node.test):
             # Only the true branch is protected. The else branch executes on

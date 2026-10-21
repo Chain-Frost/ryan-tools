@@ -176,3 +176,65 @@ def test_nested_import_side_effect_is_not_protected_by_inner_equality() -> None:
     record = inventory.analyse_python(source)
     assert record["main_guard"] is False
     assert record["import_time_mutation_calls"] == ["copy2"]
+
+
+
+def test_function_definition_time_mutations_are_flagged_without_execution() -> None:
+    """Defaults, decorators and annotations evaluate before the function runs."""
+    expressions = (
+        "@shutil.copy2('source', 'destination')\ndef method():\n    pass\n",
+        "def method(x=shutil.copy2('source', 'destination')):\n    pass\n",
+        "async def method(*, x=shutil.copy2('source', 'destination')):\n    pass\n",
+        "def method(x: shutil.copy2('source', 'destination')):\n    pass\n",
+        "def method() -> shutil.copy2('source', 'destination'):\n    pass\n",
+        "value = lambda x=shutil.copy2('source', 'destination'): 3\n",
+    )
+    for expression in expressions:
+        report = inventory.analyse_python("import shutil\n" + expression)
+        assert report["parse_status"] == "ok", expression
+        assert report["import_time_mutation_calls"] == ["copy2"], expression
+
+    safe = inventory.analyse_python(
+        "import shutil\n"
+        "def method():\n"
+        "    shutil.copy2('source', 'destination')\n"
+        "value = lambda: shutil.copy2('source', 'destination')\n"
+    )
+    assert safe["import_time_mutation_risk"] is False
+
+
+def test_class_definition_time_mutations_are_flagged_without_execution() -> None:
+    """Class bodies and bases execute during import, even for nested methods."""
+    expressions = (
+        "class Model:\n    shutil.copy2('source', 'destination')\n",
+        "@shutil.copy2('source', 'destination')\nclass Model:\n    pass\n",
+        "class Model(shutil.copy2('source', 'destination')):\n    pass\n",
+        "class Model(metaclass=shutil.copy2('source', 'destination')):\n    pass\n",
+        "class Model:\n"
+        "    def method(self, value=shutil.copy2('source', 'destination')):\n"
+        "        pass\n",
+    )
+    for expression in expressions:
+        report = inventory.analyse_python("import shutil\n" + expression)
+        assert report["parse_status"] == "ok", expression
+        assert report["import_time_mutation_calls"] == ["copy2"], expression
+
+    safe = inventory.analyse_python(
+        "import shutil\n"
+        "class Model:\n"
+        "    def method(self):\n"
+        "        shutil.copy2('source', 'destination')\n"
+    )
+    assert safe["import_time_mutation_risk"] is False
+
+
+def test_documentation_indexes_track_live_inventory_counts() -> None:
+    """Prevent stale 146-file documentation when scripts are added or removed."""
+    report = inventory.audit_repository(ROOT)
+    tracked = report["tracked_file_count"]
+    selected = report["selected_file_count"]
+    excluded = tracked - selected
+    docs = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
+    work = (ROOT / "docs" / "work" / "README.md").read_text(encoding="utf-8")
+    assert f"All {tracked} source paths; {selected} selected and {excluded} excluded" in docs
+    assert f"{tracked}-file lifecycle audit" in work
