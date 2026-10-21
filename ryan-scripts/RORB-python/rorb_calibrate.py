@@ -45,26 +45,32 @@ def values(text: str) -> list[Decimal]:
         for item in text.split(","):
             fields = [Decimal(part.strip()) for part in item.split(":")]
             if any(not part.is_finite() for part in fields):
-                raise ValueError("Values must be finite")
+                message = "Values must be finite"
+                raise ValueError(message)
             if len(fields) == 1:
                 result.append(fields[0])
             elif len(fields) == 3:
                 start, stop, step = fields
                 if step <= 0 or stop < start or (stop - start) % step != 0:
-                    raise ValueError("Ranges require positive steps and an inclusive exact endpoint")
+                    message = "Ranges require positive steps and an inclusive exact endpoint"
+                    raise ValueError(message)
                 if (stop - start) / step > 10_000:
-                    raise ValueError("Parameter range exceeds 10,001 entries")
+                    message = "Parameter range exceeds 10,001 entries"
+                    raise ValueError(message)
                 result.extend(start + step * i for i in range(int((stop - start) / step) + 1))
             else:
-                raise ValueError("Use comma-separated numbers or start:end:step")
+                message = "Use comma-separated numbers or start:end:step"
+                raise ValueError(message)
     except InvalidOperation as exc:
-        raise ValueError(f"Invalid numeric parameter: {text}") from exc
+        message = f"Invalid numeric parameter: {text}"
+        raise ValueError(message) from exc
     if not result:
-        raise ValueError("A parameter list cannot be empty")
+        message = "A parameter list cannot be empty"
+        raise ValueError(message)
     return list(dict.fromkeys(result))
 
 
-def parse_hydrographs(path: Path) -> dict[str, list[float]]:
+def parse_hydrographs(path: Path) -> dict[str, list[float]]:  # noqa: C901 -- strict table parser
     """Read a labelled Inc/Time/HydNNN numeric table from RORB text output.
 
     Fail on ambiguity rather than treating a second calculated hydrograph as
@@ -93,19 +99,23 @@ def parse_hydrographs(path: Path) -> dict[str, list[float]]:
                     break
                 continue
             if not all(math.isfinite(value) for value in numbers):
-                raise ValueError(f"Non-finite hydrograph values in {path}")
+                message = f"Non-finite hydrograph values in {path}"
+                raise ValueError(message)
             started = True
             for column, value in zip(columns, numbers, strict=True):
                 data[column].append(value)
         if data["Time"]:
             blocks.append(data)
     if not blocks:
-        raise ValueError(f"No Inc/Time hydrograph table found in {path}")
+        message = f"No Inc/Time hydrograph table found in {path}"
+        raise ValueError(message)
     if len(blocks) != 1:
-        raise ValueError(f"Found {len(blocks)} hydrograph tables in {path}; inspect manually")
+        message = f"Found {len(blocks)} hydrograph tables in {path}; inspect manually"
+        raise ValueError(message)
     data = blocks[0]
     if any(b <= a for a, b in itertools.pairwise(data["Time"])):
-        raise ValueError("Hydrograph times are not strictly increasing")
+        message = "Hydrograph times are not strictly increasing"
+        raise ValueError(message)
     return data
 
 
@@ -113,16 +123,19 @@ def csv_observations(path: Path, time_field: str, flow_field: str) -> tuple[list
     with path.open(encoding="utf-8-sig", newline="") as stream:
         reader = csv.DictReader(stream)
         if not reader.fieldnames or time_field not in reader.fieldnames or flow_field not in reader.fieldnames:
-            raise ValueError(f"Observed CSV requires columns {time_field!r}, {flow_field!r}")
+            message = f"Observed CSV requires columns {time_field!r}, {flow_field!r}"
+            raise ValueError(message)
         points = [(float(row[time_field]), float(row[flow_field])) for row in reader]
     if not points or not all(math.isfinite(t) and math.isfinite(q) for t, q in points):
-        raise ValueError("Observed CSV is empty or contains non-finite values")
+        message = "Observed CSV is empty or contains non-finite values"
+        raise ValueError(message)
     return [t for t, _ in points], [q for _, q in points]
 
 
 def score(observed: list[float], simulated: list[float], time: list[float]) -> dict[str, float]:
     if not observed or len(observed) != len(simulated) or len(time) != len(observed):
-        raise ValueError("Observed and simulated hydrographs require matching nonempty lengths")
+        message = "Observed and simulated hydrographs require matching nonempty lengths"
+        raise ValueError(message)
     squared = [((s - o) ** 2) for s, o in zip(simulated, observed, strict=True)]
     rmse = math.sqrt(mean(squared))
     obs_mean = mean(observed)
@@ -160,9 +173,9 @@ def render_par(catg: Path, stm: Path, case: Combination, m: Decimal, loss_model:
 
 
 def plot_hydrograph(path: Path, time: list[float], observed: list[float], simulated: list[float]) -> None:
-    import matplotlib
+    import matplotlib as mpl
 
-    matplotlib.use("Agg")
+    mpl.use("Agg")
     from matplotlib import pyplot as plt
 
     fig, ax = plt.subplots()
@@ -189,12 +202,15 @@ def evaluate_output(
     """Score a RORB output identically for archived and newly executed runs."""
     data = parse_hydrographs(output_file)
     if sim_column not in data:
-        raise ValueError(f"Modelled column {sim_column!r} missing; available: {list(data)}")
+        message = f"Modelled column {sim_column!r} missing; available: {list(data)}"
+        raise ValueError(message)
     if observed is None:
         if not obs_column or obs_column not in data:
-            raise ValueError(f"Observed column {obs_column!r} missing; available: {list(data)}")
+            message = f"Observed column {obs_column!r} missing; available: {list(data)}"
+            raise ValueError(message)
         if obs_column == sim_column:
-            raise ValueError("Modelled and observed columns must differ")
+            message = "Modelled and observed columns must differ"
+            raise ValueError(message)
         observed_flow = data[obs_column]
     else:
         reference_time, observed_flow = observed
@@ -202,11 +218,13 @@ def evaluate_output(
             not math.isclose(a, b, rel_tol=0, abs_tol=1e-6)
             for a, b in zip(reference_time, data["Time"], strict=True)
         ):
-            raise ValueError("Observed CSV times differ from RORB times; no implicit interpolation")
+            message = "Observed CSV times differ from RORB times; no implicit interpolation"
+            raise ValueError(message)
     simulated = data[sim_column]
     metrics = score(observed_flow, simulated, data["Time"])
     if hma:
         import numpy as np
+
         from vendor.PyHMA import HMA
 
         matching = HMA(
@@ -275,10 +293,12 @@ def run_one(
         (run_dir / "rorb_stdout.txt").write_text(process.stdout, encoding="utf-8")
         (run_dir / "rorb_stderr.txt").write_text(process.stderr, encoding="utf-8")
         if process.returncode != 0:
-            raise RuntimeError(f"RORB exited {process.returncode}; inspect rorb_stderr.txt")
+            message = f"RORB exited {process.returncode}; inspect rorb_stderr.txt"
+            raise RuntimeError(message)
         outputs = sorted(run_dir.glob("*.out"))
         if len(outputs) != 1:
-            raise RuntimeError(f"Expected exactly one .out in isolated run directory, found {len(outputs)}")
+            message = f"Expected exactly one .out in isolated run directory, found {len(outputs)}"
+            raise RuntimeError(message)
         result["output_report"] = str(outputs[0])
         result.update(
             evaluate_output(
@@ -294,7 +314,7 @@ def run_one(
             )
         )
         result["status"] = "success"
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 -- report any individual RORB failure without cancelling sweep
         result["error"] = f"{type(exc).__name__}: {exc}"
     return result
 
@@ -335,7 +355,7 @@ def parser() -> argparse.ArgumentParser:
     return p
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:  # noqa: C901 -- standalone CLI dispatch
     p = parser()
     args = p.parse_args(argv)
     try:
@@ -353,18 +373,23 @@ def main(argv: list[str] | None = None) -> int:
             # The archived-report mode deliberately never invokes RORB_CMD.
             # Retain exactly the same comparison path as active calibration.
             if not args.sim_column:
-                raise ValueError("--sim-column required to score an archived report")
+                message = "--sim-column required to score an archived report"
+                raise ValueError(message)
             if (args.obs_column is None) == (args.observed_csv is None):
-                raise ValueError("Provide exactly one of --obs-column or --observed-csv")
+                message = "Provide exactly one of --obs-column or --observed-csv"
+                raise ValueError(message)
             if args.obs_column == args.sim_column:
-                raise ValueError("Modelled and observed columns must differ")
+                message = "Modelled and observed columns must differ"
+                raise ValueError(message)
             if args.hma and (
                 args.hma_window < 1 or not math.isfinite(args.hma_weight) or args.hma_weight <= 0
             ):
-                raise ValueError("PyHMA window and weight must be positive")
+                message = "PyHMA window and weight must be positive"
+                raise ValueError(message)
             report_file = args.score_output.absolute()
             if not report_file.is_file():
-                raise FileNotFoundError(f"Archived report not found: {report_file}")
+                message = f"Archived report not found: {report_file}"
+                raise FileNotFoundError(message)
             reference = (
                 csv_observations(args.observed_csv.absolute(), args.obs_time, args.obs_flow)
                 if args.observed_csv
@@ -423,20 +448,26 @@ def main(argv: list[str] | None = None) -> int:
         catg, stm = args.catg.absolute(), args.stm.absolute()
         for path in (catg, stm):
             if not path.is_file():
-                raise FileNotFoundError(f"Required input file not found: {path}")
+                message = f"Required input file not found: {path}"
+                raise FileNotFoundError(message)
         if args.workers < 1 or args.timeout <= 0 or args.max_runs < 1:
-            raise ValueError("workers, timeout and max-runs must be positive")
+            message = "workers, timeout and max-runs must be positive"
+            raise ValueError(message)
         if args.hma and (args.hma_window < 1 or not math.isfinite(args.hma_weight) or args.hma_weight <= 0):
-            raise ValueError("PyHMA window and weight must be positive")
+            message = "PyHMA window and weight must be positive"
+            raise ValueError(message)
         m = Decimal(args.m)
         if not m.is_finite() or m <= 0:
-            raise ValueError("m must be positive and finite")
+            message = "m must be positive and finite"
+            raise ValueError(message)
         kcs, ils, continuing = values(args.kc), values(args.il), values(args.continuing)
         if min(kcs) <= 0 or min(ils) < 0 or min(continuing) < 0:
-            raise ValueError("Kc must be positive; losses must be nonnegative")
+            message = "Kc must be positive; losses must be nonnegative"
+            raise ValueError(message)
         run_count = len(kcs) * len(ils) * len(continuing)
         if run_count > args.max_runs:
-            raise ValueError(f"{run_count} runs exceeds --max-runs {args.max_runs}")
+            message = f"{run_count} runs exceeds --max-runs {args.max_runs}"
+            raise ValueError(message)
         runs = [Combination(kc, il, cont) for kc, il, cont in itertools.product(kcs, ils, continuing)]
         rorb_value = str(args.rorb)
         exe = Path(rorb_value)
@@ -448,13 +479,17 @@ def main(argv: list[str] | None = None) -> int:
             print("Preflight only: no processes launched and no output files created.")
             return 0 if executable is not None else 1
         if executable is None:
-            raise FileNotFoundError("RORB_CMD.exe not found; supply --rorb or add it to PATH")
+            message = "RORB_CMD.exe not found; supply --rorb or add it to PATH"
+            raise FileNotFoundError(message)
         if not args.sim_column:
-            raise ValueError("--sim-column required; identify it from a verified RORB .out file")
+            message = "--sim-column required; identify it from a verified RORB .out file"
+            raise ValueError(message)
         if (args.obs_column is None) == (args.observed_csv is None):
-            raise ValueError("Provide exactly one of --obs-column or --observed-csv")
+            message = "Provide exactly one of --obs-column or --observed-csv"
+            raise ValueError(message)
         if args.obs_column == args.sim_column:
-            raise ValueError("Modelled and observed columns must differ")
+            message = "Modelled and observed columns must differ"
+            raise ValueError(message)
         observed = (
             csv_observations(args.observed_csv.absolute(), args.obs_time, args.obs_flow)
             if args.observed_csv
