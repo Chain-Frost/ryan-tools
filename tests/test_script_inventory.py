@@ -374,3 +374,6 @@ def test_individual_lifecycle_ledger_tracks_manifest_and_mcp_targets() -> None:
         assert cells[1] == ("Yes" if entry["in_wheel"] else "No"), path
         assert cells[2] == ("Yes" if entry["mcp_workflow_ids"] else "No"), path
         assert all(cells[i] for i in (3, 4, 5)), path
+        assert cells[3] != "Not assessed", path
+        assert cells[4] != "Not assessed", path
+        assert cells[5] != "Not assessed", path
