@@ -159,7 +159,7 @@ def _command_name(input_command: object) -> str:
     return " ".join(str(lhs).casefold().split())
 
 
-def _collect_references(
+def _collect_references(  # noqa: C901 - event-aware collection and BC source traversal
     tcf: Path,
     runs: Sequence[RunRequest],
     model: _Model,
