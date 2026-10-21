@@ -837,15 +837,15 @@ def test_output_variable_assignments_are_not_input_dependencies(
 def test_real_deferred_output_root_variables_do_not_block_preflight(tmp_path: Path) -> None:
     """Resolve real nested output variables without treating destinations as source files."""
     tcf = tmp_path / "model.tcf"
-    (tmp_path / "existing.csv").touch()
+    (tmp_path / "2d_code.shp").touch()
     tcf.write_text(
         "Set Variable OutputBase == results\n"
         "Set Variable OutputRoot == ..\\<<OutputBase>>\n"
         "Set Variable XMDFBase == exports/report.xmdf\n"
         "Output Folder == <<OutputRoot>>\n"
-        "Read File == existing.csv\n",
+        "Read GIS Code == 2d_code.shp\n",
         encoding="utf-8",
     )
     report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "Q100"})])
     assert report.passed, report.issues
-    assert report.checked_paths == {str(tmp_path / "existing.csv")}
+    assert report.checked_paths == {str(tmp_path / "2d_code.shp")}
