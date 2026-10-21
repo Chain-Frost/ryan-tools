@@ -18,7 +18,7 @@ import pandas as pd
 from loguru import logger
 
 from ...functions.tuflow.dependency_index import check_unique_dependencies, expand_file_patterns
-from ...functions.tuflow.gis_attribute_dependencies import inspect_gis_attribute_sources
+from ...functions.tuflow.gis_attribute_dependencies import inspect_gis_attribute_sources, read_pit_inlet_database
 
 IssueStatus = Literal["missing", "unresolved"]
 
@@ -46,6 +46,9 @@ class _DeferredReference(Protocol):
 
     @property
     def requires_database_scan(self) -> bool: ...
+
+    @property
+    def database_kind(self) -> str | None: ...
 
 
 class _DeferredDatabaseSource(Protocol):
@@ -187,6 +190,7 @@ class _FileReference:
     path: Path
     layer: str = ""
     scan_attributes: bool = False
+    database_kind: str = ""
 
 
 # Commands whose resolved values are not source-file dependencies.
@@ -231,7 +235,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     """Phase 1: resolve all run-specific inputs without existence checking."""
     references: list[_FileReference] = []
     unique: dict[Path, set[str]] = {}
-    seen: set[tuple[int, str, Path, str, bool]] = set()
+    seen: set[tuple[int, str, Path, str, bool, str]] = set()
 
     def add_issue(run: RunRequest, origin: str, reference: str, detail: str) -> None:
         report.issues.append(PreflightIssue(run.index, run.description, "unresolved", origin, reference, detail))
@@ -246,6 +250,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         layer_override: str | None = None,
         allow_pattern: bool = False,
         scan_attributes: bool = False,
+        database_kind: str = "",
     ) -> None:
         raw = str(getattr(source, "dbpath", source)).strip()
         if (
@@ -264,10 +269,10 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         layer = str(getattr(source, "lyrname", "") or "") if require_layer and path.suffix.casefold() == ".gpkg" else ""
         if layer_override is not None and path.suffix.casefold() == ".gpkg":
             layer = layer_override
-        key = (run.index, origin, path, layer, scan_attributes)
+        key = (run.index, origin, path, layer, scan_attributes, database_kind)
         if key not in seen:
             seen.add(key)
-            references.append(_FileReference(run, origin, path, layer, scan_attributes))
+            references.append(_FileReference(run, origin, path, layer, scan_attributes, database_kind))
         if not any(char in path.name for char in "*?["):
             unique.setdefault(path, set())
             if layer:
@@ -319,6 +324,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                             if ref.requires_database_scan and not (
                                 database_sources_available
                                 and _command_name(inp) in {"bc database", "read materials file"}
+                                or getattr(ref, "database_kind", None) == "pit_inlet"
                             ):
                                 add_issue(
                                     run,
@@ -334,6 +340,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                                 layer_override=ref.layer_pattern or "",
                                 allow_pattern=True,
                                 scan_attributes=ref.requires_attribute_scan,
+                                database_kind=getattr(ref, "database_kind", None) or "",
                             )
                     except Exception as exc:  # noqa: BLE001 - incomplete references must fail closed
                         add_issue(run, origin, "", f"Could not collect deferred file references: {exc}")
@@ -489,7 +496,9 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
                 )
                 continue
             for path in expanded[ref.path]:
-                materialised.append(_FileReference(ref.run, ref.origin, path, ref.layer, ref.scan_attributes))
+                materialised.append(
+                    _FileReference(ref.run, ref.origin, path, ref.layer, ref.scan_attributes, ref.database_kind)
+                )
                 unique_paths.setdefault(path, set())
                 if ref.layer:
                     unique_paths[path].add(ref.layer)
@@ -499,6 +508,11 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     # This is a deliberate read-only bulk phase, never inside a run context.
     attribute_started = time.perf_counter()
     scan_references = [ref for ref in references if ref.scan_attributes]
+    pit_databases: dict[int, set[Path]] = {}
+    for ref in references:
+        if ref.database_kind == "pit_inlet":
+            pit_databases.setdefault(ref.run.index, set()).add(ref.path)
+    pit_database_cache: dict[Path, dict[str, Path] | str] = {}
     if scan_references:
         requests = {(ref.path, ref.layer) for ref in scan_references}
         inspected, scan_count = inspect_gis_attribute_sources(requests)
@@ -520,6 +534,56 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
                 continue
             for path in result.sources:
                 extra_references.append(_FileReference(ref.run, f"GIS attribute: {ref.origin}", path))
+            if result.identifiers:
+                available = pit_databases.get(ref.run.index, set())
+                if len(available) != 1:
+                    report.issues.append(
+                        PreflightIssue(
+                            ref.run.index,
+                            ref.run.description,
+                            "unresolved",
+                            ref.origin,
+                            str(ref.path),
+                            "Pit/Depth Discharge Database is absent or ambiguous for GIS identifiers",
+                        )
+                    )
+                    continue
+                database_path = next(iter(available))
+                if database_path not in pit_database_cache:
+                    try:
+                        pit_database_cache[database_path] = read_pit_inlet_database(database_path)
+                    except (OSError, UnicodeError, ValueError) as exc:
+                        pit_database_cache[database_path] = str(exc)
+                mappings = pit_database_cache[database_path]
+                if isinstance(mappings, str):
+                    report.issues.append(
+                        PreflightIssue(
+                            ref.run.index,
+                            ref.run.description,
+                            "unresolved",
+                            ref.origin,
+                            str(database_path),
+                            f"Could not resolve pit inlet database: {mappings}",
+                        )
+                    )
+                    continue
+                for identifier in result.identifiers:
+                    linked = mappings.get(identifier.casefold())
+                    if linked is None:
+                        report.issues.append(
+                            PreflightIssue(
+                                ref.run.index,
+                                ref.run.description,
+                                "unresolved",
+                                ref.origin,
+                                str(database_path),
+                                f"Pit/Depth Discharge Database has no entry for {identifier!r}",
+                            )
+                        )
+                        continue
+                    extra_references.append(
+                        _FileReference(ref.run, f"Pit/Depth Discharge: {identifier}", linked)
+                    )
 
         # File-valued GIS attributes may themselves contain wildcard paths.
         # Expand those patterns once across all simulations, not once per run.
