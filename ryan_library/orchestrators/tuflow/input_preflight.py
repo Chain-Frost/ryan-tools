@@ -455,10 +455,19 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                             # for unused inlet and depth/discharge curves.
                             continue
                         owner_file: Path | None = getattr(source, "owner_control_file", None)
+                        # Eager rainfall grid entries belong to the owning
+                        # Read Grid RF command, not to an invented command
+                        # named after each time-index row. Keep the row name
+                        # for the database kinds whose eager API exposes it.
+                        origin = (
+                            getattr(source, "owning_command", "") or "Read Grid RF"
+                            if kind == "rainfall"
+                            else f"{kind} source: {source.entry_name}"
+                        )
                         add_file(
                             run,
                             source.path_pattern,
-                            f"{kind} source: {source.entry_name}",
+                            origin,
                             owner_file.parent if owner_file is not None else source.database_path.parent,
                             require_layer=False,
                             layer_override=getattr(source, "layer_pattern", None) or "",
