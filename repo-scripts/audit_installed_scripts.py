@@ -97,6 +97,14 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
 
     def __init__(self, module: ast.Module) -> None:
         self.names: set[str] = set()
+        # Keep Python 3.13 semantics unless the source explicitly postpones
+        # annotation evaluation. The wheel still supports Python 3.13.
+        self.deferred_annotations = any(
+            isinstance(statement, ast.ImportFrom)
+            and statement.module == "__future__"
+            and any(alias.name == "annotations" for alias in statement.names)
+            for statement in module.body
+        )
         # Resolve direct imports without running the candidate. Aliased calls such
         # as `from shutil import copy2 as cp; cp(...)` must not bypass the scan.
         self.aliases: dict[str, str] = {}
@@ -110,9 +118,19 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
 
 
     def _visit_function_signature(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        self.visit(node.args)
-        if node.returns is not None:
-            self.visit(node.returns)
+        for expression in (*node.args.defaults, *node.args.kw_defaults):
+            if expression is not None:
+                self.visit(expression)
+        if not self.deferred_annotations:
+            for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs):
+                if arg.annotation is not None:
+                    self.visit(arg.annotation)
+            if node.args.vararg is not None and node.args.vararg.annotation is not None:
+                self.visit(node.args.vararg.annotation)
+            if node.args.kwarg is not None and node.args.kwarg.annotation is not None:
+                self.visit(node.args.kwarg.annotation)
+            if node.returns is not None:
+                self.visit(node.returns)
         for expression in (*node.decorator_list, *node.type_params):
             self.visit(expression)
 
