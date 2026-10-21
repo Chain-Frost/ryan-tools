@@ -42,7 +42,7 @@
 | `gdal-python/gdal_translate_TIF_ovr.py` | `translate_rasters_to_geotiff` | create; creates_outputs | GDAL raster conversion; --overwrite available, not in suggested scenarios; test FLT/ASC/TIF output. |
 | `gdal-python/gdaladdo_tif_pyramids.py` | `build_external_overviews` | create; creates_or_replaces_sidecars | Creates/refreshes .ovr sidecars; --refresh may replace sidecars; preserve source .tif. |
 | `gdal-python/gdal_raster_footprint.py` | `create_raster_footprints` | create; creates_outputs | Creates GPKG/SHP output; --overwrite available; test layer names and CRS. |
-| `gdal-python/batch_vector_clip.py` | `batch_vector_clip` | create; creates_outputs | Uses ogr2ogr subprocess; --overwrite, --dry-run and --executable supported; executable dependency not marked executes_external. |
+| `gdal-python/batch_vector_clip.py` | `batch_vector_clip` | privileged; executes_external | Executes ogr2ogr subprocess with bounded workers; --overwrite, --dry-run and --executable remain CLI options. Explicit approval required; executable presence is unverified. |
 | `gdal-python/gdal_stage_storage.py` | `calculate_stage_storage` | create; creates_outputs | Creates CSV/plots; --dry-run and --overwrite; not yet production-validated in wrapper comments. |
 | `gdal-python/gdalwarp_clip_to_polygon.py` | `clip_rasters_to_polygon` | create; creates_outputs | Uses GDAL Python osgeo import; verify availability inside QGIS/OSGeo4W environment and output safety. |
 | `gdal-python/split_vector_by_attribute.py` | `split_vector_by_attribute` | create; creates_outputs | Creates vector outputs, may replace using temp files; inspect input/output path handling. |
@@ -52,18 +52,18 @@
 1. **Corrected:** `audit_and_recompress_geotiffs` advertised `--replace --yes` in its default `create` catalogue. The MCP GDAL conversion now treats this workflow as `privileged`, `in_place` and explicitly approval-required; the underlying wrapper and manifest are unchanged. Read-only audit may still be run directly by a human, but a single mixed-capability MCP workflow cannot safely advertise an in-place scenario in `create`.
 2. **Corrected:** catalogue script targets now reject absolute, traversal, empty-segment and Windows-backslash paths before command discovery. GDAL script targets use the same validation.
 3. **Confirmed existing:** `run_tuflow_batch` and `delete_duplicate_tuflow_files` already have `help_safe=false` in the catalogue; never use `--help` as a discovery smoke for these wrappers. Both are privileged and require approval; the former has a configured real-run default, the latter can write audit files before deletion confirmation.
-4. **Needs subsequent engineering validation:** `batch_vector_clip` invokes `ogr2ogr` via subprocess but is currently classified by output mutation (`creates_outputs`), not `executes_external`. It provides explicit `--executable`, `--dry-run`, and `--overwrite` controls; verify failure safety and decide whether its externally executed nature warrants privileged classification before enabling production automation. No catalogue exposure change is proposed without that decision.
-5. **Needs subsequent engineering validation:** historic wrappers with editable or project-specific defaults may not be headless/portable despite declaring `--no-pause` or providing a discoverable path. Agent 1 owns lifecycle and installed-wrapper parity. No new scripts were exposed.
+4. **Corrected:** `batch_vector_clip` launches `ogr2ogr` subprocesses, and now requires `privileged` with explicit approval and `executes_external` mutation; its declared external program is `ogr2ogr`. CLI defaults remain unchanged, including `--dry-run` and `--overwrite`. Its existing overwrite implementation removes destination dataset members before promoting replacement sidecars, so replacement failure can lose prior outputs. **Do not approve `--overwrite` on production data until Agent 1 reviews and fixes rollback semantics.**
+5. **Corrected:** installed and checkout-based MCP discovery now refuses symlinked/junction-linked script files or path components rather than advertising a command into an arbitrary external file. This is a discovery policy, not a filesystem sandbox for independently run wrappers.\n6. **Needs subsequent engineering validation:** historic wrappers with editable or project-specific defaults may not be headless/portable despite declaring `--no-pause` or providing a discoverable path. Agent 1 owns lifecycle and installed-wrapper parity. No new scripts were exposed.
 
 ## Gate tracking
 
 | Gate | Current evidence | Still needed |
 | --- | --- | --- |
 | C — 33 target entries/metadata/path sanity | Per-target source and catalogue inspection, installed-file membership and catalogue regression tests | Individual default/parameter behavioural runs, versions, dependency import acceptance |
-| C — safety/profile separation | Regression for replacement, deletion, external execution and invalid paths | Maintainer sign-off for GDAL recompression profile change and subprocess-based vector clip |
-| C — installed wheel without checkout | Simulated site-packages layout + existing package CI smoke | Actual wheel isolation check in Windows acceptance document |
+| C — safety/profile separation | Regression for replacement, deletion, external execution, symlink/junction traversal and invalid paths | Maintainer sign-off for GDAL recompression profile change and subprocess-based vector clip |
+| C — installed wheel without checkout | Simulated site-packages layout + installed-wheel CI smoke | Actual wheel isolation check in Windows acceptance document |
 | F — spaces/Unicode/long path/UNC/mapped-drive | Disposable synthetic tests with opt-in Windows/share cases | Execution on Windows with real mapped drive and UNC test share |
-| F — applications | Static executable identification and mock-only checks | Real QGIS 4/GDAL, TUFLOW and HY-8 acceptance and input/output comparisons |
+| F — applications | Static executable identification, mock checks and opt-in executable-backed GDAL/OGR fixture tests | Real QGIS 4/GDAL, TUFLOW and HY-8 acceptance and input/output comparisons |
 
 See [Windows engineering acceptance](2026-10-21-cf-windows-acceptance.md) for runnable procedures. Record real executable versions, exact Python runtime, path kind, OS, stdout/stderr, exit codes, input hashes and evidence files when executed.
 
