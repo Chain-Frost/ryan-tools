@@ -248,8 +248,12 @@ def run_one(
     result: dict[str, Any] = {
         "run": index,
         "kc": str(case.kc),
+        "m": str(m),
+        "loss_model": loss_model,
         "il": str(case.il),
         "continuing": str(case.continuing),
+        "modelled_column": sim_column,
+        "observed_source": str(obs_column) if observed is None else "external CSV",
         "status": "failed",
         "error": "",
         "directory": str(run_dir),
@@ -488,8 +492,11 @@ def main(argv: list[str] | None = None) -> int:
                 cases.append(case_result)
                 print(f"[{len(cases)}/{len(jobs)}] {case_result['status']}: run {case_result['run']}")
         cases.sort(key=lambda row: (row["status"] != "success", row.get("rmse", math.inf), row["run"]))
-        fields = ["run", "kc", "il", "continuing", "status", "error", "directory", "rmse", "nse", "bias",
-                  "observed_peak", "simulated_peak", "observed_peak_time", "simulated_peak_time", "hma"]
+        fields = [
+            "run", "kc", "m", "loss_model", "il", "continuing", "modelled_column", "observed_source",
+            "status", "error", "directory", "rmse", "nse", "bias", "observed_peak",
+            "simulated_peak", "observed_peak_time", "simulated_peak_time", "hma",
+        ]
         with (root / "results.csv").open("w", newline="", encoding="utf-8") as stream:
             writer = csv.DictWriter(stream, fieldnames=fields)
             writer.writeheader()
