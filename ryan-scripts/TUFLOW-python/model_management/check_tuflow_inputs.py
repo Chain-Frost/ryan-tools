@@ -44,6 +44,11 @@ def main(
         f"{result.directories_scanned} directory scan(s), {result.individually_checked} direct file check(s), "
         f"{len(result.issues)} issue(s), {result.affected_runs} affected run(s)"
     )
+    print(
+        f"Timing: PyTUFLOW initial parse {result.parse_seconds:.2f}s; "
+        f"run contexts {result.context_seconds:.2f}s; "
+        f"unique-file inventory {result.inventory_seconds:.2f}s"
+    )
     print(f"Issues CSV: {output}")
     for issue in result.issues[:20]:
         print(f"[{issue.status.upper()}] run {issue.run_index} {issue.origin}: {issue.reference} {issue.detail}")
