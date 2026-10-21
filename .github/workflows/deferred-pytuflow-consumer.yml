@@ -27,6 +27,6 @@ jobs:
       - name: Install ryan-tools development dependencies
         run: python -m pip install -e ".[dev]"
       - name: Replace published PyTUFLOW with pinned deferred fork
-        run: python -m pip install --no-deps --force-reinstall "git+https://github.com/phantom-branch/PyTuflow.git@3a3cfa898955b413abfec92709758c3f26e55c77"
+        run: python -m pip install --no-deps --force-reinstall "git+https://github.com/phantom-branch/PyTuflow.git@1c300a7013522f177de07e68f27f3824a3ba8177"
       - name: Verify fork deferred API and consumer regression tests
         run: python -m pytest -q tests/orchestrators/tuflow/test_input_preflight.py
