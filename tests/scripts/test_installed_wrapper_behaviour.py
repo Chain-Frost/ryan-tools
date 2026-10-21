@@ -9,12 +9,12 @@ installed wheel in `repo-scripts/smoke_test_installed_wheel.py`.
 from __future__ import annotations
 
 import csv
-from contextlib import closing
 import hashlib
 import shutil
 import sqlite3
 import subprocess
 import sys
+from contextlib import closing
 from pathlib import Path
 
 import pytest
