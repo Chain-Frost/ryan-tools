@@ -324,7 +324,10 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                             if ref.requires_database_scan and not (
                                 (
                                     database_sources_available
-                                    and _command_name(inp) in {"bc database", "read materials file"}
+                                    and (
+                                        _command_name(inp) in {"bc database", "read materials file"}
+                                        or getattr(ref, "database_kind", None) == "soils"
+                                    )
                                 )
                                 or getattr(ref, "database_kind", None) == "pit_inlet"
                             ):
