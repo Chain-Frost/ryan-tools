@@ -97,6 +97,7 @@ def test_external_execution_never_implies_validated_application() -> None:
         "tuflow_culvert_evaluate_1d_nwk_hy8",
         "tuflow_asc2asc_groups",
         "run_tuflow_batch",
+        "batch_vector_clip",
     } <= external_ids
     for workflow_id in external_ids:
         details = registry.get_workflow(workflow_id)
@@ -119,6 +120,10 @@ def test_replace_and_delete_workflows_require_privileged_approval() -> None:
         assert details["profile"] == "privileged"
         assert details["requires_explicit_approval"] is True
     assert registry.get_workflow("audit_and_recompress_geotiffs")["mutation"] == "in_place"
+    clipping = registry.get_workflow("batch_vector_clip")
+    assert clipping["mutation"] == "executes_external"
+    assert clipping["external_prerequisites"]["status"] == "not_verified"
+    assert clipping["external_prerequisites"]["declared_program"] == "ogr2ogr"
 
 
 def test_default_profile_hides_all_in_place_deleting_and_external_workflows() -> None:
@@ -146,3 +151,45 @@ def test_unsafe_legacy_entrypoints_never_advertise_a_help_command(
         assert details["requires_explicit_approval"] is True
         assert details["metadata"]["help_safe"] is False
         assert details["help_command"] is None
+
+
+def test_linked_installed_script_is_unavailable_and_never_returned_as_a_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "site-packages" / "ryan-scripts"
+    wrapper = root / "TUFLOW-python" / "log_processing" / "create_log_summary_report.py"
+    wrapper.parent.mkdir(parents=True)
+    external = tmp_path / "outside_script.py"
+    external.write_text("raise RuntimeError('must never execute')\\n", encoding="utf-8")
+    try:
+        wrapper.symlink_to(external)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Symlink creation unavailable on this Windows host: {exc}")
+
+    monkeypatch.setattr(registry_module, "installed_scripts_directory", lambda: root)
+    registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, discover_repository=False)
+    detail = registry.get_workflow("tuflow_log_summary")
+    assert detail["available"] is False
+    assert "command_prefix" not in detail
+    assert "linked or junction-traversing" in detail["error"]
+    assert external.read_text(encoding="utf-8").startswith("raise RuntimeError")
+
+
+def test_linked_script_directory_is_not_traversed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "site-packages" / "ryan-scripts"
+    link = root / "TUFLOW-python"
+    root.mkdir(parents=True)
+    external = tmp_path / "external scripts"
+    wrapper = external / "log_processing" / "create_log_summary_report.py"
+    wrapper.parent.mkdir(parents=True)
+    wrapper.write_text("# do not run external wrapper\\n", encoding="utf-8")
+    try:
+        link.symlink_to(external, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Directory symlinks unavailable on this Windows host: {exc}")
+
+    monkeypatch.setattr(registry_module, "installed_scripts_directory", lambda: root)
+    registry = WorkflowRegistry(discover_repository=False)
+    detail = registry.get_workflow("tuflow_log_summary")
+    assert detail["available"] is False
+    assert "linked or junction-traversing" in detail["error"]
