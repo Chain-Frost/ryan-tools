@@ -51,7 +51,8 @@ def _attribute_file_paths(value: str, *, network_m: bool, parent: Path) -> tuple
     if not raw:
         return ()
     if "<<" in raw or ">>" in raw:
-        raise ValueError("Unexpanded variable or ambiguous GIS attribute reference")
+        message = "Unexpanded variable or ambiguous GIS attribute reference"
+        raise ValueError(message)
     if "|" in raw:
         operation, reference = (part.strip() for part in raw.split("|", maxsplit=1))
         values = (operation, reference) if network_m else (reference,)
@@ -60,7 +61,8 @@ def _attribute_file_paths(value: str, *, network_m: bool, parent: Path) -> tuple
     paths: list[Path] = []
     for item in values:
         if not item:
-            raise ValueError("Empty GIS attribute file reference")
+            message = "Empty GIS attribute file reference"
+            raise ValueError(message)
         # TUFLOW interprets an initial slash as relative to the source
         # layer's directory; retain absolute Windows drives/UNC shares.
         windows_absolute = bool(re.match(r"^[A-Za-z]:[\\/]", item) or item.startswith("\\\\"))
@@ -71,21 +73,26 @@ def _attribute_file_paths(value: str, *, network_m: bool, parent: Path) -> tuple
         if not candidate.is_absolute() and not windows_absolute:
             candidate = parent / candidate
         if windows_absolute and os.name != "nt":
-            raise ValueError("Windows absolute attribute reference requires Windows inspection")
+            message = "Windows absolute attribute reference requires Windows inspection"
+            raise ValueError(message)
         paths.append(candidate.absolute())
     return tuple(paths)
 
 
-def _scan_layer(connection: sqlite3.Connection, layer: str, geometry_type: str, path: Path) -> tuple[Path, ...]:
+def _scan_layer(  # noqa: C901 - feature schema, channel and field validation
+    connection: sqlite3.Connection, layer: str, geometry_type: str, path: Path
+) -> tuple[Path, ...]:
     """Read only relevant attribute fields; do not fetch geometry blobs."""
     index = _file_field_index(layer)
     if index is None:
-        raise ValueError(f"Unsupported GIS attribute-linked layer type: {layer}")
+        message = f"Unsupported GIS attribute-linked layer type: {layer}"
+        raise ValueError(message)
     network = bool(re.match(r"^1d_nwk[eb]?_", layer, flags=re.IGNORECASE))
     if network and geometry_type.casefold() not in {"linestring", "multilinestring"}:
         if geometry_type.casefold() != "geometry":
             return ()  # A known non-line geometry cannot be an M/Q network channel.
-        raise ValueError("Mixed or unknown network geometry requires feature-level inspection")
+        message = "Mixed or unknown network geometry requires feature-level inspection"
+        raise ValueError(message)
     quoted = _quote_identifier(layer)
     columns = [
         (name, pk)
@@ -99,28 +106,38 @@ def _scan_layer(connection: sqlite3.Connection, layer: str, geometry_type: str, 
         )
     }
     if not geom_names:
-        raise ValueError(f"GeoPackage layer geometry column is unavailable: {layer}")
+        message = f"GeoPackage layer geometry column is unavailable: {layer}"
+        raise ValueError(message)
     # OGR attributes exclude the GeoPackage feature ID and geometry column.
     attrs = [name for name, pk in columns if not pk and str(name).casefold() not in geom_names]
     if len(attrs) <= index or (network and len(attrs) <= 1):
-        raise ValueError(f"Required file-reference attribute index {index} absent from {layer}")
+        message = f"Required file-reference attribute index {index} absent from {layer}"
+        raise ValueError(message)
     field = _quote_identifier(str(attrs[index]))
     second = _quote_identifier(str(attrs[1])) if network else ""
-    sql = f"SELECT {second}, {field} FROM {quoted}" if network else f"SELECT {field} FROM {quoted}"
+    # Each SQL identifier came from SQLite metadata and was double-quoted by
+    # _quote_identifier; values are never interpolated into SQL statements.
+    sql = (  # noqa: S608 - quoted database-sourced identifiers only
+        f"SELECT {second}, {field} FROM {quoted}"
+        if network
+        else f"SELECT {field} FROM {quoted}"
+    )
     sources: set[Path] = set()
     for row in connection.execute(sql):
         candidate_value = row[-1]
         if candidate_value is None or candidate_value == "":
             continue
         if not isinstance(candidate_value, str):
-            raise ValueError(f"Non-text GIS file-reference attribute in {layer}")
+            message = f"Non-text GIS file-reference attribute in {layer}"
+            raise ValueError(message)
         is_m = False
         if network:
             channel = row[0]
             if channel is None:
                 continue
             if not isinstance(channel, str):
-                raise ValueError(f"Invalid network channel type in {layer}")
+                message = f"Invalid network channel type in {layer}"
+                raise ValueError(message)
             if not channel.casefold().startswith(("m", "q")):
                 continue
             is_m = channel.casefold().startswith("m")
@@ -128,7 +145,7 @@ def _scan_layer(connection: sqlite3.Connection, layer: str, geometry_type: str, 
     return tuple(sorted(sources))
 
 
-def inspect_gis_attribute_sources(
+def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspection and error routing
     requests: Collection[tuple[Path, str]],
 ) -> tuple[dict[tuple[Path, str], AttributeInspection], int]:
     """Scan distinct GeoPackage/layer patterns, one read-only open per GeoPackage.
@@ -159,7 +176,8 @@ def inspect_gis_attribute_sources(
                     )
                 }
                 if not available:
-                    raise ValueError("No vector layer metadata in GeoPackage")
+                    message = "No vector layer metadata in GeoPackage"
+                    raise ValueError(message)
                 scanned: dict[str, tuple[Path, ...]] = {}
                 for selector in selectors:
                     key = (path, selector)
