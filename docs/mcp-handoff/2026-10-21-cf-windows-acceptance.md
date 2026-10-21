@@ -169,7 +169,32 @@ does not establish QGIS 4 desktop plugin, TUFLOW, HY-8, large-file or network
 storage acceptance. Run the same tests with `TMP`/`TEMP` directed to a
 dedicated network-share scratch directory only when the share is authorised.
 
-## 8. External functional acceptance (authorised disposable copies only)
+## 8. Opt-in actual QGIS 4 Python-provider acceptance
+
+These checks launch a **separate, real QGIS process**, not a mocked import,
+and verify QGIS major version 4, the OGR provider, one synthetic GeoJSON
+feature, and unchanged input bytes. A second check invokes
+`qgis_process --version`. Run only with a configured QGIS 4 environment:
+
+```powershell
+$env:RYAN_CF_QGIS_ACCEPTANCE = '1'
+# Supply the actual QGIS/OSGeo4W Python and qgis_process paths from this workstation.
+# $env:RYAN_CF_QGIS_PYTHON = 'C:\OSGeo4W\bin\python-qgis.bat'
+# $env:RYAN_CF_QGIS_PROCESS = 'C:\OSGeo4W\bin\qgis_process.exe'
+python -m pytest -q tests/mcp/test_real_qgis4_acceptance.py -rs
+Remove-Item Env:RYAN_CF_QGIS_ACCEPTANCE
+Remove-Item Env:RYAN_CF_QGIS_PYTHON -ErrorAction SilentlyContinue
+Remove-Item Env:RYAN_CF_QGIS_PROCESS -ErrorAction SilentlyContinue
+```
+
+Expected: **2 passes**, no skips once enabled; missing or misconfigured
+QGIS imports or the wrong major version are failures. A QGIS Python wrapper
+such as `python-qgis.bat` may require additional environment preparation
+and must accept `-c` with the fixture script. These checks do **not** verify
+the desktop plugin, project styling, QGIS MCP bridge, or proprietary layers.
+Validate the QGIS MCP `ping` and `diagnose` in the running desktop session.
+
+## 9. External functional acceptance (authorised disposable copies only)
 
 | Tool | Acceptance action | Evidence / failure criteria |
 | --- | --- | --- |
