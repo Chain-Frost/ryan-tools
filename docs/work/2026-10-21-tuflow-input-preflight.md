@@ -153,3 +153,37 @@ end-to-end nested-tree test as well. Recheck runs 1, 221 and 440 against
 materialised eager/deferred file-and-layer identities on Windows Python 3.14,
 then run all 440 only if the representative parity gate passes. Preflight
 remains opt-in; do not merge or switch the production dependency.
+
+
+## Higginsville all-440 parity achieved; GIS attributes bulk phase (21 October 2026)
+
+Local Windows Python 3.14.5 results in PR #143 comment 6312917098 and
+PyTUFLOW PR #1 comment 6312929632 confirm **0 eager/deferred path+layer
+differences across all 440 runs**: 8,360 materialised run/path/layer
+entries, 62 physical unique files in both modes. The historical
+63rd eager token is the same BC database through UNC and mapped Q: aliases.
+The corrected deferred generation took 93.513s versus 174.103s eager
+(1.86x) while avoiding 3,969 repeated GIS/pyogrio/SQLite operations of
+each kind. The previously missing nine nested TGC/TBC/ECF inputs per
+run are recovered.
+
+The only outstanding preflight issues were exactly 440 Read GIS Network
+attribute-linked cases. PR #143 now adds a read-only GeoPackage attribute
+bulk scan in ryan_library/functions/tuflow/gis_attribute_dependencies.py.
+It selects only fields which can refer to secondary sources, groups all
+simulation requests by database/layer, scans each distinct GeoPackage
+once, adds discovered secondary files (and filename wildcard expansions)
+to the normal shared inventory, and reports per-run missing files.
+Mixed/unknown geometry, unknown layers, unsupported Shapefile/MIF sources,
+missing attribute fields and unexpanded source variables remain UNRESOLVED.
+Tests include 440 synthetic runs sharing one GeoPackage, M/Q network
+source examples, linked-file deletion, invalid schemas and wildcard layers.
+
+**Remaining validation:** The new scanner has not been run on the local
+Higginsville data. Repeat representative runs and then all 440 on the
+current PR head; verify the 440 previous Read GIS Network findings are
+now either resolved with checked secondary files or remain documented
+schema-specific exceptions. Do not claim the overall preflight passes
+until the local report has no missing/unresolved requirements.
+Run the separate 42-run output-variable model unchanged. No merge or
+automatic enforcement until local and CI gates complete.
