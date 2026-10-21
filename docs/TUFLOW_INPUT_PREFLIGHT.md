@@ -94,16 +94,20 @@ exceeding the scan cap fails closed as unresolved. GeoPackage layer patterns (in
 may require a separate directory scan before the ordinary exact-file inventory;
 they are not yet guaranteed to share one scan.
 
-**Incomplete dependency materialisation remains a blocker:** references marked as
-needing GIS attribute inspection or non-BC database-linked source inspection produce
-unresolved preflight findings rather than a false passing result. BC database Source rows
-are processed separately using the active event context. Full parity against eager
-PyTUFLOW for nested/attribute-linked files is not yet established.
+The validated fork now exposes `deferred_database_sources()`: it uses cached,
+initially parsed BC and materials database rows and PyTUFLOW's event/scenario
+translation to describe secondary source-file patterns. The consumer adds those
+patterns to the shared file inventory, without calling the eager
+`context.bc_dbase()` accessor or `input.files` in deferred mode. Unknown database
+kinds, unavailable APIs, unresolved database rows and GIS attribute-linked
+references **fail closed**. Numeric-only materials CSVs are no longer
+unconditionally marked unresolved when the new API succeeds. Full parity for
+nested/attribute-linked and unsupported database files remains to be established.
 
 The normal `ryan-tools` package still depends on published `pytuflow>=1.2,<2`.
 When that installation lacks `file_resolution`, the previous eager discovery remains
 available with a warning. For integration validation, the dedicated `.github/workflows/deferred-pytuflow-consumer.yml`
-installs the fork pinned at `6784162da7ed0389ae8efafa6af138d10deecaeb`
+installs the fork pinned at `071dcd74246abeec4c248066eac89692751952b8`
 on Windows/Python 3.13, sets `RYAN_TEST_DEFERRED_PYTUFLOW=1`, and exercises the
 real API through a gated smoke test. Do not replace the production PyPI dependency
 with an unreleased GitHub branch.
