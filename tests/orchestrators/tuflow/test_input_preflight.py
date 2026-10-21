@@ -689,3 +689,47 @@ def test_deferred_legacy_fork_without_database_api_fails_closed(
     report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "01.0p"})])
     assert not report.passed
     assert any(issue.status == "unresolved" for issue in report.issues)
+
+
+@pytest.mark.skipif(
+    os.environ.get("RYAN_TEST_DEFERRED_PYTUFLOW") != "1",
+    reason="The real fork database test requires a pinned deferred PyTUFLOW checkout",
+)
+def test_real_pytuflow_event_sources_and_materials(tmp_path: Path) -> None:
+    """Verify actual BC event substitution and numeric-only materials end to end."""
+    from pytuflow import TCF
+
+    assert hasattr(TCF, "context")
+    tcf = tmp_path / "model.tcf"
+    (tmp_path / "events.tef").write_text(
+        "Define Event == Q100\n"
+        "    BC Event Source == _event_ | 100yr\n"
+        "End Define\n"
+        "Define Event == QPMF\n"
+        "    BC Event Source == _event_ | PMFyr\n"
+        "End Define\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "bc_dbase.csv").write_text(
+        "Name,Source,Column 1,Column 2,Add Col 1,Mult Col 2,Add Col 2,Column 3,Column 4\n"
+        "FC01,_event__001.csv,time,value,,,,,\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "materials.csv").write_text(
+        "Material ID,Manning's n,Rainfall Losses,Land Use Hazard ID,SRF,Fraction Impervious\n"
+        "1,0.03,0,0,0,0\n",
+        encoding="utf-8",
+    )
+    tcf.write_text(
+        "Event File == events.tef\n"
+        "BC Database == bc_dbase.csv\n"
+        "Read Materials File == materials.csv | 0.8\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "100yr_001.csv").touch()
+    (tmp_path / "PMFyr_001.csv").touch()
+    report = check_simulation_inputs(
+        tcf, [RunRequest(1, {"e1": "Q100"}), RunRequest(2, {"e1": "QPMF"})]
+    )
+    assert report.passed, report.issues
+    assert len(report.checked_paths) == 5
