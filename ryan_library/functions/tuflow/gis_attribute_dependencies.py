@@ -136,12 +136,15 @@ def _scan_layer(  # noqa: C901 - safety-critical channel classification
         value = row[-1]
         if network and isinstance(row[1], str) and row[1].strip().casefold() in {"y", "t"}:
             continue
+        kind = row[0].strip().upper() if (network or pit) and isinstance(row[0], str) else ""
         if value is None or value == "":
+            if (network and kind in {"M", "Q", "QO", "P"}) or (pit and kind in {"Q", "VPI", "I"}):
+                message = f"Required inlet matrix or curve identifier is blank in {layer}"
+                raise ValueError(message)
             continue
         if not isinstance(value, str):
             message = f"Non-text GIS file-reference attribute in {layer}"
             raise ValueError(message)
-        kind = row[0].strip().upper() if (network or pit) and isinstance(row[0], str) else ""
         if network:
             if kind in {"Q", "P"}:
                 database_identifiers.add(value.strip())
