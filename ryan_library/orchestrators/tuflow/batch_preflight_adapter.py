@@ -205,6 +205,7 @@ class _ContextView:
             raise ValueError(message)
         return self._sources
 
+
 class BatchModelView:
     """Single-use replay of an exact, ordered batch against existing collector."""
 
