@@ -255,35 +255,26 @@ def _is_non_input_command(input_command: object) -> bool:
 
 
 
-def _bc_source_command(name: str) -> bool:
-    """Commands whose GIS Name attribute selects an active hydraulic BC row.
+class _BCActivation(Protocol):
+    sequence: int
+    input_uuid: str
+    database_kind: str
 
-    This is intentionally narrower than all GIS inputs: link/code/geometry
-    layers without BC semantics must not inherit arbitrary database entries.
-    """
-    return (
-        name == "read gis bc"
-        or name.startswith("read gis bc ")
-        or name == "read gis sa"
-        or name.startswith("read gis sa ")
-        or name == "read gis rf"
-        or name.startswith("read gis rf ")
+
+def _bc_source_command(name: str) -> bool:
+    """Recognised boundary GIS commands whose Name selects an active BC row."""
+    return name in {"read gis bc", "read gis sa", "read gis rf"} or name.startswith(
+        ("read gis bc ", "read gis sa ", "read gis rf ")
     )
 
 
-def _selected_bc_uuid(
-    position: int, activations: Sequence[object], *, default_uuid: str = ""
-) -> str:
-    """Find the most recent BC activation at the GIS command's stream index."""
-    eligible = [a for a in activations if getattr(a, "database_kind", None) == "bc"
-                and int(getattr(a, "sequence")) < position]
+def _selected_bc_uuid(position: int, activations: Sequence[_BCActivation]) -> str:
+    """Find the last applicable, scope-filtered declaration in command order."""
+    eligible = [a for a in activations if a.database_kind == "bc" and a.sequence < position]
     if eligible:
-        return str(getattr(max(eligible, key=lambda a: int(getattr(a, "sequence"))), "input_uuid"))
-    # One TCF-level default can be established before nested BC subfiles;
-    # multiple candidates or local reorderings cannot be guessed.
-    if default_uuid:
-        return default_uuid
-    raise ValueError("Read GIS BC/SA/RF has no unambiguous active BC Database declaration")
+        return max(eligible, key=lambda a: a.sequence).input_uuid
+    message = "Read GIS BC/SA/RF has no unambiguous active BC Database declaration"
+    raise ValueError(message)
 
 
 def _collect_references(  # noqa: C901 - event-aware collection and BC source traversal
@@ -379,7 +370,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             declarations = [(i, inp) for i, inp in enumerate(inputs)
                             if _command_name(inp) == "bc database"]
             multi_bc = deferred_supported and len(declarations) > 1
-            bc_activations: tuple[object, ...] = ()
+            bc_activations: tuple[_BCActivation, ...] = ()
             if multi_bc:
                 activation_reader = getattr(context, "deferred_database_activations", None)
                 source_reader_for_activation = getattr(context, "deferred_database_sources_for_activation", None)
@@ -387,19 +378,20 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                     raise ValueError("BC declaration selection requires PyTUFLOW activation APIs")
                 bc_activations = tuple(activation_reader())
                 declared = {(position, str(getattr(inp, "uuid", ""))) for position, inp in declarations}
-                actual = {(int(getattr(a, "sequence")), str(getattr(a, "input_uuid")))
+                actual = {(a.sequence, a.input_uuid)
                           for a in bc_activations if getattr(a, "database_kind", None) == "bc"}
                 if actual != declared:
                     raise ValueError("BC database declaration sequence/UUID mismatch")
                 for _, declaration in declarations:
-                    uuid = str(getattr(declaration, "uuid"))
+                    uuid = str(declaration.uuid)
                     by_name: dict[str, Path] = {}
                     for source in source_reader_for_activation(uuid):
                         if source.database_kind != "bc" or not source.entry_name.strip():
                             raise ValueError("Unclassified BC database Source row")
                         key = source.entry_name.strip().casefold()
                         if key in by_name:
-                            raise ValueError(f"Duplicate BC identifier {source.entry_name!r}")
+                            message = f"Duplicate BC identifier {source.entry_name!r}"
+                            raise ValueError(message)
                         by_name[key] = Path(source.path_pattern).absolute()
                     report.bc_activation_sources[(run.index, uuid)] = by_name
             for position, inp in enumerate(inputs):
@@ -552,8 +544,8 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                         sources = tuple(
                             source
                             for activation in bc_activations
-                            if getattr(activation, "database_kind", None) != "bc"
-                            for source in selected_reader(str(getattr(activation, "input_uuid")))
+                            if activation.database_kind != "bc"
+                            for source in selected_reader(activation.input_uuid)
                         )
                     else:
                         sources = context.deferred_database_sources() if deferred_supported else context.database_sources()
