@@ -734,6 +734,11 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     model: _Model = factory(str(tcf.absolute()))
     report.parse_seconds = time.perf_counter() - start
 
+    # Context timing includes the upstream batch call and projection setup,
+    # not just re-reading the batch result through the common collector.
+    # Otherwise a batch timing would misleadingly omit its main CPU work.
+    start = time.perf_counter()
+
     # The experimental optimisation is deliberately explicit. Never silently
     # fall back to individual mode if the upstream fork lacks the batch API:
     # a caller requesting comparative validation must see that incompatibility.
@@ -742,9 +747,8 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
         batch_view = BatchModelView(model, tuple(run.arguments for run in runs))
         model = cast(_Model, batch_view)
 
-    # Phase 1: PyTUFLOW run-state resolution; this can itself access files.
-    # Time it separately from the explicit deduplicated filesystem inventory.
-    start = time.perf_counter()
+    # Phase 1: PyTUFLOW run-state resolution or batch projection, plus
+    # collection of all references before the shared physical inventory.
     references, unique_paths = _collect_references(tcf.absolute(), runs, model, report)
     if batch_view is not None:
         batch_view.assert_consumed()
