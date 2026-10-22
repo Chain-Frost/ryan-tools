@@ -176,6 +176,8 @@ class PreflightReport:
     attribute_seconds: float = 0.0
     raster_files_scanned: int = 0
     raster_seconds: float = 0.0
+    # Run/activation-scoped BC Source rows, populated from PyTUFLOW's cached tables.
+    bc_activation_sources: dict[tuple[int, str], dict[str, Path]] = field(default_factory=dict)
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
@@ -216,6 +218,7 @@ class _FileReference:
     database_kind: str = ""
     scan_raster_metadata: bool = False
     scan_table_links: bool = False
+    bc_activation_uuid: str = ""
 
 
 # Commands whose resolved values are not source-file dependencies.
@@ -251,6 +254,38 @@ def _is_non_input_command(input_command: object) -> bool:
     return name in _NON_INPUT_FILE_COMMANDS or name.startswith("set variable ")
 
 
+
+def _bc_source_command(name: str) -> bool:
+    """Commands whose GIS Name attribute selects an active hydraulic BC row.
+
+    This is intentionally narrower than all GIS inputs: link/code/geometry
+    layers without BC semantics must not inherit arbitrary database entries.
+    """
+    return (
+        name == "read gis bc"
+        or name.startswith("read gis bc ")
+        or name == "read gis sa"
+        or name.startswith("read gis sa ")
+        or name == "read gis rf"
+        or name.startswith("read gis rf ")
+    )
+
+
+def _selected_bc_uuid(
+    position: int, activations: Sequence[object], *, default_uuid: str = ""
+) -> str:
+    """Find the most recent BC activation at the GIS command's stream index."""
+    eligible = [a for a in activations if getattr(a, "database_kind", None) == "bc"
+                and int(getattr(a, "sequence")) < position]
+    if eligible:
+        return str(getattr(max(eligible, key=lambda a: int(getattr(a, "sequence"))), "input_uuid"))
+    # One TCF-level default can be established before nested BC subfiles;
+    # multiple candidates or local reorderings cannot be guessed.
+    if default_uuid:
+        return default_uuid
+    raise ValueError("Read GIS BC/SA/RF has no unambiguous active BC Database declaration")
+
+
 def _collect_references(  # noqa: C901 - event-aware collection and BC source traversal
     tcf: Path,
     runs: Sequence[RunRequest],
@@ -260,7 +295,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     """Phase 1: resolve all run-specific inputs without existence checking."""
     references: list[_FileReference] = []
     unique: dict[Path, set[str]] = {}
-    seen: set[tuple[int, str, Path, str, bool, str, bool, bool]] = set()
+    seen: set[tuple[int, str, Path, str, bool, str, bool, bool, str]] = set()
 
     def add_issue(run: RunRequest, origin: str, reference: str, detail: str) -> None:
         report.issues.append(PreflightIssue(run.index, run.description, "unresolved", origin, reference, detail))
@@ -278,6 +313,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         database_kind: str = "",
         scan_raster_metadata: bool = False,
         scan_table_links: bool = False,
+        bc_activation_uuid: str = "",
     ) -> None:
         raw = str(getattr(source, "dbpath", source)).strip()
         if (
@@ -296,12 +332,16 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         layer = str(getattr(source, "lyrname", "") or "") if require_layer and path.suffix.casefold() == ".gpkg" else ""
         if layer_override is not None and path.suffix.casefold() == ".gpkg":
             layer = layer_override
-        key = (run.index, origin, path, layer, scan_attributes, database_kind, scan_raster_metadata, scan_table_links)
+        key = (
+            run.index, origin, path, layer, scan_attributes, database_kind,
+            scan_raster_metadata, scan_table_links, bc_activation_uuid,
+        )
         if key not in seen:
             seen.add(key)
             references.append(
                 _FileReference(
-                    run, origin, path, layer, scan_attributes, database_kind, scan_raster_metadata, scan_table_links
+                    run, origin, path, layer, scan_attributes, database_kind, scan_raster_metadata, scan_table_links,
+                    bc_activation_uuid,
                 )
             )
         if not any(char in path.name for char in "*?["):
@@ -333,10 +373,46 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         eager_sources_available = not deferred_supported and callable(getattr(context, "database_sources", None))
         try:
             inputs = context.find_input()
-            for inp in inputs:
+            # Only multi-declaration hydraulic BC models need feature-specific
+            # binding. Existing single-database eager/deferred inventories
+            # remain unchanged, preserving the established 174-run baseline.
+            declarations = [(i, inp) for i, inp in enumerate(inputs)
+                            if _command_name(inp) == "bc database"]
+            multi_bc = deferred_supported and len(declarations) > 1
+            bc_activations: tuple[object, ...] = ()
+            if multi_bc:
+                activation_reader = getattr(context, "deferred_database_activations", None)
+                source_reader_for_activation = getattr(context, "deferred_database_sources_for_activation", None)
+                if not callable(activation_reader) or not callable(source_reader_for_activation):
+                    raise ValueError("BC declaration selection requires PyTUFLOW activation APIs")
+                bc_activations = tuple(activation_reader())
+                declared = {(position, str(getattr(inp, "uuid", ""))) for position, inp in declarations}
+                actual = {(int(getattr(a, "sequence")), str(getattr(a, "input_uuid")))
+                          for a in bc_activations if getattr(a, "database_kind", None) == "bc"}
+                if actual != declared:
+                    raise ValueError("BC database declaration sequence/UUID mismatch")
+                for _, declaration in declarations:
+                    uuid = str(getattr(declaration, "uuid"))
+                    by_name: dict[str, Path] = {}
+                    for source in source_reader_for_activation(uuid):
+                        if source.database_kind != "bc" or not source.entry_name.strip():
+                            raise ValueError("Unclassified BC database Source row")
+                        key = source.entry_name.strip().casefold()
+                        if key in by_name:
+                            raise ValueError(f"Duplicate BC identifier {source.entry_name!r}")
+                        by_name[key] = Path(source.path_pattern).absolute()
+                    report.bc_activation_sources[(run.index, uuid)] = by_name
+            for position, inp in enumerate(inputs):
                 if _is_non_input_command(inp):
                     continue
                 origin = str(inp)
+                name = _command_name(inp)
+                bc_uuid = ""
+                if multi_bc and _bc_source_command(name):
+                    try:
+                        bc_uuid = _selected_bc_uuid(position, bc_activations)
+                    except ValueError as exc:
+                        add_issue(run, origin, str(tcf), str(exc))
                 if deferred_supported:
                     # The provisional PyTUFLOW database API owns BC and
                     # material row classification and event substitutions.
@@ -395,10 +471,11 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                                 ref.base_directory,
                                 layer_override=ref.layer_pattern or "",
                                 allow_pattern=True,
-                                scan_attributes=ref.requires_attribute_scan,
+                                scan_attributes=ref.requires_attribute_scan or bool(bc_uuid),
                                 database_kind=kind or "",
                                 scan_raster_metadata=getattr(ref, "requires_raster_metadata_scan", False),
                                 scan_table_links=getattr(ref, "requires_table_link_scan", False),
+                                bc_activation_uuid=bc_uuid,
                             )
                     except Exception as exc:  # noqa: BLE001 - incomplete references must fail closed
                         add_issue(run, origin, "", f"Could not collect deferred file references: {exc}")
@@ -467,7 +544,19 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             )
             if callable(source_reader):
                 try:
-                    sources = context.deferred_database_sources() if deferred_supported else context.database_sources()
+                    if multi_bc:
+                        selected_reader = getattr(context, "deferred_database_sources_for_activation")
+                        # No aggregate view: it deliberately rejects multiple
+                        # active BC declarations. Candidate BC rows were staged
+                        # above and are selected from the scanned GIS Names.
+                        sources = tuple(
+                            source
+                            for activation in bc_activations
+                            if getattr(activation, "database_kind", None) != "bc"
+                            for source in selected_reader(str(getattr(activation, "input_uuid")))
+                        )
+                    else:
+                        sources = context.deferred_database_sources() if deferred_supported else context.database_sources()
                     for source in sources:
                         kind = source.database_kind
                         if kind not in {
@@ -608,6 +697,25 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                 continue
             for path in result.sources:
                 extra_references.append(_FileReference(ref.run, f"GIS attribute: {ref.origin}", path))
+            if ref.bc_activation_uuid:
+                sources = report.bc_activation_sources.get((ref.run.index, ref.bc_activation_uuid))
+                if sources is None:
+                    report.issues.append(PreflightIssue(
+                        ref.run.index, ref.run.description, "unresolved", ref.origin,
+                        str(ref.path), "Active BC database source map was not collected",
+                    ))
+                else:
+                    for identifier in result.bc_identifiers:
+                        linked = sources.get(identifier.casefold())
+                        if linked is None:
+                            report.issues.append(PreflightIssue(
+                                ref.run.index, ref.run.description, "unresolved", ref.origin,
+                                str(ref.path), f"Active BC Database has no Source row for {identifier!r}",
+                            ))
+                        else:
+                            extra_references.append(_FileReference(
+                                ref.run, f"bc source: {identifier}", linked,
+                            ))
             # Resolve source identifiers using the database type that owns
             # this GIS element, never interpreting a curve ID as a filename.
             for identifiers, database_kind in (
