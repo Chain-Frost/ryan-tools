@@ -175,9 +175,13 @@ jobs:
           python -m compileall -q ryan_library
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Install package and MCP dependencies
+      - name: Install binary GIS dependencies and MCP package
         shell: pwsh
         run: |
+          # Python 3.14 Windows cannot build Fiona from source without GDAL headers.
+          # Reuse the proven binary GIS bootstrap used by Policy and Hosted tests.
+          python repo-scripts/install_latest_wheel.py --dependencies-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install ".[mcp]" pytest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
