@@ -61,7 +61,9 @@ def _bc_name_field_index(layer: str) -> int | None:
     return None
 
 
-def _bc_identifiers_from_rows(rows: Iterable[Sequence[object]], layer: str) -> tuple[str, ...]:
+def _bc_identifiers_from_rows(  # noqa: C901 - TUFLOW BC kind and HQ source semantics
+    rows: Iterable[Sequence[object]], layer: str
+) -> tuple[str, ...]:
     """Return only database-key Name fields from active BC features.
 
     2d_bc link/ignore/code geometries never reference BC Name values.
@@ -192,7 +194,9 @@ def _scan_file_reference_rows(  # noqa: C901 - common TUFLOW network/pit rules f
     return tuple(sorted(sources)), tuple(sorted(database_identifiers))
 
 
-def _scan_shapefile(path: Path) -> tuple[tuple[Path, ...], tuple[str, ...], tuple[str, ...]]:
+def _scan_shapefile(  # noqa: C901 - common DBF and GIS BC field handling
+    path: Path,
+) -> tuple[tuple[Path, ...], tuple[str, ...], tuple[str, ...]]:
     """Read only Shapefile DBF attributes; inspect SHP geometry from its header.
 
     pyshp's iterRecords() reads DBF rows, not feature geometries. The single
@@ -240,7 +244,7 @@ def _scan_shapefile(path: Path) -> tuple[tuple[Path, ...], tuple[str, ...], tupl
         return sources, identifiers, ()
 
 
-def _scan_layer(
+def _scan_layer(  # noqa: C901 - common GPKG and GIS BC field handling
     connection: sqlite3.Connection, layer: str, geometry_type: str, path: Path
 ) -> tuple[tuple[Path, ...], tuple[str, ...], tuple[str, ...]]:
     """Read only file-valued attributes; return database identifiers separately.
@@ -282,7 +286,7 @@ def _scan_layer(
             if len(attrs) <= 7:
                 raise ValueError(f"2d_bc requires Type, Flags, Name and b fields: {layer}")
             sql = (f"SELECT {_quote_identifier(str(attrs[0]))}, {_quote_identifier(str(attrs[2]))}, "
-                   f"{_quote_identifier(str(attrs[7]))} FROM {quoted}")  # noqa: S608
+                   f"{_quote_identifier(str(attrs[7]))} FROM {quoted}")
         else:
             sql = f"SELECT {_quote_identifier(str(attrs[bc_index]))} FROM {quoted}"  # noqa: S608
         return (), (), _bc_identifiers_from_rows(connection.execute(sql), layer)
