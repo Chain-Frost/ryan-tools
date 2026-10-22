@@ -18,8 +18,8 @@ DEFAULT_DRY_RUN = False
 import argparse
 import concurrent.futures
 import shutil
-import tempfile
 import subprocess
+import tempfile
 from uuid import uuid4
 
 from loguru import logger
@@ -40,36 +40,53 @@ def _remove_dataset(path: Path) -> None:
         member.unlink(missing_ok=True)
 
 
-def _promote_dataset(temporary_path: Path, output_path: Path, *, overwrite: bool) -> None:
-    """Promote a staged vector dataset, retaining recoverable Shapefile originals.
+def _rollback_shapefile(
+    promoted: list[Path],
+    backups: list[tuple[Path, Path]],
+    backup_dir: Path | None,
+    output_path: Path,
+    error: Exception,
+) -> None:
+    """Attempt every recovery step, retaining original backups if any step fails."""
+    rollback_errors: list[OSError] = []
+    for member in reversed(promoted):
+        try:
+            member.unlink(missing_ok=True)
+        except OSError as rollback_error:
+            rollback_errors.append(rollback_error)
+    for original, backed_up in reversed(backups):
+        try:
+            backed_up.replace(original)
+        except OSError as rollback_error:
+            rollback_errors.append(rollback_error)
+    if rollback_errors:
+        msg = (
+            f"Shapefile promotion failed and rollback was incomplete for {output_path}; "
+            f"recover original files from {backup_dir}"
+        )
+        raise RuntimeError(msg) from error
 
-    A single-file GeoPackage uses an atomic same-directory replacement. Shapefile
-    sidecars cannot be switched atomically as a group: move the old members into
-    a private sibling backup directory and restore them if promotion fails.
-    A process termination during promotion may leave that backup to recover.
-    """
-    temporary_members = _dataset_members(temporary_path)
-    if temporary_path not in temporary_members:
-        msg = f"ogr2ogr did not create an output dataset: {temporary_path}"
-        raise RuntimeError(msg)
-    if any(member.is_symlink() for member in temporary_members):
-        msg = f"Staged output contains a symbolic link: {temporary_path}"
-        raise OSError(msg)
 
-    existing = _dataset_members(output_path)
-    if existing and not overwrite:
-        msg = f"Output already exists: {output_path}"
-        raise FileExistsError(msg)
-    if any(member.is_symlink() for member in existing):
-        msg = f"Output contains a symbolic link: {output_path}"
-        raise OSError(msg)
+def _clean_shapefile_backups(
+    backup_dir: Path, backups: list[tuple[Path, Path]], *, completed: bool
+) -> None:
+    """Remove only known backup files after a successful promotion; never recurse."""
+    if completed:
+        for _, backed_up in backups:
+            try:
+                backed_up.unlink(missing_ok=True)
+            except OSError as cleanup_error:
+                logger.warning("Retained Shapefile backup {}: {}", backed_up, cleanup_error)
+    try:
+        backup_dir.rmdir()  # A nonempty directory contains recovery data.
+    except OSError:
+        logger.warning("Retained nonempty Shapefile backup directory: {}", backup_dir)
 
-    if output_path.suffix.casefold() != ".shp":
-        # Do not unlink the old GeoPackage first: if replacement fails the
-        # original data must remain readable and unmodified.
-        temporary_path.replace(output_path)
-        return
 
+def _promote_shapefile(
+    temporary_path: Path, output_path: Path, temporary_members: list[Path], existing: list[Path]
+) -> None:
+    """Best-effort transactional promotion for a multi-file Shapefile."""
     backup_dir = (
         Path(tempfile.mkdtemp(prefix=f".{output_path.stem}.backup.", dir=output_path.parent))
         if existing
@@ -97,36 +114,39 @@ def _promote_dataset(temporary_path: Path, output_path: Path, *, overwrite: bool
             promoted.append(destination)
         completed = True
     except Exception as error:
-        rollback_errors: list[OSError] = []
-        for member in reversed(promoted):
-            try:
-                member.unlink(missing_ok=True)
-            except OSError as rollback_error:
-                rollback_errors.append(rollback_error)
-        for original, backed_up in reversed(backups):
-            try:
-                backed_up.replace(original)
-            except OSError as rollback_error:
-                rollback_errors.append(rollback_error)
-        if rollback_errors:
-            msg = (
-                f"Shapefile promotion failed and rollback was incomplete for {output_path}; "
-                f"recover original files from {backup_dir}"
-            )
-            raise RuntimeError(msg) from error
+        _rollback_shapefile(promoted, backups, backup_dir, output_path, error)
         raise
     finally:
         if backup_dir is not None:
-            if completed:
-                for _, backed_up in backups:
-                    try:
-                        backed_up.unlink(missing_ok=True)
-                    except OSError as cleanup_error:
-                        logger.warning("Retained Shapefile backup {}: {}", backed_up, cleanup_error)
-            try:
-                backup_dir.rmdir()  # Nonrecursive: never discard unrecovered originals.
-            except OSError:
-                logger.warning("Retained nonempty Shapefile backup directory: {}", backup_dir)
+            _clean_shapefile_backups(backup_dir, backups, completed=completed)
+
+
+def _promote_dataset(temporary_path: Path, output_path: Path, *, overwrite: bool) -> None:
+    """Promote staged outputs without deleting existing data before replacement.
+
+    GeoPackages use atomic same-directory replacement. Multi-file Shapefiles
+    use rollback backups; abrupt termination can leave recovery files behind.
+    """
+    temporary_members = _dataset_members(temporary_path)
+    if temporary_path not in temporary_members:
+        msg = f"ogr2ogr did not create an output dataset: {temporary_path}"
+        raise RuntimeError(msg)
+    if any(member.is_symlink() for member in temporary_members):
+        msg = f"Staged output contains a symbolic link: {temporary_path}"
+        raise OSError(msg)
+    existing = _dataset_members(output_path)
+    if existing and not overwrite:
+        msg = f"Output already exists: {output_path}"
+        raise FileExistsError(msg)
+    if any(member.is_symlink() for member in existing):
+        msg = f"Output contains a symbolic link: {output_path}"
+        raise OSError(msg)
+
+    if output_path.suffix.casefold() == ".shp":
+        _promote_shapefile(temporary_path, output_path, temporary_members, existing)
+    else:
+        # os.replace is atomic on the same volume: keep old data until success.
+        temporary_path.replace(output_path)
 
 
 def _temporary_dataset(output_path: Path) -> Path:
