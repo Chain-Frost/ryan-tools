@@ -7,6 +7,7 @@ on:
       - "ryan_library/orchestrators/tuflow/batch_preflight_adapter.py"
       - "ryan_library/orchestrators/tuflow/input_preflight.py"
       - "tests/orchestrators/tuflow/test_batch_preflight_adapter.py"
+      - "tests/fixtures/tuflow_example_repro/run_checks.py"
   workflow_dispatch:
 
 jobs:
@@ -34,3 +35,24 @@ jobs:
           python -m pip install pytest pyshp loguru pandas
       - name: Verify real batch and fake failure contracts
         run: python -m pytest -q tests/orchestrators/tuflow/test_batch_preflight_adapter.py
+      - name: Verify two archived TCFs with eager, deferred and batch inventories
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "batch-sample-replay"
+          python -m tests.fixtures.tuflow_example_repro.run_checks --batch --tcf EG02_014.tcf --tcf EG04_004.tcf --output $report
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify all 161 archived TCFs and 174 simulations in batch
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "batch-full-replay"
+          python -m tests.fixtures.tuflow_example_repro.run_checks --batch --output $report
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); assert len(rows)==161 and sum(row["runs"] for row in rows)==174; assert all(row.get("accepted_parity") and row.get("batch_missing")==0 and row.get("batch_extra")==0 and row.get("batch_preflight_passed") for row in rows)' (Join-Path $report "results.json")
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload read-only archive differential reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: batch-preflight-example-parity
+          path: ${{ runner.temp }}/batch-*-replay
+          if-no-files-found: warn
