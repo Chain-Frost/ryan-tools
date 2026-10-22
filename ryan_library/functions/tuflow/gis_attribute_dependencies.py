@@ -294,8 +294,10 @@ def _scan_layer(  # noqa: C901 - common GPKG and GIS BC field handling
             if len(attrs) <= 7:
                 message = f"2d_bc requires Type, Flags, Name and b fields: {layer}"
                 raise ValueError(message)
-            sql = (f"SELECT {_quote_identifier(str(attrs[0]))}, {_quote_identifier(str(attrs[2]))}, "
-                   f"{_quote_identifier(str(attrs[7]))} FROM {quoted}")  # noqa: S608
+            sql = (  # noqa: S608 - columns are escaped names from PRAGMA, not user SQL
+                f"SELECT {_quote_identifier(str(attrs[0]))}, {_quote_identifier(str(attrs[2]))}, "
+                f"{_quote_identifier(str(attrs[7]))} FROM {quoted}"
+            )
         else:
             sql = f"SELECT {_quote_identifier(str(attrs[bc_index]))} FROM {quoted}"  # noqa: S608
         return (), (), _bc_identifiers_from_rows(connection.execute(sql), layer)
