@@ -54,13 +54,13 @@ def test_hydrograph_headless_export_preserves_input(tmp_path: Path) -> None:
     inputs.mkdir()
     fixture = inputs / "ExampleCreek_01_aep1_du12hourtp3.csv"
     original = (
-        "RORB synthetic fixture\n"
-        "Hydrograph output\n"
-        "Inc,Time (hrs),Calculated hydrograph:  Outlet\n"
-        "1,0,0\n"
-        "2,1,2\n"
-        "3,2,1\n"
-    ).encode("utf-8")
+        b"RORB synthetic fixture\n"
+        b"Hydrograph output\n"
+        b"Inc,Time (hrs),Calculated hydrograph:  Outlet\n"
+        b"1,0,0\n"
+        b"2,1,2\n"
+        b"3,2,1\n"
+    )
     fixture.write_bytes(original)
 
     result = _run_wrapper(tmp_path, "--input-directory", str(inputs), "--no-pause")
