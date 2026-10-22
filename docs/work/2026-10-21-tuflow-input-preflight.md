@@ -1313,3 +1313,38 @@ implementation/audit notes and PR #1 description are updated accordingly. Earlie
 point; they must not be treated as outstanding work or evidence of a new test run.
 Other review, strict Windows parity and BC activation-selection boundaries remain
 as documented. No model run, merge or release is implied by this scope change.
+
+## BC feature-to-activation selection — supporting draft PR #151
+
+A separate [draft PR #151](https://github.com/Chain-Frost/ryan-tools/pull/151)
+targets PR #143 without merging it. It implements a guarded, read-only
+multi-BC-database materialisation path using upstream
+`deferred_database_activations()` and
+`deferred_database_sources_for_activation(input_uuid)`.
+
+- A scoped declaration is selected by the command stream position of each
+  `Read GIS BC`, `Read GIS SA` or `Read GIS RF` input. Unknown, out-of-order
+  or ambiguous BC declarations fail closed; no first-database guessing.
+- Only referenced `Name` attributes of supported `2d_bc`, `2d_sa`
+  and `2d_rf` SHP/GPKG layers are joined to that declaration's Source
+  rows. The existing shared bulk GIS reader performs the file/layer scan
+  once across runs; link/ignore and positive-slope generated HQ features
+  do not require BC source files. Unused row files are not reported as
+  required merely because they are in a declared database.
+- Plain inline numeric BC values are identified using one cached CSV read
+  per primary database, rather than incorrectly reported as missing paths.
+  Unresolved expressions, unknown GIS formats and unsupported schemas
+  fail closed, not as passing materialisation.
+- For **single** BC databases the earlier conservative source collection
+  is retained so the established strict 161-TCF/174-run baseline remains
+  directly comparable; feature-level selection is newly enabled only
+  when multiple scoped BC declarations are present.
+- The new path does not yet establish full TUFLOW semantics for a TCF-wide
+  default declared after a nested BC control file, or for unsupported
+  1D BC geometry/name schemas. These cases require tests or explicit
+  upstream command-binding semantics before declaring general support.
+  Synthetic tests are not evidence of those real-model cases.
+
+Acceptance is **Windows-only**, using focused tests, strict Ruff/Pyright
+and a full read-only example replay. No TUFLOW executable run,
+published dependency change, mainline merge or speedup claim is made.
