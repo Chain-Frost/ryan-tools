@@ -149,7 +149,9 @@ def test_shapefile_mid_promotion_error_restores_every_original(monkeypatch: pyte
     assert not list(tmp_path.glob(".existing.backup.*"))
 
 
-def test_shapefile_backup_failure_restores_previously_moved_members(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_shapefile_backup_failure_restores_previously_moved_members(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """Failure during the backup phase must restore every member moved so far."""
     original = tmp_path / "existing.shp"
     original.with_suffix(".dbf").write_bytes(b"original table")
