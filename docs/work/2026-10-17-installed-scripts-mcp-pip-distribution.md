@@ -26,8 +26,7 @@ Neither "not included in the wheel" nor "included in the wheel" proves a file's 
 
 The requirement to finish/merge PRs #118 and #119 before PR #130 **was specifically removed by the maintainer**.
 Those PRs remain independent work; their own technical correctness and data validation remain required.
-The separately decided Python minimum is **>=3.13**, including `ryan-culverts`; Python 3.14 remains the
-preferred development environment. Any future move to 3.14-only needs its own decision.
+**22 October 2026 decision supersedes earlier Python 3.13 support:** the maintainer explicitly directed removal of Python 3.13 support from this PR and repository. Python **>=3.14** is now required for `ryan-tools`; independent dependencies retain their own declared constraints.
 
 ## Status definitions
 
@@ -84,7 +83,7 @@ preferred development environment. Any future move to 3.14-only needs its own de
 | --- | --- | --- |
 | D1 | Keep GitHub repository `Chain-Frost/ryan-tools` | Verified (bounded): repository identity unchanged |
 | D2 | Comprehensive default engineering/scientific/GIS pip install | Partially verified: `pyproject.toml` retains broad default dependencies; full supported-environment installation matrix not independently accepted |
-| D3 | Plan to stop Python 3.13 support in November | **Superseded with decision:** maintainer subsequently required Python 3.13 support to remain, including `ryan-culverts`; `requires-python >=3.13` remains the contract |
+| D3 | Plan to stop Python 3.13 support in November | **Superseded 22 October:** maintainer directed immediate Python >=3.14. Package metadata, installer checks, CI execution and wheel validation adopt the new floor. |
 | D4 | Install maintained scripts, preserve editable defaults and original CLI contracts | Partially implemented: sibling wheel layout exists; per-script behavioral and lifecycle audit incomplete |
 | D5 | Curated MCP exposure and capability/mutation approval metadata | Implemented, verification incomplete: JSON catalogue and profile tests exist, check individual command flags and real mutation boundaries |
 | D6 | Migrate hydraulic submodules only after tested pip parity | Partially verified: `run-hy8` and `ryan-culverts` pip dependencies exist and source gitlinks were removed; full numerical/executable parity and reproducible constraints remain unverified |
@@ -149,7 +148,7 @@ preferred development environment. Any future move to 3.14-only needs its own de
 | E2 | Confirm new PyPI distribution name and ownership | Renamed in #120; check actual release credentials and published migration evidence |
 | E3 | Migration, Trusted Publishing, wheel metadata, docs and old-name handling | Partially implemented; assess upgrade edge cases and release audit separately |
 | E4 | Keep Python distribution/import namespace distinctions and compatibility | `ryan_library` remains stable; legacy `ryan_functions` removal was separately authorized; verify external upgrade instructions |
-| E5 | Planned >=3.14 floor in November | **Superseded with maintainer decision:** >=3.13 continues; do not silently apply 3.14-only |
+| E5 | Planned >=3.14 floor in November | **Implemented in PR #137 per 22 October maintainer decision:** Python >=3.14 is required. The legacy CI status-check label remains until GitHub branch protection is updated. |
 | E6 | Retain broad default dependency environment | Implemented metadata; end-user installation validation remains separate |
 
 ## Workstream F — validation and rollout
