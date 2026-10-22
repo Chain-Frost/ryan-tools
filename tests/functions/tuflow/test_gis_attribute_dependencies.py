@@ -349,7 +349,7 @@ def test_sa_and_rainfall_bc_names_first_attribute(tmp_path: Path) -> None:
     import shapefile
 
     shp = tmp_path / "2d_sa_catchments.shp"
-    with shapefile.Writer(str(shp), shapeType=shapefile.POLYGON) as writer:
+    with shapefile.Writer(str(shp), shapeType=shapefile.POLYLINE) as writer:
         writer.field("Name", "C")
         writer.null()
         writer.record("Catchment_A")
