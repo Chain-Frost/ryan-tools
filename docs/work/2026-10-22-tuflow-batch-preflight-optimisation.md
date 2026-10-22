@@ -340,3 +340,23 @@ LF/CRLF conversion accounted for. A retained a9f654c source extraction independe
 focused consumer tests with both real-fork gates enabled. The later case-handling source was not rerun
 through the native performance matrix. Benchmark figures must remain associated with their recorded
 source rather than being relabelled as current branch-head timings.
+
+### Ordered batch consumer integration — supporting PR (22 October 2026)
+
+A separate child PR of #143 now consumes the immutable `BatchDependencyRun.ordered_inputs` introduced in PyTUFLOW #6.
+Its context facade retains **all active command ordinals**, including file-free Set Variable/output/declaration commands,
+and validates UUID, source owner control-file/line and reference ordering before reconstructing the existing collector
+surface. Non-reference commands remain in the sequence but never become false required paths.
+
+With complete ordered descriptors, the existing guarded multi-`BC Database` selection in #143 can now call
+`deferred_database_activations()` and `deferred_database_sources_for_activation(uuid)` on the batch facade.
+The adapter never combines multiple BC Source tables into one active table. Invalid activation sequences,
+duplicate UUIDs or missing owner links fail closed. The old single-BC/ref-only projection is retained for
+older PyTUFLOW batch builds; it must not claim multi-BC completeness.
+
+**Validation:** synthetic ordered/orphan/ownership and two-declaration collector tests have been added,
+plus isolated Windows/Python 3.14 CI pinned to PyTUFLOW #6 `4350938`, with the complete public
+161-TCF/174-run three-mode materialised parity replay. The existing deferred/batch production defaults
+and published dependency are unchanged. Exact-head CI is required before treating this path as accepted.
+A representative nested/multi-declaration real project and any SMB timings remain deliberately deferred to
+the sole SMB-capable agent; do not upload native model data or claim production speedups from synthetic runs.
