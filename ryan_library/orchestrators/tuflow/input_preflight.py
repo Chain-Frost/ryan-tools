@@ -935,6 +935,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
                         ref.database_kind,
                         ref.scan_raster_metadata,
                         ref.scan_table_links,
+                        ref.bc_activation_uuid,
                     )
                 )
                 unique_paths.setdefault(path, set())
