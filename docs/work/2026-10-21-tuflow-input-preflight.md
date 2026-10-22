@@ -832,3 +832,39 @@ tracks each case.
 No results validate the native P (4), B (240), 42-run output-variable
 or Higginsville (440) models on their current revisions. No speedup,
 merger, published dependency upgrade or solver invocation is authorised.
+
+
+## Consolidated upstream branch and Windows handoff (22 October 2026)
+
+- PyTUFLOW supporting [PR #2](https://github.com/phantom-branch/PyTuflow/pull/2)
+  is merged **into the PR #1 development branch**, not `master`; resulting
+  merge SHA `4228a805687cfd80d98a27e2ebcb62c234b40059`.
+  [PR #1](https://github.com/phantom-branch/PyTuflow/pull/1) remains **draft**.
+  Linux is tracked separately in draft [PR #4](https://github.com/phantom-branch/PyTuflow/pull/4).
+- The isolated consumer CI workflow is now pinned to that merged SHA
+  instead of the old PR #2 commit; the **production `pytuflow` PyPI dependency
+  and application defaults remain unchanged**.
+- [Windows replay 39706593237](https://github.com/Chain-Frost/ryan-tools/actions/runs/39706593237)
+  **passed** on the consolidated pin with full 1,464-file ZIP integrity
+  verification, focused regression checks and 161 TCFs / 174 run
+  combinations. **153 TCFs / 166 runs accepted, eight TCFs / eight
+  runs unresolved**. Diagnostic artifact `tuflow-example-full-replay`
+  ID `12395795444` contains the exact reports.
+- Those eight cases remain **zero eager-only**, with legitimate deferred
+  additions: EG11_006/009 Q/P depth-discharge curves, EG15_007/008
+  active pit-inlet curve sources, EG17_001/002/003 AD BC and EG18_002
+  AD BC/AD Global sources. Their ordinary input preflight passes; do not
+  suppress or discard physically real sources to improve the comparator.
+- Updated the pinned consumer CI to **Windows Python 3.14** (previously
+  Windows Python 3.13) to match the target engineering environment.
+  Its exact-head results are a separate verification gate.
+- Remaining Windows work: repair genuine eager source omissions and
+  activation-to-GIS-feature selection upstream; rerun complete example
+  parity, then P/B, 42-run and 440-run real-model checks with deduplicated
+  filesystem/GIS operation counts and same-SSD warm-cache measurements.
+  No network benchmark or speedup claim is yet verified. The read-only
+  example runner is still a temporary diagnostic, while the source input
+  ZIP remains permanently in the test-data submodule.
+
+No TUFLOW process launch, production merge, release or change to
+published package pin was authorised in this consolidation.
