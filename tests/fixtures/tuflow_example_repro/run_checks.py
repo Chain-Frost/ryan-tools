@@ -19,6 +19,7 @@ from zipfile import ZipFile
 
 from ryan_library.functions.tuflow.dependency_index import check_unique_dependencies, expand_file_patterns
 from ryan_library.functions.tuflow.run_flags import extract_flag_pairs
+from ryan_library.orchestrators.tuflow.batch_preflight_adapter import BatchModelView
 from ryan_library.orchestrators.tuflow.input_preflight import (
     PreflightReport,
     RunRequest,
@@ -113,8 +114,14 @@ class DeferredModel:
 def collect(tcf: Path, runs: list[RunRequest], mode: str, factory: Any) -> tuple[set[tuple[Any, ...]], dict[str, Any]]:
     """Compare complete supported references; refuse partial attribute parity."""
     report = PreflightReport(len(runs))
-    model: Any = (EagerModel if mode == "eager" else DeferredModel)(factory(str(tcf)))
+    model: Any
+    if mode == "batch":
+        model = BatchModelView(factory(str(tcf)), tuple(run.arguments for run in runs))
+    else:
+        model = (EagerModel if mode == "eager" else DeferredModel)(factory(str(tcf)))
     references, _ = _collect_references(tcf, runs, model, report)
+    if mode == "batch":
+        model.assert_consumed()
     patterns = {ref.path for ref in references if any(char in ref.path.name for char in "*?[")}
     expanded, failures, _ = expand_file_patterns(patterns)
     if failures:
@@ -164,7 +171,7 @@ def collect(tcf: Path, runs: list[RunRequest], mode: str, factory: Any) -> tuple
     return keys, stats
 
 
-def main() -> int:
+def main() -> int:  # noqa: C901 - temporary multi-mode parity diagnostic
     """Verify or run the temporary fixture, writing reports outside the checkout."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify-only", action="store_true")
@@ -172,6 +179,7 @@ def main() -> int:
         "--pytuflow-checkout", type=Path, help="Explicit source checkout to import instead of installed PyTUFLOW"
     )
     parser.add_argument("--tcf", action="append", help="TCF filename to select; repeat for multiple cases")
+    parser.add_argument("--batch", action="store_true", help="Include experimental batch source parity checks")
     parser.add_argument("--output", type=Path, help="Report directory; default is a new temporary directory")
     options = parser.parse_args()
     bundle = Path(__file__).absolute().parents[2] / "test_data" / "tuflow" / "example_input_preflight"
@@ -204,7 +212,8 @@ def main() -> int:
             runs = [RunRequest(index, flags) for index, flags in enumerate(combinations, 1)]
             row: dict[str, Any] = {"tcf": tcf.name, "runs": len(runs)}
             identities: dict[str, set[tuple[Any, ...]]] = {}
-            for mode in ("eager", "deferred"):
+            modes = ("eager", "deferred", "batch") if options.batch else ("eager", "deferred")
+            for mode in modes:
                 try:
                     identities[mode], row[mode] = collect(tcf, runs, mode, factory)
                 except Exception as exc:  # noqa: BLE001 - record each failure and continue the diagnostic sweep
@@ -218,21 +227,45 @@ def main() -> int:
                 # equal counts cannot hide wrong owning commands or GIS layers.
                 row["eager_only_identities"] = [list(value) for value in sorted(eager_only)]
                 row["deferred_only_identities"] = [list(value) for value in sorted(deferred_only)]
+            if options.batch and "batch" in identities and "eager" in identities:
+                eager_only = identities["eager"] - identities["batch"]
+                batch_only = identities["batch"] - identities["eager"]
+                row["batch_missing"] = len(eager_only)
+                row["batch_extra"] = len(batch_only)
+                row["batch_eager_only_identities"] = [list(value) for value in sorted(eager_only)]
+                row["batch_extra_identities"] = [list(value) for value in sorted(batch_only)]
             try:
                 report = check_simulation_inputs(tcf, runs)
                 report.write_csv(output / f"{tcf.stem}-issues.csv")
                 row["preflight_passed"] = report.passed
                 row["preflight_reasons"] = dict(Counter(issue.detail for issue in report.issues))
+                if options.batch:
+                    batch_report = check_simulation_inputs(tcf, runs, context_mode="batch")
+                    batch_report.write_csv(output / f"{tcf.stem}-batch-issues.csv")
+                    row["batch_preflight_passed"] = (
+                        batch_report.passed == report.passed
+                        and set(batch_report.issues) == set(report.issues)
+                        and batch_report.checked_paths == report.checked_paths
+                    )
+                    row["batch_preflight_issue_count"] = len(batch_report.issues)
             except Exception as exc:  # noqa: BLE001 - preserve parser failures as failed cases
                 row["preflight_passed"] = False
                 row["preflight_error"] = str(exc)
             row["accepted_parity"] = (
                 row["preflight_passed"]
+                and (
+                    not options.batch
+                    or (
+                        row.get("batch_missing") == 0
+                        and row.get("batch_extra") == 0
+                        and row.get("batch_preflight_passed") is True
+                    )
+                )
                 and row.get("missing") == 0
                 and row.get("extra") == 0
                 and all(
                     not any(row[mode].get(key) for key in ("error", "collection_issues", "inventory_issues"))
-                    for mode in ("eager", "deferred")
+                    for mode in modes
                 )
             )
             rows.append(row)
