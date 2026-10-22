@@ -154,4 +154,7 @@ def test_regression_against_snapshot(data_type: str, processed_results: dict[str
     expected_df.columns.name = None
     observed_df.columns.name = None
 
-    assert_frame_equal(observed_df, expected_df)
+    # Pandas/Parquet versions may materialise identical string column labels as
+    # string[python] or str-backed Index objects. Compare labels and data values,
+    # but do not fail solely on the storage dtype of the column index.
+    assert_frame_equal(observed_df, expected_df, check_index_type=False)
