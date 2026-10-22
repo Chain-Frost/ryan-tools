@@ -252,7 +252,7 @@ def main(argv: list[str] | None = None) -> int:
 
     installed_version = importlib.metadata.version("ryan-tools")
     metadata = importlib.metadata.metadata("ryan-tools")
-    if metadata["Requires-Python"] != ">=3.13":
+    if metadata["Requires-Python"] != ">=3.14":
         msg = "Installed wheel does not declare the supported Python baseline."
         raise RuntimeError(msg)
 
