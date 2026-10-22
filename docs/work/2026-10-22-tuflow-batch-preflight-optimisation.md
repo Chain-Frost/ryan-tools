@@ -1,10 +1,10 @@
 # Batch-aware TUFLOW preflight optimisation — stacked PR scope
 
-**Status:** PR #7/#10 stack conflicts resolved; current four-mode native SMB evaluation complete. Earlier SSD/SMB results below remain historical. The batch adapter and shared inspection changes from #148 are now merged into
+**Status:** Parser stack squash-merged after completed validation; graph-improvement handoff is draft PyTUFLOW PR #12. Earlier SSD/SMB results below remain historical. The batch adapter and shared inspection changes from #148 are now merged into
 #143 (`feat/tuflow-run-preflight`), which remains draft. PyTUFLOW #1 is merged into the fork's `master`;
 opt-in batch work continues in #5. No production release or default-mode change is authorised.
 
-**Date:** 2026-10-23. **Owner:** ChatGPT. **Next review:** 2026-10-24.
+**Date:** 2026-10-23. **Owner:** ChatGPT. **Next review:** 2026-10-30.
 
 **Historical completed benchmark revisions:** PyTUFLOW `a9f654c1ec0812fc70035e227fb2f9f12290f449`;
 consumer diagnostic `2e03c0b110a272d9c6a05cc6da3bc08817130164`.
@@ -446,3 +446,25 @@ per-model allocator peaks. No cold-cache or full-launcher wall-time claim.
 **Merge instruction:** After these completed benchmarks the owner explicitly
 authorised squash-merging the parser stack and opening a new graph-improvement
 handoff PR. Consumer PR #143 is separate and is not authorised for merge here.
+
+### Authorised merge and graph handoff delivery
+
+After the full native pipeline returned exit 0, the five parser PRs were
+squash-merged atomically into `master`: #6 `2a6aab5`, #8 `2a40276`,
+#9 `124ff1a`, #7 `970f43e`, #10 `3de5cd9`. Git comparison confirms the final
+merged tree exactly matches validated `099434f`. No package was released.
+
+Opened [draft graph-improvement PR #12](https://github.com/phantom-branch/PyTuflow/pull/12)
+from merged master, branch `docs/graph-invariant-group-handoff`, commit `0aa911c`.
+Its [P5 handoff](https://github.com/phantom-branch/PyTuflow/blob/0aa911c/agent_workstreams/P5_graph_group_reuse.md)
+contains the benchmark baseline and counters, proposed partial-group reuse,
+provenance/scope constraints, validation and explicit separation of eager fixes.
+The draft contains instructions and a discovery link only; P5 implementation
+is not started or accepted. Next action: implementing agent works on PR #12,
+then obtains workstation native reruns. Consumer PR #143 remains separate/open;
+its production pins and earlier independent CI limitation are unchanged.
+
+**Delivery:** Benchmark Markdown pushed to consumer PR #143; final aggregate
+comment on parser PR #10. Parser merge confirmed by GitHub API for all five
+PRs. New draft handoff pushed and labelled enhancement. No native input data
+or detailed native reports were published. Review follow-up on 2026-10-30.
