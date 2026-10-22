@@ -1567,12 +1567,9 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
     ):
         with sqlite3.connect(file) as connection:
             connection.execute(
-                "CREATE TABLE gpkg_geometry_columns "
-                "(table_name TEXT, column_name TEXT, geometry_type_name TEXT)"
+                "CREATE TABLE gpkg_geometry_columns (table_name TEXT, column_name TEXT, geometry_type_name TEXT)"
             )
-            connection.execute(
-                "CREATE TABLE gpkg_contents (table_name TEXT)"
-            )
+            connection.execute("CREATE TABLE gpkg_contents (table_name TEXT)")
             connection.execute(
                 "INSERT INTO gpkg_geometry_columns VALUES (?, 'geom', 'LINESTRING')",
                 (layer,),
@@ -1582,21 +1579,26 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
                 f'CREATE TABLE "{layer}" (fid INTEGER PRIMARY KEY, geom BLOB, '
                 "Type TEXT, Flags TEXT, Name TEXT, f TEXT, d TEXT, td TEXT, a TEXT, b TEXT)"
             )
-            connection.execute(
-                f'INSERT INTO "{layer}" (Type, Name) VALUES (?, ?)', ("QT", name)  # noqa: S608
-            )
+            sql = f'INSERT INTO "{layer}" (Type, Name) VALUES (?, ?)'  # noqa: S608
+            connection.execute(sql, ("QT", name))
     first_db, second_db = tmp_path / "upstream.csv", tmp_path / "downstream.csv"
-    first_db.write_text("Name,Source\nUpstream,upstream_hydro.csv\n"
-                        "Unused,not_required.csv\n", encoding="utf-8")
+    first_db.write_text("Name,Source\nUpstream,upstream_hydro.csv\nUnused,not_required.csv\n", encoding="utf-8")
     second_db.write_text("Name,Source\nDownstream,downstream_hydro.csv\n", encoding="utf-8")
     for filename in ("upstream_hydro.csv", "downstream_hydro.csv"):
         (tmp_path / filename).touch()
 
     def reference(path: Path, kind: str | None, origin: str, layer: str | None = None) -> types.SimpleNamespace:
         return types.SimpleNamespace(
-            path_pattern=path, base_directory=path.parent, origin=origin, layer_pattern=layer,
-            unresolved_variables=(), requires_attribute_scan=False, requires_database_scan=kind == "bc",
-            database_kind=kind, requires_table_link_scan=False, requires_raster_metadata_scan=False,
+            path_pattern=path,
+            base_directory=path.parent,
+            origin=origin,
+            layer_pattern=layer,
+            unresolved_variables=(),
+            requires_attribute_scan=False,
+            requires_database_scan=kind == "bc",
+            database_kind=kind,
+            requires_table_link_scan=False,
+            requires_raster_metadata_scan=False,
         )
 
     def input_(lhs: str, uuid: str, ref: types.SimpleNamespace) -> types.SimpleNamespace:
@@ -1614,17 +1616,12 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
     )
     rows = {
         "db-up": [
-            types.SimpleNamespace(
-                database_kind="bc", entry_name=name, path_pattern=tmp_path / source
-            )
-            for name, source in (
-                ("Upstream", "upstream_hydro.csv"), ("Unused", "not_required.csv")
-            )
+            types.SimpleNamespace(database_kind="bc", entry_name=name, path_pattern=tmp_path / source)
+            for name, source in (("Upstream", "upstream_hydro.csv"), ("Unused", "not_required.csv"))
         ],
         "db-down": [
             types.SimpleNamespace(
-                database_kind="bc", entry_name="Downstream",
-                path_pattern=tmp_path / "downstream_hydro.csv"
+                database_kind="bc", entry_name="Downstream", path_pattern=tmp_path / "downstream_hydro.csv"
             )
         ],
     }
