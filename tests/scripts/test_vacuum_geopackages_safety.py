@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import argparse
 import runpy
 import sqlite3
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -150,8 +152,7 @@ def test_no_backup_requires_explicit_opt_out(tmp_path: Path, vacuum_main: Vacuum
 
 def test_cli_exposes_execution_and_backup_switches(monkeypatch: pytest.MonkeyPatch) -> None:
     namespace = runpy.run_path(str(SCRIPT))
-    parser = cast("object", namespace["_parse_cli_arguments"])
-    assert callable(parser)
+    parser = cast("Callable[[], argparse.Namespace]", namespace["_parse_cli_arguments"])
     monkeypatch.setattr(sys, "argv", ["vacuum_geopackages.py", "--execute", "--no-backup", "--no-pause"])
     arguments = parser()
     assert arguments.execute is True
