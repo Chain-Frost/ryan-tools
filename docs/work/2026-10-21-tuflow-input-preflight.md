@@ -9,7 +9,7 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; strict Windows example parity passes all 161 TCFs/174 runs. P/B pass three full pairs plus a repair-head recheck and public preflight. Externally recorded 440-run parity/preflight passes on parser `fb103a1`; 42-run acceptance remains with the owner. The later eager EventCommand accessor repair `8e7bc30` passes 183 upstream/72 downstream tests and hosted Windows parity; review thread resolved. Consumer CI pins that repair, with version/source verification in the native handoff. Final review and feature-to-BC-activation limitation remain visible; no merge. Latest evidence below supersedes historical delivery notes.
+In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; strict Windows example parity passes all 161 TCFs/174 runs. P/B pass three full pairs plus a repair-head recheck and public preflight. Externally recorded 440-run parity/preflight passes on parser `fb103a1`; the owner has withdrawn the 42-run external check as a merge requirement. The later eager EventCommand accessor repair `8e7bc30` passes 183 upstream/72 downstream tests and hosted Windows parity; review thread resolved. Consumer CI pins that repair, with version/source verification in the native handoff. Final review and feature-to-BC-activation limitation remain visible; no merge. Latest evidence below supersedes historical delivery notes.
 
 ## Decisions
 
@@ -1297,8 +1297,19 @@ consumer `b68f4ada` / parser `fb103a1`, before the accessor repair; this worksta
 did not access or execute the network model. A cancelled older consumer CI run
 was superseded by the shared branch's newer head and is not reported as a pass.
 
-The 42-run model remains explicitly with the owner on the other network. Preserve
+The owner has withdrawn the 42-run check as a merge requirement (see the later scope update). Preserve
 the external 440-run source distinction when deciding whether to repeat it on the
 repair head. No merge, engine execution, release, package-source/version change or
 private project upload was performed. Relevant changes are committed/pushed to the
 existing branches; current-head hosted jobs and final review are checked separately.
+
+### Acceptance scope update: 42-run check withdrawn (2026-10-22)
+
+The owner explicitly instructed: "drop this requirement: external 42-run check".
+The separate 42-run external check is therefore **not a merge or acceptance gate**
+for either PyTUFLOW PR #1 or this consumer work. Current state/register, upstream
+implementation/audit notes and PR #1 description are updated accordingly. Earlier
+42-run plans and historical results remain as history and are superseded on this
+point; they must not be treated as outstanding work or evidence of a new test run.
+Other review, strict Windows parity and BC activation-selection boundaries remain
+as documented. No model run, merge or release is implied by this scope change.

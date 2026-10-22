@@ -81,8 +81,8 @@ python -m tests.fixtures.tuflow_example_repro.run_local_checks `
 ```
 
 The command export must contain only the selected TCF's exact event/scenario
-combinations. It is read as text and never executed. For the separate 42-run model,
-use its own inputs with `--expect-runs 42 --label R42`. Alternatively, `--runs-json`
+combinations. It is read as text and never executed. For other models, use their
+actual count with `--expect-runs`. Alternatively, `--runs-json`
 accepts a private JSON list of string event/scenario dictionaries. Project launchers
 are never imported or executed by this runner.
 
