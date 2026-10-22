@@ -1,0 +1,131 @@
+"""Disposable QGIS project path/provider regressions for the read-only audit wrapper."""
+
+from __future__ import annotations
+
+import runpy
+from collections.abc import Callable
+from pathlib import Path
+from typing import Protocol, cast
+from xml.etree import ElementTree as ET
+from zipfile import ZipFile
+
+import pytest
+
+SCRIPT = Path(__file__).absolute().parents[2] / "ryan-scripts" / "other" / "audit_qgis_projects.py"
+
+
+class AuditMain(Protocol):
+    def __call__(self, *, working_directory: Path | None = None) -> int: ...
+
+
+def _functions() -> tuple[AuditMain, Callable[[Path], list[str]], Callable[[Path, str], Path | None]]:
+    namespace = runpy.run_path(str(SCRIPT))
+    return (
+        cast(AuditMain, namespace["main"]),
+        cast("Callable[[Path], list[str]]", namespace["get_data_sources"]),
+        cast("Callable[[Path, str], Path | None]", namespace["resolve_file_source"]),
+    )
+
+
+def _project_xml(*sources: str) -> bytes:
+    root = ET.Element("qgis")
+    project_layers = ET.SubElement(root, "projectlayers")
+    for source in sources:
+        maplayer = ET.SubElement(project_layers, "maplayer")
+        ET.SubElement(maplayer, "datasource").text = source
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+def _write_qgs(path: Path, *sources: str) -> None:
+    path.write_bytes(_project_xml(*sources))
+
+
+def _write_qgz(path: Path, *sources: str) -> None:
+    with ZipFile(path, "w") as project:
+        project.writestr(f"{path.stem}.qgs", _project_xml(*sources))
+
+
+def test_qgz_relative_gpkg_and_qgs_absolute_sources_are_read_only(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    gpkg = tmp_path / "relative data.gpkg"
+    gpkg.write_bytes(b"source sentinel")
+    qgz = tmp_path / "model.qgz"
+    qgs = tmp_path / "drawing.qgs"
+    _write_qgz(qgz, "./relative data.gpkg|layername=roads")
+    _write_qgs(qgs, f"{gpkg}|layername=roads")
+    before = {path: path.read_bytes() for path in (gpkg, qgz, qgs)}
+
+    main, _, _ = _functions()
+    monkeypatch.chdir(tmp_path)
+    assert main(working_directory=tmp_path) == 0
+    assert {path: path.read_bytes() for path in before} == before
+
+
+def test_missing_local_layer_returns_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _write_qgz(tmp_path / "model.qgz", "./missing.gpkg|layername=roads")
+    main, _, _ = _functions()
+    monkeypatch.chdir(tmp_path)
+    assert main(working_directory=tmp_path) == 1
+    assert not (tmp_path / "missing.gpkg").exists()
+
+
+def test_invalid_qgz_returns_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    invalid = tmp_path / "broken.qgz"
+    invalid.write_bytes(b"not a QGIS archive")
+    main, _, _ = _functions()
+    monkeypatch.chdir(tmp_path)
+    assert main(working_directory=tmp_path) == 1
+    assert invalid.read_bytes() == b"not a QGIS archive"
+
+
+def test_file_uri_to_local_path_with_percent_escaping(tmp_path: Path) -> None:
+    project = tmp_path / "model.qgz"
+    gpkg = tmp_path / "roads & culverts.gpkg"
+    gpkg.write_bytes(b"source")
+    _, _, resolve = _functions()
+    resolved = resolve(project, f"{gpkg.as_uri()}|layername=roads")
+    assert resolved == gpkg.absolute()
+
+
+def test_file_uri_localhost_preserves_local_path(tmp_path: Path) -> None:
+    project = tmp_path / "model.qgz"
+    gpkg = tmp_path / "roads & culverts.gpkg"
+    _, _, resolve = _functions()
+    uri = gpkg.as_uri().replace("file:///", "file://localhost/", 1)
+    assert resolve(project, uri) == gpkg.absolute()
+
+
+def test_file_uri_unc_preserves_server_and_share(tmp_path: Path) -> None:
+    project = tmp_path / "model.qgz"
+    _, _, resolve = _functions()
+    result = resolve(project, "file://fileserver/engineering/roads%20data.gpkg|layername=roads")
+    assert result is not None
+    assert str(result).replace("\\", "/").lower().startswith("//fileserver/engineering/")
+    assert result.name == "roads data.gpkg"
+
+
+@pytest.mark.parametrize(
+    "provider",
+    [
+        "memory?geometry=Point&crs=EPSG:28350",
+        "type=xyz&url=https%3A%2F%2Fexample.com%2Ftiles",
+        "service=WMS&url=https://example.com/wms",
+        "service=WFS&url=https://example.com/wfs",
+        "dbname='qgis' table=\"roads\"",
+        "postgresql://server/database",
+        "https://example.com/wms",
+        "/vsicurl/https://example.com/roads.gpkg",
+        "",
+    ],
+)
+def test_remote_or_empty_provider_is_not_a_missing_file(tmp_path: Path, provider: str) -> None:
+    _, _, resolve = _functions()
+    assert resolve(tmp_path / "model.qgz", provider) is None
+
+
+def test_qgz_source_list_is_deterministically_deduplicated(tmp_path: Path) -> None:
+    project = tmp_path / "model.qgz"
+    _write_qgz(project, "./b.gpkg|layername=2", "./a.gpkg|layername=1", "./b.gpkg|layername=2")
+    _, get_sources, _ = _functions()
+    assert get_sources(project) == ["./a.gpkg|layername=1", "./b.gpkg|layername=2"]
