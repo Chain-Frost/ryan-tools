@@ -137,7 +137,7 @@ or that its CLI works; verify those in the real application environment before r
 
 ## Prerequisites
 
-1. Python 3.13+ with the `ryan-tools` package installed, including `ryan-culverts`. Upgrade Python if dependency compatibility problems occur.
+1. Python 3.14+ with the `ryan-tools` package installed, including `ryan-culverts`. Upgrade Python if dependency compatibility problems occur.
 2. Install the MCP extra:
 
    ```bat
@@ -185,7 +185,7 @@ from its dock. The Python bridge and QGIS plugin must be compatible.
 ## Set up both servers in Codex
 
 Run this from the repository root in Windows PowerShell. The launcher selects
-an available Python 3.13+ interpreter by default and discovers the checkout
+an available Python 3.14+ interpreter by default and discovers the checkout
 relative to `repo-scripts`. For Codex running **natively on Windows**, the
 user-level Codex config is shared with the extension in VS Code; restart or
 reload the extension after changes.
