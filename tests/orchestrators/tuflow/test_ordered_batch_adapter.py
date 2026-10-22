@@ -8,7 +8,11 @@ from pathlib import Path
 import pytest
 
 from ryan_library.orchestrators.tuflow.batch_preflight_adapter import BatchModelView
-from ryan_library.orchestrators.tuflow.input_preflight import PreflightReport, RunRequest, _collect_references
+from ryan_library.orchestrators.tuflow.input_preflight import (
+    PreflightReport,
+    RunRequest,
+    _collect_references,  # pyright: ignore[reportPrivateUsage] - exercise the production collector
+)
 
 
 def _command(index: int, uuid: str, name: str, *, tcf: Path) -> types.SimpleNamespace:
@@ -152,7 +156,9 @@ def test_two_bc_declarations_select_sources_by_original_command_order(tmp_path: 
     run = RunRequest(42, {"e1": "TP01"})
     assert run.arguments == flag
     report = PreflightReport(run_count=1)
-    collected, _ = _collect_references(tcf, (run,), view, report)
+    collected, _ = _collect_references(
+        tcf, (run,), view, report  # pyright: ignore[reportArgumentType] - read-only batch view mirrors collector context
+    )
     assert not report.issues
     bc_sources = {ref.path.name: ref.bc_activation_uuid for ref in collected if ref.bc_activation_uuid}
     assert bc_sources == {"boundary_a.shp": "db-a", "boundary_b.shp": "db-b"}
