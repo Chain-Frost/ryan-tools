@@ -18,7 +18,11 @@ import pandas as pd
 from loguru import logger
 
 from ...functions.tuflow.dependency_index import check_unique_dependencies, expand_file_patterns
-from ...functions.tuflow.gis_attribute_dependencies import inspect_gis_attribute_sources, read_pit_inlet_database
+from ...functions.tuflow.gis_attribute_dependencies import (
+    inspect_gis_attribute_sources,
+    read_bc_inline_constant_names,
+    read_pit_inlet_database,
+)
 from ...functions.tuflow.raster_metadata_dependencies import inspect_raster_metadata
 
 IssueStatus = Literal["missing", "unresolved"]
@@ -178,6 +182,7 @@ class PreflightReport:
     raster_seconds: float = 0.0
     # Run/activation-scoped BC Source rows, populated from PyTUFLOW's cached tables.
     bc_activation_sources: dict[tuple[int, str], dict[str, Path]] = field(default_factory=dict)
+    bc_activation_paths: dict[tuple[int, str], Path] = field(default_factory=dict)
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
@@ -258,6 +263,7 @@ class _BCActivation(Protocol):
     sequence: int
     input_uuid: str
     database_kind: str
+    database_path: Path
 
 
 def _bc_source_command(name: str) -> bool:
@@ -410,6 +416,8 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                             raise ValueError(message)
                         by_name[key] = Path(source.path_pattern).absolute()
                     report.bc_activation_sources[(run.index, uuid)] = by_name
+                    active = next(a for a in bc_activations if a.database_kind == "bc" and a.input_uuid == uuid)
+                    report.bc_activation_paths[(run.index, uuid)] = active.database_path
             for position, inp in enumerate(inputs):
                 if _is_non_input_command(inp):
                     continue
@@ -686,6 +694,7 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
         if ref.database_kind in {"pit_inlet", "depth_discharge"}:
             curve_databases.setdefault((ref.run.index, ref.database_kind), set()).add(ref.path)
     pit_database_cache: dict[Path, dict[str, Path] | str] = {}
+    bc_constant_cache: dict[Path, frozenset[str] | str] = {}
     if scan_references:
         requests = {(ref.path, ref.layer) for ref in scan_references}
         inspected, scan_count = inspect_gis_attribute_sources(requests)
@@ -724,6 +733,20 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                     for identifier in result.bc_identifiers:
                         linked = sources.get(identifier.casefold())
                         if linked is None:
+                            database_path = report.bc_activation_paths[(ref.run.index, ref.bc_activation_uuid)]
+                            if database_path not in bc_constant_cache:
+                                try:
+                                    bc_constant_cache[database_path] = read_bc_inline_constant_names(database_path)
+                                except (OSError, UnicodeError, ValueError) as exc:
+                                    bc_constant_cache[database_path] = str(exc)
+                            inline_names = bc_constant_cache[database_path]
+                            if isinstance(inline_names, frozenset) and identifier.casefold() in inline_names:
+                                continue  # Numeric constant: no secondary file to validate.
+                            detail = (
+                                f"Cannot classify BC constant row: {inline_names}"
+                                if isinstance(inline_names, str)
+                                else f"Active BC Database has no Source row for {identifier!r}"
+                            )
                             report.issues.append(
                                 PreflightIssue(
                                     ref.run.index,
@@ -731,7 +754,7 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                                     "unresolved",
                                     ref.origin,
                                     str(ref.path),
-                                    f"Active BC Database has no Source row for {identifier!r}",
+                                    detail,
                                 )
                             )
                         else:
