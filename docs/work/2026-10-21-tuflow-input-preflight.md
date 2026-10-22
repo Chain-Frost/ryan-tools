@@ -13,7 +13,7 @@ In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23. PRs
 into draft #143. PyTUFLOW #1 is merged into the fork's master; batch development continues in #5. Current
 parser a9f654c and consumer diagnostic 2e03c0b pass dedicated hosted deferred/batch checks and strict
 161-TCF/174-run archive replay. Existing eager/shared slot-nine and material CSV loader fixes are recorded
-separately upstream. Current P/B and replacement 480-run local SSD trials pass; matched SMB evaluation is
+separately upstream. Current P/B, matched 480-run SSD/SMB and new 42-command SMB trials plus public checks pass; results are
 tracked in the [batch work record](2026-10-22-tuflow-batch-preflight-optimisation.md). General Python CI has
 an independent Nmx snapshot column-dtype failure, recorded there separately. Historical external 440-run
 acceptance on parser fb103a1 remains valid for that revision, not the current source. The owner withdrew the

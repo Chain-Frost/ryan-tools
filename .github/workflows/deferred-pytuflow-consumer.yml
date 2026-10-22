@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install pinned PyTUFLOW fork and supported GIS dependencies
-        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@8e7bc303aa7306cbdc0a6760bc089f84121e3f6e"
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@a9f654c1ec0812fc70035e227fb2f9f12290f449"
       - name: Install isolated preflight consumer and focused test dependencies
         # Full ryan-tools extras currently request Fiona, which lacks a usable
         # wheel in this hosted Windows/Python 3.14 environment. Avoid building

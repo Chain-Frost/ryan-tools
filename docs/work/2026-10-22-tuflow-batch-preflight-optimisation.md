@@ -1,6 +1,6 @@
 # Batch-aware TUFLOW preflight optimisation — stacked PR scope
 
-**Status:** Active native evaluation; interim three-trial SSD and M480 SMB results posted below. The batch adapter and shared inspection changes from #148 are now merged into
+**Status:** Supplied native SSD/SMB evaluation complete; optimisation/final review remains open. The batch adapter and shared inspection changes from #148 are now merged into
 #143 (`feat/tuflow-run-preflight`), which remains draft. PyTUFLOW #1 is merged into the fork's `master`;
 opt-in batch work continues in #5. No production release or default-mode change is authorised.
 
@@ -10,7 +10,7 @@ opt-in batch work continues in #5. No production release or default-mode change 
 consumer diagnostic `2e03c0b110a272d9c6a05cc6da3bc08817130164`.
 The current pinned hosted batch workflow passes strict eager/deferred/batch materialisation parity for all
 161 TCFs / 174 runs. The preceding parser b1c9cfd also passed the local strict archive replay.
-Native rotated three-mode evaluations are in progress. The newly supplied small SMB model has 42 commands;
+Native rotated three-mode evaluations are complete; see the final results below. The newly supplied small SMB model has 42 commands;
 this is distinct from the withdrawn external 42-run requirement.
 
 The two-BC-declaration issue is explicitly deferred by the owner. Eliminating repeated invariant run-state
@@ -230,3 +230,102 @@ one Nmx snapshot column-axis pandas StringDtype comparison (`<NA>` versus `nan`)
 Batch still constructs one context per run (480 for M480). The broader immutable control-file graph remains
 future optimisation. The owner explicitly deferred the two-BC model. The incomplete 792-run model was replaced;
 its direct expected PO-file existence check found GD08 393/396 and GD14 394/396 absent, not a valid benchmark.
+
+
+## Final native benchmark results (2026-10-22)
+
+All supplied native workloads pass **three full rotated trials**, with zero missing/unresolved input findings,
+identical eager/deferred/batch materialised identity sets, and matching successful public individual/batch
+checked-path and issue sets. The 480-run network copy retains all inputs needed by this benchmark after the
+owner's removal of irrelevant files. No TUFLOW simulation was launched.
+
+PyTUFLOW **1.2.6**, parser source `a9f654c1ec0812fc70035e227fb2f9f12290f449`; consumer diagnostic
+`2e03c0b110a272d9c6a05cc6da3bc08817130164`. Windows Python 3.14. Model names P/B and all native paths
+remain private. The M480 command-file bytes and 480 flag dictionaries match between SSD and SMB copies.
+
+| Model | Storage | Runs | Eager median (min-max), s | Deferred median (min-max), s | Batch median (min-max), s |
+| --- | --- | ---: | ---: | ---: | ---: |
+| P | SSD | 4 | 1.234 (1.229-1.264) | 0.852 (0.847-0.887) | 0.688 (0.685-0.689) |
+| B | SSD | 240 | 62.640 (62.504-66.919) | 40.876 (40.779-44.050) | 26.285 (25.781-26.549) |
+| M480 | SSD | 480 | 118.843 (114.569-122.171) | 65.007 (64.672-67.559) | 45.223 (43.873-45.557) |
+| M480 | SMB | 480 | 229.062 (228.122-230.345) | 91.844 (90.437-96.858) | 70.014 (69.540-71.085) |
+| N42 | SMB | 42 | 80.892 (80.308-82.257) | 40.232 (39.470-43.397) | 16.818 (16.817-19.501) |
+
+For M480, batch reduces diagnostic elapsed time versus individual deferred by **30.4% on SSD** and **23.8%
+on SMB**. Network elapsed remains higher in every mode. These are sequential warm-cache observations,
+not cold-cache guarantees. Each repeat rotates mode order; no timed model workloads run concurrently.
+
+Timings include fresh parsing, reference materialisation, physical-identity normalisation and shared inventory.
+They exclude process startup, report writing and the separate public-preflight replay (including raster-header
+validation). They are **diagnostic timings**, not complete launcher wall times. Native identity keys compare
+`(run index, flags, normalised command, physical path, layer)`; upstream UUID/control-line provenance has
+separate synthetic cached/uncached tests. Required-input inventory, not equality of all project files, gates
+acceptance. Large copied binaries were size-checked, not exhaustively byte-hashed.
+
+M480 retains **12,480 compared identities / 49 distinct physical paths** per copy in every mode;
+N42 retains **1,922 identities / 196 paths**. Median timing phases for the matched 480-run copies:
+
+| Storage / mode | Parse, s | Context or batch call, s | Remaining materialisation/identity/inventory, s |
+| --- | ---: | ---: | ---: |
+| SSD / eager | 0.572 | 95.865 | 22.406 |
+| SSD / deferred | 0.556 | 56.850 | 7.601 |
+| SSD / batch | 0.560 | 43.708 | 0.928 |
+| SMB / eager | 0.701 | 181.811 | 46.741 |
+| SMB / deferred | 0.716 | 58.676 | 32.458 |
+| SMB / batch | 0.710 | 43.595 | 25.946 |
+
+Column medians are computed separately and need not sum to the median total. Last-trial M480 eager-context
+audit counts are 6,253 SQLite connects, 13,454 glob events and 1,440 scandir events in each storage case;
+individual deferred contexts and the batch call record none of these selected events. This does not measure
+all native I/O: in particular, physical path identity normalisation remains in the residual diagnostic phase,
+which is noticeably more expensive on SMB. Do not misattribute that entire residual to the production parser.
+
+### Accounting and limits
+
+Process RSS is sampled every 20 ms with GC between modes; it includes native allocations but is not an exact
+peak or an isolated allocator regression proof. Maximum sampled RSS across the three full trials:
+
+| Model / storage | Eager MiB | Deferred MiB | Batch MiB |
+| --- | ---: | ---: | ---: |
+| P / SSD | 263.4 | 263.4 | 263.4 |
+| B / SSD | 332.7 | 331.2 | 332.1 |
+| M480 / SSD | 344.3 | 341.9 | 341.5 |
+| M480 / SMB | 342.1 | 339.5 | 341.0 |
+| N42 / SMB | 353.1 | 353.7 | 350.4 |
+
+The M480 SSD last batch trial still constructs **480 contexts / 28,327 commands**, reusing 3,353 command
+templates. Its 43.708 s batch call includes 34.597 s context construction, 2.936 s reference collection and
+4.480 s database projection. A broader immutable control-file graph remains future optimisation, not work
+completed by this evaluation. Phase categories differ across modes; individual database projection is part
+of residual collection, whereas batch projection is inside the batch call. Python audit events count selected
+open/directory/SQLite/glob calls, not all native/stat I/O; retain independent no-I/O spy tests.
+
+### Delivery and remaining scope
+
+- Parser source a9f654c passes 223 affected local tests, exact-head reference CI and strict archive CI.
+  Consumer code 2e03c0b passes **68 focused local tests** against a9f654c with both real fork integration
+  gates enabled. Hosted batch smoke passes 9 tests and strict 161-TCF / 174-run three-mode replay on a9f654c.
+  The earlier hosted 59-test dedicated deferred job used its older 8e7bc30 pin; that workflow is now aligned
+  to a9f654c as well. Its new hosted result must be checked separately rather than attributing the old green
+  result to the new parser revision.
+- Existing eager/shared fixes are recorded separately upstream: ninth-slot conditional scopes and materials
+  CSV blank/comment loading (a9f654c). New shared cached-source accessor repair, deferred/batch output-folder
+  compatibility (b1c9cfd), and diagnostic mapped-drive SQLite handling remain separately identified.
+- The replaced 792-run workload is not accepted: direct PO-file existence checks found GD08 393/396 and
+  GD14 394/396 absent. This is not a reason to suppress findings or silently skip both catchments.
+- N42 here is the newly supplied 42-command network benchmark. It does not reinstate the withdrawn external
+  42-run gate. The historical external 440-run evidence is revision-specific and was not rerun on this machine.
+- The owner explicitly postponed the two-BC-model investigation. No new two-BC functionality is claimed.
+- General Python CI separately fails the Nmx snapshot column-axis StringDtype NA-value comparison
+  (`<NA>` versus `nan`): 1380 passed, 6 skipped, 7 deselected, one failure on source 2e03c0b.
+  Dedicated parser checks are green; the whole PR is not all-checks-green or ready for automatic merge.
+- No solver run, default-on switch, production dependency repin, merge or release. Raw native data and reports
+  remain outside Git; only anonymised findings and benchmark information are published.
+
+
+**Delivery:** The interim records are pushed as consumer `38cdc66` and parser-documentation `9b39b43`,
+with interim comments on PR #143 and PyTUFLOW #5. Final results and the aligned deferred workflow pin are
+published in the subsequent final-results commits. Source modules remain identical to parser a9f654c and
+consumer diagnostic 2e03c0b. New documentation/workflow-head checks are distinct from the source CI cited
+above. Next action: review the final evidence and resolve the independent Nmx snapshot CI issue; keep the
+two-BC investigation deferred and scope the broader immutable graph separately. Next review: 2026-10-23.
