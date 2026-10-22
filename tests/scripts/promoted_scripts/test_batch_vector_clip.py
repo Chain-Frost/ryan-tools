@@ -237,9 +237,7 @@ def test_clip_vector_failed_overwrite_preserves_output_and_cleans_stage(
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr(Path, "replace", fail_replace)
-    assert not clip_vector(
-        input_path, extent_path, output_path, executable="ogr2ogr", overwrite=True, dry_run=False
-    )
+    assert not clip_vector(input_path, extent_path, output_path, executable="ogr2ogr", overwrite=True, dry_run=False)
     assert output_path.read_bytes() == b"important existing dataset"
     assert not list(tmp_path.glob(".output.*.tmp.gpkg"))
 
@@ -250,12 +248,19 @@ def test_clip_vector_dry_run_never_executes_or_touches_output(
     """Even --overwrite does not remove or replace files during a dry-run."""
     output = tmp_path / "output.gpkg"
     output.write_bytes(b"protected")
+
     def no_subprocess(*_args: object, **_kwargs: object) -> None:
         message = "subprocess must not run during dry-run"
         raise AssertionError(message)
 
     monkeypatch.setattr(subprocess, "run", no_subprocess)
-    assert clip_vector(tmp_path / "source.gpkg", tmp_path / "extent.gpkg", output,
-        executable="ogr2ogr", overwrite=True, dry_run=True)
+    assert clip_vector(
+        tmp_path / "source.gpkg",
+        tmp_path / "extent.gpkg",
+        output,
+        executable="ogr2ogr",
+        overwrite=True,
+        dry_run=True,
+    )
     assert output.read_bytes() == b"protected"
     assert not list(tmp_path.glob(".output.*.tmp.gpkg"))
