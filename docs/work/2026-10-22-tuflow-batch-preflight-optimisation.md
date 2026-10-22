@@ -1,12 +1,12 @@
 # Batch-aware TUFLOW preflight optimisation — stacked PR scope
 
-**Status:** Supplied native SSD/SMB evaluation complete; optimisation/final review remains open. The batch adapter and shared inspection changes from #148 are now merged into
+**Status:** PR #7/#10 stack conflicts resolved; current four-mode native SMB evaluation underway. Earlier SSD/SMB results below remain historical. The batch adapter and shared inspection changes from #148 are now merged into
 #143 (`feat/tuflow-run-preflight`), which remains draft. PyTUFLOW #1 is merged into the fork's `master`;
 opt-in batch work continues in #5. No production release or default-mode change is authorised.
 
-**Date:** 2026-10-22. **Owner:** ChatGPT. **Next review:** 2026-10-23.
+**Date:** 2026-10-23. **Owner:** ChatGPT. **Next review:** 2026-10-24.
 
-**Current source revisions:** PyTUFLOW `a9f654c1ec0812fc70035e227fb2f9f12290f449`;
+**Historical completed benchmark revisions:** PyTUFLOW `a9f654c1ec0812fc70035e227fb2f9f12290f449`;
 consumer diagnostic `2e03c0b110a272d9c6a05cc6da3bc08817130164`.
 The current pinned hosted batch workflow passes strict eager/deferred/batch materialisation parity for all
 161 TCFs / 174 runs. The preceding parser b1c9cfd also passed the local strict archive replay.
@@ -340,3 +340,57 @@ LF/CRLF conversion accounted for. A retained a9f654c source extraction independe
 focused consumer tests with both real-fork gates enabled. The later case-handling source was not rerun
 through the native performance matrix. Benchmark figures must remain associated with their recorded
 source rather than being relabelled as current branch-head timings.
+
+## PR #7/#10 repair and benchmark review - 2026-10-23
+
+PyTUFLOW PR #7 was based on an older PR #9, causing the native GitHub stack
+to reject PR #10 even after a clean local merge. Rebased PR #7 onto current
+PR #9 `204c9e0`, then PR #10 onto PR #7. Preserved local backup branches and
+used explicit lease-protected pushes. Both now report mergeable: PR #7
+`66872d5`, PR #10 source `5b11415`; parser documentation follow-up `099434f`.
+No PR merge, release, production dependency repin or engine execution.
+
+The integration fix distinguishes scenario-only conditional READs from DEFINE
+and event scopes for the new whole-model proof. General conditional command
+reuse remains disabled; dynamic paths and DEFINE scopes retain conservative
+bypass. **This repairs new batch optimisation, not original eager behaviour.**
+Local Windows/Python 3.14.6 validation passes **266 parser/integration tests
+and 68 focused consumer tests**, compileall and whitespace checks.
+
+Retained parser benchmark snapshot `5053a07` has exactly the same Git tree as
+source `5b11415`: `53f09c3d7f97d356c4f1ca3f258c5657afbceb8f`.
+Consumer diagnostic head is `bd77a3924d561eff56ae9cc3fda0c10915e8f1a5`.
+Source history changes do not relabel or replace the retained source manifest.
+
+### Process and completed public checks
+
+- Verified public archive: 1,464 members, SHA-256
+  `e374c8e072679fc6c4dc11e63b270caa1101b6aebb84d70060872cdd1b0aa7d6`.
+- Full **161 TCFs / 174 documented runs** passes the P4 four-mode identity
+  comparison and P3 three rotated trials: individual deferred, uncached batch,
+  cached batch without graph, cached batch with graph. No fabricated extra runs.
+- Separate consumer eager/deferred/batch **materialised** replay passes all
+  161/174. The syntactic comparison alone is not the materialisation gate.
+- Sums of model median parser times are 7.643 / 7.577 / 5.746 / 5.794 seconds
+  in that mode order. These are sums of per-model medians, not a single suite
+  wall-clock measurement. The graph adds about 0.8% on this small public set;
+  this does not demonstrate a graph speedup or predict native SMB behaviour.
+- Native M480 (480 distinct runs) and N42 (42 distinct runs) execute sequentially
+  on SMB, four modes and three rotating trials. Parsing is reported separately;
+  mode timings include evaluation and reference projection. Sampled RSS and
+  actual constructed/elided run-state counters are retained. A separate full
+  materialised consumer replay follows each parser workload, untimed for
+  consumer optimisation claims. No native inputs are copied or uploaded.
+- The old three-mode consumer diagnostic cannot isolate the graph's effect.
+  Current graph comparisons use the same parser revision with graph off/on.
+  Consumer production optimisation work is separate from this parser benchmark.
+
+Private raw native reports stay on the network validation area; only anonymised
+aggregates belong in Git/PRs. Public reports are retained outside Git under the
+local temporary `pytuflow-review-5053a07` directory. Hosted exact-head checks are
+queued, not yet accepted. Next action: finish native measurements, publish the
+aggregates here and on PR #10/#143, and check terminal hosted results.
+
+**Delivery:** Parser repair and handoff pushed; interim comment posted on
+PyTUFLOW PR #10. Consumer record update pending commit. Broader invariant graph
+coverage and the owner's deferred two-BC investigation are separate follow-ups.
