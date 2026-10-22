@@ -101,6 +101,10 @@ def test_shapefile_success_replaces_sidecars_without_stale_originals(tmp_path: P
     old_data = {".shp": b"old shapes", ".dbf": b"old table", ".shx": b"old index", ".prj": b"old projection"}
     for suffix, data in old_data.items():
         original.with_suffix(suffix).write_bytes(data)
+    unrelated = tmp_path / "existing.audit.txt"
+    unrelated.write_bytes(b"leave unrelated file untouched")
+    metadata = tmp_path / "existing.shp.xml"
+    metadata.write_bytes(b"stale metadata")
     staged = tmp_path / ".existing.staged.shp"
     staged.with_suffix(".shp").write_bytes(b"new shapes")
     staged.with_suffix(".dbf").write_bytes(b"new table")
@@ -112,6 +116,8 @@ def test_shapefile_success_replaces_sidecars_without_stale_originals(tmp_path: P
     assert original.with_suffix(".dbf").read_bytes() == b"new table"
     assert original.with_suffix(".shx").read_bytes() == b"new index"
     assert not original.with_suffix(".prj").exists()
+    assert not metadata.exists()
+    assert unrelated.read_bytes() == b"leave unrelated file untouched"
     assert not list(tmp_path.glob(".existing.backup.*"))
 
 
