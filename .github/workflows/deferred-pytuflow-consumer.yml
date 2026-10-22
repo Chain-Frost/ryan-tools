@@ -7,6 +7,8 @@ on:
       - "ryan_library/orchestrators/tuflow/input_preflight.py"
       - "ryan_library/functions/tuflow/dependency_index.py"
       - "ryan_library/functions/tuflow/gis_attribute_dependencies.py"
+      - "ryan_library/functions/tuflow/raster_metadata_dependencies.py"
+      - "tests/functions/tuflow/test_raster_metadata_dependencies.py"
       - "tests/functions/tuflow/test_gis_attribute_dependencies.py"
       - "tests/fixtures/tuflow_example_repro/run_checks.py"
       - "tests/orchestrators/tuflow/test_input_preflight.py"
@@ -26,13 +28,19 @@ jobs:
         run: git submodule update --init tests/test_data
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
-      - name: Install ryan-tools development dependencies
-        run: python -m pip install -e ".[dev]"
-      - name: Replace published PyTUFLOW with pinned deferred fork
-        run: python -m pip install --no-deps --force-reinstall "git+https://github.com/phantom-branch/PyTuflow.git@f965314c2a5df68a3f5ada016b02607513d783c1"
+          python-version: "3.14"
+      - name: Install pinned PyTUFLOW fork and supported GIS dependencies
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@4228a805687cfd80d98a27e2ebcb62c234b40059"
+      - name: Install isolated preflight consumer and focused test dependencies
+        # Full ryan-tools extras currently request Fiona, which lacks a usable
+        # wheel in this hosted Windows/Python 3.14 environment. Avoid building
+        # Fiona from source for this read-only, isolated PyTUFLOW integration
+        # test; do not change normal installation or production requirements.
+        run: |
+          python -m pip install -e . --no-deps
+          python -m pip install pytest pyshp loguru colorama psutil
       - name: Verify fork deferred API and consumer regression tests
-        run: python -m pytest -q tests/orchestrators/tuflow/test_input_preflight.py tests/functions/tuflow/test_gis_attribute_dependencies.py
+        run: python -m pytest -q tests/orchestrators/tuflow/test_input_preflight.py tests/functions/tuflow/test_gis_attribute_dependencies.py tests/functions/tuflow/test_raster_metadata_dependencies.py
       - name: Replay archived Shapefile examples without launching TUFLOW
         shell: pwsh
         run: |
@@ -44,6 +52,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Full archived example sweep (temporary diagnostic; remove before merge)
+        if: ${{ !cancelled() }}
         shell: pwsh
         run: |
           $report = Join-Path $env:RUNNER_TEMP "tuflow-example-full-replay"

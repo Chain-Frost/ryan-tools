@@ -9,7 +9,7 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; example reproduction bundle is temporary branch-only data; resolve the recorded feature gaps and remove the bundle before final merge.
+In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; local Windows replay accepts 153/161 TCFs (166/174 runs); investigate eight deferred-only completeness differences. Keep permanent input ZIP in test-data; remove only temporary runner/CI replay before merge.
 
 ## Decisions
 
@@ -711,3 +711,249 @@ branch-only tests/fixtures/tuflow_example_repro directory, related
 workflow replay steps and its central docs-index row. Keep durable
 synthetic regressions and this anonymised validation record.
 No merge, default-on preflight, PyPI release or TUFLOW engine launch is authorised.
+
+
+## Dataset transferred to dedicated test-data repository (2026-10-22)
+
+The earlier **branch-only archive location is superseded** by the user's
+instruction to store reusable test inputs in
+[ryan-tools-test-data PR #1](https://github.com/Chain-Frost/ryan-tools-test-data/pull/1).
+The ZIP, SHA-256 member manifest, and original 161-case baseline now live
+at `tests/test_data/tuflow/example_input_preflight/` through the already
+supported test-data submodule. The ryan-tools PR #143 submodule gitlink was
+initially updated to test-data feature commit `3589290cd41974e240b555f8e3ceb2a51aec2951`;
+after [test-data PR #1 was squash-merged](https://github.com/Chain-Frost/ryan-tools-test-data/pull/1),
+it was repinned to permanent `main` commit `d2dae3ecf9a7ed306e1340de54a8d12ca9f53f58`
+in ryan-tools commit `d7e18809fdc10fa0d63fd166e5839a1c222b4b6d`.
+The three duplicates were deleted from the ryan-tools branch.
+The Python read-only diagnostic runner remains temporarily at
+`tests/fixtures/tuflow_example_repro/run_checks.py`, but now reads
+the bundle from the shared test-data directory.
+
+The transferred archive Git blob is byte-identical to the source
+(`b29f38ff4d6179ca3e2dbba92b807a44427ffe5d`); its SHA-256
+is `e374c8e072679fc6c4dc11e63b270caa1101b6aebb84d70060872cdd1b0aa7d6`.
+[Test-data transfer CI](https://github.com/Chain-Frost/ryan-tools-test-data/actions/runs/39656816536)
+recomputed **all 1,464 member checksums** and measured **0.198 s
+one-time extraction on a hosted Linux SSD** (this is not a Windows or
+network-drive benchmark). ZIP size is 15,137,122 bytes; extracted input
+bytes are 20,134,068. There is no runtime decompression per run;
+the harness extracts once before contexts are constructed. Keep the
+archive zipped in Git to avoid 1,464 checkout metadata/file operations.
+
+**Test-data PR #1 is merged and the gitlink points to its final `main`
+commit.** The short-lived diagnostic runner/CI sweep may still be removed
+before ryan-tools merge, but **do not delete the permanent archive in
+ryan-tools-test-data**. Verify the final ryan-tools CI uses the permanent
+submodule commit before merging PR #143.
+
+
+## Typed upstream source integration and Windows example sweep (22 October 2026)
+
+Agent 1 integrated PyTUFLOW supporting PR #2 typed cached source API into
+ryan-tools PR #143 on the opt-in Windows/Python 3.13 consumer workflow.
+Production PyPI dependency stays unchanged. The pinned test revision was
+PyTUFLOW `336efdea7f9c9d8ca27515284b042f48804f2bac`.
+
+**Read-only CI [run 39663958589](https://github.com/Chain-Frost/ryan-tools/actions/runs/39663958589)** checked all 161 TCFs, 174 run combinations and their archive hashes
+using the permanent `tests/test_data` submodule. Exact identity parity plus
+public preflight accepted **151 TCFs / 164 runs**; **10 TCFs / 10 runs**
+remained unresolved. This supersedes the previous
+140 TCFs /153 accepted runs (21 unresolved). The Windows CI saved
+`tuflow-example-full-replay` artifact `12375333756`, including complete
+per-case `results.json` and issue CSVs. No TUFLOW executable ran.
+
+The ten cases are:
+- EG03_011: eager/deferred primary identities match, but Rasterio sees a
+  valid NetCDF **container without bands**; a subsequent change checks
+  GDAL subdataset metadata without reading pixels, pending exact-head CI.
+- EG03_012: all **41 rainfall grid files** match physically; only origin
+  `Read Grid RF` versus `rainfall source: time` differs. The downstream
+  source's actual owning command now provides the origin; pending retest.
+- EG11_006 and EG11_009: deferred-only **active Q/P depth-discharge
+  curve Source files**; verify eager completeness, do not delete real sources.
+- EG15_007 and EG15_008: deferred-only active pit-inlet `aa` curve Source;
+  verify whether eager omits valid secondary file dependencies.
+- EG17_001, EG17_002, EG17_003 and EG18_002: deferred-only AD BC Source
+  records (and an AD Global GIS source in EG18_002); review whether eager
+  omits legitimate AD dependencies. These are not missing file reports.
+
+The first integration attempt produced false deferred extras by adding
+**every** pit-inlet database Source row, including those not referenced by
+any GIS feature. Agent 1 changed this to only materialise active GIS IDs
+using the matching pit-inlet or depth-discharge Name/Source database,
+retaining per-run missing/ambiguous errors. The targeted
+EG02_014/EG04_004 Windows parity replay now passes (run 39663958589).
+The shared raster stage opens each distinct file once (plus GDAL NetCDF
+subdataset metadata if required) after run-context construction; invalid
+headers are unresolved, not silently accepted.
+
+A precise [upstream handoff](https://github.com/phantom-branch/PyTuflow/pull/2#issuecomment-6325186159)
+provides all ten cases and reasons. The next gate is a complete Windows
+174-run retest against latest downstream and reviewed upstream SHAs,
+followed by native P/B, 42-run and Higginsville parity. Do not claim an
+actual speedup or merge upstream/downstream until complete supported-input
+parity and CI are established.
+
+
+## Final checked Windows 174-run result after NetCDF and rainfall origin corrections
+
+Latest checked [Windows full example workflow 39666504925](https://github.com/Chain-Frost/ryan-tools/actions/runs/39666504925)
+with pinned supporting PyTUFLOW PR #2 commit
+`336efdea7f9c9d8ca27515284b042f48804f2bac`:
+**153 of 161 TCFs / 166 of 174 runs accepted**, eight remaining
+one-run cases. This supersedes the prior 151/161 TCF and 164/174 run
+result. All focused pinned-fork/SHAPE/GPKG and 174-run diagnostics,
+strict Pyright, Ruff, hosted tests, Python 3.13 compatibility and
+wheel build passed. The archived results are in Actions artifact
+`tuflow-example-full-replay` ID `12376903658`.
+
+The two new accepted TCFs demonstrate:
+- EG03_011: NetCDF root container with no standalone raster bands is
+  valid if GDAL lists subdatasets and a subdataset has valid header
+  dimensions and bands. Shared metadata checks read the header only;
+  they do not read arrays.
+- EG03_012: all 41 secondary rainfall FLT paths already matched eager.
+  Normalising the deferred source's owner to its actual
+  `Read Grid RF` command fixes the extraneous row-named origins.
+
+All eight remaining mismatches are **deferred-only** (zero eager-only):
+EG11_006 and EG11_009 each have one Q/P depth-discharge curve CSV;
+EG15_007/008 each have one active pit inlet curve CSV; EG17_001/002/003
+each have four AD BC source entries; EG18_002 has two AD BC source
+entries and one AD Global GIS source. Public preflight passes all eight,
+but the strict eager/deferred identity oracle finds additions.
+**Do not remove physically required files merely to satisfy eager**:
+confirm upstream eager completeness, active GIS identifier/BC declaration
+semantics and genuine source ownership against TUFLOW documentation.
+The [precise upstream handoff](https://github.com/phantom-branch/PyTuflow/pull/2#issuecomment-6325405340)
+tracks each case.
+
+No results validate the native P (4), B (240), 42-run output-variable
+or Higginsville (440) models on their current revisions. No speedup,
+merger, published dependency upgrade or solver invocation is authorised.
+
+
+## Consolidated upstream branch and Windows handoff (22 October 2026)
+
+- PyTUFLOW supporting [PR #2](https://github.com/phantom-branch/PyTuflow/pull/2)
+  is merged **into the PR #1 development branch**, not `master`; resulting
+  merge SHA `4228a805687cfd80d98a27e2ebcb62c234b40059`.
+  [PR #1](https://github.com/phantom-branch/PyTuflow/pull/1) remains **draft**.
+  Linux is tracked separately in draft [PR #4](https://github.com/phantom-branch/PyTuflow/pull/4).
+- The isolated consumer CI workflow is now pinned to that merged SHA
+  instead of the old PR #2 commit; the **production `pytuflow` PyPI dependency
+  and application defaults remain unchanged**.
+- [Windows replay 39706593237](https://github.com/Chain-Frost/ryan-tools/actions/runs/39706593237)
+  **passed** on the consolidated pin with full 1,464-file ZIP integrity
+  verification, focused regression checks and 161 TCFs / 174 run
+  combinations. **153 TCFs / 166 runs accepted, eight TCFs / eight
+  runs unresolved**. Diagnostic artifact `tuflow-example-full-replay`
+  ID `12395795444` contains the exact reports.
+- Those eight cases remain **zero eager-only**, with legitimate deferred
+  additions: EG11_006/009 Q/P depth-discharge curves, EG15_007/008
+  active pit-inlet curve sources, EG17_001/002/003 AD BC and EG18_002
+  AD BC/AD Global sources. Their ordinary input preflight passes; do not
+  suppress or discard physically real sources to improve the comparator.
+- Updated the pinned consumer CI to **Windows Python 3.14** (previously
+  Windows Python 3.13) to match the target engineering environment.
+  Its exact-head results are a separate verification gate.
+- Remaining Windows work: repair genuine eager source omissions and
+  activation-to-GIS-feature selection upstream; rerun complete example
+  parity, then P/B, 42-run and 440-run real-model checks with deduplicated
+  filesystem/GIS operation counts and same-SSD warm-cache measurements.
+  No network benchmark or speedup claim is yet verified. The read-only
+  example runner is still a temporary diagnostic, while the source input
+  ZIP remains permanently in the test-data submodule.
+
+No TUFLOW process launch, production merge, release or change to
+published package pin was authorised in this consolidation.
+
+## Fresh local Windows validation after fixture move (2026-10-22)
+
+Rechecked consumer head `86646b2f` on normal Windows Python **3.14.6**, NumPy **2.5.3** and
+pandas **3.0.5**, without installing/replacing packages or creating a virtual environment.
+The supplied local PyTUFLOW checkout is `546ab20`; its `pytuflow/` package tree has no differences
+from workflow-pinned `4228a805687cfd80d98a27e2ebcb62c234b40059`. Tests explicitly import that source
+checkout rather than the normal published package. This is source-import evidence, not a fresh
+installed-wheel/dependency installation check. Permanent test-data pin is
+`d2dae3ecf9a7ed306e1340de54a8d12ca9f53f58` and its worktree is unchanged.
+
+The moved bundle at `tests/test_data/tuflow/example_input_preflight/` verifies successfully:
+**all 1,464 member checksums and the archive checksum pass**. The runner extracts once outside
+the checkout. Complete local replay: **161 TCFs / 174 runs**; ordinary public input preflight
+passes **all 161 TCFs / 174 runs**, while strict materialised identity parity accepts
+**153 TCFs / 166 runs**. Expected diagnostic exit **1** records eight unresolved parity cases,
+not a harness failure. This independently reproduces the previously recorded hosted Windows outcome.
+
+| Remaining TCF | Eager-only records | Deferred-only records | Public preflight |
+| --- | --- | --- | --- |
+| EG11_006 | 0 | 1 depth-discharge curve | Pass |
+| EG11_009 | 0 | 1 depth-discharge curve | Pass |
+| EG15_007 | 0 | 1 pit-inlet curve | Pass |
+| EG15_008 | 0 | 1 pit-inlet curve | Pass |
+| EG17_001 | 0 | 4 AD BC source records | Pass |
+| EG17_002 | 0 | 4 AD BC source records | Pass |
+| EG17_003 | 0 | 4 AD BC source records | Pass |
+| EG18_002 | 0 | 2 AD BC and 1 AD Global source records | Pass |
+
+Total: **zero eager-only and 19 deferred-only identity records**. These are not missing file
+findings; do not delete real sources to satisfy the eager comparator. Active-feature selection,
+BC declaration semantics and eager completeness remain the investigation targets.
+
+Local checks:
+
+- Focused consumer, shared GIS and raster-metadata tests with
+  `RYAN_TEST_DEFERRED_PYTUFLOW=1`: **47 passed, zero skips**, 1.23 seconds. PyTUFLOW was imported
+  before pytest, using its explicit local checkout.
+- Ruff lint and format: **pass** on the four preflight modules, diagnostic runner and three
+  focused test files (eight files total).
+- Strict Pyright: **zero errors/warnings** on the four modules and diagnostic runner.
+- Documentation/default index, touched-document links and whitespace checks: **pass**.
+
+Reproduction:
+
+```powershell
+python -m tests.fixtures.tuflow_example_repro.run_checks --verify-only
+python -m tests.fixtures.tuflow_example_repro.run_checks --pytuflow-checkout E:\Github\PyTuflow --output "$env:TEMP\ryan-preflight-20261022\86646b2f-local\reports"
+python -c "import sys,os; sys.path.insert(0,'E:/Github/PyTuflow'); import pytuflow; os.environ['RYAN_TEST_DEFERRED_PYTUFLOW']='1'; import pytest; raise SystemExit(pytest.main(['-q','-ra','tests/orchestrators/tuflow/test_input_preflight.py','tests/functions/tuflow/test_gis_attribute_dependencies.py','tests/functions/tuflow/test_raster_metadata_dependencies.py']))"
+```
+
+Local evidence is retained under
+`C:\Users\Ryan\AppData\Local\Temp\ryan-preflight-20261022\86646b2f-local`:
+`environment.json`, `full-sweep.log`, `summary.json`, `reports/results.json` and issue CSVs.
+No solver execution, benchmark, unrelated full suite, package rebuild, hosted CI rerun or native
+project rerun was performed. Only status/runner documentation was updated and left uncommitted;
+the pre-existing `qgis-resources` modification was preserved. No commit, push or merge performed.
+
+### Windows Python 3.14 consumer replay — passed
+
+The isolated pinned-fork integration [Actions run 39707415377](https://github.com/Chain-Frost/ryan-tools/actions/runs/39707415377)
+passed on **Windows Python 3.14.8** using merged upstream commit
+`4228a805687cfd80d98a27e2ebcb62c234b40059`. It reported **47
+focused tests passed** and the complete verified **161 TCF / 174-run**
+read-only replay returned **153 TCFs / 166 runs accepted, eight unresolved**,
+consistent with the earlier Windows Python 3.13 run. Complete diagnostics:
+`tuflow-example-full-replay` artifact **12396020763**.
+
+The first full `pip install -e ".[dev]"` attempt on hosted Windows Python
+3.14 failed while building Fiona from source; its other failures were
+consequential missing packages. The isolated consumer workflow now installs
+the upstream fork's GIS dependencies, the project in editable
+`--no-deps` mode and the focused test requirements. **This establishes
+preflight integration parity only, not full normal `ryan-tools`
+Python 3.14 installation compatibility.** The Fiona/wheel and complete
+dependency installation gate remains outstanding and must not be reported
+as passing. No production dependency metadata was modified.
+
+## Local/remote documentation merge reconciliation (2026-10-22)
+
+Resolved the interrupted merge of remote `c498fbd4` into local testing commit `edfe539c`.
+Retained both the complete local Python 3.14.6 evidence and hosted Python 3.14.8/Fiona limitation
+notes. Preserved the existing local commit, including its already-recorded resource gitlink;
+no resource checkout or package source was changed by this resolution. Default documentation,
+touched-document link and whitespace checks pass. This merge changes documentation only relative
+to the local testing commit, so the 47-test/174-run evidence remains attached to its original
+tested source head rather than being relabelled as a new test run. User authorises completing
+and pushing this existing branch merge and posting the eight-case remediation handoff on PR #143.
+Production PR merge and publication remain unauthorised.

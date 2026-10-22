@@ -861,7 +861,25 @@ def test_real_deferred_nested_control_dependencies_are_not_silently_omitted(tmp_
     children = ("geometry.tgc", "boundary.tbc", "pipes.ecf")
     sources = ("2d_code.shp", "terrain.tif", "2d_bc.shp", "1d_code.shp")
     for source in sources:
-        (tmp_path / source).touch()
+        if source != "terrain.tif":
+            (tmp_path / source).touch()
+    # The raster-metadata stage must inspect a *valid* input, not a
+    # zero-byte placeholder with a .tif extension.
+    import numpy as np
+    import rasterio
+    from rasterio.transform import from_origin
+
+    with rasterio.open(
+        tmp_path / "terrain.tif",
+        "w",
+        driver="GTiff",
+        width=1,
+        height=1,
+        count=1,
+        dtype="float32",
+        transform=from_origin(0, 1, 1, 1),
+    ) as dataset:
+        dataset.write(np.ones((1, 1), dtype=np.float32), 1)
     (tmp_path / children[0]).write_text(
         "Read GIS Code == 2d_code.shp\nRead GRID Zpts == terrain.tif\n",
         encoding="utf-8",
@@ -958,16 +976,16 @@ def test_deferred_network_attribute_files_are_scanned_once_for_440_runs(
     assert all("section.csv" in issue.reference for issue in missing.issues)
 
 
-def test_deferred_q_curve_ids_resolve_through_pit_database_without_false_paths(
+def test_deferred_q_curve_ids_resolve_through_depth_discharge_without_false_paths(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Repeated Q channel identifiers yield one cached CSV lookup, not fake paths."""
     tcf = tmp_path / "model.tcf"
     tcf.touch()
     gpkg = tmp_path / "1d_nwk_q.gpkg"
-    pit_database = tmp_path / "pit_inlet.csv"
+    depth_database = tmp_path / "depth_discharge.csv"
     (tmp_path / "curve_source.csv").touch()
-    pit_database.write_text(
+    depth_database.write_text(
         "Name,Source,Column 1,Column 2\nKerb_A,curve_source.csv,Depth,Flow\n",
         encoding="utf-8",
     )
@@ -1008,7 +1026,7 @@ def test_deferred_q_curve_ids_resolve_through_pit_database_without_false_paths(
         def find_input(self, lhs: str | None = None) -> list[Input]:
             inputs = [
                 Input("Read GIS Network", gpkg, "1d_nwk_q", None),
-                Input("Pit Inlet Database", pit_database, None, "pit_inlet"),
+                Input("Depth Discharge Database", depth_database, None, "depth_discharge"),
             ]
             return [item for item in inputs if item.lhs.casefold() == lhs.casefold()] if lhs else inputs
 
@@ -1028,10 +1046,10 @@ def test_deferred_q_curve_ids_resolve_through_pit_database_without_false_paths(
     report = check_simulation_inputs(tcf, runs)
     assert report.passed, report.issues
     assert report.attribute_databases_scanned == 1
-    assert report.checked_paths == {str(gpkg), str(pit_database), str(tmp_path / "curve_source.csv")}
+    assert report.checked_paths == {str(gpkg), str(depth_database), str(tmp_path / "curve_source.csv")}
     assert all("Kerb_A" not in item for item in report.checked_paths)
 
-    pit_database.write_text("Name,Source\nOther,other.csv\n", encoding="utf-8")
+    depth_database.write_text("Name,Source\nOther,other.csv\n", encoding="utf-8")
     missing = check_simulation_inputs(tcf, runs)
     assert not missing.passed
     assert missing.affected_runs == 3
@@ -1140,3 +1158,264 @@ def test_deferred_shapefile_network_attribute_sources_checked_once_per_run_group
     assert failed.affected_runs == 3
     assert len(failed.issues) == 3
     assert all("hydrograph.csv" in issue.reference for issue in failed.issues)
+
+
+def test_typed_rainfall_ad_bc_and_gis_table_links_bulk_inventory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A supported upstream typed reference creates a real checked dependency."""
+    import numpy as np
+    import rasterio
+    import shapefile
+    from rasterio.transform import from_origin
+
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    rainfall_index = tmp_path / "rainfall.csv"
+    rainfall_index.write_text("Time,Rainfall_File\n0,rainfall.tif\n", encoding="utf-8")
+    rainfall = tmp_path / "rainfall.tif"
+    with rasterio.open(
+        rainfall,
+        "w",
+        driver="GTiff",
+        height=1,
+        width=1,
+        count=1,
+        dtype="float32",
+        transform=from_origin(1, 2, 1, 1),
+    ) as dataset:
+        dataset.write(np.ones((1, 1), dtype=np.float32), 1)
+    ad_database = tmp_path / "ad_bc.csv"
+    ad_database.write_text("Name,Source\nB,ad_hydro.csv\n", encoding="utf-8")
+    hydrograph = tmp_path / "ad_hydro.csv"
+    hydrograph.touch()
+    xs = tmp_path / "1d_xs_example.shp"
+    with shapefile.Writer(str(xs), shapeType=shapefile.POLYLINE) as writer:
+        writer.field("source", "C", size=100)
+        writer.null()
+        writer.record("section.csv")
+    section = tmp_path / "section.csv"
+    section.touch()
+
+    class Input:
+        def __init__(self, lhs: str, path: Path, *, kind: str, gis: bool = False) -> None:
+            self.lhs = lhs
+            self.file_references = (
+                types.SimpleNamespace(
+                    path_pattern=path,
+                    base_directory=tmp_path,
+                    origin=lhs,
+                    layer_pattern=None,
+                    unresolved_variables=(),
+                    requires_database_scan=kind in {"rainfall", "ad_bc"},
+                    requires_attribute_scan=gis,
+                    database_kind=kind,
+                    requires_table_link_scan=gis,
+                    requires_raster_metadata_scan=False,
+                ),
+            )
+
+        @property
+        def files(self) -> None:
+            msg = "Deferred mode must never inspect eager files"
+            raise AssertionError(msg)
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            inputs = [
+                Input("Read Grid RF", rainfall_index, kind="rainfall"),
+                Input("AD BC Database", ad_database, kind="ad_bc"),
+                Input("Read GIS Table Links", xs, kind="gis_table_links", gis=True),
+            ]
+            return [item for item in inputs if item.lhs.casefold() == lhs.casefold()] if lhs else inputs
+
+        def deferred_database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return (
+                types.SimpleNamespace(
+                    database_path=rainfall_index,
+                    database_kind="rainfall",
+                    entry_name="0",
+                    path_pattern=rainfall,
+                    owning_command="Read Grid RF",
+                    owner_control_file=tcf,
+                    layer_pattern=None,
+                    requires_raster_metadata_scan=True,
+                ),
+                types.SimpleNamespace(
+                    database_path=ad_database,
+                    database_kind="ad_bc",
+                    entry_name="B",
+                    path_pattern=hydrograph,
+                    owning_command="AD BC Database",
+                    owner_control_file=tcf,
+                    layer_pattern=None,
+                    requires_raster_metadata_scan=False,
+                ),
+            )
+
+    class Model:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=Model))
+    runs = [RunRequest(1, {"e1": "A"}), RunRequest(2, {"e1": "B"})]
+    report = check_simulation_inputs(tcf, runs)
+    assert report.passed, report.issues
+    assert report.raster_files_scanned == 1
+    assert report.attribute_databases_scanned == 1
+    assert report.checked_paths == {
+        str(rainfall_index),
+        str(rainfall),
+        str(ad_database),
+        str(hydrograph),
+        str(xs),
+        str(section),
+    }
+
+    hydrograph.unlink()
+    failed = check_simulation_inputs(tcf, runs)
+    assert not failed.passed
+    assert failed.affected_runs == 2
+    assert sum("ad_hydro.csv" in issue.reference for issue in failed.issues) == 2
+
+
+def test_unknown_deferred_database_kind_remains_unresolved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unimplemented valid database role cannot silently pass."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    unknown = tmp_path / "other.csv"
+    unknown.touch()
+
+    class Input:
+        lhs = "Unknown Database"
+        file_references = (
+            types.SimpleNamespace(
+                path_pattern=unknown,
+                base_directory=tmp_path,
+                origin="Unknown Database",
+                layer_pattern=None,
+                unresolved_variables=(),
+                requires_database_scan=True,
+                requires_attribute_scan=False,
+                database_kind="unknown",
+            ),
+        )
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [] if lhs else [Input()]
+
+        def deferred_database_sources(self) -> tuple[object, ...]:
+            return ()
+
+    class Model:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=Model))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {"e1": "A"})])
+    assert not report.passed
+    assert any("Unsupported deferred database materialisation" in issue.detail for issue in report.issues)
+
+
+def test_unused_pit_database_rows_do_not_create_false_file_requirements(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only active GIS pit identifiers materialise curve Source files."""
+    import shapefile
+
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    pit_database = tmp_path / "pit_inlets.csv"
+    pit_database.write_text(
+        "Name,Source\nAA,active_curve.csv\nBB,unused_curve.csv\n",
+        encoding="utf-8",
+    )
+    active = tmp_path / "active_curve.csv"
+    active.touch()
+    shp = tmp_path / "1d_pit_example.shp"
+    with shapefile.Writer(str(shp), shapeType=shapefile.POINT) as writer:
+        for i in range(4):
+            writer.field(f"attr_{i}", "C", size=80)
+        writer.null()
+        writer.record("p1", "Q", "", "AA")
+
+    class Input:
+        def __init__(self, lhs: str, path: Path, kind: str | None, scan: bool) -> None:
+            self.lhs = lhs
+            self.file_references = (
+                types.SimpleNamespace(
+                    path_pattern=path,
+                    base_directory=tmp_path,
+                    origin=lhs,
+                    layer_pattern=None,
+                    unresolved_variables=(),
+                    requires_attribute_scan=scan,
+                    requires_database_scan=kind is not None,
+                    database_kind=kind,
+                ),
+            )
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            inputs = [
+                Input("Pit Inlet Database", pit_database, "pit_inlet", False),
+                Input("Read GIS Pit", shp, None, True),
+            ]
+            return [inp for inp in inputs if inp.lhs.casefold() == lhs.casefold()] if lhs else inputs
+
+        def deferred_database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return tuple(
+                types.SimpleNamespace(
+                    database_path=pit_database,
+                    database_kind="pit_inlet",
+                    entry_name=name,
+                    path_pattern=tmp_path / filename,
+                    owning_command="Pit Inlet Database",
+                    owner_control_file=tcf,
+                    layer_pattern=None,
+                    requires_raster_metadata_scan=False,
+                )
+                for name, filename in (
+                    ("AA", "active_curve.csv"),
+                    ("BB", "unused_curve.csv"),
+                )
+            )
+
+    class Model:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=Model))
+    runs = [RunRequest(1, {"e1": "A"}), RunRequest(2, {"e1": "B"})]
+    report = check_simulation_inputs(tcf, runs)
+    assert report.passed, report.issues
+    assert report.checked_paths == {str(pit_database), str(shp), str(active)}
+    assert report.attribute_databases_scanned == 1
+
+    active.unlink()
+    missing = check_simulation_inputs(tcf, runs)
+    assert not missing.passed
+    assert len(missing.issues) == 2
+    assert all("active_curve.csv" in issue.reference for issue in missing.issues)

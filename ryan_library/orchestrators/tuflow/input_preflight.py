@@ -19,6 +19,7 @@ from loguru import logger
 
 from ...functions.tuflow.dependency_index import check_unique_dependencies, expand_file_patterns
 from ...functions.tuflow.gis_attribute_dependencies import inspect_gis_attribute_sources, read_pit_inlet_database
+from ...functions.tuflow.raster_metadata_dependencies import inspect_raster_metadata
 
 IssueStatus = Literal["missing", "unresolved"]
 
@@ -50,6 +51,12 @@ class _DeferredReference(Protocol):
     @property
     def database_kind(self) -> str | None: ...
 
+    @property
+    def requires_table_link_scan(self) -> bool: ...
+
+    @property
+    def requires_raster_metadata_scan(self) -> bool: ...
+
 
 class _DeferredDatabaseSource(Protocol):
     """A secondary source resolved by PyTUFLOW's cached database parser."""
@@ -65,6 +72,18 @@ class _DeferredDatabaseSource(Protocol):
 
     @property
     def path_pattern(self) -> Path: ...
+
+    @property
+    def owning_command(self) -> str: ...
+
+    @property
+    def owner_control_file(self) -> Path | None: ...
+
+    @property
+    def layer_pattern(self) -> str | None: ...
+
+    @property
+    def requires_raster_metadata_scan(self) -> bool: ...
 
 
 class _Input(Protocol):
@@ -153,6 +172,8 @@ class PreflightReport:
     individually_checked: int = 0
     attribute_databases_scanned: int = 0
     attribute_seconds: float = 0.0
+    raster_files_scanned: int = 0
+    raster_seconds: float = 0.0
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
@@ -191,6 +212,8 @@ class _FileReference:
     layer: str = ""
     scan_attributes: bool = False
     database_kind: str = ""
+    scan_raster_metadata: bool = False
+    scan_table_links: bool = False
 
 
 # Commands whose resolved values are not source-file dependencies.
@@ -235,7 +258,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     """Phase 1: resolve all run-specific inputs without existence checking."""
     references: list[_FileReference] = []
     unique: dict[Path, set[str]] = {}
-    seen: set[tuple[int, str, Path, str, bool, str]] = set()
+    seen: set[tuple[int, str, Path, str, bool, str, bool, bool]] = set()
 
     def add_issue(run: RunRequest, origin: str, reference: str, detail: str) -> None:
         report.issues.append(PreflightIssue(run.index, run.description, "unresolved", origin, reference, detail))
@@ -251,6 +274,8 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         allow_pattern: bool = False,
         scan_attributes: bool = False,
         database_kind: str = "",
+        scan_raster_metadata: bool = False,
+        scan_table_links: bool = False,
     ) -> None:
         raw = str(getattr(source, "dbpath", source)).strip()
         if (
@@ -269,10 +294,14 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         layer = str(getattr(source, "lyrname", "") or "") if require_layer and path.suffix.casefold() == ".gpkg" else ""
         if layer_override is not None and path.suffix.casefold() == ".gpkg":
             layer = layer_override
-        key = (run.index, origin, path, layer, scan_attributes, database_kind)
+        key = (run.index, origin, path, layer, scan_attributes, database_kind, scan_raster_metadata, scan_table_links)
         if key not in seen:
             seen.add(key)
-            references.append(_FileReference(run, origin, path, layer, scan_attributes, database_kind))
+            references.append(
+                _FileReference(
+                    run, origin, path, layer, scan_attributes, database_kind, scan_raster_metadata, scan_table_links
+                )
+            )
         if not any(char in path.name for char in "*?["):
             unique.setdefault(path, set())
             if layer:
@@ -321,21 +350,40 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                                     f"Unresolved PyTUFLOW variables: {', '.join(ref.unresolved_variables)}",
                                 )
                                 continue
+                            kind = getattr(ref, "database_kind", None)
+                            if kind is None:
+                                # Compatibility with earlier fork builds whose
+                                # BC/material references predate the typed field.
+                                kind = {
+                                    "bc database": "bc",
+                                    "read materials file": "materials",
+                                }.get(_command_name(inp))
+                            supported_kinds = {
+                                "bc",
+                                "materials",
+                                "soils",
+                                "ad_bc",
+                                "ad_global",
+                                "pit_inlet",
+                                "depth_discharge",
+                                "cross_section",
+                                "rainfall",
+                            }
                             if ref.requires_database_scan and not (
-                                (
-                                    database_sources_available
-                                    and (
-                                        _command_name(inp) in {"bc database", "read materials file"}
-                                        or getattr(ref, "database_kind", None) == "soils"
-                                    )
-                                )
-                                or getattr(ref, "database_kind", None) == "pit_inlet"
+                                database_sources_available and kind in supported_kinds
                             ):
                                 add_issue(
                                     run,
                                     ref.origin,
                                     str(ref.path_pattern),
-                                    "Database-linked dependencies require deferred inspection",
+                                    f"Unsupported deferred database materialisation: {kind or 'unknown'}",
+                                )
+                            if getattr(ref, "requires_table_link_scan", False) and not ref.requires_attribute_scan:
+                                add_issue(
+                                    run,
+                                    ref.origin,
+                                    str(ref.path_pattern),
+                                    "GIS table-link attributes cannot be inspected using this reference",
                                 )
                             add_file(
                                 run,
@@ -345,7 +393,9 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                                 layer_override=ref.layer_pattern or "",
                                 allow_pattern=True,
                                 scan_attributes=ref.requires_attribute_scan,
-                                database_kind=getattr(ref, "database_kind", None) or "",
+                                database_kind=kind or "",
+                                scan_raster_metadata=getattr(ref, "requires_raster_metadata_scan", False),
+                                scan_table_links=getattr(ref, "requires_table_link_scan", False),
                             )
                     except Exception as exc:  # noqa: BLE001 - incomplete references must fail closed
                         add_issue(run, origin, "", f"Could not collect deferred file references: {exc}")
@@ -379,16 +429,51 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             if callable(source_reader):
                 try:
                     for source in context.deferred_database_sources():
-                        if source.database_kind not in {"bc", "materials"}:
-                            message = f"Unsupported deferred database kind: {source.database_kind}"
+                        kind = source.database_kind
+                        if kind not in {
+                            "bc",
+                            "materials",
+                            "soils",
+                            "ad_bc",
+                            "ad_global",
+                            "pit_inlet",
+                            "depth_discharge",
+                            "cross_section",
+                            "rainfall",
+                        }:
+                            message = f"Unsupported deferred database kind: {kind}"
                             raise ValueError(message)
+                        if kind == "soils":
+                            message = "Unexpected file source from inline soils database"
+                            raise ValueError(message)
+                        if kind in {"pit_inlet", "depth_discharge"}:
+                            # These cached database rows describe *possible*
+                            # curves, not files required by every simulation.
+                            # Only the identifiers found in active GIS features
+                            # are materialised by _materialise_attribute_references.
+                            # Adding all rows here generates false dependencies
+                            # for unused inlet and depth/discharge curves.
+                            continue
+                        owner_file: Path | None = getattr(source, "owner_control_file", None)
+                        # Eager rainfall grid entries belong to the owning
+                        # Read Grid RF command, not to an invented command
+                        # named after each time-index row. Keep the row name
+                        # for the database kinds whose eager API exposes it.
+                        origin = (
+                            getattr(source, "owning_command", "") or "Read Grid RF"
+                            if kind == "rainfall"
+                            else f"{kind} source: {source.entry_name}"
+                        )
                         add_file(
                             run,
                             source.path_pattern,
-                            f"{source.database_kind} source: {source.entry_name}",
-                            source.database_path.parent,
+                            origin,
+                            owner_file.parent if owner_file is not None else source.database_path.parent,
                             require_layer=False,
+                            layer_override=getattr(source, "layer_pattern", None) or "",
                             allow_pattern=True,
+                            database_kind=f"source:{kind}",
+                            scan_raster_metadata=getattr(source, "requires_raster_metadata_scan", False),
                         )
                 except Exception as exc:  # noqa: BLE001 - incomplete databases cannot pass preflight
                     add_issue(run, "Database sources", str(tcf), f"Could not inspect deferred databases: {exc}")
@@ -457,10 +542,10 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
     # Read-only bulk phase; invoke only after resolving all run contexts.
     attribute_started = time.perf_counter()
     scan_references = [ref for ref in references if ref.scan_attributes]
-    pit_databases: dict[int, set[Path]] = {}
+    curve_databases: dict[tuple[int, str], set[Path]] = {}
     for ref in references:
-        if ref.database_kind == "pit_inlet":
-            pit_databases.setdefault(ref.run.index, set()).add(ref.path)
+        if ref.database_kind in {"pit_inlet", "depth_discharge"}:
+            curve_databases.setdefault((ref.run.index, ref.database_kind), set()).add(ref.path)
     pit_database_cache: dict[Path, dict[str, Path] | str] = {}
     if scan_references:
         requests = {(ref.path, ref.layer) for ref in scan_references}
@@ -483,8 +568,15 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                 continue
             for path in result.sources:
                 extra_references.append(_FileReference(ref.run, f"GIS attribute: {ref.origin}", path))
-            if result.identifiers:
-                available = pit_databases.get(ref.run.index, set())
+            # Resolve source identifiers using the database type that owns
+            # this GIS element, never interpreting a curve ID as a filename.
+            for identifiers, database_kind in (
+                (result.network_identifiers, "depth_discharge"),
+                (result.pit_identifiers, "pit_inlet"),
+            ):
+                if not identifiers:
+                    continue
+                available = curve_databases.get((ref.run.index, database_kind), set())
                 if len(available) != 1:
                     report.issues.append(
                         PreflightIssue(
@@ -493,7 +585,7 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                             "unresolved",
                             ref.origin,
                             str(ref.path),
-                            "Pit/Depth Discharge Database is absent or ambiguous for GIS identifiers",
+                            f"{database_kind} database is absent or ambiguous for GIS curve identifiers",
                         )
                     )
                     continue
@@ -503,8 +595,8 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                         pit_database_cache[database_path] = read_pit_inlet_database(database_path)
                     except (OSError, UnicodeError, ValueError) as exc:
                         pit_database_cache[database_path] = str(exc)
-                mappings = pit_database_cache[database_path]
-                if isinstance(mappings, str):
+                mapping = pit_database_cache[database_path]
+                if isinstance(mapping, str):
                     report.issues.append(
                         PreflightIssue(
                             ref.run.index,
@@ -512,12 +604,12 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                             "unresolved",
                             ref.origin,
                             str(database_path),
-                            f"Could not resolve pit inlet database: {mappings}",
+                            f"Cannot resolve {database_kind} database: {mapping}",
                         )
                     )
                     continue
-                for identifier in result.identifiers:
-                    linked = mappings.get(identifier.casefold())
+                for identifier in identifiers:
+                    linked = mapping.get(identifier.casefold())
                     if linked is None:
                         report.issues.append(
                             PreflightIssue(
@@ -526,11 +618,11 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                                 "unresolved",
                                 ref.origin,
                                 str(database_path),
-                                f"Pit/Depth Discharge Database has no entry for {identifier!r}",
+                                f"{database_kind} database has no entry for {identifier!r}",
                             )
                         )
                         continue
-                    extra_references.append(_FileReference(ref.run, f"Pit/Depth Discharge: {identifier}", linked))
+                    extra_references.append(_FileReference(ref.run, f"{database_kind} curve: {identifier}", linked))
 
         # File-valued GIS attributes may themselves contain wildcard paths.
         # Expand those patterns once across all simulations, not once per run.
@@ -627,7 +719,16 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
                 continue
             for path in expanded[ref.path]:
                 materialised.append(
-                    _FileReference(ref.run, ref.origin, path, ref.layer, ref.scan_attributes, ref.database_kind)
+                    _FileReference(
+                        ref.run,
+                        ref.origin,
+                        path,
+                        ref.layer,
+                        ref.scan_attributes,
+                        ref.database_kind,
+                        ref.scan_raster_metadata,
+                        ref.scan_table_links,
+                    )
                 )
                 unique_paths.setdefault(path, set())
                 if ref.layer:
@@ -641,6 +742,29 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
         unique_paths.setdefault(ref.path, set())
         if ref.layer:
             unique_paths[ref.path].add(ref.layer)
+
+    # Validate unique raster source metadata only after primary filesystem checks
+    # establish the file exists. Never read raster data in a run context.
+    raster_started = time.perf_counter()
+    raster_references = [ref for ref in references if ref.scan_raster_metadata]
+    if raster_references:
+        raster_paths = {ref.path for ref in raster_references}
+        metadata, raster_opens = inspect_raster_metadata(raster_paths)
+        report.raster_files_scanned = raster_opens
+        for ref in raster_references:
+            result = metadata[ref.path]
+            if result.status != "present":
+                report.issues.append(
+                    PreflightIssue(
+                        ref.run.index,
+                        ref.run.description,
+                        "unresolved",
+                        ref.origin,
+                        str(ref.path),
+                        result.detail,
+                    )
+                )
+    report.raster_seconds = time.perf_counter() - raster_started
 
     # Phase 2: stat or list only distinct required paths, with one GeoPackage
     # query per database for all of its requested layers.
@@ -682,18 +806,21 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
 
     logger.info(
         "Preflight: {} runs, {} unique files, {} directory scans, {} attribute GIS-source opens, "
-        "{} direct checks, {} issues across {} runs; "
-        "PyTUFLOW parse {:.2f}s, contexts {:.2f}s, GIS attributes {:.2f}s, inventory {:.2f}s",
+        "{} raster metadata opens, {} direct checks, {} issues across {} runs; "
+        "PyTUFLOW parse {:.2f}s, contexts {:.2f}s, GIS attributes {:.2f}s, "
+        "raster metadata {:.2f}s, inventory {:.2f}s",
         report.run_count,
         len(report.checked_paths),
         report.directories_scanned,
         report.attribute_databases_scanned,
+        report.raster_files_scanned,
         report.individually_checked,
         len(report.issues),
         report.affected_runs,
         report.parse_seconds,
         report.context_seconds,
         report.attribute_seconds,
+        report.raster_seconds,
         report.inventory_seconds,
     )
     return report
