@@ -9,7 +9,17 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; strict Windows example parity passes all 161 TCFs/174 runs. P/B pass three full pairs plus a repair-head recheck and public preflight. Externally recorded 440-run parity/preflight passes on parser `fb103a1`; the owner has withdrawn the 42-run external check as a merge requirement. The later eager EventCommand accessor repair `8e7bc30` passes 183 upstream/72 downstream tests and hosted Windows parity; review thread resolved. Consumer CI pins that repair, with version/source verification in the native handoff. Final review and feature-to-BC-activation limitation remain visible; no merge. Latest evidence below supersedes historical delivery notes.
+In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23. PRs #148 and #151 are merged
+into draft #143. PyTUFLOW #1 is merged into the fork's master; batch development continues in #5. Current
+parser a9f654c and consumer diagnostic 2e03c0b pass dedicated hosted deferred/batch checks and strict
+161-TCF/174-run archive replay. Existing eager/shared slot-nine and material CSV loader fixes are recorded
+separately upstream. Current P/B and replacement 480-run local SSD trials pass; matched SMB evaluation is
+tracked in the [batch work record](2026-10-22-tuflow-batch-preflight-optimisation.md). General Python CI has
+an independent Nmx snapshot column-dtype failure, recorded there separately. Historical external 440-run
+acceptance on parser fb103a1 remains valid for that revision, not the current source. The owner withdrew the
+external 42-run gate and explicitly deferred further two-BC-model investigation. A newly supplied 42-command
+SMB model is a distinct benchmark. No mainline merge or release is authorised. Latest evidence supersedes
+historical delivery notes.
 
 ## Decisions
 

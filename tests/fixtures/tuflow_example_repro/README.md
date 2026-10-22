@@ -109,7 +109,10 @@ remains false and the final exit is still 1. It does not permit launch or certif
 a workload, and such timings must not be presented as a successful-model speedup.
 
 Timings include parse, context creation and remaining collection/materialisation/
-inventory work, excluding process startup and report writing. Python audit counters
+inventory work, including physical-path identity normalisation, excluding process
+startup and report writing. Raster-header validation is checked by the separate,
+untimed public individual/batch preflight comparison. These are diagnostic timings,
+not complete launcher wall times. Python audit counters
 record `open`, `os.scandir`, `os.listdir`, `sqlite3.connect` and `pathlib.Path.glob`
 by phase. They do **not** count every stat or native GIS/OS read and do not measure
 exact memory peaks. A background sampler records process RSS every 20 ms, start
