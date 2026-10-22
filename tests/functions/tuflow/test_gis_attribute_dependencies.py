@@ -314,8 +314,10 @@ def test_bc_name_attributes_use_same_rules_in_shp_and_gpkg(tmp_path: Path) -> No
     with sqlite3.connect(gpkg) as db:
         db.execute("CREATE TABLE gpkg_geometry_columns(table_name TEXT, column_name TEXT, geometry_type_name TEXT)")
         db.execute("INSERT INTO gpkg_geometry_columns VALUES ('2d_bc_model', 'geom', 'LINESTRING')")
-        db.execute('CREATE TABLE "2d_bc_model" (fid INTEGER PRIMARY KEY, geom BLOB,'
-                   ' "Type" TEXT, "Flags" TEXT, "Name" TEXT, f TEXT, d TEXT, td TEXT, a TEXT, b TEXT)')
+        db.execute(
+            'CREATE TABLE "2d_bc_model" (fid INTEGER PRIMARY KEY, geom BLOB,'
+            ' "Type" TEXT, "Flags" TEXT, "Name" TEXT, f TEXT, d TEXT, td TEXT, a TEXT, b TEXT)'
+        )
         db.execute('INSERT INTO "2d_bc_model" ("Type", "Name") VALUES ("HT", "River")')
         db.execute('INSERT INTO "2d_bc_model" ("Type", "Name") VALUES ("QT", "Catchment")')
         db.execute('INSERT INTO "2d_bc_model" ("Type", "Name") VALUES ("HX", "no_database_row")')
