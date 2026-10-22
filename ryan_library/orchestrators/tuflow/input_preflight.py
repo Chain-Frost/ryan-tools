@@ -375,19 +375,22 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                 activation_reader = getattr(context, "deferred_database_activations", None)
                 source_reader_for_activation = getattr(context, "deferred_database_sources_for_activation", None)
                 if not callable(activation_reader) or not callable(source_reader_for_activation):
-                    raise ValueError("BC declaration selection requires PyTUFLOW activation APIs")
+                    message = "BC declaration selection requires PyTUFLOW activation APIs"
+                    raise ValueError(message)
                 bc_activations = tuple(activation_reader())
-                declared = {(position, str(getattr(inp, "uuid", ""))) for position, inp in declarations}
+                declared = {(position, str(inp.uuid)) for position, inp in declarations}
                 actual = {(a.sequence, a.input_uuid)
                           for a in bc_activations if getattr(a, "database_kind", None) == "bc"}
                 if actual != declared:
-                    raise ValueError("BC database declaration sequence/UUID mismatch")
+                    message = "BC database declaration sequence/UUID mismatch"
+                    raise ValueError(message)
                 for _, declaration in declarations:
                     uuid = str(declaration.uuid)
                     by_name: dict[str, Path] = {}
                     for source in source_reader_for_activation(uuid):
                         if source.database_kind != "bc" or not source.entry_name.strip():
-                            raise ValueError("Unclassified BC database Source row")
+                            message = "Unclassified BC database Source row"
+                            raise ValueError(message)
                         key = source.entry_name.strip().casefold()
                         if key in by_name:
                             message = f"Duplicate BC identifier {source.entry_name!r}"
@@ -537,7 +540,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             if callable(source_reader):
                 try:
                     if multi_bc:
-                        selected_reader = getattr(context, "deferred_database_sources_for_activation")
+                        selected_reader = context.deferred_database_sources_for_activation
                         # No aggregate view: it deliberately rejects multiple
                         # active BC declarations. Candidate BC rows were staged
                         # above and are selected from the scanned GIS Names.
