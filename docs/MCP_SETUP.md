@@ -5,6 +5,27 @@ repository CLI workflows. The MCP server discovers scripts and returns safe comm
 catalogued scripts. The agent runs a selected script through its normal shell after reviewing the script's current
 `--help`, input and output paths, mutation metadata and approval requirements.
 
+## C/F integration and engineering acceptance
+
+The [33-target MCP safety assessment](mcp-handoff/2026-10-21-cf-target-assessment.md)
+records curated workflow paths, profiles, destructive flags and remaining readiness gates.
+The [Windows engineering acceptance checklist](mcp-handoff/2026-10-21-cf-windows-acceptance.md)
+includes safe automated checks, an isolated-wheel discovery probe and opt-in
+mapped-drive/UNC/QGIS/GDAL/TUFLOW/HY-8 checks. These do **not** imply that
+an installed executable has been tested or that a real model has run.
+
+The `batch_vector_clip` wrapper launches `ogr2ogr` subprocesses and therefore
+is also `privileged`, requires explicit approval and reports the executable
+as declared but unverified. Its `--overwrite` option requires separate
+output-preservation review; do not use it on production sources.
+
+For GDAL recompression, the curated workflow includes a source-replacing
+`--replace --yes` scenario and therefore now requires the `privileged` profile
+and explicit approval. Users can continue to invoke the underlying audit-only
+script outside MCP without replacement flags. Legacy TUFLOW batch and duplicate
+deletion scripts do not have safe `--help` execution; MCP deliberately suppresses
+their generated help commands.
+
 ## Default tools
 
 The default MCP surface stays deliberately small:

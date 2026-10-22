@@ -5,7 +5,7 @@
 | Status | **Needs review — requirements restored; corrective PR #137 pending validation** |
 | Owner | ChatGPT (corrective PR author); maintainer retains acceptance |
 | Created | 2026-10-17 |
-| Updated | 2026-10-19 |
+| Updated | 2026-10-22 |
 | Next review | On corrective PR checks/review; no later than 2026-10-26 |
 | Original requirements | [Complete 17 October baseline, preserved verbatim](../audits/2026-10-17-installed-scripts-original-requirements.md) |
 | Previous implementation | [Prematurely merged PR #130](https://github.com/Chain-Frost/ryan-tools/pull/130), squash commit `1ac42c6` |
@@ -187,6 +187,23 @@ or mark a thread resolved merely because a PR merged.
 5. Keep #118/#119 independent; do not use their open status to conceal other unfinished requirements.
 
 ## Delivery state
+
+### 22 October 2026 — supporting PR #146 Windows acceptance
+
+At `20cf28a91a1bc59e76ce42da9366299f07a354b3`, Windows Python 3.14 MCP checks
+with authorised mapped/UNC scratch, long-path and real GDAL/QGIS opt-ins:
+**98 passed, 10 skipped** (Windows symlink privileges and POSIX-only cases).
+Ruff, scoped strict Pyright, isolated current-version wheel discovery and scoped
+documentation link checks passed. All six exact-head hosted checks passed.
+Local Python 3.13 was excluded at the user's request. QGIS MCP retry and
+copied-GeoPackage desktop probe passed after the user enabled MCP; diagnostics are degraded by server 0.15.2 / plugin 0.15.1 mismatch.
+Licensed TUFLOW/HY-8 functional acceptance remains outstanding.
+See the [Windows evidence](../mcp-handoff/2026-10-21-cf-windows-acceptance.md#windows-execution-evidence--22-october-2026)
+for versions, commands, wheel hash, environment corrections and limitations.
+Evidence documentation is committed on the supporting branch at the user's request;
+no push, merge, publication or simulation. Next action: align QGIS MCP plugin/server versions
+and select disposable licensed baselines for remaining application checks.
+Next review remains 2026-10-26; A/B lifecycle work is unchanged.
 
 - **2026-10-17:** Original requirements drafted in PR #130.
 - **2026-10-18:** Existing implementation in #100/#120 reviewed; partial script packaging added in #130.
