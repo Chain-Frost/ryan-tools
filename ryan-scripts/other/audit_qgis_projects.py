@@ -16,7 +16,7 @@ from urllib.parse import unquote, urlparse
 from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, LargeZipFile, ZipFile
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-10-22.1"
 DEFAULT_WORKING_DIR = Path()
 
 from loguru import logger
@@ -45,7 +45,7 @@ def find_qgis_projects(start_dir: Path) -> list[Path]:
             lower_f = f.lower()
             if lower_f.endswith((".qgz", ".qgs")):
                 qgis_files.append(Path(root) / f)
-    return qgis_files
+    return sorted(qgis_files)
 
 
 def get_data_sources(project_path: Path) -> list[str]:
@@ -65,21 +65,34 @@ def get_data_sources(project_path: Path) -> list[str]:
         if element.text:
             data_sources.add(element.text)
 
-    return list(data_sources)
+    return sorted(data_sources)
 
 
 def resolve_file_source(project_path: Path, source: str) -> Path | None:
     """Resolve a local QGIS data source, or return None for non-file providers."""
     raw_path = source.split("|", maxsplit=1)[0].strip()
     lowered = raw_path.lower()
-    if lowered.startswith(("memory?", "crs=", "dbname=", "url=", "http://", "https://")):
+    if not raw_path or lowered.startswith(
+        (
+            "memory?", "memory:", "crs=", "dbname=", "url=", "http://", "https://",
+            "postgres://", "postgresql://", "wms:", "wfs:", "service=wms",
+            "service=wfs", "type=xyz", "/vsicurl/",
+        )
+    ):
         return None
 
-    if lowered.startswith("file://"):
-        parsed_path = unquote(urlparse(raw_path).path)
-        if len(parsed_path) >= 3 and parsed_path[0] == "/" and parsed_path[2] == ":":
-            parsed_path = parsed_path[1:]
-        candidate = Path(parsed_path)
+    if lowered.startswith("file:"):
+        parsed = urlparse(raw_path)
+        if parsed.scheme.lower() != "file":
+            return None
+        decoded = unquote(parsed.path)
+        if parsed.netloc and parsed.netloc.lower() != "localhost":
+            # file://server/share/source.gpkg is a UNC file, not /share/source.gpkg.
+            candidate = Path(f"//{parsed.netloc}{decoded}")
+        else:
+            if len(decoded) >= 3 and decoded[0] == "/" and decoded[2] == ":":
+                decoded = decoded[1:]
+            candidate = Path(decoded)
     else:
         candidate = Path(raw_path)
 
