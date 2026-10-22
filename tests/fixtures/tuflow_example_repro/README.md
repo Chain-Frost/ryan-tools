@@ -92,6 +92,10 @@ file/layer/command/run identity, then runs public preflight. Nonzero exit or any
 missing, extra, collection or inventory issue fails acceptance. Private differences,
 logs and CSVs can disclose model paths: keep them outside the repository and share
 only anonymised counts and summaries. No solver is launched and no model input is edited.
+It verifies that PyTUFLOW was imported physically from the requested checkout,
+requires `pytuflow>=1.2,<2`, and writes the source version, Python version and three
+relevant parser-module hashes to private `provenance.json`. Keep both Git heads
+alongside this report; distribution metadata alone cannot identify a modified fork.
 
 Timings include parse, context creation and remaining collection/materialisation/
 inventory work, excluding process startup and report writing. Python audit counters

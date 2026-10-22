@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib
 import json
 import sys
@@ -10,6 +11,8 @@ import time
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, cast
+
+from packaging.specifiers import SpecifierSet
 
 from ryan_library.functions.tuflow.run_flags import read_run_commands
 from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_simulation_inputs
@@ -98,6 +101,28 @@ def main() -> int:
     # Explicit dependency selection for this diagnostic, never a production import override.
     sys.path.insert(0, str(options.pytuflow_checkout.absolute()))
     upstream = importlib.import_module("pytuflow")
+    # Follow links deliberately to verify the imported module's physical checkout.
+    checkout = options.pytuflow_checkout.resolve()
+    module_file = upstream.__file__
+    if module_file is None:
+        parser.error("Imported PyTUFLOW has no source location")
+    module_path = Path(module_file).resolve()
+    if not module_path.is_relative_to(checkout / "pytuflow"):
+        parser.error("Imported PyTUFLOW is not from --pytuflow-checkout")
+    if not SpecifierSet(">=1.2,<2").contains(upstream.__version__):
+        parser.error("The selected checkout must provide pytuflow>=1.2,<2")
+    sources = (
+        "pytuflow/_tmf/cf/tcf_run_state.py",
+        "pytuflow/_tmf/inp/inp_run_state.py",
+        "pytuflow/_tmf/inp/inp_build_state.py",
+    )
+    provenance = {
+        "pytuflow_version": upstream.__version__,
+        "module_path": str(module_path),
+        "python_version": sys.version,
+        "source_sha256": {name: hashlib.sha256((checkout / name).read_bytes()).hexdigest() for name in sources},
+    }
+    (output / "provenance.json").write_text(json.dumps(provenance, indent=2), encoding="utf-8")
     measurements = Measurements()
 
     def factory(path: str) -> Any:

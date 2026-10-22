@@ -9,7 +9,7 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; complete 161-TCF/174-run example parity passes locally and in strict Windows CI. P/B representative checks, three full comparison pairs and public preflight pass. The live Higginsville 440-run preflight also passes with zero issues and matched eager/deferred dependency parity. Upstream review/evidence is pushed through `e90818c`; consumer CI/handoff through `c80afd30`. The owner still needs to run the separate 42-run model. Final review and the documented feature-to-BC-activation limitation remain visible; no merge. Latest evidence below supersedes historical uncommitted/draft delivery notes.
+In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; strict Windows example parity passes all 161 TCFs/174 runs. P/B pass three full pairs plus a repair-head recheck and public preflight. Externally recorded 440-run parity/preflight passes on parser `fb103a1`; 42-run acceptance remains with the owner. The later eager EventCommand accessor repair `8e7bc30` passes 183 upstream/72 downstream tests and hosted Windows parity; review thread resolved. Consumer CI pins that repair, with version/source verification in the native handoff. Final review and feature-to-BC-activation limitation remain visible; no merge. Latest evidence below supersedes historical delivery notes.
 
 ## Decisions
 
@@ -1250,3 +1250,55 @@ anonymous summaries, and report any unsupported/missing/extra references. The 44
 Higginsville model has since passed as recorded above. External data is not requested
 for upload. Final upstream review is requested; remaining external-model acceptance
 and the activation concern remain separate from CI success.
+
+### Review repair, current-source recheck and concurrent network evidence (2026-10-22)
+
+Fresh inspection found one open P2 review thread on `InputBuildState.file_references`:
+the newly added eager reference projection reconstructed EventCommand with the
+ordinary five-argument signature. This raises TypeError from eager build-state
+and eager run-state access. It is a regression in the new accessor introduced by
+the deferred PR, **not a proven defect in original upstream `.files` behaviour**.
+
+Fixed and pushed upstream as `8e7bc303aa7306cbdc0a6760bc089f84121e3f6e`, preserving
+event name, nested owner, part index and definition blocks while using EventCommand's
+four-argument signature. The copied syntax-only config leaves the eager original
+unchanged. Two tests reproduced TypeError before the fix, then pass with metadata
+assertions and open/stat/glob/SQLite spies. Affected local selection now passes
+**183 tests**; downstream selection rerun: **72 passed, zero skips**. The
+[review thread](https://github.com/phantom-branch/PyTuflow/pull/1#discussion_r4343993282)
+was answered with this evidence and resolved. Separate upstream eager notes explicitly
+classify this as a repair to a new accessor, distinct from original eager corrections.
+
+At the repair head, both
+[Windows 3.12/3.14 CI](https://github.com/phantom-branch/PyTuflow/actions/runs/39713500347)
+and [strict full replay](https://github.com/phantom-branch/PyTuflow/actions/runs/39713500346)
+pass. The full replay again requires 161 TCFs/174 runs accepted and zero differences.
+Artifact [12397837069](https://github.com/phantom-branch/PyTuflow/actions/runs/39713500346/artifacts/12397837069)
+has SHA-256 `08859da6a0154c6a2101adcdf620fcb264261a4de52a0a34628d4f79bf6acb6e`.
+Consumer commit `7812349d` updates the immutable upstream pin to this repair.
+
+P/B representative gates, one new full pair per model and public preflight were
+repeated against the repair: **all pass**, zero missing/extra identities or findings,
+same 68/4,560 records and 17/32 files. Local evidence is in `merge-gates/post-event-fix`
+under the previously recorded private root. The earlier three-trial timing table is
+not relabelled as a new timing series for this follow-up source.
+
+The native handoff additionally verifies the imported module's physical checkout
+and supported `pytuflow>=1.2,<2` version, and writes private source/Python version
+and parser hashes to `provenance.json`. Ruff lint/format and strict Pyright pass;
+the provenance smoke exits 0 with source version 1.2.6 and three parser hashes.
+The deleted-active-curve smoke continues to provide the meaningful exit-1 check.
+
+While this workstation was working, the other workstation pushed its 440-run
+result as `e4518499` and merge commits. Fetched and **fast-forwarded** through
+`7d310f9a`, preserving both that record and the current eager-accessor CI pin.
+No reset or overwrite was used. Its benchmark above is external evidence on
+consumer `b68f4ada` / parser `fb103a1`, before the accessor repair; this workstation
+did not access or execute the network model. A cancelled older consumer CI run
+was superseded by the shared branch's newer head and is not reported as a pass.
+
+The 42-run model remains explicitly with the owner on the other network. Preserve
+the external 440-run source distinction when deciding whether to repeat it on the
+repair head. No merge, engine execution, release, package-source/version change or
+private project upload was performed. Relevant changes are committed/pushed to the
+existing branches; current-head hosted jobs and final review are checked separately.
