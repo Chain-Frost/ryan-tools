@@ -55,9 +55,7 @@ def _record_state(path: Path) -> tuple[list[tuple[int, str]], list[tuple[str, st
         data = cast(list[tuple[int, str]], connection.execute("SELECT * FROM features ORDER BY id").fetchall())
         schema = cast(
             list[tuple[str, str | None]],
-            connection.execute(
-                "SELECT name, sql FROM sqlite_master WHERE type='table' ORDER BY name"
-            ).fetchall(),
+            connection.execute("SELECT name, sql FROM sqlite_master WHERE type='table' ORDER BY name").fetchall(),
         )
     return data, schema
 
