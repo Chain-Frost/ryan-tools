@@ -1,6 +1,7 @@
 """Regression tests for EG02 dataset."""
 
 from pathlib import Path
+from typing import cast
 
 import pandas as pd
 import pytest
@@ -10,6 +11,7 @@ from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.functions.dataframe_helpers import reset_categorical_ordering
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 # Constants
@@ -33,7 +35,7 @@ REGRESSION_DATA_TYPES: tuple[str, ...] = (
 
 
 def _normalize_path_value(value: object) -> object:
-    if pd.isna(value):
+    if pd.isna(cast("str | float | int | None", value)):
         return pd.NA
     text = str(value).replace("\\", "/")
     marker = "tests/test_data"
@@ -72,14 +74,14 @@ def processed_results() -> dict[str, pd.DataFrame]:
             pytest.fail("No processors returned results for regression test!")
 
         # Aggregate results by type
-        processors_by_type = {}
+        processors_by_type: dict[str, list[BaseProcessor]] = {}
         for p in results.processors:
             p_type = p.data_type
             if p_type not in processors_by_type:
                 processors_by_type[p_type] = []
             processors_by_type[p_type].append(p)
 
-        aggregated_dfs = {}
+        aggregated_dfs: dict[str, pd.DataFrame] = {}
         for p_type, procs in processors_by_type.items():
             temp_collection = ProcessorCollection()
             for p in procs:
@@ -95,7 +97,7 @@ def processed_results() -> dict[str, pd.DataFrame]:
             elif first_proc.dataformat in ["Maximums", "ccA"]:
                 combined_df = temp_collection.combine_1d_maximums()
             else:
-                dfs = [p.df for p in procs if not p.df.empty]
+                dfs: list[pd.DataFrame] = [p.df for p in procs if not p.df.empty]
                 if dfs:
                     combined_df = pd.concat(dfs, ignore_index=True)
 
@@ -149,8 +151,12 @@ def test_regression_against_snapshot(data_type: str, processed_results: dict[str
         expected_df = expected_df.sort_values(sort_cols).reset_index(drop=True)
         observed_df = observed_df.sort_values(sort_cols).reset_index(drop=True)
 
-    # Clear columns.name metadata as it may not be preserved perfectly in Parquet roundtrip
-    # and is not critical for regression testing of data values
+    # Parquet roundtrips and pandas releases can use different string-index
+    # missing-value sentinels (<NA> vs nan) for otherwise identical labels.
+    # Compare all column labels and cell values strictly, but normalise the
+    # column-index storage dtype (not the data column dtypes).
+    expected_df.columns = pd.Index(expected_df.columns.tolist(), dtype=object)
+    observed_df.columns = pd.Index(observed_df.columns.tolist(), dtype=object)
     expected_df.columns.name = None
     observed_df.columns.name = None
 
