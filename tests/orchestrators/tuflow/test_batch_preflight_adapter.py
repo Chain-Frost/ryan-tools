@@ -14,6 +14,19 @@ from ryan_library.orchestrators.tuflow.batch_preflight_adapter import BatchModel
 from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_simulation_inputs
 
 
+class _FakeBatchBase:
+    """Typed base for dynamically scoped PyTUFLOW fake models."""
+
+    def __init__(self, _path: str) -> None:
+        pass
+
+    def context(self, flags: str, *, file_resolution: str | None = None) -> object:
+        raise NotImplementedError
+
+    def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+        raise NotImplementedError
+
+
 def _ref(path: Path, kind: str = "", *, origin: str = "Read GIS Code") -> types.SimpleNamespace:
     return types.SimpleNamespace(
         path_pattern=path,
@@ -29,7 +42,7 @@ def _ref(path: Path, kind: str = "", *, origin: str = "Read GIS Code") -> types.
     )
 
 
-def _model(tmp_path: Path) -> type:
+def _model(tmp_path: Path) -> type[_FakeBatchBase]:
     bc = tmp_path / "bc.csv"
     bc.touch()
     shared = tmp_path / "common.shp"
@@ -69,7 +82,7 @@ def _model(tmp_path: Path) -> type:
                 ),
             )
 
-    class Model:
+    class Model(_FakeBatchBase):
         def __init__(self, _path: str) -> None:
             self.collected = 0
             self.individual = 0
@@ -81,7 +94,7 @@ def _model(tmp_path: Path) -> type:
 
         def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
             self.collected += 1
-            cases = []
+            cases: list[types.SimpleNamespace] = []
             for index, flag in enumerate(flags):
                 context = Context("01" if "01.0p" in flag else "20")
                 inputs = context.find_input()
