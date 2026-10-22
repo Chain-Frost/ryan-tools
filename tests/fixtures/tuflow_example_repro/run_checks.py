@@ -13,6 +13,7 @@ import sqlite3
 import sys
 import tempfile
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
@@ -24,7 +25,6 @@ from ryan_library.orchestrators.tuflow.input_preflight import (
     PreflightReport,
     RunRequest,
     _collect_references,  # pyright: ignore[reportPrivateUsage] - temporary in-repository diagnostic
-    _FileReference,  # pyright: ignore[reportPrivateUsage] - temporary in-repository diagnostic
     _materialise_attribute_references,  # pyright: ignore[reportPrivateUsage] - temporary diagnostic
     check_simulation_inputs,
 )
@@ -131,14 +131,11 @@ def collect(tcf: Path, runs: list[RunRequest], mode: str, factory: Any) -> tuple
     # GeoPackage secondary references retain the originating run and command.
     # Unsupported attribute forms still become collection issues and cannot
     # be accepted as parity merely because a partial file set matches.
-    materialised = [
-        _FileReference(ref.run, ref.origin, path, ref.layer, ref.scan_attributes, ref.database_kind)
-        for ref in references
-        for path in expanded.get(ref.path, (ref.path,))
-    ]
+    materialised = [replace(ref, path=path) for ref in references for path in expanded.get(ref.path, (ref.path,))]
     references = _materialise_attribute_references(materialised, report)
     keys: set[tuple[Any, ...]] = set()
     unique: dict[Path, set[str]] = {}
+    inventory_spellings: dict[Path, Path] = {}
     for ref in references:
         for path in expanded.get(ref.path, (ref.path,)):
             layers = [ref.layer]
@@ -152,7 +149,11 @@ def collect(tcf: Path, runs: list[RunRequest], mode: str, factory: Any) -> tuple
                 ]
             # Resolve deliberately to compare physical files across path aliases and linked paths.
             physical = path.resolve()
-            unique.setdefault(physical, set()).update(layer for layer in layers if layer)
+            # Physical identity deduplicates aliases, but I/O must retain the
+            # supplied drive spelling. Resolving T: to UNC here produces SQLite
+            # file://host URIs rejected by Windows builds without URI authority.
+            spelling = inventory_spellings.setdefault(physical, path.absolute())
+            unique.setdefault(spelling, set()).update(layer for layer in layers if layer)
             owner = ref.origin
             if owner.casefold().startswith("gis attribute: "):
                 owner = owner[len("GIS attribute: ") :]

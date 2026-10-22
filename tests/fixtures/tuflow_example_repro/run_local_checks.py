@@ -1,17 +1,23 @@
-"""Read-only eager/deferred comparison for a private model; never execute its launcher."""
+"""Read-only eager/deferred/batch evaluation for a private model; never execute its launcher."""
 
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
 import importlib
 import json
 import sys
 import time
 from collections import Counter, defaultdict
+from collections.abc import Generator
+from contextlib import contextmanager
+from dataclasses import fields
 from pathlib import Path
+from threading import Event, Thread
 from typing import Any, cast
 
+import psutil
 from packaging.specifiers import SpecifierSet
 
 from ryan_library.functions.tuflow.run_flags import read_run_commands
@@ -27,6 +33,7 @@ class Measurements:
         self.phase = ""
         self.calls: dict[str, Counter[str]] = {}
         self.seconds: defaultdict[str, float] = defaultdict(float)
+        self.batch_metrics: dict[str, int | float] = {}
 
     def audit(self, event: str, _arguments: tuple[object, ...]) -> None:
         """Count supported audit events only during a measured comparison."""
@@ -52,7 +59,76 @@ class Measurements:
                     measurements.seconds["context"] += time.perf_counter() - start
                     measurements.phase = "bulk_and_collection"
 
+            def collect_batch_dependencies(self, flags: tuple[str, ...]) -> Any:
+                measurements.phase = "batch"
+                start = time.perf_counter()
+                try:
+                    result = model.collect_batch_dependencies(flags)
+                    measurements.batch_metrics.update(
+                        {
+                            field.name: value
+                            for field in fields(result)
+                            if isinstance(value := getattr(result, field.name), (int, float))
+                        }
+                    )
+                    return result
+                finally:
+                    measurements.seconds["batch"] += time.perf_counter() - start
+                    measurements.phase = "bulk_and_collection"
+
         return TimedModel()
+
+
+@contextmanager
+def _sample_memory() -> Generator[dict[str, int]]:
+    """Sample process RSS every 20 ms, including native allocations; not an exact peak."""
+    process = psutil.Process()
+    baseline = process.memory_info().rss
+    memory = {"rss_start_bytes": baseline, "rss_peak_sampled_bytes": baseline}
+    stop = Event()
+
+    def sample() -> None:
+        while not stop.wait(0.02):
+            memory["rss_peak_sampled_bytes"] = max(memory["rss_peak_sampled_bytes"], process.memory_info().rss)
+
+    thread = Thread(target=sample, daemon=True)
+    thread.start()
+    try:
+        yield memory
+    finally:
+        stop.set()
+        thread.join()
+        memory["rss_peak_sampled_bytes"] = max(memory["rss_peak_sampled_bytes"], process.memory_info().rss)
+        memory["rss_peak_delta_bytes"] = memory["rss_peak_sampled_bytes"] - baseline
+
+
+def _measure_collection(
+    tcf: Path, runs: list[RunRequest], mode: str, upstream: Any, measurements: Measurements
+) -> tuple[set[tuple[Any, ...]], dict[str, Any]]:
+    """Include the actual batch call in measured work, then fully materialise sources."""
+    measurements.calls.clear()
+    measurements.seconds.clear()
+    measurements.batch_metrics.clear()
+    gc.collect()
+
+    def factory(path: str) -> Any:
+        return measurements.factory(upstream, path)
+
+    try:
+        with _sample_memory() as memory:
+            measurements.phase = "bulk_and_collection"
+            start = time.perf_counter()
+            identities, stats = collect(tcf, runs, mode, factory)
+            stats["seconds"] = time.perf_counter() - start
+        stats["phase_seconds"] = dict(measurements.seconds)
+        stats["bulk_and_collection_seconds"] = stats["seconds"] - sum(measurements.seconds.values())
+        stats["audit_calls"] = {name: dict(counts) for name, counts in measurements.calls.items()}
+        stats["memory"] = memory
+        if mode == "batch":
+            stats["batch_metrics"] = dict(measurements.batch_metrics)
+        return identities, stats
+    finally:
+        measurements.phase = ""
 
 
 def _read_flags(options: argparse.Namespace, parser: argparse.ArgumentParser) -> list[dict[str, str]]:
@@ -78,6 +154,44 @@ def _read_flags(options: argparse.Namespace, parser: argparse.ArgumentParser) ->
     return flags
 
 
+def _record_comparisons(
+    row: dict[str, Any], identities: dict[str, set[tuple[Any, ...]]], output: Path, phase: str
+) -> None:
+    """Compare complete materialised identities, refusing any partial collection."""
+    differences: dict[str, Any] = {}
+    for mode in ("deferred", "batch"):
+        if mode not in identities:
+            continue
+        missing = identities["eager"] - identities[mode]
+        extra = identities[mode] - identities["eager"]
+        prefix = "batch_" if mode == "batch" else ""
+        row.update({f"{prefix}missing": len(missing), f"{prefix}extra": len(extra)})
+        differences[mode] = {"missing": sorted(missing), "extra": sorted(extra)}
+    row["passed"] = not any(row.get(key, 0) for key in ("missing", "extra", "batch_missing", "batch_extra")) and all(
+        not row[mode][key] for mode in identities for key in ("collection_issues", "inventory_issues")
+    )
+    # Physical identities can disclose private model paths; output stays outside the repository.
+    (output / f"{phase}-differences.json").write_text(json.dumps(differences, indent=2), encoding="utf-8")
+
+
+def _public_preflight(tcf: Path, runs: list[RunRequest], output: Path, label: str, batch: bool) -> bool:
+    """Require matching public preflight paths/issues as well as identity parity."""
+    report = check_simulation_inputs(tcf, runs)
+    report.write_csv(output / "preflight-issues.csv")
+    summary: dict[str, Any] = {"label": label, "runs": len(runs), "passed": report.passed, "issues": len(report.issues)}
+    if batch:
+        projected = check_simulation_inputs(tcf, runs, context_mode="batch")
+        projected.write_csv(output / "preflight-batch-issues.csv")
+        summary["batch_passed"] = projected.passed
+        summary["batch_issues"] = len(projected.issues)
+        summary["paths_equal"] = report.checked_paths == projected.checked_paths
+        summary["issues_equal"] = set(report.issues) == set(projected.issues)
+        summary["passed"] = all(summary[key] for key in ("passed", "batch_passed", "paths_equal", "issues_equal"))
+    (output / "preflight.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    print(json.dumps(summary), flush=True)
+    return bool(summary["passed"])
+
+
 def main() -> int:
     """Check representative contexts, then every requested run, with private reports."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -89,7 +203,16 @@ def main() -> int:
     parser.add_argument("--label", required=True, help="Anonymous report label, for example P or B")
     parser.add_argument("--pytuflow-checkout", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="Private report directory outside the repository")
-    parser.add_argument("--repeats", type=int, default=1, help="Alternate eager/deferred order across repeats")
+    parser.add_argument("--repeats", type=int, default=1, help="Rotate mode order across repeats")
+    parser.add_argument("--batch", action="store_true", help="Include experimental batch materialisation and preflight")
+    parser.add_argument(
+        "--continue-on-findings",
+        action="store_true",
+        help="Complete diagnostic coverage despite findings; acceptance still fails with exit 1",
+    )
+    parser.add_argument(
+        "--representative-only", action="store_true", help="Gate first/middle/last runs without a full sweep"
+    )
     options = parser.parse_args()
     if options.repeats < 1:
         parser.error("--repeats must be positive")
@@ -111,11 +234,15 @@ def main() -> int:
         parser.error("Imported PyTUFLOW is not from --pytuflow-checkout")
     if not SpecifierSet(">=1.2,<2").contains(upstream.__version__):
         parser.error("The selected checkout must provide pytuflow>=1.2,<2")
-    sources = (
+    sources = [
         "pytuflow/_tmf/cf/tcf_run_state.py",
         "pytuflow/_tmf/inp/inp_run_state.py",
         "pytuflow/_tmf/inp/inp_build_state.py",
-    )
+        "pytuflow/_tmf/inp/db.py",
+        "pytuflow/_tmf/deferred_database.py",
+    ]
+    if options.batch:
+        sources.append("pytuflow/_tmf/batch_dependencies.py")
     provenance = {
         "pytuflow_version": upstream.__version__,
         "module_path": str(module_path),
@@ -125,57 +252,33 @@ def main() -> int:
     (output / "provenance.json").write_text(json.dumps(provenance, indent=2), encoding="utf-8")
     measurements = Measurements()
 
-    def factory(path: str) -> Any:
-        return measurements.factory(upstream, path)
-
     sys.addaudithook(measurements.audit)
     rows: list[dict[str, Any]] = []
+    all_passed = True
     sample = [runs[index] for index in sorted({0, len(runs) // 2, len(runs) - 1})]
-    phases = [("representative", sample, ("eager", "deferred"))]
-    phases.extend(
-        (f"all-{index + 1}", runs, ("eager", "deferred") if index % 2 == 0 else ("deferred", "eager"))
-        for index in range(options.repeats)
-    )
+    modes = ("eager", "deferred", "batch") if options.batch else ("eager", "deferred")
+    phases: list[tuple[str, list[RunRequest], tuple[str, ...]]] = [("representative", sample, modes)]
+    if not options.representative_only:
+        phases.extend(
+            (f"all-{index + 1}", runs, modes[index % len(modes) :] + modes[: index % len(modes)])
+            for index in range(options.repeats)
+        )
     for phase, selected, modes in phases:
         identities: dict[str, set[tuple[Any, ...]]] = {}
-        row: dict[str, Any] = {"label": options.label, "phase": phase, "runs": len(selected)}
+        row: dict[str, Any] = {"label": options.label, "phase": phase, "runs": len(selected), "mode_order": modes}
         for mode in modes:
-            measurements.calls.clear()
-            measurements.seconds.clear()
-            measurements.phase = "bulk_and_collection"
-            start = time.perf_counter()
-            try:
-                identities[mode], stats = collect(tcf, selected, mode, factory)
-                stats["seconds"] = time.perf_counter() - start
-                stats["phase_seconds"] = dict(measurements.seconds)
-                stats["bulk_and_collection_seconds"] = stats["seconds"] - sum(measurements.seconds.values())
-                stats["audit_calls"] = {name: dict(counts) for name, counts in measurements.calls.items()}
-                row[mode] = stats
-            finally:
-                measurements.phase = ""
-        missing = identities["eager"] - identities["deferred"]
-        extra = identities["deferred"] - identities["eager"]
-        row.update(missing=len(missing), extra=len(extra))
-        row["passed"] = (
-            not missing
-            and not extra
-            and all(not row[mode][key] for mode in modes for key in ("collection_issues", "inventory_issues"))
-        )
-        # Full physical identities can disclose model paths: retain only in private output.
-        (output / f"{phase}-differences.json").write_text(
-            json.dumps({"missing": sorted(missing), "extra": sorted(extra)}, indent=2), encoding="utf-8"
-        )
+            identities[mode], row[mode] = _measure_collection(tcf, selected, mode, upstream, measurements)
+        _record_comparisons(row, identities, output, phase)
         rows.append(row)
         (output / "parity.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
         print(json.dumps(row), flush=True)
-        if not row["passed"]:
+        all_passed = all_passed and row["passed"]
+        if not row["passed"] and not options.continue_on_findings:
             return 1
-    report = check_simulation_inputs(tcf, runs)
-    report.write_csv(output / "preflight-issues.csv")
-    summary = {"label": options.label, "runs": len(runs), "passed": report.passed, "issues": len(report.issues)}
-    (output / "preflight.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print(json.dumps(summary), flush=True)
-    return 0 if report.passed else 1
+    public_passed = _public_preflight(
+        tcf, sample if options.representative_only else runs, output, options.label, options.batch
+    )
+    return 0 if all_passed and public_passed else 1
 
 
 if __name__ == "__main__":

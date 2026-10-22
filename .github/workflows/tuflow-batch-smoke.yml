@@ -8,6 +8,8 @@ on:
       - "ryan_library/orchestrators/tuflow/input_preflight.py"
       - "tests/orchestrators/tuflow/test_batch_preflight_adapter.py"
       - "tests/fixtures/tuflow_example_repro/run_checks.py"
+      - "tests/fixtures/tuflow_example_repro/run_local_checks.py"
+      - "tests/fixtures/tuflow_example_repro/test_run_checks.py"
   workflow_dispatch:
 
 jobs:
@@ -28,13 +30,15 @@ jobs:
       - name: Install isolated PyTUFLOW batch fork
         # Never replace the published wheel dependency on main. This PR
         # exercises the development interface independently of PyPI.
-        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@7a718f51e72fb1c0b2dc8752e22bd9457e3c6c30"
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@b1c9cfd4712b2ee7a7bd35ef0ec7ca32c9de6b92"
       - name: Install no-release consumer and focused dependencies
         run: |
           python -m pip install -e . --no-deps
-          python -m pip install pytest pyshp loguru pandas
+          python -m pip install pytest pyshp loguru pandas psutil
       - name: Verify real batch and fake failure contracts
-        run: python -m pytest -q tests/orchestrators/tuflow/test_batch_preflight_adapter.py
+        run: python -m pytest -q tests/orchestrators/tuflow/test_batch_preflight_adapter.py tests/fixtures/tuflow_example_repro/test_run_checks.py
+      - name: Verify native evaluation command
+        run: python -m tests.fixtures.tuflow_example_repro.run_local_checks --help
       - name: Verify two archived TCFs with eager, deferred and batch inventories
         shell: pwsh
         run: |

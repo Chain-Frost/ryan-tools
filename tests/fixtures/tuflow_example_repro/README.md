@@ -77,7 +77,7 @@ python -m tests.fixtures.tuflow_example_repro.run_local_checks `
   --commands-file "<model directory>\run_tuflow_simulations_commands.txt" `
   --expect-runs 440 --label R440 `
   --pytuflow-checkout E:\Github\PyTuflow `
-  --output "$env:TEMP\tuflow-R440-check" --repeats 3
+  --output "$env:TEMP\tuflow-R440-check" --batch --repeats 3
 ```
 
 The command export must contain only the selected TCF's exact event/scenario
@@ -86,24 +86,44 @@ actual count with `--expect-runs`. Alternatively, `--runs-json`
 accepts a private JSON list of string event/scenario dictionaries. Project launchers
 are never imported or executed by this runner.
 
-The runner checks first/middle/last runs before full comparisons, alternates mode
+The runner checks first/middle/last runs before full comparisons, rotates mode
 order across repetitions, loads a fresh model per mode, checks every physical
 file/layer/command/run identity, then runs public preflight. Nonzero exit or any
 missing, extra, collection or inventory issue fails acceptance. Private differences,
 logs and CSVs can disclose model paths: keep them outside the repository and share
 only anonymised counts and summaries. No solver is launched and no model input is edited.
 It verifies that PyTUFLOW was imported physically from the requested checkout,
-requires `pytuflow>=1.2,<2`, and writes the source version, Python version and three
-relevant parser-module hashes to private `provenance.json`. Keep both Git heads
+requires `pytuflow>=1.2,<2`, and writes the source version, Python version and relevant
+parser-module hashes to private `provenance.json`. Keep both Git heads
 alongside this report; distribution metadata alone cannot identify a modified fork.
+
+`--batch` adds a third mode through the existing opt-in adapter; its actual batch
+call is included in timing and its scalar upstream counters/phase timings are
+retained. Public individual and batch preflight must both pass and have identical
+checked paths and issues. The default two-mode command remains available without
+`--batch`. `--representative-only` stops after the first/middle/last gate.
+
+For a known problematic model, `--continue-on-findings` completes the diagnostic
+instead of stopping at the gate. Findings remain in every report, acceptance
+remains false and the final exit is still 1. It does not permit launch or certify
+a workload, and such timings must not be presented as a successful-model speedup.
 
 Timings include parse, context creation and remaining collection/materialisation/
 inventory work, excluding process startup and report writing. Python audit counters
 record `open`, `os.scandir`, `os.listdir`, `sqlite3.connect` and `pathlib.Path.glob`
 by phase. They do **not** count every stat or native GIS/OS read and do not measure
-memory. Retain the separate zero-I/O spy tests; an empty audit count alone cannot
+exact memory peaks. A background sampler records process RSS every 20 ms, start
+RSS and sampled peak/delta for each mode, including native allocations. Rotating
+mode order and collecting garbage between modes reduces allocator/order effects;
+this is a sampled process observation, not a memory-allocation proof. Retain the
+separate zero-I/O spy tests; an empty audit count alone cannot
 prove zero native I/O. State the actual storage and cache conditions when reporting
 timings; local SSD results do not establish network performance.
+
+Identity comparison follows physical aliases deliberately, while inventory I/O
+retains the supplied path spelling. Converting a mapped drive to a UNC SQLite
+`file://host` URI can otherwise create artificial unresolved layer findings.
+Wildcard expansion also retains all reference inspection/provenance flags.
 
 **Performance:** ZIP extraction is a one-time setup step, not part of
 the eager/deferred parse/context/inventory timings. For comparisons, use the
