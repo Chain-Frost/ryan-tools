@@ -189,9 +189,9 @@ class PreflightReport:
     raster_seconds: float = 0.0
     # Run/activation-scoped BC Source rows, populated from PyTUFLOW's cached tables.
     bc_activation_sources: dict[tuple[int, str], dict[str, Path]] = field(
-        default_factory=lambda: dict[tuple[int, str], dict[str, Path]]()
+        default_factory=dict[tuple[int, str], dict[str, Path]]
     )
-    bc_activation_paths: dict[tuple[int, str], Path] = field(default_factory=lambda: dict[tuple[int, str], Path]())
+    bc_activation_paths: dict[tuple[int, str], Path] = field(default_factory=dict[tuple[int, str], Path])
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
