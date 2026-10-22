@@ -94,6 +94,9 @@ class _Input(Protocol):
     """Minimal read-only input surface used from PyTUFLOW."""
 
     @property
+    def uuid(self) -> object: ...
+
+    @property
     def files(self) -> list[Path]: ...
 
     @property
@@ -123,6 +126,10 @@ class _Context(Protocol):
     def deferred_database_sources(self) -> tuple[_DeferredDatabaseSource, ...]: ...
 
     def database_sources(self) -> tuple[_DeferredDatabaseSource, ...]: ...
+
+    def deferred_database_activations(self) -> tuple[_BCActivation, ...]: ...
+
+    def deferred_database_sources_for_activation(self, input_uuid: str) -> tuple[_DeferredDatabaseSource, ...]: ...
 
 
 class _Model(Protocol):
@@ -181,8 +188,10 @@ class PreflightReport:
     raster_files_scanned: int = 0
     raster_seconds: float = 0.0
     # Run/activation-scoped BC Source rows, populated from PyTUFLOW's cached tables.
-    bc_activation_sources: dict[tuple[int, str], dict[str, Path]] = field(default_factory=dict)
-    bc_activation_paths: dict[tuple[int, str], Path] = field(default_factory=dict)
+    bc_activation_sources: dict[tuple[int, str], dict[str, Path]] = field(
+        default_factory=lambda: dict[tuple[int, str], dict[str, Path]]()
+    )
+    bc_activation_paths: dict[tuple[int, str], Path] = field(default_factory=lambda: dict[tuple[int, str], Path]())
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
@@ -381,6 +390,8 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             continue
 
         eager_sources_available = not deferred_supported and callable(getattr(context, "database_sources", None))
+        multi_bc = False
+        bc_activations: tuple[_BCActivation, ...] = ()
         try:
             inputs = context.find_input()
             # Only multi-declaration hydraulic BC models need feature-specific
@@ -388,10 +399,9 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             # remain unchanged, preserving the established 174-run baseline.
             declarations = [(i, inp) for i, inp in enumerate(inputs) if _command_name(inp) == "bc database"]
             multi_bc = deferred_supported and len(declarations) > 1
-            bc_activations: tuple[_BCActivation, ...] = ()
             if multi_bc:
-                activation_reader = getattr(context, "deferred_database_activations", None)
-                source_reader_for_activation = getattr(context, "deferred_database_sources_for_activation", None)
+                activation_reader = context.deferred_database_activations
+                source_reader_for_activation = context.deferred_database_sources_for_activation
                 if not callable(activation_reader) or not callable(source_reader_for_activation):
                     message = "BC declaration selection requires PyTUFLOW activation APIs"
                     raise ValueError(message)
