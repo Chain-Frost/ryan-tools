@@ -98,9 +98,7 @@ def _validate_active_sources(
     # silently lose the declaration that had no file references. Require PR #6
     # descriptors before exposing this opt-in feature to the common collector.
     for kind, count in kinds.items():
-        if count > 1 and kind not in {"rainfall", "materials"} and not (
-            kind == "bc" and ordered_inputs is not None
-        ):
+        if count > 1 and kind not in {"rainfall", "materials"} and not (kind == "bc" and ordered_inputs is not None):
             message = f"Ambiguous batch {kind} database activations: {count}"
             raise ValueError(message)
 
@@ -163,10 +161,7 @@ class _ContextView:
                 key = (ordinal, item.input_uuid)
                 owned = groups.pop(key, ())
                 for record in owned:
-                    if (
-                        record.owner_control_file != item.owner_control_file
-                        or record.line_number != item.line_number
-                    ):
+                    if record.owner_control_file != item.owner_control_file or record.line_number != item.line_number:
                         message = "Batch reference command/provenance mismatch"
                         raise ValueError(message)
                 inputs.append(
