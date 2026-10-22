@@ -1,0 +1,56 @@
+name: PyTUFLOW ordered batch consumer contracts
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tuflow-ordered-batch-contracts.yml"
+      - "ryan_library/orchestrators/tuflow/batch_preflight_adapter.py"
+      - "ryan_library/orchestrators/tuflow/input_preflight.py"
+      - "tests/orchestrators/tuflow/test_ordered_batch_adapter.py"
+      - "tests/orchestrators/tuflow/test_batch_preflight_adapter.py"
+      - "tests/fixtures/tuflow_example_repro/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-ordered-batch:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      RYAN_TEST_BATCH_PYTUFLOW: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+      - name: Initialise required public TUFLOW tutorial data
+        run: git submodule update --init tests/test_data
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install exact PyTUFLOW PR 6 ordered-input contract
+        # This development-only fork pin does not modify pyproject.toml,
+        # requirements or the published package dependency.
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@4350938161b25bd67b7f8e492a01cba49e58235e"
+      - name: Install isolated preflight consumer and test dependencies
+        run: |
+          python -m pip install -e . --no-deps
+          python -m pip install pytest pyshp loguru pandas psutil
+      - name: Verify ordered, legacy and fail-closed contract tests
+        run: python -m pytest -q tests/orchestrators/tuflow/test_batch_preflight_adapter.py tests/orchestrators/tuflow/test_ordered_batch_adapter.py
+      - name: Replay every public TUFLOW tutorial input in eager, deferred and batch
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "ordered-batch-tutorial-replay"
+          python -m tests.fixtures.tuflow_example_repro.run_checks --batch --output $report
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); assert len(rows)==161 and sum(row["runs"] for row in rows)==174; assert all(row.get("accepted_parity") and row.get("batch_missing")==0 and row.get("batch_extra")==0 and row.get("batch_preflight_passed") for row in rows)' (Join-Path $report "results.json")
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload public diagnostic parity results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ordered-batch-tutorial-parity
+          path: ${{ runner.temp }}/ordered-batch-tutorial-replay
+          if-no-files-found: warn
