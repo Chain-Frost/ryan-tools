@@ -247,7 +247,9 @@ def _scan_shapefile(  # noqa: C901 - common DBF and GIS BC field handling
             selected = ((record[1], record[index]) for record in reader.iterRecords())
         else:
             selected = ((record[index],) for record in reader.iterRecords())
-        sources, identifiers = _scan_file_reference_rows(selected, layer=layer, geometry_type=geometry_type, parent=path.parent)
+        sources, identifiers = _scan_file_reference_rows(
+            selected, layer=layer, geometry_type=geometry_type, parent=path.parent
+        )
         return sources, identifiers, ()
 
 
@@ -458,9 +460,9 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
                                 }
                             )
                         )
-                        bc_names = tuple(sorted({
-                            item for name in matches for item in scanned[name][2]
-                        }, key=str.casefold))
+                        bc_names = tuple(
+                            sorted({item for name in matches for item in scanned[name][2]}, key=str.casefold)
+                        )
                         results[key] = AttributeInspection(
                             "present",
                             sources,
