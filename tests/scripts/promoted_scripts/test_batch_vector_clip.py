@@ -61,7 +61,6 @@ def test_split_vector_quotes_attribute_values(monkeypatch: pytest.MonkeyPatch, t
     assert captured_where == "\"Owner\"\"Name\" = 'O''Brien'"
 
 
-
 def test_geopackage_overwrite_replaces_complete_staged_output(tmp_path: Path) -> None:
     """Single-file replacements should never require removing the old output first."""
     original = tmp_path / "output café.gpkg"
@@ -116,9 +115,7 @@ def test_shapefile_success_replaces_sidecars_without_stale_originals(tmp_path: P
     assert not list(tmp_path.glob(".existing.backup.*"))
 
 
-def test_shapefile_mid_promotion_error_restores_every_original(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_shapefile_mid_promotion_error_restores_every_original(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """A failure after one new sidecar was installed must roll back the full set."""
     original = tmp_path / "existing.shp"
     old_data = {".shp": b"old shapes", ".dbf": b"old table", ".shx": b"old index", ".prj": b"old projection"}
@@ -146,9 +143,7 @@ def test_shapefile_mid_promotion_error_restores_every_original(
     assert not list(tmp_path.glob(".existing.backup.*"))
 
 
-def test_shapefile_rollback_failure_retains_recovery_backups(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_shapefile_rollback_failure_retains_recovery_backups(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """If restoration itself is blocked, never discard the last copy of old data."""
     original = tmp_path / "existing.shp"
     original.write_bytes(b"old shapes")
