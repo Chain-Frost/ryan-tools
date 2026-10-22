@@ -254,7 +254,6 @@ def _is_non_input_command(input_command: object) -> bool:
     return name in _NON_INPUT_FILE_COMMANDS or name.startswith("set variable ")
 
 
-
 class _BCActivation(Protocol):
     sequence: int
     input_uuid: str
@@ -324,14 +323,28 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         if layer_override is not None and path.suffix.casefold() == ".gpkg":
             layer = layer_override
         key = (
-            run.index, origin, path, layer, scan_attributes, database_kind,
-            scan_raster_metadata, scan_table_links, bc_activation_uuid,
+            run.index,
+            origin,
+            path,
+            layer,
+            scan_attributes,
+            database_kind,
+            scan_raster_metadata,
+            scan_table_links,
+            bc_activation_uuid,
         )
         if key not in seen:
             seen.add(key)
             references.append(
                 _FileReference(
-                    run, origin, path, layer, scan_attributes, database_kind, scan_raster_metadata, scan_table_links,
+                    run,
+                    origin,
+                    path,
+                    layer,
+                    scan_attributes,
+                    database_kind,
+                    scan_raster_metadata,
+                    scan_table_links,
                     bc_activation_uuid,
                 )
             )
@@ -367,8 +380,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             # Only multi-declaration hydraulic BC models need feature-specific
             # binding. Existing single-database eager/deferred inventories
             # remain unchanged, preserving the established 174-run baseline.
-            declarations = [(i, inp) for i, inp in enumerate(inputs)
-                            if _command_name(inp) == "bc database"]
+            declarations = [(i, inp) for i, inp in enumerate(inputs) if _command_name(inp) == "bc database"]
             multi_bc = deferred_supported and len(declarations) > 1
             bc_activations: tuple[_BCActivation, ...] = ()
             if multi_bc:
@@ -379,8 +391,9 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                     raise ValueError(message)
                 bc_activations = tuple(activation_reader())
                 declared = {(position, str(inp.uuid)) for position, inp in declarations}
-                actual = {(a.sequence, a.input_uuid)
-                          for a in bc_activations if getattr(a, "database_kind", None) == "bc"}
+                actual = {
+                    (a.sequence, a.input_uuid) for a in bc_activations if getattr(a, "database_kind", None) == "bc"
+                }
                 if actual != declared:
                     message = "BC database declaration sequence/UUID mismatch"
                     raise ValueError(message)
@@ -551,7 +564,9 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                             for source in selected_reader(activation.input_uuid)
                         )
                     else:
-                        sources = context.deferred_database_sources() if deferred_supported else context.database_sources()
+                        sources = (
+                            context.deferred_database_sources() if deferred_supported else context.database_sources()
+                        )
                     for source in sources:
                         kind = source.database_kind
                         if kind not in {
@@ -695,22 +710,38 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
             if ref.bc_activation_uuid:
                 sources = report.bc_activation_sources.get((ref.run.index, ref.bc_activation_uuid))
                 if sources is None:
-                    report.issues.append(PreflightIssue(
-                        ref.run.index, ref.run.description, "unresolved", ref.origin,
-                        str(ref.path), "Active BC database source map was not collected",
-                    ))
+                    report.issues.append(
+                        PreflightIssue(
+                            ref.run.index,
+                            ref.run.description,
+                            "unresolved",
+                            ref.origin,
+                            str(ref.path),
+                            "Active BC database source map was not collected",
+                        )
+                    )
                 else:
                     for identifier in result.bc_identifiers:
                         linked = sources.get(identifier.casefold())
                         if linked is None:
-                            report.issues.append(PreflightIssue(
-                                ref.run.index, ref.run.description, "unresolved", ref.origin,
-                                str(ref.path), f"Active BC Database has no Source row for {identifier!r}",
-                            ))
+                            report.issues.append(
+                                PreflightIssue(
+                                    ref.run.index,
+                                    ref.run.description,
+                                    "unresolved",
+                                    ref.origin,
+                                    str(ref.path),
+                                    f"Active BC Database has no Source row for {identifier!r}",
+                                )
+                            )
                         else:
-                            extra_references.append(_FileReference(
-                                ref.run, f"bc source: {identifier}", linked,
-                            ))
+                            extra_references.append(
+                                _FileReference(
+                                    ref.run,
+                                    f"bc source: {identifier}",
+                                    linked,
+                                )
+                            )
             # Resolve source identifiers using the database type that owns
             # this GIS element, never interpreting a curve ID as a filename.
             for identifiers, database_kind in (
