@@ -235,6 +235,8 @@ def main() -> int:
     if not SpecifierSet(">=1.2,<2").contains(upstream.__version__):
         parser.error("The selected checkout must provide pytuflow>=1.2,<2")
     sources = [
+        "pytuflow/_tmf/context.py",
+        "pytuflow/_tmf/db/mat.py",
         "pytuflow/_tmf/cf/tcf_run_state.py",
         "pytuflow/_tmf/inp/inp_run_state.py",
         "pytuflow/_tmf/inp/inp_build_state.py",
