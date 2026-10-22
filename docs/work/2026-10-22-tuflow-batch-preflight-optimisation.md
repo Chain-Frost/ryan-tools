@@ -10,8 +10,7 @@ opt-in batch work continues in #5. No production release or default-mode change 
 consumer diagnostic `2e03c0b110a272d9c6a05cc6da3bc08817130164`.
 The current pinned hosted batch workflow passes strict eager/deferred/batch materialisation parity for all
 161 TCFs / 174 runs. The preceding parser b1c9cfd also passed the local strict archive replay.
-Native rotated three-mode evaluations are complete; see the final results below. The newly supplied small SMB model has 42 commands;
-this is distinct from the withdrawn external 42-run requirement.
+Native rotated three-mode evaluations are complete; see the final results below. The small SMB model has 42 commands.
 
 The two-BC-declaration issue is explicitly deferred by the owner. Eliminating repeated invariant run-state
 construction requires a broader immutable control-file graph and remains future optimisation.
@@ -117,7 +116,7 @@ The current normal `_collect_references()` downstream path independently constru
 - Added fast mock-based parity and failure-contract tests, including a 500-run **single batch API invocation** with no per-run `model.context()`, and a run-specific unresolved finding.
 - Added separate [Windows fork batch smoke workflow](https://github.com/Chain-Frost/ryan-tools/blob/feat/tuflow-batch-preflight-optimisation/.github/workflows/tuflow-batch-smoke.yml), pinned to PyTUFLOW #5 commit `093b17ad`, not the public PyPI package. It includes an opt-in real parsed-TCF example verifying complete individual-versus-batch issue and path inventories.
 
-**Remaining:** Exact-head strict Ruff/format/Pyright/focused/real-fork CI is not yet accepted here; check the new workflow and its result, fix failures, then compare *fully materialised* eager/deferred/batch identities over the 161-TCF/174-run archive and P/B/Higginsville native projects; the separate 42-run gate was withdrawn by the owner. Full BC feature-to-activation mapping is **not implemented**; multiple active stateful BC database declarations deliberately remain unresolved rather than passing. No benchmark can be described as end-to-end production acceleration until these parity gates pass.
+**Remaining:** Exact-head strict Ruff/format/Pyright/focused/real-fork CI is not yet accepted here; check the new workflow and its result, fix failures, then compare *fully materialised* eager/deferred/batch identities over the 161-TCF/174-run archive and P/B/Higginsville native projects. Full BC feature-to-activation mapping is **not implemented**; multiple active stateful BC database declarations deliberately remain unresolved rather than passing. No benchmark can be described as end-to-end production acceleration until these parity gates pass.
 
 The default launcher, standalone wrapper and `pyproject.toml` are unchanged. There is no merge, release or production dependency re-pin.
 
@@ -313,8 +312,8 @@ open/directory/SQLite/glob calls, not all native/stat I/O; retain independent no
   compatibility (b1c9cfd), and diagnostic mapped-drive SQLite handling remain separately identified.
 - The replaced 792-run workload is not accepted: direct PO-file existence checks found GD08 393/396 and
   GD14 394/396 absent. This is not a reason to suppress findings or silently skip both catchments.
-- N42 here is the newly supplied 42-command network benchmark. It does not reinstate the withdrawn external
-  42-run gate. The historical external 440-run evidence is revision-specific and was not rerun on this machine.
+- N42 is the 42-command network benchmark. The historical external 440-run evidence is revision-specific
+  and was not rerun on this machine.
 - The owner explicitly postponed the two-BC-model investigation. No new two-BC functionality is claimed.
 - General Python CI separately fails the Nmx snapshot column-axis StringDtype NA-value comparison
   (`<NA>` versus `nan`): 1380 passed, 6 skipped, 7 deselected, one failure on source 2e03c0b.

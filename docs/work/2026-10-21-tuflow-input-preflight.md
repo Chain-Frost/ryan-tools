@@ -16,8 +16,7 @@ parser a9f654c and consumer diagnostic 2e03c0b pass dedicated hosted deferred/ba
 separately upstream. Current P/B, matched 480-run SSD/SMB and new 42-command SMB trials plus public checks pass; results are
 tracked in the [batch work record](2026-10-22-tuflow-batch-preflight-optimisation.md). General Python CI has
 an independent Nmx snapshot column-dtype failure, recorded there separately. Historical external 440-run
-acceptance on parser fb103a1 remains valid for that revision, not the current source. The owner withdrew the
-external 42-run gate and explicitly deferred further two-BC-model investigation. A newly supplied 42-command
+acceptance on parser fb103a1 remains valid for that revision, not the current source. The owner explicitly deferred further two-BC-model investigation. A newly supplied 42-command
 SMB model is a distinct benchmark. No mainline merge or release is authorised. Latest evidence supersedes
 historical delivery notes.
 
@@ -1307,22 +1306,10 @@ consumer `b68f4ada` / parser `fb103a1`, before the accessor repair; this worksta
 did not access or execute the network model. A cancelled older consumer CI run
 was superseded by the shared branch's newer head and is not reported as a pass.
 
-The owner has withdrawn the 42-run check as a merge requirement (see the later scope update). Preserve
-the external 440-run source distinction when deciding whether to repeat it on the
+Preserve the external 440-run source distinction when deciding whether to repeat it on the
 repair head. No merge, engine execution, release, package-source/version change or
 private project upload was performed. Relevant changes are committed/pushed to the
 existing branches; current-head hosted jobs and final review are checked separately.
-
-### Acceptance scope update: 42-run check withdrawn (2026-10-22)
-
-The owner explicitly instructed: "drop this requirement: external 42-run check".
-The separate 42-run external check is therefore **not a merge or acceptance gate**
-for either PyTUFLOW PR #1 or this consumer work. Current state/register, upstream
-implementation/audit notes and PR #1 description are updated accordingly. Earlier
-42-run plans and historical results remain as history and are superseded on this
-point; they must not be treated as outstanding work or evidence of a new test run.
-Other review, strict Windows parity and BC activation-selection boundaries remain
-as documented. No model run, merge or release is implied by this scope change.
 
 ## BC feature-to-activation selection — supporting draft PR #151
 
