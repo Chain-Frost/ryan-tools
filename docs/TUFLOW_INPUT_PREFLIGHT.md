@@ -121,6 +121,35 @@ production network-drive performance, native model parity or complete
 GIS BC feature-to-active-database selection. The user withdrew the
 separate 42-run model as a merge gate.
 
+### Ordered-input batch projection (experimental)
+
+The [PyTUFLOW PR #6](https://github.com/phantom-branch/PyTuflow/pull/6)
+batch API adds `ordered_inputs`, which describes **every** active command,
+including output settings, variable assignments and database selections with
+no file reference. The batch adapter now reproduces that exact command
+sequence using each command's UUID, ordinal, owning control file and line.
+It refuses duplicate/missing ordinals, orphaned file references and mismatched
+provenance instead of silently accepting an incomplete inventory.
+
+This enables the existing consumer's multiple-`BC Database` logic to bind
+each `Read GIS BC/SA/RF` command to the **latest preceding active**
+database declaration and select only its associated Name/Source entries.
+The adapter exposes source rows by declaration UUID; requesting their
+aggregate when multiple BC databases are active fails closed. Unsupported
+schemas and ambiguous declarations remain unresolved.
+
+For backwards compatibility, batches without `ordered_inputs` keep the
+previous reference-bearing command projection and **reject** multiple
+stateful BC activations. This is an opt-in development path; the default
+individual collector and normal published PyTUFLOW dependency are unchanged.
+The dedicated
+`.github/workflows/tuflow-ordered-batch-contracts.yml` workflow installs
+the pinned PR #6 fork for Windows-focused regressions and the public
+161-TCF/174-run eager/deferred/batch differential replay. Any native SMB
+benchmark requires the sole authorised SMB-capable agent; no project inputs
+are uploaded, no solver runs, and passing synthetic contracts alone do not
+establish materialised completeness.
+
 ### Deferred PyTUFLOW integration (development)
 
 When installed PyTUFLOW implements the provisional API in
