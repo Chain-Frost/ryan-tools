@@ -28,7 +28,7 @@ jobs:
       - name: Install isolated PyTUFLOW batch fork
         # Never replace the published wheel dependency on main. This PR
         # exercises the development interface independently of PyPI.
-        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@093b17adac1c4fc5ae12d419fff7e3a700bc1b97"
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@7a718f51e72fb1c0b2dc8752e22bd9457e3c6c30"
       - name: Install no-release consumer and focused dependencies
         run: |
           python -m pip install -e . --no-deps
