@@ -9,6 +9,7 @@ import pytest
 
 from ryan_library.functions.tuflow.gis_attribute_dependencies import (
     inspect_gis_attribute_sources,
+    read_bc_inline_constant_names,
     read_pit_inlet_database,
 )
 
@@ -354,3 +355,22 @@ def test_sa_and_rainfall_bc_names_first_attribute(tmp_path: Path) -> None:
         writer.record("Catchment_A")
     result, _ = inspect_gis_attribute_sources({(shp, "")})
     assert result[(shp, "")].bc_identifiers == ("Catchment_A",)
+
+
+def test_inline_numeric_bc_constants_are_not_secondary_files(tmp_path: Path) -> None:
+    database = tmp_path / "bc.csv"
+    database.write_text(
+        "# Model boundary table\n"
+        "Name,Source,Column 1,Column 2\n"
+        "Inline,,,2.5\n"
+        "Other,1.25,,\n"
+        "Hydro,hydrograph.csv,Time,Flow\n",
+        encoding="utf-8",
+    )
+    assert read_bc_inline_constant_names(database) == frozenset({"inline", "other"})
+    database.write_text(
+        "Name,Source,Column 1,Column 2\nBad,,,NaN\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="Nonfinite"):
+        read_bc_inline_constant_names(database)
