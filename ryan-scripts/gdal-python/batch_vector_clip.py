@@ -27,7 +27,6 @@ from loguru import logger
 from ryan_library.functions.path_stuff import to_path_list, to_single_path
 from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 
-
 _SHAPEFILE_MEMBER_SUFFIXES = frozenset(
     {
         ".shp",
