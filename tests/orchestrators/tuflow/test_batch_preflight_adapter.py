@@ -212,11 +212,11 @@ def test_real_fork_batch_and_individual_have_identical_preflight(tmp_path: Path)
     """Exercise real parsed TCF contexts without invoking TUFLOW or opening GIS."""
     source = tmp_path / "shared.tcf"
     source.write_text(
-        "IF Scenario == DEV\\n"
-        "    Read GIS Code == code_DEV.shp\\n"
-        "ELSE\\n"
-        "    Read GIS Code == code_EXG.shp\\n"
-        "END IF\\n",
+        "IF Scenario == DEV\n"
+        "    Read GIS Code == code_DEV.shp\n"
+        "ELSE\n"
+        "    Read GIS Code == code_EXG.shp\n"
+        "END IF\n",
         encoding="utf-8",
     )
     (tmp_path / "code_DEV.shp").touch()
