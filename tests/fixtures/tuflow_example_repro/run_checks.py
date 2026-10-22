@@ -218,7 +218,10 @@ def main() -> int:  # noqa: C901 - temporary multi-mode parity diagnostic
                     identities[mode], row[mode] = collect(tcf, runs, mode, factory)
                 except Exception as exc:  # noqa: BLE001 - record each failure and continue the diagnostic sweep
                     row[mode] = {"error": str(exc)}
-            if len(identities) == 2:
+            # The three-mode run still requires the original eager versus
+            # individual-deferred comparison. Comparing len == 2 here would
+            # skip the baseline exactly when all three modes succeeded.
+            if "eager" in identities and "deferred" in identities:
                 eager_only = identities["eager"] - identities["deferred"]
                 deferred_only = identities["deferred"] - identities["eager"]
                 row["missing"] = len(eager_only)
