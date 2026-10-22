@@ -74,9 +74,21 @@ def resolve_file_source(project_path: Path, source: str) -> Path | None:
     lowered = raw_path.lower()
     if not raw_path or lowered.startswith(
         (
-            "memory?", "memory:", "crs=", "dbname=", "url=", "http://", "https://",
-            "postgres://", "postgresql://", "wms:", "wfs:", "service=wms",
-            "service=wfs", "type=xyz", "/vsicurl/",
+            "memory?",
+            "memory:",
+            "crs=",
+            "dbname=",
+            "url=",
+            "http://",
+            "https://",
+            "postgres://",
+            "postgresql://",
+            "wms:",
+            "wfs:",
+            "service=wms",
+            "service=wfs",
+            "type=xyz",
+            "/vsicurl/",
         )
     ):
         return None
