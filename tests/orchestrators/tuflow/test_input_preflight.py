@@ -1674,11 +1674,20 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
 
 
 def test_bc_activation_selection_requires_prior_declaration() -> None:
-    from ryan_library.orchestrators.tuflow.input_preflight import _selected_bc_uuid
+    from dataclasses import dataclass
+
+    from ryan_library.orchestrators.tuflow.input_preflight import _selected_bc_uuid  # pyright: ignore[reportPrivateUsage]
+
+    @dataclass
+    class Activation:
+        sequence: int
+        input_uuid: str
+        database_kind: str
+        database_path: Path
 
     declarations = (
-        types.SimpleNamespace(sequence=1, input_uuid="a", database_kind="bc"),
-        types.SimpleNamespace(sequence=4, input_uuid="b", database_kind="bc"),
+        Activation(sequence=1, input_uuid="a", database_kind="bc", database_path=Path("a.csv")),
+        Activation(sequence=4, input_uuid="b", database_kind="bc", database_path=Path("b.csv")),
     )
     assert _selected_bc_uuid(3, declarations) == "a"
     assert _selected_bc_uuid(5, declarations) == "b"
