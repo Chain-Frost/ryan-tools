@@ -59,6 +59,37 @@ class _InputView:
         return self.origin
 
 
+def _validate_active_sources(
+    activations: tuple[_Activation, ...],
+    sources: tuple[_Source, ...],
+) -> tuple[_Source, ...]:
+    """Validate all secondary sources against exactly one active declaration."""
+    activation_map: dict[str, _Activation] = {}
+    kinds: dict[str, int] = {}
+    for activation in activations:
+        uuid = activation.input_uuid
+        if not uuid or uuid in activation_map:
+            message = "Missing or duplicate batch database activation UUID"
+            raise ValueError(message)
+        activation_map[uuid] = activation
+        kinds[activation.database_kind] = kinds.get(activation.database_kind, 0) + 1
+
+    # The individual deferred source accessor fails closed on ambiguous
+    # stateful database roles. Feature-level GIS joins will be added
+    # separately: never union BC declarations into a false pass.
+    for kind, count in kinds.items():
+        if count > 1 and kind not in {"rainfall", "materials"}:
+            message = f"Ambiguous batch {kind} database activations: {count}"
+            raise ValueError(message)
+
+    for source in sources:
+        owner = activation_map.get(source.input_uuid)
+        if owner is None or owner.database_kind != source.database_kind:
+            message = "Batch database source is not owned by its activation"
+            raise ValueError(message)
+    return sources
+
+
 class _ContextView:
     def __init__(self, case: _Case) -> None:
         if case.error is not None:
@@ -91,31 +122,7 @@ class _ContextView:
             inputs.append(_InputView(origin, origin, refs))
         self._inputs = tuple(inputs)
 
-        activations = case.database_activations
-        activation_map: dict[str, _Activation] = {}
-        kinds: dict[str, int] = {}
-        for activation in activations:
-            uuid = activation.input_uuid
-            if not uuid or uuid in activation_map:
-                message = "Missing or duplicate batch database activation UUID"
-                raise ValueError(message)
-            activation_map[uuid] = activation
-            kinds[activation.database_kind] = kinds.get(activation.database_kind, 0) + 1
-
-        # The individual deferred source accessor fails closed on ambiguous
-        # stateful database roles. Until feature-level GIS row selection
-        # exists, do not union multiple BC declarations into a false pass.
-        for kind, count in kinds.items():
-            if count > 1 and kind not in {"rainfall", "materials"}:
-                message = f"Ambiguous batch {kind} database activations: {count}"
-                raise ValueError(message)
-
-        for source in case.database_sources:
-            owner = activation_map.get(source.input_uuid)
-            if owner is None or owner.database_kind != source.database_kind:
-                message = "Batch database source is not owned by its activation"
-                raise ValueError(message)
-        self._sources = case.database_sources
+        self._sources = _validate_active_sources(case.database_activations, case.database_sources)
 
     def find_input(self, lhs: str | None = None) -> list[_InputView]:
         if lhs is None:
