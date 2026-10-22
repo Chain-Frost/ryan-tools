@@ -76,28 +76,33 @@ def _bc_identifiers_from_rows(  # noqa: C901 - TUFLOW BC kind and HQ source sema
         if two_d_bc:
             bc_type = str(attrs[0] or "").strip().upper()
             if not bc_type:
-                raise ValueError(f"Blank 2d_bc Type requires external Blank BC Type context: {layer}")
+                message = f"Blank 2d_bc Type requires external Blank BC Type context: {layer}"
+                raise ValueError(message)
             if bc_type not in source_types:
                 # Geometries used as links, codes or ignored elements do not
                 # name database rows. Unknown kinds are unresolved.
                 if bc_type not in {"HX", "SX", "CN", "CD", "IG", "ZP", "2D", "SC"}:
-                    raise ValueError(f"Unrecognised 2d_bc Type {bc_type!r}: {layer}")
+                    message = f"Unrecognised 2d_bc Type {bc_type!r}: {layer}"
+                    raise ValueError(message)
                 continue
             if bc_type == "HQ":
                 if len(attrs) < 3:
-                    raise ValueError(f"Cannot determine automatic HQ curve selection: {layer}")
+                    message = f"Cannot determine automatic HQ curve selection: {layer}"
+                    raise ValueError(message)
                 slope = attrs[2]
                 if slope not in (None, ""):
                     try:
                         if float(str(slope)) > 0:
                             continue
                     except ValueError as exc:
-                        raise ValueError(f"Invalid HQ b slope in {layer}: {slope!r}") from exc
+                        message = f"Invalid HQ b slope in {layer}: {slope!r}"
+                        raise ValueError(message) from exc
             value = attrs[1]
         else:
             value = attrs[0]
         if not isinstance(value, str) or not value.strip() or "<<" in value or ">>" in value:
-            raise ValueError(f"Missing or unexpanded BC Name in {layer}: {value!r}")
+            message = f"Missing or unexpanded BC Name in {layer}: {value!r}"
+            raise ValueError(message)
         names.add(value.strip())
     return tuple(sorted(names, key=str.casefold))
 
@@ -209,12 +214,14 @@ def _scan_shapefile(  # noqa: C901 - common DBF and GIS BC field handling
         if bc_index is not None:
             fields = reader.fields[1:]
             if len(fields) <= bc_index:
-                raise ValueError(f"Missing BC Name column in {layer}")
+                message = f"Missing BC Name column in {layer}"
+                raise ValueError(message)
             if bc_index == 2:
                 if len(fields) <= 7:
                     # A shortened synthetic layer cannot establish HQ b;
                     # reject rather than inferring a curve source.
-                    raise ValueError(f"2d_bc requires Type, Flags, Name and b fields: {layer}")
+                    message = f"2d_bc requires Type, Flags, Name and b fields: {layer}"
+                    raise ValueError(message)
                 selected = ((row[0], row[2], row[7]) for row in reader.iterRecords())
             else:
                 selected = ((row[bc_index],) for row in reader.iterRecords())
@@ -281,12 +288,14 @@ def _scan_layer(  # noqa: C901 - common GPKG and GIS BC field handling
     attrs = [name for name, pk in columns if not pk and str(name).casefold() not in geom_names]
     if bc_index is not None:
         if len(attrs) <= bc_index:
-            raise ValueError(f"Missing BC Name column in {layer}")
+            message = f"Missing BC Name column in {layer}"
+            raise ValueError(message)
         if bc_index == 2:
             if len(attrs) <= 7:
-                raise ValueError(f"2d_bc requires Type, Flags, Name and b fields: {layer}")
+                message = f"2d_bc requires Type, Flags, Name and b fields: {layer}"
+                raise ValueError(message)
             sql = (f"SELECT {_quote_identifier(str(attrs[0]))}, {_quote_identifier(str(attrs[2]))}, "
-                   f"{_quote_identifier(str(attrs[7]))} FROM {quoted}")
+                   f"{_quote_identifier(str(attrs[7]))} FROM {quoted}")  # noqa: S608
         else:
             sql = f"SELECT {_quote_identifier(str(attrs[bc_index]))} FROM {quoted}"  # noqa: S608
         return (), (), _bc_identifiers_from_rows(connection.execute(sql), layer)
