@@ -67,9 +67,7 @@ def _rollback_shapefile(
         raise RuntimeError(msg) from error
 
 
-def _clean_shapefile_backups(
-    backup_dir: Path, backups: list[tuple[Path, Path]], *, completed: bool
-) -> None:
+def _clean_shapefile_backups(backup_dir: Path, backups: list[tuple[Path, Path]], *, completed: bool) -> None:
     """Remove only known backup files after a successful promotion; never recurse."""
     if completed:
         for _, backed_up in backups:
@@ -88,9 +86,7 @@ def _promote_shapefile(
 ) -> None:
     """Best-effort transactional promotion for a multi-file Shapefile."""
     backup_dir = (
-        Path(tempfile.mkdtemp(prefix=f".{output_path.stem}.backup.", dir=output_path.parent))
-        if existing
-        else None
+        Path(tempfile.mkdtemp(prefix=f".{output_path.stem}.backup.", dir=output_path.parent)) if existing else None
     )
     backups: list[tuple[Path, Path]] = []
     promoted: list[Path] = []
