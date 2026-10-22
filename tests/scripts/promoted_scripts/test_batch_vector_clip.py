@@ -149,6 +149,31 @@ def test_shapefile_mid_promotion_error_restores_every_original(monkeypatch: pyte
     assert not list(tmp_path.glob(".existing.backup.*"))
 
 
+def test_shapefile_backup_failure_restores_previously_moved_members(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Failure during the backup phase must restore every member moved so far."""
+    original = tmp_path / "existing.shp"
+    original.with_suffix(".dbf").write_bytes(b"original table")
+    original.write_bytes(b"original shape")
+    staged = tmp_path / ".existing.staged.shp"
+    staged.write_bytes(b"new shape")
+    real_replace = Path.replace
+
+    def fail_backup(self: Path, destination: str | Path) -> Path:
+        if self == original and Path(destination).parent != tmp_path:
+            message = "injected failure backing up shape"
+            raise PermissionError(message)
+        return real_replace(self, destination)
+
+    monkeypatch.setattr(Path, "replace", fail_backup)
+    with pytest.raises(PermissionError, match="failure backing up"):
+        _promote_dataset(staged, original, overwrite=True)
+
+    assert original.read_bytes() == b"original shape"
+    assert original.with_suffix(".dbf").read_bytes() == b"original table"
+    assert staged.read_bytes() == b"new shape"
+    assert not list(tmp_path.glob(".existing.backup.*"))
+
+
 def test_shapefile_rollback_failure_retains_recovery_backups(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """If restoration itself is blocked, never discard the last copy of old data."""
     original = tmp_path / "existing.shp"
