@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import multiprocessing
 import shutil
+import tempfile
 from pathlib import Path
 
 # ==============================================================================
@@ -30,28 +31,35 @@ SEVEN_ZIP_EXE = find_7zip()
 
 
 def _extract_archive(archive_path: Path) -> tuple[Path, bool, str]:
-    """Worker function to extract a single archive."""
-    extract_dir: Path = archive_path.parent / archive_path.stem
-    temporary_extract_dir = archive_path.parent / f".{archive_path.stem}.extracting"
+    """Extract into a private, unique staging directory without deleting old work."""
+    extract_dir = archive_path.parent / archive_path.stem
+    temporary_extract_dir: Path | None = None
     try:
-        if extract_dir.exists():
+        if archive_path.is_symlink():
+            return archive_path, False, "Symlinked archive input is not supported"
+        if extract_dir.exists() or extract_dir.is_symlink():
             return archive_path, True, f"Output {extract_dir.name} already exists"
 
-        if temporary_extract_dir.exists():
-            shutil.rmtree(temporary_extract_dir)
-        temporary_extract_dir.mkdir(parents=True)
-
+        # Never delete a fixed-name stale staging directory: it may contain user data.
+        temporary_extract_dir = Path(
+            tempfile.mkdtemp(prefix=f".{archive_path.stem}.extracting-", dir=archive_path.parent)
+        )
         extract_archive(
             archive_path=archive_path,
             output_directory=temporary_extract_dir,
             executable=SEVEN_ZIP_EXE,
         )
-
-        temporary_extract_dir.replace(extract_dir)
+        # Another worker or user may have created the destination meanwhile.
+        if extract_dir.exists() or extract_dir.is_symlink():
+            return archive_path, True, f"Output {extract_dir.name} already exists"
+        temporary_extract_dir.rename(extract_dir)
+        temporary_extract_dir = None
         return archive_path, True, ""
-    except Exception as e:
-        shutil.rmtree(temporary_extract_dir, ignore_errors=True)
-        return archive_path, False, str(e)
+    except Exception as exc:
+        return archive_path, False, str(exc)
+    finally:
+        if temporary_extract_dir is not None:
+            shutil.rmtree(temporary_extract_dir, ignore_errors=True)
 
 
 def main(*, input_paths: PathOrList | None = None) -> int:
