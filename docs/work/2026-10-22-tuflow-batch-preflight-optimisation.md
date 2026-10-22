@@ -1,6 +1,6 @@
 # Batch-aware TUFLOW preflight optimisation — stacked PR scope
 
-**Status:** PR #7/#10 stack conflicts resolved; current four-mode native SMB evaluation underway. Earlier SSD/SMB results below remain historical. The batch adapter and shared inspection changes from #148 are now merged into
+**Status:** PR #7/#10 stack conflicts resolved; current four-mode native SMB evaluation complete. Earlier SSD/SMB results below remain historical. The batch adapter and shared inspection changes from #148 are now merged into
 #143 (`feat/tuflow-run-preflight`), which remains draft. PyTUFLOW #1 is merged into the fork's `master`;
 opt-in batch work continues in #5. No production release or default-mode change is authorised.
 
@@ -392,5 +392,57 @@ queued, not yet accepted. Next action: finish native measurements, publish the
 aggregates here and on PR #10/#143, and check terminal hosted results.
 
 **Delivery:** Parser repair and handoff pushed; interim comment posted on
-PyTUFLOW PR #10. Consumer record update pending commit. Broader invariant graph
+PyTUFLOW PR #10 and consumer PR #143. Consumer record pushed as `0e01f5a`.
+Broader invariant graph
 coverage and the owner's deferred two-BC investigation are separate follow-ups.
+
+### Current native results and graph coverage
+
+M480 passes all three four-mode parser trials with 480 distinct flag signatures,
+zero missing/extra ordered identities and zero failed runs. Its separate full
+480-run eager/deferred/batch materialised replay and both public preflight modes
+pass, with identical checked paths and issues. N42 also passes all parser trials, the 42-run materialised comparison and both
+public-preflight modes, with zero issues and identical checked paths.
+
+| SMB model | Runs | Individual deferred median, s | Uncached batch median, s | Cached, graph off median, s | Cached, graph on median, s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| M480 | 480 | 73.466 | 67.279 | 43.455 | 45.844 |
+| N42 | 42 | 32.653 | 32.988 | 10.457 | 10.766 |
+
+M480 parse time is 0.751 s, outside those mode totals. Graph-on trials are
+43.516 / 52.255 / 45.844 s; graph-off trials are 41.995 / 43.455 / 45.755 s.
+The graph adds **5.5% median overhead** here. Existing batch caching improves
+on uncached batch; that benefit must not be attributed to the new graph.
+
+**The graph implementation is partial.** M480 records 181 compiled graph nodes,
+7 eligible reads, 20 bypassed reads and 3,360 graph lookups, but still constructs
+480 contexts and elides **zero input run-states**. It is consulted without
+avoiding the dominant repeated construction on this model. Broader immutable
+command-group reuse with sufficient scope/dependency proofs remains unfinished;
+correctness and clean CI do not establish that optimisation as complete.
+
+N42 parse time is 2.091 s, outside mode totals. Its graph-on trials are
+11.240 / 10.766 / 10.490 s, graph-off 11.257 / 10.457 / 10.456 s: **3.0%
+median overhead**. It records 551 graph nodes, 11 eligible reads, 202 bypassed
+reads and 462 graph lookups, still constructing 42 contexts and eliding zero
+input run-states. These observations justify a follow-up optimisation PR;
+they do not justify weakening the graph's conservative proof conditions.
+
+At parser documentation head `099434f`, all eight active hosted checks pass:
+Windows Python 3.12/3.14 integration and reference contracts, tutorial contracts
+on both versions, full 161-TCF graph replay and example parity. The optional
+second full-public tutorial job is skipped. Both PR #7/#10 report clean.
+See [integration CI](https://github.com/phantom-branch/PyTuflow/actions/runs/39814801852).
+
+
+Final native acceptance: M480 retains 12,480 identities / 49 physical paths;
+N42 retains 1,922 / 196, equal in all materialised modes. Both return exit 0.
+Maximum sampled parser RSS (individual / uncached / cached graph-off / graph-on)
+is 440.4 / 440.9 / 440.4 / 438.8 MiB for M480 and
+430.1 / 429.8 / 429.8 / 430.0 MiB for N42. Sampling is every 20 ms and
+includes allocations retained within the shared process; these are not isolated
+per-model allocator peaks. No cold-cache or full-launcher wall-time claim.
+
+**Merge instruction:** After these completed benchmarks the owner explicitly
+authorised squash-merging the parser stack and opening a new graph-improvement
+handoff PR. Consumer PR #143 is separate and is not authorised for merge here.
