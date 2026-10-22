@@ -9,7 +9,7 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; local eager secondary-source fixes accept all 161 TCFs / 174 runs. Changes span both repositories and remain uncommitted; commit upstream and update the isolated CI pin before hosted verification. Preserve permanent test data.
+In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; complete 161-TCF/174-run example parity passes locally and in strict Windows CI. P/B representative checks, three full comparison pairs and public preflight pass. The live Higginsville 440-run preflight also passes with zero issues and matched eager/deferred dependency parity. Upstream review/evidence is pushed through `e90818c`; consumer CI/handoff through `c80afd30`. The owner still needs to run the separate 42-run model. Final review and the documented feature-to-BC-activation limitation remain visible; no merge. Latest evidence below supersedes historical uncommitted/draft delivery notes.
 
 ## Decisions
 
@@ -1080,9 +1080,9 @@ physical input paths using two directory scans and ten direct checks, opened one
 source and three raster headers, and reported 1.27 s parse, 28.77 s context/reference collection,
 0.01 s GIS attributes, 0.09 s raster metadata and 0.11 s inventory. The temporary issue CSV contains
 only its header. Model files were not changed; the only repository changes from this validation are
-this status update and the corresponding register update, both unstaged. Remaining native-model gates
-are the P/B and separate 42-run checks; exact-head hosted validation and upstream delivery gates remain
-as previously recorded. Next review remains 2026-10-23.
+this status update and the corresponding register update, committed as `e4518499`. The P/B and hosted
+gates were subsequently completed as recorded below; the separate 42-run check remains outstanding.
+Next review remains 2026-10-23.
 
 ### Matched eager/deferred performance benchmark
 
@@ -1106,3 +1106,147 @@ deduplicated file inventory and raster-header validation already measured by the
 No TUFLOW executable was launched and no model file was written. Reproduction script and JSON output are
 under `C:\Users\Ryan.Brook\AppData\Local\Temp\ryan-preflight-higginsville-20261022-103632` as
 `benchmark_eager_deferred.py` and `higginsville-440-eager-deferred.json`.
+### PR #1 merge-readiness audit (2026-10-22)
+
+Live GitHub confirms PyTUFLOW PR #1 remains draft, open and mechanically mergeable
+at `22e2413a0cead98aa4de7e24d74ac2df871e1e13`. Its six review threads are resolved;
+the reviews returned contain comments, not approval of the current head. The eager
+implementation and separate review record are now committed/pushed. Consumer changes
+are pushed at `09dfd502c8733c0cec1558a6bacadb0a112da84c`. The three implementation
+source hashes still match the successful local replay's `summary.json`; the 161/174
+result is therefore relevant source evidence, not a new hosted run.
+
+Remaining merge gates:
+
+- Finish exact-head Windows Python 3.12/3.14 upstream CI. At inspection,
+  [run 39711383139](https://github.com/phantom-branch/PyTuflow/actions/runs/39711383139)
+  was in progress; the opt-in example replay was skipped.
+- Update the upstream example workflow's consumer pin from `5fca71e3` to the fixed
+  consumer commit, and the downstream isolated workflow's upstream pin from
+  `4228a80` to the fixed parser commit. Replay all 161 TCFs/174 runs on Windows.
+  Both existing diagnostic workflows can tolerate parity failures; acceptance must
+  explicitly require all runs accepted and zero missing/extra identities, rather
+  than treating a green diagnostic workflow as proof of complete parity.
+- Complete the PR's stated native P/B, 42-run and 440-run current-source parity
+  gates and review BC activation-to-GIS-feature association. Context-active table
+  inspection is conservative; the successful example replay does not independently
+  prove feature-level activation selection. Record phase timings and filesystem/GIS
+  counts on the current local SSD; no network-storage or validated speedup claim.
+- Refresh the PR description's older eight-case failure summary and distinguish
+  eager corrections from additive/deferred functionality. The committed eager note
+  still has historical uncommitted delivery wording that needs refreshing. Obtain
+  final review and mark ready only after validation. Linux follow-up PR #4 is
+  explicitly outside this Windows PR's acceptance gates.
+
+No merge, workflow dispatch, pin update, PR message or new model test was performed
+by this read-only readiness audit. Only this status record/register is edited locally.
+
+### Merge-gate actions and native-model handoff (2026-10-22)
+
+User authorised actioning the readiness items and committing/pushing to the existing
+PR branches. No merge or release was performed. Both external model sets are on
+another network: at this handoff the owner planned to run **42 and 440** separately.
+The Higginsville 440-run acceptance and benchmark are now recorded above; the 42-run
+model remains outstanding.
+The PR is currently open and ready for review (GitHub reports it no longer draft);
+this does not establish final engineering acceptance.
+
+#### Changes delivered
+
+- PyTUFLOW `fb103a16ba778dbb5bf1e7b144c68334b26bc821` pins the fixed consumer
+  `09dfd502`, triggers full Windows example parity on relevant parser changes,
+  removes tolerated failures/title opt-ins, and requires all 161 TCFs/174 runs
+  accepted with zero missing/extra records.
+- Consumer `b68f4ada63f506ae68bdf9e00a5eb39ed1b1d399` pins that parser commit and
+  similarly rejects partial example results and nonzero diagnostic exits.
+- Consumer `c80afd30cc5ccf186c9ac6feb41402188b14f575` adds the read-only native-model
+  runner and documented private command-file/JSON handoff, including representative
+  gating, alternating repetitions, phase timings and Python audit counts. It never
+  imports/executes a project launcher. This temporary diagnostic is not an MCP
+  catalogue candidate; the existing maintained preflight workflow remains discoverable.
+- PyTUFLOW `e90818c9dd1a26cb116736488fad210abe956ec6` records current evidence and
+  expands the separate eager review record to distinguish earlier eager corrections,
+  additive shared APIs and regressions introduced/repaired during deferred development.
+  Original upstream source comparisons and regression-coverage limits remain explicit.
+- PR #1 description now reflects current parity, the eager/deferred distinction,
+  local SSD measurement scope, activation limitation and external acceptance.
+  [Fresh review requested](https://github.com/phantom-branch/PyTuflow/pull/1#issuecomment-6331417702).
+
+#### Validation completed here
+
+- Affected local upstream selection rerun: **181 passed**; downstream preflight,
+  GIS/raster and launcher integration selection: **72 passed, zero skips**.
+- Local permanent example archive replay: **161/161 TCFs, 174/174 runs accepted**,
+  zero eager-only/deferred-only identities, diagnostic exit 0. Archive/submodule unchanged.
+- [Strict hosted upstream Windows replay](https://github.com/phantom-branch/PyTuflow/actions/runs/39711771147)
+  on `fb103a1`, consumer `09dfd502`: **161/161 TCFs, 174/174 runs accepted**,
+  zero missing/extra/parser errors; focused subset 13/13 also passes. Artifact
+  [12397057423](https://github.com/phantom-branch/PyTuflow/actions/runs/39711771147/artifacts/12397057423),
+  SHA-256 `561533a34e9cedbbebe2477fdbcc8f005b1d3d96f0324d52c41670d36ee73a1a`.
+- Upstream Windows 3.12/3.14 regression matrix passes at `fb103a1`; repeated at
+  documentation head `e90818c` in
+  [run 39712823679](https://github.com/phantom-branch/PyTuflow/actions/runs/39712823679).
+- Consumer head `c80afd30`: [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/39712541402),
+  [strict deferred consumer/full replay](https://github.com/Chain-Frost/ryan-tools/actions/runs/39712541396)
+  and [fast checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/39712541294)
+  all completed successfully.
+- New handoff runner: Ruff lint/format and strict Pyright pass. Example smoke
+  exits 0; deleting the active curve in its disposable extracted copy exits 1.
+  No original model/example bytes were changed. Documentation links, YAML parsing
+  and whitespace checks pass. No package/library source changed in this follow-up,
+  so no additional version bump or wheel rebuild was required.
+
+#### P/B same-source comparison and SSD measurements
+
+Exact parser/consumer implementation hashes match the earlier successful source
+manifest; later commits here change workflows, review notes and diagnostic tooling.
+Windows/Python 3.14.6, normal installation with PyTUFLOW checkout selected explicitly.
+Current launcher flags were read through AST/literal values without executing the
+launchers. Initial first/middle/last checks precede three full mode pairs per model,
+alternating eager/deferred order and using a fresh model per mode. Existing caches
+were retained on the **local SSD, no network**.
+
+| Model | Runs | Per-mode identity records | Physical files | Missing / extra | Public preflight |
+| --- | --- | --- | --- | --- | --- |
+| P | 4 | 68 | 17 | 0 / 0 in every pair | 0 findings |
+| B | 240 | 4,560 | 32 | 0 / 0 in every pair | 0 findings |
+
+| Model / mode | Median total seconds | Range | Median parse / context / remaining seconds | Context audit glob / SQLite calls |
+| --- | --- | --- | --- | --- |
+| P eager | 1.176 | 1.156-1.293 | 0.400 / 0.635 / 0.140 | 84 / 15 |
+| P deferred | 0.817 | 0.816-0.819 | 0.391 / 0.376 / 0.049 | 0 / 0 |
+| B eager | 58.918 | 58.874-59.430 | 0.789 / 47.843 / 10.454 | 5,051 / 2,171 |
+| B deferred | 38.897 | 38.753-39.077 | 0.577 / 34.722 / 3.607 | 0 / 0 |
+
+Totals include parse plus full reference collection, shared GIS materialisation and
+file/layer inventory. Startup, CSV/JSON writing and the separate public preflight
+are excluded. Independent phase medians need not add exactly to the total median.
+The instrumented counts are stable across repetitions. Audit hooks count supported
+Python open/directory/glob/SQLite events, not all stat/native GIS/OS calls or memory;
+zero counted deferred-context events does not replace the broader spy-based tests.
+No network, cold-cache, engine-performance or arbitrary-model speedup is claimed.
+P's existing projection-reading warning remains; collection and inventory have no issues.
+
+Private evidence lives under
+`C:\Users\Ryan\AppData\Local\Temp\ryan-preflight-20261022\merge-gates`:
+`examples/results.json`, `P`/`B` parity/difference/preflight files, private configs/logs,
+`anonymous-summary.json`, and disposable `runner-smoke` reports. Only anonymous
+counts enter repository/PR notes; no private data, names or model paths were uploaded.
+
+#### Activation review and remaining acceptance
+
+The parser's ordered activation/UUID projection, scenario exclusion, missing UUID
+rejection and no-I/O access are covered by the affected tests. The shared source
+accessor refuses multiple ambiguous BC declarations. **The consumer still does not
+join individual BC GIS features to their active declarations or filter their rows.**
+Single-table row inspection remains conservative. This review records an actual
+consumer boundary; equal eager/deferred example sets do not establish that this
+feature-level selection exists. Do not silently clear this concern during final review.
+
+Owner action: use the versioned
+[private-model handoff](../../tests/fixtures/tuflow_example_repro/README.md#private-native-model-handoff)
+with the unchanged 42-run model on its accessible network, retain exact heads and
+anonymous summaries, and report any unsupported/missing/extra references. The 440-run
+Higginsville model has since passed as recorded above. External data is not requested
+for upload. Final upstream review is requested; remaining external-model acceptance
+and the activation concern remain separate from CI success.
