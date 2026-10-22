@@ -91,3 +91,18 @@ Upstream synthetic Windows/Python 3.14 three-trial medians ([CI 39708797831](htt
 The current normal `_collect_references()` downstream path independently constructs contexts and calls `deferred_database_sources()`. Integrating the provisional batch output without respecting active-activation UUID, per-input owner, table-link scans and secondary GIS materialisation risks falsely claiming parity. Accordingly, this branch remains an **implementation-isolation boundary**, not a replacement for the current #143 validation route.
 
 **Next implementation gate:** an adapter that preserves the full `BatchInputReference` provenance, reproduces existing per-run missing/unresolved issue routing and selects candidate Source rows only where the active database/feature identity establishes a real dependency. Require exact eager / per-context deferred / batch identity comparison, both missing and extra records, on Windows prior to switching even the opt-in consumer. Keep defaults, published PyTUFLOW dependency and main branch unchanged.
+
+
+## Implementation checkpoint — 22 October 2026
+
+**Implemented on the stacked draft branch (not #143 or main):**
+
+- Added `ryan_library/orchestrators/tuflow/batch_preflight_adapter.py`, a read-only `BatchModelView` that consumes the upstream opt-in `TCF.collect_batch_dependencies()` once for the entire ordered proposed run set. It does not implement an independent TUFLOW syntax parser.
+- Added `check_simulation_inputs(..., context_mode="batch")`; default remains `"individual"`. The batch view supplies immutable input references to the **existing** `_collect_references`, wildcard, attribute-link, raster-metadata, GeoPackage and shared filesystem inventory stages, preserving per-run issue routing.
+- Enforced exact run count, index and full flag string; complete ordered `input_references` matching `file_references`; nonempty per-input UUID/command positions; correctly owned database Source rows; and conservative rejection of ambiguous multiple active stateful databases. A batch request against a published PyTUFLOW without the new method is an explicit incompatibility, **never a silent fallback or accepted partial inventory**. Errors for an individual run do not suppress findings for other runs.
+- Added fast mock-based parity and failure-contract tests, including a 500-run **single batch API invocation** with no per-run `model.context()`, and a run-specific unresolved finding.
+- Added separate [Windows fork batch smoke workflow](https://github.com/Chain-Frost/ryan-tools/blob/feat/tuflow-batch-preflight-optimisation/.github/workflows/tuflow-batch-smoke.yml), pinned to PyTUFLOW #5 commit `093b17ad`, not the public PyPI package. It includes an opt-in real parsed-TCF example verifying complete individual-versus-batch issue and path inventories.
+
+**Remaining:** Exact-head strict Ruff/format/Pyright/focused/real-fork CI is not yet accepted here; check the new workflow and its result, fix failures, then compare *fully materialised* eager/deferred/batch identities over the 161-TCF/174-run archive and P/B/Higginsville/42-run native projects. Full BC feature-to-activation mapping is **not implemented**; multiple active stateful BC database declarations deliberately remain unresolved rather than passing. No benchmark can be described as end-to-end production acceleration until these parity gates pass.
+
+The default launcher, standalone wrapper and `pyproject.toml` are unchanged. There is no merge, release or production dependency re-pin.
