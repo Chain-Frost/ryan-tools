@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import fnmatch
+import math
 import os
 import re
 import sqlite3
@@ -319,6 +320,58 @@ def _scan_layer(  # noqa: C901 - common GPKG and GIS BC field handling
         connection.execute(sql), layer=layer, geometry_type=geometry_type, parent=path.parent
     )
     return sources, identifiers, ()
+
+
+def read_bc_inline_constant_names(path: Path) -> frozenset[str]:
+    """Identify inline numeric BC rows not emitted as secondary file references.
+
+    A BC Database header can follow comments or preamble rows. Numeric
+    Source values and blank Source with numeric Column 2 are documented
+    constants; unknown or variable-based expressions do not pass here.
+    This is only read once per distinct primary CSV during GIS materialisation.
+    """
+    names: set[str] = set()
+    with path.open(newline="", encoding="utf-8-sig") as stream:
+        rows = csv.reader(stream)
+        header: list[str] | None = None
+        for row in rows:
+            keys = [cell.strip().casefold() for cell in row]
+            if "name" in keys and "source" in keys:
+                header = keys
+                break
+        if header is None:
+            message = f"BC Database is missing Name/Source headings: {path}"
+            raise ValueError(message)
+        name_col, source_col = header.index("name"), header.index("source")
+        column_two = header.index("column 2") if "column 2" in header else None
+        for row in rows:
+            if not any(cell.strip() for cell in row):
+                continue
+            if len(row) <= max(name_col, source_col):
+                message = f"Invalid BC Database row in {path}"
+                raise ValueError(message)
+            key = row[name_col].strip().casefold()
+            raw = row[source_col].strip()
+            constant = raw
+            if not constant and column_two is not None and len(row) > column_two:
+                constant = row[column_two].strip()
+            if not key:
+                message = f"Blank BC Database Name in {path}"
+                raise ValueError(message)
+            if not constant:
+                continue
+            try:
+                number = float(constant)
+            except ValueError:
+                continue
+            if not math.isfinite(number):
+                message = f"Nonfinite inline BC constant in {path}: {key}"
+                raise ValueError(message)
+            if key in names:
+                message = f"Duplicate inline BC identifier in {path}: {key}"
+                raise ValueError(message)
+            names.add(key)
+    return frozenset(names)
 
 
 def read_pit_inlet_database(path: Path) -> dict[str, Path]:
