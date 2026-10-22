@@ -171,6 +171,7 @@ def test_batch_rejects_truncated_source_projection() -> None:
                     ),
                 )
             )
+
     view = BatchModelView(Model(), flags)
     with pytest.raises(ValueError, match="Incomplete batch input ownership"):
         view.context(flags[0], file_resolution="deferred")
@@ -195,8 +196,11 @@ def test_batch_rejects_wrong_source_activation_and_duplicate_bc() -> None:
             database_activations=(types.SimpleNamespace(input_uuid="dbA", database_kind="bc"),),
         ),
         types.SimpleNamespace(
-            index=0, flags=flag, error=None,
-            file_references=(row.reference,), input_references=(row,),
+            index=0,
+            flags=flag,
+            error=None,
+            file_references=(row.reference,),
+            input_references=(row,),
             database_sources=(),
             database_activations=(
                 types.SimpleNamespace(input_uuid="dbA", database_kind="bc"),
@@ -233,6 +237,7 @@ def test_batch_rejects_context_index_or_flag_mismatch() -> None:
                     ),
                 )
             )
+
     with pytest.raises(ValueError, match="index or flags mismatch"):
         BatchModelView(Model(), ("-e1 A",)).context("-e1 A", file_resolution="deferred")
 
