@@ -113,7 +113,7 @@ def _validate_active_sources(
 
 
 class _ContextView:
-    def __init__(self, case: _Case) -> None:
+    def __init__(self, case: _Case) -> None:  # noqa: C901 - fail-closed lineage and provenance checks
         if case.error is not None:
             message = f"PyTUFLOW batch context failed: {case.error}"
             raise ValueError(message)
