@@ -28,11 +28,41 @@ from ryan_library.functions.path_stuff import to_path_list, to_single_path
 from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 
 
+_SHAPEFILE_MEMBER_SUFFIXES = frozenset(
+    {
+        ".shp",
+        ".shx",
+        ".dbf",
+        ".prj",
+        ".cpg",
+        ".qpj",
+        ".qix",
+        ".sbn",
+        ".sbx",
+        ".fix",
+        ".aih",
+        ".ain",
+        ".atx",
+        ".idm",
+        ".ind",
+        ".dbt",
+        ".cix",
+        ".shp.xml",
+        ".shp.aux.xml",
+    }
+)
+
+
 def _dataset_members(path: Path) -> list[Path]:
-    """Return files belonging to an output dataset, including Shapefile sidecars."""
+    """Identify known dataset members without touching unrelated same-stem files."""
     if path.suffix.casefold() == ".shp":
-        return sorted(candidate for candidate in path.parent.glob(f"{path.stem}.*") if candidate.is_file())
-    return [path] if path.exists() else []
+        return sorted(
+            candidate
+            for candidate in path.parent.glob(f"{path.stem}.*")
+            if candidate.name[len(path.stem) :].casefold() in _SHAPEFILE_MEMBER_SUFFIXES
+            and (candidate.is_file() or candidate.is_symlink())
+        )
+    return [path] if path.exists() or path.is_symlink() else []
 
 
 def _remove_dataset(path: Path) -> None:
