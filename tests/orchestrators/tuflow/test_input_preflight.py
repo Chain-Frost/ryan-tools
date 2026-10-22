@@ -1614,7 +1614,11 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
 
     inputs = [
         input_("BC Database", "db-up", reference(first_db, "bc", "BC Database")),
-        input_("Read GIS BC", "gis-up", reference(first_layer, None, "Read GIS BC", "2d_bc_upstream")),
+        input_(
+            "Read GIS BC",
+            "gis-up",
+            reference(first_layer.with_name("2d_bc_up*.gpkg"), None, "Read GIS BC", "2d_bc_upstream"),
+        ),
         input_("Read GIS BC", "gis-inline", reference(inline_layer, None, "Read GIS BC", "2d_bc_inline")),
         input_("BC Database", "db-down", reference(second_db, "bc", "BC Database")),
         input_("Read GIS BC", "gis-down", reference(second_layer, None, "Read GIS BC", "2d_bc_downstream")),
@@ -1671,6 +1675,16 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
     assert not missing.passed
     assert {issue.run_index for issue in missing.issues} == {1, 2}
     assert all("downstream_hydro.csv" in issue.reference for issue in missing.issues)
+
+    # Regression: expanding a wildcard GIS path must preserve the activation
+    # UUID. Otherwise the upstream hydrograph is not checked at all.
+    (tmp_path / "downstream_hydro.csv").touch()
+    (tmp_path / "upstream_hydro.csv").unlink()
+    wildcard_missing = check_simulation_inputs(tcf, runs)
+    assert not wildcard_missing.passed
+    assert {issue.run_index for issue in wildcard_missing.issues} == {1, 2}
+    assert all("upstream_hydro.csv" in issue.reference for issue in wildcard_missing.issues)
+    assert wildcard_missing.directories_scanned > 0
 
 
 def test_bc_activation_selection_requires_prior_declaration() -> None:
