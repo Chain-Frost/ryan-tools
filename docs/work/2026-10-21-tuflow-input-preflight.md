@@ -1348,3 +1348,30 @@ multi-BC-database materialisation path using upstream
 Acceptance is **Windows-only**, using focused tests, strict Ruff/Pyright
 and a full read-only example replay. No TUFLOW executable run,
 published dependency change, mainline merge or speedup claim is made.
+
+
+### BC activation selection draft — completed hosted validation
+
+[PR #151](https://github.com/Chain-Frost/ryan-tools/pull/151)
+head `e2d1db9b5fa8b5b8b266e4b445c135d0b906ec6e` completed all
+available Windows hosted checks on 22 October 2026:
+
+- [Deferred consumer run 39718681941](https://github.com/Chain-Frost/ryan-tools/actions/runs/39718681941):
+  **59 focused tests passed**, all **1,464 archive members verified**,
+  and the read-only full **161-TCF/174-run** replay completed successfully.
+  Its workflow enforces every row `accepted_parity == true` with
+  **zero missing and zero extra identities**; archived diagnostic artifact
+  `tuflow-example-full-replay` **12400431567**.
+- [Python CI 39718681946](https://github.com/Chain-Frost/ryan-tools/actions/runs/39718681946):
+  strict Pyright Policy, Hosted tests, Python 3.13/MCP and Package
+  jobs **all passed**.
+- [Fast PR checks 39718681965](https://github.com/Chain-Frost/ryan-tools/actions/runs/39718681965):
+  Ruff and whitespace **passed**.
+
+Feature-scoped synthetic tests verify two ordered BC database activations,
+distinct Shapefile/GeoPackage Name handling, unused-row suppression,
+one selected missing Source affecting both runs, and inline numeric BC
+constants. The all-green example matrix is a **no-regression** result, not
+proof that all TUFLOW multi-declaration/BC feature types are implemented.
+The PR remains draft, stacked on PR #143, and requires real representative
+multi-BC-model validation before merge. No mainline merge or solver run.
