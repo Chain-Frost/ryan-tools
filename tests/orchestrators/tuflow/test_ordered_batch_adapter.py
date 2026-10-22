@@ -157,7 +157,10 @@ def test_two_bc_declarations_select_sources_by_original_command_order(tmp_path: 
     assert run.arguments == flag
     report = PreflightReport(run_count=1)
     collected, _ = _collect_references(
-        tcf, (run,), view, report  # pyright: ignore[reportArgumentType] - read-only batch view mirrors collector context
+        tcf,
+        (run,),
+        view,  # pyright: ignore[reportArgumentType] - test-only adapter preserves the runtime collector surface
+        report,
     )
     assert not report.issues
     bc_sources = {ref.path.name: ref.bc_activation_uuid for ref in collected if ref.bc_activation_uuid}
