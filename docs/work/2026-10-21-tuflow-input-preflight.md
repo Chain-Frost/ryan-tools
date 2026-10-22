@@ -925,3 +925,35 @@ Local evidence is retained under
 No solver execution, benchmark, unrelated full suite, package rebuild, hosted CI rerun or native
 project rerun was performed. Only status/runner documentation was updated and left uncommitted;
 the pre-existing `qgis-resources` modification was preserved. No commit, push or merge performed.
+
+### Windows Python 3.14 consumer replay — passed
+
+The isolated pinned-fork integration [Actions run 39707415377](https://github.com/Chain-Frost/ryan-tools/actions/runs/39707415377)
+passed on **Windows Python 3.14.8** using merged upstream commit
+`4228a805687cfd80d98a27e2ebcb62c234b40059`. It reported **47
+focused tests passed** and the complete verified **161 TCF / 174-run**
+read-only replay returned **153 TCFs / 166 runs accepted, eight unresolved**,
+consistent with the earlier Windows Python 3.13 run. Complete diagnostics:
+`tuflow-example-full-replay` artifact **12396020763**.
+
+The first full `pip install -e ".[dev]"` attempt on hosted Windows Python
+3.14 failed while building Fiona from source; its other failures were
+consequential missing packages. The isolated consumer workflow now installs
+the upstream fork's GIS dependencies, the project in editable
+`--no-deps` mode and the focused test requirements. **This establishes
+preflight integration parity only, not full normal `ryan-tools`
+Python 3.14 installation compatibility.** The Fiona/wheel and complete
+dependency installation gate remains outstanding and must not be reported
+as passing. No production dependency metadata was modified.
+
+## Local/remote documentation merge reconciliation (2026-10-22)
+
+Resolved the interrupted merge of remote `c498fbd4` into local testing commit `edfe539c`.
+Retained both the complete local Python 3.14.6 evidence and hosted Python 3.14.8/Fiona limitation
+notes. Preserved the existing local commit, including its already-recorded resource gitlink;
+no resource checkout or package source was changed by this resolution. Default documentation,
+touched-document link and whitespace checks pass. This merge changes documentation only relative
+to the local testing commit, so the 47-test/174-run evidence remains attached to its original
+tested source head rather than being relabelled as a new test run. User authorises completing
+and pushing this existing branch merge and posting the eight-case remediation handoff on PR #143.
+Production PR merge and publication remain unauthorised.
