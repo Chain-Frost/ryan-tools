@@ -121,7 +121,8 @@ def test_batch_matches_individual_including_missing_event_specific_source(
     runs = (RunRequest(31, {"e1": "01.0p"}), RunRequest(52, {"e1": "20.0p"}))
     regular = check_simulation_inputs(tcf, runs, context_mode="individual")
     batch = check_simulation_inputs(tcf, runs, context_mode="batch")
-    assert not regular.passed and not batch.passed
+    assert not regular.passed
+    assert not batch.passed
     assert regular.checked_paths == batch.checked_paths
     assert set(regular.issues) == set(batch.issues)
     assert batch.affected_runs == 1
@@ -139,8 +140,9 @@ def test_batch_rejects_unavailable_api_without_silent_fallback(
         def __init__(self, _path: str) -> None:
             pass
 
-        def context(self, _flags: str, *, file_resolution: str | None = None) -> object:
-            raise AssertionError("Individual context must not run for requested batch")
+        def context(self, _flags: str, *, _file_resolution: str | None = None) -> object:
+            message = "Individual context must not run for requested batch"
+            raise AssertionError(message)
 
     monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=LegacyModel))
     with pytest.raises(ValueError, match="requires collect_batch_dependencies"):
@@ -187,10 +189,14 @@ def test_batch_rejects_wrong_source_activation_and_duplicate_bc() -> None:
     ]
     for case, expected in zip(cases, ("not owned", "Ambiguous batch bc"), strict=True):
         class Model:
+            def __init__(self, selected_case: object) -> None:
+                self.selected_case = selected_case
+
             def collect_batch_dependencies(self, _flags: tuple[str, ...]) -> types.SimpleNamespace:
-                return types.SimpleNamespace(runs=(case,))
+                return types.SimpleNamespace(runs=(self.selected_case,))
+
         with pytest.raises(ValueError, match=expected):
-            BatchModelView(Model(), (flag,)).context(flag, file_resolution="deferred")
+            BatchModelView(Model(case), (flag,)).context(flag, file_resolution="deferred")
 
 
 def test_batch_rejects_context_index_or_flag_mismatch() -> None:
@@ -244,8 +250,9 @@ def test_500_run_batch_calls_upstream_once_without_individual_contexts(
     class OnlyBatch(base):
         calls = 0
 
-        def context(self, flags: str, *, file_resolution: str | None = None) -> object:
-            raise AssertionError("Batch mode must not call one context per run")
+        def context(self, _flags: str, *, _file_resolution: str | None = None) -> object:
+            message = "Batch mode must not call one context per run"
+            raise AssertionError(message)
 
         def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
             type(self).calls += 1
