@@ -177,7 +177,7 @@ def test_ordered_batch_malformed_lineage_fails_closed(tmp_path: Path, defect: st
         case.input_references[0].line_number = 42
     elif defect == "activation_sequence":
         activation.sequence = 1
-    with pytest.raises(ValueError, match="lineage|missing from ordered|provenance|ordinal/UUID"):
+    with pytest.raises(ValueError, match=r"lineage|missing from ordered|provenance|ordinal/UUID"):
         _view(case).context(case.flags, file_resolution="deferred")
 
 
