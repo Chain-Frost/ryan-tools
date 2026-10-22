@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 import types
 from pathlib import Path
 
@@ -248,6 +249,7 @@ def test_500_run_batch_calls_upstream_once_without_individual_contexts(
 
         def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
             type(self).calls += 1
+            time.sleep(0.02)  # Ensure context_seconds includes upstream batch work.
             return super().collect_batch_dependencies(flags)
 
     monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=OnlyBatch))
@@ -257,6 +259,7 @@ def test_500_run_batch_calls_upstream_once_without_individual_contexts(
     assert report.run_count == 500
     assert len(report.checked_paths) == 3
     assert OnlyBatch.calls == 1
+    assert report.context_seconds >= 0.019
 
 
 def test_batch_error_is_unresolved_only_for_its_own_run(
