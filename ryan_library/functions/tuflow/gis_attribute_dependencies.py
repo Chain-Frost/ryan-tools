@@ -273,7 +273,7 @@ def _scan_layer(  # noqa: C901 - common GPKG and GIS BC field handling
     pit = bool(re.match(r"^1d_pit_", layer, flags=re.IGNORECASE))
     if network and geometry_type.casefold() not in {"linestring", "multilinestring"}:
         if geometry_type.casefold() != "geometry":
-            return (), ()
+            return (), (), ()
         message = "Mixed or unknown network geometry requires feature-level inspection"
         raise ValueError(message)
     quoted = _quote_identifier(layer)
