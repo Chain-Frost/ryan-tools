@@ -87,7 +87,8 @@ def _process_out_file(file_path: Path, script_dir: Path) -> pd.DataFrame | None:
     try:
         with file_path.open(encoding="latin1") as stream:
             lines = stream.readlines()
-    except Exception:  # noqa: BLE001 -- legacy behaviour skips unreadable independent files
+    except Exception:
+        # Preserve the legacy behaviour: unreadable files are skipped individually.
         return None
 
     parameters, headers, data_rows = _extract_parameters_and_rows(lines)
