@@ -173,7 +173,9 @@ def _parse_cli_arguments() -> argparse.Namespace:
         default=None,
         help="Input directories containing GeoPackages.",
     )
-    parser.add_argument("--execute", action="store_true", help="Run SQLite VACUUM after validation (modifies inputs).")
+    parser.add_argument(
+        "--execute", action="store_true", default=None, help="Run SQLite VACUUM after validation (modifies inputs)."
+    )
     parser.add_argument(
         "--no-backup",
         action="store_true",
@@ -187,7 +189,11 @@ if __name__ == "__main__":
     args = _parse_cli_arguments()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     with setup_logger(console_log_level="SUCCESS", log_file="vacuum_geopackages.log", file_log_level="DEBUG"):
-        result = main(input_directories=args.input_directories, execute=args.execute, backup=not args.no_backup)
+        result = main(
+            input_directories=args.input_directories,
+            execute=args.execute,
+            backup=False if args.no_backup else None,
+        )
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
     if not args.no_pause:
         pause_console()
