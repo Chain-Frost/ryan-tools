@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import runpy
+import zipfile
 from collections.abc import Callable
 from pathlib import Path
 from types import FunctionType
@@ -22,7 +23,8 @@ def _worker() -> tuple[Callable[[Path], tuple[Path, bool, str]], dict[str, objec
 
 def test_stale_staging_directory_is_never_deleted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive = tmp_path / "model.zip"
-    archive.write_bytes(b"synthetic archive input")
+    with zipfile.ZipFile(archive, "w") as output:
+        output.writestr("payload.txt", b"synthetic archive input")
     stale = tmp_path / ".model.extracting"
     stale.mkdir()
     sentinel = stale / "user-data.txt"
@@ -46,8 +48,9 @@ def test_stale_staging_directory_is_never_deleted(tmp_path: Path, monkeypatch: p
 
 def test_failed_extraction_cleans_only_its_unique_stage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive = tmp_path / "model.zip"
-    original = b"archive bytes"
-    archive.write_bytes(original)
+    with zipfile.ZipFile(archive, "w") as output:
+        output.writestr("payload.txt", b"archive bytes")
+    original = archive.read_bytes()
     stale = tmp_path / ".model.extracting"
     stale.mkdir()
     sentinel = stale / "user-data.txt"
