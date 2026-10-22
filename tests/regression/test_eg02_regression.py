@@ -149,8 +149,12 @@ def test_regression_against_snapshot(data_type: str, processed_results: dict[str
         expected_df = expected_df.sort_values(sort_cols).reset_index(drop=True)
         observed_df = observed_df.sort_values(sort_cols).reset_index(drop=True)
 
-    # Clear columns.name metadata as it may not be preserved perfectly in Parquet roundtrip
-    # and is not critical for regression testing of data values
+    # Parquet roundtrips and pandas releases can use different string-index
+    # missing-value sentinels (<NA> vs nan) for otherwise identical labels.
+    # Compare all column labels and cell values strictly, but normalise the
+    # column-index storage dtype (not the data column dtypes).
+    expected_df.columns = pd.Index(expected_df.columns.tolist(), dtype=object)
+    observed_df.columns = pd.Index(observed_df.columns.tolist(), dtype=object)
     expected_df.columns.name = None
     observed_df.columns.name = None
 
