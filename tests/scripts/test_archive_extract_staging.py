@@ -30,6 +30,7 @@ def test_stale_staging_directory_is_never_deleted(tmp_path: Path, monkeypatch: p
 
     def extract(*, archive_path: Path, output_directory: Path, executable: Path | None) -> None:
         assert archive_path == archive
+        _ = executable
         assert output_directory != stale
         assert output_directory.name.startswith(".model.extracting-")
         (output_directory / "payload.txt").write_text("extracted", encoding="utf-8")
@@ -53,8 +54,11 @@ def test_failed_extraction_cleans_only_its_unique_stage(tmp_path: Path, monkeypa
     sentinel.write_bytes(b"keep")
 
     def extract(*, archive_path: Path, output_directory: Path, executable: Path | None) -> None:
+        assert archive_path == archive
+        _ = executable
         (output_directory / "partial.txt").write_bytes(b"partial")
-        raise RuntimeError("synthetic extraction failure")
+        msg = "synthetic extraction failure"
+        raise RuntimeError(msg)
 
     worker, namespace = _worker()
     monkeypatch.setitem(namespace, "extract_archive", extract)
@@ -77,12 +81,15 @@ def test_existing_destination_never_invokes_extraction(tmp_path: Path, monkeypat
     sentinel.write_bytes(b"untouched")
 
     def forbidden(*, archive_path: Path, output_directory: Path, executable: Path | None) -> None:
-        raise AssertionError("existing outputs must not be overwritten")
+        _ = (archive_path, output_directory, executable)
+        msg = "existing outputs must not be overwritten"
+        raise AssertionError(msg)
 
     worker, namespace = _worker()
     monkeypatch.setitem(namespace, "extract_archive", forbidden)
     _, ok, message = worker(archive)
-    assert ok and "already exists" in message
+    assert ok
+    assert "already exists" in message
     assert sentinel.read_bytes() == b"untouched"
 
 
