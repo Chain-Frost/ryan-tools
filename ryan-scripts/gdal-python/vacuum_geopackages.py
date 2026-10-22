@@ -59,7 +59,7 @@ def _validate_geopackage(connection: sqlite3.Connection) -> None:
         tuple(REQUIRED_TABLES),
     )
     found = {str(row[0]) for row in rows}
-    if found != REQUIRED_TABLES:
+    if found != set(REQUIRED_TABLES):
         msg = "Database is missing required GeoPackage metadata tables"
         raise ValueError(msg)
     integrity = connection.execute("PRAGMA quick_check(1)").fetchone()
