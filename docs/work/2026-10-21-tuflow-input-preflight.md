@@ -1064,3 +1064,45 @@ delegation refactor and the consumer's collection gap. It records that nested AD
 ownership/path behaviour is tested, while not every copied metadata field has an
 independent assertion. This source comparison is not a fresh upstream fetch or
 published-version validation; no implementation or test-result claims changed.
+
+## Higginsville 440-run current-head validation (2026-10-22)
+
+Reran the read-only preflight against the live mapped-drive model at
+`Q:\26\RP26132 HIGGINSVILLE SURFACE WATER - WESRES\TUFLOW_Hig`, using the exact 440 commands from
+`run_Higginsville_04_commands.txt` and TCF template
+`runs\Higginsville_v04_~s1~_~e1~_~e2~_~e3~_~s4~.tcf`. The consumer was PR #143 head
+`b68f4ada63f506ae68bdf9e00a5eb39ed1b1d399`; PyTUFLOW was imported from a temporary checkout of the
+workflow-pinned commit `fb103a16ba778dbb5bf1e7b144c68334b26bc821`. Python 3.14.4 ran with bytecode writes disabled,
+and no TUFLOW executable was launched.
+
+The preflight **passed all 440 runs** with **zero issues and zero affected runs**. It checked 62 unique
+physical input paths using two directory scans and ten direct checks, opened one shared GIS attribute
+source and three raster headers, and reported 1.27 s parse, 28.77 s context/reference collection,
+0.01 s GIS attributes, 0.09 s raster metadata and 0.11 s inventory. The temporary issue CSV contains
+only its header. Model files were not changed; the only repository changes from this validation are
+this status update and the corresponding register update, both unstaged. Remaining native-model gates
+are the P/B and separate 42-run checks; exact-head hosted validation and upstream delivery gates remain
+as previously recorded. Next review remains 2026-10-23.
+
+### Matched eager/deferred performance benchmark
+
+On the same consumer/upstream revisions, Python 3.14.4 and mapped `Q:` model, a matched single-process
+benchmark ran eager first and deferred second across the same 440 run requests. Both modes used the same
+consumer dependency collector, wildcard expansion and GIS-attribute materialisation. Mapped `Q:` and
+`\\bgersgtnas05\waterways` spellings were normalised to one physical identity for the parity comparison.
+The machine and network filesystem caches were already warm from the immediately preceding preflight;
+this is one warm-cache observation, not a multi-sample statistical benchmark.
+
+| Mode | Parse | Dependency generation | Raw references | Materialised run/path/layer entries | Physical unique paths | Issues |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Eager | 0.486 s | 110.359 s | 8,800 | 8,360 | 62 | 0 |
+| Deferred | 0.392 s | 29.650 s | 8,360 | 8,360 | 62 | 0 |
+
+Deferred dependency generation was **3.72x faster**, saving **80.709 s (about 73%)** in this run. The
+materialised identity sets had **zero eager-only and zero deferred-only entries**, so the timing comparison
+did not trade away dependency coverage. Each mode opened the one shared GIS attribute database once.
+The timed generation phase ends after wildcard and GIS-attribute materialisation; it excludes the final
+deduplicated file inventory and raster-header validation already measured by the passing preflight above.
+No TUFLOW executable was launched and no model file was written. Reproduction script and JSON output are
+under `C:\Users\Ryan.Brook\AppData\Local\Temp\ryan-preflight-higginsville-20261022-103632` as
+`benchmark_eager_deferred.py` and `higginsville-440-eager-deferred.json`.
