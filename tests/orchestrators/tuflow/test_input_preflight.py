@@ -1550,7 +1550,7 @@ def test_eager_without_typed_secondary_api_does_not_certify_database_inputs(
     assert any("typed secondary-source API is unavailable" in issue.detail for issue in report.issues)
 
 
-def test_multiple_bc_declarations_select_feature_names_by_active_database(
+def test_multiple_bc_declarations_select_feature_names_by_active_database(  # noqa: C901 - fake model fixture
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Two database reassignments require different CSVs, never unused rows."""
