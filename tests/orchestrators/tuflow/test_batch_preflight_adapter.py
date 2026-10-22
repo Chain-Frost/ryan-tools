@@ -96,18 +96,24 @@ def _model(tmp_path: Path) -> type:
                     for j, item in enumerate(inputs)
                     for reference in item.file_references
                 )
-                cases.append(types.SimpleNamespace(
-                    index=index,
-                    flags=flag,
-                    error=None,
-                    file_references=tuple(row.reference for row in entries),
-                    input_references=entries,
-                    database_sources=context.deferred_database_sources(),
-                    database_activations=(types.SimpleNamespace(
-                        input_uuid="db-uuid", database_kind="bc",
-                    ),),
-                ))
+                cases.append(
+                    types.SimpleNamespace(
+                        index=index,
+                        flags=flag,
+                        error=None,
+                        file_references=tuple(row.reference for row in entries),
+                        input_references=entries,
+                        database_sources=context.deferred_database_sources(),
+                        database_activations=(
+                            types.SimpleNamespace(
+                                input_uuid="db-uuid",
+                                database_kind="bc",
+                            ),
+                        ),
+                    )
+                )
             return types.SimpleNamespace(runs=tuple(cases))
+
     return Model
 
 
@@ -130,9 +136,7 @@ def test_batch_matches_individual_including_missing_event_specific_source(
     assert batch.issues[0].reference.endswith("hydro_20.csv")
 
 
-def test_batch_rejects_unavailable_api_without_silent_fallback(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_batch_rejects_unavailable_api_without_silent_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tcf = tmp_path / "model.tcf"
     tcf.touch()
 
@@ -151,13 +155,22 @@ def test_batch_rejects_unavailable_api_without_silent_fallback(
 
 def test_batch_rejects_truncated_source_projection() -> None:
     flags = ("-e1 A",)
+
     class Model:
         def collect_batch_dependencies(self, _flags: tuple[str, ...]) -> types.SimpleNamespace:
-            return types.SimpleNamespace(runs=(types.SimpleNamespace(
-                index=0, flags=flags[0], error=None,
-                file_references=("required-but-omitted",),
-                input_references=(), database_sources=(), database_activations=(),
-            ),))
+            return types.SimpleNamespace(
+                runs=(
+                    types.SimpleNamespace(
+                        index=0,
+                        flags=flags[0],
+                        error=None,
+                        file_references=("required-but-omitted",),
+                        input_references=(),
+                        database_sources=(),
+                        database_activations=(),
+                    ),
+                )
+            )
     view = BatchModelView(Model(), flags)
     with pytest.raises(ValueError, match="Incomplete batch input ownership"):
         view.context(flags[0], file_resolution="deferred")
@@ -166,14 +179,18 @@ def test_batch_rejects_truncated_source_projection() -> None:
 def test_batch_rejects_wrong_source_activation_and_duplicate_bc() -> None:
     flag = "-s1 EXG"
     row = types.SimpleNamespace(
-        input_uuid="dbA", command_index=0,
+        input_uuid="dbA",
+        command_index=0,
         reference=types.SimpleNamespace(origin="BC Database"),
     )
     source = types.SimpleNamespace(input_uuid="unknown", database_kind="bc")
     cases = [
         types.SimpleNamespace(
-            index=0, flags=flag, error=None,
-            file_references=(row.reference,), input_references=(row,),
+            index=0,
+            flags=flag,
+            error=None,
+            file_references=(row.reference,),
+            input_references=(row,),
             database_sources=(source,),
             database_activations=(types.SimpleNamespace(input_uuid="dbA", database_kind="bc"),),
         ),
@@ -188,6 +205,7 @@ def test_batch_rejects_wrong_source_activation_and_duplicate_bc() -> None:
         ),
     ]
     for case, expected in zip(cases, ("not owned", "Ambiguous batch bc"), strict=True):
+
         class Model:
             def __init__(self, selected_case: object) -> None:
                 self.selected_case = selected_case
@@ -202,11 +220,19 @@ def test_batch_rejects_wrong_source_activation_and_duplicate_bc() -> None:
 def test_batch_rejects_context_index_or_flag_mismatch() -> None:
     class Model:
         def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
-            return types.SimpleNamespace(runs=(types.SimpleNamespace(
-                index=99, flags=flags[0], error=None,
-                file_references=(), input_references=(),
-                database_sources=(), database_activations=(),
-            ),))
+            return types.SimpleNamespace(
+                runs=(
+                    types.SimpleNamespace(
+                        index=99,
+                        flags=flags[0],
+                        error=None,
+                        file_references=(),
+                        input_references=(),
+                        database_sources=(),
+                        database_activations=(),
+                    ),
+                )
+            )
     with pytest.raises(ValueError, match="index or flags mismatch"):
         BatchModelView(Model(), ("-e1 A",)).context("-e1 A", file_resolution="deferred")
 
@@ -219,11 +245,7 @@ def test_real_fork_batch_and_individual_have_identical_preflight(tmp_path: Path)
     """Exercise real parsed TCF contexts without invoking TUFLOW or opening GIS."""
     source = tmp_path / "shared.tcf"
     source.write_text(
-        "IF Scenario == DEV\n"
-        "    Read GIS Code == code_DEV.shp\n"
-        "ELSE\n"
-        "    Read GIS Code == code_EXG.shp\n"
-        "END IF\n",
+        "IF Scenario == DEV\n    Read GIS Code == code_DEV.shp\nELSE\n    Read GIS Code == code_EXG.shp\nEND IF\n",
         encoding="utf-8",
     )
     (tmp_path / "code_DEV.shp").touch()
@@ -269,9 +291,7 @@ def test_500_run_batch_calls_upstream_once_without_individual_contexts(
     assert report.context_seconds >= 0.019
 
 
-def test_batch_error_is_unresolved_only_for_its_own_run(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_batch_error_is_unresolved_only_for_its_own_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tcf = tmp_path / "model.tcf"
     tcf.touch()
     base = _model(tmp_path)
