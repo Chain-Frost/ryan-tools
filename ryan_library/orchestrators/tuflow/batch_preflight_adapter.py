@@ -123,13 +123,13 @@ class _ContextView:
             message = "Incomplete batch input ownership or missing references"
             raise ValueError(message)
 
-        groups: dict[tuple[int, str], list[object]] = {}
+        groups: dict[tuple[int, str], list[_InputReference]] = {}
         for record in records:
             if not record.input_uuid or record.command_index < 0:
                 message = "Invalid batch source command identity"
                 raise ValueError(message)
             key = (record.command_index, record.input_uuid)
-            groups.setdefault(key, []).append(record.reference)
+            groups.setdefault(key, []).append(record)
 
         # Old cached-batch builds only expose commands with file references.
         # Keep that validated compatibility path for single-BC projects while
@@ -138,7 +138,7 @@ class _ContextView:
         inputs: list[_InputView] = []
         if ordered_inputs is None:
             for key in sorted(groups):
-                refs = tuple(groups[key])
+                refs = tuple(item.reference for item in groups[key])
                 origin = cast(str, getattr(refs[0], "origin", ""))
                 if not origin:
                     message = "Batch file reference has no originating command"
@@ -161,18 +161,21 @@ class _ContextView:
                     raise ValueError(message)
                 seen_uuids.add(item.input_uuid)
                 key = (ordinal, item.input_uuid)
-                for record in records:
-                    if record.command_index != ordinal:
-                        continue
+                owned = groups.pop(key, ())
+                for record in owned:
                     if (
-                        record.input_uuid != item.input_uuid
-                        or record.owner_control_file != item.owner_control_file
+                        record.owner_control_file != item.owner_control_file
                         or record.line_number != item.line_number
                     ):
                         message = "Batch reference command/provenance mismatch"
                         raise ValueError(message)
                 inputs.append(
-                    _InputView(item.command_name, item.command_text, tuple(groups.pop(key, ())), item.input_uuid)
+                    _InputView(
+                        item.command_name,
+                        item.command_text,
+                        tuple(record.reference for record in owned),
+                        item.input_uuid,
+                    )
                 )
             if groups:
                 message = "Batch references include commands missing from ordered inputs"
