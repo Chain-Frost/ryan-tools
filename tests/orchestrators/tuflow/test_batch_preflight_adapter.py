@@ -231,3 +231,67 @@ def test_real_fork_batch_and_individual_have_identical_preflight(tmp_path: Path)
     assert set(batch.issues) == set(individual.issues)
     assert batch.affected_runs == individual.affected_runs == 1
     assert {item.run_index for item in batch.issues} == {20}
+
+
+def test_500_run_batch_calls_upstream_once_without_individual_contexts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    base = _model(tmp_path)
+
+    class OnlyBatch(base):
+        calls = 0
+
+        def context(self, flags: str, *, file_resolution: str | None = None) -> object:
+            raise AssertionError("Batch mode must not call one context per run")
+
+        def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+            type(self).calls += 1
+            return super().collect_batch_dependencies(flags)
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=OnlyBatch))
+    runs = tuple(RunRequest(i, {"e1": "01.0p"}) for i in range(1, 501))
+    report = check_simulation_inputs(tcf, runs, context_mode="batch")
+    assert report.passed
+    assert report.run_count == 500
+    assert len(report.checked_paths) == 3
+    assert OnlyBatch.calls == 1
+
+
+def test_batch_error_is_unresolved_only_for_its_own_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    base = _model(tmp_path)
+
+    class OneFailedContext(base):
+        def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+            result = super().collect_batch_dependencies(flags)
+            cases = list(result.runs)
+            original = cases[1]
+            cases[1] = types.SimpleNamespace(
+                index=original.index,
+                flags=original.flags,
+                error="Unsupported nested dependency",
+                file_references=(),
+                input_references=(),
+                database_activations=(),
+                database_sources=(),
+            )
+            return types.SimpleNamespace(runs=tuple(cases))
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=OneFailedContext))
+    runs = (
+        RunRequest(14, {"e1": "01.0p"}),
+        RunRequest(29, {"e1": "01.0p"}),
+        RunRequest(37, {"e1": "01.0p"}),
+    )
+    report = check_simulation_inputs(tcf, runs, context_mode="batch")
+    assert not report.passed
+    assert report.affected_runs == 1
+    assert len(report.issues) == 1
+    assert report.issues[0].run_index == 29
+    assert report.issues[0].status == "unresolved"
+    assert "Unsupported nested dependency" in report.issues[0].detail
