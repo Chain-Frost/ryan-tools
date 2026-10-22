@@ -325,7 +325,19 @@ open/directory/SQLite/glob calls, not all native/stat I/O; retain independent no
 
 **Delivery:** The interim records are pushed as consumer `38cdc66` and parser-documentation `9b39b43`,
 with interim comments on PR #143 and PyTUFLOW #5. Final results and the aligned deferred workflow pin are
-published in the subsequent final-results commits. Source modules remain identical to parser a9f654c and
-consumer diagnostic 2e03c0b. New documentation/workflow-head checks are distinct from the source CI cited
+published in the subsequent final-results commits. The benchmark source is parser a9f654c and consumer diagnostic 2e03c0b; later source changes are
+tracked separately below. New documentation/workflow-head checks are distinct from the source CI cited
 above. Next action: review the final evidence and resolve the independent Nmx snapshot CI issue; keep the
 two-BC investigation deferred and scope the broader immutable graph separately. Next review: 2026-10-23.
+
+
+### Benchmark revision boundary after publication
+
+Concurrent follow-up commits `37a69b3` (host filesystem case handling for cached database paths) and
+`f3325b8` (POSIX case-sensitive selection regressions) landed in PyTUFLOW during publication and are
+preserved. **The native benchmark evidence above is for a9f654c, not those later source changes.**
+All five recorded native source snapshots match retained a9f654c Git contents with normal checkout
+LF/CRLF conversion accounted for. A retained a9f654c source extraction independently passes all 68
+focused consumer tests with both real-fork gates enabled. The later case-handling source was not rerun
+through the native performance matrix. Benchmark figures must remain associated with their recorded
+source rather than being relabelled as current branch-head timings.
