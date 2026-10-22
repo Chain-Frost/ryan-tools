@@ -1332,8 +1332,9 @@ def test_unknown_deferred_database_kind_remains_unresolved(tmp_path: Path, monke
     assert any("Unsupported deferred database materialisation" in issue.detail for issue in report.issues)
 
 
-def test_unused_pit_database_rows_do_not_create_false_file_requirements(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("mode", ["eager", "deferred"])
+def test_unused_pit_database_rows_do_not_create_false_file_requirements(  # noqa: C901 - contained mode-specific fakes
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str
 ) -> None:
     """Only active GIS pit identifiers materialise curve Source files."""
     import shapefile
@@ -1357,6 +1358,8 @@ def test_unused_pit_database_rows_do_not_create_false_file_requirements(
     class Input:
         def __init__(self, lhs: str, path: Path, kind: str | None, scan: bool) -> None:
             self.lhs = lhs
+            self.files = [path]
+            self.has_missing_files = False
             self.file_references = (
                 types.SimpleNamespace(
                     path_pattern=path,
@@ -1367,6 +1370,7 @@ def test_unused_pit_database_rows_do_not_create_false_file_requirements(
                     requires_attribute_scan=scan,
                     requires_database_scan=kind is not None,
                     database_kind=kind,
+                    requires_table_link_scan=False,
                 ),
             )
 
@@ -1399,6 +1403,9 @@ def test_unused_pit_database_rows_do_not_create_false_file_requirements(
                 )
             )
 
+        def database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return self.deferred_database_sources()
+
     class Model:
         def __init__(self, _path: str) -> None:
             pass
@@ -1407,7 +1414,14 @@ def test_unused_pit_database_rows_do_not_create_false_file_requirements(
             assert file_resolution == "deferred"
             return Context()
 
-    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=Model))
+    class EagerModel:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str) -> Context:
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=EagerModel if mode == "eager" else Model))
     runs = [RunRequest(1, {"e1": "A"}), RunRequest(2, {"e1": "B"})]
     report = check_simulation_inputs(tcf, runs)
     assert report.passed, report.issues
@@ -1419,3 +1433,118 @@ def test_unused_pit_database_rows_do_not_create_false_file_requirements(
     assert not missing.passed
     assert len(missing.issues) == 2
     assert all("active_curve.csv" in issue.reference for issue in missing.issues)
+
+
+def test_eager_typed_ad_sources_keep_entry_ownership_and_event_routing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A shared physical CSV still has distinct required boundary entries."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    database = tmp_path / "ad.csv"
+    database.touch()
+    source_a = tmp_path / "a.csv"
+    source_b = tmp_path / "b.csv"
+    spatial = tmp_path / "initial.shp"
+    for path in (source_a, source_b, spatial):
+        path.touch()
+
+    class Input:
+        lhs = "AD BC Database"
+        files = (database,)
+        file_references: tuple[object, ...] = ()
+        has_missing_files = False
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def __init__(self, flags: str) -> None:
+            self.source = source_a if flags.endswith("A") else source_b
+
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [Input()] if lhs is None else []
+
+        def database_sources(self) -> tuple[types.SimpleNamespace, ...]:
+            return tuple(
+                types.SimpleNamespace(
+                    database_path=database,
+                    database_kind=kind,
+                    entry_name=name,
+                    path_pattern=path,
+                    owner_control_file=tcf,
+                    layer_pattern=None,
+                )
+                for kind, name, path in (
+                    ("ad_bc", "Boundary1__Tracer", self.source),
+                    ("ad_bc", "Boundary2__Tracer", self.source),
+                    ("ad_global", "Tracer", spatial),
+                )
+            )
+
+        def bc_dbase(self) -> None:
+            message = "Typed AD collection must not fall back to hydraulic BC lookup"
+            raise AssertionError(message)
+
+    class Model:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, flags: str) -> Context:
+            return Context(flags)
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=Model))
+    runs = [RunRequest(1, {"e1": "A"}), RunRequest(2, {"e1": "B"})]
+    report = check_simulation_inputs(tcf, runs)
+    assert report.passed, report.issues
+    assert report.checked_paths == {str(database), str(source_a), str(source_b), str(spatial)}
+
+    source_a.unlink()
+    missing = check_simulation_inputs(tcf, runs)
+    assert not missing.passed
+    assert missing.affected_runs == 1
+    assert {issue.run_index for issue in missing.issues} == {1}
+    assert {issue.origin for issue in missing.issues} == {
+        "ad_bc source: Boundary1__Tracer",
+        "ad_bc source: Boundary2__Tracer",
+    }
+
+
+@pytest.mark.parametrize(
+    "command", ["AD BC Database", "AD Global Database", "Pit Inlet Database", "Depth Discharge Database"]
+)
+def test_eager_without_typed_secondary_api_does_not_certify_database_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    """An older installed parser must not silently certify an unsupported role."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    database = tmp_path / "database.csv"
+    database.touch()
+
+    class Input:
+        lhs = command
+        files = (database,)
+        has_missing_files = False
+
+        def __str__(self) -> str:
+            return self.lhs
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[Input]:
+            return [Input()] if lhs is None else []
+
+        def bc_dbase(self) -> None:
+            return None
+
+    class Model:
+        def __init__(self, _path: str) -> None:
+            pass
+
+        def context(self, _flags: str) -> Context:
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=Model))
+    report = check_simulation_inputs(tcf, [RunRequest(1, {})])
+    assert not report.passed
+    assert any("typed secondary-source API is unavailable" in issue.detail for issue in report.issues)

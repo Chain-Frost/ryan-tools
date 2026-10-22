@@ -9,7 +9,7 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; local Windows replay accepts 153/161 TCFs (166/174 runs); investigate eight deferred-only completeness differences. Keep permanent input ZIP in test-data; remove only temporary runner/CI replay before merge.
+In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; local eager secondary-source fixes accept all 161 TCFs / 174 runs. Changes span both repositories and remain uncommitted; commit upstream and update the isolated CI pin before hosted verification. Preserve permanent test data.
 
 ## Decisions
 
@@ -957,3 +957,110 @@ to the local testing commit, so the 47-test/174-run evidence remains attached to
 tested source head rather than being relabelled as a new test run. User authorises completing
 and pushing this existing branch merge and posting the eight-case remediation handoff on PR #143.
 Production PR merge and publication remain unauthorised.
+
+## Eager secondary-source completeness implemented locally (2026-10-22)
+
+Implemented the requested eight-case remediation without removing dependencies or relaxing the
+identity comparator. The missing records came from consumer use of eager `.files` plus hydraulic
+BC rows only; that surface does not include AD source projections or database-key curve joins.
+The existing upstream cached-row parser already supplies the required schema and path semantics.
+
+PyTUFLOW changes (working tree based on `546ab20`, branch `feat/deferred-file-resolution`):
+
+- Added `TCFRunState.database_sources()` as an immutable typed source projection usable in eager
+  and deferred contexts. Existing `deferred_database_sources()` keeps its mode guard and delegates
+  to the common projection. No default-mode or `Input.files` contract was changed.
+- Source classification uses a deferred syntax configuration even when called from an eager
+  context. Tests prohibit file opens, stat/glob and SQLite operations during the accessor itself.
+- Preserved actual nested command owners, line/definition metadata and event metadata in both
+  modes, keeping AD Global-relative source paths and per-entry provenance intact.
+- Added independent synthetic expected-source assertions, shared-CSV/distinct-entry ownership,
+  nested ownership and inactive scenario exclusion for hydraulic and AD databases.
+
+ryan-tools changes (working tree based on merge `d1f1f0a0`):
+
+- Eager reference collection requests the typed source projection when available and preserves
+  all AD BC/Global entry records, including multiple owners of the same physical CSV.
+- Eager primary metadata invokes the existing shared attribute/curve materialiser, so only curve
+  identifiers from active GIS features add Source files. Unused curve-table rows remain excluded.
+- Older eager parsers without the typed API fail closed for declared AD/curve database roles.
+- Added missing-secondary/event routing, shared-file entry provenance and compatibility regressions;
+  expanded the unused-curve/deletion regression to exercise both collection modes. Updated the local
+  type stub and canonical preflight guide. MCP discovery remains unchanged: this fixes the existing
+  catalogue workflow and adds no separate user-facing command or tool.
+
+The documented [AD input contract](https://docs.tuflow.com/classic-hpc/manual/2026.0/AD-DataInput-2.html)
+supports preserving the boundary/constituent entry and resolving Source relative to the AD Global
+Database; [Q/P channel documentation](https://docs.tuflow.com/classic-hpc/manual/2026.0/Special-Channels-2.html)
+confirms that the curve identifier belongs to a depth-discharge database. The preflight retains its
+existing conservative inspection of rows in active database declarations; it does not claim to emulate
+engine time-series selection, and scenario-inactive declarations remain excluded. No model data changed.
+
+### Validation
+
+- All eight formerly mismatching cases now pass, with zero missing/extra identity records.
+- Full permanent example archive: **161/161 TCFs, 174/174 runs accepted**, diagnostic exit **0**;
+  zero eager-only, zero deferred-only, and public preflight passes every case. The comparator itself
+  was not modified. This supersedes the local eight-case gap for these working trees.
+- Downstream focused preflight/GIS/raster plus launcher integration: **72 passed, zero skips**
+  (53 preflight/GIS/raster tests alone). Ruff lint/format and strict Pyright on modified Python pass.
+- Upstream deferred database/reference and affected TMF context/database/GIS tests: **181 passed**;
+  changed modules/tests compile and whitespace checks pass. Neither unrelated full suite was run.
+- `python repo-scripts/build_library.py --no-bump --skip-pip` built and verified
+  `dist/ryan_tools-26.10.21.2-py3-none-any.whl` without changing package version/metadata.
+  SHA-256: `2eb75d9d531361406e5ab78f9481ee0d15245d9962e2635bff4176a6acef0142`.
+- Installed that wheel without dependencies into a new temporary target, verified consumer imports
+  physically originate there, and replayed all eight formerly failing examples against the updated
+  upstream source: **8/8 pass**. This shares host dependencies and is not a full clean dependency
+  install or proof that published PyTUFLOW has the new API.
+
+Local evidence under `C:\Users\Ryan\AppData\Local\Temp\ryan-preflight-20261022\eager-secondary-fix`:
+`summary.json` includes source/wheel hashes; `eight`, `full` and `wheel-eight` contain results/issue
+CSVs with corresponding logs. Full reproduction uses the existing runner and
+`--pytuflow-checkout E:\Github\PyTuflow`; focused upstream commands cover
+`tests/test_deferred_database_parity.py`, `tests/test_deferred_file_references.py` and affected
+`tests/tmf/test_context.py`, `test_db_context.py`, `test_cf_context.py`, `test_gis.py`,
+`test_gis_attr_driver.py`. Downstream focused commands add
+`tests/scripts/test_run_tuflow_simulations.py` to the previously recorded 47-test command.
+
+### Delivery and remaining gates
+
+Changes are **unstaged/uncommitted in both repositories**; no commit, push, PR message or merge
+was performed for this implementation. No release or production dependency metadata was changed.
+The isolated CI still pins upstream `4228a80`, which does not contain the new shared accessor:
+commit/review the upstream implementation, update that immutable CI pin, and rerun exact-head
+hosted checks before claiming hosted parity for the fix. No P/B, 42-run or 440-run native model
+rerun or new speedup claim was made. The permanent test-data submodule is unchanged; the temporary
+runner/CI replay remains pending cleanup before final merge. Full normal Windows installation/Fiona
+compatibility is still a separate gate.
+
+### Separate eager/deferred review record (2026-10-22)
+
+At the user's request, eager changes have their own upstream review record:
+`E:\Github\PyTuflow\eager_source_completeness_fixes.md`, linked from that repository's
+README and deferred implementation notes. Keep this distinction in subsequent PR
+handoffs, commits and release notes:
+
+| Scope | Classification |
+| --- | --- |
+| Upstream eager command reconstruction retaining nested ownership and definition/event metadata | Eager behaviour correction; deferred mode already retained this metadata |
+| Upstream `database_sources()` plus syntax-only cached-row classification from eager contexts | Additive shared API and eager accessor correctness; no `.files` redefinition or default-mode change |
+| Upstream `deferred_database_sources()` delegating to the common projection | Deferred implementation refactor |
+| ryan-tools eager AD identities, active curve joins and legacy capability diagnostics | Downstream eager dependency-collection fix; not an upstream eager GIS join |
+
+The 19 original differences describe the tested consumer/checkouts. They do not establish
+the same defect in every published upstream release. Local 181-upstream/72-downstream
+test results and 161-TCF/174-run replay remain the implementation evidence recorded above;
+this documentation separation does not constitute another test run. Source changes remain
+unstaged/uncommitted and the hosted pin still needs updating after upstream review/commit.
+Documentation validation passes for the two touched downstream records and all five local
+Markdown links in the upstream review documents; both repositories pass `git diff --check`.
+
+The upstream eager record now also includes the original reconstruction statement,
+verified in local `origin/master` commit `cf908cc922ca8448ed6002834877b0b377329eae`,
+and explicit before/after effects. It separates this existing eager metadata defect
+from the newly added shared API, that API's syntax-only projection, the deferred
+delegation refactor and the consumer's collection gap. It records that nested AD
+ownership/path behaviour is tested, while not every copied metadata field has an
+independent assertion. This source comparison is not a fresh upstream fetch or
+published-version validation; no implementation or test-result claims changed.

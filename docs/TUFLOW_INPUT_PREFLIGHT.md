@@ -105,6 +105,17 @@ calls in deferred mode. Numeric materials and supported inline soils
 do not create fictitious filenames. Complete activation-scoped BC
 association still requires validation.
 
+**Eager completeness:** on the updated fork, `context.database_sources()` exposes the same typed
+cached database sources in both eager and deferred contexts. The checker uses it when collecting
+an eager baseline, and uses `input.file_references` to request the same active GIS curve-ID join.
+`input.files` alone does not enumerate AD database sources or the files behind pit/depth-discharge
+identifiers. Separate database entries retain their provenance even when they share a physical CSV.
+Older eager parsers without this typed API remain unresolved for AD and curve database roles;
+the checker does not silently certify those dependencies from primary-file existence alone.
+Curve candidates are materialised only for identifiers referenced by active GIS features, while
+database Source rows follow the existing conservative active-table inspection policy. This does
+not claim hydraulic validation or select only time-series columns actually consumed by the engine.
+
 **GIS attribute-linked files (new in PR #143):** after aggregating all contexts,
 the checker scans each distinct file-valued **Shapefile or GeoPackage** source
 once. The reader accesses only relevant DBF/SQLite attribute fields, using

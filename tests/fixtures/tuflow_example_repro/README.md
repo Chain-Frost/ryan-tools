@@ -73,11 +73,13 @@ overhead.
 ## Remaining work
 
 The original baseline accepted 107 TCFs (119 runs). The local Windows/Python 3.14.6
-replay on 2026-10-22 accepted 153 TCFs (166 runs) in strict identity parity;
-all 161 TCFs (174 runs) passed ordinary input preflight. Eight cases have
-19 deferred-only curve/AD source records and zero eager-only records.
-Investigate eager completeness and active-source semantics rather than dropping
-real dependencies to match the comparator. See
+replay on 2026-10-22 with coordinated eager secondary-source fixes accepts all
+161 TCFs (174 runs), with zero missing/extra identities and public preflight failures.
+Those fixes remain uncommitted in both the consumer and local PyTUFLOW checkout;
+the current immutable CI pin does not yet contain the new `database_sources()` API.
+The previously pinned code accepts 153 TCFs (166 runs), with eight curve/AD cases
+unresolved. Commit/review upstream, update the isolated CI pin and recheck hosted
+parity before reporting those local results as delivered. See
 [the work record](../../../docs/work/2026-10-21-tuflow-input-preflight.md).
 
 No solver execution, automatic preflight enforcement, PR merge or PyPI
