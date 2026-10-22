@@ -20,6 +20,7 @@ from loguru import logger
 from ...functions.tuflow.dependency_index import check_unique_dependencies, expand_file_patterns
 from ...functions.tuflow.gis_attribute_dependencies import inspect_gis_attribute_sources, read_pit_inlet_database
 from ...functions.tuflow.raster_metadata_dependencies import inspect_raster_metadata
+from .batch_preflight_adapter import BatchModelView
 
 IssueStatus = Literal["missing", "unresolved"]
 
@@ -706,6 +707,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     check_gpkg_layers: bool = True,
     directory_scan_threshold: int = 8,
     maximum_directory_entries: int = 50000,
+    context_mode: Literal["individual", "batch"] = "individual",
 ) -> PreflightReport:
     """Resolve all dependencies first, then check each unique file only once.
 
@@ -714,6 +716,8 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     are then mapped back onto every run that needs each file. Output locations
     are not treated as required inputs. The checker does not launch TUFLOW.
     """
+    if context_mode not in ("individual", "batch"):
+        raise ValueError(f"Unsupported input preflight context mode: {context_mode}")
     if not tcf.is_file():
         message = f"TUFLOW control file not found: {tcf}"
         raise FileNotFoundError(message)
@@ -729,10 +733,20 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     model: _Model = factory(str(tcf.absolute()))
     report.parse_seconds = time.perf_counter() - start
 
+    # The experimental optimisation is deliberately explicit. Never silently
+    # fall back to individual mode if the upstream fork lacks the batch API:
+    # a caller requesting comparative validation must see that incompatibility.
+    batch_view: BatchModelView | None = None
+    if context_mode == "batch":
+        batch_view = BatchModelView(model, tuple(run.arguments for run in runs))
+        model = cast(_Model, batch_view)
+
     # Phase 1: PyTUFLOW run-state resolution; this can itself access files.
     # Time it separately from the explicit deduplicated filesystem inventory.
     start = time.perf_counter()
     references, unique_paths = _collect_references(tcf.absolute(), runs, model, report)
+    if batch_view is not None:
+        batch_view.assert_consumed()
     report.context_seconds = time.perf_counter() - start
 
     # Expand each distinct wildcard pattern once. A missing, oversized or
