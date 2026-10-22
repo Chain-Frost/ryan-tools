@@ -187,7 +187,9 @@ def test_legacy_batch_without_ordered_inputs_remains_single_database_compatible(
         "-e1 TP01",
         (_command(0, "db", "BC Database", tcf=tmp_path / "model.tcf"),),
         ((0, bc),),
-        activations=(types.SimpleNamespace(input_uuid="db", sequence=0, database_kind="bc", database_path=bc.path_pattern),),
+        activations=(
+            types.SimpleNamespace(input_uuid="db", sequence=0, database_kind="bc", database_path=bc.path_pattern),
+        ),
     )
     del case.ordered_inputs
     # Historic projections did not include owner/line metadata in every test
