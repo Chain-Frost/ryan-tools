@@ -9,7 +9,7 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; example reproduction bundle is temporary branch-only data; resolve the recorded feature gaps and remove the bundle before final merge.
+In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23; local Windows replay accepts 153/161 TCFs (166/174 runs); investigate eight deferred-only completeness differences. Keep permanent input ZIP in test-data; remove only temporary runner/CI replay before merge.
 
 ## Decisions
 
@@ -868,3 +868,60 @@ merger, published dependency upgrade or solver invocation is authorised.
 
 No TUFLOW process launch, production merge, release or change to
 published package pin was authorised in this consolidation.
+
+## Fresh local Windows validation after fixture move (2026-10-22)
+
+Rechecked consumer head `86646b2f` on normal Windows Python **3.14.6**, NumPy **2.5.3** and
+pandas **3.0.5**, without installing/replacing packages or creating a virtual environment.
+The supplied local PyTUFLOW checkout is `546ab20`; its `pytuflow/` package tree has no differences
+from workflow-pinned `4228a805687cfd80d98a27e2ebcb62c234b40059`. Tests explicitly import that source
+checkout rather than the normal published package. This is source-import evidence, not a fresh
+installed-wheel/dependency installation check. Permanent test-data pin is
+`d2dae3ecf9a7ed306e1340de54a8d12ca9f53f58` and its worktree is unchanged.
+
+The moved bundle at `tests/test_data/tuflow/example_input_preflight/` verifies successfully:
+**all 1,464 member checksums and the archive checksum pass**. The runner extracts once outside
+the checkout. Complete local replay: **161 TCFs / 174 runs**; ordinary public input preflight
+passes **all 161 TCFs / 174 runs**, while strict materialised identity parity accepts
+**153 TCFs / 166 runs**. Expected diagnostic exit **1** records eight unresolved parity cases,
+not a harness failure. This independently reproduces the previously recorded hosted Windows outcome.
+
+| Remaining TCF | Eager-only records | Deferred-only records | Public preflight |
+| --- | --- | --- | --- |
+| EG11_006 | 0 | 1 depth-discharge curve | Pass |
+| EG11_009 | 0 | 1 depth-discharge curve | Pass |
+| EG15_007 | 0 | 1 pit-inlet curve | Pass |
+| EG15_008 | 0 | 1 pit-inlet curve | Pass |
+| EG17_001 | 0 | 4 AD BC source records | Pass |
+| EG17_002 | 0 | 4 AD BC source records | Pass |
+| EG17_003 | 0 | 4 AD BC source records | Pass |
+| EG18_002 | 0 | 2 AD BC and 1 AD Global source records | Pass |
+
+Total: **zero eager-only and 19 deferred-only identity records**. These are not missing file
+findings; do not delete real sources to satisfy the eager comparator. Active-feature selection,
+BC declaration semantics and eager completeness remain the investigation targets.
+
+Local checks:
+
+- Focused consumer, shared GIS and raster-metadata tests with
+  `RYAN_TEST_DEFERRED_PYTUFLOW=1`: **47 passed, zero skips**, 1.23 seconds. PyTUFLOW was imported
+  before pytest, using its explicit local checkout.
+- Ruff lint and format: **pass** on the four preflight modules, diagnostic runner and three
+  focused test files (eight files total).
+- Strict Pyright: **zero errors/warnings** on the four modules and diagnostic runner.
+- Documentation/default index, touched-document links and whitespace checks: **pass**.
+
+Reproduction:
+
+```powershell
+python -m tests.fixtures.tuflow_example_repro.run_checks --verify-only
+python -m tests.fixtures.tuflow_example_repro.run_checks --pytuflow-checkout E:\Github\PyTuflow --output "$env:TEMP\ryan-preflight-20261022\86646b2f-local\reports"
+python -c "import sys,os; sys.path.insert(0,'E:/Github/PyTuflow'); import pytuflow; os.environ['RYAN_TEST_DEFERRED_PYTUFLOW']='1'; import pytest; raise SystemExit(pytest.main(['-q','-ra','tests/orchestrators/tuflow/test_input_preflight.py','tests/functions/tuflow/test_gis_attribute_dependencies.py','tests/functions/tuflow/test_raster_metadata_dependencies.py']))"
+```
+
+Local evidence is retained under
+`C:\Users\Ryan\AppData\Local\Temp\ryan-preflight-20261022\86646b2f-local`:
+`environment.json`, `full-sweep.log`, `summary.json`, `reports/results.json` and issue CSVs.
+No solver execution, benchmark, unrelated full suite, package rebuild, hosted CI rerun or native
+project rerun was performed. Only status/runner documentation was updated and left uncommitted;
+the pre-existing `qgis-resources` modification was preserved. No commit, push or merge performed.

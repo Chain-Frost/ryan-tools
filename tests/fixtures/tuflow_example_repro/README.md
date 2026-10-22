@@ -72,10 +72,12 @@ overhead.
 
 ## Remaining work
 
-The baseline accepted 107 TCFs (119 runs), and the latest Windows
-shared-GIS-reader sweep accepted 140 TCFs (153 runs). Outstanding examples
-include table links, rainfall grids, AD/hydraulic BC databases and
-pit/network identifiers. See
+The original baseline accepted 107 TCFs (119 runs). The local Windows/Python 3.14.6
+replay on 2026-10-22 accepted 153 TCFs (166 runs) in strict identity parity;
+all 161 TCFs (174 runs) passed ordinary input preflight. Eight cases have
+19 deferred-only curve/AD source records and zero eager-only records.
+Investigate eager completeness and active-source semantics rather than dropping
+real dependencies to match the comparator. See
 [the work record](../../../docs/work/2026-10-21-tuflow-input-preflight.md).
 
 No solver execution, automatic preflight enforcement, PR merge or PyPI
