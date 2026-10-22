@@ -6,9 +6,9 @@ set "PYTHON_CMD=py -3"
 %PYTHON_CMD% --version >nul 2>&1
 if errorlevel 1 set "PYTHON_CMD=python"
 
-call %PYTHON_CMD% -c "import sys; raise SystemExit(0 if sys.version_info[0] == 3 else 1)" >nul 2>&1
+call %PYTHON_CMD% -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 14) else 1)" >nul 2>&1
 if errorlevel 1 (
-    echo Python 3 was not found. Install Python 3 and try again.
+    echo Python 3.14 or newer is required. Install it and try again.
     endlocal
     exit /b 1
 )

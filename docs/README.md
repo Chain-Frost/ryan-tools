@@ -72,6 +72,8 @@ These documents stay near the code they describe so that browsing a target direc
 | [Automatic PyPI releases](AUTO_PYPI_RELEASES.md) | Publishing only new verified main PR merges after a defined cutover |
 | [Automatic release cutover marker](../.github/release-cutover.md) | Recording the first commit after which new merged changes become eligible for releases |
 | [MCP workflow-target implementation](mcp-handoff/README.md) | Current execution-target design, wrapper-path reconciliation, validation contract and remaining staged migration |
+| [MCP 33-target safety assessment](mcp-handoff/2026-10-21-cf-target-assessment.md) | 21 October C/F per-target catalogue, approval, path, dependency and readiness assessment |
+| [Windows engineering acceptance checklist](mcp-handoff/2026-10-21-cf-windows-acceptance.md) | Reproducible Python, wheel, long-path, UNC/mapped-drive and external engineering integration checks |
 
 ## File-format references
 
@@ -93,9 +95,12 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
-| [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licence notices, independent imports, similarity API and validation |
+| [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licensing, typed similarity API and wheel verification |
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
-| [Curated installed scripts and MCP packaging](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130 requirements reconciliation, reviewed 83-file allowlist, script-copy helper, verification and remaining acceptance |
+| [Installed scripts and MCP requirements traceability](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130 correction: original requirements A–F retained with implementation and validation gaps |
+| [Original installed-scripts requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Complete, unedited 17 October requirement baseline preserved after premature #130 merge |
+| [Installed-script per-file audit ledger](audits/2026-10-19-installed-scripts-inventory.md) | All 149 source paths; 83 selected and 66 excluded, without claiming individual lifecycle review |
+| [Installed-script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | Prioritised outstanding per-script fixes, ownership decisions, testing and external acceptance gates for PR #137 |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |

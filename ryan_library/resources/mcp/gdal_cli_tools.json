@@ -204,7 +204,9 @@
       "id": "batch_vector_clip",
       "script": "batch_vector_clip.py",
       "purpose": "Clip multiple vector datasets to one or more extent datasets with bounded ogr2ogr workers.",
-      "mutation": "creates_outputs",
+      "mutation": "executes_external",
+      "requires_explicit_approval": true,
+      "external_program": "ogr2ogr",
       "defaults": {"workers": 4, "overwrite": false, "dry_run": false},
       "help_arguments": ["batch_vector_clip.py", "--help"]
     },

@@ -30,6 +30,9 @@ def test_health_reports_installed_distribution_and_profile() -> None:
     assert health["configured_profile"] == "create"
     assert health["catalogue_schema_version"] == "1.0"
     assert health["workflow_count_visible"] > 0
+    assert health["workflow_availability_scope"] == "entry_point_only"
+    assert health["external_prerequisite_validation"] == "not_performed"
+    assert health["active_script_source"] in {"repository_checkout", "installed_distribution", "unavailable"}
 
 
 def test_generic_discovery_returns_cli_metadata() -> None:

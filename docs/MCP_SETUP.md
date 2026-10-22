@@ -5,6 +5,27 @@ repository CLI workflows. The MCP server discovers scripts and returns safe comm
 catalogued scripts. The agent runs a selected script through its normal shell after reviewing the script's current
 `--help`, input and output paths, mutation metadata and approval requirements.
 
+## C/F integration and engineering acceptance
+
+The [33-target MCP safety assessment](mcp-handoff/2026-10-21-cf-target-assessment.md)
+records curated workflow paths, profiles, destructive flags and remaining readiness gates.
+The [Windows engineering acceptance checklist](mcp-handoff/2026-10-21-cf-windows-acceptance.md)
+includes safe automated checks, an isolated-wheel discovery probe and opt-in
+mapped-drive/UNC/QGIS/GDAL/TUFLOW/HY-8 checks. These do **not** imply that
+an installed executable has been tested or that a real model has run.
+
+The `batch_vector_clip` wrapper launches `ogr2ogr` subprocesses and therefore
+is also `privileged`, requires explicit approval and reports the executable
+as declared but unverified. Its `--overwrite` option requires separate
+output-preservation review; do not use it on production sources.
+
+For GDAL recompression, the curated workflow includes a source-replacing
+`--replace --yes` scenario and therefore now requires the `privileged` profile
+and explicit approval. Users can continue to invoke the underlying audit-only
+script outside MCP without replacement flags. Legacy TUFLOW batch and duplicate
+deletion scripts do not have safe `--help` execution; MCP deliberately suppresses
+their generated help commands.
+
 ## Default tools
 
 The default MCP surface stays deliberately small:
@@ -92,7 +113,7 @@ external execution remains the governing privileged safety classification.
 
 ## Installed scripts and development checkouts
 
-The wheel installs **selected maintained** `ryan-scripts` files beside `ryan_library` in `site-packages`, preserving their original relative layout. The authoritative [wheel script manifest](../ryan_library/resources/mcp/installed_scripts.json) lists the selected files; legacy and unreviewed scripts remain repository-only.
+The wheel installs **selected** `ryan-scripts` files beside `ryan_library` in `site-packages`, preserving their original relative layout. The [wheel script manifest](../ryan_library/resources/mcp/installed_scripts.json) lists the current, **provisionally selected** files (see the [outstanding individual audit](audits/2026-10-19-installed-scripts-inventory.md)); legacy and unreviewed scripts remain repository-only.
 MCP locates that sibling folder automatically; users do not need a checkout or `RYAN_TOOLS_REPOSITORY_ROOT`.
 The selected wheel files include Python wrappers and their required local documentation; the full source tree (including historical BAT/GMS/XCES helpers) is **not** installed automatically. To inspect or copy one installed wrapper without executing it, use `ryan-scripts list` and `ryan-scripts copy <relative-script-path> <existing-project-directory> [--dry-run]`. Existing targets require explicit `--overwrite`.
 Packaging a script does not make it a supported MCP workflow: the curated catalogue and capability profiles still
@@ -107,10 +128,16 @@ For development, an explicit `RYAN_TOOLS_REPOSITORY_ROOT` or an automatically di
 over the installed scripts. Checkout discovery checks the package source tree, then the working directory and its parents.
 If a selected checkout is missing a script, MCP reports it unavailable rather than silently running a wheel copy.
 The MCP server returns commands and metadata; it does not execute scripts.
+`get_workflow` also returns the selected `script_source`, `installed_distribution_version` and
+`external_prerequisites` status. `check_repo_health` labels availability as
+`entry_point_only` and external executable validation as `not_performed`.
+A discoverable script is not proof that HY-8/TUFLOW/GDAL/QGIS binaries are present
+or that its CLI works; verify those in the real application environment before running.
+
 
 ## Prerequisites
 
-1. Python 3.13+ with the `ryan-tools` package installed, including `ryan-culverts`. Upgrade Python if dependency compatibility problems occur.
+1. Python 3.14+ with the `ryan-tools` package installed, including `ryan-culverts`. Upgrade Python if dependency compatibility problems occur.
 2. Install the MCP extra:
 
    ```bat
@@ -158,7 +185,7 @@ from its dock. The Python bridge and QGIS plugin must be compatible.
 ## Set up both servers in Codex
 
 Run this from the repository root in Windows PowerShell. The launcher selects
-an available Python 3.13+ interpreter by default and discovers the checkout
+an available Python 3.14+ interpreter by default and discovers the checkout
 relative to `repo-scripts`. For Codex running **natively on Windows**, the
 user-level Codex config is shared with the extension in VS Code; restart or
 reload the extension after changes.
