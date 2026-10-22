@@ -3,7 +3,6 @@ from __future__ import annotations
 # conftest.py supplies standalone script directories to pytest at runtime.
 # Pyright cannot infer those import roots; keep the exception scoped here.
 # pyright: reportMissingImports=false, reportUnknownVariableType=false
-
 import subprocess
 from pathlib import Path
 
