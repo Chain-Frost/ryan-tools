@@ -28,7 +28,7 @@ jobs:
         run: git submodule update --init tests/test_data
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.14"
       - name: Install ryan-tools development dependencies
         run: python -m pip install -e ".[dev]"
       - name: Replace published PyTUFLOW with pinned deferred fork
