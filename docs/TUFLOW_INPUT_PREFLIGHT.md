@@ -75,6 +75,52 @@ excluded because TUFLOW creates these destinations.
 Network performance depends on filesystem layout, latency and number of entries per directory; a complete recursive
 directory listing is deliberately avoided.
 
+
+### Experimental shared-TCF batch collection (PR #148)
+
+**Development-only Python API.** An opt-in `context_mode="batch"` uses
+[PyTUFLOW batch optimisation PR #5](https://github.com/phantom-branch/PyTuflow/pull/5)
+to collect immutable per-run source references for a whole proposed batch.
+The common preflight then performs the *same* wildcard, Shapefile/GeoPackage,
+secondary database source, raster metadata and file-existence checks.
+The default is still `context_mode="individual"`, and the maintained
+standalone checker and simulation launcher do not enable batch mode.
+
+For a development fork installed in an isolated test environment:
+
+```python
+from pathlib import Path
+from ryan_library.orchestrators.tuflow.input_preflight import (
+    RunRequest,
+    check_simulation_inputs,
+)
+
+runs = (
+    RunRequest(1, {"s1": "EXG", "e1": "10.0p"}),
+    RunRequest(2, {"s1": "DEV", "e1": "10.0p"}),
+)
+report = check_simulation_inputs(
+    Path("runs/model.tcf"), runs, context_mode="batch"
+)
+```
+
+The opt-in batch mode refuses an unavailable/incomplete fork API and
+ambiguous stateful database activations; it does **not** silently fall
+back or treat partial references as valid. No TUFLOW process launches.
+The special three-way parity replay is `python -m
+tests.fixtures.tuflow_example_repro.run_checks --batch` (temporary
+repository diagnostic; not a shipped wrapper). Windows CI pins the
+development fork separately; standard ryan-tools keeps its published
+PyTUFLOW dependency and normal launcher defaults.
+
+[Windows CI 39716802481](https://github.com/Chain-Frost/ryan-tools/actions/runs/39716802481)
+verified eager, individual deferred and batch identities on all
+161 archived TCFs / 174 simulations, with matching per-run public
+preflight issues and checked paths. This does **not** validate
+production network-drive performance, native model parity or complete
+GIS BC feature-to-active-database selection. The user withdrew the
+separate 42-run model as a merge gate.
+
 ### Deferred PyTUFLOW integration (development)
 
 When installed PyTUFLOW implements the provisional API in

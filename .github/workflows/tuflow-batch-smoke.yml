@@ -1,0 +1,58 @@
+name: PyTUFLOW batch optimisation smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tuflow-batch-smoke.yml"
+      - "ryan_library/orchestrators/tuflow/batch_preflight_adapter.py"
+      - "ryan_library/orchestrators/tuflow/input_preflight.py"
+      - "tests/orchestrators/tuflow/test_batch_preflight_adapter.py"
+      - "tests/fixtures/tuflow_example_repro/run_checks.py"
+  workflow_dispatch:
+
+jobs:
+  windows-batch-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      RYAN_TEST_BATCH_PYTUFLOW: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+      - name: Initialise required test-data submodule
+        run: git submodule update --init tests/test_data
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install isolated PyTUFLOW batch fork
+        # Never replace the published wheel dependency on main. This PR
+        # exercises the development interface independently of PyPI.
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@7a718f51e72fb1c0b2dc8752e22bd9457e3c6c30"
+      - name: Install no-release consumer and focused dependencies
+        run: |
+          python -m pip install -e . --no-deps
+          python -m pip install pytest pyshp loguru pandas
+      - name: Verify real batch and fake failure contracts
+        run: python -m pytest -q tests/orchestrators/tuflow/test_batch_preflight_adapter.py
+      - name: Verify two archived TCFs with eager, deferred and batch inventories
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "batch-sample-replay"
+          python -m tests.fixtures.tuflow_example_repro.run_checks --batch --tcf EG02_014.tcf --tcf EG04_004.tcf --output $report
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify all 161 archived TCFs and 174 simulations in batch
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "batch-full-replay"
+          python -m tests.fixtures.tuflow_example_repro.run_checks --batch --output $report
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); assert len(rows)==161 and sum(row["runs"] for row in rows)==174; assert all(row.get("accepted_parity") and row.get("batch_missing")==0 and row.get("batch_extra")==0 and row.get("batch_preflight_passed") for row in rows)' (Join-Path $report "results.json")
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload read-only archive differential reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: batch-preflight-example-parity
+          path: ${{ runner.temp }}/batch-*-replay
+          if-no-files-found: warn
