@@ -1,5 +1,10 @@
 """Regression tests for EG02 dataset."""
 
+# Legacy fixture aggregation uses incompletely typed processor interfaces.
+# Scope compatibility exceptions to this regression test, not production code.
+# pyright: reportCallIssue=false, reportArgumentType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+
 from pathlib import Path
 
 import pandas as pd
@@ -157,4 +162,4 @@ def test_regression_against_snapshot(data_type: str, processed_results: dict[str
     # Pandas/Parquet versions may materialise identical string column labels as
     # string[python] or str-backed Index objects. Compare labels and data values,
     # but do not fail solely on the storage dtype of the column index.
-    assert_frame_equal(observed_df, expected_df, check_index_type=False)
+    assert_frame_equal(observed_df, expected_df, check_column_type=False)
