@@ -1676,7 +1676,9 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
 def test_bc_activation_selection_requires_prior_declaration() -> None:
     from dataclasses import dataclass
 
-    from ryan_library.orchestrators.tuflow.input_preflight import _selected_bc_uuid  # pyright: ignore[reportPrivateUsage]
+    from ryan_library.orchestrators.tuflow.input_preflight import (
+        _selected_bc_uuid,  # pyright: ignore[reportPrivateUsage]
+    )
 
     @dataclass
     class Activation:
