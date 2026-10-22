@@ -11,8 +11,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).absolute().parents[2]
 SOURCE = ROOT / "ryan-scripts" / "RORB-python" / "hydrograph_extract_rorb_csv.py"
 
