@@ -1,0 +1,34 @@
+name: PyTUFLOW batch optimisation smoke
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tuflow-batch-smoke.yml"
+      - "ryan_library/orchestrators/tuflow/batch_preflight_adapter.py"
+      - "ryan_library/orchestrators/tuflow/input_preflight.py"
+      - "tests/orchestrators/tuflow/test_batch_preflight_adapter.py"
+  workflow_dispatch:
+
+jobs:
+  windows-batch-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      RYAN_TEST_BATCH_PYTUFLOW: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install isolated PyTUFLOW batch fork
+        # Never replace the published wheel dependency on main. This PR
+        # exercises the development interface independently of PyPI.
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@093b17adac1c4fc5ae12d419fff7e3a700bc1b97"
+      - name: Install no-release consumer and focused dependencies
+        run: |
+          python -m pip install -e . --no-deps
+          python -m pip install pytest pyshp loguru pandas
+      - name: Verify real batch and fake failure contracts
+        run: python -m pytest -q tests/orchestrators/tuflow/test_batch_preflight_adapter.py
