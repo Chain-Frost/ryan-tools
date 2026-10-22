@@ -78,3 +78,16 @@ Existing same-fork local SSD observation: Model B 240 runs spent 41.835 seconds 
 - Planning-only branch and draft PR; **no optimiser production code exists yet**.
 - Next: profile individual contexts and establish the batch API contract with the PyTUFLOW #5 author; implement adapter only after the upstream shape is stable.
 - Existing release/default-on preflight remains blocked by #143 parity and native validation; do not interpret this supporting PR as release authorisation.
+
+
+## Upstream implementation update — 22 October 2026
+
+PyTUFLOW #2 has merged into #1. The upstream optimisation is now [PyTUFLOW #5](https://github.com/phantom-branch/PyTuflow/pull/5), targeting #1; the ryan-tools consumer remains this separate draft stacked on #143.
+
+PyTUFLOW #5 now offers an experimental opt-in `TCF.collect_batch_dependencies(...)` interface. It returns immutable per-run file references, database-activation records and source-row candidates. Crucially, `BatchInputReference` preserves input UUID, ordered command index, owning control file and line number, so a future consumer can join GIS/BC inputs to the correct active database declaration without flattening identity. The adapter **must not** materialise all candidate database rows as required input files when the active GIS row identifiers select only a subset.
+
+Upstream synthetic Windows/Python 3.14 three-trial medians ([CI 39708797831](https://github.com/phantom-branch/PyTuflow/actions/runs/39708797831)) show about 47% lower time for 500 distinct-flag syntactic projections (2.3273s to 1.2271s) and about 45% for a 120-run/20-static-input workload (4.0646s to 2.2282s). **These exclude real-model GIS, filesystem and raster inspections, and cannot be treated as validated overall preflight speedups.**
+
+The current normal `_collect_references()` downstream path independently constructs contexts and calls `deferred_database_sources()`. Integrating the provisional batch output without respecting active-activation UUID, per-input owner, table-link scans and secondary GIS materialisation risks falsely claiming parity. Accordingly, this branch remains an **implementation-isolation boundary**, not a replacement for the current #143 validation route.
+
+**Next implementation gate:** an adapter that preserves the full `BatchInputReference` provenance, reproduces existing per-run missing/unresolved issue routing and selects candidate Source rows only where the active database/feature identity establishes a real dependency. Require exact eager / per-context deferred / batch identity comparison, both missing and extra records, on Windows prior to switching even the opt-in consumer. Keep defaults, published PyTUFLOW dependency and main branch unchanged.
