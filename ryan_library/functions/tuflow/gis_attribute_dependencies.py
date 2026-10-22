@@ -322,7 +322,9 @@ def _scan_layer(  # noqa: C901 - common GPKG and GIS BC field handling
     return sources, identifiers, ()
 
 
-def read_bc_inline_constant_names(path: Path) -> frozenset[str]:
+def read_bc_inline_constant_names(  # noqa: C901 - fail-closed numeric BC row formats and header parsing
+    path: Path,
+) -> frozenset[str]:
     """Identify inline numeric BC rows not emitted as secondary file references.
 
     A BC Database header can follow comments or preamble rows. Numeric
