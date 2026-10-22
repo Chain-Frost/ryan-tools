@@ -100,6 +100,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Installed scripts and MCP requirements traceability](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130 correction: original requirements A–F retained with implementation and validation gaps |
 | [Original installed-scripts requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Complete, unedited 17 October requirement baseline preserved after premature #130 merge |
 | [Installed-script per-file audit ledger](audits/2026-10-19-installed-scripts-inventory.md) | All 149 source paths; 83 selected and 66 excluded, without claiming individual lifecycle review |
+| [Installed-script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | Prioritised outstanding per-script fixes, ownership decisions, testing and external acceptance gates for PR #137 |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
