@@ -213,7 +213,6 @@ def test_shapefile_no_overwrite_preserves_destination_and_stage(tmp_path: Path) 
     assert staged.read_bytes() == b"new shapes"
 
 
-
 def test_clip_vector_failed_overwrite_preserves_output_and_cleans_stage(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -242,9 +241,7 @@ def test_clip_vector_failed_overwrite_preserves_output_and_cleans_stage(
     assert not list(tmp_path.glob(".output.*.tmp.gpkg"))
 
 
-def test_clip_vector_dry_run_never_executes_or_touches_output(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_clip_vector_dry_run_never_executes_or_touches_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Even --overwrite does not remove or replace files during a dry-run."""
     output = tmp_path / "output.gpkg"
     output.write_bytes(b"protected")
