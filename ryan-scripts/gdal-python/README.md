@@ -53,6 +53,34 @@ GeoTIFF output defaults to the conservative `tuflow` profile. Select the
 overviews are external `.ovr` files, and vector outputs default to GeoPackage
 with Shapefile available as an option.
 
+## GeoPackage vacuum safety (AB-008)
+
+`vacuum_geopackages.py` uses Python's built-in SQLite driver and does not
+require QGIS or GDAL. **The default is a read-only preview** that validates
+GeoPackage identity, required metadata tables and SQLite quick-check integrity.
+`--execute` is required to modify the input databases.
+
+```bat
+python vacuum_geopackages.py -i "Q:\\Project\\Model\\GIS" --no-pause
+python vacuum_geopackages.py -i "Q:\\Project\\Model\\GIS" --execute --no-pause
+python vacuum_geopackages.py -i "Q:\\Project\\Model\\GIS" --execute --no-backup --no-pause
+```
+
+Execution creates an **exclusive, SQLite-consistent** backup beside each file,
+named `example.gpkg.pre-vacuum.bak`. Existing backups are never replaced; the
+file is skipped as a failure instead. All successful backups are retained,
+including when a subsequent `VACUUM` fails. `--no-backup` explicitly accepts
+the additional risk of in-place modification without this recovery copy.
+The backup is not a rollback transaction: to restore, first close all SQLite,
+QGIS and GDAL handles and follow a controlled manual recovery procedure.
+
+Linked source paths, including symlink/junction ancestors, and invalid or
+corrupt databases are refused. A missing file cannot be silently recreated.
+This initial correction has disposable SQLite regression coverage; it does
+**not** yet establish real GDAL GeoPackage schema and spatial metadata parity,
+WAL/concurrent-writer stability, Windows file locks, UNC/junction races or
+interruption recovery. Validate on copies before production use.
+
 ## Wrapper identity
 
 Each wrapper contains a `WRAPPER_VERSION` in `YYYY-MM-DD.N` form and prints it
