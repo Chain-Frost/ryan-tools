@@ -1548,3 +1548,164 @@ def test_eager_without_typed_secondary_api_does_not_certify_database_inputs(
     report = check_simulation_inputs(tcf, [RunRequest(1, {})])
     assert not report.passed
     assert any("typed secondary-source API is unavailable" in issue.detail for issue in report.issues)
+
+
+def test_multiple_bc_declarations_select_feature_names_by_active_database(  # noqa: C901 - fake model fixture
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two database reassignments require different CSVs, never unused rows."""
+    tcf = tmp_path / "model.tcf"
+    tcf.touch()
+    gis = tmp_path / "gis"
+    gis.mkdir()
+    first_layer = gis / "2d_bc_upstream.gpkg"
+    inline_layer = gis / "2d_bc_inline.gpkg"
+    second_layer = gis / "2d_bc_downstream.gpkg"
+
+    for file, layer, name in (
+        (first_layer, "2d_bc_upstream", "Upstream"),
+        (inline_layer, "2d_bc_inline", "Inline"),
+        (second_layer, "2d_bc_downstream", "Downstream"),
+    ):
+        with sqlite3.connect(file) as connection:
+            connection.execute(
+                "CREATE TABLE gpkg_geometry_columns (table_name TEXT, column_name TEXT, geometry_type_name TEXT)"
+            )
+            connection.execute("CREATE TABLE gpkg_contents (table_name TEXT)")
+            connection.execute(
+                "INSERT INTO gpkg_geometry_columns VALUES (?, 'geom', 'LINESTRING')",
+                (layer,),
+            )
+            connection.execute("INSERT INTO gpkg_contents VALUES (?)", (layer,))
+            connection.execute(
+                f'CREATE TABLE "{layer}" (fid INTEGER PRIMARY KEY, geom BLOB, '
+                "Type TEXT, Flags TEXT, Name TEXT, f TEXT, d TEXT, td TEXT, a TEXT, b TEXT)"
+            )
+            sql = f'INSERT INTO "{layer}" (Type, Name) VALUES (?, ?)'  # noqa: S608
+            connection.execute(sql, ("QT", name))
+    first_db, second_db = tmp_path / "upstream.csv", tmp_path / "downstream.csv"
+    first_db.write_text(
+        "Name,Source,Column 1,Column 2\n"
+        "Upstream,upstream_hydro.csv,Time,Flow\n"
+        "Inline,,,2.75\n"
+        "Unused,not_required.csv,Time,Flow\n",
+        encoding="utf-8",
+    )
+    second_db.write_text("Name,Source\nDownstream,downstream_hydro.csv\n", encoding="utf-8")
+    for filename in ("upstream_hydro.csv", "downstream_hydro.csv"):
+        (tmp_path / filename).touch()
+
+    def reference(path: Path, kind: str | None, origin: str, layer: str | None = None) -> types.SimpleNamespace:
+        return types.SimpleNamespace(
+            path_pattern=path,
+            base_directory=path.parent,
+            origin=origin,
+            layer_pattern=layer,
+            unresolved_variables=(),
+            requires_attribute_scan=False,
+            requires_database_scan=kind == "bc",
+            database_kind=kind,
+            requires_table_link_scan=False,
+            requires_raster_metadata_scan=False,
+        )
+
+    def input_(lhs: str, uuid: str, ref: types.SimpleNamespace) -> types.SimpleNamespace:
+        return types.SimpleNamespace(lhs=lhs, uuid=uuid, file_references=(ref,))
+
+    inputs = [
+        input_("BC Database", "db-up", reference(first_db, "bc", "BC Database")),
+        input_(
+            "Read GIS BC",
+            "gis-up",
+            reference(first_layer.with_name("2d_bc_up*.gpkg"), None, "Read GIS BC", "2d_bc_upstream"),
+        ),
+        input_("Read GIS BC", "gis-inline", reference(inline_layer, None, "Read GIS BC", "2d_bc_inline")),
+        input_("BC Database", "db-down", reference(second_db, "bc", "BC Database")),
+        input_("Read GIS BC", "gis-down", reference(second_layer, None, "Read GIS BC", "2d_bc_downstream")),
+    ]
+    activations = (
+        types.SimpleNamespace(sequence=0, input_uuid="db-up", database_kind="bc", database_path=first_db),
+        types.SimpleNamespace(sequence=3, input_uuid="db-down", database_kind="bc", database_path=second_db),
+    )
+    rows = {
+        "db-up": [
+            types.SimpleNamespace(database_kind="bc", entry_name=name, path_pattern=tmp_path / source)
+            for name, source in (("Upstream", "upstream_hydro.csv"), ("Unused", "not_required.csv"))
+        ],
+        "db-down": [
+            types.SimpleNamespace(
+                database_kind="bc", entry_name="Downstream", path_pattern=tmp_path / "downstream_hydro.csv"
+            )
+        ],
+    }
+
+    class Context:
+        def find_input(self, lhs: str | None = None) -> list[types.SimpleNamespace]:
+            return [] if lhs else inputs
+
+        def deferred_database_activations(self) -> tuple[types.SimpleNamespace, ...]:
+            return activations
+
+        def deferred_database_sources_for_activation(self, uuid: str) -> list[types.SimpleNamespace]:
+            return rows[uuid]
+
+        def deferred_database_sources(self) -> None:
+            message = "Multi-BC aggregate is deliberately unsupported"
+            raise AssertionError(message)
+
+    class Model:
+        def __init__(self, _tcf: str) -> None:
+            pass
+
+        def context(self, _flags: str, *, file_resolution: str | None = None) -> Context:
+            assert file_resolution == "deferred"
+            return Context()
+
+    monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=Model))
+    runs = [RunRequest(1, {"e1": "01.0p"}), RunRequest(2, {"e1": "20.0p"})]
+    result = check_simulation_inputs(tcf, runs)
+    assert result.passed, result.issues
+    assert str(tmp_path / "not_required.csv") not in result.checked_paths
+    assert {str(tmp_path / x) for x in ("upstream_hydro.csv", "downstream_hydro.csv")} <= result.checked_paths
+
+    # Missing one selected Source must block each affected run. A missing
+    # unreferenced row above must not block any run.
+    (tmp_path / "downstream_hydro.csv").unlink()
+    missing = check_simulation_inputs(tcf, runs)
+    assert not missing.passed
+    assert {issue.run_index for issue in missing.issues} == {1, 2}
+    assert all("downstream_hydro.csv" in issue.reference for issue in missing.issues)
+
+    # Regression: expanding a wildcard GIS path must preserve the activation
+    # UUID. Otherwise the upstream hydrograph is not checked at all.
+    (tmp_path / "downstream_hydro.csv").touch()
+    (tmp_path / "upstream_hydro.csv").unlink()
+    wildcard_missing = check_simulation_inputs(tcf, runs)
+    assert not wildcard_missing.passed
+    assert {issue.run_index for issue in wildcard_missing.issues} == {1, 2}
+    assert all("upstream_hydro.csv" in issue.reference for issue in wildcard_missing.issues)
+    assert wildcard_missing.directories_scanned > 0
+
+
+def test_bc_activation_selection_requires_prior_declaration() -> None:
+    from dataclasses import dataclass
+
+    from ryan_library.orchestrators.tuflow.input_preflight import (
+        _selected_bc_uuid,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    @dataclass
+    class Activation:
+        sequence: int
+        input_uuid: str
+        database_kind: str
+        database_path: Path
+
+    declarations = (
+        Activation(sequence=1, input_uuid="a", database_kind="bc", database_path=Path("a.csv")),
+        Activation(sequence=4, input_uuid="b", database_kind="bc", database_path=Path("b.csv")),
+    )
+    assert _selected_bc_uuid(3, declarations) == "a"
+    assert _selected_bc_uuid(5, declarations) == "b"
+    with pytest.raises(ValueError, match="no unambiguous"):
+        _selected_bc_uuid(0, declarations)
