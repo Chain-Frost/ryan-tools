@@ -62,7 +62,48 @@ temporary directory, never launches model batches/TUFLOW and writes
 incremental `results.json` and per-TCF issue CSVs outside the data
 checkout. It compares (run, owning input command, file, layer) records and
 does not claim parity for partial attribute/database materialisation.
-A nonzero exit is expected while supported-input gaps remain.
+A nonzero exit means incomplete parity and must fail the acceptance check.
+
+## Private native-model handoff
+
+Use the same comparator on the other workstation/network without copying private
+model data into either repository. From this checkout, record both Git heads and run:
+
+```powershell
+git rev-parse HEAD
+git -C E:\Github\PyTuflow rev-parse HEAD
+python -m tests.fixtures.tuflow_example_repro.run_local_checks `
+  --tcf "<model directory>\runs\<model>.tcf" `
+  --commands-file "<model directory>\run_tuflow_simulations_commands.txt" `
+  --expect-runs 440 --label R440 `
+  --pytuflow-checkout E:\Github\PyTuflow `
+  --output "$env:TEMP\tuflow-R440-check" --repeats 3
+```
+
+The command export must contain only the selected TCF's exact event/scenario
+combinations. It is read as text and never executed. For the separate 42-run model,
+use its own inputs with `--expect-runs 42 --label R42`. Alternatively, `--runs-json`
+accepts a private JSON list of string event/scenario dictionaries. Project launchers
+are never imported or executed by this runner.
+
+The runner checks first/middle/last runs before full comparisons, alternates mode
+order across repetitions, loads a fresh model per mode, checks every physical
+file/layer/command/run identity, then runs public preflight. Nonzero exit or any
+missing, extra, collection or inventory issue fails acceptance. Private differences,
+logs and CSVs can disclose model paths: keep them outside the repository and share
+only anonymised counts and summaries. No solver is launched and no model input is edited.
+It verifies that PyTUFLOW was imported physically from the requested checkout,
+requires `pytuflow>=1.2,<2`, and writes the source version, Python version and three
+relevant parser-module hashes to private `provenance.json`. Keep both Git heads
+alongside this report; distribution metadata alone cannot identify a modified fork.
+
+Timings include parse, context creation and remaining collection/materialisation/
+inventory work, excluding process startup and report writing. Python audit counters
+record `open`, `os.scandir`, `os.listdir`, `sqlite3.connect` and `pathlib.Path.glob`
+by phase. They do **not** count every stat or native GIS/OS read and do not measure
+memory. Retain the separate zero-I/O spy tests; an empty audit count alone cannot
+prove zero native I/O. State the actual storage and cache conditions when reporting
+timings; local SSD results do not establish network performance.
 
 **Performance:** ZIP extraction is a one-time setup step, not part of
 the eager/deferred parse/context/inventory timings. For comparisons, use the
@@ -73,11 +114,13 @@ overhead.
 ## Remaining work
 
 The original baseline accepted 107 TCFs (119 runs). The local Windows/Python 3.14.6
-replay on 2026-10-22 accepted 153 TCFs (166 runs) in strict identity parity;
-all 161 TCFs (174 runs) passed ordinary input preflight. Eight cases have
-19 deferred-only curve/AD source records and zero eager-only records.
-Investigate eager completeness and active-source semantics rather than dropping
-real dependencies to match the comparator. See
+replay on 2026-10-22 with coordinated eager secondary-source fixes accepts all
+161 TCFs (174 runs), with zero missing/extra identities and public preflight failures.
+The fixes are committed as consumer `09dfd502` and parser `22e2413`. Upstream
+[Windows replay 39711771147](https://github.com/phantom-branch/PyTuflow/actions/runs/39711771147)
+on parser/workflow head `fb103a1` now passes all 161 TCFs/174 runs with zero differences.
+Both replay workflows enforce complete parity and pin the corrected implementation.
+Native-model checks and final review remain distinct from that hosted example result. See
 [the work record](../../../docs/work/2026-10-21-tuflow-input-preflight.md).
 
 No solver execution, automatic preflight enforcement, PR merge or PyPI

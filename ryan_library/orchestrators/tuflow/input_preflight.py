@@ -118,6 +118,8 @@ class _Context(Protocol):
 
     def deferred_database_sources(self) -> tuple[_DeferredDatabaseSource, ...]: ...
 
+    def database_sources(self) -> tuple[_DeferredDatabaseSource, ...]: ...
+
 
 class _Model(Protocol):
     """TUFLOW project control file with a context resolution method."""
@@ -328,6 +330,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             add_issue(run, "TCF context", str(tcf), f"Could not resolve run: {exc}")
             continue
 
+        eager_sources_available = not deferred_supported and callable(getattr(context, "database_sources", None))
         try:
             inputs = context.find_input()
             for inp in inputs:
@@ -400,6 +403,40 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                     except Exception as exc:  # noqa: BLE001 - incomplete references must fail closed
                         add_issue(run, origin, "", f"Could not collect deferred file references: {exc}")
                     continue
+                if eager_sources_available:
+                    # Eager .files does not include database-key curve sources.
+                    # Use upstream syntax metadata to request the same shared
+                    # active-feature join used by deferred collection.
+                    try:
+                        for ref in inp.file_references:
+                            if not ref.requires_attribute_scan and ref.database_kind not in {
+                                "pit_inlet",
+                                "depth_discharge",
+                            }:
+                                continue
+                            if ref.unresolved_variables:
+                                add_issue(run, ref.origin, str(ref.path_pattern), "Unresolved eager input metadata")
+                                continue
+                            add_file(
+                                run,
+                                ref.path_pattern,
+                                ref.origin or origin,
+                                ref.base_directory,
+                                layer_override=ref.layer_pattern or "",
+                                allow_pattern=True,
+                                scan_attributes=ref.requires_attribute_scan,
+                                database_kind=ref.database_kind or "",
+                                scan_table_links=ref.requires_table_link_scan,
+                            )
+                    except Exception as exc:  # noqa: BLE001 - never certify partial metadata
+                        add_issue(run, origin, "", f"Could not collect eager secondary metadata: {exc}")
+                elif _command_name(inp) in {
+                    "ad bc database",
+                    "ad global database",
+                    "pit inlet database",
+                    "depth discharge database",
+                }:
+                    add_issue(run, origin, "", "PyTUFLOW typed secondary-source API is unavailable in eager mode")
                 try:
                     files = list(inp.files)
                 except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW errors fail closed
@@ -422,13 +459,16 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         except Exception as exc:  # noqa: BLE001 - parser traversal errors fail closed
             add_issue(run, "Control-file traversal", str(tcf), f"Could not read model inputs: {exc}")
 
-        if deferred_supported:
+        if deferred_supported or eager_sources_available:
             # Only invoke this deliberate database materialisation stage after
             # collecting the syntactic references for this specific run.
-            source_reader = getattr(context, "deferred_database_sources", None)
+            source_reader = getattr(
+                context, "deferred_database_sources" if deferred_supported else "database_sources", None
+            )
             if callable(source_reader):
                 try:
-                    for source in context.deferred_database_sources():
+                    sources = context.deferred_database_sources() if deferred_supported else context.database_sources()
+                    for source in sources:
                         kind = source.database_kind
                         if kind not in {
                             "bc",
