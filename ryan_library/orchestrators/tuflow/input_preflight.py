@@ -717,7 +717,8 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     are not treated as required inputs. The checker does not launch TUFLOW.
     """
     if context_mode not in ("individual", "batch"):
-        raise ValueError(f"Unsupported input preflight context mode: {context_mode}")
+        message = f"Unsupported input preflight context mode: {context_mode}"
+        raise ValueError(message)
     if not tcf.is_file():
         message = f"TUFLOW control file not found: {tcf}"
         raise FileNotFoundError(message)
