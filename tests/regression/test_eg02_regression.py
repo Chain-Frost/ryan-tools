@@ -1,5 +1,10 @@
 """Regression tests for EG02 dataset."""
 
+# Legacy fixture aggregation uses incompletely typed processor interfaces.
+# Scope compatibility exceptions to this regression test, not production code.
+# pyright: reportCallIssue=false, reportArgumentType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
+
 from pathlib import Path
 
 import pandas as pd
