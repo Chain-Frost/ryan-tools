@@ -290,7 +290,7 @@ def test_500_run_batch_calls_upstream_once_without_individual_contexts(
     class OnlyBatch(base):
         calls = 0
 
-        def context(self, _flags: str, *, _file_resolution: str | None = None) -> object:
+        def context(self, flags: str, *, file_resolution: str | None = None) -> object:  # noqa: ARG002
             message = "Batch mode must not call one context per run"
             raise AssertionError(message)
 
