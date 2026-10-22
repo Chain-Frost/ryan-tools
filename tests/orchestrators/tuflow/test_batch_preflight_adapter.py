@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import types
 from pathlib import Path
@@ -201,3 +202,32 @@ def test_batch_rejects_context_index_or_flag_mismatch() -> None:
             ),))
     with pytest.raises(ValueError, match="index or flags mismatch"):
         BatchModelView(Model(), ("-e1 A",)).context("-e1 A", file_resolution="deferred")
+
+
+@pytest.mark.skipif(
+    os.environ.get("RYAN_TEST_BATCH_PYTUFLOW") != "1",
+    reason="Requires isolated PyTUFLOW #5 batch fork",
+)
+def test_real_fork_batch_and_individual_have_identical_preflight(tmp_path: Path) -> None:
+    """Exercise real parsed TCF contexts without invoking TUFLOW or opening GIS."""
+    source = tmp_path / "shared.tcf"
+    source.write_text(
+        "IF Scenario == DEV\\n"
+        "    Read GIS Code == code_DEV.shp\\n"
+        "ELSE\\n"
+        "    Read GIS Code == code_EXG.shp\\n"
+        "END IF\\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "code_DEV.shp").touch()
+    runs = (
+        RunRequest(10, {"s1": "DEV", "e1": "TP01"}),
+        RunRequest(20, {"s1": "EXG", "e1": "TP01"}),
+        RunRequest(30, {"s1": "DEV", "e1": "TP02"}),
+    )
+    individual = check_simulation_inputs(source, runs, context_mode="individual")
+    batch = check_simulation_inputs(source, runs, context_mode="batch")
+    assert batch.checked_paths == individual.checked_paths
+    assert set(batch.issues) == set(individual.issues)
+    assert batch.affected_runs == individual.affected_runs == 1
+    assert {item.run_index for item in batch.issues} == {20}
