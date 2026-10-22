@@ -1583,7 +1583,7 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
                 "Type TEXT, Flags TEXT, Name TEXT, f TEXT, d TEXT, td TEXT, a TEXT, b TEXT)"
             )
             connection.execute(
-                f'INSERT INTO "{layer}" (Type, Name) VALUES (?, ?)', ("QT", name)
+                f'INSERT INTO "{layer}" (Type, Name) VALUES (?, ?)', ("QT", name)  # noqa: S608
             )
     first_db, second_db = tmp_path / "upstream.csv", tmp_path / "downstream.csv"
     first_db.write_text("Name,Source\nUpstream,upstream_hydro.csv\n"
@@ -1640,7 +1640,8 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
             return rows[uuid]
 
         def deferred_database_sources(self) -> None:
-            raise AssertionError("Multi-BC aggregate is deliberately unsupported")
+            message = "Multi-BC aggregate is deliberately unsupported"
+            raise AssertionError(message)
 
     class Model:
         def __init__(self, _tcf: str) -> None:
