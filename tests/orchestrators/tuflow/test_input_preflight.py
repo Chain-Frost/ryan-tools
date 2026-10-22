@@ -1559,10 +1559,12 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
     gis = tmp_path / "gis"
     gis.mkdir()
     first_layer = gis / "2d_bc_upstream.gpkg"
+    inline_layer = gis / "2d_bc_inline.gpkg"
     second_layer = gis / "2d_bc_downstream.gpkg"
 
     for file, layer, name in (
         (first_layer, "2d_bc_upstream", "Upstream"),
+        (inline_layer, "2d_bc_inline", "Inline"),
         (second_layer, "2d_bc_downstream", "Downstream"),
     ):
         with sqlite3.connect(file) as connection:
@@ -1582,7 +1584,13 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
             sql = f'INSERT INTO "{layer}" (Type, Name) VALUES (?, ?)'  # noqa: S608
             connection.execute(sql, ("QT", name))
     first_db, second_db = tmp_path / "upstream.csv", tmp_path / "downstream.csv"
-    first_db.write_text("Name,Source\nUpstream,upstream_hydro.csv\nUnused,not_required.csv\n", encoding="utf-8")
+    first_db.write_text(
+        "Name,Source,Column 1,Column 2\n"
+        "Upstream,upstream_hydro.csv,Time,Flow\n"
+        "Inline,,,2.75\n"
+        "Unused,not_required.csv,Time,Flow\n",
+        encoding="utf-8",
+    )
     second_db.write_text("Name,Source\nDownstream,downstream_hydro.csv\n", encoding="utf-8")
     for filename in ("upstream_hydro.csv", "downstream_hydro.csv"):
         (tmp_path / filename).touch()
@@ -1607,12 +1615,13 @@ def test_multiple_bc_declarations_select_feature_names_by_active_database(  # no
     inputs = [
         input_("BC Database", "db-up", reference(first_db, "bc", "BC Database")),
         input_("Read GIS BC", "gis-up", reference(first_layer, None, "Read GIS BC", "2d_bc_upstream")),
+        input_("Read GIS BC", "gis-inline", reference(inline_layer, None, "Read GIS BC", "2d_bc_inline")),
         input_("BC Database", "db-down", reference(second_db, "bc", "BC Database")),
         input_("Read GIS BC", "gis-down", reference(second_layer, None, "Read GIS BC", "2d_bc_downstream")),
     ]
     activations = (
-        types.SimpleNamespace(sequence=0, input_uuid="db-up", database_kind="bc"),
-        types.SimpleNamespace(sequence=2, input_uuid="db-down", database_kind="bc"),
+        types.SimpleNamespace(sequence=0, input_uuid="db-up", database_kind="bc", database_path=first_db),
+        types.SimpleNamespace(sequence=3, input_uuid="db-down", database_kind="bc", database_path=second_db),
     )
     rows = {
         "db-up": [
