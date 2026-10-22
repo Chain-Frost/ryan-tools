@@ -9,6 +9,7 @@ import pytest
 
 from ryan_library.functions.tuflow.gis_attribute_dependencies import (
     inspect_gis_attribute_sources,
+    read_bc_inline_constant_names,
     read_pit_inlet_database,
 )
 
@@ -291,3 +292,85 @@ def test_shapefile_xs_file_attribute_matches_geopackage(tmp_path: Path) -> None:
     assert opens == 2
     assert result[(shp, "")].sources == result[(gpkg, "1d_xs_example")].sources
     assert result[(shp, "")].sources == (tmp_path / "section.csv",)
+
+
+def test_bc_name_attributes_use_same_rules_in_shp_and_gpkg(tmp_path: Path) -> None:
+    """2d_bc Name is field 3; link/ignore and automatic HQ do not need sources."""
+    import shapefile
+
+    shp = tmp_path / "2d_bc_model.shp"
+    with shapefile.Writer(str(shp), shapeType=shapefile.POLYLINE) as writer:
+        for field in ("Type", "Flags", "Name", "f", "d", "td", "a", "b"):
+            writer.field(field, "C", size=100)
+        for kind, name, slope in (
+            ("HT", "River", ""),
+            ("QT", "Catchment", ""),
+            ("HX", "no_database_row", ""),
+            ("IG", "not_active", ""),
+            ("HQ", "", "0.001"),
+        ):
+            writer.null()
+            writer.record(kind, "", name, "", "", "", "", slope)
+    gpkg = tmp_path / "model.gpkg"
+    with sqlite3.connect(gpkg) as db:
+        db.execute("CREATE TABLE gpkg_geometry_columns(table_name TEXT, column_name TEXT, geometry_type_name TEXT)")
+        db.execute("INSERT INTO gpkg_geometry_columns VALUES ('2d_bc_model', 'geom', 'LINESTRING')")
+        db.execute(
+            'CREATE TABLE "2d_bc_model" (fid INTEGER PRIMARY KEY, geom BLOB,'
+            ' "Type" TEXT, "Flags" TEXT, "Name" TEXT, f TEXT, d TEXT, td TEXT, a TEXT, b TEXT)'
+        )
+        db.execute('INSERT INTO "2d_bc_model" ("Type", "Name") VALUES ("HT", "River")')
+        db.execute('INSERT INTO "2d_bc_model" ("Type", "Name") VALUES ("QT", "Catchment")')
+        db.execute('INSERT INTO "2d_bc_model" ("Type", "Name") VALUES ("HX", "no_database_row")')
+        db.execute('INSERT INTO "2d_bc_model" ("Type", b) VALUES ("HQ", "0.001")')
+    result, opens = inspect_gis_attribute_sources({(shp, ""), (gpkg, "2d_bc_model")})
+    assert opens == 2
+    for key in ((shp, ""), (gpkg, "2d_bc_model")):
+        assert result[key].status == "present"
+        assert result[key].bc_identifiers == ("Catchment", "River")
+        assert result[key].sources == ()
+
+
+def test_bc_name_schema_and_unknown_type_fail_closed(tmp_path: Path) -> None:
+    import shapefile
+
+    shp = tmp_path / "2d_bc_bad.shp"
+    with shapefile.Writer(str(shp), shapeType=shapefile.POLYLINE) as writer:
+        for field in ("Type", "Flags", "Name", "f", "d", "td", "a", "b"):
+            writer.field(field, "C")
+        writer.null()
+        writer.record("UNKNOWN", "", "Source_A", "", "", "", "", "")
+    result, _ = inspect_gis_attribute_sources({(shp, "")})
+    assert result[(shp, "")].status == "unresolved"
+    assert "Unrecognised" in result[(shp, "")].detail
+
+
+def test_sa_and_rainfall_bc_names_first_attribute(tmp_path: Path) -> None:
+    import shapefile
+
+    shp = tmp_path / "2d_sa_catchments.shp"
+    with shapefile.Writer(str(shp), shapeType=shapefile.POLYLINE) as writer:
+        writer.field("Name", "C")
+        writer.null()
+        writer.record("Catchment_A")
+    result, _ = inspect_gis_attribute_sources({(shp, "")})
+    assert result[(shp, "")].bc_identifiers == ("Catchment_A",)
+
+
+def test_inline_numeric_bc_constants_are_not_secondary_files(tmp_path: Path) -> None:
+    database = tmp_path / "bc.csv"
+    database.write_text(
+        "# Model boundary table\n"
+        "Name,Source,Column 1,Column 2\n"
+        "Inline,,,2.5\n"
+        "Other,1.25,,\n"
+        "Hydro,hydrograph.csv,Time,Flow\n",
+        encoding="utf-8",
+    )
+    assert read_bc_inline_constant_names(database) == frozenset({"inline", "other"})
+    database.write_text(
+        "Name,Source,Column 1,Column 2\nBad,,,NaN\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="Nonfinite"):
+        read_bc_inline_constant_names(database)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import fnmatch
+import math
 import os
 import re
 import sqlite3
@@ -32,6 +33,7 @@ class AttributeInspection:
     detail: str = ""
     network_identifiers: tuple[str, ...] = ()
     pit_identifiers: tuple[str, ...] = ()
+    bc_identifiers: tuple[str, ...] = ()
 
 
 def _quote_identifier(value: str) -> str:
@@ -49,6 +51,61 @@ def _file_field_index(layer: str) -> int | None:
     if re.match(r"^1d_(xs|tab|xz|bg|lc|cs|hw)_", name) or re.match(r"^1d_na_", name):
         return 0
     return None
+
+
+def _bc_name_field_index(layer: str) -> int | None:
+    """TUFLOW 2026 §8.4: Name is field three in 2d_bc, first in 2d_sa/rf."""
+    if re.match(r"^2d_bc_", layer, re.IGNORECASE):
+        return 2
+    if re.match(r"^2d_(sa|rf)_", layer, re.IGNORECASE):
+        return 0
+    return None
+
+
+def _bc_identifiers_from_rows(  # noqa: C901 - TUFLOW BC kind and HQ source semantics
+    rows: Iterable[Sequence[object]], layer: str
+) -> tuple[str, ...]:
+    """Return only database-key Name fields from active BC features.
+
+    2d_bc link/ignore/code geometries never reference BC Name values.
+    For HQ, a positive b value generates the curve internally.
+    """
+    names: set[str] = set()
+    two_d_bc = bool(re.match(r"^2d_bc_", layer, re.IGNORECASE))
+    source_types = {"HS", "HT", "HQ", "QT", "RF", "SD", "SH", "ST", "VG", "WT", "GT"}
+    for attrs in rows:
+        if two_d_bc:
+            bc_type = str(attrs[0] or "").strip().upper()
+            if not bc_type:
+                message = f"Blank 2d_bc Type requires external Blank BC Type context: {layer}"
+                raise ValueError(message)
+            if bc_type not in source_types:
+                # Geometries used as links, codes or ignored elements do not
+                # name database rows. Unknown kinds are unresolved.
+                if bc_type not in {"HX", "SX", "CN", "CD", "IG", "ZP", "2D", "SC"}:
+                    message = f"Unrecognised 2d_bc Type {bc_type!r}: {layer}"
+                    raise ValueError(message)
+                continue
+            if bc_type == "HQ":
+                if len(attrs) < 3:
+                    message = f"Cannot determine automatic HQ curve selection: {layer}"
+                    raise ValueError(message)
+                slope = attrs[2]
+                if slope not in (None, ""):
+                    try:
+                        if float(str(slope)) > 0:
+                            continue
+                    except ValueError as exc:
+                        message = f"Invalid HQ b slope in {layer}: {slope!r}"
+                        raise ValueError(message) from exc
+            value = attrs[1]
+        else:
+            value = attrs[0]
+        if not isinstance(value, str) or not value.strip() or "<<" in value or ">>" in value:
+            message = f"Missing or unexpanded BC Name in {layer}: {value!r}"
+            raise ValueError(message)
+        names.add(value.strip())
+    return tuple(sorted(names, key=str.casefold))
 
 
 def _attribute_file_paths(value: str, *, network_m: bool, parent: Path) -> tuple[Path, ...]:
@@ -143,7 +200,9 @@ def _scan_file_reference_rows(  # noqa: C901 - common TUFLOW network/pit rules f
     return tuple(sorted(sources)), tuple(sorted(database_identifiers))
 
 
-def _scan_shapefile(path: Path) -> tuple[tuple[Path, ...], tuple[str, ...]]:
+def _scan_shapefile(  # noqa: C901 - common DBF and GIS BC field handling
+    path: Path,
+) -> tuple[tuple[Path, ...], tuple[str, ...], tuple[str, ...]]:
     """Read only Shapefile DBF attributes; inspect SHP geometry from its header.
 
     pyshp's iterRecords() reads DBF rows, not feature geometries. The single
@@ -151,7 +210,23 @@ def _scan_shapefile(path: Path) -> tuple[tuple[Path, ...], tuple[str, ...]]:
     """
     with closing(shapefile.Reader(str(path))) as reader:
         layer = path.stem
+        bc_index = _bc_name_field_index(layer)
         index = _file_field_index(layer)
+        if bc_index is not None:
+            fields = reader.fields[1:]
+            if len(fields) <= bc_index:
+                message = f"Missing BC Name column in {layer}"
+                raise ValueError(message)
+            if bc_index == 2:
+                if len(fields) <= 7:
+                    # A shortened synthetic layer cannot establish HQ b;
+                    # reject rather than inferring a curve source.
+                    message = f"2d_bc requires Type, Flags, Name and b fields: {layer}"
+                    raise ValueError(message)
+                selected = ((row[0], row[2], row[7]) for row in reader.iterRecords())
+            else:
+                selected = ((row[bc_index],) for row in reader.iterRecords())
+            return (), (), _bc_identifiers_from_rows(selected, layer)
         if index is None:
             message = f"Unsupported GIS attribute-linked layer type: {layer}"
             raise ValueError(message)
@@ -173,12 +248,15 @@ def _scan_shapefile(path: Path) -> tuple[tuple[Path, ...], tuple[str, ...]]:
             selected = ((record[1], record[index]) for record in reader.iterRecords())
         else:
             selected = ((record[index],) for record in reader.iterRecords())
-        return _scan_file_reference_rows(selected, layer=layer, geometry_type=geometry_type, parent=path.parent)
+        sources, identifiers = _scan_file_reference_rows(
+            selected, layer=layer, geometry_type=geometry_type, parent=path.parent
+        )
+        return sources, identifiers, ()
 
 
-def _scan_layer(
+def _scan_layer(  # noqa: C901 - common GPKG and GIS BC field handling
     connection: sqlite3.Connection, layer: str, geometry_type: str, path: Path
-) -> tuple[tuple[Path, ...], tuple[str, ...]]:
+) -> tuple[tuple[Path, ...], tuple[str, ...], tuple[str, ...]]:
     """Read only file-valued attributes; return database identifiers separately.
 
     TUFLOW 1d_nwk Q and P channels and 1d_pit Q/VPI pits use an inlet
@@ -186,15 +264,16 @@ def _scan_layer(
     channel matrices instead name files directly. Ignored network rows
     must never introduce input dependencies.
     """
+    bc_index = _bc_name_field_index(layer)
     index = _file_field_index(layer)
-    if index is None:
+    if bc_index is None and index is None:
         message = f"Unsupported GIS attribute-linked layer type: {layer}"
         raise ValueError(message)
     network = bool(re.match(r"^1d_nwk[eb]?_", layer, flags=re.IGNORECASE))
     pit = bool(re.match(r"^1d_pit_", layer, flags=re.IGNORECASE))
     if network and geometry_type.casefold() not in {"linestring", "multilinestring"}:
         if geometry_type.casefold() != "geometry":
-            return (), ()
+            return (), (), ()
         message = "Mixed or unknown network geometry requires feature-level inspection"
         raise ValueError(message)
     quoted = _quote_identifier(layer)
@@ -210,7 +289,19 @@ def _scan_layer(
         message = f"GeoPackage layer geometry column is unavailable: {layer}"
         raise ValueError(message)
     attrs = [name for name, pk in columns if not pk and str(name).casefold() not in geom_names]
-    if len(attrs) <= index or ((network or pit) and len(attrs) <= 2):
+    if bc_index is not None:
+        if len(attrs) <= bc_index:
+            message = f"Missing BC Name column in {layer}"
+            raise ValueError(message)
+        if bc_index == 2:
+            if len(attrs) <= 7:
+                message = f"2d_bc requires Type, Flags, Name and b fields: {layer}"
+                raise ValueError(message)
+            sql = f"SELECT {', '.join(_quote_identifier(str(attrs[i])) for i in (0, 2, 7))} FROM {quoted}"  # noqa: S608
+        else:
+            sql = f"SELECT {_quote_identifier(str(attrs[bc_index]))} FROM {quoted}"  # noqa: S608
+        return (), (), _bc_identifiers_from_rows(connection.execute(sql), layer)
+    if index is None or len(attrs) <= index or ((network or pit) and len(attrs) <= 2):
         message = f"Required file-reference attribute index {index} absent from {layer}"
         raise ValueError(message)
     field = _quote_identifier(str(attrs[index]))
@@ -225,9 +316,64 @@ def _scan_layer(
     else:
         sql = f"SELECT {field} FROM {quoted}"  # noqa: S608
 
-    return _scan_file_reference_rows(
+    sources, identifiers = _scan_file_reference_rows(
         connection.execute(sql), layer=layer, geometry_type=geometry_type, parent=path.parent
     )
+    return sources, identifiers, ()
+
+
+def read_bc_inline_constant_names(  # noqa: C901 - fail-closed numeric BC row formats and header parsing
+    path: Path,
+) -> frozenset[str]:
+    """Identify inline numeric BC rows not emitted as secondary file references.
+
+    A BC Database header can follow comments or preamble rows. Numeric
+    Source values and blank Source with numeric Column 2 are documented
+    constants; unknown or variable-based expressions do not pass here.
+    This is only read once per distinct primary CSV during GIS materialisation.
+    """
+    names: set[str] = set()
+    with path.open(newline="", encoding="utf-8-sig") as stream:
+        rows = csv.reader(stream)
+        header: list[str] | None = None
+        for row in rows:
+            keys = [cell.strip().casefold() for cell in row]
+            if "name" in keys and "source" in keys:
+                header = keys
+                break
+        if header is None:
+            message = f"BC Database is missing Name/Source headings: {path}"
+            raise ValueError(message)
+        name_col, source_col = header.index("name"), header.index("source")
+        column_two = header.index("column 2") if "column 2" in header else None
+        for row in rows:
+            if not any(cell.strip() for cell in row):
+                continue
+            if len(row) <= max(name_col, source_col):
+                message = f"Invalid BC Database row in {path}"
+                raise ValueError(message)
+            key = row[name_col].strip().casefold()
+            raw = row[source_col].strip()
+            constant = raw
+            if not constant and column_two is not None and len(row) > column_two:
+                constant = row[column_two].strip()
+            if not key:
+                message = f"Blank BC Database Name in {path}"
+                raise ValueError(message)
+            if not constant:
+                continue
+            try:
+                number = float(constant)
+            except ValueError:
+                continue
+            if not math.isfinite(number):
+                message = f"Nonfinite inline BC constant in {path}: {key}"
+                raise ValueError(message)
+            if key in names:
+                message = f"Duplicate inline BC identifier in {path}: {key}"
+                raise ValueError(message)
+            names.add(key)
+    return frozenset(names)
 
 
 def read_pit_inlet_database(path: Path) -> dict[str, Path]:
@@ -293,7 +439,7 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
                 )
             if selected:
                 try:
-                    sources, identifiers = _scan_shapefile(path)
+                    sources, identifiers, bc_identifiers = _scan_shapefile(path)
                     connections += 1
                     for selector in selected:
                         results[(path, selector)] = AttributeInspection(
@@ -304,6 +450,7 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
                             if re.match(r"^1d_nwk[eb]?_", path.stem, re.IGNORECASE)
                             else (),
                             pit_identifiers=identifiers if re.match(r"^1d_pit_", path.stem, re.IGNORECASE) else (),
+                            bc_identifiers=bc_identifiers,
                         )
                 except (OSError, ValueError, UnicodeError, shapefile.ShapefileException) as exc:
                     for selector in selected:
@@ -329,7 +476,7 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
                 if not available:
                     message = "No vector layer metadata in GeoPackage"
                     raise ValueError(message)
-                scanned: dict[str, tuple[tuple[Path, ...], tuple[str, ...]]] = {}
+                scanned: dict[str, tuple[tuple[Path, ...], tuple[str, ...], tuple[str, ...]]] = {}
                 for selector in selectors:
                     key = (path, selector)
                     matches = [
@@ -368,12 +515,16 @@ def inspect_gis_attribute_sources(  # noqa: C901 - deduped per-database inspecti
                                 }
                             )
                         )
+                        bc_names = tuple(
+                            sorted({item for name in matches for item in scanned[name][2]}, key=str.casefold)
+                        )
                         results[key] = AttributeInspection(
                             "present",
                             sources,
                             identifiers,
                             network_identifiers=network,
                             pit_identifiers=pits,
+                            bc_identifiers=bc_names,
                         )
                     except (sqlite3.DatabaseError, ValueError, OSError) as exc:
                         results[key] = AttributeInspection("unresolved", detail=f"Cannot inspect GIS attributes: {exc}")
