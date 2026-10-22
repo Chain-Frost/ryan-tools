@@ -19,6 +19,7 @@ SAFE_HELP_WRAPPERS: tuple[str, ...] = (
     "floodway.py",
     "RORB-python/RORB-find-closure-durations.py",
     "RORB-python/plot_ensemble_results.py",
+    "RORB-python/hydrograph_extract_rorb_csv.py",
     "TUFLOW-python/culvert_results/combine_culvert_maximums.py",
     "TUFLOW-python/log_processing/check_tuflow_user_activity.py",
     "TUFLOW-python/culvert_results/combine_culvert_timeseries.py",
