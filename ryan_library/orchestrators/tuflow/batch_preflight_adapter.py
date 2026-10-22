@@ -43,10 +43,6 @@ class _Result(Protocol):
     runs: tuple[_Case, ...]
 
 
-class _BatchCollector(Protocol):
-    def collect_batch_dependencies(self, flags: Sequence[str]) -> _Result: ...
-
-
 @dataclass(frozen=True, slots=True)
 class _InputView:
     """The original input identity and its immutable references."""
