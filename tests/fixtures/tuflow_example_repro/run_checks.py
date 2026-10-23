@@ -13,6 +13,7 @@ import sqlite3
 import sys
 import tempfile
 from collections import Counter
+from contextlib import closing
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -111,7 +112,9 @@ class DeferredModel:
         return self.model.context(flags, file_resolution=file_resolution or "deferred")
 
 
-def collect(tcf: Path, runs: list[RunRequest], mode: str, factory: Any) -> tuple[set[tuple[Any, ...]], dict[str, Any]]:
+def collect(  # noqa: C901 - read-only materialisation and invocation-local identity/layer caches
+    tcf: Path, runs: list[RunRequest], mode: str, factory: Any
+) -> tuple[set[tuple[Any, ...]], dict[str, Any]]:
     """Compare complete supported references; refuse partial attribute parity."""
     report = PreflightReport(len(runs))
     model: Any
@@ -136,19 +139,33 @@ def collect(tcf: Path, runs: list[RunRequest], mode: str, factory: Any) -> tuple
     keys: set[tuple[Any, ...]] = set()
     unique: dict[Path, set[str]] = {}
     inventory_spellings: dict[Path, Path] = {}
+    physical_by_spelling: dict[str, Path] = {}
+    layer_names_by_spelling: dict[str, tuple[str, ...]] = {}
     for ref in references:
         for path in expanded.get(ref.path, (ref.path,)):
+            path_spelling = str(path)
             layers = [ref.layer]
             if ref.layer and (any(char in ref.layer for char in "*?[") or ref.layer.lower() == "all"):
-                with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as connection:
-                    names = [str(row[0]) for row in connection.execute("SELECT table_name FROM gpkg_contents")]
+                names = layer_names_by_spelling.get(path_spelling)
+                if names is None:
+                    # Keep the original SQLite spelling, cache only a complete
+                    # successful enumeration, and close the read-only handle.
+                    with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as connection:
+                        names = tuple(str(row[0]) for row in connection.execute("SELECT table_name FROM gpkg_contents"))
+                    layer_names_by_spelling[path_spelling] = names
                 layers = [
                     name
                     for name in names
                     if ref.layer.lower() == "all" or fnmatch.fnmatchcase(name.lower(), ref.layer.lower())
                 ]
-            # Resolve deliberately to compare physical files across path aliases and linked paths.
-            physical = path.resolve()
+            # Resolve deliberately to compare physical aliases and linked paths,
+            # once per exact spelling in this invocation. String keys retain
+            # case distinctions that Windows Path equality would collapse.
+            # Keep containment checks separate; failed resolutions still raise.
+            physical = physical_by_spelling.get(path_spelling)
+            if physical is None:
+                physical = path.resolve()
+                physical_by_spelling[path_spelling] = physical
             # Physical identity deduplicates aliases, but I/O must retain the
             # supplied drive spelling. Resolving T: to UNC here produces SQLite
             # file://host URIs rejected by Windows builds without URI authority.

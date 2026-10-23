@@ -1,23 +1,47 @@
 # Batch-aware TUFLOW preflight optimisation — stacked PR scope
 
-**Status:** P5 benchmark rerun and SSD sharing/I/O investigation complete; results and recommendations published to draft PyTUFLOW PR #12. Graph timing gains remain limited. Earlier SSD/SMB results below remain historical. The batch adapter and shared inspection changes from #148 are now merged into
-#143 (`feat/tuflow-run-preflight`), which remains draft. PyTUFLOW #1 is merged into the fork's `master`;
-opt-in batch work continues in #5. No production release or default-mode change is authorised.
+**Status:** Active validation of benchmark recommendations implemented in separate parser and consumer PRs.
+PyTUFLOW #12 now contains expanded scenario/variable group proofs and isolation fixes at
+`84f1f38767c446ab58c64fd478b383d97d516a73`; 245 focused tests pass locally on each of Python 3.12.14 and 3.14.8,
+and all eight active hosted checks pass, including Windows 3.12/3.14 and the 161-TCF graph differential.
+Consumer #143 (`feat/tuflow-run-preflight`) memoises repeated physical-identity resolution and GeoPackage layer
+enumeration in its temporary diagnostic; six focused tests, Ruff and strict Pyright pass on Python 3.14.8.
+Both PRs remain draft. Current native performance is unmeasured;
+earlier SSD/SMB results below are historical. No production release, dependency repin or default-mode change.
 
 **Date:** 2026-10-23. **Owner:** ChatGPT. **Next review:** 2026-10-30.
 
 **Historical completed benchmark revisions:** PyTUFLOW `a9f654c1ec0812fc70035e227fb2f9f12290f449`;
 consumer diagnostic `2e03c0b110a272d9c6a05cc6da3bc08817130164`.
-The current pinned hosted batch workflow passes strict eager/deferred/batch materialisation parity for all
+The earlier pinned hosted batch workflow passed strict eager/deferred/batch materialisation parity for all
 161 TCFs / 174 runs. The preceding parser b1c9cfd also passed the local strict archive replay.
 Native rotated three-mode evaluations are complete; see the final results below. The small SMB model has 42 commands.
 
-The two-BC-declaration issue is explicitly deferred by the owner. Eliminating repeated invariant run-state
-construction requires a broader immutable control-file graph and remains future optimisation.
+The two-BC-declaration issue is explicitly deferred by the owner. Broader non-READ/BC/include reuse remains
+outside the current parser proof; new code must be validated independently of the historical benchmark.
 Historical planning/checkpoints below describe earlier states; this summary and the latest evaluation entry
 supersede their delivery/acceptance statements.
 
-## Why this is separate from PR #143
+## Current parser and consumer ownership
+
+| Repository / PR | Owns | Boundary |
+| --- | --- | --- |
+| PyTUFLOW #12 | Control-file parsing, scenario/event and variable semantics, compiled dependencies, safe state reuse, isolation and batch API diagnostics | Proves reuse inside the parser; does not implement the consumer's inventory/reporting workflow |
+| ryan-tools #143 | Public PyTUFLOW API adaptation, physical GIS/database/file materialisation, unique inventory, provenance and diagnostic identity comparisons | Does not duplicate TUFLOW parsing, infer parser reuse from equal file sets, or inspect private graph/cache state |
+
+The current consumer change is confined to `tests/fixtures/tuflow_example_repro/`: cache successful
+`Path.resolve()` results and read-only GeoPackage table-name lists by **exact supplied path spelling** for
+one `collect()` invocation. Preserve physical alias equivalence and each run/command record, but retain
+original spellings for inventory and SQLite I/O. New invocations start fresh; exceptions still fail the
+comparison. Archive-containment checks and installed-module verification retain their separate deliberate
+link resolution. Production preflight and parser dependency pins are unchanged.
+
+The parser's [current handoff](https://github.com/phantom-branch/PyTuflow/blob/84f1f38767c446ab58c64fd478b383d97d516a73/agent_workstreams/P5_graph_group_reuse.md)
+owns graph implementation and validation. Its [original benchmark report at 2b8ddb9](https://github.com/phantom-branch/PyTuflow/blob/2b8ddb9/agent_workstreams/P5_benchmark_results_2026-10-23.md)
+remains immutable historical evidence. Native M480/N42 reruns require the designated workstation and the
+new parser/consumer source pair; no raw native data or identifying paths are uploaded.
+
+## Historical planning: why optimisation was separate from PR #143
 
 PR #143 owns the read-only event/scenario-sensitive dependency checker and its existing shared filesystem/GIS inventory. It must finish correctness and exact eager/deferred parity before optimisation is considered safe. Do not make the optimiser a prerequisite for fixing #143 or silently merge changes into its branch.
 
@@ -526,3 +550,51 @@ the outcome; delivery commits are linked from the PR comments. Both remain unmer
 launcher or release. Next action: review the measured coverage and select the
 next bounded optimisation from the report. Next review: 2026-10-30. Other overdue
 register fronts were not resumed by this benchmark task.
+
+## Benchmark recommendations implemented - 2026-10-23
+
+The owner explicitly requested the diagnostic efficiency fix in consumer PR #143 and clear ownership between
+the two repositories. The earlier planning restriction on bringing the separate production optimiser into
+#143 does not prevent this authorised diagnostic-only correction. Child PR #156 remains separate.
+
+**PyTUFLOW delivery:** PR #12 commit `84f1f38767c446ab58c64fd478b383d97d516a73` expands the supported
+GIS Code / Grid Zpts group proof to scenario-conditioned and proven variable-derived literal inputs. It
+includes branch/scenario slot, configuration, source and relevant variable/declaration identities; detaches
+mutable initial seeds and clones; fixes the remaining Grid `cf` alias; skips caches without useful candidates;
+and exposes candidate, bypass, reuse, failed-run and cost accounting. The 500-context correctness fixture
+elides 997 constructors versus 499 before the change, with full ordered parity. This is a constructor count,
+not a measured native speedup. Unsupported command groups still use normal parsing.
+
+All eight active hosted checks pass at that parser commit, including
+[Windows 3.12/3.14 integration and the full public graph differential](https://github.com/phantom-branch/PyTuflow/actions/runs/39892457442).
+The focused contract set passes 245 tests on each version, both locally and on Windows. The TMF comparison
+reports no new P5 failures; pre-P5 and current fork results remain 39 failed / 530 passed / 11 skipped, with
+three already documented differences from canonical upstream. These existing failures are not claimed fixed.
+
+**Consumer implementation:** Only the temporary archive diagnostic and its regression tests/README change.
+Its `collect()` caches successful physical identities by exact path spelling, and caches successful complete
+GeoPackage table-name tuples by the same spelling. Each layer selector and run/command provenance record is
+still evaluated independently. Original supplied paths are used for SQLite and inventory operations, aliases
+remain comparable, and enumeration connections close explicitly on success or failure. The next collection
+starts fresh; resolution/query failures propagate. Containment/module verification stays separate.
+
+**Local consumer validation (Linux, Python 3.14.8):**
+
+- `python -m pytest -q tests/fixtures/tuflow_example_repro/test_run_checks.py`: **6 passed**. The tests cover
+  exact spelling counts, mapped/UNC alias handling, run/command provenance, changed link targets and database
+  contents across calls, failed resolution/query retry and closed enumeration connections.
+- Ruff 0.16.6 check and format verification pass for `run_checks.py` and `test_run_checks.py`; strict Pyright
+  on those two files reports **0 errors / 0 warnings**. Compilation and whitespace validation pass.
+- The layer fixture uses three runs, two path spellings and three selectors: **two enumeration connections**
+  plus one independent final inventory connection, while retaining every expected identity.
+- Documentation validation covers the default repository README set and all three changed Markdown files.
+  The existing Windows batch-smoke workflow already selects the modified tests and complete archive replay;
+  its development-only parser pin is retained. No package build is needed for this diagnostic-only change.
+
+**Git delivery and next action:** This consumer patch is delivered on `feat/tuflow-run-preflight` to existing
+draft PR #143; the PR records its exact commit and hosted validation. Production preflight, launcher defaults,
+package/development dependency pins and submodule gitlinks are unchanged. No merge, release or simulation is
+authorised by this change. Review both current PRs, then have the designated workstation run the native
+M480/N42 protocol against the new parser/consumer source pair before making a timing claim. Broader parser
+group support, `Inputs.append` bookkeeping and pre-existing upstream differences remain separately scoped
+follow-ups. Next review: **2026-10-30**.
