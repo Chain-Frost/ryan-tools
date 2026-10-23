@@ -8,8 +8,9 @@ retain their own self-contained behaviour until they are deliberately migrated.
 Planned model-check integration for
 [`model_management/run_tuflow_simulations.py`](model_management/run_tuflow_simulations.py)
 is tracked in the [runner work record](../../docs/work/2026-10-23-tuflow-runner-model-checks.md).
-It scopes collection policy and launch gating above the native benchmark work,
-with later runner improvements in separate PRs; these proposals are not implemented yet.
+It scopes background checks that report INFO on success and all findings as warnings
+without delaying or stopping the batch, plus verification of existing GPU-sharing warnings.
+Pause/restart improvements belong to later PRs; the background-check changes are not implemented yet.
 
 ## Maintained wrappers
 
