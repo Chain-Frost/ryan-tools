@@ -2,13 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; initial hosted Windows acceptance passed, review fix undergoing final validation |
+| Status | Active; diagnostic implemented and reviewed, native four-mode evaluation pending |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 |
 | Next review | 2026-10-30 |
 | Parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` — PyTUFLOW PR #12 merged into `master` |
 | Consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` — PR #143 merged into `main` |
-| Next action | Complete clean-source acceptance fix and final Windows archive/review gates, then give the owner the frozen native command |
+| Frozen benchmark diagnostic | `f1f7958b79f3ffe84ba8ac0b04658f27c311460a` — all five Windows workflows passed, Codex review clean |
+| Next action | Owner runs the fixed 480-run SMB workload with the frozen four-mode diagnostic; compare parser follow-ups individually after their final review/checks pass |
 
 Both merged trees match the validated source pair exactly: parser
 `126ec64e221908f5327ee9dc9d372c8084afaf12` and consumer
@@ -22,8 +23,9 @@ graph-on at the **same parser source**, alongside its existing correctness
 baselines. `run_local_checks --batch` still compares eager, individual
 deferred and default batch collection. That is useful baseline evidence but
 does not isolate the graph's contribution. The new explicit
-`--batch --graph-compare` enables that comparison. Native timing remains pending;
-this record contains no native performance claim.
+`--batch --graph-compare` enables that comparison. Controlled four-mode native
+timing remains pending; the owner's completed three-mode baseline is recorded
+below and does not establish graph contribution.
 
 PyTUFLOW's public `TCF.collect_batch_dependencies()` accepts `compile_tree` and
 `cache_scopes`. The consumer's public `check_simulation_inputs()` accepts
@@ -141,11 +143,11 @@ this private manifest, filled locally:
 anonymous_label: NEW_SMB
 model_path: <PRIVATE_TCF_PATH>
 flags_file: <PRIVATE_COMMAND_EXPORT_OR_RUNS_JSON>
-expected_runs: <ACTUAL_RUN_COUNT>
+expected_runs: 480
 distinct_complete_flags: <ACTUAL_DISTINCT_FLAG_COUNT>
 parser_sha: e162c04330d24c37bee3ade94479cc4602651060
 consumer_parent_sha: bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2
-diagnostic_consumer_sha: <IMPLEMENTED_FOLLOWUP_HEAD_SHA>
+diagnostic_consumer_sha: f1f7958b79f3ffe84ba8ac0b04658f27c311460a
 storage_and_cache_conditions: <ANONYMISED_SMB_DESCRIPTION>
 output_directory: <PRIVATE_DIRECTORY_OUTSIDE_REPOSITORIES>
 ```
@@ -164,8 +166,11 @@ not acceptance evidence for this new model or source pair.
 Implementation is on `test/native-graph-benchmark-controls` for PR #158. Changes
 are limited to repository regression tooling, its focused tests, one Windows
 workflow and documentation. No package code/default/dependency changed and no
-package build or release is required. The draft remains open for hosted Windows
-acceptance, Codex review and the owner's new SMB workload.
+package build or release is required. The executable diagnostic is pushed and
+validated at `f1f7958b79f3ffe84ba8ac0b04658f27c311460a`; this later documentation
+update records readiness and the owner's baseline without changing executable
+code. Keep that frozen consumer revision for every native comparison. The draft
+remains open for the owner's four-mode SMB results; merge is not authorised.
 
 ### 2026-10-23 implementation milestone
 
@@ -214,7 +219,7 @@ before recommending the native run. Use the implemented command in the
 [harness README](../../tests/fixtures/tuflow_example_repro/README.md), with
 `--batch --graph-compare --repeats 4 --storage-and-cache-conditions <description>`.
 Compare each parser optimisation independently against the frozen baseline,
-using the same final diagnostic commit. No merge or publication is authorised.
+using the same frozen diagnostic commit. No merge or package publication is authorised.
 
 ### 2026-10-23 review follow-up
 
@@ -229,10 +234,50 @@ acceptance. Graph comparison stops before measured collection on a dirty source;
 explicit `--continue-on-findings` still completes diagnostic phases but exits 1.
 Legacy two/three-mode validation retains its exit behaviour while also refusing
 benchmark acceptance for dirty source. `sources_clean` and `source_findings` are
-recorded in provenance and summaries, including early failures. The final head
-requires fresh Windows validation and review before the native command is frozen.
+recorded in provenance and summaries, including early failures.
 The local Python 3.14.8 combined selection passes **93 tests**, including ten
 new source-acceptance regression cases (68 diagnostic tests in total). Ruff,
 strict Pyright and whitespace checks pass. The new tests cover both dirty
 repositories, early report replacement, continued full diagnostics and retained
 legacy exit behaviour.
+
+The final executable implementation at
+`f1f7958b79f3ffe84ba8ac0b04658f27c311460a` passed all five hosted workflows:
+
+- [Ordered contracts and full Windows 161-TCF / 174-run four-mode parity](https://github.com/Chain-Frost/ryan-tools/actions/runs/39909552834).
+- [Established API / graph candidate batch matrix](https://github.com/Chain-Frost/ryan-tools/actions/runs/39909552823).
+- [Deferred consumer contracts](https://github.com/Chain-Frost/ryan-tools/actions/runs/39909552802).
+- [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/39909552829).
+- [Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/39909552839).
+
+[Refreshed Codex review](https://github.com/Chain-Frost/ryan-tools/pull/158#issuecomment-6358476440)
+completed with no findings at that revision. A fresh synthetic exported-command
+smoke also passed all four full trials and public preflight with clean sources
+and exact parser/consumer revisions in its report. **The baseline native graph
+comparison is ready at this frozen executable revision.**
+
+### Owner's fixed SMB workload baseline
+
+The owner posted the anonymised
+[three-mode baseline](https://github.com/Chain-Frost/ryan-tools/pull/158#issuecomment-6358663146)
+on 2026-10-23. The new model and **480-row run list are now fixed** for subsequent
+comparisons. This uses clean merged parser `e162c04330d24c37bee3ade94479cc4602651060`
+and consumer `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` on Windows Python 3.14.5.
+Representative checks and three complete eager/deferred/default-batch trials
+passed: **8,160 identities, 158 unique files**, zero missing/extra identities,
+collection/inventory issues, and matching successful public preflight.
+
+Median totals were eager **571.425 s**, individual deferred **40.766 s**, and
+default batch **32.097 s**. Retain the complete timings in the linked comment:
+batch varied from **31.743 to 65.424 s**. Initial client/server cache state and
+server competing activity were unknown; later trials followed the gate and
+earlier reads. These observations are not cold-cache measurements and do not
+identify the cause of the variability.
+
+The default batch reported 23,041 constructed input states and 479 elisions,
+with one reusable group, no whole-projection reuse and no failed-run construction.
+That is bounded component evidence, not a measurement of graph contribution.
+The next run must use this same model/run list with **four** balanced full
+trials and explicit graph-off/on modes. The new runner records the distinct
+complete flag count automatically. Keep all source paths and detailed reports
+private; no further model information is required before that run.
