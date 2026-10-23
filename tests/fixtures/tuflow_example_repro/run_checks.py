@@ -14,7 +14,7 @@ import sys
 import tempfile
 from collections import Counter
 from contextlib import closing
-from dataclasses import replace
+from dataclasses import fields, replace
 from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
@@ -92,38 +92,174 @@ def discover_cases(base: Path) -> dict[Path, list[dict[str, str]]]:
     return cases
 
 
+GRAPH_MODES = {"batch_graph_off": False, "batch_graph_on": True}
+
+
+def comparison_modes(batch: bool, graph_compare: bool = False) -> tuple[str, ...]:
+    """Select explicit diagnostic modes without changing the production defaults."""
+    if graph_compare:
+        if not batch:
+            msg = "--graph-compare requires --batch"
+            raise ValueError(msg)
+        return ("eager", "deferred", *GRAPH_MODES)
+    return ("eager", "deferred", "batch") if batch else ("eager", "deferred")
+
+
+def _digest(value: object) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode("utf-8")).hexdigest()
+
+
+def _command_identity(ordinal: int, owner: Any, line: Any, name: Any, text: Any) -> tuple[Any, ...]:
+    """Compare public command provenance, never UUID bytes from independent parses."""
+    if (
+        owner is None
+        or not isinstance(line, int)
+        or isinstance(line, bool)
+        or not str(name).strip()
+        or not str(text).strip()
+    ):
+        msg = "Incomplete diagnostic command provenance"
+        raise ValueError(msg)
+    return (ordinal, str(Path(owner).absolute()).casefold(), line, str(name), str(text))
+
+
+class _Provenance:
+    """Bounded per-run hashes of complete ordered public projections."""
+
+    def __init__(self, runs: list[RunRequest]) -> None:
+        self.runs = runs
+        self.commands: list[tuple[int, int, str]] = []
+        self.references: list[tuple[int, str]] = []
+        self.next_run = 0
+
+    def begin(self, flags: str) -> int:
+        """Consume the requested ordinal even when its parser context later fails."""
+        index = self.next_run
+        self.next_run += 1
+        if index >= len(self.runs) or flags != self.runs[index].arguments:
+            msg = "Diagnostic context order or flags mismatch"
+            raise ValueError(msg)
+        return index
+
+    def context(self, context: Any, flags: str, index: int, *, deferred: bool) -> None:
+        inputs = tuple(context.find_input())
+        commands: list[tuple[Any, ...]] = []
+        references: list[tuple[int, tuple[tuple[str, str], ...]]] = []
+        for ordinal, inp in enumerate(inputs):
+            command = inp.command()
+            commands.append(_command_identity(ordinal, command.parent, inp.line_number, inp.lhs, command.original_text))
+            if deferred:
+                references.extend((ordinal, self.reference(ref)) for ref in inp.file_references)
+        self.commands.append((self.runs[index].index, len(commands), _digest((flags, commands))))
+        if deferred:
+            self.references.append((self.runs[index].index, _digest(references)))
+
+    @staticmethod
+    def reference(ref: Any) -> tuple[tuple[str, str], ...]:
+        # FileReference is a public immutable dataclass. Retain every field,
+        # including scan requirements, so a partial projection cannot pass.
+        return tuple((item.name, str(getattr(ref, item.name))) for item in fields(ref))
+
+    def batch(self, result: Any, *, required: bool) -> None:
+        for run, case in zip(self.runs, result.runs, strict=True):
+            if case.error is not None:
+                continue  # BatchModelView retains and reports the per-run failure.
+            ordered = getattr(case, "ordered_inputs", None)
+            if ordered is None:
+                if required:
+                    msg = "Graph comparison requires complete ordered-input provenance"
+                    raise ValueError(msg)
+                return  # Preserve the established legacy batch adapter contract.
+            commands = [
+                _command_identity(
+                    item.command_index, item.owner_control_file, item.line_number, item.command_name, item.command_text
+                )
+                for item in ordered
+            ]
+            self.commands.append((run.index, len(commands), _digest((case.flags, commands))))
+            references = [(item.command_index, self.reference(item.reference)) for item in case.input_references]
+            self.references.append((run.index, _digest(references)))
+            by_uuid = {item.input_uuid: item for item in ordered}
+            for activation in case.database_activations:
+                command = by_uuid.get(activation.input_uuid)
+                if command is None or (
+                    activation.sequence != command.command_index
+                    or activation.owner_control_file != command.owner_control_file
+                    or activation.line_number != command.line_number
+                ):
+                    msg = "Batch database activation command/provenance mismatch"
+                    raise ValueError(msg)
+
+
 class EagerModel:
     """Expose eager mode without advertising deferred support to the consumer."""
 
-    def __init__(self, model: Any) -> None:
+    def __init__(self, model: Any, provenance: _Provenance) -> None:
         self.model = model
+        self.provenance = provenance
 
     def context(self, flags: str) -> Any:
-        return self.model.context(flags, file_resolution="eager")
+        index = self.provenance.begin(flags)
+        context = self.model.context(flags, file_resolution="eager")
+        self.provenance.context(context, flags, index, deferred=False)
+        return context
 
 
 class DeferredModel:
     """Use the public upstream deferred API without monkeypatching its internals."""
 
-    def __init__(self, model: Any) -> None:
+    def __init__(self, model: Any, provenance: _Provenance) -> None:
         self.model = model
+        self.provenance = provenance
 
     def context(self, flags: str, *, file_resolution: str | None = None) -> Any:
-        return self.model.context(flags, file_resolution=file_resolution or "deferred")
+        index = self.provenance.begin(flags)
+        context = self.model.context(flags, file_resolution=file_resolution or "deferred")
+        self.provenance.context(context, flags, index, deferred=True)
+        return context
+
+
+class BatchDiagnosticModel:
+    """Forward exactly one ordered public batch call with explicit graph policy."""
+
+    def __init__(self, model: Any, mode: str, provenance: _Provenance) -> None:
+        self.model = model
+        self.mode = mode
+        self.provenance = provenance
+
+    def collect_batch_dependencies(self, flags: tuple[str, ...]) -> Any:
+        batch = getattr(self.model, "collect_batch_dependencies", None)
+        if not callable(batch):
+            msg = "Diagnostic batch mode requires public collect_batch_dependencies()"
+            raise ValueError(msg)
+        # No fallback/monkeypatch: unsupported keyword APIs must fail visibly.
+        result = (
+            batch(flags, cache_scopes=True, compile_tree=GRAPH_MODES[self.mode])
+            if self.mode in GRAPH_MODES
+            else batch(flags)
+        )
+        self.provenance.batch(result, required=self.mode in GRAPH_MODES)
+        return result
 
 
 def collect(  # noqa: C901 - read-only materialisation and invocation-local identity/layer caches
     tcf: Path, runs: list[RunRequest], mode: str, factory: Any
 ) -> tuple[set[tuple[Any, ...]], dict[str, Any]]:
     """Compare complete supported references; refuse partial attribute parity."""
+    if mode not in {"eager", "deferred", "batch", *GRAPH_MODES}:
+        msg = f"Unknown diagnostic mode: {mode}"
+        raise ValueError(msg)
     report = PreflightReport(len(runs))
+    provenance = _Provenance(runs)
     model: Any
-    if mode == "batch":
-        model = BatchModelView(factory(str(tcf)), tuple(run.arguments for run in runs))
+    if mode == "batch" or mode in GRAPH_MODES:
+        model = BatchModelView(
+            BatchDiagnosticModel(factory(str(tcf)), mode, provenance), tuple(run.arguments for run in runs)
+        )
     else:
-        model = (EagerModel if mode == "eager" else DeferredModel)(factory(str(tcf)))
+        model = (EagerModel if mode == "eager" else DeferredModel)(factory(str(tcf)), provenance)
     references, _ = _collect_references(tcf, runs, model, report)
-    if mode == "batch":
+    if mode == "batch" or mode in GRAPH_MODES:
         model.assert_consumed()
     patterns = {ref.path for ref in references if any(char in ref.path.name for char in "*?[")}
     expanded, failures, _ = expand_file_patterns(patterns)
@@ -185,8 +321,64 @@ def collect(  # noqa: C901 - read-only materialisation and invocation-local iden
         + sum(item.status != "present" for item in inventory.layers.values()),
         "entries": len(keys),
         "files": len(unique),
+        "command_provenance": provenance.commands,
+        "reference_provenance": provenance.references,
+        "provenance_complete": len(provenance.commands) == len(runs),
     }
     return keys, stats
+
+
+def compare_collections(
+    row: dict[str, Any], identities: dict[str, set[tuple[Any, ...]]], modes: tuple[str, ...]
+) -> dict[str, Any]:
+    """Fail closed for missing modes, findings, identity or public-provenance differences."""
+    differences: dict[str, Any] = {}
+    passed = bool(modes) and "eager" in modes and set(identities) == set(modes)
+    graph = any(mode in GRAPH_MODES for mode in modes)
+    pairs = [("eager", mode, "" if mode == "deferred" else f"{mode}_") for mode in modes if mode != "eager"]
+    if graph:
+        pairs.append(("batch_graph_off", "batch_graph_on", "graph_"))
+    for baseline, mode, prefix in pairs:
+        if baseline not in identities or mode not in identities:
+            passed = False
+            differences[f"{baseline}:{mode}"] = {"error": "Missing comparison mode"}
+            continue
+        missing = identities[baseline] - identities[mode]
+        extra = identities[mode] - identities[baseline]
+        row.update({f"{prefix}missing": len(missing), f"{prefix}extra": len(extra)})
+        left, right = row.get(baseline, {}), row.get(mode, {})
+        lineage_equal = left.get("command_provenance") == right.get("command_provenance")
+        # Legacy batch builds lack ordered descriptors. New graph acceptance
+        # always requires complete provenance in all four modes.
+        compare_lineage = graph or (left.get("provenance_complete") and right.get("provenance_complete"))
+        row[f"{prefix}provenance_equal"] = bool(lineage_equal) if compare_lineage else None
+        differences[f"{baseline}:{mode}"] = {
+            "missing": sorted(missing),
+            "extra": sorted(extra),
+            "provenance_equal": row[f"{prefix}provenance_equal"],
+        }
+        passed = passed and not missing and not extra and (not compare_lineage or lineage_equal)
+    if graph:
+        reference_equal = all(
+            row.get(mode, {}).get("reference_provenance") is not None
+            and row.get("deferred", {}).get("reference_provenance") is not None
+            and row.get(mode, {}).get("reference_provenance") == row.get("deferred", {}).get("reference_provenance")
+            for mode in GRAPH_MODES
+        )
+        row["reference_provenance_equal"] = reference_equal
+        passed = passed and reference_equal
+    for mode in modes:
+        stats = row.get(mode, {})
+        passed = passed and (
+            not stats.get("error")
+            and stats.get("collection_issues") == 0
+            and stats.get("inventory_issues") == 0
+            and (
+                not graph or (stats.get("provenance_complete") is True and stats.get("command_provenance") is not None)
+            )
+        )
+    row["passed"] = bool(passed)
+    return differences
 
 
 def main() -> int:  # noqa: C901 - multi-mode regression results and fail-closed acceptance
@@ -198,8 +390,13 @@ def main() -> int:  # noqa: C901 - multi-mode regression results and fail-closed
     )
     parser.add_argument("--tcf", action="append", help="TCF filename to select; repeat for multiple cases")
     parser.add_argument("--batch", action="store_true", help="Include experimental batch source parity checks")
+    parser.add_argument("--graph-compare", action="store_true", help="Compare cached graph-off/on; requires --batch")
     parser.add_argument("--output", type=Path, help="Report directory; default is a new temporary directory")
     options = parser.parse_args()
+    try:
+        modes = comparison_modes(options.batch, options.graph_compare)
+    except ValueError as exc:
+        parser.error(str(exc))
     bundle = Path(__file__).absolute().parents[2] / "test_data" / "tuflow" / "example_input_preflight"
     print(f"Verified {verify_bundle(bundle)} archive members")
     if options.verify_only:
@@ -228,33 +425,28 @@ def main() -> int:  # noqa: C901 - multi-mode regression results and fail-closed
         print(f"PyTUFLOW: {upstream.__file__}; {len(cases)} TCFs; {sum(map(len, cases.values()))} runs")
         for tcf, combinations in cases.items():
             runs = [RunRequest(index, flags) for index, flags in enumerate(combinations, 1)]
-            row: dict[str, Any] = {"tcf": tcf.name, "runs": len(runs)}
+            row: dict[str, Any] = {
+                "tcf": tcf.name,
+                "runs": len(runs),
+                "mode_order": modes,
+                "public_preflight": {"timed": False, "batch_graph_policy": "parser_default", "graph_comparison": False},
+            }
             identities: dict[str, set[tuple[Any, ...]]] = {}
-            modes = ("eager", "deferred", "batch") if options.batch else ("eager", "deferred")
             for mode in modes:
                 try:
                     identities[mode], row[mode] = collect(tcf, runs, mode, factory)
                 except Exception as exc:  # noqa: BLE001 - record each failure and continue the diagnostic sweep
                     row[mode] = {"error": str(exc)}
-            # The three-mode run still requires the original eager versus
-            # individual-deferred comparison. Comparing len == 2 here would
-            # skip the baseline exactly when all three modes succeeded.
-            if "eager" in identities and "deferred" in identities:
-                eager_only = identities["eager"] - identities["deferred"]
-                deferred_only = identities["deferred"] - identities["eager"]
-                row["missing"] = len(eager_only)
-                row["extra"] = len(deferred_only)
-                # Store complete identity mismatches so an apparent pass with
-                # equal counts cannot hide wrong owning commands or GIS layers.
-                row["eager_only_identities"] = [list(value) for value in sorted(eager_only)]
-                row["deferred_only_identities"] = [list(value) for value in sorted(deferred_only)]
-            if options.batch and "batch" in identities and "eager" in identities:
-                eager_only = identities["eager"] - identities["batch"]
-                batch_only = identities["batch"] - identities["eager"]
-                row["batch_missing"] = len(eager_only)
-                row["batch_extra"] = len(batch_only)
-                row["batch_eager_only_identities"] = [list(value) for value in sorted(eager_only)]
-                row["batch_extra_identities"] = [list(value) for value in sorted(batch_only)]
+            row["differences"] = compare_collections(row, identities, modes)
+            # Retain historical report fields for existing archive consumers.
+            if "eager:deferred" in row["differences"]:
+                comparison = row["differences"]["eager:deferred"]
+                row["eager_only_identities"] = comparison.get("missing", [])
+                row["deferred_only_identities"] = comparison.get("extra", [])
+            if "eager:batch" in row["differences"]:
+                comparison = row["differences"]["eager:batch"]
+                row["batch_eager_only_identities"] = comparison.get("missing", [])
+                row["batch_extra_identities"] = comparison.get("extra", [])
             try:
                 report = check_simulation_inputs(tcf, runs)
                 report.write_csv(output / f"{tcf.stem}-issues.csv")
@@ -272,22 +464,10 @@ def main() -> int:  # noqa: C901 - multi-mode regression results and fail-closed
             except Exception as exc:  # noqa: BLE001 - preserve parser failures as failed cases
                 row["preflight_passed"] = False
                 row["preflight_error"] = str(exc)
-            row["accepted_parity"] = (
-                row["preflight_passed"]
-                and (
-                    not options.batch
-                    or (
-                        row.get("batch_missing") == 0
-                        and row.get("batch_extra") == 0
-                        and row.get("batch_preflight_passed") is True
-                    )
-                )
-                and row.get("missing") == 0
-                and row.get("extra") == 0
-                and all(
-                    not any(row[mode].get(key) for key in ("error", "collection_issues", "inventory_issues"))
-                    for mode in modes
-                )
+            row["accepted_parity"] = bool(
+                row["passed"]
+                and row["preflight_passed"]
+                and (not options.batch or row.get("batch_preflight_passed") is True)
             )
             rows.append(row)
             (output / "results.json").write_text(json.dumps(rows, indent=2) + "\n", encoding="utf-8")
