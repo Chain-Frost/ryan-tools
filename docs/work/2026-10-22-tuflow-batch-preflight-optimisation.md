@@ -488,3 +488,19 @@ plus isolated Windows/Python 3.14 CI pinned to the merged PyTUFLOW #6–#10 stac
 and published dependency are unchanged. The first PR #156 head `c6102a0` passed its dedicated Windows ordered-input contract and full 161-TCF/174-run materialised parity workflow. Post-parent-sync CI is required before final acceptance.
 A representative nested/multi-declaration real project and any SMB timings remain deliberately deferred to
 the sole SMB-capable agent; do not upload native model data or claim production speedups from synthetic runs.
+
+**Final PR #156 source-head acceptance (23 October 2026):** Merged parent #143 head
+`f63bc02` (including #155's Nmx regression fix) into child #156 without
+losing concurrent parent documentation. Updated isolated Windows contracts to
+the validated merged PyTUFLOW #6–#10 source commit `3de5cd9`, not the published
+production dependency. Exact source head `5303fe9` passes all four workflows:
+Fast PR checks (39882687988), ordered batch Windows contracts and full public
+161-TCF/174-run materialised replay (39882687996), Python CI including the
+Nmx regression (39882688013), and batch optimisation smoke (39882687991).
+There were no unresolved inline review threads; a fresh Codex review was
+requested and had not yet completed when this was recorded. Native SMB and
+real nested two-BC project confirmation remain independently deferred. No
+solver, production dependency update, child-into-parent merge, main merge,
+or package release was performed. Next action: close any new Codex findings,
+then consider squash-merging child #156 into parent #143. Next review:
+2026-10-30.
