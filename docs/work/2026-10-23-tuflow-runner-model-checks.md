@@ -10,6 +10,7 @@
 | Branch | `feat/tuflow-runner-model-checks` |
 | PR base | `test/native-graph-benchmark-controls`, the branch for [ryan-tools #158](https://github.com/Chain-Frost/ryan-tools/pull/158) |
 | Initial parent | `f4a214a4cd6260098c939ae6beb59a9ec6ef0945` |
+| Parent integration | `9cd839247c430dbd9a2ec4a7e2187f1e80cea91d` from #158, refreshed after its diagnostic implementation landed on that draft |
 | Merged consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` (PR #143, including #156) |
 | Merged parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` (PyTUFLOW #12, including #13) |
 | Next action | Define worker/reporting/shutdown details, then implement the agreed background advisory policy and focused tests in this draft |
@@ -294,3 +295,9 @@ all missing-file warnings are printed, and the batch continues. Existing GPU
 occupancy warnings must be retained and verified. Pause/restart work is reserved
 for future PRs. Updated this authoritative scope and PR description accordingly.
 Implementation and native acceptance remain outstanding.
+
+Refreshed the stack against #158 at `9cd839247c430dbd9a2ec4a7e2187f1e80cea91d`
+after its implementation advanced during this session. Resolved the work-register
+overlap by retaining its current benchmark status and this separate runner row.
+The runner-specific diff remains four documentation files; inherited benchmark
+code is owned and validated by #158.

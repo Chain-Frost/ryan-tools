@@ -6,7 +6,8 @@ and accessed via the existing `tests/test_data` submodule.
 
 This directory contains **supported repository-only regression tooling** for
 Windows/Python 3.14. `run_checks` verifies the public archive and compares complete
-eager, individual deferred and optional batch dependency inventories. Its focused
+eager, individual deferred and optional cached-batch dependency inventories, with
+an explicit graph-off/on comparison. Its focused
 tests and strict Windows replay workflows remain part of the regression boundary.
 This lifecycle decision supersedes the earlier instruction to remove the temporary
 runner before merge. The permanent ZIP and manifest remain in the test-data repository.
@@ -91,12 +92,14 @@ of both repositories.
 ```powershell
 git rev-parse HEAD
 git -C E:\Github\PyTuflow rev-parse HEAD
-python -m tests.fixtures.tuflow_example_repro.run_local_checks `
+py -3.14 -m tests.fixtures.tuflow_example_repro.run_local_checks `
   --tcf "<model directory>\runs\<model>.tcf" `
   --commands-file "<model directory>\run_tuflow_simulations_commands.txt" `
   --expect-runs "<actual run count>" --label NEW_SMB `
   --pytuflow-checkout E:\Github\PyTuflow `
-  --output "$env:TEMP\tuflow-new-smb-check" --batch --repeats 3
+  --output "<private report directory>\baseline" `
+  --batch --graph-compare --repeats 4 `
+  --storage-and-cache-conditions "New SMB server; sequential warm-cache trials; no cache flush"
 ```
 
 The command export must contain only the selected TCF's exact event/scenario
@@ -112,30 +115,71 @@ missing, extra, collection or inventory issue fails acceptance. Private differen
 logs and CSVs can disclose model paths: keep them outside the repository and share
 only anonymised counts and summaries. No solver is launched and no model input is edited.
 It verifies that PyTUFLOW was imported physically from the requested checkout,
-requires `pytuflow>=1.2,<2`, and writes the source version, Python version and relevant
-parser-module hashes to private `provenance.json`. Keep both Git heads
-alongside this report; distribution metadata alone cannot identify a modified fork.
+requires `pytuflow>=1.2,<2`, and writes **both actual Git heads and dirty states**,
+the source/Python versions, relevant parser-module hashes, mode selection, run and
+distinct-flag counts, and the supplied storage/cache description to private
+`provenance.json`. Git and actual parser/consumer checkouts are required;
+distribution metadata alone cannot identify a modified fork. Keep detailed
+reports private, including Git status paths. The flags remain in their original
+order, including duplicate rows. The command export is not checked for matching
+TCF paths: export only the intended combinations for the selected model.
 
-`--batch` adds a third mode through the existing opt-in adapter; its actual batch
-call is included in timing and its scalar upstream counters/phase timings are
-retained. Public individual and batch preflight must both pass and have identical
-checked paths and issues. The default two-mode command remains available without
-`--batch`. `--representative-only` stops after the first/middle/last gate.
-This command compares eager, individual deferred and batch collection. It does
-not expose a graph-compilation on/off switch. A same-revision graph-on/graph-off
-comparison requires a separate diagnostic extension and its own validation;
-do not describe the existing three-mode results as that comparison.
+`--batch --graph-compare` selects these four diagnostic modes:
+
+| Report mode | Public parser call |
+| --- | --- |
+| `eager` | `model.context(flags, file_resolution="eager")` |
+| `deferred` | `model.context(flags, file_resolution="deferred")` |
+| `batch_graph_off` | `model.collect_batch_dependencies(flags, cache_scopes=True, compile_tree=False)` |
+| `batch_graph_on` | `model.collect_batch_dependencies(flags, cache_scopes=True, compile_tree=True)` |
+
+Both batch modes retain the other batch caches. Each collection loads a fresh
+TCF and makes one ordered public batch call. The diagnostic uses the existing
+strict `BatchModelView` and full materialisation/inventory stages. It compares
+every selected mode with eager and graph-off directly with graph-on. Bounded
+per-run hashes compare the complete ordered command ownership, source lines and
+command text, plus the public deferred references and their inspection flags.
+UUID joins are validated within each batch projection; fresh parses do not need
+equal random UUIDs. Missing lineage, failed modes and partial results fail.
+
+Graph comparison requires `--batch`, an explicit
+`--storage-and-cache-conditions` description, and a positive multiple of four
+full trials (default **4**). Mode order rotates through a complete cycle so
+each mode occupies each position equally. Run sequentially on the same storage
+without cache flushing or competing benchmarks. The representative gate is
+additional to the full trials. State the observed cache conditions accurately;
+the runner does not certify that a server cache is warm.
+
+The original two-mode invocation remains available without `--batch`, and
+`--batch` alone retains the three-mode/default-parser comparison. Their default
+repeat count remains 1. `--representative-only` stops after first/middle/last;
+it can return 0 for a successful smoke but `summary.json` explicitly records
+`full_workload_validated=false` and `accepted_for_benchmark=false`.
+
+Public individual and **default-batch** preflight remain a separate untimed gate,
+including raster-header checks and identical checked paths/issues. `preflight.json`
+records `timed=false`, `batch_graph_policy="parser_default"` and
+`graph_comparison=false`. The consumer API has no graph switch, so this is not
+graph-off/on public-preflight timing or validation. Both diagnostic graph modes
+still perform complete materialisation and physical inventory.
 
 For a known problematic model, `--continue-on-findings` completes the diagnostic
 instead of stopping at the gate. Findings remain in every report, acceptance
 remains false and the final exit is still 1. It does not permit launch or certify
 a workload, and such timings must not be presented as a successful-model speedup.
 
-Timings include parse, context creation and remaining collection/materialisation/
-inventory work, including physical-path identity normalisation, excluding process
+Timings include parse, context creation or the **actual public batch call**, and
+remaining collection/provenance/materialisation/inventory work, including
+physical-path identity normalisation, excluding process
 startup and report writing. Raster-header validation is checked by the separate,
 untimed public individual/batch preflight comparison. These are diagnostic timings,
-not complete launcher wall times. Python audit counters
+not complete launcher wall times. Public parser counters and bounded fallback
+reasons are retained under each batch mode. Constructor attempts/elisions and
+failed-run work are distinct from eligibility/cache-hit counts. The parser's key,
+clone, certification and constructor timings can overlap other phases: do not
+sum them into a total or subtract them as exclusive phases. Only the diagnostic's
+exclusive parse/context/batch timers are subtracted from its collection total.
+Python audit counters
 record `open`, `os.scandir`, `os.listdir`, `sqlite3.connect` and `pathlib.Path.glob`
 by phase. They do **not** count every stat or native GIS/OS read and do not measure
 exact memory peaks. A background sampler records process RSS every 20 ms, start
@@ -145,6 +189,14 @@ this is a sampled process observation, not a memory-allocation proof. Retain the
 separate zero-I/O spy tests; an empty audit count alone cannot
 prove zero native I/O. State the actual storage and cache conditions when reporting
 timings; local SSD results do not establish network performance.
+
+`parity.json` retains each gate/trial, while `summary.json` states final acceptance.
+Reports are initialised as incomplete before a run so a failed representative
+gate cannot leave an older accepted summary in a reused directory. Use a separate
+private directory for each parser revision. Compare parser baseline `e162c04`,
+append-accounting PR #14 and literal-setting PR #15 separately with the same
+diagnostic revision and workload before testing any combined candidate. Share
+only anonymised counts, timings, parity, Git heads and relevant batch metrics.
 
 Identity comparison follows physical aliases deliberately, while inventory I/O
 retains the supplied path spelling. Converting a mapped drive to a UNC SQLite
@@ -180,6 +232,12 @@ missing or extra materialised identities, no collection/inventory issues and
 matching public preflight results. A selected `--tcf` smoke is useful for debugging
 but does not substitute for that complete gate. Keep the focused harness tests
 and all strict workflow assertions when changing the comparator.
+
+The Windows ordered-batch workflow pins parser baseline
+`e162c04330d24c37bee3ade94479cc4602651060` and runs the full archive with
+`run_checks --batch --graph-compare`, plus focused diagnostic/adapter tests,
+Ruff and strict Pyright. The archive runner is a correctness gate, not a native
+performance benchmark; its four collection modes are each run once per TCF.
 
 Consumer PR #156 was integrated into parent #143 at `298fb13` after all five
 workflows passed and independent review returned no findings. That evidence

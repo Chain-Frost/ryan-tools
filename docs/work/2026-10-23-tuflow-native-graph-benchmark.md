@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Planned; documentation-only draft, tooling not implemented |
-| Owner | Unassigned |
+| Status | Active; implementation and focused validation complete, hosted Windows acceptance/review pending |
+| Owner | ChatGPT |
 | Created / Updated | 2026-10-23 |
 | Next review | 2026-10-30 |
 | Parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` — PyTUFLOW PR #12 merged into `master` |
 | Consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` — PR #143 merged into `main` |
-| Next action | Review this scope, then implement and validate diagnostic graph controls in this draft PR |
+| Next action | Publish the implemented diagnostic, complete exact-head Windows archive/review gates, then give the owner the frozen native command |
 
 Both merged trees match the validated source pair exactly: parser
 `126ec64e221908f5327ee9dc9d372c8084afaf12` and consumer
@@ -17,19 +17,20 @@ consumer merge. Record the actual Git revisions used for each native trial.
 
 ## Outcome and current boundary
 
-Extend the supported repository regression harness to measure graph-off versus
+The supported repository regression harness now measures graph-off versus
 graph-on at the **same parser source**, alongside its existing correctness
-baselines. The current `run_local_checks --batch` compares eager, individual
+baselines. `run_local_checks --batch` still compares eager, individual
 deferred and default batch collection. That is useful baseline evidence but
-does not isolate the graph's contribution. This record proposes tooling; it
-contains no benchmark results or performance claim.
+does not isolate the graph's contribution. The new explicit
+`--batch --graph-compare` enables that comparison. Native timing remains pending;
+this record contains no native performance claim.
 
 PyTUFLOW's public `TCF.collect_batch_dependencies()` accepts `compile_tree` and
 `cache_scopes`. The consumer's public `check_simulation_inputs()` accepts
 `context_mode="individual"` or `"batch"`, but exposes neither a graph switch
 nor a model-factory argument. Respect this distinction:
 
-| Proposed diagnostic mode | Public parser call |
+| Implemented diagnostic mode | Public parser call |
 | --- | --- |
 | Eager | `model.context(flags, file_resolution="eager")` |
 | Individual deferred | `model.context(flags, file_resolution="deferred")` |
@@ -159,9 +160,57 @@ not acceptance evidence for this new model or source pair.
 
 ## Delivery state
 
-This draft records a source-checked design only. No graph-control code, new CLI
-option, test execution or native benchmark is delivered by this documentation
-PR. Verify the recorded source pair before implementation, update
-this status/register at each milestone, and keep the PR draft until the tooling
-review and stated correctness checks are complete. Native timing remains
-pending; report findings even when they show no improvement.
+Implementation is on `test/native-graph-benchmark-controls` for PR #158. Changes
+are limited to repository regression tooling, its focused tests, one Windows
+workflow and documentation. No package code/default/dependency changed and no
+package build or release is required. The draft remains open for hosted Windows
+acceptance, Codex review and the owner's new SMB workload.
+
+### 2026-10-23 implementation milestone
+
+- Added four explicit public-API diagnostic modes. Graph-off and graph-on both
+  use `cache_scopes=True`; unsupported APIs fail without fallback or monkeypatching.
+- Kept `BatchModelView` ownership/reference-count validation and complete physical
+  materialisation. Added per-run hashes of full public ordered-command/source-line
+  provenance and deferred-reference fields; hashes exclude random input UUID bytes.
+  Database activation ownership is checked against its ordered command.
+- Shared fail-closed comparisons detect missing/error modes, equal-count identity
+  differences, incomplete lineage and collection/inventory findings. Failed
+  contexts retain their requested run indices. Continued diagnostics still exit 1.
+- Added balanced full-trial rotation (default four, multiples of four required),
+  explicit storage/cache notes, actual Git revisions/dirty states, bounded fallback
+  counters and failed-mode timing. Overlapping parser counters remain separate.
+- Kept public individual/default-batch preflight untimed and labelled as the
+  parser default. Representative-only success remains incomplete full validation.
+  Reused output directories start with non-accepted summary/preflight status.
+- Updated the Windows ordered-batch workflow to pin merged parser `e162c04`, run
+  the complete 161-TCF/174-run four-mode archive gate, and check changed Python
+  with Ruff, strict Pyright, compilation and focused tests.
+
+Local validation uses isolated Python **3.14.8** on Linux for focused logic only;
+Windows remains the acceptance environment. At this milestone:
+
+- 58 new diagnostic tests pass; the combined harness/ordered/batch selection
+  passes **83 tests**, including the opt-in real-parser integration test.
+- Ruff format/check, strict Pyright (0 errors/warnings) and compilation pass;
+  both CLI controls are available in `--help`.
+- A real-parser synthetic nested-TGC/scenario workload with duplicate run flags
+  passes the representative gate and four full rotated trials, all materialised
+  and ordered-provenance comparisons, and the separate public-preflight gate.
+  This is diagnostic validation, not native performance evidence.
+
+Focused commands (from the repository root):
+
+```text
+python -m pytest -q tests/fixtures/tuflow_example_repro/test_run_checks.py tests/fixtures/tuflow_example_repro/test_run_local_checks.py tests/orchestrators/tuflow/test_ordered_batch_adapter.py tests/orchestrators/tuflow/test_batch_preflight_adapter.py
+python -m ruff check tests/fixtures/tuflow_example_repro/run_checks.py tests/fixtures/tuflow_example_repro/run_local_checks.py tests/fixtures/tuflow_example_repro/test_run_local_checks.py
+python -m pyright tests/fixtures/tuflow_example_repro/run_checks.py tests/fixtures/tuflow_example_repro/run_local_checks.py tests/fixtures/tuflow_example_repro/test_run_local_checks.py
+python -m tests.fixtures.tuflow_example_repro.run_checks --batch --graph-compare --pytuflow-checkout <frozen-parser-checkout> --output <public-report-directory>
+```
+
+The complete Windows archive and exact-head review results must be recorded
+before recommending the native run. Use the implemented command in the
+[harness README](../../tests/fixtures/tuflow_example_repro/README.md), with
+`--batch --graph-compare --repeats 4 --storage-and-cache-conditions <description>`.
+Compare each parser optimisation independently against the frozen baseline,
+using the same final diagnostic commit. No merge or publication is authorised.
