@@ -144,7 +144,7 @@ stateful BC activations. This is an opt-in development path; the default
 individual collector and normal published PyTUFLOW dependency are unchanged.
 The dedicated
 `.github/workflows/tuflow-ordered-batch-contracts.yml` workflow installs
-the pinned upstream PyTUFLOW PR #13 reference-count contract (`7fb9db0`, based on merged PRs #6–#10) for Windows-focused regressions and the public
+the pinned upstream PyTUFLOW PR #13 reference-count contract (`d4a47d1`, based on merged PRs #6–#10) for Windows-focused regressions and the public
 161-TCF/174-run eager/deferred/batch differential replay. Any native SMB
 benchmark requires the sole authorised SMB-capable agent; no project inputs
 are uploaded, no solver runs, and passing synthetic contracts alone do not

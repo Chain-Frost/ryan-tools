@@ -526,3 +526,31 @@ validation, solver execution, production dependency pin change, or PR merge.
 **Next:** review any new Codex findings and then optionally squash-merge
 #156 into parent #143 (not `main`); #143 retains separate owner gates.
 Next review: 2026-10-30.
+
+### PR #156 ordered-reference completeness correction (23 October 2026)
+
+A second Codex P2 review identified a fail-open case where a file-consuming
+command's references could be missing from **both** flattened batch lists.
+The consumer cannot derive completeness from command text or the two mutually
+incomplete lists. The fix therefore introduces an immutable, independent
+per-command `reference_count` in [PyTUFLOW PR #13](https://github.com/phantom-branch/PyTuflow/pull/13),
+computed from each original active input. The optional batch consumer now
+requires a valid nonnegative integer count and equality with that command's
+owned reference projection; absent metadata or coordinated loss fails closed.
+Legitimate zero-reference commands remain accepted, and older batches without
+`ordered_inputs` retain the previously bounded compatibility path.
+
+Upstream source branch `fix/batch-ordered-reference-count` at `d4a47d1`
+includes the new contract, parity tests, and existing activation-index and
+tutorial-benchmark constructor updates. The isolated Windows ordered contract
+workflow in this child PR is pinned to this exact upstream **development** SHA;
+published `pytuflow>=1.2,<2` remains unchanged. Focused regressions cover
+reference loss from both flattened tuples, unavailable descriptor counts and
+intentionally file-free commands. Upstream #13 and consumer #156 require
+exact-head CI and independent review before merge; they are not yet production
+features. No native SMB work, TUFLOW solver invocation or release.
+
+**Next:** verify both PRs' Windows checks and Codex review, resolve P2 thread,
+and only then consider merging upstream #13 and child #156 into parent #143.
+PR #143 has its own separate release and native-model validation gates.
+Next review: 2026-10-30.
