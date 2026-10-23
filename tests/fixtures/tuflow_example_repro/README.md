@@ -124,6 +124,15 @@ reports private, including Git status paths. The flags remain in their original
 order, including duplicate rows. The command export is not checked for matching
 TCF paths: export only the intended combinations for the selected model.
 
+Benchmark acceptance requires **clean parser and consumer checkouts**. The
+recorded heads identify committed source; a dirty status alone does not identify
+all modified bytes. Graph comparison stops before collection if either checkout
+is dirty. `--continue-on-findings` permits diagnostic coverage but still returns
+1 and keeps `accepted_for_benchmark=false`. The provenance and final summary
+record `sources_clean` and repository-level `source_findings`. Legacy two/three-mode
+invocations retain their validation exit behaviour, but dirty sources cannot be
+accepted as benchmark evidence in any mode.
+
 `--batch --graph-compare` selects these four diagnostic modes:
 
 | Report mode | Public parser call |

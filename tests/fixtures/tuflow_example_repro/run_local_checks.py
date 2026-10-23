@@ -338,10 +338,22 @@ def main() -> int:  # noqa: C901 - explicit arguments, source verification and d
         "rss_sample_interval_seconds": 0.02,
     }
     try:
-        provenance["parser_git"] = _git_revision(checkout)
-        provenance["consumer_git"] = _git_revision(Path(__file__).absolute().parents[3])
+        parser_git = _git_revision(checkout)
+        consumer_git = _git_revision(Path(__file__).absolute().parents[3])
     except ValueError as exc:
         parser.error(str(exc))
+    source_findings = [
+        f"{name} checkout is dirty"
+        for name, revision in (("parser", parser_git), ("consumer", consumer_git))
+        if revision["dirty"] is not False
+    ]
+    sources_clean = not source_findings
+    provenance.update(
+        parser_git=parser_git,
+        consumer_git=consumer_git,
+        sources_clean=sources_clean,
+        source_findings=source_findings,
+    )
     (output / "provenance.json").write_text(json.dumps(provenance, indent=2), encoding="utf-8")
     # Reusing an output directory must never leave an earlier accepted summary
     # or public-preflight result behind when this invocation stops at its gate.
@@ -352,6 +364,8 @@ def main() -> int:  # noqa: C901 - explicit arguments, source verification and d
         "validation_scope": "representative_only" if options.representative_only else "full_workload",
         "full_workload_validated": False,
         "accepted_for_benchmark": False,
+        "sources_clean": sources_clean,
+        "source_findings": source_findings,
     }
     (output / "summary.json").write_text(json.dumps(pending, indent=2), encoding="utf-8")
     (output / "preflight.json").write_text(
@@ -367,6 +381,11 @@ def main() -> int:  # noqa: C901 - explicit arguments, source verification and d
         ),
         encoding="utf-8",
     )
+    if options.graph_compare and not sources_clean and not options.continue_on_findings:
+        pending["stopped_at"] = "source_provenance"
+        (output / "summary.json").write_text(json.dumps(pending, indent=2), encoding="utf-8")
+        print(json.dumps(pending), flush=True)
+        return 1
     measurements = Measurements()
 
     sys.addaudithook(measurements.audit)
@@ -432,18 +451,23 @@ def main() -> int:  # noqa: C901 - explicit arguments, source verification and d
             ),
             encoding="utf-8",
         )
+    passed = bool(all_passed and public_passed and (sources_clean or not options.graph_compare))
     summary = {
         "label": options.label,
         "completed": True,
-        "passed": bool(all_passed and public_passed),
+        "passed": passed,
         "validation_scope": "representative_only" if options.representative_only else "full_workload",
         "full_workload_validated": bool(all_passed and public_passed and not options.representative_only),
-        "accepted_for_benchmark": bool(all_passed and public_passed and not options.representative_only),
+        "accepted_for_benchmark": bool(
+            all_passed and public_passed and not options.representative_only and sources_clean
+        ),
+        "sources_clean": sources_clean,
+        "source_findings": source_findings,
         "public_preflight": {"timed": False, "batch_graph_policy": "parser_default", "graph_comparison": False},
     }
     (output / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary), flush=True)
-    return 0 if all_passed and public_passed else 1
+    return 0 if passed else 1
 
 
 if __name__ == "__main__":

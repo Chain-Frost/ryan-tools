@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; implementation and focused validation complete, hosted Windows acceptance/review pending |
+| Status | Active; initial hosted Windows acceptance passed, review fix undergoing final validation |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 |
 | Next review | 2026-10-30 |
 | Parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` — PyTUFLOW PR #12 merged into `master` |
 | Consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` — PR #143 merged into `main` |
-| Next action | Publish the implemented diagnostic, complete exact-head Windows archive/review gates, then give the owner the frozen native command |
+| Next action | Complete clean-source acceptance fix and final Windows archive/review gates, then give the owner the frozen native command |
 
 Both merged trees match the validated source pair exactly: parser
 `126ec64e221908f5327ee9dc9d372c8084afaf12` and consumer
@@ -153,7 +153,8 @@ output_directory: <PRIVATE_DIRECTORY_OUTSIDE_REPOSITORIES>
 Use one exact parser/diagnostic-consumer pair throughout each comparison; later
 parser optimisation revisions need separately identified comparisons. Verify
 physical import origin and record Git heads, dirty state, Python/version and
-relevant source hashes. Preserve exact flags and detailed paths privately;
+relevant source hashes. Both checkouts must be clean for benchmark acceptance.
+Preserve exact flags and detailed paths privately;
 publish only anonymised counts, timings, counters and source identifiers.
 The command export is read as text only. Older M480/N42 results are historical,
 not acceptance evidence for this new model or source pair.
@@ -214,3 +215,24 @@ before recommending the native run. Use the implemented command in the
 `--batch --graph-compare --repeats 4 --storage-and-cache-conditions <description>`.
 Compare each parser optimisation independently against the frozen baseline,
 using the same final diagnostic commit. No merge or publication is authorised.
+
+### 2026-10-23 review follow-up
+
+Initial implementation `9cd839247c430dbd9a2ec4a7e2187f1e80cea91d` passed all five
+hosted workflows, including the complete Windows **161-TCF / 174-run**
+[four-mode ordered-batch gate](https://github.com/Chain-Frost/ryan-tools/actions/runs/39908449707).
+Codex identified one reproducibility issue: recording a dirty status did not
+identify every modified source byte, yet a run could be marked accepted.
+
+The follow-up requires clean parser and consumer checkouts for benchmark
+acceptance. Graph comparison stops before measured collection on a dirty source;
+explicit `--continue-on-findings` still completes diagnostic phases but exits 1.
+Legacy two/three-mode validation retains its exit behaviour while also refusing
+benchmark acceptance for dirty source. `sources_clean` and `source_findings` are
+recorded in provenance and summaries, including early failures. The final head
+requires fresh Windows validation and review before the native command is frozen.
+The local Python 3.14.8 combined selection passes **93 tests**, including ten
+new source-acceptance regression cases (68 diagnostic tests in total). Ruff,
+strict Pyright and whitespace checks pass. The new tests cover both dirty
+repositories, early report replacement, continued full diagnostics and retained
+legacy exit behaviour.

@@ -436,9 +436,9 @@ def _git(path: Path, *arguments: str) -> str:
 
 
 def _native_cli(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, dirty_repository: str | None = None
 ) -> tuple[list[str], str, list[tuple[str, tuple[int, ...]]]]:
-    """Keep real source/revision recording while isolating model collection from CLI tests."""
+    """Keep real source/HEAD provenance while controlling workspace state and collection."""
     arguments = _arguments(tmp_path)
     parser_checkout = tmp_path / "parser"
     sources = (
@@ -470,6 +470,25 @@ def _native_cli(
         "Add synthetic parser provenance",
     )
     parser_sha = _git(parser_checkout, "rev-parse", "HEAD")
+    if dirty_repository == "parser":
+        (parser_checkout / "pytuflow/_tmf/context.py").write_text(
+            "# Changed after the recorded commit.\n", encoding="utf-8"
+        )
+    git_revision = run_local_checks._git_revision  # pyright: ignore[reportPrivateUsage]
+    consumer_checkout = Path(__file__).absolute().parents[3]
+
+    def revision(root: Path) -> dict[str, Any]:
+        recorded = git_revision(root)
+        if root == consumer_checkout:
+            # An active developer's working copy must not determine the test outcome.
+            recorded = {
+                **recorded,
+                "dirty": dirty_repository == "consumer",
+                "status": " M synthetic_consumer_source.py" if dirty_repository == "consumer" else "",
+            }
+        return recorded
+
+    monkeypatch.setattr(run_local_checks, "_git_revision", revision)
     module = types.SimpleNamespace(__file__=str(parser_checkout / "pytuflow/__init__.py"), __version__="1.2.0")
     monkeypatch.setitem(sys.modules, "pytuflow", module)
     monkeypatch.setattr(sys, "path", list(sys.path))
@@ -516,9 +535,87 @@ def test_native_graph_cli_rotates_four_full_trials_and_records_both_actual_revis
     assert provenance["parser_git"]["head"] == parser_sha
     assert provenance["parser_git"]["dirty"] is False
     assert provenance["consumer_git"]["head"] == _git(Path(__file__).absolute().parents[3], "rev-parse", "HEAD")
-    assert isinstance(provenance["consumer_git"]["dirty"], bool)
-    assert isinstance(provenance["consumer_git"]["status"], str)
+    assert provenance["consumer_git"]["dirty"] is False
+    assert provenance["consumer_git"]["status"] == ""
     assert provenance["storage_and_cache_conditions"] == "new SMB, warm cache"
+    assert provenance["sources_clean"] is True
+    assert provenance["source_findings"] == []
+    summary = json.loads((tmp_path / "report/summary.json").read_text(encoding="utf-8"))
+    assert summary["sources_clean"] is True
+    assert summary["source_findings"] == []
+    assert summary["passed"] is True
+    assert summary["full_workload_validated"] is True
+    assert summary["accepted_for_benchmark"] is True
+
+
+@pytest.mark.parametrize("dirty_repository", ["parser", "consumer"])
+@pytest.mark.parametrize("continue_on_findings", [False, True])
+def test_dirty_source_graph_diagnostic_fails_acceptance_with_optional_continued_coverage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, dirty_repository: str, continue_on_findings: bool
+) -> None:
+    arguments, parser_sha, calls = _native_cli(tmp_path, monkeypatch, dirty_repository=dirty_repository)
+    report = tmp_path / "report"
+    report.mkdir()
+    (report / "summary.json").write_text(
+        json.dumps({"passed": True, "full_workload_validated": True, "accepted_for_benchmark": True}), encoding="utf-8"
+    )
+    (report / "preflight.json").write_text(json.dumps({"passed": True, "completed": True}), encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", arguments + (["--continue-on-findings"] if continue_on_findings else []))
+    assert run_local_checks.main() == 1
+
+    provenance = json.loads((report / "provenance.json").read_text(encoding="utf-8"))
+    assert provenance["parser_git"]["head"] == parser_sha
+    assert provenance[f"{dirty_repository}_git"]["dirty"] is True
+    assert provenance["sources_clean"] is False
+    assert len(provenance["source_findings"]) == 1
+    assert dirty_repository in provenance["source_findings"][0]
+    summary = json.loads((report / "summary.json").read_text(encoding="utf-8"))
+    assert summary["sources_clean"] is False
+    assert summary["source_findings"] == provenance["source_findings"]
+    assert summary["passed"] is False
+    assert summary["accepted_for_benchmark"] is False
+    assert summary["completed"] is continue_on_findings
+    assert summary["full_workload_validated"] is continue_on_findings
+    preflight = json.loads((report / "preflight.json").read_text(encoding="utf-8"))
+    assert preflight["passed"] is continue_on_findings
+    assert preflight["timed"] is False
+    assert preflight["batch_graph_policy"] == "parser_default"
+    assert preflight["graph_comparison"] is False
+    if continue_on_findings:
+        assert len(calls) == 20
+        rows = json.loads((report / "parity.json").read_text(encoding="utf-8"))
+        assert len(rows) == 5
+        assert all(row["passed"] is True for row in rows)
+    else:
+        assert calls == []
+        assert preflight["completed"] is False
+        assert not (report / "parity.json").exists()
+
+
+@pytest.mark.parametrize("batch", [False, True])
+@pytest.mark.parametrize("dirty_repository", [None, "parser", "consumer"])
+def test_legacy_diagnostics_keep_successful_exit_but_require_clean_sources_for_benchmark_acceptance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, batch: bool, dirty_repository: str | None
+) -> None:
+    arguments, _sha, calls = _native_cli(tmp_path, monkeypatch, dirty_repository=dirty_repository)
+    arguments.remove("--graph-compare")
+    if not batch:
+        arguments.remove("--batch")
+    monkeypatch.setattr(sys, "argv", arguments)
+    assert run_local_checks.main() == 0
+    modes = ("eager", "deferred", "batch") if batch else ("eager", "deferred")
+    assert calls == [(mode, (1, 3, 5)) for mode in modes] + [(mode, (1, 2, 3, 4, 5)) for mode in modes]
+    summary = json.loads((tmp_path / "report/summary.json").read_text(encoding="utf-8"))
+    assert summary["passed"] is True
+    assert summary["completed"] is True
+    assert summary["full_workload_validated"] is True
+    assert summary["sources_clean"] is (dirty_repository is None)
+    assert summary["accepted_for_benchmark"] is (dirty_repository is None)
+    if dirty_repository is None:
+        assert summary["source_findings"] == []
+    else:
+        assert len(summary["source_findings"]) == 1
+        assert dirty_repository in summary["source_findings"][0]
 
 
 def test_representative_only_never_claims_full_workload_or_benchmark_acceptance(
