@@ -98,6 +98,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; pending validation |
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
 | [Native TUFLOW graph benchmark](work/2026-10-23-tuflow-native-graph-benchmark.md) | Planned diagnostic graph-off/on controls, public API boundaries and agent handoff for the new SMB workload |
+| [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 scope above #158: background advisory checking, complete INFO/warning reporting and non-blocking GPU warnings; pause/restart in future PRs, no runner implementation yet |
 | [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licence notices, independent imports, similarity API and validation |
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Curated installed scripts and MCP packaging](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130 requirements reconciliation, reviewed 83-file allowlist, script-copy helper, verification and remaining acceptance |
