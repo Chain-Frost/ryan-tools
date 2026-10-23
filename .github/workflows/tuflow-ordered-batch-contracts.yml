@@ -32,7 +32,7 @@ jobs:
       - name: Install upstream PR 13 independent reference-count contract
         # This development-only fork pin does not modify pyproject.toml,
         # requirements or the published package dependency.
-        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@7fb9db0d29d73edf67bd977c726039d005791938"
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@f66b701fc591a815f0921a6278e9596a01ea6afd"
       - name: Install isolated preflight consumer and test dependencies
         run: |
           python -m pip install -e . --no-deps
