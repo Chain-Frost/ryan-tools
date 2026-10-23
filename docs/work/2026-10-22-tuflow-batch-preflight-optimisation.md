@@ -1,6 +1,6 @@
 # Batch-aware TUFLOW preflight optimisation — stacked PR scope
 
-**Status:** Parser stack squash-merged after completed validation; graph-improvement handoff is draft PyTUFLOW PR #12. Earlier SSD/SMB results below remain historical. The batch adapter and shared inspection changes from #148 are now merged into
+**Status:** P5 benchmark rerun and SSD sharing/I/O investigation complete; results and recommendations published to draft PyTUFLOW PR #12. Graph timing gains remain limited. Earlier SSD/SMB results below remain historical. The batch adapter and shared inspection changes from #148 are now merged into
 #143 (`feat/tuflow-run-preflight`), which remains draft. PyTUFLOW #1 is merged into the fork's `master`;
 opt-in batch work continues in #5. No production release or default-mode change is authorised.
 
@@ -468,3 +468,61 @@ its production pins and earlier independent CI limitation are unchanged.
 comment on parser PR #10. Parser merge confirmed by GitHub API for all five
 PRs. New draft handoff pushed and labelled enhancement. No native input data
 or detailed native reports were published. Review follow-up on 2026-10-30.
+
+## P5 rerun and file-sharing investigation - 2026-10-23
+
+The owner requested new benchmarks, GitHub delivery and recommendations, plus
+per-run M480 file/parameter sets and an actual-checks/graph comparison on the
+existing SSD copy. The supplied benchmark and diagnostic work is complete.
+
+Retained parser source `c305a6d2d5425ad72f388ef386ace375b4e53f99` (PyTUFLOW
+1.2.6, Windows/Python 3.14.6) has identical parser and benchmark code to later
+CI/documentation head `eebbb16`. Consumer diagnostic source is `5685fda8`;
+later `f63bc029` only changes an unrelated regression test. Library/diagnostic
+code is identical; consumer child PR #156 was not substituted.
+
+**273 parser/integration tests, 67 consumer tests and 2 CI-comparator tests pass**,
+as do compilation, full public 161-TCF/174-run parser/materialised replays and
+native M480/N42 parser/materialised/public-preflight gates. Eight active hosted
+checks pass at eebbb16, with no new P5 TMF regressions against pre-P5. This is
+not zero absolute upstream failures: both fork versions have 39 failed / 530
+passed / 11 skipped on hosted Python 3.14; three canonical-upstream differences
+predate P5 and remain separate eager/shared-compatibility follow-ups.
+
+Three rotated SMB parser medians: M480 graph-off **42.895 s**, graph-on
+**42.790 s**, eliding **1,916 of 31,680 constructors**; N42 graph-off
+**11.310 s**, graph-on **11.367 s**, eliding **0 of 4,148**. Differences of
+0.24% faster / 0.50% slower do not establish a meaningful graph speedup.
+M480 accounts for all eligible visits: four cold constructions plus 1,916
+reuses. Existing batch-cache gains remain separate.
+
+The private SSD trace captures all 480 flag/final-variable/event-variable records,
+graph decisions, required files and observed Python I/O. Each run needs **25
+distinct normalised paths, 23 common to all runs**; the union is 49. Two BC
+database paths and 24 BC source CSVs account for variation. All graph and final
+materialised path sets match; geometry/extent-related references stay constant.
+Observed post-parse batch and reference-collection Python I/O is zero. Shared
+inventory uses **26 stat calls, one scan and 13 SQLite connections**; shared
+raster metadata opens six sources. One same-file TIF alias causes 50 original
+spellings for 49 normalised locations. These are API requests, not physical
+disk/SMB counts; native library internal operations are not fully traced.
+
+The temporary parity diagnostic separately makes **12,480 Path.resolve calls**
+for 49 normalised identity targets. A direct check confirms mapped network paths
+become UNC with resolve, while absolute preserves spelling. The graph/cache does
+not resolve paths. Recommend invocation-local physical-identity memoisation in
+the diagnostic, preserving deliberate alias/security checks and original I/O
+paths, plus broader proved fixed-scenario group reuse and cost profiling.
+
+[Full P5 results and recommendations](https://github.com/phantom-branch/PyTuflow/blob/docs/graph-invariant-group-handoff/agent_workstreams/P5_benchmark_results_2026-10-23.md)
+owns trial values, phases, RSS, counters, source hashes, CI and artifact boundaries.
+SSD/network flags, 49 required file sizes and four control hashes match; large
+binary contents were not exhaustively hashed. Raw native CSVs/reports/parameter
+values stay private; only anonymised aggregates are published.
+
+**Delivery:** Results committed/pushed to PyTUFLOW #12 as `2b8ddb9`; its description
+and final benchmark comment are updated. This consumer #143 work record mirrors
+the outcome; delivery commits are linked from the PR comments. Both remain unmerged; no production repin, solver,
+launcher or release. Next action: review the measured coverage and select the
+next bounded optimisation from the report. Next review: 2026-10-30. Other overdue
+register fronts were not resumed by this benchmark task.
