@@ -504,3 +504,25 @@ solver, production dependency update, child-into-parent merge, main merge,
 or package release was performed. Next action: close any new Codex findings,
 then consider squash-merging child #156 into parent #143. Next review:
 2026-10-30.
+
+### PR #156 Codex correction and final source acceptance (23 October 2026)
+
+Codex identified a P2 error in the multi-BC activation Source row mapping:
+relative `Source` paths were anchored to the process working directory.
+Fixed in `1e8ccc4` with Ruff formatting finalised in `41fdabb`. The
+selected BC Source path is now relative to `source.owner_control_file.parent`,
+or `source.database_path.parent` when the control file is absent, matching
+the existing aggregate deferred materialisation semantics and preserving the
+mapped-drive path with `Path.absolute()`. The two-activation regression tests
+both ownership routes, including nested model paths and separate BC directories.
+
+At `41fdabb`, all five exact-head Windows/hosted workflows pass: Fast PR
+checks `39883774509`, deferred fork consumer `39883774462`, batch smoke
+`39883774524`, ordered batch contract/public 161-TCF/174-run parity
+`39883774515`, and full Python CI `39883774395`. The original Codex P2
+thread is replied to and resolved. A fresh Codex review on this source head
+was requested and was still in progress at this handoff. No new SMB native
+validation, solver execution, production dependency pin change, or PR merge.
+**Next:** review any new Codex findings and then optionally squash-merge
+#156 into parent #143 (not `main`); #143 retains separate owner gates.
+Next review: 2026-10-30.
