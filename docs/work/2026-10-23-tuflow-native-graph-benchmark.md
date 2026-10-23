@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; graph diagnostic validated and context bundle reviewed, next measurement scope pending |
+| Status | Complete; frozen diagnostic and 480-run native four-mode baseline accepted; PR delivery remains open |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 |
-| Next review | 2026-10-30 |
+| Next review | — |
 | Parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` — PyTUFLOW PR #12 merged into `master` |
 | Consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` — PR #143 merged into `main` |
 | Frozen benchmark diagnostic | `f1f7958b79f3ffe84ba8ac0b04658f27c311460a` — all five Windows workflows passed, Codex review clean |
-| Next action | Prepare the independent exclusive-instrumentation scope before requesting additional full native launches; preserve accepted/running results and compare parser candidates separately |
+| Next action | Review PR #158 for delivery using the accepted baseline; do not repeat it. Keep parser instrumentation, optimisation candidates and runner #159 as separate follow-ups. |
 
 Both merged trees match the validated source pair exactly: parser
 `126ec64e221908f5327ee9dc9d372c8084afaf12` and consumer
@@ -23,9 +23,12 @@ graph-on at the **same parser source**, alongside its existing correctness
 baselines. `run_local_checks --batch` still compares eager, individual
 deferred and default batch collection. That is useful baseline evidence but
 does not isolate the graph's contribution. The new explicit
-`--batch --graph-compare` enables that comparison. Controlled four-mode native
-timing remains pending; the owner's completed three-mode baseline is recorded
-below and does not establish graph contribution.
+`--batch --graph-compare` enables that comparison. The owner's
+[accepted four-mode native baseline](https://github.com/Chain-Frost/ryan-tools/pull/158#issuecomment-6367217192)
+now completes this scope at the frozen diagnostic/parser pair. All correctness
+gates passed; the graph produced no demonstrated total-time benefit on this
+workload. Reuse this evidence rather than requesting the same baseline again.
+The older three-mode result remains historical context.
 
 PyTUFLOW's public `TCF.collect_batch_dependencies()` accepts `compile_tree` and
 `cache_scopes`. The consumer's public `check_simulation_inputs()` accepts
@@ -48,7 +51,11 @@ the shared materialisation and physical inventory stages. Per-graph control of
 the full public preflight would require a separately reviewed public consumer
 API; private parser patching or replacement of imported `TCF` is not acceptable.
 
-## Self-contained agent prompt
+## Original implementation prompt (completed)
+
+The implementation and native baseline requested below are complete. Retain
+this contract for maintenance and candidate comparisons; it is not an instruction
+to reimplement the harness or repeat the accepted baseline.
 
 Implement this draft in `ryan-tools` on the recorded consumer baseline. Read
 [AGENTS.md](../../AGENTS.md), the [development guide](../DEVELOPMENT_GUIDE.md),
@@ -137,8 +144,8 @@ preflight gate, with zero missing/extra identities and no collection/inventory
 issues. A selected-case smoke does not replace that gate. Record exact source
 heads and terminal CI evidence; documentation alone is not implementation proof.
 
-After public validation, the authorised owner may run the **new SMB model** with
-this private manifest, filled locally:
+The following private manifest records the accepted **new SMB model** protocol.
+The baseline has completed; retaining this template does not request another run:
 
 ```text
 anonymous_label: NEW_SMB
@@ -170,8 +177,11 @@ workflow and documentation. No package code/default/dependency changed and no
 package build or release is required. The executable diagnostic is pushed and
 validated at `f1f7958b79f3ffe84ba8ac0b04658f27c311460a`; this later documentation
 update records readiness and the owner's baseline without changing executable
-code. Keep that frozen consumer revision for every native comparison. The draft
-remains open for the owner's four-mode SMB results; merge is not authorised.
+code. Keep that frozen consumer revision for every native comparison. The native
+four-mode baseline is now accepted. PR #158 remains open for delivery; this
+documentation reconciliation does not merge or publish a package. Parser
+optimisation results and runner acceptance are separate from this PR's completed
+diagnostic scope.
 
 ### 2026-10-23 implementation milestone
 
@@ -381,3 +391,81 @@ the instrumentation scope; do not combine the two new cache proposals initially.
 The readiness watch now tracks #14's outstanding code review without issuing
 an automatic native rerun prompt. This record and the work-register update are
 documentation-only; no new native benchmark result is claimed.
+
+### 2026-10-23 accepted native four-mode baseline
+
+The owner published the
+[sanitised aggregate result](https://github.com/Chain-Frost/ryan-tools/pull/158#issuecomment-6367217192)
+and subsequently revalidated the retained local reports without launching a
+duplicate benchmark. This is owner-run evidence; the orchestrator reviewed the
+published aggregates and source counters, not the private reports themselves.
+
+- Diagnostic: `f1f7958b79f3ffe84ba8ac0b04658f27c311460a`.
+- Parser: `e162c04330d24c37bee3ade94479cc4602651060`.
+- Windows CPython 3.14.5, 64-bit AMD64; process exit 0; both detached source
+  checkouts clean before and after execution.
+- 480 runs and 480 distinct complete flag sets; 8,160 materialised identities
+  and 158 unique files.
+- Representative gate and all four rotated full trials passed, with zero
+  differences, collection/inventory issues and complete command/reference
+  provenance parity.
+- The separate untimed public individual/default-batch preflight passed with
+  equal checked paths/issues. It remains labelled as the parser default and
+  does not expose graph-off/on preflight or background-runner measurements.
+- Final summary reports completed, passed, full-workload validation, clean
+  sources and benchmark acceptance all true. Raw reports remain private.
+
+| Mode | Full-trial median | Minimum–maximum |
+| --- | ---: | ---: |
+| Eager | 117.715532 s | 116.590263–120.534715 s |
+| Individual deferred | 37.744556 s | 37.692232–38.058664 s |
+| Batch graph-off | 30.619692 s | 30.460371–30.898996 s |
+| Batch graph-on | 30.724459 s | 30.512430–30.850581 s |
+
+Graph-on's median is 0.104767 s (0.342%) higher. Per-trial changes have both
+signs, ranging from 0.570% slower to 0.157% faster. These four trials demonstrate
+no practical elapsed-time benefit from the incremental graph feature on this
+workload. They do not establish a universal regression or predict another model.
+The published comment retains every full-trial time and mode order.
+
+The graph is built and used: 110 nodes, 1,921 command-plan graph lookups and one
+certified reusable input group. Graph-on avoids 479 ordinary input-state
+initialisations out of 23,520 (2.037%), leaving 23,041. Both modes still report
+21,125 command constructions and 480 constructed contexts; whole-projection reuse
+is zero. Graph-off already retains the other batch caches.
+
+The command-clone counter falls from 2,395 to 1,916 because group reuse bypasses
+the instrumented command-factory path while independently copying the command
+inside the group. It does not prove 479 fewer actual command copies. See the
+pinned [batch counters](https://github.com/phantom-branch/PyTuflow/blob/e162c04330d24c37bee3ade94479cc4602651060/pytuflow/_tmf/batch_dependencies.py)
+and [group-copy implementation](https://github.com/phantom-branch/PyTuflow/blob/e162c04330d24c37bee3ade94479cc4602651060/pytuflow/_tmf/group_input_reuse.py).
+Overlapping internal timer fields must remain separate.
+
+Initial SMB cache state and server load were unknown; earlier reads had occurred
+and caches were not flushed. Do not treat these as cold-cache measurements or
+attribute the changed eager timings relative to the older three-mode capture to
+one optimisation. Use comparisons within each controlled measurement set.
+
+#### Handoff after acceptance
+
+1. Complete PR #158's delivery independently of parser speed improvements. Its
+   diagnostic is successful when it measures parity and performance accurately;
+   a graph speedup is not an acceptance requirement. Preserve the frozen
+   executable revision and accepted baseline; no repeat baseline is requested.
+2. Extract any needed bypass reasons, existing phase timings and cache counters
+   from the retained reports before requesting another workload execution.
+   Prepare exclusive cost attribution in a separate PyTUFLOW work front, following
+   the instrumentation boundaries above. Keep invariant subtree reuse and
+   database Source reuse as independent optimisation scopes.
+3. Keep parser [#14](https://github.com/phantom-branch/PyTuflow/pull/14) and
+   [#15](https://github.com/phantom-branch/PyTuflow/pull/15) independent. Their native
+   benefits are still unmeasured by this baseline; verify each candidate's own
+   current review/checks before a separately requested comparison. Do not merge
+   the candidate branches together to obtain one ambiguous timing result.
+4. Runner [#159](https://github.com/Chain-Frost/ryan-tools/pull/159) retains its own
+   advisory scheduling, lifecycle, warning-delivery and GPU acceptance criteria.
+   This benchmark does not validate those behaviours or complete that scope.
+
+This reconciliation changes documentation only. The diagnostic, parser,
+production consumer and runner are unchanged; no additional private artifacts,
+benchmark run, solver launch, package build or merge is part of it.
