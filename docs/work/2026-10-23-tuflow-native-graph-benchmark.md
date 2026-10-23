@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; diagnostic implemented and reviewed, native four-mode evaluation pending |
+| Status | Active; graph diagnostic validated and context bundle reviewed, next measurement scope pending |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 |
 | Next review | 2026-10-30 |
 | Parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` — PyTUFLOW PR #12 merged into `master` |
 | Consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` — PR #143 merged into `main` |
 | Frozen benchmark diagnostic | `f1f7958b79f3ffe84ba8ac0b04658f27c311460a` — all five Windows workflows passed, Codex review clean |
-| Next action | Owner runs the fixed 480-run SMB workload with the frozen four-mode diagnostic; compare parser follow-ups individually after their final review/checks pass |
+| Next action | Prepare the independent exclusive-instrumentation scope before requesting additional full native launches; preserve accepted/running results and compare parser candidates separately |
 
 Both merged trees match the validated source pair exactly: parser
 `126ec64e221908f5327ee9dc9d372c8084afaf12` and consumer
@@ -114,8 +114,9 @@ memory peaks. Empty audit counts are not proof of zero I/O.
 
 Do not implement parser append/setting reuse, source mutation invalidation,
 consumer production optimisations, dependency repins or launcher changes here.
-Do not execute or import launchers, execute TUFLOW, upload model sources, or
-change model inputs. `unsorted` and unrelated submodules remain outside scope.
+Do not execute or import launchers, execute TUFLOW, upload additional model sources, or
+change model inputs. The owner's later publication approval is limited to the reduced
+context bundle recorded below. `unsorted` and unrelated submodules remain outside scope.
 
 ## Validation and acceptance
 
@@ -277,7 +278,106 @@ identify the cause of the variability.
 The default batch reported 23,041 constructed input states and 479 elisions,
 with one reusable group, no whole-projection reuse and no failed-run construction.
 That is bounded component evidence, not a measurement of graph contribution.
-The next run must use this same model/run list with **four** balanced full
-trials and explicit graph-off/on modes. The new runner records the distinct
-complete flag count automatically. Keep all source paths and detailed reports
-private; no further model information is required before that run.
+Every subsequent full comparison must use this same model/run list with **four**
+balanced full trials and explicit graph-off/on modes. The runner records the
+distinct complete flag count automatically. Keep original project paths and
+detailed reports private. The follow-up below updates the next-action sequence.
+
+### 2026-10-23 context bundle and optimisation-scope review
+
+The owner authorised publication of the reduced control-file bundle, excluding
+GIS/raster/RF data. The SMB agent uploaded it in
+[`5cb16b9e6cb7bc66a9c3dd1599cf96ed9c3759f3`](https://github.com/Chain-Frost/ryan-tools/commit/5cb16b9e6cb7bc66a9c3dd1599cf96ed9c3759f3)
+and posted the [upload receipt](https://github.com/Chain-Frost/ryan-tools/pull/158#issuecomment-6359851720).
+That commit adds only the ZIP; the executable diagnostic remains frozen at
+`f1f7958b79f3ffe84ba8ac0b04658f27c311460a`.
+
+The orchestrator fetched the uploaded commit, verified the **8,203-byte** archive
+against SHA-256 `a361b7715224b3453942cf8d96623a420b819a7859c0caf5f8f5eb374a83c70f`,
+and inspected all **nine text files** without executing the launcher. They are
+the launcher, four control files, BC database, two material CSVs and reference
+manifest. The manifest lists seven GeoPackage/layer references and two raster
+references; their data files are absent. No RF inflows, results or logs are
+included. This approval does not extend to other private inputs or reports.
+
+Static inspection and independent parser-source reviews established:
+
+| Item | Verified result / implication |
+| --- | --- |
+| Run grid | 480 distinct complete scenario/event flag sets: 6 AEPs x 8 durations x 10 temporal patterns. Model, cell-size and climate selections are fixed. |
+| TGC | Seven active commands; only `VarCellSize` is substituted, and its selected value is `30` throughout this launcher. |
+| TBC | Two literal GIS commands with no variable substitutions in the supplied text. |
+| TEF | Event substitutions and duration-dependent `End Time` vary; it is not an invariant child. |
+| BC Source | Three nonblank file rows depend on AEP and duration: 48 ordered row-set signatures, each used ten times, producing 144 distinct candidate paths. |
+| BC Column 2 | Temporal-pattern and climate tokens are separate dependencies; the complete database row is not equivalent across all runs. |
+| Inventory arithmetic | The text is consistent with 17 references per run, 8,160 run/reference pairs and 158 distinct syntactic paths. Physical inventory and GIS row selection still require the original native inputs. |
+
+The frozen parser reuses parsed child build states but invokes child `context()`
+again for each run. Existing certified input-group reuse does not cover complete
+TGC/TBC subtrees. The proposed **958** avoided child evaluations is an upper bound
+of two times 479 successful reuses, not an elapsed-time estimate. A subtree key
+containing every active event or complete flag set would create 480 distinct
+keys here and defeat that reuse. Admission must prove the transitive dependency
+set, then key only the relevant scopes, substitutions and winning declaration
+provenance, along with source/configuration identity and resolution policy.
+
+Database Source projection is separate from the existing primary-reference
+cache. The proposed **432** reuses count repeated three-row projections; they
+correspond to up to **1,296** repeated individual row projections. A Source cache
+must preserve selected database identity, its relative-path root, ordered row
+identity, configuration and current activation/command ownership. It must not
+reuse complete database rows or infer that identical paths share provenance.
+This phase projects cached rows without opening RF contents, so the opportunity
+is CPU projection work, not eliminated RF data reads.
+
+The owner's [profile](https://github.com/Chain-Frost/ryan-tools/pull/158#issuecomment-6359626851)
+reports 23,041 input-state constructions, 196,346 command initialisations and
+221,788 configuration copies. The broader profiler counts include work outside
+the public batch command-factory counter; they are not interchangeable metrics.
+The public 21,125 constructed plus 1,916 cloned commands describe 23,041 factory
+outcomes, while temporary commands from `parts()` and reference/classification
+work can initialise additional commands. Base/subclass profiler rows also need
+careful attribution before treating calls as distinct allocations.
+Cumulative timings nest and overlap, and the profile itself adds overhead.
+They locate investigation targets but do not establish exclusive phase costs
+or predict the benefit of either cache. No raw profile is included in the ZIP.
+First inspect any existing profile's self-time and caller tables; request only
+sanitised extracts, with its invocation boundary and source revisions. Do not
+replay the full workload just to obtain that existing evidence.
+
+Keep three follow-up scopes separately measurable:
+
+1. **Instrumentation only:** opt-in exclusive timing and call counts for scope
+   evaluation, translation, command construction, configuration copying,
+   reference projection and recursion overhead, attributed to TCF/TGC/TBC/TEF.
+   Keep inclusive subtree totals separate; child time must not also count as
+   exclusive parent time. Operation and control-file views describe the same
+   elapsed work and must not be added together. Include context bootstrap/event
+   loading, instrument generator consumption rather than creation, and accumulate
+   failures through `finally`. Measure diagnostic overhead and retain uninstrumented
+   end-to-end comparisons. If a replay is needed, six existing launcher rows can
+   cover a same-AEP/duration TP pair and the five actual `End Time` values
+   (8, 12, 20, 40, 60), with graph explicitly off/on and caches enabled. This is a
+   diagnostic subset, not a replacement for full native acceptance.
+2. **Invariant subtree reuse:** prove admission and relevant dependency keys,
+   use immutable or fresh projections, and measure construction avoided against
+   key/certification/projection cost. Preserve mutable-state isolation, command
+   order, UUID ownership, parent provenance and successful-run certification.
+3. **Database Source reuse:** measure the Source row pass separately from
+   activation and provenance wrapping, then evaluate a narrow independent cache.
+   Preserve active-database selection, failure isolation and conservative fallback.
+
+All candidates still require complete eager/deferred/graph-off/graph-on parity,
+public-preflight equality, mutation/failure coverage and clean source provenance.
+The reduced ZIP is suitable for parser/context design; missing spatial and RF
+files deliberately prevent it from replacing native materialisation/preflight
+acceptance. Do not add dummy files or relax those gates to make this bundle pass.
+
+The current review introduced no parser or runner implementation. Existing
+append-accounting #14 and literal-setting #15 remain independent candidates;
+the ZIP upload does not invalidate accepted results. Preserve any already-running
+or completed measurements. Hold additional costly full launches while preparing
+the instrumentation scope; do not combine the two new cache proposals initially.
+The readiness watch now tracks #14's outstanding code review without issuing
+an automatic native rerun prompt. This record and the work-register update are
+documentation-only; no new native benchmark result is claimed.
