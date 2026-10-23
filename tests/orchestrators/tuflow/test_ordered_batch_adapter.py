@@ -62,6 +62,11 @@ def _case(
     activations: tuple[object, ...] = (),
     sources: tuple[object, ...] = (),
 ) -> types.SimpleNamespace:
+    # Model-independent authoritative count, set before tests corrupt a
+    # flattened reference projection. File-free commands intentionally use zero.
+    for ordinal, command in enumerate(commands):
+        if not hasattr(command, "reference_count"):
+            command.reference_count = sum(index == ordinal for index, _ in reference_pairs)
     records = tuple(
         types.SimpleNamespace(
             command_index=ordinal,
@@ -189,6 +194,47 @@ def test_ordered_batch_malformed_lineage_fails_closed(tmp_path: Path, defect: st
         activation.sequence = 1
     with pytest.raises(ValueError, match=r"lineage|missing from ordered|provenance|ordinal/UUID"):
         _view(case).context(case.flags, file_resolution="deferred")
+
+
+def test_batch_rejects_coordinated_reference_omission(tmp_path: Path) -> None:
+    tcf = tmp_path / "model.tcf"
+    commands = (
+        _command(0, "variable", "Set Variable UNUSED", tcf=tcf),
+        _command(1, "gis", "Read GIS BC", tcf=tcf),
+        _command(2, "output", "Output Folder", tcf=tcf),
+    )
+    ref = _reference(tmp_path / "missing.shp", origin="Read GIS BC")
+    case = _case("-s1 DEV", commands, ((1, ref),))
+    assert [item.reference_count for item in commands] == [0, 1, 0]
+
+    # Corrupt both flattened projections identically, retaining the independent
+    # per-command count. Comparing flattened tuples alone cannot detect this.
+    case.input_references = ()
+    case.file_references = ()
+    with pytest.raises(ValueError, match="ordered-input reference count"):
+        _view(case).context(case.flags, file_resolution="deferred")
+
+
+def test_batch_rejects_missing_reference_count_metadata(tmp_path: Path) -> None:
+    tcf = tmp_path / "model.tcf"
+    commands = (_command(0, "gis", "Read GIS Code", tcf=tcf),)
+    ref = _reference(tmp_path / "missing.shp", origin="Read GIS Code")
+    case = _case("-s1 EXG", commands, ((0, ref),))
+    del commands[0].reference_count
+    with pytest.raises(ValueError, match="ordered-input reference count"):
+        _view(case).context(case.flags, file_resolution="deferred")
+
+
+def test_batch_accepts_explicit_zero_reference_commands(tmp_path: Path) -> None:
+    tcf = tmp_path / "model.tcf"
+    commands = (
+        _command(0, "variable", "Set Variable ROOT", tcf=tcf),
+        _command(1, "output", "Output Folder", tcf=tcf),
+    )
+    case = _case("-s1 DEV", commands, ())
+    context = _view(case).context(case.flags, file_resolution="deferred")
+    assert [item.uuid for item in context.find_input()] == ["variable", "output"]
+    assert all(not item.file_references for item in context.find_input())
 
 
 def test_legacy_batch_without_ordered_inputs_remains_single_database_compatible(tmp_path: Path) -> None:

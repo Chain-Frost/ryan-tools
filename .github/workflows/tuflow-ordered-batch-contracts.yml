@@ -29,10 +29,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
-      - name: Install tested merged PyTUFLOW batch stack (#6–#10)
+      - name: Install upstream PR 13 independent reference-count contract
         # This development-only fork pin does not modify pyproject.toml,
         # requirements or the published package dependency.
-        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@3de5cd954a5bf6739377937c8ff2fe3341e86bfc"
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@7fb9db0d29d73edf67bd977c726039d005791938"
       - name: Install isolated preflight consumer and test dependencies
         run: |
           python -m pip install -e . --no-deps

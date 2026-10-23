@@ -28,6 +28,7 @@ class _OrderedInput(Protocol):
     line_number: int
     command_name: str
     command_text: str
+    reference_count: int
 
 
 class _Activation(Protocol):
@@ -160,6 +161,17 @@ class _ContextView:
                 seen_uuids.add(item.input_uuid)
                 key = (ordinal, item.input_uuid)
                 owned = groups.pop(key, ())
+                # Independent upstream count detects references lost from both
+                # flattened collections. Old ordered descriptors must fail closed.
+                expected_count = getattr(item, "reference_count", None)
+                if (
+                    not isinstance(expected_count, int)
+                    or isinstance(expected_count, bool)
+                    or expected_count < 0
+                    or len(owned) != expected_count
+                ):
+                    message = "Incomplete batch ordered-input reference count"
+                    raise ValueError(message)
                 for record in owned:
                     if record.owner_control_file != item.owner_control_file or record.line_number != item.line_number:
                         message = "Batch reference command/provenance mismatch"
