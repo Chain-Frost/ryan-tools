@@ -1,0 +1,73 @@
+name: Deferred PyTUFLOW consumer
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/deferred-pytuflow-consumer.yml"
+      - "ryan_library/orchestrators/tuflow/input_preflight.py"
+      - "ryan_library/functions/tuflow/dependency_index.py"
+      - "ryan_library/functions/tuflow/gis_attribute_dependencies.py"
+      - "ryan_library/functions/tuflow/raster_metadata_dependencies.py"
+      - "tests/functions/tuflow/test_raster_metadata_dependencies.py"
+      - "tests/functions/tuflow/test_gis_attribute_dependencies.py"
+      - "tests/fixtures/tuflow_example_repro/run_checks.py"
+      - "tests/fixtures/tuflow_example_repro/run_local_checks.py"
+      - "tests/orchestrators/tuflow/test_input_preflight.py"
+      - "typings/pytuflow/__init__.pyi"
+  workflow_dispatch:
+
+jobs:
+  fork-consumer-smoke:
+    runs-on: windows-latest
+    env:
+      RYAN_TEST_DEFERRED_PYTUFLOW: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Initialise required test-data submodule
+        run: git submodule update --init tests/test_data
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Install pinned PyTUFLOW fork and supported GIS dependencies
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@a9f654c1ec0812fc70035e227fb2f9f12290f449"
+      - name: Install isolated preflight consumer and focused test dependencies
+        # Full ryan-tools extras currently request Fiona, which lacks a usable
+        # wheel in this hosted Windows/Python 3.14 environment. Avoid building
+        # Fiona from source for this read-only, isolated PyTUFLOW integration
+        # test; do not change normal installation or production requirements.
+        run: |
+          python -m pip install -e . --no-deps
+          python -m pip install pytest pyshp loguru colorama psutil
+      - name: Verify fork deferred API and consumer regression tests
+        run: python -m pytest -q tests/orchestrators/tuflow/test_input_preflight.py tests/functions/tuflow/test_gis_attribute_dependencies.py tests/functions/tuflow/test_raster_metadata_dependencies.py
+      - name: Verify private-model handoff command is available
+        run: python -m tests.fixtures.tuflow_example_repro.run_local_checks --help
+      - name: Replay archived Shapefile examples without launching TUFLOW
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "tuflow-example-shapefile-replay"
+          python -m tests.fixtures.tuflow_example_repro.run_checks --tcf EG02_014.tcf --tcf EG04_004.tcf --output $report
+          $diagnosticExit = $LASTEXITCODE
+          if ($diagnosticExit -ne 0) { exit $diagnosticExit }
+          python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); assert len(rows)==2; assert all(row["accepted_parity"] and row["missing"]==0 and row["extra"]==0 for row in rows)' (Join-Path $report "results.json")
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Require complete archived example regression parity
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $report = Join-Path $env:RUNNER_TEMP "tuflow-example-full-replay"
+          python -m tests.fixtures.tuflow_example_repro.run_checks --output $report
+          $diagnosticExit = $LASTEXITCODE
+          if ($diagnosticExit -ne 0) { exit $diagnosticExit }
+          python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); assert len(rows)==161; assert sum(row["runs"] for row in rows)==174; assert all(row["accepted_parity"] and row["missing"]==0 and row["extra"]==0 for row in rows), "Incomplete eager/deferred parity"' (Join-Path $report "results.json")
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Save complete example regression results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tuflow-example-full-replay
+          path: ${{ runner.temp }}/tuflow-example-full-replay
+          if-no-files-found: warn

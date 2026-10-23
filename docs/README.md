@@ -49,6 +49,7 @@ These documents stay near the code they describe so that browsing a target direc
 | TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
+| TUFLOW run preflight | [Proposed-run input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Check event/scenario-dependent input references, boundary source CSVs and GPKG layers before launching simulations |
 | TUFLOW project setup | [Project setup guide](../ryan-scripts/tuflow/PROJECT_SETUP.md) | Compact project initialization, canonical empty-file generation and validation evidence |
 | Native ASC_to_ASC operations | [Native ASC_to_ASC-style raster operations](ASC_TO_ASC_NATIVE_OPERATIONS.md) | Supported commands, module responsibilities, NoData policies and executable comparison |
 | GDAL wrappers | [GDAL Python wrappers](../ryan-scripts/gdal-python/README.md) | Maintained GDAL workflows, recipes, mutation risks and automation catalogue |
@@ -62,6 +63,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Vendored algorithms | [Vendor inventory](../vendor/README.md) | Third-party PyHMA and simil source, licence, import and packaging policy |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Bundled similarity-transform implementation, usage and upstream attribution |
 | Vendored `PyHMA` | [`PyHMA` README](../vendor/PyHMA/README.md) | Hydrograph matching usage, requirements and upstream attribution |
+| TUFLOW preflight regression harness | [Repository regression tooling](../tests/fixtures/tuflow_example_repro/README.md) | Supported Windows archive/parity checks and optional private-model diagnostic; source data remains in the test-data submodule |
 
 ## Integrations
 
@@ -93,6 +95,8 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; pending validation |
+| [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
 | [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licence notices, independent imports, similarity API and validation |
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Curated installed scripts and MCP packaging](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130 requirements reconciliation, reviewed 83-file allowlist, script-copy helper, verification and remaining acceptance |

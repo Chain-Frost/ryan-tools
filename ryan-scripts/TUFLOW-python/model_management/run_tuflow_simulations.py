@@ -9,6 +9,10 @@ USAGE
 4. Demo dashboard without TUFLOW: python run_tuflow_simulations.py --demo-dashboard
 """
 
+from __future__ import annotations
+
+WRAPPER_VERSION = "2026-10-21.2"
+
 
 # ========= USER PARAMETERS ====== ***** EDIT ONLY THIS FUNCTION *****
 def get_parameters() -> Parameters:
@@ -57,6 +61,10 @@ def get_parameters() -> Parameters:
         pending_head_rows=10,
         pending_tail_rows=10,
         write_results_csv=True,
+        warn_gpu_sharing=True,  # Warn when a new run would share a GPU already used by a local TUFLOW process
+        preflight_check=False,  # Validate exact run inputs before launch (PyTUFLOW installed with ryan-tools)
+        preflight_check_gpkg_layers=True,
+        preflight_report_csv=Path("run_tuflow_simulations_preflight.csv"),
     )
 
     # Build and validate
@@ -99,6 +107,16 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from ryan_library.functions.tuflow.gpu_occupancy import (
+    TuflowGpuProcess,
+    gpu_conflicts,
+    gpu_ids_from_flags,
+    local_gpu_occupancy,
+)
+from ryan_library.functions.tuflow.run_flags import extract_flag_pairs, extract_run_flags
+from ryan_library.functions.wrapper_utils import print_wrapper_banner
+from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_simulation_inputs
+
 
 ###############################################################################
 # =============================== DATA CLASSES ============================== #
@@ -131,6 +149,10 @@ class CoreParameters:
         pending_head_rows:      Number of earliest blocked finished rows to show.
         pending_tail_rows:      Number of latest blocked finished rows to show.
         write_results_csv:      If True -> write <script>_results.csv in ordered static print order.
+        warn_gpu_sharing:      Warn if GPUs are shared with other active TUFLOW simulations.
+        preflight_check:        Validate exact input dependencies before launch.
+        preflight_check_gpkg_layers: Verify layers referenced inside GeoPackages.
+        preflight_report_csv:   Path of the preflight issues CSV.
     """
 
     tcf: Path
@@ -154,6 +176,10 @@ class CoreParameters:
     pending_head_rows: int = 25
     pending_tail_rows: int = 25
     write_results_csv: bool = True
+    warn_gpu_sharing: bool = True
+    preflight_check: bool = False
+    preflight_check_gpkg_layers: bool = True
+    preflight_report_csv: Path = Path("run_tuflow_simulations_preflight.csv")
 
     # ---- Defaults map (for styled dumps) ----
     # IMPORTANT: mark as ClassVar so dataclasses ignores it (avoids mutable-default error).
@@ -176,6 +202,10 @@ class CoreParameters:
         "pending_head_rows": 25,
         "pending_tail_rows": 25,
         "write_results_csv": True,
+        "warn_gpu_sharing": True,
+        "preflight_check": False,
+        "preflight_check_gpkg_layers": True,
+        "preflight_report_csv": Path("run_tuflow_simulations_preflight.csv"),
     }
 
     def dump(self) -> None:
@@ -227,6 +257,10 @@ class CoreParameters:
             ("pending_head_rows", self.pending_head_rows),
             ("pending_tail_rows", self.pending_tail_rows),
             ("write_results_csv", self.write_results_csv),
+            ("warn_gpu_sharing", self.warn_gpu_sharing),
+            ("preflight_check", self.preflight_check),
+            ("preflight_check_gpkg_layers", self.preflight_check_gpkg_layers),
+            ("preflight_report_csv", self.preflight_report_csv),
         ]
         for name, val in items:
             # For "(effective)" label, look up original key for default styling comparison
@@ -701,13 +735,8 @@ def _strip_pu_flags(line: str) -> str:
 
 
 def _extract_flag_pairs_in_order(line: str) -> list[tuple[FlagKey, FlagVal]]:
-    out: list[tuple[FlagKey, FlagVal]] = []
-    for m in _FLAG_PAIR_RE.finditer(string=line):
-        k = m.group("key").lower().strip()
-        v = m.group("val").strip()
-        if v:
-            out.append((k, v))
-    return out
+    """Reuse the shared parser used by the preflight checker."""
+    return extract_flag_pairs(line)
 
 
 def _canonical_key(combo: Combo) -> tuple[tuple[str, str], ...]:
@@ -1154,6 +1183,10 @@ def launch_simulations(
 
     running: list[Simulation] = []
     queue: list[Simulation] = sims.copy()
+    warned_shares: set[tuple[int, int]] = set()
+    warned_unknown_pids: set[int] = set()
+    warned_incomplete_inspection = False
+    warned_missing_gpu_flags = False
     total: int = len(sims)
     console = Console()
 
@@ -1186,7 +1219,7 @@ def launch_simulations(
             if s.process and s.process.poll() is None:
                 console.print(f"Terminating simulation {s.index} (PID {s.process.pid})")
                 s.process.terminate()
-        if core.pause_on_finish:
+        if core.pause_on_finish and "--no-pause" not in sys.argv:
             _pause_on_windows()
         sys.exit(1)
 
@@ -1244,6 +1277,54 @@ def launch_simulations(
             next_static_index += 1
             refresh_live(live=live, force=True)
 
+    def warn_if_gpu_shared(sim: Simulation) -> None:
+        """Warn only when another live process actually shares a selected GPU.
+
+        A model without explicit -puN flags cannot be positively assigned a
+        GPU from its command line. Treat it as uncertain, never as free.
+        """
+        nonlocal warned_incomplete_inspection, warned_missing_gpu_flags
+        if not core.warn_gpu_sharing:
+            return
+        selected = gpu_ids_from_flags(sim.args_for_python)
+        if not selected:
+            if not warned_missing_gpu_flags:
+                console.print(
+                    "[yellow]GPU allocation is not explicitly specified (-puN): "
+                    "cannot verify whether the launch would share a GPU.[/yellow]"
+                )
+                warned_missing_gpu_flags = True
+            return
+
+        owned_pids = {item.process.pid for item in running if item.process is not None}
+        other_launcher_runs = tuple(
+            TuflowGpuProcess(pid=item.process.pid, gpu_ids=gpu_ids_from_flags(item.args_for_python))
+            for item in running
+            if item.process is not None and item.process.poll() is None
+        )
+        local = local_gpu_occupancy(exclude_pids=owned_pids)
+        for pid, common in gpu_conflicts(selected, (*other_launcher_runs, *local.assigned)):
+            for device in sorted(common):
+                if (pid, device) in warned_shares:
+                    continue
+                warned_shares.add((pid, device))
+                console.print(
+                    f"[yellow]WARNING: GPU {device} will be shared with active TUFLOW PID {pid} "
+                    f"when starting simulation {sim.index}. Execution performance may be reduced.[/yellow]"
+                )
+        for pid in local.unknown_pids:
+            if pid not in warned_unknown_pids:
+                warned_unknown_pids.add(pid)
+                console.print(
+                    f"[yellow]GPU usage of another running TUFLOW process (PID {pid}) is unknown "
+                    "because it has no explicit -puN switch. GPU exclusivity cannot be confirmed.[/yellow]"
+                )
+        if local.inspection_incomplete and not warned_incomplete_inspection:
+            warned_incomplete_inspection = True
+            console.print(
+                "[yellow]Could not inspect every local process. GPU exclusivity cannot be confirmed.[/yellow]"
+            )
+
     def launch_ready_sim() -> bool:
         nonlocal slot_idx
         can_start: bool = (len(running) < max_parallel) and (
@@ -1267,6 +1348,9 @@ def launch_simulations(
                 gpu_flags: list[str] = [gpu_group] if isinstance(gpu_group, str) else list(gpu_group)
                 insert_at: int = 1 + len(batch_flags)
                 sim.args_for_python = sim.args_for_python[:insert_at] + gpu_flags + sim.args_for_python[insert_at:]
+
+        # Check the actual selected GPU(s) immediately before launching. Warnings do not block the batch.
+        warn_if_gpu_shared(sim)
 
         # ---------- launch ----------
         sim.start_time = datetime.datetime.now()
@@ -1492,6 +1576,12 @@ def run_dashboard_demo() -> None:
 
 # ================================== MAIN ================================== #
 def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        print("run_tuflow_simulations.py [--preflight] [--preflight-only] [--no-pause] [--demo-dashboard]")
+        print("  --preflight       Validate all input files before simulations are launched.")
+        print("  --preflight-only  Export commands, validate inputs and exit without running TUFLOW.")
+        print("  --no-pause        Exit without interactive pause for automation or CI.")
+        return
     if "--demo-dashboard" in sys.argv:
         run_dashboard_demo()
         return
@@ -1511,6 +1601,7 @@ def main() -> None:
     os.chdir(path=script_dir)
     logging.info("Working dir: %s", script_dir)
 
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     params: Parameters = get_parameters()
     core: CoreParameters = params.core_params
 
@@ -1559,6 +1650,53 @@ def main() -> None:
             tcf=core.tcf,
         )
 
+    preflight_enabled: bool = core.preflight_check or "--preflight" in sys.argv or "--preflight-only" in sys.argv
+    if preflight_enabled:
+        requests: list[RunRequest] = [
+            RunRequest(index=sim.index, flags=extract_run_flags(sim.args_for_python)) for sim in sims
+        ]
+        report = check_simulation_inputs(
+            core.tcf,
+            requests,
+            check_gpkg_layers=core.preflight_check_gpkg_layers,
+        )
+        report_path = report.write_csv(core.preflight_report_csv)
+        logging.info(
+            "Input preflight: %d runs, %d unique paths, %d directory scans, %d direct checks, "
+            "%d issues, %d affected runs; report: %s",
+            report.run_count,
+            len(report.checked_paths),
+            report.directories_scanned,
+            report.individually_checked,
+            len(report.issues),
+            report.affected_runs,
+            report_path,
+        )
+        logging.info(
+            "Preflight timing: PyTUFLOW parse %.2fs, run-context resolution %.2fs, deduplicated file inventory %.2fs",
+            report.parse_seconds,
+            report.context_seconds,
+            report.inventory_seconds,
+        )
+        for issue in report.issues[:20]:
+            logging.error(
+                "Run %d %s %s: %s (%s)",
+                issue.run_index,
+                issue.status,
+                issue.origin,
+                issue.reference,
+                issue.detail,
+            )
+        if not report.passed:
+            message = (
+                f"Preflight blocked launch: {len(report.issues)} issue(s) affecting {report.affected_runs} run(s)."
+            )
+            raise RuntimeError(message)
+
+    if "--preflight-only" in sys.argv:
+        logging.info("Preflight-only mode: no simulations launched.")
+        return
+
     if not core.run_simulations:
         logging.info("run_simulations=False -> exiting after exporting commands.txt")
         return
@@ -1571,7 +1709,7 @@ def main() -> None:
         run_post_script(script_path=core.next_run_file)
 
     logging.info("All finished.")
-    if core.pause_on_finish:
+    if core.pause_on_finish and "--no-pause" not in sys.argv:
         _pause_on_windows()
 
 
@@ -1580,5 +1718,8 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         logging.critical("An error occurred: %s", e, exc_info=True)
-        _pause_on_windows()
+        if "--no-pause" not in sys.argv and "--preflight-only" not in sys.argv:
+            _pause_on_windows()
         sys.exit(1)
+    finally:
+        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)

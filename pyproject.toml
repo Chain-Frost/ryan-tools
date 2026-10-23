@@ -37,6 +37,7 @@ dependencies = [
   "cryptography>=3.1",
   "ezdxf",
   "rich",
+  "pytuflow>=1.2,<2",
   "run-hy8>=2026.10.16.1",
   'ryan-culverts>=26.10.16.1',
 ]
@@ -45,7 +46,7 @@ license = "SUL-1.0"
 name = "ryan-tools"
 readme = "README.md"
 requires-python = ">=3.13"
-version = "26.10.20.3"
+version = "26.10.21.2"
 
 [project.optional-dependencies]
 dev = [

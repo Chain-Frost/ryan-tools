@@ -42,6 +42,14 @@ The default masked-bilinear sampler returns NoData only when the profile
 station's containing raster cell is NoData; adjacent NoData cells are excluded
 and the remaining interpolation weights are renormalised.
 
+Only the single-layer GeoPackage renamer,
+[`gis_processing/rename_geopackage_layer_to_filename.py`](gis_processing/rename_geopackage_layer_to_filename.py),
+prints GeoPackage paths relative to its scan root (the copied script's folder,
+or an explicitly configured target directory). Nested files retain their
+relative subfolder names; full paths are still used for file operations.
+Green denotes a successful layer rename, yellow a skipped file (already
+correct or multiple layers), and red a failed inspection or rename.
+
 ## Wrapper folders
 
 | Folder | Purpose |

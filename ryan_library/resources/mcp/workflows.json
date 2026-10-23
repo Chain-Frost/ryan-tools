@@ -3,6 +3,19 @@
   "catalogue_updated": "2026-10-07",
   "workflows": [
     {
+      "id": "check_tuflow_inputs",
+      "title": "Check proposed TUFLOW simulation inputs",
+      "domain": "tuflow",
+      "purpose": "Check scenario-resolved control files and BC Source CSVs for exact proposed runs without launching TUFLOW; write issues CSV.",
+      "script": "ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py",
+      "profile": "analysis",
+      "mutation": "creates_outputs",
+      "lifecycle": "experimental",
+      "headless_arguments": [
+        "--no-pause"
+      ]
+    },
+    {
       "id": "audit_qgis_projects",
       "title": "Audit QGIS project sources",
       "domain": "qgis",
