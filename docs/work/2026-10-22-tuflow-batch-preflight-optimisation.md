@@ -1,20 +1,21 @@
 # Batch-aware TUFLOW preflight optimisation — stacked PR scope
 
-**Status:** Active final paired validation with the consumer release scope fixed. Child #156 is merged into
-parent #143 (`feat/tuflow-run-preflight`) at `298fb13`, after all five workflows passed and final independent
-review returned no findings. The parent retains the diagnostic identity/layer memoisation and the ordered
-input/reference-count adapter. The archive harness is now supported repository regression tooling.
-Parent #143 remains unmerged to `main`; normal package dependencies and launcher defaults are unchanged.
+**Status:** Complete for the bounded graph/consumer integration. Child #156 merged into parent #143 at
+`298fb13`; final consumer source is `fa6ae1ef4a524336277e974a59220fd513c35c75`, with a clean final review.
+The [preflight record](2026-10-21-tuflow-input-preflight.md) records the mainline delivery. Diagnostic
+identity/layer memoisation, the ordered-input/reference-count adapter and the supported repository
+regression harness are delivered; normal package dependencies and launcher defaults are unchanged.
 
-PyTUFLOW #12 retains the existing scenario/variable group proof and isolation work. A narrow original-constructor
-safety correction and the independent reference-count contract are complete at
-`126ec64e221908f5327ee9dc9d372c8084afaf12`, with 263 focused tests passing on Python 3.12 and 3.14.
-Exact-source paired Windows checks remain pending. Broader literal-setting reuse and `Inputs.append`
-optimisation are separate follow-up PRs, not additions to the bounded consumer release.
+PyTUFLOW #12 merged at `e162c04330d24c37bee3ade94479cc4602651060`, with the same tree as
+`126ec64e221908f5327ee9dc9d372c8084afaf12`: scenario/variable group proofs, constructor-hook safety and the
+independent reference-count contract. Its 263 focused tests pass on Python 3.12 and 3.14. Further append
+bookkeeping and literal-setting reuse are separately scoped in
+[#14](https://github.com/phantom-branch/PyTuflow/pull/14) and
+[#15](https://github.com/phantom-branch/PyTuflow/pull/15), respectively.
 Earlier source `84f1f38` passed 245 focused tests on Python 3.12/3.14 and all eight active hosted checks;
 that is historical evidence, not validation of subsequent source changes.
 
-**Date:** 2026-10-23. **Owner:** ChatGPT. **Next review:** 2026-10-30.
+**Date:** 2026-10-23. **Owner:** ChatGPT. **Next review:** —.
 
 **Historical completed benchmark revisions:** PyTUFLOW `a9f654c1ec0812fc70035e227fb2f9f12290f449`;
 consumer diagnostic `2e03c0b110a272d9c6a05cc6da3bc08817130164`.
@@ -23,8 +24,10 @@ The earlier pinned hosted batch workflow passed strict eager/deferred/batch mate
 Native rotated three-mode evaluations are complete; see the final results below. The small SMB model has 42 commands.
 
 Native nested two-BC model confirmation is explicitly deferred by the owner. The next offered benchmark is a
-new model on a different SMB server, using a recorded exact parser/consumer pair. Old M480/N42 reruns are not
-required to finish the bounded release. Broader non-READ/BC/include reuse remains outside the current parser
+new model on a different SMB server, using a recorded exact parser/consumer pair. The separate
+[native graph benchmark plan](2026-10-23-tuflow-native-graph-benchmark.md) owns that comparison tooling;
+it is planned, not implemented. Old M480/N42 reruns are not requirements for this completed milestone.
+Broader non-READ/BC/include reuse remains outside the current parser
 proof; new code must be validated independently of the historical benchmark.
 Historical planning/checkpoints below describe earlier states; this summary and the latest evaluation entry
 supersede their delivery/acceptance statements.
@@ -752,3 +755,20 @@ The separately owned batch-smoke matrix edit is preserved. No solver, private-mo
 production dependency repin occurred. Next action: finish exact-source hosted validation for the bounded
 release, then use separate PRs for each selected optimisation and the new-workload diagnostic extension.
 Next review: **2026-10-30**.
+
+## Milestone closure and separate follow-ups — 2026-10-23
+
+The bounded parser/consumer integration is complete. PyTUFLOW #12 merged as `e162c043` with the tested
+`126ec64` tree; #156 is integrated into #143, whose final source is `fa6ae1e`. Mainline consumer delivery is
+recorded in the [preflight record](2026-10-21-tuflow-input-preflight.md). Historical CI and benchmark entries
+remain tied to their original revisions; this closure makes no new native performance claim.
+
+Further parser work belongs in #14 (append bookkeeping) and #15 (literal-setting reuse). Future consumer
+graph-off/on diagnostics belong in the [new planned work record](2026-10-23-tuflow-native-graph-benchmark.md),
+which preserves the current three-mode baseline and requires its own implementation and Windows validation.
+The newly offered SMB model is optional follow-up evidence, not an outstanding #143 acceptance gate.
+
+This record-only close-out is included in `test/native-graph-benchmark-controls`, based on merged `main`
+at `bcc8e5c` (tree-identical to validated `fa6ae1e`). Default
+documentation/index coverage, links in all three touched records and `git diff --check` pass on Linux/Python
+3.14.8; the preflight record lists the commands. No Python code or new benchmark result is included.

@@ -9,32 +9,37 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-Active final validation of the bounded opt-in release. Owner: ChatGPT. Updated: 2026-10-23.
-Next review: 2026-10-30. Supporting PRs #148, #151 and #156 are integrated into parent #143;
-#156 is closed/merged and the parent contains its validated `298fb13` source. All five workflows
-and the final independent review pass for that source. Parent #143 remains unmerged to `main`.
+Complete: bounded opt-in preflight and supporting integration. Owner: ChatGPT. Updated: 2026-10-23.
+Next review: —. Supporting PRs #148, #151 and #156 are integrated into #143; #156 merged at `298fb13`.
+Final consumer source: `fa6ae1ef4a524336277e974a59220fd513c35c75`, with a clean final review.
+Consumer delivery: [PR #143](https://github.com/Chain-Frost/ryan-tools/pull/143), mainline merge
+`bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2`. Its tree is identical to the validated `fa6ae1e`
+source. All five final workflows pass, including both parser entries in the full 161-TCF/174-run
+materialisation/public-preflight matrix; the final Codex review is clean.
 
 The maintained standalone checker, reusable API and opt-in launcher integration are implemented.
 Both wrappers retain individual-context collection and the published `pytuflow>=1.2,<2` dependency;
 the fork's batch API remains an explicit development option. The full 161-TCF/174-run Windows
 regression harness is now supported repository tooling, satisfying its earlier convert-or-remove
-lifecycle condition. Final paired parser/consumer checks and review remain; broader literal-setting
-reuse, append optimisation and new native performance work are separate follow-up PRs.
+lifecycle condition. PyTUFLOW #12 merged as `e162c04330d24c37bee3ade94479cc4602651060`, with the same
+tree as the tested `126ec64e221908f5327ee9dc9d372c8084afaf12` source. Further optimisation and native
+performance work are separate follow-ups, not unfinished acceptance work for this milestone.
 
 Historical P/B, 440-run, M480 and N42 results remain tied to their recorded revisions. The owner has
 offered a new model on a different SMB server for the next benchmark; it is not a requirement to
 repeat the old M480/N42 workloads before this bounded release. The separate 42-run merge gate was
 withdrawn and the native two-BC investigation remains deferred. The old Nmx CI failure is superseded
 by the current passing workflows. This summary and the latest progress entry supersede earlier
-pending-gate statements; the [batch record](2026-10-22-tuflow-batch-preflight-optimisation.md)
-owns optimisation and native benchmark follow-ups.
+pending-gate statements. The [batch record](2026-10-22-tuflow-batch-preflight-optimisation.md)
+preserves the completed optimisation evidence; the
+[native graph benchmark plan](2026-10-23-tuflow-native-graph-benchmark.md) owns future comparison tooling.
 
 ## Next action
 
-Finish the final exact-source parser/consumer Windows checks, publish the bounded lifecycle/documentation
-cleanup and review #143 for the opt-in release. Keep new optimisation and the new SMB model handoff in
-separate follow-up PRs. Record the final source pair before that workstation starts a benchmark; neither
-historical timings nor the full public archive establish the new server's performance.
+No further implementation belongs to this closed milestone. Review the separate native graph benchmark
+plan and parser follow-ups [#14](https://github.com/phantom-branch/PyTuflow/pull/14) for append bookkeeping
+and [#15](https://github.com/phantom-branch/PyTuflow/pull/15) for literal-setting reuse. Record a fixed source
+pair before any new SMB benchmark; historical timings do not establish that server's performance.
 
 ## Decisions
 
@@ -1432,3 +1437,22 @@ The separate exact-parser batch-smoke workflow edit belongs to the paired valida
 
 **Next action:** Publish this bounded cleanup and collect the fresh
 exact-source hosted results before the final #143 release review. Next review: **2026-10-30**.
+
+## Milestone closure and separate follow-ups — 2026-10-23
+
+The bounded #143/#156 integration is complete; the current State section records the final consumer source
+and mainline merge identity. PyTUFLOW #12 is merged at `e162c04330d24c37bee3ade94479cc4602651060`, preserving
+the tested `126ec64` tree. The standalone checker, reusable API, opt-in launcher and supported archive
+regression harness are delivered. Production dependency metadata and launch defaults remain unchanged.
+
+Optional optimisation is tracked in parser PRs #14/#15 and the separate
+[native graph benchmark plan](2026-10-23-tuflow-native-graph-benchmark.md). That plan contains no implemented
+graph-control CLI or new benchmark result. The new SMB workload and the old M480/N42 models are not gates
+for this completed integration. Earlier pending-gate entries remain historical evidence.
+
+This documentation-only closure is included in `test/native-graph-benchmark-controls`, based directly on
+merged `main` at `bcc8e5c`. It changes no runtime code and includes no package build or native-model run.
+Validation on Linux/Python 3.14.8:
+`python repo-scripts/check_documentation.py` passes seven files and central-index coverage;
+`python repo-scripts/check_documentation.py --links-only docs/work/README.md docs/work/2026-10-21-tuflow-input-preflight.md docs/work/2026-10-22-tuflow-batch-preflight-optimisation.md`
+passes all three touched records; `git diff --check` passes. No Python tests are needed for this record-only update.
