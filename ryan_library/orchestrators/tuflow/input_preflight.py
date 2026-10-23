@@ -425,7 +425,15 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                         if key in by_name:
                             message = f"Duplicate BC identifier {source.entry_name!r}"
                             raise ValueError(message)
-                        by_name[key] = Path(source.path_pattern).absolute()
+                        # Resolve relative Source entries against their owning control
+                        # file (or the database location), never the caller's CWD.
+                        # This must match the ordinary deferred source collection below.
+                        source_path = Path(source.path_pattern)
+                        if not source_path.is_absolute():
+                            owner_file = source.owner_control_file
+                            base_directory = owner_file.parent if owner_file is not None else source.database_path.parent
+                            source_path = base_directory / source_path
+                        by_name[key] = source_path.absolute()
                     report.bc_activation_sources[(run.index, uuid)] = by_name
                     active = next(a for a in bc_activations if a.database_kind == "bc" and a.input_uuid == uuid)
                     report.bc_activation_paths[(run.index, uuid)] = active.database_path

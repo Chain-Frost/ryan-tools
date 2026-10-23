@@ -41,7 +41,7 @@ def _reference(path: Path, *, origin: str, database: bool = False) -> types.Simp
     )
 
 
-def _source(uuid: str, name: str, path: Path, *, database_path: Path, tcf: Path) -> types.SimpleNamespace:
+def _source(uuid: str, name: str, path: Path, *, database_path: Path, tcf: Path | None) -> types.SimpleNamespace:
     return types.SimpleNamespace(
         input_uuid=uuid,
         database_kind="bc",
@@ -117,7 +117,7 @@ def test_ordered_batch_retains_file_free_commands_and_correct_owner(tmp_path: Pa
 
 
 def test_two_bc_declarations_select_sources_by_original_command_order(tmp_path: Path) -> None:
-    tcf = tmp_path / "model.tcf"
+    tcf = tmp_path / "nested" / "model.tcf"
     commands = (
         _command(0, "db-a", "BC Database", tcf=tcf),
         _command(1, "gis-a", "Read GIS BC", tcf=tcf),
@@ -125,7 +125,7 @@ def test_two_bc_declarations_select_sources_by_original_command_order(tmp_path: 
         _command(3, "db-b", "BC Database", tcf=tcf),
         _command(4, "gis-b", "Read GIS BC", tcf=tcf),
     )
-    a_path, b_path = tmp_path / "a.csv", tmp_path / "b.csv"
+    a_path, b_path = tmp_path / "first_bc" / "a.csv", tmp_path / "second_bc" / "b.csv"
     refs = (
         (0, _reference(a_path, origin="BC Database", database=True)),
         (1, _reference(tmp_path / "boundary_a.shp", origin="Read GIS BC")),
@@ -137,8 +137,8 @@ def test_two_bc_declarations_select_sources_by_original_command_order(tmp_path: 
         types.SimpleNamespace(input_uuid="db-b", sequence=3, database_kind="bc", database_path=b_path),
     )
     sources = (
-        _source("db-a", "A", tmp_path / "a_source.csv", database_path=a_path, tcf=tcf),
-        _source("db-b", "B", tmp_path / "b_source.csv", database_path=b_path, tcf=tcf),
+        _source("db-a", "A", Path("relative/a_source.csv"), database_path=a_path, tcf=tcf),
+        _source("db-b", "B", Path("b_source.csv"), database_path=b_path, tcf=None),
     )
     flag = "-e1 TP01"
     view = _view(_case(flag, commands, refs, activations=activations, sources=sources))
@@ -165,8 +165,9 @@ def test_two_bc_declarations_select_sources_by_original_command_order(tmp_path: 
     assert not report.issues
     bc_sources = {ref.path.name: ref.bc_activation_uuid for ref in collected if ref.bc_activation_uuid}
     assert bc_sources == {"boundary_a.shp": "db-a", "boundary_b.shp": "db-b"}
-    assert report.bc_activation_sources[(42, "db-a")] == {"a": tmp_path / "a_source.csv"}
-    assert report.bc_activation_sources[(42, "db-b")] == {"b": tmp_path / "b_source.csv"}
+    # Source rows must use their own controlling paths, not process CWD.
+    assert report.bc_activation_sources[(42, "db-a")] == {"a": tcf.parent / "relative/a_source.csv"}
+    assert report.bc_activation_sources[(42, "db-b")] == {"b": b_path.parent / "b_source.csv"}
 
 
 @pytest.mark.parametrize("defect", ["ordinal", "duplicate", "missing", "reference_owner", "activation_sequence"])
