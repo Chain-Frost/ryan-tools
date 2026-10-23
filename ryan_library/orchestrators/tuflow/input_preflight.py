@@ -431,7 +431,9 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                         source_path = Path(source.path_pattern)
                         if not source_path.is_absolute():
                             owner_file = source.owner_control_file
-                            base_directory = owner_file.parent if owner_file is not None else source.database_path.parent
+                            base_directory = (
+                                owner_file.parent if owner_file is not None else source.database_path.parent
+                            )
                             source_path = base_directory / source_path
                         by_name[key] = source_path.absolute()
                     report.bc_activation_sources[(run.index, uuid)] = by_name
