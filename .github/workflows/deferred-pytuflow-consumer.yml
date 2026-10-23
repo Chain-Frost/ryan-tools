@@ -54,7 +54,7 @@ jobs:
           python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); assert len(rows)==2; assert all(row["accepted_parity"] and row["missing"]==0 and row["extra"]==0 for row in rows)' (Join-Path $report "results.json")
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Require complete archived example parity (temporary replay; remove before merge)
+      - name: Require complete archived example regression parity
         if: ${{ !cancelled() }}
         shell: pwsh
         run: |
@@ -64,7 +64,7 @@ jobs:
           if ($diagnosticExit -ne 0) { exit $diagnosticExit }
           python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); assert len(rows)==161; assert sum(row["runs"] for row in rows)==174; assert all(row["accepted_parity"] and row["missing"]==0 and row["extra"]==0 for row in rows), "Incomplete eager/deferred parity"' (Join-Path $report "results.json")
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Save complete temporary example results
+      - name: Save complete example regression results
         if: always()
         uses: actions/upload-artifact@v4
         with:

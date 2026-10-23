@@ -1,15 +1,18 @@
 # Batch-aware TUFLOW preflight optimisation — stacked PR scope
 
-**Status:** Active validation of benchmark recommendations implemented in separate parser and consumer PRs.
-PyTUFLOW #12 now contains expanded scenario/variable group proofs and isolation fixes at
-`84f1f38767c446ab58c64fd478b383d97d516a73`; 245 focused tests pass locally on each of Python 3.12.14 and 3.14.8,
-and all eight active hosted checks pass, including Windows 3.12/3.14 and the 161-TCF graph differential.
-Consumer #143 (`feat/tuflow-run-preflight`) memoises repeated physical-identity resolution and GeoPackage layer
-enumeration in its temporary diagnostic; six focused tests, Ruff and strict Pyright pass on Python 3.14.8.
-Child #156 at `9a4c693` and its PyTUFLOW #13 API dependency at `d4a47d1` both passed their hosted checks
-and independent reviews. The owner has authorised merging #156 into #143 after parent synchronisation and validation.
-Both PRs remain draft. Current native performance is unmeasured;
-earlier SSD/SMB results below are historical. No production release, dependency repin or default-mode change.
+**Status:** Active final paired validation with the consumer release scope fixed. Child #156 is merged into
+parent #143 (`feat/tuflow-run-preflight`) at `298fb13`, after all five workflows passed and final independent
+review returned no findings. The parent retains the diagnostic identity/layer memoisation and the ordered
+input/reference-count adapter. The archive harness is now supported repository regression tooling.
+Parent #143 remains unmerged to `main`; normal package dependencies and launcher defaults are unchanged.
+
+PyTUFLOW #12 retains the existing scenario/variable group proof and isolation work. A narrow original-constructor
+safety correction and the independent reference-count contract are complete at
+`126ec64e221908f5327ee9dc9d372c8084afaf12`, with 263 focused tests passing on Python 3.12 and 3.14.
+Exact-source paired Windows checks remain pending. Broader literal-setting reuse and `Inputs.append`
+optimisation are separate follow-up PRs, not additions to the bounded consumer release.
+Earlier source `84f1f38` passed 245 focused tests on Python 3.12/3.14 and all eight active hosted checks;
+that is historical evidence, not validation of subsequent source changes.
 
 **Date:** 2026-10-23. **Owner:** ChatGPT. **Next review:** 2026-10-30.
 
@@ -19,8 +22,10 @@ The earlier pinned hosted batch workflow passed strict eager/deferred/batch mate
 161 TCFs / 174 runs. The preceding parser b1c9cfd also passed the local strict archive replay.
 Native rotated three-mode evaluations are complete; see the final results below. The small SMB model has 42 commands.
 
-Native nested two-BC model confirmation is explicitly deferred by the owner. Broader non-READ/BC/include reuse remains
-outside the current parser proof; new code must be validated independently of the historical benchmark.
+Native nested two-BC model confirmation is explicitly deferred by the owner. The next offered benchmark is a
+new model on a different SMB server, using a recorded exact parser/consumer pair. Old M480/N42 reruns are not
+required to finish the bounded release. Broader non-READ/BC/include reuse remains outside the current parser
+proof; new code must be validated independently of the historical benchmark.
 Historical planning/checkpoints below describe earlier states; this summary and the latest evaluation entry
 supersede their delivery/acceptance statements.
 
@@ -38,10 +43,10 @@ original spellings for inventory and SQLite I/O. New invocations start fresh; ex
 comparison. Archive-containment checks and installed-module verification retain their separate deliberate
 link resolution. Production preflight and parser dependency pins are unchanged.
 
-The parser's [current handoff](https://github.com/phantom-branch/PyTuflow/blob/84f1f38767c446ab58c64fd478b383d97d516a73/agent_workstreams/P5_graph_group_reuse.md)
-owns graph implementation and validation. Its [original benchmark report at 2b8ddb9](https://github.com/phantom-branch/PyTuflow/blob/2b8ddb9/agent_workstreams/P5_benchmark_results_2026-10-23.md)
-remains immutable historical evidence. Native M480/N42 reruns require the designated workstation and the
-new parser/consumer source pair; no raw native data or identifying paths are uploaded.
+The parser's [recorded handoff at 84f1f38](https://github.com/phantom-branch/PyTuflow/blob/84f1f38767c446ab58c64fd478b383d97d516a73/agent_workstreams/P5_graph_group_reuse.md)
+describes that graph implementation and validation. Its [original benchmark report at 2b8ddb9](https://github.com/phantom-branch/PyTuflow/blob/2b8ddb9/agent_workstreams/P5_benchmark_results_2026-10-23.md)
+remains immutable historical evidence. The new SMB workload belongs to the designated workstation and must
+record the final parser/consumer source pair. No raw native data or identifying paths are uploaded.
 
 ## Historical planning: why optimisation was separate from PR #143
 
@@ -708,3 +713,42 @@ in the three integrated Markdown files pass. The source merge introduced no Pyth
 PyTUFLOW #12 must also adopt the same reference-count contract before it is tested with this consumer: ordered
 descriptors without the count are intentionally rejected. Retain that fail-closed check. Native SMB and real
 nested two-BC validation stay deferred to the designated workstation. Next review: **2026-10-30**.
+
+## Bounded release, child integration and next workload — 2026-10-23
+
+[PR #156](https://github.com/Chain-Frost/ryan-tools/pull/156) is now closed/merged into parent #143 at
+`298fb13`, after its refreshed five workflows passed and the
+[final review](https://github.com/Chain-Frost/ryan-tools/pull/156#issuecomment-6357553345) returned no findings.
+The guarded parent fast-forward preserved the ordered-input/reference-count adapter, diagnostic memoisation
+and both work-record histories. Parent #143 remains unmerged to `main`.
+
+PyTUFLOW #12 source `126ec64e221908f5327ee9dc9d372c8084afaf12` includes the narrow constructor-hook safety
+correction and the independent reference-count contract required by this consumer. The 263-test focused
+selection passes on Python 3.12 and 3.14. Fresh paired Windows checks are pending against that exact parser
+pin and the final consumer cleanup source. Those results must be recorded separately from the previous
+`84f1f38` and #156 hosted evidence. Do not weaken the consumer's count or full-archive acceptance checks.
+Literal-setting reuse and `Inputs.append` optimisation remain separate parser follow-up PRs.
+
+The former temporary archive runner is now supported repository-only Windows regression tooling, with
+focused tests and full 161-TCF/174-run replay retained. Its lifecycle/documentation cleanup changes only
+docstrings, comments, workflow labels and documentation. The package wheel, normal published PyTUFLOW
+dependency, installed wrapper catalogue and opt-in launch defaults remain unchanged. The
+[preflight record](2026-10-21-tuflow-input-preflight.md) owns the release validation and delivery status.
+
+The owner has offered a new model on a different SMB server. Treat it as a new workload: record both exact
+Git heads, the private model/run-list provenance and the expected run count before executing the existing
+`run_local_checks --batch` protocol on the designated workstation. That protocol compares eager, individual
+deferred and batch collection and validates the representative/full inventories and public preflight.
+It does not expose graph compilation on/off; a same-revision graph comparison requires a separate bounded
+consumer diagnostic PR and validation before timing. Old M480/N42 trials remain historical and need not be
+repeated as a release gate. No new native speedup is claimed from the hosted archive or constructor counts.
+
+**Local validation and delivery:** Ruff lint/format and strict Pyright pass for the docstring-only Python
+change on Linux/Python 3.14.8; executable AST structure matches `HEAD`. Default documentation/index coverage,
+all six touched Markdown link checks and `git diff --check` pass. The preflight record above contains the
+exact commands and environment. Edits are unstaged on `feat/tuflow-run-preflight` at `298fb13`; no commit or
+push was made by this documentation update.
+The separately owned batch-smoke matrix edit is preserved. No solver, private-model benchmark, release or
+production dependency repin occurred. Next action: finish exact-source hosted validation for the bounded
+release, then use separate PRs for each selected optimisation and the new-workload diagnostic extension.
+Next review: **2026-10-30**.

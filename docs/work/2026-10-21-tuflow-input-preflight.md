@@ -9,16 +9,32 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-In validation. Owner: ChatGPT. Updated: 2026-10-22. Next review: 2026-10-23. PRs #148 and #151 are merged
-into draft #143. PyTUFLOW #1 is merged into the fork's master; batch development continues in #5. Current
-parser a9f654c and consumer diagnostic 2e03c0b pass dedicated hosted deferred/batch checks and strict
-161-TCF/174-run archive replay. Existing eager/shared slot-nine and material CSV loader fixes are recorded
-separately upstream. Current P/B, matched 480-run SSD/SMB and new 42-command SMB trials plus public checks pass; results are
-tracked in the [batch work record](2026-10-22-tuflow-batch-preflight-optimisation.md). General Python CI has
-an independent Nmx snapshot column-dtype failure, recorded there separately. Historical external 440-run
-acceptance on parser fb103a1 remains valid for that revision, not the current source. The owner explicitly deferred further two-BC-model investigation. A newly supplied 42-command
-SMB model is a distinct benchmark. No mainline merge or release is authorised. Latest evidence supersedes
-historical delivery notes.
+Active final validation of the bounded opt-in release. Owner: ChatGPT. Updated: 2026-10-23.
+Next review: 2026-10-30. Supporting PRs #148, #151 and #156 are integrated into parent #143;
+#156 is closed/merged and the parent contains its validated `298fb13` source. All five workflows
+and the final independent review pass for that source. Parent #143 remains unmerged to `main`.
+
+The maintained standalone checker, reusable API and opt-in launcher integration are implemented.
+Both wrappers retain individual-context collection and the published `pytuflow>=1.2,<2` dependency;
+the fork's batch API remains an explicit development option. The full 161-TCF/174-run Windows
+regression harness is now supported repository tooling, satisfying its earlier convert-or-remove
+lifecycle condition. Final paired parser/consumer checks and review remain; broader literal-setting
+reuse, append optimisation and new native performance work are separate follow-up PRs.
+
+Historical P/B, 440-run, M480 and N42 results remain tied to their recorded revisions. The owner has
+offered a new model on a different SMB server for the next benchmark; it is not a requirement to
+repeat the old M480/N42 workloads before this bounded release. The separate 42-run merge gate was
+withdrawn and the native two-BC investigation remains deferred. The old Nmx CI failure is superseded
+by the current passing workflows. This summary and the latest progress entry supersede earlier
+pending-gate statements; the [batch record](2026-10-22-tuflow-batch-preflight-optimisation.md)
+owns optimisation and native benchmark follow-ups.
+
+## Next action
+
+Finish the final exact-source parser/consumer Windows checks, publish the bounded lifecycle/documentation
+cleanup and review #143 for the opt-in release. Keep new optimisation and the new SMB model handoff in
+separate follow-up PRs. Record the final source pair before that workstation starts a benchmark; neither
+historical timings nor the full public archive establish the new server's performance.
 
 ## Decisions
 
@@ -26,7 +42,8 @@ historical delivery notes.
 - Reuse the launcher's exact deduplicated Simulation objects for integrated checks.
 - Extract reusable run-flag parsing into ryan_library, while retaining the launcher scheduling/dashboard logic.
 - Keep checks read-only; write only a finding CSV; fail closed on unresolved references.
-- Enable integrated input checks only when explicitly requested until real-model validation passes.
+- Keep integrated input checks opt-in for this release; a future default-on change needs a separate decision.
+- Retain the full public archive harness as supported repository regression tooling, excluded from the package wheel.
 - Warn by default at each simulation launch if a live local TUFLOW process is confirmed to use an overlapping GPU.
   Unknown device assignments are reported as uncertain, not silently assumed free; warnings do not block launches.
 
@@ -43,7 +60,7 @@ historical delivery notes.
 - Provide --no-pause and --help on both wrappers.
 - Document limitations, install and regression testing; verify current Python 3.14 wheel.
 
-## Validation and delivery
+## Historical validation and delivery — 2026-10-21
 
 New focused tests accompany the implementation. GitHub hosted CI and native Windows/PyTUFLOW installation,
 standard package dependency installation and additional HPC control-file edge cases remain to be verified.
@@ -74,7 +91,7 @@ representative run found 20 unique inputs and no issues. Ruff and strict Pyright
 the corporate network-share execution policy rejected both executables with Windows error 5; exact-head CI remains
 the authoritative pending static-analysis check.
 
-## Next action
+## Historical next action — 2026-10-21
 
 Exclude output-path variable assignments before PyTUFLOW file iteration and handle nested output-root variables during
 context construction, with focused regressions for both observed forms. Then rerun this 42-run model without a TCF
@@ -1372,3 +1389,46 @@ constants. The all-green example matrix is a **no-regression** result, not
 proof that all TUFLOW multi-declaration/BC feature types are implemented.
 The PR remains draft, stacked on PR #143, and requires real representative
 multi-BC-model validation before merge. No mainline merge or solver run.
+
+## Bounded release and supported regression harness — 2026-10-23
+
+The latest owner direction fixes the scope of the opt-in release and places further optimisation in separate
+PRs. Supporting [PR #156](https://github.com/Chain-Frost/ryan-tools/pull/156) is now closed/merged into parent
+#143 at `298fb13`; all five source workflows passed and the
+[final review](https://github.com/Chain-Frost/ryan-tools/pull/156#issuecomment-6357553345) returned no findings.
+The earlier parent documentation conflicts are resolved and both histories are preserved. Parent #143 has
+not merged to `main`.
+
+The archive runner's former temporary lifecycle is explicitly converted to supported repository-only
+Windows/Python 3.14 regression tooling. Its fixture README, documentation index, checker docstrings and
+workflow labels now describe that boundary. It remains excluded from the wheel and installed wrapper
+catalogue. Full 161-TCF/174-run parity, focused regression tests and all fail-closed assertions remain intact;
+no runtime behaviour, dependency metadata or public API changes are part of this cleanup. The maintained
+standalone checker, reusable functions and opt-in launcher integration remain the project entry points.
+
+The final parser source is `126ec64e221908f5327ee9dc9d372c8084afaf12`, with 263 focused tests passing on both
+Python 3.12 and 3.14. The consumer batch workflow is being paired with that exact source for fresh Windows
+checks; those hosted results are still pending. Historical P/B, 440-run, M480 and N42 evidence is not relabelled
+as testing the new source. The withdrawn 42-run gate, deferred native two-BC investigation and superseded Nmx
+failure are not current blockers. Broader literal-setting reuse, append optimisation and the newly offered
+model on another SMB server remain separate follow-ups, owned in the batch record.
+
+**Local validation:** All checks pass on Linux/Python 3.14.8 using the existing
+`/workspace/scratch/be8eee2ccdaf/PyTuflow/.venv314/bin/` Python, Ruff 0.16.6 and Pyright 1.1.414 tools:
+
+- `ruff check tests/fixtures/tuflow_example_repro/run_checks.py`: passed.
+- `ruff format --check tests/fixtures/tuflow_example_repro/run_checks.py`: already formatted.
+- `pyright --pythonpath /workspace/scratch/be8eee2ccdaf/PyTuflow/.venv314/bin/python tests/fixtures/tuflow_example_repro/run_checks.py`:
+  strict project configuration, **0 errors / 0 warnings**.
+- `python repo-scripts/check_documentation.py`: seven default files and central-index coverage passed.
+- `python repo-scripts/check_documentation.py --links-only tests/fixtures/tuflow_example_repro/README.md docs/README.md docs/TUFLOW_INPUT_PREFLIGHT.md docs/work/2026-10-21-tuflow-input-preflight.md docs/work/2026-10-22-tuflow-batch-preflight-optimisation.md docs/work/README.md`:
+  all six touched Markdown files passed.
+- Python AST comparison against `HEAD`, after removing docstrings: executable structure unchanged.
+- `git diff --check`: passed. No broad test run or package rebuild was needed for this documentation-only change.
+
+**Delivery:** The changes are unstaged in `feat/tuflow-run-preflight` on `298fb13`; no commit,
+push, package build, solver run or native-model benchmark was performed by this documentation update.
+The separate exact-parser batch-smoke workflow edit belongs to the paired validation work and is preserved.
+
+**Next action:** Publish this bounded cleanup and collect the fresh
+exact-source hosted results before the final #143 release review. Next review: **2026-10-30**.

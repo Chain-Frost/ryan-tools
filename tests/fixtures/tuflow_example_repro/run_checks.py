@@ -1,4 +1,4 @@
-"""Temporary, read-only example-data reproduction harness; remove before PR merge."""
+"""Repository regression harness for read-only Windows TUFLOW dependency parity."""
 
 from __future__ import annotations
 
@@ -25,8 +25,8 @@ from ryan_library.orchestrators.tuflow.batch_preflight_adapter import BatchModel
 from ryan_library.orchestrators.tuflow.input_preflight import (
     PreflightReport,
     RunRequest,
-    _collect_references,  # pyright: ignore[reportPrivateUsage] - temporary in-repository diagnostic
-    _materialise_attribute_references,  # pyright: ignore[reportPrivateUsage] - temporary diagnostic
+    _collect_references,  # pyright: ignore[reportPrivateUsage] - repository regression contract
+    _materialise_attribute_references,  # pyright: ignore[reportPrivateUsage] - repository regression contract
     check_simulation_inputs,
 )
 
@@ -189,8 +189,8 @@ def collect(  # noqa: C901 - read-only materialisation and invocation-local iden
     return keys, stats
 
 
-def main() -> int:  # noqa: C901 - temporary multi-mode parity diagnostic
-    """Verify or run the temporary fixture, writing reports outside the checkout."""
+def main() -> int:  # noqa: C901 - multi-mode regression results and fail-closed acceptance
+    """Verify or replay the public archive; default reports use a temporary directory."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify-only", action="store_true")
     parser.add_argument(

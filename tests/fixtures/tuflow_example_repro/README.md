@@ -1,13 +1,28 @@
-# TUFLOW preflight example reproduction runner
+# TUFLOW preflight regression harness
 
 The **data** is maintained in the dedicated
 [ryan-tools-test-data repository](https://github.com/Chain-Frost/ryan-tools-test-data/tree/feat/tuflow-preflight-example-fixture/tuflow/example_input_preflight)
 and accessed via the existing `tests/test_data` submodule.
 
-This directory contains a **temporary, branch-only diagnostic runner**,
-not the source inputs. Remove this runner and related temporary CI steps
-before final merge unless they are converted into supported regression tests.
-The permanent ZIP and manifest belong in the test-data repository.
+This directory contains **supported repository-only regression tooling** for
+Windows/Python 3.14. `run_checks` verifies the public archive and compares complete
+eager, individual deferred and optional batch dependency inventories. Its focused
+tests and strict Windows replay workflows remain part of the regression boundary.
+This lifecycle decision supersedes the earlier instruction to remove the temporary
+runner before merge. The permanent ZIP and manifest remain in the test-data repository.
+
+The harness is excluded from the package wheel and installed-wrapper catalogue;
+use the maintained `check_tuflow_inputs.py` wrapper for ordinary project checks.
+It deliberately shares internal consumer collection/materialisation helpers so
+regressions exercise the production inspection stages. These imports are a
+repository test contract, not an additional public API. Full parity requires a
+compatible PyTUFLOW development build with the APIs pinned by the dedicated CI
+workflows; normal package dependency metadata is unchanged.
+
+`run_local_checks` is the optional private-model diagnostic using the same
+comparison. Run it only on an authorised workstation with access to the inputs.
+It is not a CI requirement for every consumer change or a guarantee of performance
+on another model or storage server.
 
 ## Data and provenance
 
@@ -66,8 +81,12 @@ A nonzero exit means incomplete parity and must fail the acceptance check.
 
 ## Private native-model handoff
 
-Use the same comparator on the other workstation/network without copying private
-model data into either repository. From this checkout, record both Git heads and run:
+For the owner's newly offered model on a different SMB server, treat the results
+as a new workload. Record the exact parser and consumer Git heads before running,
+use that same source pair throughout, and replace the model/count placeholders
+below. The earlier M480/N42 trials remain historical evidence and need not be
+repeated as a gate for the bounded consumer release. Keep private model data out
+of both repositories.
 
 ```powershell
 git rev-parse HEAD
@@ -75,9 +94,9 @@ git -C E:\Github\PyTuflow rev-parse HEAD
 python -m tests.fixtures.tuflow_example_repro.run_local_checks `
   --tcf "<model directory>\runs\<model>.tcf" `
   --commands-file "<model directory>\run_tuflow_simulations_commands.txt" `
-  --expect-runs 440 --label R440 `
+  --expect-runs "<actual run count>" --label NEW_SMB `
   --pytuflow-checkout E:\Github\PyTuflow `
-  --output "$env:TEMP\tuflow-R440-check" --batch --repeats 3
+  --output "$env:TEMP\tuflow-new-smb-check" --batch --repeats 3
 ```
 
 The command export must contain only the selected TCF's exact event/scenario
@@ -102,6 +121,10 @@ call is included in timing and its scalar upstream counters/phase timings are
 retained. Public individual and batch preflight must both pass and have identical
 checked paths and issues. The default two-mode command remains available without
 `--batch`. `--representative-only` stops after the first/middle/last gate.
+This command compares eager, individual deferred and batch collection. It does
+not expose a graph-compilation on/off switch. A same-revision graph-on/graph-off
+comparison requires a separate diagnostic extension and its own validation;
+do not describe the existing three-mode results as that comparison.
 
 For a known problematic model, `--continue-on-findings` completes the diagnostic
 instead of stopping at the gate. Findings remain in every report, acceptance
@@ -150,17 +173,21 @@ same already-extracted files on the same SSD. Do not unpack and commit the
 1,464 files to Git; that would introduce unnecessary checkout and small-file
 overhead.
 
-## Remaining work
+## Acceptance and follow-ups
 
-The original baseline accepted 107 TCFs (119 runs). The local Windows/Python 3.14.6
-replay on 2026-10-22 with coordinated eager secondary-source fixes accepts all
-161 TCFs (174 runs), with zero missing/extra identities and public preflight failures.
-The fixes are committed as consumer `09dfd502` and parser `22e2413`. Upstream
-[Windows replay 39711771147](https://github.com/phantom-branch/PyTuflow/actions/runs/39711771147)
-on parser/workflow head `fb103a1` now passes all 161 TCFs/174 runs with zero differences.
-Both replay workflows enforce complete parity and pin the corrected implementation.
-Native-model checks and final review remain distinct from that hosted example result. See
-[the work record](../../../docs/work/2026-10-21-tuflow-input-preflight.md).
+The full public archive gate requires all 161 TCFs / 174 runs to pass, with zero
+missing or extra materialised identities, no collection/inventory issues and
+matching public preflight results. A selected `--tcf` smoke is useful for debugging
+but does not substitute for that complete gate. Keep the focused harness tests
+and all strict workflow assertions when changing the comparator.
+
+Consumer PR #156 was integrated into parent #143 at `298fb13` after all five
+workflows passed and independent review returned no findings. That evidence
+belongs to that source and the workflow's exact parser pins. Final parser/consumer
+pairing and any later source changes require their own hosted checks; no native
+speedup is inferred. See the [preflight work record](../../../docs/work/2026-10-21-tuflow-input-preflight.md)
+and [batch work record](../../../docs/work/2026-10-22-tuflow-batch-preflight-optimisation.md)
+for current delivery and the separate optimisation/new-SMB-model follow-ups.
 
 No solver execution, automatic preflight enforcement, PR merge or PyPI
 publishing is authorised by this dataset's presence.
