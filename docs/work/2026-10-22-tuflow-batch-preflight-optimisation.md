@@ -1,23 +1,49 @@
 # Batch-aware TUFLOW preflight optimisation — stacked PR scope
 
-**Status:** Parser stack squash-merged after completed validation; graph-improvement handoff is draft PyTUFLOW PR #12. Earlier SSD/SMB results below remain historical. The batch adapter and shared inspection changes from #148 are now merged into
-#143 (`feat/tuflow-run-preflight`), which remains draft. PyTUFLOW #1 is merged into the fork's `master`;
-opt-in batch work continues in #5. No production release or default-mode change is authorised.
+**Status:** Active validation of benchmark recommendations implemented in separate parser and consumer PRs.
+PyTUFLOW #12 now contains expanded scenario/variable group proofs and isolation fixes at
+`84f1f38767c446ab58c64fd478b383d97d516a73`; 245 focused tests pass locally on each of Python 3.12.14 and 3.14.8,
+and all eight active hosted checks pass, including Windows 3.12/3.14 and the 161-TCF graph differential.
+Consumer #143 (`feat/tuflow-run-preflight`) memoises repeated physical-identity resolution and GeoPackage layer
+enumeration in its temporary diagnostic; six focused tests, Ruff and strict Pyright pass on Python 3.14.8.
+Child #156 at `9a4c693` and its PyTUFLOW #13 API dependency at `d4a47d1` both passed their hosted checks
+and independent reviews. The owner has authorised merging #156 into #143 after parent synchronisation and validation.
+Both PRs remain draft. Current native performance is unmeasured;
+earlier SSD/SMB results below are historical. No production release, dependency repin or default-mode change.
 
 **Date:** 2026-10-23. **Owner:** ChatGPT. **Next review:** 2026-10-30.
 
 **Historical completed benchmark revisions:** PyTUFLOW `a9f654c1ec0812fc70035e227fb2f9f12290f449`;
 consumer diagnostic `2e03c0b110a272d9c6a05cc6da3bc08817130164`.
-The current pinned hosted batch workflow passes strict eager/deferred/batch materialisation parity for all
+The earlier pinned hosted batch workflow passed strict eager/deferred/batch materialisation parity for all
 161 TCFs / 174 runs. The preceding parser b1c9cfd also passed the local strict archive replay.
 Native rotated three-mode evaluations are complete; see the final results below. The small SMB model has 42 commands.
 
-The two-BC-declaration issue is explicitly deferred by the owner. Eliminating repeated invariant run-state
-construction requires a broader immutable control-file graph and remains future optimisation.
+Native nested two-BC model confirmation is explicitly deferred by the owner. Broader non-READ/BC/include reuse remains
+outside the current parser proof; new code must be validated independently of the historical benchmark.
 Historical planning/checkpoints below describe earlier states; this summary and the latest evaluation entry
 supersede their delivery/acceptance statements.
 
-## Why this is separate from PR #143
+## Current parser and consumer ownership
+
+| Repository / PR | Owns | Boundary |
+| --- | --- | --- |
+| PyTUFLOW #12 | Control-file parsing, scenario/event and variable semantics, compiled dependencies, safe state reuse, isolation and batch API diagnostics | Proves reuse inside the parser; does not implement the consumer's inventory/reporting workflow |
+| ryan-tools #143 | Public PyTUFLOW API adaptation, physical GIS/database/file materialisation, unique inventory, provenance and diagnostic identity comparisons | Does not duplicate TUFLOW parsing, infer parser reuse from equal file sets, or inspect private graph/cache state |
+
+The diagnostic optimisation is confined to `tests/fixtures/tuflow_example_repro/`: cache successful
+`Path.resolve()` results and read-only GeoPackage table-name lists by **exact supplied path spelling** for
+one `collect()` invocation. Preserve physical alias equivalence and each run/command record, but retain
+original spellings for inventory and SQLite I/O. New invocations start fresh; exceptions still fail the
+comparison. Archive-containment checks and installed-module verification retain their separate deliberate
+link resolution. Production preflight and parser dependency pins are unchanged.
+
+The parser's [current handoff](https://github.com/phantom-branch/PyTuflow/blob/84f1f38767c446ab58c64fd478b383d97d516a73/agent_workstreams/P5_graph_group_reuse.md)
+owns graph implementation and validation. Its [original benchmark report at 2b8ddb9](https://github.com/phantom-branch/PyTuflow/blob/2b8ddb9/agent_workstreams/P5_benchmark_results_2026-10-23.md)
+remains immutable historical evidence. Native M480/N42 reruns require the designated workstation and the
+new parser/consumer source pair; no raw native data or identifying paths are uploaded.
+
+## Historical planning: why optimisation was separate from PR #143
 
 PR #143 owns the read-only event/scenario-sensitive dependency checker and its existing shared filesystem/GIS inventory. It must finish correctness and exact eager/deferred parity before optimisation is considered safe. Do not make the optimiser a prerequisite for fixing #143 or silently merge changes into its branch.
 
@@ -554,3 +580,131 @@ features. No native SMB work, TUFLOW solver invocation or release.
 and only then consider merging upstream #13 and child #156 into parent #143.
 PR #143 has its own separate release and native-model validation gates.
 Next review: 2026-10-30.
+
+## P5 rerun and file-sharing investigation - 2026-10-23
+
+The owner requested new benchmarks, GitHub delivery and recommendations, plus
+per-run M480 file/parameter sets and an actual-checks/graph comparison on the
+existing SSD copy. The supplied benchmark and diagnostic work is complete.
+
+Retained parser source `c305a6d2d5425ad72f388ef386ace375b4e53f99` (PyTUFLOW
+1.2.6, Windows/Python 3.14.6) has identical parser and benchmark code to later
+CI/documentation head `eebbb16`. Consumer diagnostic source is `5685fda8`;
+later `f63bc029` only changes an unrelated regression test. Library/diagnostic
+code is identical; consumer child PR #156 was not substituted.
+
+**273 parser/integration tests, 67 consumer tests and 2 CI-comparator tests pass**,
+as do compilation, full public 161-TCF/174-run parser/materialised replays and
+native M480/N42 parser/materialised/public-preflight gates. Eight active hosted
+checks pass at eebbb16, with no new P5 TMF regressions against pre-P5. This is
+not zero absolute upstream failures: both fork versions have 39 failed / 530
+passed / 11 skipped on hosted Python 3.14; three canonical-upstream differences
+predate P5 and remain separate eager/shared-compatibility follow-ups.
+
+Three rotated SMB parser medians: M480 graph-off **42.895 s**, graph-on
+**42.790 s**, eliding **1,916 of 31,680 constructors**; N42 graph-off
+**11.310 s**, graph-on **11.367 s**, eliding **0 of 4,148**. Differences of
+0.24% faster / 0.50% slower do not establish a meaningful graph speedup.
+M480 accounts for all eligible visits: four cold constructions plus 1,916
+reuses. Existing batch-cache gains remain separate.
+
+The private SSD trace captures all 480 flag/final-variable/event-variable records,
+graph decisions, required files and observed Python I/O. Each run needs **25
+distinct normalised paths, 23 common to all runs**; the union is 49. Two BC
+database paths and 24 BC source CSVs account for variation. All graph and final
+materialised path sets match; geometry/extent-related references stay constant.
+Observed post-parse batch and reference-collection Python I/O is zero. Shared
+inventory uses **26 stat calls, one scan and 13 SQLite connections**; shared
+raster metadata opens six sources. One same-file TIF alias causes 50 original
+spellings for 49 normalised locations. These are API requests, not physical
+disk/SMB counts; native library internal operations are not fully traced.
+
+The temporary parity diagnostic separately makes **12,480 Path.resolve calls**
+for 49 normalised identity targets. A direct check confirms mapped network paths
+become UNC with resolve, while absolute preserves spelling. The graph/cache does
+not resolve paths. Recommend invocation-local physical-identity memoisation in
+the diagnostic, preserving deliberate alias/security checks and original I/O
+paths, plus broader proved fixed-scenario group reuse and cost profiling.
+
+[Full P5 results and recommendations](https://github.com/phantom-branch/PyTuflow/blob/docs/graph-invariant-group-handoff/agent_workstreams/P5_benchmark_results_2026-10-23.md)
+owns trial values, phases, RSS, counters, source hashes, CI and artifact boundaries.
+SSD/network flags, 49 required file sizes and four control hashes match; large
+binary contents were not exhaustively hashed. Raw native CSVs/reports/parameter
+values stay private; only anonymised aggregates are published.
+
+**Delivery:** Results committed/pushed to PyTUFLOW #12 as `2b8ddb9`; its description
+and final benchmark comment are updated. This consumer #143 work record mirrors
+the outcome; delivery commits are linked from the PR comments. Both remain unmerged; no production repin, solver,
+launcher or release. Next action: review the measured coverage and select the
+next bounded optimisation from the report. Next review: 2026-10-30. Other overdue
+register fronts were not resumed by this benchmark task.
+
+## Benchmark recommendations implemented - 2026-10-23
+
+The owner explicitly requested the diagnostic efficiency fix in consumer PR #143 and clear ownership between
+the two repositories. The earlier planning restriction on bringing the separate production optimiser into
+#143 does not prevent this authorised diagnostic-only correction. Child PR #156 remains separate.
+
+**PyTUFLOW delivery:** PR #12 commit `84f1f38767c446ab58c64fd478b383d97d516a73` expands the supported
+GIS Code / Grid Zpts group proof to scenario-conditioned and proven variable-derived literal inputs. It
+includes branch/scenario slot, configuration, source and relevant variable/declaration identities; detaches
+mutable initial seeds and clones; fixes the remaining Grid `cf` alias; skips caches without useful candidates;
+and exposes candidate, bypass, reuse, failed-run and cost accounting. The 500-context correctness fixture
+elides 997 constructors versus 499 before the change, with full ordered parity. This is a constructor count,
+not a measured native speedup. Unsupported command groups still use normal parsing.
+
+All eight active hosted checks pass at that parser commit, including
+[Windows 3.12/3.14 integration and the full public graph differential](https://github.com/phantom-branch/PyTuflow/actions/runs/39892457442).
+The focused contract set passes 245 tests on each version, both locally and on Windows. The TMF comparison
+reports no new P5 failures; pre-P5 and current fork results remain 39 failed / 530 passed / 11 skipped, with
+three already documented differences from canonical upstream. These existing failures are not claimed fixed.
+
+**Consumer implementation:** Only the temporary archive diagnostic and its regression tests/README change.
+Its `collect()` caches successful physical identities by exact path spelling, and caches successful complete
+GeoPackage table-name tuples by the same spelling. Each layer selector and run/command provenance record is
+still evaluated independently. Original supplied paths are used for SQLite and inventory operations, aliases
+remain comparable, and enumeration connections close explicitly on success or failure. The next collection
+starts fresh; resolution/query failures propagate. Containment/module verification stays separate.
+
+**Local consumer validation (Linux, Python 3.14.8):**
+
+- `python -m pytest -q tests/fixtures/tuflow_example_repro/test_run_checks.py`: **6 passed**. The tests cover
+  exact spelling counts, mapped/UNC alias handling, run/command provenance, changed link targets and database
+  contents across calls, failed resolution/query retry and closed enumeration connections.
+- Ruff 0.16.6 check and format verification pass for `run_checks.py` and `test_run_checks.py`; strict Pyright
+  on those two files reports **0 errors / 0 warnings**. Compilation and whitespace validation pass.
+- The layer fixture uses three runs, two path spellings and three selectors: **two enumeration connections**
+  plus one independent final inventory connection, while retaining every expected identity.
+- Documentation validation covers the default repository README set and all three changed Markdown files.
+  The existing Windows batch-smoke workflow already selects the modified tests and complete archive replay;
+  its development-only parser pin is retained. No package build is needed for this diagnostic-only change.
+
+**Git delivery and next action:** This consumer patch is delivered on `feat/tuflow-run-preflight` to existing
+draft PR #143; the PR records its exact commit and hosted validation. Production preflight, launcher defaults,
+package/development dependency pins and submodule gitlinks are unchanged. No merge, release or simulation is
+authorised by this change. Review both current PRs, then have the designated workstation run the native
+M480/N42 protocol against the new parser/consumer source pair before making a timing claim. Broader parser
+group support, `Inputs.append` bookkeeping and pre-existing upstream differences remain separately scoped
+follow-ups. Next review: **2026-10-30**.
+
+## PR #156 parent synchronisation and merge authorisation - 2026-10-23
+
+The owner explicitly requested resolving the conflicts and merging #156 if complete. Its target remains
+`feat/tuflow-run-preflight` (#143). Parent source `144e1e4` is integrated into the child while retaining both
+the ordered-input/reference-count history and the newer graph/diagnostic benchmark record. The two conflicts
+were documentation-only; the parent's diagnostic memoisation and tests merged without source conflicts.
+
+Before this synchronisation, all five consumer workflows passed at `9a4c693`, including full public
+161-TCF/174-run materialised parity, and Codex reported no findings. The required independent count contract
+in PyTUFLOW #13 at `d4a47d1` passed all four upstream workflows and review. The outstanding second P2 thread
+is implemented and validated; it needs its final evidence reply/resolution. The synchronised child must pass
+its fresh hosted checks before the authorised merge into #143. The PR records the resulting source and merge
+commits; the production dependency remains unchanged.
+
+Local synchronisation checks: 24 focused adapter/diagnostic tests pass on Python 3.14.8; one real-fork gate
+is intentionally left to the dedicated Windows workflow. Default documentation/index validation and links
+in the three integrated Markdown files pass. The source merge introduced no Python conflict resolutions.
+
+PyTUFLOW #12 must also adopt the same reference-count contract before it is tested with this consumer: ordered
+descriptors without the count are intentionally rejected. Retain that fail-closed check. Native SMB and real
+nested two-BC validation stay deferred to the designated workstation. Next review: **2026-10-30**.

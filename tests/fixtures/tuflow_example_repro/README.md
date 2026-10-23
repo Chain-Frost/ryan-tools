@@ -126,7 +126,23 @@ timings; local SSD results do not establish network performance.
 Identity comparison follows physical aliases deliberately, while inventory I/O
 retains the supplied path spelling. Converting a mapped drive to a UNC SQLite
 `file://host` URI can otherwise create artificial unresolved layer findings.
-Wildcard expansion also retains all reference inspection/provenance flags.
+Physical identity is resolved once per exact path spelling within each `collect()`
+call (one TCF and mode), then reused across that call's run/command records. Each
+call starts with an empty cache so later calls observe changed link targets;
+resolution failures still fail the comparison. Archive containment and imported
+module verification keep their separate link-aware checks.
+GeoPackage wildcard/`all` selectors share one successful table-name enumeration per
+exact path spelling per call. Each selector is filtered independently, read-only
+enumeration connections close immediately, and query failures still fail the
+comparison. Later calls re-read changed database contents. The final shared
+inventory remains a separate verification stage. Wildcard expansion also retains
+all reference inspection/provenance flags.
+
+PyTUFLOW owns control-file parsing, scenario/event selection, variable expansion
+and graph reuse. This consumer diagnostic only compares physical identities after
+materialisation through the existing ryan-tools adapter and inspection stages;
+the identity cache does not inspect PyTUFLOW's private state or duplicate its
+evaluation logic.
 
 **Performance:** ZIP extraction is a one-time setup step, not part of
 the eager/deferred parse/context/inventory timings. For comparisons, use the
