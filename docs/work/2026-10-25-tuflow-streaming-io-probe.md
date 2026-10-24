@@ -66,3 +66,12 @@ Before any adoption into the public preflight or comparison harness:
 **Next action:** finish exact-head CI and code review, then assess whether
 safe authoritative inventory reuse is feasible without path/state staleness.
 Do not merge, publish or launch a full native benchmark on this pilot alone.
+
+## Cross-repository regression boundary
+
+The independent `tuflow-streaming-io-probe.yml` Windows workflow pins producer
+PR #28 commit `d99435dce741d80967df186ba6a28404358c8ca3`, installs it
+without altering published dependencies, and exercises the actual callback
+through `probe_batch_io_overlap` using a temporary synthetic TCF. Existing
+ordered-batch and normal preflight CI retain their own historical parser pins;
+this additional workflow does not replace the complete archive parity gates.

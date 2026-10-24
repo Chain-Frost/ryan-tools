@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 import types
 from collections.abc import Callable
@@ -147,3 +148,29 @@ def test_probe_does_not_treat_failure_or_prechecks_as_authoritative() -> None:
     assert summary.unique_paths == 0
     with pytest.raises(ValueError, match="bad context"):
         view.context("-s1 DEV", file_resolution="deferred")
+
+
+def test_real_pytuflow_completed_run_hook_retains_projection_parity(tmp_path: Path) -> None:
+    """Dedicated Windows gate pins PyTUFLOW PR #28; no native model or solver."""
+    if os.environ.get("RYAN_TEST_STREAM_IO_PYTUFLOW") != "1":
+        pytest.skip("Requires the exact opted-in producer fork")
+
+    from pytuflow import TCF
+
+    file = tmp_path / "gis.shp"
+    file.write_bytes(b"")
+    tcf = tmp_path / "pilot.tcf"
+    tcf.write_text("Read GIS Code == gis.shp\n", encoding="utf-8")
+    model = TCF(tcf)
+    flags = ("-s1 DEV", "-s1 EXG", "-s1 DEV")
+    plain = model.collect_batch_dependencies(flags)
+    view, summary = probe_batch_io_overlap(model, flags, max_pending=2)
+    assert plain.passed
+    assert summary.unique_paths == 1
+    assert summary.present == 1
+    assert summary.duplicate_paths == 2
+    assert summary.peak_outstanding <= 2
+    for flag, original in zip(flags, plain.runs, strict=True):
+        inputs = view.context(flag, file_resolution="deferred").find_input()
+        assert tuple(ref for inp in inputs for ref in inp.file_references) == original.file_references
+    view.assert_consumed()
