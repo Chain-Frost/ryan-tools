@@ -18,9 +18,9 @@ DEFAULT_REPORT = Path("tuflow_input_preflight.csv")
 DEFAULT_CHECK_GPKG_LAYERS = True
 
 import argparse
-from collections import Counter
 import json
 import os
+from collections import Counter
 from typing import Literal
 
 from ryan_library.functions.tuflow.command_plan import read_command_plan
@@ -28,15 +28,27 @@ from ryan_library.orchestrators.tuflow.command_preflight import check_command_pl
 
 
 def main(
-    *, tcf: Path | None, commands: Path, report: Path, check_gpkg_layers: bool,
-    working_directory: Path | None = None, plan_only: bool = False, plan_report: Path | None = None,
-    syntax: Literal["auto", "batch", "commands"] = "auto", encoding: str = "utf-8-sig",
+    *,
+    tcf: Path | None,
+    commands: Path,
+    report: Path,
+    check_gpkg_layers: bool,
+    working_directory: Path | None = None,
+    plan_only: bool = False,
+    plan_report: Path | None = None,
+    syntax: Literal["auto", "batch", "commands"] = "auto",
+    encoding: str = "utf-8-sig",
     context_mode: Literal["individual", "batch"] = "individual",
 ) -> int:
     """Plan every row first, then check grouped TCFs and write a new issue CSV."""
-    plan = read_command_plan(commands, initial_directory=working_directory,
-                             fallback_tcf=str(tcf) if tcf is not None else None,
-                             environment=dict(os.environ), syntax=syntax, encoding=encoding)
+    plan = read_command_plan(
+        commands,
+        initial_directory=working_directory,
+        fallback_tcf=str(tcf) if tcf is not None else None,
+        environment=dict(os.environ),
+        syntax=syntax,
+        encoding=encoding,
+    )
     counts = Counter(str(run.tcf) for run in plan.runs)
     print(f"Plan: {len(plan.runs)} active run(s), {len(counts)} TCF(s); duplicates retained")
     for control_file, count in counts.items():
@@ -52,15 +64,21 @@ def main(
         return 0
     result = check_command_plan(plan, check_gpkg_layers=check_gpkg_layers, context_mode=context_mode)
     output = result.write_csv(report)
-    print(f"Preflight: {result.completed_runs}/{result.run_count} run(s) checked, "
-          f"{len(result.checked_paths)} unique input path(s), {len(result.issues)} issue(s), "
-          f"{result.affected_runs} affected run(s)")
-    print(f"Timing: parse {result.parse_seconds:.2f}s; contexts {result.context_seconds:.2f}s; "
-          f"inventory {result.inventory_seconds:.2f}s")
+    print(
+        f"Preflight: {result.completed_runs}/{result.run_count} run(s) checked, "
+        f"{len(result.checked_paths)} unique input path(s), {len(result.issues)} issue(s), "
+        f"{result.affected_runs} affected run(s)"
+    )
+    print(
+        f"Timing: parse {result.parse_seconds:.2f}s; contexts {result.context_seconds:.2f}s; "
+        f"inventory {result.inventory_seconds:.2f}s"
+    )
     print(f"Issues CSV: {output}")
     for issue in result.issues:
-        print(f"[{issue.status.upper()}] {issue.run.source}:{issue.run.line_start}-{issue.run.line_end} "
-              f"run {issue.run.index}: {issue.reference} {issue.detail}")
+        print(
+            f"[{issue.status.upper()}] {issue.run.source}:{issue.run.line_start}-{issue.run.line_end} "
+            f"run {issue.run.index}: {issue.reference} {issue.detail}"
+        )
     return 0 if result.passed else 1
 
 
@@ -68,14 +86,20 @@ def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Read-only, stateful TUFLOW BAT/command-list preflight.")
     parser.add_argument("--tcf", type=Path, help="Fallback TCF for bare flag rows only (default: DEFAULT_TCF).")
     parser.add_argument("--runs", type=Path, help="BAT/CMD or exported command list (default: DEFAULT_COMMANDS).")
-    parser.add_argument("--working-directory", type=Path, help="Initial batch launch directory (default: current directory).")
+    parser.add_argument(
+        "--working-directory", type=Path, help="Initial batch launch directory (default: current directory)."
+    )
     parser.add_argument("--report", type=Path, help="NEW issue CSV path; existing files are not overwritten.")
     parser.add_argument("--plan-only", action="store_true", help="Extract runs without reading model inputs.")
     parser.add_argument("--plan-report", type=Path, help="Write a NEW private JSON run manifest.")
     parser.add_argument("--syntax", choices=("auto", "batch", "commands"), default="auto")
     parser.add_argument("--encoding", default="utf-8-sig", help="Input encoding; decoding errors are not ignored.")
-    parser.add_argument("--context-mode", choices=("individual", "batch"), default="individual",
-                        help="Batch is opt-in and requires a compatible PyTUFLOW API.")
+    parser.add_argument(
+        "--context-mode",
+        choices=("individual", "batch"),
+        default="individual",
+        help="Batch is opt-in and requires a compatible PyTUFLOW API.",
+    )
     parser.add_argument("--check-gpkg-layers", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--no-pause", action="store_true")
     return parser.parse_args()
@@ -87,14 +111,20 @@ if __name__ == "__main__":
 
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
-        code = main(tcf=options.tcf if options.tcf is not None else DEFAULT_TCF,
-                    commands=options.runs if options.runs is not None else DEFAULT_COMMANDS,
-                    report=options.report if options.report is not None else DEFAULT_REPORT,
-                    check_gpkg_layers=(options.check_gpkg_layers if options.check_gpkg_layers is not None
-                                       else DEFAULT_CHECK_GPKG_LAYERS),
-                    working_directory=options.working_directory, plan_only=options.plan_only,
-                    plan_report=options.plan_report, syntax=options.syntax, encoding=options.encoding,
-                    context_mode=options.context_mode)
+        code = main(
+            tcf=options.tcf if options.tcf is not None else DEFAULT_TCF,
+            commands=options.runs if options.runs is not None else DEFAULT_COMMANDS,
+            report=options.report if options.report is not None else DEFAULT_REPORT,
+            check_gpkg_layers=(
+                options.check_gpkg_layers if options.check_gpkg_layers is not None else DEFAULT_CHECK_GPKG_LAYERS
+            ),
+            working_directory=options.working_directory,
+            plan_only=options.plan_only,
+            plan_report=options.plan_report,
+            syntax=options.syntax,
+            encoding=options.encoding,
+            context_mode=options.context_mode,
+        )
     except Exception as exc:  # noqa: BLE001 - human-facing wrapper reports incomplete work as failure
         print(f"Input preflight failed: {exc}")
         code = 1

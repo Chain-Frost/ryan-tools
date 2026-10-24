@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import csv
-from dataclasses import dataclass, field
 import os
+from dataclasses import dataclass, field
 from pathlib import Path, PurePath, PureWindowsPath
 from typing import TYPE_CHECKING, Literal
 
@@ -56,13 +56,38 @@ class CommandPreflightReport:
         destination.parent.mkdir(parents=True, exist_ok=True)
         with destination.open("x", newline="", encoding="utf-8-sig") as output:
             writer = csv.writer(output)
-            writer.writerow(("source_file", "line_start", "line_end", "run_index", "tcf", "working_directory",
-                             "flags", "status", "origin", "reference", "detail"))
+            writer.writerow(
+                (
+                    "source_file",
+                    "line_start",
+                    "line_end",
+                    "run_index",
+                    "tcf",
+                    "working_directory",
+                    "flags",
+                    "status",
+                    "origin",
+                    "reference",
+                    "detail",
+                )
+            )
             for issue in self.issues:
                 run = issue.run
-                writer.writerow((str(run.source), run.line_start, run.line_end, run.index, str(run.tcf),
-                                 str(run.working_directory), " ".join(f"-{k} {v}" for k, v in run.flag_pairs),
-                                 issue.status, issue.origin, issue.reference, issue.detail))
+                writer.writerow(
+                    (
+                        str(run.source),
+                        run.line_start,
+                        run.line_end,
+                        run.index,
+                        str(run.tcf),
+                        str(run.working_directory),
+                        " ".join(f"-{k} {v}" for k, v in run.flag_pairs),
+                        issue.status,
+                        issue.origin,
+                        issue.reference,
+                        issue.detail,
+                    )
+                )
         return destination
 
 
@@ -74,18 +99,25 @@ def _native_path(path: PurePath) -> Path:
 
 
 def _check_group(
-    runs: tuple[PlannedRun, ...], *, check_gpkg_layers: bool, context_mode: Literal["individual", "batch"],
+    runs: tuple[PlannedRun, ...],
+    *,
+    check_gpkg_layers: bool,
+    context_mode: Literal["individual", "batch"],
 ) -> PreflightReport:
     # Keep planning/--plan-only independent of the PyTUFLOW/GIS import stack.
     from .input_preflight import RunRequest, check_simulation_inputs
 
     requests = [RunRequest(run.index, run.flags) for run in runs]
-    return check_simulation_inputs(_native_path(runs[0].tcf), requests,
-                                   check_gpkg_layers=check_gpkg_layers, context_mode=context_mode)
+    return check_simulation_inputs(
+        _native_path(runs[0].tcf), requests, check_gpkg_layers=check_gpkg_layers, context_mode=context_mode
+    )
 
 
 def check_command_plan(
-    plan: CommandPlan, *, check_gpkg_layers: bool = True, context_mode: Literal["individual", "batch"] = "individual",
+    plan: CommandPlan,
+    *,
+    check_gpkg_layers: bool = True,
+    context_mode: Literal["individual", "batch"] = "individual",
 ) -> CommandPreflightReport:
     """Check every planned run, grouped by effective TCF and launch directory.
 
@@ -103,8 +135,10 @@ def check_command_plan(
         raise CommandPlanError(message)
     for requirement in plan.directories:
         if not _native_path(requirement.path).is_dir():
-            message = (f"{plan.source}:{requirement.line}: working directory is unavailable; "
-                                   "cannot assume the batch directory change succeeds")
+            message = (
+                f"{plan.source}:{requirement.line}: working directory is unavailable; "
+                "cannot assume the batch directory change succeeds"
+            )
             raise CommandPlanError(message)
     groups: dict[tuple[PurePath, PurePath], list[PlannedRun]] = {}
     for run in plan.runs:
@@ -119,8 +153,12 @@ def check_command_plan(
             if report.run_count != len(runs) or any(issue.run_index not in by_index for issue in report.issues):
                 message = "Incomplete or incorrectly indexed preflight group report"
                 raise ValueError(message)
-            findings = [CommandPreflightIssue(by_index[issue.run_index], issue.status, issue.origin,
-                                              issue.reference, issue.detail) for issue in report.issues]
+            findings = [
+                CommandPreflightIssue(
+                    by_index[issue.run_index], issue.status, issue.origin, issue.reference, issue.detail
+                )
+                for issue in report.issues
+            ]
             combined.issues.extend(findings)
             combined.checked_paths.update(report.checked_paths)
             combined.parse_seconds += report.parse_seconds
@@ -129,7 +167,9 @@ def check_command_plan(
             combined.completed_runs += len(runs)
             combined.groups_checked += 1
         except Exception as exc:  # noqa: BLE001 - every group failure invalidates all its runs; other groups still checked
-            combined.issues.extend(CommandPreflightIssue(run, "unresolved", "TCF preflight", str(run.tcf),
-                                                         f"{type(exc).__name__}: {exc}") for run in runs)
+            combined.issues.extend(
+                CommandPreflightIssue(run, "unresolved", "TCF preflight", str(run.tcf), f"{type(exc).__name__}: {exc}")
+                for run in runs
+            )
     combined.issues.sort(key=lambda issue: issue.run.index)
     return combined

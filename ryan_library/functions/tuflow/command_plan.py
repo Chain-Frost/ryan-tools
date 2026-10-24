@@ -5,20 +5,34 @@ operators, delayed expansion and CALL fail before a partial plan is returned.
 Windows path calculations are lexical and can be tested on other platforms.
 """
 
-from collections.abc import Iterator, Mapping
-from dataclasses import dataclass, field
 import ntpath
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 import posixpath
 import re
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Literal
 
 type Syntax = Literal["batch", "commands"]
 _FLAG = re.compile(r"-[es][1-9]", re.IGNORECASE)
 _VARIABLE = re.compile(r"%~dp0|%([^%\r\n]+)%", re.IGNORECASE)
 _EXE = re.compile(r"tuflow[a-z0-9_-]*(?:\.exe)?", re.IGNORECASE)
-_START_OPTIONS = frozenset({"/low", "/normal", "/high", "/realtime", "/abovenormal", "/belownormal",
-                            "/min", "/max", "/wait", "/b", "/separate", "/shared"})
+_START_OPTIONS = frozenset(
+    {
+        "/low",
+        "/normal",
+        "/high",
+        "/realtime",
+        "/abovenormal",
+        "/belownormal",
+        "/min",
+        "/max",
+        "/wait",
+        "/b",
+        "/separate",
+        "/shared",
+    }
+)
 # Retain these engine/launch switches, but do not reinterpret them as contexts.
 _ENGINE_OPTIONS = frozenset({"-b", "-x", "-t", "-nlc"})
 
@@ -68,9 +82,17 @@ class CommandPlan:
     def manifest(self) -> list[dict[str, object]]:
         """Return private, JSON-serialisable provenance, not benchmark acceptance."""
         return [
-            {"run_index": run.index, "source_file": str(run.source), "line_start": run.line_start,
-             "line_end": run.line_end, "tcf": str(run.tcf), "working_directory": str(run.working_directory),
-             "flags": run.flags, "arguments": list(run.arguments), "executable": run.executable}
+            {
+                "run_index": run.index,
+                "source_file": str(run.source),
+                "line_start": run.line_start,
+                "line_end": run.line_end,
+                "tcf": str(run.tcf),
+                "working_directory": str(run.working_directory),
+                "flags": run.flags,
+                "arguments": list(run.arguments),
+                "executable": run.executable,
+            }
             for run in self.runs
         ]
 
@@ -81,7 +103,7 @@ class _Token:
     quoted: bool
 
 
-def _tokens(text: str) -> list[_Token]:  # noqa: C901 - bounded quote-aware scanner
+def _tokens(text: str) -> list[_Token]:
     """Tokenise supported CMD double quotes, not POSIX shell/backslash rules."""
     tokens: list[_Token] = []
     value: list[str] = []
@@ -115,10 +137,11 @@ def _tokens(text: str) -> list[_Token]:  # noqa: C901 - bounded quote-aware scan
 def _statements(text: str) -> Iterator[tuple[int, int, str]]:
     """Join unquoted terminal carets, retaining physical source ranges."""
     pending = ""
+    continuing = False
     start = 1
     lines = text.splitlines()
     for number, line in enumerate(lines, 1):
-        if not pending:
+        if not continuing:
             start = number
         pending += line
         comment = pending.lstrip().lstrip("@").lstrip()
@@ -127,12 +150,14 @@ def _statements(text: str) -> Iterator[tuple[int, int, str]]:
             raise ValueError(message)
         if pending.endswith("^") and pending.count('"') % 2 == 0:
             pending = pending[:-1]
+            continuing = True
             if number == len(lines):
                 message = f"Unfinished caret continuation on line {start}"
                 raise ValueError(message)
             continue
         yield start, number, pending
         pending = ""
+        continuing = False
 
 
 def _path(value: str, cwd: PurePath) -> PurePath:
@@ -153,11 +178,12 @@ def _path(value: str, cwd: PurePath) -> PurePath:
     if PureWindowsPath(value).drive:
         message = "Windows drive/UNC paths require a Windows working-directory context"
         raise ValueError(message)
-    return PurePosixPath(posixpath.normpath(str(cwd / value.replace('\\', '/'))))
+    return PurePosixPath(posixpath.normpath(str(cwd / value.replace("\\", "/"))))
 
 
 def _expand(text: str, environment: Mapping[str, str], source: PurePath, cwd: PurePath) -> str:
     """Single, case-insensitive expansion at the statement's current state."""
+
     def replace(match: re.Match[str]) -> str:
         if match.group(0).casefold() == "%~dp0":
             separator = "\\" if isinstance(source, PureWindowsPath) else "/"
@@ -177,7 +203,7 @@ def _expand(text: str, environment: Mapping[str, str], source: PurePath, cwd: Pu
     return result
 
 
-def _simulation_arguments(tokens: list[_Token]) -> tuple[tuple[tuple[str, str], ...], str | None]:  # noqa: C901 - validate ordered switch/value and TCF tokens
+def _simulation_arguments(tokens: list[_Token]) -> tuple[tuple[tuple[str, str], ...], str | None]:
     flags: dict[str, str] = {}
     tcf: str | None = None
     index = 0
@@ -271,7 +297,7 @@ class _Reader:
         self.cwd = target
         self.directories.append(DirectoryRequirement(target, line))
 
-    def _start(self, tokens: list[_Token], line: int) -> tuple[list[_Token], PurePath]:  # noqa: C901 - explicit START title/options boundary
+    def _start(self, tokens: list[_Token], line: int) -> tuple[list[_Token], PurePath]:
         cwd = self.cwd
         title_seen = False
         while tokens:
@@ -333,8 +359,19 @@ class _Reader:
         if tcf.suffix.casefold() != ".tcf":
             message = "Effective control file must have a .tcf suffix"
             raise ValueError(message)
-        self.runs.append(PlannedRun(len(self.runs) + 1, self.source, start, end, tcf, cwd,
-                                    flags, tuple(token.text for token in tokens), executable))
+        self.runs.append(
+            PlannedRun(
+                len(self.runs) + 1,
+                self.source,
+                start,
+                end,
+                tcf,
+                cwd,
+                flags,
+                tuple(token.text for token in tokens),
+                executable,
+            )
+        )
 
     def statement(self, raw: str, start: int, end: int) -> None:  # noqa: C901 - single sequential state dispatcher
         text = raw.lstrip()
@@ -401,8 +438,13 @@ class _Reader:
 
 
 def parse_command_plan(
-    text: str, *, source: PurePath, initial_directory: PurePath, fallback_tcf: str | None = None,
-    environment: Mapping[str, str] | None = None, syntax: Syntax = "batch",
+    text: str,
+    *,
+    source: PurePath,
+    initial_directory: PurePath,
+    fallback_tcf: str | None = None,
+    environment: Mapping[str, str] | None = None,
+    syntax: Syntax = "batch",
 ) -> CommandPlan:
     """Parse the entire supported plan, without filesystem checks or execution.
 
@@ -420,11 +462,20 @@ def parse_command_plan(
     if isinstance(source, PureWindowsPath) != isinstance(initial_directory, PureWindowsPath):
         message = "Source and working-directory path flavours must agree"
         raise CommandPlanError(message)
-    if syntax == "batch" and isinstance(initial_directory, PureWindowsPath) and initial_directory.drive.startswith("\\\\"):
+    if (
+        syntax == "batch"
+        and isinstance(initial_directory, PureWindowsPath)
+        and initial_directory.drive.startswith("\\\\")
+    ):
         message = "Use a mapped-drive launch directory for CMD batch semantics; a UNC TCF argument is supported"
         raise CommandPlanError(message)
-    reader = _Reader(source, initial_directory, fallback_tcf, syntax,
-                     {key.casefold(): value for key, value in (environment or {}).items()})
+    reader = _Reader(
+        source,
+        initial_directory,
+        fallback_tcf,
+        syntax,
+        {key.casefold(): value for key, value in (environment or {}).items()},
+    )
     reader.directories.append(DirectoryRequirement(initial_directory, 0))
     start, end = 1, 1
     try:
@@ -442,13 +493,25 @@ def parse_command_plan(
 
 
 def read_command_plan(
-    path: Path, *, initial_directory: Path | None = None, fallback_tcf: str | None = None,
-    environment: Mapping[str, str] | None = None, syntax: Literal["auto", "batch", "commands"] = "auto",
+    path: Path,
+    *,
+    initial_directory: Path | None = None,
+    fallback_tcf: str | None = None,
+    environment: Mapping[str, str] | None = None,
+    syntax: Literal["auto", "batch", "commands"] = "auto",
     encoding: str = "utf-8-sig",
 ) -> CommandPlan:
     """Read a BAT/CMD or command-list file using an explicit text encoding."""
     source = path.absolute()
     directory = (initial_directory if initial_directory is not None else Path.cwd()).absolute()
-    selected: Syntax = ("batch" if source.suffix.casefold() in {".bat", ".cmd"} else "commands") if syntax == "auto" else syntax
-    return parse_command_plan(source.read_text(encoding=encoding), source=source, initial_directory=directory,
-                              fallback_tcf=fallback_tcf, environment=environment, syntax=selected)
+    selected: Syntax = (
+        ("batch" if source.suffix.casefold() in {".bat", ".cmd"} else "commands") if syntax == "auto" else syntax
+    )
+    return parse_command_plan(
+        source.read_text(encoding=encoding),
+        source=source,
+        initial_directory=directory,
+        fallback_tcf=fallback_tcf,
+        environment=environment,
+        syntax=selected,
+    )
