@@ -66,7 +66,8 @@ def _eligible_path(ref: _Reference) -> Path | None:
     if not raw or raw == "." or "<<" in raw or ">>" in raw or "~" in raw:
         return None
     path = Path(raw)
-    if any(c in path.name for c in "*?["):
+    # Wildcards in parent directories are just as unresolved as basenames.
+    if any(c in raw for c in "*?["):
         return None
     if not path.is_absolute():
         path = Path(ref.base_directory) / path
