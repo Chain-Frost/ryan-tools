@@ -90,7 +90,8 @@ class FileReadAheadProbe:
 
     def __init__(self, *, max_pending: int = 8) -> None:
         if max_pending < 1:
-            raise ValueError("max_pending must be positive")
+            message = "max_pending must be positive"
+            raise ValueError(message)
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="tuflow-read-ahead")
         self._pending: deque[Future[tuple[str, float]]] = deque()
         self._seen: set[Path] = set()
@@ -125,7 +126,8 @@ class FileReadAheadProbe:
     def submit_run(self, run: object) -> None:
         """Called synchronously after PyTUFLOW finishes one immutable run."""
         if self._closed:
-            raise RuntimeError("Read-ahead producer is closed")
+            message = "Read-ahead producer is closed"
+            raise RuntimeError(message)
         projection = cast(_Run, run)
         if projection.error is not None:
             return  # A failed/partial projection must never seed inspection.
@@ -148,7 +150,8 @@ class FileReadAheadProbe:
 
     def finish(self) -> ReadAheadSummary:
         if self._closed:
-            raise RuntimeError("Read-ahead probe has already finished")
+            message = "Read-ahead probe has already finished"
+            raise RuntimeError(message)
         try:
             while self._pending:
                 self._drain_one()

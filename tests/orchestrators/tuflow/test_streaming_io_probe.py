@@ -110,15 +110,16 @@ def test_references_are_conservatively_filtered_and_deduplicated(tmp_path: Path)
 def test_unhandled_consumer_failure_propagates_and_closes_worker(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def failed_stat(path: Path) -> tuple[str, float]:
-        raise RuntimeError("worker failure")
+    def failed_stat(_path: Path) -> tuple[str, float]:
+        message = "worker failure"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(streaming_io_probe, "_stat_literal", failed_stat)
+    probe = FileReadAheadProbe(max_pending=1)
+    probe.submit_run(_run(0, "-s1 DEV", _ref(tmp_path / "code.shp")))
+    probe.mark_producer_finished()
     with pytest.raises(RuntimeError, match="worker failure"):
-        with FileReadAheadProbe(max_pending=1) as probe:
-            probe.submit_run(_run(0, "-s1 DEV", _ref(tmp_path / "code.shp")))
-            probe.mark_producer_finished()
-            probe.finish()
+        probe.finish()
 
 
 def test_ordinary_batch_adapter_never_passes_new_hook() -> None:
@@ -131,7 +132,7 @@ def test_ordinary_batch_adapter_never_passes_new_hook() -> None:
     view.assert_consumed()
 
 
-def test_probe_does_not_treat_failure_or_prechecks_as_authoritative(tmp_path: Path) -> None:
+def test_probe_does_not_treat_failure_or_prechecks_as_authoritative() -> None:
     class FailedModel:
         def collect_batch_dependencies(self, flags: tuple[str, ...], *, on_run: object) -> types.SimpleNamespace:
             case = _run(0, flags[0], error="bad context")
