@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active — implementation present; hosted validation pending |
+| Status | In validation — implementation and initial Windows backend/package checks pass |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-24 |
 | Next review | 2026-10-25, or exact-head CI completion |
@@ -136,7 +136,7 @@ published PyTUFLOW dependency and wheel-selection policy remain unchanged.
 
 ## Validation and delivery
 
-Local Linux CPython **3.13.5**: **86** planner, group-routing and wrapper tests
+Local Linux CPython **3.13.5**: **93** planner, group-routing and wrapper tests
 pass using the actual new modules in a minimal source staging directory:
 
 ```text
@@ -145,8 +145,8 @@ python -m pytest -q tests/functions/tuflow/test_command_plan.py tests/orchestrat
 
 The group tests replace only the group backend with explicit controlled test
 objects. They do not constitute real PyTUFLOW or Windows acceptance. Two additional
-real-backend tests are committed separately and **not run locally**; the existing
-hosted Windows suite must execute them and the existing preflight regressions.
+real-backend tests were executed by the initial hosted Windows suite and passed;
+they remain **not run locally**. Both are explicitly present in its retained JUnit report.
 
 Two user-provided command texts were read privately without execution. Every
 ordered `(line, effective TCF, flags)` matched an independent extraction: one
@@ -157,14 +157,48 @@ This validates extraction for those files, not their model dependencies.
 
 Local GitHub/PyPI DNS access is unavailable. Connected GitHub reads/writes are
 used for delivery; no full checkout, installed GIS stack, Ruff/Pyright or package
-build is available locally. The existing hosted Policy/Hosted tests/Package jobs
-must supply those results. Compilation, source hashes and focused unit results
-are reported separately. No native model check, NAS benchmark or solver ran.
+build is available locally. Hosted Policy/Hosted tests/Package jobs supply those
+results. Compilation, source hashes and focused unit results are reported
+separately. No native model check, NAS benchmark or solver ran.
+
+### Hosted checkpoint and correction
+
+Implementation was delivered as [PR #160](https://github.com/Chain-Frost/ryan-tools/pull/160).
+Initial head `3bf4220d782dc0d1d33111f75d0ef2313155961f` passed its Windows
+CPython 3.14.9 focused suite (86 tests). Its
+[hosted regression and packaging jobs](https://github.com/Chain-Frost/ryan-tools/actions/runs/40073651826)
+passed: JUnit contains 1,485 passing tests, six skips and no errors/failures,
+including both new real-PyTUFLOW multi-TCF tests; the no-bump wheel build,
+verification and installed-wheel smoke also passed. Policy failed on style;
+that initial revision is not claimed fully accepted.
+
+At runtime/test revision `d1758479df5722589836913ca97cd049704e698d`, reviewed
+Ruff fixes/formatting and split assertions preserve the tested contracts. An
+additional regression fixes a leading empty caret continuation losing its first
+physical source line. Local focused tests now pass all 87 with warnings treated
+as errors, and private uploaded-file extraction was repeated with exact ordered
+matches and unchanged bytes. Delivered Python blobs match locally tested bytes.
+The [refreshed focused Windows contracts](https://github.com/Chain-Frost/ryan-tools/actions/runs/40074359630)
+and [Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/40074359646)
+have passed. Refreshed Python CI and the requested complete review are tracked
+on PR #160; later terminal outcomes there supersede this checkpoint. No source
+or fixture is changed merely to mark an asynchronous job as completed.
+
+### Review and strict typing follow-up
+
+Review identified a command-list-only omission: a full-line `#`, `;` or `//`
+comment ending in a caret could absorb the next active statement. Six regressions
+reproduced it before correction. These comments are now recognised as complete
+physical lines before continuation joining; active rows retain their original
+positions, and an unsupported following statement is still rejected. All 93
+focused tests pass locally. REM/`::` continuation refusal remains unchanged.
+Strict Pyright also identified five unparameterised dataclass list factories;
+explicit element types fix these without ignores or changed runtime behaviour.
 
 ## Next action and completion criteria
 
 Inspect exact-head hosted checks, correct policy or real-backend regressions,
-then request a complete review. Require Windows tests, strict changed-file
+then reconcile the requested complete review. Require Windows tests, strict changed-file
 Pyright, pinned Ruff, documentation checks and a no-bump verified wheel before
 marking ready. Keep draft while any of those are pending. No merge, release,
 production repin or benchmark is authorised.

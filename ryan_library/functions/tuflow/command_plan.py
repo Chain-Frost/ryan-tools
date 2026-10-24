@@ -134,7 +134,7 @@ def _tokens(text: str) -> list[_Token]:
     return tokens
 
 
-def _statements(text: str) -> Iterator[tuple[int, int, str]]:
+def _statements(text: str, syntax: Syntax) -> Iterator[tuple[int, int, str]]:
     """Join unquoted terminal carets, retaining physical source ranges."""
     pending = ""
     continuing = False
@@ -143,6 +143,14 @@ def _statements(text: str) -> Iterator[tuple[int, int, str]]:
     for number, line in enumerate(lines, 1):
         if not continuing:
             start = number
+            head = line.lstrip()
+            if head.startswith("@"):
+                head = head[1:].lstrip()
+            if syntax == "commands" and head.startswith(("#", ";", "//")):
+                # A list comment is a complete physical line, never a shell
+                # continuation capable of swallowing the next active row.
+                yield number, number, line
+                continue
         pending += line
         comment = pending.lstrip().lstrip("@").lstrip()
         if (comment.startswith("::") or re.match(r"rem(?:\s|$)", comment, re.IGNORECASE)) and pending.endswith("^"):
@@ -244,10 +252,10 @@ class _Reader:
     fallback_tcf: str | None
     syntax: Syntax
     environment: dict[str, str]
-    runs: list[PlannedRun] = field(default_factory=list)
-    directories: list[DirectoryRequirement] = field(default_factory=list)
-    local_stack: list[dict[str, str]] = field(default_factory=list)
-    directory_stack: list[PurePath] = field(default_factory=list)
+    runs: list[PlannedRun] = field(default_factory=list[PlannedRun])
+    directories: list[DirectoryRequirement] = field(default_factory=list[DirectoryRequirement])
+    local_stack: list[dict[str, str]] = field(default_factory=list[dict[str, str]])
+    directory_stack: list[PurePath] = field(default_factory=list[PurePath])
     ignored: int = 0
     stopped: bool = False
 
@@ -479,7 +487,7 @@ def parse_command_plan(
     reader.directories.append(DirectoryRequirement(initial_directory, 0))
     start, end = 1, 1
     try:
-        for start, end, raw in _statements(text.lstrip("\ufeff")):
+        for start, end, raw in _statements(text.lstrip("\ufeff"), syntax):
             reader.statement(raw, start, end)
             if reader.stopped:
                 break

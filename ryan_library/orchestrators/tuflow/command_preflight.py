@@ -30,7 +30,7 @@ class CommandPreflightReport:
     """Aggregate results; an exception or partial group can never pass."""
 
     plan: CommandPlan
-    issues: list[CommandPreflightIssue] = field(default_factory=list)
+    issues: list[CommandPreflightIssue] = field(default_factory=list[CommandPreflightIssue])
     checked_paths: set[str] = field(default_factory=set[str])
     groups_checked: int = 0
     completed_runs: int = 0

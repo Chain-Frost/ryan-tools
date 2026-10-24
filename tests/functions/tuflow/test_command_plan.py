@@ -278,3 +278,23 @@ def test_empty_leading_continuation_preserves_original_line_range() -> None:
     run = parse("^\n-e1 A model.tcf").runs[0]
     assert (run.line_start, run.line_end) == (1, 2)
     assert run.flags == {"e1": "A"}
+
+
+@pytest.mark.parametrize("prefix", ["#", ";", "//"])
+def test_command_list_comment_caret_does_not_consume_active_row(prefix: str) -> None:
+    plan = parse(
+        f"-e1 First model.tcf\n{prefix} disabled ^\n-e1 Second model.tcf\n-e1 Third model.tcf",
+        syntax="commands",
+    )
+    assert [run.flags["e1"] for run in plan.runs] == ["First", "Second", "Third"]
+    assert [run.line_start for run in plan.runs] == [1, 3, 4]
+    assert [run.index for run in plan.runs] == [1, 2, 3]
+
+
+@pytest.mark.parametrize("prefix", ["#", ";", "//"])
+def test_command_list_comment_caret_does_not_hide_unsupported_statement(prefix: str) -> None:
+    with pytest.raises(CommandPlanError, match="Unsupported shell control flow"):
+        parse(
+            f"-e1 First model.tcf\n{prefix} disabled ^\nIF unknown -e1 Second model.tcf\n-e1 Third model.tcf",
+            syntax="commands",
+        )
