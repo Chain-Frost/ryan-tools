@@ -221,9 +221,7 @@ class _ContextView:
 class BatchModelView:
     """Single-use replay of an exact, ordered batch against existing collector."""
 
-    def __init__(
-        self, model: object, flags: Sequence[str], *, on_run: Callable[[_Case], None] | None = None
-    ) -> None:
+    def __init__(self, model: object, flags: Sequence[str], *, on_run: Callable[[_Case], None] | None = None) -> None:
         batch = getattr(model, "collect_batch_dependencies", None)
         if not callable(batch):
             message = (

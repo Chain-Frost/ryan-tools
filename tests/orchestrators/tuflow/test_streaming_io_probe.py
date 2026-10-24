@@ -43,7 +43,8 @@ def _run(index: int, flags: str, *refs: object, error: str | None = None) -> typ
 
 
 def test_worker_can_inspect_first_projection_before_second_context_finishes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     first_work_started = threading.Event()
     producer_resumed = threading.Event()
@@ -59,7 +60,9 @@ def test_worker_can_inspect_first_projection_before_second_context_finishes(
     monkeypatch.setattr(streaming_io_probe, "_stat_literal", observed_stat)
 
     class Model:
-        def collect_batch_dependencies(self, flags: tuple[str, ...], *, on_run: Callable[[object], None]) -> types.SimpleNamespace:
+        def collect_batch_dependencies(
+            self, flags: tuple[str, ...], *, on_run: Callable[[object], None]
+        ) -> types.SimpleNamespace:
             cases = []
             for index, flag in enumerate(flags):
                 case = _run(index, flag, _ref(paths[index]))
@@ -108,7 +111,8 @@ def test_references_are_conservatively_filtered_and_deduplicated(tmp_path: Path)
 
 
 def test_unhandled_consumer_failure_propagates_and_closes_worker(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def failed_stat(_path: Path) -> tuple[str, float]:
         message = "worker failure"

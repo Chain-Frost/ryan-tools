@@ -85,7 +85,5 @@ jobs:
           $pythonFiles = @(Get-Content -LiteralPath "$env:RUNNER_TEMP/changed_python_files.txt")
           python -m ruff check $pythonFiles
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          # Emit formatting proposals for the isolated diagnostic follow-up.
-          python -m ruff format --diff $pythonFiles
           python -m ruff format --check $pythonFiles
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
