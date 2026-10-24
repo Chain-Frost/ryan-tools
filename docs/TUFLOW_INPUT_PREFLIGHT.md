@@ -302,3 +302,8 @@ Checks to run on the latest head in Python 3.14:
     python ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py --help
 
 Follow up with Windows Python 3.14 + PyTUFLOW real-BC regression tests against representative 2026.3 HPC models.
+
+
+## Experimental batch streaming I/O (not a preflight optimisation)
+
+[Streaming I/O overlap work record](work/2026-10-25-tuflow-streaming-io-probe.md) tracks an **opt-in diagnostic**, not a production API/default change. PyTUFLOW first loads the control-file tree and prepares batch graph/caches sequentially, then may emit completed per-run immutable projections. A bounded single I/O worker can speculatively stat eligible literal files while later run contexts are constructed. These speculative checks are **never authoritative**: the ordinary directory-batched filesystem, wildcard, GeoPackage layer, raster/attribute and public-preflight gates remain unchanged and are still required for acceptance. No speedup has been demonstrated, and automatic SMB selection is not implemented.

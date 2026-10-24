@@ -8,7 +8,7 @@ from PyTUFLOW. Physical inspection stays in input_preflight.py.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol, cast
 
@@ -221,7 +221,9 @@ class _ContextView:
 class BatchModelView:
     """Single-use replay of an exact, ordered batch against existing collector."""
 
-    def __init__(self, model: object, flags: Sequence[str]) -> None:
+    def __init__(
+        self, model: object, flags: Sequence[str], *, on_run: Callable[[_Case], None] | None = None
+    ) -> None:
         batch = getattr(model, "collect_batch_dependencies", None)
         if not callable(batch):
             message = (
@@ -229,7 +231,12 @@ class BatchModelView:
                 "install the tested fork in an isolated environment"
             )
             raise ValueError(message)
-        output = cast(_Result, batch(tuple(flags)))
+        # Only the opted-in diagnostic uses the new PyTUFLOW producer hook.
+        # Default callers use the legacy positional API unchanged.
+        output = cast(
+            _Result,
+            batch(tuple(flags), on_run=on_run) if on_run is not None else batch(tuple(flags)),
+        )
         if len(output.runs) != len(flags):
             message = "PyTUFLOW batch returned a different number of runs"
             raise ValueError(message)
