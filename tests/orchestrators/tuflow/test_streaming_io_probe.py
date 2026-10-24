@@ -95,6 +95,7 @@ def test_references_are_conservatively_filtered_and_deduplicated(tmp_path: Path)
                 "-e1 B",
                 _ref(tmp_path / "grid_*.tif"),
                 _ref(tmp_path / "folder_*" / "input.csv"),
+                _ref(Path("input.csv"), base_directory=tmp_path / "segment_*"),
                 _ref(tmp_path / "model.gpkg", layer_pattern="all"),
                 _ref(tmp_path / "code.shp", requires_attribute_scan=True),
                 _ref(tmp_path / "<<RUN>>.csv", unresolved_variables=("RUN",)),
@@ -105,7 +106,7 @@ def test_references_are_conservatively_filtered_and_deduplicated(tmp_path: Path)
         summary = probe.finish()
     assert summary.unique_paths == 2
     assert summary.duplicate_paths == 1
-    assert summary.excluded_references == 5
+    assert summary.excluded_references == 6
     assert summary.present == 1
     assert summary.missing == 1
     assert summary.unresolved == 0

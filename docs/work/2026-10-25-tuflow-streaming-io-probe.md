@@ -75,3 +75,7 @@ without altering published dependencies, and exercises the actual callback
 through `probe_batch_io_overlap` using a temporary synthetic TCF. Existing
 ordered-batch and normal preflight CI retain their own historical parser pins;
 this additional workflow does not replace the complete archive parity gates.
+
+## Review corrections
+
+The checked-in Windows smoke workflow now pins producer PR #28 at `9329cc8de2acfd2db8af7a9a6b6dfd34450af46f`, which moves callbacks for reused projections outside the parser exception handler. Only `tests/test_data` is initialised for this focused pytest gate. Speculative path filtering inspects the complete path after joining the reference and its base directory, so an inherited wildcard or unresolved token does not enter the worker. These corrections are pending full exact-head CI and refreshed review. No native measurement is authorised.

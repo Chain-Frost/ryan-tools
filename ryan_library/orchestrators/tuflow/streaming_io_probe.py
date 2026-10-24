@@ -66,11 +66,12 @@ def _eligible_path(ref: _Reference) -> Path | None:
     if not raw or raw == "." or "<<" in raw or ">>" in raw or "~" in raw:
         return None
     path = Path(raw)
-    # Wildcards in parent directories are just as unresolved as basenames.
-    if any(c in raw for c in "*?["):
-        return None
     if not path.is_absolute():
         path = Path(ref.base_directory) / path
+    # A literal basename is not safe if its inherited base contains selectors.
+    combined = str(path)
+    if any(c in combined for c in "*?[") or "<<" in combined or ">>" in combined or "~" in combined:
+        return None
     return path.absolute()
 
 
