@@ -7,6 +7,8 @@ on:
       - "ryan_library/orchestrators/tuflow/batch_preflight_adapter.py"
       - "ryan_library/orchestrators/tuflow/input_preflight.py"
       - "ryan_library/functions/tuflow/dependency_index.py"
+      - "ryan_library/functions/tuflow/csv_headers.py"
+      - "tests/functions/tuflow/test_csv_headers.py"
       - "tests/orchestrators/tuflow/test_batch_file_existence.py"
       - "tests/orchestrators/tuflow/test_threaded_dependency_inventory.py"
       - "ryan_library/orchestrators/tuflow/streaming_io_probe.py"
@@ -35,12 +37,12 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install exact producer boundary from combined PyTUFLOW PR 39
-        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@566d5a3f011f520810def9d6e5405457b692bcc6"
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@64cb0d51141b4b5ea43e86c8b08f882eea98faa4"
       - name: Install read-only diagnostic and focused test dependencies
         run: |
           python -m pip install -e . --no-deps
           python -m pip install pytest pyshp loguru pandas psutil
       - name: Check opt-in producer surface and run synthetic/real-package regressions
         run: |
-          python -c "import inspect; from pytuflow import TCF; assert callable(TCF.collect_file_dependencies); assert 'on_run' in inspect.signature(TCF.collect_batch_dependencies).parameters"
-          python -m pytest -q tests/orchestrators/tuflow/test_streaming_io_probe.py tests/orchestrators/tuflow/test_streaming_combined_producer.py tests/orchestrators/tuflow/test_batch_preflight_adapter.py tests/orchestrators/tuflow/test_ordered_batch_adapter.py tests/orchestrators/tuflow/test_batch_file_existence.py tests/orchestrators/tuflow/test_threaded_dependency_inventory.py tests/orchestrators/tuflow/test_input_preflight.py tests/functions/tuflow/test_gis_attribute_dependencies.py
+          python -c "import inspect; from pytuflow import TCF; from pytuflow._tmf.file_reference import DeferredDatabaseSource; assert 'csv_columns' in DeferredDatabaseSource.__dataclass_fields__; assert callable(TCF.collect_file_dependencies); assert 'on_run' in inspect.signature(TCF.collect_batch_dependencies).parameters"
+          python -m pytest -q tests/orchestrators/tuflow/test_streaming_io_probe.py tests/orchestrators/tuflow/test_streaming_combined_producer.py tests/orchestrators/tuflow/test_batch_preflight_adapter.py tests/orchestrators/tuflow/test_ordered_batch_adapter.py tests/orchestrators/tuflow/test_batch_file_existence.py tests/orchestrators/tuflow/test_threaded_dependency_inventory.py tests/orchestrators/tuflow/test_input_preflight.py tests/functions/tuflow/test_gis_attribute_dependencies.py tests/functions/tuflow/test_csv_headers.py

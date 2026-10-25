@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-25.1"
+WRAPPER_VERSION = "2026-10-25.2"
 DEFAULT_TCF = Path("runs/model_~e1~_~e2~.tcf")
 DEFAULT_COMMANDS = Path("run_tuflow_simulations_commands.txt")
 DEFAULT_REPORT = Path("tuflow_input_preflight.csv")
@@ -58,6 +58,10 @@ def main(
         f"unique-file inventory {result.inventory_seconds:.2f}s"
     )
     if files_only:
+        print(
+            f"CSV headers: {result.csv_headers_checked} unique source file(s), "
+            f"{result.csv_column_selections_checked} run-specific column selection(s) checked"
+        )
         print(
             f"Dependency reuse: {result.dependency_fragment_evaluations} section evaluations, "
             f"{result.dependency_fragment_reuses} reused sections, "

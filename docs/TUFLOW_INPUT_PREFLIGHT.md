@@ -364,4 +364,31 @@ File counts describe unique paths, not rainfall selections. Multiple runs may
 select different columns from the same BC Source CSV. The retained 480-run
 workload has 480 source/column combinations in 24 rainfall files, all represented
 in its 50-path inventory. This workflow checks the source files' existence,
-not whether the selected CSV columns or data are valid.
+and the required CSV column names, without validating rainfall values.
+
+### Required BC CSV headers in rapid checks
+
+`check_batch_files` and the wrapper's default rapid mode now verify the resolved
+Column 1 (time) and Column 2 (value) names for ordinary BC-source CSV files.
+PyTUFLOW expands TEF and Set Variable selectors and carries immutable column
+requirements alongside each source path. TBC remains the boundary control file;
+`bc_dbase` supplies these source/column selections.
+
+The bounded I/O workers open each distinct existing source CSV once per invocation,
+read its first nonblank/noncomment CSV record, and reuse that header across all
+runs. They never parse rainfall data rows. A changed header is read again on the
+next invocation. Matching trims surrounding whitespace and ignores case; missing
+or ambiguous duplicate names produce run-specific unresolved issues. Missing
+files retain the normal missing-file diagnostics.
+
+UTF-8 with optional BOM, leading `!` comments, quoted fields and multiline headers
+are supported. Inspection is limited to 1 MiB including leading comments. Blank
+selectors, FEWS CSV sources, unreadable/malformed headers and unavailable parser
+column metadata fail closed. Other preambles are not searched for a matching row.
+Non-CSV formats and inline constants retain their existing handling; this does not
+claim schema validation of TS1, FEWS XML or rainfall values.
+
+The lower-level `check_simulation_inputs` API retains its default behaviour;
+`check_bc_headers=True` explicitly enables these checks there. Rapid mode always
+enables them. Reports expose `csv_headers_checked` and
+`csv_column_selections_checked`; the wrapper prints both counts.

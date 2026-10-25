@@ -232,6 +232,39 @@ run. Numerical benchmark artifacts remain unchanged.
 
 Next review: 2026-11-01. Unrelated overdue register items remain outside this work.
 
+## Required header verification (2026-10-25)
+
+Owner extended rapid testing to verify rainfall CSV column names, without reading
+rainfall values. Parser PR 39 now exposes resolved immutable `csv_columns` at
+`64cb0d51141b4b5ea43e86c8b08f882eea98faa4`; the consumer integration workflow pins
+that revision and asserts the metadata capability. Both existing PRs remain the
+delivery targets. Earlier statements excluding CSV-column checking describe the
+previous implementation, not this milestone.
+
+Rapid mode now checks each distinct ordinary BC-source CSV header once using the
+existing bounded I/O workers, then routes missing/ambiguous-column errors to every
+affected run. TEF/transitive variables and multiple active BC databases retain
+their selector ownership; wildcard expansion retains the column requirements.
+A synthetic 480-selection / 24-file regression asserts 24 header inspections.
+Additional tests cover stop-before-data behaviour, malformed/oversized headers,
+BOM/comments/quoted and multiline headers, duplicates, cache lifetime and correct
+run ownership. No native-model replay or benchmark was performed.
+
+The reader supports named selectors in ordinary UTF-8 CSVs; blank selectors and
+FEWS CSV forms fail closed. Header inspection stops at the first noncomment CSV
+record with a 1 MiB bound. Other preambles and non-CSV schemas are not claimed as
+verified. Rainfall values are never parsed or validated.
+
+Parser validation: 170 focused tests; new tests pass strict Pyright. Consumer
+retained-wheel validation: 108 passed, zero skips, using separately installed
+header-capable wheels under `.validation/header-installed`. Wheel 26.10.25.3
+built and verified; Ruff check/format, strict Pyright on all six modified consumer
+Python files, Loguru policy, documentation links and whitespace checks pass.
+The commit containing this entry is published to existing consumer PR 161, paired
+with parser `64cb0d5`; hosted CI remains a separate review gate.
+MCP assessment unchanged: extend the maintained wrapper/API guidance, not a new
+tool for this focused helper. No merge or release authorised. Next review 2026-11-01.
+
 ## Checked-out PR rerun
 
 Owner requested a rerun using the checked-out PRs, retaining the ten-minute cap.

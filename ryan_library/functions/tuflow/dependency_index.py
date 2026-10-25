@@ -15,9 +15,11 @@ from collections import defaultdict
 from collections.abc import Collection, Mapping
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import closing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
+
+from .csv_headers import CsvHeader, read_csv_header
 
 FileStatus = Literal["present", "missing", "unresolved"]
 
@@ -38,6 +40,7 @@ class FileInventory:
     layers: Mapping[tuple[Path, str], DependencyResult]
     directories_scanned: int
     individually_checked: int
+    csv_headers: Mapping[Path, CsvHeader] = field(default_factory=dict[Path, CsvHeader])
 
 
 def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded scan error paths
@@ -178,6 +181,7 @@ def _geopackage_layers(path: Path, layers: Collection[str]) -> dict[str, Depende
 def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fallback and layer checks
     requirements: Mapping[Path, Collection[str]],
     *,
+    csv_header_paths: Collection[Path] = (),
     scan_threshold: int = 8,
     io_workers: int = 1,
     maximum_directory_entries: int = 50000,
@@ -197,6 +201,7 @@ def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fal
         raise ValueError(message)
     # Freeze caller-owned collections before sharing them with I/O workers.
     requirements = {path: tuple(layers) for path, layers in requirements.items()}
+    header_paths = frozenset(csv_header_paths)
     by_parent: dict[Path, list[Path]] = defaultdict(list)
     for path in requirements:
         by_parent[path.parent].append(path)
@@ -222,7 +227,10 @@ def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fal
             # Each connection is opened, used and closed in its owning worker.
             for layer, result in _geopackage_layers(path, requirements[path]).items():
                 layers[(path, layer)] = result
-        return FileInventory(files, layers, scans, direct)
+        headers = {
+            path: read_csv_header(path) for path in paths if path in header_paths and files[path].status == "present"
+        }
+        return FileInventory(files, layers, scans, direct, headers)
 
     # Dense directories remain one listing job. Sparse files can overlap even
     # when they share a parent. No duplicate stat or SQLite jobs per simulation.
@@ -260,4 +268,5 @@ def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fal
         layers,
         sum(item.directories_scanned for item in inventories),
         sum(item.individually_checked for item in inventories),
+        {path: header for item in inventories for path, header in item.csv_headers.items()},
     )
