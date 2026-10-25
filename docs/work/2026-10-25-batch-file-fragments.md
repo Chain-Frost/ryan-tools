@@ -1,6 +1,6 @@
 # Batch file existence with immutable dependency fragments
 
-Status: Needs review - publication through existing paired PRs. Owner: ChatGPT. Updated: 2026-10-25.
+Status: Needs review - publication through existing paired PRs. Owner: ChatGPT. Updated: 2026-10-26.
 Next review: 2026-11-01. Next action: review exact-head hosted CI on parser PR 39 and consumer PR 161; no further measurement is queued.
 
 ## Scope and decisions
@@ -456,3 +456,50 @@ Hosted CI for the updated consumer head is separate from the local benchmark
 and documentation checks; final-head acceptance is not claimed here.
 Next action: review exact-head CI and the recorded bounded results.
 Next review: 2026-11-01. Unrelated overdue work remains outside scope.
+
+## 2026-10-26 fresh PR benchmark
+
+Owner requested a new benchmark from PRs 161 and 39, retaining the ten-minute
+limit. Published GitHub heads verified: consumer PR 161
+`1155b7105a2780f9c390ebed7ba324c19c644d98`; parser PR 39
+`3c2c64c78476387002791e0838d7f0f888515127`. Parser commits were fetched without
+changing its checkout. Exact-commit package snapshots supplied both imports;
+physical import locations and snapshot hashes were verified. No source edits.
+
+Same retained 480-run SMB plan, normal Python 3.14.6, four workers, file-only
+inspection with BC CSV header checks in both conditions. Only fragment reuse
+changes. Four fresh processes in baseline/fragments/fragments/baseline order,
+shared 600-second deadline, API plus CSV write timed, imports/guards excluded.
+All invocations completed in 129.02 seconds (2.15 minutes).
+
+| Condition | Trial seconds | Median seconds |
+| --- | --- | ---: |
+| Reuse disabled | 46.757624, 39.560808 | 43.159216 |
+| Reuse enabled | 18.400501, 18.287909 | 18.344205 |
+
+Observed median reduction: **57.50%**. All four invocations
+report 480 runs, 50 paths, 24 CSV headers, 480 column selections and zero issues.
+Report projections match exactly. Both fragment trials record 66,290 reuses and
+zero fallbacks. Source and per-invocation input metadata guards passed.
+
+Two trials per condition, uncontrolled SMB/cache/background load and the baseline
+spread limit inference. The previous header-enabled fragment median was 19.28 s;
+this historical comparison is not a matched old/new parser experiment and cannot
+isolate the latest parser changes. No cache flush, full input-byte hash, fresh
+BAT extraction, full parser provenance parity, profiler or rainfall-value
+validation. Earlier evidence and failed checkpoints remain unchanged.
+
+Tracked [summary](evidence/2026-10-26-batch-fragments-pr-heads/summary.json),
+[protocol](evidence/2026-10-26-batch-fragments-pr-heads/protocol.json),
+[runner audit copy](evidence/2026-10-26-batch-fragments-pr-heads/benchmark.py.txt),
+and [snapshot hashes](evidence/2026-10-26-batch-fragments-pr-heads/snapshot-hashes.json).
+Reproduction uses the previously documented frozen-package layout, source-head
+configuration and `BATCH_EXISTENCE_PRIVATE_WORKLOAD`; private raw reports and
+identities remain in `.validation/benchmark-pr161-pr39-20261026/`.
+
+Evidence checkpoint committed and published to existing PR 161 under the owner's
+standing instruction to push updates. No new tests, implementation build, solver,
+full suite, hosted-CI acceptance, merge or release. Documentation/link/whitespace
+checks pass. Next action: review exact-head CI and bounded evidence. No further
+measurement queued. Next review: 2026-11-01. The unrelated native methodology
+review is due 2026-10-26 and remains outside this task.
