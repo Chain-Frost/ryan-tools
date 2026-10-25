@@ -53,15 +53,41 @@ ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py:
     preflight_check_gpkg_layers=True,
     preflight_report_csv=Path("run_tuflow_simulations_preflight.csv"),
 
-The preflight runs **after** the existing parameter-product/textfiles/both builders have created, deduplicated and
-exported the exact simulation list, but **before** any TUFLOW process starts. The launcher keeps
-preflight_check=False for this release; enabling it remains an explicit user choice. Use command-line overrides:
+The launcher freezes independent, read-only flag mappings from the final ordered,
+deduplicated simulation list after command export. `preflight_check=False` remains
+the default. Enabling it with `--preflight` starts one background advisory check;
+the scheduler begins launching without waiting for parsing or checking. Select
+`preflight_context_mode="individual"` (default) or explicitly `"batch"` in settings,
+or pass `--preflight-context-mode=batch`. Unsupported batch capability warns
+accurately and never silently falls back or blocks the simulation queue.
 
-    python run_tuflow_simulations.py --preflight-only --no-pause
     python run_tuflow_simulations.py --preflight --no-pause
+    python run_tuflow_simulations.py --preflight --preflight-context-mode=batch --no-pause
+    python run_tuflow_simulations.py --preflight-only --no-pause
 
-The first command generates the run list and checks it without launching a simulation. The second checks it and
-launches the batch only if every input check passes. The preflight-only option takes precedence over run_simulations.
+Every missing/unresolved finding is logged with run, flags and source provenance.
+The main thread drains feedback during scheduling, so the worker does not touch
+the Rich dashboard or scheduler state. Complete successful validation and report
+writing produce one INFO confirmation. Checker exceptions, partial results and
+report failures warn; library reports retain their truthful validity semantics.
+These findings never cancel, postpone, remove or reassign simulations.
+
+At normal completion, interruption or launch failure, the runner drains finished
+feedback without joining a blocked checker. Pending work gets an explicit
+incomplete/cancellation warning; the daemon worker suppresses late feedback.
+An in-flight parser, report write or SMB call cannot be forcibly cancelled and
+may continue until it returns or the runner process exits. A complete CSV is not
+guaranteed in that case. A chained post-run script does not wait for checking.
+This policy avoids an implicit unbounded shutdown wait; it is not a parser-speed
+or physical-I/O improvement claim.
+
+`--preflight-only` takes precedence and never starts the scheduler or post-run
+script. It checks synchronously, reports every finding, and fails with a meaningful
+nonzero exit for failed/incomplete validation. With `run_simulations=False`,
+enabled checking uses the same synchronous diagnostic path; otherwise the runner
+only exports commands. Existing parameter validation still requires the configured
+TCF/executable paths and valid priority/GPU settings for this runner diagnostic.
+Use the standalone checker below when executable-free diagnostics are required.
 
 ## Standalone checker
 

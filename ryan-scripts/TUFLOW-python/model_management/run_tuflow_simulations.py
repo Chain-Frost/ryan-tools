@@ -11,7 +11,7 @@ USAGE
 
 from __future__ import annotations
 
-WRAPPER_VERSION = "2026-10-21.2"
+WRAPPER_VERSION = "2026-10-25.1"
 
 
 # ========= USER PARAMETERS ====== ***** EDIT ONLY THIS FUNCTION *****
@@ -62,7 +62,8 @@ def get_parameters() -> Parameters:
         pending_tail_rows=10,
         write_results_csv=True,
         warn_gpu_sharing=True,  # Warn when a new run would share a GPU already used by a local TUFLOW process
-        preflight_check=False,  # Validate exact run inputs before launch (PyTUFLOW installed with ryan-tools)
+        preflight_check=False,  # Advisory background input check; never delays simulation launches
+        preflight_context_mode="individual",  # Explicit "batch" needs a compatible parser
         preflight_check_gpkg_layers=True,
         preflight_report_csv=Path("run_tuflow_simulations_preflight.csv"),
     )
@@ -94,8 +95,10 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from types import FrameType
-from typing import Any, ClassVar, Final
+from queue import Empty, SimpleQueue
+from threading import Event, Lock, Thread
+from types import FrameType, MappingProxyType
+from typing import Any, ClassVar, Final, Literal
 
 import colorama
 import psutil
@@ -177,6 +180,7 @@ class CoreParameters:
     pending_tail_rows: int = 25
     write_results_csv: bool = True
     warn_gpu_sharing: bool = True
+    preflight_context_mode: Literal["individual", "batch"] = "individual"
     preflight_check: bool = False
     preflight_check_gpkg_layers: bool = True
     preflight_report_csv: Path = Path("run_tuflow_simulations_preflight.csv")
@@ -1169,12 +1173,118 @@ def _render_dashboard(
     )
 
 
+class AdvisoryInputCheck:
+    """One daemon checker; only the scheduler thread emits queued feedback.
+
+    Closing never joins a potentially blocked SMB call. It requests cooperative
+    cancellation, reports incomplete checking, and suppresses late results.
+    The parser has no interrupt API: an in-flight call may run until process exit.
+    No background result is allowed to control simulation scheduling.
+    """
+
+    def __init__(self, sims: list[Simulation], core: CoreParameters) -> None:
+        self.requests = tuple(
+            RunRequest(sim.index, MappingProxyType(dict(extract_run_flags(sim.args_for_python)))) for sim in sims
+        )
+        self._tcf = core.tcf.absolute()
+        self._destination = core.preflight_report_csv.absolute()
+        self._layers = core.preflight_check_gpkg_layers
+        self._mode: Literal["individual", "batch"] = core.preflight_context_mode
+        self._messages: SimpleQueue[tuple[int, str]] = SimpleQueue()
+        self._lifecycle_lock = Lock()
+        self._cancel = Event()
+        self.finished = Event()
+        self._thread = Thread(target=self._check, name="tuflow-advisory-check", daemon=True)
+        self._closed = False
+
+    def start(self) -> None:
+        """Begin exactly one full-plan check, without waiting for model parsing."""
+        self._thread.start()
+
+    def _check(self) -> None:
+        try:
+            report = check_simulation_inputs(
+                self._tcf, list(self.requests), check_gpkg_layers=self._layers, context_mode=self._mode
+            )
+            if self._cancel.is_set():
+                return
+            messages = [
+                (
+                    logging.WARNING,
+                    (
+                        f"Input check run {issue.run_index} {issue.flags}: [{issue.status}] "
+                        f"{issue.origin}: {issue.reference} ({issue.detail})"
+                    ),
+                )
+                for issue in report.issues
+            ]
+            complete = report.run_count == len(self.requests) and bool(self.requests)
+            try:
+                destination = report.write_csv(self._destination)
+            except Exception as exc:  # noqa: BLE001 - report failure must remain advisory and visible
+                messages.append((logging.WARNING, f"Input check report write failed: {exc}"))
+            else:
+                if complete and report.passed:
+                    messages.append(
+                        (
+                            logging.INFO,
+                            (
+                                f"All required TUFLOW input files are present for {report.run_count} runs "
+                                f"({len(report.checked_paths)} paths); report: {destination}"
+                            ),
+                        )
+                    )
+                else:
+                    messages.append((logging.WARNING, f"Input checking failed or is incomplete; report: {destination}"))
+            with self._lifecycle_lock:
+                if not self._cancel.is_set():
+                    for message in messages:
+                        self._messages.put(message)
+                self.finished.set()
+        except Exception as exc:  # noqa: BLE001 - unsupported capabilities and checker failures cannot gate launches
+            with self._lifecycle_lock:
+                if not self._cancel.is_set():
+                    self._messages.put((logging.WARNING, f"Input checking failed or is unavailable: {exc}"))
+                self.finished.set()
+        finally:
+            with self._lifecycle_lock:
+                self.finished.set()
+
+    def drain(self) -> None:
+        """Emit every finding on the main thread, including during Rich redraws."""
+        while True:
+            try:
+                level, message = self._messages.get_nowait()
+            except Empty:
+                return
+            logging.log(level, "%s", message)
+
+    def close(self) -> None:
+        """Drain complete results or explicitly cancel unfinished feedback; never wait."""
+        if self._closed:
+            return
+        self._closed = True
+        self.drain()
+        with self._lifecycle_lock:
+            incomplete = not self.finished.is_set()
+            if incomplete:
+                self._cancel.set()
+        if incomplete:
+            logging.warning(
+                "Input checking is incomplete at runner shutdown; cancellation requested. "
+                "An in-flight parser/SMB call cannot be interrupted; no complete report is guaranteed. "
+                "Simulation launches and chained scripts do not wait for it."
+            )
+        self.drain()
+
+
 def launch_simulations(
     sims: list[Simulation],
     core: CoreParameters,
     session_log: Path | None = None,
     *,
     inject_gpu_flags: bool = True,
+    advisory: AdvisoryInputCheck | None = None,
 ) -> None:
     """Launch subprocesses, monitor completion, and emit ordered static completion history."""
     batch_flags: list[str] = get_batch_flags(core=core)
@@ -1416,6 +1526,8 @@ def launch_simulations(
     def run_loop(live: Live | None) -> None:
         refresh_live(live=live, force=True)
         while queue or running:
+            if advisory is not None:
+                advisory.drain()
             launched_any = launch_ready_sim()
             if launched_any and max_parallel > 1 and queue:
                 refresh_live(live=live, force=True)
@@ -1429,6 +1541,8 @@ def launch_simulations(
             refresh_live(live=live)
             time.sleep(0.2)
         flush_ordered_results(live=live)
+        if advisory is not None:
+            advisory.drain()
         refresh_live(live=live, force=True)
 
     if core.use_live_dashboard:
@@ -1578,7 +1692,8 @@ def run_dashboard_demo() -> None:
 def main() -> None:
     if "--help" in sys.argv or "-h" in sys.argv:
         print("run_tuflow_simulations.py [--preflight] [--preflight-only] [--no-pause] [--demo-dashboard]")
-        print("  --preflight       Validate all input files before simulations are launched.")
+        print("  --preflight       Check inputs in the background; findings are advisory.")
+        print("  --preflight-context-mode=individual|batch  Select the public checker mode.")
         print("  --preflight-only  Export commands, validate inputs and exit without running TUFLOW.")
         print("  --no-pause        Exit without interactive pause for automation or CI.")
         return
@@ -1651,59 +1766,52 @@ def main() -> None:
         )
 
     preflight_enabled: bool = core.preflight_check or "--preflight" in sys.argv or "--preflight-only" in sys.argv
-    if preflight_enabled:
-        requests: list[RunRequest] = [
-            RunRequest(index=sim.index, flags=extract_run_flags(sim.args_for_python)) for sim in sims
-        ]
-        report = check_simulation_inputs(
-            core.tcf,
-            requests,
-            check_gpkg_layers=core.preflight_check_gpkg_layers,
-        )
-        report_path = report.write_csv(core.preflight_report_csv)
-        logging.info(
-            "Input preflight: %d runs, %d unique paths, %d directory scans, %d direct checks, "
-            "%d issues, %d affected runs; report: %s",
-            report.run_count,
-            len(report.checked_paths),
-            report.directories_scanned,
-            report.individually_checked,
-            len(report.issues),
-            report.affected_runs,
-            report_path,
-        )
-        logging.info(
-            "Preflight timing: PyTUFLOW parse %.2fs, run-context resolution %.2fs, deduplicated file inventory %.2fs",
-            report.parse_seconds,
-            report.context_seconds,
-            report.inventory_seconds,
-        )
-        for issue in report.issues[:20]:
-            logging.error(
-                "Run %d %s %s: %s (%s)",
-                issue.run_index,
-                issue.status,
-                issue.origin,
-                issue.reference,
-                issue.detail,
+    for argument in sys.argv[1:]:
+        if argument.startswith("--preflight-context-mode="):
+            mode = argument.partition("=")[2]
+            if mode not in {"individual", "batch"}:
+                message = "Preflight context mode must be individual or batch"
+                raise ValueError(message)
+            core.preflight_context_mode = "batch" if mode == "batch" else "individual"
+    if core.preflight_context_mode not in {"individual", "batch"}:
+        message = "Preflight context mode must be individual or batch"
+        raise ValueError(message)
+    diagnostic_only = "--preflight-only" in sys.argv or not core.run_simulations
+    advisory = AdvisoryInputCheck(sims, core) if preflight_enabled else None
+    if diagnostic_only:
+        if advisory is not None:
+            # Explicit diagnostics may wait; this path never enters the scheduler.
+            requests = list(advisory.requests)
+            report = check_simulation_inputs(
+                core.tcf.absolute(),
+                requests,
+                check_gpkg_layers=core.preflight_check_gpkg_layers,
+                context_mode=core.preflight_context_mode,
             )
-        if not report.passed:
-            message = (
-                f"Preflight blocked launch: {len(report.issues)} issue(s) affecting {report.affected_runs} run(s)."
-            )
-            raise RuntimeError(message)
-
-    if "--preflight-only" in sys.argv:
-        logging.info("Preflight-only mode: no simulations launched.")
-        return
-
-    if not core.run_simulations:
-        logging.info("run_simulations=False -> exiting after exporting commands.txt")
+            report.write_csv(core.preflight_report_csv.absolute())
+            for issue in report.issues:
+                logging.warning(
+                    "Run %d %s %s: %s (%s)", issue.run_index, issue.flags, issue.origin, issue.reference, issue.detail
+                )
+            if not report.passed or report.run_count != len(requests):
+                message = "Input diagnostic failed or is incomplete; no simulations launched"
+                raise RuntimeError(message)
+        logging.info("Diagnostic/export-only mode: no simulations launched.")
         return
 
     # Optional console capture
     session_log: Path | None = Path(f"{Path(__file__).stem}_commands.log") if core.capture_console_log else None
-    launch_simulations(sims=sims, core=core, session_log=session_log)
+    try:
+        if advisory is not None:
+            try:
+                advisory.start()
+            except Exception as exc:  # noqa: BLE001 - thread startup is advisory too
+                logging.warning("Input checker could not start: %s", exc)
+                advisory = None
+        launch_simulations(sims=sims, core=core, session_log=session_log, advisory=advisory)
+    finally:
+        if advisory is not None:
+            advisory.close()
 
     if core.next_run_file:
         run_post_script(script_path=core.next_run_file)

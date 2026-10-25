@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Planned; scoping draft, runner implementation not started |
-| Owner | Unassigned |
-| Created / Updated | 2026-10-23 |
-| Next review | 2026-10-30 |
+| Status | Active; advisory implementation passes local focused validation, new-head CI pending |
+| Owner | ChatGPT |
+| Created / Updated | 2026-10-23 / 2026-10-25 |
+| Next review | 2026-11-01 or immediately after #158 lands |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159) |
 | Branch | `feat/tuflow-runner-model-checks` |
 | PR base | `test/native-graph-benchmark-controls`, the branch for [ryan-tools #158](https://github.com/Chain-Frost/ryan-tools/pull/158) |
@@ -13,7 +13,7 @@
 | Parent integration | `9cd839247c430dbd9a2ec4a7e2187f1e80cea91d` from #158, refreshed after its diagnostic implementation landed on that draft |
 | Merged consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` (PR #143, including #156) |
 | Merged parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` (PyTUFLOW #12, including #13) |
-| Next action | Define worker/reporting/shutdown details, then implement the agreed background advisory policy and focused tests in this draft |
+| Next action | Commit validated local implementation separately; obtain push authorization and exact-new-head checks. After #158 lands, preserve only own changes on current main before any authorized retarget. |
 
 ## Outcome and delivery boundary
 
@@ -24,9 +24,9 @@ branch as the foundation for later, separately scoped runner improvements.
 
 The user requested this additional PR and further scoping, then explicitly
 selected background, warning-only model checking and non-blocking GPU warnings.
-**This draft currently changes documentation only.** It contains no new Python
-behaviour, dependency pin or package version. The user decisions below are
-requirements for implementation, not a description of delivered behaviour.
+**The original remote head is a documentation scaffold.** The current local
+implementation is described in the latest progress entry; it changes wrapper
+behaviour and tests without a library API, dependency pin or package version change.
 Keep the PR draft while implementation and acceptance remain incomplete.
 
 ## Agreed user requirements
@@ -301,3 +301,163 @@ after its implementation advanced during this session. Resolved the work-registe
 overlap by retaining its current benchmark status and this separate runner row.
 The runner-specific diff remains four documentation files; inherited benchmark
 code is owned and validated by #158.
+
+
+## 2026-10-25 - Verified delivery order and implementation handoff
+
+Live #159 is draft/open at `dfd891bcf74eef8f95169f22eb2a34e3c8f4bb5d`,
+base `test/native-graph-benchmark-controls`; GitHub reports it non-mergeable.
+The diff against its recorded parent contains four documentation files only.
+There are no inline review threads or submitted reviews. Both latest workflows
+are terminal/success at this exact scaffold head:
+[Python CI 39908840645](https://github.com/Chain-Frost/ryan-tools/actions/runs/39908840645)
+(Policy, Hosted tests, Package, Python 3.13 compatibility and MCP) and
+[Fast PR checks 39908840642](https://github.com/Chain-Frost/ryan-tools/actions/runs/39908840642)
+(Ruff and whitespace; Python lint steps skipped because the PR changes no Python).
+These five successful jobs validate the scaffold, not the requested background runner.
+
+#158 remains draft/open at `742b1d9481e25a9ed306bab524ce4da0fde2ab3b`.
+Its diagnostic/native acceptance is complete and all nine jobs pass, including
+all five required checks. Preserve frozen executable `f1f7958` and accepted
+four-trial 480-run / 8,160-identity / 158-file evidence. The inherited older
+#158 record in this branch predates acceptance; use the
+[current parent record](https://github.com/Chain-Frost/ryan-tools/blob/742b1d9481e25a9ed306bab524ce4da0fde2ab3b/docs/work/2026-10-23-tuflow-native-graph-benchmark.md)
+until the ordered rebase imports the landed documentation. Do not rewrite parent
+benchmark files as runner work.
+
+The user explicitly requires implementation **after #158 lands**, and prohibits
+merging, committing, pushing and GitHub writes in this session. That landing
+condition is not met. No premature rebase/retarget or runtime implementation was
+performed. Next delivery action is an explicit #158 merge/release decision after
+its documentation delivery and fresh-head checks; afterwards reconstruct #159
+on then-current main, preserving only its four own documentation changes. Account
+for squash ancestry rather than replaying the diagnostic commits. Recheck main
+and #160 state at that time; no automatic merge or dependency adoption is implied.
+
+Independent #160 at `23c71935f32dd9435b6bc1487b44990f61e02d2a` has six successful
+jobs, including terminal Hosted tests (1,492 passed, 6 skipped, 7 deselected).
+Its command reader belongs to the standalone multi-TCF checker. Basic #159 still
+checks its exact existing ordered/deduplicated launcher plan through public
+`check_simulation_inputs()`; do not silently add multi-TCF runner support or
+replace its input parser. Only integrate #160 if a documented runner requirement
+actually needs it. #160 is not a runtime dependency on #158.
+
+Experimental #161 retains its own pinned producer callback and production-adoption
+gates. Live PyTUFLOW #28 is closed/unmerged at
+`28dbb261e88fac98a495e03360002704c0905410`; closure does not install that capability
+or approve production adoption. Reconcile its separate successor work only within
+that experimental front. No #161 streaming worker or parser candidate is required
+for the basic advisory runner. RORB #145 remains outside this scope with its own
+real-executable acceptance; no solver was run.
+
+The implementation acceptance list above remains mandatory: event-controlled
+proof of first and subsequent launches while checking is held; one immutable
+complete plan; truthful success/failure; every finding visible with/without Rich;
+distinct capability/check/report-write warnings; explicit completion, interrupt,
+slow-I/O and chained-batch lifecycle; existing non-blocking GPU overlap and
+uncertainty warnings. A join timeout cannot cancel a blocked filesystem call.
+Choose and document the shutdown policy before code, and prove it does not delay
+launches or accidentally hold a post-run/chained script. Check-only remains an
+explicit diagnostic with meaningful results, independently of launch prerequisites.
+
+Local changes are documentation-only, unstaged/uncommitted in detached
+`E:/Github/ryan-tools-review-159` at the scaffold head. Original #161 checkout,
+runner Python, package metadata and benchmark source are unchanged. Documentation
+and whitespace validation is recorded below. No new runtime tests or package
+build are warranted for this scaffold correction. No stage, commit, push, merge,
+publication, GitHub comment, benchmark or native solver launch. Next review:
+2026-11-01, or immediately after the authorized #158 landing.
+
+
+### Documentation validation and delivery state
+
+Normal Windows Python 3.14.6: `python repo-scripts/check_documentation.py`
+passes all seven default documents and central-index coverage. Explicit
+`--links-only` checks pass for every locally changed Markdown file in this
+review worktree; `git diff --check` passes. All local changes are documentation
+only, unstaged and uncommitted. No new remote head or hosted run exists for
+these corrections. Revalidate the exact delivered head after authorized commit/push.
+
+
+Unrelated RORB #145 brief live check: draft/open at
+`41a34b490aef7969c43d1d3e4cc57e688d9ad79c`, non-mergeable. Fast checks pass;
+Python CI 39599140155 is terminal failure because Policy has 23 strict Pyright
+errors in the calibration test module. Hosted tests, compatibility/MCP and Package
+pass; no submitted reviews are present. Real RORB_CMD/data-provenance acceptance
+is not established by these jobs. No RORB implementation, test or solver was run.
+
+
+## 2026-10-25 - Authorized implementation before parent merge
+
+The owner adopted the revised workflow, allowing local #159 implementation before
+#158 lands, and subsequently authorized local commits. That supersedes the earlier
+landing-order block. No push, GitHub comment/review mutation, merge, publication or
+solver is authorized. Preserve the existing PR; do not close or replace its scaffold.
+The remote baseline remains `dfd891bcf74eef8f95169f22eb2a34e3c8f4bb5d`.
+Its runtime source matches current main `bcc8e5c` before these edits; inherited
+benchmark code is unchanged. Parent rebase/retarget is still a later delivery step.
+
+Implemented in the maintained runner wrapper (version 2026-10-25.1): immutable
+ordered RunRequest snapshots; exactly one background checker with explicit public
+individual/batch mode; main-thread feedback delivery; all findings with provenance;
+INFO only after a complete passing report is written; truthful checker/capability,
+partial-result and report-write warnings. The scheduler keeps its current selected-
+GPU sharing/uncertainty checks and concurrency limits. Its Rich state is never
+accessed by the checker. Existing enabled-checking defaults remain opt-in.
+
+Shutdown is explicit and nonblocking: finished feedback is drained, pending checking
+is marked incomplete and cooperatively cancelled, and no join gates a simulation
+or chained script. The worker is a daemon; an in-flight parser/SMB/report call cannot
+be killed and may outlive the runner's scheduling phase until it returns/process
+exit. Late feedback is suppressed and a complete CSV is not promised after cancellation.
+Library report validity is never changed to accommodate launch policy.
+
+Check-only and enabled-checking/export-only modes remain synchronous, print all
+findings and return meaningful failure exits without scheduling or chaining.
+Existing runner parameter prerequisites remain; executable-free checking is the
+standalone wrapper's contract. #160's multi-TCF reader is not needed for this
+existing final-plan interface and is not imported. #161/#39 remain independent.
+This process-launching wrapper is not a new bounded MCP workflow candidate.
+
+Normal Windows Python 3.14.6 local validation:
+
+- `python -m pytest -q tests/scripts/test_tuflow_advisory_runner.py tests/scripts/test_run_tuflow_simulations.py tests/functions/tuflow/test_gpu_occupancy.py`:
+  **37 passed**, zero skips. New tests use real scheduler/main calls with fake
+  processes, deterministic events and both Rich dashboard modes; no TUFLOW launched.
+- Tests prove first/subsequent launches while checking is held, frozen flags despite
+  GPU injection, all 25 findings, successful/partial/error/report-failure truthfulness,
+  confirmed GPU sharing and unknown/incomplete occupancy, nonblocking shutdown,
+  interrupt cleanup, no wait before chaining, mapped-drive/UNC path preservation,
+  disabled checks and check-only failures.
+- Ruff check/format, strict Pyright on both changed Python files: zero errors/warnings;
+  compilation and source-runner `--help` pass. Documentation/index/link/whitespace
+  checks pass. No Loguru calls or library/package files were changed, so no package
+  build or Loguru-formatting rerun is required for this wrapper-only implementation.
+
+Local source/tests/documentation are prepared for their own authorized commit in
+`E:/Github/ryan-tools-review-159`. No new hosted CI covers them; earlier five green
+jobs cover the scaffold only. Next action: push only when separately authorized,
+then require exact-new-head checks/review before delivery. Next review: 2026-11-01.
+
+
+### Authorized local commit delivery
+
+The owner subsequently authorized local commits. This work is retained separately
+on local branch `review/pr159-advisory` in the review worktree above.
+Local validation is complete; the completion report identifies the resulting commit.
+No push or new hosted run exists. Earlier uncommitted/scaffold-only delivery
+statements are historical checkpoints, superseded by this authorized local delivery.
+Next action: obtain authorization to push this existing PR's changes, then require
+CI/review on its exact delivered head. No merge, publication or GitHub discussion
+mutation is authorized. Original `E:/Github/ryan-tools` remains unchanged.
+
+
+### Current validation priority
+
+The owner explicitly deferred hosted CI until local development has progressed.
+Hosted checks are not on this work's current critical path. Continue local review,
+implementation and proportionate tests; record exact local source and validation.
+An authorized future push may run CI for later checking. Earlier statements making
+new-head hosted checks an immediate development blocker are superseded by this
+instruction. Push, merge and publication remain separate authorization boundaries.
+Generated `.validation/` evidence is excluded locally and is not part of the commit.
