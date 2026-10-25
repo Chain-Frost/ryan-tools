@@ -37,7 +37,7 @@ jobs:
         with:
           python-version: "3.14"
       - name: Install exact producer boundary from combined PyTUFLOW PR 39
-        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@64cb0d51141b4b5ea43e86c8b08f882eea98faa4"
+        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@079258eab25b1c2d7b0ee4c1c248ccff7f38f5dc"
       - name: Install read-only diagnostic and focused test dependencies
         run: |
           python -m pip install -e . --no-deps
