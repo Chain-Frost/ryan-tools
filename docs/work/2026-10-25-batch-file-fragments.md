@@ -444,3 +444,15 @@ new tests, solver, profiler, full suite, hosted-CI acceptance, merge or release.
 Documentation/link/whitespace checks pass. Next action: review exact-head CI and
 this paired performance checkpoint; no further measurement queued.
 Next review: 2026-11-01. Unrelated overdue reviews remain outside scope.
+
+## Benchmark publication
+
+Owner authorized pushing the updates. Benchmark checkpoint `beb4b2da` is published
+to existing consumer PR 161 together with this delivery note on
+`test/tuflow-streaming-io-overlap`. The remote head was checked and the update
+is a normal fast-forward from `8ad64ceb`; no history rewrite. Parser code is
+unchanged at `64cb0d5` and needs no additional push. No merge or release.
+Hosted CI for the updated consumer head is separate from the local benchmark
+and documentation checks; final-head acceptance is not claimed here.
+Next action: review exact-head CI and the recorded bounded results.
+Next review: 2026-11-01. Unrelated overdue work remains outside scope.
