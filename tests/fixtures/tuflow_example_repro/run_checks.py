@@ -58,6 +58,28 @@ _LINUX_EXAMPLE_CASE_ALIASES: tuple[tuple[str, str], ...] = (
 )
 
 
+def _link_shapefile_case_sidecars(source: Path, alias: Path, base: Path) -> tuple[str, ...]:
+    """Link only the known Shapefile companion extensions under an alias stem."""
+    if source.suffix.casefold() != ".shp":
+        return ()
+    created: list[str] = []
+    for part in sorted(source.parent.glob(f"{source.stem}.*")):
+        if part == source or part.suffix.casefold() not in {".shx", ".dbf", ".prj", ".cpg"}:
+            continue
+        if not part.is_file() or part.is_symlink():
+            message = f"Unexpected Shapefile sidecar: {part.name}"
+            raise ValueError(message)
+        destination = alias.with_name(f"{alias.stem}{part.suffix}")
+        if destination == part:
+            continue
+        if destination.exists() or destination.is_symlink():
+            message = f"Conflicting example sidecar alias: {destination.name}"
+            raise ValueError(message)
+        destination.symlink_to(part.name)
+        created.append(destination.relative_to(base).as_posix())
+    return tuple(created)
+
+
 def prepare_linux_example_case_overlay(base: Path) -> tuple[str, ...]:
     """Add bounded, explicit aliases only in an already-extracted public fixture.
 
@@ -66,34 +88,23 @@ def prepare_linux_example_case_overlay(base: Path) -> tuple[str, ...]:
     valid under TUFLOW's strict Linux -cs0 filename policy.
     """
     if sys.platform != "linux":
-        raise ValueError("Linux example case overlay requires a native Linux filesystem")
+        message = "Linux example case overlay requires a native Linux filesystem"
+        raise ValueError(message)
     created: list[str] = []
     for source_rel, alias_rel in _LINUX_EXAMPLE_CASE_ALIASES:
         source = base / source_rel
         alias = base / alias_rel
         if not source.is_file() or source.is_symlink():
-            raise ValueError(f"Expected original archive file is missing: {source_rel}")
+            message = f"Expected original archive file is missing: {source_rel}"
+            raise ValueError(message)
         if alias.parent != source.parent or alias.exists() or alias.is_symlink():
-            raise ValueError(f"Unsafe or pre-existing example alias: {alias_rel}")
+            message = f"Unsafe or pre-existing example alias: {alias_rel}"
+            raise ValueError(message)
         alias.symlink_to(source.name)
         created.append(alias_rel)
-        if source.suffix.casefold() != ".shp":
-            continue
-        # Follow Shapefile sidecar naming: an alias SHP may also need its
-        # DBF, SHX, PRJ or CPG available under the exact aliased stem.
-        for part in sorted(source.parent.glob(f"{source.stem}.*")):
-            if part == source or part.suffix.casefold() not in {".shx", ".dbf", ".prj", ".cpg"}:
-                continue
-            if not part.is_file() or part.is_symlink():
-                raise ValueError(f"Unexpected Shapefile sidecar: {part.name}")
-            destination = alias.with_name(f"{alias.stem}{part.suffix}")
-            if destination == part:
-                continue
-            if destination.exists() or destination.is_symlink():
-                raise ValueError(f"Conflicting example sidecar alias: {destination.name}")
-            destination.symlink_to(part.name)
-            created.append(destination.relative_to(base).as_posix())
+        created.extend(_link_shapefile_case_sidecars(source, alias, base))
     return tuple(created)
+
 
 
 def verify_bundle(bundle: Path) -> int:
