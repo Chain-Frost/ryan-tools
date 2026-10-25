@@ -42,7 +42,6 @@ def _physical_identity_key(path: Path) -> str:
     return spelling.casefold() if os.name == "nt" else spelling
 
 
-
 # Explicitly documented archive-internal source -> TCF-requested POSIX spelling.
 # Do not alter the immutable ZIP. Linux examples with these casing errors are
 # invalid in strict -cs0 mode until the extracted TEMPORARY test copy is repaired.
@@ -104,7 +103,6 @@ def prepare_linux_example_case_overlay(base: Path) -> tuple[str, ...]:
         created.append(alias_rel)
         created.extend(_link_shapefile_case_sidecars(source, alias, base))
     return tuple(created)
-
 
 
 def verify_bundle(bundle: Path) -> int:
@@ -277,7 +275,8 @@ def main() -> int:  # noqa: C901 - multi-mode regression results and fail-closed
     parser.add_argument("--tcf", action="append", help="TCF filename to select; repeat for multiple cases")
     parser.add_argument("--batch", action="store_true", help="Include experimental batch source parity checks")
     parser.add_argument(
-        "--linux-case-overlay", action="store_true",
+        "--linux-case-overlay",
+        action="store_true",
         help="Add documented case-only symlinks in a temporary Linux example copy (not the original archive)",
     )
     parser.add_argument("--output", type=Path, help="Report directory; default is a new temporary directory")
