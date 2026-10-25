@@ -318,9 +318,7 @@ def test_failed_layer_enumeration_closes_connection_and_does_not_certify_partial
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Require distinct case-only POSIX filenames")
-def test_case_only_files_have_distinct_physical_identities(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_case_only_files_have_distinct_physical_identities(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """An eager/deferred mismatch between two real POSIX files cannot pass."""
     upper = tmp_path / "Material.csv"
     lower = tmp_path / "material.csv"
@@ -336,6 +334,7 @@ def test_case_only_files_have_distinct_physical_identities(
             _tcf: Path, _runs: list[RunRequest], _model: object, _report: PreflightReport
         ) -> tuple[list[_FileReference], dict[Path, set[str]]]:
             return [_FileReference(run, "Read Materials File", path)], {}
+
         return references
 
     monkeypatch.setattr(run_checks, "_collect_references", references_for(upper))
