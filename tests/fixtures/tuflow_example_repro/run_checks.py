@@ -1,4 +1,4 @@
-"""Repository regression harness for read-only Windows TUFLOW dependency parity."""
+"""Repository regression harness for read-only TUFLOW dependency parity."""
 
 from __future__ import annotations
 
@@ -40,6 +40,60 @@ def _physical_identity_key(path: Path) -> str:
     """
     spelling = str(path)
     return spelling.casefold() if os.name == "nt" else spelling
+
+
+
+# Explicitly documented archive-internal source -> TCF-requested POSIX spelling.
+# Do not alter the immutable ZIP. Linux examples with these casing errors are
+# invalid in strict -cs0 mode until the extracted TEMPORARY test copy is repaired.
+_LINUX_EXAMPLE_CASE_ALIASES: tuple[tuple[str, str], ...] = (
+    ("model/Materials.csv", "model/materials.csv"),
+    ("model/gis/2d_rf_EG03_007_R.shp", "model/gis/2d_RF_EG03_007_R.shp"),
+    ("model/gis/1d_WLL_EG14_001_L.shp", "model/gis/1d_wll_EG14_001_L.shp"),
+    ("model/gis/1d_WLLp_EG14_001_P.shp", "model/gis/1d_wllp_EG14_001_P.shp"),
+    ("model/gis/2d_qnl_E13_001_R.shp", "model/gis/2d_qnl_E13_001_R.SHP"),
+    ("model/gis/2d_rf_EG03_014_R.shp", "model/gis/2d_RF_EG03_014_R.shp"),
+    ("model/gis/2d_qnl_E13_003_R.shp", "model/gis/2d_qnl_E13_003_R.SHP"),
+    ("model/gis/2d_qnl_EG15_003_R.shp", "model/gis/2d_qnl_EG15_003_R.SHP"),
+)
+
+
+def prepare_linux_example_case_overlay(base: Path) -> tuple[str, ...]:
+    """Add bounded, explicit aliases only in an already-extracted public fixture.
+
+    The original ZIP and its manifest are untouched; this is a separate
+    *case-corrected* parity campaign, never evidence that the raw archive is
+    valid under TUFLOW's strict Linux -cs0 filename policy.
+    """
+    if sys.platform != "linux":
+        raise ValueError("Linux example case overlay requires a native Linux filesystem")
+    created: list[str] = []
+    for source_rel, alias_rel in _LINUX_EXAMPLE_CASE_ALIASES:
+        source = base / source_rel
+        alias = base / alias_rel
+        if not source.is_file() or source.is_symlink():
+            raise ValueError(f"Expected original archive file is missing: {source_rel}")
+        if alias.parent != source.parent or alias.exists() or alias.is_symlink():
+            raise ValueError(f"Unsafe or pre-existing example alias: {alias_rel}")
+        alias.symlink_to(source.name)
+        created.append(alias_rel)
+        if source.suffix.casefold() != ".shp":
+            continue
+        # Follow Shapefile sidecar naming: an alias SHP may also need its
+        # DBF, SHX, PRJ or CPG available under the exact aliased stem.
+        for part in sorted(source.parent.glob(f"{source.stem}.*")):
+            if part == source or part.suffix.casefold() not in {".shx", ".dbf", ".prj", ".cpg"}:
+                continue
+            if not part.is_file() or part.is_symlink():
+                raise ValueError(f"Unexpected Shapefile sidecar: {part.name}")
+            destination = alias.with_name(f"{alias.stem}{part.suffix}")
+            if destination == part:
+                continue
+            if destination.exists() or destination.is_symlink():
+                raise ValueError(f"Conflicting example sidecar alias: {destination.name}")
+            destination.symlink_to(part.name)
+            created.append(destination.relative_to(base).as_posix())
+    return tuple(created)
 
 
 def verify_bundle(bundle: Path) -> int:
@@ -211,6 +265,10 @@ def main() -> int:  # noqa: C901 - multi-mode regression results and fail-closed
     )
     parser.add_argument("--tcf", action="append", help="TCF filename to select; repeat for multiple cases")
     parser.add_argument("--batch", action="store_true", help="Include experimental batch source parity checks")
+    parser.add_argument(
+        "--linux-case-overlay", action="store_true",
+        help="Add documented case-only symlinks in a temporary Linux example copy (not the original archive)",
+    )
     parser.add_argument("--output", type=Path, help="Report directory; default is a new temporary directory")
     options = parser.parse_args()
     bundle = Path(__file__).absolute().parents[2] / "test_data" / "tuflow" / "example_input_preflight"
@@ -231,6 +289,13 @@ def main() -> int:  # noqa: C901 - multi-mode regression results and fail-closed
     with tempfile.TemporaryDirectory(prefix="tuflow-example-inputs-", ignore_cleanup_errors=True) as temporary:
         base = Path(temporary)
         extract_bundle(bundle, base)
+        if options.linux_case_overlay:
+            case_aliases = prepare_linux_example_case_overlay(base)
+            (output / "case_overlay.json").write_text(
+                json.dumps({"mode": "temporary-linux-case-corrected", "aliases": case_aliases}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            print(f"Linux case-corrected temporary fixture: {len(case_aliases)} declared aliases", flush=True)
         cases = discover_cases(base)
         if options.tcf:
             selected = set(options.tcf)
