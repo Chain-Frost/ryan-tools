@@ -399,3 +399,48 @@ strict Pyright on the five modified Python files, documentation links and
 whitespace checks pass. The wheel builds and verifies. This commit is the
 consumer correction checkpoint for PR 161; publication also preserves/pushes
 local failed evidence checkpoint e3ea664e. Hosted CI is a separate review gate.
+
+## Header-selection fix: bounded benchmark rerun
+
+Owner explicitly requested another run. Published GitHub heads matched consumer
+PR 161 `8ad64ceb060cf56de1877421e74edec9fe8c75ce` and parser PR 39
+`64cb0d51141b4b5ea43e86c8b08f882eea98faa4`. Exact-commit package snapshots
+were used, with physical import-location and before/after snapshot hash guards.
+The earlier failed checkpoint remains unchanged.
+
+Same retained 480-run SMB workload, normal Python 3.14.6, four I/O workers,
+file-only inspection with BC CSV header checks enabled in both conditions.
+Only fragment reuse changes. Timing includes the API and CSV report writing,
+excluding imports and guards. Four fresh processes, baseline/fragments/fragments/
+baseline order, shared 600-second timeout, no cache flush. All four completed
+in 129.83 seconds (2.16 minutes).
+
+| Condition | Trial seconds | Median seconds |
+| --- | --- | ---: |
+| Reuse disabled | 43.187955, 42.477260 | 42.832607 |
+| Reuse enabled | 19.223729, 19.337775 | 19.280752 |
+
+Observed median reduction: **54.99%**. Every invocation reports
+480 runs, 50 checked paths, 24 unique CSV headers, 480 checked column selections
+and zero issues. All four report projections, including header/selection counts,
+match exactly. Each fragment run has 66,290 reuses and zero fallback runs.
+Snapshot hashes and input size/mtime guards passed. No full input-byte hash or
+new full parser semantic/provenance parity gate was performed. Two observations
+per condition and uncontrolled SMB/cache/background load limit generalization.
+This is a header-enabled comparison; do not interpret differences from earlier
+no-header runs as isolated header overhead. Rainfall values were not validated.
+
+Tracked [summary](evidence/2026-10-25-batch-fragments-csv-header-fix/summary.json),
+[protocol](evidence/2026-10-25-batch-fragments-csv-header-fix/protocol.json),
+[runner audit copy](evidence/2026-10-25-batch-fragments-csv-header-fix/benchmark.py.txt)
+and [snapshot hashes](evidence/2026-10-25-batch-fragments-csv-header-fix/snapshot-hashes.json).
+Reproduction uses the same frozen-package layout/private workload configuration
+as the earlier audit copies; the private workload path is represented by
+`BATCH_EXISTENCE_PRIVATE_WORKLOAD`. Raw originals, report identities and logs stay
+private under `.validation/benchmark-csv-header-fix-20261025/`.
+
+Evidence checkpoint committed locally, not pushed. No implementation changes,
+new tests, solver, profiler, full suite, hosted-CI acceptance, merge or release.
+Documentation/link/whitespace checks pass. Next action: review exact-head CI and
+this paired performance checkpoint; no further measurement queued.
+Next review: 2026-11-01. Unrelated overdue reviews remain outside scope.
