@@ -14,7 +14,7 @@ from ryan_library.functions.tuflow.dependency_index import (
 )
 
 
-@pytest.mark.parametrize("threshold,limit", [(1, 100), (8, 100), (1, 1)])
+@pytest.mark.parametrize(("threshold", "limit"), [(1, 100), (8, 100), (1, 1)])
 def test_bulk_direct_and_bounded_fallback_agree_on_case(
     tmp_path: Path, threshold: int, limit: int
 ) -> None:
@@ -57,13 +57,14 @@ def test_wildcard_case_follows_host_filesystem(tmp_path: Path) -> None:
     (tmp_path / "Beta.csv").touch()
     requested = tmp_path / "*.CSV"
     matches, errors, scans = expand_file_patterns([requested])
-    assert scans == 1 and not errors
+    assert scans == 1
+    assert not errors
     assert {match.name for match in matches[requested]} == (
         {"Alpha.CSV", "Beta.csv"} if os.name == "nt" else {"Alpha.CSV"}
     )
 
 
-@pytest.mark.parametrize("threshold,limit", [(1, 100), (8, 100), (1, 1)])
+@pytest.mark.parametrize(("threshold", "limit"), [(1, 100), (8, 100), (1, 1)])
 def test_missing_gpkg_case_does_not_open_or_certify_layer(
     tmp_path: Path, threshold: int, limit: int
 ) -> None:
