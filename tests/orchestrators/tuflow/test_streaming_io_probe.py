@@ -7,12 +7,26 @@ import threading
 import types
 from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol, cast
 
 import pytest
 
 from ryan_library.orchestrators.tuflow import streaming_io_probe
 from ryan_library.orchestrators.tuflow.batch_preflight_adapter import BatchModelView
 from ryan_library.orchestrators.tuflow.streaming_io_probe import FileReadAheadProbe, probe_batch_io_overlap
+
+
+class _ProjectedRun(Protocol):
+    file_references: tuple[object, ...]
+
+
+class _BatchResult(Protocol):
+    passed: bool
+    runs: tuple[_ProjectedRun, ...]
+
+
+class _BatchProducer(Protocol):
+    def collect_batch_dependencies(self, flags: tuple[str, ...]) -> _BatchResult: ...
 
 
 def _ref(path: Path, **overrides: object) -> types.SimpleNamespace:
@@ -64,7 +78,7 @@ def test_worker_can_inspect_first_projection_before_second_context_finishes(
         def collect_batch_dependencies(
             self, flags: tuple[str, ...], *, on_run: Callable[[object], None]
         ) -> types.SimpleNamespace:
-            cases = []
+            cases: list[types.SimpleNamespace] = []
             for index, flag in enumerate(flags):
                 case = _run(index, flag, _ref(paths[index]))
                 cases.append(case)
@@ -139,9 +153,48 @@ def test_ordinary_batch_adapter_never_passes_new_hook() -> None:
     view.assert_consumed()
 
 
+def test_producer_failure_waits_for_worker_and_preserves_original_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    worker_finished = threading.Event()
+
+    def failed_stat(_path: Path) -> tuple[str, float]:
+        worker_finished.set()
+        message = "worker failure"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(streaming_io_probe, "_stat_literal", failed_stat)
+
+    class FailedProducer:
+        def collect_batch_dependencies(
+            self, flags: tuple[str, ...], *, on_run: Callable[[object], None]
+        ) -> types.SimpleNamespace:
+            on_run(_run(0, flags[0], _ref(tmp_path / "input.csv")))
+            message = "producer failure"
+            raise ValueError(message)
+
+    with pytest.raises(ValueError, match="producer failure"):
+        probe_batch_io_overlap(FailedProducer(), ("-s1 DEV",))
+    assert worker_finished.is_set()
+
+
+def test_finished_probe_rejects_new_work(tmp_path: Path) -> None:
+    with FileReadAheadProbe() as probe:
+        probe.mark_producer_finished()
+        summary = probe.finish()
+        assert summary.unique_paths == 0
+        assert not summary.overlapped_context_construction
+        with pytest.raises(RuntimeError, match="closed"):
+            probe.submit_run(_run(0, "", _ref(tmp_path / "input.csv")))
+        with pytest.raises(RuntimeError, match="already finished"):
+            probe.finish()
+
+
 def test_probe_does_not_treat_failure_or_prechecks_as_authoritative() -> None:
     class FailedModel:
-        def collect_batch_dependencies(self, flags: tuple[str, ...], *, on_run: object) -> types.SimpleNamespace:
+        def collect_batch_dependencies(
+            self, flags: tuple[str, ...], *, on_run: Callable[[object], None]
+        ) -> types.SimpleNamespace:
             case = _run(0, flags[0], error="bad context")
             on_run(case)
             return types.SimpleNamespace(runs=(case,))
@@ -165,7 +218,8 @@ def test_real_pytuflow_completed_run_hook_retains_projection_parity(tmp_path: Pa
     tcf.write_text("Read GIS Code == gis.shp\n", encoding="utf-8")
     model = TCF(tcf)
     flags = ("-s1 DEV", "-s1 EXG", "-s1 DEV")
-    plain = model.collect_batch_dependencies(flags)
+    # The opt-in fork surface is intentionally absent from the published TCF type.
+    plain = cast(_BatchProducer, model).collect_batch_dependencies(flags)
     view, summary = probe_batch_io_overlap(model, flags, max_pending=2)
     assert plain.passed
     assert summary.unique_paths == 1

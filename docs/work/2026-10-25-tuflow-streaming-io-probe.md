@@ -63,14 +63,15 @@ Before any adoption into the public preflight or comparison harness:
 4. compare local SSD and SMB conditions on authorised Windows with controlled
    sequencing; do not infer benefit from the presence of a mapped drive alone.
 
-**Next action:** finish exact-head CI and code review, then assess whether
-safe authoritative inventory reuse is feasible without path/state staleness.
+**Next action:** commit and push the local Policy typing correction when authorised,
+then require all checks on that new head before assessing whether safe authoritative
+inventory reuse is feasible without path/state staleness.
 Do not merge, publish or launch a full native benchmark on this pilot alone.
 
 ## Cross-repository regression boundary
 
 The independent `tuflow-streaming-io-probe.yml` Windows workflow pins producer
-PR #28 commit `d99435dce741d80967df186ba6a28404358c8ca3`, installs it
+PR #28 commit `9329cc8de2acfd2db8af7a9a6b6dfd34450af46f`, installs it
 without altering published dependencies, and exercises the actual callback
 through `probe_batch_io_overlap` using a temporary synthetic TCF. Existing
 ordered-batch and normal preflight CI retain their own historical parser pins;
@@ -79,3 +80,35 @@ this additional workflow does not replace the complete archive parity gates.
 ## Review corrections
 
 The checked-in Windows smoke workflow now pins producer PR #28 at `9329cc8de2acfd2db8af7a9a6b6dfd34450af46f`, which moves callbacks for reused projections outside the parser exception handler. Only `tests/test_data` is initialised for this focused pytest gate. Speculative path filtering inspects the complete path after joining the reference and its base directory, so an inherited wildcard or unresolved token does not enter the worker. These corrections are pending full exact-head CI and refreshed review. No native measurement is authorised.
+
+## 2026-10-25 — Policy repair and lifecycle regression checks
+
+Current checkout and remote PR #161 head are `f97e7f69eba97c4041ce41c41ba768af0855d1d1`;
+the initial parent worktree was clean. All nine hosted checks are terminal: eight pass,
+including the pinned streaming Windows integration, and Policy fails with 11 strict
+typing errors in the new test module. See [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/40126940602)
+and [streaming integration](https://github.com/Chain-Frost/ryan-tools/actions/runs/40126940632).
+This evidence applies to the existing head, not the local changes below.
+
+Local changes annotate the synthetic case collection and callback, and describe the
+opt-in fork result through test-owned protocols rather than accessing a method absent
+from the published `TCF` type. Added executable lifecycle checks prove that a producer
+failure waits for worker completion while preserving the original producer exception,
+and that a finished probe rejects submissions and repeated finalisation. Production
+code, parser pins and dependency metadata are unchanged. Experimental diagnostics
+remain unsuitable for MCP catalogue exposure or authoritative inventory reuse.
+
+Validation on normal Windows Python **3.14.6**:
+
+- `python -m ruff check tests/orchestrators/tuflow/test_streaming_io_probe.py`: passed.
+- `python -m ruff format --check tests/orchestrators/tuflow/test_streaming_io_probe.py`: passed.
+- `python -m pyright tests/orchestrators/tuflow/test_streaming_io_probe.py`: zero errors/warnings.
+- `python -m pytest -q tests/orchestrators/tuflow/test_streaming_io_probe.py tests/orchestrators/tuflow/test_batch_preflight_adapter.py`:
+  **14 passed, 2 skipped**. Both skips are explicitly opt-in fork integration tests;
+  installed PyTUFLOW is the published **1.2.6**, not the pinned producer fork.
+- `git diff --check`: passed before the handoff edits; repeat with documentation validation.
+
+Delivery: test and handoff edits are **unstaged, uncommitted and unpushed** on
+`test/tuflow-streaming-io-overlap`. No package build is required for test/documentation-only
+changes. No fresh hosted run covers these local edits. Keep the PR draft; no merge,
+publication, private model access or native measurement. Next review remains **2026-11-01**.
