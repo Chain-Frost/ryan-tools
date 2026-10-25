@@ -3,7 +3,7 @@
 import sqlite3
 from collections import Counter
 from pathlib import Path
-from threading import Barrier, Lock
+from threading import Barrier, Event, Lock
 
 import pytest
 
@@ -52,6 +52,29 @@ def test_dense_directory_still_uses_one_scan(tmp_path: Path) -> None:
     assert result.directories_scanned == 1
     assert result.individually_checked == 0
     assert all(item.status == "present" for item in result.files.values())
+
+
+def test_finished_worker_starts_next_job_while_first_is_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = [tmp_path / f"source{i}.csv" for i in range(3)]
+    first_started = Event()
+    third_started = Event()
+
+    def observe(path: Path) -> inventory.DependencyResult:
+        if path == paths[0]:
+            first_started.set()
+            assert third_started.wait(timeout=5), "Worker waited for the entire submission wave"
+        elif path == paths[1]:
+            assert first_started.wait(timeout=5)
+        else:
+            third_started.set()
+        return inventory.DependencyResult("present")
+
+    monkeypatch.setattr(inventory, "_individual_file", observe)
+    result = inventory.check_unique_dependencies(dict.fromkeys(paths, ()), io_workers=2)
+    assert list(result.files) == paths
+    assert result.individually_checked == 3
 
 
 @pytest.mark.parametrize("workers", [0, 33])

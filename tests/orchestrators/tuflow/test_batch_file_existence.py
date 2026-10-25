@@ -56,6 +56,38 @@ def test_fragment_mode_requires_matching_parser(tmp_path: Path, monkeypatch: pyt
         preflight.check_batch_files(tcf, [preflight.RunRequest(1, {"s1": "GOOD"})])
 
 
+def test_bc_sources_shared_by_columns_keep_every_run_dependency(tmp_path: Path) -> None:
+    from pytuflow import TCF
+
+    if not callable(getattr(TCF, "collect_file_dependencies", None)):
+        pytest.skip("Requires matching fragment-capable PyTUFLOW build")
+    (tmp_path / "events.tef").write_text(
+        "Define Event == A\n BC Event Source == _source_ | present\nEnd Define\n"
+        "Define Event == B\n BC Event Source == _source_ | missing\nEnd Define\n"
+        "Define Event == P1\n BC Event Source == _column_ | pattern1\nEnd Define\n"
+        "Define Event == P2\n BC Event Source == _column_ | pattern2\nEnd Define\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "bc_dbase.csv").write_text(
+        "Name,Source,Column 1,Column 2\nrain,rain__source_.csv,Time,_column_\n", encoding="utf-8"
+    )
+    (tmp_path / "rain_present.csv").write_bytes(b"existence only")
+    tcf = tmp_path / "model.tcf"
+    tcf.write_text("Event File == events.tef\nBC Database == bc_dbase.csv\n", encoding="utf-8")
+    runs = [
+        preflight.RunRequest(i, {"e1": source, "e2": column})
+        for i, (source, column) in enumerate((("A", "P1"), ("A", "P2"), ("B", "P1"), ("B", "P2")), 1)
+    ]
+    result = preflight.check_batch_files(tcf, runs)
+    assert result.run_count == 4
+    assert result.checked_paths == {
+        str(tmp_path / name) for name in ("events.tef", "bc_dbase.csv", "rain_present.csv", "rain_missing.csv")
+    }
+    assert not result.passed
+    assert {issue.run_index for issue in result.issues} == {3, 4}
+    assert all(issue.reference.endswith("rain_missing.csv") for issue in result.issues)
+
+
 def test_linked_files_and_geopackage_layers_remain_required(tmp_path: Path) -> None:
     from pytuflow import TCF
 

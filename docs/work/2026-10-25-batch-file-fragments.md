@@ -1,7 +1,7 @@
 # Batch file existence with immutable dependency fragments
 
-Status: Needs review - local implementation and validation complete. Owner: ChatGPT. Updated: 2026-10-25.
-Next review: 2026-11-01. Next action: review the committed paired milestone and bounded benchmark below; no further measurement is queued.
+Status: Needs review - publication through existing paired PRs. Owner: ChatGPT. Updated: 2026-10-25.
+Next review: 2026-11-01. Next action: review exact-head hosted CI on parser PR 39 and consumer PR 161; no further measurement is queued.
 
 ## Scope and decisions
 
@@ -40,7 +40,7 @@ Separate normal local clones, both on `feat/batch-file-fragments`:
 `E:/Github/PyTuflow-batch-existence` from parser `ee44350a9312f365316498708c3f958036eebc3a`;
 `E:/Github/ryan-tools-batch-existence` from consumer `a428516f`.
 Original workspaces, native inputs and retained benchmark evidence are unchanged.
-Changes are unstaged/uncommitted/unpushed. No release, merge or hosted CI requested.
+Initial delivery was local only; the publication follow-up below supersedes that delivery state. No PR merge or release authorised.
 Only tests/test_data and qgis-resources were initialized in the consumer clone;
 unsorted was not inspected or initialized.
 
@@ -174,3 +174,60 @@ rerun for this commit. The numeric observations are unchanged.
 Commit-time focused verification: parser 107 passed; installed-pair consumer
 83 passed. No implementation changes since the measured hashes. No full suite,
 hosted CI, push, merge or release. Documentation and whitespace checks pass.
+
+## Existing PR publication and continuous I/O scheduling
+
+Owner authorized commit/push on 2026-10-25. Existing parser
+[PR 39](https://github.com/phantom-branch/PyTuflow/pull/39) now contains
+`566d5a3f011f520810def9d6e5405457b692bcc6`, including original milestone
+`02868e4` and a history-preserving merge of updated PR head `9fdc13b`.
+Consumer delivery uses existing [PR 161](https://github.com/Chain-Frost/ryan-tools/pull/161),
+branch `test/tuflow-streaming-io-overlap`; this follow-up retains milestone
+`5a781647`. Local clones track the corresponding GitHub PR branches; original
+workspaces remain untouched. The commit containing this entry is the consumer
+publication checkpoint. Hosted CI must be reviewed separately; no merge/release.
+
+The inventory now replenishes its bounded worker pool whenever any job completes,
+instead of waiting for an entire wave. At most the configured worker count is
+outstanding; output order, one scan per dense directory and per-worker SQLite
+ownership remain unchanged. An event-coordinated regression blocks the first job
+until the third starts, proving that a slow request cannot stall other workers.
+
+A heap adds no benefit without a priority policy. Full discovery/I/O overlap remains
+a future option: deduplicate pending/running/completed paths, share results with all
+run owners, admit linked discoveries and await producer completion plus queue drain.
+Do not repeat authoritative checks after speculative checks. The measured inventory
+was about 0.09 seconds; reducing repeated signature construction and output binding
+is the more promising next optimisation. Compile unique signature slots and memoise
+their values within a prepared context before considering broader cross-run caching.
+No performance claim is made for this scheduler change and no benchmark was rerun.
+
+Validation: parser 110 passed (107 fragment/batch/deferred plus three material-parser
+tests after upstream integration). Rebuilt installed pair: consumer 97 passed, zero
+skips, including previous streaming integration. Ruff check/format and strict Pyright
+pass for all three changed Python files. Consumer wheel is 26.10.25.2; new pair is
+retained separately under ignored followup artifact directories, preserving the
+measured wheels. The consumer Windows workflow pins exact parser `566d5a3` and
+requires the fragment API before running tests; parser Windows 3.12/3.14 CI now
+includes fragment contracts. Local validation used Python 3.14 only.
+
+### Rainfall coverage reconciliation
+
+Owner questioned whether 50 checked files could cover 480 rainfall selections.
+A read-only audit of the retained run flags, active BC database rows and TEF
+substitutions found 24 distinct absolute Source paths and 480 distinct
+(Source, Column 2) pairs. All 480 run-specific Source paths occur in the saved
+checked-path inventory, after lexical Windows path normalisation. The e1/e2
+flags select source filenames; e3/e4 select 20 Column 2 values across those files.
+Thus the recorded 50 paths comprise 24 rainfall source files and 26 other
+dependencies. Owner confirmed that the rainfalls are grouped into files.
+
+This audit reads source listings, not rainfall data, and does not validate CSV
+column presence or data contents. Empty BC activation/source report maps are
+expected for this single-active-database workload: those maps are populated for
+multiple simultaneously active BC declarations. Report equality alone is not a
+completeness proof. A synthetic regression now verifies that multiple column
+selections share one file check while missing-file issues retain every affected
+run. Numerical benchmark artifacts remain unchanged.
+
+Next review: 2026-11-01. Unrelated overdue register items remain outside this work.

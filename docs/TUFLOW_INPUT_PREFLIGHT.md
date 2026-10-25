@@ -348,12 +348,20 @@ explicitly deferred; the existing once-per-source discovery is retained.
 
 Dense directories use one bounded listing; sparse files may overlap. At most
 `io_workers` tasks are outstanding (1-32 supported), and each SQLite connection
-belongs to one worker and is closed there. Results are consumed in deterministic
-order and routed back to every affected simulation. Network operations retain OS
+belongs to one worker and is closed there. Finished jobs immediately free capacity for the next check; a slow job does not
+block the other workers. Results are assembled in deterministic order and routed back to every affected simulation. Network operations retain OS
 I/O timeouts; thread count does not impose an operation deadline.
 
 Reports expose section evaluation/reuse counts and ordinary-evaluator fallback
 counts. Unsupported parser constructs retain the established batch evaluator and
 are reported as fallbacks, never omitted. All caches end with the invocation.
-No elapsed-time improvement is claimed: the 50% reduction target remains unmeasured.
+The recorded 480-run comparison measured a 54.31% median reduction for fragment
+reuse (two trials per condition). This is workload-specific evidence, not a general
+speed guarantee or a measurement of the subsequent scheduler change.
 See the [implementation record](work/2026-10-25-batch-file-fragments.md).
+
+File counts describe unique paths, not rainfall selections. Multiple runs may
+select different columns from the same BC Source CSV. The retained 480-run
+workload has 480 source/column combinations in 24 rainfall files, all represented
+in its 50-path inventory. This workflow checks the source files' existence,
+not whether the selected CSV columns or data are valid.

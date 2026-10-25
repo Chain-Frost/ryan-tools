@@ -13,7 +13,7 @@ import sqlite3
 import stat
 from collections import defaultdict
 from collections.abc import Collection, Mapping
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
@@ -236,11 +236,23 @@ def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fal
         inventories = [inspect_group(group) for group in groups]
     else:
         with ThreadPoolExecutor(max_workers=io_workers, thread_name_prefix="tuflow-inventory") as executor:
-            # Keep at most io_workers futures outstanding; Python 3.13 has no
-            # Executor.map(buffersize). Ordered consumption is deterministic.
-            for offset in range(0, len(groups), io_workers):
-                futures = [executor.submit(inspect_group, group) for group in groups[offset : offset + io_workers]]
-                inventories.extend(future.result() for future in futures)
+            # Refill on completion so one slow network request cannot hold up
+            # the other workers. Retain submission order for report stability.
+            remaining = iter(enumerate(groups))
+            pending = {
+                executor.submit(inspect_group, group): index
+                for index, group in (next(remaining) for _ in range(min(io_workers, len(groups))))
+            }
+            completed: dict[int, FileInventory] = {}
+            while pending:
+                finished, _ = wait(pending, return_when=FIRST_COMPLETED)
+                for future in finished:
+                    completed[pending.pop(future)] = future.result()
+                    following = next(remaining, None)
+                    if following is not None:
+                        index, group = following
+                        pending[executor.submit(inspect_group, group)] = index
+            inventories = [completed[index] for index in range(len(groups))]
     files = {path: result for inventory in inventories for path, result in inventory.files.items()}
     layers = {key: result for inventory in inventories for key, result in inventory.layers.items()}
     return FileInventory(
