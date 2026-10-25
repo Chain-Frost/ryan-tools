@@ -15,9 +15,7 @@ from ryan_library.functions.tuflow.dependency_index import (
 
 
 @pytest.mark.parametrize(("threshold", "limit"), [(1, 100), (8, 100), (1, 1)])
-def test_bulk_direct_and_bounded_fallback_agree_on_case(
-    tmp_path: Path, threshold: int, limit: int
-) -> None:
+def test_bulk_direct_and_bounded_fallback_agree_on_case(tmp_path: Path, threshold: int, limit: int) -> None:
     """The same filename must not change status when grouping changes."""
     (tmp_path / "Materials.csv").write_text("example", encoding="utf-8")
     requested = tmp_path / "materials.csv"
@@ -29,9 +27,7 @@ def test_bulk_direct_and_bounded_fallback_agree_on_case(
         scan_threshold=threshold,
         maximum_directory_entries=limit,
     )
-    assert inventory.files[requested].status == (
-        "present" if os.name == "nt" else "missing"
-    )
+    assert inventory.files[requested].status == ("present" if os.name == "nt" else "missing")
     assert all(inventory.files[path].status == "present" for path in other)
 
 
@@ -65,9 +61,7 @@ def test_wildcard_case_follows_host_filesystem(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(("threshold", "limit"), [(1, 100), (8, 100), (1, 1)])
-def test_missing_gpkg_case_does_not_open_or_certify_layer(
-    tmp_path: Path, threshold: int, limit: int
-) -> None:
+def test_missing_gpkg_case_does_not_open_or_certify_layer(tmp_path: Path, threshold: int, limit: int) -> None:
     """POSIX mismatch must not be masked by GeoPackage case-insensitive tables."""
     actual = tmp_path / "Terrain.GPKG"
     with sqlite3.connect(actual) as db:
