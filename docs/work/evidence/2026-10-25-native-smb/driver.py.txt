@@ -1,0 +1,148 @@
+from __future__ import annotations
+import argparse, dataclasses, gc, hashlib, importlib.metadata, json, os, platform, subprocess, sys, threading, time
+from pathlib import Path
+import psutil
+
+ROOT=Path(__file__).absolute().parent
+CONFIG=json.loads((ROOT/'config.json').read_text())
+
+def write(path, obj):
+    Path(path).write_text(json.dumps(obj,indent=2,default=str),encoding='utf-8')
+
+def git(root,*args):
+    return subprocess.run(['git','-C',str(root),'-c','submodule.recurse=false',*args],check=True,capture_output=True,text=True).stdout.strip()
+
+def source_check(variant,consumer):
+    manifest=ROOT/'input-manifest-before.json'
+    if manifest.exists():
+        for record in json.loads(manifest.read_text()):
+            info=Path(record['path']).stat()
+            if (info.st_size,info.st_mtime_ns)!=(record['size'],record['mtime_ns']):
+                raise RuntimeError('Input metadata drift detected')
+    expected_dependencies=json.loads((ROOT/'provenance.json').read_text())['dependencies']
+    actual_dependencies=sorted([d.metadata['Name'],d.version] for d in importlib.metadata.distributions())
+    if actual_dependencies!=expected_dependencies:raise RuntimeError('Installed dependency inventory changed')
+    parser=ROOT/'sources'/('parser_'+variant)
+    checked={}
+    for label,source,expected in [('parser',parser,CONFIG['sources'][variant]),('consumer',consumer,CONFIG['consumer_probe'] if consumer.name=='consumer_probe' else CONFIG['consumer_frozen'])]:
+        actual=git(source,'rev-parse','HEAD')
+        dirty=git(source,'status','--porcelain','--ignore-submodules=all')
+        if actual!=expected or dirty:
+            raise RuntimeError('Source provenance failed: '+label)
+        checked[label]={'head':actual,'clean':True,'root':str(source)}
+    return checked
+
+class Memory:
+    def __enter__(self):
+        self.stop=threading.Event(); self.proc=psutil.Process(); self.start=self.proc.memory_info().rss; self.peak=self.start
+        def sample():
+            while not self.stop.wait(.02):
+                self.peak=max(self.peak,self.proc.memory_info().rss)
+        self.thread=threading.Thread(target=sample,daemon=True);self.thread.start();return self
+    def __exit__(self,*args):
+        self.stop.set();self.thread.join();self.peak=max(self.peak,self.proc.memory_info().rss)
+
+
+def digest(value): return hashlib.sha256(json.dumps(value,sort_keys=True,default=str).encode()).hexdigest()
+
+def execute(stage,variant,trial,condition):
+    consumer=ROOT/'sources'/('consumer_probe' if stage=='callback' else 'consumer_frozen')
+    sources=source_check(variant,consumer)
+    os.chdir(consumer)
+    sys.path.insert(0,str(consumer))
+    sys.path.insert(0,str(ROOT/'sources'/('parser_'+variant)))
+    import pytuflow
+    from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_simulation_inputs
+    import ryan_library
+    # Deliberately follow links to prove actual imported source identity.
+    assert Path(pytuflow.__file__).resolve().is_relative_to((ROOT/'sources'/('parser_'+variant)).resolve())
+    assert Path(ryan_library.__file__).resolve().is_relative_to(consumer.resolve())
+    runs=[RunRequest(i,flags) for i,flags in enumerate(json.loads((ROOT/'runs.json').read_text()),1)]
+    tcf=Path(CONFIG['tcf'])
+    output=ROOT/'reports'/f'{stage}-{variant}-{trial}-{condition}'
+    output.mkdir(parents=True,exist_ok=False)
+    row={'stage':stage,'variant':variant,'trial':trial,'condition':condition,'sources':sources,'python':sys.version,'parser_module':pytuflow.__file__,'runs':len(runs)}
+    write(output/'pending.json',row)
+    if stage in {'gate','diagnostic'}:
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('campaign_frozen_checks',consumer/'tests/fixtures/tuflow_example_repro/run_checks.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        collect=module.collect;compare_collections=module.compare_collections;comparison_modes=module.comparison_modes
+        if stage=='diagnostic':
+            gc.collect()
+            with Memory() as memory:
+                start=time.perf_counter();identities,stats=collect(tcf,runs,condition,pytuflow.TCF);wall=time.perf_counter()-start
+            expected=ROOT/'reports'/f'gate-{variant}-2-full'
+            if digest(sorted(identities))!=digest(json.loads((expected/(condition+'-identities.json')).read_text())):
+                raise RuntimeError('Timed diagnostic identities drifted')
+            if stats['collection_issues'] or stats['inventory_issues'] or not stats['provenance_complete']:
+                raise RuntimeError('Timed diagnostic incomplete')
+            row.update(passed=True,wall_seconds=wall,entries=len(identities),files=stats['files'],rss_start_bytes=memory.start,rss_peak_bytes=memory.peak,stats=stats)
+            row['sources_after']=source_check(variant,consumer);write(output/'result.json',row)
+            print(json.dumps({k:row[k] for k in ('stage','variant','trial','condition','passed','wall_seconds','entries','files')}),flush=True)
+            return
+        modes=comparison_modes(True,True)
+        selected=runs if condition=='full' else [runs[i] for i in sorted({0,len(runs)//2,len(runs)-1})]
+        identities={};stats={}
+        for mode in modes:
+            identities[mode],stats[mode]=collect(tcf,selected,mode,pytuflow.TCF)
+            write(output/(mode+'-identities.json'),sorted(identities[mode]))
+            write(output/(mode+'-stats.json'),stats[mode])
+            print(json.dumps({'stage':'gate','variant':variant,'scope':condition,'mode':mode,'runs':len(selected),'entries':len(identities[mode]),'files':stats[mode]['files']}),flush=True)
+        comparison={'mode_order':modes,**stats};diff=compare_collections(comparison,identities,modes)
+        write(output/'comparison.json',{'summary':comparison,'differences':diff})
+        if not comparison['passed']: raise RuntimeError('Complete gate parity failed')
+        if condition=='full':
+            public_reports={}
+            for public_mode in ('individual','batch'):
+                report=check_simulation_inputs(tcf,runs,context_mode=public_mode)
+                report.write_csv(output/(public_mode+'-issues.csv'))
+                public_reports[public_mode]={'passed':report.passed,'run_count':report.run_count,'paths':sorted(report.checked_paths),'issues':[dataclasses.asdict(i) for i in report.issues]}
+            if not all(r['passed'] and r['run_count']==len(runs) for r in public_reports.values()): raise RuntimeError('Public preflight gate failed')
+            if public_reports['individual']['paths']!=public_reports['batch']['paths'] or public_reports['individual']['issues']!=public_reports['batch']['issues']:
+                raise RuntimeError('Public preflight paths/issues differ')
+            write(output/'public-preflight.json',public_reports)
+        row.update(passed=True,entries=len(identities[modes[0]]),files=stats[modes[0]]['files'],command_provenance=stats['deferred']['command_provenance'],reference_provenance=stats['deferred']['reference_provenance'])
+    else:
+        gc.collect()
+        # No cProfile, monkeypatches or audit hook in elapsed-time trials.
+        with Memory() as memory:
+            start=time.perf_counter();preliminary=0.;extra={}
+            if stage=='callback' and condition!='authoritative_only':
+                pstart=time.perf_counter(); model=pytuflow.TCF(str(tcf)); flags=tuple(r.arguments for r in runs)
+                if condition=='probe':
+                    from ryan_library.orchestrators.tuflow.streaming_io_probe import probe_batch_io_overlap
+                    view,summary=probe_batch_io_overlap(model,flags,max_pending=8)
+                    # Consume every completed immutable projection through the strict adapter.
+                    for flag in flags: view.context(flag,file_resolution='deferred')
+                    view.assert_consumed()
+                    extra={'probe':dataclasses.asdict(summary)}
+                elif condition=='noop':
+                    callback_runs=[]
+                    def completed(run): callback_runs.append(run)
+                    batch=model.collect_batch_dependencies(flags,on_run=completed)
+                    if len(callback_runs)!=len(flags) or any(a is not b for a,b in zip(callback_runs,batch.runs,strict=True)):
+                        raise RuntimeError('Callback completion/order mismatch')
+                    if not batch.passed: raise RuntimeError('Preliminary callback producer failed')
+                elif condition=='plain':
+                    batch=model.collect_batch_dependencies(flags)
+                    if not batch.passed: raise RuntimeError('Preliminary plain producer failed')
+                else: raise ValueError(condition)
+                preliminary=time.perf_counter()-pstart
+            preflight_start=time.perf_counter()
+            report=check_simulation_inputs(tcf,runs,context_mode='batch')
+            authoritative_seconds=time.perf_counter()-preflight_start
+            write_start=time.perf_counter();report.write_csv(output/'issues.csv');report_seconds=time.perf_counter()-write_start
+            wall=time.perf_counter()-start
+        if not report.passed or report.run_count!=len(runs):
+            write(output/'issues.json',[dataclasses.asdict(i) for i in report.issues]);raise RuntimeError('Authoritative full preflight failed')
+        expected_public=json.loads((ROOT/'reports'/f'gate-{variant}-2-full'/'public-preflight.json').read_text())['batch']
+        if sorted(report.checked_paths)!=expected_public['paths']: raise RuntimeError('Authoritative checked paths drifted')
+        row.update(passed=True,wall_seconds=wall,preliminary_seconds=preliminary,authoritative_seconds=authoritative_seconds,report_seconds=report_seconds,parse_seconds=report.parse_seconds,context_seconds=report.context_seconds,inventory_seconds=report.inventory_seconds,checked_paths=sorted(report.checked_paths),issues=[dataclasses.asdict(i) for i in report.issues],rss_start_bytes=memory.start,rss_peak_bytes=memory.peak,**extra)
+        print(json.dumps({k:row[k] for k in ('stage','variant','trial','condition','passed','wall_seconds','preliminary_seconds','authoritative_seconds','rss_peak_bytes')}),flush=True)
+    row['sources_after']=source_check(variant,consumer)
+    write(output/'result.json',row)
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('stage',choices=['gate','diagnostic','production','callback']);p.add_argument('variant');p.add_argument('trial',type=int);p.add_argument('condition');a=p.parse_args()
+    execute(a.stage,a.variant,a.trial,a.condition)
