@@ -9,16 +9,19 @@ Preserve existing GPU scheduling, run ordering and batch execution defaults.
 
 ## State
 
-Active final validation of the bounded opt-in release. Owner: ChatGPT. Updated: 2026-10-23.
-Next review: 2026-10-30. Supporting PRs #148, #151 and #156 are integrated into parent #143;
-#156 is closed/merged and the parent contains its validated `298fb13` source. All five workflows
-and the final independent review pass for that source. Parent #143 remains unmerged to `main`.
+Complete: bounded opt-in preflight and supporting #156 integration. Owner: ChatGPT.
+Updated: 2026-10-25. Next review: None (complete). Live #143 is closed/merged into main as
+`bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2`, from final validated consumer
+`fa6ae1ef4a524336277e974a59220fd513c35c75`. This corrects the historical
+unmerged/pending statements below; #158 owns the completed frozen native diagnostic
+and its separate delivery decision. #160 is independent stateful planning, while
+#159's advisory worker remains a scaffold pending #158 landing.
 
 The maintained standalone checker, reusable API and opt-in launcher integration are implemented.
 Both wrappers retain individual-context collection and the published `pytuflow>=1.2,<2` dependency;
 the fork's batch API remains an explicit development option. The full 161-TCF/174-run Windows
 regression harness is now supported repository tooling, satisfying its earlier convert-or-remove
-lifecycle condition. Final paired parser/consumer checks and review remain; broader literal-setting
+lifecycle condition. Final paired parser/consumer checks and review passed; broader literal-setting
 reuse, append optimisation and new native performance work are separate follow-up PRs.
 
 Historical P/B, 440-run, M480 and N42 results remain tied to their recorded revisions. The owner has
@@ -31,10 +34,10 @@ owns optimisation and native benchmark follow-ups.
 
 ## Next action
 
-Finish the final exact-source parser/consumer Windows checks, publish the bounded lifecycle/documentation
-cleanup and review #143 for the opt-in release. Keep new optimisation and the new SMB model handoff in
-separate follow-up PRs. Record the final source pair before that workstation starts a benchmark; neither
-historical timings nor the full public archive establish the new server's performance.
+No further #143 implementation or benchmark is required for this completed scope.
+Keep #158, #160, #159 and experimental #161 separate. Their current records and
+exact-head CI determine their own delivery; historical pending gates below do not
+reopen this merged parent.
 
 ## Decisions
 

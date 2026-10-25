@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In validation — implementation and initial Windows backend/package checks pass |
+| Status | Needs review; exact-head hosted validation and local review complete |
 | Owner | ChatGPT |
-| Created / Updated | 2026-10-24 |
-| Next review | 2026-10-25, or exact-head CI completion |
+| Created / Updated | 2026-10-24 / 2026-10-25 |
+| Next review | 2026-11-01 for delivery |
 | Baseline | main `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` |
 | Branch | `feat/stateful-command-preflight` |
 | Scope | Static run planning and existing public preflight; no solver, benchmark or parser optimisation |
@@ -197,8 +197,8 @@ explicit element types fix these without ignores or changed runtime behaviour.
 
 ## Next action and completion criteria
 
-Inspect exact-head hosted checks, correct policy or real-backend regressions,
-then reconcile the requested complete review. Require Windows tests, strict changed-file
+Review and authorize delivery of the local documentation reconciliation, then require
+exact-new-head checks before a separate merge decision. Require Windows tests, strict changed-file
 Pyright, pinned Ruff, documentation checks and a no-bump verified wheel before
 marking ready. Keep draft while any of those are pending. No merge, release,
 production repin or benchmark is authorised.
@@ -206,3 +206,128 @@ production repin or benchmark is authorised.
 The work register also contains older due reviews unrelated to this task; they
 were not advanced or treated as permission to start those workstreams. Agents
 A-D own their existing PyTUFLOW PRs; their source and shared CI are unchanged.
+
+
+## 2026-10-25 - Independent final review and terminal CI
+
+Live PR #160 is draft/open at `23c71935f32dd9435b6bc1487b44990f61e02d2a`,
+branch `feat/stateful-command-preflight`, based on main
+`bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2`. Review covered the complete current
+diff, bounded static syntax, state/directory ownership, fail-closed planning,
+group failure/provenance and exclusive report creation. No unresolved consequential
+code finding. The comment-continuation review thread is resolved; the refreshed
+[exact-head automated review](https://github.com/Chain-Frost/ryan-tools/pull/160#issuecomment-6381472313)
+reports no findings. This local review does not post an approval.
+
+All **six jobs in three workflows** are now terminal/success at this exact head:
+
+| Workflow | Run | Result |
+| --- | --- | --- |
+| Python CI | [40075215949](https://github.com/Chain-Frost/ryan-tools/actions/runs/40075215949) | Policy, Hosted tests, Package, Python 3.13 compatibility and MCP all success |
+| Fast PR checks | [40075215961](https://github.com/Chain-Frost/ryan-tools/actions/runs/40075215961) | Ruff and whitespace success |
+| Command-plan contracts | [40075215930](https://github.com/Chain-Frost/ryan-tools/actions/runs/40075215930) | Windows focused suite and pinned style success; 93 tests |
+
+Hosted tests log: **1,492 passed, 6 skipped, 7 deselected**, zero failures.
+This supersedes the PR body's pending-hosted-regressions checkpoint. Package
+completed the fresh no-bump wheel build, verification and isolated installed-wheel
+smoke. All five checks required by live main rules pass. The current PR description
+needs the same pending-to-success correction when GitHub writes are authorized;
+no description or comment was posted here.
+
+Local normal Windows Python **3.14.6**, installed PyTUFLOW **1.2.6**:
+
+- `python -m pytest -q -W error tests/functions/tuflow/test_command_plan.py tests/orchestrators/tuflow/test_command_preflight.py tests/scripts/tuflow/test_command_preflight_wrapper.py`:
+  **93 passed**, no skips.
+- Adding `tests/orchestrators/tuflow/test_command_preflight_real.py`:
+  **95 passed**, exit 0. That invocation also printed a Windows HDF5/h5py DLL
+  diagnostic (`0xc0000139`) during PyTUFLOW import; this is recorded rather than
+  described as a clean native-stack smoke. Hosted Windows evidence above is independent.
+- Ruff check/format, strict Pyright (zero errors/warnings), compilation on the
+  planner/orchestrator/wrapper: passed. No Python was modified in this review.
+- Source-wrapper help succeeds through `python -c` / `runpy.run_path` from the
+  source root. Direct copied-wrapper invocation against the user's older installed
+  library cannot import the new planner, confirming the matching-package requirement.
+  No global installation was changed; hosted Package proves the installed-wheel route.
+- Documentation and whitespace results are recorded below after reconciliation.
+
+Keep #158 separate. Its frozen diagnostic `f1f7958` and accepted native baseline
+are unchanged; #160 introduces no runtime dependency on it. When shared register
+edits meet, retain both this feature row and #158's completed #143/#156 closure.
+The original parent #143 is already merged at `bcc8e5c`; previous unmerged/pending
+entries are historical, not current blockers. The maintained standalone wrapper
+is this PR's boundary: #159 does not acquire multi-TCF runner semantics merely
+because this reader exists. Only adopt it later if the runner contract warrants it.
+#161/PyTUFLOW streaming work and #145/RORB acceptance remain independent.
+
+Delivery: documentation-only corrections remain unstaged/uncommitted in detached
+`E:/Github/ryan-tools-review-160` at the exact head above. Runtime source, package
+version, wheel, frozen harness and original checkout are unchanged. No local build
+was required for this documentation-only follow-up. No staging, commit, push, merge,
+publication, GitHub write, private model check, native benchmark or solver launch.
+Next review: 2026-11-01. After authorized delivery, require CI on the changed head;
+the green old head does not validate uncommitted documentation.
+
+
+### Verified squash-merge and release boundary - 2026-10-25
+
+Read current-main `.github/workflows/auto-publish.yml`,
+`.github/workflows/pypi-publish.yml` and `repo-scripts/release_skip_policy.py`;
+these files are unchanged by this PR. A successful post-merge main push Python CI
+can initiate the automatic tag/release workflow, then trusted PyPI publication.
+Green PR checks alone neither publish nor authorize a release.
+
+Live repository allows squash merges only; ordinary merge and rebase merge are
+disabled. Both #158 and #160 have CLEAN remote merge state against current main
+`bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2`; local `git merge-tree --write-tree
+origin/main HEAD` also exits 0 without touching the working tree or index.
+Both remain drafts, so an authorized delivery must also mark each ready separately.
+
+Exact publication opt-out: retain/add the case-insensitive `skip-release` PR label
+before the merge and retain it through post-merge release processing; include the
+literal `[skip release]` in the final squash commit title/body as the immutable
+backstop. Both automatic release selection and the final publisher honor either
+condition. The repository uses COMMIT_MESSAGES for the default squash body, so
+inspect/edit the actual final squash message rather than assuming PR prose is
+included. Do not change global automation. Recheck label, exact head, main tip,
+required checks, draft/merge state and unresolved threads immediately before any
+separately authorized squash merge.
+
+Live #158 already has `skip-release` (and `docs`); #160 has no labels. Therefore
+#158 currently opts out, while a #160 main merge with no opt-out could publish.
+Recommend explicit suppression for these independent deliveries unless the owner
+separately chooses publication. No labels, PR titles, commit messages or release
+settings were changed. Local policy checks confirm label/marker each return skip,
+and absence of both returns publish.
+
+
+### Documentation validation and delivery state
+
+Normal Windows Python 3.14.6: `python repo-scripts/check_documentation.py`
+passes all seven default documents and central-index coverage. Explicit
+`--links-only` checks pass for every locally changed Markdown file in this
+review worktree; `git diff --check` passes. All local changes are documentation
+only, unstaged and uncommitted. No new remote head or hosted run exists for
+these corrections. Revalidate the exact delivered head after authorized commit/push.
+
+
+### Authorized local commit delivery
+
+The owner subsequently authorized local commits. This work is retained separately
+on local branch `review/pr160-final-review` in the review worktree above.
+Local validation is complete; the completion report identifies the resulting commit.
+No push or new hosted run exists. Earlier uncommitted/scaffold-only delivery
+statements are historical checkpoints, superseded by this authorized local delivery.
+Next action: obtain authorization to push this existing PR's changes, then require
+CI/review on its exact delivered head. No merge, publication or GitHub discussion
+mutation is authorized. Original `E:/Github/ryan-tools` remains unchanged.
+
+
+### Current validation priority
+
+The owner explicitly deferred hosted CI until local development has progressed.
+Hosted checks are not on this work's current critical path. Continue local review,
+implementation and proportionate tests; record exact local source and validation.
+An authorized future push may run CI for later checking. Earlier statements making
+new-head hosted checks an immediate development blocker are superseded by this
+instruction. Push, merge and publication remain separate authorization boundaries.
+Generated `.validation/` evidence is excluded locally and is not part of the commit.
