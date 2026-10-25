@@ -2,7 +2,7 @@
 
 import csv
 from collections import Counter
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,24 +35,26 @@ class CsvHeader:
         return "; ".join(problems)
 
 
-def read_csv_header(path: Path, *, maximum_bytes: int = 1048576) -> CsvHeader:
-    """Read the first nonblank/noncomment CSV record, bounded including preamble.
+def read_csv_header(path: Path, *, required_columns: Collection[str] = (), maximum_bytes: int = 1048576) -> CsvHeader:
+    """Find a header within five physical lines, including comments/preamble.
 
-    Accept UTF-8 (with optional BOM), quoted fields and multiline headers. Stop
-    after that record; never search data rows for a desired column name. Leading
-    blank lines and TUFLOW ! comments are allowed. Other preambles fail coverage.
+    With selectors, stop at the first CSV record containing any requested name.
+    Missing names are diagnosed against that record, never sought in later rows.
+    Without selectors, return the first nonblank/noncomment record. No numeric
+    rainfall values are converted or validated. Reads stop at the header or limit.
     """
     if maximum_bytes < 1:
         message = "maximum_bytes must be positive"
         raise ValueError(message)
+    requested = {name.strip().casefold() for name in required_columns if name.strip()}
     try:
         with path.open("rb") as stream:
+            record_started = False
 
             def lines() -> Iterator[str]:
+                nonlocal record_started
                 remaining = maximum_bytes
-                first = True
-                started = False
-                while True:
+                for line_number in range(5):
                     line = stream.readline(remaining + 1)
                     if len(line) > remaining:
                         message = "CSV header exceeds the bounded byte limit"
@@ -60,16 +62,17 @@ def read_csv_header(path: Path, *, maximum_bytes: int = 1048576) -> CsvHeader:
                     if not line:
                         return
                     remaining -= len(line)
-                    text = line.decode("utf-8-sig" if first else "utf-8")
-                    first = False
-                    if not started and (not text.strip() or text.lstrip().startswith("!")):
+                    text = line.decode("utf-8-sig" if line_number == 0 else "utf-8")
+                    if not record_started and (not text.strip() or text.lstrip().startswith("!")):
                         continue
-                    started = True
+                    record_started = True
                     yield text
 
-            row = next(csv.reader(lines(), strict=True), None)
-            if not row or not any(name.strip() for name in row):
-                return CsvHeader(error="CSV has no header record")
-            return CsvHeader(tuple(name.strip() for name in row))
+            for row in csv.reader(lines(), strict=True):
+                columns = tuple(name.strip() for name in row)
+                if any(columns) and (not requested or requested.intersection(name.casefold() for name in columns)):
+                    return CsvHeader(columns)
+                record_started = False
+            return CsvHeader(error="No CSV header containing a requested column within the first 5 physical lines")
     except (OSError, UnicodeError, csv.Error, ValueError) as exc:
         return CsvHeader(error=f"Cannot inspect CSV header: {exc}")

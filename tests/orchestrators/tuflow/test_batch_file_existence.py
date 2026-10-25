@@ -1,6 +1,7 @@
 """Exact-source integration for batch existence, separate from data validation."""
 
 import sqlite3
+from collections.abc import Collection
 from contextlib import closing
 from pathlib import Path
 
@@ -135,9 +136,9 @@ def test_batch_headers_open_once_and_route_missing_columns(tmp_path: Path, monke
     calls: list[Path] = []
     original = dependency_index.read_csv_header
 
-    def observe(path: Path) -> CsvHeader:
+    def observe(path: Path, *, required_columns: Collection[str] = ()) -> CsvHeader:
         calls.append(path)
-        return original(path)
+        return original(path, required_columns=required_columns)
 
     monkeypatch.setattr(dependency_index, "read_csv_header", observe)
     result = preflight.check_batch_files(
@@ -158,7 +159,13 @@ def test_480_column_selections_share_24_header_reads(tmp_path: Path) -> None:
 
     if not callable(getattr(TCF, "collect_file_dependencies", None)):
         pytest.skip("Requires matching fragment-capable PyTUFLOW build")
-    header = "Time," + ",".join(f"P{i}" for i in range(20)) + "\n"
+    header = (
+        "! synthetic rainfall export\nEvent ID,"
+        + ",".join(str(i + 100) for i in range(20))
+        + "\nTime,"
+        + ",".join(f"P{i}" for i in range(20))
+        + "\n"
+    )
     for i in range(24):
         (tmp_path / f"rain_F{i}.csv").write_text(header, encoding="utf-8")
     (tmp_path / "bc.csv").write_text(

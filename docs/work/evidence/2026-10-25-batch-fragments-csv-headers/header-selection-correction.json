@@ -1,0 +1,8 @@
+{
+  "unique_header_opens": 24,
+  "column_selections": 480,
+  "problems": 0,
+  "read_boundary": "guarded to first three physical lines for these source files",
+  "configured_line_limit": 5,
+  "benchmark": false
+}

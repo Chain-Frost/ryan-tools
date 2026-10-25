@@ -1049,9 +1049,13 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
         for ref in references
         if check_bc_headers and ref.database_kind == "source:bc" and ref.path.suffix.casefold() == ".csv"
     ]
+    csv_column_names: dict[Path, set[str]] = {}
+    for reference in csv_references:
+        csv_column_names.setdefault(reference.path, set()).update(reference.csv_columns or ())
     inventory = check_unique_dependencies(
         unique_paths,
         csv_header_paths={ref.path for ref in csv_references},
+        csv_column_names=csv_column_names,
         io_workers=io_workers,
         scan_threshold=directory_scan_threshold,
         maximum_directory_entries=maximum_directory_entries,

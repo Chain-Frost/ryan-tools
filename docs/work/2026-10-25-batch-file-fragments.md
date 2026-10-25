@@ -360,3 +360,42 @@ remain private under `.validation/benchmark-csv-headers-20261025/`.
 Evidence checkpoint committed locally, not pushed. No solver, profiler, rainfall
 data validation, test rerun, merge or release. Documentation/link/whitespace checks
 pass. Unrelated overdue reviews remain outside scope. Next review: 2026-11-01.
+
+## Header-selection correction after failed checkpoint
+
+Preserved failed checkpoint `e3ea664e` and its numeric artifacts unchanged. Owner
+requested reading up to five lines. The final reader therefore examines at most
+five physical lines, counting blank/comment lines, preambles and multiline CSV
+records. The first record containing any requested column name becomes the
+header; missing/duplicate selectors are diagnosed against it without looking
+further. The consumer supplies the union of each source's requested time/value
+names, maintaining one open per file. No fixed Event ID label or metadata width
+is required. Without selector hints, the helper retains first-record behaviour;
+rapid preflight always supplies available parser selectors.
+
+A bounded read-only check replayed the 480 resolved time/value selections recorded
+in the failed issue report against the 24 source headers. Result: 24 opens, 480
+selections, zero issues. A read guard rejected any attempt beyond physical line 3;
+none occurred. This checks saved selections against current headers, not a full
+model rerun or timing comparison. Sanitized result:
+[header-selection correction](evidence/2026-10-25-batch-fragments-csv-headers/header-selection-correction.json).
+No rainfall values were parsed during this check and no benchmark was rerun.
+
+Synthetic tests cover headers on lines 3/5/6, a guard rejecting a sixth read,
+comments/preambles, multiline headers, missing selectors without further reads,
+byte limits, cache reuse and run attribution. The 480-selection/24-file fixture
+includes the failed native layout. Unrecognisable headers fail within the bounded
+prefix; no numeric rainfall conversion or full-series validation is performed.
+Parser remains pinned to `64cb0d5`; no parser change was needed.
+
+Next action: review this correction on existing PR 161 and exact-head CI. A future
+benchmark requires a separate owner request; no automatic retry is queued.
+Historical header-enabled benchmark remains failed with no valid speed comparison.
+Unrelated overdue work remains outside scope. Next review: 2026-11-01.
+
+Correction validation: 119 focused consumer tests passed against separately
+installed wheel 26.10.25.4 and parser 64cb0d5, with zero skips. Ruff check/format,
+strict Pyright on the five modified Python files, documentation links and
+whitespace checks pass. The wheel builds and verifies. This commit is the
+consumer correction checkpoint for PR 161; publication also preserves/pushes
+local failed evidence checkpoint e3ea664e. Hosted CI is a separate review gate.

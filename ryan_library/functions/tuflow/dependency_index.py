@@ -182,6 +182,7 @@ def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fal
     requirements: Mapping[Path, Collection[str]],
     *,
     csv_header_paths: Collection[Path] = (),
+    csv_column_names: Mapping[Path, Collection[str]] | None = None,
     scan_threshold: int = 8,
     io_workers: int = 1,
     maximum_directory_entries: int = 50000,
@@ -202,6 +203,7 @@ def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fal
     # Freeze caller-owned collections before sharing them with I/O workers.
     requirements = {path: tuple(layers) for path, layers in requirements.items()}
     header_paths = frozenset(csv_header_paths)
+    header_names = {path: tuple(names) for path, names in (csv_column_names or {}).items()}
     by_parent: dict[Path, list[Path]] = defaultdict(list)
     for path in requirements:
         by_parent[path.parent].append(path)
@@ -228,7 +230,9 @@ def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fal
             for layer, result in _geopackage_layers(path, requirements[path]).items():
                 layers[(path, layer)] = result
         headers = {
-            path: read_csv_header(path) for path in paths if path in header_paths and files[path].status == "present"
+            path: read_csv_header(path, required_columns=header_names.get(path, ()))
+            for path in paths
+            if path in header_paths and files[path].status == "present"
         }
         return FileInventory(files, layers, scans, direct, headers)
 

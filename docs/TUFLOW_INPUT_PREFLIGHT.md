@@ -375,16 +375,22 @@ requirements alongside each source path. TBC remains the boundary control file;
 `bc_dbase` supplies these source/column selections.
 
 The bounded I/O workers open each distinct existing source CSV once per invocation,
-read its first nonblank/noncomment CSV record, and reuse that header across all
-runs. They never parse rainfall data rows. A changed header is read again on the
+inspect at most five physical lines, including comments/preambles, then reuse
+the first CSV record containing any requested column name across all
+runs. They never load the rainfall series or convert/validate numeric values. A changed header is read again on the
 next invocation. Matching trims surrounding whitespace and ignores case; missing
 or ambiguous duplicate names produce run-specific unresolved issues. Missing
 files retain the normal missing-file diagnostics.
 
 UTF-8 with optional BOM, leading `!` comments, quoted fields and multiline headers
-are supported. Inspection is limited to 1 MiB including leading comments. Blank
+are supported. Header discovery uses the union of requested column names for
+that file. It stops at the first record containing any requested name, even when
+other required names are missing. Preambles need no fixed label or field count. Inspection is limited to 1 MiB including leading comments. Blank
 selectors, FEWS CSV sources, unreadable/malformed headers and unavailable parser
-column metadata fail closed. Other preambles are not searched for a matching row.
+column metadata fail closed. If no candidate header is found within five physical lines, the result is
+unresolved. The limit includes blank/comment lines and every physical line of a
+multiline record; line six is never read. When a header cannot be recognised,
+only that bounded prefix is examined, not the remaining time series.
 Non-CSV formats and inline constants retain their existing handling; this does not
 claim schema validation of TS1, FEWS XML or rainfall values.
 
