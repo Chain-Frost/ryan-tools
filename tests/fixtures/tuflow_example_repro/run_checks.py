@@ -8,6 +8,7 @@ import gc
 import hashlib
 import importlib
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -29,6 +30,16 @@ from ryan_library.orchestrators.tuflow.input_preflight import (
     _materialise_attribute_references,  # pyright: ignore[reportPrivateUsage] - repository regression contract
     check_simulation_inputs,
 )
+
+
+def _physical_identity_key(path: Path) -> str:
+    """Retain Windows identity encoding but distinguish POSIX case-only files.
+
+    Physical path alias resolution is done separately with Path.resolve().
+    Do not conflate two distinct Linux inode paths through Unicode casefold.
+    """
+    spelling = str(path)
+    return spelling.casefold() if os.name == "nt" else spelling
 
 
 def verify_bundle(bundle: Path) -> int:
@@ -176,7 +187,7 @@ def collect(  # noqa: C901 - read-only materialisation and invocation-local iden
                 owner = owner[len("GIS attribute: ") :]
             origin = " ".join(owner.split("==", 1)[0].casefold().split())
             for layer in layers:
-                keys.add((ref.run.index, ref.run.description, origin, str(physical).casefold(), layer.casefold()))
+                keys.add((ref.run.index, ref.run.description, origin, _physical_identity_key(physical), layer.casefold()))
     inventory = check_unique_dependencies(unique)
     stats: dict[str, Any] = {
         "collection_issues": len(report.issues),
