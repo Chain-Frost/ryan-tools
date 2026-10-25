@@ -24,6 +24,15 @@ from .csv_headers import CsvHeader, read_csv_header
 FileStatus = Literal["present", "missing", "unresolved"]
 
 
+def _filesystem_name_key(name: str) -> str:
+    """Use host filesystem case rules, never unconditional Unicode casefolding.
+
+    On POSIX, different spellings identify different filenames. On Windows,
+    normcase preserves the existing case-insensitive inventory behaviour.
+    """
+    return os.path.normcase(name)
+
+
 @dataclass(frozen=True, slots=True)
 class DependencyResult:
     """Result of checking one unique file or one GeoPackage layer."""
@@ -49,7 +58,8 @@ def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded
     """Expand nonrecursive wildcard filenames with one bounded scan per directory.
 
     A wildcard in the parent directory, an over-limit listing or any I/O error
-    remains unresolved. No unbounded walk or recursive glob is attempted.
+    remains unresolved. Wildcard filename case matching follows host semantics.
+    No unbounded walk or recursive glob is attempted.
     """
     if maximum_directory_entries < 1:
         message = "maximum_directory_entries must be positive"
@@ -79,7 +89,7 @@ def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded
                     matching = [
                         pattern
                         for pattern in siblings
-                        if fnmatch.fnmatchcase(entry.name.casefold(), pattern.name.casefold())
+                        if fnmatch.fnmatchcase(_filesystem_name_key(entry.name), _filesystem_name_key(pattern.name))
                     ]
                     if matching:
                         try:
@@ -128,19 +138,21 @@ def _directory_results(paths: Collection[Path], *, maximum_entries: int) -> dict
 
     A large directory may cost substantially more than targeted metadata calls.
     If enumeration exceeds the bound, return None and fall back to individual
-    checks. Permission and network errors remain unresolved, never 'missing'.
+    checks. Filename matching follows the same host rules as direct stat():
+    POSIX is case-sensitive; Windows is case-insensitive by default.
+    Permission and network errors remain unresolved, never 'missing'.
     """
     if not paths:
         return {}
     parent = next(iter(paths)).parent
-    requested = {path.name.casefold() for path in paths}
+    requested = {_filesystem_name_key(path.name) for path in paths}
     matches: dict[str, bool] = {}
     try:
         with os.scandir(parent) as iterator:
             for index, entry in enumerate(iterator):
                 if index >= maximum_entries:
                     return None
-                name = entry.name.casefold()
+                name = _filesystem_name_key(entry.name)
                 if name in requested:
                     try:
                         matches[name] = entry.is_file(follow_symlinks=True)
@@ -155,7 +167,7 @@ def _directory_results(paths: Collection[Path], *, maximum_entries: int) -> dict
         return {path: DependencyResult("unresolved", f"Cannot list input directory: {exc}") for path in paths}
     return {
         path: DependencyResult("present")
-        if matches.get(path.name.casefold())
+        if matches.get(_filesystem_name_key(path.name))
         else DependencyResult("missing", "Input file does not exist")
         for path in paths
     }
