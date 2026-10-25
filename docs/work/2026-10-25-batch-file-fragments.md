@@ -318,3 +318,45 @@ consumer code edits are excluded and preserved. Documentation/link/whitespace
 checks pass; no tests rerun because implementation was not changed by this task.
 Next action: review paired exact-head results and CI; no further measurement queued.
 Next review: 2026-11-01. Unrelated overdue reviews remain outside scope.
+
+## CSV-header PR benchmark: correctness blocker
+
+Owner requested a rerun of published consumer PR 161 at
+`1143a976c5d1cd6e32bc40bd88cbd21783941594`, paired with parser PR 39 at
+`64cb0d51141b4b5ea43e86c8b08f882eea98faa4`. GitHub PR heads were verified
+against local commits before freezing package snapshots. The shared 600-second
+timeout, retained 480-run plan, four workers and opposing-order two-pair protocol
+were retained; BC CSV header checks were explicitly enabled in both conditions.
+
+**Stopped on correctness failure after the first baseline.** It took 39.970801 s,
+checking 50 paths, 24 unique CSV headers and 480 column selections, but reported
+480 unresolved missing-column issues. Source-snapshot hashes and input metadata
+guards passed. No fragment timing or comparative speedup is accepted. The total
+coordinator runtime is in the linked summary and is below ten minutes. This does
+not invalidate earlier timings of the workflow without header checks; those did
+not establish header correctness.
+
+A subsequent bounded read-only preamble inspection of all 24 source files found
+the same structure: line 1 is a ! comment; line 2 is a noncomment preamble record
+with 31 fields; line 3 contains the required time column and first temporal-pattern
+column, also with 31 fields. Inspection stopped at that header. No rainfall data
+rows were parsed. The current reader stops at the first nonblank/non-! record
+and therefore selects line 2, causing the native coverage failure. Presence of
+one pattern column does not prove every requested column is present.
+
+Next action: define and implement supported preamble/header selection semantics
+with a focused synthetic regression, then rerun the bounded comparison. No parser
+or consumer implementation was changed and no automatic timed retry was made.
+
+Tracked [failed-run summary](evidence/2026-10-25-batch-fragments-csv-headers/summary.json),
+[protocol](evidence/2026-10-25-batch-fragments-csv-headers/protocol.json),
+[runner audit copy](evidence/2026-10-25-batch-fragments-csv-headers/benchmark.py.txt)
+and [snapshot hashes](evidence/2026-10-25-batch-fragments-csv-headers/snapshot-hashes.json)
+preserve this milestone. Runner reproduction has the same private configuration
+and frozen-snapshot requirements as the prior PR rerun; the private workload path
+is replaced by `BATCH_EXISTENCE_PRIVATE_WORKLOAD`. Raw identities/CSV issue reports
+remain private under `.validation/benchmark-csv-headers-20261025/`.
+
+Evidence checkpoint committed locally, not pushed. No solver, profiler, rainfall
+data validation, test rerun, merge or release. Documentation/link/whitespace checks
+pass. Unrelated overdue reviews remain outside scope. Next review: 2026-11-01.
