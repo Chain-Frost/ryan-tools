@@ -98,9 +98,7 @@ def test_posix_alias_and_original_spelling(tmp_path: Path) -> None:
         pytest.skip("Symlinks unavailable")
     wrong = tmp_path / "linked.csv"
     for threshold in (1, 8):
-        inventory = check_unique_dependencies(
-            {original: (), alias: (), wrong: ()}, scan_threshold=threshold
-        )
+        inventory = check_unique_dependencies({original: (), alias: (), wrong: ()}, scan_threshold=threshold)
         assert inventory.files[original].status == "present"
         assert inventory.files[alias].status == "present"
         assert inventory.files[wrong].status == "missing"
