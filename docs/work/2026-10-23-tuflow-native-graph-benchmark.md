@@ -4,8 +4,8 @@
 | --- | --- |
 | Status | Complete; frozen diagnostic and 480-run native four-mode baseline accepted; PR delivery remains open |
 | Owner | ChatGPT |
-| Created / Updated | 2026-10-23 |
-| Next review | — |
+| Created / Updated | 2026-10-23 / 2026-10-25 |
+| Next review | 2026-11-01 for outstanding PR delivery only |
 | Parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` — PyTUFLOW PR #12 merged into `master` |
 | Consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` — PR #143 merged into `main` |
 | Frozen benchmark diagnostic | `f1f7958b79f3ffe84ba8ac0b04658f27c311460a` — all five Windows workflows passed, Codex review clean |
@@ -469,3 +469,141 @@ one optimisation. Use comparisons within each controlled measurement set.
 This reconciliation changes documentation only. The diagnostic, parser,
 production consumer and runner are unchanged; no additional private artifacts,
 benchmark run, solver launch, package build or merge is part of it.
+
+
+## 2026-10-25 - Final review and exact-head delivery checkpoint
+
+Live PR #158 is draft/open on `test/native-graph-benchmark-controls` at
+`742b1d9481e25a9ed306bab524ce4da0fde2ab3b`, based on main
+`bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2`. Review covered the current diff,
+public graph forwarding, complete materialisation/provenance, failure acceptance,
+source cleanliness and report lifecycle. No unresolved consequential code finding;
+the one inline review thread is resolved. This is a local review, not a posted approval.
+All executable diagnostic Python files are byte-identical to frozen `f1f7958`.
+
+All five latest workflows and all **nine jobs** are terminal/success at this head:
+
+| Workflow | Run | Successful jobs |
+| --- | --- | --- |
+| Python CI | [39974614943](https://github.com/Chain-Frost/ryan-tools/actions/runs/39974614943) | Policy; Hosted tests; Package; Python 3.13 compatibility and MCP |
+| Fast PR checks | [39974615165](https://github.com/Chain-Frost/ryan-tools/actions/runs/39974615165) | Ruff and whitespace |
+| Deferred consumer | [39974614869](https://github.com/Chain-Frost/ryan-tools/actions/runs/39974614869) | fork-consumer-smoke |
+| Batch matrix | [39974614399](https://github.com/Chain-Frost/ryan-tools/actions/runs/39974614399) | established-api; graph-pr-12 |
+| Ordered/four-mode archive | [39974614492](https://github.com/Chain-Frost/ryan-tools/actions/runs/39974614492) | windows-ordered-batch, including all 161 TCFs / 174 runs |
+
+Live main rules require Policy, Hosted tests, Package, Python 3.13 compatibility
+and MCP, and Ruff and whitespace, with strict current-base checks and resolved
+review threads. All five pass. Hosted tests log: **1,465 passed, 6 skipped,
+7 deselected**. Package includes fresh no-bump build, verification and isolated
+installed-wheel smoke. These results cover the named remote head only.
+
+Normal Windows Python 3.14.6 local verification:
+
+- `python -m pytest -q tests/fixtures/tuflow_example_repro/test_run_local_checks.py tests/fixtures/tuflow_example_repro/test_run_checks.py tests/orchestrators/tuflow/test_batch_preflight_adapter.py`:
+  **80 passed, 2 skipped**. Skips require opt-in fork integration; installed parser is PyTUFLOW 1.2.6.
+- Ruff check/format and strict Pyright on `run_checks.py`, `run_local_checks.py`
+  and `test_run_local_checks.py`: passed, zero typing errors/warnings.
+- Documentation/index and whitespace validation: recorded below after reconciliation.
+
+Preserve accepted 480-run / 8,160-identity / 158-file four-trial evidence and
+frozen diagnostic/parser identities. The separate SMB_PC2 480-run /
+12,480-identity / 49-file result retains three completed trials and an incomplete,
+unaccepted four-trial summary. No benchmark or solver was launched here.
+
+Independent delivery: [#160](https://github.com/Chain-Frost/ryan-tools/pull/160)
+is not a runtime dependency on this diagnostic. Shared register conflicts must
+retain its own row and the already-merged #143/#156 closure. Runner
+[#159](https://github.com/Chain-Frost/ryan-tools/pull/159) stays a scaffold until
+#158 lands; then carry only its four own documentation changes onto current main
+before implementing its advisory lifecycle. Do not copy benchmark commits through
+a squash rebase. Experimental [#161](https://github.com/Chain-Frost/ryan-tools/pull/161)
+and unrelated [#145](https://github.com/Chain-Frost/ryan-tools/pull/145) retain
+independent validation and acceptance gates and do not block these deliveries.
+
+Delivery: documentation-only edits are unstaged/uncommitted in detached review
+worktree `E:/Github/ryan-tools-review-158` at the exact head above. Original checkout
+`E:/Github/ryan-tools` remains on its independent #161 branch and is unchanged.
+No stage, commit, push, merge, publish or GitHub comment was performed. No wheel
+rebuild is needed for these documentation-only edits. Next action: review and
+authorize delivery of the documentation patch, require checks on the resulting
+head, then make the explicit #158 merge/release decision. Next review: 2026-11-01.
+
+Unrelated due reviews reported without starting them: vendor #139 (2026-10-21),
+installed scripts/distribution rename and release automation #135 (2026-10-19),
+floodway exclusions, safe GeoTIFF and shared filesystem #116 (2026-10-22), floodway
+design (2026-10-13), and culvert workflow (no substantive update for over 14 days).
+Their records/dates are preserved; reading the register is not a fresh review.
+
+
+### Verified squash-merge and release boundary - 2026-10-25
+
+Read current-main `.github/workflows/auto-publish.yml`,
+`.github/workflows/pypi-publish.yml` and `repo-scripts/release_skip_policy.py`;
+these files are unchanged by this PR. A successful post-merge main push Python CI
+can initiate the automatic tag/release workflow, then trusted PyPI publication.
+Green PR checks alone neither publish nor authorize a release.
+
+Live repository allows squash merges only; ordinary merge and rebase merge are
+disabled. Both #158 and #160 have CLEAN remote merge state against current main
+`bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2`; local `git merge-tree --write-tree
+origin/main HEAD` also exits 0 without touching the working tree or index.
+Both remain drafts, so an authorized delivery must also mark each ready separately.
+
+Exact publication opt-out: retain/add the case-insensitive `skip-release` PR label
+before the merge and retain it through post-merge release processing; include the
+literal `[skip release]` in the final squash commit title/body as the immutable
+backstop. Both automatic release selection and the final publisher honor either
+condition. The repository uses COMMIT_MESSAGES for the default squash body, so
+inspect/edit the actual final squash message rather than assuming PR prose is
+included. Do not change global automation. Recheck label, exact head, main tip,
+required checks, draft/merge state and unresolved threads immediately before any
+separately authorized squash merge.
+
+Live #158 already has `skip-release` (and `docs`); #160 has no labels. Therefore
+#158 currently opts out, while a #160 main merge with no opt-out could publish.
+Recommend explicit suppression for these independent deliveries unless the owner
+separately chooses publication. No labels, PR titles, commit messages or release
+settings were changed. Local policy checks confirm label/marker each return skip,
+and absence of both returns publish.
+
+
+### Documentation validation and delivery state
+
+Normal Windows Python 3.14.6: `python repo-scripts/check_documentation.py`
+passes all seven default documents and central-index coverage. Explicit
+`--links-only` checks pass for every locally changed Markdown file in this
+review worktree; `git diff --check` passes. All local changes are documentation
+only, unstaged and uncommitted. No new remote head or hosted run exists for
+these corrections. Revalidate the exact delivered head after authorized commit/push.
+
+
+Automated-review revision precision: the latest clean Codex receipt is for frozen
+`f1f7958b79f3ffe84ba8ac0b04658f27c311460a`, not current documentation/fixture
+head `742b1d9`. Executable diagnostic files are unchanged, and current-head local
+review found no consequential issue; do not describe that earlier automated
+receipt as a fresh current-head Codex review. A fresh automated review request
+is an optional separate authorized GitHub action, not a required approving-review
+rule (the repository requires zero approvals and resolved conversations).
+
+
+### Authorized local commit delivery
+
+The owner subsequently authorized local commits. This work is retained separately
+on local branch `review/pr158-final-review` in the review worktree above.
+Local validation is complete; the completion report identifies the resulting commit.
+No push or new hosted run exists. Earlier uncommitted/scaffold-only delivery
+statements are historical checkpoints, superseded by this authorized local delivery.
+Next action: obtain authorization to push this existing PR's changes, then require
+CI/review on its exact delivered head. No merge, publication or GitHub discussion
+mutation is authorized. Original `E:/Github/ryan-tools` remains unchanged.
+
+
+### Current validation priority
+
+The owner explicitly deferred hosted CI until local development has progressed.
+Hosted checks are not on this work's current critical path. Continue local review,
+implementation and proportionate tests; record exact local source and validation.
+An authorized future push may run CI for later checking. Earlier statements making
+new-head hosted checks an immediate development blocker are superseded by this
+instruction. Push, merge and publication remain separate authorization boundaries.
+Generated `.validation/` evidence is excluded locally and is not part of the commit.

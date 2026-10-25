@@ -26,7 +26,8 @@ Native rotated three-mode evaluations are complete; see the final results below.
 Native nested two-BC model confirmation is explicitly deferred by the owner. The next offered benchmark is a
 new model on a different SMB server, using a recorded exact parser/consumer pair. The separate
 [native graph benchmark plan](2026-10-23-tuflow-native-graph-benchmark.md) owns that comparison tooling;
-it is planned, not implemented. Old M480/N42 reruns are not requirements for this completed milestone.
+its frozen diagnostic and accepted native four-mode baseline are complete; PR #158 delivery remains open.
+Old M480/N42 reruns are not requirements for this completed milestone.
 Broader non-READ/BC/include reuse remains outside the current parser
 proof; new code must be validated independently of the historical benchmark.
 Historical planning/checkpoints below describe earlier states; this summary and the latest evaluation entry
