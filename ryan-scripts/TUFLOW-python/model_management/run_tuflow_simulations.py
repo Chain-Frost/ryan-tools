@@ -63,6 +63,7 @@ def get_parameters() -> Parameters:
         write_results_csv=True,
         warn_gpu_sharing=True,  # Warn when a new run would share a GPU already used by a local TUFLOW process
         preflight_check=False,  # Advisory background input check; never delays simulation launches
+        preflight_first_run=True,  # Prioritise first-run advisory before the entire batch report
         preflight_context_mode="individual",  # Explicit "batch" needs a compatible parser
         preflight_check_gpkg_layers=True,
         preflight_report_csv=Path("run_tuflow_simulations_preflight.csv"),
@@ -153,7 +154,8 @@ class CoreParameters:
         pending_tail_rows:      Number of latest blocked finished rows to show.
         write_results_csv:      If True -> write <script>_results.csv in ordered static print order.
         warn_gpu_sharing:      Warn if GPUs are shared with other active TUFLOW simulations.
-        preflight_check:        Validate exact input dependencies before launch.
+        preflight_check:        Check dependencies in the background; never gate launch.
+        preflight_first_run:  Emit a first-run advisory before the complete plan finishes.
         preflight_check_gpkg_layers: Verify layers referenced inside GeoPackages.
         preflight_report_csv:   Path of the preflight issues CSV.
     """
@@ -182,6 +184,7 @@ class CoreParameters:
     warn_gpu_sharing: bool = True
     preflight_context_mode: Literal["individual", "batch"] = "individual"
     preflight_check: bool = False
+    preflight_first_run: bool = True
     preflight_check_gpkg_layers: bool = True
     preflight_report_csv: Path = Path("run_tuflow_simulations_preflight.csv")
 
@@ -208,6 +211,7 @@ class CoreParameters:
         "write_results_csv": True,
         "warn_gpu_sharing": True,
         "preflight_check": False,
+        "preflight_first_run": True,
         "preflight_check_gpkg_layers": True,
         "preflight_report_csv": Path("run_tuflow_simulations_preflight.csv"),
     }
@@ -263,6 +267,7 @@ class CoreParameters:
             ("write_results_csv", self.write_results_csv),
             ("warn_gpu_sharing", self.warn_gpu_sharing),
             ("preflight_check", self.preflight_check),
+            ("preflight_first_run", self.preflight_first_run),
             ("preflight_check_gpkg_layers", self.preflight_check_gpkg_layers),
             ("preflight_report_csv", self.preflight_report_csv),
         ]
@@ -1190,6 +1195,7 @@ class AdvisoryInputCheck:
         self._destination = core.preflight_report_csv.absolute()
         self._layers = core.preflight_check_gpkg_layers
         self._mode: Literal["individual", "batch"] = core.preflight_context_mode
+        self._first_run_advisory = core.preflight_first_run
         self._messages: SimpleQueue[tuple[int, str]] = SimpleQueue()
         self._lifecycle_lock = Lock()
         self._cancel = Event()
@@ -1201,8 +1207,76 @@ class AdvisoryInputCheck:
         """Begin exactly one full-plan check, without waiting for model parsing."""
         self._thread.start()
 
+    def _check_first_run(self) -> None:
+        """Report the first run independently before the full-plan evaluation.
+
+        The authoritative one-run checker runs in the *same background thread*.
+        It uses the established individual mode even if the full plan requests
+        cached batch collection. This intentionally costs one extra evaluation
+        to minimise time to first useful advice; no result is reused unsafely.
+        """
+        if not self._first_run_advisory or len(self.requests) < 2:
+            return
+        first = self.requests[0]
+        started = time.perf_counter()
+        try:
+            report = check_simulation_inputs(
+                self._tcf,
+                [first],
+                check_gpkg_layers=self._layers,
+                context_mode="individual",
+            )
+            elapsed = time.perf_counter() - started
+            messages: list[tuple[int, str]] = []
+            if report.run_count != 1:
+                messages.append((
+                    logging.WARNING,
+                    f"First-run input check for run {first.index} is incomplete "
+                    f"({elapsed:.2f}s); full batch checking continues.",
+                ))
+            elif report.issues:
+                messages.extend(
+                    (
+                        logging.WARNING,
+                        f"EARLY input check run {issue.run_index} {issue.flags}: "
+                        f"[{issue.status}] {issue.origin}: {issue.reference} ({issue.detail})",
+                    )
+                    for issue in report.issues
+                )
+                messages.append((
+                    logging.WARNING,
+                    f"First-run input check found {len(report.issues)} issue(s) for "
+                    f"run {first.index} after {elapsed:.2f}s; later runs remain unchecked.",
+                ))
+            elif report.passed:
+                messages.append((
+                    logging.INFO,
+                    f"First-run input check found no issues for run {first.index} "
+                    f"after {elapsed:.2f}s (1 of {len(self.requests)} runs). "
+                    "This is not an all-batch clearance; checking continues.",
+                ))
+            else:
+                messages.append((
+                    logging.WARNING,
+                    f"First-run input check for run {first.index} did not establish "
+                    f"complete status ({elapsed:.2f}s); checking continues.",
+                ))
+        except Exception as exc:  # noqa: BLE001 - early advice must not disable the full check
+            messages = [(
+                logging.WARNING,
+                f"First-run input check for run {first.index} is unavailable: {exc}. "
+                "The complete background batch check continues.",
+            )]
+        with self._lifecycle_lock:
+            if not self._cancel.is_set():
+                for message in messages:
+                    self._messages.put(message)
+
     def _check(self) -> None:
         try:
+            self._check_first_run()
+            if self._cancel.is_set():
+                return
             report = check_simulation_inputs(
                 self._tcf, list(self.requests), check_gpkg_layers=self._layers, context_mode=self._mode
             )
