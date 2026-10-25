@@ -13,6 +13,8 @@ import sqlite3
 import stat
 from collections import defaultdict
 from collections.abc import Collection, Mapping
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -159,7 +161,7 @@ def _directory_results(paths: Collection[Path], *, maximum_entries: int) -> dict
 def _geopackage_layers(path: Path, layers: Collection[str]) -> dict[str, DependencyResult]:
     """Check all required GeoPackage layers in one read-only SQLite connection."""
     try:
-        with sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True) as connection:
+        with closing(sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)) as connection:
             names = {str(name).casefold() for (name,) in connection.execute("SELECT table_name FROM gpkg_contents")}
     except (OSError, sqlite3.DatabaseError) as exc:
         return {layer: DependencyResult("unresolved", f"Cannot inspect GeoPackage layers: {exc}") for layer in layers}
@@ -177,6 +179,7 @@ def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fal
     requirements: Mapping[Path, Collection[str]],
     *,
     scan_threshold: int = 8,
+    io_workers: int = 1,
     maximum_directory_entries: int = 50000,
 ) -> FileInventory:
     """Check each distinct input file once and each GeoPackage once for its layers.
@@ -189,31 +192,60 @@ def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fal
         message = "scan_threshold and maximum_directory_entries must be positive"
         raise ValueError(message)
 
+    if not 1 <= io_workers <= 32:
+        message = "io_workers must be between 1 and 32"
+        raise ValueError(message)
+    # Freeze caller-owned collections before sharing them with I/O workers.
+    requirements = {path: tuple(layers) for path, layers in requirements.items()}
     by_parent: dict[Path, list[Path]] = defaultdict(list)
     for path in requirements:
         by_parent[path.parent].append(path)
 
-    files: dict[Path, DependencyResult] = {}
-    directory_scans = 0
-    direct_checks = 0
-    for paths in by_parent.values():
+    def inspect_group(paths: list[Path]) -> FileInventory:
+        files: dict[Path, DependencyResult] = {}
         directory_result = None
+        scans = direct = 0
         if len(paths) >= scan_threshold:
             directory_result = _directory_results(paths, maximum_entries=maximum_directory_entries)
             if directory_result is not None:
-                directory_scans += 1
+                scans = 1
         if directory_result is not None:
             files.update(directory_result)
         else:
             for path in paths:
                 files[path] = _individual_file(path)
-                direct_checks += 1
+                direct += 1
+        layers: dict[tuple[Path, str], DependencyResult] = {}
+        for path in paths:
+            if files[path].status != "present" or path.suffix.casefold() != ".gpkg" or not requirements[path]:
+                continue
+            # Each connection is opened, used and closed in its owning worker.
+            for layer, result in _geopackage_layers(path, requirements[path]).items():
+                layers[(path, layer)] = result
+        return FileInventory(files, layers, scans, direct)
 
-    layers: dict[tuple[Path, str], DependencyResult] = {}
-    for path, requested_layers in requirements.items():
-        if files[path].status != "present" or path.suffix.casefold() != ".gpkg":
-            continue
-        for layer, result in _geopackage_layers(path, requested_layers).items() if requested_layers else ():
-            layers[(path, layer)] = result
-
-    return FileInventory(files, layers, directory_scans, direct_checks)
+    # Dense directories remain one listing job. Sparse files can overlap even
+    # when they share a parent. No duplicate stat or SQLite jobs per simulation.
+    groups = [
+        group
+        for paths in by_parent.values()
+        for group in ([paths] if len(paths) >= scan_threshold else [[path] for path in paths])
+    ]
+    inventories: list[FileInventory] = []
+    if io_workers == 1:
+        inventories = [inspect_group(group) for group in groups]
+    else:
+        with ThreadPoolExecutor(max_workers=io_workers, thread_name_prefix="tuflow-inventory") as executor:
+            # Keep at most io_workers futures outstanding; Python 3.13 has no
+            # Executor.map(buffersize). Ordered consumption is deterministic.
+            for offset in range(0, len(groups), io_workers):
+                futures = [executor.submit(inspect_group, group) for group in groups[offset : offset + io_workers]]
+                inventories.extend(future.result() for future in futures)
+    files = {path: result for inventory in inventories for path, result in inventory.files.items()}
+    layers = {key: result for inventory in inventories for key, result in inventory.layers.items()}
+    return FileInventory(
+        files,
+        layers,
+        sum(item.directories_scanned for item in inventories),
+        sum(item.individually_checked for item in inventories),
+    )

@@ -21,7 +21,8 @@ PyTUFLOW is a standard `ryan-tools` dependency (`pytuflow>=1.2,<2`) and installs
 automatically; no separate extra is needed. Copied wrappers require the installed
 package. Do not insert checkout paths into sys.path.
 
-The standalone checker and launcher use `context_mode="individual"`. If the
+The launcher retains `context_mode="individual"`. The standalone checker now defaults to the
+file-existence batch workflow described below; `--no-files-only` selects the established checker. If the
 installed parser lacks the deferred API, the checker uses eager discovery with a
 warning. A compatible development fork enables individual deferred collection and
 its typed secondary-source APIs; installing the normal package does not install
@@ -92,8 +93,9 @@ directory listing is deliberately avoided.
 to collect immutable per-run source references for a whole proposed batch.
 The common preflight then performs the *same* wildcard, Shapefile/GeoPackage,
 secondary database source, raster metadata and file-existence checks.
-The default is still `context_mode="individual"`, and the maintained
-standalone checker and simulation launcher do not enable batch mode.
+The `check_simulation_inputs` API and simulation launcher retain
+`context_mode="individual"`. The standalone checker now uses the separate
+file-existence batch entry point described below.
 
 For a development fork installed in an isolated test environment:
 
@@ -307,3 +309,51 @@ Follow up with Windows Python 3.14 + PyTUFLOW real-BC regression tests against r
 ## Experimental batch streaming I/O (not a preflight optimisation)
 
 [Streaming I/O overlap work record](work/2026-10-25-tuflow-streaming-io-probe.md) tracks an **opt-in diagnostic**, not a production API/default change. PyTUFLOW first loads the control-file tree and prepares batch graph/caches sequentially, then may emit completed per-run immutable projections. A bounded single I/O worker can speculatively stat eligible literal files while later run contexts are constructed. These speculative checks are **never authoritative**: the ordinary directory-batched filesystem, wildcard, GeoPackage layer, raster/attribute and public-preflight gates remain unchanged and are still required for acceptance. No speedup has been demonstrated, and automatic SMB selection is not implemented.
+
+
+## Batch file existence and immutable dependency reuse
+
+The standalone `check_tuflow_inputs.py` defaults to `--files-only` and four
+bounded I/O workers. It requires the matching development PyTUFLOW build with
+`TCF.collect_file_dependencies`; it does not silently substitute an older installed
+parser. This API is not yet supplied by the declared normal PyPI dependency.
+Use `--no-files-only` for the established checker, or `--io-workers 1` for serial I/O.
+`--no-check-gpkg-layers` remains an explicit choice; layer existence is checked by default.
+
+The library entry point is:
+
+```python
+from pathlib import Path
+from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_batch_files
+
+report = check_batch_files(
+    Path("runs/model.tcf"),
+    [RunRequest(1, {"s1": "EXG", "e1": "Q100"})],
+    io_workers=4,
+)
+```
+
+The parser evaluates reusable control-file sections by effective variable values
+and branch decisions, including event/scenario slots, TEF replacements and
+transitive Set Variable values. Cached fragments contain immutable dependency
+records, never shared mutable run-state instances. TBC means boundary control
+file; `bc_dbase` means the separate boundary-condition source database.
+
+The consumer checks unique file paths and requested GeoPackage layers. It retains
+essential GIS attribute-linked files and BC source discovery; those source reads
+are required to discover dependencies, not to validate time-series/raster data.
+Raster metadata validation is omitted. Existing conservative source-classification
+errors still prevent a successful result. Linked-GIS discovery optimisation is
+explicitly deferred; the existing once-per-source discovery is retained.
+
+Dense directories use one bounded listing; sparse files may overlap. At most
+`io_workers` tasks are outstanding (1-32 supported), and each SQLite connection
+belongs to one worker and is closed there. Results are consumed in deterministic
+order and routed back to every affected simulation. Network operations retain OS
+I/O timeouts; thread count does not impose an operation deadline.
+
+Reports expose section evaluation/reuse counts and ordinary-evaluator fallback
+counts. Unsupported parser constructs retain the established batch evaluator and
+are reported as fallbacks, never omitted. All caches end with the invocation.
+No elapsed-time improvement is claimed: the 50% reduction target remains unmeasured.
+See the [implementation record](work/2026-10-25-batch-file-fragments.md).

@@ -12,17 +12,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-21.1"
+WRAPPER_VERSION = "2026-10-25.1"
 DEFAULT_TCF = Path("runs/model_~e1~_~e2~.tcf")
 DEFAULT_COMMANDS = Path("run_tuflow_simulations_commands.txt")
 DEFAULT_REPORT = Path("tuflow_input_preflight.csv")
 DEFAULT_CHECK_GPKG_LAYERS = True
+DEFAULT_FILES_ONLY = True
+DEFAULT_IO_WORKERS = 4
 
 import argparse
 
 from ryan_library.functions.tuflow.run_flags import read_run_commands
 from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
-from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_simulation_inputs
+from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_batch_files, check_simulation_inputs
 
 
 def main(
@@ -31,13 +33,19 @@ def main(
     commands: Path,
     report: Path,
     check_gpkg_layers: bool,
+    files_only: bool = DEFAULT_FILES_ONLY,
+    io_workers: int = DEFAULT_IO_WORKERS,
 ) -> int:
     """Run read-only preflight and write one issue register."""
     tcf = tcf.absolute()
     commands = commands.absolute()
     combinations = read_run_commands(commands)
     requests = [RunRequest(index=index, flags=flags) for index, flags in enumerate(combinations, start=1)]
-    result = check_simulation_inputs(tcf, requests, check_gpkg_layers=check_gpkg_layers)
+    result = (
+        check_batch_files(tcf, requests, check_gpkg_layers=check_gpkg_layers, io_workers=io_workers)
+        if files_only
+        else check_simulation_inputs(tcf, requests, check_gpkg_layers=check_gpkg_layers)
+    )
     output = result.write_csv(report)
     print(
         f"Preflight: {result.run_count} run(s), {len(result.checked_paths)} unique input path(s), "
@@ -49,6 +57,12 @@ def main(
         f"run contexts {result.context_seconds:.2f}s; "
         f"unique-file inventory {result.inventory_seconds:.2f}s"
     )
+    if files_only:
+        print(
+            f"Dependency reuse: {result.dependency_fragment_evaluations} section evaluations, "
+            f"{result.dependency_fragment_reuses} reused sections, "
+            f"{result.dependency_fallback_runs} runs using the established evaluator"
+        )
     print(f"Issues CSV: {output}")
     for issue in result.issues[:20]:
         print(f"[{issue.status.upper()}] run {issue.run_index} {issue.origin}: {issue.reference} {issue.detail}")
@@ -70,6 +84,19 @@ def _parse_arguments() -> argparse.Namespace:
         default=None,
         help="Also verify referenced GeoPackage layer names (default: enabled).",
     )
+    parser.add_argument(
+        "--files-only",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_FILES_ONLY,
+        help="Use batch fragment reuse for file existence; retain essential linked-file discovery (default: enabled). "
+        "Requires a matching fragment-capable PyTUFLOW build. --no-files-only selects the established full checker.",
+    )
+    parser.add_argument(
+        "--io-workers",
+        type=int,
+        default=DEFAULT_IO_WORKERS,
+        help="Concurrent unique-file checks in batch mode, 1-32 (default: 4).",
+    )
     parser.add_argument("--no-pause", action="store_true", help="Do not pause after completion.")
     return parser.parse_args()
 
@@ -82,6 +109,8 @@ if __name__ == "__main__":
             tcf=options.tcf if options.tcf is not None else DEFAULT_TCF,
             commands=options.runs if options.runs is not None else DEFAULT_COMMANDS,
             report=options.report if options.report is not None else DEFAULT_REPORT,
+            files_only=options.files_only,
+            io_workers=options.io_workers,
             check_gpkg_layers=(
                 options.check_gpkg_layers if options.check_gpkg_layers is not None else DEFAULT_CHECK_GPKG_LAYERS
             ),

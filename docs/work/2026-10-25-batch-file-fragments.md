@@ -1,0 +1,176 @@
+# Batch file existence with immutable dependency fragments
+
+Status: Needs review - local implementation and validation complete. Owner: ChatGPT. Updated: 2026-10-25.
+Next review: 2026-11-01. Next action: review the committed paired milestone and bounded benchmark below; no further measurement is queued.
+
+## Scope and decisions
+
+Owner requested implementation, explicitly excluding further benchmarks. Target:
+at least 50% less batch elapsed time, not yet measured. Group TGC/TBC/other sections
+by relevant event/scenario flags, TEF replacements and transitive Set Variable
+values. Reuse immutable dependency results instead of reinitialising full trees.
+TBC boundary control files and bc_dbase source databases are distinct.
+
+The workflow checks existence of required files and GeoPackage layers, retaining
+essential linked-file discovery from GIS fields. It omits raster metadata validation.
+Do not optimise rare linked-GIS reads in this work; retain correctness and existing
+deduplication. Four bounded I/O workers are configurable down to one.
+
+## Implementation and ownership
+
+- PyTUFLOW owns expression compilation, context semantics and immutable subtree
+  fragments. Known leaf constructors run only on misses; includes bind cached child
+  fragments directly. Relative ordinals are rebound per occurrence/run.
+- The ordinary context-default/variable setup and deferred include selector are
+  shared with the existing evaluator, avoiding duplicated interpretation rules.
+- Failed runs publish no partial fragment cache entries. Caches are invocation-local
+  and bounded to 10,000 entries per pool. Custom/unsupported constructs and AD
+  ownership use the ordinary batch evaluator with explicit fallback diagnostics.
+- Complex TEF replacement uses the established translator; simple expressions use
+  compiled literal/token operations. Conservative keys can miss reuse opportunities.
+- ryan-tools consumes the public result, discovers unique paths, reads essential
+  linked-file fields, and runs bounded deterministic filesystem/layer checks.
+- MCP assessment: no new catalogue entry while the workflow requires an unpublished
+  parser capability. API guidance is in TUFLOW_INPUT_PREFLIGHT.md; the existing CLI
+  is extended rather than adding a duplicate entry point.
+
+## Delivery
+
+Separate normal local clones, both on `feat/batch-file-fragments`:
+`E:/Github/PyTuflow-batch-existence` from parser `ee44350a9312f365316498708c3f958036eebc3a`;
+`E:/Github/ryan-tools-batch-existence` from consumer `a428516f`.
+Original workspaces, native inputs and retained benchmark evidence are unchanged.
+Changes are unstaged/uncommitted/unpushed. No release, merge or hosted CI requested.
+Only tests/test_data and qgis-resources were initialized in the consumer clone;
+unsorted was not inspected or initialized.
+
+## Validation checkpoint
+
+Normal Windows Python 3.14.6, source imports explicitly selecting the parser clone.
+15 new parser correctness tests and 92 existing batch/deferred tests pass (107 total).
+Tests assert avoided constructor calls and exact ordered results, not timing:
+20 invariant-geometry runs construct three input states total.
+Consumer focused checks against the final installed wheel pair: 83 passed, zero skips, no warnings.
+New parser module/tests pass strict Pyright (private usage allowed for internal APIs).
+The three touched legacy parser files have 25 default-Pyright findings; the unchanged
+base has 28, with no added diagnostic messages. These remain inherited typing debt.
+Consumer modified Python passes strict Pyright. Ruff check/format, Loguru policy, documentation/index/link checks and whitespace checks pass.
+
+No native workload, profile, benchmark, solver, full archive replay or speed claim.
+The first consumer build failed because the new clone lacked QGIS style resources;
+only the required qgis-resources submodule was then initialized for the retry.
+
+
+## Final local validation and artifacts
+
+Parser command: `python -m pytest -q tests/test_fragment_dependencies.py tests/test_batch_dependencies.py tests/test_deferred_file_references.py` -> **107 passed**.
+New parser module/tests: Ruff check/format and strict Pyright -> zero errors.
+Strict configuration in `.validation/strict.json` uses `typeCheckingMode=strict`,
+`extraPaths=[".."]`, and permits private usage of parser-internal APIs; the legacy
+file comparison is in `.validation/baseline-typing.json` and `modified-typing.json`.
+
+Consumer tests: `test_batch_file_existence.py`, `test_threaded_dependency_inventory.py`,
+`test_input_preflight.py`, `test_batch_preflight_adapter.py`, `test_ordered_batch_adapter.py`
+under `tests/orchestrators/tuflow/`, plus
+`tests/functions/tuflow/test_gis_attribute_dependencies.py` -> **83 passed**.
+Both `RYAN_TEST_BATCH_PYTUFLOW=1` and `RYAN_TEST_DEFERRED_PYTUFLOW=1` were enabled.
+The final check imports both packages from `.validation/installed`, verifies their
+module paths, and uses `pytest --import-mode=importlib`; no global installation changed.
+
+Both wheels built successfully. Consumer build:
+`python repo-scripts/build_library.py --skip-pip`, followed by `--no-bump` for the
+final formatting verification rebuild. Version is **26.10.25.1**; wheel under `dist/`.
+Parser build: `python -m build --wheel --no-isolation --outdir .validation/dist`,
+producing **pytuflow-1.2.6** from this exact working source (not the published build).
+Wheel/source hashes are recorded in consumer `.validation/implementation-manifest.json`.
+
+Installed pair validation uses pip `--no-deps --no-compile --target .validation/installed`.
+A copied standalone wrapper in `.validation/copied-wrapper` passes headlessly against
+that installed pair: two synthetic proposed runs, two unique input files, no issues,
+one reused section, no fallback. This is a functional smoke check, not a benchmark.
+
+Only the consumer package version changed outside the listed implementation/docs/tests;
+no files are staged. No commit/push/merge/release, hosted CI, full archive replay,
+Python 3.12 run, private-model access, profiler or benchmark was performed.
+Unrelated overdue work-register entries remain unchanged and outside this task.
+
+## Remaining boundaries
+
+At the initial implementation checkpoint the target 50% reduction was unmeasured; see the later bounded comparison below. The first implementation still
+computes subtree signatures and binds flat output records per run. A persistent
+source IR, state-effect summaries, partial fallback for arbitrary custom nodes and
+lazy mutable facades are not implemented. Unsupported/custom source classes or AD
+ownership use the established evaluator for that batch and expose fallback counts.
+Broader extensions require their own correctness work; no automatic measurement is queued.
+
+
+## 2026-10-25 owner-authorized bounded benchmark
+
+Owner subsequently requested benchmarking with a maximum of ten minutes. The new
+standalone private coordinator enforced one shared 600-second deadline with child
+process termination on expiry. All four invocations completed in 127.72 seconds
+(2.13 minutes), including fresh interpreter/import/provenance overhead.
+No solver, profiler, full campaign, global install, commit or push was run.
+
+Normal Python 3.14.6 loaded the matching installed pair from `.validation/installed`.
+Source/wheel hashes matched `implementation-manifest.json` before/after each worker.
+The existing private retained workload plan supplied 480 ordered proposed runs and
+one SMB TCF. This reuses the earlier extracted run plan rather than extracting the
+BAT again; input size/mtime metadata was stable across each invocation. No new
+full input-byte hash or full parser command/reference provenance parity gate ran.
+
+Both conditions use `check_simulation_inputs(context_mode="batch",
+inspection_mode="files", io_workers=4)`; only `reuse_fragments` changes. Timing
+includes model load, dependency collection, file/layer/link checks and CSV writing;
+imports and provenance guards are excluded. Each invocation uses a fresh process.
+Order was baseline, fragments, fragments, baseline; no cache flush or cache-state
+claim. Sources/reports are local, model inputs remain on SMB.
+
+| Condition | Trial seconds | Median seconds |
+| --- | --- | ---: |
+| Reuse disabled | 41.527174, 42.566088 | 42.046631 |
+| Reuse enabled | 19.804411, 18.621055 | 19.212733 |
+
+Observed median elapsed reduction: **54.31%** (2.19x speed ratio).
+Both opposing-order pairs exceed 50% reduction. All invocations report 480 runs,
+50 checked paths and zero issues. Exact checked-path, ordered-issue and BC
+activation/source report projections match across all four invocations. Each
+fragment run records 5,256 evaluations, 66,290 reuses and zero fallback runs.
+This is report-level parity, not full parser semantic/provenance acceptance.
+
+This small descriptive comparison meets the 50% target for this workload and
+file-only scope. Two observations per condition and uncontrolled SMB/cache/load
+conditions limit generalization; it is not a comparison with the earlier full
+raster-metadata preflight or evidence of physical SMB traffic reduction.
+
+Private reproducible script, protocol, four JSON rows, projections, CSVs and logs:
+`.validation/benchmark-20261025-bounded/`; final `summary.json` reports `complete`.
+Raw paths and flags remain ignored and private. Implementation stays unchanged;
+this handoff/register update is unstaged/uncommitted. Next review: 2026-11-01.
+
+## Local Git milestone
+
+Owner requested regression checkpoints after the benchmark. Parser implementation
+is commit `02868e43e69279e74c7bc920df87c183e1f3641d` on `feat/batch-file-fragments`
+in `E:/Github/PyTuflow-batch-existence`, parent `ee44350`. The consumer milestone
+is the commit containing this section on the same branch name in
+`E:/Github/ryan-tools-batch-existence`, parent `a428516f`. Use these paired
+revisions to rebuild the measured implementation; the reused nominal parser
+version alone does not identify it. Earlier uncommitted statements above describe
+their historical checkpoints. Both milestones are local; neither was pushed.
+
+The [tracked numeric summary](evidence/2026-10-25-batch-fragments/summary.json),
+[protocol](evidence/2026-10-25-batch-fragments/protocol.json),
+[runner source](evidence/2026-10-25-batch-fragments/benchmark.py.txt), and
+[source/wheel hashes](evidence/2026-10-25-batch-fragments/implementation-hashes.json)
+preserve the benchmark checkpoint. The runner is an audit copy with private
+checkout locations replaced by `BATCH_EXISTENCE_REPO` and
+`BATCH_EXISTENCE_PRIVATE_WORKLOAD` environment variables. Copy it to a new ignored
+output directory as `benchmark.py`; it writes beside itself. The private workload
+directory must supply `config.json`, `runs.json` and `input-manifest-before.json`;
+these inputs and the installed wheels remain local, not in Git. No benchmark was
+rerun for this commit. The numeric observations are unchanged.
+
+Commit-time focused verification: parser 107 passed; installed-pair consumer
+83 passed. No implementation changes since the measured hashes. No full suite,
+hosted CI, push, merge or release. Documentation and whitespace checks pass.

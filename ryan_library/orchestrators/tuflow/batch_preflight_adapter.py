@@ -218,16 +218,29 @@ class _ContextView:
         return self._sources
 
 
+def _optional_counter(result: object, name: str) -> int:
+    value = getattr(result, name, 0)
+    return value if isinstance(value, int) and value >= 0 else 0
+
+
 class BatchModelView:
     """Single-use replay of an exact, ordered batch against existing collector."""
 
-    def __init__(self, model: object, flags: Sequence[str], *, on_run: Callable[[_Case], None] | None = None) -> None:
-        batch = getattr(model, "collect_batch_dependencies", None)
+    def __init__(
+        self,
+        model: object,
+        flags: Sequence[str],
+        *,
+        on_run: Callable[[_Case], None] | None = None,
+        reuse_fragments: bool = False,
+    ) -> None:
+        if reuse_fragments and on_run is not None:
+            message = "Fragment collection does not expose mutable-state callbacks"
+            raise ValueError(message)
+        method = "collect_file_dependencies" if reuse_fragments else "collect_batch_dependencies"
+        batch = getattr(model, method, None)
         if not callable(batch):
-            message = (
-                "PyTUFLOW batch mode requires collect_batch_dependencies(); "
-                "install the tested fork in an isolated environment"
-            )
+            message = f"PyTUFLOW batch mode requires {method}(); install the matching parser build"
             raise ValueError(message)
         # Only the opted-in diagnostic uses the new PyTUFLOW producer hook.
         # Default callers use the legacy positional API unchanged.
@@ -238,6 +251,9 @@ class BatchModelView:
         if len(output.runs) != len(flags):
             message = "PyTUFLOW batch returned a different number of runs"
             raise ValueError(message)
+        self.fragment_evaluations = _optional_counter(output, "fragment_evaluations")
+        self.fragment_reuses = _optional_counter(output, "fragment_reuses")
+        self.fallback_runs = _optional_counter(output, "fallback_runs")
         self._cases = output.runs
         self._flags = tuple(flags)
         self._next = 0

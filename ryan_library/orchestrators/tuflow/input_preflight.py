@@ -193,6 +193,9 @@ class PreflightReport:
         default_factory=dict[tuple[int, str], dict[str, Path]]
     )
     bc_activation_paths: dict[tuple[int, str], Path] = field(default_factory=dict[tuple[int, str], Path])
+    dependency_fragment_evaluations: int = 0
+    dependency_fragment_reuses: int = 0
+    dependency_fallback_runs: int = 0
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
@@ -885,6 +888,9 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     directory_scan_threshold: int = 8,
     maximum_directory_entries: int = 50000,
     context_mode: Literal["individual", "batch"] = "individual",
+    inspection_mode: Literal["full", "files"] = "full",
+    reuse_fragments: bool = False,
+    io_workers: int = 1,
 ) -> PreflightReport:
     """Resolve all dependencies first, then check each unique file only once.
 
@@ -893,6 +899,15 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     are then mapped back onto every run that needs each file. Output locations
     are not treated as required inputs. The checker does not launch TUFLOW.
     """
+    if not 1 <= io_workers <= 32:
+        message = "io_workers must be between 1 and 32"
+        raise ValueError(message)
+    if inspection_mode not in ("full", "files"):
+        message = f"Unsupported inspection mode: {inspection_mode}"
+        raise ValueError(message)
+    if reuse_fragments and context_mode != "batch":
+        message = "Fragment reuse requires batch context mode"
+        raise ValueError(message)
     if context_mode not in ("individual", "batch"):
         message = f"Unsupported input preflight context mode: {context_mode}"
         raise ValueError(message)
@@ -921,8 +936,16 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     # a caller requesting comparative validation must see that incompatibility.
     batch_view: BatchModelView | None = None
     if context_mode == "batch":
-        batch_view = BatchModelView(model, tuple(run.arguments for run in runs))
+        batch_view = BatchModelView(model, tuple(run.arguments for run in runs), reuse_fragments=reuse_fragments)
         model = cast(_Model, batch_view)
+        report.dependency_fragment_evaluations = batch_view.fragment_evaluations
+        report.dependency_fragment_reuses = batch_view.fragment_reuses
+        report.dependency_fallback_runs = batch_view.fallback_runs
+        if reuse_fragments and batch_view.fallback_runs:
+            logger.warning(
+                "{} runs require the established batch evaluator; subtree reuse is unavailable for this model",
+                batch_view.fallback_runs,
+            )
 
     # Phase 1: PyTUFLOW run-state resolution or batch projection, plus
     # collection of all references before the shared physical inventory.
@@ -983,7 +1006,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     # Validate unique raster source metadata only after primary filesystem checks
     # establish the file exists. Never read raster data in a run context.
     raster_started = time.perf_counter()
-    raster_references = [ref for ref in references if ref.scan_raster_metadata]
+    raster_references = [ref for ref in references if ref.scan_raster_metadata] if inspection_mode == "full" else []
     if raster_references:
         raster_paths = {ref.path for ref in raster_references}
         metadata, raster_opens = inspect_raster_metadata(raster_paths)
@@ -1010,6 +1033,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     start = time.perf_counter()
     inventory = check_unique_dependencies(
         unique_paths,
+        io_workers=io_workers,
         scan_threshold=directory_scan_threshold,
         maximum_directory_entries=maximum_directory_entries,
     )
@@ -1061,3 +1085,32 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
         report.inventory_seconds,
     )
     return report
+
+
+def check_batch_files(
+    tcf: Path,
+    runs: Sequence[RunRequest],
+    *,
+    check_gpkg_layers: bool = True,
+    io_workers: int = 4,
+    directory_scan_threshold: int = 8,
+    maximum_directory_entries: int = 50000,
+) -> PreflightReport:
+    """Check batch input existence using shared parser dependency fragments.
+
+    Read control/TEF/database source listings and essential GIS link fields to
+    discover files. Do not validate raster metadata, GIS geometry, time-series
+    data. GeoPackage layer names are checked once per file. Linked-file discovery keeps
+    the existing conservative coverage and invocation-local deduplication.
+    """
+    return check_simulation_inputs(
+        tcf,
+        runs,
+        context_mode="batch",
+        reuse_fragments=True,
+        inspection_mode="files",
+        check_gpkg_layers=check_gpkg_layers,
+        io_workers=io_workers,
+        directory_scan_threshold=directory_scan_threshold,
+        maximum_directory_entries=maximum_directory_entries,
+    )

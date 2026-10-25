@@ -152,3 +152,5 @@ but they are not current architectural policy when they conflict with the canoni
 
 Run `python repo-scripts/check_documentation.py` after changing the documentation structure. Its default run checks the
 main README links and paths and verifies that every tracked Markdown document is linked from this index.
+
+- [Batch file existence and shared dependency fragments](work/2026-10-25-batch-file-fragments.md) - implementation, correctness and delivery evidence.
