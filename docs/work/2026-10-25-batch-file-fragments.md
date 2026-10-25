@@ -231,3 +231,57 @@ selections share one file check while missing-file issues retain every affected
 run. Numerical benchmark artifacts remain unchanged.
 
 Next review: 2026-11-01. Unrelated overdue register items remain outside this work.
+
+## Checked-out PR rerun
+
+Owner requested a rerun using the checked-out PRs, retaining the ten-minute cap.
+Consumer PR 161: `c3bb6923cfe2cf885267364a0e30c97dfa8c7a05`.
+Parser PR 39: `566d5a3f011f520810def9d6e5405457b692bcc6`.
+Both initially clean. An initial baseline attempt was invalidated by concurrent
+tracked edits in both checkouts; its post-run source guard failed after 42.75 s.
+No timing from that attempt is accepted. Edits were preserved untouched.
+
+The replacement runner reads immutable package snapshots made with `git archive`
+of those exact commits, verifies physical import locations and hashes every
+snapshot file before/after each worker. It excludes the concurrent uncommitted
+changes. A shared 480-second subprocess timeout bounds the replacement matrix,
+leaving room for the discarded attempt under the original ten-minute cap.
+No solver, profiler, install or additional full correctness campaign ran.
+
+Four fresh-process invocations completed in 125.26 seconds;
+including the discarded attempt, benchmark coordinators took 168.01 seconds.
+Normal Python 3.14.6, same retained 480-run SMB plan, four I/O workers, file-only
+inspection, API plus report writing, order baseline/fragments/fragments/baseline.
+Imports and guards excluded from each timing; caches/background load uncontrolled.
+Input metadata unchanged within each invocation. No new full input-content hash.
+
+| Condition | Trial seconds | Median seconds |
+| --- | --- | ---: |
+| Reuse disabled | 40.957415, 41.182248 | 41.069832 |
+| Reuse enabled | 18.767939, 18.634433 | 18.701186 |
+
+Median elapsed reduction: **54.46%**. All four report 480 runs,
+50 paths, zero issues and identical report projections. Each fragment run reports
+66,290 reuses and zero fallbacks. This reproduces the earlier greater-than-50%
+workload-specific observation; two trials do not establish a general speedup or
+a statistically meaningful improvement over the earlier revision. No new full
+parser command/reference provenance parity gate was performed.
+
+Tracked [summary](evidence/2026-10-25-batch-fragments-pr-heads/summary.json),
+[protocol](evidence/2026-10-25-batch-fragments-pr-heads/protocol.json),
+[runner audit copy](evidence/2026-10-25-batch-fragments-pr-heads/benchmark.py.txt),
+and [snapshot hashes](evidence/2026-10-25-batch-fragments-pr-heads/snapshot-hashes.json).
+Runner audit copy replaces the private workload directory with the
+`BATCH_EXISTENCE_PRIVATE_WORKLOAD` environment variable. Materialize exact-commit
+package snapshots under `sources/consumer` and `sources/parser` beside the runner
+and provide `source-heads.json` with original source paths mapped to exact SHAs
+(as recorded privately); the runner expects `config.json`, `runs.json` and
+`input-manifest-before.json` in the private workload directory.
+Private originals: `.validation/benchmark-pr-heads-20261025-frozen/`; discarded
+attempt retained in `.validation/benchmark-pr-heads-20261025/`.
+
+This evidence checkpoint is committed locally; not pushed. Concurrent parser and
+consumer code edits are excluded and preserved. Documentation/link/whitespace
+checks pass; no tests rerun because implementation was not changed by this task.
+Next action: review paired exact-head results and CI; no further measurement queued.
+Next review: 2026-11-01. Unrelated overdue reviews remain outside scope.
