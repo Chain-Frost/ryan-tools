@@ -16,6 +16,12 @@ from ryan_library.orchestrators.tuflow.input_preflight import (
 from tests.fixtures.tuflow_example_repro import run_checks
 
 
+def _host_spelling(path: Path) -> str:
+    """Independent expected identity rule for the parity-harness tests."""
+    spelling = str(path)
+    return spelling.casefold() if os.name == "nt" else spelling
+
+
 def test_physical_identity_does_not_replace_inventory_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A mapped-drive alias may resolve to an unavailable SQLite URI authority."""
     database = tmp_path / "model.gpkg"
@@ -53,7 +59,7 @@ def test_physical_identity_does_not_replace_inventory_path(tmp_path: Path, monke
     keys, stats = run_checks.collect(tmp_path / "model.tcf", [run], "eager", factory)
     assert stats["inventory_issues"] == 0
     assert stats["files"] == 1
-    assert {key[3] for key in keys} == {run_checks._physical_identity_key(alias)}
+    assert {key[3] for key in keys} == {_host_spelling(alias)}
     assert resolutions == {str(database): 1, str(alternate_spelling): 1, str(alias): 1}
 
 
@@ -98,7 +104,7 @@ def test_physical_identity_resolves_each_spelling_once_for_all_runs(
     assert {(key[0], key[2]) for key in keys} == {
         (run.index, origin) for run in runs for origin in ("read gis code", "read grid zpts")
     }
-    assert {key[3] for key in keys} == {run_checks._physical_identity_key(source)}
+    assert {key[3] for key in keys} == {_host_spelling(source)}
 
 
 def test_new_collection_rechecks_a_changed_link_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -139,8 +145,8 @@ def test_new_collection_rechecks_a_changed_link_target(tmp_path: Path, monkeypat
     link.symlink_to(second)
     second_keys, second_stats = run_checks.collect(tmp_path / "model.tcf", runs, "eager", factory)
     assert resolution_count == 2
-    assert {key[3] for key in first_keys} == {run_checks._physical_identity_key(first)}
-    assert {key[3] for key in second_keys} == {run_checks._physical_identity_key(second)}
+    assert {key[3] for key in first_keys} == {_host_spelling(first)}
+    assert {key[3] for key in second_keys} == {_host_spelling(second)}
     assert first_stats["inventory_issues"] == second_stats["inventory_issues"] == 0
 
 
@@ -251,7 +257,7 @@ def test_layer_enumeration_is_shared_but_each_selector_and_run_remains_independe
         second_keys, second_stats = run_checks.collect(tmp_path / "model.tcf", runs, "eager", factory)
         assert io_spellings == {database.as_uri() + "?mode=ro": 4, alternate.as_uri() + "?mode=ro": 2}
         assert second_keys - first_keys == {
-            (run.index, run.description, origin, run_checks._physical_identity_key(database), "2d_code_c")
+            (run.index, run.description, origin, _host_spelling(database), "2d_code_c")
             for run in runs
             for origin in ("read gis code", "read gis z shape")
         }
