@@ -22,6 +22,11 @@ comparison and did not provide an adequate runtime estimate before starting it.
 - [Authoritative work record](../../2026-10-25-tuflow-native-combined-benchmark.md).
 
 The source-text files are audit artifacts, not maintained executable entry points.
+Published text artifacts use LF line endings. The original executed files and
+their byte hashes remain in the private freeze manifest; published checksums
+identify the LF-normalized review copies. No code logic was changed by this
+normalization.
+
 They contain no private model paths or input flags. The private configuration,
 full identities, manifests and logs are intentionally excluded from this bundle.
 
