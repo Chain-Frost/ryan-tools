@@ -331,3 +331,16 @@ An authorized future push may run CI for later checking. Earlier statements maki
 new-head hosted checks an immediate development blocker are superseded by this
 instruction. Push, merge and publication remain separate authorization boundaries.
 Generated `.validation/` evidence is excluded locally and is not part of the commit.
+
+
+### Authorized PR-branch push
+
+The owner authorized pushing completed work. Reviewed local change commit
+`ed99fbcc26b03bcf735ea364e123fa82af64a230` and this delivery note are delivered independently to existing PR
+branch `feat/stateful-command-preflight`. The remote was fetched immediately before delivery and
+matched the expected parent; use an ordinary fast-forward push, never force.
+Earlier unpushed/push-authorization-pending statements are historical checkpoints.
+Hosted CI may run after the push and will be checked later, per owner direction;
+no earlier-head hosted checks are claimed to validate the new head. Original
+checkout source/index remain unchanged. No merge, release, GitHub comment or
+native benchmark/solver execution is authorized by this delivery.
