@@ -187,7 +187,9 @@ def collect(  # noqa: C901 - read-only materialisation and invocation-local iden
                 owner = owner[len("GIS attribute: ") :]
             origin = " ".join(owner.split("==", 1)[0].casefold().split())
             for layer in layers:
-                keys.add((ref.run.index, ref.run.description, origin, _physical_identity_key(physical), layer.casefold()))
+                keys.add(
+                    (ref.run.index, ref.run.description, origin, _physical_identity_key(physical), layer.casefold())
+                )
     inventory = check_unique_dependencies(unique)
     stats: dict[str, Any] = {
         "collection_issues": len(report.issues),
