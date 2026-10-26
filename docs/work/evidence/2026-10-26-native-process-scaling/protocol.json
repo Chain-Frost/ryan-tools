@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-26",
+  "workload": "W480, SSD",
+  "sources": {
+    "parser": "36ad04bd7cb045c48f3b77e8794c48a956c90c06",
+    "consumer": "a710f24ffb1698e949937f56a0212b6ae599e54e"
+  },
+  "worker_counts": [
+    1,
+    3
+  ],
+  "contexts": 480,
+  "partition": "three contiguous ordered chunks, [0,160), [160,320), [320,480); one process gets [0,480)",
+  "orders": [
+    [
+      1,
+      3,
+      3,
+      1
+    ],
+    [
+      1,
+      3,
+      3,
+      1
+    ]
+  ],
+  "native_trials": 8,
+  "calibration_prefix_sizes": [
+    1,
+    10,
+    160
+  ],
+  "timing": "Parent start immediately before launching workers through child completion, private JSON/CSV consumption and merged issue CSV generation. Guard checks are outside timing. Includes interpreter/import startup, model parse, processing, worker output and parent merge.",
+  "initialization": "Ready offsets share the Windows system-wide performance-counter clock. Imports/setup is entry-to-ready; startup-to-ready includes interpreter launch. Parse is the existing consumer parse timer. Per-worker setup runs once per partition.",
+  "parallelism": "Three independent fresh Python subprocesses, each constructing its own model and fragment cache. Pass config/range only; no parsed-model pickling, shared mutable state, fork assumption, affinity pinning or production API change.",
+  "options": {
+    "context_mode": "batch",
+    "inspection_mode": "files",
+    "reuse_fragments": true,
+    "io_workers": 1,
+    "check_bc_headers": true
+  },
+  "CPU": "Sum of worker API/report process_time deltas; excludes worker startup/import CPU and parent CPU. Not total process-lifetime CPU.",
+  "memory": "Sum of worker peak working sets, including imports; an upper bound/budget, not a synchronized measurement of concurrent RAM. Parent excluded.",
+  "guard": "Exact frozen source hashes, seven control/database hashes and 50 input-file metadata records before/after every native trial; complete public-run parity before timing; exact ordered global index coverage and all 50 physical path identities after combining native workers.",
+  "parity": "Independently parsed deterministic UUIDs; complete partition records equal the saved 480-run single-process records after restoring requested global run indices. No path sets/counts substitute for full provenance. Normal UUIDs in timed trials.",
+  "limitations": [
+    "Only one and three processes measured; no optimum among 2/4/6/8 established.",
+    "SSD warm/unspecified caches; no three-process SMB timing.",
+    "CPU clocks/load drift: use the fresh matched one-process baseline, not the earlier 18-second session.",
+    "Two ABBA blocks; descriptive workload-specific scaling, not a universal speedup.",
+    "Partial-prefix initialization measurements are single observations, not performance acceptance runs.",
+    "Cache work, repeated initialization, all-core clock/cache effects and merge overhead are not causally isolated."
+  ],
+  "privacy": "Public numeric aggregates and audit code only; raw models, flags, paths, manifests, full records and CSVs remain private.",
+  "audits": "Worker source is preserved with canonical text line endings/EOF; controller additionally changes only private-root routing to environment variables."
+}

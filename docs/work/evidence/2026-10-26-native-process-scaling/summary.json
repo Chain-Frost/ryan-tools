@@ -1,0 +1,78 @@
+{
+  "1": {
+    "end_to_end_seconds": {
+      "median": 21.67280015000142,
+      "min": 21.025402300001588,
+      "max": 21.72048609997728
+    },
+    "startup_until_all_ready_seconds": {
+      "median": 0.9062103500036756,
+      "min": 0.882136400003219,
+      "max": 0.9336509999993723
+    },
+    "total_worker_cpu_seconds": {
+      "median": 20.484375,
+      "min": 19.890625,
+      "max": 20.609375
+    },
+    "summed_worker_peak_working_set_bytes": {
+      "median": 217593856.0,
+      "min": 217075712,
+      "max": 217849856
+    },
+    "fragment_evaluations": {
+      "median": 2494.0,
+      "min": 2494,
+      "max": 2494
+    },
+    "fragment_reuses": {
+      "median": 22001.0,
+      "min": 22001,
+      "max": 22001
+    },
+    "header_reads": {
+      "median": 24.0,
+      "min": 24,
+      "max": 24
+    }
+  },
+  "3": {
+    "end_to_end_seconds": {
+      "median": 10.169245549986954,
+      "min": 9.825212499999907,
+      "max": 10.49615319998702
+    },
+    "startup_until_all_ready_seconds": {
+      "median": 0.9537658499903046,
+      "min": 0.9152374000113923,
+      "max": 0.9734452999837231
+    },
+    "total_worker_cpu_seconds": {
+      "median": 26.609375,
+      "min": 25.859375,
+      "max": 27.359375
+    },
+    "summed_worker_peak_working_set_bytes": {
+      "median": 616255488.0,
+      "min": 616026112,
+      "max": 617422848
+    },
+    "fragment_evaluations": {
+      "median": 2671.0,
+      "min": 2671,
+      "max": 2671
+    },
+    "fragment_reuses": {
+      "median": 21854.0,
+      "min": 21854,
+      "max": 21854
+    },
+    "header_reads": {
+      "median": 48.0,
+      "min": 48,
+      "max": 48
+    }
+  },
+  "speedup": 2.1312102302445854,
+  "reduction_percent": 53.07830331289107
+}

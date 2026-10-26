@@ -1,8 +1,8 @@
 # Native SMB/SSD inactive-scope investigation
 
-Status: Complete (investigation and expanded evidence publication). Owner: ChatGPT.
-Updated: 2026-10-26. Next review: none. Next action: maintainer reviews measured scope-computation optimisation targets;
-no further collection or production change queued. Owner explicitly authorised the evidence push.
+Status: Complete (including owner-requested one-versus-three-process diagnostic). Owner: ChatGPT.
+Updated: 2026-10-26. Next review: none. Next action: review a three-worker design for large batches; no production
+implementation or further measurement queued. Earlier evidence and the process-scaling extension are separate bundles.
 
 [Expanded 32-trial SMB/SSD evidence bundle](evidence/2026-10-26-native-smb-ssd-inactive-scope/README.md).
 
@@ -180,3 +180,46 @@ Validation: 32 native consumer passes, two SSD diagnostic consumer passes, full 
 locations, eight focused source-snapshot tests, source/model/input stability guards, four-file documentation-link
 validation, public-artifact privacy/JSON/audit syntax/checksum checks, and staged whitespace checks.
 No wheel rebuild is required for documentation and text audit artifacts; no library or package metadata changed.
+
+## Three-process diagnostic, 2026-10-26
+
+Owner explicitly requested exploring multiprocessing and three CPU workers, superseding the original no-multiprocessing
+restriction for this diagnostic only. Use candidate B and the same consumer/SSD workload, without production changes.
+Compare one 480-context process against three independent 160-context processes. Each worker parses its own model and
+owns its fragment cache. Verify complete records before timing, preserving input UUIDs, request order and global run
+indices when combining partitions. Measure process startup/imports, model parse, context processing, CPU, peak memory,
+duplicate header/file work and changed fragment reuse separately. Initial estimate is 7–10 s for three workers,
+versus roughly 19 s including startup for one; this is a prediction pending measurement.
+
+The initial prediction above is superseded by the fresh matched measurements:
+one process median 21.672800 s (range 21.025402–21.720486), three processes 10.169246 s
+(9.825212–10.496153), a 2.131x speedup / 53.078% wall reduction. The parent boundary includes startup/imports,
+all preflight processing, worker JSON/CSV completion and merged report generation. This is a later session with a
+wider timing boundary; use the fresh matched one-process baseline rather than the earlier 18-second API times.
+
+Complete 480-record provenance equality passes before timing after restoring partition-local outer run indices to
+their requested global indices. All eight native trials preserve all 480 indices and 50 physical file identities,
+480 column selections, zero issues/fallbacks, and stable source/model/input guards.
+
+| Single-process calibration | End-to-end s | Startup/import/setup s | Model parse s | Context/projection s |
+| --- | ---: | ---: | ---: | ---: |
+| 1 context | 2.016991 | 0.921853 | 0.776353 | 0.126460 |
+| 10 contexts | 2.376822 | 0.932420 | 0.786534 | 0.469234 |
+| 160 contexts | 8.658350 | 0.906170 | 0.804983 | 6.774311 |
+
+These are single observations; exact values are in the process-scaling JSON. In full trials, all three workers are
+ready after median 0.954 s versus 0.906 s for one. Each parses its own model once and owns its own cache.
+Three-worker evaluations increase 2,494 to 2,671, reuses decrease 22,001 to 21,854, and total header reads increase
+24 to 48 for the same 24 unique source headers. Summed worker API/report CPU rises 20.484375 to 26.609375 s;
+this excludes startup/import and parent CPU. Summed worker peak working sets are approximately 588 MiB versus 208 MiB,
+a budget/upper bound rather than a synchronized process-tree peak. Contention/clock effects are not isolated.
+
+Three workers are a measured latency improvement for 480 contexts. Prefer a large chunk per worker, with model setup
+once per chunk, and retain a serial path for tiny jobs. Roughly 50+ contexts per worker is a tentative amortisation
+heuristic, not a measured threshold. Only one and three processes on SSD were tested; optimal count, tiny-job
+parallel behaviour and three-worker SMB scaling remain unmeasured. No parsed model is pickled or shared.
+
+[Process-scaling evidence](evidence/2026-10-26-native-process-scaling/README.md) contains all eight timings, three
+initialisation calibrations, worker stage/resource measurements, full-parity outcome, protocol and audit runners.
+The existing push authorisation covers this evidence extension; no production source, package metadata, model,
+solver, branch/worktree, merge or release is changed.

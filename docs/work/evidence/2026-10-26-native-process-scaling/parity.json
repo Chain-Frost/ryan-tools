@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "contexts": 480,
+  "workers": 3,
+  "partition": "three contiguous ordered chunks of 160",
+  "all_public_records_identical": true
+}
