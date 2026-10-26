@@ -223,3 +223,33 @@ parallel behaviour and three-worker SMB scaling remain unmeasured. No parsed mod
 initialisation calibrations, worker stage/resource measurements, full-parity outcome, protocol and audit runners.
 The existing push authorisation covers this evidence extension; no production source, package metadata, model,
 solver, branch/worktree, merge or release is changed.
+
+## File-level dependency cache investigation, 2026-10-26
+
+Owner proposed caching whole evaluated files by their effective variable/condition inputs. Inspection of frozen B and
+the private diagnostic confirms this already happens at the result level, but validation of each cache key remains
+expensive: an included file key walks compiled descendant expressions and scope lists before checking the cache.
+
+| Included control file | Evaluations | Reuses | Distinct public command/reference projections |
+| --- | ---: | ---: | ---: |
+| Geometry (TGC) | 1 | 479 | 1 |
+| Boundary (TBC) | 1 | 479 | 1 |
+| Events (TEF) | 480 | 0 | 480 |
+
+Projection comparison preserves original input identities and commands/references, with command positions rebased
+relative to each owning file. This is a diagnostic projection, not a substitute for the full-record correctness gate.
+The TGC include key contains 20 expression entries and 20 scope-list entries; its only direct token variable is
+VarCellSize, plus scenario predicates. A direct-token inventory is not proof of the complete semantic dependency set:
+transitive substitutions, arbitrary/cascading TEF replacements and inherited state require explicit treatment.
+
+The promising change is an immutable, compiled dependency manifest per file, permitting a cheap lookup by only the
+effective incoming bindings that can affect that file, before walking descendant scope decisions. Cached output must
+include ordered commands/references and any context-state effects, with per-run provenance rebinding. Source/include
+identity, inherited conditions, variable assignment precedence, database/spatial state and unsupported dynamic
+constructs remain correctness boundaries; use the ordinary evaluator where dependency completeness is unproven.
+
+File caching alone does not address all repeated work. Global context preparation contributes 38,880 underlying
+scope evaluations and 125,280 membership checks before include-result lookup. It needs equivalent dependency-based
+reuse of event/variable setup, preserving overlapping/default assignments and invalidation semantics. TEF outcomes
+actually differ in all 480 contexts, so a filename-only cache would be incorrect. No production change is made;
+this records the measured limitation and the next optimisation hypothesis rather than claiming a new speedup.
