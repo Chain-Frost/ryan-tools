@@ -129,7 +129,9 @@ Processing scenarios:
 XYZ is an input format for this tool; outputs are always GeoTIFF.""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("path", nargs="?", type=Path, help="Raster file or directory to process (positional shorthand).")
+    parser.add_argument(
+        "path", nargs="?", type=Path, help="Raster file or directory to process (positional shorthand)."
+    )
     input_group = parser.add_mutually_exclusive_group()
     input_group.add_argument("--input-file", type=Path, help="Process one explicitly selected raster file.")
     input_group.add_argument("--working-directory", type=Path, help="Directory to process instead of WORKING_DIR.")
