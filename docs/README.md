@@ -154,3 +154,5 @@ Run `python repo-scripts/check_documentation.py` after changing the documentatio
 main README links and paths and verifies that every tracked Markdown document is linked from this index.
 
 - [Batch file existence and shared dependency fragments](work/2026-10-25-batch-file-fragments.md) - implementation, correctness and delivery evidence.
+- [Native SMB/SSD inactive-scope investigation](work/2026-10-26-native-inactive-scope-benchmark.md) - frozen provenance parity, 32 native trials, CPU/memory evidence and measured optimisation targets.
+- [Native SMB/SSD evidence bundle](work/evidence/2026-10-26-native-smb-ssd-inactive-scope/README.md) - all timings, counters, profile aggregates, protocol and runner audit copies.

@@ -1,0 +1,71 @@
+import os
+import sys,pathlib,json,collections,contextlib,functools
+from unittest.mock import patch
+root=pathlib.Path(os.environ["PRIVATE_BENCHMARK_ROOT"]).absolute();rev=sys.argv[1];sys.path[:0]=[str(root/rev),str(root/rev/'tests')]
+from pytuflow._tmf import fragment_dependencies as f
+from pytuflow._tmf.batch_dependencies import BatchContext
+from pytuflow._tmf.context import Context
+from pytuflow._tmf.scope import ScopeList
+from pytuflow._tmf.inp.inp_run_state import InputRunState
+from pytuflow._tmf.cf.cf_run_state import prepare_run_context
+import profile_fragment_evaluations as harness
+counts=collections.Counter();groups=collections.defaultdict(collections.Counter);current=['setup'];orig=f.collect_file_dependencies
+
+def kind(inp):
+ lhs=str(inp.lhs).lower()
+ if lhs.startswith('set variable varcellsize'):return 'cell_size_variable'
+ if lhs=='end time':return 'end_time'
+ if lhs=='sgs max sample frequency':return 'sample_frequency'
+ typ=type(inp).__name__
+ return {'SettingInput':'other_settings','GisInput':'gis_reads','GridInput':'grid_reads','ControlFileInput':'included_controls','DatabaseInput':'database_commands'}.get(typ,typ)
+def record(label):counts[label]+=1;groups[current[0]][label]+=1
+
+def collection(*args,**kwargs):
+ with contextlib.ExitStack() as stack:
+  def wrap(cls,name,label):
+   old=getattr(cls,name)
+   @functools.wraps(old)
+   def call(*a,**k):record(label);return old(*a,**k)
+   stack.enter_context(patch.object(cls,name,call))
+  oldeval=f._Plan.evaluate
+  def evaluate(plan,inp,ctx):
+   previous=current[0];current[0]=kind(inp);record('input_evaluate_calls')
+   try:
+    active=ctx.in_context_by_scope(inp.scope);record('active_input_checks' if active else 'inactive_input_checks')
+    return oldeval(plan,inp,ctx)
+   finally:current[0]=previous
+  # Observe activity without making an extra scope call: inspect cached decision after native evaluation.
+  def evaluate(plan,inp,ctx):
+   previous=current[0];current[0]=kind(inp);record('input_evaluate_calls')
+   try:return oldeval(plan,inp,ctx)
+   finally:current[0]=previous
+  stack.enter_context(patch.object(f._Plan,'evaluate',evaluate))
+  oldscope=BatchContext.in_context_by_scope
+  def scope(ctx,req):
+   cached=getattr(ctx,"_batch_scope_decisions",{}).get(id(req))
+   hit=cached is not None and cached[0] is req
+   record('scope_calls');record('scope_local_hits' if hit else 'scope_local_misses')
+   result=oldscope(ctx,req);record('scope_active_returns' if result else 'scope_inactive_returns');return result
+  stack.enter_context(patch.object(BatchContext,'in_context_by_scope',scope))
+  oldkey=f._Plan._key
+  def key(plan,inp,ctx):
+   record('full_keys');record('active_keys' if ctx.in_context_by_scope(inp.scope) else 'inactive_keys')
+   counts['signature_expressions']+=len(plan.expressions_by_input[id(inp)]);groups[current[0]]['signature_expressions']+=len(plan.expressions_by_input[id(inp)])
+   counts['signature_scopes']+=len(plan.scopes_by_input[id(inp)]);groups[current[0]]['signature_scopes']+=len(plan.scopes_by_input[id(inp)])
+   return oldkey(plan,inp,ctx)
+  # Avoid extra scope checks in attribution: derive activity from native scope decision cache after key.
+  def key(plan,inp,ctx):
+   record('full_keys');result=oldkey(plan,inp,ctx)
+   native=ctx._batch_scope_decisions.get(id(inp.scope))
+   record('active_keys' if native and native[1] else 'inactive_keys')
+   counts['signature_expressions']+=len(plan.expressions_by_input[id(inp)]);groups[current[0]]['signature_expressions']+=len(plan.expressions_by_input[id(inp)])
+   counts['signature_scopes']+=len(plan.scopes_by_input[id(inp)]);groups[current[0]]['signature_scopes']+=len(plan.scopes_by_input[id(inp)])
+   return result
+  stack.enter_context(patch.object(f._Plan,'_key',key))
+  for cls,name,label in [(Context,'in_context_by_scope','underlying_scope_evaluations'),(ScopeList,'contains','membership_evaluations'),(f._FragmentContext,'translate','fragment_translations'),(Context,'translate','context_tef_translations'),(f.ExpressionPool,'translate','expression_translations'),(f.CompiledExpression,'bindings','transitive_bindings'),(f._FragmentContext,'__init__','contexts'),(InputRunState,'__init__','input_states')]:wrap(cls,name,label)
+  result=orig(*args,**kwargs)
+ (root/('extra-'+rev+'.json')).write_text(json.dumps({'counts':dict(counts),'groups':{k:dict(v) for k,v in groups.items()}},indent=2));return result
+f.collect_file_dependencies=collection
+w=json.loads((root/'workload.json').read_text());sys.argv=['profile_fragment_evaluations','--tcf',w['tcf'],'--runs-json',str(root/'runs.json'),'--output',str(root/('diagnostic-'+rev)),'--private-file-attribution','--private-key-phases','--cprofile'];harness.main()
+
+
