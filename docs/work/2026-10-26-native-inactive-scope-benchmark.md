@@ -1,8 +1,8 @@
 # Native SMB/SSD inactive-scope investigation
 
-Status: Active (expanded evidence complete; publication pending). Owner: ChatGPT.
-Updated: 2026-10-26. Next review: 2026-10-27. Next action: commit/push the sanitised bundle on existing consumer PR #161
-and link the expanded evidence from parser PR #39. Owner explicitly authorised the evidence push.
+Status: Complete (investigation and expanded evidence publication). Owner: ChatGPT.
+Updated: 2026-10-26. Next review: none. Next action: maintainer reviews measured scope-computation optimisation targets;
+no further collection or production change queued. Owner explicitly authorised the evidence push.
 
 [Expanded 32-trial SMB/SSD evidence bundle](evidence/2026-10-26-native-smb-ssd-inactive-scope/README.md).
 
@@ -167,3 +167,16 @@ No production optimisation is implemented.
 Every individual timing, resource range/variation, complete operation-group counters, selected A/B profile aggregates,
 environment, limitations and runner audit copies are in the linked bundle. The SSD is a Samsung 990 EVO 2TB NVMe;
 resource sampling uses existing psutil 7.2.2 and does not poll the process during native timing.
+
+## Publication receipt
+
+Evidence checkpoint `992be913d619237a956f31bb4bd1ec23d4de4852` is pushed to existing consumer PR #161,
+`test/tuflow-streaming-io-overlap`; the remote SHA was verified. This receipt also corrects audit EOF whitespace and
+makes artifact checksums use canonical LF bytes so Windows checkout line endings do not invalidate them.
+The source/data/runner content is unchanged by text line-ending normalisation. Final push verification and the
+expanded result link are recorded in the parser PR #39 discussion. No unrelated changes were staged or committed.
+
+Validation: 32 native consumer passes, two SSD diagnostic consumer passes, full four-mode parity for both storage
+locations, eight focused source-snapshot tests, source/model/input stability guards, four-file documentation-link
+validation, public-artifact privacy/JSON/audit syntax/checksum checks, and staged whitespace checks.
+No wheel rebuild is required for documentation and text audit artifacts; no library or package metadata changed.

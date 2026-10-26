@@ -83,7 +83,7 @@ Next measured optimisation targets: (1) reuse immutable expanded scope represent
 - [A/B SSD profile aggregates](profile-aggregates.json): selected ranked application/runtime functions, constructor counts, projection and filesystem calls.
 - [Measurement runner audit](measure.py.txt): exact runner used for the additional 16 native trials and two SSD profiles.
 - [Counter observer audit](counter-observer.py.txt): SMB observer with only private-root routing replaced by an environment variable.
-- [Artifact checksums](artifact-hashes.json): SHA-256 checksums, excluding the checksum file itself.
+- [Artifact checksums](artifact-hashes.json): SHA-256 checksums of canonical LF bytes (UTF-8 BOM retained where present), excluding the checksum file itself. This avoids checkout line-ending differences.
 
 The measurement runner reads a private JSON configuration with `output`, `parser_sources` (A/B snapshot directories), `consumer_source`, `tcf`, `runs_json`, expected run/path/header/selection counts and `options`. Use the exact options in the protocol. Run `python measure.py --config PRIVATE_CONFIG.json --revision A --name UNIQUE_TRIAL` in a fresh normal Python process; follow the documented block orders. Add `--profile` only for separate diagnostics. The context JSON retains exact supplied scenario/event flags and order; launcher-only `-b` is excluded. Output must remain outside repositories and model directories.
 

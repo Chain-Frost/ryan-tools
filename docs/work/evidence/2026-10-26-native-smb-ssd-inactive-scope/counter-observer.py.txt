@@ -67,5 +67,3 @@ def collection(*args,**kwargs):
  (root/('extra-'+rev+'.json')).write_text(json.dumps({'counts':dict(counts),'groups':{k:dict(v) for k,v in groups.items()}},indent=2));return result
 f.collect_file_dependencies=collection
 w=json.loads((root/'workload.json').read_text());sys.argv=['profile_fragment_evaluations','--tcf',w['tcf'],'--runs-json',str(root/'runs.json'),'--output',str(root/('diagnostic-'+rev)),'--private-file-attribution','--private-key-phases','--cprofile'];harness.main()
-
-
