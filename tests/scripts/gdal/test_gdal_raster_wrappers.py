@@ -63,6 +63,36 @@ def test_translate_wrapper_converts_asc_fixture(
         assert dataset.crs.to_epsg() == 7850
 
 
+def test_translate_wrapper_converts_single_asc_fixture(
+    raster_test_data: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conversion = raster_test_data / "conversion"
+    source_directory = tmp_path / "source"
+    output_directory = tmp_path / "output"
+    source_directory.mkdir()
+    output_directory.mkdir()
+    for filename in ("surface.asc", "surface.prj"):
+        shutil.copy2(conversion / filename, source_directory / filename)
+    source = source_directory / "surface.asc"
+    module = _load_script("gdal_translate_TIF_ovr.py")
+    monkeypatch.chdir(tmp_path)
+
+    result = module.main(
+        input_file=source,
+        output_directory=output_directory,
+        build_overviews=False,
+        workers=1,
+    )
+
+    assert result == 0
+    output = output_directory / "surface.tif"
+    with rasterio.open(output) as dataset:
+        assert dataset.shape == (64, 64)
+        assert dataset.dtypes == ("float32",)
+        assert dataset.crs is not None
+        assert dataset.crs.to_epsg() == 7850
+
+
 def test_overview_wrapper_writes_external_sidecar(
     raster_test_data: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

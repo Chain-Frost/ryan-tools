@@ -40,15 +40,17 @@ def convert_rasters(
     workers: int | None = None,
     overwrite: bool = False,
 ) -> list[Path]:
-    """Convert supported rasters and optionally create external overviews.
+    """Convert one raster or discover rasters in a directory and optionally create external overviews.
 
     Each input is written beside its source with the same stem and a ``.tif``
     extension. A current output is skipped unless ``overwrite`` is true. When
     a TIFF is regenerated, its external overviews are refreshed automatically.
 
     Args:
-        directory: Root directory searched for source rasters.
-        extensions: Case-insensitive input extensions, with or without dots.
+        directory: Source raster or root directory searched for source rasters.
+        extensions: Case-insensitive input extensions, with or without dots,
+            used when discovering files in a directory. An explicitly selected
+            file is processed regardless of its extension.
         output_directory: Optional output root. The source directory structure
             is reproduced below it.
         output_suffix: Text appended to each source stem before ``.tif``.
@@ -63,20 +65,26 @@ def convert_rasters(
     Returns:
         Output TIFF paths, including current files that required no work.
     """
-    sources: list[Path] = _find_sources(directory, extensions, recursive)
+    input_path = directory.absolute()
+    if input_path.is_file():
+        sources = [input_path]
+        source_root = input_path.parent
+    else:
+        sources = _find_sources(input_path, extensions, recursive)
+        source_root = input_path
     if not sources:
-        logger.warning(f"No source rasters found in: {directory}")
+        logger.warning("No source rasters found in: {}", input_path)
         return []
 
     concurrency: GdalConcurrency = plan_gdal_concurrency(len(sources), workers)
-    output_root = output_directory.absolute() if output_directory is not None else directory.absolute()
+    output_root = output_directory.absolute() if output_directory is not None else source_root
     logger.info(
         f"Processing {len(sources)} raster(s) with {concurrency.workers} worker(s) and "
         f"{concurrency.threads_per_dataset} GDAL thread(s) per raster."
     )
 
     def process(source: Path) -> Path:
-        relative = source.relative_to(directory.absolute())
+        relative = source.relative_to(source_root)
         output = output_root / relative.parent / f"{source.stem}{output_suffix}.tif"
         # Timestamp checks avoid recompressing large terrain rasters on routine reruns.
         needs_conversion: bool = overwrite or not output.exists() or output.stat().st_mtime < source.stat().st_mtime

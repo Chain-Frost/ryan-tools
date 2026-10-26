@@ -37,6 +37,18 @@ def test_convert_rasters_serial(mock_build, mock_trans, source_dir):
 
 @patch("ryan_library.orchestrators.gdal.raster_workflows.translate_to_geotiff")
 @patch("ryan_library.orchestrators.gdal.raster_workflows.build_external_overviews")
+def test_convert_rasters_single_file(mock_build, mock_trans, source_dir):
+    source = source_dir / "a.flt"
+
+    res = convert_rasters(source, extensions=("asc",), workers=1)
+
+    assert res == [source.with_suffix(".tif")]
+    mock_trans.assert_called_once()
+    mock_build.assert_called_once()
+
+
+@patch("ryan_library.orchestrators.gdal.raster_workflows.translate_to_geotiff")
+@patch("ryan_library.orchestrators.gdal.raster_workflows.build_external_overviews")
 def test_convert_rasters_parallel_skip(mock_build, mock_trans, source_dir):
     # Create an output that is newer to trigger the skip logic
     out_a = source_dir / "a.tif"

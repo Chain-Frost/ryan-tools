@@ -101,6 +101,9 @@ intended; the catalogue's `mutation` field identifies tools that create, replace
 # Recursively convert FLT/ASC/RST beside each source.
 python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst
 
+# Convert one explicitly selected raster.
+python gdal_translate_TIF_ovr.py --input-file "D:\Terrain\surface.asc"
+
 # Produce *_compress.tif, including from existing TIFF inputs.
 python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst tif tiff --output-suffix _compress
 
