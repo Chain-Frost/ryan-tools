@@ -74,7 +74,7 @@ def test_translate_wrapper_directory_override_supersedes_editable_file(
     monkeypatch.setattr(module, "convert_rasters", convert)
 
     assert module.main(working_directory=tmp_path) == 0
-    assert convert.call_args.args == (tmp_path,)
+    assert convert.call_args.kwargs["directory"] == tmp_path
 
 
 def test_translate_wrapper_converts_asc_fixture(
