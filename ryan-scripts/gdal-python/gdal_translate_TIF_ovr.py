@@ -7,6 +7,7 @@ options to override them for one run. The implementation lives in
 Examples::
 
     python gdal_translate_TIF_ovr.py "D:\Model\Grid"
+    python gdal_translate_TIF_ovr.py "D:\Model\Grid\surface.asc"
     python gdal_translate_TIF_ovr.py --working-directory "D:\Model\Grid" --profile efficient
 
 Common scenarios::
@@ -25,15 +26,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-10-28.1"
 
 # Editable defaults for normal double-click or IDE execution.
+INPUT_FILE: Path | None = None
 WORKING_DIR: Path = Path(__file__).absolute().parent
 CONSOLE_LOG_LEVEL = "INFO"
 PROFILE: RasterProfile = "tuflow"
 SOURCE_EXTENSIONS: tuple[str, ...] = ("flt", "asc", "rst", "xyz")
 OUTPUT_DIRECTORY: Path | None = None
-OUTPUT_SUFFIX = ""
+OUTPUT_SUFFIX: str = ""
 OVERVIEW_LEVELS: tuple[int, ...] = (2, 4, 8, 16, 32)
 OVERVIEW_RESAMPLING: OverviewResampling = "nearest"
 WORKERS: int | None = None
@@ -57,6 +59,7 @@ from ryan_library.orchestrators.gdal.raster_workflows import convert_rasters
 
 def main(
     *,
+    input_file: Path | None = None,
     working_directory: Path | None = None,
     console_log_level: str | None = None,
     profile: RasterProfile | None = None,
@@ -73,17 +76,29 @@ def main(
     """Resolve wrapper settings and run the shared raster-conversion workflow."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     # Resolve before chdir so relative CLI paths remain relative to the launch directory.
-    target_directory = (working_directory or WORKING_DIR).absolute()
-    configured_output_directory = output_directory or OUTPUT_DIRECTORY
-    resolved_output_directory = configured_output_directory.absolute() if configured_output_directory else None
+    selected_file: Path | None = (
+        input_file if input_file is not None else INPUT_FILE if working_directory is None else None
+    )
+    if selected_file is not None:
+        input_path: Path = selected_file.absolute()
+        if not input_path.is_file():
+            logger.error("Single-file input must be an existing file: {}", input_path)
+            return 1
+    else:
+        input_path = (working_directory or WORKING_DIR).absolute()
+    target_directory: Path = input_path.parent if input_path.is_file() else input_path
+    configured_output_directory: Path | None = output_directory or OUTPUT_DIRECTORY
+    resolved_output_directory: Path | None = (
+        configured_output_directory.absolute() if configured_output_directory else None
+    )
     if not change_working_directory(target_dir=target_directory):
         return 1
 
-    effective_log_level = console_log_level or CONSOLE_LOG_LEVEL
+    effective_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
     with setup_logger(console_log_level=effective_log_level):
         try:
-            outputs = convert_rasters(
-                target_directory,
+            outputs: list[Path] = convert_rasters(
+                directory=input_path,
                 extensions=extensions or SOURCE_EXTENSIONS,
                 output_directory=resolved_output_directory,
                 output_suffix=OUTPUT_SUFFIX if output_suffix is None else output_suffix,
@@ -109,6 +124,7 @@ def _parse_cli_arguments() -> argparse.Namespace:
         description="Convert FLT, ASC, RST, and XYZ rasters to GeoTIFF and build external overviews.",
         epilog=r"""Common examples:
   python gdal_translate_TIF_ovr.py "D:\Model\Grid"
+  python gdal_translate_TIF_ovr.py "D:\Model\Grid\surface.asc"
   python gdal_translate_TIF_ovr.py "D:\Model\Grid" --profile efficient
 
 Processing scenarios:
@@ -124,8 +140,12 @@ Processing scenarios:
 XYZ is an input format for this tool; outputs are always GeoTIFF.""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("directory", nargs="?", type=Path, help="Directory to process (positional shorthand).")
-    parser.add_argument("--working-directory", type=Path, help="Directory to process instead of WORKING_DIR.")
+    parser.add_argument(
+        "path", nargs="?", type=Path, help="Raster file or directory to process (positional shorthand)."
+    )
+    input_group = parser.add_mutually_exclusive_group()
+    input_group.add_argument("--input-file", type=Path, help="Process one explicitly selected raster file.")
+    input_group.add_argument("--working-directory", type=Path, help="Directory to process instead of WORKING_DIR.")
     parser.add_argument("--console-log-level", help="Log verbosity such as INFO or DEBUG.")
     parser.add_argument("--profile", choices=("tuflow", "efficient"))
     parser.add_argument(
@@ -147,13 +167,17 @@ XYZ is an input format for this tool; outputs are always GeoTIFF.""",
     parser.add_argument("--no-recursive", action="store_false", dest="recursive", default=None)
     parser.add_argument("--no-overviews", action="store_false", dest="build_overviews", default=None)
     parser.add_argument("--no-pause", action="store_true", help="Do not pause an interactive console on completion.")
-    return parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
+    if args.path is not None and (args.input_file is not None or args.working_directory is not None):
+        parser.error("the positional path cannot be combined with --input-file or --working-directory")
+    return args
 
 
 if __name__ == "__main__":
-    args = _parse_cli_arguments()
-    result = main(
-        working_directory=args.working_directory or args.directory,
+    args: argparse.Namespace = _parse_cli_arguments()
+    result: int = main(
+        input_file=args.input_file,
+        working_directory=args.working_directory or args.path,
         console_log_level=args.console_log_level,
         profile=args.profile,
         extensions=tuple(args.extensions) if args.extensions else None,
