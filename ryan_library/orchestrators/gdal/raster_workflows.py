@@ -65,10 +65,10 @@ def convert_rasters(
     Returns:
         Output TIFF paths, including current files that required no work.
     """
-    input_path = directory.absolute()
+    input_path: Path = directory.absolute()
     if input_path.is_file():
-        sources = [input_path]
-        source_root = input_path.parent
+        sources: list[Path] = [input_path]
+        source_root: Path = input_path.parent
     else:
         sources = _find_sources(input_path, extensions, recursive)
         source_root = input_path
@@ -84,8 +84,8 @@ def convert_rasters(
     )
 
     def process(source: Path) -> Path:
-        relative = source.relative_to(source_root)
-        output = output_root / relative.parent / f"{source.stem}{output_suffix}.tif"
+        relative: Path = source.relative_to(source_root)
+        output: Path = output_root / relative.parent / f"{source.stem}{output_suffix}.tif"
         # Timestamp checks avoid recompressing large terrain rasters on routine reruns.
         needs_conversion: bool = overwrite or not output.exists() or output.stat().st_mtime < source.stat().st_mtime
         if needs_conversion:
