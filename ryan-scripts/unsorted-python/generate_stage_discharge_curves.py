@@ -107,7 +107,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_OUTPUT_DIR,
         help="Dedicated output folder (created only after successful analysis).",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Validate inputs and calculations without writing files.")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Validate inputs and calculations without writing files."
+    )
     parser.add_argument(
         "--overwrite",
         action="store_true",
@@ -177,9 +179,7 @@ def build_column_lookup(result_types: list[str], locations: list[str]) -> dict[t
     return lookup
 
 
-def find_column(
-    lookup: dict[tuple[str, str], list[int]], result_type: str, location: str, path: Path
-) -> int | None:
+def find_column(lookup: dict[tuple[str, str], list[int]], result_type: str, location: str, path: Path) -> int | None:
     """Return a unique column, or None if this result file lacks the location."""
     matches = lookup.get((result_type, location), [])
     if len(matches) > 1:
@@ -391,9 +391,7 @@ def load_curve_data(
     fall_wl_grid = np.interp(grid, fall_flow, fall_wl, left=np.nan, right=np.nan)
     overlapping = np.isfinite(rise_wl_grid) & np.isfinite(fall_wl_grid)
     difference = (fall_wl_grid - rise_wl_grid)[overlapping]
-    use_falling = np.isfinite(fall_wl_grid) & (
-        ~np.isfinite(rise_wl_grid) | (fall_wl_grid > rise_wl_grid)
-    )
+    use_falling = np.isfinite(fall_wl_grid) & (~np.isfinite(rise_wl_grid) | (fall_wl_grid > rise_wl_grid))
     envelope_wl = np.fmax(rise_wl_grid, fall_wl_grid)
     if not np.all(np.isfinite(envelope_wl)):
         message = f"Unresolvable flow interval in {source}"
@@ -512,8 +510,10 @@ def _validate_output_directory(output_dir: Path, *, overwrite: bool) -> None:
         raise ValueError(message)
     expected = set(_SUMMARY_FILES) | {_REPORT_MARKER}
     for item in output_dir.iterdir():
-        if item.is_symlink() or not item.is_file() or not (
-            item.name in expected or item.name.endswith("_Stage_Discharge_Curve.png")
+        if (
+            item.is_symlink()
+            or not item.is_file()
+            or not (item.name in expected or item.name.endswith("_Stage_Discharge_Curve.png"))
         ):
             message = f"Refusing to replace unexpected content in {output_dir}: {item.name}"
             raise ValueError(message)
