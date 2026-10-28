@@ -83,7 +83,9 @@ area, not a geometric polygon footprint.
 ## XMDF alternative — mesh-vertex diagnostics
 
 Use `--source xmdf` to analyse temporal **mesh-vertex** outputs through
-PyTUFLOW 1.2 rather than reading hourly TIFs. An associated `.2dm` geometry
+PyTUFLOW 1.2 rather than reading hourly TIFs. PyTUFLOW is used **only for XMDF
+decoding**, not for the GeoTIFF or HPC-history workflows; no TPC integration is
+required. An associated `.2dm` geometry
 file is required by PyTUFLOW; it normally finds the matching file automatically.
 **XMDF does not embed a CRS**. You must supply the correct model CRS explicitly
 using `--xmdf-crs`. Only metre-based projected coordinates are accepted.
@@ -137,8 +139,15 @@ and optional h/d/V context, but **cannot establish dt hotspots without dt
 data**. An absent dataset is never treated as 0 or back-calculated from controls.
 A `dt` surface, where available, can itself contain historically retained
 minima, so co-timestamp controls do not automatically explain why it was low.
-Snapshots are always checked against actual `times()` and aligned arrays:
-the XMDF `NumTimes` attribute alone is not an authoritative length.
+Snapshots are selected using the **stored per-dataset XMDF Times arrays**,
+not PyTUFLOW's public `XMDF.times()`, which can reconstruct regular intervals
+that were never output (for example, fabricate hour 2 between stored hours
+0, 1 and 2.5). The PyTUFLOW-only adapter accesses the supported Python mesh
+driver's raw `times(data_type)` method and calls its `clear_cache()` after
+each processed snapshot to prevent retaining every full mesh surface in
+memory. That narrow driver bridge is version-sensitive and must be covered
+by native acceptance. The XMDF `NumTimes` attribute alone is not an
+authoritative length.
 
 This new input mode has synthetic adapter tests but **still requires native
 Windows/real XMDF acceptance**, including node-vs-element activity checks,
