@@ -233,6 +233,12 @@ def _update_overall(
     hour_of_minimum[newly_worst] = hour
 
 
+def _worst_cell_coordinates(record: Mapping[str, object], grid: GridDefinition) -> tuple[float, float]:
+    row = cast("int", record["worst_row"])
+    col = cast("int", record["worst_col"])
+    return cell_coordinates(grid.transform, row, col)
+
+
 def _attach_worst_hour_controls(
     records: Sequence[dict[str, object]],
     raster_sets: Sequence[HourlyRasterSet],
@@ -242,13 +248,11 @@ def _attach_worst_hour_controls(
     """Sample controls at each overall hotspot's worst-dt cell AND worst-dt hour."""
     by_hour: dict[int, list[dict[str, object]]] = defaultdict(list)
     for record in records:
-        by_hour[int(record["worst_hour"])].append(record)
+        by_hour[cast("int", record["worst_hour"])].append(record)
     lookup = {raster_set.hour: raster_set for raster_set in raster_sets}
     for hour, grouped in by_hour.items():
         raster_set = lookup[hour]
-        coordinates = [
-            cell_coordinates(grid.transform, int(record["worst_row"]), int(record["worst_col"])) for record in grouped
-        ]
+        coordinates = [_worst_cell_coordinates(record, grid) for record in grouped]
         for parameter in CONTROL_PARAMETERS:
             with rasterio.open(raster_set.paths[parameter]) as source:
                 samples = source.sample(coordinates, indexes=1, masked=True)
@@ -271,6 +275,21 @@ def _output_stamp(path: Path) -> tuple[int, int, int, int] | None:
     except FileNotFoundError:
         return None
     return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns
+
+
+def _publish_output(temp_path: Path, output: Path, *, overwrite: bool) -> None:
+    """Publish atomically without clobbering a newly created destination.
+
+    Windows Path.rename refuses existing destinations; elsewhere creating a
+    hardlink is an atomic no-clobber operation on the same filesystem.
+    """
+    if overwrite:
+        temp_path.replace(output)
+    elif os.name == "nt":
+        temp_path.rename(output)
+    else:
+        output.hardlink_to(temp_path)
+        temp_path.unlink()
 
 
 def run_hourly_dt_hotspot_workflow(config: HourlyHotspotConfig) -> HourlyHotspotResult:
@@ -373,7 +392,7 @@ def run_hourly_dt_hotspot_workflow(config: HourlyHotspotConfig) -> HourlyHotspot
         if config.output.is_symlink() or _output_stamp(config.output) != expected_output_stamp:
             message = f"Output was created or changed during processing: {config.output}"
             raise FileExistsError(message)
-        temp_path.replace(config.output)
+        _publish_output(temp_path, config.output, overwrite=config.overwrite)
     finally:
         temp_path.unlink(missing_ok=True)
     logger.success(

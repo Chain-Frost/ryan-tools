@@ -20,6 +20,11 @@ from scipy import ndimage
 PARAMETERS: tuple[str, ...] = ("dt", "Nu", "Nc", "Nd")
 CONTROL_PARAMETERS: tuple[str, ...] = ("Nu", "Nc", "Nd")
 DEFAULT_CONTROL_LIMITS: dict[str, float] = {"Nu": 1.0, "Nc": 1.0, "Nd": 0.3}
+
+
+def near_limit_threshold(limit: float, fraction: float) -> np.float32:
+    """Use source raster precision consistently when testing near-limit cells."""
+    return np.float32(limit * fraction)
 HOURLY_PATTERN = re.compile(
     r"^(?P<prefix>.+)_(?P<parameter>dt|Nu|Nc|Nd)_(?P<hour>\d{3})_00_00\.tif$",
     re.IGNORECASE,
@@ -208,7 +213,7 @@ def component_cells(
         local_rows, local_cols = np.nonzero(labels[region] == component_id)
         if len(local_rows) < min_cells:
             continue
-        yield component_id, local_rows + region[0].start, local_cols + region[1].start
+        yield component_id, local_rows + (region[0].start or 0), local_cols + (region[1].start or 0)
 
 
 def leading_control(values: Mapping[str, float | None], limits: Mapping[str, float]) -> str | None:
@@ -269,9 +274,11 @@ def hourly_dt_records(
             key = parameter.lower()
             record[f"{key}_at_min"] = at_min[parameter]
             record[f"{key}_peak"] = peak[parameter]
-            record[f"{key}_near"] = (
-                int(peak[parameter] >= near_limit_fraction * limits[parameter]) if peak[parameter] is not None else 0
+            peak_value = peak[parameter]
+            is_near = peak_value is not None and (
+                np.float32(peak_value) >= near_limit_threshold(limits[parameter], near_limit_fraction)
             )
+            record[f"{key}_near"] = int(is_near)
         yield record
 
 
@@ -291,7 +298,7 @@ def hourly_parameter_records(
     for parameter in CONTROL_PARAMETERS:
         values, valid = arrays[parameter]
         limit = limits[parameter]
-        mask = valid & (values >= near_limit_fraction * limit)
+        mask = valid & (values >= near_limit_threshold(limit, near_limit_fraction))
         for component_id, rows, cols in component_cells(mask, connectivity=connectivity, min_cells=min_cells):
             subset = values[rows, cols]
             max_index = int(np.argmax(subset))

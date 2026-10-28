@@ -232,3 +232,36 @@ def test_dry_run_can_validate_when_output_already_exists(tmp_path: Path) -> None
     report = run_hourly_dt_hotspot_workflow(HourlyHotspotConfig(tmp_path, output, dry_run=True))
     assert report.dry_run
     assert output.read_bytes() == b"do not modify"
+
+
+def test_float32_near_limit_boundary_agrees_across_layers(tmp_path: Path) -> None:
+    dt = np.full((2, 2), 10.0, dtype=np.float32)
+    dt[0, 0] = 2.0
+    nu = np.full((2, 2), 0.9, dtype=np.float32)
+    other = np.full((2, 2), 0.1, dtype=np.float32)
+    write_hour(tmp_path, 1, dt=dt, Nu=nu, Nc=other, Nd=other)
+    result = run_hourly_dt_hotspot_workflow(HourlyHotspotConfig(tmp_path, tmp_path / "boundary.gpkg"))
+    dt_records = records_from_layer(result.output, "hourly_dt_hotspots")
+    parameter_records = records_from_layer(result.output, "hourly_parameter_hotspots")
+    assert len(dt_records) == 1
+    assert dt_records[0]["nu_near"] == 1
+    assert any(record["parameter"] == "Nu" and record["cells_low_dt"] == 1 for record in parameter_records)
+
+
+def test_output_creation_race_preserves_competitor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    value = np.ones((2, 2), dtype=np.float32)
+    write_hour(tmp_path, 1, dt=value, Nu=value, Nc=value, Nd=value)
+    output = tmp_path / "raced.gpkg"
+    from ryan_library.orchestrators.tuflow import hourly_dt_hotspots as orchestrator
+
+    real_publish = orchestrator._publish_output
+
+    def concurrent_create(temp_path: Path, target: Path, *, overwrite: bool) -> None:
+        target.write_bytes(b"another process created this")
+        real_publish(temp_path, target, overwrite=overwrite)
+
+    monkeypatch.setattr(orchestrator, "_publish_output", concurrent_create)
+    with pytest.raises(FileExistsError):
+        run_hourly_dt_hotspot_workflow(HourlyHotspotConfig(tmp_path, output))
+    assert output.read_bytes() == b"another process created this"
+    assert not list(tmp_path.glob(".raced_*.gpkg"))
