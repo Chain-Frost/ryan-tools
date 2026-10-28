@@ -150,10 +150,10 @@ def _validate_output(config: HourlyHotspotConfig) -> None:
     if config.output.suffix.casefold() != ".gpkg":
         message = "Output path must be a .gpkg file"
         raise ValueError(message)
-    if config.output.is_symlink():
+    if not config.dry_run and config.output.is_symlink():
         message = f"Output path must not be a symbolic link: {config.output}"
         raise ValueError(message)
-    if config.output.exists() and (not config.overwrite or not config.output.is_file()):
+    if not config.dry_run and config.output.exists() and (not config.overwrite or not config.output.is_file()):
         message = f"Output already exists: {config.output}; use --overwrite to replace it"
         raise FileExistsError(message)
 
