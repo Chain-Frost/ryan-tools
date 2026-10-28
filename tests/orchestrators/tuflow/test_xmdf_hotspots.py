@@ -23,10 +23,15 @@ from ryan_library.orchestrators.tuflow.xmdf_hotspots import (
 
 
 class FakeXMDF:
-    def __init__(self, *, dt: bool = False, misalign: bool = False, shift_after_first: bool = False) -> None:
+    def __init__(
+        self, *, dt: bool = False, misalign: bool = False, shift_after_first: bool = False,
+        irregular_final: bool = False
+    ) -> None:
         self.with_dt = dt
         self.misalign = misalign
         self.shift_after_first = shift_after_first
+        self.irregular_final = irregular_final
+        self.cache_clears = 0
         self.names = ("Courant Number", "Shallow Wave Celerity Number", "Diffusion Number", "Depth")
         if dt:
             self.names = (*self.names, "dt")
@@ -34,8 +39,18 @@ class FakeXMDF:
     def data_types(self, filter_by: str | None = None) -> list[str]:  # noqa: ARG002 - Protocol keyword must match.
         return list(self.names)
 
-    def times(self, filter_by: str | None = None) -> list[float]:  # noqa: ARG002 - Protocol keyword must match.
+    def times(self, filter_by: str | None = None) -> list[float]:  # noqa: ARG002 - Legacy public API.
+        if self.irregular_final:
+            return [0.0, 1.0, 2.0, 2.5]  # PyTUFLOW public times() may invent the 2h snapshot.
         return [0.0, 0.0833333333333333, 0.16666666666666666]
+
+    def stored_times(self, data_type: str) -> list[float]:  # noqa: ARG002 - Protocol data type.
+        if self.irregular_final:
+            return [0.0, 1.0, 2.5]
+        return [0.0, 0.0833333333333333, 0.16666666666666666]
+
+    def clear_cache(self) -> None:
+        self.cache_clears += 1
 
     def surface(self, data_type: str, time: float) -> pd.DataFrame:
         high = np.float32(0.9 if time < 0.1 else 0.95)
@@ -108,6 +123,30 @@ def test_selected_times_preserve_subhourly_outputs() -> None:
     times = selected_xmdf_times(reader, names, start_time_hr=0, end_time_hr=0.17, every=1)
     assert len(times) == 3
     assert times[1] == pytest.approx(1 / 12)
+
+
+def test_stored_times_do_not_invent_irregular_output_snapshots() -> None:
+    reader = FakeXMDF(irregular_final=True)
+    names = resolve_xmdf_types(reader.data_types())
+    selected = selected_xmdf_times(reader, names, start_time_hr=None, end_time_hr=None, every=1)
+    assert reader.times() == [0.0, 1.0, 2.0, 2.5]
+    assert selected == (0.0, 1.0, 2.5)
+    assert 2.0 not in selected
+
+
+def test_cache_is_cleared_after_each_processed_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.orchestrators.tuflow import xmdf_hotspots as workflow
+
+    fake = FakeXMDF()
+
+    def reader(_path: Path, _mesh: Path | None) -> FakeXMDF:
+        return fake
+
+    monkeypatch.setattr(workflow, "_reader", reader)
+    source = make_file(tmp_path)
+    output = tmp_path / "bounded.gpkg"
+    report = run_xmdf_hotspot_workflow(XmdfHotspotConfig((source,), output, "EPSG:7851"))
+    assert fake.cache_clears == report.snapshots == 3
 
 
 def test_missing_dt_is_not_fabricated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
