@@ -222,8 +222,7 @@ def _write_points(path: Path, layer: str, records: Sequence[dict[str, object]], 
 def _write_metadata(path: Path, records: Sequence[dict[str, object]]) -> None:
     with fiona.open(path, "a", layer="xmdf_metadata") as output:
         output.writerecords(
-            {"geometry": None, "properties": {key: record.get(key) for key in _METADATA_SCHEMA}}
-            for record in records
+            {"geometry": None, "properties": {key: record.get(key) for key in _METADATA_SCHEMA}} for record in records
         )
 
 
@@ -245,9 +244,7 @@ def _publish(temp: Path, output: Path, *, overwrite: bool) -> None:
         temp.unlink()
 
 
-def _fetch_surfaces(
-    reader: XmdfReader, names: Mapping[str, str], time_hr: float
-) -> dict[str, XmdfVertexSurface]:
+def _fetch_surfaces(reader: XmdfReader, names: Mapping[str, str], time_hr: float) -> dict[str, XmdfVertexSurface]:
     """Load a single output time and enforce shared ordered vertex support."""
     surfaces: dict[str, XmdfVertexSurface] = {}
     reference: XmdfVertexSurface | None = None
@@ -262,9 +259,7 @@ def _fetch_surfaces(
     return surfaces
 
 
-def _matching_optional_types(
-    reader: XmdfReader, names: Mapping[str, str], times: tuple[float, ...]
-) -> dict[str, str]:
+def _matching_optional_types(reader: XmdfReader, names: Mapping[str, str], times: tuple[float, ...]) -> dict[str, str]:
     """Skip optional datasets that do not cover every selected time."""
     selected: dict[str, str] = {parameter: names[parameter] for parameter in REQUIRED_DATASETS}
     for parameter, label in names.items():
@@ -390,9 +385,7 @@ def _process_source(
             count_dt += _write_points(output, "xmdf_dt_hotspots", rows, _DT_SCHEMA)
             clipped += total - len(rows)
 
-    rows, summary_clipped = _summary_records(
-        mesh_name=xmdf.name, surfaces=last_surfaces, peaks=peaks, config=config
-    )
+    rows, summary_clipped = _summary_records(mesh_name=xmdf.name, surfaces=last_surfaces, peaks=peaks, config=config)
     count_summary = _write_points(output, "xmdf_control_summary", rows, _SUMMARY_SCHEMA)
     clipped += summary_clipped
     if clipped:
@@ -431,9 +424,7 @@ def run_xmdf_hotspot_workflow(config: XmdfHotspotConfig) -> XmdfHotspotResult:
         samples = 0
         matched_dt = 0
         for source in config.xmdf_files:
-            count, _, _, _, dt_present, _ = _process_source(
-                xmdf=source, config=config, output=None
-            )
+            count, _, _, _, dt_present, _ = _process_source(xmdf=source, config=config, output=None)
             samples += count
             matched_dt += dt_present
         logger.success("XMDF dry run: {} files, {} stored output snapshots", len(config.xmdf_files), samples)
@@ -452,9 +443,7 @@ def run_xmdf_hotspot_workflow(config: XmdfHotspotConfig) -> XmdfHotspotResult:
         _new_layer(staged, "xmdf_control_summary", _SUMMARY_SCHEMA, crs_wkt=wkt)
         _new_layer(staged, "xmdf_metadata", _METADATA_SCHEMA, crs_wkt=None)
         for source in config.xmdf_files:
-            nt, nc, ndt, ns, has_dt, details = _process_source(
-                xmdf=source, config=config, output=staged
-            )
+            nt, nc, ndt, ns, has_dt, details = _process_source(xmdf=source, config=config, output=staged)
             snapshots += nt
             controls += nc
             dts += ndt
@@ -475,4 +464,6 @@ def run_xmdf_hotspot_workflow(config: XmdfHotspotConfig) -> XmdfHotspotResult:
         summaries,
         config.output,
     )
-    return XmdfHotspotResult(config.output, len(config.xmdf_files), snapshots, controls, dts, summaries, dt_sources, False)
+    return XmdfHotspotResult(
+        config.output, len(config.xmdf_files), snapshots, controls, dts, summaries, dt_sources, False
+    )
