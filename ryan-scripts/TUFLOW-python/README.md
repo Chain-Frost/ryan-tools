@@ -50,6 +50,8 @@ relative subfolder names; full paths are still used for file operations.
 Green denotes a successful layer rename, yellow a skipped file (already
 correct or multiple layers), and red a failed inspection or rename.
 
+[`raster_processing/create_hourly_dt_hotspots.py`](raster_processing/create_hourly_dt_hotspots.py) creates hourly, time-aligned HPC dt/Nu/Nc/Nd hotspot points and a cross-hour summary. Its [interpretation and safety guide](raster_processing/HOURLY_DT_HOTSPOTS.md) specifies the hourly quartet, nominal Nd limit of 0.3, output layers and scoped validation. It is a maintained wrapper, but native large-model acceptance is pending.
+
 ## Wrapper folders
 
 | Folder | Purpose |
