@@ -5,6 +5,8 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 ## Open work
 
+| [TUFLOW HPC hourly dt/Nu/Nc/Nd hotspots](2026-10-28-hourly-hpc-dt-hotspots.md) | In validation | ChatGPT | 2026-10-28 | Exact-head CI and native Windows review | Run Ruff/Pyright/pytest, wheel and QGIS 2–3-hour smoke and representative memory benchmark; draft PR must remain unmerged. |
+
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
 | [TUFLOW proposed-run input preflight](2026-10-21-tuflow-input-preflight.md) | Active | ChatGPT | 2026-10-23 | 2026-10-30 | #156 merged into parent #143 at 298fb13 with all five workflows and final review passing. Publish bounded supported-harness lifecycle/docs cleanup and finish fresh exact-source paired Windows checks. Standalone/API/opt-in launcher are implemented; full 161/174 replay remains required. Earlier Nmx/42-run gates are superseded; native two-BC remains deferred. Parent is not merged to main. |
