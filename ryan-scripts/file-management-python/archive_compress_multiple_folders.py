@@ -24,7 +24,7 @@ import uuid
 from collections.abc import Sequence
 from pathlib import Path
 
-SCRIPT_VERSION = "2026-10-28.2"
+SCRIPT_VERSION = "2026-10-29.1"
 
 # ---------------------------------------------------------------------------
 # Editable settings (command-line arguments override these values)
