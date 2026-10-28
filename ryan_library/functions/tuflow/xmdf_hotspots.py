@@ -31,11 +31,12 @@ _DATASET_ALIASES: Mapping[str, tuple[str, ...]] = {
 
 
 class XmdfReader(Protocol):
-    """Stable portion of the public PyTUFLOW XMDF API used by this workflow."""
+    """Narrow adapter for PyTUFLOW XMDF surfaces and stored-time access."""
 
     def data_types(self, filter_by: str | None = None) -> list[str]: ...
-    def times(self, filter_by: str | None = None) -> list[float]: ...
+    def stored_times(self, data_type: str) -> list[float]: ...
     def surface(self, data_type: str, time: float) -> pd.DataFrame: ...
+    def clear_cache(self) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,22 +115,28 @@ def selected_xmdf_times(
 ) -> tuple[float, ...]:
     """Select actual stored output timestamps, not an assumed hourly calendar."""
     _validate_time_options(start_time_hr, end_time_hr, every)
-    times = sorted({float(value) for value in reader.times()})
-    if not times or not all(np.isfinite(t) for t in times):
-        message = "XMDF has no valid temporal output timestamps"
+    if not names:
+        message = "Select at least one XMDF temporal dataset"
+        raise ValueError(message)
+    reference_type = next(iter(names.values()))
+    # XMDF.times() can synthesize a regular interval from start/end/dt.
+    # The PyTUFLOW adapter reads the actual stored dataset Times array instead.
+    actual = np.asarray(reader.stored_times(reference_type), dtype=np.float64)
+    if not actual.size or not np.all(np.isfinite(actual)) or np.any(np.diff(actual) <= 0):
+        message = f"XMDF {reference_type} has invalid, duplicate or unordered stored output times"
         raise ValueError(message)
     filtered = tuple(
-        t
-        for t in times
+        float(t)
+        for t in actual
         if (start_time_hr is None or t >= start_time_hr - 1e-8) and (end_time_hr is None or t <= end_time_hr + 1e-8)
     )[::every]
     if not filtered:
         message = "No XMDF times are within the selected range"
         raise ValueError(message)
     for parameter, data_type in names.items():
-        available = np.asarray(reader.times(data_type), dtype=np.float64)
-        if not available.size or not np.all(np.isfinite(available)):
-            message = f"XMDF {parameter} has no valid temporal data"
+        available = np.asarray(reader.stored_times(data_type), dtype=np.float64)
+        if not available.size or not np.all(np.isfinite(available)) or np.any(np.diff(available) <= 0):
+            message = f"XMDF {parameter} has invalid, duplicate or unordered stored output times"
             raise ValueError(message)
         for time_hr in filtered:
             if not np.any(np.isclose(available, time_hr, atol=1e-7, rtol=0.0)):
