@@ -84,9 +84,7 @@ def test_dataset_names_are_explicit_and_unambiguous() -> None:
 def test_selected_times_preserve_subhourly_outputs() -> None:
     reader = FakeXMDF()
     names = resolve_xmdf_types(reader.data_types())
-    times = selected_xmdf_times(
-        reader, names, start_time_hr=0, end_time_hr=0.17, every=1
-    )
+    times = selected_xmdf_times(reader, names, start_time_hr=0, end_time_hr=0.17, every=1)
     assert len(times) == 3
     assert times[1] == pytest.approx(1 / 12)
 
@@ -97,9 +95,7 @@ def test_missing_dt_is_not_fabricated(tmp_path: Path, monkeypatch: pytest.Monkey
     monkeypatch.setattr(workflow, "_reader", lambda *_args: FakeXMDF())
     source = make_file(tmp_path)
     destination = tmp_path / "xmdf.gpkg"
-    report = run_xmdf_hotspot_workflow(
-        XmdfHotspotConfig((source,), destination, "EPSG:7851", max_points_per_type=100)
-    )
+    report = run_xmdf_hotspot_workflow(XmdfHotspotConfig((source,), destination, "EPSG:7851", max_points_per_type=100))
     assert report.dt_sources == 0
     assert report.dt_features == 0
     assert report.snapshots == 3
@@ -121,9 +117,7 @@ def test_optional_dt_reports_actual_mesh_values(tmp_path: Path, monkeypatch: pyt
     monkeypatch.setattr(workflow, "_reader", lambda *_args: FakeXMDF(dt=True))
     source = make_file(tmp_path)
     output = tmp_path / "dt.gpkg"
-    report = run_xmdf_hotspot_workflow(
-        XmdfHotspotConfig((source,), output, "EPSG:7851", start_time_hr=0.1)
-    )
+    report = run_xmdf_hotspot_workflow(XmdfHotspotConfig((source,), output, "EPSG:7851", start_time_hr=0.1))
     assert report.dt_sources == 1
     assert report.snapshots == 1
     dt = properties(output, "xmdf_dt_hotspots")
@@ -178,9 +172,7 @@ def test_point_cap_retains_total_and_worst_values(tmp_path: Path, monkeypatch: p
     monkeypatch.setattr(workflow, "_reader", lambda *_args: FakeXMDF())
     source = make_file(tmp_path)
     output = tmp_path / "capped.gpkg"
-    run_xmdf_hotspot_workflow(
-        XmdfHotspotConfig((source,), output, "EPSG:7851", max_points_per_type=1, end_time_hr=0)
-    )
+    run_xmdf_hotspot_workflow(XmdfHotspotConfig((source,), output, "EPSG:7851", max_points_per_type=1, end_time_hr=0))
     nu = [row for row in properties(output, "xmdf_control_hotspots") if row["parameter"] == "Nu"]
     assert len(nu) == 1
     assert nu[0]["near_nodes_total"] == 1
