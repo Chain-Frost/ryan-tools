@@ -321,12 +321,16 @@ def plot_curve(
     plt.switch_backend("Agg")
     fig, ax = plt.subplots(figsize=(9.0, 6.0))
     fig.subplots_adjust(left=0.10, right=0.90, bottom=0.12, top=0.86)
-    depth_axis = ax.twinx()
-    ax.plot(flow, water_level, color="#005A9C", linewidth=1.4, zorder=3)
+    depth_axis = ax.twinx()  # pyright: ignore[reportUnknownMemberType]
+    ax.plot(  # pyright: ignore[reportUnknownMemberType]
+        flow, water_level, color="#005A9C", linewidth=1.4, zorder=3
+    )
 
     for peak in sorted(peak_flows, key=lambda item: float(item.aep_label.removesuffix("%")), reverse=True):
-        ax.axvline(peak.value, color="#C62828", linestyle="--", linewidth=1.15, alpha=0.9, zorder=1)
-        ax.annotate(
+        ax.axvline(  # pyright: ignore[reportUnknownMemberType]
+            peak.value, color="#C62828", linestyle="--", linewidth=1.15, alpha=0.9, zorder=1
+        )
+        ax.annotate(  # pyright: ignore[reportUnknownMemberType]
             f"{peak.aep_label} AEP\n{peak.value:.1f} m$^3$/s",
             xy=(peak.value, 1.010),
             xycoords=("data", "axes fraction"),
@@ -345,14 +349,16 @@ def plot_curve(
             zorder=5,
         )
 
-    ax.set_title(reference.identifier, fontsize=14, fontweight="bold", y=1.095)
-    ax.set_xlabel("Flow rate (m$^3$/s)")
-    ax.set_ylabel("Water level (mAHD)")
-    depth_axis.set_ylabel("Depth (m)")
-    ax.grid(True, which="major", color="#D9D9D9", linewidth=0.8)
-    ax.grid(True, which="minor", color="#EEEEEE", linewidth=0.5)
+    ax.set_title(  # pyright: ignore[reportUnknownMemberType]
+        reference.identifier, fontsize=14, fontweight="bold", y=1.095
+    )
+    ax.set_xlabel("Flow rate (m$^3$/s)")  # pyright: ignore[reportUnknownMemberType]
+    ax.set_ylabel("Water level (mAHD)")  # pyright: ignore[reportUnknownMemberType]
+    depth_axis.set_ylabel("Depth (m)")  # pyright: ignore[reportUnknownMemberType]
+    ax.grid(True, which="major", color="#D9D9D9", linewidth=0.8)  # pyright: ignore[reportUnknownMemberType]
+    ax.grid(True, which="minor", color="#EEEEEE", linewidth=0.5)  # pyright: ignore[reportUnknownMemberType]
     ax.minorticks_on()
-    depth_axis.grid(False)
+    depth_axis.grid(False)  # pyright: ignore[reportUnknownMemberType]
 
     all_x = np.concatenate((flow, np.array([peak.value for peak in peak_flows])))
     x_min, x_max = float(np.min(all_x)), float(np.max(all_x))
@@ -365,16 +371,18 @@ def plot_curve(
     primary_max = wl_max + 0.10 * wl_span
     ax.set_ylim(primary_min, primary_max)
 
-    fig.canvas.draw()
+    fig.canvas.draw()  # pyright: ignore[reportUnknownMemberType]
     primary_ticks = np.array(
         [tick for tick in ax.get_yticks() if primary_min - 1e-9 <= tick <= primary_max + 1e-9],
         dtype=float,
     )
     depth_axis.set_ylim(primary_min - point_datum, primary_max - point_datum)
-    depth_axis.set_yticks(primary_ticks - point_datum)
-    depth_axis.set_yticklabels([f"{tick - point_datum:.1f}" for tick in primary_ticks])
+    depth_axis.set_yticks(primary_ticks - point_datum)  # pyright: ignore[reportUnknownMemberType]
+    depth_axis.set_yticklabels(  # pyright: ignore[reportUnknownMemberType]
+        [f"{tick - point_datum:.1f}" for tick in primary_ticks]
+    )
 
-    fig.savefig(output_path, dpi=200, facecolor="white")
+    fig.savefig(output_path, dpi=200, facecolor="white")  # pyright: ignore[reportUnknownMemberType]
     plt.close(fig)
 
 
