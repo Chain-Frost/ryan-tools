@@ -13,6 +13,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
+import re
+import shutil
+import sys
+import tempfile
+import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,15 +27,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-DEFAULT_RESULTS_ROOT = Path(
-    r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO"
-    r"\TUFLOW_MLGD\results\v06\FG01"
+# Generic examples only; use CLI arguments or edit for a particular project.
+SCRIPT_VERSION = "2026-10-29.1"
+DEFAULT_RESULTS_ROOT = Path(r"C:\Data\TUFLOW\results\FG01")
+DEFAULT_REFERENCE = Path(r"C:\Data\References\Bridge_PO_reference.csv")
+# A dedicated output directory; this script does not write into arbitrary existing folders.
+DEFAULT_OUTPUT_DIR = Path(r"C:\Data\Reports\Stage_Discharge")
+_REPORT_MARKER = ".stage_discharge_report"
+_SUMMARY_FILES = (
+    "Stage_Discharge_Curve_Selection_Summary.csv",
+    "Stage_Discharge_AEP_Peak_Flows.csv",
+    "Stage_Discharge_Limb_Comparison.csv",
 )
-DEFAULT_OUTPUT_DIR = Path(
-    r"P:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO"
-    r"\4 ENGINEERING\11 HYDROLOGY\Stage Discharge Curve"
-)
-DEFAULT_REFERENCE = DEFAULT_OUTPUT_DIR / "Bridge PO reference.csv"
+_WINDOWS_RESERVED = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
 
 
 @dataclass(frozen=True)
@@ -55,7 +70,7 @@ class CurveSelection:
     paired_data_points: int
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--results-root",
@@ -78,9 +93,31 @@ def parse_args() -> argparse.Namespace:
         "--output-dir",
         type=Path,
         default=DEFAULT_OUTPUT_DIR,
-        help="Folder for plots and summary CSVs.",
+        help="Dedicated output folder (created only after successful analysis).",
     )
-    return parser.parse_args()
+    parser.add_argument("--dry-run", action="store_true", help="Validate inputs and calculations without writing files.")
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Replace an existing report folder only when created by this script.",
+    )
+    return parser.parse_args(argv)
+
+
+def _validate_reference_id(identifier: str) -> str:
+    """Keep Windows output names unambiguous and within the report directory."""
+    name = identifier.strip()
+    if (
+        not name
+        or name in {".", ".."}
+        or any(char in name for char in '\\\\/:*?"<>|')
+        or any(ord(char) < 32 for char in name)
+        or name.endswith((".", " "))
+        or name.split(".", 1)[0].upper() in _WINDOWS_RESERVED
+    ):
+        message = f"Unsafe reference ID for an output filename: {identifier!r}"
+        raise ValueError(message)
+    return name
 
 
 def read_reference(path: Path) -> list[ReferenceRow]:
@@ -94,15 +131,19 @@ def read_reference(path: Path) -> list[ReferenceRow]:
 
     references = [
         ReferenceRow(
-            identifier=row["ID"].strip(),
+            identifier=_validate_reference_id(row["ID"]),
             flow_line=row["Flow Line"].strip(),
             water_level_point=row["Water Level Point"].strip(),
         )
         for row in rows
     ]
-    if len({row.identifier for row in references}) != len(references):
-        message = "Reference IDs must be unique"
-        raise RuntimeError(message)
+    if any(not row.flow_line or not row.water_level_point for row in references):
+        message = "Reference rows must have non-empty Flow Line and Water Level Point values"
+        raise ValueError(message)
+    identifiers = [row.identifier.casefold() for row in references]
+    if len(set(identifiers)) != len(identifiers):
+        message = "Reference IDs must be unique ignoring Windows filename case"
+        raise ValueError(message)
     return references
 
 
@@ -124,6 +165,17 @@ def build_column_lookup(result_types: list[str], locations: list[str]) -> dict[t
     return lookup
 
 
+def find_column(
+    lookup: dict[tuple[str, str], list[int]], result_type: str, location: str, path: Path
+) -> int | None:
+    """Return a unique column, or None if this result file lacks the location."""
+    matches = lookup.get((result_type, location), [])
+    if len(matches) > 1:
+        message = f"{path.name}: duplicate {result_type!r}/{location!r} columns"
+        raise RuntimeError(message)
+    return matches[0] if matches else None
+
+
 def require_column(lookup: dict[tuple[str, str], list[int]], result_type: str, location: str, path: Path) -> int:
     matches = lookup.get((result_type, location), [])
     if len(matches) != 1:
@@ -132,10 +184,8 @@ def require_column(lookup: dict[tuple[str, str], list[int]], result_type: str, l
     return matches[0]
 
 
-def select_curve_files(
-    curve_folder: Path,
-    references: list[ReferenceRow],
-) -> dict[str, CurveSelection]:
+def select_curve_files(curve_folder: Path, references: list[ReferenceRow]) -> dict[str, CurveSelection]:
+    """Choose the highest water-level hydrograph independently per reference."""
     po_files = sorted(curve_folder.glob("*_PO.csv"))
     if not po_files:
         message = f"No *_PO.csv files found in {curve_folder}"
@@ -145,41 +195,49 @@ def select_curve_files(
     for po_file in po_files:
         result_types, locations = read_two_row_header(po_file)
         lookup = build_column_lookup(result_types, locations)
+        if len(result_types) < 2:
+            message = f"{po_file.name}: missing time column in two-row header"
+            raise RuntimeError(message)
         indices = {1}
         columns: dict[str, tuple[int, int]] = {}
         for reference in references:
-            flow_index = require_column(lookup, "Flow", reference.flow_line, po_file)
-            wl_index = require_column(lookup, "Water Level", reference.water_level_point, po_file)
+            flow_index = find_column(lookup, "Flow", reference.flow_line, po_file)
+            wl_index = find_column(lookup, "Water Level", reference.water_level_point, po_file)
+            if flow_index is None or wl_index is None:
+                continue
             columns[reference.identifier] = (flow_index, wl_index)
             indices.update((flow_index, wl_index))
+        if not columns:
+            continue
 
         frame = pd.read_csv(po_file, skiprows=2, header=None, usecols=sorted(indices), low_memory=False)
         time = pd.to_numeric(frame[1], errors="coerce").to_numpy(dtype=float)
-
         for reference in references:
-            flow_index, wl_index = columns[reference.identifier]
-            flow = pd.to_numeric(frame[flow_index], errors="coerce").to_numpy(dtype=float)
-            water_level = pd.to_numeric(frame[wl_index], errors="coerce").to_numpy(dtype=float)
+            pair = columns.get(reference.identifier)
+            if pair is None:
+                continue
+            flow = pd.to_numeric(frame[pair[0]], errors="coerce").to_numpy(dtype=float)
+            water_level = pd.to_numeric(frame[pair[1]], errors="coerce").to_numpy(dtype=float)
             valid = np.isfinite(time) & np.isfinite(flow) & np.isfinite(water_level)
             if not np.any(valid):
-                message = f"{po_file.name}: no paired data for {reference.identifier}"
-                raise RuntimeError(message)
-
-            valid_time = time[valid]
-            valid_flow = flow[valid]
-            valid_wl = water_level[valid]
-            maximum_index = int(np.argmax(valid_wl))
+                continue
+            indices_valid = np.flatnonzero(valid)
+            maximum_index = int(indices_valid[np.argmax(water_level[valid])])
             selection = CurveSelection(
                 source=po_file,
-                maximum_water_level=float(valid_wl[maximum_index]),
-                time_at_maximum=float(valid_time[maximum_index]),
-                flow_at_maximum=float(valid_flow[maximum_index]),
-                paired_data_points=len(valid_wl),
+                maximum_water_level=float(water_level[maximum_index]),
+                time_at_maximum=float(time[maximum_index]),
+                flow_at_maximum=float(flow[maximum_index]),
+                paired_data_points=len(indices_valid),
             )
             previous = best.get(reference.identifier)
             if previous is None or selection.maximum_water_level > previous.maximum_water_level:
                 best[reference.identifier] = selection
 
+    missing = [ref.identifier for ref in references if ref.identifier not in best]
+    if missing:
+        message = f"No valid PO hydrograph found for reference(s): {', '.join(missing)}"
+        raise RuntimeError(message)
     return best
 
 
@@ -192,6 +250,7 @@ def aep_label(folder_name: str) -> str:
 
 
 def select_peak_flows(results_root: Path, references: list[ReferenceRow]) -> dict[str, list[PeakFlow]]:
+    """Find finite maximum flow values separately for each reference and AEP."""
     aep_folders = sorted(
         (folder for folder in results_root.iterdir() if folder.is_dir() and list(folder.glob("*_POMM.csv"))),
         key=aep_sort_key,
@@ -203,38 +262,52 @@ def select_peak_flows(results_root: Path, references: list[ReferenceRow]) -> dic
     selected: dict[str, list[PeakFlow]] = {reference.identifier: [] for reference in references}
     for folder in aep_folders:
         pomm_files = sorted(folder.glob("*_POMM.csv"))
-        best: dict[str, tuple[float, Path]] = {
-            reference.identifier: (float("-inf"), pomm_files[0]) for reference in references
-        }
+        best: dict[str, tuple[float, Path] | None] = {reference.identifier: None for reference in references}
 
         for pomm_file in pomm_files:
             with pomm_file.open("r", encoding="utf-8-sig", newline="") as handle:
                 reader = csv.reader(handle)
-                result_types = next(reader)
-                locations = next(reader)
-                maximum_row = next(reader)
+                try:
+                    result_types = next(reader)
+                    locations = next(reader)
+                    maximum_row = next(reader)
+                except StopIteration as error:
+                    message = f"Incomplete POMM header or maximum row in {pomm_file}"
+                    raise RuntimeError(message) from error
             if len(maximum_row) < 2 or "Maximum" not in maximum_row[1]:
                 message = f"Maximum row not found in {pomm_file}"
                 raise RuntimeError(message)
             lookup = build_column_lookup(result_types, locations)
-
             for reference in references:
-                index = require_column(lookup, "Flow", reference.flow_line, pomm_file)
-                value = float(maximum_row[index])
-                if value > best[reference.identifier][0]:
+                index = find_column(lookup, "Flow", reference.flow_line, pomm_file)
+                if index is None:
+                    continue
+                if index >= len(maximum_row):
+                    message = f"Missing maximum value for {reference.identifier} in {pomm_file.name}"
+                    raise RuntimeError(message)
+                try:
+                    value = float(maximum_row[index])
+                except ValueError:
+                    value = float("nan")
+                if not math.isfinite(value):
+                    print(
+                        f"WARNING: Ignoring non-finite flow maximum for {reference.identifier} in {pomm_file.name}",
+                        file=sys.stderr,
+                    )
+                    continue
+                previous = best[reference.identifier]
+                if previous is None or value > previous[0]:
                     best[reference.identifier] = (value, pomm_file)
 
         for reference in references:
-            value, source = best[reference.identifier]
+            result = best[reference.identifier]
+            if result is None:
+                message = f"No finite POMM maximum for reference {reference.identifier} in AEP {folder.name}"
+                raise RuntimeError(message)
+            value, source = result
             selected[reference.identifier].append(
-                PeakFlow(
-                    aep_folder=folder.name,
-                    aep_label=aep_label(folder.name),
-                    value=value,
-                    source=source,
-                )
+                PeakFlow(aep_folder=folder.name, aep_label=aep_label(folder.name), value=value, source=source)
             )
-
     return selected
 
 
