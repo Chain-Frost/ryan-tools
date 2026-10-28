@@ -313,6 +313,25 @@ def _summary_records(
     return out, skipped
 
 
+def _checked_snapshot_coordinates(
+    reference: tuple[NDArray[np.float64], NDArray[np.float64]] | None,
+    surface: XmdfVertexSurface,
+    source_name: str,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Confirm a node index keeps the same coordinates at every timestamp."""
+    if reference is None:
+        return surface.x.copy(), surface.y.copy()
+    reference_x, reference_y = reference
+    if (
+        surface.size != len(reference_x)
+        or not np.allclose(surface.x, reference_x, rtol=0.0, atol=1e-6)
+        or not np.allclose(surface.y, reference_y, rtol=0.0, atol=1e-6)
+    ):
+        message = f"XMDF {source_name} vertex coordinates/order changed between output timestamps"
+        raise ValueError(message)
+    return reference
+
+
 def _process_source(
     *,
     xmdf: Path,
@@ -344,18 +363,7 @@ def _process_source(
     reference_coordinates: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None
     for time_hr in times:
         surfaces = _fetch_surfaces(reader, active_names, time_hr)
-        control_surface = surfaces["Nu"]
-        if reference_coordinates is None:
-            reference_coordinates = (control_surface.x.copy(), control_surface.y.copy())
-        else:
-            ref_x, ref_y = reference_coordinates
-            if (
-                control_surface.size != len(ref_x)
-                or not np.allclose(control_surface.x, ref_x, rtol=0.0, atol=1e-6)
-                or not np.allclose(control_surface.y, ref_y, rtol=0.0, atol=1e-6)
-            ):
-                message = f"XMDF {xmdf.name} vertex coordinates/order changed between output timestamps"
-                raise ValueError(message)
+        reference_coordinates = _checked_snapshot_coordinates(reference_coordinates, surfaces["Nu"], xmdf.name)
         last_surfaces = surfaces
         dt = surfaces.get("dt")
         optional = {
