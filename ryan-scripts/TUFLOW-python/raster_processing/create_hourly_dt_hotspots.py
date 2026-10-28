@@ -104,9 +104,18 @@ def _output_path(args: argparse.Namespace, base: Path, default_name: Path) -> Pa
 
 def _run_tif(args: argparse.Namespace) -> tuple[Path, HourlyHotspotConfig]:
     if args.xmdf is not None or any(
-        value is not None for value in (
-            args.xmdf_crs, args.xmdf_mesh, args.nu_dataset, args.nc_dataset, args.nd_dataset,
-            args.dt_dataset, args.start_time, args.end_time, args.time_stride, args.max_points_per_type,
+        value is not None
+        for value in (
+            args.xmdf_crs,
+            args.xmdf_mesh,
+            args.nu_dataset,
+            args.nc_dataset,
+            args.nd_dataset,
+            args.dt_dataset,
+            args.start_time,
+            args.end_time,
+            args.time_stride,
+            args.max_points_per_type,
         )
     ):
         message = "XMDF options are not valid with --source tif"
@@ -136,7 +145,14 @@ def _run_tif(args: argparse.Namespace) -> tuple[Path, HourlyHotspotConfig]:
 def _run_xmdf(args: argparse.Namespace) -> tuple[Path, XmdfHotspotConfig]:
     if any(
         value is not None
-        for value in (args.grid_dir, args.prefix, args.min_hour, args.max_hour, args.connectivity, args.min_component_cells)
+        for value in (
+            args.grid_dir,
+            args.prefix,
+            args.min_hour,
+            args.max_hour,
+            args.connectivity,
+            args.min_component_cells,
+        )
     ):
         message = "TIF raster and connectivity options are not valid with --source xmdf"
         raise ValueError(message)
@@ -164,7 +180,9 @@ def _run_xmdf(args: argparse.Namespace) -> tuple[Path, XmdfHotspotConfig]:
         mesh_file=(
             args.xmdf_mesh.absolute()
             if args.xmdf_mesh is not None
-            else DEFAULT_XMDF_MESH.absolute() if DEFAULT_XMDF_MESH is not None else None
+            else DEFAULT_XMDF_MESH.absolute()
+            if DEFAULT_XMDF_MESH is not None
+            else None
         ),
         dataset_names={name: value for name, value in mappings.items() if value is not None},
         start_time_hr=args.start_time if args.start_time is not None else DEFAULT_START_TIME_HR,
