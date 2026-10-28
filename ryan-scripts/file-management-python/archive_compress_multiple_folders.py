@@ -83,6 +83,9 @@ def _publish_archive(temporary_archive: Path, output_archive: Path) -> None:
         return
     try:
         os.link(temporary_archive, output_archive)
+    except FileExistsError:
+        message = f"Output archive already exists: {output_archive}"
+        raise FileExistsError(message) from None
     except OSError as error:
         message = "This filesystem cannot atomically publish a ZIP without replacing an existing file"
         raise OSError(message) from error
