@@ -128,6 +128,47 @@ def test_find_check_folders_walks_nested_directories_only(utility: ModuleType, t
     assert utility.find_check_folders(root) == sorted((first, second, third), key=lambda path: str(path).casefold())
 
 
+def test_nested_check_folders_scan_each_file_once(utility: ModuleType, tmp_path: Path) -> None:
+    """Nested check directories must not make a file its own duplicate."""
+    outer = tmp_path / "result" / "check"
+    inner = outer / "nested" / "checks"
+    inner.mkdir(parents=True)
+    (outer / "outer.qml").write_bytes(b"outer")
+    inner_file = inner / "inner.qml"
+    inner_file.write_bytes(b"inner")
+
+    folders = utility.find_check_folders(tmp_path)
+    assert set(folders) == {outer, inner}
+    records = utility.iter_files_in_check_folders(folders)
+
+    assert len(records) == 2
+    assert {record.path for record in records} == {outer / "outer.qml", inner_file}
+    assert next(record.check_folder for record in records if record.path == inner_file) == inner
+
+    groups = utility.find_duplicate_groups(utility.add_hashes_to_candidates(records))
+    assert groups == []
+
+
+def test_self_delete_action_is_rejected(utility: ModuleType, tmp_path: Path) -> None:
+    """Never unlink a path if it also names the retained copy."""
+    folder = check_folder(tmp_path, "same-file")
+    source = folder / "kept.qml"
+    source.write_bytes(b"important")
+    metadata = source.stat()
+    action = utility.DeleteAction(
+        delete_file=source,
+        keep_file=source,
+        delete_mtime_ns=metadata.st_mtime_ns,
+        keep_mtime_ns=metadata.st_mtime_ns,
+        suffix=".qml",
+        size_bytes=metadata.st_size,
+        content_hash=utility.file_hash(source),
+    )
+
+    assert utility.delete_duplicate_file(action) is False
+    assert source.read_bytes() == b"important"
+
+
 def test_duplicates_compare_across_check_and_checks_folders(utility: ModuleType, tmp_path: Path) -> None:
     first = tmp_path / "GD2" / "check"
     second = tmp_path / "MLTP" / "checks"
