@@ -17,6 +17,7 @@ import fiona
 import numpy as np
 import rasterio
 from loguru import logger
+from rasterio.errors import CRSError
 from numpy.typing import NDArray
 
 from ...functions.tuflow.hourly_dt_hotspots import DEFAULT_CONTROL_LIMITS, near_limit_threshold
@@ -98,7 +99,7 @@ class XmdfHotspotConfig:
     output: Path
     crs: str
     mesh_file: Path | None = None
-    dataset_names: Mapping[str, str] = field(default_factory=dict)
+    dataset_names: Mapping[str, str] = field(default_factory=lambda: dict[str, str]())
     start_time_hr: float | None = None
     end_time_hr: float | None = None
     time_stride: int = 1
@@ -181,7 +182,7 @@ def _validate_destination(config: XmdfHotspotConfig) -> None:
 def _validate_crs(value: str) -> str:
     try:
         crs = rasterio.crs.CRS.from_user_input(value)
-    except (ValueError, rasterio.errors.CRSError) as error:
+    except (ValueError, CRSError) as error:
         message = f"Invalid XMDF CRS {value!r}"
         raise ValueError(message) from error
     if not crs.is_projected:
@@ -327,7 +328,7 @@ def _process_source(
     if not has_dt:
         logger.warning("{}: no temporal dt dataset; exporting control-number hotspots only", xmdf.name)
     if output is None:
-        meta = {"mesh_file": xmdf.name, "time_count": len(times), "dt_available": int(has_dt)}
+        meta: dict[str, object] = {"mesh_file": xmdf.name, "time_count": len(times), "dt_available": int(has_dt)}
         return len(times), 0, 0, 0, int(has_dt), meta
 
     peaks: dict[str, _Peak] = {}
