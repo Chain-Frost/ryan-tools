@@ -264,15 +264,26 @@ def is_placeholder_file(path: Path) -> bool:
 
 
 def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
-    """Return file records for all normal files inside discovered check folders."""
-    records: list[FileRecord] = []
+    """List each path once, assigning nested check files to their closest check folder.
 
-    for check_folder in check_folders:
+    A parent check folder's recursive scan also visits nested check/checks folders.
+    Without this guard, one file can appear twice and be labelled a duplicate of itself.
+    """
+    records: list[FileRecord] = []
+    seen_paths: set[Path] = set()
+
+    # Scan the most specific check folders first so nested files belong to them.
+    for check_folder in sorted(check_folders, key=lambda folder: (-len(folder.parts), str(folder).casefold())):
         resolved_check_folder = absolute_path(check_folder)
 
         for path in sorted(resolved_check_folder.rglob("*"), key=lambda p: str(p).lower()):
             if not path.is_file():
                 continue
+
+            file_path = absolute_path(path)
+            if file_path in seen_paths:
+                continue
+            seen_paths.add(file_path)
 
             if is_placeholder_file(path):
                 continue
@@ -285,7 +296,7 @@ def iter_files_in_check_folders(check_folders: list[Path]) -> list[FileRecord]:
             records.append(
                 FileRecord(
                     check_folder=resolved_check_folder,
-                    path=absolute_path(path),
+                    path=file_path,
                     suffix=path.suffix.lower(),
                     size_bytes=file_stat.st_size,
                     mtime_ns=file_stat.st_mtime_ns,
@@ -445,6 +456,9 @@ def build_delete_actions(duplicate_groups: list[DuplicateGroup], records: list[F
 
     for group in duplicate_groups:
         for delete_file in group.delete_files:
+            if delete_file == group.keep_file:
+                message = f"Refusing to delete a file that is also its retained copy: {delete_file}"
+                raise ValueError(message)
             actions.append(
                 DeleteAction(
                     delete_file=delete_file,
@@ -1127,6 +1141,9 @@ def delete_duplicate_file(action: DeleteAction) -> bool:
     Returns True only if the file was actually deleted.
     """
     path = action.delete_file
+    if path == action.keep_file:
+        print(f"Refusing self-deletion: {path}")
+        return False
 
     if DRY_RUN:
         print(f"DRY RUN - would delete: {path}")
