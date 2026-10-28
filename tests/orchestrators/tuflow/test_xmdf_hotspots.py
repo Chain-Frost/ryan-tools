@@ -23,9 +23,7 @@ from ryan_library.orchestrators.tuflow.xmdf_hotspots import (
 
 
 class FakeXMDF:
-    def __init__(
-        self, *, dt: bool = False, misalign: bool = False, shift_after_first: bool = False
-    ) -> None:
+    def __init__(self, *, dt: bool = False, misalign: bool = False, shift_after_first: bool = False) -> None:
         self.with_dt = dt
         self.misalign = misalign
         self.shift_after_first = shift_after_first
@@ -214,9 +212,8 @@ def test_surface_validation_rejects_missing_active() -> None:
     with pytest.raises(ValueError, match="missing"):
         validate_xmdf_surface(frame, parameter="Nu", reference=None)
 
-def test_node_identity_must_remain_stable_across_output_times(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+
+def test_node_identity_must_remain_stable_across_output_times(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.orchestrators.tuflow import xmdf_hotspots as workflow
 
     monkeypatch.setattr(workflow, "_reader", fake_reader_shifted)
