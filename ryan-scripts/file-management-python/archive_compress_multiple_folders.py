@@ -75,7 +75,8 @@ def _publish_archive(temporary_archive: Path, output_archive: Path) -> None:
     try:
         os.link(temporary_archive, output_archive)
     except FileExistsError:
-        raise FileExistsError(f"Output archive already exists: {output_archive}") from None
+        message = f"Output archive already exists: {output_archive}"
+        raise FileExistsError(message) from None
     except OSError:
         # Some mapped/network drives do not support hard links. Exclusive creation
         # retains the no-overwrite guarantee, at the cost of one final file copy.
@@ -83,7 +84,8 @@ def _publish_archive(temporary_archive: Path, output_archive: Path) -> None:
             with temporary_archive.open("rb") as source, output_archive.open("xb") as destination:
                 shutil.copyfileobj(source, destination, length=8 * 1024 * 1024)
         except FileExistsError:
-            raise FileExistsError(f"Output archive already exists: {output_archive}") from None
+            message = f"Output archive already exists: {output_archive}"
+            raise FileExistsError(message) from None
         except Exception:
             output_archive.unlink(missing_ok=True)
             raise
@@ -124,14 +126,16 @@ def create_zip_from_folders(
             )
             if result.returncode != 0:
                 diagnostic = result.stderr.strip() or result.stdout.strip()
-                raise RuntimeError(f"7-Zip exit code {result.returncode} while adding {folder}: {diagnostic}")
+                message = f"7-Zip exit code {result.returncode} while adding {folder}: {diagnostic}"
+                raise RuntimeError(message)
         _publish_archive(temporary_archive, output_archive)
     except Exception:
         temporary_archive.unlink(missing_ok=True)
         raise
 
 
-def _validated_paths(input_paths: Sequence[Path], output_path: Path) -> tuple[list[Path], Path]:
+def _validated_folders(input_paths: Sequence[Path]) -> list[Path]:
+    """Return distinct, existing folders with unique archive root names."""
     folders: list[Path] = []
     seen_paths: set[str] = set()
     for supplied_path in input_paths:
@@ -141,36 +145,48 @@ def _validated_paths(input_paths: Sequence[Path], output_path: Path) -> tuple[li
             continue
         seen_paths.add(spelling)
         if not folder.is_dir():
-            raise ValueError(f"Input folder does not exist or is not a directory: {folder}")
+            message = f"Input folder does not exist or is not a directory: {folder}"
+            raise ValueError(message)
         folders.append(folder)
 
     if not folders:
-        raise ValueError("At least one input folder is required.")
-
+        message = "At least one input folder is required."
+        raise ValueError(message)
     folded_names = [folder.name.casefold() for folder in folders]
     duplicate_names = sorted(name for name in set(folded_names) if folded_names.count(name) > 1)
     if duplicate_names:
         names = ", ".join(duplicate_names)
-        raise ValueError(f"Input folders must have unique top-level names; duplicate name(s): {names}")
+        message = f"Input folders must have unique top-level names; duplicate name(s): {names}"
+        raise ValueError(message)
+    return folders
 
+
+def _validated_output(output_path: Path, folders: Sequence[Path]) -> Path:
+    """Check output extension, access, uniqueness and symlink-aware containment."""
     output_archive = output_path.absolute()
     if not output_archive.suffix:
         output_archive = output_archive.with_suffix(".zip")
     elif output_archive.suffix.casefold() != ".zip":
-        raise ValueError(f"Output archive must use the .zip extension: {output_archive}")
+        message = f"Output archive must use the .zip extension: {output_archive}"
+        raise ValueError(message)
     if not output_archive.parent.is_dir():
-        raise ValueError(f"Output directory does not exist: {output_archive.parent}")
+        message = f"Output directory does not exist: {output_archive.parent}"
+        raise ValueError(message)
     if output_archive.exists():
-        raise FileExistsError(f"Output archive already exists: {output_archive}")
-
-    # Physical containment is intentional here: following links prevents the
-    # temporary archive from being created inside a source via a junction/symlink.
+        message = f"Output archive already exists: {output_archive}"
+        raise FileExistsError(message)
     physical_output = output_archive.resolve(strict=False)
     for folder in folders:
+        # Physical containment is deliberate: junctions/symlinks matter.
         if physical_output.is_relative_to(folder.resolve(strict=True)):
-            raise ValueError(f"Output archive must not be inside an input folder: {folder}")
-    return folders, output_archive
+            message = f"Output archive must not be inside an input folder: {folder}"
+            raise ValueError(message)
+    return output_archive
 
+
+def _validated_paths(input_paths: Sequence[Path], output_path: Path) -> tuple[list[Path], Path]:
+    folders = _validated_folders(input_paths)
+    return folders, _validated_output(output_path, folders)
 
 def main(
     *,
@@ -187,7 +203,8 @@ def main(
         executable = seven_zip_exe.absolute() if seven_zip_exe is not None else find_7zip()
         if executable is None or not executable.is_file():
             location = executable if executable is not None else "auto-discovery"
-            raise ValueError(f"7-Zip executable not found ({location}). Use --seven-zip-exe.")
+            message = f"7-Zip executable not found ({location}). Use --seven-zip-exe."
+            raise ValueError(message)
 
         print(f"Script: {Path(__file__).name} {SCRIPT_VERSION}")
         print(f"Python: {sys.version.split()[0]}")
