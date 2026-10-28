@@ -272,6 +272,25 @@ def test_apply_rejects_changed_mtime_even_if_file_size_matches(
     assert not (tmp_path / "deletions.csv").exists()
 
 
+@pytest.mark.parametrize("missing_index", [0, 1])
+def test_apply_rejects_missing_retained_or_duplicate_file(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_index: int
+) -> None:
+    """A missing file invalidates the entire saved proposal before any unlink."""
+    folder = check_folder(tmp_path, "missing-file")
+    files = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+    files[missing_index].unlink()
+
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+
+    assert all(file.exists() for i, file in enumerate(files) if i != missing_index)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
 def test_apply_rejects_old_proposal_without_scan_timestamps(
     utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
