@@ -133,7 +133,7 @@ class XmdfHotspotResult:
 class _Peak:
     """Peak values, sample times and count of qualifying snapshots per vertex."""
 
-    values: NDArray[np.float32]
+    maxima: NDArray[np.float32]
     times: NDArray[np.float64]
     counts: NDArray[np.uint32]
 
@@ -328,7 +328,7 @@ def _summary_records(
         surface = surfaces[parameter]
         finite = maximum.counts > 0
         count = int(np.count_nonzero(finite))
-        selected_surface = XmdfVertexSurface(surface.x, surface.y, maximum.values, finite)
+        selected_surface = XmdfVertexSurface(surface.x, surface.y, maximum.maxima, finite)
         for index in selected_nodes(selected_surface, finite, limit=config.max_points_per_type):
             node = int(index)
             out.append(
@@ -336,9 +336,9 @@ def _summary_records(
                     "mesh_file": mesh_name,
                     "parameter": parameter,
                     "node_index": node,
-                    "peak_value": float(maximum.values[node]),
+                    "peak_value": float(maximum.maxima[node]),
                     "limit": config.control_limits[parameter],
-                    "ratio": float(maximum.values[node] / config.control_limits[parameter]),
+                    "ratio": float(maximum.maxima[node] / config.control_limits[parameter]),
                     "peak_time_hr": float(maximum.times[node]),
                     "near_snapshots": int(maximum.counts[node]),
                     "geometry": {"type": "Point", "coordinates": (float(surface.x[node]), float(surface.y[node]))},
@@ -413,14 +413,14 @@ def _process_source(
                     np.zeros(surface.size, dtype=np.uint32),
                 )
             state = peaks[parameter]
-            if state.values.size != surface.size:
+            if state.maxima.size != surface.size:
                 message = f"XMDF {xmdf.name} vertex count changed during processing"
                 raise ValueError(message)
             threshold = near_limit_threshold(config.control_limits[parameter], config.near_limit_fraction)
             near = surface.valid & (surface.value >= threshold)
             state.counts[near] += 1
-            replace = near & (surface.value > state.values)
-            state.values[replace] = surface.value[replace]
+            replace = near & (surface.value > state.maxima)
+            state.maxima[replace] = surface.value[replace]
             state.times[replace] = time_hr
             rows, total = control_snapshot_records(
                 mesh_name=xmdf.name,
