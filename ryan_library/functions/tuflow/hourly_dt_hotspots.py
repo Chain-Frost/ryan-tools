@@ -231,7 +231,11 @@ def hourly_dt_records(
             key = parameter.lower()
             record[f"{key}_at_min"] = at_min[parameter]
             record[f"{key}_peak"] = peak[parameter]
-            record[f"{key}_near"] = int(peak[parameter] >= near_limit_fraction * limits[parameter]) if peak[parameter] is not None else 0
+            record[f"{key}_near"] = (
+                int(peak[parameter] >= near_limit_fraction * limits[parameter])
+                if peak[parameter] is not None
+                else 0
+            )
         yield record
 
 
