@@ -19,8 +19,8 @@ from ...functions.tuflow.hourly_dt_hotspots import (
     CONTROL_PARAMETERS,
     DEFAULT_CONTROL_LIMITS,
     GridDefinition,
-    cell_coordinates,
     HourlyRasterSet,
+    cell_coordinates,
     discover_hourly_rasters,
     hourly_dt_records,
     hourly_parameter_records,
@@ -126,24 +126,36 @@ class HourlyHotspotResult:
 
 def _validate_settings(config: HourlyHotspotConfig) -> None:
     if not np.isfinite(config.low_dt) or config.low_dt <= 0:
-        raise ValueError("low_dt must be finite and greater than zero")
+        message = "low_dt must be finite and greater than zero"
+        raise ValueError(message)
     if not np.isfinite(config.critical_dt) or config.critical_dt <= 0 or config.critical_dt > config.low_dt:
-        raise ValueError("critical_dt must be finite, positive and no greater than low_dt")
+        message = "critical_dt must be finite, positive and no greater than low_dt"
+        raise ValueError(message)
     if not np.isfinite(config.near_limit_fraction) or not 0 < config.near_limit_fraction <= 1:
-        raise ValueError("near_limit_fraction must be within (0, 1]")
+        message = "near_limit_fraction must be within (0, 1]"
+        raise ValueError(message)
     if config.connectivity not in (4, 8) or config.min_component_cells < 1:
-        raise ValueError("connectivity must be 4 or 8 and min_component_cells must be positive")
+        message = "connectivity must be 4 or 8 and min_component_cells must be positive"
+        raise ValueError(message)
     if set(config.control_limits) != set(CONTROL_PARAMETERS):
-        raise ValueError("control_limits must contain exactly Nu, Nc and Nd")
+        message = "control_limits must contain exactly Nu, Nc and Nd"
+        raise ValueError(message)
     for name, value in config.control_limits.items():
         if not np.isfinite(value) or value <= 0:
-            raise ValueError(f"{name} control limit must be finite and positive")
+            message = f"{name} control limit must be finite and positive"
+            raise ValueError(message)
+
+
+def _validate_output(config: HourlyHotspotConfig) -> None:
     if config.output.suffix.casefold() != ".gpkg":
-        raise ValueError("Output path must be a .gpkg file")
+        message = "Output path must be a .gpkg file"
+        raise ValueError(message)
     if config.output.is_symlink():
-        raise ValueError(f"Output path must not be a symbolic link: {config.output}")
+        message = f"Output path must not be a symbolic link: {config.output}"
+        raise ValueError(message)
     if config.output.exists() and (not config.overwrite or not config.output.is_file()):
-        raise FileExistsError(f"Output already exists: {config.output}; use --overwrite to replace it")
+        message = f"Output already exists: {config.output}; use --overwrite to replace it"
+        raise FileExistsError(message)
 
 
 def _create_empty_layer(path: Path, layer: str, properties: Mapping[str, str], grid: GridDefinition) -> None:
@@ -271,6 +283,7 @@ def run_hourly_dt_hotspot_workflow(config: HourlyHotspotConfig) -> HourlyHotspot
     may be at different cells. The overall union represents recurrence by cell.
     """
     _validate_settings(config)
+    _validate_output(config)
     expected_output_stamp = _output_stamp(config.output)
     prefix, hourly = discover_hourly_rasters(
         config.grid_dir, prefix=config.prefix, min_hour=config.min_hour, max_hour=config.max_hour
@@ -361,8 +374,9 @@ def run_hourly_dt_hotspot_workflow(config: HourlyHotspotConfig) -> HourlyHotspot
         overall_count = _write_records(temp_path, "overall_dt_hotspots", iter(overall_records), _OVERALL_SCHEMA)
         _write_metadata(temp_path, prefix=prefix, hourly=hourly, config=config)
         if config.output.is_symlink() or _output_stamp(config.output) != expected_output_stamp:
-            raise FileExistsError(f"Output was created or changed during processing: {config.output}")
-        os.replace(temp_path, config.output)
+            message = f"Output was created or changed during processing: {config.output}"
+            raise FileExistsError(message)
+        temp_path.replace(config.output)
     finally:
         temp_path.unlink(missing_ok=True)
     logger.success(
