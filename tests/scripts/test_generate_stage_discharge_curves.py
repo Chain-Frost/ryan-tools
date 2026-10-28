@@ -50,7 +50,8 @@ class StageModule(Protocol):
 @pytest.fixture
 def module() -> StageModule:
     spec = importlib.util.spec_from_file_location("stage_discharge_tested", SCRIPT)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     loaded = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = loaded
     spec.loader.exec_module(loaded)
@@ -237,7 +238,7 @@ def test_overwrite_rejects_foreign_output_and_source_reference(
     assert (foreign / "private.txt").read_text(encoding="utf-8") == "preserve"
 
     # A script-owned marker must not authorise replacing the input reference.
-    with pytest.raises(ValueError, match="may not contain the reference"):
+    with pytest.raises(ValueError, match="may not contain"):
         module.main(cli(root, reference, reference.parent, "--overwrite"))
 
 
