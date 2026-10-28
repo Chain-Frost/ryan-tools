@@ -6,8 +6,8 @@ import csv
 import importlib.util
 import os
 import sys
-from datetime import date
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from types import ModuleType
 from typing import Protocol, cast
@@ -79,9 +79,9 @@ def test_default_output_names_include_local_run_date() -> None:
     after = date.today().isoformat()
 
     assert module.RUN_DATE in {before, after}
-    assert module.REPORT_FILE == Path(f"duplicate_files_to_delete_{module.RUN_DATE}.txt")
-    assert module.MANIFEST_FILE == Path(f"duplicate_files_manifest_{module.RUN_DATE}.csv")
-    assert module.PROPOSAL_MANIFEST_FILE == Path(f"duplicate_files_proposed_{module.RUN_DATE}.csv")
+    assert Path(f"duplicate_files_to_delete_{module.RUN_DATE}.txt") == module.REPORT_FILE
+    assert Path(f"duplicate_files_manifest_{module.RUN_DATE}.csv") == module.MANIFEST_FILE
+    assert Path(f"duplicate_files_proposed_{module.RUN_DATE}.csv") == module.PROPOSAL_MANIFEST_FILE
 
 
 def check_folder(root: Path, name: str) -> Path:
@@ -194,8 +194,9 @@ def test_proposal_mode_reuses_previous_scan_without_rehash(
     monkeypatch.setattr(utility, "DRY_RUN", False)
     monkeypatch.setattr("builtins.input", respond_delete)
 
-    def forbid_hash(_path: Path, *, on_chunk: object = None) -> str:
-        raise AssertionError("Apply mode must not rehash saved proposals")
+    def forbid_hash(_path: Path, **_kwargs: object) -> str:
+        message = "Apply mode must not rehash saved proposals"
+        raise AssertionError(message)
 
     monkeypatch.setattr(utility, "file_hash", forbid_hash)
     utility.main()
@@ -220,7 +221,8 @@ def test_apply_rejects_changed_mtime_even_if_file_size_matches(
     monkeypatch.setattr(utility, "DRY_RUN", False)
 
     def unexpected_confirmation(_prompt: str) -> str:
-        raise AssertionError("Stale proposals must be rejected before prompting")
+        message = "Stale proposals must be rejected before prompting"
+        raise AssertionError(message)
 
     monkeypatch.setattr("builtins.input", unexpected_confirmation)
     utility.main()
