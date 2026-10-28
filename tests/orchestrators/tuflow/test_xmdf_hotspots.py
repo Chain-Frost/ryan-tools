@@ -23,9 +23,12 @@ from ryan_library.orchestrators.tuflow.xmdf_hotspots import (
 
 
 class FakeXMDF:
-    def __init__(self, *, dt: bool = False, misalign: bool = False) -> None:
+    def __init__(
+        self, *, dt: bool = False, misalign: bool = False, shift_after_first: bool = False
+    ) -> None:
         self.with_dt = dt
         self.misalign = misalign
+        self.shift_after_first = shift_after_first
         self.names = ("Courant Number", "Shallow Wave Celerity Number", "Diffusion Number", "Depth")
         if dt:
             self.names = (*self.names, "dt")
@@ -46,6 +49,8 @@ class FakeXMDF:
             "dt": [2.0, 3.0, 0.1],
         }
         x = [100.0, 110.0, 120.0]
+        if self.shift_after_first and time > 0:
+            x[1] = 111.0
         if self.misalign and data_type == "Shallow Wave Celerity Number":
             x[1] = 111.0
         return pd.DataFrame(
@@ -69,6 +74,10 @@ def fake_reader_with_dt(_path: Path, _mesh: Path | None) -> FakeXMDF:
 
 def fake_reader_misaligned(_path: Path, _mesh: Path | None) -> FakeXMDF:
     return FakeXMDF(misalign=True)
+
+
+def fake_reader_shifted(_path: Path, _mesh: Path | None) -> FakeXMDF:
+    return FakeXMDF(shift_after_first=True)
 
 
 def make_file(tmp_path: Path) -> Path:
@@ -204,3 +213,16 @@ def test_surface_validation_rejects_missing_active() -> None:
     frame = pd.DataFrame({"x": [1.0], "y": [2.0], "value": [0.99]})
     with pytest.raises(ValueError, match="missing"):
         validate_xmdf_surface(frame, parameter="Nu", reference=None)
+
+def test_node_identity_must_remain_stable_across_output_times(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.orchestrators.tuflow import xmdf_hotspots as workflow
+
+    monkeypatch.setattr(workflow, "_reader", fake_reader_shifted)
+    source = make_file(tmp_path)
+    output = tmp_path / "existing.gpkg"
+    output.write_bytes(b"previous analysis")
+    with pytest.raises(ValueError, match="changed between output timestamps"):
+        run_xmdf_hotspot_workflow(XmdfHotspotConfig((source,), output, "EPSG:7851", overwrite=True))
+    assert output.read_bytes() == b"previous analysis"
