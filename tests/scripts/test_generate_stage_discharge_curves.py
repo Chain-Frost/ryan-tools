@@ -42,6 +42,7 @@ class StageModule(Protocol):
         self, source: Path, reference: Reference
     ) -> tuple[np.ndarray, np.ndarray, float, dict[str, float | int]]: ...
     def main(self, argv: Sequence[str] | None = None) -> int: ...
+    def _publish_report_directory(self, stage: Path, output: Path, *, overwrite: bool) -> None: ...
 
 
 @pytest.fixture
@@ -245,3 +246,38 @@ def test_valid_report_can_be_explicitly_replaced(module: StageModule, tmp_path: 
     assert updated != original
     assert "15.0000" in updated
     assert not list(tmp_path.glob(".*.backup"))
+
+def test_failed_final_rename_restores_previous_complete_report(
+    module: StageModule, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root, reference = fixture_inputs(tmp_path)
+    output = tmp_path / "Report"
+    assert module.main(cli(root, reference, output)) == 0
+    previous = {entry.name: entry.read_bytes() for entry in output.iterdir()}
+    staged = tmp_path / ".Report.staging-manual"
+    staged.mkdir()
+    (staged / ".stage_discharge_report").write_text("new report", encoding="utf-8")
+    original_rename = Path.rename
+
+    def fail_stage_rename(self: Path, target: Path) -> Path:
+        if self == staged and target == output:
+            message = "simulated final publication failure"
+            raise OSError(message)
+        return original_rename(self, target)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "rename", fail_stage_rename)
+        with pytest.raises(OSError, match="simulated final publication failure"):
+            module._publish_report_directory(staged, output, overwrite=True)
+    assert {entry.name: entry.read_bytes() for entry in output.iterdir()} == previous
+    assert not list(tmp_path.glob(".*.backup"))
+
+
+def test_dry_run_can_inspect_existing_report_without_overwrite(module: StageModule, tmp_path: Path) -> None:
+    root, reference = fixture_inputs(tmp_path)
+    output = tmp_path / "Report"
+    assert module.main(cli(root, reference, output)) == 0
+    previous = {entry.name: entry.read_bytes() for entry in output.iterdir()}
+    assert module.main(cli(root, reference, output, "--dry-run")) == 0
+    assert {entry.name: entry.read_bytes() for entry in output.iterdir()} == previous
+
