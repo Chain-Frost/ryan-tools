@@ -25,6 +25,8 @@ DEFAULT_CONTROL_LIMITS: dict[str, float] = {"Nu": 1.0, "Nc": 1.0, "Nd": 0.3}
 def near_limit_threshold(limit: float, fraction: float) -> np.float32:
     """Use source raster precision consistently when testing near-limit cells."""
     return np.float32(limit * fraction)
+
+
 HOURLY_PATTERN = re.compile(
     r"^(?P<prefix>.+)_(?P<parameter>dt|Nu|Nc|Nd)_(?P<hour>\d{3})_00_00\.tif$",
     re.IGNORECASE,
