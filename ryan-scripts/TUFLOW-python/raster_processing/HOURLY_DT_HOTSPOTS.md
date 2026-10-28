@@ -3,10 +3,10 @@
 Use create_hourly_dt_hotspots.py with a folder containing the four single-band
 GeoTIFFs for each TUFLOW map-output timestamp:
 
-- <run>_dt_001_00_00.tif — calculated local minimum timestep, in seconds;
-- <run>_Nu_001_00_00.tif — Courant control number;
-- <run>_Nc_001_00_00.tif — shallow-wave celerity control number;
-- <run>_Nd_001_00_00.tif — diffusion control number.
+- RUN_dt_001_00_00.tif — calculated local minimum timestep, in seconds;
+- RUN_Nu_001_00_00.tif — Courant control number;
+- RUN_Nc_001_00_00.tif — shallow-wave celerity control number;
+- RUN_Nd_001_00_00.tif — diffusion control number.
 
 The hour token must be three digits and both minute/second tokens must be
 00. Each selected timestamp **must** have all four files; all files must share
