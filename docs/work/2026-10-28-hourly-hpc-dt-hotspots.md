@@ -18,7 +18,7 @@ Nominal control limits: Nu = 1.0, Nc = 1.0, Nd = 0.3, configurable. Raster align
 
 ## Validation evidence
 
-- Local Linux/rasterio/Fiona synthetic run: 12 focused regression tests passed, 2026-10-28. Includes cross-hour separation, Nd threshold, optional whole-run dt_Min ignored, per-cell recurrence, missing data, misalignment, geographic CRS rejection, empty layers, overwrite safety and injected export failure.
+- Local Linux/rasterio/Fiona synthetic run: 13 focused regression tests passed, 2026-10-28. Includes cross-hour separation, Nd threshold, optional whole-run dt_Min ignored, per-cell recurrence, missing data, misalignment, geographic CRS rejection, empty layers, overwrite safety and injected export failure.
 - Compilation: passed locally.
 - Not yet completed: Ruff formatting, strict Pyright, Windows/OSGeo4W or QGIS acceptance, installed-wheel integration, full-model memory/speed benchmarks, exact-head hosted CI.
 
