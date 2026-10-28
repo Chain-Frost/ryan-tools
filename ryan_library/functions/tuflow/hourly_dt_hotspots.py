@@ -44,6 +44,18 @@ class GridDefinition:
     cell_area_ha: float
 
 
+def _validate_hour_bounds(min_hour: int | None, max_hour: int | None) -> None:
+    if min_hour is not None and min_hour < 0:
+        message = "min_hour must be nonnegative"
+        raise ValueError(message)
+    if max_hour is not None and max_hour < 0:
+        message = "max_hour must be nonnegative"
+        raise ValueError(message)
+    if min_hour is not None and max_hour is not None and min_hour > max_hour:
+        message = "min_hour must not exceed max_hour"
+        raise ValueError(message)
+
+
 def _selected_hourly_file(
     path: Path,
     *,
@@ -78,15 +90,7 @@ def discover_hourly_rasters(
     if not grid_dir.is_dir():
         message = f"Grid directory does not exist: {grid_dir}"
         raise FileNotFoundError(message)
-    if min_hour is not None and min_hour < 0:
-        message = "min_hour must be nonnegative"
-        raise ValueError(message)
-    if max_hour is not None and max_hour < 0:
-        message = "max_hour must be nonnegative"
-        raise ValueError(message)
-    if min_hour is not None and max_hour is not None and min_hour > max_hour:
-        message = "min_hour must not exceed max_hour"
-        raise ValueError(message)
+    _validate_hour_bounds(min_hour, max_hour)
 
     discovered: dict[str, dict[int, dict[str, Path]]] = {}
     actual_prefixes: dict[str, str] = {}
@@ -121,6 +125,17 @@ def discover_hourly_rasters(
     )
 
 
+def _require_metre_crs(crs: CRS | None, path: Path) -> CRS:
+    if crs is None or not crs.is_projected:
+        message = f"Raster requires a projected CRS: {path}"
+        raise ValueError(message)
+    _, units_to_metres = crs.linear_units_factor
+    if not np.isclose(units_to_metres, 1.0, rtol=0.0, atol=1e-9):
+        message = f"Raster requires metre-based projected coordinates: {path}"
+        raise ValueError(message)
+    return crs
+
+
 def validate_raster_grids(raster_sets: Sequence[HourlyRasterSet]) -> GridDefinition:
     """Preflight all headers; mismatched georeferencing is never silently resampled."""
     if not raster_sets:
@@ -134,13 +149,7 @@ def validate_raster_grids(raster_sets: Sequence[HourlyRasterSet]) -> GridDefinit
                 if source.count != 1:
                     message = f"Expected a single-band raster: {path}"
                     raise ValueError(message)
-                if source.crs is None or not source.crs.is_projected:
-                    message = f"Raster requires a projected CRS: {path}"
-                    raise ValueError(message)
-                _, units_to_metres = source.crs.linear_units_factor
-                if not np.isclose(units_to_metres, 1.0, rtol=0.0, atol=1e-9):
-                    message = f"Raster requires metre-based projected coordinates: {path}"
-                    raise ValueError(message)
+                crs = _require_metre_crs(source.crs, path)
                 transform = source.transform
                 determinant = transform.a * transform.e - transform.b * transform.d
                 if not np.isfinite(determinant) or abs(determinant) <= 1e-12:
@@ -150,12 +159,12 @@ def validate_raster_grids(raster_sets: Sequence[HourlyRasterSet]) -> GridDefinit
                     reference = GridDefinition(
                         shape=(source.height, source.width),
                         transform=transform,
-                        crs=source.crs,
+                        crs=crs,
                         cell_area_ha=abs(determinant) / 10_000.0,
                     )
                 elif (
                     (source.height, source.width) != reference.shape
-                    or source.crs != reference.crs
+                    or crs != reference.crs
                     or not transform.almost_equals(reference.transform, precision=1e-8)
                 ):
                     message = f"Raster grid/CRS differs from reference raster: {path}"
@@ -252,7 +261,7 @@ def hourly_dt_records(
             "component": component_id,
             "severity": "critical" if float(component_dt[min_index]) <= critical_dt else "low",
             "min_dt_s": float(component_dt[min_index]),
-            "cells_low": int(len(rows)),
+            "cells_low": len(rows),
             "cells_critical": np.count_nonzero(component_dt <= critical_dt),
             "area_ha": float(len(rows) * grid.cell_area_ha),
             "highest_ratio_at_min": leading_control(at_min, limits),
@@ -300,7 +309,7 @@ def hourly_parameter_records(
                 "limit": float(limit),
                 "ratio": float(subset[max_index] / limit),
                 "dt_at_peak_s": float(dt[row, col]) if dt_valid[row, col] else None,
-                "cells_near": int(len(rows)),
+                "cells_near": len(rows),
                 "cells_low_dt": np.count_nonzero(overlapping),
                 "area_ha": float(len(rows) * grid.cell_area_ha),
                 "geometry": {"type": "Point", "coordinates": cell_coordinates(grid.transform, row, col)},
@@ -324,9 +333,9 @@ def overall_dt_records(
         observed_counts = counts[rows, cols]
         yield {
             "component": component_id,
-            "worst_hour": int(hour_of_minimum[row, col]),  # noqa: RUF046 - Fiona needs a built-in int.
+            "worst_hour": int(hour_of_minimum[row, col]),  # Fiona requires a built-in int.
             "min_dt_s": float(selected_dt[idx]),
-            "cells_ever": int(len(rows)),
+            "cells_ever": len(rows),
             "area_ha": float(len(rows) * grid.cell_area_ha),
             "max_hours_at_cell": int(np.max(observed_counts)),
             "hours_at_worst_cell": int(counts[row, col]),
