@@ -222,3 +222,12 @@ def test_failure_during_export_preserves_existing_gpkg(tmp_path: Path, monkeypat
         run_hourly_dt_hotspot_workflow(HourlyHotspotConfig(tmp_path, output, overwrite=True))
     assert output.read_bytes() == b"original file to preserve"
     assert sorted(x.name for x in tmp_path.glob(".existing_*.gpkg")) == []
+
+def test_dry_run_can_validate_when_output_already_exists(tmp_path: Path) -> None:
+    value = np.ones((2, 2))
+    write_hour(tmp_path, 1, dt=value, Nu=value, Nc=value, Nd=value)
+    output = tmp_path / "existing.gpkg"
+    output.write_bytes(b"do not modify")
+    report = run_hourly_dt_hotspot_workflow(HourlyHotspotConfig(tmp_path, output, dry_run=True))
+    assert report.dry_run
+    assert output.read_bytes() == b"do not modify"
