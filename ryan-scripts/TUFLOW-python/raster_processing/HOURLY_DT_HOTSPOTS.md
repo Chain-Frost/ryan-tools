@@ -80,6 +80,72 @@ before enabling unattended runs over the full model extent. The script creates
 point features rather than polygons; a point's area_ha reports its component
 area, not a geometric polygon footprint.
 
+## XMDF alternative — mesh-vertex diagnostics
+
+Use `--source xmdf` to analyse temporal **mesh-vertex** outputs through
+PyTUFLOW 1.2 rather than reading hourly TIFs. An associated `.2dm` geometry
+file is required by PyTUFLOW; it normally finds the matching file automatically.
+**XMDF does not embed a CRS**. You must supply the correct model CRS explicitly
+using `--xmdf-crs`. Only metre-based projected coordinates are accepted.
+
+```powershell
+py -3.14 .\create_hourly_dt_hotspots.py --source xmdf `
+  --xmdf "Q:\job\results\model.xmdf" `
+  --xmdf-crs EPSG:7851 --start-time 0 --end-time 5.333333 `
+  --dry-run --no-pause
+
+py -3.14 .\create_hourly_dt_hotspots.py --source xmdf `
+  --xmdf "Q:\job\results\model.xmdf" `
+  --xmdf-crs EPSG:7851 --output "C:\Temp\xmdf_control_hotspots.gpkg" `
+  --no-pause
+```
+
+Nu, Nc and Nd datasets are **required**, using names reported by the XMDF
+reader; optional depth, velocity, water level and dt datasets are used when
+present at the selected output times. Dataset aliases are auto-detected when
+unambiguous. Use `--nu-dataset`, `--nc-dataset`, `--nd-dataset`,
+or `--dt-dataset` to supply explicit names. The tool selects **all** actual
+stored mesh times by default, including non-hourly times; `--start-time`,
+`--end-time` and `--time-stride` provide optional sampling. The reported
+`time_hr` is the mesh output timestamp, not a solver event reconstructed from
+it. PyTUFLOW handles mesh coordinates and the associated activity flags.
+The tool rejects non-aligned vertex arrays, missing control datasets and
+invalid activity flags.
+
+XMDF output is a **different analysis**, not a pixel-for-pixel substitute for
+GeoTIFF connected-component statistics:
+
+| XMDF layer | Meaning |
+| --- | --- |
+| `xmdf_control_hotspots` | Active near-limit mesh **vertex** values at stored timestamps, optional co-snapshot dt/depth/velocity/water level; one point per qualifying reported node |
+| `xmdf_dt_hotspots` | Active nodes at or below low-dt threshold **only if a temporal dt dataset exists**; otherwise this layer is empty and metadata has `dt_available=0` |
+| `xmdf_control_summary` | Maximum sampled control number and the output timestamp at which that peak was observed, with counts of near-limit output snapshots per mesh node |
+| `xmdf_metadata` | One non-spatial record per source, with dataset names, output-time range, `dt_available`, node count, CRS, export cap and number of omitted records |
+
+There is **no** `area_ha`, connected raster hotspot ID or raster recurrence
+metric in XMDF mode. Mesh nodes have different support than raster pixels and
+neither necessarily represents one independent solver cell. The default
+`--max-points-per-type 1000` ranks the worst qualifying nodes by their control
+number (lowest dt for dt records) and limits **exported** records per source,
+dataset and timestamp. `near_nodes_total`, `low_nodes_total` and
+`truncated_records` retain the number of qualifying nodes and omissions.
+Increase the cap when a complete node inventory is required.
+
+The original project XMDF snapshots examined to date contain Nu/Nc/Nd but
+**no temporal dt dataset**. They can support near-control-limit node diagnostics
+and optional h/d/V context, but **cannot establish dt hotspots without dt
+data**. An absent dataset is never treated as 0 or back-calculated from controls.
+A `dt` surface, where available, can itself contain historically retained
+minima, so co-timestamp controls do not automatically explain why it was low.
+Snapshots are always checked against actual `times()` and aligned arrays:
+the XMDF `NumTimes` attribute alone is not an authoritative length.
+
+This new input mode has synthetic adapter tests but **still requires native
+Windows/real XMDF acceptance**, including node-vs-element activity checks,
+multi-zone output behaviour, performance and CRS verification before claiming
+production support. Do not run against an XMDF that another process is
+actively writing.
+
 ## TUFLOW references
 
 - [2025.2 map outputs: dt/Nu/Nc/Nd](https://docs.tuflow.com/classic-hpc/manual/2025.2/Map-2.html)
