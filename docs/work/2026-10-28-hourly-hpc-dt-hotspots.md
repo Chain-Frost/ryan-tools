@@ -1,38 +1,55 @@
-# TUFLOW HPC hourly dt/Nu/Nc/Nd hotspots
+# TUFLOW HPC hourly dt and XMDF control-number hotspots
 
-**Status:** In validation — draft PR preparation. **Owner:** ChatGPT. **Updated:** 2026-10-28. **Next review:** after exact-head CI and local Windows/QGIS checks.
+**Status:** In validation — PR [#167](https://github.com/Chain-Frost/ryan-tools/pull/167). **Updated:** 2026-10-28.
+**Next review:** exact-head CI and independent native XMDF/mesh acceptance.
 
-## Purpose
+## Scope
 
-Replace a project-specific standalone hotspot prototype that discovered hourly dt grids but did not analyse them. Use same-timestamp dt, Nu, Nc and Nd grids to report per-hour low-dt and near-control-limit point components, plus an aggregate spatial-union summary. Whole-run dt_Min is optional external evidence, not required or included in the calculation.
+- Hourly GeoTIFF processing: `ryan_library/functions/tuflow/hourly_dt_hotspots.py` and
+  `ryan_library/orchestrators/tuflow/hourly_dt_hotspots.py`.
+- Optional XMDF vertex analysis: `ryan_library/functions/tuflow/xmdf_hotspots.py` and
+  `ryan_library/orchestrators/tuflow/xmdf_hotspots.py`.
+- Versioned configurable wrapper: `ryan-scripts/TUFLOW-python/raster_processing/create_hourly_dt_hotspots.py`.
+- Engineering interpretation: `ryan-scripts/TUFLOW-python/raster_processing/HOURLY_DT_HOTSPOTS.md`.
+- Focused regression tests: `tests/orchestrators/tuflow/test_hourly_dt_hotspots.py` and
+  `tests/orchestrators/tuflow/test_xmdf_hotspots.py`.
 
-## Scope and implementation
+The two unrelated scripts introduced by the later `extra scripts` commit remain in this PR **at the user's direction**.
+Their Ruff violations were corrected without dropping their workflows.
 
-- Reusable functions: `ryan_library/functions/tuflow/hourly_dt_hotspots.py`.
-- Orchestrator: `ryan_library/orchestrators/tuflow/hourly_dt_hotspots.py`.
-- Maintained wrapper: `ryan-scripts/TUFLOW-python/raster_processing/create_hourly_dt_hotspots.py`.
-- Guide: `ryan-scripts/TUFLOW-python/raster_processing/HOURLY_DT_HOTSPOTS.md`.
-- Synthetic tests: `tests/orchestrators/tuflow/test_hourly_dt_hotspots.py`.
+## Existing accepted evidence — raster-only head
 
-Nominal control limits: Nu = 1.0, Nc = 1.0, Nd = 0.3, configurable. Raster alignment/units, complete time-indexed quartets and simulation identity are validated. Source rasters are read-only; write via temporary GeoPackage and guarded replacement. Hourly records and parameter hotspots are generated per timestamp; the overall layer samples controls at the exact cell and timestamp of minimum dt.
+Native Windows/QGIS numerical acceptance at commit `d4876399` passed: 15 pytest cases, strict Pyright,
+GIS inspection of 7 real output times, file-safety checks, and representative memory/performance checks.
+All five hosted CI checks passed for that exact SHA. The maintainer accepted the workstation local Ruff
+execution limitation based on the exact-head hosted Ruff run.
 
-## Validation evidence
+The hourly raster algorithms remain unchanged, but the maintained wrapper now supports XMDF and requires
+fresh CLI integration validation.
 
-- Local Linux/rasterio/Fiona synthetic run: 13 focused regression tests passed, 2026-10-28. Includes cross-hour separation, Nd threshold, optional whole-run dt_Min ignored, per-cell recurrence, missing data, misalignment, geographic CRS rejection, empty layers, overwrite safety and injected export failure.
-- Compilation: passed locally.
-- Not yet completed: Ruff formatting, strict Pyright, Windows/OSGeo4W or QGIS acceptance, installed-wheel integration, full-model memory/speed benchmarks, exact-head hosted CI.
+## Semantics
 
-## Next actions
+Timestamp-labelled dt maps can retain an earlier minimum while the current output's control-number values
+change. Co-timestamp Nu/Nc/Nd cannot be asserted to be the conditions when a retained dt minimum arose.
+Snapshot counts do not measure continuous restriction duration. Raster pixels, mesh nodes and solver cells
+have different spatial support. See the user guide.
 
-1. Confirm branch code matches reviewed synthetic implementation; run Ruff formatting and strict Pyright on all modified Python files; address type/stub issues without weakening strict configuration.
-2. Run focused pytest on Python 3.14, wrapper --help, missing-directory and dry-run headless checks, Loguru formatting check and documentation link check.
-3. Build a no-bump verification wheel with repo-scripts/build_library.py, install/test copied wrapper in the normal Python environment; perform proper repository release bump only when appropriate.
-4. On local Windows project data, start with --dry-run on first 2-3 hourly quartets, then write a temporary GeoPackage and compare values/locations/timestamps in QGIS. Benchmark runtime and memory on representative raster extents.
-5. Review PR; add to installed scripts/MCP catalogue only after the workflow contract and native tests are accepted. Do not merge automatically.
+XMDF mode uses PyTUFLOW public `XMDF.data_types()`, `times()` and `surface()` APIs. It requires
+explicit CRS and temporal Nu/Nc/Nd datasets, honours vertex activity and validates coordinate alignment.
+Optional temporal dt is used **only if present**; otherwise `dt_available=0` and the XMDF dt layer is empty.
+XMDF reports node points and maxima across actual stored snapshots, **not** raster connected-component areas.
 
-## Known limitations
+## Outstanding acceptance
 
-- The three-digit hourly naming convention requires HH_00_00, not arbitrary minutes or non-hourly outputs.
-- The algorithm reads one full four-grid timestamp and retains full-grid counts/minimum/hour arrays; it does not stream through raster windows. Large-scale RAM benchmarking is outstanding.
-- Overall connected union merges nearby areas observed at different hours; recurrence fields are explicitly per-cell, not hours in a polygon.
-- The largest normalised parameter ratio is a diagnostic aid, not definitive proof of which HPC condition governed the adopted solver timestep.
+1. Exact-head Ruff, Policy (strict Pyright), Hosted tests, Package and Python 3.13/MCP all green.
+2. Independent native XMDF smoke on a complete **closed**, read-only input and matching 2DM: validate
+   dataset names, actual stored time arrays, activity flags, coordinate alignment and correct CRS.
+   Test project XMDFs with and without dt; confirm no fabricated dt values or mixed temporal/spatial units.
+3. Check local copied wrapper `--source xmdf --dry-run --no-pause`; test a bounded real output and QGIS
+   layers, with numerical comparison to direct mesh surfaces at selected vertices and snapshots.
+4. Report peak working-set memory, sample counts, output cap/truncation, runtimes and any driver limitations.
+5. Update the PR description with exact-head acceptance, resolve review comments, then obtain approval to merge.
+   Do not treat prior raster-only acceptance as XMDF native acceptance.
+
+Avoid committing private model data, log snapshots or internal network paths with the tests. Do not initialize,
+inspect or validate the excluded `unsorted` Git submodule.
