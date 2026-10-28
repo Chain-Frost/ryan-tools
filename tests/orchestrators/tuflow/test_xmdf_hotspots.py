@@ -24,8 +24,12 @@ from ryan_library.orchestrators.tuflow.xmdf_hotspots import (
 
 class FakeXMDF:
     def __init__(
-        self, *, dt: bool = False, misalign: bool = False, shift_after_first: bool = False,
-        irregular_final: bool = False
+        self,
+        *,
+        dt: bool = False,
+        misalign: bool = False,
+        shift_after_first: bool = False,
+        irregular_final: bool = False,
     ) -> None:
         self.with_dt = dt
         self.misalign = misalign
