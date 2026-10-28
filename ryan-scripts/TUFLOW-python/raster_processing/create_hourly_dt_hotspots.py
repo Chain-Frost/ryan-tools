@@ -103,10 +103,10 @@ def main(args: argparse.Namespace) -> int:
         ):
             try:
                 run_hourly_dt_hotspot_workflow(config)
-            except Exception:
+            except Exception:  # noqa: BLE001 - Process boundary reports all workflow failures.
                 logger.exception("Hourly timestep hotspot workflow failed")
                 return 1
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - Logging setup can fail for environment-specific reasons.
         print(f"ERROR: Could not configure logging: {error}")
         return 1
     return 0
