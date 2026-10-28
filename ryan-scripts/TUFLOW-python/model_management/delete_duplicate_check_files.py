@@ -785,7 +785,7 @@ def check_folder_for_proposal_path(path: Path) -> Path:
     raise ValueError(message)
 
 
-def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileRecord], ScanTotals]:
+def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileRecord], ScanTotals]:  # noqa: C901
     """Rebuild a trusted, unchanged proposal with no SHA-256 or full folder scan.
 
     Reject legacy proposals without scan-time mtimes/totals; keeping the same
@@ -812,14 +812,17 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
         if totals is None:
             totals = current_totals
         elif totals != current_totals:
-            raise ValueError("Proposal has inconsistent original scan totals.")
+            message = "Proposal has inconsistent original scan totals."
+            raise ValueError(message)
         if current_totals.file_count < 0 or current_totals.total_bytes < 0:
-            raise ValueError("Proposal has negative scan totals.")
+            message = "Proposal has negative scan totals."
+            raise ValueError(message)
 
         original = absolute_path(Path(row["original_path"]))
         kept = absolute_path(Path(row["kept_path"]))
         if original == kept or original in seen_originals:
-            raise ValueError(f"Proposal has a self-reference or duplicate deletion path: {original}")
+            message = f"Proposal has a self-reference or duplicate deletion path: {original}"
+            raise ValueError(message)
         seen_originals.add(original)
 
         size_bytes = int(row["size_bytes"])
@@ -828,9 +831,11 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
         suffix = row["suffix"]
         content_hash = row["sha256"].casefold()
         if size_bytes < 0 or len(content_hash) != 64 or any(c not in "0123456789abcdef" for c in content_hash):
-            raise ValueError(f"Proposal has an invalid size or SHA-256 value: {original}")
+            message = f"Proposal has an invalid size or SHA-256 value: {original}"
+            raise ValueError(message)
         if has_linked_component(original) or has_linked_component(kept):
-            raise ValueError(f"Proposal contains a symlink, junction or linked file: {original} -> {kept}")
+            message = f"Proposal contains a symlink, junction or linked file: {original} -> {kept}"
+            raise ValueError(message)
         original_check = check_folder_for_proposal_path(original)
         kept_check = check_folder_for_proposal_path(kept)
 
@@ -844,7 +849,8 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
             or original.suffix.lower() != suffix
             or kept.suffix.lower() != suffix
         ):
-            raise ValueError(f"Proposal file changed since the original scan: {original} -> {kept}")
+            message = f"Proposal file changed since the original scan: {original} -> {kept}"
+            raise ValueError(message)
 
         records_by_path[original] = FileRecord(
             check_folder=original_check,
@@ -878,12 +884,16 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
         )
 
     if any(action.keep_file in seen_originals for action in actions):
-        raise ValueError("Proposal would delete a file used as a retained copy.")
-    assert totals is not None
+        message = "Proposal would delete a file used as a retained copy."
+        raise ValueError(message)
+    if totals is None:
+        message = "Missing scan totals in proposal."
+        raise ValueError(message)
     if totals.file_count < len(records_by_path) or totals.total_bytes < sum(
         record.size_bytes for record in records_by_path.values()
     ):
-        raise ValueError("Proposal scan totals are smaller than the listed files.")
+        message = "Proposal scan totals are smaller than the listed files."
+        raise ValueError(message)
     return sorted(actions, key=lambda action: str(action.delete_file).lower()), list(records_by_path.values()), totals
 
 
