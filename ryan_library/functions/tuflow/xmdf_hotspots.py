@@ -9,13 +9,13 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Protocol, cast
+from typing import Protocol
 
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from .hourly_dt_hotspots import CONTROL_PARAMETERS, near_limit_threshold
+from .hourly_dt_hotspots import near_limit_threshold
 
 REQUIRED_DATASETS: tuple[str, ...] = ("Nu", "Nc", "Nd")
 _OPTIONAL_DATASETS: tuple[str, ...] = ("dt", "depth", "velocity", "water_level")
@@ -93,15 +93,9 @@ def resolve_xmdf_types(
     return result
 
 
-def selected_xmdf_times(
-    reader: XmdfReader,
-    names: Mapping[str, str],
-    *,
-    start_time_hr: float | None,
-    end_time_hr: float | None,
-    every: int,
-) -> tuple[float, ...]:
-    """Select actual stored output timestamps, not an assumed hourly calendar."""
+def _validate_time_options(
+    start_time_hr: float | None, end_time_hr: float | None, every: int
+) -> None:
     if every < 1:
         message = "time_stride must be at least 1"
         raise ValueError(message)
@@ -114,6 +108,18 @@ def selected_xmdf_times(
     if start_time_hr is not None and end_time_hr is not None and start_time_hr > end_time_hr:
         message = "start_time_hr must not exceed end_time_hr"
         raise ValueError(message)
+
+
+def selected_xmdf_times(
+    reader: XmdfReader,
+    names: Mapping[str, str],
+    *,
+    start_time_hr: float | None,
+    end_time_hr: float | None,
+    every: int,
+) -> tuple[float, ...]:
+    """Select actual stored output timestamps, not an assumed hourly calendar."""
+    _validate_time_options(start_time_hr, end_time_hr, every)
     times = sorted({float(value) for value in reader.times()})
     if not times or not all(np.isfinite(t) for t in times):
         message = "XMDF has no valid temporal output timestamps"
