@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import importlib.util
 import sys
+from datetime import date
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
@@ -64,6 +65,22 @@ def utility(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     monkeypatch.setattr(module, "MANIFEST_FILE", tmp_path / "deletions.csv")
     monkeypatch.setattr(module, "PROPOSAL_MANIFEST_FILE", tmp_path / "proposal.csv")
     return module
+
+
+def test_default_output_names_include_local_run_date() -> None:
+    before = date.today().isoformat()
+    spec = importlib.util.spec_from_file_location("test_duplicate_default_paths", SCRIPT)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    after = date.today().isoformat()
+
+    assert module.RUN_DATE in {before, after}
+    assert module.REPORT_FILE == Path(f"duplicate_files_to_delete_{module.RUN_DATE}.txt")
+    assert module.MANIFEST_FILE == Path(f"duplicate_files_manifest_{module.RUN_DATE}.csv")
+    assert module.PROPOSAL_MANIFEST_FILE == Path(f"duplicate_files_proposed_{module.RUN_DATE}.csv")
 
 
 def check_folder(root: Path, name: str) -> Path:
