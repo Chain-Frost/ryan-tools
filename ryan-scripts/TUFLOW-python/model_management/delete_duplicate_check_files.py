@@ -634,6 +634,15 @@ def write_placeholder_files(placeholder_actions: list[PlaceholderAction]) -> Non
 # ---------------------------------------------------------------------------
 
 MANIFEST_FIELDS: tuple[str, ...] = ("original_path", "kept_path", "suffix", "size_bytes", "sha256", "status")
+# Additional scan-time evidence is required for safe no-rehash proposal application.
+# Recovery manifests intentionally keep their original six-column schema.
+PROPOSAL_FIELDS: tuple[str, ...] = (
+    *MANIFEST_FIELDS,
+    "delete_mtime_ns",
+    "keep_mtime_ns",
+    "scan_file_count",
+    "scan_total_bytes",
+)
 
 
 def manifest_rows(
@@ -679,12 +688,29 @@ def available_output_path(path: Path, index: int) -> Path:
     return path.with_name(f"{path.stem}_{index:03d}{path.suffix}")
 
 
-def write_proposal_manifest(path: Path, rows: list[dict[str, str]]) -> Path:
-    """Write the first available numbered CSV, using exclusive file creation."""
+def write_proposal_manifest(path: Path, actions: list[DeleteAction], totals: ScanTotals) -> Path:
+    """Write a reusable proposal with original scan times and total scanned bytes.
+
+    Metadata is repeated per action so the CSV remains a standalone artifact.
+    An older six-column proposal cannot be applied without a fresh scan.
+    """
+    rows = [
+        {
+            **row,
+            "delete_mtime_ns": str(action.delete_mtime_ns),
+            "keep_mtime_ns": str(action.keep_mtime_ns),
+            "scan_file_count": str(totals.file_count),
+            "scan_total_bytes": str(totals.total_bytes),
+        }
+        for row, action in zip(manifest_rows(actions), actions, strict=True)
+    ]
     for index in range(10000):
         candidate = available_output_path(path, index)
         try:
-            write_manifest(candidate, rows, exclusive=True)
+            with candidate.open("x", newline="", encoding="utf-8") as output:
+                writer = csv.DictWriter(output, fieldnames=PROPOSAL_FIELDS)
+                writer.writeheader()
+                writer.writerows(rows)
         except FileExistsError:
             continue
         return candidate
@@ -719,6 +745,13 @@ def read_manifest(path: Path) -> list[dict[str, str]]:
                     message = f"Invalid manifest field: {field}"
                     raise ValueError(message)
                 row[field] = value
+            for field in PROPOSAL_FIELDS[len(MANIFEST_FIELDS) :]:
+                if field in reader.fieldnames:
+                    value = raw_row.get(field)
+                    if not isinstance(value, str):
+                        message = f"Invalid proposal field: {field}"
+                        raise ValueError(message)
+                    row[field] = value
             if row["original_path"]:
                 rows.append(row)
         return rows
@@ -730,6 +763,146 @@ def matches_record(path: Path, *, size_bytes: int, content_hash: str) -> bool:
         return path.is_file() and path.stat().st_size == size_bytes and file_hash(path) == content_hash
     except OSError:
         return False
+
+
+def check_folder_for_proposal_path(path: Path) -> Path:
+    """Check real containment and return the nearest check/checks parent.
+
+    A proposal is editable input. Canonicalise ONLY for the security check so
+    embedded '..' components, links and junctions cannot escape ROOT_DIR.
+    The original path spelling is retained for reporting and actual operations.
+    """
+    root = absolute_path(ROOT_DIR)
+    actual_path = path.resolve(strict=True)
+    if not actual_path.is_relative_to(root.resolve(strict=True)):
+        message = f"Proposal file is outside ROOT_DIR: {path}"
+        raise ValueError(message)
+    names = {name.casefold() for name in CHECK_FOLDER_NAMES}
+    for parent in path.parents:
+        if parent.name.casefold() in names and parent.resolve(strict=True).is_relative_to(root.resolve(strict=True)):
+            return parent
+    message = f"Proposal file is not inside a check/checks folder: {path}"
+    raise ValueError(message)
+
+
+def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileRecord], ScanTotals]:
+    """Rebuild a trusted, unchanged proposal with no SHA-256 or full folder scan.
+
+    Reject legacy proposals without scan-time mtimes/totals; keeping the same
+    size alone is insufficient to establish that a candidate was unchanged.
+    """
+    rows = read_manifest(path)
+    if not rows:
+        return [], [], ScanTotals(file_count=0, total_bytes=0)
+    actions: list[DeleteAction] = []
+    records_by_path: dict[Path, FileRecord] = {}
+    seen_originals: set[Path] = set()
+    totals: ScanTotals | None = None
+    metadata = PROPOSAL_FIELDS[len(MANIFEST_FIELDS) :]
+
+    for row in rows:
+        if row["status"] != "planned":
+            message = f"Proposal row is not planned: {row['original_path']}"
+            raise ValueError(message)
+        if any(field not in row for field in metadata):
+            message = "Proposal lacks original modification times / totals. Run a new SCAN first."
+            raise ValueError(message)
+
+        current_totals = ScanTotals(file_count=int(row["scan_file_count"]), total_bytes=int(row["scan_total_bytes"]))
+        if totals is None:
+            totals = current_totals
+        elif totals != current_totals:
+            raise ValueError("Proposal has inconsistent original scan totals.")
+        if current_totals.file_count < 0 or current_totals.total_bytes < 0:
+            raise ValueError("Proposal has negative scan totals.")
+
+        original = absolute_path(Path(row["original_path"]))
+        kept = absolute_path(Path(row["kept_path"]))
+        if original == kept or original in seen_originals:
+            raise ValueError(f"Proposal has a self-reference or duplicate deletion path: {original}")
+        seen_originals.add(original)
+
+        size_bytes = int(row["size_bytes"])
+        delete_mtime_ns = int(row["delete_mtime_ns"])
+        keep_mtime_ns = int(row["keep_mtime_ns"])
+        suffix = row["suffix"]
+        content_hash = row["sha256"].casefold()
+        if size_bytes < 0 or len(content_hash) != 64 or any(c not in "0123456789abcdef" for c in content_hash):
+            raise ValueError(f"Proposal has an invalid size or SHA-256 value: {original}")
+        if has_linked_component(original) or has_linked_component(kept):
+            raise ValueError(f"Proposal contains a symlink, junction or linked file: {original} -> {kept}")
+        original_check = check_folder_for_proposal_path(original)
+        kept_check = check_folder_for_proposal_path(kept)
+
+        original_stat = original.stat()
+        kept_stat = kept.stat()
+        if (
+            original_stat.st_size != size_bytes
+            or kept_stat.st_size != size_bytes
+            or original_stat.st_mtime_ns != delete_mtime_ns
+            or kept_stat.st_mtime_ns != keep_mtime_ns
+            or original.suffix.lower() != suffix
+            or kept.suffix.lower() != suffix
+        ):
+            raise ValueError(f"Proposal file changed since the original scan: {original} -> {kept}")
+
+        records_by_path[original] = FileRecord(
+            check_folder=original_check,
+            path=original,
+            suffix=suffix,
+            size_bytes=size_bytes,
+            mtime_ns=delete_mtime_ns,
+            content_hash=content_hash,
+        )
+        records_by_path.setdefault(
+            kept,
+            FileRecord(
+                check_folder=kept_check,
+                path=kept,
+                suffix=suffix,
+                size_bytes=size_bytes,
+                mtime_ns=keep_mtime_ns,
+                content_hash=content_hash,
+            ),
+        )
+        actions.append(
+            DeleteAction(
+                delete_file=original,
+                keep_file=kept,
+                delete_mtime_ns=delete_mtime_ns,
+                keep_mtime_ns=keep_mtime_ns,
+                suffix=suffix,
+                size_bytes=size_bytes,
+                content_hash=content_hash,
+            )
+        )
+
+    if any(action.keep_file in seen_originals for action in actions):
+        raise ValueError("Proposal would delete a file used as a retained copy.")
+    assert totals is not None
+    if totals.file_count < len(records_by_path) or totals.total_bytes < sum(
+        record.size_bytes for record in records_by_path.values()
+    ):
+        raise ValueError("Proposal scan totals are smaller than the listed files.")
+    return sorted(actions, key=lambda action: str(action.delete_file).lower()), list(records_by_path.values()), totals
+
+
+def duplicate_groups_from_actions(actions: list[DeleteAction]) -> list[DuplicateGroup]:
+    """Group proposal actions for report and placeholder generation."""
+    grouped: dict[tuple[str, int, str, Path], list[Path]] = defaultdict(list)
+    for action in actions:
+        grouped[(action.suffix, action.size_bytes, action.content_hash, action.keep_file)].append(action.delete_file)
+    groups = [
+        DuplicateGroup(
+            suffix=suffix,
+            size_bytes=size_bytes,
+            content_hash=content_hash,
+            keep_file=keep_file,
+            delete_files=tuple(sorted(delete_files, key=lambda item: str(item).lower())),
+        )
+        for (suffix, size_bytes, content_hash, keep_file), delete_files in grouped.items()
+    ]
+    return sorted(groups, key=lambda group: str(group.keep_file).lower())
 
 
 def restore_manifest_entry(row: dict[str, str]) -> None:
