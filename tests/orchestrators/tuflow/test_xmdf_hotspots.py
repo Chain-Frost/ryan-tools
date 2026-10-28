@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import cast
 
 import fiona
 import numpy as np
@@ -28,10 +30,10 @@ class FakeXMDF:
         if dt:
             self.names = (*self.names, "dt")
 
-    def data_types(self, _filter_by: str | None = None) -> list[str]:
+    def data_types(self, filter_by: str | None = None) -> list[str]:  # noqa: ARG002 - Protocol keyword must match.
         return list(self.names)
 
-    def times(self, _filter_by: str | None = None) -> list[float]:
+    def times(self, filter_by: str | None = None) -> list[float]:  # noqa: ARG002 - Protocol keyword must match.
         return [0.0, 0.0833333333333333, 0.16666666666666666]
 
     def surface(self, data_type: str, time: float) -> pd.DataFrame:
@@ -55,6 +57,18 @@ class FakeXMDF:
                 "active": [True, True, False],
             }
         )
+
+
+def fake_reader(_path: Path, _mesh: Path | None) -> FakeXMDF:
+    return FakeXMDF()
+
+
+def fake_reader_with_dt(_path: Path, _mesh: Path | None) -> FakeXMDF:
+    return FakeXMDF(dt=True)
+
+
+def fake_reader_misaligned(_path: Path, _mesh: Path | None) -> FakeXMDF:
+    return FakeXMDF(misalign=True)
 
 
 def make_file(tmp_path: Path) -> Path:
@@ -92,7 +106,7 @@ def test_selected_times_preserve_subhourly_outputs() -> None:
 def test_missing_dt_is_not_fabricated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.orchestrators.tuflow import xmdf_hotspots as workflow
 
-    monkeypatch.setattr(workflow, "_reader", lambda *_args: FakeXMDF())
+    monkeypatch.setattr(workflow, "_reader", fake_reader)
     source = make_file(tmp_path)
     destination = tmp_path / "xmdf.gpkg"
     report = run_xmdf_hotspot_workflow(XmdfHotspotConfig((source,), destination, "EPSG:7851", max_points_per_type=100))
@@ -114,7 +128,7 @@ def test_missing_dt_is_not_fabricated(tmp_path: Path, monkeypatch: pytest.Monkey
 def test_optional_dt_reports_actual_mesh_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.orchestrators.tuflow import xmdf_hotspots as workflow
 
-    monkeypatch.setattr(workflow, "_reader", lambda *_args: FakeXMDF(dt=True))
+    monkeypatch.setattr(workflow, "_reader", fake_reader_with_dt)
     source = make_file(tmp_path)
     output = tmp_path / "dt.gpkg"
     report = run_xmdf_hotspot_workflow(XmdfHotspotConfig((source,), output, "EPSG:7851", start_time_hr=0.1))
@@ -131,12 +145,13 @@ def test_optional_dt_reports_actual_mesh_values(tmp_path: Path, monkeypatch: pyt
 def test_no_fake_area_or_raster_connectivity(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.orchestrators.tuflow import xmdf_hotspots as workflow
 
-    monkeypatch.setattr(workflow, "_reader", lambda *_args: FakeXMDF())
+    monkeypatch.setattr(workflow, "_reader", fake_reader)
     source = make_file(tmp_path)
     output = tmp_path / "nodal.gpkg"
     run_xmdf_hotspot_workflow(XmdfHotspotConfig((source,), output, "EPSG:7851"))
     with fiona.open(output, layer="xmdf_control_hotspots") as result:
-        columns = set(result.schema["properties"])
+        properties = cast("Mapping[str, str]", result.schema["properties"])
+        columns = set(properties)
     assert "area_ha" not in columns
     assert "component" not in columns
     assert "node_index" in columns
@@ -145,7 +160,7 @@ def test_no_fake_area_or_raster_connectivity(tmp_path: Path, monkeypatch: pytest
 def test_dry_run_checks_metadata_without_writing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.orchestrators.tuflow import xmdf_hotspots as workflow
 
-    monkeypatch.setattr(workflow, "_reader", lambda *_args: FakeXMDF())
+    monkeypatch.setattr(workflow, "_reader", fake_reader)
     source = make_file(tmp_path)
     output = tmp_path / "existing.gpkg"
     output.write_bytes(b"original")
@@ -157,7 +172,7 @@ def test_dry_run_checks_metadata_without_writing(tmp_path: Path, monkeypatch: py
 def test_misaligned_surface_fails_without_overwriting(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.orchestrators.tuflow import xmdf_hotspots as workflow
 
-    monkeypatch.setattr(workflow, "_reader", lambda *_args: FakeXMDF(misalign=True))
+    monkeypatch.setattr(workflow, "_reader", fake_reader_misaligned)
     source = make_file(tmp_path)
     output = tmp_path / "existing.gpkg"
     output.write_bytes(b"original")
@@ -169,7 +184,7 @@ def test_misaligned_surface_fails_without_overwriting(tmp_path: Path, monkeypatc
 def test_point_cap_retains_total_and_worst_values(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.orchestrators.tuflow import xmdf_hotspots as workflow
 
-    monkeypatch.setattr(workflow, "_reader", lambda *_args: FakeXMDF())
+    monkeypatch.setattr(workflow, "_reader", fake_reader)
     source = make_file(tmp_path)
     output = tmp_path / "capped.gpkg"
     run_xmdf_hotspot_workflow(XmdfHotspotConfig((source,), output, "EPSG:7851", max_points_per_type=1, end_time_hr=0))
