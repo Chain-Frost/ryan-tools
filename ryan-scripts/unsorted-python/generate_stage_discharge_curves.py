@@ -624,11 +624,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             }
         )
 
-    _validate_output_directory(output_dir, overwrite=args.overwrite)
     if args.dry_run:
         print(f"Dry run: validated {len(references)} stage-discharge curves; no files created in {output_dir}")
         return 0
 
+    _validate_output_directory(output_dir, overwrite=args.overwrite)
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     # Assemble plots and all summaries away from the final report path.
     stage = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}.staging-", dir=output_dir.parent))
