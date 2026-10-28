@@ -276,7 +276,12 @@ def run_hourly_dt_hotspot_workflow(config: HourlyHotspotConfig) -> HourlyHotspot
         config.grid_dir, prefix=config.prefix, min_hour=config.min_hour, max_hour=config.max_hour
     )
     grid = validate_raster_grids(hourly)
-    logger.info("Found {} complete hourly raster sets for {} ({} cells per raster)", len(hourly), prefix, np.prod(grid.shape))
+    logger.info(
+        "Found {} complete hourly raster sets for {} ({} cells per raster)",
+        len(hourly),
+        prefix,
+        np.prod(grid.shape),
+    )
     if config.dry_run:
         logger.success("Dry run: validated {} hourly sets; output would be {}", len(hourly), config.output)
         return HourlyHotspotResult(config.output, prefix, len(hourly), 0, 0, 0, True)
@@ -367,4 +372,6 @@ def run_hourly_dt_hotspot_workflow(config: HourlyHotspotConfig) -> HourlyHotspot
         parameter_count,
         overall_count,
     )
-    return HourlyHotspotResult(config.output, prefix, len(hourly), hourly_dt_count, parameter_count, overall_count, False)
+    return HourlyHotspotResult(
+        config.output, prefix, len(hourly), hourly_dt_count, parameter_count, overall_count, False
+    )
