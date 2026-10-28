@@ -120,9 +120,7 @@ def discover_hourly_rasters(
         if missing:
             message = f"Incomplete hourly raster set at hour {hour}: missing {', '.join(missing)}"
             raise ValueError(message)
-    return actual_prefixes[prefix_key], tuple(
-        HourlyRasterSet(hour=hour, paths=hourly[hour]) for hour in sorted(hourly)
-    )
+    return actual_prefixes[prefix_key], tuple(HourlyRasterSet(hour=hour, paths=hourly[hour]) for hour in sorted(hourly))
 
 
 def _require_metre_crs(crs: CRS | None, path: Path) -> CRS:
@@ -272,9 +270,7 @@ def hourly_dt_records(
             record[f"{key}_at_min"] = at_min[parameter]
             record[f"{key}_peak"] = peak[parameter]
             record[f"{key}_near"] = (
-                int(peak[parameter] >= near_limit_fraction * limits[parameter])
-                if peak[parameter] is not None
-                else 0
+                int(peak[parameter] >= near_limit_fraction * limits[parameter]) if peak[parameter] is not None else 0
             )
         yield record
 
