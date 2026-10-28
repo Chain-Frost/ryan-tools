@@ -212,7 +212,8 @@ def test_failure_during_export_preserves_existing_gpkg(tmp_path: Path, monkeypat
     output.write_bytes(b"original file to preserve")
 
     def fail_write(*_args: object, **_kwargs: object) -> None:
-        raise RuntimeError("simulated export failure")
+        message = "simulated export failure"
+        raise RuntimeError(message)
 
     from ryan_library.orchestrators.tuflow import hourly_dt_hotspots as orchestrator
 
