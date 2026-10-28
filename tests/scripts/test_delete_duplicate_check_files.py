@@ -168,9 +168,10 @@ def test_storage_totals_include_delete_fraction_and_remaining_gb(utility: Module
     assert "25.0%" in lines[1]
     assert "3.000 GB" in lines[2]
     assert "75.0%" in lines[2]
-    assert "Actually deleted" in utility.storage_summary_lines(
+    actual_lines = utility.storage_summary_lines(
         utility.ScanTotals(file_count=4, total_bytes=4_000_000_000), [action], actual=True
-    )[1]
+    )
+    assert "Actually deleted" in actual_lines[1]
 
 
 def test_proposal_mode_reuses_previous_scan_without_rehash(
