@@ -5,9 +5,9 @@ when the source folders have different parent directories or drives. Existing
 archives are never overwritten, and input folders are not modified. 7-Zip is
 required; the script can discover standard Windows installations automatically.
 
-Example:
+Example (PowerShell):
     python archive_compress_multiple_folders.py `
-        -i "C:\\Data\\Run 1" "D:\\Results\\Run 2" -o "Q:\\Archives\\selected-runs.zip"
+        -i "C:\\Data\\Run_A" "D:\\Results\\Run_B" -o "C:\\Archives\\selected-runs.zip"
 
 Alternatively, paste paths into DEFAULT_INPUT_PATHS and DEFAULT_OUTPUT_PATH
 below, then run the script without command-line arguments.
@@ -29,12 +29,12 @@ SCRIPT_VERSION = "2026-10-28.2"
 # ---------------------------------------------------------------------------
 # Editable settings (command-line arguments override these values)
 # ---------------------------------------------------------------------------
+# Example paths only; edit these values or pass -i and -o.
 DEFAULT_INPUT_PATHS: tuple[Path, ...] = (
-    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v06"),
-    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v07"),
-    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v12"),
+    Path(r"C:\Data\Run_A"),
+    Path(r"D:\Results\Run_B"),
 )
-DEFAULT_OUTPUT_PATH = Path(r"C:\Path\To\combined.zip")
+DEFAULT_OUTPUT_PATH = Path(r"C:\Archives\combined-runs.zip")
 # ---------------------------------------------------------------------------
 
 
@@ -71,24 +71,21 @@ def _seven_zip_version(executable: Path) -> str:
 
 
 def _publish_archive(temporary_archive: Path, output_archive: Path) -> None:
-    """Publish a completed archive without overwriting an output created concurrently."""
+    """Atomically publish a complete ZIP without exposing a partly copied final file.
+
+    The staging ZIP is in the destination directory, hence on the same volume.
+    Windows rename refuses an existing target, including on supported SMB shares.
+    On POSIX, a hard link gives the equivalent atomic no-clobber behaviour;
+    if unsupported, fail safely instead of streaming into the final filename.
+    """
+    if os.name == "nt":
+        temporary_archive.rename(output_archive)
+        return
     try:
         os.link(temporary_archive, output_archive)
-    except FileExistsError:
-        message = f"Output archive already exists: {output_archive}"
-        raise FileExistsError(message) from None
-    except OSError:
-        # Some mapped/network drives do not support hard links. Exclusive creation
-        # retains the no-overwrite guarantee, at the cost of one final file copy.
-        try:
-            with temporary_archive.open("rb") as source, output_archive.open("xb") as destination:
-                shutil.copyfileobj(source, destination, length=8 * 1024 * 1024)
-        except FileExistsError:
-            message = f"Output archive already exists: {output_archive}"
-            raise FileExistsError(message) from None
-        except Exception:
-            output_archive.unlink(missing_ok=True)
-            raise
+    except OSError as error:
+        message = "This filesystem cannot atomically publish a ZIP without replacing an existing file"
+        raise OSError(message) from error
     temporary_archive.unlink()
 
 
@@ -128,8 +125,12 @@ def create_zip_from_folders(
                 diagnostic = result.stderr.strip() or result.stdout.strip()
                 message = f"7-Zip exit code {result.returncode} while adding {folder}: {diagnostic}"
                 raise RuntimeError(message)
+        if not temporary_archive.is_file() or temporary_archive.stat().st_size == 0:
+            message = f"7-Zip did not create a non-empty archive: {temporary_archive}"
+            raise RuntimeError(message)
         _publish_archive(temporary_archive, output_archive)
-    except Exception:
+    except BaseException:
+        # Includes KeyboardInterrupt: do not leave an apparently complete staging ZIP.
         temporary_archive.unlink(missing_ok=True)
         raise
 
@@ -138,15 +139,21 @@ def _validated_folders(input_paths: Sequence[Path]) -> list[Path]:
     """Return distinct, existing folders with unique archive root names."""
     folders: list[Path] = []
     seen_paths: set[str] = set()
+    seen_physical: set[Path] = set()
     for supplied_path in input_paths:
         folder = supplied_path.absolute()
         spelling = os.path.normcase(str(folder))
         if spelling in seen_paths:
             continue
-        seen_paths.add(spelling)
         if not folder.is_dir():
             message = f"Input folder does not exist or is not a directory: {folder}"
             raise ValueError(message)
+        # Deduplicate symlink/junction aliases of the same physical directory.
+        physical = folder.resolve(strict=True)
+        if physical in seen_physical:
+            continue
+        seen_paths.add(spelling)
+        seen_physical.add(physical)
         folders.append(folder)
 
     if not folders:
@@ -172,7 +179,7 @@ def _validated_output(output_path: Path, folders: Sequence[Path]) -> Path:
     if not output_archive.parent.is_dir():
         message = f"Output directory does not exist: {output_archive.parent}"
         raise ValueError(message)
-    if output_archive.exists():
+    if output_archive.exists() or output_archive.is_symlink():
         message = f"Output archive already exists: {output_archive}"
         raise FileExistsError(message)
     physical_output = output_archive.resolve(strict=False)
