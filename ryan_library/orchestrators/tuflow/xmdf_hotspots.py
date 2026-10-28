@@ -11,10 +11,11 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast
+from typing import Protocol, cast
 
 import fiona
 import numpy as np
+import pandas as pd
 import rasterio
 from loguru import logger
 from numpy.typing import NDArray
@@ -137,11 +138,45 @@ class _Peak:
     counts: NDArray[np.uint32]
 
 
-def _reader(path: Path, twodm: Path | None) -> XmdfReader:
-    """Defer the heavy PyTUFLOW/mesh import until XMDF mode is requested."""
-    from pytuflow import XMDF
+class _RawPyTuflowMesh(Protocol):
+    """The small PyMesh driver surface needed to avoid synthesized times and cache growth."""
 
-    return cast("XmdfReader", XMDF(path, twodm=twodm, driver="h5py"))
+    def times(self, data_type: str) -> NDArray[np.float64]: ...
+    def clear_cache(self) -> None: ...
+
+
+class _PyTuflowXmdfAdapter:
+    """Use PyTUFLOW exclusively for XMDF decoding, through one guarded native driver bridge."""
+
+    def __init__(self, path: Path, twodm: Path | None) -> None:
+        from pytuflow import XMDF
+
+        self._reader = XMDF(path, twodm=twodm, driver="h5py")
+        native = getattr(self._reader, "_driver", None)
+        if not callable(getattr(native, "times", None)) or not callable(getattr(native, "clear_cache", None)):
+            message = "PyTUFLOW XMDF driver does not expose stored times and cache eviction"
+            raise RuntimeError(message)
+        self._native = cast("_RawPyTuflowMesh", native)
+
+    def data_types(self, filter_by: str | None = None) -> list[str]:
+        return self._reader.data_types(filter_by)
+
+    def stored_times(self, data_type: str) -> list[float]:
+        # XMDF.times() reconstructs regular output intervals in some PyTUFLOW versions.
+        # The underlying PyMesh.times() returns its extractor's stored Times array.
+        return [float(value) for value in self._native.times(data_type)]
+
+    def surface(self, data_type: str, time: float) -> pd.DataFrame:
+        return self._reader.surface(data_type, time)
+
+    def clear_cache(self) -> None:
+        # Unbounded PyMesh surface caches otherwise grow with every timestamp.
+        self._native.clear_cache()
+
+
+def _reader(path: Path, twodm: Path | None) -> XmdfReader:
+    """Construct a PyTUFLOW XMDF-only adapter without a QGIS plugin dependency."""
+    return _PyTuflowXmdfAdapter(path, twodm)
 
 
 def _validate_inputs(config: XmdfHotspotConfig) -> None:
@@ -271,7 +306,7 @@ def _matching_optional_types(reader: XmdfReader, names: Mapping[str, str], times
     for parameter, label in names.items():
         if parameter in REQUIRED_DATASETS:
             continue
-        available = np.asarray(reader.times(label), dtype=np.float64)
+        available = np.asarray(reader.stored_times(label), dtype=np.float64)
         if available.size and all(np.any(np.isclose(available, t, rtol=0.0, atol=1e-7)) for t in times):
             selected[parameter] = label
         else:
@@ -411,6 +446,7 @@ def _process_source(
             )
             count_dt += _write_points(output, "xmdf_dt_hotspots", rows, _DT_SCHEMA)
             clipped += total - len(rows)
+        reader.clear_cache()
 
     rows, summary_clipped = _summary_records(mesh_name=xmdf.name, surfaces=last_surfaces, peaks=peaks, config=config)
     count_summary = _write_points(output, "xmdf_control_summary", rows, _SUMMARY_SCHEMA)
