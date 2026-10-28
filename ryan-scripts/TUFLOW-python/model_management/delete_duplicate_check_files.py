@@ -980,8 +980,9 @@ def write_report(
     placeholder_actions: list[PlaceholderAction],
     report_file: Path,
     proposal_file: Path,
+    totals: ScanTotals,
 ) -> Path:
-    """Write a human-readable duplicate deletion report without overwriting it."""
+    """Write a human-readable report of proposed deletions and remaining space."""
     lines: list[str] = [
         "Duplicate file report",
         "=" * 80,
@@ -992,6 +993,9 @@ def write_report(
         f"Files marked for deletion: {len(actions)}",
         f"Placeholder files to write: {len(placeholder_actions)}",
         f"Proposal CSV manifest: {absolute_path(proposal_file)}",
+        "",
+        "Storage summary (original scan; decimal GB):",
+        *storage_summary_lines(totals, actions),
         "",
         "Placeholder policy:",
         "  One placeholder per unique deleted content per affected check folder.",
@@ -1071,8 +1075,9 @@ def print_summary(
     placeholder_actions: list[PlaceholderAction],
     report_file: Path,
     proposal_file: Path,
+    totals: ScanTotals,
 ) -> None:
-    """Print a console summary."""
+    """Print scan counts, file paths, and planned/remaining storage sizes."""
     print()
     print("Summary")
     print("=" * 80)
@@ -1087,6 +1092,8 @@ def print_summary(
     print(f"Report written to:               {absolute_path(report_file)}")
     print(f"Proposal manifest:                {absolute_path(proposal_file)}")
     print(f"Recovery manifest:                {absolute_path(MANIFEST_FILE)}")
+    for line in storage_summary_lines(totals, actions):
+        print(line)
     print()
 
 
@@ -1170,9 +1177,84 @@ def cleanup_targets_are_safe(placeholder_actions: list[PlaceholderAction]) -> bo
 # ---------------------------------------------------------------------------
 
 
+def execute_deletion(
+    actions: list[DeleteAction],
+    records: list[FileRecord],
+    planned_placeholder_actions: list[PlaceholderAction],
+    totals: ScanTotals,
+) -> None:
+    """Apply confirmation, metadata guards, recovery logging and deletion.
+
+    Report actual deleted bytes separately from proposed bytes. The retained
+    estimate refers to the scope of the original scan.
+    """
+    if DRY_RUN:
+        print("DRY_RUN is enabled. No files were deleted and no placeholders were written.")
+        return
+
+    if not cleanup_targets_are_safe(planned_placeholder_actions):
+        return
+    if not confirm_deletion():
+        print("Deletion cancelled. No files were deleted.")
+        return
+
+    # Persist the pending recovery mapping BEFORE deleting anything.
+    try:
+        write_manifest(MANIFEST_FILE, manifest_rows(actions, status="pending"), exclusive=True)
+    except FileExistsError:
+        print(f"Refusing deletion: recovery manifest appeared meanwhile: {absolute_path(MANIFEST_FILE)}")
+        return
+    successful_actions = delete_duplicate_files(actions)
+    update_manifest(MANIFEST_FILE, manifest_rows(actions, successful_actions=successful_actions))
+
+    successful_placeholder_actions = build_placeholder_actions(actions=successful_actions, records=records)
+    if successful_placeholder_actions:
+        write_placeholder_files(successful_placeholder_actions)
+
+    print()
+    print("Finished")
+    print("=" * 80)
+    print(f"Duplicate files requested for deletion: {len(actions)}")
+    print(f"Duplicate files deleted:                 {len(successful_actions)}")
+    print(f"Duplicate files failed:                  {len(actions) - len(successful_actions)}")
+    print(f"Placeholder groups written/planned:       {len(successful_placeholder_actions)}")
+    print(f"Recovery manifest:                       {absolute_path(MANIFEST_FILE)}")
+    for line in storage_summary_lines(totals, successful_actions, actual=True):
+        print(line)
+
+
 def main() -> None:
+    """Dispatch restore, saved-proposal application, or fresh scan (in that order)."""
     if RESTORE_FROM_MANIFEST:
         restore_files_from_manifest(MANIFEST_FILE)
+        return
+
+    if APPLY_PROPOSAL_MANIFEST:
+        print(f"Loading trusted proposal: {absolute_path(PROPOSAL_MANIFEST_FILE)}")
+        print("No full folder scan or SHA-256 pass; original content hashes are TRUSTED.")
+        try:
+            actions, records, totals = actions_from_proposal(PROPOSAL_MANIFEST_FILE)
+        except (OSError, ValueError) as error:
+            print(f"Refusing deletion: invalid or stale proposal manifest: {error}")
+            return
+        if not actions:
+            print("The proposal manifest contains no deletion actions.")
+            return
+
+        groups = duplicate_groups_from_actions(actions)
+        placeholders = build_placeholder_actions(actions, records)
+        report_file = write_report(
+            duplicate_groups=groups,
+            actions=actions,
+            placeholder_actions=placeholders,
+            report_file=REPORT_FILE,
+            proposal_file=PROPOSAL_MANIFEST_FILE,
+            totals=totals,
+        )
+        print(f"Application report: {absolute_path(report_file)}")
+        for line in storage_summary_lines(totals, actions):
+            print(line)
+        execute_deletion(actions, records, placeholders, totals)
         return
 
     check_folders = find_check_folders(ROOT_DIR)
@@ -1182,6 +1264,7 @@ def main() -> None:
         return
 
     records = iter_files_in_check_folders(check_folders)
+    totals = ScanTotals(file_count=len(records), total_bytes=sum(record.size_bytes for record in records))
 
     if not records:
         print("Check folders found, but no files were found under them.")
@@ -1200,13 +1283,14 @@ def main() -> None:
         records=records,
     )
 
-    proposal_file = write_proposal_manifest(PROPOSAL_MANIFEST_FILE, manifest_rows(actions))
+    proposal_file = write_proposal_manifest(PROPOSAL_MANIFEST_FILE, actions, totals)
     report_file = write_report(
         duplicate_groups=duplicate_groups,
         actions=actions,
         placeholder_actions=planned_placeholder_actions,
         report_file=REPORT_FILE,
         proposal_file=proposal_file,
+        totals=totals,
     )
 
     print_summary(
@@ -1217,50 +1301,14 @@ def main() -> None:
         placeholder_actions=planned_placeholder_actions,
         report_file=report_file,
         proposal_file=proposal_file,
+        totals=totals,
     )
 
     if not duplicate_groups:
         print("No duplicate file contents found.")
         return
 
-    if DRY_RUN:
-        print("DRY_RUN is enabled. No files were deleted and no placeholders were written.")
-        return
-
-    if not cleanup_targets_are_safe(planned_placeholder_actions):
-        return
-
-    if not confirm_deletion():
-        print("Deletion cancelled. No files were deleted.")
-        return
-
-    # The pending manifest is durable before any file is removed.
-    try:
-        write_manifest(MANIFEST_FILE, manifest_rows(actions, status="pending"), exclusive=True)
-    except FileExistsError:
-        print(f"Refusing deletion: recovery manifest appeared meanwhile: {absolute_path(MANIFEST_FILE)}")
-        return
-    successful_actions = delete_duplicate_files(actions)
-    update_manifest(MANIFEST_FILE, manifest_rows(actions, successful_actions=successful_actions))
-
-    successful_placeholder_actions = build_placeholder_actions(
-        actions=successful_actions,
-        records=records,
-    )
-
-    if successful_placeholder_actions:
-        write_placeholder_files(successful_placeholder_actions)
-
-    failed_count = len(actions) - len(successful_actions)
-
-    print()
-    print("Finished")
-    print("=" * 80)
-    print(f"Duplicate files requested for deletion: {len(actions)}")
-    print(f"Duplicate files deleted:                 {len(successful_actions)}")
-    print(f"Duplicate files failed:                  {failed_count}")
-    print(f"Placeholder groups written/planned:       {len(successful_placeholder_actions)}")
-    print(f"Recovery manifest:                       {absolute_path(MANIFEST_FILE)}")
+    execute_deletion(actions, records, planned_placeholder_actions, totals)
 
 
 if __name__ == "__main__":
