@@ -114,6 +114,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Floodway research](audits/2026-09-13-floodway-design-research.md) | Source baseline |
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
 | [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
+| [Hourly HPC hotspot integration status](work/2026-10-28-hourly-hpc-dt-hotspots.md) | Integration of hourly raster analysis, synthetic evidence and outstanding native acceptance |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
 | [Culvert uncertainty/sensitivity workflow](work/2026-10-06-culvert-uncertainty-91.md) | Issue #91 implementation; final package verification and authorized squash merge |
 | [Culvert workflow implementation](work/2026-09-13-culvert-workflow-80.md) | Active issue #80 implementation and validation/delivery status |
