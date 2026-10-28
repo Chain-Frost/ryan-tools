@@ -33,6 +33,29 @@ are protected unless --overwrite is specified. When replacing an existing
 GeoPackage, the workflow builds and closes a temporary GeoPackage before the
 final rename. The original is preserved if analysis or writing fails.
 
+## Temporal and spatial interpretation
+
+**Matching output timestamps do not guarantee matching hydraulic events.**
+Project-data observations show that timestamped dt rasters can retain a minimum
+computed earlier while Nu/Nc/Nd change. Whether and when this retention resets
+depends on the output and engine; the exact engine contract remains unverified.
+
+- `worst_hour` identifies an output **containing** the lowest dt, not necessarily
+  the time when that low timestep first occurred.
+- `max_hours_at_cell`, `hours_at_worst_cell` and `sum_cell_hours` count **output
+  snapshots** with low dt, not continuous restriction duration or independent
+  solver timesteps.
+- Same-output Nu/Nc/Nd at the representative minimum-dt cell and same-hour
+  peaks are spatial or snapshot associations; they are not proof of the
+  condition which originally forced the retained dt minimum.
+- Raster pixel counts and `area_ha` describe the raster-grid footprint.
+  TUFLOW output pixels can be finer than the computational cells; mesh nodes
+  and active mesh elements are different spatial supports.
+
+Use the HPC timestep CSV/log, repeated solver steps and model inputs for a
+defensible cause-of-low-timestep diagnosis. Do not interpret these hotspot
+layers as solver-event reconstruction.
+
 ## Layers
 
 | Layer | Meaning |
