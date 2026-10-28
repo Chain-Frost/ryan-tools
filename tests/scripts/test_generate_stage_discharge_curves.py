@@ -280,4 +280,3 @@ def test_dry_run_can_inspect_existing_report_without_overwrite(module: StageModu
     previous = {entry.name: entry.read_bytes() for entry in output.iterdir()}
     assert module.main(cli(root, reference, output, "--dry-run")) == 0
     assert {entry.name: entry.read_bytes() for entry in output.iterdir()} == previous
-
