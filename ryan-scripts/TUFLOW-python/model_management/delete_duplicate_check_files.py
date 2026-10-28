@@ -1,16 +1,34 @@
-"""Find and optionally delete byte-identical files in TUFLOW check/checks folders.
+"""Audit and optionally remove byte-identical files in TUFLOW check/checks folders.
 
-Run from the model/result root or set ROOT_DIR. Cross-folder comparison and
-raster scanning are enabled by default. Review the proposed deletion list and
-type DELETE to confirm actual removal; DRY_RUN = True remains available.
-A Rich SHA-256 progress display tracks candidate bytes, throughput and ETA.
+Run from the intended result/model root, or configure ROOT_DIR below. Choose ONE
+mode using the editable constants below (no command-line arguments required):
 
-One placeholder is retained per unique deleted content group in each affected
-check folder, even when the retained file is in that folder. Placeholders are
-audit records, not usable replacements for original file paths.
+1. SCAN (default): RESTORE_FROM_MANIFEST = False and
+   APPLY_PROPOSAL_MANIFEST = False. Read and hash candidate files, write a dated
+   proposal CSV and TXT report. Set DRY_RUN = True to stop before deletion.
+   With DRY_RUN = False, type DELETE to proceed after reviewing the proposal.
+2. APPLY SAVED PROPOSAL: APPLY_PROPOSAL_MANIFEST = True. Set
+   PROPOSAL_MANIFEST_FILE to the exact CSV produced by an earlier SCAN (including
+   any _001 suffix). No full folder scan or new SHA-256 hash pass occurs. The
+   proposal must include original scan timestamps and total sizes, and all
+   listed files must still match their recorded size, suffix and modification
+   time. Both preflight and the deletion loop verify file metadata. This mode
+   TRUSTS the proposal's original SHA-256 hashes: metadata checks cannot detect
+   content changes made while preserving timestamps. Only apply proposals from
+   a trusted source. DRY_RUN and DELETE confirmation still apply.
+3. RESTORE: RESTORE_FROM_MANIFEST = True, setting MANIFEST_FILE to the recovery
+   CSV created by the deletion run. Type RESTORE to recover missing originals;
+   existing originals are never overwritten. This mode takes precedence.
 
-To recover deleted files, set RESTORE_FROM_MANIFEST = True and select the
-matching dated MANIFEST_FILE from that run. Restoration never overwrites files.
+All three output filenames default to a YYYY-MM-DD suffix using the local date
+at script startup. Set filenames explicitly to use another run's files.
+Proposal/report name collisions are numbered rather than overwritten. A
+recovery manifest is never overwritten. Planned deletion and remaining sizes
+are reported in decimal GB (1 GB = 1,000,000,000 bytes).
+
+A .DUPLICATE_REMOVED.txt placeholder is an audit record, NOT a replacement for
+a deleted file path. Deleting byte-identical rasters or GIS files may still
+break TUFLOW/QGIS references; review all proposed paths before confirming.
 """
 
 from __future__ import annotations
@@ -66,7 +84,8 @@ HASH_CHUNK_SIZE = 1024 * 1024  # 1 MiB
 SHOW_HASH_PROGRESS = True
 HASH_PROGRESS_REFRESH_PER_SECOND = 2.0
 
-# Even when False, deletion still requires typing DELETE.
+# True: generate/validate reports only, never delete or restore files.
+# False: deletion still requires typing DELETE; restoration requires RESTORE.
 DRY_RUN = False
 
 # True  = compare duplicates across all discovered check folders.
@@ -78,9 +97,16 @@ COMPARE_ACROSS_CHECK_FOLDERS = True
 INCLUDE_RASTER_FILES = True
 RASTER_SUFFIXES = {".tif", ".tiff", ".ovr"}
 
-# When True, restore files from MANIFEST_FILE rather than scanning. For a prior
-# run, set MANIFEST_FILE to its dated CSV. RESTORE is required unless DRY_RUN.
+# Restore mode (highest priority). Set MANIFEST_FILE to the exact dated recovery
+# CSV from the deletion run, then type RESTORE. Existing files are never replaced.
 RESTORE_FROM_MANIFEST = False
+
+# Apply mode (explicit opt-in). Reuse a previously saved proposal CSV with no
+# whole-tree scan or SHA-256 pass. Set PROPOSAL_MANIFEST_FILE above to that EXACT
+# filename, including a same-day _001 suffix if present. The file must contain
+# scan-time modification timestamps; older proposal CSVs need a fresh SCAN.
+# Paths/sizes/timestamps are rechecked, but original SHA-256 values are TRUSTED.
+APPLY_PROPOSAL_MANIFEST = False
 
 # Example:
 #   deleted file: result_001.tif
@@ -135,6 +161,35 @@ class PlaceholderAction:
     suffix: str
     size_bytes: int
     content_hash: str
+
+
+@dataclass(frozen=True)
+class ScanTotals:
+    """Original scan scope, retained in the proposal for later apply reports."""
+
+    file_count: int
+    total_bytes: int
+
+
+def storage_summary_lines(totals: ScanTotals, actions: list[DeleteAction], *, actual: bool = False) -> list[str]:
+    """Return decimal-GB deletion and remaining estimates for the original scan scope.
+
+    For APPLY, totals refer to the earlier proposal scan, not a new disk scan.
+    Deleted bytes are computed from actions, not a second read of file contents.
+    """
+    delete_bytes = sum(action.size_bytes for action in actions)
+    remaining_bytes = max(0, totals.total_bytes - delete_bytes)
+    fraction = 100 * delete_bytes / totals.total_bytes if totals.total_bytes else 0.0
+    verb = "Actually deleted" if actual else "Proposed for deletion"
+
+    def as_gb(value: int) -> str:
+        return f"{value / 1_000_000_000:.3f} GB ({value:,} bytes)"
+
+    return [
+        f"Total at original scan: {as_gb(totals.total_bytes)} across {totals.file_count:,} files",
+        f"{verb}: {as_gb(delete_bytes)} across {len(actions):,} files ({fraction:.1f}% of original total)",
+        f"Estimated remaining: {as_gb(remaining_bytes)} ({100.0 - fraction:.1f}% of original total)",
+    ]
 
 
 # ---------------------------------------------------------------------------
