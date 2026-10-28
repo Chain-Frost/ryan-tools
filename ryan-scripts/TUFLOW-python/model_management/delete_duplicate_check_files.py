@@ -9,8 +9,8 @@ One placeholder is retained per unique deleted content group in each affected
 check folder, even when the retained file is in that folder. Placeholders are
 audit records, not usable replacements for original file paths.
 
-To recover files deleted by this version, set RESTORE_FROM_MANIFEST = True and
-follow the separate restore confirmation. Restoration never overwrites files.
+To recover deleted files, set RESTORE_FROM_MANIFEST = True and select the
+matching dated MANIFEST_FILE from that run. Restoration never overwrites files.
 """
 
 from __future__ import annotations
@@ -23,6 +23,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import dataclass
+from datetime import date
 from functools import partial
 from pathlib import Path
 from time import monotonic
@@ -53,9 +54,10 @@ from ryan_library.functions.file_verification import hash_file as shared_hash_fi
 ROOT_DIR = Path()
 CHECK_FOLDER_NAMES = ("check", "checks")
 
-REPORT_FILE = Path("duplicate_files_to_delete.txt")
-MANIFEST_FILE = Path("duplicate_files_manifest.csv")
-PROPOSAL_MANIFEST_FILE = Path("duplicate_files_proposed.csv")
+RUN_DATE = date.today().isoformat()  # Local date, YYYY-MM-DD; shared by all three outputs.
+REPORT_FILE = Path(f"duplicate_files_to_delete_{RUN_DATE}.txt")
+MANIFEST_FILE = Path(f"duplicate_files_manifest_{RUN_DATE}.csv")
+PROPOSAL_MANIFEST_FILE = Path(f"duplicate_files_proposed_{RUN_DATE}.csv")
 
 HASH_CHUNK_SIZE = 1024 * 1024  # 1 MiB
 
@@ -76,8 +78,8 @@ COMPARE_ACROSS_CHECK_FOLDERS = True
 INCLUDE_RASTER_FILES = True
 RASTER_SUFFIXES = {".tif", ".tiff", ".ovr"}
 
-# When True, restore files from the last completed MANIFEST_FILE rather than
-# scanning for duplicates. Restore requires typing RESTORE when DRY_RUN is False.
+# When True, restore files from MANIFEST_FILE rather than scanning. For a prior
+# run, set MANIFEST_FILE to its dated CSV. RESTORE is required unless DRY_RUN.
 RESTORE_FROM_MANIFEST = False
 
 # Example:
