@@ -50,7 +50,7 @@ relative subfolder names; full paths are still used for file operations.
 Green denotes a successful layer rename, yellow a skipped file (already
 correct or multiple layers), and red a failed inspection or rename.
 
-[`raster_processing/create_hourly_dt_hotspots.py`](raster_processing/create_hourly_dt_hotspots.py) creates hourly, time-aligned HPC dt/Nu/Nc/Nd hotspot points and a cross-hour summary. Its [interpretation and safety guide](raster_processing/HOURLY_DT_HOTSPOTS.md) specifies the hourly quartet, nominal Nd limit of 0.3, output layers and scoped validation. It is a maintained wrapper, but native large-model acceptance is pending.
+[`raster_processing/create_hourly_dt_hotspots.py`](raster_processing/create_hourly_dt_hotspots.py) analyses hourly HPC dt/Nu/Nc/Nd GeoTIFF quartets or, optionally, temporal XMDF mesh-vertex control-number results. Its [interpretation and safety guide](raster_processing/HOURLY_DT_HOTSPOTS.md) explains retained dt minima, different raster/mesh spatial support, nominal Nd limit 0.3, source-specific output layers and validation limits. The GeoTIFF path has native acceptance evidence; the newly added XMDF mode still requires native mesh-data acceptance.
 
 ## Wrapper folders
 
