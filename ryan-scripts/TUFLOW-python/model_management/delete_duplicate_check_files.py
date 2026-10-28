@@ -7,7 +7,8 @@ mode using the editable constants below (no command-line arguments required):
    APPLY_PROPOSAL_MANIFEST = False. Read and hash candidate files, write a dated
    proposal CSV and TXT report. Set DRY_RUN = True to stop before deletion.
    With DRY_RUN = False, type DELETE to proceed after reviewing the proposal.
-2. APPLY SAVED PROPOSAL: APPLY_PROPOSAL_MANIFEST = True. Set
+2. APPLY SAVED PROPOSAL: APPLY_PROPOSAL_MANIFEST = True (keep
+   RESTORE_FROM_MANIFEST = False). Set
    PROPOSAL_MANIFEST_FILE to the exact CSV produced by an earlier SCAN (including
    any _001 suffix). No full folder scan or new SHA-256 hash pass occurs. The
    proposal must include original scan timestamps and total sizes, and all
@@ -16,9 +17,11 @@ mode using the editable constants below (no command-line arguments required):
    TRUSTS the proposal's original SHA-256 hashes: metadata checks cannot detect
    content changes made while preserving timestamps. Only apply proposals from
    a trusted source. DRY_RUN and DELETE confirmation still apply.
-3. RESTORE: RESTORE_FROM_MANIFEST = True, setting MANIFEST_FILE to the recovery
-   CSV created by the deletion run. Type RESTORE to recover missing originals;
-   existing originals are never overwritten. This mode takes precedence.
+3. RESTORE: RESTORE_FROM_MANIFEST = True (keep APPLY_PROPOSAL_MANIFEST = False).
+   Set MANIFEST_FILE to the recovery CSV created by the deletion run. Type
+   RESTORE to recover missing originals; existing originals are never overwritten.
+
+Setting both mode switches True is an error; no operation is performed.
 
 All three output filenames default to a YYYY-MM-DD suffix using the local date
 at script startup. Set filenames explicitly to use another run's files.
@@ -811,6 +814,9 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
     actions: list[DeleteAction] = []
     records_by_path: dict[Path, FileRecord] = {}
     seen_originals: set[Path] = set()
+    # A retained file may appear on multiple rows; every row must agree about
+    # its identity, contents and original metadata before anything is deleted.
+    retained_evidence: dict[Path, tuple[int, int, str, str]] = {}
     totals: ScanTotals | None = None
     metadata = PROPOSAL_FIELDS[len(MANIFEST_FIELDS) :]
 
@@ -864,6 +870,12 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
             or kept.suffix.lower() != suffix
         ):
             message = f"Proposal file changed since the original scan: {original} -> {kept}"
+            raise ValueError(message)
+
+        retained_fingerprint = (size_bytes, keep_mtime_ns, suffix, content_hash)
+        previous_fingerprint = retained_evidence.setdefault(kept, retained_fingerprint)
+        if previous_fingerprint != retained_fingerprint:
+            message = f"Proposal has contradictory retained-file evidence: {kept}"
             raise ValueError(message)
 
         records_by_path[original] = FileRecord(
@@ -1209,11 +1221,14 @@ def execute_deletion(
     records: list[FileRecord],
     planned_placeholder_actions: list[PlaceholderAction],
     totals: ScanTotals,
+    report_file: Path,
 ) -> None:
-    """Apply confirmation, metadata guards, recovery logging and deletion.
+    """Confirm and delete with metadata checks and a durable recovery manifest.
 
-    Report actual deleted bytes separately from proposed bytes. The retained
-    estimate refers to the scope of the original scan.
+    Report actual deleted bytes separately from proposed bytes. Append final
+    outcomes to the current run's TXT report; retained sizes use the original
+    scan as the baseline. An interruption leaves a pending recovery manifest
+    that can be used to restore only originals actually missing.
     """
     if DRY_RUN:
         print("DRY_RUN is enabled. No files were deleted and no placeholders were written.")
@@ -1246,12 +1261,37 @@ def execute_deletion(
     print(f"Duplicate files failed:                  {len(actions) - len(successful_actions)}")
     print(f"Placeholder groups written/planned:       {len(successful_placeholder_actions)}")
     print(f"Recovery manifest:                       {absolute_path(MANIFEST_FILE)}")
-    for line in storage_summary_lines(totals, successful_actions, actual=True):
+    actual_lines = storage_summary_lines(totals, successful_actions, actual=True)
+    for line in actual_lines:
         print(line)
+
+    # The report was exclusively created for this run before confirmation. Add
+    # actual outcomes to the same file rather than creating/overwriting another
+    # user's report. The recovery manifest remains authoritative for each row.
+    try:
+        with report_file.open("a", encoding="utf-8") as report:
+            report.write("\n\nActual deletion results\n")
+            report.write("=" * 80 + "\n")
+            report.write(f"Requested files: {len(actions)}\n")
+            report.write(f"Successfully deleted: {len(successful_actions)}\n")
+            report.write(f"Failed/skipped: {len(actions) - len(successful_actions)}\n")
+            report.write("\n".join(actual_lines) + "\n")
+            report.write(f"Recovery manifest: {absolute_path(MANIFEST_FILE)}\n")
+    except OSError as error:
+        print(f"WARNING: could not append actual outcomes to report {report_file}: {error}")
 
 
 def main() -> None:
-    """Dispatch restore, saved-proposal application, or fresh scan (in that order)."""
+    """Dispatch restore, saved-proposal application, or fresh scan.
+
+    Only one non-scan mode may be enabled. A conflict fails before reading or
+    modifying manifests and before any deletion or restoration.
+    """
+    if RESTORE_FROM_MANIFEST and APPLY_PROPOSAL_MANIFEST:
+        print("Refusing to run: RESTORE_FROM_MANIFEST and APPLY_PROPOSAL_MANIFEST are both True.")
+        print("Enable exactly one operation, or set both False for a fresh scan.")
+        return
+
     if RESTORE_FROM_MANIFEST:
         restore_files_from_manifest(MANIFEST_FILE)
         return
@@ -1281,7 +1321,7 @@ def main() -> None:
         print(f"Application report: {absolute_path(report_file)}")
         for line in storage_summary_lines(totals, actions):
             print(line)
-        execute_deletion(actions, records, placeholders, totals)
+        execute_deletion(actions, records, placeholders, totals, report_file)
         return
 
     check_folders = find_check_folders(ROOT_DIR)
@@ -1335,7 +1375,7 @@ def main() -> None:
         print("No duplicate file contents found.")
         return
 
-    execute_deletion(actions, records, planned_placeholder_actions, totals)
+    execute_deletion(actions, records, planned_placeholder_actions, totals, report_file)
 
 
 if __name__ == "__main__":
