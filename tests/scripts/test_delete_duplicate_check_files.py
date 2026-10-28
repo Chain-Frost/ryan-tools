@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import importlib.util
+import os
 import sys
 from datetime import date
 from collections.abc import Callable
@@ -148,6 +149,120 @@ def test_safe_defaults(utility: ModuleType) -> None:
     assert utility.COMPARE_ACROSS_CHECK_FOLDERS is True
     assert utility.INCLUDE_RASTER_FILES is True
     assert utility.RESTORE_FROM_MANIFEST is False
+    assert utility.APPLY_PROPOSAL_MANIFEST is False
+
+
+def test_storage_totals_include_delete_fraction_and_remaining_gb(utility: ModuleType) -> None:
+    action = utility.DeleteAction(
+        delete_file=Path("delete.tif"),
+        keep_file=Path("keep.tif"),
+        delete_mtime_ns=1,
+        keep_mtime_ns=1,
+        suffix=".tif",
+        size_bytes=1_000_000_000,
+        content_hash="0" * 64,
+    )
+    lines = utility.storage_summary_lines(utility.ScanTotals(file_count=4, total_bytes=4_000_000_000), [action])
+    assert "4.000 GB" in lines[0]
+    assert "1.000 GB" in lines[1]
+    assert "25.0%" in lines[1]
+    assert "3.000 GB" in lines[2]
+    assert "75.0%" in lines[2]
+    assert "Actually deleted" in utility.storage_summary_lines(
+        utility.ScanTotals(file_count=4, total_bytes=4_000_000_000), [action], actual=True
+    )[1]
+
+
+def test_proposal_mode_reuses_previous_scan_without_rehash(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "model")
+    duplicates = write_duplicates(folder, "a.tif", "b.tif", content=b"0123456789")
+    (folder / "unique.tif").write_bytes(b"unique")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+
+    rows = read_rows(tmp_path / "proposal.csv")
+    assert len(rows) == 1
+    assert rows[0]["scan_file_count"] == "3"
+    assert rows[0]["scan_total_bytes"] == "26"
+    assert rows[0]["delete_mtime_ns"]
+    assert rows[0]["keep_mtime_ns"]
+    assert "Estimated remaining" in (tmp_path / "deletions.txt").read_text(encoding="utf-8")
+
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    monkeypatch.setattr("builtins.input", respond_delete)
+
+    def forbid_hash(_path: Path, *, on_chunk: object = None) -> str:
+        raise AssertionError("Apply mode must not rehash saved proposals")
+
+    monkeypatch.setattr(utility, "file_hash", forbid_hash)
+    utility.main()
+
+    assert duplicates[0].exists()
+    assert not duplicates[1].exists()
+    assert (folder / "unique.tif").exists()
+    assert len(read_rows(tmp_path / "deletions.csv")) == 1
+    assert (tmp_path / "deletions_001.txt").is_file()
+
+
+def test_apply_rejects_changed_mtime_even_if_file_size_matches(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "model")
+    duplicates = write_duplicates(folder, "a.qml", "b.qml")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+    stat = duplicates[1].stat()
+    os.utime(duplicates[1], ns=(stat.st_atime_ns, stat.st_mtime_ns + 2_000_000_000))
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+
+    def unexpected_confirmation(_prompt: str) -> str:
+        raise AssertionError("Stale proposals must be rejected before prompting")
+
+    monkeypatch.setattr("builtins.input", unexpected_confirmation)
+    utility.main()
+    assert all(path.exists() for path in duplicates)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_apply_rejects_old_proposal_without_scan_timestamps(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "model")
+    duplicates = write_duplicates(folder, "a.qml", "b.qml")
+    actions, _ = planned_actions(utility, tmp_path)
+    utility.write_manifest(tmp_path / "proposal.csv", utility.manifest_rows(actions))
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert all(path.exists() for path in duplicates)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_apply_rejects_proposal_that_deletes_its_retained_file(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "model")
+    duplicates = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+    proposal = tmp_path / "proposal.csv"
+    rows = read_rows(proposal)
+    # A would-be retained copy becomes another row's deletion target.
+    rows[1]["kept_path"] = str(duplicates[1])
+    rows[1]["keep_mtime_ns"] = str(duplicates[1].stat().st_mtime_ns)
+    with proposal.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=utility.PROPOSAL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert all(path.exists() for path in duplicates)
+    assert not (tmp_path / "deletions.csv").exists()
 
 
 def test_one_placeholder_per_hash_within_one_folder(utility: ModuleType, tmp_path: Path) -> None:
