@@ -16,9 +16,6 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -93,7 +90,8 @@ def read_reference(path: Path) -> list[ReferenceRow]:
 
     required = {"ID", "Flow Line", "Water Level Point"}
     if not rows or not required.issubset(rows[0]):
-        raise RuntimeError(f"{path} is empty or lacks these columns: {sorted(required)}")
+        message = f"{path} is empty or lacks these columns: {sorted(required)}"
+        raise RuntimeError(message)
 
     references = [
         ReferenceRow(
@@ -104,7 +102,8 @@ def read_reference(path: Path) -> list[ReferenceRow]:
         for row in rows
     ]
     if len({row.identifier for row in references}) != len(references):
-        raise RuntimeError("Reference IDs must be unique")
+        message = "Reference IDs must be unique"
+        raise RuntimeError(message)
     return references
 
 
@@ -114,7 +113,8 @@ def read_two_row_header(path: Path) -> tuple[list[str], list[str]]:
         result_types = next(reader)
         locations = next(reader)
     if len(result_types) != len(locations):
-        raise RuntimeError(f"Header width mismatch in {path}")
+        message = f"Header width mismatch in {path}"
+        raise RuntimeError(message)
     return result_types, locations
 
 
@@ -128,9 +128,8 @@ def build_column_lookup(result_types: list[str], locations: list[str]) -> dict[t
 def require_column(lookup: dict[tuple[str, str], list[int]], result_type: str, location: str, path: Path) -> int:
     matches = lookup.get((result_type, location), [])
     if len(matches) != 1:
-        raise RuntimeError(
-            f"{path.name}: expected one {result_type!r}/{location!r} column, found {len(matches)}"
-        )
+        message = f"{path.name}: expected one {result_type!r}/{location!r} column, found {len(matches)}"
+        raise RuntimeError(message)
     return matches[0]
 
 
@@ -140,7 +139,8 @@ def select_curve_files(
 ) -> dict[str, CurveSelection]:
     po_files = sorted(curve_folder.glob("*_PO.csv"))
     if not po_files:
-        raise RuntimeError(f"No *_PO.csv files found in {curve_folder}")
+        message = f"No *_PO.csv files found in {curve_folder}"
+        raise RuntimeError(message)
 
     best: dict[str, CurveSelection] = {}
     for po_file in po_files:
@@ -163,7 +163,8 @@ def select_curve_files(
             water_level = pd.to_numeric(frame[wl_index], errors="coerce").to_numpy(dtype=float)
             valid = np.isfinite(time) & np.isfinite(flow) & np.isfinite(water_level)
             if not np.any(valid):
-                raise RuntimeError(f"{po_file.name}: no paired data for {reference.identifier}")
+                message = f"{po_file.name}: no paired data for {reference.identifier}"
+                raise RuntimeError(message)
 
             valid_time = time[valid]
             valid_flow = flow[valid]
@@ -197,7 +198,8 @@ def select_peak_flows(results_root: Path, references: list[ReferenceRow]) -> dic
         key=aep_sort_key,
     )
     if not aep_folders:
-        raise RuntimeError(f"No AEP folders containing *_POMM.csv files found in {results_root}")
+        message = f"No AEP folders containing *_POMM.csv files found in {results_root}"
+        raise RuntimeError(message)
 
     selected: dict[str, list[PeakFlow]] = {reference.identifier: [] for reference in references}
     for folder in aep_folders:
@@ -213,7 +215,8 @@ def select_peak_flows(results_root: Path, references: list[ReferenceRow]) -> dic
                 locations = next(reader)
                 maximum_row = next(reader)
             if len(maximum_row) < 2 or "Maximum" not in maximum_row[1]:
-                raise RuntimeError(f"Maximum row not found in {pomm_file}")
+                message = f"Maximum row not found in {pomm_file}"
+                raise RuntimeError(message)
             lookup = build_column_lookup(result_types, locations)
 
             for reference in references:
@@ -270,7 +273,8 @@ def load_curve_data(
     valid = np.isfinite(time) & np.isfinite(flow) & np.isfinite(water_level) & np.isfinite(depth)
     flow, water_level, depth = flow[valid], water_level[valid], depth[valid]
     if not len(flow):
-        raise RuntimeError(f"No valid flow/water-level/depth rows in {source}")
+        message = f"No valid flow/water-level/depth rows in {source}"
+        raise RuntimeError(message)
 
     point_datum_values = water_level - depth
     point_datum = float(np.median(point_datum_values))
@@ -315,6 +319,7 @@ def plot_curve(
     point_datum: float,
     peak_flows: list[PeakFlow],
 ) -> None:
+    plt.switch_backend("Agg")
     fig, ax = plt.subplots(figsize=(9.0, 6.0))
     fig.subplots_adjust(left=0.10, right=0.90, bottom=0.12, top=0.86)
     depth_axis = ax.twinx()
@@ -376,7 +381,8 @@ def plot_curve(
 
 def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
     if not rows:
-        raise RuntimeError(f"No rows available for {path.name}")
+        message = f"No rows available for {path.name}"
+        raise RuntimeError(message)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
@@ -391,11 +397,14 @@ def main() -> None:
     curve_folder = results_root / args.curve_aep
 
     if not results_root.is_dir():
-        raise RuntimeError(f"Results root does not exist: {results_root}")
+        message = f"Results root does not exist: {results_root}"
+        raise RuntimeError(message)
     if not curve_folder.is_dir():
-        raise RuntimeError(f"Curve AEP folder does not exist: {curve_folder}")
+        message = f"Curve AEP folder does not exist: {curve_folder}"
+        raise RuntimeError(message)
     if not reference_path.is_file():
-        raise RuntimeError(f"Reference CSV does not exist: {reference_path}")
+        message = f"Reference CSV does not exist: {reference_path}"
+        raise RuntimeError(message)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     references = read_reference(reference_path)
