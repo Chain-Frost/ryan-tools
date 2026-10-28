@@ -108,7 +108,7 @@ def test_output_cannot_overwrite_an_existing_archive(module: ArchiveModule, tmp_
     staged.write_bytes(b"complete staged file")
     output.write_bytes(b"existing archive")
     with pytest.raises((FileExistsError, OSError)):
-        module._publish_archive(staged, output)  # pyright: ignore[reportPrivateUsage] - Regression exercises a guarded helper.
+        module._publish_archive(staged, output)  # pyright: ignore[reportPrivateUsage]
     assert output.read_bytes() == b"existing archive"
     assert staged.read_bytes() == b"complete staged file"
 
@@ -129,7 +129,7 @@ def test_unsupported_atomic_publishing_fails_without_creating_partial_output(
         else:
             patch.setattr(os, "link", unavailable)
         with pytest.raises(OSError, match=r"simulated|atomically publish"):
-            module._publish_archive(staged, output)  # pyright: ignore[reportPrivateUsage] - Regression exercises a guarded helper.
+            module._publish_archive(staged, output)  # pyright: ignore[reportPrivateUsage]
     assert not output.exists()
     assert staged.read_bytes() == b"complete staged file"
 
@@ -163,7 +163,7 @@ def test_dry_run_and_duplicate_archive_root_names(
     executable = tmp_path / "7z.exe"
     executable.touch()
     with pytest.raises(ValueError, match="unique top-level"):
-        module._validated_paths([first, second], output)  # pyright: ignore[reportPrivateUsage] - Regression exercises a guarded helper.
+        module._validated_paths([first, second], output)  # pyright: ignore[reportPrivateUsage]
 
     def fake_info(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(command, 0, stdout="7-Zip 25.00", stderr="")
@@ -182,4 +182,4 @@ def test_rejects_broken_output_symlink(module: ArchiveModule, tmp_path: Path) ->
     except (OSError, NotImplementedError):
         pytest.skip("Creating symbolic links is not permitted on this machine")
     with pytest.raises(FileExistsError, match="already exists"):
-        module._validated_paths([source], output)  # pyright: ignore[reportPrivateUsage] - Regression exercises a guarded helper.
+        module._validated_paths([source], output)  # pyright: ignore[reportPrivateUsage]
