@@ -44,6 +44,29 @@ class GridDefinition:
     cell_area_ha: float
 
 
+def _selected_hourly_file(
+    path: Path,
+    *,
+    prefix: str | None,
+    min_hour: int | None,
+    max_hour: int | None,
+) -> tuple[str, int, str] | None:
+    """Parse a selected hourly filename, returning prefix, hour and parameter."""
+    if not path.is_file():
+        return None
+    match = HOURLY_PATTERN.fullmatch(path.name)
+    if match is None:
+        return None
+    file_prefix = match.group("prefix")
+    if prefix is not None and file_prefix.casefold() != prefix.casefold():
+        return None
+    hour = int(match.group("hour"))
+    if (min_hour is not None and hour < min_hour) or (max_hour is not None and hour > max_hour):
+        return None
+    parameter = next(name for name in PARAMETERS if name.casefold() == match.group("parameter").casefold())
+    return file_prefix, hour, parameter
+
+
 def discover_hourly_rasters(
     grid_dir: Path,
     *,
@@ -53,48 +76,46 @@ def discover_hourly_rasters(
 ) -> tuple[str, tuple[HourlyRasterSet, ...]]:
     """Find complete sets; reject mixed runs, duplicates and missing parameter hours."""
     if not grid_dir.is_dir():
-        raise FileNotFoundError(f"Grid directory does not exist: {grid_dir}")
+        message = f"Grid directory does not exist: {grid_dir}"
+        raise FileNotFoundError(message)
     if min_hour is not None and min_hour < 0:
-        raise ValueError("min_hour must be nonnegative")
+        message = "min_hour must be nonnegative"
+        raise ValueError(message)
     if max_hour is not None and max_hour < 0:
-        raise ValueError("max_hour must be nonnegative")
+        message = "max_hour must be nonnegative"
+        raise ValueError(message)
     if min_hour is not None and max_hour is not None and min_hour > max_hour:
-        raise ValueError("min_hour must not exceed max_hour")
+        message = "min_hour must not exceed max_hour"
+        raise ValueError(message)
 
     discovered: dict[str, dict[int, dict[str, Path]]] = {}
     actual_prefixes: dict[str, str] = {}
     for path in sorted(grid_dir.iterdir()):
-        if not path.is_file():
+        parsed = _selected_hourly_file(path, prefix=prefix, min_hour=min_hour, max_hour=max_hour)
+        if parsed is None:
             continue
-        match = HOURLY_PATTERN.fullmatch(path.name)
-        if match is None:
-            continue
-        file_prefix = match.group("prefix")
-        if prefix is not None and file_prefix.casefold() != prefix.casefold():
-            continue
-        hour = int(match.group("hour"))
-        if min_hour is not None and hour < min_hour:
-            continue
-        if max_hour is not None and hour > max_hour:
-            continue
+        file_prefix, hour, parameter = parsed
         prefix_key = file_prefix.casefold()
         actual_prefixes.setdefault(prefix_key, file_prefix)
         file_set = discovered.setdefault(prefix_key, {}).setdefault(hour, {})
-        parameter = next(value for value in PARAMETERS if value.casefold() == match.group("parameter").casefold())
         if parameter in file_set:
-            raise ValueError(f"Duplicate {parameter} raster for hour {hour}: {file_set[parameter]} and {path}")
+            message = f"Duplicate {parameter} raster for hour {hour}: {file_set[parameter]} and {path}"
+            raise ValueError(message)
         file_set[parameter] = path
 
     if not discovered:
-        raise FileNotFoundError(f"No matching hourly dt/Nu/Nc/Nd rasters found in {grid_dir}")
+        message = f"No matching hourly dt/Nu/Nc/Nd rasters found in {grid_dir}"
+        raise FileNotFoundError(message)
     if len(discovered) != 1:
         names = ", ".join(sorted(actual_prefixes.values()))
-        raise ValueError(f"Multiple simulation prefixes found ({names}); select one with --prefix")
+        message = f"Multiple simulation prefixes found ({names}); select one with --prefix"
+        raise ValueError(message)
     prefix_key, hourly = next(iter(discovered.items()))
     for hour, paths in sorted(hourly.items()):
         missing = [name for name in PARAMETERS if name not in paths]
         if missing:
-            raise ValueError(f"Incomplete hourly raster set at hour {hour}: missing {', '.join(missing)}")
+            message = f"Incomplete hourly raster set at hour {hour}: missing {', '.join(missing)}"
+            raise ValueError(message)
     return actual_prefixes[prefix_key], tuple(
         HourlyRasterSet(hour=hour, paths=hourly[hour]) for hour in sorted(hourly)
     )
@@ -103,23 +124,28 @@ def discover_hourly_rasters(
 def validate_raster_grids(raster_sets: Sequence[HourlyRasterSet]) -> GridDefinition:
     """Preflight all headers; mismatched georeferencing is never silently resampled."""
     if not raster_sets:
-        raise ValueError("No hourly raster sets were selected")
+        message = "No hourly raster sets were selected"
+        raise ValueError(message)
     reference: GridDefinition | None = None
     for raster_set in raster_sets:
         for parameter in PARAMETERS:
             path = raster_set.paths[parameter]
             with rasterio.open(path) as source:
                 if source.count != 1:
-                    raise ValueError(f"Expected a single-band raster: {path}")
+                    message = f"Expected a single-band raster: {path}"
+                    raise ValueError(message)
                 if source.crs is None or not source.crs.is_projected:
-                    raise ValueError(f"Raster requires a projected CRS: {path}")
+                    message = f"Raster requires a projected CRS: {path}"
+                    raise ValueError(message)
                 _, units_to_metres = source.crs.linear_units_factor
                 if not np.isclose(units_to_metres, 1.0, rtol=0.0, atol=1e-9):
-                    raise ValueError(f"Raster requires metre-based projected coordinates: {path}")
+                    message = f"Raster requires metre-based projected coordinates: {path}"
+                    raise ValueError(message)
                 transform = source.transform
                 determinant = transform.a * transform.e - transform.b * transform.d
                 if not np.isfinite(determinant) or abs(determinant) <= 1e-12:
-                    raise ValueError(f"Raster transform is degenerate: {path}")
+                    message = f"Raster transform is degenerate: {path}"
+                    raise ValueError(message)
                 if reference is None:
                     reference = GridDefinition(
                         shape=(source.height, source.width),
@@ -132,8 +158,11 @@ def validate_raster_grids(raster_sets: Sequence[HourlyRasterSet]) -> GridDefinit
                     or source.crs != reference.crs
                     or not transform.almost_equals(reference.transform, precision=1e-8)
                 ):
-                    raise ValueError(f"Raster grid/CRS differs from reference raster: {path}")
-    assert reference is not None
+                    message = f"Raster grid/CRS differs from reference raster: {path}"
+                    raise ValueError(message)
+    if reference is None:
+        message = "No raster headers were successfully inspected"
+        raise ValueError(message)
     return reference
 
 
@@ -159,9 +188,11 @@ def component_cells(
 ) -> Iterator[tuple[int, np.ndarray, np.ndarray]]:
     """Find component cells using bounding slices, not a full-grid scan per component."""
     if connectivity not in (4, 8):
-        raise ValueError("connectivity must be 4 or 8")
+        message = "connectivity must be 4 or 8"
+        raise ValueError(message)
     if min_cells < 1:
-        raise ValueError("min_cells must be at least 1")
+        message = "min_cells must be at least 1"
+        raise ValueError(message)
     structure = ndimage.generate_binary_structure(2, 2 if connectivity == 8 else 1)
     labels, _ = ndimage.label(mask, structure=structure)
     for component_id, region in enumerate(ndimage.find_objects(labels), start=1):
@@ -222,7 +253,7 @@ def hourly_dt_records(
             "severity": "critical" if float(component_dt[min_index]) <= critical_dt else "low",
             "min_dt_s": float(component_dt[min_index]),
             "cells_low": int(len(rows)),
-            "cells_critical": int(np.count_nonzero(component_dt <= critical_dt)),
+            "cells_critical": np.count_nonzero(component_dt <= critical_dt),
             "area_ha": float(len(rows) * grid.cell_area_ha),
             "highest_ratio_at_min": leading_control(at_min, limits),
             "geometry": {"type": "Point", "coordinates": cell_coordinates(grid.transform, row, col)},
@@ -270,7 +301,7 @@ def hourly_parameter_records(
                 "ratio": float(subset[max_index] / limit),
                 "dt_at_peak_s": float(dt[row, col]) if dt_valid[row, col] else None,
                 "cells_near": int(len(rows)),
-                "cells_low_dt": int(np.count_nonzero(overlapping)),
+                "cells_low_dt": np.count_nonzero(overlapping),
                 "area_ha": float(len(rows) * grid.cell_area_ha),
                 "geometry": {"type": "Point", "coordinates": cell_coordinates(grid.transform, row, col)},
             }
@@ -293,7 +324,7 @@ def overall_dt_records(
         observed_counts = counts[rows, cols]
         yield {
             "component": component_id,
-            "worst_hour": int(hour_of_minimum[row, col]),
+            "worst_hour": int(hour_of_minimum[row, col]),  # noqa: RUF046 - Fiona needs a built-in int.
             "min_dt_s": float(selected_dt[idx]),
             "cells_ever": int(len(rows)),
             "area_ha": float(len(rows) * grid.cell_area_ha),
