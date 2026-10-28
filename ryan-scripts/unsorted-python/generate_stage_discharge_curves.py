@@ -196,6 +196,19 @@ def require_column(lookup: dict[tuple[str, str], list[int]], result_type: str, l
     return matches[0]
 
 
+def _po_columns_for_references(
+    lookup: dict[tuple[str, str], list[int]], references: list[ReferenceRow], path: Path
+) -> dict[str, tuple[int, int]]:
+    """Return only the reference columns actually present in this PO file."""
+    columns: dict[str, tuple[int, int]] = {}
+    for reference in references:
+        flow_index = find_column(lookup, "Flow", reference.flow_line, path)
+        wl_index = find_column(lookup, "Water Level", reference.water_level_point, path)
+        if flow_index is not None and wl_index is not None:
+            columns[reference.identifier] = (flow_index, wl_index)
+    return columns
+
+
 def select_curve_files(curve_folder: Path, references: list[ReferenceRow]) -> dict[str, CurveSelection]:
     """Choose the highest water-level hydrograph independently per reference."""
     po_files = sorted(curve_folder.glob("*_PO.csv"))
@@ -210,18 +223,10 @@ def select_curve_files(curve_folder: Path, references: list[ReferenceRow]) -> di
         if len(result_types) < 2:
             message = f"{po_file.name}: missing time column in two-row header"
             raise RuntimeError(message)
-        indices = {1}
-        columns: dict[str, tuple[int, int]] = {}
-        for reference in references:
-            flow_index = find_column(lookup, "Flow", reference.flow_line, po_file)
-            wl_index = find_column(lookup, "Water Level", reference.water_level_point, po_file)
-            if flow_index is None or wl_index is None:
-                continue
-            columns[reference.identifier] = (flow_index, wl_index)
-            indices.update((flow_index, wl_index))
+        columns = _po_columns_for_references(lookup, references, po_file)
         if not columns:
             continue
-
+        indices = {1, *(index for pair in columns.values() for index in pair)}
         frame = pd.read_csv(po_file, skiprows=2, header=None, usecols=sorted(indices), low_memory=False)
         time = pd.to_numeric(frame[1], errors="coerce").to_numpy(dtype=float)
         for reference in references:
@@ -261,6 +266,42 @@ def aep_label(folder_name: str) -> str:
     return f"{float(folder_name.removesuffix('p')):g}%"
 
 
+def _read_pomm_columns(path: Path) -> tuple[dict[tuple[str, str], list[int]], list[str]]:
+    """Read a POMM header once, rejecting truncated or malformed maximum rows."""
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.reader(handle)
+        try:
+            result_types = next(reader)
+            locations = next(reader)
+            maximum_row = next(reader)
+        except StopIteration as error:
+            message = f"Incomplete POMM header or maximum row in {path}"
+            raise RuntimeError(message) from error
+    if len(maximum_row) < 2 or "Maximum" not in maximum_row[1]:
+        message = f"Maximum row not found in {path}"
+        raise RuntimeError(message)
+    return build_column_lookup(result_types, locations), maximum_row
+
+
+def _finite_pomm_maximum(
+    lookup: dict[tuple[str, str], list[int]], maximum_row: list[str], reference: ReferenceRow, path: Path
+) -> float | None:
+    index = find_column(lookup, "Flow", reference.flow_line, path)
+    if index is None:
+        return None
+    if index >= len(maximum_row):
+        message = f"Missing maximum value for {reference.identifier} in {path.name}"
+        raise RuntimeError(message)
+    try:
+        value = float(maximum_row[index])
+    except ValueError:
+        value = float("nan")
+    if not math.isfinite(value):
+        print(f"WARNING: Ignoring non-finite flow maximum for {reference.identifier} in {path.name}", file=sys.stderr)
+        return None
+    return value
+
+
 def select_peak_flows(results_root: Path, references: list[ReferenceRow]) -> dict[str, list[PeakFlow]]:
     """Find finite maximum flow values separately for each reference and AEP."""
     aep_folders = sorted(
@@ -277,35 +318,10 @@ def select_peak_flows(results_root: Path, references: list[ReferenceRow]) -> dic
         best: dict[str, tuple[float, Path] | None] = {reference.identifier: None for reference in references}
 
         for pomm_file in pomm_files:
-            with pomm_file.open("r", encoding="utf-8-sig", newline="") as handle:
-                reader = csv.reader(handle)
-                try:
-                    result_types = next(reader)
-                    locations = next(reader)
-                    maximum_row = next(reader)
-                except StopIteration as error:
-                    message = f"Incomplete POMM header or maximum row in {pomm_file}"
-                    raise RuntimeError(message) from error
-            if len(maximum_row) < 2 or "Maximum" not in maximum_row[1]:
-                message = f"Maximum row not found in {pomm_file}"
-                raise RuntimeError(message)
-            lookup = build_column_lookup(result_types, locations)
+            lookup, maximum_row = _read_pomm_columns(pomm_file)
             for reference in references:
-                index = find_column(lookup, "Flow", reference.flow_line, pomm_file)
-                if index is None:
-                    continue
-                if index >= len(maximum_row):
-                    message = f"Missing maximum value for {reference.identifier} in {pomm_file.name}"
-                    raise RuntimeError(message)
-                try:
-                    value = float(maximum_row[index])
-                except ValueError:
-                    value = float("nan")
-                if not math.isfinite(value):
-                    print(
-                        f"WARNING: Ignoring non-finite flow maximum for {reference.identifier} in {pomm_file.name}",
-                        file=sys.stderr,
-                    )
+                value = _finite_pomm_maximum(lookup, maximum_row, reference, pomm_file)
+                if value is None:
                     continue
                 previous = best[reference.identifier]
                 if previous is None or value > previous[0]:
@@ -524,14 +540,8 @@ def _publish_report_directory(stage: Path, output: Path, *, overwrite: bool) -> 
     shutil.rmtree(backup)
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    """Build and publish one complete report, never modifying source files."""
-    args = parse_args(argv)
-    results_root = args.results_root.absolute()
-    reference_path = args.reference.absolute()
-    output_dir = args.output_dir.absolute()
-    curve_folder = results_root / args.curve_aep
-
+def _validate_source_paths(results_root: Path, curve_folder: Path, reference_path: Path, output_dir: Path) -> None:
+    """Reject unreadable inputs or any destination that could replace source data."""
     if not results_root.is_dir():
         message = f"Results root does not exist: {results_root}"
         raise RuntimeError(message)
@@ -541,12 +551,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not reference_path.is_file():
         message = f"Reference CSV does not exist: {reference_path}"
         raise RuntimeError(message)
-    if results_root.resolve(strict=True).is_relative_to(output_dir.resolve(strict=False)):
+    destination = output_dir.resolve(strict=False)
+    if results_root.resolve(strict=True).is_relative_to(destination):
         message = "Output directory may not contain the source results root"
         raise ValueError(message)
-    if reference_path.resolve(strict=True).is_relative_to(output_dir.resolve(strict=False)):
+    if reference_path.resolve(strict=True).is_relative_to(destination):
         message = "Output directory may not contain the reference CSV"
         raise ValueError(message)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Build and publish one complete report, never modifying source files."""
+    args = parse_args(argv)
+    results_root = args.results_root.absolute()
+    reference_path = args.reference.absolute()
+    output_dir = args.output_dir.absolute()
+    curve_folder = results_root / args.curve_aep
+
+    _validate_source_paths(results_root, curve_folder, reference_path, output_dir)
 
     references = read_reference(reference_path)
     curve_selections = select_curve_files(curve_folder, references)
