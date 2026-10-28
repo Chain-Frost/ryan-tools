@@ -17,8 +17,8 @@ import fiona
 import numpy as np
 import rasterio
 from loguru import logger
-from rasterio.errors import CRSError
 from numpy.typing import NDArray
+from rasterio.errors import CRSError
 
 from ...functions.tuflow.hourly_dt_hotspots import DEFAULT_CONTROL_LIMITS, near_limit_threshold
 from ...functions.tuflow.xmdf_hotspots import (
@@ -91,6 +91,11 @@ _METADATA_SCHEMA: dict[str, str] = {
 }
 
 
+def _empty_dataset_names() -> dict[str, str]:
+    """Supply a strictly typed independent dataset-name map."""
+    return {}
+
+
 @dataclass(frozen=True, slots=True)
 class XmdfHotspotConfig:
     """Separate mesh-specific input and reporting configuration."""
@@ -99,7 +104,7 @@ class XmdfHotspotConfig:
     output: Path
     crs: str
     mesh_file: Path | None = None
-    dataset_names: Mapping[str, str] = field(default_factory=lambda: dict[str, str]())
+    dataset_names: Mapping[str, str] = field(default_factory=_empty_dataset_names)
     start_time_hr: float | None = None
     end_time_hr: float | None = None
     time_stride: int = 1
