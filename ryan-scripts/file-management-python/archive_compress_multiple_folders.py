@@ -32,7 +32,7 @@ SCRIPT_VERSION = "2026-10-28.2"
 DEFAULT_INPUT_PATHS: tuple[Path, ...] = (
     Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v06"),
     Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v07"),
-    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v12")
+    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v12"),
 )
 DEFAULT_OUTPUT_PATH = Path(r"C:\Path\To\combined.zip")
 # ---------------------------------------------------------------------------
@@ -187,6 +187,7 @@ def _validated_output(output_path: Path, folders: Sequence[Path]) -> Path:
 def _validated_paths(input_paths: Sequence[Path], output_path: Path) -> tuple[list[Path], Path]:
     folders = _validated_folders(input_paths)
     return folders, _validated_output(output_path, folders)
+
 
 def main(
     *,
