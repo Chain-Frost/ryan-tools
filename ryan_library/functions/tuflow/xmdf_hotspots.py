@@ -56,9 +56,7 @@ def _canonical_name(label: str) -> str:
     return " ".join(re.findall(r"[a-z0-9]+", label.casefold()))
 
 
-def resolve_xmdf_types(
-    available: Sequence[str], overrides: Mapping[str, str] | None = None
-) -> dict[str, str]:
+def resolve_xmdf_types(available: Sequence[str], overrides: Mapping[str, str] | None = None) -> dict[str, str]:
     """Resolve exact type names, rejecting missing required or ambiguous matches."""
     result: dict[str, str] = {}
     normalized: dict[str, list[str]] = {}
@@ -70,9 +68,7 @@ def resolve_xmdf_types(
             matches = normalized.get(_canonical_name(explicit), [])
         else:
             matches = [
-                value
-                for alias in _DATASET_ALIASES[parameter]
-                for value in normalized.get(_canonical_name(alias), [])
+                value for alias in _DATASET_ALIASES[parameter] for value in normalized.get(_canonical_name(alias), [])
             ]
         distinct = list(dict.fromkeys(matches))
         if len(distinct) > 1:
@@ -93,9 +89,7 @@ def resolve_xmdf_types(
     return result
 
 
-def _validate_time_options(
-    start_time_hr: float | None, end_time_hr: float | None, every: int
-) -> None:
+def _validate_time_options(start_time_hr: float | None, end_time_hr: float | None, every: int) -> None:
     if every < 1:
         message = "time_stride must be at least 1"
         raise ValueError(message)
@@ -125,9 +119,9 @@ def selected_xmdf_times(
         message = "XMDF has no valid temporal output timestamps"
         raise ValueError(message)
     filtered = tuple(
-        t for t in times
-        if (start_time_hr is None or t >= start_time_hr - 1e-8)
-        and (end_time_hr is None or t <= end_time_hr + 1e-8)
+        t
+        for t in times
+        if (start_time_hr is None or t >= start_time_hr - 1e-8) and (end_time_hr is None or t <= end_time_hr + 1e-8)
     )[::every]
     if not filtered:
         message = "No XMDF times are within the selected range"
@@ -251,8 +245,6 @@ def dt_snapshot_records(
             "geometry": {"type": "Point", "coordinates": (float(dt.x[node]), float(dt.y[node]))},
         }
         for parameter, surface in controls.items():
-            rec[f"{parameter.lower()}_at_node"] = (
-                float(surface.value[node]) if surface.valid[node] else None
-            )
+            rec[f"{parameter.lower()}_at_node"] = float(surface.value[node]) if surface.valid[node] else None
         rows.append(rec)
     return rows, total
