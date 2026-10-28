@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
@@ -138,7 +138,7 @@ def _reader(path: Path, twodm: Path | None) -> XmdfReader:
     return cast("XmdfReader", XMDF(path, twodm=twodm, driver="h5py"))
 
 
-def _validate_config(config: XmdfHotspotConfig) -> str:
+def _validate_inputs(config: XmdfHotspotConfig) -> None:
     if not config.xmdf_files or len(set(config.xmdf_files)) != len(config.xmdf_files):
         message = "Select at least one distinct XMDF file"
         raise ValueError(message)
@@ -149,6 +149,9 @@ def _validate_config(config: XmdfHotspotConfig) -> str:
     if config.mesh_file is not None and (len(config.xmdf_files) != 1 or not config.mesh_file.is_file()):
         message = "Explicit --mesh requires exactly one XMDF source and an existing 2DM file"
         raise ValueError(message)
+
+
+def _validate_numeric_options(config: XmdfHotspotConfig) -> None:
     if config.time_stride < 1 or config.max_points_per_type < 1:
         message = "time_stride and max_points_per_type must be positive"
         raise ValueError(message)
@@ -164,16 +167,22 @@ def _validate_config(config: XmdfHotspotConfig) -> str:
     if any(not np.isfinite(v) or v <= 0 for v in config.control_limits.values()):
         message = "Control-number limits must be finite and positive"
         raise ValueError(message)
+
+
+def _validate_destination(config: XmdfHotspotConfig) -> None:
     if config.output.suffix.casefold() != ".gpkg":
         message = "Output must be a .gpkg file"
         raise ValueError(message)
     if not config.dry_run and (config.output.is_symlink() or (config.output.exists() and not config.overwrite)):
         message = f"Output already exists or is a symbolic link: {config.output}"
         raise FileExistsError(message)
+
+
+def _validate_crs(value: str) -> str:
     try:
-        crs = rasterio.crs.CRS.from_user_input(config.crs)
+        crs = rasterio.crs.CRS.from_user_input(value)
     except (ValueError, rasterio.errors.CRSError) as error:
-        message = f"Invalid XMDF CRS {config.crs!r}"
+        message = f"Invalid XMDF CRS {value!r}"
         raise ValueError(message) from error
     if not crs.is_projected:
         message = "XMDF CRS must be projected; coordinates are not transformed"
@@ -183,6 +192,13 @@ def _validate_config(config: XmdfHotspotConfig) -> str:
         message = "XMDF projected CRS must use metre units"
         raise ValueError(message)
     return crs.to_wkt()
+
+
+def _validate_config(config: XmdfHotspotConfig) -> str:
+    _validate_inputs(config)
+    _validate_numeric_options(config)
+    _validate_destination(config)
+    return _validate_crs(config.crs)
 
 
 def _new_layer(path: Path, name: str, schema: Mapping[str, str], *, crs_wkt: str | None) -> None:
@@ -301,7 +317,6 @@ def _process_source(
     xmdf: Path,
     config: XmdfHotspotConfig,
     output: Path | None,
-    crs_wkt: str,
 ) -> tuple[int, int, int, int, int, dict[str, object]]:
     reader = _reader(xmdf, config.mesh_file)
     names = resolve_xmdf_types(reader.data_types(), config.dataset_names)
@@ -417,7 +432,7 @@ def run_xmdf_hotspot_workflow(config: XmdfHotspotConfig) -> XmdfHotspotResult:
         matched_dt = 0
         for source in config.xmdf_files:
             count, _, _, _, dt_present, _ = _process_source(
-                xmdf=source, config=config, output=None, crs_wkt=wkt
+                xmdf=source, config=config, output=None
             )
             samples += count
             matched_dt += dt_present
@@ -438,7 +453,7 @@ def run_xmdf_hotspot_workflow(config: XmdfHotspotConfig) -> XmdfHotspotResult:
         _new_layer(staged, "xmdf_metadata", _METADATA_SCHEMA, crs_wkt=None)
         for source in config.xmdf_files:
             nt, nc, ndt, ns, has_dt, details = _process_source(
-                xmdf=source, config=config, output=staged, crs_wkt=wkt
+                xmdf=source, config=config, output=staged
             )
             snapshots += nt
             controls += nc
