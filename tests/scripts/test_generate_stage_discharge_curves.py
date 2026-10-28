@@ -13,10 +13,7 @@ import numpy as np
 import pytest
 
 SCRIPT = (
-    Path(__file__).absolute().parents[2]
-    / "ryan-scripts"
-    / "unsorted-python"
-    / "generate_stage_discharge_curves.py"
+    Path(__file__).absolute().parents[2] / "ryan-scripts" / "unsorted-python" / "generate_stage_discharge_curves.py"
 )
 
 
@@ -126,9 +123,7 @@ def test_rising_only_curve_preserves_measured_flow_range(module: StageModule, tm
     assert stats["overlap_points"] == 1
 
 
-def test_partially_receding_curve_uses_measured_union_no_extrapolation(
-    module: StageModule, tmp_path: Path
-) -> None:
+def test_partially_receding_curve_uses_measured_union_no_extrapolation(module: StageModule, tmp_path: Path) -> None:
     po = make_po(tmp_path / "partial_PO.csv", [0, 5, 10, 7], [100, 101, 102, 104])
     ref_path = make_reference(tmp_path / "refs.csv", [("FG01", "FL_A", "WL_A")])
     flow, wl, _, stats = module.load_curve_data(po, module.read_reference(ref_path)[0])
@@ -146,9 +141,7 @@ def test_split_po_and_pomm_files_are_selected_per_location(module: StageModule, 
     make_po(curve / "B_PO.csv", [0, 3, 5], [100, 101, 103], flow_name="FL_B", wl_name="WL_B")
     make_pomm(curve / "A_POMM.csv", "4", flow_name="FL_A")
     make_pomm(curve / "B_POMM.csv", "5", flow_name="FL_B")
-    reference = make_reference(
-        tmp_path / "refs.csv", [("FG01", "FL_A", "WL_A"), ("FG02", "FL_B", "WL_B")]
-    )
+    reference = make_reference(tmp_path / "refs.csv", [("FG01", "FL_A", "WL_A"), ("FG02", "FL_B", "WL_B")])
     refs = module.read_reference(reference)
     selections = module.select_curve_files(curve, refs)
     assert selections["FG01"].source.name == "A_PO.csv"
@@ -226,9 +219,7 @@ def test_failed_overwrite_preserves_existing_report(
     assert not list(tmp_path.glob(".*.staging-*"))
 
 
-def test_overwrite_rejects_foreign_output_and_source_reference(
-    module: StageModule, tmp_path: Path
-) -> None:
+def test_overwrite_rejects_foreign_output_and_source_reference(module: StageModule, tmp_path: Path) -> None:
     root, reference = fixture_inputs(tmp_path)
     foreign = tmp_path / "foreign"
     foreign.mkdir()
