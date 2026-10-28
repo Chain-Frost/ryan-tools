@@ -2,9 +2,19 @@
 
 The script:
 1. Selects the _PO.csv duration with the greatest water level for each reference row.
-2. Builds the greater-water-level envelope from the rising and falling limbs.
-3. Finds the maximum flow across all _POMM.csv durations for every AEP.
+2. Builds the greater-water-level envelope over the *union* of measured limb
+   flows, without extrapolating unobserved portions of either limb.
+3. Finds finite maximum flows across _POMM.csv durations for every AEP.
 4. Draws AEP peak-flow callouts and an aligned secondary depth scale.
+
+Inputs are read-only. Results are staged and published as one dedicated report
+directory. Existing reports require --overwrite and must contain this script's
+marker; arbitrary directories are never overwritten.
+
+PowerShell example (edit paths for the project):
+    py -3.14 generate_stage_discharge_curves.py --results-root "C:\\Data\\TUFLOW\\results\\FG01" `
+        --reference "C:\\Data\\References\\Bridge_PO_reference.csv" `
+        --output-dir "C:\\Data\\Reports\\Stage_Discharge"
 
 Dependencies: numpy, pandas, matplotlib
 """
@@ -14,7 +24,6 @@ from __future__ import annotations
 import argparse
 import csv
 import math
-import re
 import shutil
 import sys
 import tempfile
@@ -40,7 +49,10 @@ _SUMMARY_FILES = (
     "Stage_Discharge_Limb_Comparison.csv",
 )
 _WINDOWS_RESERVED = {
-    "CON", "PRN", "AUX", "NUL",
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
     *(f"COM{index}" for index in range(1, 10)),
     *(f"LPT{index}" for index in range(1, 10)),
 }
@@ -344,8 +356,8 @@ def load_curve_data(
     depth = pd.to_numeric(frame[depth_index], errors="coerce").to_numpy(dtype=float)
     valid = np.isfinite(time) & np.isfinite(flow) & np.isfinite(water_level) & np.isfinite(depth)
     flow, water_level, depth = flow[valid], water_level[valid], depth[valid]
-    if not len(flow):
-        message = f"No valid flow/water-level/depth rows in {source}"
+    if len(flow) < 2:
+        message = f"At least two valid flow/water-level/depth rows are required in {source}"
         raise RuntimeError(message)
 
     point_datum_values = water_level - depth
@@ -355,29 +367,29 @@ def load_curve_data(
     peak_index = int(np.argmax(flow))
     rise_flow, rise_wl = branch_by_flow(flow[: peak_index + 1], water_level[: peak_index + 1])
     fall_flow, fall_wl = branch_by_flow(flow[peak_index:], water_level[peak_index:])
-    overlap_min = max(float(rise_flow.min()), float(fall_flow.min()))
-    overlap_max = min(float(rise_flow.max()), float(fall_flow.max()))
-    grid = np.unique(
-        np.concatenate(
-            (
-                rise_flow[(rise_flow >= overlap_min) & (rise_flow <= overlap_max)],
-                fall_flow[(fall_flow >= overlap_min) & (fall_flow <= overlap_max)],
-                np.array([overlap_min, overlap_max]),
-            )
-        )
+    # Retain every *observed* rising or falling flow value, not only overlap.
+    # Interpolation outside a limb's measured range is explicitly excluded:
+    # np.interp's default endpoint behaviour would otherwise invent a flat limb.
+    grid = np.union1d(rise_flow, fall_flow)
+    rise_wl_grid = np.interp(grid, rise_flow, rise_wl, left=np.nan, right=np.nan)
+    fall_wl_grid = np.interp(grid, fall_flow, fall_wl, left=np.nan, right=np.nan)
+    overlapping = np.isfinite(rise_wl_grid) & np.isfinite(fall_wl_grid)
+    difference = (fall_wl_grid - rise_wl_grid)[overlapping]
+    use_falling = np.isfinite(fall_wl_grid) & (
+        ~np.isfinite(rise_wl_grid) | (fall_wl_grid > rise_wl_grid)
     )
-    rise_wl_grid = np.interp(grid, rise_flow, rise_wl)
-    fall_wl_grid = np.interp(grid, fall_flow, fall_wl)
-    use_falling = fall_wl_grid > rise_wl_grid
-    envelope_wl = np.where(use_falling, fall_wl_grid, rise_wl_grid)
-    difference = fall_wl_grid - rise_wl_grid
+    envelope_wl = np.fmax(rise_wl_grid, fall_wl_grid)
+    if not np.all(np.isfinite(envelope_wl)):
+        message = f"Unresolvable flow interval in {source}"
+        raise RuntimeError(message)
 
     comparison: dict[str, float | int] = {
         "envelope_points": len(grid),
+        "overlap_points": int(np.count_nonzero(overlapping)),
         "falling_points": int(np.count_nonzero(use_falling)),
         "rising_points": int(np.count_nonzero(~use_falling)),
-        "maximum_falling_excess": max(0.0, float(np.max(difference))),
-        "maximum_rising_excess": max(0.0, float(np.max(-difference))),
+        "maximum_falling_excess": max(0.0, float(np.max(difference))) if difference.size else 0.0,
+        "maximum_rising_excess": max(0.0, float(np.max(-difference))) if difference.size else 0.0,
         "datum_spread": datum_spread,
     }
     return grid, envelope_wl, point_datum, comparison
@@ -469,8 +481,52 @@ def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
         writer.writerows(rows)
 
 
-def main() -> None:
-    args = parse_args()
+def _validate_output_directory(output_dir: Path, *, overwrite: bool) -> None:
+    """Never replace a foreign folder, symlink, or unknown files."""
+    if output_dir.is_symlink():
+        message = f"Output directory is a symbolic link: {output_dir}"
+        raise ValueError(message)
+    if not output_dir.exists():
+        return
+    if not overwrite:
+        message = f"Output report directory already exists (use --overwrite): {output_dir}"
+        raise FileExistsError(message)
+    if not output_dir.is_dir() or not (output_dir / _REPORT_MARKER).is_file():
+        message = f"Refusing to replace a folder not created by this script: {output_dir}"
+        raise ValueError(message)
+    expected = set(_SUMMARY_FILES) | {_REPORT_MARKER}
+    for item in output_dir.iterdir():
+        if item.is_symlink() or not item.is_file() or not (
+            item.name in expected or item.name.endswith("_Stage_Discharge_Curve.png")
+        ):
+            message = f"Refusing to replace unexpected content in {output_dir}: {item.name}"
+            raise ValueError(message)
+
+
+def _publish_report_directory(stage: Path, output: Path, *, overwrite: bool) -> None:
+    """Publish a complete report folder, rolling back if replacement fails."""
+    if not output.exists() and not output.is_symlink():
+        stage.rename(output)
+        return
+    if not overwrite:
+        message = f"Output report directory already exists: {output}"
+        raise FileExistsError(message)
+    _validate_output_directory(output, overwrite=True)
+    backup = output.with_name(f".{output.name}.{uuid.uuid4().hex}.backup")
+    output.rename(backup)
+    try:
+        stage.rename(output)
+    except BaseException:
+        # Preserve the old report, including on an interrupted second rename.
+        if not output.exists() and not output.is_symlink():
+            backup.rename(output)
+        raise
+    shutil.rmtree(backup)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Build and publish one complete report, never modifying source files."""
+    args = parse_args(argv)
     results_root = args.results_root.absolute()
     reference_path = args.reference.absolute()
     output_dir = args.output_dir.absolute()
@@ -485,7 +541,12 @@ def main() -> None:
     if not reference_path.is_file():
         message = f"Reference CSV does not exist: {reference_path}"
         raise RuntimeError(message)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if results_root.resolve(strict=True).is_relative_to(output_dir.resolve(strict=False)):
+        message = "Output directory may not contain the source results root"
+        raise ValueError(message)
+    if reference_path.resolve(strict=True).is_relative_to(output_dir.resolve(strict=False)):
+        message = "Output directory may not contain the reference CSV"
+        raise ValueError(message)
 
     references = read_reference(reference_path)
     curve_selections = select_curve_files(curve_folder, references)
@@ -494,19 +555,13 @@ def main() -> None:
     selection_rows: list[dict[str, object]] = []
     peak_rows: list[dict[str, object]] = []
     comparison_rows: list[dict[str, object]] = []
+    plots: list[tuple[Path, ReferenceRow, np.ndarray, np.ndarray, float, list[PeakFlow]]] = []
 
     for reference in references:
         selection = curve_selections[reference.identifier]
         flow, water_level, datum, comparison = load_curve_data(selection.source, reference)
         output_name = f"{reference.identifier}_Stage_Discharge_Curve.png"
-        plot_curve(
-            output_dir / output_name,
-            reference,
-            flow,
-            water_level,
-            datum,
-            peak_flows[reference.identifier],
-        )
+        plots.append((Path(output_name), reference, flow, water_level, datum, peak_flows[reference.identifier]))
 
         selection_rows.append(
             {
@@ -537,6 +592,7 @@ def main() -> None:
                 "Flow Line": reference.flow_line,
                 "Water Level Point": reference.water_level_point,
                 "Envelope Points": comparison["envelope_points"],
+                "Common Flow Points": comparison["overlap_points"],
                 "Falling Limb Selected Points": comparison["falling_points"],
                 "Rising Limb Selected Points": comparison["rising_points"],
                 "Maximum Falling-Limb Excess (m)": f"{comparison['maximum_falling_excess']:.4f}",
@@ -546,12 +602,31 @@ def main() -> None:
             }
         )
 
-    write_csv(output_dir / "Stage_Discharge_Curve_Selection_Summary.csv", selection_rows)
-    write_csv(output_dir / "Stage_Discharge_AEP_Peak_Flows.csv", peak_rows)
-    write_csv(output_dir / "Stage_Discharge_Limb_Comparison.csv", comparison_rows)
+    _validate_output_directory(output_dir, overwrite=args.overwrite)
+    if args.dry_run:
+        print(f"Dry run: validated {len(references)} stage-discharge curves; no files created in {output_dir}")
+        return 0
 
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    # Assemble plots and all summaries away from the final report path.
+    stage = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}.staging-", dir=output_dir.parent))
+    try:
+        for filename, reference, flow, water_level, datum, peaks in plots:
+            plot_curve(stage / filename, reference, flow, water_level, datum, peaks)
+        write_csv(stage / _SUMMARY_FILES[0], selection_rows)
+        write_csv(stage / _SUMMARY_FILES[1], peak_rows)
+        write_csv(stage / _SUMMARY_FILES[2], comparison_rows)
+        (stage / _REPORT_MARKER).write_text(
+            f"Created by generate_stage_discharge_curves.py {SCRIPT_VERSION}\n", encoding="utf-8"
+        )
+        _publish_report_directory(stage, output_dir, overwrite=args.overwrite)
+    finally:
+        # The published stage was renamed; otherwise clean up all incomplete work.
+        if stage.exists():
+            shutil.rmtree(stage)
     print(f"Generated {len(references)} stage-discharge plots in {output_dir}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
