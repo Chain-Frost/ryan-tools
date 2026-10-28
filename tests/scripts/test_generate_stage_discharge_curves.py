@@ -269,7 +269,7 @@ def test_failed_final_rename_restores_previous_complete_report(
     with monkeypatch.context() as patch:
         patch.setattr(Path, "rename", fail_stage_rename)
         with pytest.raises(OSError, match="simulated final publication failure"):
-            module._publish_report_directory(staged, output, overwrite=True)
+            module._publish_report_directory(staged, output, overwrite=True)  # pyright: ignore[reportPrivateUsage] - Regression exercises a guarded helper.
     assert {entry.name: entry.read_bytes() for entry in output.iterdir()} == previous
     assert not list(tmp_path.glob(".*.backup"))
 
