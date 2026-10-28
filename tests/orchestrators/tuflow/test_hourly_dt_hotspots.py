@@ -254,7 +254,7 @@ def test_output_creation_race_preserves_competitor(tmp_path: Path, monkeypatch: 
     output = tmp_path / "raced.gpkg"
     from ryan_library.orchestrators.tuflow import hourly_dt_hotspots as orchestrator
 
-    real_publish = orchestrator._publish_output
+    real_publish = orchestrator._publish_output  # pyright: ignore[reportPrivateUsage]
 
     def concurrent_create(temp_path: Path, target: Path, *, overwrite: bool) -> None:
         target.write_bytes(b"another process created this")
