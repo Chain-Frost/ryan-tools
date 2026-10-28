@@ -287,12 +287,17 @@ or change `ROOT_DIR` in the script.
 - **Default `INCLUDE_RASTER_FILES = True`:** GeoTIFFs and auxiliary files are included. Set `False` to
   exclude them. Identical bytes do **not** mean the original file paths are safe to remove: linked QGIS
   projects or scripts may stop finding their inputs.
-- A new numbered proposal CSV and TXT report are written **without overwriting older runs**
-  (`duplicate_files_proposed.csv`, then `duplicate_files_proposed_001.csv`, and likewise for reports).
-  Review their listed keep/delete choices before confirming.
-- A confirmed run writes `duplicate_files_manifest.csv` before deletion and records all original
-  filenames, retained paths, hashes and outcomes. It refuses another deletion if a recovery manifest
-  already exists. Archive that manifest before starting another run.
+- Report, proposal and recovery-manifest filenames default to the **local run date** in `YYYY-MM-DD`
+  format, for example `duplicate_files_to_delete_2026-10-28.txt`,
+  `duplicate_files_proposed_2026-10-28.csv` and `duplicate_files_manifest_2026-10-28.csv`.
+  Existing proposal/report names are never overwritten: same-day reruns use numbered filenames
+  (for example `duplicate_files_proposed_2026-10-28_001.csv`). Review the keep/delete choices
+  before confirming. The three output path constants can still be edited to use custom filenames.
+- A confirmed run writes its dated recovery manifest before deletion and records original
+  filenames, retained paths, hashes and outcomes. It refuses deletion if that manifest already
+  exists; archive it or select another manifest path before another same-day deletion run.
+  To restore files from an earlier day, set `MANIFEST_FILE` to that run's saved manifest
+  and `RESTORE_FROM_MANIFEST = True` before starting the script.
 - Each affected check folder gets one `.DUPLICATE_REMOVED.txt` placeholder per unique deleted
   content group, including groups whose kept copy is **in the same folder**. It lists every original
   deleted filename and the location of the retained file.
