@@ -247,8 +247,7 @@ def _attach_worst_hour_controls(
     for hour, grouped in by_hour.items():
         raster_set = lookup[hour]
         coordinates = [
-            cell_coordinates(grid.transform, int(record["worst_row"]), int(record["worst_col"]))
-            for record in grouped
+            cell_coordinates(grid.transform, int(record["worst_row"]), int(record["worst_col"])) for record in grouped
         ]
         for parameter in CONTROL_PARAMETERS:
             with rasterio.open(raster_set.paths[parameter]) as source:
@@ -259,9 +258,7 @@ def _attach_worst_hour_controls(
                         None if np.ma.is_masked(value) or not np.isfinite(value) else float(value)
                     )
         for record in grouped:
-            at_worst = {
-                name: cast("float | None", record[f"{name.lower()}_at_worst"]) for name in CONTROL_PARAMETERS
-            }
+            at_worst = {name: cast("float | None", record[f"{name.lower()}_at_worst"]) for name in CONTROL_PARAMETERS}
             record["highest_ratio_at_worst"] = leading_control(at_worst, config.control_limits)
             record.pop("worst_row")
             record.pop("worst_col")
