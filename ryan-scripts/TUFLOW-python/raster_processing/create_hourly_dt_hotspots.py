@@ -57,8 +57,12 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument("--nd-limit", type=float, help="Nd nominal limit (default 0.3)")
     parser.add_argument("--connectivity", type=int, choices=(4, 8), help="Connected-cell adjacency (4 or 8)")
     parser.add_argument("--min-component-cells", type=int, help="Minimum number of connected cells for a point")
-    parser.add_argument("--overwrite", action="store_true", help="Replace a preexisting output only after a successful run")
-    parser.add_argument("--dry-run", action="store_true", help="Validate raster names and metadata without writing output")
+    parser.add_argument(
+        "--overwrite", action="store_true", help="Replace a preexisting output only after a successful run"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Validate raster names and metadata without writing output"
+    )
     parser.add_argument("--console-log-level", choices=("DEBUG", "INFO", "SUCCESS", "WARNING"), help="Console detail")
     add_no_pause_cli_argument(parser=parser)
     return parser.parse_args()
