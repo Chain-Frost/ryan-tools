@@ -48,7 +48,8 @@ class ArchiveModule(Protocol):
 @pytest.fixture
 def module() -> ArchiveModule:
     spec = importlib.util.spec_from_file_location("archive_multiple_tested", SCRIPT)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     loaded = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = loaded
     spec.loader.exec_module(loaded)
@@ -127,7 +128,7 @@ def test_unsupported_atomic_publishing_fails_without_creating_partial_output(
             patch.setattr(Path, "rename", unavailable)
         else:
             patch.setattr(os, "link", unavailable)
-        with pytest.raises(OSError, match="simulated|atomically publish"):
+        with pytest.raises(OSError, match=r"simulated|atomically publish"):
             module._publish_archive(staged, output)
     assert not output.exists()
     assert staged.read_bytes() == b"complete staged file"
