@@ -247,6 +247,7 @@ def test_valid_report_can_be_explicitly_replaced(module: StageModule, tmp_path: 
     assert "15.0000" in updated
     assert not list(tmp_path.glob(".*.backup"))
 
+
 def test_failed_final_rename_restores_previous_complete_report(
     module: StageModule, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
