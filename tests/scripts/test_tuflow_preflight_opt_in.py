@@ -10,21 +10,22 @@ import pytest
 
 
 class _Report:
-    run_count = 1
-    checked_paths: set[str] = set()
-    directories_scanned = 0
-    individually_checked = 0
-    issues: list[object] = []
-    affected_runs = 0
-    parse_seconds = 0.0
-    context_seconds = 0.0
-    inventory_seconds = 0.0
-    csv_headers_checked = 0
-    csv_column_selections_checked = 0
-    dependency_fragment_evaluations = 0
-    dependency_fragment_reuses = 0
-    dependency_fallback_runs = 0
-    passed = True
+    def __init__(self) -> None:
+        self.run_count = 1
+        self.checked_paths: set[str] = set()
+        self.directories_scanned = 0
+        self.individually_checked = 0
+        self.issues: list[object] = []
+        self.affected_runs = 0
+        self.parse_seconds = 0.0
+        self.context_seconds = 0.0
+        self.inventory_seconds = 0.0
+        self.csv_headers_checked = 0
+        self.csv_column_selections_checked = 0
+        self.dependency_fragment_evaluations = 0
+        self.dependency_fragment_reuses = 0
+        self.dependency_fallback_runs = 0
+        self.passed = True
 
     def write_csv(self, path: Path) -> Path:
         return path
@@ -39,7 +40,8 @@ def test_standalone_uses_established_checker_by_default(
         / "ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py"
     )
     spec = importlib.util.spec_from_file_location("_test_tuflow_input_wrapper", script)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
