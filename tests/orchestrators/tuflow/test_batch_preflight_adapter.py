@@ -23,7 +23,7 @@ class _FakeBatchBase:
     def context(self, flags: str, *, file_resolution: str | None = None) -> object:
         raise NotImplementedError
 
-    def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+    def collect_file_dependencies(self, flags: tuple[str | dict[str, str], ...]) -> types.SimpleNamespace:
         raise NotImplementedError
 
 
@@ -92,11 +92,15 @@ def _model(tmp_path: Path) -> type[_FakeBatchBase]:
             self.individual += 1
             return Context("01" if "01.0p" in flags else "20")
 
-        def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+        def collect_file_dependencies(self, flags: tuple[str | dict[str, str], ...]) -> types.SimpleNamespace:
             self.collected += 1
             cases: list[types.SimpleNamespace] = []
             for index, flag in enumerate(flags):
-                context = Context("01" if "01.0p" in flag else "20")
+                display_flag = (
+                    flag if isinstance(flag, str)
+                    else " ".join(f"-{key.lstrip('-')} {value}" for key, value in flag.items())
+                )
+                context = Context("01" if "01.0p" in display_flag else "20")
                 inputs = context.find_input()
                 entries = tuple(
                     types.SimpleNamespace(
@@ -112,7 +116,7 @@ def _model(tmp_path: Path) -> type[_FakeBatchBase]:
                 cases.append(
                     types.SimpleNamespace(
                         index=index,
-                        flags=flag,
+                        flags=display_flag,
                         error=None,
                         file_references=tuple(row.reference for row in entries),
                         input_references=entries,
@@ -236,7 +240,7 @@ def test_batch_rejects_wrong_source_activation_and_duplicate_bc() -> None:
 
 def test_batch_rejects_context_index_or_flag_mismatch() -> None:
     class Model:
-        def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+        def collect_file_dependencies(self, flags: tuple[str | dict[str, str], ...]) -> types.SimpleNamespace:
             return types.SimpleNamespace(
                 runs=(
                     types.SimpleNamespace(
@@ -294,7 +298,7 @@ def test_500_run_batch_calls_upstream_once_without_individual_contexts(
             message = "Batch mode must not call one context per run"
             raise AssertionError(message)
 
-        def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+        def collect_file_dependencies(self, flags: tuple[str | dict[str, str], ...]) -> types.SimpleNamespace:
             type(self).calls += 1
             time.sleep(0.02)  # Ensure context_seconds includes upstream batch work.
             return super().collect_file_dependencies(flags)
@@ -315,7 +319,7 @@ def test_batch_error_is_unresolved_only_for_its_own_run(tmp_path: Path, monkeypa
     base = _model(tmp_path)
 
     class OneFailedContext(base):
-        def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+        def collect_file_dependencies(self, flags: tuple[str | dict[str, str], ...]) -> types.SimpleNamespace:
             result = super().collect_file_dependencies(flags)
             cases = list(result.runs)
             original = cases[1]

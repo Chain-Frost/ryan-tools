@@ -8,7 +8,7 @@ from PyTUFLOW. Physical inspection stays in input_preflight.py.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol, cast
 
@@ -218,9 +218,15 @@ class _ContextView:
 
 
 class BatchModelView:
-    """Single-use replay of an exact, ordered batch against existing collector."""
+    """Read-only ordered PR C projection retaining original structured flags."""
 
-    def __init__(self, model: object, flags: Sequence[str]) -> None:
+    def __init__(
+        self,
+        model: object,
+        flags: Sequence[str],
+        *,
+        structured_flags: Sequence[Mapping[str, str]] | None = None,
+    ) -> None:
         batch = getattr(model, "collect_file_dependencies", None)
         if not callable(batch):
             message = (
@@ -228,7 +234,17 @@ class BatchModelView:
                 "install the tested fork in an isolated environment"
             )
             raise ValueError(message)
-        output = cast(_Result, batch(tuple(flags)))
+        if structured_flags is not None and len(structured_flags) != len(flags):
+            message = "Structured batch flags must match the exact ordered run plan"
+            raise ValueError(message)
+        # Preserve scheduled values as mappings: flattening them can lose
+        # whitespace and other identity-relevant characters in PR C.
+        actual_flags: tuple[str | dict[str, str], ...] = (
+            tuple(dict(item) for item in structured_flags)
+            if structured_flags is not None
+            else tuple(flags)
+        )
+        output = cast(_Result, batch(actual_flags))
         if len(output.runs) != len(flags):
             message = "PyTUFLOW batch returned a different number of runs"
             raise ValueError(message)

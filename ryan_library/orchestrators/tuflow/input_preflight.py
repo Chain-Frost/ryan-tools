@@ -916,12 +916,16 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     # Otherwise a batch timing would misleadingly omit its main CPU work.
     start = time.perf_counter()
 
-    # The experimental optimisation is deliberately explicit. Never silently
+    # PR C immutable batch collection is deliberately explicit. Never silently
     # fall back to individual mode if the upstream fork lacks the batch API:
     # a caller requesting comparative validation must see that incompatibility.
     batch_view: BatchModelView | None = None
     if context_mode == "batch":
-        batch_view = BatchModelView(model, tuple(run.arguments for run in runs))
+        batch_view = BatchModelView(
+            model,
+            tuple(run.arguments for run in runs),
+            structured_flags=tuple(run.flags for run in runs),
+        )
         model = cast(_Model, batch_view)
 
     # Phase 1: PyTUFLOW run-state resolution or batch projection, plus
