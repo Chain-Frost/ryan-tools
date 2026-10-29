@@ -240,9 +240,7 @@ class BatchModelView:
         # Preserve scheduled values as mappings: flattening them can lose
         # whitespace and other identity-relevant characters in PR C.
         actual_flags: tuple[str | dict[str, str], ...] = (
-            tuple(dict(item) for item in structured_flags)
-            if structured_flags is not None
-            else tuple(flags)
+            tuple(dict(item) for item in structured_flags) if structured_flags is not None else tuple(flags)
         )
         output = cast(_Result, batch(actual_flags))
         if len(output.runs) != len(flags):
