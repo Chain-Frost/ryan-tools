@@ -59,11 +59,11 @@ def test_public_pr_c_validator_and_file_only_preflight_keep_original_run_order(t
     from pytuflow import TCF
     validate_batch_inputs = cast(
         Callable[..., _ValidatedBatch],
-        getattr(import_module("pytuflow.batch_validation"), "validate_batch_inputs"),
+        getattr(import_module("pytuflow.batch_validation"), "validate_batch_inputs"),  # noqa: B009 - unreleased API
     )
     validation_options = cast(
         Callable[..., object],
-        getattr(import_module("pytuflow.validation"), "ValidationOptions"),
+        getattr(import_module("pytuflow.validation"), "ValidationOptions"),  # noqa: B009 - unreleased API
     )
 
     tcf = tmp_path / "model.tcf"
@@ -80,7 +80,7 @@ def test_public_pr_c_validator_and_file_only_preflight_keep_original_run_order(t
 
     collect = cast(
         Callable[[tuple[str, ...]], _FragmentBatch],
-        getattr(model, "collect_file_dependencies"),
+        getattr(model, "collect_file_dependencies"),  # noqa: B009 - absent from released typings
     )
     projection = collect(flags)
     assert projection.passed
