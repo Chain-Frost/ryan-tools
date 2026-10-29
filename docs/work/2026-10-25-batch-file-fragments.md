@@ -1,6 +1,6 @@
 # Batch file existence with immutable dependency fragments
 
-**29 October 2026 integration note:** The consumer's ordinary batch mode now calls `TCF.collect_file_dependencies()` from [curated PyTUFLOW PR C #50](https://github.com/Chain-Frost/PyTuflow/pull/50). The prior `collect_batch_dependencies()` and optional graph switches are not part of PR C. Existing benchmark results and their exact parser SHAs below are historical evidence, not results for the new PR C head. The separate per-run callback I/O pilot is not supported by PR C; it remains experimental and must not be used as acceptance evidence for this interface.
+**29 October 2026 integration note:** The consumer's ordinary batch mode now calls `TCF.collect_file_dependencies()` from [curated PyTUFLOW PR C #50](https://github.com/Chain-Frost/PyTuflow/pull/50). The prior `collect_batch_dependencies()` and optional graph switches are not part of PR C. Existing benchmark results and their exact parser SHAs below are historical evidence, not results for the new PR C head. The separate per-run callback I/O pilot is not supported by PR C; the implementation, tests and workflow were removed from the consumer branch. Its old work record remains historical evidence, not PR C acceptance.
 
 
 Status: Needs review - publication through existing paired PRs. Owner: ChatGPT. Updated: 2026-10-26.

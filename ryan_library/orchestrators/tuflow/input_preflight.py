@@ -913,7 +913,6 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     maximum_directory_entries: int = 50000,
     context_mode: Literal["individual", "batch"] = "individual",
     inspection_mode: Literal["full", "files"] = "full",
-    reuse_fragments: bool = False,
     io_workers: int = 1,
     check_bc_headers: bool = False,
 ) -> PreflightReport:
@@ -929,9 +928,6 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
         raise ValueError(message)
     if inspection_mode not in ("full", "files"):
         message = f"Unsupported inspection mode: {inspection_mode}"
-        raise ValueError(message)
-    if reuse_fragments and context_mode != "batch":
-        message = "Fragment reuse requires batch context mode"
         raise ValueError(message)
     if context_mode not in ("individual", "batch"):
         message = f"Unsupported input preflight context mode: {context_mode}"
@@ -956,17 +952,17 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     # Otherwise a batch timing would misleadingly omit its main CPU work.
     start = time.perf_counter()
 
-    # The experimental optimisation is deliberately explicit. Never silently
-    # fall back to individual mode if the upstream fork lacks the batch API:
+    # PR C immutable dependency collection is deliberately explicit. Never
+    # silently fall back to individual mode if it lacks the batch API:
     # a caller requesting comparative validation must see that incompatibility.
     batch_view: BatchModelView | None = None
     if context_mode == "batch":
-        batch_view = BatchModelView(model, tuple(run.arguments for run in runs), reuse_fragments=reuse_fragments)
+        batch_view = BatchModelView(model, tuple(run.arguments for run in runs))
         model = cast(_Model, batch_view)
         report.dependency_fragment_evaluations = batch_view.fragment_evaluations
         report.dependency_fragment_reuses = batch_view.fragment_reuses
         report.dependency_fallback_runs = batch_view.fallback_runs
-        if reuse_fragments and batch_view.fallback_runs:
+        if batch_view.fallback_runs:
             logger.warning(
                 "{} runs require the established batch evaluator; subtree reuse is unavailable for this model",
                 batch_view.fallback_runs,
@@ -1149,7 +1145,6 @@ def check_batch_files(
         tcf,
         runs,
         context_mode="batch",
-        reuse_fragments=True,
         inspection_mode="files",
         check_bc_headers=True,
         check_gpkg_layers=check_gpkg_layers,

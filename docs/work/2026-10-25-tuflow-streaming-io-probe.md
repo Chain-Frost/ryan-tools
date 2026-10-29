@@ -1,6 +1,6 @@
 # TUFLOW streaming I/O overlap diagnostic — 25 October 2026
 
-**Status:** Historical diagnostic only. Curated PyTUFLOW PR C #50 does not expose the per-run producer callback. Do not run or present this pilot as PR C-compatible or as production acceptance.
+**Status:** Archived design and benchmark evidence. The streaming callback prototype, its tests and its CI workflow were removed from PR #161 on 29 October 2026 because curated PyTUFLOW PR C #50 does not expose the required per-run producer callback. This record is historical; do not present it as PR C-compatible or as production acceptance.
 **Owner:** ChatGPT.
 **Next review:** Only if an approved replacement callback API is designed.
 **Related producer:** [combined PyTUFLOW draft PR #39](https://github.com/phantom-branch/PyTuflow/pull/39); historical #28 is closed unmerged.

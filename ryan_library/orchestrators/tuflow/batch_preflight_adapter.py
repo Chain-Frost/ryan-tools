@@ -8,7 +8,7 @@ from PyTUFLOW. Physical inspection stays in input_preflight.py.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol, cast
 
@@ -130,8 +130,8 @@ class _ContextView:
             key = (record.command_index, record.input_uuid)
             groups.setdefault(key, []).append(record)
 
-        # The current public collector supplies ordered inputs. Retain the
-        # guarded older-projection path only for isolated historical diagnostics.
+        # Ordered command provenance is mandatory for complete PR C runs.
+        # The guarded fallback below preserves pre-existing synthetic fixtures.
         ordered_inputs = getattr(case, "ordered_inputs", None)
         inputs: list[_InputView] = []
         if ordered_inputs is None:
@@ -223,33 +223,19 @@ def _optional_counter(result: object, name: str) -> int:
 
 
 class BatchModelView:
-    """Single-use replay of an exact, ordered batch against existing collector."""
+    """Read-only projection of the exact ordered PR C dependency batch."""
 
-    def __init__(
-        self,
-        model: object,
-        flags: Sequence[str],
-        *,
-        on_run: Callable[[_Case], None] | None = None,
-        reuse_fragments: bool = False,
-    ) -> None:
-        if on_run is not None and reuse_fragments:
-            message = "PR C fragment collection does not expose per-run callbacks"
+    def __init__(self, model: object, flags: Sequence[str]) -> None:
+        # Curated PR C owns all run-specific parsing and immutable fragments.
+        # The retired graph and streaming callback contracts are not supported.
+        collect = getattr(model, "collect_file_dependencies", None)
+        if not callable(collect):
+            message = (
+                "PyTUFLOW batch mode requires collect_file_dependencies(); "
+                "install the matching curated parser in an isolated environment"
+            )
             raise ValueError(message)
-        # PR C's public fragment collector is the supported batch contract.
-        # The retired callback producer is retained solely for the opt-in
-        # historical I/O-overlap diagnostic; it is never used by preflight.
-        method = "collect_batch_dependencies" if on_run is not None else "collect_file_dependencies"
-        batch = getattr(model, method, None)
-        if not callable(batch):
-            message = f"PyTUFLOW batch mode requires {method}(); install the matching parser build"
-            raise ValueError(message)
-        # Only the archived opt-in I/O probe uses the prior callback interface.
-        # All ordinary batch callers consume PR C's immutable fragments.
-        output = cast(
-            _Result,
-            batch(tuple(flags), on_run=on_run) if on_run is not None else batch(tuple(flags)),
-        )
+        output = cast(_Result, collect(tuple(flags)))
         if len(output.runs) != len(flags):
             message = "PyTUFLOW batch returned a different number of runs"
             raise ValueError(message)
