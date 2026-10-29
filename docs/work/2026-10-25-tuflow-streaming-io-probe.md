@@ -1,8 +1,8 @@
 # TUFLOW streaming I/O overlap diagnostic — 25 October 2026
 
-**Status:** Active; combined #39 integration passes locally, new-head hosted CI pending. Experimental only.
+**Status:** Historical diagnostic only. Curated PyTUFLOW PR C #50 does not expose the per-run producer callback. Do not run or present this pilot as PR C-compatible or as production acceptance.
 **Owner:** ChatGPT.
-**Next review:** 1 November 2026, or after exact-head CI.
+**Next review:** Only if an approved replacement callback API is designed.
 **Related producer:** [combined PyTUFLOW draft PR #39](https://github.com/phantom-branch/PyTuflow/pull/39); historical #28 is closed unmerged.
 **Consumer scope:** independent draft PR in ryan-tools, based on main, not #158.
 

@@ -143,12 +143,12 @@ def test_unhandled_consumer_failure_propagates_and_closes_worker(
         probe.finish()
 
 
-def test_ordinary_batch_adapter_never_passes_new_hook() -> None:
-    class LegacyModel:
-        def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+def test_ordinary_batch_adapter_uses_public_fragment_collector() -> None:
+    class FragmentModel:
+        def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
             return types.SimpleNamespace(runs=tuple(_run(index, flag) for index, flag in enumerate(flags)))
 
-    view = BatchModelView(LegacyModel(), ("-s1 DEV",))
+    view = BatchModelView(FragmentModel(), ("-s1 DEV",))
     assert view.context("-s1 DEV", file_resolution="deferred").find_input() == []
     view.assert_consumed()
 

@@ -91,7 +91,7 @@ def _case(
 
 def _view(case: types.SimpleNamespace) -> BatchModelView:
     class Model:
-        def collect_batch_dependencies(self, _flags: tuple[str, ...]) -> types.SimpleNamespace:
+        def collect_file_dependencies(self, _flags: tuple[str, ...]) -> types.SimpleNamespace:
             return types.SimpleNamespace(runs=(case,))
 
     return BatchModelView(Model(), (case.flags,))

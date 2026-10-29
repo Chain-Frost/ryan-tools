@@ -59,11 +59,11 @@ class Measurements:
                     measurements.seconds["context"] += time.perf_counter() - start
                     measurements.phase = "bulk_and_collection"
 
-            def collect_batch_dependencies(self, flags: tuple[str, ...]) -> Any:
+            def collect_file_dependencies(self, flags: tuple[str, ...]) -> Any:
                 measurements.phase = "batch"
                 start = time.perf_counter()
                 try:
-                    result = model.collect_batch_dependencies(flags)
+                    result = model.collect_file_dependencies(flags)
                     measurements.batch_metrics.update(
                         {
                             field.name: value
@@ -244,7 +244,7 @@ def main() -> int:
         "pytuflow/_tmf/deferred_database.py",
     ]
     if options.batch:
-        sources.append("pytuflow/_tmf/batch_dependencies.py")
+        sources.append("pytuflow/_tmf/fragment_dependencies.py")
     provenance = {
         "pytuflow_version": upstream.__version__,
         "module_path": str(module_path),

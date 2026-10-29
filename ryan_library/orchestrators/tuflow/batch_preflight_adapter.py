@@ -51,7 +51,7 @@ class _Case(Protocol):
     file_references: tuple[object, ...]
     database_sources: tuple[_Source, ...]
     database_activations: tuple[_Activation, ...]
-    # Introduced in PyTUFLOW PR #6; older fork batches omit this field.
+    # Included in the PR C immutable per-run command provenance.
     ordered_inputs: tuple[_OrderedInput, ...]
 
 
@@ -130,9 +130,8 @@ class _ContextView:
             key = (record.command_index, record.input_uuid)
             groups.setdefault(key, []).append(record)
 
-        # Old cached-batch builds only expose commands with file references.
-        # Keep that validated compatibility path for single-BC projects while
-        # the new ordered-input API is not yet part of the installed release.
+        # The current public collector supplies ordered inputs. Retain the
+        # guarded older-projection path only for isolated historical diagnostics.
         ordered_inputs = getattr(case, "ordered_inputs", None)
         inputs: list[_InputView] = []
         if ordered_inputs is None:
@@ -234,16 +233,19 @@ class BatchModelView:
         on_run: Callable[[_Case], None] | None = None,
         reuse_fragments: bool = False,
     ) -> None:
-        if reuse_fragments and on_run is not None:
-            message = "Fragment collection does not expose mutable-state callbacks"
+        if on_run is not None and reuse_fragments:
+            message = "PR C fragment collection does not expose per-run callbacks"
             raise ValueError(message)
-        method = "collect_file_dependencies" if reuse_fragments else "collect_batch_dependencies"
+        # PR C's public fragment collector is the supported batch contract.
+        # The retired callback producer is retained solely for the opt-in
+        # historical I/O-overlap diagnostic; it is never used by preflight.
+        method = "collect_batch_dependencies" if on_run is not None else "collect_file_dependencies"
         batch = getattr(model, method, None)
         if not callable(batch):
             message = f"PyTUFLOW batch mode requires {method}(); install the matching parser build"
             raise ValueError(message)
-        # Only the opted-in diagnostic uses the new PyTUFLOW producer hook.
-        # Default callers use the legacy positional API unchanged.
+        # Only the archived opt-in I/O probe uses the prior callback interface.
+        # All ordinary batch callers consume PR C's immutable fragments.
         output = cast(
             _Result,
             batch(tuple(flags), on_run=on_run) if on_run is not None else batch(tuple(flags)),

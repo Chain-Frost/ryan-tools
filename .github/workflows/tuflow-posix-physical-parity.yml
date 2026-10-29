@@ -24,7 +24,7 @@ jobs:
           python-version: "3.14"
       - name: Install parser and isolated consumer dependencies
         run: |
-          python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@acf799a4e3c72ebc2d63f847a3f592cd44bcdd0a"
+          python -m pip install "git+https://github.com/Chain-Frost/PyTuflow.git@0edea72cf2545025e87877e71c764500a00c6128"
           python -m pip install -e . --no-deps
           python -m pip install pytest pyshp loguru colorama psutil
       - name: Verify alias, layer and POSIX case-distinct identities
