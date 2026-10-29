@@ -957,7 +957,11 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     # a caller requesting comparative validation must see that incompatibility.
     batch_view: BatchModelView | None = None
     if context_mode == "batch":
-        batch_view = BatchModelView(model, tuple(run.arguments for run in runs))
+        batch_view = BatchModelView(
+            model,
+            tuple(run.arguments for run in runs),
+            structured_flags=tuple(run.flags for run in runs),
+        )
         model = cast(_Model, batch_view)
         report.dependency_fragment_evaluations = batch_view.fragment_evaluations
         report.dependency_fragment_reuses = batch_view.fragment_reuses
