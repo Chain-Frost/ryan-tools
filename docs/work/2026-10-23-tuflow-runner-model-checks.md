@@ -15,6 +15,14 @@
 | Merged parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` (PyTUFLOW #12, including #13) |
 | Next action | Commit validated local implementation separately; obtain push authorization and exact-new-head checks. After #158 lands, preserve only own changes on current main before any authorized retarget. |
 
+## 29 October 2026 — PR C interface and stack correction
+
+The selected parser integration is [curated PyTuflow PR C #50](https://github.com/Chain-Frost/PyTuflow/pull/50), currently proposed as 1.2.9. Its supported public API is `TCF.collect_file_dependencies(run_flags)` for syntactic collection and `pytuflow.batch_validation.validate_batch_inputs(model, run_flags, options=...)` for full read-only physical checks. PR C does not offer the prior `collect_batch_dependencies()`, a per-run producer callback, or graph on/off switches. The runner must not call these removed APIs.
+
+For the advisory background worker, freeze the final ordered run plan and group runs by resolved TCF and launch directory. Where full PR C batch validation is selected, parse each group's TCF once, send exactly those flags to `validate_batch_inputs`, and map `ValidationFinding.run_index` back to the original run identity. Treat `missing`, `unresolved`, and `unsupported` as warnings; emit the all-inputs-present INFO message only after every expected run has completed validation successfully. Preserve any worker exception, missing capability, empty result, report-write failure or unavailable parser as an explicit incomplete/failed warning, without postponing normal TUFLOW launches. Keep the existing GPU occupancy warning independent.
+
+This PR currently remains a **documentation/scoping draft**. Its Git base is #158's historical graph diagnostic, which is not compatible with PR C. Before implementing or merging the runner, preserve only its own changes on current `main`; do not inherit old benchmark or retired-parser implementation. Native Windows/GPU/process-lifecycle acceptance remains required. Do not change the published PyTuflow dependency pin until an accepted official version exists.
+
 ## Outcome and delivery boundary
 
 Improve [run_tuflow_simulations.py](../../ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py)
