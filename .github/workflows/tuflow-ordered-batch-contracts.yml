@@ -32,7 +32,7 @@ jobs:
       - name: Install curated PR C immutable-reference contract
         # This development-only fork pin does not modify pyproject.toml,
         # requirements or the published package dependency.
-        run: python -m pip install "git+https://github.com/Chain-Frost/PyTuflow.git@e51389ce098b8f9d32a58bab9a7f518fd430a6ef"
+        run: python -m pip install "git+https://github.com/Chain-Frost/PyTuflow.git@4a979e3f43565e24d176dfd2a8b77814866fcb91"
       - name: Install isolated preflight consumer and test dependencies
         run: |
           python -m pip install -e . --no-deps
