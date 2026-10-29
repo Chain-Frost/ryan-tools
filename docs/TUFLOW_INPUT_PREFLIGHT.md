@@ -21,8 +21,10 @@ PyTUFLOW is a standard `ryan-tools` dependency (`pytuflow>=1.2,<2`) and installs
 automatically; no separate extra is needed. Copied wrappers require the installed
 package. Do not insert checkout paths into sys.path.
 
-The launcher retains `context_mode="individual"`. The standalone checker now defaults to the
-file-existence batch workflow described below; `--no-files-only` selects the established checker. If the
+The launcher retains `context_mode="individual"`. The standalone checker defaults to the
+established individual-context checker on the published dependency. `--files-only`
+explicitly selects the PR C batch file-existence workflow below, which requires a
+matching development installation. If the
 installed parser lacks the deferred API, the checker uses eager discovery with a
 warning. A compatible development fork enables individual deferred collection and
 its typed secondary-source APIs; installing the normal package does not install
@@ -306,18 +308,25 @@ Checks to run on the latest head in Python 3.14:
 Follow up with Windows Python 3.14 + PyTUFLOW real-BC regression tests against representative 2026.3 HPC models.
 
 
-## Experimental batch streaming I/O (not a preflight optimisation)
+## Archived streaming I/O diagnostic (not supported by PR C)
 
-[Streaming I/O overlap work record](work/2026-10-25-tuflow-streaming-io-probe.md) tracks an **opt-in diagnostic**, not a production API/default change. PyTUFLOW first loads the control-file tree and prepares batch graph/caches sequentially, then may emit completed per-run immutable projections. A bounded single I/O worker can speculatively stat eligible literal files while later run contexts are constructed. These speculative checks are **never authoritative**: the ordinary directory-batched filesystem, wildcard, GeoPackage layer, raster/attribute and public-preflight gates remain unchanged and are still required for acceptance. No speedup has been demonstrated, and automatic SMB selection is not implemented.
+The [streaming I/O overlap work record](work/2026-10-25-tuflow-streaming-io-probe.md)
+is retained as historical evidence. Its earlier per-run producer callback is
+**not provided by curated PyTuflow PR C**. The callback consumer, tests and
+workflow have been removed. There is no supported streaming-I/O or graph
+on/off option in the active preflight interface; no old pilot measurements
+are accepted as PR C throughput evidence.
 
 
 ## Batch file existence and immutable dependency reuse
 
-The standalone `check_tuflow_inputs.py` defaults to `--files-only` and four
-bounded I/O workers. It requires the matching development PyTUFLOW build with
-`TCF.collect_file_dependencies`; it does not silently substitute an older installed
-parser. This API is not yet supplied by the declared normal PyPI dependency.
-Use `--no-files-only` for the established checker, or `--io-workers 1` for serial I/O.
+The standalone `check_tuflow_inputs.py` defaults to the established
+individual-context checker, compatible with the declared PyPI requirement.
+Pass `--files-only` explicitly to opt in to PR C file-existence and BC CSV-header
+checks, using four bounded I/O workers by default. This mode requires the
+matching development PyTuflow build with `TCF.collect_file_dependencies()`;
+it fails closed if unavailable, rather than silently changing checking modes.
+Use `--io-workers 1` to select serial I/O for that opt-in mode.
 `--no-check-gpkg-layers` remains an explicit choice; layer existence is checked by default.
 
 The library entry point is:
@@ -368,7 +377,7 @@ and the required CSV column names, without validating rainfall values.
 
 ### Required BC CSV headers in rapid checks
 
-`check_batch_files` and the wrapper's default rapid mode now verify the resolved
+`check_batch_files` and the wrapper's explicit `--files-only` mode verify the resolved
 Column 1 (time) and Column 2 (value) names for ordinary BC-source CSV files.
 PyTUFLOW expands TEF and Set Variable selectors and carries immutable column
 requirements alongside each source path. TBC remains the boundary control file;
