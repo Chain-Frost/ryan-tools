@@ -12,12 +12,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-25.2"
+WRAPPER_VERSION = "2026-10-29.1"
 DEFAULT_TCF = Path("runs/model_~e1~_~e2~.tcf")
 DEFAULT_COMMANDS = Path("run_tuflow_simulations_commands.txt")
 DEFAULT_REPORT = Path("tuflow_input_preflight.csv")
 DEFAULT_CHECK_GPKG_LAYERS = True
-DEFAULT_FILES_ONLY = True
+DEFAULT_FILES_ONLY = False
 DEFAULT_IO_WORKERS = 4
 
 import argparse
@@ -36,7 +36,7 @@ def main(
     files_only: bool = DEFAULT_FILES_ONLY,
     io_workers: int = DEFAULT_IO_WORKERS,
 ) -> int:
-    """Run read-only preflight and write one issue register."""
+    """Run read-only preflight; unpublished PR C file-only mode is opt-in."""
     tcf = tcf.absolute()
     commands = commands.absolute()
     combinations = read_run_commands(commands)
@@ -92,8 +92,8 @@ def _parse_arguments() -> argparse.Namespace:
         "--files-only",
         action=argparse.BooleanOptionalAction,
         default=DEFAULT_FILES_ONLY,
-        help="Use batch fragment reuse for file existence; retain essential linked-file discovery (default: enabled). "
-        "Requires a matching fragment-capable PyTUFLOW build. --no-files-only selects the established full checker.",
+        help="Opt in to PR C batch file-existence and BC CSV-header checks (default: disabled). "
+        "Requires a matching unpublished PyTuflow fragment API; otherwise use the established checker.",
     )
     parser.add_argument(
         "--io-workers",
