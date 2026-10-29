@@ -7,6 +7,7 @@ on:
       - "ryan_library/orchestrators/tuflow/batch_preflight_adapter.py"
       - "ryan_library/orchestrators/tuflow/input_preflight.py"
       - "tests/orchestrators/tuflow/test_batch_preflight_adapter.py"
+      - "tests/orchestrators/tuflow/test_pr_c_validation_contract.py"
       - "tests/orchestrators/tuflow/test_ordered_batch_adapter.py"
       - "tests/fixtures/tuflow_example_repro/run_checks.py"
       - "tests/fixtures/tuflow_example_repro/run_local_checks.py"
@@ -57,6 +58,7 @@ jobs:
           python -m pytest -q
           tests/orchestrators/tuflow/test_batch_preflight_adapter.py
           tests/orchestrators/tuflow/test_ordered_batch_adapter.py
+          tests/orchestrators/tuflow/test_pr_c_validation_contract.py
           tests/fixtures/tuflow_example_repro/test_run_checks.py
       - name: Verify native evaluation command
         run: python -m tests.fixtures.tuflow_example_repro.run_local_checks --help
