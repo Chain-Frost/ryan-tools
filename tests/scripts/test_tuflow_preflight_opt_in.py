@@ -50,7 +50,10 @@ def test_standalone_uses_established_checker_by_default(tmp_path: Path, monkeypa
         calls.append("fragment")
         return _Report()
 
-    monkeypatch.setattr(module, "read_run_commands", lambda _path: [{"s1": "DEV"}])
+    def read_run_commands(_path: Path) -> list[dict[str, str]]:
+        return [{"s1": "DEV"}]
+
+    monkeypatch.setattr(module, "read_run_commands", read_run_commands)
     monkeypatch.setattr(module, "check_simulation_inputs", established)
     monkeypatch.setattr(module, "check_batch_files", fragment)
 
