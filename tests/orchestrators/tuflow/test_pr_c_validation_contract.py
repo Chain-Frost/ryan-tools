@@ -7,11 +7,47 @@ The normal ryan-tools dependency and upstream release numbering are unchanged.
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
+from importlib import import_module
 from pathlib import Path
+from typing import Protocol, cast
 
 import pytest
 
 from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_batch_files
+
+
+# These narrow structural contracts are intentionally local. Default package
+# and policy CI may contain released PyTuflow without the unreleased PR C
+# modules, whereas isolated batch smoke CI installs the exact PR C revision.
+class _FragmentRun(Protocol):
+    index: int
+    flags: str
+    ordered_inputs: tuple[object, ...]
+    input_references: tuple[object, ...]
+
+
+class _FragmentBatch(Protocol):
+    passed: bool
+    runs: tuple[_FragmentRun, ...]
+
+
+class _Finding(Protocol):
+    run_index: int
+    status: str
+    origin: str
+    path: Path | None
+
+
+class _Inspection(Protocol):
+    run_count: int
+
+
+class _ValidatedBatch(Protocol):
+    dependencies: _FragmentBatch
+    validation: _Inspection
+    passed: bool
+    issues: tuple[_Finding, ...]
 
 
 @pytest.mark.skipif(
@@ -21,8 +57,14 @@ from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_
 def test_public_pr_c_validator_and_file_only_preflight_keep_original_run_order(tmp_path: Path) -> None:
     """Compare physical findings and ordered provenance without GIS/raster reads."""
     from pytuflow import TCF
-    from pytuflow.batch_validation import validate_batch_inputs
-    from pytuflow.validation import ValidationOptions
+    validate_batch_inputs = cast(
+        Callable[..., _ValidatedBatch],
+        getattr(import_module("pytuflow.batch_validation"), "validate_batch_inputs"),
+    )
+    validation_options = cast(
+        Callable[..., object],
+        getattr(import_module("pytuflow.validation"), "ValidationOptions"),
+    )
 
     tcf = tmp_path / "model.tcf"
     tcf.write_text("Read Grid Zpts == grid_<<~s1~>>.tif\n", encoding="utf-8")
@@ -36,7 +78,11 @@ def test_public_pr_c_validator_and_file_only_preflight_keep_original_run_order(t
     flags = tuple(run.arguments for run in runs)
     model = TCF(tcf)
 
-    projection = model.collect_file_dependencies(flags)
+    collect = cast(
+        Callable[[tuple[str, ...]], _FragmentBatch],
+        getattr(model, "collect_file_dependencies"),
+    )
+    projection = collect(flags)
     assert projection.passed
     assert len(projection.runs) == len(flags)
     assert tuple(run.index for run in projection.runs) == (0, 1, 2)
@@ -46,7 +92,7 @@ def test_public_pr_c_validator_and_file_only_preflight_keep_original_run_order(t
     checked = validate_batch_inputs(
         model,
         flags,
-        options=ValidationOptions(
+        options=validation_options(
             check_files=True,
             check_gpkg_layers=True,
             check_bc_csv_headers=True,
