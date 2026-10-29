@@ -31,14 +31,9 @@ class _Report:
         return path
 
 
-def test_standalone_uses_established_checker_by_default(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_standalone_uses_established_checker_by_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The published dependency must work without the unreleased fragment API."""
-    script = (
-        Path(__file__).resolve().parents[2]
-        / "ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py"
-    )
+    script = Path(__file__).resolve().parents[2] / "ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py"
     spec = importlib.util.spec_from_file_location("_test_tuflow_input_wrapper", script)
     assert spec is not None
     assert spec.loader is not None
