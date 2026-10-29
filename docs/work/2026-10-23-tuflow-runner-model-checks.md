@@ -8,12 +8,12 @@
 | Next review | 2026-11-01 or immediately after #158 lands |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159) |
 | Branch | `feat/tuflow-runner-model-checks` |
-| PR base | `test/native-graph-benchmark-controls`, the branch for [ryan-tools #158](https://github.com/Chain-Frost/ryan-tools/pull/158) |
+| PR base | `test/tuflow-streaming-io-overlap`, the branch for [ryan-tools #161](https://github.com/Chain-Frost/ryan-tools/pull/161) |
 | Initial parent | `f4a214a4cd6260098c939ae6beb59a9ec6ef0945` |
 | Parent integration | `9cd839247c430dbd9a2ec4a7e2187f1e80cea91d` from #158, refreshed after its diagnostic implementation landed on that draft |
 | Merged consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` (PR #143, including #156) |
 | Merged parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` (PyTUFLOW #12, including #13) |
-| Next action | Commit validated local implementation separately; obtain push authorization and exact-new-head checks. After #158 lands, preserve only own changes on current main before any authorized retarget. |
+| Next action | Review exact-head hosted CI, perform native Windows validation, and merge #161 before restacking this runner on main. |
 
 ## 29 October 2026 — PR C interface and stack correction
 
@@ -21,7 +21,7 @@ The selected parser integration is [curated PyTuflow PR C #50](https://github.co
 
 For the advisory background worker, freeze the final ordered run plan and group runs by resolved TCF and launch directory. Where full PR C batch validation is selected, parse each group's TCF once, send exactly those flags to `validate_batch_inputs`, and map `ValidationFinding.run_index` back to the original run identity. Treat `missing`, `unresolved`, and `unsupported` as warnings; emit the all-inputs-present INFO message only after every expected run has completed validation successfully. Preserve any worker exception, missing capability, empty result, report-write failure or unavailable parser as an explicit incomplete/failed warning, without postponing normal TUFLOW launches. Keep the existing GPU occupancy warning independent.
 
-This PR currently remains a **documentation/scoping draft**. Its Git base is #158's historical graph diagnostic, which is not compatible with PR C. Before implementing or merging the runner, preserve only its own changes on current `main`; do not inherit old benchmark or retired-parser implementation. Native Windows/GPU/process-lifecycle acceptance remains required. Do not change the published PyTuflow dependency pin until an accepted official version exists.
+This PR contains the background advisory runner implementation and deterministic lifecycle tests, not just documentation. Its previous Git base was #158's historical graph diagnostic; the new base is #161's PR C consumer. The current PR now stacks directly on ryan-tools #161 (PR C batch preflight), excluding obsolete graph benchmark changes from PR #158. Merge #161 first; then restack this PR on current main without inheriting retired parser code. Native Windows/GPU/process-lifecycle acceptance remains required. Do not change the published PyTuflow dependency pin until an accepted official version exists.
 
 ## Outcome and delivery boundary
 

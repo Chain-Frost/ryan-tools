@@ -7,9 +7,6 @@ import gc
 import hashlib
 import importlib
 import json
-import re
-import shutil
-import subprocess
 import sys
 import time
 from collections import Counter, defaultdict
@@ -26,7 +23,7 @@ from packaging.specifiers import SpecifierSet
 from ryan_library.functions.tuflow.run_flags import read_run_commands
 from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_simulation_inputs
 
-from .run_checks import GRAPH_MODES, collect, compare_collections, comparison_modes
+from .run_checks import collect
 
 
 class Measurements:
@@ -36,7 +33,7 @@ class Measurements:
         self.phase = ""
         self.calls: dict[str, Counter[str]] = {}
         self.seconds: defaultdict[str, float] = defaultdict(float)
-        self.batch_metrics: dict[str, Any] = {}
+        self.batch_metrics: dict[str, int | float] = {}
 
     def audit(self, event: str, _arguments: tuple[object, ...]) -> None:
         """Count supported audit events only during a measured comparison."""
@@ -47,11 +44,9 @@ class Measurements:
         """Load a fresh model and time its contexts separately from bulk checks."""
         self.phase = "parse"
         start = time.perf_counter()
-        try:
-            model = upstream.TCF(path)
-        finally:
-            self.seconds["parse"] += time.perf_counter() - start
-            self.phase = "bulk_and_collection"
+        model = upstream.TCF(path)
+        self.seconds["parse"] += time.perf_counter() - start
+        self.phase = "bulk_and_collection"
         measurements = self
 
         class TimedModel:
@@ -64,26 +59,16 @@ class Measurements:
                     measurements.seconds["context"] += time.perf_counter() - start
                     measurements.phase = "bulk_and_collection"
 
-            def collect_batch_dependencies(
-                self, flags: tuple[str, ...], *, cache_scopes: bool = True, compile_tree: bool | None = None
-            ) -> Any:
+            def collect_file_dependencies(self, flags: tuple[str, ...]) -> Any:
                 measurements.phase = "batch"
                 start = time.perf_counter()
                 try:
-                    result = (
-                        model.collect_batch_dependencies(flags)
-                        if compile_tree is None
-                        else model.collect_batch_dependencies(
-                            flags, cache_scopes=cache_scopes, compile_tree=compile_tree
-                        )
-                    )
+                    result = model.collect_file_dependencies(flags)
                     measurements.batch_metrics.update(
                         {
                             field.name: value
                             for field in fields(result)
-                            if isinstance(value := getattr(result, field.name), (int, float, str))
-                            or value is None
-                            or field.name in {"input_group_fallbacks", "input_group_bypass_reasons"}
+                            if isinstance(value := getattr(result, field.name), (int, float))
                         }
                     )
                     return result
@@ -129,22 +114,17 @@ def _measure_collection(
     def factory(path: str) -> Any:
         return measurements.factory(upstream, path)
 
-    identities: set[tuple[Any, ...]]
-    stats: dict[str, Any]
     try:
         with _sample_memory() as memory:
             measurements.phase = "bulk_and_collection"
             start = time.perf_counter()
-            try:
-                identities, stats = collect(tcf, runs, mode, factory)
-            except Exception as exc:  # noqa: BLE001 - preserve failed-mode timings and continue diagnostic coverage
-                identities, stats = set(), {"error": f"{type(exc).__name__}: {exc}"}
+            identities, stats = collect(tcf, runs, mode, factory)
             stats["seconds"] = time.perf_counter() - start
         stats["phase_seconds"] = dict(measurements.seconds)
         stats["bulk_and_collection_seconds"] = stats["seconds"] - sum(measurements.seconds.values())
         stats["audit_calls"] = {name: dict(counts) for name, counts in measurements.calls.items()}
         stats["memory"] = memory
-        if mode == "batch" or mode in GRAPH_MODES:
+        if mode == "batch":
             stats["batch_metrics"] = dict(measurements.batch_metrics)
         return identities, stats
     finally:
@@ -178,7 +158,18 @@ def _record_comparisons(
     row: dict[str, Any], identities: dict[str, set[tuple[Any, ...]]], output: Path, phase: str
 ) -> None:
     """Compare complete materialised identities, refusing any partial collection."""
-    differences = compare_collections(row, identities, tuple(row["mode_order"]))
+    differences: dict[str, Any] = {}
+    for mode in ("deferred", "batch"):
+        if mode not in identities:
+            continue
+        missing = identities["eager"] - identities[mode]
+        extra = identities[mode] - identities["eager"]
+        prefix = "batch_" if mode == "batch" else ""
+        row.update({f"{prefix}missing": len(missing), f"{prefix}extra": len(extra)})
+        differences[mode] = {"missing": sorted(missing), "extra": sorted(extra)}
+    row["passed"] = not any(row.get(key, 0) for key in ("missing", "extra", "batch_missing", "batch_extra")) and all(
+        not row[mode][key] for mode in identities for key in ("collection_issues", "inventory_issues")
+    )
     # Physical identities can disclose private model paths; output stays outside the repository.
     (output / f"{phase}-differences.json").write_text(json.dumps(differences, indent=2), encoding="utf-8")
 
@@ -187,15 +178,7 @@ def _public_preflight(tcf: Path, runs: list[RunRequest], output: Path, label: st
     """Require matching public preflight paths/issues as well as identity parity."""
     report = check_simulation_inputs(tcf, runs)
     report.write_csv(output / "preflight-issues.csv")
-    summary: dict[str, Any] = {
-        "label": label,
-        "runs": len(runs),
-        "passed": report.passed,
-        "issues": len(report.issues),
-        "timed": False,
-        "batch_graph_policy": "parser_default",
-        "graph_comparison": False,
-    }
+    summary: dict[str, Any] = {"label": label, "runs": len(runs), "passed": report.passed, "issues": len(report.issues)}
     if batch:
         projected = check_simulation_inputs(tcf, runs, context_mode="batch")
         projected.write_csv(output / "preflight-batch-issues.csv")
@@ -209,47 +192,7 @@ def _public_preflight(tcf: Path, runs: list[RunRequest], output: Path, label: st
     return bool(summary["passed"])
 
 
-def _git_revision(root: Path) -> dict[str, Any]:
-    """Record exact source revision and dirtiness without traversing submodules."""
-    executable = shutil.which("git")
-    if executable is None:
-        msg = "Git is required to record the actual parser and diagnostic revisions"
-        raise ValueError(msg)
-
-    def git(*arguments: str) -> str:
-        return subprocess.run(
-            [executable, "-C", str(root), *arguments],
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        ).stdout.strip()
-
-    try:
-        # Physical comparison ensures Git describes this checkout, not an unrelated ancestor.
-        if Path(git("rev-parse", "--show-toplevel")).resolve() != root.resolve():
-            msg = f"Source directory is not a Git checkout root: {root}"
-            raise ValueError(msg)
-        head = git("rev-parse", "HEAD")
-        if re.fullmatch(r"[0-9a-f]{40}", head) is None:
-            msg = f"Cannot identify an exact Git revision: {root}"
-            raise ValueError(msg)
-        status = git(
-            "status",
-            "--porcelain",
-            "--untracked-files=normal",
-            "--ignore-submodules=all",
-            "--",
-            ".",
-            ":(exclude)unsorted",
-        )
-    except (OSError, subprocess.SubprocessError) as exc:
-        msg = f"Could not record Git source provenance for {root}: {exc}"
-        raise ValueError(msg) from exc
-    return {"head": head, "dirty": bool(status), "status": status}
-
-
-def main() -> int:  # noqa: C901 - explicit arguments, source verification and diagnostic acceptance
+def main() -> int:
     """Check representative contexts, then every requested run, with private reports."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tcf", type=Path, required=True)
@@ -260,14 +203,8 @@ def main() -> int:  # noqa: C901 - explicit arguments, source verification and d
     parser.add_argument("--label", required=True, help="Anonymous report label, for example P or B")
     parser.add_argument("--pytuflow-checkout", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True, help="Private report directory outside the repository")
-    parser.add_argument(
-        "--repeats", type=int, help="Full trials; graph comparison requires a multiple of four (default 4)"
-    )
+    parser.add_argument("--repeats", type=int, default=1, help="Rotate mode order across repeats")
     parser.add_argument("--batch", action="store_true", help="Include experimental batch materialisation and preflight")
-    parser.add_argument("--graph-compare", action="store_true", help="Isolate cached graph-off/on; requires --batch")
-    parser.add_argument(
-        "--storage-and-cache-conditions", help="Anonymous storage/cache description; required for graph comparison"
-    )
     parser.add_argument(
         "--continue-on-findings",
         action="store_true",
@@ -277,22 +214,9 @@ def main() -> int:  # noqa: C901 - explicit arguments, source verification and d
         "--representative-only", action="store_true", help="Gate first/middle/last runs without a full sweep"
     )
     options = parser.parse_args()
-    try:
-        modes = comparison_modes(options.batch, options.graph_compare)
-    except ValueError as exc:
-        parser.error(str(exc))
-    if options.repeats is None:
-        options.repeats = 4 if options.graph_compare else 1
     if options.repeats < 1:
         parser.error("--repeats must be positive")
-    if options.graph_compare and (options.repeats < 4 or options.repeats % 4):
-        parser.error("--graph-compare requires at least four full trials and --repeats must be a multiple of four")
-    if options.graph_compare and not (options.storage_and_cache_conditions or "").strip():
-        parser.error("--graph-compare requires --storage-and-cache-conditions")
-    try:
-        flags = _read_flags(options, parser)
-    except (OSError, ValueError) as exc:
-        parser.error(f"Could not read run flags: {exc}")
+    flags = _read_flags(options, parser)
     runs = [RunRequest(index, item) for index, item in enumerate(flags, 1)]
     tcf = options.tcf.absolute()
     output = options.output.absolute()
@@ -320,59 +244,21 @@ def main() -> int:  # noqa: C901 - explicit arguments, source verification and d
         "pytuflow/_tmf/deferred_database.py",
     ]
     if options.batch:
-        sources.append("pytuflow/_tmf/batch_dependencies.py")
+        sources.append("pytuflow/_tmf/fragment_dependencies.py")
     provenance = {
         "pytuflow_version": upstream.__version__,
         "module_path": str(module_path),
         "python_version": sys.version,
         "source_sha256": {name: hashlib.sha256((checkout / name).read_bytes()).hexdigest() for name in sources},
-        "storage_and_cache_conditions": options.storage_and_cache_conditions or "unspecified",
-        "modes": modes,
-        "expected_runs": len(runs),
-        "distinct_complete_flags": len({run.arguments for run in runs}),
-        "full_trials": 0 if options.representative_only else options.repeats,
-        "timing_boundary": "parse + context/public batch + remaining collection/provenance/materialisation/inventory",
-        "excluded_from_timings": ["process startup", "report writing", "public preflight"],
-        "batch_metric_timings_overlap": True,
-        "audit_events_are_disk_or_smb_operations": False,
-        "rss_sample_interval_seconds": 0.02,
     }
-    try:
-        provenance["parser_git"] = _git_revision(checkout)
-        provenance["consumer_git"] = _git_revision(Path(__file__).absolute().parents[3])
-    except ValueError as exc:
-        parser.error(str(exc))
     (output / "provenance.json").write_text(json.dumps(provenance, indent=2), encoding="utf-8")
-    # Reusing an output directory must never leave an earlier accepted summary
-    # or public-preflight result behind when this invocation stops at its gate.
-    pending = {
-        "label": options.label,
-        "passed": False,
-        "completed": False,
-        "validation_scope": "representative_only" if options.representative_only else "full_workload",
-        "full_workload_validated": False,
-        "accepted_for_benchmark": False,
-    }
-    (output / "summary.json").write_text(json.dumps(pending, indent=2), encoding="utf-8")
-    (output / "preflight.json").write_text(
-        json.dumps(
-            {
-                "passed": False,
-                "completed": False,
-                "timed": False,
-                "batch_graph_policy": "parser_default",
-                "graph_comparison": False,
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
     measurements = Measurements()
 
     sys.addaudithook(measurements.audit)
     rows: list[dict[str, Any]] = []
     all_passed = True
     sample = [runs[index] for index in sorted({0, len(runs) // 2, len(runs) - 1})]
+    modes = ("eager", "deferred", "batch") if options.batch else ("eager", "deferred")
     phases: list[tuple[str, list[RunRequest], tuple[str, ...]]] = [("representative", sample, modes)]
     if not options.representative_only:
         phases.extend(
@@ -381,68 +267,19 @@ def main() -> int:  # noqa: C901 - explicit arguments, source verification and d
         )
     for phase, selected, modes in phases:
         identities: dict[str, set[tuple[Any, ...]]] = {}
-        row: dict[str, Any] = {
-            "label": options.label,
-            "phase": phase,
-            "runs": len(selected),
-            "mode_order": modes,
-            "validation_scope": "representative_only" if options.representative_only else "full_workload",
-            "full_workload_validated": False,
-            "accepted_for_benchmark": False,
-        }
+        row: dict[str, Any] = {"label": options.label, "phase": phase, "runs": len(selected), "mode_order": modes}
         for mode in modes:
-            try:
-                collected, row[mode] = _measure_collection(tcf, selected, mode, upstream, measurements)
-                if not row[mode].get("error"):
-                    identities[mode] = collected
-            except Exception as exc:  # noqa: BLE001 - preserve missing/failed modes as diagnostic findings
-                row[mode] = {"error": f"{type(exc).__name__}: {exc}"}
+            identities[mode], row[mode] = _measure_collection(tcf, selected, mode, upstream, measurements)
         _record_comparisons(row, identities, output, phase)
         rows.append(row)
         (output / "parity.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
-        console_row = dict(row)
-        for mode in modes:
-            console_row[mode] = {
-                key: value
-                for key, value in row[mode].items()
-                if key not in {"command_provenance", "reference_provenance"}
-            }
-        print(json.dumps(console_row), flush=True)
+        print(json.dumps(row), flush=True)
         all_passed = all_passed and row["passed"]
         if not row["passed"] and not options.continue_on_findings:
-            pending["stopped_at"] = phase
-            (output / "summary.json").write_text(json.dumps(pending, indent=2), encoding="utf-8")
             return 1
-    try:
-        public_passed = _public_preflight(
-            tcf, sample if options.representative_only else runs, output, options.label, options.batch
-        )
-    except Exception as exc:  # noqa: BLE001 - public-preflight failure must remain a recorded failed gate
-        public_passed = False
-        (output / "preflight.json").write_text(
-            json.dumps(
-                {
-                    "passed": False,
-                    "error": f"{type(exc).__name__}: {exc}",
-                    "timed": False,
-                    "batch_graph_policy": "parser_default",
-                    "graph_comparison": False,
-                },
-                indent=2,
-            ),
-            encoding="utf-8",
-        )
-    summary = {
-        "label": options.label,
-        "completed": True,
-        "passed": bool(all_passed and public_passed),
-        "validation_scope": "representative_only" if options.representative_only else "full_workload",
-        "full_workload_validated": bool(all_passed and public_passed and not options.representative_only),
-        "accepted_for_benchmark": bool(all_passed and public_passed and not options.representative_only),
-        "public_preflight": {"timed": False, "batch_graph_policy": "parser_default", "graph_comparison": False},
-    }
-    (output / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print(json.dumps(summary), flush=True)
+    public_passed = _public_preflight(
+        tcf, sample if options.representative_only else runs, output, options.label, options.batch
+    )
     return 0 if all_passed and public_passed else 1
 
 

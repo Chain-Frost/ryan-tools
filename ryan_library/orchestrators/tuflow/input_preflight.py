@@ -10,7 +10,7 @@ import csv
 import inspect
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal, Protocol, cast
 
@@ -184,6 +184,8 @@ class PreflightReport:
     checked_paths: set[str] = field(default_factory=set[str])
     directories_scanned: int = 0
     individually_checked: int = 0
+    csv_headers_checked: int = 0
+    csv_column_selections_checked: int = 0
     attribute_databases_scanned: int = 0
     attribute_seconds: float = 0.0
     raster_files_scanned: int = 0
@@ -193,6 +195,12 @@ class PreflightReport:
         default_factory=dict[tuple[int, str], dict[str, Path]]
     )
     bc_activation_paths: dict[tuple[int, str], Path] = field(default_factory=dict[tuple[int, str], Path])
+    bc_activation_columns: dict[tuple[int, str, str], tuple[str, ...] | None] = field(
+        default_factory=dict[tuple[int, str, str], tuple[str, ...] | None]
+    )
+    dependency_fragment_evaluations: int = 0
+    dependency_fragment_reuses: int = 0
+    dependency_fallback_runs: int = 0
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
@@ -234,6 +242,7 @@ class _FileReference:
     scan_raster_metadata: bool = False
     scan_table_links: bool = False
     bc_activation_uuid: str = ""
+    csv_columns: tuple[str, ...] | None = None
 
 
 # Commands whose resolved values are not source-file dependencies.
@@ -301,7 +310,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
     """Phase 1: resolve all run-specific inputs without existence checking."""
     references: list[_FileReference] = []
     unique: dict[Path, set[str]] = {}
-    seen: set[tuple[int, str, Path, str, bool, str, bool, bool, str]] = set()
+    seen: set[tuple[object, ...]] = set()
 
     def add_issue(run: RunRequest, origin: str, reference: str, detail: str) -> None:
         report.issues.append(PreflightIssue(run.index, run.description, "unresolved", origin, reference, detail))
@@ -320,6 +329,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
         scan_raster_metadata: bool = False,
         scan_table_links: bool = False,
         bc_activation_uuid: str = "",
+        csv_columns: tuple[str, ...] | None = None,
     ) -> None:
         raw = str(getattr(source, "dbpath", source)).strip()
         if (
@@ -348,6 +358,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
             scan_raster_metadata,
             scan_table_links,
             bc_activation_uuid,
+            csv_columns,
         )
         if key not in seen:
             seen.add(key)
@@ -362,6 +373,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                     scan_raster_metadata,
                     scan_table_links,
                     bc_activation_uuid,
+                    csv_columns,
                 )
             )
         if not any(char in path.name for char in "*?["):
@@ -436,6 +448,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                             )
                             source_path = base_directory / source_path
                         by_name[key] = source_path.absolute()
+                        report.bc_activation_columns[(run.index, uuid, key)] = getattr(source, "csv_columns", None)
                     report.bc_activation_sources[(run.index, uuid)] = by_name
                     active = next(a for a in bc_activations if a.database_kind == "bc" and a.input_uuid == uuid)
                     report.bc_activation_paths[(run.index, uuid)] = active.database_path
@@ -641,6 +654,7 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                             layer_override=getattr(source, "layer_pattern", None) or "",
                             allow_pattern=True,
                             database_kind=f"source:{kind}",
+                            csv_columns=getattr(source, "csv_columns", None),
                             scan_raster_metadata=getattr(source, "requires_raster_metadata_scan", False),
                         )
                 except Exception as exc:  # noqa: BLE001 - incomplete databases cannot pass preflight
@@ -689,7 +703,14 @@ def _collect_references(  # noqa: C901 - event-aware collection and BC source tr
                 try:
                     float(raw)  # Numeric constant, not a file path.
                 except ValueError:
-                    add_file(run, raw, f"BC source: {name}", database_path.parent, require_layer=False)
+                    add_file(
+                        run,
+                        raw,
+                        f"BC source: {name}",
+                        database_path.parent,
+                        require_layer=False,
+                        database_kind="source:bc",
+                    )
         except Exception as exc:  # noqa: BLE001 - source list must be complete
             add_issue(run, "BC Database", str(database_path), f"Could not enumerate BC sources: {exc}")
     return references, unique
@@ -784,6 +805,10 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                                     ref.run,
                                     f"bc source: {identifier}",
                                     linked,
+                                    database_kind="source:bc",
+                                    csv_columns=report.bc_activation_columns.get(
+                                        (ref.run.index, ref.bc_activation_uuid, identifier.casefold())
+                                    ),
                                 )
                             )
             # Resolve source identifiers using the database type that owns
@@ -868,10 +893,12 @@ def _materialise_attribute_references(  # noqa: C901 - database joins and explic
                         )
                     )
                     continue
-                extra_materialised.extend(_FileReference(ref.run, ref.origin, path) for path in expanded[ref.path])
+                extra_materialised.extend(replace(ref, path=path) for path in expanded[ref.path])
             extra_references = extra_materialised
 
-        distinct_extra = {(ref.run.index, ref.origin, ref.path, ref.layer): ref for ref in extra_references}
+        distinct_extra = {
+            (ref.run.index, ref.origin, ref.path, ref.layer, ref.csv_columns): ref for ref in extra_references
+        }
         references.extend(distinct_extra.values())
     report.attribute_seconds = time.perf_counter() - attribute_started
     return references
@@ -885,6 +912,9 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     directory_scan_threshold: int = 8,
     maximum_directory_entries: int = 50000,
     context_mode: Literal["individual", "batch"] = "individual",
+    inspection_mode: Literal["full", "files"] = "full",
+    io_workers: int = 1,
+    check_bc_headers: bool = False,
 ) -> PreflightReport:
     """Resolve all dependencies first, then check each unique file only once.
 
@@ -893,6 +923,12 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     are then mapped back onto every run that needs each file. Output locations
     are not treated as required inputs. The checker does not launch TUFLOW.
     """
+    if not 1 <= io_workers <= 32:
+        message = "io_workers must be between 1 and 32"
+        raise ValueError(message)
+    if inspection_mode not in ("full", "files"):
+        message = f"Unsupported inspection mode: {inspection_mode}"
+        raise ValueError(message)
     if context_mode not in ("individual", "batch"):
         message = f"Unsupported input preflight context mode: {context_mode}"
         raise ValueError(message)
@@ -916,13 +952,21 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     # Otherwise a batch timing would misleadingly omit its main CPU work.
     start = time.perf_counter()
 
-    # The experimental optimisation is deliberately explicit. Never silently
-    # fall back to individual mode if the upstream fork lacks the batch API:
+    # PR C immutable dependency collection is deliberately explicit. Never
+    # silently fall back to individual mode if it lacks the batch API:
     # a caller requesting comparative validation must see that incompatibility.
     batch_view: BatchModelView | None = None
     if context_mode == "batch":
         batch_view = BatchModelView(model, tuple(run.arguments for run in runs))
         model = cast(_Model, batch_view)
+        report.dependency_fragment_evaluations = batch_view.fragment_evaluations
+        report.dependency_fragment_reuses = batch_view.fragment_reuses
+        report.dependency_fallback_runs = batch_view.fallback_runs
+        if batch_view.fallback_runs:
+            logger.warning(
+                "{} runs require the established batch evaluator; subtree reuse is unavailable for this model",
+                batch_view.fallback_runs,
+            )
 
     # Phase 1: PyTUFLOW run-state resolution or batch projection, plus
     # collection of all references before the shared physical inventory.
@@ -954,19 +998,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
                 )
                 continue
             for path in expanded[ref.path]:
-                materialised.append(
-                    _FileReference(
-                        ref.run,
-                        ref.origin,
-                        path,
-                        ref.layer,
-                        ref.scan_attributes,
-                        ref.database_kind,
-                        ref.scan_raster_metadata,
-                        ref.scan_table_links,
-                        ref.bc_activation_uuid,
-                    )
-                )
+                materialised.append(replace(ref, path=path))
                 unique_paths.setdefault(path, set())
                 if ref.layer:
                     unique_paths[path].add(ref.layer)
@@ -983,7 +1015,7 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     # Validate unique raster source metadata only after primary filesystem checks
     # establish the file exists. Never read raster data in a run context.
     raster_started = time.perf_counter()
-    raster_references = [ref for ref in references if ref.scan_raster_metadata]
+    raster_references = [ref for ref in references if ref.scan_raster_metadata] if inspection_mode == "full" else []
     if raster_references:
         raster_paths = {ref.path for ref in raster_references}
         metadata, raster_opens = inspect_raster_metadata(raster_paths)
@@ -1008,8 +1040,19 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     if not check_gpkg_layers:
         unique_paths = {path: set[str]() for path in unique_paths}
     start = time.perf_counter()
+    csv_references = [
+        ref
+        for ref in references
+        if check_bc_headers and ref.database_kind == "source:bc" and ref.path.suffix.casefold() == ".csv"
+    ]
+    csv_column_names: dict[Path, set[str]] = {}
+    for reference in csv_references:
+        csv_column_names.setdefault(reference.path, set()).update(reference.csv_columns or ())
     inventory = check_unique_dependencies(
         unique_paths,
+        csv_header_paths={ref.path for ref in csv_references},
+        csv_column_names=csv_column_names,
+        io_workers=io_workers,
         scan_threshold=directory_scan_threshold,
         maximum_directory_entries=maximum_directory_entries,
     )
@@ -1017,6 +1060,25 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
     report.checked_paths.update(str(path) for path in unique_paths)
     report.directories_scanned += inventory.directories_scanned
     report.individually_checked = inventory.individually_checked
+
+    report.csv_headers_checked = len(inventory.csv_headers)
+    for reference in csv_references:
+        header = inventory.csv_headers.get(reference.path)
+        if header is None:  # Missing/unreadable paths are reported by the inventory below.
+            continue
+        report.csv_column_selections_checked += 1
+        problem = header.problem(reference.csv_columns)
+        if problem:
+            report.issues.append(
+                PreflightIssue(
+                    reference.run.index,
+                    reference.run.description,
+                    "unresolved",
+                    reference.origin,
+                    str(reference.path),
+                    problem,
+                )
+            )
 
     # Phase 3: map results back to affected simulations and source commands.
     for reference in references:
@@ -1061,3 +1123,32 @@ def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-le
         report.inventory_seconds,
     )
     return report
+
+
+def check_batch_files(
+    tcf: Path,
+    runs: Sequence[RunRequest],
+    *,
+    check_gpkg_layers: bool = True,
+    io_workers: int = 4,
+    directory_scan_threshold: int = 8,
+    maximum_directory_entries: int = 50000,
+) -> PreflightReport:
+    """Check batch input existence using shared parser dependency fragments.
+
+    Read control/TEF/database source listings and essential GIS link fields to
+    discover files. Do not validate raster metadata, GIS geometry, time-series
+    values. BC CSV time/value column names and GeoPackage layers are checked once per file. Linked-file discovery keeps
+    the existing conservative coverage and invocation-local deduplication.
+    """
+    return check_simulation_inputs(
+        tcf,
+        runs,
+        context_mode="batch",
+        inspection_mode="files",
+        check_bc_headers=True,
+        check_gpkg_layers=check_gpkg_layers,
+        io_workers=io_workers,
+        directory_scan_threshold=directory_scan_threshold,
+        maximum_directory_entries=maximum_directory_entries,
+    )

@@ -21,7 +21,8 @@ PyTUFLOW is a standard `ryan-tools` dependency (`pytuflow>=1.2,<2`) and installs
 automatically; no separate extra is needed. Copied wrappers require the installed
 package. Do not insert checkout paths into sys.path.
 
-The standalone checker and launcher use `context_mode="individual"`. If the
+The launcher retains `context_mode="individual"`. The standalone checker now defaults to the
+file-existence batch workflow described below; `--no-files-only` selects the established checker. If the
 installed parser lacks the deferred API, the checker uses eager discovery with a
 warning. A compatible development fork enables individual deferred collection and
 its typed secondary-source APIs; installing the normal package does not install
@@ -114,12 +115,13 @@ directory listing is deliberately avoided.
 ### Experimental shared-TCF batch collection (PR #148)
 
 **Development-only Python API.** An opt-in `context_mode="batch"` uses
-[PyTUFLOW batch optimisation PR #5](https://github.com/phantom-branch/PyTuflow/pull/5)
+[curated PyTUFLOW PR C](https://github.com/Chain-Frost/PyTuflow/pull/50)
 to collect immutable per-run source references for a whole proposed batch.
 The common preflight then performs the *same* wildcard, Shapefile/GeoPackage,
 secondary database source, raster metadata and file-existence checks.
-The default is still `context_mode="individual"`, and the maintained
-standalone checker and simulation launcher do not enable batch mode.
+The `check_simulation_inputs` API and simulation launcher retain
+`context_mode="individual"`. The standalone checker now uses the separate
+file-existence batch entry point described below.
 
 For a development fork installed in an isolated test environment:
 
@@ -139,7 +141,7 @@ report = check_simulation_inputs(
 )
 ```
 
-The opt-in batch mode refuses an unavailable/incomplete fork API and
+The opt-in batch mode calls `TCF.collect_file_dependencies()` once for the full ordered run plan. It refuses an unavailable/incomplete fork API and
 ambiguous stateful database activations; it does **not** silently fall
 back or treat partial references as valid. No TUFLOW process launches.
 The supported repository regression replay is `python -m
@@ -158,7 +160,7 @@ separate 42-run model as a merge gate.
 
 ### Ordered-input batch projection (experimental)
 
-The [PyTUFLOW PR #6](https://github.com/phantom-branch/PyTuflow/pull/6)
+The [PyTUFLOW PR C](https://github.com/Chain-Frost/PyTuflow/pull/50)
 batch API adds `ordered_inputs`, which describes **every** active command,
 including output settings, variable assignments and database selections with
 no file reference. The batch adapter now reproduces that exact command
@@ -328,3 +330,97 @@ Checks to run on the latest head in Python 3.14:
     python ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py --help
 
 Follow up with Windows Python 3.14 + PyTUFLOW real-BC regression tests against representative 2026.3 HPC models.
+
+
+## Experimental batch streaming I/O (not a preflight optimisation)
+
+[Streaming I/O overlap work record](work/2026-10-25-tuflow-streaming-io-probe.md) tracks an **opt-in diagnostic**, not a production API/default change. PyTUFLOW first loads the control-file tree and prepares batch graph/caches sequentially, then may emit completed per-run immutable projections. A bounded single I/O worker can speculatively stat eligible literal files while later run contexts are constructed. These speculative checks are **never authoritative**: the ordinary directory-batched filesystem, wildcard, GeoPackage layer, raster/attribute and public-preflight gates remain unchanged and are still required for acceptance. No speedup has been demonstrated, and automatic SMB selection is not implemented.
+
+
+## Batch file existence and immutable dependency reuse
+
+The standalone `check_tuflow_inputs.py` defaults to `--files-only` and four
+bounded I/O workers. It requires the matching development PyTUFLOW build with
+`TCF.collect_file_dependencies`; it does not silently substitute an older installed
+parser. This API is not yet supplied by the declared normal PyPI dependency.
+Use `--no-files-only` for the established checker, or `--io-workers 1` for serial I/O.
+`--no-check-gpkg-layers` remains an explicit choice; layer existence is checked by default.
+
+The library entry point is:
+
+```python
+from pathlib import Path
+from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_batch_files
+
+report = check_batch_files(
+    Path("runs/model.tcf"),
+    [RunRequest(1, {"s1": "EXG", "e1": "Q100"})],
+    io_workers=4,
+)
+```
+
+The parser evaluates reusable control-file sections by effective variable values
+and branch decisions, including event/scenario slots, TEF replacements and
+transitive Set Variable values. Cached fragments contain immutable dependency
+records, never shared mutable run-state instances. TBC means boundary control
+file; `bc_dbase` means the separate boundary-condition source database.
+
+The consumer checks unique file paths and requested GeoPackage layers. It retains
+essential GIS attribute-linked files and BC source discovery; those source reads
+are required to discover dependencies, not to validate time-series/raster data.
+Raster metadata validation is omitted. Existing conservative source-classification
+errors still prevent a successful result. Linked-GIS discovery optimisation is
+explicitly deferred; the existing once-per-source discovery is retained.
+
+Dense directories use one bounded listing; sparse files may overlap. At most
+`io_workers` tasks are outstanding (1-32 supported), and each SQLite connection
+belongs to one worker and is closed there. Finished jobs immediately free capacity for the next check; a slow job does not
+block the other workers. Results are assembled in deterministic order and routed back to every affected simulation. Network operations retain OS
+I/O timeouts; thread count does not impose an operation deadline.
+
+Reports expose section evaluation/reuse counts and ordinary-evaluator fallback
+counts. Unsupported parser constructs retain the established batch evaluator and
+are reported as fallbacks, never omitted. All caches end with the invocation.
+The recorded 480-run comparison measured a 54.31% median reduction for fragment
+reuse (two trials per condition). This is workload-specific evidence, not a general
+speed guarantee or a measurement of the subsequent scheduler change.
+See the [implementation record](work/2026-10-25-batch-file-fragments.md).
+
+File counts describe unique paths, not rainfall selections. Multiple runs may
+select different columns from the same BC Source CSV. The retained 480-run
+workload has 480 source/column combinations in 24 rainfall files, all represented
+in its 50-path inventory. This workflow checks the source files' existence,
+and the required CSV column names, without validating rainfall values.
+
+### Required BC CSV headers in rapid checks
+
+`check_batch_files` and the wrapper's default rapid mode now verify the resolved
+Column 1 (time) and Column 2 (value) names for ordinary BC-source CSV files.
+PyTUFLOW expands TEF and Set Variable selectors and carries immutable column
+requirements alongside each source path. TBC remains the boundary control file;
+`bc_dbase` supplies these source/column selections.
+
+The bounded I/O workers open each distinct existing source CSV once per invocation,
+inspect at most five physical lines, including comments/preambles, then reuse
+the first CSV record containing any requested column name across all
+runs. They never load the rainfall series or convert/validate numeric values. A changed header is read again on the
+next invocation. Matching trims surrounding whitespace and ignores case; missing
+or ambiguous duplicate names produce run-specific unresolved issues. Missing
+files retain the normal missing-file diagnostics.
+
+UTF-8 with optional BOM, leading `!` comments, quoted fields and multiline headers
+are supported. Header discovery uses the union of requested column names for
+that file. It stops at the first record containing any requested name, even when
+other required names are missing. Preambles need no fixed label or field count. Inspection is limited to 1 MiB including leading comments. Blank
+selectors, FEWS CSV sources, unreadable/malformed headers and unavailable parser
+column metadata fail closed. If no candidate header is found within five physical lines, the result is
+unresolved. The limit includes blank/comment lines and every physical line of a
+multiline record; line six is never read. When a header cannot be recognised,
+only that bounded prefix is examined, not the remaining time series.
+Non-CSV formats and inline constants retain their existing handling; this does not
+claim schema validation of TS1, FEWS XML or rainfall values.
+
+The lower-level `check_simulation_inputs` API retains its default behaviour;
+`check_bc_headers=True` explicitly enables these checks there. Rapid mode always
+enables them. Reports expose `csv_headers_checked` and
+`csv_column_selections_checked`; the wrapper prints both counts.

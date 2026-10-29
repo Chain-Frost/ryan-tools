@@ -1,0 +1,53 @@
+import sys,json,time,hashlib,subprocess,dataclasses,os
+from pathlib import Path
+ROOT=Path(__file__).absolute().parent
+REPO=ROOT/'sources/consumer'
+OLD=Path(os.environ['BATCH_EXISTENCE_PRIVATE_WORKLOAD']).absolute()
+PARSER=ROOT/'sources/parser'
+EXPECTED=json.loads((ROOT/'source-heads.json').read_text())
+def write(p,v): p.write_text(json.dumps(v,indent=2,default=str),encoding='utf-8')
+def digest(v): return hashlib.sha256(json.dumps(v,sort_keys=True,default=str).encode()).hexdigest()
+def guards():
+    for relative,expected in json.loads((ROOT/'snapshot-hashes.json').read_text()).items():
+        if hashlib.sha256((ROOT/relative).read_bytes()).hexdigest()!=expected: raise RuntimeError('Snapshot drift')
+    records=json.loads((OLD/'input-manifest-before.json').read_text())
+    return digest([(r['path'],Path(r['path']).stat().st_size,Path(r['path']).stat().st_mtime_ns) for r in records])
+if len(sys.argv)>1:
+    sys.path.insert(0,str(REPO))
+    sys.path.insert(0,str(PARSER))
+    from loguru import logger
+    logger.remove()
+    import pytuflow,ryan_library
+    from ryan_library.orchestrators.tuflow.input_preflight import RunRequest,check_simulation_inputs
+    # Resolve deliberately to verify physical checked-out source locations.
+    assert Path(pytuflow.__file__).resolve().is_relative_to(PARSER.resolve())
+    assert Path(ryan_library.__file__).resolve().is_relative_to(REPO.resolve())
+    config=json.loads((OLD/'config.json').read_text())
+    runs=[RunRequest(i,f) for i,f in enumerate(json.loads((OLD/'runs.json').read_text()),1)]
+    assert len(runs)==480
+    mode=sys.argv[1]; before=guards()
+    start=time.perf_counter()
+    report=check_simulation_inputs(Path(config['tcf']),runs,context_mode='batch',inspection_mode='files',reuse_fragments=mode=='fragments',io_workers=4)
+    report.write_csv(ROOT/(sys.argv[2]+'-issues.csv'))
+    elapsed=time.perf_counter()-start
+    projection={'paths':sorted(report.checked_paths),'issues':[dataclasses.asdict(i) for i in report.issues],'bc_paths':sorted((str(k),str(v)) for k,v in report.bc_activation_paths.items()),'bc_sources':sorted((str(k),sorted((n,str(p)) for n,p in v.items())) for k,v in report.bc_activation_sources.items())}
+    write(ROOT/(sys.argv[2]+'-projection.json'),projection)
+    row={'mode':mode,'seconds':elapsed,'runs':report.run_count,'paths':len(report.checked_paths),'issues':len(report.issues),'passed':report.passed,'projection_hash':digest(projection),'fragment_evaluations':report.dependency_fragment_evaluations,'fragment_reuses':report.dependency_fragment_reuses,'fallback_runs':report.dependency_fallback_runs,'parse_seconds':report.parse_seconds,'context_seconds':report.context_seconds,'inventory_seconds':report.inventory_seconds,'input_metadata_unchanged':guards()==before,'python':sys.version,'parser_module':pytuflow.__file__,'consumer_module':ryan_library.__file__,'source_heads':EXPECTED}
+    write(ROOT/(sys.argv[2]+'.json'),row)
+    print(json.dumps(row),flush=True)
+else:
+    started=time.monotonic(); rows=[]; status='complete'
+    write(ROOT/'protocol.json',{'limit_seconds':480,'order':['baseline','fragments','fragments','baseline'],'runs':480,'inspection':'files','io_workers':4,'timing':'API plus CSV write; imports and guards excluded','cache':'uncontrolled; no flush','comparison':'immutable snapshots of checked-out PR commits; fragment reuse toggled; initial attempt invalidated by concurrent edits','full_parser_provenance_parity':False})
+    for i,mode in enumerate(['baseline','fragments','fragments','baseline'],1):
+        remaining=480-(time.monotonic()-started)
+        if remaining<=1: status='timeout'; break
+        label=f'{i}-{mode}'
+        with (ROOT/(label+'.log')).open('w') as log:
+            try: result=subprocess.run([sys.executable,str(Path(__file__).absolute()),mode,label],cwd=ROOT,stdout=log,stderr=subprocess.STDOUT,timeout=remaining)
+            except subprocess.TimeoutExpired: status='timeout'; break
+        if result.returncode: status='worker_failed'; break
+        row=json.loads((ROOT/(label+'.json')).read_text()); rows.append(row)
+        print(json.dumps({'trial':i,**{k:row[k] for k in ['mode','seconds','paths','issues','fragment_reuses','fallback_runs']}}),flush=True)
+        if not row['passed'] or not row['input_metadata_unchanged'] or row['projection_hash']!=rows[0]['projection_hash']: status='parity_or_guard_failed'; break
+    write(ROOT/'summary.json',{'status':status,'wall_seconds':time.monotonic()-started,'rows':rows,'report_projection_parity':len(rows)>1 and len({r['projection_hash'] for r in rows})==1})
+    print(status,flush=True)

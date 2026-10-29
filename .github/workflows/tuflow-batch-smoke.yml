@@ -7,6 +7,7 @@ on:
       - "ryan_library/orchestrators/tuflow/batch_preflight_adapter.py"
       - "ryan_library/orchestrators/tuflow/input_preflight.py"
       - "tests/orchestrators/tuflow/test_batch_preflight_adapter.py"
+      - "tests/orchestrators/tuflow/test_pr_c_validation_contract.py"
       - "tests/orchestrators/tuflow/test_ordered_batch_adapter.py"
       - "tests/fixtures/tuflow_example_repro/run_checks.py"
       - "tests/fixtures/tuflow_example_repro/run_local_checks.py"
@@ -22,10 +23,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - parser: established-api
-            pytuflow_sha: a9f654c1ec0812fc70035e227fb2f9f12290f449
-          - parser: graph-pr-12
-            pytuflow_sha: 126ec64e221908f5327ee9dc9d372c8084afaf12
+          - parser: pr-c-fragments
+            pytuflow_sha: 0edea72cf2545025e87877e71c764500a00c6128
     env:
       RYAN_TEST_BATCH_PYTUFLOW: "1"
       PYTUFLOW_TEST_SHA: ${{ matrix.pytuflow_sha }}
@@ -41,8 +40,8 @@ jobs:
           python-version: "3.14"
       - name: Install isolated PyTUFLOW batch fork
         # Never replace the published wheel dependency on main. This PR
-        # checks both the established API and the exact graph development source.
-        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@${{ matrix.pytuflow_sha }}"
+        # checks the immutable public fragment API from curated PR C.
+        run: python -m pip install "git+https://github.com/Chain-Frost/PyTuflow.git@${{ matrix.pytuflow_sha }}"
       - name: Install no-release consumer and focused dependencies
         run: |
           python -m pip install -e . --no-deps
@@ -59,6 +58,7 @@ jobs:
           python -m pytest -q
           tests/orchestrators/tuflow/test_batch_preflight_adapter.py
           tests/orchestrators/tuflow/test_ordered_batch_adapter.py
+          tests/orchestrators/tuflow/test_pr_c_validation_contract.py
           tests/fixtures/tuflow_example_repro/test_run_checks.py
       - name: Verify native evaluation command
         run: python -m tests.fixtures.tuflow_example_repro.run_local_checks --help

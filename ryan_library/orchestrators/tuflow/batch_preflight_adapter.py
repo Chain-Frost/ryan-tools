@@ -51,7 +51,7 @@ class _Case(Protocol):
     file_references: tuple[object, ...]
     database_sources: tuple[_Source, ...]
     database_activations: tuple[_Activation, ...]
-    # Introduced in PyTUFLOW PR #6; older fork batches omit this field.
+    # Included in the PR C immutable per-run command provenance.
     ordered_inputs: tuple[_OrderedInput, ...]
 
 
@@ -130,9 +130,8 @@ class _ContextView:
             key = (record.command_index, record.input_uuid)
             groups.setdefault(key, []).append(record)
 
-        # Old cached-batch builds only expose commands with file references.
-        # Keep that validated compatibility path for single-BC projects while
-        # the new ordered-input API is not yet part of the installed release.
+        # Ordered command provenance is mandatory for complete PR C runs.
+        # The guarded fallback below preserves pre-existing synthetic fixtures.
         ordered_inputs = getattr(case, "ordered_inputs", None)
         inputs: list[_InputView] = []
         if ordered_inputs is None:
@@ -218,21 +217,31 @@ class _ContextView:
         return self._sources
 
 
+def _optional_counter(result: object, name: str) -> int:
+    value = getattr(result, name, 0)
+    return value if isinstance(value, int) and value >= 0 else 0
+
+
 class BatchModelView:
-    """Single-use replay of an exact, ordered batch against existing collector."""
+    """Read-only projection of the exact ordered PR C dependency batch."""
 
     def __init__(self, model: object, flags: Sequence[str]) -> None:
-        batch = getattr(model, "collect_batch_dependencies", None)
-        if not callable(batch):
+        # Curated PR C owns all run-specific parsing and immutable fragments.
+        # The retired graph and streaming callback contracts are not supported.
+        collect = getattr(model, "collect_file_dependencies", None)
+        if not callable(collect):
             message = (
-                "PyTUFLOW batch mode requires collect_batch_dependencies(); "
-                "install the tested fork in an isolated environment"
+                "PyTUFLOW batch mode requires collect_file_dependencies(); "
+                "install the matching curated parser in an isolated environment"
             )
             raise ValueError(message)
-        output = cast(_Result, batch(tuple(flags)))
+        output = cast(_Result, collect(tuple(flags)))
         if len(output.runs) != len(flags):
             message = "PyTUFLOW batch returned a different number of runs"
             raise ValueError(message)
+        self.fragment_evaluations = _optional_counter(output, "fragment_evaluations")
+        self.fragment_reuses = _optional_counter(output, "fragment_reuses")
+        self.fallback_runs = _optional_counter(output, "fallback_runs")
         self._cases = output.runs
         self._flags = tuple(flags)
         self._next = 0

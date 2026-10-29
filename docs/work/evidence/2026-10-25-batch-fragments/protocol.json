@@ -1,0 +1,16 @@
+{
+  "limit_seconds": 600,
+  "order": [
+    "baseline",
+    "fragments",
+    "fragments",
+    "baseline"
+  ],
+  "runs": 480,
+  "inspection": "files",
+  "io_workers": 4,
+  "timing": "API plus CSV write; imports and guards excluded",
+  "cache": "uncontrolled; no flush",
+  "comparison": "same installed pair; fragment reuse toggled",
+  "full_parser_provenance_parity": false
+}

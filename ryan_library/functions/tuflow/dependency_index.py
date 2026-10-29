@@ -13,11 +13,24 @@ import sqlite3
 import stat
 from collections import defaultdict
 from collections.abc import Collection, Mapping
-from dataclasses import dataclass
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from contextlib import closing
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from .csv_headers import CsvHeader, read_csv_header
+
 FileStatus = Literal["present", "missing", "unresolved"]
+
+
+def _filesystem_name_key(name: str) -> str:
+    """Use host filesystem case rules, never unconditional Unicode casefolding.
+
+    On POSIX, different spellings identify different filenames. On Windows,
+    normcase preserves the existing case-insensitive inventory behaviour.
+    """
+    return os.path.normcase(name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +49,7 @@ class FileInventory:
     layers: Mapping[tuple[Path, str], DependencyResult]
     directories_scanned: int
     individually_checked: int
+    csv_headers: Mapping[Path, CsvHeader] = field(default_factory=dict[Path, CsvHeader])
 
 
 def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded scan error paths
@@ -44,7 +58,8 @@ def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded
     """Expand nonrecursive wildcard filenames with one bounded scan per directory.
 
     A wildcard in the parent directory, an over-limit listing or any I/O error
-    remains unresolved. No unbounded walk or recursive glob is attempted.
+    remains unresolved. Wildcard filename case matching follows host semantics.
+    No unbounded walk or recursive glob is attempted.
     """
     if maximum_directory_entries < 1:
         message = "maximum_directory_entries must be positive"
@@ -74,7 +89,7 @@ def expand_file_patterns(  # noqa: C901 - grouped wildcard expansion and bounded
                     matching = [
                         pattern
                         for pattern in siblings
-                        if fnmatch.fnmatchcase(entry.name.casefold(), pattern.name.casefold())
+                        if fnmatch.fnmatchcase(_filesystem_name_key(entry.name), _filesystem_name_key(pattern.name))
                     ]
                     if matching:
                         try:
@@ -123,19 +138,21 @@ def _directory_results(paths: Collection[Path], *, maximum_entries: int) -> dict
 
     A large directory may cost substantially more than targeted metadata calls.
     If enumeration exceeds the bound, return None and fall back to individual
-    checks. Permission and network errors remain unresolved, never 'missing'.
+    checks. Filename matching follows the same host rules as direct stat():
+    POSIX is case-sensitive; Windows is case-insensitive by default.
+    Permission and network errors remain unresolved, never 'missing'.
     """
     if not paths:
         return {}
     parent = next(iter(paths)).parent
-    requested = {path.name.casefold() for path in paths}
+    requested = {_filesystem_name_key(path.name) for path in paths}
     matches: dict[str, bool] = {}
     try:
         with os.scandir(parent) as iterator:
             for index, entry in enumerate(iterator):
                 if index >= maximum_entries:
                     return None
-                name = entry.name.casefold()
+                name = _filesystem_name_key(entry.name)
                 if name in requested:
                     try:
                         matches[name] = entry.is_file(follow_symlinks=True)
@@ -150,7 +167,7 @@ def _directory_results(paths: Collection[Path], *, maximum_entries: int) -> dict
         return {path: DependencyResult("unresolved", f"Cannot list input directory: {exc}") for path in paths}
     return {
         path: DependencyResult("present")
-        if matches.get(path.name.casefold())
+        if matches.get(_filesystem_name_key(path.name))
         else DependencyResult("missing", "Input file does not exist")
         for path in paths
     }
@@ -159,7 +176,7 @@ def _directory_results(paths: Collection[Path], *, maximum_entries: int) -> dict
 def _geopackage_layers(path: Path, layers: Collection[str]) -> dict[str, DependencyResult]:
     """Check all required GeoPackage layers in one read-only SQLite connection."""
     try:
-        with sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True) as connection:
+        with closing(sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)) as connection:
             names = {str(name).casefold() for (name,) in connection.execute("SELECT table_name FROM gpkg_contents")}
     except (OSError, sqlite3.DatabaseError) as exc:
         return {layer: DependencyResult("unresolved", f"Cannot inspect GeoPackage layers: {exc}") for layer in layers}
@@ -176,7 +193,10 @@ def _geopackage_layers(path: Path, layers: Collection[str]) -> dict[str, Depende
 def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fallback and layer checks
     requirements: Mapping[Path, Collection[str]],
     *,
+    csv_header_paths: Collection[Path] = (),
+    csv_column_names: Mapping[Path, Collection[str]] | None = None,
     scan_threshold: int = 8,
+    io_workers: int = 1,
     maximum_directory_entries: int = 50000,
 ) -> FileInventory:
     """Check each distinct input file once and each GeoPackage once for its layers.
@@ -189,31 +209,80 @@ def check_unique_dependencies(  # noqa: C901 - inventory grouping, directory fal
         message = "scan_threshold and maximum_directory_entries must be positive"
         raise ValueError(message)
 
+    if not 1 <= io_workers <= 32:
+        message = "io_workers must be between 1 and 32"
+        raise ValueError(message)
+    # Freeze caller-owned collections before sharing them with I/O workers.
+    requirements = {path: tuple(layers) for path, layers in requirements.items()}
+    header_paths = frozenset(csv_header_paths)
+    header_names = {path: tuple(names) for path, names in (csv_column_names or {}).items()}
     by_parent: dict[Path, list[Path]] = defaultdict(list)
     for path in requirements:
         by_parent[path.parent].append(path)
 
-    files: dict[Path, DependencyResult] = {}
-    directory_scans = 0
-    direct_checks = 0
-    for paths in by_parent.values():
+    def inspect_group(paths: list[Path]) -> FileInventory:
+        files: dict[Path, DependencyResult] = {}
         directory_result = None
+        scans = direct = 0
         if len(paths) >= scan_threshold:
             directory_result = _directory_results(paths, maximum_entries=maximum_directory_entries)
             if directory_result is not None:
-                directory_scans += 1
+                scans = 1
         if directory_result is not None:
             files.update(directory_result)
         else:
             for path in paths:
                 files[path] = _individual_file(path)
-                direct_checks += 1
+                direct += 1
+        layers: dict[tuple[Path, str], DependencyResult] = {}
+        for path in paths:
+            if files[path].status != "present" or path.suffix.casefold() != ".gpkg" or not requirements[path]:
+                continue
+            # Each connection is opened, used and closed in its owning worker.
+            for layer, result in _geopackage_layers(path, requirements[path]).items():
+                layers[(path, layer)] = result
+        headers = {
+            path: read_csv_header(path, required_columns=header_names.get(path, ()))
+            for path in paths
+            if path in header_paths and files[path].status == "present"
+        }
+        return FileInventory(files, layers, scans, direct, headers)
 
-    layers: dict[tuple[Path, str], DependencyResult] = {}
-    for path, requested_layers in requirements.items():
-        if files[path].status != "present" or path.suffix.casefold() != ".gpkg":
-            continue
-        for layer, result in _geopackage_layers(path, requested_layers).items() if requested_layers else ():
-            layers[(path, layer)] = result
-
-    return FileInventory(files, layers, directory_scans, direct_checks)
+    # Dense directories remain one listing job. Sparse files can overlap even
+    # when they share a parent. No duplicate stat or SQLite jobs per simulation.
+    groups = [
+        group
+        for paths in by_parent.values()
+        for group in ([paths] if len(paths) >= scan_threshold else [[path] for path in paths])
+    ]
+    inventories: list[FileInventory] = []
+    if io_workers == 1:
+        inventories = [inspect_group(group) for group in groups]
+    else:
+        with ThreadPoolExecutor(max_workers=io_workers, thread_name_prefix="tuflow-inventory") as executor:
+            # Refill on completion so one slow network request cannot hold up
+            # the other workers. Retain submission order for report stability.
+            remaining = iter(enumerate(groups))
+            pending = {
+                executor.submit(inspect_group, group): index
+                for index, group in (next(remaining) for _ in range(min(io_workers, len(groups))))
+            }
+            completed: dict[int, FileInventory] = {}
+            while pending:
+                finished, _ = wait(pending, return_when=FIRST_COMPLETED)
+                for future in finished:
+                    completed[pending.pop(future)] = future.result()
+                    following = next(remaining, None)
+                    if following is not None:
+                        index, group = following
+                        pending[executor.submit(inspect_group, group)] = index
+            inventories = [completed[index] for index in range(len(groups))]
+    files = {path: result for inventory in inventories for path, result in inventory.files.items()}
+    layers = {key: result for inventory in inventories for key, result in inventory.layers.items()}
+    return FileInventory(
+        files,
+        layers,
+        sum(item.directories_scanned for item in inventories),
+        sum(item.individually_checked for item in inventories),
+        {path: header for item in inventories for path, header in item.csv_headers.items()},
+    )

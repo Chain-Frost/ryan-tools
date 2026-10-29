@@ -23,7 +23,7 @@ class _FakeBatchBase:
     def context(self, flags: str, *, file_resolution: str | None = None) -> object:
         raise NotImplementedError
 
-    def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+    def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
         raise NotImplementedError
 
 
@@ -92,7 +92,7 @@ def _model(tmp_path: Path) -> type[_FakeBatchBase]:
             self.individual += 1
             return Context("01" if "01.0p" in flags else "20")
 
-        def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+        def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
             self.collected += 1
             cases: list[types.SimpleNamespace] = []
             for index, flag in enumerate(flags):
@@ -162,7 +162,7 @@ def test_batch_rejects_unavailable_api_without_silent_fallback(tmp_path: Path, m
             raise AssertionError(message)
 
     monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=LegacyModel))
-    with pytest.raises(ValueError, match="requires collect_batch_dependencies"):
+    with pytest.raises(ValueError, match="requires collect_file_dependencies"):
         check_simulation_inputs(tcf, (RunRequest(1, {"e1": "A"}),), context_mode="batch")
 
 
@@ -170,7 +170,7 @@ def test_batch_rejects_truncated_source_projection() -> None:
     flags = ("-e1 A",)
 
     class Model:
-        def collect_batch_dependencies(self, _flags: tuple[str, ...]) -> types.SimpleNamespace:
+        def collect_file_dependencies(self, _flags: tuple[str, ...]) -> types.SimpleNamespace:
             return types.SimpleNamespace(
                 runs=(
                     types.SimpleNamespace(
@@ -227,7 +227,7 @@ def test_batch_rejects_wrong_source_activation_and_duplicate_bc() -> None:
             def __init__(self, selected_case: object) -> None:
                 self.selected_case = selected_case
 
-            def collect_batch_dependencies(self, _flags: tuple[str, ...]) -> types.SimpleNamespace:
+            def collect_file_dependencies(self, _flags: tuple[str, ...]) -> types.SimpleNamespace:
                 return types.SimpleNamespace(runs=(self.selected_case,))
 
         with pytest.raises(ValueError, match=expected):
@@ -236,7 +236,7 @@ def test_batch_rejects_wrong_source_activation_and_duplicate_bc() -> None:
 
 def test_batch_rejects_context_index_or_flag_mismatch() -> None:
     class Model:
-        def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+        def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
             return types.SimpleNamespace(
                 runs=(
                     types.SimpleNamespace(
@@ -257,7 +257,7 @@ def test_batch_rejects_context_index_or_flag_mismatch() -> None:
 
 @pytest.mark.skipif(
     os.environ.get("RYAN_TEST_BATCH_PYTUFLOW") != "1",
-    reason="Requires isolated PyTUFLOW #5 batch fork",
+    reason="Requires isolated PyTUFLOW PR C candidate",
 )
 def test_real_fork_batch_and_individual_have_identical_preflight(tmp_path: Path) -> None:
     """Exercise real parsed TCF contexts without invoking TUFLOW or opening GIS."""
@@ -294,10 +294,10 @@ def test_500_run_batch_calls_upstream_once_without_individual_contexts(
             message = "Batch mode must not call one context per run"
             raise AssertionError(message)
 
-        def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+        def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
             type(self).calls += 1
             time.sleep(0.02)  # Ensure context_seconds includes upstream batch work.
-            return super().collect_batch_dependencies(flags)
+            return super().collect_file_dependencies(flags)
 
     monkeypatch.setitem(sys.modules, "pytuflow", types.SimpleNamespace(TCF=OnlyBatch))
     runs = tuple(RunRequest(i, {"e1": "01.0p"}) for i in range(1, 501))
@@ -315,8 +315,8 @@ def test_batch_error_is_unresolved_only_for_its_own_run(tmp_path: Path, monkeypa
     base = _model(tmp_path)
 
     class OneFailedContext(base):
-        def collect_batch_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
-            result = super().collect_batch_dependencies(flags)
+        def collect_file_dependencies(self, flags: tuple[str, ...]) -> types.SimpleNamespace:
+            result = super().collect_file_dependencies(flags)
             cases = list(result.runs)
             original = cases[1]
             cases[1] = types.SimpleNamespace(

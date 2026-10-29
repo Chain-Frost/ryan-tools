@@ -95,10 +95,12 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
-| [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; merged as bcc8e5c, with separate follow-up records |
+| [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; pending validation |
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
-| [Native TUFLOW graph benchmark](work/2026-10-23-tuflow-native-graph-benchmark.md) | Completed frozen graph-off/on diagnostic and accepted native baseline; separate PR delivery remains open |
-| [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 background advisory checking, complete INFO/warning reporting, non-blocking GPU warnings and explicit incomplete-shutdown policy; implementation in local validation |
+| [Native SMB benchmark methodology and review data](work/evidence/2026-10-25-native-smb/METHODOLOGY.md) | Actual execution matrix, timing boundaries, aggregation logic, captured source and provisional data for independent review |
+| [Matched native SMB combined-parser benchmark](work/2026-10-25-tuflow-native-combined-benchmark.md) | Authorized common-base parser and bounded-probe native correctness/performance campaign; private evidence retained locally |
+| [TUFLOW streaming I/O overlap diagnostic](work/2026-10-25-tuflow-streaming-io-probe.md) | Separate draft opt-in PyTUFLOW producer and ryan-tools one-worker read-ahead pilot; no production preflight changes or performance claim |
+| [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159: advisory background checking, full warnings and independent GPU sharing warnings; runs with the curated PR C batch consumer and remains under validation |
 | [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licence notices, independent imports, similarity API and validation |
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Curated installed scripts and MCP packaging](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130 requirements reconciliation, reviewed 83-file allowlist, script-copy helper, verification and remaining acceptance |
@@ -151,3 +153,8 @@ but they are not current architectural policy when they conflict with the canoni
 
 Run `python repo-scripts/check_documentation.py` after changing the documentation structure. Its default run checks the
 main README links and paths and verifies that every tracked Markdown document is linked from this index.
+
+- [Batch file existence and shared dependency fragments](work/2026-10-25-batch-file-fragments.md) - implementation, correctness and delivery evidence.
+- [Native SMB/SSD inactive-scope investigation](work/2026-10-26-native-inactive-scope-benchmark.md) - frozen provenance parity, 32 native trials, CPU/memory evidence and measured optimisation targets.
+- [Native SMB/SSD evidence bundle](work/evidence/2026-10-26-native-smb-ssd-inactive-scope/README.md) - all timings, counters, profile aggregates, protocol and runner audit copies.
+- [One-versus-three-process evidence](work/evidence/2026-10-26-native-process-scaling/README.md) - complete partitioned provenance, startup calibration and matched CPU-process scaling measurements.

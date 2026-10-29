@@ -5,12 +5,12 @@ standalone utilities. New and updated thin wrappers follow the repository-wide
 [`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md); versioned standalone scripts
 retain their own self-contained behaviour until they are deliberately migrated.
 
-Planned model-check integration for
+Advisory model-check integration for
 [`model_management/run_tuflow_simulations.py`](model_management/run_tuflow_simulations.py)
 is tracked in the [runner work record](../../docs/work/2026-10-23-tuflow-runner-model-checks.md).
 It scopes background checks that report INFO on success and all findings as warnings
 without delaying or stopping the batch, plus verification of existing GPU-sharing warnings.
-Pause/restart improvements belong to later PRs. Background advisory checking is implemented locally in #159; current-head hosted validation and delivery remain pending. See the work record for shutdown policy and evidence.
+Pause/restart improvements belong to later PRs. Background advisory checking is implemented in draft PR #159, stacked on PR #161's curated PR C consumer. Exact-head CI and native validation are still required. See the work record for shutdown policy and evidence.
 
 ## Maintained wrappers
 
