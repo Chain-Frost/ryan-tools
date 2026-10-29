@@ -29,15 +29,15 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
-      - name: Install upstream PR 13 independent reference-count contract
+      - name: Install curated PR C immutable-reference contract
         # This development-only fork pin does not modify pyproject.toml,
         # requirements or the published package dependency.
-        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@d4a47d130e82d02c2f5cdb2cd212cf1c637776bd"
+        run: python -m pip install "git+https://github.com/Chain-Frost/PyTuflow.git@0edea72cf2545025e87877e71c764500a00c6128"
       - name: Install isolated preflight consumer and test dependencies
         run: |
           python -m pip install -e . --no-deps
           python -m pip install pytest pyshp loguru pandas psutil
-      - name: Verify ordered, legacy and fail-closed contract tests
+      - name: Verify ordered, fragment and fail-closed contract tests
         run: python -m pytest -q tests/orchestrators/tuflow/test_batch_preflight_adapter.py tests/orchestrators/tuflow/test_ordered_batch_adapter.py
       - name: Replay every public TUFLOW tutorial input in eager, deferred and batch
         shell: pwsh

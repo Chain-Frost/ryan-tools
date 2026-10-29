@@ -1,5 +1,8 @@
 # Stateful TUFLOW command plans and multi-TCF preflight
 
+**29 October 2026 — curated PR C integration:** Explicit `context_mode="batch"` now uses `TCF.collect_file_dependencies()` from [PyTuflow PR C #50](https://github.com/Chain-Frost/PyTuflow/pull/50). The parser's removed `collect_batch_dependencies()`/graph switches are not used for ordinary batch preflight. Each group retains its exact TCF, launch directory, flags and original command source-line provenance. This is not a cross-TCF cache or a released dependency; native acceptance and exact-head CI remain required.
+
+
 | Field | Value |
 | --- | --- |
 | Status | Needs review; exact-head hosted validation and local review complete |
@@ -33,8 +36,8 @@ independent TCF groups.
 The [maintained wrapper](../../ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py)
 adds plan-only inspection, an optional private run manifest, initial working
 directory, input encoding, syntax selection and explicit individual/batch mode.
-Individual remains the default. Explicit batch mode needs the existing compatible
-PyTUFLOW API and does not silently fall back.
+Individual remains the default. Explicit batch mode requires the PR C
+`TCF.collect_file_dependencies()` API and does not silently fall back.
 
 ## Usage
 

@@ -88,7 +88,7 @@ directory listing is deliberately avoided.
 ### Experimental shared-TCF batch collection (PR #148)
 
 **Development-only Python API.** An opt-in `context_mode="batch"` uses
-[PyTUFLOW batch optimisation PR #5](https://github.com/phantom-branch/PyTuflow/pull/5)
+[curated PyTuflow PR C](https://github.com/Chain-Frost/PyTuflow/pull/50)
 to collect immutable per-run source references for a whole proposed batch.
 The common preflight then performs the *same* wildcard, Shapefile/GeoPackage,
 secondary database source, raster metadata and file-existence checks.
@@ -113,7 +113,7 @@ report = check_simulation_inputs(
 )
 ```
 
-The opt-in batch mode refuses an unavailable/incomplete fork API and
+The opt-in batch mode calls `TCF.collect_file_dependencies()` once per run group and refuses an unavailable/incomplete fork API and
 ambiguous stateful database activations; it does **not** silently fall
 back or treat partial references as valid. No TUFLOW process launches.
 The supported repository regression replay is `python -m
@@ -132,7 +132,7 @@ separate 42-run model as a merge gate.
 
 ### Ordered-input batch projection (experimental)
 
-The [PyTUFLOW PR #6](https://github.com/phantom-branch/PyTuflow/pull/6)
+The [PyTuflow PR C](https://github.com/Chain-Frost/PyTuflow/pull/50)
 batch API adds `ordered_inputs`, which describes **every** active command,
 including output settings, variable assignments and database selections with
 no file reference. The batch adapter now reproduces that exact command

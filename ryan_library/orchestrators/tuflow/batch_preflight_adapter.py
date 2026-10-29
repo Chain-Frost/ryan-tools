@@ -51,7 +51,7 @@ class _Case(Protocol):
     file_references: tuple[object, ...]
     database_sources: tuple[_Source, ...]
     database_activations: tuple[_Activation, ...]
-    # Introduced in PyTUFLOW PR #6; older fork batches omit this field.
+    # Included in the curated PR C immutable command projection.
     ordered_inputs: tuple[_OrderedInput, ...]
 
 
@@ -130,9 +130,8 @@ class _ContextView:
             key = (record.command_index, record.input_uuid)
             groups.setdefault(key, []).append(record)
 
-        # Old cached-batch builds only expose commands with file references.
-        # Keep that validated compatibility path for single-BC projects while
-        # the new ordered-input API is not yet part of the installed release.
+        # PR C exposes ordered commands. Keep the guarded older-projection
+        # path only for compatibility with historical diagnostic records.
         ordered_inputs = getattr(case, "ordered_inputs", None)
         inputs: list[_InputView] = []
         if ordered_inputs is None:
@@ -222,10 +221,10 @@ class BatchModelView:
     """Single-use replay of an exact, ordered batch against existing collector."""
 
     def __init__(self, model: object, flags: Sequence[str]) -> None:
-        batch = getattr(model, "collect_batch_dependencies", None)
+        batch = getattr(model, "collect_file_dependencies", None)
         if not callable(batch):
             message = (
-                "PyTUFLOW batch mode requires collect_batch_dependencies(); "
+                "PyTUFLOW batch mode requires collect_file_dependencies(); "
                 "install the tested fork in an isolated environment"
             )
             raise ValueError(message)
