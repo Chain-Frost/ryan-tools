@@ -9,6 +9,7 @@ import shutil
 import sys
 from pathlib import Path
 from types import ModuleType
+from unittest.mock import Mock
 
 import pytest
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
@@ -34,6 +35,48 @@ def _copy_tifs(source: Path, destination: Path) -> None:
         shutil.copy2(path, destination / path.name)
 
 
+@pytest.mark.parametrize("editable_default", [False, True])
+@pytest.mark.parametrize("existing_directory", [False, True])
+def test_translate_wrapper_rejects_invalid_single_file_before_side_effects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, editable_default: bool, existing_directory: bool
+) -> None:
+    module = _load_script("gdal_translate_TIF_ovr.py")
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "source"
+    if existing_directory:
+        source.mkdir()
+        (source / "surface.asc").touch()
+    change_directory = Mock()
+    convert = Mock()
+    monkeypatch.setattr(module, "change_working_directory", change_directory)
+    monkeypatch.setattr(module, "convert_rasters", convert)
+    if editable_default:
+        monkeypatch.setattr(module, "INPUT_FILE", source)
+        result = module.main()
+    else:
+        result = module.main(input_file=source)
+
+    assert result == 1
+    assert Path.cwd() == tmp_path
+    change_directory.assert_not_called()
+    convert.assert_not_called()
+    if existing_directory:
+        assert list(source.iterdir()) == [source / "surface.asc"]
+
+
+def test_translate_wrapper_directory_override_supersedes_editable_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_script("gdal_translate_TIF_ovr.py")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(module, "INPUT_FILE", tmp_path / "missing.asc")
+    convert = Mock(return_value=[])
+    monkeypatch.setattr(module, "convert_rasters", convert)
+
+    assert module.main(working_directory=tmp_path) == 0
+    assert convert.call_args.kwargs["directory"] == tmp_path
+
+
 def test_translate_wrapper_converts_asc_fixture(
     raster_test_data: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -49,6 +92,36 @@ def test_translate_wrapper_converts_asc_fixture(
     result = module.main(
         working_directory=source_directory,
         extensions=("asc",),
+        output_directory=output_directory,
+        build_overviews=False,
+        workers=1,
+    )
+
+    assert result == 0
+    output = output_directory / "surface.tif"
+    with rasterio.open(output) as dataset:
+        assert dataset.shape == (64, 64)
+        assert dataset.dtypes == ("float32",)
+        assert dataset.crs is not None
+        assert dataset.crs.to_epsg() == 7850
+
+
+def test_translate_wrapper_converts_single_asc_fixture(
+    raster_test_data: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conversion = raster_test_data / "conversion"
+    source_directory = tmp_path / "source"
+    output_directory = tmp_path / "output"
+    source_directory.mkdir()
+    output_directory.mkdir()
+    for filename in ("surface.asc", "surface.prj"):
+        shutil.copy2(conversion / filename, source_directory / filename)
+    source = source_directory / "surface.asc"
+    module = _load_script("gdal_translate_TIF_ovr.py")
+    monkeypatch.chdir(tmp_path)
+
+    result = module.main(
+        input_file=source,
         output_directory=output_directory,
         build_overviews=False,
         workers=1,
