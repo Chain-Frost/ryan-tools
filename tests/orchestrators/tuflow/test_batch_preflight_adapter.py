@@ -97,7 +97,8 @@ def _model(tmp_path: Path) -> type[_FakeBatchBase]:
             cases: list[types.SimpleNamespace] = []
             for index, flag in enumerate(flags):
                 display_flag = (
-                    flag if isinstance(flag, str)
+                    flag
+                    if isinstance(flag, str)
                     else " ".join(f"-{key.lstrip('-')} {value}" for key, value in flag.items())
                 )
                 context = Context("01" if "01.0p" in display_flag else "20")

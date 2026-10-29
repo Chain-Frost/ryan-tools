@@ -248,9 +248,7 @@ class BatchModelView:
         # command-line string: a scenario/event value may contain whitespace.
         # Keep the display strings only for the existing context alignment gate.
         actual_flags: tuple[str | dict[str, str], ...] = (
-            tuple(dict(item) for item in structured_flags)
-            if structured_flags is not None
-            else tuple(flags)
+            tuple(dict(item) for item in structured_flags) if structured_flags is not None else tuple(flags)
         )
         output = cast(_Result, collect(actual_flags))
         if len(output.runs) != len(flags):
