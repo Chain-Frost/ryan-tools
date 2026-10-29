@@ -57,6 +57,7 @@ class _ValidatedBatch(Protocol):
 def test_public_pr_c_validator_and_file_only_preflight_keep_original_run_order(tmp_path: Path) -> None:
     """Compare physical findings and ordered provenance without GIS/raster reads."""
     from pytuflow import TCF
+
     validate_batch_inputs = cast(
         Callable[..., _ValidatedBatch],
         getattr(import_module("pytuflow.batch_validation"), "validate_batch_inputs"),  # noqa: B009 - unreleased API
