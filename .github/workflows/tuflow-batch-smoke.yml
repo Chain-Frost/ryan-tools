@@ -24,7 +24,7 @@ jobs:
       matrix:
         include:
           - parser: pr-c-fragments
-            pytuflow_sha: 0edea72cf2545025e87877e71c764500a00c6128
+            pytuflow_sha: e51389ce098b8f9d32a58bab9a7f518fd430a6ef
     env:
       RYAN_TEST_BATCH_PYTUFLOW: "1"
       PYTUFLOW_TEST_SHA: ${{ matrix.pytuflow_sha }}

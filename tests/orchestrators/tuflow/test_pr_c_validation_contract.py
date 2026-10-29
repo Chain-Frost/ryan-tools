@@ -70,24 +70,27 @@ def test_public_pr_c_validator_and_file_only_preflight_keep_original_run_order(t
     tcf = tmp_path / "model.tcf"
     tcf.write_text("Read Grid Zpts == grid_<<~s1~>>.tif\n", encoding="utf-8")
     (tmp_path / "grid_EXG.tif").write_bytes(b"Existence-only fixture, not raster content")
+    (tmp_path / "grid_DEV SHIFT.tif").write_bytes(b"Second existence-only fixture")
 
     runs = (
         RunRequest(17, {"s1": "EXG"}),
         RunRequest(23, {"s1": "DEV"}),
         RunRequest(41, {"s1": "EXG"}),
+        RunRequest(53, {"s1": "DEV SHIFT"}),
     )
-    flags = tuple(run.arguments for run in runs)
+    # PR C explicitly supports structured flag values containing whitespace.
+    flags = tuple(dict(run.flags) for run in runs)
     model = TCF(tcf)
 
     collect = cast(
-        Callable[[tuple[str, ...]], _FragmentBatch],
+        Callable[[tuple[dict[str, str], ...]], _FragmentBatch],
         getattr(model, "collect_file_dependencies"),  # noqa: B009 - absent from released typings
     )
     projection = collect(flags)
     assert projection.passed
     assert len(projection.runs) == len(flags)
-    assert tuple(run.index for run in projection.runs) == (0, 1, 2)
-    assert tuple(run.flags for run in projection.runs) == flags
+    assert tuple(run.index for run in projection.runs) == (0, 1, 2, 3)
+    assert tuple(run.flags for run in projection.runs) == tuple(run.arguments for run in runs)
     assert all(run.ordered_inputs and run.input_references for run in projection.runs)
 
     checked = validate_batch_inputs(
@@ -102,17 +105,18 @@ def test_public_pr_c_validator_and_file_only_preflight_keep_original_run_order(t
     )
     assert checked.dependencies.runs == projection.runs
     assert not checked.passed
-    assert checked.validation.run_count == 3
+    assert checked.validation.run_count == 4
     assert {issue.run_index for issue in checked.issues} == {1}
     assert all(issue.status == "missing" and issue.origin for issue in checked.issues)
     assert all(issue.path == tmp_path / "grid_DEV.tif" for issue in checked.issues)
 
     consumer = check_batch_files(tcf, runs, io_workers=4)
     assert not consumer.passed
-    assert consumer.run_count == 3
+    assert consumer.run_count == 4
     assert {issue.run_index for issue in consumer.issues} == {23}
     assert all(issue.status == "missing" for issue in consumer.issues)
     assert consumer.checked_paths == {
         str(tmp_path / "grid_EXG.tif"),
         str(tmp_path / "grid_DEV.tif"),
+        str(tmp_path / "grid_DEV SHIFT.tif"),
     }

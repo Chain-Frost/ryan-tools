@@ -8,7 +8,7 @@ from PyTUFLOW. Physical inspection stays in input_preflight.py.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol, cast
 
@@ -225,7 +225,13 @@ def _optional_counter(result: object, name: str) -> int:
 class BatchModelView:
     """Read-only projection of the exact ordered PR C dependency batch."""
 
-    def __init__(self, model: object, flags: Sequence[str]) -> None:
+    def __init__(
+        self,
+        model: object,
+        flags: Sequence[str],
+        *,
+        structured_flags: Sequence[Mapping[str, str]] | None = None,
+    ) -> None:
         # Curated PR C owns all run-specific parsing and immutable fragments.
         # The retired graph and streaming callback contracts are not supported.
         collect = getattr(model, "collect_file_dependencies", None)
@@ -235,7 +241,18 @@ class BatchModelView:
                 "install the matching curated parser in an isolated environment"
             )
             raise ValueError(message)
-        output = cast(_Result, collect(tuple(flags)))
+        if structured_flags is not None and len(structured_flags) != len(flags):
+            message = "Structured batch flags must match the exact ordered run plan"
+            raise ValueError(message)
+        # Real proposed RunRequest values must not be flattened into a lossy
+        # command-line string: a scenario/event value may contain whitespace.
+        # Keep the display strings only for the existing context alignment gate.
+        actual_flags: tuple[str | dict[str, str], ...] = (
+            tuple(dict(item) for item in structured_flags)
+            if structured_flags is not None
+            else tuple(flags)
+        )
+        output = cast(_Result, collect(actual_flags))
         if len(output.runs) != len(flags):
             message = "PyTUFLOW batch returned a different number of runs"
             raise ValueError(message)
