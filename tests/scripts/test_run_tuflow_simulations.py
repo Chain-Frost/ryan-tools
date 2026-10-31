@@ -28,10 +28,6 @@ class _RunnerWrapper(Protocol):
     NEXT_RUN_FILE: Path | None
     OPERATION: str
 
-    def _arguments(self, argv: list[str] | None = None) -> argparse.Namespace: ...
-
-    def _settings(self, arguments: argparse.Namespace) -> RunnerSettings: ...
-
     def main(self, argv: list[str] | None = None) -> int: ...
 
 
@@ -98,7 +94,9 @@ def test_editable_settings_and_cli_precedence(
     monkeypatch.setattr(module, "USE_LIVE_DASHBOARD", True)
     monkeypatch.setattr(module, "LIVE_REFRESH_PER_SECOND", 1.0)
     monkeypatch.setattr(module, "WAIT_TIME_AFTER_RUN", 2.0)
-    args = module._arguments(
+    parse_arguments = cast(Callable[[list[str]], argparse.Namespace], getattr(module, "_arguments"))
+    build_settings = cast(Callable[[argparse.Namespace], RunnerSettings], getattr(module, "_settings"))
+    args = parse_arguments(
         [
             "--no-preflight",
             "--no-live-dashboard",
@@ -111,13 +109,13 @@ def test_editable_settings_and_cli_precedence(
             "--no-pause",
         ]
     )
-    settings = module._settings(args)
+    settings = build_settings(args)
     assert settings.use_live_dashboard is False
     assert settings.live_refresh_per_second == 0.5
     assert settings.wait_time_after_run == 0
     assert args.preflight is False
     with pytest.raises(SystemExit) as invalid:
-        module._arguments(["--pause", "--no-pause"])
+        parse_arguments(["--pause", "--no-pause"])
     assert invalid.value.code == 2
 
 
