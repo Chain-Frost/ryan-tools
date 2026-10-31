@@ -110,12 +110,12 @@ def _command(run: PlannedRun, config: runner.RunnerSettings, gpu: tuple[str, ...
     return build(run, config, gpu)
 
 
-def test_parameter_product_keeps_deliberate_duplicates_and_order(tmp_path: Path) -> None:
+def test_parameter_product_discards_repeated_selections_in_order(tmp_path: Path) -> None:
     config = settings(tmp_path, run_variables={"e1": ["A", "A", "B"]})
     plan = runner.prepare_plan(config)
-    assert [run.index for run in plan.runs] == [1, 2, 3]
-    assert [run.flags for run in plan.runs] == [{"e1": "A"}, {"e1": "A"}, {"e1": "B"}]
-    assert plan.runs[0] is not plan.runs[1]
+    assert [run.index for run in plan.runs] == [1, 2]
+    assert [run.flags for run in plan.runs] == [{"e1": "A"}, {"e1": "B"}]
+    assert plan.duplicates_dropped == 1
     assert all(run.working_directory == tmp_path for run in plan.runs)
     assert all(run.source == config.wrapper_file for run in plan.runs)
 
@@ -150,16 +150,17 @@ def _make_import(base: Path) -> Path:
     return bat
 
 
-def test_import_multi_tcf_cwd_and_duplicates(tmp_path: Path) -> None:
+def test_import_multi_tcf_ignores_source_launch_context_and_duplicates(tmp_path: Path) -> None:
     bat = _make_import(tmp_path)
     config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(bat,))
     plan = runner.prepare_plan(config)
-    assert len(plan.runs) == 3
-    assert [run.tcf.name for run in plan.runs] == ["one.tcf", "two.tcf", "one.tcf"]
-    assert [run.working_directory.name for run in plan.runs] == ["Model A", "Model B", "Model A"]
-    assert [run.line_start for run in plan.runs] == [3, 4, 5]
+    assert len(plan.runs) == 2
+    assert plan.duplicates_dropped == 1
+    assert [run.tcf.name for run in plan.runs] == ["one.tcf", "two.tcf"]
+    assert all(run.working_directory == tmp_path for run in plan.runs)
+    assert [run.line_start for run in plan.runs] == [3, 4]
     assert all(run.source == bat for run in plan.runs)
-    assert plan.runs[0].arguments == plan.runs[2].arguments
+    assert all(run.executable == str(config.executable) for run in plan.runs)
 
 
 def test_late_conflict_fails_before_export_or_execution(tmp_path: Path) -> None:
@@ -234,7 +235,7 @@ def test_text_flag_list_uses_configured_tcf_and_survives_csv_identity_export(tmp
     assert run.tcf == tmp_path / "model.tcf"
     assert run.flags == {"e1": "100", "e2": "creek", "s4": "dam"}
     assert run.arguments == ("-b", "-e1", "100", "-e2", "creek", "-s4", "dam", str(tmp_path / "model.tcf"))
-    assert run.executable is None
+    assert run.executable == str(config.executable)
     identities = identify_runs(plan, fallback_executable=config.executable, base_directory=tmp_path)
     assert identities[run.index].key
 
@@ -256,7 +257,7 @@ def test_nonterminal_tcf_argument_roundtrips_without_losing_flags(tmp_path: Path
     plan = runner.prepare_plan(config)
     assert plan.runs[0].arguments[:2] == ("-b", "-e1")
     assert _command(plan.runs[0], config, ()) == [
-        "TUFLOW.exe",
+        str(config.executable),
         "-b",
         "-e1",
         "A",
@@ -283,7 +284,7 @@ def test_scenario_value_ending_in_tcf_is_not_control_file(tmp_path: Path) -> Non
     ]
 
 
-def test_import_roundtrip_preserves_model_executable_cwd_order_and_duplicates(tmp_path: Path) -> None:
+def test_import_roundtrip_preserves_python_executable_cwd_and_unique_runs(tmp_path: Path) -> None:
     bat = _make_import(tmp_path)
     config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(bat,))
     plan = runner.prepare_plan(config)
@@ -291,9 +292,9 @@ def test_import_roundtrip_preserves_model_executable_cwd_order_and_duplicates(tm
     text = runner.render_batch_commands(plan, config, destination=output)
     assert "TCF_1" in text
     assert "TCF_2" in text
-    assert 'set "TUFLOW_EXE=TUFLOW.exe"' in text
+    assert f'set "TUFLOW_EXE={config.executable}"' in text
     assert 'set "BCMD=-b"' in text
-    assert text.count("START /D") == 3
+    assert text.count("START /D") == 2
     new = runner.export_batch_commands(plan, config, output)
     reparsed = runner.prepare_plan(replace(config, input_files=(new,)))
     assert [_logical_signature(run, config) for run in plan.runs] == [
@@ -346,9 +347,9 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
 
     outcome = runner.launch_plan(plan, config, popen=_popen_stub(popen))
     assert outcome.successful
-    assert len(launched) == 3
-    assert [cwd for _, cwd in launched] == [str(run.working_directory) for run in plan.runs]
-    assert all(isinstance(args, list) and args[0] == "TUFLOW.exe" for args, _ in launched)
+    assert len(launched) == 2
+    assert [cwd for _, cwd in launched] == [str(config.working_directory)] * 2
+    assert all(isinstance(args, list) and args[0] == str(config.executable) for args, _ in launched)
     assert all(sum(arg.startswith("-pu") for arg in args) == 1 for args, _ in launched)
     assert {arg for args, _ in launched for arg in args if arg.startswith("-pu")} == {"-pu2", "-pu3"}
     assert len(snapshots) == 1
@@ -491,7 +492,7 @@ def test_export_uses_python_engine_switches_and_preserves_model_options(tmp_path
     assert "-pu7" not in text
     assert "-et1" in text
     assert _command(plan.runs[0], config, ("-pu3",)) == [
-        "TUFLOW.exe",
+        str(config.executable),
         "-b",
         "-t",
         "-nlc",
@@ -533,7 +534,7 @@ def test_export_refuses_hardlink_aliases_of_protected_files(tmp_path: Path, kind
         "wrapper": config.wrapper_file,
         "history": config.wrapper_file.with_name(f"{config.wrapper_file.stem}_runs.csv"),
         "model": Path(str(plan.runs[0].tcf)),
-        "executable": Path(str(plan.runs[0].working_directory)) / "TUFLOW.exe",
+        "executable": config.executable,
     }[kind]
     if not protected.exists():
         protected.write_bytes(b"protected content\n")
@@ -670,3 +671,30 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     assert rendered
     assert "250" in rendered[0]
     assert "RUNNING" in rendered[0]
+
+
+def test_imported_start_executable_and_directory_never_control_launch(tmp_path: Path) -> None:
+    source_cwd = tmp_path / "Source-Only"
+    source_cwd.mkdir()
+    batch = tmp_path / "source.bat"
+    batch.write_text(
+        f'START /D "{source_cwd}" /HIGH /WAIT "" "TUFLOW.exe" -t -pu7 -e1 A "{tmp_path / "model.tcf"}"\n',
+        encoding="utf-8",
+    )
+    config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(batch,))
+    plan = runner.prepare_plan(config)
+    run = plan.runs[0]
+    assert run.executable == str(config.executable)
+    assert run.working_directory == tmp_path
+    assert run.arguments == ("-b", "-e1", "A", str(tmp_path / "model.tcf"))
+    assert _command(run, config, ("-pu2",))[0] == str(config.executable)
+    assert "-pu7" not in _command(run, config, ("-pu2",))
+
+
+def test_configured_solver_must_exist_for_actual_execution(tmp_path: Path) -> None:
+    config = settings(tmp_path, executable=tmp_path / "unavailable.exe")
+    plan = runner.prepare_plan(config)
+    with pytest.raises(CommandPlanError, match="Configured Python TUFLOW_EXE does not exist"):
+        runner.validate_launch_executable(plan, config)
+    config.executable.write_bytes(b"synthetic solver placeholder")
+    runner.validate_launch_executable(plan, config)
