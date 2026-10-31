@@ -158,7 +158,8 @@ def test_abbreviated_input_launches_and_roundtrips(
 
     exported = runner.render_batch_commands(plan, config, destination=tmp_path / "out.bat")
     reparsed = parse_command_plan(exported, source=tmp_path / "out.bat", initial_directory=tmp_path)
-    assert runner._logical_signature(plan.runs[0], config) == runner._logical_signature(reparsed.runs[0], config)  # pyright: ignore[reportPrivateUsage]  # pyright: ignore[reportPrivateUsage]
+    signature = runner._logical_signature  # pyright: ignore[reportPrivateUsage]
+    assert signature(plan.runs[0], config) == signature(reparsed.runs[0], config)  # pyright: ignore[reportPrivateUsage]  # pyright: ignore[reportPrivateUsage]
 
     monkeypatch.setattr(runner, "_gpu_startup_message", _noop)
     monkeypatch.setattr(runner, "_apply_priority", _noop)
