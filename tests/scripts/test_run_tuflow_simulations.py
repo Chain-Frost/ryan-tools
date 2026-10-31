@@ -28,8 +28,7 @@ class _RunnerWrapper(Protocol):
 @pytest.fixture
 def wrapper() -> _RunnerWrapper:
     source = (
-        Path(__file__).absolute().parents[2]
-        / "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
+        Path(__file__).absolute().parents[2] / "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
     )
     spec = importlib.util.spec_from_file_location("tested_runner_wrapper", source)
     assert spec is not None
@@ -57,15 +56,30 @@ def test_export_only_copied_workflow_needs_neither_solver_nor_gpu(
     source = _source(tmp_path)
     output = tmp_path / "commands.bat"
     monkeypatch.setattr(
-        simulation_runner, "_gpu_startup_message",
+        simulation_runner,
+        "_gpu_startup_message",
         lambda *_args: pytest.fail("Export-only inspected GPUs"),
     )
-    assert wrapper.main([
-        "--working-directory", str(tmp_path), "--mode", "textfiles",
-        "--input-file", str(source), "--no-tcf", "--export-only",
-        "--solver-exe", str(tmp_path / "MISSING.EXE"), "--export-path", str(output),
-        "--no-pause",
-    ]) == 0
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(source),
+                "--no-tcf",
+                "--export-only",
+                "--solver-exe",
+                str(tmp_path / "MISSING.EXE"),
+                "--export-path",
+                str(output),
+                "--no-pause",
+            ]
+        )
+        == 0
+    )
     assert output.is_file()
     assert source.read_text(encoding="utf-8").startswith("START /WAIT")
 
@@ -83,11 +97,23 @@ def test_wrapper_preflight_only_waits_and_returns_failure(
 
     monkeypatch.setattr(module, "check_plan_only", check)
     monkeypatch.setattr(module, "launch_plan", lambda *_args, **_kwargs: pytest.fail("Launched during check-only"))
-    assert wrapper.main([
-        "--working-directory", str(tmp_path), "--mode", "textfiles",
-        "--input-file", str(source), "--no-tcf", "--preflight-only",
-        "--no-export", "--no-pause",
-    ]) == 1
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(source),
+                "--no-tcf",
+                "--preflight-only",
+                "--no-export",
+                "--no-pause",
+            ]
+        )
+        == 1
+    )
     assert calls == ["preflight"]
 
 
@@ -124,10 +150,21 @@ def test_planning_failure_does_not_export_check_or_chain(
     monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("post.py"))
     monkeypatch.setattr(module, "_run_follow_up", lambda *_args: pytest.fail("Chained after preparation failure"))
     monkeypatch.setattr(module, "launch_plan", lambda *_args, **_kwargs: pytest.fail("Launched bad input"))
-    assert wrapper.main([
-        "--working-directory", str(tmp_path), "--mode", "textfiles",
-        "--input-file", str(tmp_path / "missing.bat"), "--no-tcf", "--no-pause",
-    ]) == 1
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(tmp_path / "missing.bat"),
+                "--no-tcf",
+                "--no-pause",
+            ]
+        )
+        == 1
+    )
     assert not list(tmp_path.glob("*commands*.bat"))
 
 
@@ -140,8 +177,7 @@ def test_process_signal_handler_is_restored(wrapper: _RunnerWrapper) -> None:
 
 def test_optional_help_is_available_without_loading_pytuflow() -> None:
     source = (
-        Path(__file__).absolute().parents[2]
-        / "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
+        Path(__file__).absolute().parents[2] / "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
     )
     content = source.read_text(encoding="utf-8")
     assert "sys.path.insert" not in content

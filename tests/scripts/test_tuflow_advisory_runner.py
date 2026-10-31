@@ -15,6 +15,7 @@ from ryan_library.orchestrators.tuflow import command_preflight
 from ryan_library.orchestrators.tuflow import simulation_runner as runner
 from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightIssue, CommandPreflightReport
 
+
 def settings(base: Path, **changes: object) -> runner.RunnerSettings:
     initial = runner.RunnerSettings(
         wrapper_file=base / "runner.py",
@@ -38,9 +39,6 @@ class FakeProcess:
         return 0
 
 
-
-
-
 def _complete_report(plan: CommandPlan) -> CommandPreflightReport:
     result = CommandPreflightReport(plan)
     result.completed_runs = len(result.plan.runs)
@@ -49,8 +47,10 @@ def _complete_report(plan: CommandPlan) -> CommandPreflightReport:
 
 @pytest.mark.parametrize("dashboard", [False, True])
 def test_launches_during_held_advisory_and_delivers_all_findings(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture, dashboard: bool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    dashboard: bool,
 ) -> None:
     config = settings(tmp_path, use_live_dashboard=dashboard)
     plan = runner.prepare_plan(config)
@@ -62,8 +62,7 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
         assert release.wait(5)
         result = _complete_report(plan)
         result.issues = [
-            CommandPreflightIssue(plan.runs[0], "missing", "test", f"missing-{i}", "absent")
-            for i in range(25)
+            CommandPreflightIssue(plan.runs[0], "missing", "test", f"missing-{i}", "absent") for i in range(25)
         ]
         return result
 
@@ -126,15 +125,15 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     plan = runner.prepare_plan(settings(tmp_path))
     result = _complete_report(plan)
     result.issues = [
-        CommandPreflightIssue(plan.runs[0], "missing", "test", f"file-{i}", "unavailable")
-        for i in range(13)
+        CommandPreflightIssue(plan.runs[0], "missing", "test", f"file-{i}", "unavailable") for i in range(13)
     ]
     monkeypatch.setattr(command_preflight, "check_command_plan", lambda *_args, **_kwargs: result)
     caplog.set_level(logging.INFO)
     assert runner.check_plan_only(plan) is False
     assert sum("Input check run" in record.message for record in caplog.records) == 13
     monkeypatch.setattr(
-        command_preflight, "check_command_plan",
+        command_preflight,
+        "check_command_plan",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(ImportError("public API unavailable")),
     )
     assert runner.check_plan_only(plan) is False
@@ -182,9 +181,7 @@ def test_no_external_models_message_never_claims_overcapacity(
 ) -> None:
     from ryan_library.functions.tuflow import gpu_occupancy
 
-    monkeypatch.setattr(
-        gpu_occupancy, "local_gpu_occupancy", lambda: GpuOccupancySnapshot((), (), False)
-    )
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", lambda: GpuOccupancySnapshot((), (), False))
     monkeypatch.setattr(runner, "_apply_priority", lambda *_args: None)
     config = settings(tmp_path)
     caplog.set_level(logging.INFO)

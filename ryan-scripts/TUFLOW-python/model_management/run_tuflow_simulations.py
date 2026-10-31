@@ -90,18 +90,28 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--working-directory", type=Path, help="Override WORKING_DIR (defaults to script folder).")
     parser.add_argument("--mode", choices=("parameter_product", "textfiles", "both"), help="Override MODE.")
-    parser.add_argument("--input-file", type=Path, action="append", help="Supply BAT/text input; repeat to preserve order.")
+    parser.add_argument(
+        "--input-file", type=Path, action="append", help="Supply BAT/text input; repeat to preserve order."
+    )
     model = parser.add_mutually_exclusive_group()
     model.add_argument("--tcf", type=Path, help="Constrain imported runs to this TCF.")
     model.add_argument("--no-tcf", action="store_true", help="Allow multiple TCFs in imported commands.")
     parser.add_argument("--solver-exe", type=Path, help="Override the fallback TUFLOW executable.")
-    parser.add_argument("--preflight", action=argparse.BooleanOptionalAction, default=None,
-                        help="Run advisory background input checking while launching.")
+    parser.add_argument(
+        "--preflight",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Run advisory background input checking while launching.",
+    )
     operation = parser.add_mutually_exclusive_group()
     operation.add_argument("--preflight-only", action="store_true", help="Wait for strict checks; never launch.")
     operation.add_argument("--export-only", action="store_true", help="Export the plan without solver/GPU checks.")
-    parser.add_argument("--export", action=argparse.BooleanOptionalAction, default=None,
-                        help="Enable/disable BAT export; defaults to editable EXPORT_COMMANDS.")
+    parser.add_argument(
+        "--export",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable BAT export; defaults to editable EXPORT_COMMANDS.",
+    )
     parser.add_argument("--export-path", type=Path, help="Non-overwriting output BAT path.")
     parser.add_argument("--live-dashboard", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--no-pause", action="store_true", help="Suppress interactive console pause.")
@@ -167,8 +177,9 @@ def _run_follow_up(path: Path, working_directory: Path) -> bool:
 def main(argv: list[str] | None = None) -> int:
     """Return 0 on success, 1 on planning/validation/processing failure."""
     arguments = _arguments(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s",
-                        datefmt="%Y-%m-%d %H:%M:%S")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+    )
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
         settings = _settings(arguments)
@@ -178,14 +189,12 @@ def main(argv: list[str] | None = None) -> int:
         # All input sources and TCF conflicts must be checked before export,
         # validation, runtime GPU inspection, process launch or scope-04 writes.
         plan = prepare_plan(settings)
-        logger.info("Selected %d ordered simulations (%d source files).",
-                    len(plan.runs), len(plan.source_files))
+        logger.info("Selected %d ordered simulations (%d source files).", len(plan.runs), len(plan.source_files))
         exporting = EXPORT_COMMANDS if arguments.export is None else arguments.export
         if arguments.export_only:
             exporting = True
         if exporting:
-            name = (f"{Path(__file__).stem}_commands_"
-                    f"{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.bat")
+            name = f"{Path(__file__).stem}_commands_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.bat"
             path = arguments.export_path or EXPORT_PATH or Path(__file__).absolute().parent / name
             destination = export_batch_commands(plan, settings, path)
             logger.info("Editable commands exported to %s", destination)
@@ -212,9 +221,12 @@ def main(argv: list[str] | None = None) -> int:
         if result.interrupted:
             logger.error("Interrupted batch; configured follow-up is not started.")
             return 1
-        logger.info("Batch observed %d/%d completions; %d failures.",
-                    len(result.outcomes), len(plan.runs),
-                    sum(not item.successful for item in result.outcomes))
+        logger.info(
+            "Batch observed %d/%d completions; %d failures.",
+            len(result.outcomes),
+            len(plan.runs),
+            sum(not item.successful for item in result.outcomes),
+        )
         outcome_code = result.exit_code
         # Preserve established chaining on normal batch termination, even when
         # one or more children failed; never hide their nonzero exit status.

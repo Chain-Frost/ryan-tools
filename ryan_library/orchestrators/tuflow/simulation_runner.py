@@ -100,8 +100,10 @@ class BatchOutcome:
 
     @property
     def successful(self) -> bool:
-        return not self.interrupted and len(self.outcomes) == len(self.selected) and all(
-            result.successful for result in self.outcomes
+        return (
+            not self.interrupted
+            and len(self.outcomes) == len(self.selected)
+            and all(result.successful for result in self.outcomes)
         )
 
     @property
@@ -239,7 +241,9 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
 
 
 def _executable(run: PlannedRun, settings: RunnerSettings) -> str:
-    return run.executable if run.executable is not None else str(_at_base(settings.executable, settings.working_directory))
+    return (
+        run.executable if run.executable is not None else str(_at_base(settings.executable, settings.working_directory))
+    )
 
 
 def _model_arguments(run: PlannedRun) -> tuple[str, ...]:
@@ -312,8 +316,7 @@ def render_batch_commands(plan: CommandPlan, settings: RunnerSettings, *, destin
         tcf_var = tcf_names[str(run.tcf)]
         remaining = " ".join(_bat_quote(token) for token in args[len(common) :])
         result.append(
-            f'START /D {cwd} {switch}{minimized}/WAIT "" "%{exe_var}%" %BCMD% '
-            f'{remaining} "%{tcf_var}%"'.rstrip()
+            f'START /D {cwd} {switch}{minimized}/WAIT "" "%{exe_var}%" %BCMD% {remaining} "%{tcf_var}%"'.rstrip()
         )
     result.append("")
     result.append("REM Commands are intentionally ordered; duplicate rows are deliberate.")
@@ -365,7 +368,8 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
     capacity = [tuple(sorted(gpu_ids_from_flags(group))) for group in groups]
     if groups and capacity and all(group and set(group).intersection(assigned) for group in capacity):
         details = ", ".join(
-            f"PID {process.pid}: GPUs {sorted(process.gpu_ids)}" for process in snapshot.assigned
+            f"PID {process.pid}: GPUs {sorted(process.gpu_ids)}"
+            for process in snapshot.assigned
             if process.gpu_ids.intersection(set().union(*(set(group) for group in capacity)))
         )
         logger.warning("All configured GPU groups appear occupied by external TUFLOW runs (%s).", details)
@@ -451,14 +455,19 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
 
     try:
         report = check_command_plan(plan, check_gpkg_layers=check_gpkg_layers)
-    except Exception as exc:  # noqa: BLE001 - strict check-only mode reports unavailable validation as failure
+    except Exception as exc:
         logger.exception("Input checking failed or is unavailable: %s", exc)
         return False
     for issue in report.issues:
         logger.warning(
             "Input check run %d %s:%d [%s] %s: %s (%s)",
-            issue.run.index, issue.run.source, issue.run.line_start, issue.status,
-            issue.origin, issue.reference, issue.detail,
+            issue.run.index,
+            issue.run.source,
+            issue.run.line_start,
+            issue.status,
+            issue.origin,
+            issue.reference,
+            issue.detail,
         )
     if not report.passed:
         logger.error("Input checking failed or is incomplete: %d/%d completed", report.completed_runs, report.run_count)
@@ -572,9 +581,12 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         for run in visible:
             completed = next((item for item in outcomes if item.run.index == run.index), None)
             state = (
-                "OK" if completed and completed.successful
-                else "FAIL" if completed
-                else "RUNNING" if any(item.run.index == run.index for item in active)
+                "OK"
+                if completed and completed.successful
+                else "FAIL"
+                if completed
+                else "RUNNING"
+                if any(item.run.index == run.index for item in active)
                 else "PENDING"
             )
             table.add_row(str(run.index), run.tcf.name, state)
@@ -590,8 +602,11 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         while next_print < len(plan.runs) and plan.runs[next_print].index in ordered:
             item = ordered.pop(plan.runs[next_print].index)
             logger.info(
-                "Run %d: %s (exit %s)%s", item.run.index, "OK" if item.successful else "FAIL",
-                item.return_code, f": {item.error}" if item.error else "",
+                "Run %d: %s (exit %s)%s",
+                item.run.index,
+                "OK" if item.successful else "FAIL",
+                item.return_code,
+                f": {item.error}" if item.error else "",
             )
             next_print += 1
         redraw()

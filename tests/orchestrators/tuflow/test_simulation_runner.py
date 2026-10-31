@@ -165,8 +165,12 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
 ) -> None:
     bat = _make_import(tmp_path)
     config = settings(
-        tmp_path, mode="textfiles", tcf=None, input_files=(bat,),
-        gpu_devices=(("-pu2",), ("-pu3",)), maximum_concurrent=2,
+        tmp_path,
+        mode="textfiles",
+        tcf=None,
+        input_files=(bat,),
+        gpu_devices=(("-pu2",), ("-pu3",)),
+        maximum_concurrent=2,
     )
     plan = runner.prepare_plan(config)
     launched: list[tuple[list[str], str]] = []
@@ -177,6 +181,7 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
         return GpuOccupancySnapshot((), (), False)
 
     from ryan_library.functions.tuflow import gpu_occupancy
+
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
     monkeypatch.setattr(runner, "_apply_priority", lambda *_args: None)
 
@@ -235,7 +240,8 @@ def test_out_of_order_completion_callback_precedes_ordered_output(
     began: list[int] = []
     caplog.set_level(logging.INFO)
     outcome = runner.launch_plan(
-        plan, config,
+        plan,
+        config,
         popen=lambda **_options: next(processes),
         on_before_launch=lambda run: began.append(run.index),
         on_observed_completion=lambda record: observed.append(record.run.index),
