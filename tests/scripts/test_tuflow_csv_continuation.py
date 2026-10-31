@@ -84,7 +84,11 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     chained: list[Path] = []
     monkeypatch.setattr(module, "launch_plan", _fake_successful_launch(calls))
     monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("follow-up.py"))
-    monkeypatch.setattr(module, "_run_follow_up", lambda path, _base: chained.append(path) or True)
+    def fake_follow_up(path: Path, _base: Path) -> bool:
+        chained.append(path)
+        return True
+
+    monkeypatch.setattr(module, "_run_follow_up", fake_follow_up)
 
     assert copied_wrapper.main(_args(tmp_path)) == 0
     log = Path(copied_wrapper.__file__).with_name("my_batch_runs.csv")
@@ -94,7 +98,10 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     first_history = log.read_bytes()
     assert calls == [[1, 2]]
 
-    monkeypatch.setattr(module, "launch_plan", lambda *_a, **_k: pytest.fail("No-work Resume launched"))
+    def forbid_no_work(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("No-work Resume launched")
+
+    monkeypatch.setattr(module, "launch_plan", forbid_no_work)
     from ryan_library.functions.tuflow import gpu_occupancy
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", lambda: pytest.fail("No-work Resume scanned GPU"))
@@ -108,7 +115,10 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     assert calls == [[1, 2], [1, 2]]
     assert b",RESET," in log.read_bytes()
     after_all = log.read_bytes()
-    monkeypatch.setattr(module, "launch_plan", lambda *_a, **_k: pytest.fail("Post-all Resume launched"))
+    def forbid_post_all(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Post-all Resume launched")
+
+    monkeypatch.setattr(module, "launch_plan", forbid_post_all)
     assert copied_wrapper.main(_args(tmp_path)) == 0
     assert log.read_bytes() == after_all
 
@@ -161,7 +171,7 @@ def test_definitive_launch_failure_is_logged_and_requeued(
         **_kwargs: object,
     ) -> BatchOutcome:
         observed.append([run.index for run in plan.runs])
-        records = []
+        records: list[RunOutcome] = []
         for run in plan.runs:
             on_before_launch(run)
             result = RunOutcome(run, None, datetime.now(), datetime.now(), None, "Launch failed: mock solver")
