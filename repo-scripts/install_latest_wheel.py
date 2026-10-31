@@ -19,7 +19,8 @@ def _pytuflow_requirement() -> str:
     """Read the single immutable PyTUFLOW PR17 source used for normal installs."""
     requirement = PYTUFLOW_REQUIREMENT_FILE.read_text(encoding="utf-8").strip()
     if not requirement.startswith("pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/"):
-        raise ValueError(f"Invalid PyTUFLOW source requirement in {PYTUFLOW_REQUIREMENT_FILE}")
+        message = f"Invalid PyTUFLOW source requirement in {PYTUFLOW_REQUIREMENT_FILE}"
+        raise ValueError(message)
     return requirement
 
 
@@ -158,8 +159,8 @@ def main(argv: list[str] | None = None) -> int:
                     [sys.executable, "-m", "pip", "check"],
                     [
                         sys.executable, "-c",
-                        "from ryan_library.functions.tuflow.pytuflow_compatibility "
-                        "import require_validation_api; print(require_validation_api().diagnostic.message)",
+                        ("from ryan_library.functions.tuflow.pytuflow_compatibility "
+                        "import require_validation_api; print(require_validation_api().diagnostic.message)"),
                     ],
                 ]
             )
