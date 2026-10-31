@@ -94,8 +94,14 @@ def test_editable_settings_and_cli_precedence(
     monkeypatch.setattr(module, "USE_LIVE_DASHBOARD", True)
     monkeypatch.setattr(module, "LIVE_REFRESH_PER_SECOND", 1.0)
     monkeypatch.setattr(module, "WAIT_TIME_AFTER_RUN", 2.0)
-    parse_arguments = cast(Callable[[list[str]], argparse.Namespace], getattr(module, "_arguments"))
-    build_settings = cast(Callable[[argparse.Namespace], RunnerSettings], getattr(module, "_settings"))
+    parse_arguments = cast(
+        Callable[[list[str]], argparse.Namespace],
+        getattr(module, "_arguments"),  # noqa: B009 - explicitly test the copied wrapper
+    )
+    build_settings = cast(
+        Callable[[argparse.Namespace], RunnerSettings],
+        getattr(module, "_settings"),  # noqa: B009 - explicitly test the copied wrapper
+    )
     args = parse_arguments(
         [
             "--no-preflight",
